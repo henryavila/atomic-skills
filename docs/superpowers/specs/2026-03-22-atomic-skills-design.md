@@ -115,6 +115,9 @@ atomic-skills/
 │   ├── render.js                    # Renderização por IDE (string replacement)
 │   └── prompts.js                   # Prompts interativos (inquirer)
 ├── skills/
+│   ├── modules/
+│   │   └── memory/
+│   │       └── module.yaml              # Bilíngue — metadados do módulo para CLI
 │   ├── pt/
 │   │   ├── core/
 │   │   │   ├── fix.md
@@ -124,14 +127,16 @@ atomic-skills/
 │   │   │   └── review-plan-vs-artifacts.md
 │   │   └── modules/
 │   │       └── memory/
-│   │           ├── module.yaml
 │   │           └── init-memory.md
 │   └── en/
 │       ├── core/
-│       │   └── ... (mesma estrutura)
+│       │   ├── fix.md
+│       │   ├── resume.md
+│       │   ├── save-and-push.md
+│       │   ├── review-plan-internal.md
+│       │   └── review-plan-vs-artifacts.md
 │       └── modules/
 │           └── memory/
-│               ├── module.yaml
 │               └── init-memory.md
 ├── meta/
 │   └── skills.yaml                  # Metadados de cada skill (name, description em inglês)
@@ -272,7 +277,7 @@ $ npx atomic-skills install
 
   > 1
 
-  ✓ 12 skills atualizados.
+  ✓ 12 arquivos atualizados.
   ⚛ Atualização completa. v1.0.0 → v1.1.0
 ```
 
@@ -372,7 +377,7 @@ Alguns skills referenciam skills de módulos opcionais. Essas referências usam 
 
 ```markdown
 {{#if modules.memory}}
-Se `{{memory_path}}` não existir, rode `/as-init-memory` primeiro.
+Se `{{memory_path}}` não existir, rode `as-init-memory` primeiro.
 {{/if}}
 ```
 
@@ -394,7 +399,7 @@ O renderizador usa substituição de string simples, **não** um template engine
 
 ## 10. Adaptação dos skills existentes
 
-Os 7 commands `hca-*` serão adaptados para `as-*`:
+Os 6 commands `hca-*` restantes serão adaptados para `as-*` (o 7º, `hca-refactor-prompt`, é removido do v1 — ver nota abaixo):
 
 | Atual (hca-) | Novo (as-) | Tipo |
 |--------------|------------|------|
@@ -409,9 +414,9 @@ Os 7 commands `hca-*` serão adaptados para `as-*`:
 
 ### Adaptações necessárias nos prompts:
 
-1. **Remover referências a `hca-`**: todas as menções a `/hca-*` dentro dos prompts viram `/as-*`
+1. **Remover referências a `hca-`**: todas as menções a `/hca-*` dentro dos prompts viram referências genéricas ao nome do skill (ex: "rode `as-init-memory`" em vez de "rode `/hca-init-memory`"). Evitar prefixo de invocação (`/` ou `$`) no corpo do prompt, pois a sintaxe varia entre IDEs
 2. **Parametrizar `memory_path`**: referências hardcoded a `.ai/memory/` viram `{{memory_path}}`
-3. **Condicionar referências ao módulo memory**: usar `{{#if modules.memory}}` para referências a `/as-init-memory` e `{{memory_path}}`
+3. **Condicionar referências ao módulo memory**: usar `{{#if modules.memory}}` para referências a `as-init-memory` e `{{memory_path}}`
 4. **Remover dependências do setup pessoal**: referências a `nexus.yaml`, estrutura específica do autor, etc.
 5. **Manter as técnicas (T01-T23)**: Iron Laws, HARD-GATEs, Red Flags, Racionalização — tudo permanece intacto
 6. **Traduzir para inglês**: criar versões `en/` de cada skill
@@ -419,8 +424,8 @@ Os 7 commands `hca-*` serão adaptados para `as-*`:
 
 ## 11. Decisões técnicas
 
-### 11.1. Zero dependências em runtime
-O pacote npm deve funcionar com `npx` sem instalar nada globalmente. O único dependência é `inquirer` (ou alternativa leve como `prompts`) para a UI interativa. Sem template engine — a renderização usa string replacement simples (`{{var}}` → valor, `{{#if}}...{{/if}}` → condicional).
+### 11.1. Dependências mínimas
+O pacote npm deve funcionar com `npx` sem instalar nada globalmente. A única dependência de runtime é `inquirer` (ou alternativa leve como `prompts`) para a UI interativa. Sem template engine — a renderização usa string replacement simples (`{{var}}` → valor, `{{#if}}...{{/if}}` → condicional).
 
 ### 11.2. Cross-platform
 - O instalador é Node.js puro — funciona em Linux, macOS e Windows sem WSL
@@ -440,7 +445,7 @@ O pacote npm deve funcionar com `npx` sem instalar nada globalmente. O único de
 
 ### 11.5. Tratamento de erros
 - Sem permissão de escrita → mensagem clara e saída
-- Ctrl+C durante instalação → cleanup dos arquivos já gerados nesta execução (manifest não é salvo se incompleto)
+- Ctrl+C durante instalação → o instalador mantém uma lista em memória dos arquivos criados nesta execução; no handler de SIGINT, remove esses arquivos e não salva o manifest (instalação é atômica — ou completa ou não deixa rastros)
 - Arquivo conflitante já existe (não gerado pelo Atomic Skills) → avisa e pede confirmação antes de sobrescrever
 
 ## 12. Fora do escopo (v1)
