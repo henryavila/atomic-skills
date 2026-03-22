@@ -109,6 +109,9 @@ Para facilitar análise em atualizações futuras do superpowers.
 | `hca-review-plan-internal` | T01 (Iron Law), T03 (Tabela racionalização), T04 (Red Flags), T07 (Adversarial mindset), T11 (Loop max 3), Severidade→Ação, feedback-prompts (Read nomeado, contagem, line numbers) |
 | `hca-review-plan-vs-artifacts` | T01 (Iron Law), T02 (HARD-GATE artefatos), T03 (Tabela racionalização), T04 (Red Flags), T07 (Adversarial mindset), T11 (Loop max 3), Severidade→Ação, feedback-prompts (Read nomeado, contagem, cross-reference) |
 | `hca-init-memory` | T01 (Iron Law), T02 (HARD-GATE deleção), T04 (Red Flags), T09 (Commitment), T21 (Structured Options A/B/C), feedback-prompts (ferramentas nomeadas na validação) |
+| `hca-resume` | T01 (Iron Law), T03 (Racionalização), T04 (Red Flags), T21 (Structured Options), feedback-prompts |
+| `hca-refactor-prompt` | T01 (Iron Law), T03 (Racionalização), T04 (Red Flags), T11 (Loop com Teto — max 2), T21 (Structured Options), feedback-prompts |
+| `hca-fix` | T01 (Iron Law), T02 (HARD-GATE), T03 (Racionalização), T04 (Red Flags), T15 (Root Cause Tracing), Mindset (investigativo), feedback-prompts |
 
 ### Técnicas do feedback-prompts.md já alinhadas com superpowers
 
