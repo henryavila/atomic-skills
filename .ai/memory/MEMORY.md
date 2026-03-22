@@ -1,10 +1,10 @@
-# Memória — claude-commands
+# Memória — claude-commands → Atomic Skills
 
-Repositório pessoal de comandos (slash commands) do Claude Code, prefixados com `hca-`.
+Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands para Claude Code, em evolução para **Atomic Skills** (`as-` prefix) — pacote npm multi-IDE.
 
 ## Arquivos de memória
 
-- [decisoes-arquitetura.md](decisoes-arquitetura.md) — Padrões definidos: `.ai/memory/`, prefixo `hca-`, exceção BMAD, organização contextual
+- [decisoes-arquitetura.md](decisoes-arquitetura.md) — Padrões definidos: `.ai/memory/`, prefixos, exceção BMAD, regras de KB, organização contextual
 - [inventario-projetos.md](inventario-projetos.md) — Levantamento dos padrões de memória em cada projeto do Henry (referência para migração)
-- [feedback-prompts.md](feedback-prompts.md) — Lições sobre escrita de prompts: loops explícitos, critérios de parada, evitar instruções vagas
-- [kb-skills-reference.md](kb-skills-reference.md) — Knowledge base de técnicas de skills: análise do superpowers v5.0.5 com 23 técnicas catalogadas, templates reutilizáveis e mapa de rastreabilidade
+- [feedback-prompts.md](feedback-prompts.md) — Lições sobre comportamento do agente: checklists > prosa, loops explícitos, ferramentas nomeadas
+- [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`
