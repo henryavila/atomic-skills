@@ -1,0 +1,20 @@
+{
+  "name": "atomic-skills",
+  "version": "1.0.0",
+  "description": "Stop rewriting prompts. Install optimized developer skills in any AI IDE.",
+  "type": "module",
+  "bin": {
+    "atomic-skills": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "keywords": ["ai", "skills", "prompts", "claude", "cursor", "gemini", "codex", "copilot"],
+  "license": "MIT",
+  "dependencies": {
+    "inquirer": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
