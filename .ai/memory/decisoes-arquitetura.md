@@ -18,6 +18,12 @@
 - Único arquivo obrigatório: `MEMORY.md` como índice
 - Se já existe estrutura, preservar; se é blob, separar por afinidade
 
+## Antes de criar novo hca-, verificar se superpowers já cobre
+- Confirmado em 2026-03-22: hca-start-feature descartado (superpowers já faz setup de dev),
+  hca-debug descartado (superpowers:systematic-debugging já tem as 4 fases + TDD)
+- hca- commands devem existir quando: (a) o superpowers não cobre, ou (b) o workflow
+  encadeia múltiplas skills de forma específica (ex: hca-fix = debugging + TDD)
+
 ## Padronizar sempre
 - Mesmo projetos com estrutura customizada (ex: CRCMG com `98-Base-Conhecimento/agente/`)
   devem ser migrados para `.ai/memory/`
