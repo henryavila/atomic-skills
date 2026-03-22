@@ -1,5 +1,5 @@
 {
-  "name": "atomic-skills",
+  "name": "@henryavila/atomic-skills",
   "version": "1.0.0",
   "description": "Stop rewriting prompts. Install optimized developer skills in any AI IDE.",
   "type": "module",
@@ -11,7 +11,8 @@
     "src/",
     "skills/",
     "meta/",
-    "README.md"
+    "README.md",
+    "assets/"
   ],
   "scripts": {
     "test": "node --test tests/*.test.js"
