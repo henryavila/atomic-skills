@@ -2,10 +2,14 @@
 
 ## Evolução do projeto: hca- → Atomic Skills (as-)
 - Projeto começou como `hca-` commands (iniciais do Henry) para Claude Code
-- Em 2026-03-22, aprovado design para **Atomic Skills** — pacote npm multi-IDE
-- Novo prefixo: `as-` | Instalação: `npx atomic-skills install`
-- Spec completa em `docs/superpowers/specs/2026-03-22-atomic-skills-design.md`
-- Os `hca-` commands continuam existindo em `claude/commands/` como fonte original
+- Em 2026-03-22, aprovado design, implementado e publicado como **@henryavila/atomic-skills** no npm
+- Princípios: **Small. Specific. Capable.**
+- Novo prefixo: `as-` | Instalação: `npx @henryavila/atomic-skills install`
+- Repo renomeado para `henryavila/atomic-skills`
+- CI: GitHub Actions publica no npm automaticamente via tags (`npm version patch && git push --tags`)
+- Spec em `docs/superpowers/specs/2026-03-22-atomic-skills-design.md`
+- Plano em `docs/superpowers/plans/2026-03-22-atomic-skills.md`
+- Os `hca-` commands continuam em `claude/commands/` como fonte original
 
 ## Padrão de memória: `.ai/memory/`
 - Local canônico da memória é sempre `.ai/memory/` dentro do repo (versionada no git)
