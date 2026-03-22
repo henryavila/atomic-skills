@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `atomic-skills` — an npm package that installs optimized developer prompts in the native format of 6 AI IDEs via `npx atomic-skills install`.
+**Goal:** Build `atomic-skills` — an npm package that installs optimized developer prompts in the native format of 6 AI IDEs via `npx @henryavila/atomic-skills install`.
 
 **Architecture:** Node.js CLI with interactive prompts (inquirer), a simple template engine (string replacement + single-level conditionals), and a manifest-based tracking system. Skills are Markdown files organized by language (pt/en), rendered into IDE-specific formats (YAML-frontmatter Markdown or TOML).
 
@@ -122,8 +122,8 @@ if (command === 'install') {
   ⚛ Atomic Skills — Stop rewriting prompts.
 
   Usage:
-    npx atomic-skills install      Install skills for your AI IDEs
-    npx atomic-skills uninstall    Remove installed skills
+    npx @henryavila/atomic-skills install      Install skills for your AI IDEs
+    npx @henryavila/atomic-skills uninstall    Remove installed skills
 
   Docs: https://github.com/henryavila/atomic-skills
   `);
@@ -1606,7 +1606,7 @@ rm -rf /tmp/test-project
 
 Content should include:
 - Project name, tagline, concept
-- Quick start (`npx atomic-skills install`)
+- Quick start (`npx @henryavila/atomic-skills install`)
 - Supported IDEs table (from spec section 4)
 - Available skills list with descriptions
 - Modules section (Memory)

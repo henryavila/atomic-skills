@@ -15,8 +15,8 @@ if (command === 'install') {
   ⚛ Atomic Skills — Stop rewriting prompts.
 
   Usage:
-    npx atomic-skills install      Install skills for your AI IDEs
-    npx atomic-skills uninstall    Remove installed skills
+    npx @henryavila/atomic-skills install      Install skills for your AI IDEs
+    npx @henryavila/atomic-skills uninstall    Remove installed skills
 
   Docs: https://github.com/henryavila/atomic-skills
   `);

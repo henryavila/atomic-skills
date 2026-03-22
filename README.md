@@ -7,7 +7,7 @@ Optimized prompts you install once and invoke in any AI IDE. Each skill is an at
 *Stop rewriting prompts.*
 
 ```bash
-npx atomic-skills install
+npx @henryavila/atomic-skills install
 ```
 
 ## Why Atomic?
@@ -53,8 +53,8 @@ Persistent context across sessions. The agent saves learnings, decisions, and fe
 ## Install, Update, Uninstall
 
 ```bash
-npx atomic-skills install       # First install or update
-npx atomic-skills uninstall     # Remove everything
+npx @henryavila/atomic-skills install       # First install or update
+npx @henryavila/atomic-skills uninstall     # Remove everything
 ```
 
 The interactive installer asks your language, which IDEs you use, and which modules to enable. Skills are installed into your project — no global config.

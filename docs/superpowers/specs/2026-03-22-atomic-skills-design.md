@@ -11,9 +11,9 @@ Prompts otimizados para workflows de desenvolvimento são longos demais para dig
 
 **Atomic Skills** — pacote npm que instala prompts otimizados no formato nativo de cada IDE suportada.
 
-- Instalação: `npx atomic-skills install`
-- Desinstalação: `npx atomic-skills uninstall`
-- Atualização: `npx atomic-skills install` (re-run)
+- Instalação: `npx @henryavila/atomic-skills install`
+- Desinstalação: `npx @henryavila/atomic-skills uninstall`
+- Atualização: `npx @henryavila/atomic-skills install` (re-run)
 
 ## 3. Identidade
 
@@ -204,7 +204,7 @@ variables:
 ### 7.1. Primeira instalação
 
 ```
-$ npx atomic-skills install
+$ npx @henryavila/atomic-skills install
 
   ⚛ Atomic Skills — Stop rewriting prompts.
 
@@ -254,7 +254,7 @@ $ npx atomic-skills install
 ### 7.2. Atualização (re-run)
 
 ```
-$ npx atomic-skills install
+$ npx @henryavila/atomic-skills install
 
   ⚛ Atomic Skills — Stop rewriting prompts.
 
@@ -288,7 +288,7 @@ Se o usuário responde `n` em "Usar mesma configuração?", o fluxo volta para a
 ### 7.3. Desinstalação
 
 ```
-$ npx atomic-skills uninstall
+$ npx @henryavila/atomic-skills uninstall
 
   ⚛ Removendo Atomic Skills...
 
@@ -433,7 +433,7 @@ O pacote npm deve funcionar com `npx` sem instalar nada globalmente. A única de
 - Paths usam `path.join()` (nunca hardcoded com `/`)
 
 ### 11.3. Idempotência
-- Rodar `npx atomic-skills install` múltiplas vezes é seguro
+- Rodar `npx @henryavila/atomic-skills install` múltiplas vezes é seguro
 - O manifest garante que o estado é rastreável
 - Lógica de 3 hashes determina ação correta (ver seção 8)
 
