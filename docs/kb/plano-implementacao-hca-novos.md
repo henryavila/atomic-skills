@@ -59,7 +59,7 @@ Execute CADA item abaixo e registre os achados. Não pule nenhum.
 **Trabalho em progresso:**
 - Execute `ls docs/superpowers/plans/ 2>/dev/null` — planos existentes
 - Execute `ls docs/ 2>/dev/null` — specs, brainstorms, artefatos
-- Execute `grep -rn "TODO\|FIXME\|HACK" --include="*.md" --include="*.ts" --include="*.py" . 2>/dev/null | head -20` — TODOs no código
+- Execute `grep -rn "TODO\|FIXME\|HACK" . --include="*.*" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -20` — TODOs no código
 
 **Frameworks e ferramentas:**
 - Execute `ls CLAUDE.md AGENTS.md nexus.yaml 2>/dev/null` — configs
