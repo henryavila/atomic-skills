@@ -1,0 +1,28 @@
+schema_version: 1
+project:
+  # Caminho canônico do projeto no registry compartilhado.
+  # Normalmente não precisa alterar aqui; prefira local.path_override.
+  path: null
+  name: null
+  # Identificador curto (ex.: dh, crcmg). Usado no 'nexus open'.
+  slug: null
+  description: null
+  icon: null
+  category: null
+  url: null
+  repo: null
+  # "archived" oculta o projeto no TUI/dashboard; null mantém padrão.
+  status: null
+  note: null
+  # Data de cadastro no formato YYYY-MM-DD.
+  added: null
+web:
+  # Rota no portal (ex.: /dh). Deve começar com '/'.
+  route: null
+  # Pasta estática relativa à raiz do projeto (ex.: dist, app).
+  static_dir: null
+  # Comando executado no `nexus push` antes de copiar arquivos web.
+  build_cmd: null
+local:
+  # Override de caminho apenas para esta máquina.
+  path_override: null
