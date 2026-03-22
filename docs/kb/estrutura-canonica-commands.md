@@ -45,6 +45,12 @@ Template para novos commands e referência para refactoring dos existentes.
 [Cada item é uma racionalização real — capturada ou antecipada]
 [Fecha com: "Se pensou qualquer item acima: PARE e [ação]"]
 
+## Racionalização (se o command tem Red Flags complexos)
+
+[Tabela com duas colunas: Tentação | Realidade]
+[Cada linha mapeia uma desculpa comum para a resposta correta]
+[Complementa Red Flags com explicação de POR QUE a tentação é errada]
+
 ## Encerramento
 
 [Formato exato do report final]
