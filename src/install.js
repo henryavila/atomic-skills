@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
@@ -169,7 +169,21 @@ export async function install(projectDir) {
   const skillsDir = join(PACKAGE_ROOT, 'skills');
   const metaDir = join(PACKAGE_ROOT, 'meta');
 
-  const result = installSkills(projectDir, { language, ides, modules, skillsDir, metaDir });
+  const writtenFiles = [];
+  const cleanup = () => {
+    for (const f of writtenFiles) {
+      try { unlinkSync(join(projectDir, f)); } catch {}
+    }
+    console.log('\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n');
+    process.exit(1);
+  };
+  process.on('SIGINT', cleanup);
+
+  const result = installSkills(projectDir, { language, ides, modules, skillsDir, metaDir }, {
+    onFileWritten: (path) => writtenFiles.push(path),
+  });
+
+  process.removeListener('SIGINT', cleanup);
 
   for (const f of result.files) {
     console.log(`  ✓ ${f.path}`);
