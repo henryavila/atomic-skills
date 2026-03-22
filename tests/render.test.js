@@ -48,4 +48,14 @@ describe('renderForIDE', () => {
     assert.ok(result.includes('prompt = """'));
     assert.ok(result.includes('prompt body'));
   });
+
+  it('escapes double quotes in toml description', () => {
+    const result = renderForIDE('toml', 'as-fix', 'Say "hello" world', 'body');
+    assert.ok(result.includes('description = "Say \\"hello\\" world"'));
+  });
+
+  it('escapes single quotes in markdown description', () => {
+    const result = renderForIDE('markdown', 'as-fix', "It's a test", 'body');
+    assert.ok(result.includes("description: 'It''s a test'"));
+  });
 });

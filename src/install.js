@@ -8,6 +8,11 @@ import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
 import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
 
+const SIGINT_MESSAGES = {
+  pt: '\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n',
+  en: '\n  ⚛ Installation cancelled. No files kept.\n',
+};
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
 
@@ -290,20 +295,37 @@ export async function install(projectDir) {
     for (const f of writtenFiles) {
       try { unlinkSync(join(projectDir, f)); } catch {}
     }
-    console.log('\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n');
-    process.exit(1);
+    const msg = SIGINT_MESSAGES[language] || SIGINT_MESSAGES.en;
+    console.log(msg);
+    process.exitCode = 1;
+    process.kill(process.pid, 'SIGINT');
   };
   process.on('SIGINT', cleanup);
 
-  const result = installSkills(projectDir, { language, ides, modules, skillsDir, metaDir }, {
-    onFileWritten: (path) => writtenFiles.push(path),
-  });
-
-  process.removeListener('SIGINT', cleanup);
+  let result;
+  try {
+    result = installSkills(projectDir, { language, ides, modules, skillsDir, metaDir }, {
+      onFileWritten: (path) => writtenFiles.push(path),
+    });
+  } finally {
+    process.removeListener('SIGINT', cleanup);
+  }
 
   // Restore files user chose to keep
   for (const [filePath, content] of savedContent) {
     writeFileSync(join(projectDir, filePath), content, 'utf8');
+  }
+
+  // C2: Patch manifest hashes for kept files to reflect the kept content
+  if (keepFiles.size > 0) {
+    const manifest = readManifest(projectDir);
+    for (const filePath of keepFiles) {
+      const keptContent = savedContent.get(filePath);
+      if (keptContent && manifest.files[filePath]) {
+        manifest.files[filePath].installed_hash = hashContent(keptContent);
+      }
+    }
+    writeManifest(projectDir, manifest);
   }
 
   // Orphan removal: remove files from old manifest that aren't in new install

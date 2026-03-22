@@ -3,19 +3,42 @@ import { join, dirname } from 'node:path';
 import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
 import { promptConfirmUninstall } from './prompts.js';
 
-export async function uninstall(projectDir) {
-  console.log('\n  ⚛ Removendo Atomic Skills...\n');
+const UNINSTALL_MESSAGES = {
+  pt: {
+    removing: 'Removendo Atomic Skills...',
+    noInstall: 'Nenhuma instalação encontrada.',
+    cancelled: 'Cancelado.',
+    filesRemoved: (n) => `${n} arquivos removidos.`,
+    manifestRemoved: `${MANIFEST_DIR}/manifest.json removido.`,
+    gitignoreKept: `Entrada .atomic-skills/ mantida no .gitignore (segurança).`,
+    complete: 'Desinstalação completa.',
+  },
+  en: {
+    removing: 'Removing Atomic Skills...',
+    noInstall: 'No installation found.',
+    cancelled: 'Cancelled.',
+    filesRemoved: (n) => `${n} files removed.`,
+    manifestRemoved: `${MANIFEST_DIR}/manifest.json removed.`,
+    gitignoreKept: `.atomic-skills/ entry kept in .gitignore (safety).`,
+    complete: 'Uninstall complete.',
+  },
+};
 
+export async function uninstall(projectDir) {
   const manifest = readManifest(projectDir);
+  const lang = manifest?.language || 'en';
+  const msg = UNINSTALL_MESSAGES[lang] || UNINSTALL_MESSAGES.en;
+
+  console.log(`\n  ⚛ ${msg.removing}\n`);
+
   if (!manifest) {
-    console.log('  Nenhuma instalação encontrada.\n');
+    console.log(`  ${msg.noInstall}\n`);
     return;
   }
 
-  const lang = manifest.language || 'en';
   const confirmed = await promptConfirmUninstall(lang);
   if (!confirmed) {
-    console.log('  Cancelado.\n');
+    console.log(`  ${msg.cancelled}\n`);
     return;
   }
 
@@ -50,8 +73,8 @@ export async function uninstall(projectDir) {
     // Ignore
   }
 
-  console.log(`  ✓ ${removed} arquivos removidos.`);
-  console.log(`  ✓ ${MANIFEST_DIR}/manifest.json removido.`);
-  console.log(`  ℹ Entrada .atomic-skills/ mantida no .gitignore (segurança).\n`);
-  console.log('  ⚛ Desinstalação completa.\n');
+  console.log(`  ✓ ${msg.filesRemoved(removed)}`);
+  console.log(`  ✓ ${msg.manifestRemoved}`);
+  console.log(`  ℹ ${msg.gitignoreKept}\n`);
+  console.log(`  ⚛ ${msg.complete}\n`);
 }

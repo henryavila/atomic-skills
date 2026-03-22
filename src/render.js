@@ -35,9 +35,11 @@ export function renderTemplate(content, vars = {}, modules = {}) {
  */
 export function renderForIDE(format, name, description, body) {
   if (format === 'toml') {
-    return `description = "${description}"\nprompt = """\n${body}\n"""\n`;
+    const escaped = description.replace(/"/g, '\\"');
+    return `description = "${escaped}"\nprompt = """\n${body}\n"""\n`;
   }
 
-  // markdown (default)
-  return `---\nname: ${name}\ndescription: '${description}'\n---\n\n${body}\n`;
+  // markdown (default) — YAML single-quote escaping: ' → ''
+  const escaped = description.replace(/'/g, "''");
+  return `---\nname: ${name}\ndescription: '${escaped}'\n---\n\n${body}\n`;
 }
