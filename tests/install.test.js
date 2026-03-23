@@ -136,4 +136,18 @@ describe('installSkills', () => {
     // Portuguese content should have Portuguese keywords
     assert.ok(content.includes('Regra Fundamental') || content.includes('Processo') || content.includes('Red Flags'));
   });
+
+  it('skips .gitignore when scope is user', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'user',
+    });
+
+    assert.ok(!existsSync(join(tempDir, '.gitignore')),
+      '.gitignore should not be created for user scope');
+  });
 });

@@ -23,7 +23,7 @@ const PACKAGE_ROOT = join(__dirname, '..');
  * @param {object} [callbacks] - { onFileWritten }
  */
 export function installSkills(projectDir, options, callbacks = {}) {
-  const { language, ides, modules, skillsDir, metaDir } = options;
+  const { language, ides, modules, skillsDir, metaDir, scope } = options;
   const { onFileWritten } = callbacks;
 
   // Load skill metadata
@@ -96,12 +96,14 @@ export function installSkills(projectDir, options, callbacks = {}) {
     }
   }
 
-  // Add .atomic-skills/ to .gitignore
-  const gitignorePath = join(projectDir, '.gitignore');
-  let gitignore = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : '';
-  if (!gitignore.includes('.atomic-skills/')) {
-    gitignore += (gitignore.endsWith('\n') || gitignore === '' ? '' : '\n') + '.atomic-skills/\n';
-    writeFileSync(gitignorePath, gitignore, 'utf8');
+  // Add .atomic-skills/ to .gitignore (skip for user scope)
+  if (scope !== 'user') {
+    const gitignorePath = join(projectDir, '.gitignore');
+    let gitignore = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : '';
+    if (!gitignore.includes('.atomic-skills/')) {
+      gitignore += (gitignore.endsWith('\n') || gitignore === '' ? '' : '\n') + '.atomic-skills/\n';
+      writeFileSync(gitignorePath, gitignore, 'utf8');
+    }
   }
 
   // Write manifest
