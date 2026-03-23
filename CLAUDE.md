@@ -1,11 +1,7 @@
-# claude-commands
+# Atomic Skills
 
-Repositório pessoal de slash commands do Claude Code.
-Todos os comandos usam o prefixo `hca-` e ficam em `claude/commands/`.
-
-## Setup
-
-Rode `./setup.sh` para criar o symlink `~/.claude/commands` → `claude/commands/`.
+Repositório de skills otimizados para AI IDEs.
+Skills usam o prefixo `as-` e ficam em `skills/`.
 
 ## Memória
 

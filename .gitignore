@@ -2,3 +2,10 @@
 *.swo
 *~
 node_modules/
+.atomic-skills/
+.agents/
+.claude/
+.cursor/
+.gemini/
+.opencode/
+*:Zone.Identifier
