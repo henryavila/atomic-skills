@@ -11,6 +11,10 @@ const MESSAGES = {
     conflictOverwrite: 'Sobrescrever (perder mudanças locais)',
     conflictKeep: 'Manter versão local',
     conflictDiff: 'Ver diff',
+    scopeQuestion: 'Escopo de instalação:',
+    scopeProject: 'Projeto — somente este repo',
+    scopeUser: 'Usuário — todos os seus repos',
+    uninstallScopeQuestion: 'Qual instalação remover?',
   },
   en: {
     ideQuestion: 'Which IDEs do you use?',
@@ -21,6 +25,10 @@ const MESSAGES = {
     conflictOverwrite: 'Overwrite (lose local changes)',
     conflictKeep: 'Keep local version',
     conflictDiff: 'View diff',
+    scopeQuestion: 'Installation scope:',
+    scopeProject: 'Project — this repo only',
+    scopeUser: 'User — all your repos',
+    uninstallScopeQuestion: 'Which installation to remove?',
   },
 };
 
@@ -37,13 +45,45 @@ export async function promptLanguage() {
   return language;
 }
 
-export async function promptIDEs(lang) {
+export async function promptScope(lang) {
   const msg = MESSAGES[lang] || MESSAGES.en;
+  const { scope } = await inquirer.prompt([{
+    type: 'list',
+    name: 'scope',
+    message: msg.scopeQuestion,
+    choices: [
+      { name: msg.scopeProject, value: 'project' },
+      { name: msg.scopeUser, value: 'user' },
+    ],
+  }]);
+  return scope;
+}
+
+export async function promptUninstallScope(lang) {
+  const msg = MESSAGES[lang] || MESSAGES.en;
+  const { scope } = await inquirer.prompt([{
+    type: 'list',
+    name: 'scope',
+    message: msg.uninstallScopeQuestion,
+    choices: [
+      { name: msg.scopeProject, value: 'project' },
+      { name: msg.scopeUser, value: 'user' },
+    ],
+  }]);
+  return scope;
+}
+
+export async function promptIDEs(lang, scope = 'project') {
+  const msg = MESSAGES[lang] || MESSAGES.en;
+  const ideEntries = scope === 'user'
+    ? Object.entries(IDE_CONFIG).filter(([_, cfg]) => cfg.supportsUserScope)
+    : Object.entries(IDE_CONFIG);
+
   const { ides } = await inquirer.prompt([{
     type: 'checkbox',
     name: 'ides',
     message: msg.ideQuestion,
-    choices: Object.entries(IDE_CONFIG).map(([id, cfg]) => ({
+    choices: ideEntries.map(([id, cfg]) => ({
       name: cfg.name,
       value: id,
     })),
