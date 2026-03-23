@@ -36,4 +36,11 @@ describe('IDE config', () => {
         `${id} missing supportsUserScope`);
     }
   });
+
+  it('can filter IDEs by supportsUserScope', () => {
+    const userIDEs = Object.entries(IDE_CONFIG)
+      .filter(([_, cfg]) => cfg.supportsUserScope);
+    // All IDEs currently support user scope
+    assert.strictEqual(userIDEs.length, Object.keys(IDE_CONFIG).length);
+  });
 });

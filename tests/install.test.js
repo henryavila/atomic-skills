@@ -150,4 +150,54 @@ describe('installSkills', () => {
     assert.ok(!existsSync(join(tempDir, '.gitignore')),
       '.gitignore should not be created for user scope');
   });
+
+  it('installs to basePath for user scope (simulated with tempDir)', () => {
+    const result = installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'user',
+    });
+
+    // Files should still be created at basePath (tempDir simulates homedir)
+    assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
+
+    // Manifest should exist
+    const manifest = JSON.parse(readFileSync(join(tempDir, '.atomic-skills/manifest.json'), 'utf8'));
+    assert.strictEqual(manifest.language, 'en');
+
+    // .gitignore should NOT exist
+    assert.ok(!existsSync(join(tempDir, '.gitignore')));
+  });
+
+  it('explicit project scope creates .gitignore', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+
+    const gitignore = readFileSync(join(tempDir, '.gitignore'), 'utf8');
+    assert.ok(gitignore.includes('.atomic-skills/'));
+  });
+
+  it('skips memory module when scope is user (memory scope is project)', () => {
+    const result = installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'user',
+    });
+
+    // Only core skills, no module skills
+    assert.strictEqual(result.files.length, 6);
+    assert.ok(!existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
+  });
 });
