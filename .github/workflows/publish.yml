@@ -1,9 +1,13 @@
 name: Publish to npm
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
+
+# OIDC Trusted Publishing — no npm token needed
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   publish:
@@ -13,13 +17,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # OIDC requires npm >= 11.5.1; Node 22 bundled npm may be older
+      - run: npm install -g npm@latest
 
       - run: npm ci
-
       - run: npm test
 
-      - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No NODE_AUTH_TOKEN — OIDC handles auth via id-token
+      - run: npm publish --provenance --access public
