@@ -27,7 +27,7 @@ Se não conseguir citar line numbers, o item NÃO foi verificado.
 3. **Ordenação:** alguma task depende de algo que ainda não foi feito?
 4. **Ambiguidade:** alguma task é vaga demais para implementar sem adivinhar?
 5. **Schema:** migrations dentro do plano são consistentes entre si?
-6. **File lists:** arquivos/comandos/scripts listados existem? Execute Glob ou Grep para confirmar — NÃO confie no nome. Se o plano diz "execute X", verifique que X existe.
+6. **File lists:** arquivos/comandos/scripts listados existem? Execute Glob ou Grep para confirmar — NÃO confie no nome. Se o plano diz "execute X", verifique que X existe. Para arquivos que uma task anterior do plano cria, verifique que a task de criação existe e vem antes.
 7. **Test coverage:** tasks com código novo mas sem menção a testes?
 
 ## Severidade → Ação

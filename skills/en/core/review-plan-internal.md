@@ -27,7 +27,7 @@ If you cannot cite line numbers, the item was NOT verified.
 3. **Ordering:** does any task depend on something not yet done?
 4. **Ambiguity:** is any task too vague to implement without guessing?
 5. **Schema:** are migrations within the plan consistent with each other?
-6. **File lists:** do listed files/commands/scripts actually exist? Run Glob or Grep to confirm — do NOT trust the name. If the plan says "run X", verify X exists.
+6. **File lists:** do listed files/commands/scripts actually exist? Run Glob or Grep to confirm — do NOT trust the name. If the plan says "run X", verify X exists. For files that a prior task in the plan creates, verify the creation task exists and comes first.
 7. **Test coverage:** tasks with new code but no mention of tests?
 
 ## Severity -> Action
