@@ -27,7 +27,7 @@ Se não conseguir citar line numbers, o item NÃO foi verificado.
 3. **Ordenação:** alguma task depende de algo que ainda não foi feito?
 4. **Ambiguidade:** alguma task é vaga demais para implementar sem adivinhar?
 5. **Schema:** migrations dentro do plano são consistentes entre si?
-6. **File lists:** arquivos listados existem ou serão criados por task anterior?
+6. **File lists:** arquivos/comandos/scripts listados existem? Execute Glob ou Grep para confirmar — NÃO confie no nome. Se o plano diz "execute X", verifique que X existe.
 7. **Test coverage:** tasks com código novo mas sem menção a testes?
 
 ## Severidade → Ação
@@ -75,6 +75,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 | "Esse item não se aplica a este plano" | Registre explicitamente como N/A com justificativa |
 | "O plano é simples, não precisa de tudo isso" | Planos simples têm bugs simples que causam retrabalho |
 | "Já são 3 iterações, vou aprovar" | Se ainda tem problemas, escale — não aprove com defeitos |
+| "O arquivo provavelmente existe, o nome faz sentido" | Nomes que fazem sentido é como bugs se escondem. Execute Glob para confirmar |
 
 ## Encerramento
 
