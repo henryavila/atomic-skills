@@ -75,6 +75,12 @@ Relevant files:
 - "[another dangerous thought]"
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
+
+## Rationalization
+
+| Temptation | Reality |
+|------------|---------|
+| "[task-specific rationalization]" | "[why it's a trap]" |
 ```
 
 **Rules for the generated prompt:**
@@ -83,6 +89,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 - Exact, complete file paths
 - Iron Law at the top — specific to the task
 - Red Flags — anticipate the most likely rationalizations for this task
+- Rationalization Table — anticipate the most dangerous mental shortcuts for this specific task
 - Self-contained — someone reading the prompt with no context should be able to execute it
 - Nothing beyond what's needed — YAGNI applied to the prompt itself
 

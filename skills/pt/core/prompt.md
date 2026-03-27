@@ -75,6 +75,12 @@ Arquivos relevantes:
 - "[outro pensamento perigoso]"
 
 Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
+
+## Racionalização
+
+| Tentação | Realidade |
+|----------|-----------|
+| "[racionalização específica para esta tarefa]" | "[por que é uma armadilha]" |
 ```
 
 **Regras para o prompt gerado:**
@@ -83,6 +89,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 - File paths exatos e completos
 - Iron Law no topo — específica para a tarefa
 - Red Flags — antecipe as racionalizações mais prováveis para esta tarefa
+- Tabela de Racionalização — antecipe os atalhos mentais mais perigosos para esta tarefa específica
 - Autocontido — quem ler o prompt sem contexto deve conseguir executar
 - Nada além do necessário — YAGNI aplicado ao prompt
 
