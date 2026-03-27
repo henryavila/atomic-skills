@@ -33,7 +33,11 @@ Execute EACH item below and record findings. Do not skip any.
 
 **Frameworks and tools:**
 - Read the project's instruction file (e.g., `CLAUDE.md`) with Read to understand context
-- Run `ls docs/ 2>/dev/null` — available documentation
+
+**Project rules and skills:**
+- Run `ls .claude/rules/ 2>/dev/null` — path-scoped rules (loaded on demand)
+- Run `ls .claude/skills/ 2>/dev/null | head -20` — custom installed skills
+- If rules exist, read the filenames to understand which domains have specific rules
 
 ### 2. Present summary
 
@@ -82,6 +86,9 @@ Task:
 
 References:
 - [File paths the agent should read for context]
+
+Project rules (loaded automatically):
+- [List relevant .claude/rules/*.md files with their paths: triggers]
 ```
 
 **Rules for the generated prompt:**

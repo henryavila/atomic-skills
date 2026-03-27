@@ -33,7 +33,11 @@ Execute CADA item abaixo e registre os achados. Não pule nenhum.
 
 **Frameworks e ferramentas:**
 - Leia o arquivo de instruções do projeto (ex: `CLAUDE.md`) com Read para entender o contexto
-- Execute `ls docs/ 2>/dev/null` — documentação disponível
+
+**Regras e skills do projeto:**
+- Execute `ls .claude/rules/ 2>/dev/null` — rules path-scoped (carregadas sob demanda)
+- Execute `ls .claude/skills/ 2>/dev/null | head -20` — skills custom instalados
+- Se existem rules, leia os nomes para entender quais domínios têm regras específicas
 
 ### 2. Apresentar resumo
 
@@ -82,6 +86,9 @@ Tarefa:
 
 Referências:
 - [Paths de arquivos que o agente deve ler para ter contexto]
+
+Regras do projeto (carregadas automaticamente):
+- [Listar .claude/rules/*.md relevantes para a tarefa, com seus paths: triggers]
 ```
 
 **Regras para o prompt gerado:**
