@@ -21,6 +21,9 @@ The only exception is if the problem is in the test setup itself.
 You are a detective, not a firefighter. Investigate first, act later.
 The urgency to "fix it quickly" is what causes wrong fixes and regressions.
 
+Finding one bug means more bugs likely live nearby (defect clustering).
+A single test for the exact symptom is the minimum — not the finish line.
+
 ## Process
 
 ### Phase 1: Observe
@@ -29,7 +32,7 @@ Collect evidence WITHOUT forming hypotheses yet.
 
 - Read the problem description (argument or question to user)
 - Run relevant commands to reproduce/observe:
-  - Tests: identify the project's test command (check `package.json` scripts,
+  - Tests: identify the project's test command (check `composer.json`, `package.json`,
     `Makefile`, `pyproject.toml`, or `CLAUDE.md`) and run it
   - Logs: run `grep -rn "[symptom error message]"` on relevant files
   - State: run `git log --oneline -5` to see recent changes
@@ -62,18 +65,54 @@ When a hypothesis is confirmed, document:
 
 ### Phase 3: Fix with TDD
 
-**3a. Write a test that reproduces the bug:**
-- Create a test that FAILS in the current state
+**3a. Enumerate the test surface:**
+BEFORE writing any test, read the affected function and create a Test List:
+
+1. **Regression test**: the exact case from the bug report
+2. **Equivalence partitions**: for each input parameter of the affected function, identify classes:
+   zero, negative, normal, boundary, overflow/max — at minimum one test per relevant partition
+3. **Boundary values**: edges between partitions (off-by-one, exact threshold, threshold ± 1)
+4. **Error inputs**: values the function should reject or handle gracefully
+
+Present the Test List to the user:
+> Test List for [function]:
+> 1. [regression] exact reported case: [input] → [expected]
+> 2. [boundary] [description]
+> 3. [edge] [description]
+> ...
+> Minimum 3, typical 5-8. Proceed?
+
+Wait for user approval.
+
+**3b. Write the regression test:**
+- The exact case from the bug report — must FAIL in the current state
 - Run the test — confirm it fails for the expected reason
 - If the test passes (bug not reproduced): your root cause is wrong.
   Go back to Phase 2. If you already went back 2 times: STOP and escalate to the user.
 
-**3b. Fix the code:**
-- Make the minimum necessary fix
+**3c. Fix the code:**
+- Make the minimum necessary fix to pass the regression test
 - Run the test — confirm it now passes
 - Run the full suite — confirm nothing else broke
 
-**3c. Refactor (if needed):**
+**3d. Write the boundary and edge tests:**
+Work through the remaining Test List items, one test at a time.
+- Each test should PASS if the fix correctly addresses the root cause
+- **If a test FAILS**, determine the cause:
+  - **Related to root cause** (same class of bug): the fix was too narrow — expand it.
+    Do NOT narrow the test to match the broken behavior.
+  - **Unrelated** (separate pre-existing bug): register as a separate finding.
+    Do NOT try to fix it now — it's outside the current root cause scope. Continue hunting.
+
+**3e. Spot-check via mental mutation:**
+For each condition in your fix, ask:
+- "If I changed `>=` to `>`, would a test catch it?"
+- "If I removed this null check, would a test catch it?"
+- "If I used `+` instead of `-`, would a test catch it?"
+
+If any answer is "no": add a test that would catch it.
+
+**3f. Refactor (if needed):**
 - If the fix introduced duplication or ugly code: refactor
 - Run the tests again after refactoring
 
@@ -82,6 +121,10 @@ When a hypothesis is confirmed, document:
 - Run `git diff` — review the changes
 - Confirm the fix is minimal (does not touch unrelated code)
 - Run the full test suite one last time
+- **Completion check** (all three must be true):
+  1. Test List is empty (all items implemented)
+  2. Every input partition has at least one test
+  3. Mental mutation found no uncaught cases
 
 ## Red Flags
 
@@ -91,6 +134,9 @@ When a hypothesis is confirmed, document:
 - "The test is hard to write, I'll test manually"
 - "I'll take this opportunity to refactor the whole module"
 - "The test suite is slow, I'll only run the test I wrote"
+- "One test for the exact bug is enough"
+- "The boundary tests are overkill, the fix is simple"
+- "The test failed after my fix — I'll narrow the test"
 
 If you thought any of the above: STOP. Go back to the phase you were skipping.
 
@@ -103,6 +149,9 @@ If you thought any of the above: STOP. Go back to the phase you were skipping.
 | "I'll fix first, test later" | Inverted TDD is not TDD — it's hope |
 | "The suite is too big to run entirely" | Running partial = not knowing if you broke something |
 | "I've tried 5 hypotheses, I'll guess the 6th" | 5 failures = escalate to the user, don't guess |
+| "One regression test is enough" | One test catches one case. Bugs cluster — if you found one, there are more nearby |
+| "The boundary test failed, I'll adjust the test" | If the code doesn't match the spec at the boundary, that's a SECOND bug — fix the code, not the test |
+| "I'll skip the Test List, the bug is straightforward" | Straightforward bugs have straightforward siblings. List them or miss them |
 
 ## Closing
 
@@ -110,6 +159,8 @@ Report:
 - Problem: [original description]
 - Root cause: [file:line — description]
 - Hypotheses tested: [count, which were refuted]
-- Test created: [test path]
+- Tests created: [count] (regression: 1, boundary: N, edge: N)
 - Fix: [summary of change]
+- Test List completion: [all items done / N remaining]
+- Mental mutation: [N conditions checked, N tests added]
 - Full suite: [passed/failed]
