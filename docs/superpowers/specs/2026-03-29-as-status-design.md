@@ -91,7 +91,6 @@ Each canonical stage may be in one of these structural states:
 - `in progress`
 - `blocked`
 - `done`
-- `done (inferred)`
 - `skipped`
 - `n/a`
 
@@ -100,6 +99,7 @@ Rules:
 - `n/a` means the repository/workstream genuinely does not use that stage
 - `skipped` means the stage was intentionally bypassed in this workstream
 - repeated passes over the same stage do not create new top-level stages; they create additional events owned by the same canonical stage
+- lifecycle status answers where the work is; confidence is tracked separately in Section 9
 
 Progress is structural, not percentage-based, and is calculated over applicable stages only:
 
@@ -109,9 +109,10 @@ Progress is structural, not percentage-based, and is calculated over applicable 
 Applicability and completion rules:
 
 - `applicable_stages` = all canonical stages except those marked `n/a`
-- `completed_stages` = stages marked `done`, `done (inferred)`, or `skipped`
+- `completed_stages` = stages marked `done` or `skipped`
 - `skipped` stages still count as applicable because they were an intentional workflow choice
 - `n/a` stages are excluded from the denominator because they do not belong to the workstream at all
+- inferred-but-unconfirmed completion does not increment structural progress
 
 ## 6. Reporting Model
 
@@ -148,9 +149,12 @@ Each stage contains:
   - `in progress`
   - `blocked`
   - `done`
-  - `done (inferred)`
   - `skipped`
   - `n/a`
+- stage confidence
+  - `confirmed`
+  - `inferred`
+  - `unknown`
 - short summary
 - tasks/deliverables
 - review counts and short names
@@ -217,9 +221,9 @@ Usable for confirmation when combined appropriately:
 - commit + diff + test/validation aligned to the task
 - review/verification record aligned to the stage
 
-## 9. Status Classes
+## 9. Confidence Classes
 
-Every stage/task-level conclusion must be classified as one of:
+Every stage/task-level conclusion must carry a confidence class in addition to its lifecycle status:
 
 - `confirmed`
 - `inferred`
@@ -371,7 +375,6 @@ Each candidate workstream receives a dominance score:
 
 - +100 if the user named it explicitly in the invocation
 - +40 if canonical status marks it as `is_current: true`
-- +20 if canonical status marks it as `in progress`
 - +25 if it has pending non-deferred inferences
 - +20 if it has the most recent canonical status update
 - +15 if the working tree or last 5 commits align to its files/tasks
