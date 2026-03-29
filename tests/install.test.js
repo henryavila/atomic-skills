@@ -137,6 +137,24 @@ describe('installSkills', () => {
     assert.ok(content.includes('Regra Fundamental') || content.includes('Processo') || content.includes('Red Flags'));
   });
 
+  it('installs Portuguese as-status content', () => {
+    installSkills(tempDir, {
+      language: 'pt',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+
+    const statusPath = join(tempDir, '.claude/skills/as-status/SKILL.md');
+    assert.ok(existsSync(statusPath));
+
+    const content = readFileSync(statusPath, 'utf8');
+    assert.ok(content.includes('RESUMO'));
+    assert.ok(content.includes('Objetivo'));
+    assert.ok(content.includes('docs/superpowers/status/_map.yml'));
+  });
+
   it('skips .gitignore when scope is user', () => {
     installSkills(tempDir, {
       language: 'en',
