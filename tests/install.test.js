@@ -32,7 +32,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-resume/SKILL.md')));
-    assert.ok(result.files.length === 6); // 6 core skills
+    assert.ok(result.files.length === 7); // 7 core skills
   });
 
   it('creates TOML files for gemini', () => {
@@ -61,7 +61,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
-    assert.ok(result.files.length === 7); // 6 core + 1 module
+    assert.ok(result.files.length === 8); // 7 core + 1 module
   });
 
   it('substitutes memory_path variable', () => {
@@ -120,7 +120,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/as-fix.toml')));
-    assert.ok(result.files.length === 12); // 6 core * 2 IDEs
+    assert.ok(result.files.length === 14); // 7 core * 2 IDEs
   });
 
   it('uses pt language when specified', () => {
@@ -176,6 +176,43 @@ describe('installSkills', () => {
     assert.ok(content.includes('verificações'));
     assert.ok(!content.includes('## Encerramento'));
     assert.ok(!content.includes('Reporte no fim'));
+  });
+
+  it('installs English as-status content', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+
+    const statusPath = join(tempDir, '.claude/skills/as-status/SKILL.md');
+    assert.ok(existsSync(statusPath));
+
+    const content = readFileSync(statusPath, 'utf8');
+    assert.ok(content.includes('SUMMARY'));
+    assert.ok(content.includes('Objective'));
+    assert.ok(content.includes('Repo: ...'));
+    assert.ok(content.includes('Data: ...'));
+    assert.ok(content.includes('docs/superpowers/status/_map.yml'));
+    assert.ok(content.includes('docs/superpowers/status/_map.md'));
+    assert.ok(content.includes('docs/superpowers/status/index.md'));
+    assert.ok(content.includes('docs/superpowers/status/<workstream>.md'));
+    assert.ok(content.includes('`design`'));
+    assert.ok(content.includes('`spec`'));
+    assert.ok(content.includes('`plan`'));
+    assert.ok(content.includes('`code`'));
+    assert.ok(content.includes('`verification`'));
+    assert.ok(content.includes('`finish`'));
+    assert.ok(content.includes('confirm'));
+    assert.ok(content.includes('reject'));
+    assert.ok(content.includes('defer'));
+    assert.ok(content.includes('VERIFICATIONS BY STAGE'));
+    assert.ok(content.includes('Specification'));
+    assert.ok(content.includes('Implementation'));
+    assert.ok(content.includes('verifications'));
+    assert.ok(!content.includes('## Closing'));
   });
 
   it('skips .gitignore when scope is user', () => {
@@ -238,7 +275,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills, no module skills
-    assert.strictEqual(result.files.length, 6);
+    assert.strictEqual(result.files.length, 7);
     assert.ok(!existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
   });
 });
