@@ -79,4 +79,13 @@ modules:
     const result = parse(content);
     assert.strictEqual(result.scope, 'project');
   });
+
+  it('parses as-status from the real skills manifest', () => {
+    const content = readFileSync(
+      join(__dirname, '..', 'meta', 'skills.yaml'),
+      'utf8'
+    );
+    const result = parse(content);
+    assert.strictEqual(result.core.status.name, 'as-status');
+  });
 });

@@ -20,6 +20,9 @@ core:
   hunt:
     name: as-hunt
     description: "Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run."
+  status:
+    name: as-status
+    description: "Track the current workstream with evidence-backed progress, remaining work, and stage-level review counts."
 
 modules:
   memory:
