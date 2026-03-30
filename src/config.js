@@ -16,7 +16,14 @@ export const IDE_CONFIG = {
     supportsUserScope: true,
   },
   'gemini': {
-    name: 'Gemini CLI',
+    name: 'Gemini CLI (Skills)',
+    dir: '.gemini/skills',
+    format: 'markdown',
+    filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
+  },
+  'gemini-commands': {
+    name: 'Gemini CLI (Commands)',
     dir: '.gemini/commands',
     format: 'toml',
     filePattern: (skillName) => `${skillName}.toml`,

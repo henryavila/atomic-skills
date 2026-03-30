@@ -1,4 +1,4 @@
-Perform an adversarial analysis of the plan $ARGUMENTS
+Perform an adversarial analysis of the plan {{ARG_VAR}}
 comparing it against its source artifacts (PRD, specs, designs).
 
 ## Fundamental Rule
@@ -44,10 +44,10 @@ If you cannot cite line numbers from both, the item was NOT verified.
 ## Process
 
 ### 0. Identify artifacts
-Read the plan with the Read tool. Identify all artifacts listed
+{{READ_TOOL}} the plan with the {{READ_TOOL}}. Identify all artifacts listed
 under "Source Documents", "References", or equivalent.
 
-For EACH artifact, run Read and record:
+For EACH artifact, run {{READ_TOOL}} and record:
 - Full file path
 - Type (PRD, epic, spec, architecture, UX)
 - Number of requirements/stories/FRs identified
@@ -67,7 +67,7 @@ Wait for confirmation. The user may add artifacts the plan did not list.
    it as an "alignment note" in the plan itself.
 
 ### VERIFICATION LOOP (max 3 iterations):
-2. Read the CORRECTED plan with the Read tool. Cite line numbers.
+2. {{READ_TOOL}} the CORRECTED plan with the {{READ_TOOL}}. Cite line numbers.
 3. Verify that:
    - The corrections did not introduce new problems
    - No requirement from the artifacts was missed
@@ -82,7 +82,7 @@ Wait for confirmation. The user may add artifacts the plan did not list.
 - "This artifact is too long, I'll check it roughly"
 - "The names are similar, it must be the same thing"
 - "I'll skip the UX spec, the plan is backend"
-- "I've already cross-checked mentally, I don't need Read"
+- "I've already cross-checked mentally, I don't need {{READ_TOOL}}"
 - "I'll edit the artifact to make it consistent with the plan"
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
@@ -92,8 +92,8 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | Temptation | Reality |
 |------------|---------|
 | "The plan covers all requirements" | Prove with cross-referenced line numbers |
-| "This artifact isn't relevant" | If it was listed as a source, it's relevant — read it |
-| "I'll skim the artifact" | Skimming = missing requirements. Full Read |
+| "This artifact isn't relevant" | If it was listed as a source, it's relevant — {{READ_TOOL}} it |
+| "I'll skim the artifact" | Skimming = missing requirements. Full {{READ_TOOL}} |
 | "Intentional divergence, no need to document" | If it's not documented, it's not intentional |
 | "Editing the artifact is faster" | HARD-GATE: never edit artifacts |
 
@@ -103,7 +103,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 
 **Artifacts analyzed:** [list with paths]
 **Iterations performed:** [N]
-**Read calls executed:** [N] (plan: X, artifacts: Y)
+**{{READ_TOOL}} calls executed:** [N] (plan: X, artifacts: Y)
 **Total findings:** [N] (critical: X, significant: Y, minor: Z)
 
 | # | Finding | Artifact:line | Plan:line | Correction | Severity |

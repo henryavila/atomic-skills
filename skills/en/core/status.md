@@ -10,9 +10,9 @@ explicitly and show the evidence you used.
 
 ### 1. Resolve context
 
-- Read `docs/superpowers/status/_map.yml`, if it exists.
-- Read `docs/superpowers/status/_map.md`, if it exists.
-- Read `docs/superpowers/status/index.md` and the detailed workstream file, if they exist.
+- {{READ_TOOL}} `docs/superpowers/status/_map.yml`, if it exists.
+- {{READ_TOOL}} `docs/superpowers/status/_map.md`, if it exists.
+- {{READ_TOOL}} `docs/superpowers/status/index.md` and the detailed workstream file, if they exist.
 - Identify candidate workstreams.
 
 ### 2. Resolve the workstream

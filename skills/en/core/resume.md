@@ -15,8 +15,8 @@ Execute EACH item below and record findings. Do not skip any.
 {{#if modules.memory}}
 **Project memory:**
 - Run `ls {{memory_path}}` — list all files
-- Read `{{memory_path}}MEMORY.md` with the Read tool
-- If there are relevant memory files, read them with Read
+- Read `{{memory_path}}MEMORY.md` with the {{READ_TOOL}}
+- If there are relevant memory files, read them with {{READ_TOOL}}
 {{/if}}
 
 **Git state:**
@@ -29,10 +29,10 @@ Execute EACH item below and record findings. Do not skip any.
 **Work in progress:**
 - Run `ls docs/plans/ 2>/dev/null` — existing plans
 - Run `ls docs/ 2>/dev/null` — specs, brainstorms, artifacts
-- Run `grep -rn "TODO\|FIXME\|HACK" . --include="*.*" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -20` — TODOs in the code
+- Run `{{GREP_TOOL}} -rn "TODO\|FIXME\|HACK" . --include="*.*" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -20` — TODOs in the code
 
 **Frameworks and tools:**
-- Read the project's instruction file (e.g., `CLAUDE.md`) with Read to understand context
+- Read the project's instruction file (e.g., `CLAUDE.md`) with {{READ_TOOL}} to understand context
 
 **Project rules and skills:**
 - Run `ls .claude/rules/ 2>/dev/null` — path-scoped rules (loaded on demand)
@@ -137,10 +137,10 @@ If you thought any of the above: STOP. Execute the step you were skipping.
 | "The git log is enough for context" | Git shows what changed, not why or what's missing |
 | "I don't need to verify the prompt, I just generated it" | Self-referential prompts are invisible to the writer |
 
-## Closing
+## Closing Report
 
 Report:
 - Sources investigated: [count and which]
-- Tool calls executed: [N] (Read: X, Bash: Y)
+- Tool calls executed: [N] ({{READ_TOOL}}: X, {{BASH_TOOL}}: Y)
 - Prompt generated: [yes/no, approximate size in lines]
 - Task selected: [summary of user's choice]

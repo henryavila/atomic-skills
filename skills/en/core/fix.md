@@ -1,6 +1,6 @@
 Identify the root cause of the problem and fix it with TDD.
 
-If $ARGUMENTS was provided, use it as the problem description.
+If {{ARG_VAR}} was provided, use it as the problem description.
 If not, ask the user: "What is the problem? Describe the observed symptom."
 
 ## Fundamental Rule
@@ -34,9 +34,9 @@ Collect evidence WITHOUT forming hypotheses yet.
 - Run relevant commands to reproduce/observe:
   - Tests: identify the project's test command (check `composer.json`, `package.json`,
     `Makefile`, `pyproject.toml`, or `CLAUDE.md`) and run it
-  - Logs: run `grep -rn "[symptom error message]"` on relevant files
+  - Logs: run `{{GREP_TOOL}} -rn "[symptom error message]"` on relevant files
   - State: run `git log --oneline -5` to see recent changes
-- Read relevant files with the Read tool — cite line numbers
+- Read relevant files with the {{READ_TOOL}} — cite line numbers
 
 Record the collected evidence:
 > **Symptom:** [what happens]
@@ -52,7 +52,7 @@ Form hypotheses and test each one.
 
 For each hypothesis:
 1. Declare: "Hypothesis: [root cause candidate] at [file:line]"
-2. Test: run a command via Bash or read with the Read tool to confirm/refute
+2. Test: run a command via {{BASH_TOOL}} or read with the {{READ_TOOL}} to confirm/refute
 3. Result: "Confirmed" or "Refuted because [evidence]"
 
 Maximum 5 hypotheses. If none is confirmed after 5:

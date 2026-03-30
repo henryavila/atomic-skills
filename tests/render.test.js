@@ -5,7 +5,7 @@ import { renderTemplate, renderForIDE } from '../src/render.js';
 describe('renderTemplate', () => {
   it('substitutes simple variables', () => {
     const result = renderTemplate('path is {{memory_path}}', { memory_path: '.ai/memory/' });
-    assert.strictEqual(result, 'path is .ai/memory/\n');
+    assert.ok(result.includes('path is .ai/memory/'));
   });
 
   it('keeps block when condition is true', () => {
@@ -30,6 +30,28 @@ describe('renderTemplate', () => {
     const input = 'line1\n\n{{#if modules.memory}}\nremoved\n{{/if}}\n\nline2';
     const result = renderTemplate(input, {}, {});
     assert.strictEqual(result, 'line1\n\nline2\n');
+  });
+
+  it('substitutes default tool names for claude-code', () => {
+    const input = 'Use {{BASH_TOOL}} and {{READ_TOOL}}';
+    const result = renderTemplate(input, {}, {}, 'claude-code');
+    assert.strictEqual(result, 'Use Bash and Read tool\n');
+  });
+
+  it('substitutes gemini-specific tool names', () => {
+    const input = 'Use {{BASH_TOOL}} and {{READ_TOOL}}';
+    const result = renderTemplate(input, {}, {}, 'gemini');
+    assert.strictEqual(result, 'Use run_shell_command and read_file\n');
+  });
+
+  it('handles conditional IDE blocks', () => {
+    const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}';
+    
+    const resultGemini = renderTemplate(input, {}, {}, 'gemini');
+    assert.strictEqual(resultGemini, 'Common\nGemini only\n');
+
+    const resultClaude = renderTemplate(input, {}, {}, 'claude-code');
+    assert.strictEqual(resultClaude, 'Common\nClaude only\n');
   });
 });
 

@@ -15,8 +15,8 @@ Execute CADA item abaixo e registre os achados. Não pule nenhum.
 {{#if modules.memory}}
 **Memória do projeto:**
 - Execute `ls {{memory_path}}` — liste todos os arquivos
-- Leia `{{memory_path}}MEMORY.md` com a ferramenta Read
-- Se existem arquivos de memória relevantes, leia-os com Read
+- Leia `{{memory_path}}MEMORY.md` com a {{READ_TOOL}}
+- Se existem arquivos de memória relevantes, leia-os com {{READ_TOOL}}
 {{/if}}
 
 **Estado do git:**
@@ -29,10 +29,10 @@ Execute CADA item abaixo e registre os achados. Não pule nenhum.
 **Trabalho em progresso:**
 - Execute `ls docs/plans/ 2>/dev/null` — planos existentes
 - Execute `ls docs/ 2>/dev/null` — specs, brainstorms, artefatos
-- Execute `grep -rn "TODO\|FIXME\|HACK" . --include="*.*" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -20` — TODOs no código
+- Execute `{{GREP_TOOL}} -rn "TODO\|FIXME\|HACK" . --include="*.*" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -20` — TODOs no código
 
 **Frameworks e ferramentas:**
-- Leia o arquivo de instruções do projeto (ex: `CLAUDE.md`) com Read para entender o contexto
+- Leia o arquivo de instruções do projeto (ex: `CLAUDE.md`) com {{READ_TOOL}} para entender o contexto
 
 **Regras e skills do projeto:**
 - Execute `ls .claude/rules/ 2>/dev/null` — rules path-scoped (carregadas sob demanda)
@@ -141,6 +141,6 @@ Se pensou qualquer item acima: PARE. Execute o passo que estava pulando.
 
 Reporte:
 - Fontes investigadas: [quantidade e quais]
-- Chamadas de ferramenta executadas: [N] (Read: X, Bash: Y)
+- Chamadas de ferramenta executadas: [N] ({{READ_TOOL}}: X, {{BASH_TOOL}}: Y)
 - Prompt gerado: [sim/não, tamanho aproximado em linhas]
 - Tarefa selecionada: [resumo da escolha do usuário]

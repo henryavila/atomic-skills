@@ -58,7 +58,7 @@ Scan known locations:
 
 Search for references and existing configurations:
 ```bash
-grep -r "memory\|autoMemoryDirectory" CLAUDE.md AGENTS.md .claude/settings*.json ~/.claude/settings.json 2>/dev/null
+{{GREP_TOOL}} -r "memory\|autoMemoryDirectory" CLAUDE.md AGENTS.md .claude/settings*.json ~/.claude/settings.json 2>/dev/null
 ```
 
 If you find unexpected directories, list them and ask the user.
@@ -116,7 +116,7 @@ Detect the IDE in use by checking for `.claude/`, `.cursor/`, `.gemini/`, etc.
 
 Check if `autoMemoryDirectory` is already configured:
 ```bash
-grep -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/dev/null
+{{GREP_TOOL}} -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/dev/null
 ```
 
 **If configuration found:**
@@ -170,7 +170,7 @@ Save new learnings to `{{memory_path}}`, not here.
 
 ### 7. Update broken references
 
-Run `grep -r` on the old memory paths throughout the entire project.
+Run `{{GREP_TOOL}} -r` on the old memory paths throughout the entire project.
 
 - **Operational files** (project instructions, agent configs):
   update references to `{{memory_path}}`
@@ -184,7 +184,7 @@ Verify by running each command (not just "verify"):
 - Run `ls {{memory_path}}` — should show the migrated files
 - Run `wc -l {{memory_path}}MEMORY.md` — should be < 200 lines
 - Verify the Claude Code connection:
-  - If autoMemoryDirectory: `grep autoMemoryDirectory .claude/settings*.json ~/.claude/settings.json`
+  - If autoMemoryDirectory: `{{GREP_TOOL}} autoMemoryDirectory .claude/settings*.json ~/.claude/settings.json`
   - If redirect: `cat "$AUTO_MEMORY_DIR/MEMORY.md" 2>/dev/null | head -5`
 - Verify that project instructions DO NOT have redundant memory instructions
   (if autoMemoryDirectory was configured)

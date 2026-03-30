@@ -29,7 +29,7 @@ Frágil — novos arquivos ficam invisíveis se o redirect não for atualizado.
 ## Limites do MEMORY.md
 
 - Apenas as primeiras **200 linhas** (ou 25KB) são carregadas no startup
-- Topic files são lidos sob demanda
+- Topic files are lidos sob demanda
 - Conteúdo além da linha 200 é **silenciosamente truncado**
 
 ## Processo
@@ -58,7 +58,7 @@ Escaneie locais conhecidos:
 
 Busque referências e configurações existentes:
 ```bash
-grep -r "memory\|memória\|autoMemoryDirectory" CLAUDE.md AGENTS.md .claude/settings*.json ~/.claude/settings.json 2>/dev/null
+{{GREP_TOOL}} -r "memory\|memória\|autoMemoryDirectory" CLAUDE.md AGENTS.md .claude/settings*.json ~/.claude/settings.json 2>/dev/null
 ```
 
 Se encontrar diretórios não-previstos, liste e pergunte ao usuário.
@@ -116,7 +116,7 @@ Detecte o IDE em uso verificando a existência de `.claude/`, `.cursor/`, `.gemi
 
 Verifique se `autoMemoryDirectory` já está configurado:
 ```bash
-grep -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/dev/null
+{{GREP_TOOL}} -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/dev/null
 ```
 
 **Se encontrou configuração existente:**
@@ -143,7 +143,7 @@ Exemplo final:
 }
 ```
 
-**Se opção B:**
+**If option B:**
 Crie `$AUTO_MEMORY_DIR/MEMORY.md` com este conteúdo:
 ```markdown
 # Auto Memory - Redirect
@@ -170,7 +170,7 @@ Salve novos aprendizados em `{{memory_path}}`, não aqui.
 
 ### 7. Atualizar referências quebradas
 
-Execute `grep -r` nos paths antigos de memória pelo projeto inteiro.
+Execute `{{GREP_TOOL}} -r` nos paths antigos de memória pelo projeto inteiro.
 
 - **Arquivos operacionais** (instruções do projeto, configs de agentes):
   atualize as referências para `{{memory_path}}`
@@ -184,7 +184,7 @@ Verifique executando cada comando (não apenas "verifique"):
 - Execute `ls {{memory_path}}` — deve mostrar os arquivos migrados
 - Execute `wc -l {{memory_path}}MEMORY.md` — deve ser < 200 linhas
 - Verifique a conexão com o Claude Code:
-  - Se autoMemoryDirectory: `grep autoMemoryDirectory .claude/settings*.json ~/.claude/settings.json`
+  - Se autoMemoryDirectory: `{{GREP_TOOL}} autoMemoryDirectory .claude/settings*.json ~/.claude/settings.json`
   - Se redirect: `cat "$AUTO_MEMORY_DIR/MEMORY.md" 2>/dev/null | head -5`
 - Verifique que as instruções do projeto NÃO têm instrução redundante de memória
   (se autoMemoryDirectory foi configurado)
@@ -217,7 +217,7 @@ Apresente relatório:
 - "Vou adicionar instrução de memória no CLAUDE.md mesmo com autoMemoryDirectory configurado"
 - "O settings.local.json já deve existir, não preciso verificar"
 
-Se pensou qualquer item acima: PARE. Execute a verificação que estava pulando.
+If you thought any of the above: STOP. Run the verification you were skipping.
 
 ## Racionalização
 

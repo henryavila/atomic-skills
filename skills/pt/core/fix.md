@@ -1,6 +1,6 @@
 Identifique a causa raiz do problema e resolva com TDD.
 
-Se $ARGUMENTS foi fornecido, use como descrição do problema.
+Se {{ARG_VAR}} foi fornecido, use como descrição do problema.
 Se não, pergunte ao usuário: "Qual é o problema? Descreva o sintoma observado."
 
 ## Regra Fundamental
@@ -36,7 +36,7 @@ Colete evidências SEM formar hipóteses ainda.
     `package.json`, `Makefile`, `pyproject.toml` ou `CLAUDE.md`) e execute-o
   - Logs: execute `grep -rn "[mensagem de erro do sintoma]"` nos arquivos relevantes
   - Estado: execute `git log --oneline -5` para ver mudanças recentes
-- Leia os arquivos relevantes com a ferramenta Read — cite line numbers
+- Leia os arquivos relevantes com a {{READ_TOOL}} — cite line numbers
 
 Registre as evidências coletadas:
 > **Sintoma:** [o que acontece]
@@ -52,7 +52,7 @@ Forme hipóteses e teste cada uma.
 
 Para cada hipótese:
 1. Declare: "Hipótese: [causa raiz candidata] em [arquivo:linha]"
-2. Teste: execute um comando via Bash ou leia com a ferramenta Read para confirmar/refutar
+2. Teste: execute um comando via {{BASH_TOOL}} ou leia com a {{READ_TOOL}} para confirmar/refutar
 3. Resultado: "Confirmada" ou "Refutada porque [evidência]"
 
 Máximo 5 hipóteses. Se nenhuma for confirmada após 5:

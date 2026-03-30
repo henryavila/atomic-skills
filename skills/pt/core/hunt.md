@@ -1,6 +1,6 @@
 Escreva testes adversariais para código existente, encontrando bugs escondidos e adicionando cobertura real.
 
-Se $ARGUMENTS foi fornecido, use como alvo (path de arquivo, classe, função ou diretório).
+Se {{ARG_VAR}} foi fornecido, use como alvo (path de arquivo, classe, função ou diretório).
 Se não, pergunte: "Qual arquivo, função ou diretório quer caçar bugs?"
 
 ## Regra Fundamental
@@ -29,7 +29,7 @@ passar, mas só depois de você ter genuinamente tentado quebrá-lo.
 
 ### Fase 0: Triagem (apenas para diretórios)
 
-Se $ARGUMENTS é um diretório, rode triagem. Se é arquivo ou função, pule para Fase 1.
+Se {{ARG_VAR}} é um diretório, rode triagem. Se é arquivo ou função, pule para Fase 1.
 
 **0a. Escanear e ranquear:**
 ```bash
@@ -85,7 +85,7 @@ Antes de despachar subagentes, detecte convenções que se aplicam ao projeto:
 - Leia UM arquivo de teste existente para extrair padrões (beforeEach, factories, mocks)
 
 **0e. Executar caçadas:**
-Para CADA arquivo aprovado, despache um **subagente isolado** via Agent tool.
+Para CADA arquivo aprovado, despache um **subagente isolado** via {{INVESTIGATOR_TOOL}}.
 
 O prompt do subagente DEVE ser auto-contido — NÃO referencie `/as-hunt` (subagentes não podem
 invocar skills). Monte o prompt incluindo:
@@ -116,7 +116,7 @@ Após todos os subagentes completarem, prossiga para Fase 7 (Relatório Consolid
 
 ### Fase 1: Ler o Alvo
 
-Leia o arquivo/função alvo completamente com a ferramenta Read. Registre:
+Leia o arquivo/função alvo completamente com a {{READ_TOOL}}. Registre:
 
 > **Alvo:** [arquivo:linhas ou classe::método]
 > **Linhas de código:** [quantidade]

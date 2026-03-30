@@ -10,8 +10,6 @@ Optimized prompts you install once and invoke in any AI IDE. Each skill is an at
 npx @henryavila/atomic-skills install
 ```
 
-> **Built for Claude Code.** Skills work across multiple IDEs, but every prompt is optimized for Claude Code's tool system (Read, Edit, Grep, Glob, Bash, Agent). Techniques like Iron Laws, HARD-GATEs, and Rationalization tables are designed around how Claude reasons and where it cuts corners. Other agents benefit from the structure, but Claude Code gets the most out of it.
-
 ## Why Atomic?
 
 AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atomic Skills solve this with battle-tested techniques baked into every prompt:
@@ -20,16 +18,25 @@ AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atom
 - **Specific** — every step names the tool, demands evidence, defines what "done" looks like
 - **Capable** — Iron Laws, HARD-GATEs, Red Flags, Rationalization tables. Techniques that turn "the agent should do X" into "the agent will do X"
 
-## Supported IDEs
+## Multi-Agent Optimization
 
-| IDE | Directory | Invocation |
-|-----|-----------|------------|
-| **Claude Code** | `.claude/skills/` | `/as-name` |
-| Cursor | `.cursor/skills/` | `/as-name` |
-| Gemini CLI | `.gemini/commands/` | `/as-name` |
-| Codex | `.agents/skills/` | `$as-name` |
-| OpenCode | `.opencode/skills/` | `/as-name` |
-| GitHub Copilot | `.github/skills/` | `/as-name` |
+Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and optimizes tool naming and instructions automatically.
+
+- **Claude Code**: Native support for `Bash`, `Read tool`, `Edit tool`, and `Agent`.
+- **Gemini CLI**: Native support for `run_shell_command`, `read_file`, `replace`, and `codebase_investigator`.
+- **Generic/Others**: Standardized naming for maximum compatibility.
+
+### Supported IDEs
+
+| IDE | Profile | Directory | Format |
+|-----|---------|-----------|--------|
+| **Claude Code** | `claude-code` | `.claude/skills/` | Markdown |
+| **Gemini CLI** | `gemini` | `.gemini/skills/` | Markdown (Recommended) |
+| **Gemini CLI** | `gemini-commands`| `.gemini/commands/` | TOML (Slash commands) |
+| Cursor | `cursor` | `.cursor/skills/` | Markdown |
+| Codex | `codex` | `.agents/skills/` | Markdown |
+| OpenCode | `opencode` | `.opencode/skills/` | Markdown |
+| GitHub Copilot | `github-copilot`| `.github/skills/` | Markdown |
 
 ## Skills
 
@@ -39,8 +46,6 @@ AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atom
 |-------|-------------|
 | `as-fix` | Diagnoses root cause with evidence, enumerates the test surface (equivalence partitions, boundaries, error inputs), writes a test cluster with TDD, fixes with minimal change. Integrates mental mutation spot-checks to verify no case was missed |
 | `as-hunt` | Writes adversarial tests for existing code that lacks coverage. Accepts a file, function, or directory. Single-file: 6-phase deep hunt. Directory: triages by risk, spawns isolated subagents per file (prevents cross-file tautology). Bugs found are handed off to `as-fix` with the reproducing test already written |
-
-**How they work together:** `as-hunt` finds bugs in untested code and creates failing tests. `as-fix` takes those failing tests and fixes the code with full TDD discipline. The `as-fix` Test List extends `as-hunt`'s coverage with boundary and partition tests around the fix area.
 
 ### Plan & Review
 
@@ -55,7 +60,7 @@ AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atom
 
 | Skill | What it does |
 |-------|-------------|
-| `as-resume` | Investigates project context (git, memory, `.claude/rules/`, skills), generates a handoff prompt for a clean session |
+| `as-resume` | Investigates project context (git, memory, instruction files), generates a handoff prompt for a clean session |
 | `as-save-and-push` | Reviews conversation, saves learnings to memory, formats code, groups commits logically, pushes. HARD-GATE on main/master |
 
 ## Techniques
@@ -74,9 +79,22 @@ Each skill uses a combination of these techniques to prevent agent shortcuts:
 | **Mental Mutation** | For each condition in the fix: "would a test catch the inverse?" | "If I changed >= to >, would a test catch it?" |
 | **Autonomous Mode** | Rules for subagents that can't interact with user | "Auto-split >300 lines, always continue on bugs" |
 
-## Modules
+## Development & Quality Assurance
 
-Optional modules add specialized workflows. The installer explains each one before you decide.
+To ensure cross-agent compatibility, Atomic Skills includes a specialized test suite that acts as a linter for prompt templates.
+
+```bash
+npm test
+```
+
+The test suite verifies:
+1. **Tool Name Abstraction**: Ensures no hardcoded tool names (like `Bash` or `Read tool`) exist in the source `.md` files.
+2. **Conditional Rendering**: Validates that agent-specific instructions are correctly included/excluded for Claude and Gemini.
+3. **Multi-Format Export**: Verifies Markdown and TOML generation for all supported profiles.
+
+When creating new skills, always use the variables defined in `AGENTS.md`.
+
+## Modules
 
 ### Memory
 
@@ -94,19 +112,10 @@ npx @henryavila/atomic-skills install       # First install or update
 npx @henryavila/atomic-skills uninstall     # Remove everything
 ```
 
-The interactive installer asks your language, scope (project or user), which IDEs you use, and which modules to enable.
-
-- **Project scope**: skills installed in the repo (shared with team)
-- **User scope**: skills installed in `~/` (available in all your repos)
-
-On update, modified files trigger a conflict prompt — overwrite, keep, or view the diff.
-
 ## Languages
 
 - Português (BR)
 - English
-
-Skill prompts follow your chosen language. Metadata (`name`, `description`) is always in English for IDE compatibility.
 
 ## License
 

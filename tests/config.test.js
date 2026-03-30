@@ -3,10 +3,10 @@ import { strict as assert } from 'node:assert';
 import { IDE_CONFIG, getSkillPath, getSkillFormat } from '../src/config.js';
 
 describe('IDE config', () => {
-  it('defines all 6 IDEs', () => {
+  it('defines all 7 IDEs', () => {
     const ids = Object.keys(IDE_CONFIG);
     assert.deepStrictEqual(ids.sort(), [
-      'claude-code', 'codex', 'cursor', 'gemini', 'github-copilot', 'opencode'
+      'claude-code', 'codex', 'cursor', 'gemini', 'gemini-commands', 'github-copilot', 'opencode'
     ]);
   });
 
@@ -15,19 +15,22 @@ describe('IDE config', () => {
     assert.strictEqual(path, '.claude/skills/as-fix/SKILL.md');
   });
 
-  it('returns correct skill path for gemini toml IDE', () => {
+  it('returns correct skill path for gemini skills IDE', () => {
     const path = getSkillPath('gemini', 'as-fix');
+    assert.strictEqual(path, '.gemini/skills/as-fix/SKILL.md');
+  });
+
+  it('returns correct skill path for gemini toml commands', () => {
+    const path = getSkillPath('gemini-commands', 'as-fix');
     assert.strictEqual(path, '.gemini/commands/as-fix.toml');
   });
 
-  it('returns markdown format for most IDEs', () => {
-    assert.strictEqual(getSkillFormat('claude-code'), 'markdown');
-    assert.strictEqual(getSkillFormat('cursor'), 'markdown');
-    assert.strictEqual(getSkillFormat('codex'), 'markdown');
+  it('returns markdown format for gemini skills', () => {
+    assert.strictEqual(getSkillFormat('gemini'), 'markdown');
   });
 
-  it('returns toml format for gemini', () => {
-    assert.strictEqual(getSkillFormat('gemini'), 'toml');
+  it('returns toml format for gemini commands', () => {
+    assert.strictEqual(getSkillFormat('gemini-commands'), 'toml');
   });
 
   it('all IDEs declare supportsUserScope as boolean', () => {

@@ -1,4 +1,4 @@
-Perform an adversarial analysis of the plan $ARGUMENTS
+Perform an adversarial analysis of the plan {{ARG_VAR}}
 looking for internal errors, gaps, and inconsistencies.
 
 ## Fundamental Rule
@@ -9,7 +9,7 @@ Each checklist item marked as "ok" MUST have line numbers as proof.
 
 ## Mindset
 
-Read the plan as if the author were wrong. Your role is to find where
+{{READ_TOOL}} the plan as if the author were wrong. Your role is to find where
 the plan fails, not to confirm that it's good.
 
 CRITICAL: Do Not Trust the Plan.
@@ -27,7 +27,7 @@ If you cannot cite line numbers, the item was NOT verified.
 3. **Ordering:** does any task depend on something not yet done?
 4. **Ambiguity:** is any task too vague to implement without guessing?
 5. **Schema:** are migrations within the plan consistent with each other?
-6. **File lists:** do listed files/commands/scripts actually exist? Run Glob or Grep to confirm — do NOT trust the name. If the plan says "run X", verify X exists. For files that a prior task in the plan creates, verify the creation task exists and comes first.
+6. **File lists:** do listed files/commands/scripts actually exist? Run {{GLOB_TOOL}} or {{GREP_TOOL}} to confirm — do NOT trust the name. If the plan says "run X", verify X exists. For files that a prior task in the plan creates, verify the creation task exists and comes first.
 7. **Test coverage:** tasks with new code but no mention of tests?
 
 ## Severity -> Action
@@ -39,13 +39,13 @@ If you cannot cite line numbers, the item was NOT verified.
 ## Process
 
 ### ITERATION 1:
-1. Read the entire plan with the Read tool. Apply EACH checklist item.
+1. {{READ_TOOL}} the entire plan with the {{READ_TOOL}}. Apply EACH checklist item.
    For each item, record: status (ok/problem), line numbers verified.
    Fix errors found directly in the plan.
 
 ### VERIFICATION LOOP (max 3 iterations):
-2. Read the CORRECTED plan from the beginning using the Read tool
-   (NOT mental review — execute Read on the file). Cite line numbers.
+2. {{READ_TOOL}} the CORRECTED plan from the beginning using the {{READ_TOOL}}
+   (NOT mental review — execute {{READ_TOOL}} on the file). Cite line numbers.
 3. Verify that:
    - The corrections did not introduce new problems
    - No checklist item was missed in the previous pass
@@ -59,7 +59,7 @@ If you cannot cite line numbers, the item was NOT verified.
 
 - "This checklist item seems ok, I don't need to cite line numbers"
 - "The plan is clear, I don't need to verify dependencies"
-- "I've already read the entire plan mentally, I don't need to use Read again"
+- "I've already read the entire plan mentally, I don't need to use {{READ_TOOL}} again"
 - "This error is minor, I can ignore it"
 - "I finished without finding anything — the plan is perfect"
 - "I'll skip the reread, my corrections are right"
@@ -71,11 +71,11 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | Temptation | Reality |
 |------------|---------|
 | "Seems consistent" | Prove with line numbers or it's not verification |
-| "I've already verified mentally" | Mental verification doesn't count — execute Read |
+| "I've already verified mentally" | Mental verification doesn't count — execute {{READ_TOOL}} |
 | "This item doesn't apply to this plan" | Record explicitly as N/A with justification |
 | "The plan is simple, it doesn't need all this" | Simple plans have simple bugs that cause rework |
 | "It's already 3 iterations, I'll approve" | If there are still problems, escalate — don't approve with defects |
-| "The file probably exists, the name makes sense" | Sensible names are how bugs hide. Run Glob to confirm |
+| "The file probably exists, the name makes sense" | Sensible names are how bugs hide. Run {{GLOB_TOOL}} to confirm |
 
 ## Closing
 
@@ -84,7 +84,7 @@ Present the summary in this format:
 ### Analysis Summary
 
 **Iterations performed:** [N]
-**Read calls executed:** [N]
+**{{READ_TOOL}} calls executed:** [N]
 **Total findings:** [N] (critical: X, significant: Y, minor: Z)
 
 | # | Finding | Correction applied | Severity | Iteration |

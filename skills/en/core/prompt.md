@@ -1,6 +1,6 @@
 Take a task description and generate an optimized, self-contained prompt ready for execution.
 
-If $ARGUMENTS was provided, use it as the task description.
+If {{ARG_VAR}} was provided, use it as the task description.
 If not, ask the user: "What do you want the AI to do?"
 
 ## Iron Law
@@ -25,10 +25,10 @@ Present to the user for confirmation:
 
 ### 2. Explore the codebase
 
-Using Glob and Grep tools, find files relevant to the task:
-- Run Glob to find files by pattern (e.g., `src/auth/**/*.ts`)
-- Run Grep to find references by content (e.g., `function login`)
-- Read the most relevant files with the Read tool (max 5 files)
+Using {{GLOB_TOOL}} and {{GREP_TOOL}} tools, find files relevant to the task:
+- Run {{GLOB_TOOL}} to find files by pattern (e.g., `src/auth/**/*.ts`)
+- Run {{GREP_TOOL}} to find references by content (e.g., `function login`)
+- Read the most relevant files with the {{READ_TOOL}} (max 5 files)
 - Identify dependencies and related files
 
 Record:
@@ -84,7 +84,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 ```
 
 **Rules for the generated prompt:**
-- Named tools (Read, Grep, Glob, Bash) — never vague verbs
+- Named tools ({{READ_TOOL}}, {{GREP_TOOL}}, {{GLOB_TOOL}}, {{BASH_TOOL}}) — never vague verbs
 - Evidence required at each step (line numbers, output)
 - Exact, complete file paths
 - Iron Law at the top — specific to the task
@@ -112,7 +112,7 @@ The subagent receives ONLY the prompt — no context from this session.
 ## Red Flags
 
 - "The task is simple, I don't need to explore the codebase"
-- "I already know which files are relevant, no need for Glob/Grep"
+- "I already know which files are relevant, no need for {{GLOB_TOOL}}/{{GREP_TOOL}}"
 - "I'll generate a generic prompt and the agent will figure it out"
 - "This task doesn't need an Iron Law"
 - "I'll include context from this session in the subagent"
@@ -124,7 +124,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | Temptation | Reality |
 |------------|---------|
 | "Simple task doesn't need an optimized prompt" | Simple tasks with vague prompts produce vague results |
-| "The agent already knows where the files are" | Does it? Prove it — run Glob and confirm |
+| "The agent already knows where the files are" | Does it? Prove it — run {{GLOB_TOOL}} and confirm |
 | "Exploring the codebase is a waste of time" | 2 minutes of exploration prevents 20 minutes of rework |
 | "Generic Red Flags will do" | Red Flags must be task-specific — generic ones get ignored |
 

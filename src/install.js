@@ -6,7 +6,7 @@ import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptScope } from './prompts.js';
+import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptOrphanConflict, promptScope } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
 
 const SIGINT_MESSAGES = {
@@ -57,9 +57,9 @@ export function installSkills(projectDir, options, callbacks = {}) {
     }
 
     const rawContent = readFileSync(sourceFile, 'utf8');
-    const body = renderTemplate(rawContent, vars, moduleFlags);
 
     for (const ideId of ides) {
+      const body = renderTemplate(rawContent, vars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
       const relPath = getSkillPath(ideId, skillMeta.name);
@@ -160,9 +160,9 @@ function preRenderFiles(options) {
     }
 
     const rawContent = readFileSync(sourceFile, 'utf8');
-    const body = renderTemplate(rawContent, vars, moduleFlags);
 
     for (const ideId of ides) {
+      const body = renderTemplate(rawContent, vars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
       const relPath = getSkillPath(ideId, skillMeta.name);
@@ -346,14 +346,47 @@ export async function install(projectDir, scope = null) {
   // Orphan removal: remove files from old manifest that aren't in new install
   if (existingManifest) {
     const newPaths = new Set(result.files.map(f => f.path));
-    for (const oldPath of Object.keys(existingManifest.files)) {
-      if (!newPaths.has(oldPath)) {
-        const absPath = join(basePath, oldPath);
-        if (existsSync(absPath)) {
+    const orphanEntries = Object.entries(existingManifest.files).filter(([path]) => !newPaths.has(path));
+
+    for (const [oldPath, manifestEntry] of orphanEntries) {
+      const absPath = join(basePath, oldPath);
+      if (existsSync(absPath)) {
+        const currentContent = readFileSync(absPath, 'utf8');
+        const currentHash = hashContent(currentContent);
+        const wasModified = currentHash !== manifestEntry.installed_hash;
+
+        let shouldRemove = true;
+        if (wasModified) {
+          let action = await promptOrphanConflict(language, oldPath);
+          while (action === 'diff') {
+            console.log('\n  --- Current (orphan on disk) ---');
+            console.log(currentContent);
+            action = await promptConflict(language, oldPath);
+          }
+          if (action === 'keep') {
+            shouldRemove = false;
+            console.log(`  ○ ${oldPath} mantido (mesmo sendo órfão)`);
+          }
+        }
+
+        if (shouldRemove) {
           unlinkSync(absPath);
-          // Try removing empty parent dir
-          try { const p = dirname(absPath); if (readdirSync(p).length === 0) rmdirSync(p); } catch {}
-          console.log(`  ✗ ${oldPath} (removed — IDE/module deselected)`);
+          console.log(`  ✗ ${oldPath} removido (não faz mais parte da configuração)`);
+          
+          // Try removing empty parent dirs recursively
+          let parent = dirname(absPath);
+          while (parent !== basePath && parent !== '.') {
+            try {
+              if (readdirSync(parent).length === 0) {
+                rmdirSync(parent);
+                parent = dirname(parent);
+              } else {
+                break;
+              }
+            } catch {
+              break;
+            }
+          }
         }
       }
     }

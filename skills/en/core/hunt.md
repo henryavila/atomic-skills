@@ -1,6 +1,6 @@
 Write adversarial tests for existing code to find hidden bugs and add meaningful coverage.
 
-If $ARGUMENTS was provided, use as the target (file path, class, function, or directory).
+If {{ARG_VAR}} was provided, use as the target (file path, class, function, or directory).
 If not, ask: "Which file, function, or directory do you want to hunt bugs in?"
 
 ## Fundamental Rule
@@ -29,7 +29,7 @@ but only after you've genuinely tried to break it.
 
 ### Phase 0: Triage (directory targets only)
 
-If $ARGUMENTS is a directory, run triage mode. If it is a single file or function, skip to Phase 1.
+If {{ARG_VAR}} is a directory, run triage mode. If it is a single file or function, skip to Phase 1.
 
 **0a. Scan and rank:**
 ```bash
@@ -52,8 +52,8 @@ wc -l [file]
 # Recent activity (more commits = more changes = more risk)
 git log --oneline --since="3 months ago" -- [file] | wc -l
 
-# Test references (grep lines mentioning class name in tests/)
-grep -rn "ClassName" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
+# Test references ({{GREP_TOOL}} lines mentioning class name in tests/)
+{{GREP_TOOL}} -rn "ClassName" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
 ```
 
 **0b. Filter out non-huntable files:**
@@ -85,7 +85,7 @@ Before spawning subagents, detect conventions that apply project-wide:
 - Read ONE existing test file to extract patterns (beforeEach, factories, mocks)
 
 **0e. Execute hunts:**
-For EACH approved file, spawn an **isolated subagent** via the Agent tool.
+For EACH approved file, spawn an **isolated subagent** via the {{INVESTIGATOR_TOOL}} tool.
 
 The subagent prompt MUST be self-contained — do NOT reference `/as-hunt` (subagents cannot
 invoke skills). Build the prompt including:
@@ -94,7 +94,7 @@ invoke skills). Build the prompt including:
 - The Mindset section
 - Test conventions detected in step 0d
 - Phases 1-6 with these instructions for each phase:
-  - Phase 1: Read target, count lines, find existing tests via grep in tests/
+  - Phase 1: Read target, count lines, find existing tests via {{GREP_TOOL}} in tests/
   - Phase 2: Find intent from docblock, git log, docs, callers
   - Phase 3: Map every execution path as table (COVERED / NOT / PARTIAL)
   - Phase 4: Create test list by category (business rules, edge cases, errors, happy path)
@@ -116,7 +116,7 @@ After all subagents complete, proceed to Phase 7 (Consolidated Report).
 
 ### Phase 1: Read the Target
 
-Read the target file/function completely with the Read tool. Register:
+Read the target file/function completely with the {{READ_TOOL}}. Register:
 
 > **Target:** [file:lines or class::method]
 > **Lines of code:** [count]
@@ -131,7 +131,7 @@ Read the target file/function completely with the Read tool. Register:
 
 Search for existing tests beyond obvious paths:
 ```bash
-grep -rn "ClassName\|method_name" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null
+{{GREP_TOOL}} -rn "ClassName\|method_name" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null
 ```
 
 If existing tests exist, read them to understand what is ALREADY covered.
@@ -143,8 +143,8 @@ The code does what it DOES. You need to know what it SHOULD do.
 Search for intent sources (execute EACH, don't skip):
 - Method/class name and docblock — what does the name promise?
 - `git log --oneline -10 -- [file]` — why was it created/changed?
-- Grep for the class/method name in docs/, specs, README, or CLAUDE.md
-- Read callers (Grep for the class/method name in app/) — how is it used?
+- {{GREP_TOOL}} for the class/method name in docs/, specs, README, or CLAUDE.md
+- Read callers ({{GREP_TOOL}} for the class/method name in app/) — how is it used?
 
 If intent is ambiguous, ask the user: "What should [function] do when [scenario]?"
 

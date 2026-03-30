@@ -11,6 +11,9 @@ const MESSAGES = {
     conflictOverwrite: 'Sobrescrever (perder mudanças locais)',
     conflictKeep: 'Manter versão local',
     conflictDiff: 'Ver diff',
+    orphanConflictPrompt: (file) => `⚠ O arquivo órfão ${file} foi modificado localmente.`,
+    orphanConflictRemove: 'Remover (não faz mais parte da configuração)',
+    orphanConflictKeep: 'Manter versão modificada (ficará órfão/não-gerido)',
     scopeQuestion: 'Escopo de instalação:',
     scopeProject: 'Projeto — somente este repo',
     scopeUser: 'Usuário — todos os seus repos',
@@ -25,6 +28,9 @@ const MESSAGES = {
     conflictOverwrite: 'Overwrite (lose local changes)',
     conflictKeep: 'Keep local version',
     conflictDiff: 'View diff',
+    orphanConflictPrompt: (file) => `⚠ The orphan file ${file} was modified locally.`,
+    orphanConflictRemove: 'Remove (no longer part of the config)',
+    orphanConflictKeep: 'Keep modified version (will stay as unmanaged orphan)',
     scopeQuestion: 'Installation scope:',
     scopeProject: 'Project — this repo only',
     scopeUser: 'User — all your repos',
@@ -160,6 +166,22 @@ export async function promptConflict(lang, filePath) {
     ],
   }]);
   return action;
+}
+
+export async function promptOrphanConflict(lang, filePath) {
+  const msg = MESSAGES[lang] || MESSAGES.en;
+  console.log(`\n  ${msg.orphanConflictPrompt(filePath)}`);
+  const { action } = await inquirer.prompt([{
+    type: 'list',
+    name: 'action',
+    message: '',
+    choices: [
+      { name: msg.orphanConflictRemove, value: 'remove' },
+      { name: msg.orphanConflictKeep, value: 'keep' },
+      { name: msg.conflictDiff, value: 'diff' },
+    ],
+  }]);
+  return action === 'remove' ? 'overwrite' : action;
 }
 
 export async function promptConfirmUninstall(lang) {

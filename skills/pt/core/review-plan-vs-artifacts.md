@@ -44,10 +44,10 @@ Se não conseguir citar line numbers de ambos, o item NÃO foi verificado.
 ## Processo
 
 ### 0. Identificar artefatos
-Leia o plano com a ferramenta Read. Identifique todos os artefatos listados
+Leia o plano com a ferramenta {{READ_TOOL}}. Identifique todos os artefatos listados
 em "Source Documents", "References", ou equivalente.
 
-Para CADA artefato, execute Read e registre:
+Para CADA artefato, execute {{READ_TOOL}} e registre:
 - Path completo do arquivo
 - Tipo (PRD, epic, spec, architecture, UX)
 - Quantidade de requirements/stories/FRs identificados
@@ -67,7 +67,7 @@ Aguarde confirmação. O usuário pode adicionar artefatos que o plano não list
    como "alignment note" no próprio plano.
 
 ### LOOP DE VERIFICAÇÃO (max 3 iterações):
-2. Leia o plano CORRIGIDO com a ferramenta Read. Cite line numbers.
+2. Leia o plano CORRIGIDO com a ferramenta {{READ_TOOL}}. Cite line numbers.
 3. Verifique se:
    - As correções não introduziram novos problemas
    - Algum requirement dos artefatos escapou
@@ -82,7 +82,7 @@ Aguarde confirmação. O usuário pode adicionar artefatos que o plano não list
 - "Esse artefato é muito longo, vou verificar por alto"
 - "Os nomes são parecidos, deve ser a mesma coisa"
 - "Vou pular a UX spec, o plano é backend"
-- "Já verifiquei cruzando mentalmente, não preciso do Read"
+- "Já verifiquei cruzando mentalmente, não preciso do {{READ_TOOL}}"
 - "Vou editar o artefato para ficar consistente com o plano"
 
 Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
@@ -93,7 +93,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 |----------|-----------|
 | "O plano cobre todos os requirements" | Prove com line numbers cruzados |
 | "Esse artefato não é relevante" | Se foi listado como source, é relevante — leia |
-| "Vou ler o artefato por alto" | Ler por alto = perder requirements. Read completo |
+| "Vou ler o artefato por alto" | Ler por alto = perder requirements. {{READ_TOOL}} completo |
 | "Divergência intencional, não preciso documentar" | Se não está documentada, não é intencional |
 | "Editar o artefato é mais rápido" | HARD-GATE: nunca edite artefatos |
 
@@ -103,7 +103,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 
 **Artefatos analisados:** [lista com paths]
 **Iterações realizadas:** [N]
-**Chamadas Read executadas:** [N] (plano: X, artefatos: Y)
+**Chamadas {{READ_TOOL}} executadas:** [N] (plano: X, artefatos: Y)
 **Total de achados:** [N] (críticos: X, significativos: Y, menores: Z)
 
 | # | Achado | Artefato:linha | Plano:linha | Correção | Severidade |

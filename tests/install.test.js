@@ -35,10 +35,10 @@ describe('installSkills', () => {
     assert.ok(result.files.length === 8); // 8 core skills
   });
 
-  it('creates TOML files for gemini', () => {
+  it('creates TOML files for gemini-commands', () => {
     const result = installSkills(tempDir, {
       language: 'en',
-      ides: ['gemini'],
+      ides: ['gemini-commands'],
       modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
@@ -49,6 +49,22 @@ describe('installSkills', () => {
     const content = readFileSync(geminiFile, 'utf8');
     assert.ok(content.includes('description = "'));
     assert.ok(content.includes('prompt = """'));
+  });
+
+  it('creates markdown files for gemini skills', () => {
+    const result = installSkills(tempDir, {
+      language: 'en',
+      ides: ['gemini'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+
+    const geminiFile = join(tempDir, '.gemini/skills/as-fix/SKILL.md');
+    assert.ok(existsSync(geminiFile));
+    const content = readFileSync(geminiFile, 'utf8');
+    assert.ok(content.startsWith('---\n'));
+    assert.ok(content.includes('name: as-fix'));
   });
 
   it('installs memory module skills when module is enabled', () => {
@@ -112,7 +128,7 @@ describe('installSkills', () => {
   it('creates files for multiple IDEs', () => {
     const result = installSkills(tempDir, {
       language: 'en',
-      ides: ['claude-code', 'gemini'],
+      ides: ['claude-code', 'gemini-commands'],
       modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
@@ -198,7 +214,7 @@ describe('installSkills', () => {
   it('installs English as-status content', () => {
     installSkills(tempDir, {
       language: 'en',
-      ides: ['claude-code', 'gemini'],
+      ides: ['claude-code', 'gemini-commands'],
       modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,

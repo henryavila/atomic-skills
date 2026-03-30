@@ -48,7 +48,7 @@ Execute `git log --oneline -5` — veja o estilo de commits recente.
 Execute `git diff --name-only` e analise cada arquivo alterado:
 - **Sensíveis** (NUNCA commitar sem perguntar): `.env`, `.env.*`, `credentials.*`,
   `*secret*`, `*token*`, `*.pem`, `*.key`
-- **Conteúdo suspeito:** execute `grep -rn "password\|api_key\|secret\|token\|Bearer" <arquivos alterados>`
+- **Conteúdo suspeito:** execute `{{GREP_TOOL}} -rn "password\|api_key\|secret\|token\|Bearer" <arquivos alterados>`
 - **Arquivos gerados** que não deveriam estar no repo: `node_modules/`, `dist/`,
   `__pycache__/`, `.DS_Store`, `*.log`
 - **Arquivos não-relacionados** ao trabalho desta sessão: se um arquivo aparece

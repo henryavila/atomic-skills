@@ -1,6 +1,6 @@
 Receba uma descrição de tarefa e gere um prompt otimizado, autocontido e pronto para execução.
 
-Se $ARGUMENTS foi fornecido, use como descrição da tarefa.
+Se {{ARG_VAR}} foi fornecido, use como descrição da tarefa.
 Se não, pergunte ao usuário: "O que você quer que a IA faça?"
 
 ## Regra Fundamental
@@ -25,10 +25,10 @@ Apresente ao usuário para confirmar:
 
 ### 2. Explorar o codebase
 
-Usando as ferramentas Glob e Grep, encontre os arquivos relevantes para a tarefa:
-- Execute Glob para encontrar arquivos por padrão (ex: `src/auth/**/*.ts`)
-- Execute Grep para encontrar referências por conteúdo (ex: `function login`)
-- Leia os arquivos mais relevantes com a ferramenta Read (max 5 arquivos)
+Usando as ferramentas {{GLOB_TOOL}} e {{GREP_TOOL}}, encontre os arquivos relevantes para a tarefa:
+- Execute {{GLOB_TOOL}} para encontrar arquivos por padrão (ex: `src/auth/**/*.ts`)
+- Execute {{GREP_TOOL}} para encontrar referências por conteúdo (ex: `function login`)
+- Leia os arquivos mais relevantes com a {{READ_TOOL}} (max 5 arquivos)
 - Identifique dependências e arquivos relacionados
 
 Registre:
@@ -84,7 +84,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 ```
 
 **Regras para o prompt gerado:**
-- Ferramentas nomeadas (Read, Grep, Glob, Bash) — nunca verbos vagos
+- Ferramentas nomeadas ({{READ_TOOL}}, {{GREP_TOOL}}, {{GLOB_TOOL}}, {{BASH_TOOL}}) — nunca verbos vagos
 - Prova exigida em cada passo (line numbers, output)
 - File paths exatos e completos
 - Iron Law no topo — específica para a tarefa
@@ -112,7 +112,7 @@ O subagent recebe APENAS o prompt — sem contexto desta sessão.
 ## Red Flags
 
 - "A tarefa é simples, não preciso explorar o codebase"
-- "Já sei quais arquivos são, não preciso de Glob/Grep"
+- "Já sei quais arquivos são, não preciso de {{GLOB_TOOL}}/{{GREP_TOOL}}"
 - "Vou gerar um prompt genérico e o agente descobre o resto"
 - "Não preciso de Iron Law para essa tarefa"
 - "Vou incluir contexto desta sessão no subagent"
@@ -124,7 +124,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 | Tentação | Realidade |
 |----------|-----------|
 | "Tarefa simples não precisa de prompt otimizado" | Tarefas simples com prompts vagos geram resultados vagos |
-| "O agente já sabe onde ficam os arquivos" | Sabe? Prove — execute Glob e confirme |
+| "O agente já sabe onde ficam os arquivos" | Sabe? Prove — execute {{GLOB_TOOL}} e confirme |
 | "Explorar o codebase é perda de tempo" | 2 minutos de exploração evitam 20 minutos de retrabalho |
 | "Red Flags genéricos servem" | Red Flags devem ser específicos para a tarefa — genéricos são ignorados |
 
