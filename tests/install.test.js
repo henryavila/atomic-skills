@@ -32,7 +32,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-resume/SKILL.md')));
-    assert.ok(result.files.length === 7); // 7 core skills
+    assert.ok(result.files.length === 8); // 8 core skills
   });
 
   it('creates TOML files for gemini', () => {
@@ -61,7 +61,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
-    assert.ok(result.files.length === 8); // 7 core + 1 module
+    assert.ok(result.files.length === 9); // 8 core + 1 module
   });
 
   it('substitutes memory_path variable', () => {
@@ -120,7 +120,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/as-fix.toml')));
-    assert.ok(result.files.length === 14); // 7 core * 2 IDEs
+    assert.ok(result.files.length === 16); // 8 core * 2 IDEs
   });
 
   it('uses pt language when specified', () => {
@@ -303,7 +303,7 @@ describe('installSkills', () => {
     assert.ok(gitignore.includes('.atomic-skills/'));
   });
 
-  it('skips memory module when scope is user (memory scope is project)', () => {
+  it('keeps core-only install count when scope is user and no module is selected', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
@@ -314,7 +314,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills, no module skills
-    assert.strictEqual(result.files.length, 7);
+    assert.strictEqual(result.files.length, 8);
     assert.ok(!existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
   });
 });
