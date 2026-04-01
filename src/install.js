@@ -336,7 +336,7 @@ export async function install(projectDir, scope = null, force = false) {
         const wasModified = currentHash !== manifestEntry.installed_hash;
 
         let shouldRemove = true;
-        if (wasModified) {
+        if (wasModified && !force) {
           let action = await promptOrphanConflict(language, oldPath);
           while (action === 'diff') {
             console.log('\n  --- Current (orphan on disk) ---');
