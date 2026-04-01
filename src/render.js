@@ -13,14 +13,16 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
     ide: ideId ? { [ideId]: true } : {},
   };
 
+  if (ideId === 'codex') {
+    context.ide.gemini = true;
+  }
+
   // Process conditional blocks (single-level, no nesting)
   // Support {{#if modules.name}} and {{#if ide.name}}
   let result = content.replace(
     /{{#if (modules|ide)\.([\w-]+)}}\n([\s\S]*?){{\/if}}\n?/g,
     (_, type, name, block) => {
-      // Normalize ideId for conditional checks (e.g. gemini-commands -> gemini)
-      const normalizedName = type === 'ide' && name === 'gemini' && ideId === 'gemini-commands' ? 'gemini' : name;
-      const isTrue = context[type] && context[type][normalizedName];
+      const isTrue = context[type] && context[type][name];
       return isTrue ? block : '';
     }
   );
@@ -29,7 +31,7 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
   const allVars = { ...vars };
   
   // Add IDE-specific tool names
-  const isGemini = ideId === 'gemini' || ideId === 'gemini-commands';
+  const isGemini = ideId === 'gemini' || ideId === 'codex';
   if (isGemini) {
     allVars.BASH_TOOL = 'run_shell_command';
     allVars.READ_TOOL = 'read_file';
@@ -67,15 +69,17 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
  * @param {string} name - Skill name (e.g. 'as-fix')
  * @param {string} description - English description
  * @param {string} body - Rendered prompt body
+ * @param {string} [ideId] - The current IDE ID
  * @returns {string}
  */
-export function renderForIDE(format, name, description, body) {
-  if (format === 'toml') {
-    const escaped = description.replace(/"/g, '\\"');
-    return `description = "${escaped}"\nprompt = """\n${body}\n"""\n`;
+export function renderForIDE(format, name, description, body, ideId = '') {
+  let finalBody = body;
+  
+  if (ideId === 'gemini' || ideId === 'codex') {
+    finalBody += `\n\n<HARD-GATE>\n**EXECUTION MANDATE:** If you were activated via a direct user command (e.g. /${name}) and the user provided no other instructions, you MUST IMMEDIATELY begin executing the process defined above. Do not just acknowledge activation. Stop waiting for further prompting.\n</HARD-GATE>\n`;
   }
 
   // markdown (default) — YAML single-quote escaping: ' → ''
   const escaped = description.replace(/'/g, "''");
-  return `---\nname: ${name}\ndescription: '${escaped}'\n---\n\n${body}\n`;
+  return `---\nname: ${name}\ndescription: '${escaped}'\n---\n\n${finalBody}\n`;
 }

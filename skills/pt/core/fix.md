@@ -34,7 +34,7 @@ Colete evidências SEM formar hipóteses ainda.
 - Execute os comandos relevantes para reproduzir/observar:
   - Testes: identifique o comando de teste do projeto (verifique `composer.json`,
     `package.json`, `Makefile`, `pyproject.toml` ou `CLAUDE.md`) e execute-o
-  - Logs: execute `grep -rn "[mensagem de erro do sintoma]"` nos arquivos relevantes
+  - Logs: execute `{{GREP_TOOL}} -rn "[mensagem de erro do sintoma]"` nos arquivos relevantes
   - Estado: execute `git log --oneline -5` para ver mudanças recentes
 - Leia os arquivos relevantes com a {{READ_TOOL}} — cite line numbers
 

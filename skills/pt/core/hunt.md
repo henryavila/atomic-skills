@@ -53,7 +53,7 @@ wc -l [arquivo]
 git log --oneline --since="3 months ago" -- [arquivo] | wc -l
 
 # Referências em testes (linhas mencionando o nome da classe em tests/)
-grep -rn "NomeDaClasse" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
+{{GREP_TOOL}} -rn "NomeDaClasse" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
 ```
 
 **0b. Filtrar arquivos não-caçáveis:**
@@ -94,7 +94,7 @@ invocar skills). Monte o prompt incluindo:
 - A seção Mindset
 - Convenções de teste detectadas no passo 0d
 - Fases 1-6 com estas instruções para cada fase:
-  - Fase 1: Ler alvo, contar linhas, buscar testes existentes via grep em tests/
+  - Fase 1: Ler alvo, contar linhas, buscar testes existentes via {{GREP_TOOL}} em tests/
   - Fase 2: Buscar intenção em docblock, git log, docs, chamadores
   - Fase 3: Mapear cada caminho de execução como tabela (COBERTO / NÃO / PARCIAL)
   - Fase 4: Criar test list por categoria (regras de negócio, edge cases, erros, happy path)
@@ -131,7 +131,7 @@ Leia o arquivo/função alvo completamente com a {{READ_TOOL}}. Registre:
 
 Busque testes existentes além dos paths óbvios:
 ```bash
-grep -rn "NomeDaClasse\|nome_do_metodo" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null
+{{GREP_TOOL}} -rn "NomeDaClasse\|nome_do_metodo" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null
 ```
 
 Se existem testes, leia-os para entender o que JÁ está coberto.
@@ -143,8 +143,8 @@ O código faz o que FAZ. Você precisa saber o que DEVERIA fazer.
 Busque fontes de intenção (execute CADA uma, não pule):
 - Nome do método/classe e docblock — o que o nome promete?
 - `git log --oneline -10 -- [arquivo]` — por que foi criado/alterado?
-- Grep pelo nome da classe/método em docs/, specs, README ou CLAUDE.md
-- Leia chamadores (Grep pelo nome da classe/método em app/) — como é usado?
+- {{GREP_TOOL}} pelo nome da classe/método em docs/, specs, README ou CLAUDE.md
+- Leia chamadores ({{GREP_TOOL}} pelo nome da classe/método em app/) — como é usado?
 
 Se a intenção for ambígua, pergunte ao usuário: "O que [função] deveria fazer quando [cenário]?"
 

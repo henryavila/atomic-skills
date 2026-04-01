@@ -54,6 +54,7 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 | `as-prompt` | Generates an optimized, self-contained prompt from a task description — explores codebase, resolves file paths, applies Iron Law, Red Flags, and task-specific Rationalization table |
 | `as-review-plan-internal` | Adversarial review of a plan — finds contradictions, broken dependencies, ambiguity. Verifies file/command existence with Glob, not trust |
 | `as-review-plan-vs-artifacts` | Cross-references plan against PRD, specs, and artifacts. Requires line numbers from BOTH documents as proof |
+| `as-review-code` | Adversarial review of the git diff — finds functional defects, security issues, and edge cases |
 | `as-status` | Tracks the current workstream, completed work, remaining work, and stage-level reviews/verifications |
 
 ### Session Management

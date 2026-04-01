@@ -6,7 +6,7 @@ import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptOrphanConflict, promptScope, promptReconfigure } from './prompts.js';
+import { promptLanguage, promptIDEs, promptModule, promptConflict, promptOrphanConflict, promptScope, promptReconfigure } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
 
 const SIGINT_MESSAGES = {
@@ -61,7 +61,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
     for (const ideId of ides) {
       const body = renderTemplate(rawContent, vars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
-      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
+      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, ideId);
       const relPath = getSkillPath(ideId, skillMeta.name);
       const absPath = join(projectDir, relPath);
 
@@ -164,7 +164,7 @@ function preRenderFiles(options) {
     for (const ideId of ides) {
       const body = renderTemplate(rawContent, vars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
-      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
+      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, ideId);
       const relPath = getSkillPath(ideId, skillMeta.name);
       rendered.set(relPath, content);
     }
@@ -189,85 +189,50 @@ function preRenderFiles(options) {
 /**
  * Interactive install entry point.
  */
-export async function install(projectDir, scope = null) {
+export async function install(projectDir, scope = null, force = false) {
   console.log('\n  ⚛ Atomic Skills — Stop rewriting prompts.\n');
 
-  // Always prompt language first (needed for scope prompt localization)
-  const language0 = await promptLanguage();
-  if (!scope) {
-    scope = await promptScope(language0);
-  }
-
-  const basePath = scope === 'user' ? homedir() : projectDir;
-  const existingManifest = readManifest(basePath);
-
-  let language = language0;
-  let ides, modules;
+  // Try reading manifest from both scopes to see if we have defaults
+  const userManifest = readManifest(homedir());
+  const projectManifest = readManifest(projectDir);
+  const existingManifest = scope === 'user' ? userManifest : (projectManifest || userManifest);
 
   if (existingManifest) {
     const installedMods = Object.keys(existingManifest.modules || {}).filter(m => existingManifest.modules[m].installed);
     console.log(`  Configuração anterior encontrada (${MANIFEST_DIR}/manifest.json).`);
     console.log(`  Idioma: ${existingManifest.language} | IDEs: ${existingManifest.ides.join(', ')} | Módulos: ${installedMods.join(', ') || 'nenhum'}\n`);
-
-    const reuse = await promptReuseConfig(existingManifest.language);
-    if (reuse) {
-      // Check for Gemini/Codex conflict in the existing config
-      if (scope === 'user' && existingManifest.ides.includes('gemini') && existingManifest.ides.includes('codex')) {
-        console.log(existingManifest.language === 'pt' 
-          ? '\n  ⚠ Atenção: Sua configuração atual tem conflitos (Gemini CLI + Codex no escopo global).'
-          : '\n  ⚠ Warning: Your current configuration has conflicts (Gemini CLI + Codex in user scope).');
-        const reconfig = await promptReconfigure(existingManifest.language);
-        if (reconfig) {
-          // Fall through to prompts
-        } else {
-          language = existingManifest.language;
-          ides = existingManifest.ides;
-          modules = existingManifest.modules;
-        }
-      } else {
-        language = existingManifest.language;
-        ides = existingManifest.ides;
-        modules = existingManifest.modules;
-      }
-    }
   }
 
-  if (!ides) {
-    ides = await promptIDEs(language, scope);
+  // Always prompt language
+  const language = await promptLanguage(existingManifest?.language);
 
-    // Smart Deduplication for Gemini + Codex
-    // If both are selected, we switch Gemini to 'gemini-commands' (TOML)
-    // to avoid the "Skill conflict" warning while keeping native optimizations.
-    if (ides.includes('gemini') && ides.includes('codex')) {
-      const idx = ides.indexOf('gemini');
-      ides[idx] = 'gemini-commands';
-      
-      console.log(language === 'pt'
-        ? '\n  💡 Otimização detectada: Instalando Gemini como "Commands" (TOML) e Codex como "Skills" (Markdown).'
-        : '\n  💡 Optimization detected: Installing Gemini as "Commands" (TOML) and Codex as "Skills" (Markdown).');
-      console.log(language === 'pt'
-        ? '  Isso permite usar ambos simultaneamente sem avisos de conflito.\n'
-        : '  This allows using both simultaneously without conflict warnings.\n');
-    }
+  if (!scope) {
+    scope = await promptScope(language, existingManifest?.scope || 'user');
+  }
 
-    // Load module configs
-    const moduleYamlPath = join(PACKAGE_ROOT, 'skills', 'modules', 'memory', 'module.yaml');
-    const moduleConfig = parseYaml(readFileSync(moduleYamlPath, 'utf8'));
-    const moduleScope = moduleConfig.scope || 'both';
+  const basePath = scope === 'user' ? homedir() : projectDir;
+  
+  const ides0 = await promptIDEs(language, scope, existingManifest?.ides || []);
+  let ides = ides0;
 
-    modules = {};
+  // Load module configs
+  const moduleYamlPath = join(PACKAGE_ROOT, 'skills', 'modules', 'memory', 'module.yaml');
+  const moduleConfig = parseYaml(readFileSync(moduleYamlPath, 'utf8'));
+  const moduleScope = moduleConfig.scope || 'both';
 
-    // Only show module if its scope is compatible
-    if (moduleScope === 'both' || moduleScope === scope) {
-      const msg = language === 'pt' ? '─── Módulos opcionais ───' : '─── Optional Modules ───';
-      console.log(`\n  ${msg}`);
+  const modules = {};
 
-      const moduleResult = await promptModule(language, moduleConfig);
-      if (moduleResult) {
-        modules.memory = { installed: true, config: moduleResult };
-      } else {
-        modules.memory = { installed: false };
-      }
+  // Only show module if its scope is compatible
+  if (moduleScope === 'both' || moduleScope === scope) {
+    const msg = language === 'pt' ? '─── Módulos opcionais ───' : '─── Optional Modules ───';
+    console.log(`\n  ${msg}`);
+
+    const moduleDefaults = existingManifest?.modules?.memory?.installed ? existingManifest.modules.memory.config : null;
+    const moduleResult = await promptModule(language, moduleConfig, moduleDefaults);
+    if (moduleResult) {
+      modules.memory = { installed: true, config: moduleResult };
+    } else {
+      modules.memory = { installed: false };
     }
   }
 
@@ -276,20 +241,16 @@ export async function install(projectDir, scope = null) {
   const skillsDir = join(PACKAGE_ROOT, 'skills');
   const metaDir = join(PACKAGE_ROOT, 'meta');
 
-  // 3-hash conflict detection before installSkills
-  const keepFiles = new Set();
-  if (existingManifest) {
+  // Conflict detection
+  const filesToRestore = new Map();
+  if (existingManifest && !force) {
     const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir });
 
     for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
       const absPath = join(basePath, filePath);
       const newContent = newRendered.get(filePath);
 
-      // File no longer in new install — will be handled by orphan removal
-      if (!newContent) continue;
-
-      // File doesn't exist on disk — nothing to conflict with
-      if (!existsSync(absPath)) continue;
+      if (!newContent || !existsSync(absPath)) continue;
 
       const newHash = hashContent(newContent);
       const installedHash = manifestEntry.installed_hash;
@@ -300,14 +261,12 @@ export async function install(projectDir, scope = null) {
       const packageUnchanged = installedHash === newHash;
 
       if (localUnchanged && packageUnchanged) {
-        // No changes anywhere — skip
         continue;
       } else if (localUnchanged && !packageUnchanged) {
-        // No local edit, new content from package — overwrite silently
         continue;
       } else if (!localUnchanged && packageUnchanged) {
-        // Local edit, package unchanged — keep local
-        keepFiles.add(filePath);
+        // Local edit, package unchanged — keep local silently
+        filesToRestore.set(filePath, currentContent);
       } else {
         // Both changed — conflict, ask user
         let action = await promptConflict(language, filePath);
@@ -319,19 +278,9 @@ export async function install(projectDir, scope = null) {
           action = await promptConflict(language, filePath);
         }
         if (action === 'keep') {
-          keepFiles.add(filePath);
+          filesToRestore.set(filePath, currentContent);
         }
-        // 'overwrite' falls through — installSkills will write new content
       }
-    }
-  }
-
-  // Save content of files user wants to keep (before installSkills overwrites)
-  const savedContent = new Map();
-  for (const filePath of keepFiles) {
-    const absPath = join(basePath, filePath);
-    if (existsSync(absPath)) {
-      savedContent.set(filePath, readFileSync(absPath, 'utf8'));
     }
   }
 
@@ -357,23 +306,24 @@ export async function install(projectDir, scope = null) {
   }
 
   // Restore files user chose to keep
-  for (const [filePath, content] of savedContent) {
+  for (const [filePath, content] of filesToRestore) {
     writeFileSync(join(basePath, filePath), content, 'utf8');
   }
 
-  // C2: Patch manifest hashes for kept files to reflect the kept content
-  if (keepFiles.size > 0) {
+  // Patch manifest hashes for kept files
+  if (filesToRestore.size > 0) {
     const manifest = readManifest(basePath);
-    for (const filePath of keepFiles) {
-      const keptContent = savedContent.get(filePath);
-      if (keptContent && manifest.files[filePath]) {
+    for (const filePath of filesToRestore.keys()) {
+      const keptContent = filesToRestore.get(filePath);
+      if (manifest.files[filePath]) {
         manifest.files[filePath].installed_hash = hashContent(keptContent);
       }
     }
     writeManifest(basePath, manifest);
   }
 
-  // Orphan removal: remove files from old manifest that aren't in new install
+  // Orphan removal
+  let removedCount = 0;
   if (existingManifest) {
     const newPaths = new Set(result.files.map(f => f.path));
     const orphanEntries = Object.entries(existingManifest.files).filter(([path]) => !newPaths.has(path));
@@ -395,15 +345,13 @@ export async function install(projectDir, scope = null) {
           }
           if (action === 'keep') {
             shouldRemove = false;
-            console.log(`  ○ ${oldPath} mantido (mesmo sendo órfão)`);
           }
         }
 
         if (shouldRemove) {
           unlinkSync(absPath);
-          console.log(`  ✗ ${oldPath} removido (não faz mais parte da configuração)`);
+          removedCount++;
           
-          // Try removing empty parent dirs recursively
           let parent = dirname(absPath);
           while (parent !== basePath && parent !== '.') {
             try {
@@ -422,11 +370,59 @@ export async function install(projectDir, scope = null) {
     }
   }
 
-  for (const f of result.files) {
-    console.log(`  ✓ ${f.path}`);
+  // Final Report
+  const isPt = language === 'pt';
+  const labels = {
+    reportTitle: isPt ? '[Relatório de Instalação]' : '[Installation Report]',
+    scope: isPt ? 'Escopo:' : 'Scope:',
+    language: isPt ? 'Idioma:' : 'Language:',
+    ides: isPt ? 'IDEs:' : 'IDEs:',
+    modules: isPt ? 'Módulos:' : 'Modules:',
+    cleanup: isPt ? 'Limpeza:' : 'Cleanup:',
+    summaryTitle: isPt ? '[Resumo por IDE]' : '[Summary per IDE]',
+    filesInstalled: isPt ? 'arquivos instalados com sucesso.' : 'files installed successfully.',
+    manifestUpdated: isPt ? 'Manifest atualizado em' : 'Manifest updated at',
+    ready: isPt ? '⚛ Atomic Skills pronto para uso!' : '⚛ Atomic Skills ready to use!',
+    removed: isPt ? 'arquivos antigos removidos' : 'old files removed',
+    global: isPt ? 'Usuário (global)' : 'User (global)',
+    project: isPt ? 'Projeto (local)' : 'Project (local)',
+    skillsIn: isPt ? 'skills em' : 'skills in',
+  };
+
+  console.log(`\n  ${labels.reportTitle}`);
+  console.log('  ' + '─'.repeat(50));
+  console.log(`  ${labels.scope.padEnd(10)} ${scope === 'user' ? labels.global : labels.project}`);
+  console.log(`  ${labels.language.padEnd(10)} ${isPt ? 'Português (BR)' : 'English'}`);
+  console.log(`  ${labels.ides.padEnd(10)} ${ides.map(id => IDE_CONFIG[id].name).join(', ')}`);
+  
+  const activeModules = Object.keys(modules).filter(m => modules[m].installed);
+  if (activeModules.length > 0) {
+    const modNames = activeModules.map(m => m.charAt(0).toUpperCase() + m.slice(1));
+    console.log(`  ${labels.modules.padEnd(10)} ${modNames.join(', ')}`);
   }
 
-  const uniqueSkills = new Set(result.files.map(f => f.source)).size;
-  const ideCount = ides.length;
-  console.log(`\n  ⚛ ${uniqueSkills} skills instalados para ${ideCount} IDE${ideCount > 1 ? 's' : ''} (${result.files.length} arquivos).\n`);
+  if (removedCount > 0) {
+    console.log(`  ${labels.cleanup.padEnd(10)} ${removedCount} ${labels.removed}`);
+  }
+
+  console.log(`\n  ${labels.summaryTitle}`);
+  for (const id of ides) {
+    const cfg = IDE_CONFIG[id];
+    const ideFiles = result.files.filter(f => f.path.startsWith(cfg.dir.split('/')[0]));
+    const skillCount = new Set(ideFiles.map(f => f.source)).size;
+    console.log(`  • ${cfg.name}: ${skillCount} ${labels.skillsIn} ${cfg.dir}/`);
+  }
+
+  // Warning for duplicate Gemini profiles
+  if (ides.includes('gemini') && ides.includes('codex')) {
+    const warn = language === 'pt' 
+      ? '  ⚠ Ambos perfis Gemini e Codex instalados. O Gemini CLI pode se confundir.' 
+      : '  ⚠ Both Gemini and Codex profiles installed. Gemini CLI might get confused.';
+    console.log(`\n${warn}`);
+  }
+
+  console.log('  ' + '─'.repeat(50));
+  console.log(`  ✓ ${result.files.length} ${labels.filesInstalled}`);
+  console.log(`  ✓ ${labels.manifestUpdated} ${join(basePath, MANIFEST_DIR, 'manifest.json')}`);
+  console.log(`\n  ${labels.ready}\n`);
 }

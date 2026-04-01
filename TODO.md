@@ -26,4 +26,4 @@ Review the current diff (not plans, not specs — the actual code changes) with 
 
 **Sources**: Augment Code (45% comment-addressed rate), ODSC Impact Slicing, Codex SDK two-dimensional scoring, BMAD Blind Hunter pattern.
 
-**Status**: research done, implementation pending.
+**Status**: Completed (2026-03-31). Implemented in `skills/en/core/review-code.md` and `skills/pt/core/review-code.md`.

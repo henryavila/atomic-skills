@@ -32,23 +32,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-resume/SKILL.md')));
-    assert.ok(result.files.length === 8); // 8 core skills
-  });
-
-  it('creates TOML files for gemini-commands', () => {
-    const result = installSkills(tempDir, {
-      language: 'en',
-      ides: ['gemini-commands'],
-      modules: {},
-      skillsDir: SKILLS_DIR,
-      metaDir: META_DIR,
-    });
-
-    const geminiFile = join(tempDir, '.gemini/commands/as-fix.toml');
-    assert.ok(existsSync(geminiFile));
-    const content = readFileSync(geminiFile, 'utf8');
-    assert.ok(content.includes('description = "'));
-    assert.ok(content.includes('prompt = """'));
+    assert.ok(result.files.length === 9); // 9 core skills
   });
 
   it('creates markdown files for gemini skills', () => {
@@ -60,7 +44,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const geminiFile = join(tempDir, '.gemini/skills/as-fix/SKILL.md');
+    const geminiFile = join(tempDir, '.gemini/skills/as/fix/SKILL.md');
     assert.ok(existsSync(geminiFile));
     const content = readFileSync(geminiFile, 'utf8');
     assert.ok(content.startsWith('---\n'));
@@ -77,7 +61,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
-    assert.ok(result.files.length === 9); // 8 core + 1 module
+    assert.ok(result.files.length === 10); // 9 core + 1 module
   });
 
   it('substitutes memory_path variable', () => {
@@ -128,15 +112,15 @@ describe('installSkills', () => {
   it('creates files for multiple IDEs', () => {
     const result = installSkills(tempDir, {
       language: 'en',
-      ides: ['claude-code', 'gemini-commands'],
+      ides: ['claude-code', 'gemini'],
       modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
-    assert.ok(existsSync(join(tempDir, '.gemini/commands/as-fix.toml')));
-    assert.ok(result.files.length === 16); // 8 core * 2 IDEs
+    assert.ok(existsSync(join(tempDir, '.gemini/skills/as/fix/SKILL.md')));
+    assert.ok(result.files.length === 18); // 9 core * 2 IDEs
   });
 
   it('uses pt language when specified', () => {
@@ -214,19 +198,19 @@ describe('installSkills', () => {
   it('installs English as-status content', () => {
     installSkills(tempDir, {
       language: 'en',
-      ides: ['claude-code', 'gemini-commands'],
+      ides: ['claude-code', 'gemini'],
       modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     const statusPath = join(tempDir, '.claude/skills/as-status/SKILL.md');
-    const geminiPath = join(tempDir, '.gemini/commands/as-status.toml');
+    const geminiPath = join(tempDir, '.gemini/skills/as/status/SKILL.md');
     assert.ok(existsSync(statusPath));
     assert.ok(existsSync(geminiPath));
 
     const content = readFileSync(statusPath, 'utf8');
-    const toml = readFileSync(geminiPath, 'utf8');
+    const geminiContent = readFileSync(geminiPath, 'utf8');
     const summaryIndex = content.indexOf('SUMMARY');
     const pendingIndex = content.indexOf('PENDING INFERENCE');
     const pipelineIndex = content.indexOf('PIPELINE');
@@ -265,8 +249,7 @@ describe('installSkills', () => {
     assert.ok(inProgressIndex < nextIndex);
     assert.ok(nextIndex < blockersIndex);
     assert.ok(blockersIndex < verificationsIndex);
-    assert.ok(toml.includes('description = "Track the current workstream with evidence-backed progress'));
-    assert.ok(toml.includes('prompt = """'));
+    assert.ok(geminiContent.includes('SUMMARY'));
     assert.ok(!content.includes('## Closing'));
   });
 
@@ -330,7 +313,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills, no module skills
-    assert.strictEqual(result.files.length, 8);
+    assert.strictEqual(result.files.length, 9);
     assert.ok(!existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
   });
 });

@@ -23,6 +23,9 @@ core:
   status:
     name: as-status
     description: "Track the current workstream with evidence-backed progress, remaining work, and stage-level review counts."
+  review-code:
+    name: as-review-code
+    description: "Adversarial review of the git diff to find functional defects, security issues, and edge cases."
 
 modules:
   memory:

@@ -32,12 +32,11 @@ This instruction is ONLY for Claude Code.
 {{/if}}
 ```
 
-## 3. Skills vs. Commands
+## 3. Skills and Namespacing
 
-- **Skills (`.gemini/skills/`)**: Recommended for complex, multi-step prompts. They use `SKILL.md` with YAML frontmatter.
-- **Commands (`.gemini/commands/`)**: Best for simple prompt shortcuts. They use `.toml` files.
-
-The installer supports both via the `gemini` and `gemini-commands` IDE targets.
+- **Skills (`.gemini/skills/as/`)**: Atomic Skills uses the Markdown `SKILL.md` format with YAML frontmatter.
+- **Namespacing**: To avoid conflicts with other agents (like Codex in `.agents/skills/`), Gemini skills are installed in the `as/` subfolder.
+- **Commands**: This results in Gemini slash commands using the colon namespace, e.g., `/as:fix`, `/as:status`, etc.
 
 ## 4. Development Workflow for New Skills
 

@@ -44,11 +44,20 @@ describe('renderTemplate', () => {
     assert.strictEqual(result, 'Use run_shell_command and read_file\n');
   });
 
+  it('substitutes codex-specific tool names', () => {
+    const input = 'Use {{BASH_TOOL}} and {{READ_TOOL}}';
+    const result = renderTemplate(input, {}, {}, 'codex');
+    assert.strictEqual(result, 'Use run_shell_command and read_file\n');
+  });
+
   it('handles conditional IDE blocks', () => {
     const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}';
     
     const resultGemini = renderTemplate(input, {}, {}, 'gemini');
     assert.strictEqual(resultGemini, 'Common\nGemini only\n');
+
+    const resultCodex = renderTemplate(input, {}, {}, 'codex');
+    assert.strictEqual(resultCodex, 'Common\nGemini only\n');
 
     const resultClaude = renderTemplate(input, {}, {}, 'claude-code');
     assert.strictEqual(resultClaude, 'Common\nClaude only\n');
@@ -64,20 +73,23 @@ describe('renderForIDE', () => {
     assert.ok(result.includes('prompt body'));
   });
 
-  it('renders toml format', () => {
-    const result = renderForIDE('toml', 'as-fix', 'My description', 'prompt body');
-    assert.ok(result.includes('description = "My description"'));
-    assert.ok(result.includes('prompt = """'));
-    assert.ok(result.includes('prompt body'));
-  });
-
-  it('escapes double quotes in toml description', () => {
-    const result = renderForIDE('toml', 'as-fix', 'Say "hello" world', 'body');
-    assert.ok(result.includes('description = "Say \\"hello\\" world"'));
-  });
-
   it('escapes single quotes in markdown description', () => {
     const result = renderForIDE('markdown', 'as-fix', "It's a test", 'body');
     assert.ok(result.includes("description: 'It''s a test'"));
+  });
+
+  it('appends EXECUTION MANDATE for gemini and codex IDEs', () => {
+    const resultGemini = renderForIDE('markdown', 'as-fix', 'Desc', 'body', 'gemini');
+    assert.ok(resultGemini.includes('EXECUTION MANDATE:'));
+    assert.ok(resultGemini.includes('e.g. /as-fix'));
+    assert.ok(resultGemini.includes('MUST IMMEDIATELY begin executing'));
+
+    const resultCodex = renderForIDE('markdown', 'as-fix', 'Desc', 'body', 'codex');
+    assert.ok(resultCodex.includes('EXECUTION MANDATE:'));
+    assert.ok(resultCodex.includes('e.g. /as-fix'));
+    assert.ok(resultCodex.includes('MUST IMMEDIATELY begin executing'));
+
+    const resultClaude = renderForIDE('markdown', 'as-fix', 'Desc', 'body', 'claude-code');
+    assert.ok(!resultClaude.includes('EXECUTION MANDATE:'));
   });
 });

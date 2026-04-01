@@ -14,6 +14,10 @@ const FORBIDDEN_TERMS = [
   'Read tool',
   'Write tool',
   'Edit tool',
+  'Grep',
+  'grep',
+  'Glob',
+  'glob',
   'Agent tool',
   '$ARGUMENTS'
 ];

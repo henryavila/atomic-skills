@@ -48,7 +48,7 @@ Run `git log --oneline -5` — see recent commit style.
 Run `git diff --name-only` and analyze each changed file:
 - **Sensitive** (NEVER commit without asking): `.env`, `.env.*`, `credentials.*`,
   `*secret*`, `*token*`, `*.pem`, `*.key`
-- **Suspicious content:** run `grep -rn "password\|api_key\|secret\|token\|Bearer" <changed files>`
+- **Suspicious content:** run `{{GREP_TOOL}} -rn "password\|api_key\|secret\|token\|Bearer" <changed files>`
 - **Generated files** that should not be in the repo: `node_modules/`, `dist/`,
   `__pycache__/`, `.DS_Store`, `*.log`
 - **Unrelated files** to this session's work: if a file appears

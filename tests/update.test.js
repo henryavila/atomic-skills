@@ -18,21 +18,8 @@ describe('Update and Orphan Removal', () => {
   });
 
   it('removes orphan files and empty directories during update', () => {
-    // 1. Initial install with gemini-commands (TOML)
+    // 1. Initial install with gemini (Markdown)
     const initialResult = installSkills(tempDir, {
-      language: 'en',
-      ides: ['gemini-commands'],
-      modules: {},
-      skillsDir: join(process.cwd(), 'skills'),
-      metaDir: join(process.cwd(), 'meta'),
-      scope: 'project'
-    });
-
-    const tomlPath = '.gemini/commands/as-fix.toml';
-    assert.ok(existsSync(join(tempDir, tomlPath)));
-
-    // 2. Perform second install with gemini (Markdown), removing gemini-commands
-    const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
       modules: {},
@@ -41,7 +28,20 @@ describe('Update and Orphan Removal', () => {
       scope: 'project'
     });
 
-    assert.ok(existsSync(join(tempDir, '.gemini/skills/as-fix/SKILL.md')));
+    const oldPath = '.gemini/skills/as/fix/SKILL.md';
+    assert.ok(existsSync(join(tempDir, oldPath)));
+
+    // 2. Perform second install with claude-code, removing gemini
+    const newResult = installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: join(process.cwd(), 'skills'),
+      metaDir: join(process.cwd(), 'meta'),
+      scope: 'project'
+    });
+
+    assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
 
     // 3. Simulate the interactive orphan removal logic
     const existingManifestFiles = initialResult.files.reduce((acc, f) => {
@@ -73,31 +73,15 @@ describe('Update and Orphan Removal', () => {
       }
     }
 
-    // Verify TOML file is GONE
-    assert.ok(!existsSync(join(tempDir, tomlPath)));
-    // Verify TOML directory is GONE (empty cleanup)
-    assert.ok(!existsSync(join(tempDir, '.gemini/commands')));
+    // Verify old file is GONE
+    assert.ok(!existsSync(join(tempDir, oldPath)));
+    // Verify old directory is GONE (empty cleanup)
+    assert.ok(!existsSync(join(tempDir, '.gemini/skills/as/fix')));
   });
 
   it('prevents deletion of modified orphan files', () => {
     // 1. Initial install
     const initialResult = installSkills(tempDir, {
-      language: 'en',
-      ides: ['gemini-commands'],
-      modules: {},
-      skillsDir: join(process.cwd(), 'skills'),
-      metaDir: join(process.cwd(), 'meta'),
-      scope: 'project'
-    });
-
-    const tomlPath = '.gemini/commands/as-fix.toml';
-    const absTomlPath = join(tempDir, tomlPath);
-    
-    // 2. Modify file locally
-    writeFileSync(absTomlPath, 'user modification');
-
-    // 3. Update to new config (gemini skills)
-    const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
       modules: {},
@@ -106,14 +90,30 @@ describe('Update and Orphan Removal', () => {
       scope: 'project'
     });
 
+    const oldPath = '.gemini/skills/as/fix/SKILL.md';
+    const absPath = join(tempDir, oldPath);
+    
+    // 2. Modify file locally
+    writeFileSync(absPath, 'user modification');
+
+    // 3. Update to new config (claude-code skills)
+    const newResult = installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: join(process.cwd(), 'skills'),
+      metaDir: join(process.cwd(), 'meta'),
+      scope: 'project'
+    });
+
     // 4. Simulate orphan check with "keep" decision
-    const existingManifestFiles = { [tomlPath]: { installed_hash: initialResult.files[0].hash } };
+    const existingManifestFiles = { [oldPath]: { installed_hash: initialResult.files[0].hash } };
     const newPaths = new Set(newResult.files.map(f => f.path));
 
     let orphanDetected = false;
-    for (const [oldPath, entry] of Object.entries(existingManifestFiles)) {
-      if (!newPaths.has(oldPath)) {
-        const currentContent = readFileSync(join(tempDir, oldPath), 'utf8');
+    for (const [path, entry] of Object.entries(existingManifestFiles)) {
+      if (!newPaths.has(path)) {
+        const currentContent = readFileSync(join(tempDir, path), 'utf8');
         if (hashContent(currentContent) !== entry.installed_hash) {
           orphanDetected = true;
           // Simulation: user chose "keep", so we DON'T unlink
@@ -122,7 +122,7 @@ describe('Update and Orphan Removal', () => {
     }
 
     assert.ok(orphanDetected, 'Orphan modification should have been detected');
-    assert.ok(existsSync(absTomlPath), 'Modified orphan should still exist');
-    assert.strictEqual(readFileSync(absTomlPath, 'utf8'), 'user modification');
+    assert.ok(existsSync(absPath), 'Modified orphan should still exist');
+    assert.strictEqual(readFileSync(absPath, 'utf8'), 'user modification');
   });
 });

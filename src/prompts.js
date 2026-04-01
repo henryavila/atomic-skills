@@ -40,7 +40,7 @@ const MESSAGES = {
   },
 };
 
-export async function promptLanguage() {
+export async function promptLanguage(defaultLang = null) {
   const { language } = await inquirer.prompt([{
     type: 'list',
     name: 'language',
@@ -49,39 +49,42 @@ export async function promptLanguage() {
       { name: 'Português (BR)', value: 'pt' },
       { name: 'English', value: 'en' },
     ],
+    default: defaultLang,
   }]);
   return language;
 }
 
-export async function promptScope(lang) {
+export async function promptScope(lang, defaultScope = 'user') {
   const msg = MESSAGES[lang] || MESSAGES.en;
   const { scope } = await inquirer.prompt([{
     type: 'list',
     name: 'scope',
     message: msg.scopeQuestion,
     choices: [
-      { name: msg.scopeProject, value: 'project' },
       { name: msg.scopeUser, value: 'user' },
+      { name: msg.scopeProject, value: 'project' },
     ],
+    default: defaultScope,
   }]);
   return scope;
 }
 
-export async function promptUninstallScope(lang) {
+export async function promptUninstallScope(lang, defaultScope = 'user') {
   const msg = MESSAGES[lang] || MESSAGES.en;
   const { scope } = await inquirer.prompt([{
     type: 'list',
     name: 'scope',
     message: msg.uninstallScopeQuestion,
     choices: [
-      { name: msg.scopeProject, value: 'project' },
       { name: msg.scopeUser, value: 'user' },
+      { name: msg.scopeProject, value: 'project' },
     ],
+    default: defaultScope,
   }]);
   return scope;
 }
 
-export async function promptIDEs(lang, scope = 'project') {
+export async function promptIDEs(lang, scope = 'project', defaultIDEs = []) {
   const msg = MESSAGES[lang] || MESSAGES.en;
   const ideEntries = scope === 'user'
     ? Object.entries(IDE_CONFIG).filter(([_, cfg]) => cfg.supportsUserScope)
@@ -95,27 +98,30 @@ export async function promptIDEs(lang, scope = 'project') {
       name: cfg.name,
       value: id,
     })),
+    default: defaultIDEs,
     validate: (input) => input.length > 0 || msg.ideValidation,
   }]);
   return ides;
 }
 
-export async function promptModule(lang, moduleConfig) {
+export async function promptModule(lang, moduleConfig, defaults = null) {
   const display = moduleConfig.display_name[lang] || moduleConfig.display_name.en;
   const desc = moduleConfig.description[lang] || moduleConfig.description.en;
 
   console.log(`\n  📦 ${display}`);
   console.log(`  ${desc.trim().split('\n').join('\n  ')}`);
 
-  const defaultPath = moduleConfig.variables.memory_path.default;
+  const defaultPath = defaults?.memory_path || moduleConfig.variables.memory_path.default;
+  const isInstalled = defaults !== null;
+
   const choices = lang === 'pt'
     ? [
-        { name: `Instalar com padrão (${defaultPath})`, value: 'default' },
+        { name: `Instalar com ${isInstalled ? 'atual' : 'padrão'} (${defaultPath})`, value: 'default' },
         { name: 'Escolher diretório customizado', value: 'custom' },
         { name: 'Não instalar', value: 'skip' },
       ]
     : [
-        { name: `Install with default (${defaultPath})`, value: 'default' },
+        { name: `Install with ${isInstalled ? 'current' : 'default'} (${defaultPath})`, value: 'default' },
         { name: 'Choose custom directory', value: 'custom' },
         { name: 'Do not install', value: 'skip' },
       ];
@@ -141,17 +147,6 @@ export async function promptModule(lang, moduleConfig) {
   }
 
   return { memory_path: defaultPath };
-}
-
-export async function promptReuseConfig(lang) {
-  const msg = MESSAGES[lang] || MESSAGES.en;
-  const { reuse } = await inquirer.prompt([{
-    type: 'confirm',
-    name: 'reuse',
-    message: msg.reuseConfig,
-    default: true,
-  }]);
-  return reuse;
 }
 
 export async function promptConflict(lang, filePath) {
