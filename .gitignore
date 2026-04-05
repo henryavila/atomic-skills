@@ -9,3 +9,5 @@ node_modules/
 .gemini/
 .opencode/
 *:Zone.Identifier
+nexus.yaml
+.superpowers/

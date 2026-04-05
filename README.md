@@ -40,7 +40,7 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 ## Skills
 
-### Fix & Hunt — the bug-killing duo
+### Fix & Hunt
 
 | Skill | What it does |
 |-------|-------------|
@@ -54,13 +54,11 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 | `as-prompt` | Generates an optimized, self-contained prompt from a task description — explores codebase, resolves file paths, applies Iron Law, Red Flags, and task-specific Rationalization table |
 | `as-review-plan-internal` | Adversarial review of a plan — finds contradictions, broken dependencies, ambiguity. Verifies file/command existence with Glob, not trust |
 | `as-review-plan-vs-artifacts` | Cross-references plan against PRD, specs, and artifacts. Requires line numbers from BOTH documents as proof |
-| `as-status` | Tracks the current workstream, completed work, remaining work, and stage-level reviews/verifications |
 
-### Session Management
+### Session
 
 | Skill | What it does |
 |-------|-------------|
-| `as-resume` | Investigates project context (git, memory, instruction files), generates a handoff prompt for a clean session |
 | `as-save-and-push` | Reviews conversation, saves learnings to memory, formats code, groups commits logically, pushes. HARD-GATE on main/master |
 
 ## Techniques

@@ -31,8 +31,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
-    assert.ok(existsSync(join(tempDir, '.claude/skills/as-resume/SKILL.md')));
-    assert.ok(result.files.length === 8); // 8 core skills
+    assert.ok(result.files.length === 6); // 6 core skills
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -77,7 +76,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
-    assert.ok(result.files.length === 9); // 8 core + 1 module
+    assert.ok(result.files.length === 7); // 6 core + 1 module
   });
 
   it('substitutes memory_path variable', () => {
@@ -136,7 +135,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/as-fix.toml')));
-    assert.ok(result.files.length === 16); // 8 core * 2 IDEs
+    assert.ok(result.files.length === 12); // 6 core * 2 IDEs
   });
 
   it('uses pt language when specified', () => {
@@ -151,123 +150,6 @@ describe('installSkills', () => {
     const content = readFileSync(join(tempDir, '.claude/skills/as-fix/SKILL.md'), 'utf8');
     // Portuguese content should have Portuguese keywords
     assert.ok(content.includes('Regra Fundamental') || content.includes('Processo') || content.includes('Red Flags'));
-  });
-
-  it('installs Portuguese as-status content', () => {
-    installSkills(tempDir, {
-      language: 'pt',
-      ides: ['claude-code'],
-      modules: {},
-      skillsDir: SKILLS_DIR,
-      metaDir: META_DIR,
-    });
-
-    const statusPath = join(tempDir, '.claude/skills/as-status/SKILL.md');
-    assert.ok(existsSync(statusPath));
-
-    const content = readFileSync(statusPath, 'utf8');
-    const summaryIndex = content.indexOf('RESUMO');
-    const pendingIndex = content.indexOf('INFERÊNCIA PENDENTE');
-    const pipelineIndex = content.indexOf('PIPELINE');
-    const doneIndex = content.indexOf('FEITO');
-    const inProgressIndex = content.indexOf('EM ANDAMENTO');
-    const nextIndex = content.indexOf('PRÓXIMOS');
-    const blockersIndex = content.indexOf('BLOQUEIOS');
-    const verificationsIndex = content.indexOf('VERIFICAÇÕES POR ETAPA');
-    assert.ok(content.includes('RESUMO'));
-    assert.ok(content.includes('Objetivo'));
-    assert.ok(content.includes('Repo: ...'));
-    assert.ok(content.includes('Data: ...'));
-    assert.ok(content.includes('Já foi feito'));
-    assert.ok(content.includes('Ainda falta'));
-    assert.ok(content.includes('Próxima ação'));
-    assert.ok(content.includes('docs/superpowers/status/_map.yml'));
-    assert.ok(content.includes('docs/superpowers/status/_map.md'));
-    assert.ok(content.includes('docs/superpowers/status/index.md'));
-    assert.ok(content.includes('docs/superpowers/status/<workstream>.md'));
-    assert.ok(content.includes('`design`'));
-    assert.ok(content.includes('`spec`'));
-    assert.ok(content.includes('`plan`'));
-    assert.ok(content.includes('`code`'));
-    assert.ok(content.includes('`verification`'));
-    assert.ok(content.includes('`finish`'));
-    assert.ok(content.includes('confirmar'));
-    assert.ok(content.includes('rejeitar'));
-    assert.ok(content.includes('adiar'));
-    assert.ok(content.includes('atualize o arquivo canônico do workstream'));
-    assert.ok(content.includes('quando o erro for de mapeamento'));
-    assert.ok(content.includes('VERIFICAÇÕES POR ETAPA'));
-    assert.ok(content.includes('Especificação'));
-    assert.ok(content.includes('Implementação'));
-    assert.ok(content.includes('verificações'));
-    assert.ok(summaryIndex < pendingIndex);
-    assert.ok(pendingIndex < pipelineIndex);
-    assert.ok(pipelineIndex < doneIndex);
-    assert.ok(doneIndex < inProgressIndex);
-    assert.ok(inProgressIndex < nextIndex);
-    assert.ok(nextIndex < blockersIndex);
-    assert.ok(blockersIndex < verificationsIndex);
-    assert.ok(!content.includes('## Encerramento'));
-    assert.ok(!content.includes('Reporte no fim'));
-  });
-
-  it('installs English as-status content', () => {
-    installSkills(tempDir, {
-      language: 'en',
-      ides: ['claude-code', 'gemini-commands'],
-      modules: {},
-      skillsDir: SKILLS_DIR,
-      metaDir: META_DIR,
-    });
-
-    const statusPath = join(tempDir, '.claude/skills/as-status/SKILL.md');
-    const geminiPath = join(tempDir, '.gemini/commands/as-status.toml');
-    assert.ok(existsSync(statusPath));
-    assert.ok(existsSync(geminiPath));
-
-    const content = readFileSync(statusPath, 'utf8');
-    const toml = readFileSync(geminiPath, 'utf8');
-    const summaryIndex = content.indexOf('SUMMARY');
-    const pendingIndex = content.indexOf('PENDING INFERENCE');
-    const pipelineIndex = content.indexOf('PIPELINE');
-    const doneIndex = content.indexOf('DONE');
-    const inProgressIndex = content.indexOf('IN PROGRESS');
-    const nextIndex = content.indexOf('NEXT');
-    const blockersIndex = content.indexOf('BLOCKERS');
-    const verificationsIndex = content.indexOf('VERIFICATIONS BY STAGE');
-    assert.ok(content.includes('SUMMARY'));
-    assert.ok(content.includes('Objective'));
-    assert.ok(content.includes('Repo: ...'));
-    assert.ok(content.includes('Data: ...'));
-    assert.ok(content.includes('docs/superpowers/status/_map.yml'));
-    assert.ok(content.includes('docs/superpowers/status/_map.md'));
-    assert.ok(content.includes('docs/superpowers/status/index.md'));
-    assert.ok(content.includes('docs/superpowers/status/<workstream>.md'));
-    assert.ok(content.includes('`design`'));
-    assert.ok(content.includes('`spec`'));
-    assert.ok(content.includes('`plan`'));
-    assert.ok(content.includes('`code`'));
-    assert.ok(content.includes('`verification`'));
-    assert.ok(content.includes('`finish`'));
-    assert.ok(content.includes('confirm'));
-    assert.ok(content.includes('reject'));
-    assert.ok(content.includes('defer'));
-    assert.ok(content.includes('update the canonical workstream file'));
-    assert.ok(content.includes('when the mistake is in mapping'));
-    assert.ok(content.includes('VERIFICATIONS BY STAGE'));
-    assert.ok(content.includes('Specification'));
-    assert.ok(content.includes('Implementation'));
-    assert.ok(content.includes('verifications'));
-    assert.ok(summaryIndex < pendingIndex);
-    assert.ok(pendingIndex < pipelineIndex);
-    assert.ok(pipelineIndex < doneIndex);
-    assert.ok(doneIndex < inProgressIndex);
-    assert.ok(inProgressIndex < nextIndex);
-    assert.ok(nextIndex < blockersIndex);
-    assert.ok(blockersIndex < verificationsIndex);
-    assert.ok(toml.includes('description = "Track the current workstream with evidence-backed progress'));
-    assert.ok(toml.includes('prompt = """'));
-    assert.ok(!content.includes('## Closing'));
   });
 
   it('skips .gitignore when scope is user', () => {
@@ -330,7 +212,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills, no module skills
-    assert.strictEqual(result.files.length, 8);
+    assert.strictEqual(result.files.length, 6);
     assert.ok(!existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
   });
 });

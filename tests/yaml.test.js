@@ -59,9 +59,9 @@ variables:
   fix:
     name: as-fix
     description: "Root cause diagnosis + TDD fix."
-  resume:
-    name: as-resume
-    description: "Investigate project context."
+  save-and-push:
+    name: as-save-and-push
+    description: "Review conversation, save learnings."
 modules:
   memory:
     init-memory:
@@ -69,7 +69,7 @@ modules:
       description: "Initialize persistent memory."`;
     const result = parse(input);
     assert.strictEqual(result.core.fix.name, 'as-fix');
-    assert.strictEqual(result.core.resume.name, 'as-resume');
+    assert.strictEqual(result.core['save-and-push'].name, 'as-save-and-push');
     assert.strictEqual(result.modules.memory['init-memory'].name, 'as-init-memory');
   });
 
@@ -80,12 +80,4 @@ modules:
     assert.strictEqual(result.scope, 'both');
   });
 
-  it('parses as-status from the real skills manifest', () => {
-    const content = readFileSync(
-      join(__dirname, '..', 'meta', 'skills.yaml'),
-      'utf8'
-    );
-    const result = parse(content);
-    assert.strictEqual(result.core.status.name, 'as-status');
-  });
 });
