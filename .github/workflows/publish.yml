@@ -20,9 +20,6 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      # OIDC requires npm >= 11.5.1; Node 22 bundled npm may be older
-      - run: npm install -g npm@latest
-
       - run: npm ci
       - run: npm test
 
