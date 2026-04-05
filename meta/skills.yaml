@@ -2,9 +2,6 @@ core:
   fix:
     name: as-fix
     description: "Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior."
-  resume:
-    name: as-resume
-    description: "Investigate project context and generate a handoff prompt for a clean session."
   save-and-push:
     name: as-save-and-push
     description: "Review conversation, save learnings to memory, commit and push work."
@@ -20,9 +17,6 @@ core:
   hunt:
     name: as-hunt
     description: "Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run."
-  status:
-    name: as-status
-    description: "Track the current workstream with evidence-backed progress, remaining work, and stage-level review counts."
 
 modules:
   memory:
