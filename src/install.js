@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSy
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
+import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE, getNamespaceRootPath } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
@@ -16,6 +16,12 @@ const SIGINT_MESSAGES = {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
+
+function generateNamespaceRoot() {
+  const desc = "Stop rewriting prompts. Install optimized developer skills in any AI IDE.";
+  const escaped = desc.replace(/'/g, "''");
+  return `---\nname: ${SKILL_NAMESPACE}\ndescription: '${escaped}'\nuser-invocable: false\n---\n\nNamespace package for Atomic Skills.\n`;
+}
 
 /**
  * Core install logic (non-interactive, testable).
@@ -95,6 +101,24 @@ export function installSkills(projectDir, options, callbacks = {}) {
     for (const [skillId, skillMeta] of Object.entries(modMeta)) {
       processSkill(skillId, skillMeta, `modules/${modName}`, `modules/${modName}/${skillId}`);
     }
+  }
+
+  // Generate namespace root SKILL.md for markdown-format IDEs
+  for (const ideId of ides) {
+    const rootPath = getNamespaceRootPath(ideId);
+    if (!rootPath) continue;
+
+    const content = generateNamespaceRoot();
+    const absPath = join(projectDir, rootPath);
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, content, 'utf8');
+    if (onFileWritten) onFileWritten(rootPath);
+
+    createdFiles.push({
+      path: rootPath,
+      hash: hashContent(content),
+      source: '_namespace',
+    });
   }
 
   // Add .atomic-skills/ to .gitignore (skip for user scope)
@@ -181,6 +205,13 @@ function preRenderFiles(options) {
     for (const [skillId, skillMeta] of Object.entries(modMeta)) {
       renderSkill(skillId, skillMeta, `modules/${modName}`);
     }
+  }
+
+  // Generate namespace root SKILL.md for markdown-format IDEs
+  for (const ideId of ides) {
+    const rootPath = getNamespaceRootPath(ideId);
+    if (!rootPath) continue;
+    rendered.set(rootPath, generateNamespaceRoot());
   }
 
   return rendered;

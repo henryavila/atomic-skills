@@ -75,7 +75,13 @@ export function renderForIDE(format, name, description, body) {
     return `description = "${escaped}"\nprompt = """\n${body}\n"""\n`;
   }
 
-  // markdown (default) — YAML single-quote escaping: ' → ''
+  if (format === 'command') {
+    // Claude Code commands — name comes from filename, no user-invocable needed
+    const escaped = description.replace(/'/g, "''");
+    return `---\ndescription: '${escaped}'\n---\n\n${body}\n`;
+  }
+
+  // markdown (default for Cursor, Gemini, Codex, etc.) — YAML single-quote escaping: ' → ''
   const escaped = description.replace(/'/g, "''");
-  return `---\nname: ${name}\ndescription: '${escaped}'\n---\n\n${body}\n`;
+  return `---\nname: ${name}\ndescription: '${escaped}'\nuser-invocable: true\n---\n\n${body}\n`;
 }

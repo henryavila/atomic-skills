@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE } from '../src/config.js';
+import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE, getNamespaceRootPath } from '../src/config.js';
 
 describe('IDE config', () => {
   it('defines all 7 IDEs', () => {
@@ -10,9 +10,9 @@ describe('IDE config', () => {
     ]);
   });
 
-  it('returns correct skill path for claude-code markdown IDE', () => {
+  it('returns correct skill path for claude-code command IDE', () => {
     const path = getSkillPath('claude-code', 'fix');
-    assert.strictEqual(path, '.claude/skills/atomic-skills/fix/SKILL.md');
+    assert.strictEqual(path, '.claude/commands/atomic-skills/fix.md');
   });
 
   it('returns correct skill path for gemini skills IDE', () => {
@@ -27,6 +27,10 @@ describe('IDE config', () => {
 
   it('exports SKILL_NAMESPACE constant', () => {
     assert.strictEqual(SKILL_NAMESPACE, 'atomic-skills');
+  });
+
+  it('returns command format for claude-code', () => {
+    assert.strictEqual(getSkillFormat('claude-code'), 'command');
   });
 
   it('returns markdown format for gemini skills', () => {
@@ -49,5 +53,15 @@ describe('IDE config', () => {
       .filter(([_, cfg]) => cfg.supportsUserScope);
     // All IDEs currently support user scope
     assert.strictEqual(userIDEs.length, Object.keys(IDE_CONFIG).length);
+  });
+
+  it('returns namespace root path for markdown IDEs', () => {
+    assert.strictEqual(getNamespaceRootPath('cursor'), '.cursor/skills/atomic-skills/SKILL.md');
+    assert.strictEqual(getNamespaceRootPath('gemini'), '.gemini/skills/atomic-skills/SKILL.md');
+  });
+
+  it('returns null for non-markdown IDEs', () => {
+    assert.strictEqual(getNamespaceRootPath('claude-code'), null);
+    assert.strictEqual(getNamespaceRootPath('gemini-commands'), null);
   });
 });

@@ -5,9 +5,9 @@ export const SKILL_NAMESPACE = 'atomic-skills';
 export const IDE_CONFIG = {
   'claude-code': {
     name: 'Claude Code',
-    dir: '.claude/skills',
-    format: 'markdown',
-    filePattern: (skillName) => posix.join(SKILL_NAMESPACE, skillName, 'SKILL.md'),
+    dir: '.claude/commands',
+    format: 'command',
+    filePattern: (skillName) => posix.join(SKILL_NAMESPACE, `${skillName}.md`),
     supportsUserScope: true,
   },
   'cursor': {
@@ -61,4 +61,10 @@ export function getSkillPath(ideId, skillName) {
 
 export function getSkillFormat(ideId) {
   return IDE_CONFIG[ideId].format;
+}
+
+export function getNamespaceRootPath(ideId) {
+  const ide = IDE_CONFIG[ideId];
+  if (ide.format !== 'markdown') return null;
+  return posix.join(ide.dir, SKILL_NAMESPACE, 'SKILL.md');
 }

@@ -61,6 +61,7 @@ describe('renderForIDE', () => {
     assert.ok(result.startsWith('---\n'));
     assert.ok(result.includes('name: fix'));
     assert.ok(result.includes("description: 'My description'"));
+    assert.ok(result.includes('user-invocable: true'));
     assert.ok(result.includes('prompt body'));
   });
 
@@ -79,5 +80,14 @@ describe('renderForIDE', () => {
   it('escapes single quotes in markdown description', () => {
     const result = renderForIDE('markdown', 'fix', "It's a test", 'body');
     assert.ok(result.includes("description: 'It''s a test'"));
+  });
+
+  it('renders command format for claude-code', () => {
+    const result = renderForIDE('command', 'fix', 'My description', 'prompt body');
+    assert.ok(result.startsWith('---\n'));
+    assert.ok(result.includes("description: 'My description'"));
+    assert.ok(!result.includes('name:'));  // commands don't have name field
+    assert.ok(!result.includes('user-invocable'));  // commands don't need this
+    assert.ok(result.includes('prompt body'));
   });
 });

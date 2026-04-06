@@ -21,7 +21,7 @@ describe('installSkills', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('creates markdown skill files for claude-code', () => {
+  it('creates command files for claude-code', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
@@ -30,8 +30,12 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
-    assert.ok(result.files.length === 6); // 6 core skills
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
+    const content = readFileSync(join(tempDir, '.claude/commands/atomic-skills/fix.md'), 'utf8');
+    assert.ok(content.startsWith('---\n'));
+    assert.ok(content.includes("description: '"));
+    assert.ok(!content.includes('name: fix')); // commands don't have name field
+    assert.strictEqual(result.files.length, 6); // 6 core skills (no namespace root for commands)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -75,8 +79,8 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/init-memory/SKILL.md')));
-    assert.ok(result.files.length === 7); // 6 core + 1 module
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
+    assert.strictEqual(result.files.length, 7); // 6 core + 1 module (no namespace root for commands)
   });
 
   it('substitutes memory_path variable', () => {
@@ -88,7 +92,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const content = readFileSync(join(tempDir, '.claude/skills/atomic-skills/init-memory/SKILL.md'), 'utf8');
+    const content = readFileSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md'), 'utf8');
     assert.ok(content.includes('.custom/mem/'));
     assert.ok(!content.includes('{{memory_path}}'));
   });
@@ -118,10 +122,12 @@ describe('installSkills', () => {
     const manifest = JSON.parse(readFileSync(join(tempDir, '.atomic-skills/manifest.json'), 'utf8'));
     assert.strictEqual(manifest.language, 'pt');
     assert.deepStrictEqual(manifest.ides, ['claude-code', 'cursor']);
-    assert.ok(manifest.files['.claude/skills/atomic-skills/fix/SKILL.md']);
+    assert.ok(manifest.files['.claude/commands/atomic-skills/fix.md']);
     assert.ok(manifest.files['.cursor/skills/atomic-skills/fix/SKILL.md']);
-    assert.ok(manifest.files['.claude/skills/atomic-skills/fix/SKILL.md'].installed_hash);
-    assert.ok(manifest.files['.claude/skills/atomic-skills/fix/SKILL.md'].source);
+    assert.ok(manifest.files['.cursor/skills/atomic-skills/SKILL.md']); // namespace root for cursor (markdown)
+    assert.ok(!manifest.files['.claude/commands/atomic-skills/SKILL.md']); // no root for commands format
+    assert.ok(manifest.files['.claude/commands/atomic-skills/fix.md'].installed_hash);
+    assert.ok(manifest.files['.claude/commands/atomic-skills/fix.md'].source);
   });
 
   it('creates files for multiple IDEs', () => {
@@ -133,9 +139,9 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.ok(result.files.length === 12); // 6 core * 2 IDEs
+    assert.strictEqual(result.files.length, 12); // 6 core * 2 IDEs (no namespace root for command or toml formats)
   });
 
   it('uses pt language when specified', () => {
@@ -147,7 +153,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const content = readFileSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md'), 'utf8');
+    const content = readFileSync(join(tempDir, '.claude/commands/atomic-skills/fix.md'), 'utf8');
     // Portuguese content should have Portuguese keywords
     assert.ok(content.includes('Regra Fundamental') || content.includes('Processo') || content.includes('Red Flags'));
   });
@@ -177,7 +183,7 @@ describe('installSkills', () => {
     });
 
     // Files should still be created at basePath (tempDir simulates homedir)
-    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
 
     // Manifest should exist
     const manifest = JSON.parse(readFileSync(join(tempDir, '.atomic-skills/manifest.json'), 'utf8'));
@@ -211,8 +217,8 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    // Only core skills, no module skills
+    // Only core skills, no module skills (no namespace root for commands)
     assert.strictEqual(result.files.length, 6);
-    assert.ok(!existsSync(join(tempDir, '.claude/skills/atomic-skills/init-memory/SKILL.md')));
+    assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 });

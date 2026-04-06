@@ -125,4 +125,74 @@ describe('Update and Orphan Removal', () => {
     assert.ok(existsSync(absTomlPath), 'Modified orphan should still exist');
     assert.strictEqual(readFileSync(absTomlPath, 'utf8'), 'user modification');
   });
+
+  it('migrates claude-code from skills/ to commands/ (v1.4→v1.5)', () => {
+    // 1. Simulate v1.4.0 install: files at .claude/skills/atomic-skills/<name>/SKILL.md
+    //    (the old format before switching to commands/)
+    const oldSkillDir = join(tempDir, '.claude/skills/atomic-skills/fix');
+    mkdirSync(oldSkillDir, { recursive: true });
+    const oldContent = "---\nname: fix\ndescription: 'Old format'\n---\n\nOld body\n";
+    writeFileSync(join(oldSkillDir, 'SKILL.md'), oldContent, 'utf8');
+
+    // Simulate old manifest with the old path
+    const oldManifestFiles = {
+      '.claude/skills/atomic-skills/fix/SKILL.md': {
+        installed_hash: hashContent(oldContent),
+        source: 'core/fix',
+      },
+    };
+
+    // 2. New install with current code (writes to .claude/commands/)
+    const newResult = installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: join(process.cwd(), 'skills'),
+      metaDir: join(process.cwd(), 'meta'),
+      scope: 'user'
+    });
+
+    // 3. Verify new files exist at commands/
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
+    const newContent = readFileSync(join(tempDir, '.claude/commands/atomic-skills/fix.md'), 'utf8');
+    assert.ok(newContent.includes("description: '"));
+    assert.ok(!newContent.includes('name: fix')); // command format has no name
+
+    // 4. Simulate orphan removal (as interactive install() would do)
+    const newPaths = new Set(newResult.files.map(f => f.path));
+    const orphans = [];
+
+    for (const [oldPath, entry] of Object.entries(oldManifestFiles)) {
+      if (!newPaths.has(oldPath)) {
+        orphans.push(oldPath);
+        const absPath = join(tempDir, oldPath);
+        if (existsSync(absPath)) {
+          const currentHash = hashContent(readFileSync(absPath, 'utf8'));
+          if (currentHash === entry.installed_hash) {
+            unlinkSync(absPath);
+            let parent = dirname(absPath);
+            while (parent !== tempDir && parent !== '.') {
+              try {
+                if (readdirSync(parent).length === 0) {
+                  rmdirSync(parent);
+                  parent = dirname(parent);
+                } else break;
+              } catch { break; }
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Verify migration: old path detected as orphan
+    assert.ok(orphans.includes('.claude/skills/atomic-skills/fix/SKILL.md'));
+
+    // 6. Verify old files are GONE
+    assert.ok(!existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
+    assert.ok(!existsSync(join(tempDir, '.claude/skills/atomic-skills/fix')));
+    assert.ok(!existsSync(join(tempDir, '.claude/skills/atomic-skills')));
+
+    // 7. Verify new files still work
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
+  });
 });
