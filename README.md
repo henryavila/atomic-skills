@@ -6,6 +6,8 @@ Optimized prompts you install once and invoke in any AI IDE. Each skill is an at
 
 *Stop rewriting prompts.*
 
+> **[Versão em Português (BR)](README.pt-BR.md)**
+
 ```bash
 npx @henryavila/atomic-skills install
 ```
@@ -40,26 +42,131 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 ## Skills
 
-### Fix & Hunt
+---
 
-| Skill | What it does |
-|-------|-------------|
-| `atomic-skills:fix` | Diagnoses root cause with evidence, enumerates the test surface (equivalence partitions, boundaries, error inputs), writes a test cluster with TDD, fixes with minimal change. Integrates mental mutation spot-checks to verify no case was missed |
-| `atomic-skills:hunt` | Writes adversarial tests for existing code that lacks coverage. Accepts a file, function, or directory. Single-file: 6-phase deep hunt. Directory: triages by risk, spawns isolated subagents per file (prevents cross-file tautology). Bugs found are handed off to `atomic-skills:fix` with the reproducing test already written |
+### `atomic-skills:fix` — Root Cause Diagnosis + TDD Fix
 
-### Plan & Review
+**Problem it solves:** Agents jump straight to a fix without investigating the root cause, producing fragile patches that break in other scenarios and introduce regressions.
 
-| Skill | What it does |
-|-------|-------------|
-| `atomic-skills:prompt` | Generates an optimized, self-contained prompt from a task description — explores codebase, resolves file paths, applies Iron Law, Red Flags, and task-specific Rationalization table |
-| `atomic-skills:review-plan-internal` | Adversarial review of a plan — finds contradictions, broken dependencies, ambiguity. Verifies file/command existence with Glob, not trust |
-| `atomic-skills:review-plan-vs-artifacts` | Cross-references plan against PRD, specs, and artifacts. Requires line numbers from BOTH documents as proof |
+**What it does:** Enforces a 4-phase detective process — observe evidence, diagnose with testable hypotheses, fix with TDD (test first, fix second), and verify with the full suite.
 
-### Session
+**When to use:** Whenever you find a bug or unexpected behavior in code.
 
-| Skill | What it does |
-|-------|-------------|
-| `atomic-skills:save-and-push` | Reviews conversation, saves learnings to memory, formats code, groups commits logically, pushes. HARD-GATE on main/master |
+**Advantages:**
+- Eliminates guesswork fixes — every correction has a documented root cause with line numbers
+- Test cluster covers regression, equivalence partitions, boundaries, and error inputs
+- Mental mutation spot-checks verify each condition has coverage ("if I changed `>=` to `>`, would a test catch it?")
+- 5-hypothesis escalation limit prevents infinite loops
+
+**Iron Law:** `NO FIX WITHOUT ROOT CAUSE`
+
+---
+
+### `atomic-skills:hunt` — Adversarial Tests for Existing Code
+
+**Problem it solves:** Code without tests or with shallow coverage hides silent bugs. Tests written "to confirm" the code (instead of breaking it) are tautological and catch nothing.
+
+**What it does:** Writes aggressive, adversarial tests designed to *break* code, not confirm it. Single-file: 6-phase deep hunt (read, understand intent, map gaps, plan attack, write, report). Directory: triages by risk and spawns isolated subagents per file.
+
+**When to use:** When code lacks tests, coverage is low, or you suspect untested edge cases.
+
+**Advantages:**
+- HARD-GATE against tautology: "Does the expected value come from SPEC or CODE?" — if from code, the test is useless
+- Risk-based ranking for directories (0 test refs OR >8 commits = high risk)
+- Isolated subagents per file prevent cross-file context contamination
+- Bugs found generate a structured report with a reproducing test ready for `as-fix`
+
+**Iron Law:** `NO HUNT WITHOUT BOUNDED SCOPE`
+
+---
+
+### `atomic-skills:prompt` — Optimized Prompt Generation
+
+**Problem it solves:** Generic prompts fail because they lack exact file paths, real codebase context, and guardrails against agent shortcuts.
+
+**What it does:** Explores the codebase first (Glob, Grep, Read), identifies relevant files and dependencies, then generates a self-contained prompt with Iron Law, tool-naming steps, Red Flags, and a task-specific Rationalization table.
+
+**When to use:** When you need a precise prompt with exact paths and guardrails — whether to execute yourself or delegate to a subagent.
+
+**Advantages:**
+- Generated prompt has verified absolute paths (not guesses)
+- Each step names the tool and requires evidence (line numbers)
+- Offers 3 options: copy, execute via subagent, or adjust
+- Compatible with any IDE via template variables
+
+**Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS`
+
+---
+
+### `atomic-skills:review-plan-internal` — Adversarial Plan Review
+
+**Problem it solves:** Plans contain internal contradictions, broken dependencies, ambiguous tasks, and missing steps — problems that only surface during implementation, when the cost of correction is high.
+
+**What it does:** Applies a 7-item checklist (contradictions, broken dependencies, ordering, ambiguity, schema, file existence, test coverage), cites line numbers as proof, and iterates up to 3 times to verify that fixes didn't introduce new problems.
+
+**When to use:** Before executing any implementation plan — internal consistency validation.
+
+**Advantages:**
+- Verifies file/command existence with Glob/Grep (doesn't trust the plan)
+- Severity classification: Critical (blocks), Significant (causes rework), Minor
+- Verification loop prevents fixes from introducing new errors
+- Every finding cites the exact plan line number
+
+**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE`
+
+---
+
+### `atomic-skills:review-plan-vs-artifacts` — Plan vs. Artifacts
+
+**Problem it solves:** Plans oversimplify requirements, lose acceptance criteria details, or add features nobody asked for. The gap between PRD/spec and plan grows silently.
+
+**What it does:** Cross-references the plan against source artifacts (PRD, specs, designs) with a 6-item checklist (requirement coverage, acceptance criteria, phase gates, dependencies, schema/API, UX). Requires line numbers from BOTH documents as proof.
+
+**When to use:** After generating a plan from specs/PRD — cross-coverage validation.
+
+**Advantages:**
+- HARD-GATE: corrects the PLAN, never the source artifact (if the artifact has an error, asks the user)
+- Coverage proof with plan line + artifact line
+- Detects missing requirements, oversimplified acceptance criteria, and phantom features
+- Verification loop (up to 3x) ensures fixes don't break other references
+
+**Iron Law:** `NO APPROVAL WITHOUT CROSS-REFERENCE`
+
+---
+
+### `atomic-skills:save-and-push` — Save Work & Publish
+
+**Problem it solves:** Work stays scattered in conversation, memory isn't preserved for future sessions, commits are chaotic, and secrets get accidentally committed.
+
+**What it does:** Reviews conversation to extract learnings (saves to memory), saves work-in-progress as files, groups commits by logical unit (feature, layer, nature), formats code if configured, and pushes — with HARD-GATE on main/master.
+
+**When to use:** At the end of a work session, or whenever you want to save progress and publish.
+
+**Advantages:**
+- Persistent memory: patterns and decisions survive between sessions
+- Logically grouped commits (not a dump of everything)
+- Secret filtering (.env, credentials) with mandatory STOP
+- HARD-GATE prevents direct push to main/master — requires branch + PR
+
+**Iron Law:** `NO PUSH WITHOUT FRESH VERIFICATION`
+
+---
+
+### `atomic-skills:init-memory` — Persistent Memory Initialization
+
+**Problem it solves:** Projects have memory scattered across different locations (`.memory/`, `.claude/memory/`, `docs/memory/`, etc.), causing duplication, context loss, and inconsistency.
+
+**What it does:** Detects existing memory in all known locations, migrates to the canonical path (`.ai/memory/`), organizes by theme, configures Claude Code integration (`autoMemoryDirectory`), and cleans up original directories (with confirmation).
+
+**When to use:** When starting a new project or standardizing memory structure for an existing one.
+
+**Advantages:**
+- Single canonical location, versioned in git and shared with the team
+- Respects the 200-line MEMORY.md limit (content beyond is silently truncated by Claude)
+- Safe migration: copies first, validates, only removes originals with confirmation
+- `autoMemoryDirectory` support for direct integration (no redirect needed)
+
+**Iron Law:** `NO DELETION WITHOUT CONFIRMED BACKUP`
 
 ## Techniques
 
@@ -112,8 +219,8 @@ npx @henryavila/atomic-skills uninstall     # Remove everything
 
 ## Languages
 
-- Português (BR)
-- English
+- [Português (BR)](README.pt-BR.md)
+- English ← you are here
 
 ## License
 
