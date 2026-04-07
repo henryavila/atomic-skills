@@ -44,6 +44,18 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 
 ## Skills
 
+### Visão Geral
+
+| | Skill | Resumo | Iron Law |
+|-|-------|--------|----------|
+| 🔧 | [`fix`](#atomic-skillsfix--diagnóstico-e-correção-de-bugs-com-tdd) | Diagnosticar causa raiz → escrever teste → corrigir → verificar | `NO FIX WITHOUT ROOT CAUSE` |
+| 🎯 | [`hunt`](#atomic-skillshunt--testes-adversariais-para-código-existente) | Escrever testes adversariais para quebrar código, não confirmá-lo | `NO HUNT WITHOUT BOUNDED SCOPE` |
+| 📝 | [`prompt`](#atomic-skillsprompt--geração-de-prompts-otimizados) | Gerar prompt self-contained com paths exatos e guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS` |
+| 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--revisão-adversarial-de-planos) | Encontrar contradições, deps quebradas e gaps em um plano | `NO APPROVAL WITHOUT EVIDENCE` |
+| 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plano-vs-artefatos) | Cruzar plano contra PRD/specs para requisitos faltando | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
+| 💾 | [`save-and-push`](#atomic-skillssave-and-push--salvar-trabalho-e-publicar) | Salvar learnings na memória, agrupar commits, push seguro | `NO PUSH WITHOUT FRESH VERIFICATION` |
+| 🧠 | [`init-memory`](#atomic-skillsinit-memory--inicialização-de-memória-persistente) | Centralizar memória do projeto em `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
+
 ### `atomic-skills:fix` — Diagnóstico e Correção de Bugs com TDD
 
 **Problema que resolve:** Agentes pulam direto para a correção sem investigar a causa raiz, gerando regressões e fixes frágeis que quebram em outros cenários.
