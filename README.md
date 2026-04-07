@@ -42,6 +42,18 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 ## Skills
 
+### Overview
+
+| | Skill | One-liner | Iron Law |
+|-|-------|-----------|----------|
+| 🔧 | [`fix`](#atomic-skillsfix--root-cause-diagnosis--tdd-fix) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE` |
+| 🎯 | [`hunt`](#atomic-skillshunt--adversarial-tests-for-existing-code) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE` |
+| 📝 | [`prompt`](#atomic-skillsprompt--optimized-prompt-generation) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS` |
+| 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--adversarial-plan-review) | Find contradictions, broken deps, and gaps in a plan | `NO APPROVAL WITHOUT EVIDENCE` |
+| 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plan-vs-artifacts) | Cross-reference plan against PRD/specs for missing requirements | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
+| 💾 | [`save-and-push`](#atomic-skillssave-and-push--save-work--publish) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION` |
+| 🧠 | [`init-memory`](#atomic-skillsinit-memory--persistent-memory-initialization) | Centralize project memory to `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
+
 ---
 
 ### `atomic-skills:fix` — Root Cause Diagnosis + TDD Fix
