@@ -1,6 +1,6 @@
 {
   "name": "@henryavila/atomic-skills",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Stop rewriting prompts. Install optimized developer skills in any AI IDE.",
   "type": "module",
   "bin": {
