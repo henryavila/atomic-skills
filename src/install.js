@@ -244,6 +244,18 @@ export async function install(projectDir, options = {}) {
   const languageDetected = !cliLang && !existingManifest?.language;
 
   let ides = cliIDEs || existingManifest?.ides?.slice() || detectIDEs(basePath);
+
+  // Validate CLI-provided IDE IDs
+  if (cliIDEs) {
+    const validIDs = new Set(Object.keys(IDE_CONFIG));
+    const invalid = cliIDEs.filter(id => !validIDs.has(id));
+    if (invalid.length > 0) {
+      const validList = Object.keys(IDE_CONFIG).filter(id => id !== 'gemini-commands').join(', ');
+      console.error(`  Error: Unknown IDE(s): ${invalid.join(', ')}. Valid: ${validList}`);
+      process.exit(1);
+    }
+  }
+
   ides = deduplicateGeminiCodex(ides);
 
   let modules = existingManifest?.modules ? JSON.parse(JSON.stringify(existingManifest.modules)) : {};

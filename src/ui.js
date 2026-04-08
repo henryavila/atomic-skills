@@ -119,9 +119,12 @@ const PRIMARY_IDE_IDS = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode',
  * @param {string}  opts.pkgVersion
  */
 export function showIntro(config, { isUpdate, pkgVersion } = {}) {
-  const label = isUpdate
-    ? pc.bold(`atomic-skills v${pkgVersion}`) + pc.dim(' — update')
-    : pc.bold(`atomic-skills v${pkgVersion}`);
+  let label;
+  if (isUpdate && config.existingVersion) {
+    label = pc.bold(`atomic-skills`) + ` v${config.existingVersion} → v${pkgVersion}` + pc.dim('  update');
+  } else {
+    label = pc.bold(`atomic-skills v${pkgVersion}`);
+  }
   p.intro(label);
 }
 
