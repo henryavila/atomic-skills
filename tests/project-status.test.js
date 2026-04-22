@@ -93,6 +93,22 @@ describe('project-status skill', () => {
     assert.ok(content.includes('@henryavila/mdprobe'));
   });
 
+  it('renders skill for gemini with proper tool name substitution', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['gemini'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.gemini/skills/atomic-skills/project-status/SKILL.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('run_shell_command'), 'Gemini should get run_shell_command');
+    assert.ok(!content.includes('{{BASH_TOOL}}'));
+  });
+
   it('renders PT skill file with Portuguese headings + same substantive sections', () => {
     installSkills(tempDir, {
       language: 'pt',
