@@ -54,4 +54,24 @@ describe('project-status skill', () => {
     assert.ok(content.includes('--stack'));
     assert.ok(content.includes('--archived'));
   });
+
+  it('skill documents all mutation commands', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    for (const cmd of ['new', 'push', 'pop', 'park', 'emerge', 'promote', 'done', 'archive', 'switch']) {
+      assert.ok(
+        new RegExp(`\\b${cmd}\\b`).test(content),
+        `missing command: ${cmd}`
+      );
+    }
+  });
 });

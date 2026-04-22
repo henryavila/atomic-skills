@@ -123,3 +123,85 @@ node -e "import('./node_modules/@henryavila/atomic-skills/src/yaml.js').then(({p
 ```
 
 Na prática: você (LLM) pode parsear o YAML direto já que é texto; use `src/yaml.js` como referência de robustness quando necessário.
+
+## Modos de mutação
+
+Em cada caso, atualize `.atomic-skills/initiatives/<slug>.md` (frontmatter YAML) e bump `last_updated:` para agora (`date -u +%Y-%m-%dT%H:%M:%SZ`).
+
+### `new <slug>`
+
+1. Valide slug: regex `^[a-z][a-z0-9-]{1,39}$`. Rejeite com mensagem clara se inválido.
+2. Verifique duplicata: se `.atomic-skills/initiatives/<slug>.md` existe, aborte com sugestão de nome.
+3. Pergunte ao usuário (se não for óbvio do contexto):
+   - Título/descrição inicial
+   - Branch associada (auto-preenche com `git branch --show-current` se nenhuma fornecida)
+   - Caminho para plan doc (opcional, grava em `plan_link:`)
+4. Copie `skills/shared/project-status-assets/initiative.template.md` para `.atomic-skills/initiatives/<slug>.md`, substituindo todos os `REPLACE_*` markers.
+5. Append linha à tabela "Active Initiatives" em `.atomic-skills/PROJECT-STATUS.md`.
+6. Reporte ao usuário com path criado.
+
+### `push <descrição>`
+
+1. Identifique iniciativa ativa (via branch match ou `--slug` explicit arg).
+2. Leia `stack:` do frontmatter.
+3. Append frame novo: `{id: <max_id+1>, title: "<descrição>", type: <inferido>, opened_at: <now>}`.
+4. Salve.
+5. Announce: "Frame <N> pushed: <descrição>. Current depth: <N>."
+6. Se depth > `max_stack_depth_warning` (de config.json), alerte: "Stack profundo — ainda é a mesma iniciativa?"
+
+Tipos inferidos do verbo: "research/pesquisar" → research; "test/testar" → validation; "discuss/discutir" → discussion; caso contrário → task.
+
+### `pop [--resolve|--park|--emerge]`
+
+1. Identifique top frame do stack.
+2. Destino:
+   - `--resolve` (default): remove do stack, adiciona nota em Done se era task
+   - `--park`: move conteúdo para `parked:` (mesma iniciativa)
+   - `--emerge`: move para `emerged:` (candidato a nova iniciativa)
+3. Remova frame do stack.
+4. Announce: "Frame <N> popped to <destino>. Current frame: <novo top>."
+5. Atualize `last_updated` e salve.
+
+### `park <descrição>`
+
+1. Identifique iniciativa ativa.
+2. Append a `parked:`: `{title: "<descrição>", surfaced_at: <now>, from_frame: <current-top-id>}`.
+3. Salve.
+
+### `emerge <descrição>`
+
+1. Identifique iniciativa ativa.
+2. Append a `emerged:`: `{title: "<descrição>", surfaced_at: <now>, promoted: false}`.
+3. Salve.
+4. Ofereça: "Criar nova iniciativa agora para '<descrição>'? (`new <slug>`)" — se sim, chame handler `new`.
+
+### `promote <parking-item-title-or-index>`
+
+1. Localize item em `parked:`.
+2. Gere próximo task ID (`T-<NNN+1>` baseado no maior existente).
+3. Adicione a `tasks:`: `<id>: {title: <título do parking>, status: pending, last_updated: <now>}`.
+4. Remova item de `parked:`.
+5. Announce novo task ID.
+
+### `done <task-id>`
+
+1. Localize task em `tasks:`.
+2. Mude `status: done`, adicione `closed_at: <now>`.
+3. Salve.
+4. Announce.
+
+### `archive [<slug>]`
+
+1. Identifique iniciativa (arg ou ativa).
+2. Mude frontmatter `status: archived`.
+3. Mova arquivo para `.atomic-skills/initiatives/archive/<YYYY-MM>-<slug>.md`.
+4. Remova linha de "Active Initiatives" em PROJECT-STATUS.md; append linha em "Recently Archived" (mantendo apenas últimas 10).
+5. Announce.
+
+### `switch <slug>`
+
+1. Busque iniciativa alvo. Se não existe ou status não é active/paused, aborte.
+2. Encontre iniciativa atualmente active. Mude `status: paused`.
+3. Mude alvo para `status: active`.
+4. Atualize PROJECT-STATUS.md index.
+5. Announce.
