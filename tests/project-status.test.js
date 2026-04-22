@@ -74,4 +74,22 @@ describe('project-status skill', () => {
       );
     }
   });
+
+  it('skill documents disambiguation, --browser, --report', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.toLowerCase().includes('disambig'));
+    assert.ok(content.includes('--browser'));
+    assert.ok(content.includes('--report'));
+    assert.ok(content.includes('@henryavila/mdprobe'));
+  });
 });

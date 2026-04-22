@@ -205,3 +205,91 @@ Tipos inferidos do verbo: "research/pesquisar" → research; "test/testar" → v
 3. Mude alvo para `status: active`.
 4. Atualize PROJECT-STATUS.md index.
 5. Announce.
+
+## Fluxo de Disambiguation
+
+Dispara quando: branch atual não bate com nenhuma iniciativa ativa, OU múltiplas batem, OU `disambiguate` for chamado explicitamente.
+
+Apresente Structured Options:
+
+```
+Detected context:
+- Branch: <branch-atual>
+- No matching active initiative in .atomic-skills/PROJECT-STATUS.md
+
+Active initiatives:
+  1. <slug-1> (branch <branch-1>, last updated <timestamp>)
+  2. <slug-2> (branch <branch-2>, <status>)
+
+Is this work:
+  (a) Continuation of an existing initiative (pick: 1 or 2)
+  (b) Lateral expansion of an existing initiative (pick: 1 or 2; new frame added to its stack)
+  (c) A new initiative (skill will prompt for name, goal)
+  (d) Ad-hoc work (no initiative anchor)
+```
+
+Por escolha:
+- (a): carregue arquivo selecionado; pergunte onde no stack retomar
+- (b): carregue arquivo; `push` novo frame para expansão lateral
+- (c): chame handler `new`
+- (d): append linha em "Ad-Hoc Sessions Log" de PROJECT-STATUS.md com timestamp + descrição curta
+
+## `--browser [<slug>]`
+
+1. Determine slug (arg ou iniciativa ativa).
+2. **Pergunte confirmação** (regra de intrusive actions):
+   > "Open initiative in browser? (y/N)"
+   Se não, aborte.
+3. Gere renderização em `.atomic-skills/initiatives/<slug>.rendered.md`:
+   - Header com metadata
+   - Mermaid Gantt das tasks (done/active/blocked)
+   - Mermaid flowchart de dependências (T-X → T-Y via blocker)
+   - Stack como lista MD aninhada
+   - Tasks como tabela MD
+   - Parked + Emerged como bullets
+   - Corpo narrativo do source file (passthrough)
+4. Execute com {{BASH_TOOL}}:
+   ```bash
+   npx -y @henryavila/mdprobe view .atomic-skills/initiatives/<slug>.rendered.md
+   ```
+5. Reporte URL exibida pelo mdprobe.
+
+Template Mermaid Gantt:
+```mermaid
+gantt
+    title <slug>
+    dateFormat YYYY-MM-DD
+    section Done
+    <Task> :done, <start>, <end>
+    section Active
+    <Task> :active, <start>, <duration>
+    section Blocked
+    <Task> :crit, after <blocker>, <duration>
+```
+
+Template Mermaid Flowchart:
+```mermaid
+flowchart LR
+    T-NNN[Title] -->|done| T-NNN+1
+    T-NNN+1 --> T-NNN+2
+```
+
+## `--report`
+
+Emita MD no stdout, formato pasteable para standup/PR/update:
+
+```markdown
+# Project Status — YYYY-MM-DD
+
+## Active Initiatives
+
+### <slug> (started YYYY-MM-DD)
+**Next:** <next_action>
+**Progress:** <N tasks done>; <M in progress> (stack depth <D>)
+**Parked:** <lista>
+**Emerged:** <lista>
+
+### <slug-2> ...
+```
+
+Sem browser launch; stdout puro.
