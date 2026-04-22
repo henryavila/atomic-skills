@@ -233,6 +233,8 @@ Cada skill usa uma combinação destas técnicas para prevenir atalhos do agente
 |---------|-----------|---------|
 | **Iron Law** | Uma regra inegociável no topo | `NO FIX WITHOUT ROOT CAUSE` |
 | **HARD-GATE** | Parada obrigatória antes de ação perigosa | "Se modificar código sem teste: PARE" |
+| **Check de Precondição** | Validar encaixe da skill antes de pagar custo de exploração | Q1-Q4: escopo consolidado? estados finais concretos? ganho de wallclock? independência? |
+| **Critério de Convergência** | Parar exploração quando hipótese estabiliza; sem limites operacionais arbitrários | "O próximo grep mudaria a decomposição? Se não, pare" |
 | **Red Flags** | Pensamentos que indicam que você está pulando etapas | "Eu já sei qual é o bug" |
 | **Tabela de Racionalização** | Mapeia atalhos tentadores para por que eles falham | "O fix é óbvio" → "Óbvio pra quem? Prove" |
 | **Exigência de Evidência** | Toda afirmação deve citar linha ou saída de ferramenta | "Cite arquivo:linha, não 'eu verifiquei'" |

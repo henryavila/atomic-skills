@@ -231,6 +231,8 @@ Each skill uses a combination of these techniques to prevent agent shortcuts:
 |-----------|-------------|---------|
 | **Iron Law** | One non-negotiable rule at the top | `NO FIX WITHOUT ROOT CAUSE` |
 | **HARD-GATE** | Mandatory stop before a dangerous action | "If modifying code without a test: STOP" |
+| **Precondition Check** | Validate skill fit before paying exploration cost | Q1-Q4: scope consolidated? end states concrete? wallclock gain? independent? |
+| **Convergence Criterion** | Stop exploring when hypothesis stabilizes; no arbitrary op limits | "Would the next grep change my decomposition? If no, stop" |
 | **Red Flags** | Thoughts that mean you're skipping steps | "I already know what the bug is" |
 | **Rationalization Table** | Maps tempting shortcuts to why they fail | "The fix is obvious" → "Obvious to whom? Prove it" |
 | **Evidence Requirement** | Every claim must cite line numbers or tool output | "Cite file:line, not 'I checked'" |
