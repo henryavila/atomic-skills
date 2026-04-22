@@ -94,16 +94,16 @@ describe('countSkills', () => {
 
   it('counts core skills with no modules', () => {
     const result = countSkills(metaDir, {});
-    assert.strictEqual(result, '6 core');
+    assert.strictEqual(result, '8 core');
   });
 
   it('counts core + module skills when memory is enabled', () => {
     const result = countSkills(metaDir, { memory: { installed: true } });
-    assert.strictEqual(result, '6 core + 1 module');
+    assert.strictEqual(result, '8 core + 1 module');
   });
 
   it('ignores disabled modules', () => {
     const result = countSkills(metaDir, { memory: { installed: false } });
-    assert.strictEqual(result, '6 core');
+    assert.strictEqual(result, '8 core');
   });
 });

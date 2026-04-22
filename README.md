@@ -49,6 +49,8 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 | 🔧 | [`fix`](#atomic-skillsfix--root-cause-diagnosis--tdd-fix) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE` |
 | 🎯 | [`hunt`](#atomic-skillshunt--adversarial-tests-for-existing-code) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE` |
 | 📝 | [`prompt`](#atomic-skillsprompt--optimized-prompt-generation) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS` |
+| 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--dispatch-a-task-list-to-n-parallel-sessions) | Dispatch a user-provided task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION` |
+| 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--audit-a-parallel-dispatch-batch) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK` |
 | 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--adversarial-plan-review) | Find contradictions, broken deps, and gaps in a plan | `NO APPROVAL WITHOUT EVIDENCE` |
 | 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plan-vs-artifacts) | Cross-reference plan against PRD/specs for missing requirements | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--save-work--publish) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION` |
@@ -107,6 +109,54 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 - Compatible with any IDE via template variables
 
 **Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS`
+
+---
+
+### `atomic-skills:parallel-dispatch` — Dispatch a Task List to N Parallel Sessions
+
+**Problem it solves:** You have a consolidated list of independent tasks you want to run in parallel sessions while you sleep / attend a meeting / work on something else. Running agent swarms without structure causes file collisions, paraphrased intent, broad-stage git contamination, and merge wars. Sequential work leaves the machine idle.
+
+**What it does:** Takes a user-provided task list and dispatches it through a four-gate pipeline. **HARD-GATE #1 (Q1-Q4)** validates parallelism benefit — aborts on exploratory requests, non-concrete end states, trivial scope, or hard dependencies. **HARD-GATE #2** proves scope disjointness via pairwise grep (convergence criterion, no operational limits). Generates N self-contained prompts with the user's original request **verbatim** (no paraphrase), a unique batch id (`[dispatch-<timestamp>-<slug>]`), branch record, and explicit `git add <path>` protocol (blocks `git add -A` contamination from sibling sessions). Writes the combined plan to `.atomic-skills/dispatches/<slug>.md` and asks before opening it in mdprobe.
+
+**When to use:** User has a well-defined task list with paths per task. Skill is NOT for brainstorming or inventing tasks from a vague prompt — it validates what the user brought and dispatches mechanically.
+
+**Advantages:**
+- HARD-GATE #1 aborts bad-fit invocations early (exploratory work, hard deps, trivial scope)
+- Convergence criterion over arbitrary operation limits — stops exploring when decomposition hypothesis stabilizes
+- User's task text preserved verbatim in each prompt — no lossy paraphrase
+- Batch id is unique per invocation (timestamp + slug) — `git log --grep` audits are deterministic
+- Explicit `git add <path>` protocol prevents sibling-session staging contamination
+- Confidence scoring (HIGH/MEDIUM/LOW) — LOW refuses by default
+
+**Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION`
+
+> **Related: `superpowers:dispatching-parallel-agents`**
+> Different dispatch model, different problem:
+> - Use **superpowers** when work fits the current session — `Task()` primitive runs sub-agents synchronously inside the parent context. Good for "3 failing test files to debug right now".
+> - Use **parallel-dispatch** when you're stepping away — copy-paste handoff to N fresh sessions, parent context freed, persistent plan + audit trail. Good for overnight work, long meetings, or when the parent context is tight.
+>
+> The two are complementary, not substitutes.
+
+---
+
+### `atomic-skills:parallel-dispatch-audit` — Audit a parallel-dispatch Batch
+
+**Problem it solves:** After N parallel agents run, trusting commit messages leads to silent failures — empty files commit fine, wrong content commits fine, broken cross-references commit fine. Without a narrow-authority auditor, either nothing gets verified or the auditor refactors what it shouldn't.
+
+**What it does:** Reads the plan file at `.atomic-skills/dispatches/<slug>.md`, inventories commits by batch id (`git log --grep`), runs a count check (expected N vs found M), opens **every** expected deliverable on disk, audits each agent on 4 dimensions (completeness, quality, integration, executability), runs a 2.5th pass for documentation integrity and shared-state collisions, applies cosmetic fixes with a derived `[audit-dispatch-<slug>]` prefix, consolidates memory if in scope, and produces a report with push-status and pending decisions. **Active-batch HARD-GATE** pauses if the latest matching commit is <2 min old (slow agent misclassified as failed). **Read-only mode** triggers on ≥5 issues or architectural problems — no fixes, report only.
+
+**When to use:** After all `parallel-dispatch` agents complete — run in a fresh session with the batch slug as argument. Supports a **degraded mode** when no plan file is present (manual dispatch).
+
+**Advantages:**
+- HARD-GATE #1: ≥5 issues or any architectural problem → read-only mode (prevents piecemeal fixes hiding a bad dispatch)
+- HARD-GATE #2: latest commit <2 min old → pause and confirm completion (prevents misclassifying slow agents)
+- Narrow authority: verify + cosmetic fix only. No refactor, no revert without confirmation, no auto-push
+- Count check (expected N vs found M) catches incomplete batches early
+- Phase 2.5 catches broken cross-references AND shared-state collisions (lockfiles, build artifacts, root config) the N agents missed
+- Contradiction protocol: newest timestamp wins, with explicit resolution logged
+- Degraded mode for manual dispatches: audit by prefix only when plan is absent, announce limitation
+
+**Iron Law:** `NO CONCLUSION WITHOUT EVIDENCE FROM DISK`
 
 ---
 
@@ -188,6 +238,8 @@ Each skill uses a combination of these techniques to prevent agent shortcuts:
 |-----------|-------------|---------|
 | **Iron Law** | One non-negotiable rule at the top | `NO FIX WITHOUT ROOT CAUSE` |
 | **HARD-GATE** | Mandatory stop before a dangerous action | "If modifying code without a test: STOP" |
+| **Precondition Check** | Validate skill fit before paying exploration cost | Q1-Q4: scope consolidated? end states concrete? wallclock gain? independent? |
+| **Convergence Criterion** | Stop exploring when hypothesis stabilizes; no arbitrary op limits | "Would the next grep change my decomposition? If no, stop" |
 | **Red Flags** | Thoughts that mean you're skipping steps | "I already know what the bug is" |
 | **Rationalization Table** | Maps tempting shortcuts to why they fail | "The fix is obvious" → "Obvious to whom? Prove it" |
 | **Evidence Requirement** | Every claim must cite line numbers or tool output | "Cite file:line, not 'I checked'" |

@@ -51,6 +51,8 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 | 🔧 | [`fix`](#atomic-skillsfix--diagnóstico-e-correção-de-bugs-com-tdd) | Diagnosticar causa raiz → escrever teste → corrigir → verificar | `NO FIX WITHOUT ROOT CAUSE` |
 | 🎯 | [`hunt`](#atomic-skillshunt--testes-adversariais-para-código-existente) | Escrever testes adversariais para quebrar código, não confirmá-lo | `NO HUNT WITHOUT BOUNDED SCOPE` |
 | 📝 | [`prompt`](#atomic-skillsprompt--geração-de-prompts-otimizados) | Gerar prompt self-contained com paths exatos e guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS` |
+| 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--despachar-lista-de-tarefas-para-n-sessões-paralelas) | Despachar uma lista de tarefas fornecida pelo usuário para N sessões paralelas com isolamento verificado | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION` |
+| 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--auditar-um-batch-de-parallel-dispatch) | Auditar output de um batch parallel-dispatch, aplicar fixes, reportar | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK` |
 | 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--revisão-adversarial-de-planos) | Encontrar contradições, deps quebradas e gaps em um plano | `NO APPROVAL WITHOUT EVIDENCE` |
 | 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plano-vs-artefatos) | Cruzar plano contra PRD/specs para requisitos faltando | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--salvar-trabalho-e-publicar) | Salvar learnings na memória, agrupar commits, push seguro | `NO PUSH WITHOUT FRESH VERIFICATION` |
@@ -107,6 +109,54 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 - Compatível com qualquer IDE via template variables
 
 **Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS`
+
+---
+
+### `atomic-skills:parallel-dispatch` — Despachar Lista de Tarefas para N Sessões Paralelas
+
+**Problema que resolve:** Você tem uma lista consolidada de tarefas independentes que quer rodar em sessões paralelas enquanto dorme / está em reunião / trabalha em outra coisa. Rodar swarms de agents sem estrutura causa colisões de arquivo, intenção parafraseada, contaminação de git por stage amplo, e merge wars. Trabalho sequencial deixa a máquina ociosa.
+
+**O que faz:** Recebe uma lista de tarefas fornecida pelo usuário e despacha através de um pipeline de quatro gates. **HARD-GATE #1 (Q1-Q4)** valida o benefício de paralelismo — aborta em pedidos exploratórios, estados finais não-concretos, escopo trivial ou dependências hard. **HARD-GATE #2** prova disjunção de escopo via grep pareado (critério de convergência, sem limites operacionais). Gera N prompts autocontidos com o pedido original do usuário **verbatim** (sem paráfrase), um batch id único (`[dispatch-<timestamp>-<slug>]`), branch registrado, e protocolo explícito de `git add <path>` (bloqueia contaminação por `git add -A` de sessões irmãs). Escreve o plano combinado em `.atomic-skills/dispatches/<slug>.md` e pergunta antes de abrir no mdprobe.
+
+**Quando usar:** Usuário tem uma lista de tarefas bem-definida com paths por tarefa. A skill NÃO é para brainstorming ou inventar tarefas a partir de prompt vago — ela valida o que o usuário trouxe e despacha mecanicamente.
+
+**Vantagens:**
+- HARD-GATE #1 aborta invocações mal-encaixadas cedo (trabalho exploratório, hard deps, escopo trivial)
+- Critério de convergência em vez de limites operacionais arbitrários — para de explorar quando a hipótese de decomposição estabiliza
+- Texto da tarefa do usuário preservado verbatim em cada prompt — sem paráfrase que perde sentido
+- Batch id único por invocação (timestamp + slug) — auditorias via `git log --grep` são determinísticas
+- Protocolo explícito de `git add <path>` previne contaminação de staging por sessão irmã
+- Confidence scoring (HIGH/MEDIUM/LOW) — LOW recusa por default
+
+**Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION`
+
+> **Relacionado: `superpowers:dispatching-parallel-agents`**
+> Modelo de dispatch diferente, problema diferente:
+> - Use o **superpowers** quando o trabalho cabe na sessão atual — o primitivo `Task()` roda sub-agents sincronamente dentro do contexto do pai. Bom para "3 arquivos de teste falhando pra debugar agora".
+> - Use **parallel-dispatch** quando você vai se ausentar — handoff por copy-paste para N sessões novas, contexto do pai liberado, plano + trilha de auditoria persistentes. Bom para trabalho noturno, reuniões longas, ou quando o contexto do pai está apertado.
+>
+> As duas são complementares, não substitutas.
+
+---
+
+### `atomic-skills:parallel-dispatch-audit` — Auditar um Batch de parallel-dispatch
+
+**Problema que resolve:** Depois que N agents paralelos rodam, confiar em mensagens de commit leva a falhas silenciosas — arquivos vazios comitam bem, conteúdo errado comita bem, referências cruzadas quebradas comitam bem. Sem um auditor de autoridade estreita, ou nada é verificado ou o auditor refatora o que não devia.
+
+**O que faz:** Lê o arquivo de plano em `.atomic-skills/dispatches/<slug>.md`, inventaria commits pelo batch id (`git log --grep`), roda um check de contagem (esperado N vs encontrado M), abre **todo** deliverable esperado no disco, audita cada agent em 4 dimensões (completude, qualidade, integração, executabilidade), roda um passe 2.5 para integridade de documentação e colisões de shared state, aplica fixes cosméticos com prefix derivado `[audit-dispatch-<slug>]`, consolida memória se no escopo, e produz um relatório com status de push e pendências. **HARD-GATE de batch ativo** pausa se o commit mais recente é <2 min atrás (agent lento misclassificado como falhou). **Modo read-only** dispara em ≥5 issues ou problemas arquiteturais — sem fixes, só relatório.
+
+**Quando usar:** Depois que todos os agents do `parallel-dispatch` completaram — rode em uma sessão nova com o slug do batch como argumento. Suporta **modo degradado** quando não há arquivo de plano (dispatch manual).
+
+**Vantagens:**
+- HARD-GATE #1: ≥5 issues ou qualquer problema arquitetural → modo read-only (evita fixes fragmentados escondendo um dispatch ruim)
+- HARD-GATE #2: commit mais recente <2 min atrás → pausa e confirma conclusão (evita misclassificar agents lentos)
+- Autoridade estreita: verificar + fix cosmético apenas. Sem refactor, sem revert sem confirmação, sem auto-push
+- Check de contagem (esperado N vs encontrado M) pega batches incompletos cedo
+- Fase 2.5 pega referências cruzadas quebradas E colisões de shared state (lockfiles, build artifacts, config de raiz) que os N agents perderam
+- Protocolo de contradição: timestamp mais recente vence, com resolução explícita registrada
+- Modo degradado para dispatches manuais: audita só pelo prefix quando plano está ausente, anuncia a limitação
+
+**Iron Law:** `NO CONCLUSION WITHOUT EVIDENCE FROM DISK`
 
 ---
 
@@ -190,6 +240,8 @@ Cada skill usa uma combinação destas técnicas para prevenir atalhos do agente
 |---------|-----------|---------|
 | **Iron Law** | Uma regra inegociável no topo | `NO FIX WITHOUT ROOT CAUSE` |
 | **HARD-GATE** | Parada obrigatória antes de ação perigosa | "Se modificar código sem teste: PARE" |
+| **Check de Precondição** | Validar encaixe da skill antes de pagar custo de exploração | Q1-Q4: escopo consolidado? estados finais concretos? ganho de wallclock? independência? |
+| **Critério de Convergência** | Parar exploração quando hipótese estabiliza; sem limites operacionais arbitrários | "O próximo grep mudaria a decomposição? Se não, pare" |
 | **Red Flags** | Pensamentos que indicam que você está pulando etapas | "Eu já sei qual é o bug" |
 | **Tabela de Racionalização** | Mapeia atalhos tentadores para por que eles falham | "O fix é óbvio" → "Óbvio pra quem? Prove" |
 | **Exigência de Evidência** | Toda afirmação deve citar linha ou saída de ferramenta | "Cite arquivo:linha, não 'eu verifiquei'" |
