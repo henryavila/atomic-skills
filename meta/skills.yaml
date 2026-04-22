@@ -11,6 +11,9 @@ core:
   review-plan-vs-artifacts:
     name: review-plan-vs-artifacts
     description: "Adversarial review comparing plan against actual generated artifacts."
+  project-status:
+    name: project-status
+    description: "Canonical per-initiative status tracking. Maintains .atomic-skills/ tree with stack + tasks + parked + emerged per initiative. Terminal compact view + browser via mdprobe. Auto-installs CLAUDE.md HARD-GATE + AGENTS.md redirect + Claude Code hooks (SessionStart injection, Stop predicate in dry-run). Use whenever starting, resuming, pushing/popping stack frames, parking lateral findings, or viewing status across sessions and worktrees."
   prompt:
     name: prompt
     description: "Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails."

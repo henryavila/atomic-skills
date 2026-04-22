@@ -56,6 +56,7 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 | 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--revisão-adversarial-de-planos) | Encontrar contradições, deps quebradas e gaps em um plano | `NO APPROVAL WITHOUT EVIDENCE` |
 | 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plano-vs-artefatos) | Cruzar plano contra PRD/specs para requisitos faltando | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--salvar-trabalho-e-publicar) | Salvar learnings na memória, agrupar commits, push seguro | `NO PUSH WITHOUT FRESH VERIFICATION` |
+| 📊 | [`project-status`](#atomic-skillsproject-status--rastreamento-canônico-de-iniciativa) | Árvore canônica de status por iniciativa com stack + tasks + parked + emerged; enforcement via hooks | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE` |
 | 🧠 | [`init-memory`](#atomic-skillsinit-memory--inicialização-de-memória-persistente) | Centralizar memória do projeto em `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
 
 ### `atomic-skills:fix` — Diagnóstico e Correção de Bugs com TDD
@@ -211,6 +212,25 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 - HARD-GATE impede push direto em main/master — exige branch + PR
 
 **Iron Law:** `NO PUSH WITHOUT FRESH VERIFICATION`
+
+---
+
+### `atomic-skills:project-status` — Rastreamento Canônico de Iniciativa
+
+**Problema que resolve:** Humanos e agentes de IA se perdem no meio de uma implementação quando tarefas geram sub-tarefas, bugs, expansões de escopo e explorações laterais entre sessões e worktrees.
+
+**O que faz:** Mantém `.atomic-skills/PROJECT-STATUS.md` (índice) e `.atomic-skills/initiatives/<slug>.md` (por iniciativa: stack + tasks + parked + emerged + próxima ação) como fonte canônica única. Três camadas de enforcement: (a) invocação da skill, (b) CLAUDE.md HARD-GATE + redirect AGENTS.md auto-instalados, (c) hooks do Claude Code (injeção no SessionStart + predicado no Stop em dry-run). Render terminal compacto; render browser via `npx -y @henryavila/mdprobe` com diagramas Mermaid (Gantt, flowchart, stack).
+
+**Quando usar:** Começar nova iniciativa, retomar após context switch, empilhar novo stack frame (research/discussion), parkear achados laterais, promover itens parkeados, marcar tasks done, arquivar ou visualizar estado atual.
+
+**Vantagens:**
+- Fonte canônica única; sobrevive entre sessões e worktrees
+- Enforcement via hooks (não só prompts) — difícil "esquecer"
+- Escopo cross-repo auto-rastreado da atividade das tools
+- Rendering terminal + browser nativos
+- Compatibilidade com AGENTS.md para projetos multi-IDE
+
+**Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE`
 
 ---
 

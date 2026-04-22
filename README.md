@@ -214,6 +214,25 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 ---
 
+### `atomic-skills:project-status` — Canonical Per-Initiative Status Tracking
+
+**Problem it solves:** Users and AI agents lose track of where they are mid-implementation when tasks spawn sub-tasks, bugs, scope expansions, and lateral explorations across sessions and worktrees.
+
+**What it does:** Maintains `.atomic-skills/PROJECT-STATUS.md` (index) and `.atomic-skills/initiatives/<slug>.md` (per-initiative: stack + tasks + parked + emerged + next action) as canonical source of truth. Three enforcement layers: (a) skill invocation, (b) CLAUDE.md HARD-GATE + AGENTS.md redirect auto-installed, (c) Claude Code hooks (SessionStart injection + Stop predicate in dry-run). Terminal rendering compact; browser rendering via `npx -y @henryavila/mdprobe` with Mermaid Gantt/Flowchart/Stack diagrams.
+
+**When to use:** Starting a new initiative, resuming after context switch, pushing a new stack frame (research/discussion), parking lateral findings, promoting parked items, marking tasks done, archiving, or viewing current state.
+
+**Advantages:**
+- Single canonical source; survives sessions and worktrees
+- Enforcement via hooks (not just prompts) — hard to "forget"
+- Cross-repo scope auto-tracked from tool activity
+- Terminal + browser rendering built-in
+- AGENTS.md compatibility for multi-IDE projects
+
+**Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE`
+
+---
+
 ### `atomic-skills:init-memory` — Persistent Memory Initialization
 
 **Problem it solves:** Projects have memory scattered across different locations (`.memory/`, `.claude/memory/`, `docs/memory/`, etc.), causing duplication, context loss, and inconsistency.

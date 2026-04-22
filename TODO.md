@@ -27,3 +27,17 @@ Review the current diff (not plans, not specs — the actual code changes) with 
 **Sources**: Augment Code (45% comment-addressed rate), ODSC Impact Slicing, Codex SDK two-dimensional scoring, BMAD Blind Hunter pattern.
 
 **Status**: research done, implementation pending.
+
+---
+
+## Follow-ups from 2026-04-22 project-status implementation
+
+### `atomic-skills:install-project-instruction` (helper skill)
+
+Extract the CLAUDE.md injection + AGENTS.md redirect logic used by `project-status` into a shared helper skill. Any future atomic-skills skill that modifies project instruction files should delegate to this helper.
+
+**Why:** DRY the pattern; ensure AGENTS.md consistency across atomic-skills ecosystem.
+
+**Scope:** small helper skill, callable from other skills' setup flows. Input: skill name + block-markers + block-template + AGENTS.md-redirect flag. Output: idempotent injection into CLAUDE.md + AGENTS.md creation/suggestion.
+
+**Status:** research done (inline in `docs/superpowers/specs/2026-04-22-status-initiative-design.md` §10), implementation pending.

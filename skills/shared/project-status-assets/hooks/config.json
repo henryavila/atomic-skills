@@ -1,0 +1,14 @@
+{
+  "strict_mode": false,
+  "dry_run_started": "REPLACE_DATE",
+  "source_globs": [
+    "src/",
+    "lib/",
+    "app/",
+    "services/",
+    "pkg/",
+    "internal/"
+  ],
+  "max_stack_depth_warning": 6,
+  "auto_archive_done_threshold": 30
+}

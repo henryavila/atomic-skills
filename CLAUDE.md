@@ -17,3 +17,7 @@ Para manter compatibilidade entre Claude Code, Gemini CLI e outros:
 2. **Argumentos**: Use `{{ARG_VAR}}` em vez de `$ARGUMENTS`.
 3. **Renderização Condicional**: Use `{{#if ide.gemini}}` ou `{{#if ide.claude-code}}` para instruções específicas.
 4. **Guia Completo**: Veja `docs/kb/gemini-cli-compatibility.md`.
+
+## Rastreamento de iniciativas
+
+Este repo tem a skill `atomic-skills:project-status` (PT + EN). Estado operacional canônico em `.atomic-skills/` é mantido via esta skill + hooks opcionais. Execute `atomic-skills:project-status` para setup na primeira vez, depois para operação durante desenvolvimento.
