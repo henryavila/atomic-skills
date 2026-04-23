@@ -193,3 +193,49 @@ export function mergeFuzzySingletons(clusters, unmatched) {
 
   return { clusters: out, remainingOrphans };
 }
+
+const VALID_SLUG = /^[a-z][a-z0-9-]{1,39}$/;
+
+const CANONICAL_PRIORITY = [
+  (m) => m.source_type === 'git-branch',
+  (m) => m.source_type === 'github-pr-open',
+  (m) => m.source_type === 'doc-plan' || m.source_type === 'doc-spec',
+  (m) => m.source_type && m.source_type.startsWith('memory-'),
+  () => true, // fallback: any
+];
+
+export function pickCanonicalSlug(cluster) {
+  const members = cluster.members || [];
+
+  let candidate = null;
+  for (const predicate of CANONICAL_PRIORITY) {
+    const matching = members.filter(predicate);
+    if (matching.length === 0) continue;
+    // Sort by last_activity desc; most recent wins
+    matching.sort((a, b) => {
+      const ta = a.last_activity ? new Date(a.last_activity).getTime() : 0;
+      const tb = b.last_activity ? new Date(b.last_activity).getTime() : 0;
+      return tb - ta;
+    });
+    candidate = matching[0].slug;
+    if (candidate) break;
+  }
+
+  if (candidate && VALID_SLUG.test(candidate)) {
+    return { slug: candidate, alternatives: [] };
+  }
+
+  // Generate alternatives by sanitizing the candidate
+  const alternatives = [];
+  if (candidate) {
+    alternatives.push(normalizeSlug(candidate));
+    alternatives.push(normalizeSlug('topic-' + candidate));
+  }
+  alternatives.push(normalizeSlug('unnamed-' + Date.now()));
+
+  const sanitized = alternatives.find((a) => VALID_SLUG.test(a));
+  return {
+    slug: sanitized || 'unnamed',
+    alternatives: alternatives.filter((a) => VALID_SLUG.test(a)),
+  };
+}

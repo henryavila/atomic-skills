@@ -328,3 +328,55 @@ describe('mergeFuzzySingletons', () => {
     assert.equal(result.clusters.length, 2);
   });
 });
+
+import { pickCanonicalSlug } from '../src/bootstrap.js';
+
+describe('pickCanonicalSlug', () => {
+  it('prefers slug of active git-branch when present', () => {
+    const cluster = {
+      members: [
+        { source_type: 'doc-plan', slug: 'review-skill' },
+        { source_type: 'git-branch', slug: 'as-review-code' },
+      ],
+    };
+    const r = pickCanonicalSlug(cluster);
+    assert.equal(r.slug, 'as-review-code');
+    assert.deepEqual(r.alternatives, []);
+  });
+
+  it('falls back to open PR slug when no branch', () => {
+    const cluster = {
+      members: [
+        { source_type: 'doc-plan', slug: 'review-skill' },
+        { source_type: 'github-pr-open', slug: 'as-review-code' },
+      ],
+    };
+    assert.equal(pickCanonicalSlug(cluster).slug, 'as-review-code');
+  });
+
+  it('falls back to most recent plan/spec when no branch or PR', () => {
+    const cluster = {
+      members: [
+        { source_type: 'doc-plan', slug: 'old-plan', last_activity: '2026-01-01T00:00:00Z' },
+        { source_type: 'doc-plan', slug: 'new-plan', last_activity: '2026-04-01T00:00:00Z' },
+        { source_type: 'memory-local-entry', slug: 'memory-topic' },
+      ],
+    };
+    assert.equal(pickCanonicalSlug(cluster).slug, 'new-plan');
+  });
+
+  it('flags invalid slugs and proposes alternatives', () => {
+    const cluster = {
+      members: [{ source_type: 'git-branch', slug: '123-bad-start' }],
+    };
+    const r = pickCanonicalSlug(cluster);
+    assert.ok(r.slug.match(/^[a-z][a-z0-9-]{1,39}$/) || r.alternatives.length > 0);
+  });
+
+  it('returns valid slug verbatim if it passes regex', () => {
+    const cluster = {
+      members: [{ source_type: 'git-branch', slug: 'valid-slug' }],
+    };
+    assert.equal(pickCanonicalSlug(cluster).slug, 'valid-slug');
+  });
+});
