@@ -152,3 +152,15 @@ export function classifyBucket(cluster, now = new Date()) {
 
   return 'worth-reviewing';
 }
+
+export function clusterByExactSlug(signals) {
+  const bySlug = new Map();
+  const unmatched = [];
+  for (const sig of signals || []) {
+    const slug = sig.slug;
+    if (!slug) { unmatched.push(sig); continue; }
+    if (!bySlug.has(slug)) bySlug.set(slug, { slug, members: [] });
+    bySlug.get(slug).members.push(sig);
+  }
+  return { clusters: [...bySlug.values()], unmatched };
+}

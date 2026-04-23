@@ -245,3 +245,45 @@ describe('classifyBucket', () => {
     assert.equal(classifyBucket(cluster, now), 'worth-reviewing');
   });
 });
+
+import { clusterByExactSlug } from '../src/bootstrap.js';
+
+describe('clusterByExactSlug', () => {
+  it('returns empty arrays for empty input', () => {
+    const result = clusterByExactSlug([]);
+    assert.deepEqual(result, { clusters: [], unmatched: [] });
+  });
+
+  it('creates one cluster per unique slug', () => {
+    const signals = [
+      { id: 'a', slug: 'as-review' },
+      { id: 'b', slug: 'install-helper' },
+    ];
+    const { clusters, unmatched } = clusterByExactSlug(signals);
+    assert.equal(clusters.length, 2);
+    assert.equal(unmatched.length, 0);
+  });
+
+  it('groups signals with identical slug', () => {
+    const signals = [
+      { id: 'a', slug: 'as-review' },
+      { id: 'b', slug: 'as-review' },
+      { id: 'c', slug: 'other' },
+    ];
+    const { clusters } = clusterByExactSlug(signals);
+    assert.equal(clusters.length, 2);
+    const asReview = clusters.find((c) => c.slug === 'as-review');
+    assert.equal(asReview.members.length, 2);
+  });
+
+  it('puts signals without slug in unmatched', () => {
+    const signals = [
+      { id: 'a', slug: 'as-review' },
+      { id: 'b', slug: '' },
+      { id: 'c' }, // missing slug
+    ];
+    const { clusters, unmatched } = clusterByExactSlug(signals);
+    assert.equal(clusters.length, 1);
+    assert.equal(unmatched.length, 2);
+  });
+});
