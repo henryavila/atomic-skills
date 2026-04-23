@@ -204,18 +204,21 @@ const CANONICAL_PRIORITY = [
   () => true, // fallback: any
 ];
 
-export function pickCanonicalSlug(cluster) {
+export function pickCanonicalSlug(cluster, now = new Date()) {
   const members = cluster.members || [];
 
   let candidate = null;
-  for (const predicate of CANONICAL_PRIORITY) {
+  for (let idx = 0; idx < CANONICAL_PRIORITY.length; idx++) {
+    const predicate = CANONICAL_PRIORITY[idx];
     const matching = members.filter(predicate);
     if (matching.length === 0) continue;
-    // Sort by last_activity desc; most recent wins
+    // Level 5 (last, fallback) uses earliest-first per spec §8.3 priority 5.
+    // Levels 1-4 use most-recent-first.
+    const isFallback = idx === CANONICAL_PRIORITY.length - 1;
     matching.sort((a, b) => {
       const ta = a.last_activity ? new Date(a.last_activity).getTime() : 0;
       const tb = b.last_activity ? new Date(b.last_activity).getTime() : 0;
-      return tb - ta;
+      return isFallback ? ta - tb : tb - ta;
     });
     candidate = matching[0].slug;
     if (candidate) break;
@@ -231,7 +234,7 @@ export function pickCanonicalSlug(cluster) {
     alternatives.push(normalizeSlug(candidate));
     alternatives.push(normalizeSlug('topic-' + candidate));
   }
-  alternatives.push(normalizeSlug('unnamed-' + Date.now()));
+  alternatives.push(normalizeSlug('unnamed-' + now.getTime()));
 
   const sanitized = alternatives.find((a) => VALID_SLUG.test(a));
   return {

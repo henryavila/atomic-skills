@@ -379,6 +379,25 @@ describe('pickCanonicalSlug', () => {
     };
     assert.equal(pickCanonicalSlug(cluster).slug, 'valid-slug');
   });
+
+  it('is deterministic when given the same now parameter (purity)', () => {
+    const cluster = { members: [] };
+    const now = new Date('2026-04-23T12:00:00Z');
+    const r1 = pickCanonicalSlug(cluster, now);
+    const r2 = pickCanonicalSlug(cluster, now);
+    assert.deepEqual(r1, r2);
+  });
+
+  it('fallback level picks earliest signal (not most recent)', () => {
+    const cluster = {
+      members: [
+        { source_type: 'commit-group', slug: 'old-signal', last_activity: '2026-01-01T00:00:00Z' },
+        { source_type: 'commit-group', slug: 'new-signal', last_activity: '2026-04-01T00:00:00Z' },
+      ],
+    };
+    // commit-group matches only the fallback () => true predicate.
+    assert.equal(pickCanonicalSlug(cluster).slug, 'old-signal');
+  });
 });
 
 import { draftToInitiative } from '../src/bootstrap.js';
