@@ -164,3 +164,32 @@ export function clusterByExactSlug(signals) {
   }
   return { clusters: [...bySlug.values()], unmatched };
 }
+
+const FUZZY_DISTANCE_MAX = 2;
+
+export function mergeFuzzySingletons(clusters, unmatched) {
+  // Clone to avoid mutating inputs
+  const out = clusters.map((c) => ({ ...c, members: [...c.members] }));
+  const remainingOrphans = [];
+
+  for (const orphan of unmatched || []) {
+    if (!orphan.slug) { remainingOrphans.push(orphan); continue; }
+
+    // Find closest cluster(s)
+    let bestDist = FUZZY_DISTANCE_MAX + 1;
+    let bestIdx = [];
+    for (let i = 0; i < out.length; i++) {
+      const d = editDistance(orphan.slug, out[i].slug);
+      if (d < bestDist) { bestDist = d; bestIdx = [i]; }
+      else if (d === bestDist) { bestIdx.push(i); }
+    }
+
+    if (bestDist <= FUZZY_DISTANCE_MAX && bestIdx.length === 1) {
+      out[bestIdx[0]].members.push(orphan);
+    } else {
+      remainingOrphans.push(orphan);
+    }
+  }
+
+  return { clusters: out, remainingOrphans };
+}

@@ -287,3 +287,44 @@ describe('clusterByExactSlug', () => {
     assert.equal(unmatched.length, 2);
   });
 });
+
+import { mergeFuzzySingletons } from '../src/bootstrap.js';
+
+describe('mergeFuzzySingletons', () => {
+  it('merges singleton unmatched into cluster within distance 2', () => {
+    const clusters = [{ slug: 'as-review-code', members: [{ id: 'a', slug: 'as-review-code' }] }];
+    const unmatched = [{ id: 'b', slug: 'as-review-cod' }]; // distance 1
+    const result = mergeFuzzySingletons(clusters, unmatched);
+    assert.equal(result.clusters[0].members.length, 2);
+    assert.equal(result.remainingOrphans.length, 0);
+  });
+
+  it('does not merge when distance > 2', () => {
+    const clusters = [{ slug: 'apple', members: [{ id: 'a', slug: 'apple' }] }];
+    const unmatched = [{ id: 'b', slug: 'banana' }];
+    const result = mergeFuzzySingletons(clusters, unmatched);
+    assert.equal(result.clusters[0].members.length, 1);
+    assert.equal(result.remainingOrphans.length, 1);
+  });
+
+  it('leaves orphan when it matches multiple clusters equally (tie)', () => {
+    const clusters = [
+      { slug: 'abc', members: [{ id: 'a', slug: 'abc' }] },
+      { slug: 'abd', members: [{ id: 'b', slug: 'abd' }] },
+    ];
+    const unmatched = [{ id: 'c', slug: 'ab' }]; // distance 1 to both
+    const result = mergeFuzzySingletons(clusters, unmatched);
+    assert.equal(result.clusters[0].members.length, 1);
+    assert.equal(result.clusters[1].members.length, 1);
+    assert.equal(result.remainingOrphans.length, 1);
+  });
+
+  it('does NOT merge two existing multi-member clusters even if close', () => {
+    const clusters = [
+      { slug: 'apple', members: [{ id: 'a' }, { id: 'b' }] },
+      { slug: 'apples', members: [{ id: 'c' }, { id: 'd' }] }, // distance 1
+    ];
+    const result = mergeFuzzySingletons(clusters, []);
+    assert.equal(result.clusters.length, 2);
+  });
+});
