@@ -180,4 +180,28 @@ describe('project-status skill', () => {
       assert.ok(content.includes(token), `missing token: ${token}`);
     }
   });
+
+  it('skill documents Phase 1a shell commands for all Layer 1 sources', () => {
+    installSkills(tempDir, {
+      language: 'pt',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    for (const cmd of [
+      'git for-each-ref',
+      'git log --since',
+      'gh pr list',
+      'docs/superpowers/plans',
+      'TODO.md',
+      '.ai/memory',
+    ]) {
+      assert.ok(content.includes(cmd), `missing scan command: ${cmd}`);
+    }
+  });
 });

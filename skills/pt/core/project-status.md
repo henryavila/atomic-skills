@@ -345,3 +345,70 @@ Ao criar `.atomic-skills/` (passo 6 do setup), adicione também:
 .atomic-skills/bootstrap-drafts/
 .atomic-skills/status/bootstrap.json
 ```
+
+### Fase 1a — Shell enumerate
+
+Coleta determinística. Nenhuma interpretação de conteúdo.
+
+#### Git (sempre)
+
+```bash
+# Branches ativas (últimos 180d)
+git for-each-ref --sort=-committerdate \
+  --format='%(refname:short)|%(committerdate:iso-strict)|%(authorname)' \
+  refs/heads refs/remotes/origin
+
+# Commits recentes agrupados por escopo Conventional Commits (90d)
+git log --since='90 days ago' --pretty=format:'%h|%s|%ci' \
+  | grep -E '^[a-f0-9]+\|(feat|fix|refactor|docs|test|chore)\([^)]+\):'
+```
+
+#### GitHub CLI (se `gh` disponível)
+
+```bash
+gh pr list --state open --json number,title,headRefName,updatedAt,body,labels 2>/dev/null
+gh pr list --state merged --limit 20 --json number,title,headRefName,mergedAt 2>/dev/null
+gh issue list --state open --assignee @me --json number,title,labels,updatedAt 2>/dev/null
+```
+
+Se falhar: logue `source: github skipped (gh unavailable)` e continue. Não fatal.
+
+#### Docs estruturados (sempre)
+
+```bash
+find docs/superpowers/plans -type f -name '*.md' 2>/dev/null
+find docs/superpowers/specs -type f -name '*.md' 2>/dev/null
+find docs -type d -name 'adr*' -exec find {} -name '*.md' \; 2>/dev/null
+```
+
+#### Roadmap (sempre)
+
+```bash
+for f in TODO.md ROADMAP.md NEXT.md docs/TODO.md docs/ROADMAP.md; do
+  test -f "$f" && echo "$f"
+done
+```
+
+Para cada arquivo encontrado, parseie H2/H3 headers com spans de linhas (shell lê os headers; LLM lê as seções em 1b).
+
+#### Memory local (sempre)
+
+```bash
+test -f .ai/memory/MEMORY.md && echo ".ai/memory/MEMORY.md"
+find .ai/memory -maxdepth 2 -name '*.md' -not -name 'MEMORY.md' 2>/dev/null
+```
+
+Parseie MEMORY.md como índice (formato `[Title](file.md) — hook`).
+
+#### Claude ecosystem (Camada 2 — só se `.claude/` existe)
+
+```bash
+REPO_PATH=$(pwd | sed 's|^/|-|; s|/|-|g')
+CLAUDE_PROJ_DIR="$HOME/.claude/projects/$REPO_PATH"
+test -d "$CLAUDE_PROJ_DIR/memory" && \
+  find "$CLAUDE_PROJ_DIR/memory" -maxdepth 1 -name '*.md' -not -name 'MEMORY.md'
+```
+
+claude-mem obs: use MCP tool `mcp__plugin_claude-mem_mcp-search__search` (deferred) com filtro do projeto.
+
+Output de 1a: lista de `sources` com `type`, `id`, `last_activity`, `raw`. Nenhuma leitura de conteúdo ainda.
