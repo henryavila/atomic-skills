@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { normalizeSlug } from '../src/bootstrap.js';
+import { normalizeSlug, editDistance } from '../src/bootstrap.js';
 
 describe('normalizeSlug', () => {
   it('lowercases and kebab-cases simple input', () => {
@@ -63,5 +63,37 @@ describe('normalizeSlug', () => {
   it('converts remaining slashes to hyphens after prefix strip', () => {
     assert.equal(normalizeSlug('feat/org/feature'), 'org-feature');
     assert.equal(normalizeSlug('owner/repo'), 'owner-repo');
+  });
+});
+
+describe('editDistance', () => {
+  it('returns 0 for identical strings', () => {
+    assert.equal(editDistance('abc', 'abc'), 0);
+  });
+
+  it('returns length of other string when one is empty', () => {
+    assert.equal(editDistance('', 'hello'), 5);
+    assert.equal(editDistance('world', ''), 5);
+  });
+
+  it('counts single substitution', () => {
+    assert.equal(editDistance('cat', 'bat'), 1);
+  });
+
+  it('counts single insertion', () => {
+    assert.equal(editDistance('cat', 'cats'), 1);
+  });
+
+  it('counts single deletion', () => {
+    assert.equal(editDistance('cats', 'cat'), 1);
+  });
+
+  it('handles multiple edits', () => {
+    assert.equal(editDistance('kitten', 'sitting'), 3);
+  });
+
+  it('handles slug-like strings', () => {
+    assert.equal(editDistance('as-review-code', 'as-review-cod'), 1);
+    assert.equal(editDistance('as-review-code', 'as-reviews-code'), 1);
   });
 });
