@@ -312,3 +312,36 @@ Se algum desses pensamentos apareceu: PARE e valide.
 | "Não sei se essa mudança é lateral ou nova iniciativa, vou chutar" | Use fluxo de disambiguation; 3 perguntas resolvem |
 | "Stack com 8 frames é sinal que tô pensando demais" | Talvez sim — considere archive ou split em nova iniciativa |
 | "Posso pular a confirmação antes do browser launch" | Não — regra de intrusive actions é firme |
+
+## Bootstrap (import retroativo)
+
+Quando `.atomic-skills/` acabou de ser criado via setup — ou a qualquer momento depois — o subcomando `bootstrap` varre o repo para descobrir iniciativas em voo e propor drafts revisáveis.
+
+### Invocações
+
+- `bootstrap` — pipeline completo (scan + cluster + synthesize); grava drafts em `.atomic-skills/bootstrap-drafts/`; abre INDEX.md no mdprobe (com confirmação)
+- `bootstrap --dry-run` — mesmo scan, mas apenas resumo no terminal; nenhum arquivo escrito
+- `bootstrap --commit` — materializa drafts aprovados em `.atomic-skills/initiatives/`; atualiza PROJECT-STATUS.md
+- `bootstrap --scope=<list>` — limita fontes. Valores válidos (comma-separated): `git`, `github`, `docs`, `roadmap`, `memory-local`, `memory-claude`, `claude-mem`
+
+### Oferta no setup
+
+Ao final do passo 8 (Reportar) do setup, adicione:
+
+> "Varrer repo pra descobrir iniciativas em andamento? (y/N)"
+
+Se `y`, invoque `bootstrap` imediatamente na mesma sessão. Se `n` ou sem resposta: nenhuma ação — usuário pode rodar depois.
+
+### Pré-condições
+
+- `.atomic-skills/` deve existir (rode setup primeiro). Se não existir: aborte com `"rode setup primeiro"`.
+- Para Camada 2 (Claude ecosystem): `.claude/` deve existir no repo.
+
+### .gitignore
+
+Ao criar `.atomic-skills/` (passo 6 do setup), adicione também:
+
+```
+.atomic-skills/bootstrap-drafts/
+.atomic-skills/status/bootstrap.json
+```

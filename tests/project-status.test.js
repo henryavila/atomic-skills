@@ -163,4 +163,21 @@ describe('project-status skill', () => {
     assert.ok(content.includes('bootstrap --commit'));
     assert.ok(content.includes('Delete the draft file to skip'));
   });
+
+  it('skill documents bootstrap subcommand and options (pt)', () => {
+    installSkills(tempDir, {
+      language: 'pt',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    for (const token of ['bootstrap', '--dry-run', '--commit', '--scope']) {
+      assert.ok(content.includes(token), `missing token: ${token}`);
+    }
+  });
 });
