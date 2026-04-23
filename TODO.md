@@ -41,3 +41,21 @@ Extract the CLAUDE.md injection + AGENTS.md redirect logic used by `project-stat
 **Scope:** small helper skill, callable from other skills' setup flows. Input: skill name + block-markers + block-template + AGENTS.md-redirect flag. Output: idempotent injection into CLAUDE.md + AGENTS.md creation/suggestion.
 
 **Status:** research done (inline in `docs/superpowers/specs/2026-04-22-status-initiative-design.md` §10), implementation pending.
+
+---
+
+## Shipped 2026-04-23
+
+### `atomic-skills:project-status bootstrap` — retroactive initial import
+
+Implemented per spec `docs/superpowers/specs/2026-04-23-project-status-bootstrap-design.md` and plan `docs/superpowers/plans/2026-04-23-project-status-bootstrap.md`.
+
+- 4-phase pipeline: enumerate (shell), extract (LLM), cluster (hybrid slug + LLM fallback), synthesize
+- 3-bucket classification (strong / worth-reviewing / historical) — non-destructive, batch review via mdprobe
+- Deterministic helpers in `src/bootstrap.js` (9 pure functions, 54 unit tests)
+- Explicit `bootstrap --commit` step; drafts gitignored until committed
+- PT + EN skill markdown coverage; setup flow integration
+
+**Follow-ups (deferred):**
+- Integration fixture tests (spec §13.2)
+- Minor review findings: null-cluster defensiveness in `classifyBucket`/`calculateConfidence`, `doc-adr` tier placement in `pickCanonicalSlug`, `draftToInitiative` deep-clone hardening

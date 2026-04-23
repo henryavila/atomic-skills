@@ -68,10 +68,14 @@ Append (se não existente):
 .atomic-skills/status/stop.log
 .atomic-skills/status/SKIP
 .atomic-skills/initiatives/*.rendered.md
+.atomic-skills/bootstrap-drafts/
+.atomic-skills/status/bootstrap.json
 ```
 
 ### 8. Reportar
 Liste tudo que foi criado e dê instruções de rollback (`git status` + `git restore`).
+
+Pergunte também: "Varrer repo pra descobrir iniciativas em andamento? (y/N)". Se sim, invoque o fluxo `bootstrap` descrito abaixo.
 
 ## Modos de exibição
 
@@ -312,3 +316,197 @@ Se algum desses pensamentos apareceu: PARE e valide.
 | "Não sei se essa mudança é lateral ou nova iniciativa, vou chutar" | Use fluxo de disambiguation; 3 perguntas resolvem |
 | "Stack com 8 frames é sinal que tô pensando demais" | Talvez sim — considere archive ou split em nova iniciativa |
 | "Posso pular a confirmação antes do browser launch" | Não — regra de intrusive actions é firme |
+
+## Bootstrap (import retroativo)
+
+Quando `.atomic-skills/` acabou de ser criado via setup — ou a qualquer momento depois — o subcomando `bootstrap` varre o repo para descobrir iniciativas em voo e propor drafts revisáveis.
+
+### Invocações
+
+- `bootstrap` — pipeline completo (scan + cluster + synthesize); grava drafts em `.atomic-skills/bootstrap-drafts/`; abre INDEX.md no mdprobe (com confirmação)
+- `bootstrap --dry-run` — mesmo scan, mas apenas resumo no terminal; nenhum arquivo escrito
+- `bootstrap --commit` — materializa drafts aprovados em `.atomic-skills/initiatives/`; atualiza PROJECT-STATUS.md
+- `bootstrap --scope=<list>` — limita fontes. Valores válidos (comma-separated): `git`, `github`, `docs`, `roadmap`, `memory-local`, `memory-claude`, `claude-mem`
+
+### Oferta no setup
+
+Ao final do passo 8 (Reportar) do setup, adicione:
+
+> "Varrer repo pra descobrir iniciativas em andamento? (y/N)"
+
+Se `y`, invoque `bootstrap` imediatamente na mesma sessão. Se `n` ou sem resposta: nenhuma ação — usuário pode rodar depois.
+
+### Pré-condições
+
+- `.atomic-skills/` deve existir (rode setup primeiro). Se não existir: aborte com `"rode setup primeiro"`.
+- Para Camada 2 (Claude ecosystem): `.claude/` deve existir no repo.
+
+### .gitignore
+
+Ao criar `.atomic-skills/` (passo 6 do setup), adicione também:
+
+```
+.atomic-skills/bootstrap-drafts/
+.atomic-skills/status/bootstrap.json
+```
+
+### Fase 1a — Shell enumerate
+
+Coleta determinística. Nenhuma interpretação de conteúdo.
+
+#### Git (sempre)
+
+```bash
+# Branches ativas (últimos 180d)
+git for-each-ref --sort=-committerdate \
+  --format='%(refname:short)|%(committerdate:iso-strict)|%(authorname)' \
+  refs/heads refs/remotes/origin
+
+# Commits recentes agrupados por escopo Conventional Commits (90d)
+git log --since='90 days ago' --pretty=format:'%h|%s|%ci' \
+  | grep -E '^[a-f0-9]+\|(feat|fix|refactor|docs|test|chore)\([^)]+\):'
+```
+
+#### GitHub CLI (se `gh` disponível)
+
+```bash
+gh pr list --state open --json number,title,headRefName,updatedAt,body,labels 2>/dev/null
+gh pr list --state merged --limit 20 --json number,title,headRefName,mergedAt 2>/dev/null
+gh issue list --state open --assignee @me --json number,title,labels,updatedAt 2>/dev/null
+```
+
+Se falhar: logue `source: github skipped (gh unavailable)` e continue. Não fatal.
+
+#### Docs estruturados (sempre)
+
+```bash
+find docs/superpowers/plans -type f -name '*.md' 2>/dev/null
+find docs/superpowers/specs -type f -name '*.md' 2>/dev/null
+find docs -type d -name 'adr*' -exec find {} -name '*.md' \; 2>/dev/null
+```
+
+#### Roadmap (sempre)
+
+```bash
+for f in TODO.md ROADMAP.md NEXT.md docs/TODO.md docs/ROADMAP.md; do
+  test -f "$f" && echo "$f"
+done
+```
+
+Para cada arquivo encontrado, parseie H2/H3 headers com spans de linhas (shell lê os headers; LLM lê as seções em 1b).
+
+#### Memory local (sempre)
+
+```bash
+test -f .ai/memory/MEMORY.md && echo ".ai/memory/MEMORY.md"
+find .ai/memory -maxdepth 2 -name '*.md' -not -name 'MEMORY.md' 2>/dev/null
+```
+
+Parseie MEMORY.md como índice (formato `[Title](file.md) — hook`).
+
+#### Claude ecosystem (Camada 2 — só se `.claude/` existe)
+
+```bash
+REPO_PATH=$(pwd | sed 's|^/|-|; s|/|-|g')
+CLAUDE_PROJ_DIR="$HOME/.claude/projects/$REPO_PATH"
+test -d "$CLAUDE_PROJ_DIR/memory" && \
+  find "$CLAUDE_PROJ_DIR/memory" -maxdepth 1 -name '*.md' -not -name 'MEMORY.md'
+```
+
+claude-mem obs: use MCP tool `mcp__plugin_claude-mem_mcp-search__search` (deferred) com filtro do projeto.
+
+Output de 1a: lista de `sources` com `type`, `id`, `last_activity`, `raw`. Nenhuma leitura de conteúdo ainda.
+
+### Fase 1b — LLM extract
+
+Aplicada apenas a sources narrativos (`doc-plan`, `doc-spec`, `doc-adr`, `roadmap-section`, `memory-local-entry`, `memory-local-orphan`, `memory-claude-auto`, `claude-mem-obs`).
+
+Sources estruturais (`git-branch`, `github-pr-*`, `github-issue-*`, `commit-group`) pulam 1b.
+
+Para cada source narrativo, leia o conteúdo e emita zero ou mais signal objects:
+
+```yaml
+signal:
+  source_id: <de 1a>
+  source_type: <de 1a>
+  topic_hint: <kebab-case slug curto>
+  evidence_quote: <1-2 frases verbatim>
+  candidate_completion: active | paused | done | unknown
+  referenced_identifiers: [<branches, paths, slugs mencionados>]
+  surfaced_subtopics: [<slugs laterais>]
+```
+
+Instrução interna (aplicada por você, LLM):
+
+> "Leia esta fonte. Para cada tópico distinto que pareça trabalho pendente ou em voo (não documentação geral, não retrospectiva de trabalho completo, não conteúdo puramente de aprendizado), emita signal com:
+> - topic_hint: slug kebab-case curto
+> - evidence_quote: 1-2 frases verbatim
+> - candidate_completion: active | paused | done | unknown
+> - identificadores referenciados (branches, paths, slugs)
+> - surfaced_subtopics: slugs laterais mencionados
+>
+> Pule: documentação geral, decisões sem ação forward, trabalho completo, learnings puros, style guides, API reference."
+
+Um source pode gerar múltiplos signals. Cada um herda `last_activity` do source (ou override se o texto cita "rediscutido em YYYY-MM-DD").
+
+### Fase 2 — Clustering
+
+Use as funções em `src/bootstrap.js` via `node -e`:
+
+```bash
+# Exemplo: agrupa por slug exato
+node -e "
+import('./src/bootstrap.js').then(({ clusterByExactSlug, mergeFuzzySingletons, pickCanonicalSlug }) => {
+  const signals = JSON.parse(process.argv[1]);
+  const { clusters, unmatched } = clusterByExactSlug(signals);
+  const merged = mergeFuzzySingletons(clusters, unmatched);
+  const withCanonical = merged.clusters.map(c => ({ ...c, canonical: pickCanonicalSlug(c) }));
+  console.log(JSON.stringify({ clusters: withCanonical, remainingOrphans: merged.remainingOrphans }));
+});
+" "$(cat /tmp/signals.json)"
+```
+
+**Órfãos remanescentes** (que não bateram slug exato nem fuzzy singleton) passam por LLM fallback: você recebe `{clusters, orphans}` e pergunta pra cada órfão se ele semanticamente pertence a algum cluster existente (confidence ≥ 0.75 para merge). Nunca funde clusters slug-matched entre si. Registre `merge_rationale` para cada merge LLM.
+
+### Fase 3 — Synthesize
+
+Para cada cluster:
+
+1. Chame `classifyBucket(cluster, new Date())` → `'strong' | 'worth-reviewing' | 'historical'`.
+2. Chame `calculateConfidence(cluster)` → score 0-1.
+3. Gere drafts escrevendo em `.atomic-skills/bootstrap-drafts/`:
+   - Strong/worth-reviewing → `<slug>.draft.md` usando `skills/shared/project-status-assets/bootstrap-draft.template.md`
+   - Historical → `archive/<YYYY-MM>-<slug>.draft.md` usando `skills/shared/project-status-assets/bootstrap-archived.template.md`
+4. Para cada draft, você (LLM) gera:
+   - **Título** (4-8 palavras imperativo) baseado no cluster
+   - **next_action** (strong = "Resume T-N: ..."; worth-reviewing = forma-questão; historical = null)
+   - **rationale** (1-2 linhas citando sinais decisivos)
+   - **Context synthesis** (2-3 parágrafos)
+5. Após todos os drafts, gere `INDEX.md` usando `skills/shared/project-status-assets/bootstrap-index.template.md`.
+6. Pergunte confirmação (intrusive-actions): "Open bootstrap proposal in browser? (y/N)".
+7. Se `y`: execute `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`.
+
+### Fase 4 — Commit
+
+Invocado explicitamente via `bootstrap --commit` após usuário revisar.
+
+Algoritmo:
+
+```
+1. Se .atomic-skills/bootstrap-drafts/ não existe: error "nothing to commit".
+2. Liste todos *.draft.md (incluindo archive/).
+3. Para cada draft:
+   a. Parse frontmatter YAML (use src/yaml.js se edge case).
+   b. Valide: initiative_id casa regex, único vs initiatives/**, status em {proposed, proposed-archived}, stack[0].title não-vazio.
+   c. Chame `draftToInitiative(draft, new Date())` → { frontmatter, body } transformado.
+   d. Escreva em destino:
+      - status=active → .atomic-skills/initiatives/<slug>.md
+      - status=archived → .atomic-skills/initiatives/archive/<YYYY-MM>-<slug>.md
+   e. Delete o draft.
+   f. Em conflito de nome no destino: log, skip, continue.
+4. Atualize PROJECT-STATUS.md (Active Initiatives e Recently Archived).
+5. Escreva audit log em .atomic-skills/status/bootstrap.json:
+   { timestamp, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.
+6. Report summary: "Committed N (A active, H archived), skipped K, errors L".
+7. Se bootstrap-drafts/ está vazio: pergunte "Remove bootstrap-drafts/? (y/N)". Se drafts remanescem: pule a pergunta, informe "N drafts remain; fix and re-run".
+```
