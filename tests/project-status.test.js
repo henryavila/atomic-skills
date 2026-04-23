@@ -128,4 +128,20 @@ describe('project-status skill', () => {
     assert.ok(content.includes('Red Flags'), 'PT file must have Red Flags section');
     assert.ok(content.includes('Racionalização'), 'PT file must have Rationalization section');
   });
+
+  it('bootstrap-draft template exists with required markers', () => {
+    const tplPath = join(SKILLS_DIR, 'shared/project-status-assets/bootstrap-draft.template.md');
+    const content = readFileSync(tplPath, 'utf8');
+    for (const marker of [
+      'REPLACE_CANONICAL_SLUG', 'REPLACE_PROPOSED_AT', 'REPLACE_PROPOSED_BUCKET',
+      'REPLACE_STARTED_DATE', 'REPLACE_LAST_UPDATED', 'REPLACE_BRANCH',
+      'REPLACE_PLAN_LINK', 'REPLACE_TITLE', 'REPLACE_NEXT_ACTION',
+      'REPLACE_RATIONALE', 'REPLACE_CONFIDENCE', 'REPLACE_SLUG_MATCH_TYPE',
+      'REPLACE_CONTEXT_PARAGRAPHS', 'REPLACE_EVIDENCE_BLOCK',
+    ]) {
+      assert.ok(content.includes(marker), `missing marker: ${marker}`);
+    }
+    assert.ok(content.includes('status: proposed'));
+    assert.ok(content.match(/bootstrap:\s*$/m), 'must have bootstrap: yaml block');
+  });
 });
