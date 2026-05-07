@@ -11,6 +11,17 @@
 - Plano em `docs/superpowers/plans/2026-03-22-atomic-skills.md`
 - Os `hca-` commands continuam em `claude/commands/` como fonte original
 
+## Uso do CLI publicado vs checkout local
+- Em macOS, rodar `npx @henryavila/atomic-skills install` dentro do próprio checkout
+  `/Volumes/External/code/atomic-skills` pode falhar com `sh: atomic-skills: command not found`
+  porque o npm resolve o pacote local de mesmo nome antes do pacote publicado.
+- Para testar/instalar a versão publicada a partir de dentro do repo, usar:
+  `npm exec --yes --package @henryavila/atomic-skills@latest -- atomic-skills install ...`
+- Para instalação de usuário, preferir rodar de fora do repo com versão explícita:
+  `npx -y @henryavila/atomic-skills@latest install --yes --ide codex --lang pt`
+- Para executar o CLI do checkout fonte, primeiro instalar dependências com `npm install`;
+  caso contrário comandos que importam dependências como `picocolors` falham.
+
 ## Padrão de memória: `.ai/memory/`
 - Local canônico da memória é sempre `.ai/memory/` dentro do repo (versionada no git)
 - `~/.claude/projects/{path-encoded}/memory/` é apenas um symlink apontando para `.ai/memory/`
