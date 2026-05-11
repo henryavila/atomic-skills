@@ -12,6 +12,20 @@ Prompts otimizados que você instala uma vez e invoca em qualquer AI IDE. Cada s
 npx @henryavila/atomic-skills install
 ```
 
+Instale de forma não interativa para todas as IDEs detectadas nesta máquina:
+
+```bash
+npx @henryavila/atomic-skills install --yes --all-detected
+# equivalente:
+npx @henryavila/atomic-skills install --yes --ide detected
+```
+
+Inspecione IDEs suportadas e detectadas:
+
+```bash
+npx @henryavila/atomic-skills detect --json
+```
+
 ## Por que Atomic?
 
 Agentes de IA pulam etapas, racionalizam atalhos e ignoram instruções vagas. Atomic Skills resolve isso com técnicas battle-tested embutidas em cada prompt:

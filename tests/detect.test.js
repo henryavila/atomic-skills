@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { detectLanguage, detectIDEs, countSkills } from '../src/detect.js';
+import { detectLanguage, detectIDEs, detectIDEState, countSkills } from '../src/detect.js';
 
 describe('detectLanguage', () => {
   const originalLang = process.env.LANG;
@@ -86,6 +86,16 @@ describe('detectIDEs', () => {
     mkdirSync(join(tempDir, '.github'));
     const result = detectIDEs(tempDir);
     assert.ok(result.includes('github-copilot'));
+  });
+
+  it('returns supported, detected, and effective IDE state', () => {
+    mkdirSync(join(tempDir, '.gemini'));
+    mkdirSync(join(tempDir, '.agents'));
+    const result = detectIDEState(tempDir);
+    assert.ok(result.supported.includes('gemini'));
+    assert.ok(result.supported.includes('codex'));
+    assert.deepStrictEqual(result.detected, ['gemini', 'codex']);
+    assert.deepStrictEqual(result.effective, ['gemini-commands', 'codex']);
   });
 });
 

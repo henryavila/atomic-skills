@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from './yaml.js';
+import { PUBLIC_IDE_IDS, normalizeIDESelection } from './config.js';
 
-const IDE_DETECT_DIRS = {
+export const IDE_DETECT_DIRS = {
   'claude-code': '.claude',
   'cursor': '.cursor',
   'gemini': '.gemini',
@@ -29,6 +30,15 @@ export function detectIDEs(basePath) {
     }
   }
   return detected;
+}
+
+export function detectIDEState(basePath) {
+  const detected = detectIDEs(basePath);
+  return {
+    supported: PUBLIC_IDE_IDS,
+    detected,
+    effective: normalizeIDESelection(detected),
+  };
 }
 
 export function countSkills(metaDir, modules) {

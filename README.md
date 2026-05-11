@@ -12,6 +12,20 @@ Optimized prompts you install once and invoke in any AI IDE. Each skill is an at
 npx @henryavila/atomic-skills install
 ```
 
+Install non-interactively for every IDE detected on this machine:
+
+```bash
+npx @henryavila/atomic-skills install --yes --all-detected
+# equivalent:
+npx @henryavila/atomic-skills install --yes --ide detected
+```
+
+Inspect supported and detected IDEs:
+
+```bash
+npx @henryavila/atomic-skills detect --json
+```
+
 ## Why Atomic?
 
 AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atomic Skills solve this with battle-tested techniques baked into every prompt:

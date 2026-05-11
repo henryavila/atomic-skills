@@ -4,7 +4,10 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE, getNamespaceRootPath } from './config.js';
+import {
+  IDE_CONFIG, PUBLIC_IDE_IDS, getSkillPath, getSkillFormat,
+  SKILL_NAMESPACE, getNamespaceRootPath, normalizeIDESelection,
+} from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
@@ -155,15 +158,6 @@ export function getPackageVersion() {
   return pkg.version;
 }
 
-function deduplicateGeminiCodex(ides) {
-  if (ides.includes('gemini') && ides.includes('codex')) {
-    const result = [...ides];
-    result[result.indexOf('gemini')] = 'gemini-commands';
-    return result;
-  }
-  return ides;
-}
-
 /**
  * Pre-render all files that installSkills would produce, without writing.
  * Returns a Map of relPath → rendered content string.
@@ -229,7 +223,13 @@ function preRenderFiles(options) {
 }
 
 export async function install(projectDir, options = {}) {
-  const { yes = false, project = false, ide: cliIDEs = null, lang: cliLang = null } = options;
+  const {
+    yes = false,
+    project = false,
+    ide: cliIDEs = null,
+    lang: cliLang = null,
+    allDetected = false,
+  } = options;
 
   const basePath = project ? projectDir : homedir();
   const existingManifest = readManifest(basePath);
@@ -243,20 +243,22 @@ export async function install(projectDir, options = {}) {
   let language = cliLang || existingManifest?.language || detectLanguage();
   const languageDetected = !cliLang && !existingManifest?.language;
 
-  let ides = cliIDEs || existingManifest?.ides?.slice() || detectIDEs(basePath);
+  let ides = allDetected
+    ? detectIDEs(basePath)
+    : (cliIDEs || existingManifest?.ides?.slice() || detectIDEs(basePath));
 
   // Validate CLI-provided IDE IDs
   if (cliIDEs) {
     const validIDs = new Set(Object.keys(IDE_CONFIG));
     const invalid = cliIDEs.filter(id => !validIDs.has(id));
     if (invalid.length > 0) {
-      const validList = Object.keys(IDE_CONFIG).filter(id => id !== 'gemini-commands').join(', ');
+      const validList = PUBLIC_IDE_IDS.join(', ');
       console.error(`  Error: Unknown IDE(s): ${invalid.join(', ')}. Valid: ${validList}`);
       process.exit(1);
     }
   }
 
-  ides = deduplicateGeminiCodex(ides);
+  ides = normalizeIDESelection(ides);
 
   let modules = existingManifest?.modules ? JSON.parse(JSON.stringify(existingManifest.modules)) : {};
   if (isFirstInstall && !Object.values(modules).some(m => m.installed)) {
