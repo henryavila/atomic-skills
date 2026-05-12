@@ -243,9 +243,15 @@ export async function install(projectDir, options = {}) {
   let language = cliLang || existingManifest?.language || detectLanguage();
   const languageDetected = !cliLang && !existingManifest?.language;
 
-  let ides = allDetected
-    ? detectIDEs(basePath)
-    : (cliIDEs || existingManifest?.ides?.slice() || detectIDEs(basePath));
+  let ides;
+  if (allDetected) {
+    if (existingManifest?.ides?.length) {
+      console.log(`  ${pc.dim('Re-detecting IDEs from filesystem (ignoring manifest selection).')}`);
+    }
+    ides = detectIDEs(basePath);
+  } else {
+    ides = cliIDEs || existingManifest?.ides?.slice() || detectIDEs(basePath);
+  }
 
   // Validate CLI-provided IDE IDs
   if (cliIDEs) {
@@ -378,7 +384,7 @@ export async function install(projectDir, options = {}) {
       p.outro(msg(config.lang).cancelled);
       return;
     }
-    config.ides = deduplicateGeminiCodex(config.ides);
+    config.ides = normalizeIDESelection(config.ides);
   }
 
   let action;
@@ -391,7 +397,7 @@ export async function install(projectDir, options = {}) {
       config.languageDetected = false;
     } else if (action === 'customize-ides') {
       config.ides = await promptIDESelection(config.lang, config.ides);
-      config.ides = deduplicateGeminiCodex(config.ides);
+      config.ides = normalizeIDESelection(config.ides);
     } else if (action === 'customize-modules') {
       config.modules = await promptModuleConfig(config.lang, config.modules, moduleYaml);
       config.skillCount = countSkills(metaDir, config.modules);

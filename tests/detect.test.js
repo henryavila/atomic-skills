@@ -7,8 +7,17 @@ import { detectLanguage, detectIDEs, detectIDEState, countSkills } from '../src/
 
 describe('detectLanguage', () => {
   const originalLang = process.env.LANG;
+  const OriginalDateTimeFormat = Intl.DateTimeFormat;
+
+  beforeEach(() => {
+    // Pin Intl locale to en-US so tests are deterministic regardless of host locale.
+    Intl.DateTimeFormat = function () {
+      return { resolvedOptions: () => ({ locale: 'en-US' }) };
+    };
+  });
 
   afterEach(() => {
+    Intl.DateTimeFormat = OriginalDateTimeFormat;
     if (originalLang !== undefined) {
       process.env.LANG = originalLang;
     } else {
@@ -34,6 +43,14 @@ describe('detectLanguage', () => {
   it('returns en when LANG is unset', () => {
     delete process.env.LANG;
     assert.strictEqual(detectLanguage(), 'en');
+  });
+
+  it('returns pt when LANG is unset and Intl locale is pt', () => {
+    delete process.env.LANG;
+    Intl.DateTimeFormat = function () {
+      return { resolvedOptions: () => ({ locale: 'pt-BR' }) };
+    };
+    assert.strictEqual(detectLanguage(), 'pt');
   });
 });
 
