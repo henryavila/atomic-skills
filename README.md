@@ -12,6 +12,20 @@ Optimized prompts you install once and invoke in any AI IDE. Each skill is an at
 npx @henryavila/atomic-skills install
 ```
 
+Install non-interactively for every IDE detected on this machine:
+
+```bash
+npx @henryavila/atomic-skills install --yes --all-detected
+# equivalent:
+npx @henryavila/atomic-skills install --yes --ide detected
+```
+
+Inspect supported and detected IDEs:
+
+```bash
+npx @henryavila/atomic-skills detect --json
+```
+
 ## Why Atomic?
 
 AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atomic Skills solve this with battle-tested techniques baked into every prompt:
@@ -32,13 +46,15 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 | IDE | Profile | Directory | Format |
 |-----|---------|-----------|--------|
-| **Claude Code** | `claude-code` | `.claude/skills/` | Markdown |
-| **Gemini CLI** | `gemini` | `.gemini/skills/` | Markdown (Recommended) |
+| **Claude Code** | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
+| **Gemini CLI** | `gemini` | `.gemini/skills/atomic-skills/` | Markdown (Recommended) |
 | **Gemini CLI** | `gemini-commands`| `.gemini/commands/` | TOML (Slash commands) |
-| Cursor | `cursor` | `.cursor/skills/` | Markdown |
-| Codex | `codex` | `.agents/skills/` | Markdown |
-| OpenCode | `opencode` | `.opencode/skills/` | Markdown |
-| GitHub Copilot | `github-copilot`| `.github/skills/` | Markdown |
+| Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown |
+| Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
+| OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
+| GitHub Copilot | `github-copilot`| `.github/skills/atomic-skills/` | Markdown |
+
+For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
 
 ## Skills
 
@@ -219,7 +235,7 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 **Problem it solves:** Users and AI agents lose track of where they are mid-implementation when tasks spawn sub-tasks, bugs, scope expansions, and lateral explorations across sessions and worktrees.
 
-**What it does:** Maintains `.atomic-skills/PROJECT-STATUS.md` (index) and `.atomic-skills/initiatives/<slug>.md` (per-initiative: stack + tasks + parked + emerged + next action) as canonical source of truth. Three enforcement layers: (a) skill invocation, (b) CLAUDE.md HARD-GATE + AGENTS.md redirect auto-installed, (c) Claude Code hooks (SessionStart injection + Stop predicate in dry-run). Terminal rendering compact; browser rendering via `npx -y @henryavila/mdprobe` with Mermaid Gantt/Flowchart/Stack diagrams.
+**What it does:** Maintains `.atomic-skills/PROJECT-STATUS.md` (index) and `.atomic-skills/initiatives/<slug>.md` (per-initiative: stack + tasks + parked + emerged + next action) as canonical source of truth. Three enforcement layers: (a) skill invocation, (b) CLAUDE.md HARD-GATE + AGENTS.md redirect auto-installed, (c) Claude Code hooks (SessionStart injection + Stop predicate in dry-run). Terminal rendering is compact and works out of the box; browser rendering is optional via `npx -y @henryavila/mdprobe` with Mermaid Gantt/Flowchart/Stack diagrams.
 
 **When to use:** Starting a new initiative, resuming after context switch, pushing a new stack frame (research/discussion), parking lateral findings, promoting parked items, marking tasks done, archiving, or viewing current state.
 
@@ -287,6 +303,8 @@ When creating new skills, always use the variables defined in `AGENTS.md`.
 
 ## Modules
 
+Modules bundle optional skills + variables on top of the core set. Today, activation happens through the interactive dashboard (`customize modules` action) — there is no `--modules` CLI flag. The `memory` module is auto-enabled on first install.
+
 ### Memory
 
 Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.
@@ -299,9 +317,28 @@ Persistent context across sessions. The agent saves learnings, decisions, and fe
 ## Install, Update, Uninstall
 
 ```bash
-npx @henryavila/atomic-skills install       # First install or update
-npx @henryavila/atomic-skills uninstall     # Remove everything
+# Default: user scope (~/.claude/, ~/.gemini/, …) — shared across every project
+npx @henryavila/atomic-skills install
+
+# Project scope: installs into ./ so the team can version-control the skills
+npx @henryavila/atomic-skills install --project
+
+# Same command updates an existing install (preserves local edits via 3-hash diff)
+npx @henryavila/atomic-skills install
+
+# Inspect which IDEs are supported and which were detected on disk
+npx @henryavila/atomic-skills detect [--project] [--json]
+
+# Show installed skills, language, and per-IDE file status
+npx @henryavila/atomic-skills status
+
+# Remove everything (add --project to target ./ instead of ~/)
+npx @henryavila/atomic-skills uninstall [--project]
 ```
+
+**Scope trade-off:**
+- *user scope* (default): one install serves every project; not versioned in git.
+- *project scope* (`--project`): skills live in the repo, are versioned, and overlay the user scope. Pick this for teams.
 
 ## Languages
 

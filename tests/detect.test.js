@@ -3,12 +3,21 @@ import { strict as assert } from 'node:assert';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { detectLanguage, detectIDEs, countSkills } from '../src/detect.js';
+import { detectLanguage, detectIDEs, detectIDEState, countSkills } from '../src/detect.js';
 
 describe('detectLanguage', () => {
   const originalLang = process.env.LANG;
+  const OriginalDateTimeFormat = Intl.DateTimeFormat;
+
+  beforeEach(() => {
+    // Pin Intl locale to en-US so tests are deterministic regardless of host locale.
+    Intl.DateTimeFormat = function () {
+      return { resolvedOptions: () => ({ locale: 'en-US' }) };
+    };
+  });
 
   afterEach(() => {
+    Intl.DateTimeFormat = OriginalDateTimeFormat;
     if (originalLang !== undefined) {
       process.env.LANG = originalLang;
     } else {
@@ -34,6 +43,14 @@ describe('detectLanguage', () => {
   it('returns en when LANG is unset', () => {
     delete process.env.LANG;
     assert.strictEqual(detectLanguage(), 'en');
+  });
+
+  it('returns pt when LANG is unset and Intl locale is pt', () => {
+    delete process.env.LANG;
+    Intl.DateTimeFormat = function () {
+      return { resolvedOptions: () => ({ locale: 'pt-BR' }) };
+    };
+    assert.strictEqual(detectLanguage(), 'pt');
   });
 });
 
@@ -86,6 +103,16 @@ describe('detectIDEs', () => {
     mkdirSync(join(tempDir, '.github'));
     const result = detectIDEs(tempDir);
     assert.ok(result.includes('github-copilot'));
+  });
+
+  it('returns supported, detected, and effective IDE state', () => {
+    mkdirSync(join(tempDir, '.gemini'));
+    mkdirSync(join(tempDir, '.agents'));
+    const result = detectIDEState(tempDir);
+    assert.ok(result.supported.includes('gemini'));
+    assert.ok(result.supported.includes('codex'));
+    assert.deepStrictEqual(result.detected, ['gemini', 'codex']);
+    assert.deepStrictEqual(result.effective, ['gemini-commands', 'codex']);
   });
 });
 

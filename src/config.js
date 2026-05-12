@@ -54,6 +54,23 @@ export const IDE_CONFIG = {
   },
 };
 
+export const PUBLIC_IDE_IDS = Object.keys(IDE_CONFIG).filter((id) => id !== 'gemini-commands');
+
+export function normalizeIDESelection(ides) {
+  const unique = [];
+  for (const id of ides) {
+    if (!unique.includes(id)) unique.push(id);
+  }
+
+  if (unique.includes('gemini') && unique.includes('codex')) {
+    const result = [...unique];
+    result[result.indexOf('gemini')] = 'gemini-commands';
+    return result;
+  }
+
+  return unique;
+}
+
 export function getSkillPath(ideId, skillName) {
   const ide = IDE_CONFIG[ideId];
   return posix.join(ide.dir, ide.filePattern(skillName));

@@ -222,3 +222,17 @@ describe('installSkills', () => {
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 });
+
+describe('install.js source guards', () => {
+  // Catches regressions like calling a helper after it was renamed/removed.
+  // The interactive path is hard to exercise via tests, so we statically verify
+  // that deleted symbols are not still referenced.
+  const SRC = readFileSync(join(__dirname, '..', 'src', 'install.js'), 'utf8');
+
+  it('does not reference removed deduplicateGeminiCodex helper', () => {
+    assert.ok(
+      !SRC.includes('deduplicateGeminiCodex'),
+      'src/install.js still references deduplicateGeminiCodex — use normalizeIDESelection from ./config.js'
+    );
+  });
+});

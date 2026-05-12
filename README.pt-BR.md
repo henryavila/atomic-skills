@@ -12,6 +12,20 @@ Prompts otimizados que você instala uma vez e invoca em qualquer AI IDE. Cada s
 npx @henryavila/atomic-skills install
 ```
 
+Instale de forma não interativa para todas as IDEs detectadas nesta máquina:
+
+```bash
+npx @henryavila/atomic-skills install --yes --all-detected
+# equivalente:
+npx @henryavila/atomic-skills install --yes --ide detected
+```
+
+Inspecione IDEs suportadas e detectadas:
+
+```bash
+npx @henryavila/atomic-skills detect --json
+```
+
 ## Por que Atomic?
 
 Agentes de IA pulam etapas, racionalizam atalhos e ignoram instruções vagas. Atomic Skills resolve isso com técnicas battle-tested embutidas em cada prompt:
@@ -32,13 +46,15 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 
 | IDE | Perfil | Diretório | Formato |
 |-----|--------|-----------|---------|
-| **Claude Code** | `claude-code` | `.claude/skills/` | Markdown |
-| **Gemini CLI** | `gemini` | `.gemini/skills/` | Markdown (Recomendado) |
+| **Claude Code** | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
+| **Gemini CLI** | `gemini` | `.gemini/skills/atomic-skills/` | Markdown (Recomendado) |
 | **Gemini CLI** | `gemini-commands`| `.gemini/commands/` | TOML (Slash commands) |
-| Cursor | `cursor` | `.cursor/skills/` | Markdown |
-| Codex | `codex` | `.agents/skills/` | Markdown |
-| OpenCode | `opencode` | `.opencode/skills/` | Markdown |
-| GitHub Copilot | `github-copilot`| `.github/skills/` | Markdown |
+| Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown |
+| Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
+| OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
+| GitHub Copilot | `github-copilot`| `.github/skills/atomic-skills/` | Markdown |
+
+Detalhes da camada de renderização cross-agent em [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
 
 ---
 
@@ -58,6 +74,8 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--salvar-trabalho-e-publicar) | Salvar learnings na memória, agrupar commits, push seguro | `NO PUSH WITHOUT FRESH VERIFICATION` |
 | 📊 | [`project-status`](#atomic-skillsproject-status--rastreamento-canônico-de-iniciativa) | Árvore canônica de status por iniciativa com stack + tasks + parked + emerged; enforcement via hooks | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE` |
 | 🧠 | [`init-memory`](#atomic-skillsinit-memory--inicialização-de-memória-persistente) | Centralizar memória do projeto em `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
+
+---
 
 ### `atomic-skills:fix` — Diagnóstico e Correção de Bugs com TDD
 
@@ -219,7 +237,7 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 
 **Problema que resolve:** Humanos e agentes de IA se perdem no meio de uma implementação quando tarefas geram sub-tarefas, bugs, expansões de escopo e explorações laterais entre sessões e worktrees.
 
-**O que faz:** Mantém `.atomic-skills/PROJECT-STATUS.md` (índice) e `.atomic-skills/initiatives/<slug>.md` (por iniciativa: stack + tasks + parked + emerged + próxima ação) como fonte canônica única. Três camadas de enforcement: (a) invocação da skill, (b) CLAUDE.md HARD-GATE + redirect AGENTS.md auto-instalados, (c) hooks do Claude Code (injeção no SessionStart + predicado no Stop em dry-run). Render terminal compacto; render browser via `npx -y @henryavila/mdprobe` com diagramas Mermaid (Gantt, flowchart, stack).
+**O que faz:** Mantém `.atomic-skills/PROJECT-STATUS.md` (índice) e `.atomic-skills/initiatives/<slug>.md` (por iniciativa: stack + tasks + parked + emerged + próxima ação) como fonte canônica única. Três camadas de enforcement: (a) invocação da skill, (b) CLAUDE.md HARD-GATE + redirect AGENTS.md auto-instalados, (c) hooks do Claude Code (injeção no SessionStart + predicado no Stop em dry-run). Render terminal compacto e funciona out-of-the-box; render browser é opcional via `npx -y @henryavila/mdprobe` com diagramas Mermaid (Gantt, flowchart, stack).
 
 **Quando usar:** Começar nova iniciativa, retomar após context switch, empilhar novo stack frame (research/discussion), parkear achados laterais, promover itens parkeados, marcar tasks done, arquivar ou visualizar estado atual.
 
@@ -272,6 +290,8 @@ Cada skill usa uma combinação destas técnicas para prevenir atalhos do agente
 
 ## Módulos
 
+Módulos agrupam skills + variáveis opcionais sobre o conjunto core. Hoje, a ativação acontece pelo dashboard interativo (ação `customize modules`) — não há flag `--modules` no CLI. O módulo `memory` é ativado automaticamente na primeira instalação.
+
 ### Memory
 
 Contexto persistente entre sessões. O agente salva learnings, decisões e feedback que sobrevivem entre conversas.
@@ -299,9 +319,28 @@ Ao criar novas skills, sempre use as variáveis definidas em `AGENTS.md`.
 ## Instalar, Atualizar, Desinstalar
 
 ```bash
-npx @henryavila/atomic-skills install       # Primeira instalação ou atualização
-npx @henryavila/atomic-skills uninstall     # Remover tudo
+# Default: user scope (~/.claude/, ~/.gemini/, …) — compartilhado entre todos os projetos
+npx @henryavila/atomic-skills install
+
+# Project scope: instala em ./ para o time versionar as skills no git
+npx @henryavila/atomic-skills install --project
+
+# O mesmo comando atualiza uma instalação existente (preserva edições locais via diff de 3 hashes)
+npx @henryavila/atomic-skills install
+
+# Inspeciona quais IDEs são suportadas e quais foram detectadas no disco
+npx @henryavila/atomic-skills detect [--project] [--json]
+
+# Mostra skills instaladas, idioma e status dos arquivos por IDE
+npx @henryavila/atomic-skills status
+
+# Remove tudo (adicione --project para alvo ./ em vez de ~/)
+npx @henryavila/atomic-skills uninstall [--project]
 ```
+
+**Trade-off de escopo:**
+- *user scope* (default): uma instalação serve todos os projetos; não versionado no git.
+- *project scope* (`--project`): skills ficam no repo, são versionadas, e sobrescrevem o user scope. Escolha esta opção para times.
 
 ## Idiomas
 

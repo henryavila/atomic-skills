@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE, getNamespaceRootPath } from '../src/config.js';
+import {
+  IDE_CONFIG, PUBLIC_IDE_IDS, getSkillPath, getSkillFormat,
+  SKILL_NAMESPACE, getNamespaceRootPath, normalizeIDESelection,
+} from '../src/config.js';
 
 describe('IDE config', () => {
   it('defines all 7 IDEs', () => {
@@ -8,6 +11,26 @@ describe('IDE config', () => {
     assert.deepStrictEqual(ids.sort(), [
       'claude-code', 'codex', 'cursor', 'gemini', 'gemini-commands', 'github-copilot', 'opencode'
     ]);
+  });
+
+  it('exports only public IDE ids', () => {
+    assert.deepStrictEqual(PUBLIC_IDE_IDS, [
+      'claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot',
+    ]);
+  });
+
+  it('normalizes gemini+codex to gemini-commands+codex', () => {
+    assert.deepStrictEqual(
+      normalizeIDESelection(['claude-code', 'gemini', 'codex']),
+      ['claude-code', 'gemini-commands', 'codex']
+    );
+  });
+
+  it('deduplicates selected IDE ids while preserving order', () => {
+    assert.deepStrictEqual(
+      normalizeIDESelection(['codex', 'codex', 'claude-code']),
+      ['codex', 'claude-code']
+    );
   });
 
   it('returns correct skill path for claude-code command IDE', () => {
