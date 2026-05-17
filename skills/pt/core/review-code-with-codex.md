@@ -18,7 +18,7 @@ vulnerabilidades, race conditions — não defender o código.
 
 ## Checklist
 
-1. **Pre-flight checks** — siga `{{ASSETS_PATH}}/preflight-checks.md`. ABORTAR se falhar.
+1. **Pre-flight checks** — siga `{{ASSETS_PATH}}/preflight-checks.txt`. ABORTAR se falhar.
 
 2. **Recolher input**
    - $ARGUMENTS é um git ref: `main..HEAD`, branch, commit range.
@@ -32,7 +32,7 @@ vulnerabilidades, race conditions — não defender o código.
    - {{BASH_TOOL}}: `wc -c` no DIFF — se > 50000: avisar usuário de custo
 
 4. **Curadoria do briefing Pass 1 (factual mínimo)**
-   - Leia `{{ASSETS_PATH}}/pass1-briefing-template-code.md` com {{READ_TOOL}}.
+   - Leia `{{ASSETS_PATH}}/pass1-briefing-template-code.txt` com {{READ_TOOL}}.
    - Identifique constraints factuais externas:
      - `package.json` engines, deps proibidas
      - API contracts públicos (grep README/docs)
@@ -46,13 +46,13 @@ vulnerabilidades, race conditions — não defender o código.
    Mostre: git ref, arquivos modificados, callers incluídos, tokens estimados.
    Pergunte: `aprovar / editar / cancelar`.
 
-6. **Invocação Pass 1 (blind)** — siga `{{ASSETS_PATH}}/invocation-canonical.md`.
+6. **Invocação Pass 1 (blind)** — siga `{{ASSETS_PATH}}/invocation-canonical.txt`.
    Para code review, por default passar `--model gpt-5.3-codex` (code-specialized)
    no MODEL_FLAG. Usuário pode sobrescrever com flag explícita.
 
-7. **Validação Pass 1** — `{{ASSETS_PATH}}/validation-checklist.md` (universais).
+7. **Validação Pass 1** — `{{ASSETS_PATH}}/validation-checklist.txt` (universais).
 
-8. **Monta briefing Pass 2 (informed)** — append `pass2-prompt-suffix.md`
+8. **Monta briefing Pass 2 (informed)** — append `pass2-prompt-suffix.txt`
    substituindo `{{CONSTRAINTS_LIST}}`, `{{PASS_1_OUTPUT}}`, `{{OUTPUT_TEMPLATE_PASS2}}`.
 
 9. **Invocação Pass 2** — mesmo comando.
@@ -60,7 +60,7 @@ vulnerabilidades, race conditions — não defender o código.
 10. **Validação Pass 2** — checks universais + Pass-2-only.
 
 11. **Persistência** — `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`
-    usando `review-file-template.md`. Atualiza `INDEX.md`.
+    usando `review-file-template.txt`. Atualiza `INDEX.md`.
 
 12. **Triagem + proposta de fix**
     - Para cada finding com severity ∈ {blocker, critical}:

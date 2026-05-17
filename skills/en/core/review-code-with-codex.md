@@ -18,7 +18,7 @@ vulnerabilities, race conditions — don't defend the code.
 
 ## Checklist
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.md`. ABORT if any fails.
+1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`. ABORT if any fails.
 
 2. **Collect input**
    - $ARGUMENTS is a git ref: `main..HEAD`, branch, commit range.
@@ -32,7 +32,7 @@ vulnerabilities, race conditions — don't defend the code.
    - {{BASH_TOOL}}: `wc -c` on DIFF — if > 50000: warn user about cost
 
 4. **Curate Pass 1 briefing (factual minimal)**
-   - Read `{{ASSETS_PATH}}/pass1-briefing-template-code.md` with {{READ_TOOL}}.
+   - Read `{{ASSETS_PATH}}/pass1-briefing-template-code.txt` with {{READ_TOOL}}.
    - Identify externally verifiable factual constraints:
      - `package.json` engines, forbidden deps
      - Public API contracts (grep README/docs)
@@ -46,13 +46,13 @@ vulnerabilities, race conditions — don't defend the code.
    Show: git ref, modified files, callers included, estimated tokens.
    Ask: `approve / edit / cancel`.
 
-6. **Pass 1 invocation (blind)** — follow `{{ASSETS_PATH}}/invocation-canonical.md`.
+6. **Pass 1 invocation (blind)** — follow `{{ASSETS_PATH}}/invocation-canonical.txt`.
    For code review, default to passing `--model gpt-5.3-codex` (code-specialized)
    in MODEL_FLAG. User can override with explicit flag.
 
-7. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.md` (universal).
+7. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt` (universal).
 
-8. **Build Pass 2 briefing (informed)** — append `pass2-prompt-suffix.md`
+8. **Build Pass 2 briefing (informed)** — append `pass2-prompt-suffix.txt`
    substituting `{{CONSTRAINTS_LIST}}`, `{{PASS_1_OUTPUT}}`, `{{OUTPUT_TEMPLATE_PASS2}}`.
 
 9. **Pass 2 invocation** — same command.
@@ -60,7 +60,7 @@ vulnerabilities, race conditions — don't defend the code.
 10. **Pass 2 validation** — universal checks + Pass-2-only.
 
 11. **Persistence** — `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`
-    using `review-file-template.md`. Update `INDEX.md`.
+    using `review-file-template.txt`. Update `INDEX.md`.
 
 12. **Triage + fix proposals**
     - For each finding with severity ∈ {blocker, critical}:

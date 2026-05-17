@@ -20,7 +20,7 @@ is to find gaps Claude missed due to self-preference bias
 
 ## Checklist
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.md`.
+1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`.
    ABORT if any check fails.
 
 2. **Collect input**
@@ -28,7 +28,7 @@ is to find gaps Claude missed due to self-preference bias
    - Validate with {{READ_TOOL}}: the file exists and has ≥ 10 lines.
 
 3. **Curate Pass 1 briefing (factual minimal)**
-   - Read `{{ASSETS_PATH}}/pass1-briefing-template-plan.md` with {{READ_TOOL}}.
+   - Read `{{ASSETS_PATH}}/pass1-briefing-template-plan.txt` with {{READ_TOOL}}.
    - Identify externally verifiable factual constraints:
      - {{BASH_TOOL}}: `grep -E "engines|peerDependencies" package.json 2>/dev/null || true`
      - {{BASH_TOOL}}: `head -20 CLAUDE.md README.md 2>/dev/null | grep -iE "must|required|forbidden" || true`
@@ -36,11 +36,11 @@ is to find gaps Claude missed due to self-preference bias
    - Identify non-goals (from the plan if declared; from the project if relevant).
    - **DO NOT** include intent narrative, DO NOT include curated memory, DO NOT mention authorship.
    - Substitute placeholders:
-     - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.md`
+     - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
      - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
      - `{{ARTIFACT_PATH}}` ← path of the plan
      - `{{ARTIFACT}}` ← plan content read with {{READ_TOOL}}
-     - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.md`
+     - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
    - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
    - {{BASH_TOOL}}: measure tokens with `wc -c /tmp/codex-briefing-pass1-<ts>.md`.
      If (size_bytes / 4) > 800 without the artifact: WARNING to user —
@@ -56,7 +56,7 @@ is to find gaps Claude missed due to self-preference bias
    On cancel: abort.
 
 5. **Pass 1 invocation (blind)**
-   - Read `{{ASSETS_PATH}}/invocation-canonical.md`.
+   - Read `{{ASSETS_PATH}}/invocation-canonical.txt`.
    - Execute the command substituting:
      - `<BRIEFING_PATH>` = file from step 3
      - `<OUTPUT_PATH>` = `/tmp/codex-output-pass1-<ts>.md`
@@ -65,15 +65,15 @@ is to find gaps Claude missed due to self-preference bias
    - Capture exit code. If 124 (timeout): abort with message. If other !=0: abort.
 
 6. **Pass 1 validation**
-   - Follow `{{ASSETS_PATH}}/validation-checklist.md` (universal checks 1-9).
+   - Follow `{{ASSETS_PATH}}/validation-checklist.txt` (universal checks 1-9).
    - Failure → 1 corrective retry. Failure again → escalate raw.
 
 7. **Build Pass 2 briefing (informed)**
    - Briefing = Pass 1 briefing (without `Begin review now.`) + content of
-     `{{ASSETS_PATH}}/pass2-prompt-suffix.md` with:
+     `{{ASSETS_PATH}}/pass2-prompt-suffix.txt` with:
      - `{{CONSTRAINTS_LIST}}` ← factual constraints identified in step 3
      - `{{PASS_1_OUTPUT}}` ← content of Pass 1 output
-     - `{{OUTPUT_TEMPLATE_PASS2}}` ← contents of `output-template-pass2.md`
+     - `{{OUTPUT_TEMPLATE_PASS2}}` ← contents of `output-template-pass2.txt`
    - Save to `/tmp/codex-briefing-pass2-<ts>.md`.
 
 8. **Pass 2 invocation (informed)**
@@ -82,16 +82,16 @@ is to find gaps Claude missed due to self-preference bias
 
 9. **Pass 2 validation**
    - Universal checks 1-9 + Pass-2-specific checks 10-13 from
-     `{{ASSETS_PATH}}/validation-checklist.md`.
+     `{{ASSETS_PATH}}/validation-checklist.txt`.
    - Failure → 1 corrective retry. Failure again → escalate raw.
 
 10. **Persistence**
     - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`
-    - Read `{{ASSETS_PATH}}/review-file-template.md`.
+    - Read `{{ASSETS_PATH}}/review-file-template.txt`.
     - Substitute placeholders.
     - Save to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`.
     - Update `.atomic-skills/reviews/INDEX.md` (create if missing) with
-      a row from `{{ASSETS_PATH}}/index-row-template.md`.
+      a row from `{{ASSETS_PATH}}/index-row-template.txt`.
 
 11. **Triage + fix proposals**
     - Show user 1 line: `Verdict: <V> | Counts (final): <C> | Framing Δ: <D> | Saved at <path>`
