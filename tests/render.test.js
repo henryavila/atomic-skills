@@ -68,6 +68,12 @@ describe('renderTemplate', () => {
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'codex');
     assert.ok(result.includes('asset at .agents/skills/atomic-skills/_assets/foo.md'));
   });
+
+  it('substitutes ASSETS_PATH for gemini-commands IDE (TOML flat pattern)', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'gemini-commands');
+    assert.ok(result.includes('asset at .gemini/commands/atomic-skills-_assets/foo.md'),
+      `expected TOML flat pattern, got: ${result}`);
+  });
 });
 
 describe('renderForIDE', () => {
