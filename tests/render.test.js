@@ -46,12 +46,27 @@ describe('renderTemplate', () => {
 
   it('handles conditional IDE blocks', () => {
     const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}';
-    
+
     const resultGemini = renderTemplate(input, {}, {}, 'gemini');
     assert.strictEqual(resultGemini, 'Common\nGemini only\n');
 
     const resultClaude = renderTemplate(input, {}, {}, 'claude-code');
     assert.strictEqual(resultClaude, 'Common\nClaude only\n');
+  });
+
+  it('substitutes ASSETS_PATH for claude-code IDE', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'claude-code');
+    assert.ok(result.includes('asset at .claude/commands/atomic-skills/_assets/foo.md'));
+  });
+
+  it('substitutes ASSETS_PATH for cursor IDE', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'cursor');
+    assert.ok(result.includes('asset at .cursor/skills/atomic-skills/_assets/foo.md'));
+  });
+
+  it('substitutes ASSETS_PATH for codex IDE', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'codex');
+    assert.ok(result.includes('asset at .agents/skills/atomic-skills/_assets/foo.md'));
   });
 });
 
