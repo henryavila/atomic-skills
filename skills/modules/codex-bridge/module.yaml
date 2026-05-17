@@ -1,0 +1,30 @@
+scope: both
+name: codex-bridge
+display_name:
+  pt: Ponte Codex
+  en: Codex Bridge
+description:
+  pt: |
+    Infraestrutura compartilhada para invocar OpenAI Codex CLI como reviewer
+    adversarial em padrão two-pass sealed envelope. Usado por
+    review-plan-with-codex e review-code-with-codex.
+  en: |
+    Shared infrastructure to invoke OpenAI Codex CLI as adversarial reviewer
+    in two-pass sealed envelope pattern. Used by review-plan-with-codex and
+    review-code-with-codex.
+variables:
+  codex_min_version:
+    description:
+      pt: Versão mínima do codex CLI
+      en: Minimum codex CLI version
+    default: "0.140.0"
+  timeout_seconds:
+    description:
+      pt: Timeout total por invocação
+      en: Total timeout per invocation
+    default: "600"
+  reviews_dir:
+    description:
+      pt: Diretório para salvar reviews
+      en: Directory to save reviews
+    default: ".atomic-skills/reviews/"
