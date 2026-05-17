@@ -108,6 +108,44 @@ export function installSkills(projectDir, options, callbacks = {}) {
     }
   }
 
+  // Process shared assets (templates etc shared across skills)
+  const sharedDir = join(skillsDir, 'shared');
+  if (existsSync(sharedDir)) {
+    const sharedEntries = readdirSync(sharedDir, { withFileTypes: true });
+    for (const entry of sharedEntries) {
+      if (!entry.isDirectory()) continue;
+      if (!entry.name.endsWith('-assets')) continue;
+
+      const assetsSourceDir = join(sharedDir, entry.name);
+      const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
+
+      for (const ideId of ides) {
+        const ide = IDE_CONFIG[ideId];
+        const destBase = ide.format === 'toml'
+          ? join(projectDir, ide.dir, `${SKILL_NAMESPACE}-_assets`)
+          : join(projectDir, ide.dir, SKILL_NAMESPACE, '_assets');
+
+        mkdirSync(destBase, { recursive: true });
+
+        for (const f of assetFiles) {
+          if (!f.isFile()) continue;
+          const sourceFile = join(assetsSourceDir, f.name);
+          const raw = readFileSync(sourceFile, 'utf8');
+          const rendered = renderTemplate(raw, vars, moduleFlags, ideId);
+          const destFile = join(destBase, f.name);
+          writeFileSync(destFile, rendered, 'utf8');
+          const relPath = destFile.replace(projectDir + '/', '');
+          if (onFileWritten) onFileWritten(relPath);
+          createdFiles.push({
+            path: relPath,
+            hash: hashContent(rendered),
+            source: `_assets/${entry.name}/${f.name}`,
+          });
+        }
+      }
+    }
+  }
+
   // Generate namespace root SKILL.md for markdown-format IDEs
   for (const ideId of ides) {
     const rootPath = getNamespaceRootPath(ideId);
@@ -209,6 +247,30 @@ function preRenderFiles(options) {
     if (!modMeta) continue;
     for (const [skillId, skillMeta] of Object.entries(modMeta)) {
       renderSkill(skillId, skillMeta, `modules/${modName}`);
+    }
+  }
+
+  // Pre-render shared assets
+  const sharedDir = join(skillsDir, 'shared');
+  if (existsSync(sharedDir)) {
+    const sharedEntries = readdirSync(sharedDir, { withFileTypes: true });
+    for (const entry of sharedEntries) {
+      if (!entry.isDirectory() || !entry.name.endsWith('-assets')) continue;
+      const assetsSourceDir = join(sharedDir, entry.name);
+      const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
+      for (const ideId of ides) {
+        const ide = IDE_CONFIG[ideId];
+        const destBase = ide.format === 'toml'
+          ? `${ide.dir}/${SKILL_NAMESPACE}-_assets`
+          : `${ide.dir}/${SKILL_NAMESPACE}/_assets`;
+        for (const f of assetFiles) {
+          if (!f.isFile()) continue;
+          const sourceFile = join(assetsSourceDir, f.name);
+          const raw = readFileSync(sourceFile, 'utf8');
+          const renderedContent = renderTemplate(raw, vars, moduleFlags, ideId);
+          rendered.set(`${destBase}/${f.name}`, renderedContent);
+        }
+      }
     }
   }
 
