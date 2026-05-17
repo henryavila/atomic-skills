@@ -256,6 +256,36 @@ describe('installSkills', () => {
     assert.ok(content.includes('.claude/commands/atomic-skills/_assets'),
       'ASSETS_PATH should be substituted');
   });
+
+  it('copies all 11 codex-bridge assets to claude-code namespace', async () => {
+    const { mkdtempSync, existsSync, readdirSync, mkdirSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join: pjoin, dirname: pdirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+
+    const tmp = mkdtempSync(pjoin(tmpdir(), 'install-codex-'));
+    const projectDir = pjoin(tmp, 'project');
+    mkdirSync(projectDir, { recursive: true });
+
+    const PACKAGE_ROOT = pjoin(pdirname(fileURLToPath(import.meta.url)), '..');
+    const realSkillsDir = pjoin(PACKAGE_ROOT, 'skills');
+    const realMetaDir = pjoin(PACKAGE_ROOT, 'meta');
+
+    installSkills(projectDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: realSkillsDir,
+      metaDir: realMetaDir,
+      scope: 'project',
+    });
+
+    const assetsDir = pjoin(projectDir, '.claude/commands/atomic-skills/_assets');
+    assert.ok(existsSync(assetsDir), 'assets dir should exist');
+    const files = readdirSync(assetsDir);
+    assert.strictEqual(files.length, 11,
+      `expected 11 assets, got ${files.length}: ${files.join(', ')}`);
+  });
 });
 
 describe('install.js source guards', () => {
