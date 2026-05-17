@@ -26,8 +26,17 @@ core:
   parallel-dispatch-audit:
     name: parallel-dispatch-audit
     description: "Audit the output of a parallel-dispatch batch. Reads the plan file, verifies each agent's deliverables on disk against the user's original request, applies cosmetic fixes, and produces a report with pending decisions. HARD-GATEs on active batch (<2min commits) and read-only mode (≥5 issues). Use after parallel-dispatch agents complete."
+  review-plan-with-codex:
+    name: review-plan-with-codex
+    description: "Cross-model adversarial review of a plan/spec via OpenAI Codex CLI in two-pass sealed envelope. Use when finishing a plan and wanting a second opinion from a different model family to mitigate self-preference bias."
+  review-code-with-codex:
+    name: review-code-with-codex
+    description: "Cross-model adversarial review of code changes (diff/branch) via OpenAI Codex CLI in two-pass sealed envelope. Use before merging significant changes to catch bugs that same-model review missed."
 
 modules:
+  codex-bridge:
+    name: codex-bridge
+    description: "Shared infrastructure for invoking OpenAI Codex CLI as adversarial reviewer. Used by review-plan-with-codex and review-code-with-codex."
   memory:
     init-memory:
       name: init-memory
