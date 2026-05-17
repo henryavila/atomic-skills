@@ -115,6 +115,8 @@ export function installSkills(projectDir, options, callbacks = {}) {
     for (const entry of sharedEntries) {
       if (!entry.isDirectory()) continue;
       if (!entry.name.endsWith('-assets')) continue;
+      const moduleName = entry.name.slice(0, -'-assets'.length);
+      if (!meta.modules || !meta.modules[moduleName]) continue;
 
       const assetsSourceDir = join(sharedDir, entry.name);
       const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
@@ -256,6 +258,8 @@ function preRenderFiles(options) {
     const sharedEntries = readdirSync(sharedDir, { withFileTypes: true });
     for (const entry of sharedEntries) {
       if (!entry.isDirectory() || !entry.name.endsWith('-assets')) continue;
+      const moduleName = entry.name.slice(0, -'-assets'.length);
+      if (!meta.modules || !meta.modules[moduleName]) continue;
       const assetsSourceDir = join(sharedDir, entry.name);
       const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
       for (const ideId of ides) {

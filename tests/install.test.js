@@ -35,7 +35,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 16); // 9 core skills + 7 shared assets (no namespace root for commands)
+    assert.strictEqual(result.files.length, 9); // 9 core skills (no namespace root for commands)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -80,7 +80,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 17); // 9 core + 1 module + 7 shared assets (no namespace root for commands)
+    assert.strictEqual(result.files.length, 10); // 9 core + 1 module (no namespace root for commands)
   });
 
   it('substitutes memory_path variable', () => {
@@ -141,7 +141,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 32); // 9 core * 2 IDEs + 7 shared assets * 2 IDEs (no namespace root for command or toml formats)
+    assert.strictEqual(result.files.length, 18); // 9 core * 2 IDEs (no namespace root for command or toml formats)
   });
 
   it('uses pt language when specified', () => {
@@ -217,8 +217,8 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    // Only core skills + shared assets, no module skills (no namespace root for commands)
-    assert.strictEqual(result.files.length, 16);
+    // Only core skills, no module skills (no namespace root for commands)
+    assert.strictEqual(result.files.length, 9);
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -234,7 +234,8 @@ describe('installSkills', () => {
     mkdirSync(metaDir, { recursive: true });
     writeFileSync(join(skillsDir, 'shared', 'codex-bridge-assets', 'sample.md'),
       'asset content path={{ASSETS_PATH}}');
-    writeFileSync(join(metaDir, 'skills.yaml'), 'core: {}\nmodules: {}\n');
+    writeFileSync(join(metaDir, 'skills.yaml'),
+      'core: {}\nmodules:\n  codex-bridge:\n    name: codex-bridge\n    description: test\n');
 
     const projectDir = join(tmp, 'project');
     mkdirSync(projectDir, { recursive: true });
