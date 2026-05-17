@@ -1,0 +1,70 @@
+# Consolidated Review File Template
+
+Path: `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`
+
+````markdown
+---
+date: {{ISO_TIMESTAMP}}
+topic: {{SLUG}}
+artifact: {{ARTIFACT_PATH}}
+skill: {{SKILL_NAME}}
+reviewer: {{MODEL_ID}}
+codex_version: {{CODEX_VERSION}}
+final_verdict: {{VERDICT}}
+counts_final: {{COUNTS_FINAL}}
+counts_blind: {{COUNTS_BLIND}}
+framing_delta: {{FRAMING_DELTA}}
+schema_version: "1.0"
+---
+
+# Cross-Model Review — {{SLUG}}
+
+## Pass 1 (blind)
+
+{{PASS_1_OUTPUT}}
+
+## Pass 2 (informed)
+
+{{PASS_2_OUTPUT}}
+
+## Briefings used
+
+<details>
+<summary>Pass 1 briefing</summary>
+
+```
+{{PASS_1_BRIEFING}}
+```
+
+</details>
+
+<details>
+<summary>Pass 2 briefing</summary>
+
+```
+{{PASS_2_BRIEFING}}
+```
+
+</details>
+
+## Fixes applied in this session
+
+<!-- Append-only. Triagem step adds lines here as user approves/skips. -->
+````
+
+## Placeholder substitution
+
+| Placeholder | Format / source |
+|-------------|-----------------|
+| `{{ISO_TIMESTAMP}}` | ISO-8601 with TZ, e.g. `2026-05-17T14:30:00-03:00` |
+| `{{SLUG}}` | kebab-case, derived from artifact basename or branch name |
+| `{{ARTIFACT_PATH}}` | Path of reviewed plan/spec or git ref for code |
+| `{{SKILL_NAME}}` | `review-plan-with-codex` or `review-code-with-codex` |
+| `{{MODEL_ID}}` | From frontmatter of pass outputs |
+| `{{CODEX_VERSION}}` | `codex --version` output, parsed |
+| `{{VERDICT}}` | From Pass 2 frontmatter |
+| `{{COUNTS_FINAL}}` | YAML inline object, e.g. `{blocker: 1, critical: 1, major: 3, minor: 1, nit: 0}` |
+| `{{COUNTS_BLIND}}` | Same format, from Pass 1 |
+| `{{FRAMING_DELTA}}` | YAML inline object: `{dropped: N, maintained: N, emerged: N}` |
+| `{{PASS_N_OUTPUT}}` | Full content of pass output (with frontmatter and body) |
+| `{{PASS_N_BRIEFING}}` | Full briefing text used |
