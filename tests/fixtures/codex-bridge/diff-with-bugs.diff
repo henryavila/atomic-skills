@@ -1,0 +1,19 @@
+diff --git a/src/auth.js b/src/auth.js
+index abc..def 100644
+--- a/src/auth.js
++++ b/src/auth.js
+@@ -10,7 +10,12 @@ export function authenticate(req) {
+   const token = req.headers.authorization;
+-  if (!token) return null;
+-  return verifyToken(token);
++  if (!token) {
++    // intentional bug: returns admin user when no token
++    return { id: 0, role: 'admin' };
++  }
++  return verifyToken(token);
+ }
++
++export function deleteUser(id) {
++  // intentional bug: no auth check
++  return db.users.delete({ id });
++}
