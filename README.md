@@ -268,6 +268,39 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 ---
 
+### `atomic-skills:review-plan-with-codex` — Cross-Model Plan Review (new in 1.8.0)
+
+**Problem it solves:** Same-model review (Claude reviewing Claude) suffers from documented self-preference bias (arXiv 2410.21819, 2508.06709, 2509.26464). Critical plans/specs need a second opinion from a different model family.
+
+**What it does:** Dispatches the OpenAI Codex CLI as adversarial reviewer in a **two-pass sealed envelope** pattern. Pass 1 (blind): Codex reviews with factual constraints only — no intent narrative (which envenom reviewers by up to -93pp, per arXiv 2603.18740). Pass 2 (informed): constraints revealed, Codex reconciles findings. Delta blind→informed is empirical signal of framing/anchoring bias.
+
+**When to use:** Finishing a plan/spec/design doc and wanting a second opinion before implementation; high-stakes architectural decisions; complement to `review-plan-internal` (same-model).
+
+**Pre-requisites:**
+- OpenAI Codex CLI installed (`npm install -g @openai/codex` or `brew install --cask codex`)
+- `codex login` completed
+- Clean working tree (or `--allow-dirty` flag)
+
+**Iron Law:** `NO INTENT IN THE BRIEFING`
+
+---
+
+### `atomic-skills:review-code-with-codex` — Cross-Model Code Review (new in 1.8.0)
+
+**Problem it solves:** Reviewing code changes before merge with the same model that wrote them misses bugs by self-preference bias. Especially risky in critical paths (auth, data integrity, infra).
+
+**What it does:** Same two-pass sealed envelope pattern as `review-plan-with-codex`, but for code (diff/branch/PR). Attack-surface checklist focused on bugs: race conditions, auth bypass, data integrity, error handling, rollback safety, perf regressions, test gaps, observability.
+
+**When to use:** Before merging significant changes; security-sensitive code; complex async/concurrent code; whenever you want a cross-family second opinion.
+
+**Output:** Consolidated markdown review file in `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` with: both pass outputs, reconciliation block, framing delta, applied fixes. INDEX.md tracks history.
+
+**Iron Law:** `NO INTENT IN THE BRIEFING`
+
+See `docs/kb/cross-model-review-design.md` for design principles.
+
+---
+
 ## Techniques
 
 Each skill uses a combination of these techniques to prevent agent shortcuts:

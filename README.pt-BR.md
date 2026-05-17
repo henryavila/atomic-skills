@@ -270,6 +270,39 @@ Detalhes da camada de renderização cross-agent em [docs/kb/gemini-cli-compatib
 
 ---
 
+### `atomic-skills:review-plan-with-codex` — Revisão cross-model de planos (novo em 1.8.0)
+
+**Problema:** Revisão same-model (Claude revisando Claude) sofre de self-preference bias documentado (arXiv 2410.21819, 2508.06709, 2509.26464). Planos/specs críticos precisam de segunda opinião de outra família de modelo.
+
+**O que faz:** Dispara o OpenAI Codex CLI como reviewer adversarial em padrão **two-pass sealed envelope**. Pass 1 (blind): Codex revisa com SÓ constraints factuais — sem intent narrativo (que envenena reviewer em até -93pp, per arXiv 2603.18740). Pass 2 (informed): constraints reveladas, Codex reconcilia findings. Delta blind→informed é sinal empírico de framing/anchoring bias.
+
+**Quando usar:** Ao finalizar plano/spec/design doc e querer segunda opinião antes de implementar; decisões arquiteturais críticas; complementa `review-plan-internal` (same-model).
+
+**Pré-requisitos:**
+- OpenAI Codex CLI instalado (`npm install -g @openai/codex` ou `brew install --cask codex`)
+- `codex login` completado
+- Working tree limpo (ou flag `--allow-dirty`)
+
+**Iron Law:** `NO INTENT IN THE BRIEFING`
+
+---
+
+### `atomic-skills:review-code-with-codex` — Revisão cross-model de código (novo em 1.8.0)
+
+**Problema:** Revisar código antes do merge com o mesmo modelo que o escreveu perde bugs por self-preference bias. Especialmente arriscado em paths críticos (auth, integridade de dados, infra).
+
+**O que faz:** Mesmo padrão two-pass sealed envelope do `review-plan-with-codex`, mas para código (diff/branch/PR). Attack-surface checklist focado em bugs: race conditions, auth bypass, integridade de dados, error handling, rollback safety, perf regressions, test gaps, observabilidade.
+
+**Quando usar:** Antes de merge de mudanças significativas; código sensível a segurança; código async/concurrent complexo; sempre que quiser segunda opinião cross-family.
+
+**Output:** Arquivo markdown consolidado em `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` com: outputs dos dois passes, bloco de reconciliation, framing delta, fixes aplicados. INDEX.md rastreia histórico.
+
+**Iron Law:** `NO INTENT IN THE BRIEFING`
+
+Ver `docs/kb/cross-model-review-design.md` para princípios de design.
+
+---
+
 ## Técnicas
 
 Cada skill usa uma combinação destas técnicas para prevenir atalhos do agente:
