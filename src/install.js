@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import pc from 'picocolors';
@@ -136,7 +136,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
           const rendered = renderTemplate(raw, vars, moduleFlags, ideId);
           const destFile = join(destBase, f.name);
           writeFileSync(destFile, rendered, 'utf8');
-          const relPath = destFile.replace(projectDir + '/', '');
+          const relPath = relative(projectDir, destFile);
           if (onFileWritten) onFileWritten(relPath);
           createdFiles.push({
             path: relPath,
