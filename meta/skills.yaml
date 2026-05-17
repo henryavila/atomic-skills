@@ -34,9 +34,7 @@ core:
     description: "Cross-model adversarial review of code changes (diff/branch) via OpenAI Codex CLI in two-pass sealed envelope. Use before merging significant changes to catch bugs that same-model review missed."
 
 modules:
-  codex-bridge:
-    name: codex-bridge
-    description: "Shared infrastructure for invoking OpenAI Codex CLI as adversarial reviewer. Used by review-plan-with-codex and review-code-with-codex."
+  codex-bridge: {}
   memory:
     init-memory:
       name: init-memory
