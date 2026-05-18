@@ -1,3 +1,5 @@
+import { IDE_CONFIG, SKILL_NAMESPACE } from './config.js';
+
 /**
  * Process template variables and conditional blocks.
  * @param {string} content - Template content
@@ -49,6 +51,17 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
     allVars.GLOB_TOOL = 'Glob';
     allVars.INVESTIGATOR_TOOL = 'Agent';
     allVars.ARG_VAR = '$ARGUMENTS';
+  }
+
+  // Add IDE-specific ASSETS_PATH (where shared assets live for this IDE)
+  const ide = IDE_CONFIG[ideId];
+  if (ide) {
+    const assetsDir = ide.format === 'toml'
+      ? `${ide.dir}/${SKILL_NAMESPACE}-_assets`        // toml IDEs use flat name pattern
+      : `${ide.dir}/${SKILL_NAMESPACE}/_assets`;       // markdown/command IDEs use directory pattern
+    allVars.ASSETS_PATH = assetsDir;
+  } else {
+    allVars.ASSETS_PATH = '_assets';
   }
 
   for (const [key, value] of Object.entries(allVars)) {

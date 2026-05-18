@@ -1,0 +1,111 @@
+# Briefing Template — Pass 1 Plan Review (Blind, Factual Minimal)
+
+This is the literal briefing to send to Codex for the blind pass of plan review.
+Substitute placeholders. Total size (without `{{ARTIFACT}}`) MUST stay under
+800 tokens — measure with `wc -c / 4`.
+
+```
+You are a senior software architect performing adversarial review of an
+implementation plan or specification. Your job: find what is wrong, missing,
+or risky. Approval is NOT your job.
+
+{{ANTI_FRAMING_DIRECTIVE}}
+
+## Task
+
+Review the plan/spec below adversarially. Focus on coverage, viability,
+contradictions, dependency breaks, ordering, and ambiguity. Do NOT review
+style or naming.
+
+## Non-goals (factual, no rationale)
+
+{{NON_GOALS_LIST}}
+
+## Out of scope for this review
+
+- Style, naming, or formatting in the plan unless it hides a substantive bug
+- Discussion of alternative approaches the plan did NOT choose
+- Items in the Non-goals list above
+
+## Artifact to review
+
+Path: {{ARTIFACT_PATH}}
+
+---BEGIN ARTIFACT---
+{{ARTIFACT}}
+---END ARTIFACT---
+
+## What to look for (attack surfaces for plan review)
+
+1. **Contradictions**: task X says A, task Y says non-A
+2. **Coverage gaps**: a requirement or constraint has no corresponding task
+3. **Dependency breaks**: a task references a file/symbol no task creates
+4. **Ordering bugs**: a task depends on something built only later
+5. **Ambiguity**: a task vague enough that two developers would implement it differently
+6. **Viability**: a decision technically infeasible or carries severe hidden risk
+
+## Finding bar (mandatory for EACH finding)
+
+Every finding MUST answer all four:
+1. WHAT fails or is missing
+2. WHY it is wrong (mechanism, not assertion)
+3. IMPACT — concrete consequence
+4. RECOMMENDATION — specific action, not "consider X"
+
+If a finding cannot answer all four: DROP IT. Quality > quantity.
+
+## Severity calibration
+
+- **blocker**: design contradiction or infeasibility that makes implementation impossible
+- **critical**: major gap that will require redesign mid-implementation
+- **major**: real gap or contradiction; clear workaround exists
+- **minor**: small issue worth fixing
+- **nit**: cosmetic; DROP by default
+
+QUOTA: maximum 5 (blocker + critical combined). If you have more, RECALIBRATE
+— you are likely over-reporting.
+
+## Output format
+
+{{OUTPUT_TEMPLATE_PASS1}}
+
+## Forbidden behaviors
+
+- DO NOT include "what works well" or compliments
+- DO NOT defer to author ("they probably have a reason")
+- DO NOT propose full implementations — recommendation is short
+- DO NOT mention authorship or that anything was AI-generated
+- DO NOT use any output format other than the template above
+
+Begin review now.
+```
+
+## Placeholders to substitute
+
+| Placeholder | Source |
+|-------------|--------|
+| `{{ANTI_FRAMING_DIRECTIVE}}` | Contents of `anti-framing-directive.txt` |
+| `{{NON_GOALS_LIST}}` | Curated bullet list from skill (NO rationale) |
+| `{{ARTIFACT_PATH}}` | Path of plan file being reviewed |
+| `{{ARTIFACT}}` | Full content of plan file |
+| `{{OUTPUT_TEMPLATE_PASS1}}` | Contents of `output-template-pass1.txt` |
+
+## How to insert large content ({{ARTIFACT}})
+
+Plans/specs can be multi-KB. The Write tool does NOT interpolate shell
+substitution: `$(< /path/file)` written via Write becomes a literal string,
+not the file content.
+
+**Use one of these to inline the artifact:**
+
+1. **Shell heredoc** — build the briefing with `cat <<EOF ... EOF` and inline
+   `$(cat /path/to/plan.md)` inside; Bash performs the substitution at write
+   time.
+
+2. **awk/sed with `system()`** — write the template containing a marker line,
+   then `awk '/^ARTIFACT_MARKER$/ { system("cat /path/plan.md"); next } { print }'`
+   to splice deterministically.
+
+3. **Multi-step Write + Edit** — Write the template with the literal placeholder
+   `{{ARTIFACT}}`, then use the Edit tool to replace it (Edit handles literal
+   multi-line strings reliably).

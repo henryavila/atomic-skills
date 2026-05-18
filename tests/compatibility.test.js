@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderTemplate } from '../src/render.js';
+import { PUBLIC_IDE_IDS } from '../src/config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILLS_ROOT = join(__dirname, '..', 'skills');
@@ -91,5 +92,15 @@ Claude specific instructions.
     assert.ok(rendered.includes('Read tool'));
     assert.ok(rendered.includes('Claude specific instructions.'));
     assert.ok(!rendered.includes('Gemini hacks here.'));
+  });
+
+  it('substitutes ASSETS_PATH for every public IDE', () => {
+    for (const ideId of PUBLIC_IDE_IDS) {
+      const result = renderTemplate('see {{ASSETS_PATH}}/x.md', {}, {}, ideId);
+      assert.ok(!result.includes('{{ASSETS_PATH}}'),
+        `ASSETS_PATH not substituted for ${ideId}`);
+      assert.ok(result.includes('_assets'),
+        `_assets not present for ${ideId}: ${result}`);
+    }
   });
 });
