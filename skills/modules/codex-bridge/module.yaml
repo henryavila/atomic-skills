@@ -13,11 +13,6 @@ description:
     in two-pass sealed envelope pattern. Used by review-plan-with-codex and
     review-code-with-codex.
 variables:
-  codex_min_version:
-    description:
-      pt: Versão mínima do codex CLI
-      en: Minimum codex CLI version
-    default: "0.140.0"
   timeout_seconds:
     description:
       pt: Timeout total por invocação

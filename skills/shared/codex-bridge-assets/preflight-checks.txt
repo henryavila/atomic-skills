@@ -10,15 +10,18 @@ Run: `which codex`
 If exit != 0: ABORT with message:
 > "OpenAI Codex CLI not found in PATH. Install it with `npm install -g @openai/codex` or `brew install --cask codex`, then run `codex login`."
 
-## 2. Codex version meets minimum
+## 2. Codex CLI is callable
 
 Run: `codex --version`
 
-Parse output (format: `codex X.Y.Z` or similar). Compare to minimum:
-- Minimum: `0.140.0`
+If exit != 0: ABORT with message:
+> "`codex --version` failed. Reinstall the CLI or check `codex login`."
 
-If below minimum: ABORT with message:
-> "Codex CLI version <X.Y.Z> below required <MIN>. Run `codex update`."
+Record the version string in the briefing metadata (for the audit trail). No
+minimum version is enforced — release cadence is fast and hardcoded floors age
+poorly. If you experience hallucinated findings, run `codex update` to get the
+latest fixes and retry. Bug #8404 (findings from working-tree changes) is
+specifically mitigated by check 3 below.
 
 ## 3. Working tree clean (or --allow-dirty)
 
