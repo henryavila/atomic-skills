@@ -47,8 +47,9 @@ vulnerabilities, race conditions — don't defend the code.
    Ask: `approve / edit / cancel`.
 
 6. **Pass 1 invocation (blind)** — follow `{{ASSETS_PATH}}/invocation-canonical.txt`.
-   For code review, default to passing `--model gpt-5.3-codex` (code-specialized)
-   in MODEL_FLAG. User can override with explicit flag.
+   MODEL_FLAG empty by default: Codex resolves via your local config
+   (`~/.codex/config.toml`) or the bundled CLI default. User can override
+   by passing `model:<id>` explicitly.
 
 7. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt` (universal).
 

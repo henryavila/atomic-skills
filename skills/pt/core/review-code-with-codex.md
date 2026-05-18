@@ -47,8 +47,9 @@ vulnerabilidades, race conditions — não defender o código.
    Pergunte: `aprovar / editar / cancelar`.
 
 6. **Invocação Pass 1 (blind)** — siga `{{ASSETS_PATH}}/invocation-canonical.txt`.
-   Para code review, por default passar `--model gpt-5.3-codex` (code-specialized)
-   no MODEL_FLAG. Usuário pode sobrescrever com flag explícita.
+   MODEL_FLAG vazio por default: o Codex resolve usando sua configuração
+   local (`~/.codex/config.toml`) ou o bundled default da CLI instalada.
+   Usuário pode sobrescrever passando `model:<id>` explicitamente.
 
 7. **Validação Pass 1** — `{{ASSETS_PATH}}/validation-checklist.txt` (universais).
 
