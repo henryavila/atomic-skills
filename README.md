@@ -2,11 +2,17 @@
   <img src="assets/header.png" alt="Atomic Skills — Small. Specific. Capable." width="100%" />
 </p>
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@henryavila/atomic-skills"><img src="https://img.shields.io/npm/v/@henryavila/atomic-skills.svg?label=npm&color=cb3837&logo=npm" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@henryavila/atomic-skills"><img src="https://img.shields.io/npm/dm/@henryavila/atomic-skills.svg?color=blue" alt="npm downloads" /></a>
+  <a href="https://github.com/henryavila/atomic-skills/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/@henryavila/atomic-skills.svg?color=success" alt="license" /></a>
+</p>
+
 Optimized prompts you install once and invoke in any AI IDE. Each skill is an atom — small enough to stay focused, specific enough to leave no ambiguity, capable enough to make the agent actually follow through.
 
 *Stop rewriting prompts.*
 
-> **[Versão em Português (BR)](README.pt-BR.md)**
+> **[Versão em Português (BR)](README.pt-BR.md)** · **[View on npm](https://www.npmjs.com/package/@henryavila/atomic-skills)**
 
 ```bash
 npx @henryavila/atomic-skills install
