@@ -77,6 +77,8 @@ Detalhes da camada de renderização cross-agent em [docs/kb/gemini-cli-compatib
 | 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--auditar-um-batch-de-parallel-dispatch) | Auditar output de um batch parallel-dispatch, aplicar fixes, reportar | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK` |
 | 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--revisão-adversarial-de-planos) | Encontrar contradições, deps quebradas e gaps em um plano | `NO APPROVAL WITHOUT EVIDENCE` |
 | 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plano-vs-artefatos) | Cruzar plano contra PRD/specs para requisitos faltando | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
+| 🤖 | [`review-plan-with-codex`](#atomic-skillsreview-plan-with-codex--revisão-cross-model-de-planos-novo-em-180) | Revisão cross-family de plano via OpenAI Codex CLI (two-pass sealed envelope) | `NO INTENT IN THE BRIEFING` |
+| 🔬 | [`review-code-with-codex`](#atomic-skillsreview-code-with-codex--revisão-cross-model-de-código-novo-em-180) | Revisão cross-family de código (diff/branch) via OpenAI Codex CLI | `NO INTENT IN THE BRIEFING` |
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--salvar-trabalho-e-publicar) | Salvar learnings na memória, agrupar commits, push seguro | `NO PUSH WITHOUT FRESH VERIFICATION` |
 | 📊 | [`project-status`](#atomic-skillsproject-status--rastreamento-canônico-de-iniciativa) | Árvore canônica de status por iniciativa com stack + tasks + parked + emerged; enforcement via hooks | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE` |
 | 🧠 | [`init-memory`](#atomic-skillsinit-memory--inicialização-de-memória-persistente) | Centralizar memória do projeto em `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
@@ -221,6 +223,57 @@ Detalhes da camada de renderização cross-agent em [docs/kb/gemini-cli-compatib
 
 ---
 
+### `atomic-skills:review-plan-with-codex` — Revisão Cross-Model de Planos (novo em 1.8.0)
+
+**Problema que resolve:** Revisão same-model (Claude revisando Claude) sofre de self-preference bias documentado (arXiv [2410.21819](https://arxiv.org/abs/2410.21819), [2508.06709](https://arxiv.org/abs/2508.06709), [2509.26464](https://arxiv.org/abs/2509.26464)). Planos/specs críticos precisam de segunda opinião de outra família de modelo.
+
+**O que faz:** Dispara o OpenAI Codex CLI como reviewer adversarial em padrão **two-pass sealed envelope**.
+- **Pass 1 (blind):** Codex revisa com SÓ constraints factuais — sem intent narrativo (que envenena reviewer em até **-93pp**, per arXiv [2603.18740](https://arxiv.org/abs/2603.18740)).
+- **Pass 2 (informed):** constraints reveladas, Codex reconcilia findings com blocos `Dropped / Maintained / Emerged`. O delta blind→informed é o sinal empírico de framing bias.
+
+**Quando usar:** Ao finalizar plano/spec/design doc e querer segunda opinião antes de implementar. Decisões arquiteturais críticas. Complementa `review-plan-internal` (same-model).
+
+**Pré-requisitos:**
+- OpenAI Codex CLI instalado (`npm install -g @openai/codex` ou `brew install --cask codex`)
+- `codex login` completado
+- Working tree limpo (ou flag `--allow-dirty`)
+
+**Output:** Arquivo consolidado em `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` com os dois pass outputs, bloco de reconciliation, framing delta e fixes aplicados. `INDEX.md` rastreia histórico.
+
+**Vantagens:**
+- Revisão cross-family ataca self-preference bias por vetor diferente da revisão same-model
+- Two-pass sealed envelope produz métrica empírica (framing delta) da qualidade do run
+- Briefing factual-only previne a forma mais documentada de envenenamento do reviewer
+- Todo finding cita `file:line` + 4 campos obrigatórios (Claim, Impact, Recommendation, Confidence)
+
+**Iron Law:** `NO INTENT IN THE BRIEFING`
+
+Veja [`docs/kb/cross-model-review-design.md`](docs/kb/cross-model-review-design.md) para princípios de design.
+
+---
+
+### `atomic-skills:review-code-with-codex` — Revisão Cross-Model de Código (novo em 1.8.0)
+
+**Problema que resolve:** Revisar código com o mesmo modelo que o escreveu perde bugs por self-preference bias. Especialmente arriscado em paths críticos (auth, integridade de dados, infra, lógica async/concurrent).
+
+**O que faz:** Mesmo padrão **two-pass sealed envelope** do `review-plan-with-codex`, mas para código (diff/branch). Attack-surface checklist focado em bugs: race conditions, auth bypass, integridade de dados, error handling, rollback safety, perf regressions, test gaps, observabilidade.
+
+**Quando usar:** Antes de merge de mudanças significativas. Código sensível a segurança. Lógica async/concurrent complexa. Sempre que quiser segunda opinião cross-family sobre código que o Claude escreveu.
+
+**Pré-requisitos:** Mesmos do `review-plan-with-codex`.
+
+**Output:** Arquivo consolidado em `.atomic-skills/reviews/`. Inclui briefings (audit trail), os dois passes, reconciliation e fixes aplicados durante triagem.
+
+**Vantagens:**
+- Validada empiricamente: real-run no repo `dotfiles` pegou um bug de parsing de tokens em regex e gap de cobertura de teste que a revisão same-model perdeu
+- Attack surfaces focadas em código (não checklist genérica) — race conditions, auth, etc.
+- Consciência de custo: avisa se diff excede 50KB antes de invocar; respeita escolha de modelo do usuário em `~/.codex/config.toml`
+- Fixes são propostos individualmente com contexto file:line — você aprova/edita/pula cada um
+
+**Iron Law:** `NO INTENT IN THE BRIEFING`
+
+---
+
 ### `atomic-skills:save-and-push` — Salvar Trabalho e Publicar
 
 **Problema que resolve:** Trabalho fica espalhado na conversa, memória não é preservada para sessões futuras, commits são caóticos, e secrets são acidentalmente commitados.
@@ -276,39 +329,6 @@ Detalhes da camada de renderização cross-agent em [docs/kb/gemini-cli-compatib
 
 ---
 
-### `atomic-skills:review-plan-with-codex` — Revisão cross-model de planos (novo em 1.8.0)
-
-**Problema:** Revisão same-model (Claude revisando Claude) sofre de self-preference bias documentado (arXiv 2410.21819, 2508.06709, 2509.26464). Planos/specs críticos precisam de segunda opinião de outra família de modelo.
-
-**O que faz:** Dispara o OpenAI Codex CLI como reviewer adversarial em padrão **two-pass sealed envelope**. Pass 1 (blind): Codex revisa com SÓ constraints factuais — sem intent narrativo (que envenena reviewer em até -93pp, per arXiv 2603.18740). Pass 2 (informed): constraints reveladas, Codex reconcilia findings. Delta blind→informed é sinal empírico de framing/anchoring bias.
-
-**Quando usar:** Ao finalizar plano/spec/design doc e querer segunda opinião antes de implementar; decisões arquiteturais críticas; complementa `review-plan-internal` (same-model).
-
-**Pré-requisitos:**
-- OpenAI Codex CLI instalado (`npm install -g @openai/codex` ou `brew install --cask codex`)
-- `codex login` completado
-- Working tree limpo (ou flag `--allow-dirty`)
-
-**Iron Law:** `NO INTENT IN THE BRIEFING`
-
----
-
-### `atomic-skills:review-code-with-codex` — Revisão cross-model de código (novo em 1.8.0)
-
-**Problema:** Revisar código antes do merge com o mesmo modelo que o escreveu perde bugs por self-preference bias. Especialmente arriscado em paths críticos (auth, integridade de dados, infra).
-
-**O que faz:** Mesmo padrão two-pass sealed envelope do `review-plan-with-codex`, mas para código (diff/branch/PR). Attack-surface checklist focado em bugs: race conditions, auth bypass, integridade de dados, error handling, rollback safety, perf regressions, test gaps, observabilidade.
-
-**Quando usar:** Antes de merge de mudanças significativas; código sensível a segurança; código async/concurrent complexo; sempre que quiser segunda opinião cross-family.
-
-**Output:** Arquivo markdown consolidado em `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` com: outputs dos dois passes, bloco de reconciliation, framing delta, fixes aplicados. INDEX.md rastreia histórico.
-
-**Iron Law:** `NO INTENT IN THE BRIEFING`
-
-Ver `docs/kb/cross-model-review-design.md` para princípios de design.
-
----
-
 ## Técnicas
 
 Cada skill usa uma combinação destas técnicas para prevenir atalhos do agente:
@@ -329,7 +349,7 @@ Cada skill usa uma combinação destas técnicas para prevenir atalhos do agente
 
 ## Módulos
 
-Módulos agrupam skills + variáveis opcionais sobre o conjunto core. Hoje, a ativação acontece pelo dashboard interativo (ação `customize modules`) — não há flag `--modules` no CLI. O módulo `memory` é ativado automaticamente na primeira instalação.
+Módulos agrupam skills, assets compartilhados ou hooks sobre o conjunto core. Hoje, a ativação acontece pelo dashboard interativo (ação `customize modules`) — não há flag `--modules` no CLI. Os módulos `memory`, `codex-bridge` e `auto-update` são ativados em toda instalação.
 
 ### Memory
 
@@ -339,6 +359,29 @@ Contexto persistente entre sessões. O agente salva learnings, decisões e feedb
 - Adiciona a skill `atomic-skills:init-memory`
 - Suporte ao `autoMemoryDirectory` do Claude Code para integração direta
 - Disponível em instalações project e user scope
+
+### Codex Bridge (novo em 1.8.0)
+
+Infraestrutura compartilhada para as skills de cross-model review. Módulo asset-only (sem skills invocáveis próprias) — agrupa os 11 templates e checklists usados por `review-plan-with-codex` e `review-code-with-codex`:
+
+- Anti-framing directive (texto literal injetado em todo briefing)
+- Pre-flight checks, invocação canônica do Codex, checklist de validação do output
+- Templates de output Pass 1 / Pass 2 + sufixo de prompt Pass 2 (bloco de reconciliation)
+- Templates de briefing (plan + code) e template do arquivo de review consolidado
+- Template de linha do `INDEX.md` de reviews
+
+Assets são instalados por IDE em `<ide-namespace>/_assets/` (ex: `.claude/commands/atomic-skills/_assets/`) e referenciados pelas skills via a variável de template `{{ASSETS_PATH}}`.
+
+### Auto-Update (novo em 1.8.0)
+
+Hook SessionStart que avisa quando uma nova versão está disponível no npm — sem polling nem interromper seu fluxo.
+
+- Hook script instalado em `~/.atomic-skills/hooks/version-check.sh`
+- Merge em `~/.claude/settings.json` de forma não-destrutiva (coexiste com hooks existentes)
+- TTL de 24h no check vs npm; background fetch async (0ms de latência percebida)
+- Opt-out via env var `ATOMIC_SKILLS_NO_UPDATE_CHECK=1`
+- TTL configurável via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<segundos>`
+- Atualmente cobre apenas **Claude Code** (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot têm lifecycles diferentes)
 
 ## Desenvolvimento & Qualidade
 
