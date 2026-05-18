@@ -84,8 +84,28 @@ Begin review now.
 
 | Placeholder | Source |
 |-------------|--------|
-| `{{ANTI_FRAMING_DIRECTIVE}}` | Contents of `anti-framing-directive.md` |
+| `{{ANTI_FRAMING_DIRECTIVE}}` | Contents of `anti-framing-directive.txt` |
 | `{{NON_GOALS_LIST}}` | Curated bullet list from skill (NO rationale) |
 | `{{ARTIFACT_PATH}}` | Path of plan file being reviewed |
 | `{{ARTIFACT}}` | Full content of plan file |
-| `{{OUTPUT_TEMPLATE_PASS1}}` | Contents of `output-template-pass1.md` |
+| `{{OUTPUT_TEMPLATE_PASS1}}` | Contents of `output-template-pass1.txt` |
+
+## How to insert large content ({{ARTIFACT}})
+
+Plans/specs can be multi-KB. The Write tool does NOT interpolate shell
+substitution: `$(< /path/file)` written via Write becomes a literal string,
+not the file content.
+
+**Use one of these to inline the artifact:**
+
+1. **Shell heredoc** — build the briefing with `cat <<EOF ... EOF` and inline
+   `$(cat /path/to/plan.md)` inside; Bash performs the substitution at write
+   time.
+
+2. **awk/sed with `system()`** — write the template containing a marker line,
+   then `awk '/^ARTIFACT_MARKER$/ { system("cat /path/plan.md"); next } { print }'`
+   to splice deterministically.
+
+3. **Multi-step Write + Edit** — Write the template with the literal placeholder
+   `{{ARTIFACT}}`, then use the Edit tool to replace it (Edit handles literal
+   multi-line strings reliably).
