@@ -148,6 +148,11 @@ export function installSkills(projectDir, options, callbacks = {}) {
     }
   }
 
+  // Install auto-update hook if module is registered
+  if (meta.modules?.['auto-update']) {
+    installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles });
+  }
+
   // Generate namespace root SKILL.md for markdown-format IDEs
   for (const ideId of ides) {
     const rootPath = getNamespaceRootPath(ideId);
@@ -196,6 +201,71 @@ export function installSkills(projectDir, options, callbacks = {}) {
 export function getPackageVersion() {
   const pkg = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
   return pkg.version;
+}
+
+/**
+ * Install the auto-update SessionStart hook.
+ * Copies version-check.sh to ~/.atomic-skills/hooks/ (or project equivalent)
+ * and merges hook config into ~/.claude/settings.json without destroying
+ * existing entries.
+ */
+export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles }) {
+  const sourceScript = join(skillsDir, 'shared', 'auto-update-hook', 'version-check.sh');
+  if (!existsSync(sourceScript)) return;
+
+  const stateDir = scope === 'project'
+    ? join(projectDir, '.atomic-skills')
+    : join(homedir(), '.atomic-skills');
+  const hooksDir = join(stateDir, 'hooks');
+  const destScript = join(hooksDir, 'version-check.sh');
+
+  mkdirSync(hooksDir, { recursive: true });
+  const scriptContent = readFileSync(sourceScript, 'utf8');
+  writeFileSync(destScript, scriptContent, { mode: 0o755 });
+  if (onFileWritten) onFileWritten(destScript.replace(projectDir + '/', ''));
+
+  // Merge hook into settings.json (additive, non-destructive)
+  const settingsPath = scope === 'project'
+    ? join(projectDir, '.claude', 'settings.json')
+    : join(homedir(), '.claude', 'settings.json');
+
+  mkdirSync(dirname(settingsPath), { recursive: true });
+
+  let settings = {};
+  if (existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    } catch {
+      settings = {};
+    }
+  }
+
+  settings.hooks = settings.hooks || {};
+  settings.hooks.SessionStart = settings.hooks.SessionStart || [];
+
+  let matcherEntry = settings.hooks.SessionStart.find((e) => e.matcher === '*' || e.matcher == null);
+  if (!matcherEntry) {
+    matcherEntry = { matcher: '*', hooks: [] };
+    settings.hooks.SessionStart.push(matcherEntry);
+  }
+  matcherEntry.hooks = matcherEntry.hooks || [];
+
+  const alreadyPresent = matcherEntry.hooks.some(
+    (h) => h && h.type === 'command' && h.command === destScript
+  );
+  if (!alreadyPresent) {
+    matcherEntry.hooks.push({ type: 'command', command: destScript });
+  }
+
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  if (onFileWritten) onFileWritten(settingsPath.replace(projectDir + '/', ''));
+
+  // Track for manifest (so uninstall can remove later)
+  createdFiles.push({
+    path: relative(projectDir, destScript) || destScript,
+    hash: hashContent(scriptContent),
+    source: '_hooks/version-check.sh',
+  });
 }
 
 /**
