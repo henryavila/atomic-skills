@@ -35,7 +35,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 22); // 11 core + 11 codex-bridge assets (no namespace root for commands)
+    assert.strictEqual(result.files.length, 23); // 11 core + 11 codex-bridge assets + 1 auto-update hook (no namespace root for commands)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -80,7 +80,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 23); // 11 core + 1 module + 11 codex-bridge assets (no namespace root for commands)
+    assert.strictEqual(result.files.length, 24); // 11 core + 1 module + 11 codex-bridge assets + 1 auto-update hook (no namespace root for commands)
   });
 
   it('substitutes memory_path variable', () => {
@@ -141,7 +141,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 44); // (11 core + 11 codex-bridge assets) * 2 IDEs (no namespace root for command or toml formats)
+    assert.strictEqual(result.files.length, 45); // (11 core + 11 codex-bridge assets) * 2 IDEs + 1 auto-update hook (no namespace root for command or toml formats)
   });
 
   it('uses pt language when specified', () => {
@@ -217,8 +217,8 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    // Only core skills + codex-bridge assets, no module skills (no namespace root for commands)
-    assert.strictEqual(result.files.length, 22);
+    // Only core skills + codex-bridge assets + auto-update hook, no module skills (no namespace root for commands)
+    assert.strictEqual(result.files.length, 23);
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 

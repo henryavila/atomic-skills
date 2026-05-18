@@ -35,6 +35,7 @@ core:
 
 modules:
   codex-bridge: {}
+  auto-update: {}
   memory:
     init-memory:
       name: init-memory
