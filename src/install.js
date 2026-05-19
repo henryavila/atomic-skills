@@ -11,7 +11,7 @@ import {
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { parse as parseYaml } from './yaml.js';
+import { parse as parseYaml } from 'yaml';
 import { detectLanguage, detectIDEs, countSkills } from './detect.js';
 import {
   showIntro, printConfig, promptAction, promptIDESelection,

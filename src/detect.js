@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse as parseYaml } from './yaml.js';
+import { parse as parseYaml } from 'yaml';
 import { PUBLIC_IDE_IDS, normalizeIDESelection } from './config.js';
 
 export const IDE_DETECT_DIRS = {

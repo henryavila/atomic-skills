@@ -120,7 +120,7 @@ Last 10 entries from `.atomic-skills/initiatives/archive/`, tabular.
 
 ## Parsing frontmatter YAML
 
-You (LLM) can parse frontmatter YAML directly — it is plain text with predictable structure. For edge cases (nested quotes, multi-line, complex lists), consult the reference parser at `src/yaml.js` in the atomic-skills repo.
+You (LLM) can parse frontmatter YAML directly — it is plain text with predictable structure. For edge cases (nested quotes, multi-line, complex lists), invoke the `yaml` npm package via `node -e "import('yaml').then(...)"`.
 
 ## Mutation modes
 
@@ -312,7 +312,7 @@ If any of these thoughts appeared: STOP and validate.
 |------------|---------|
 | "Setup already ran before, no need to check again" | Re-checking is cheap (5s); silent drift is expensive |
 | "CLAUDE.md already has something similar, no need for HARD-GATE" | Hard-gate is explicit and marked — it coexists without conflict |
-| "Manual YAML parsing is fine, I don't need yaml.js" | Manual parsing breaks on edge cases (nested quotes, multi-line); use yaml.js for robustness |
+| "Manual YAML parsing is fine, I don't need a parser library" | Manual parsing breaks on edge cases (nested quotes, multi-line, arrays); use the `yaml` npm package for robustness |
 | "I don't know if this change is lateral or a new initiative, I'll guess" | Use the disambiguation flow; 3 questions resolve it |
 | "A stack with 8 frames means I'm overthinking" | Maybe — consider archive or split into a new initiative |
 | "I can skip the confirmation before browser launch" | No — the intrusive-actions rule is firm |
@@ -496,7 +496,7 @@ Algorithm:
 1. If .atomic-skills/bootstrap-drafts/ does not exist: error "nothing to commit".
 2. List all *.draft.md (including archive/).
 3. For each draft:
-   a. Parse frontmatter YAML (use src/yaml.js if edge case).
+   a. Parse frontmatter YAML (use the `yaml` npm package for any non-trivial case).
    b. Validate: initiative_id matches regex, unique vs initiatives/**, status in {proposed, proposed-archived}, stack[0].title non-empty.
    c. Call `draftToInitiative(draft, new Date())` → { frontmatter, body } transformed.
    d. Write to destination:
