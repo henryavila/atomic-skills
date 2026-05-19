@@ -35,13 +35,14 @@ After all phases land, the test target is the **sda-v2 v3-redesign plan** (9 pha
 
 ```
 Phase A — Independent of aiDeck (can ship standalone)
-  A.T-001  Frontmatter on all 12 skills
-  A.T-002  Skill installer language refactor (PT removal + repurpose)
-  A.T-003  Skill validation script
-  A.T-004  scope:paths detection helper
+  A.T-000  [DONE] Migrate YAML parser to `yaml` npm package
+           (Promoted from B.T-001 — prerequisite for enriched skills.yaml)
+  A.T-001  [DONE] Enrich meta/skills.yaml with metadata per spec (12 skills)
+  A.T-002  [TODO] Installer language refactor (PT removal + repurpose)
+  A.T-003  [TODO] Skill validation script
+  A.T-004  [TODO] scope:paths detection helper
 
 Phase B — project-status redesign (3-level hierarchy)
-  B.T-001  Migrate YAML parser to `yaml` npm package
   B.T-002  New schema (Plan / Initiative / Task) matching aiDeck
   B.T-003  Templates for plans/ and initiatives/ directories
   B.T-004  Migration script for legacy initiatives (one-time on save)
@@ -69,34 +70,66 @@ Phase D — Hooks rewrite + aiDeck deep integration
 
 **Dependencies**: none.
 
-**Exit gate**: all 12 skills have valid frontmatter; installer asks language as communication preference; validation script passes.
+**Exit gate**: all 12 skills have valid metadata; installer asks language as communication preference; validation script passes.
 
-### A.T-001 — Frontmatter on all 12 skills
+### A.T-000 — [DONE] Migrate YAML parser to `yaml` npm package
 
-Add YAML frontmatter to each skill file per [`skill-frontmatter-spec.md`](./kb/skill-frontmatter-spec.md).
+**Status**: completed in this session.
 
-Skills to migrate:
+**Rationale for reordering** (originally B.T-001): the enriched `meta/skills.yaml` requires arrays, inline objects, and block-style lists — features the custom `src/yaml.js` parser explicitly did not support. So this was promoted to a Phase A prerequisite. Confirmed by running the existing `src/yaml.js` against the new `meta/skills.yaml` shape: it mangled arrays to `{}`, examples to last-object-only, and inline lists to strings.
 
-| # | Skill | Path |
-|---|-------|------|
-| 1 | project-status | `skills/en/core/project-status.md` |
-| 2 | parallel-dispatch | `skills/en/core/parallel-dispatch.md` |
-| 3 | parallel-dispatch-audit | `skills/en/core/parallel-dispatch-audit.md` |
-| 4 | hunt | `skills/en/core/hunt.md` |
-| 5 | fix | `skills/en/core/fix.md` |
-| 6 | review-code-with-codex | `skills/en/core/review-code-with-codex.md` |
-| 7 | review-plan-internal | `skills/en/core/review-plan-internal.md` |
-| 8 | review-plan-vs-artifacts | `skills/en/core/review-plan-vs-artifacts.md` |
-| 9 | review-plan-with-codex | `skills/en/core/review-plan-with-codex.md` |
-| 10 | prompt | `skills/en/core/prompt.md` |
-| 11 | save-and-push | `skills/en/core/save-and-push.md` |
-| 12 | init-memory | `skills/en/modules/memory/init-memory.md` |
+**Changes applied**:
+- Added `yaml` ^2.5.0 to `dependencies`
+- `src/install.js`, `src/detect.js`: replaced `import { parse as parseYaml } from './yaml.js'` with `from 'yaml'`
+- Deleted `src/yaml.js` and `tests/yaml.test.js`
+- Updated `skills/en/core/project-status.md` body references (3 places) from `src/yaml.js` to "the `yaml` npm package"
+
+**Exit gate met**:
+- `npm test` exits 0 with 195 passing tests (down from 202; removed 7 yaml.js-specific tests)
+- `grep -rn "yaml.js"` in `src/` and `tests/` returns no results
+- New `meta/skills.yaml` (with arrays, inline objects) parses correctly via `yaml` package
+
+### A.T-001 — [DONE] Enrich `meta/skills.yaml` with new metadata fields
+
+**ARCHITECTURE NOTE** (corrected): atomic-skills already has canonical metadata in `meta/skills.yaml`. Skill `.md` files contain only AI instructions (no frontmatter — `render.js:renderForIDE` generates frontmatter at install time). The migration adds new fields to `meta/skills.yaml`, NOT to `.md` files.
+
+Per [`skill-frontmatter-spec.md`](./kb/skill-frontmatter-spec.md): add the following per skill in `meta/skills.yaml`:
+
+- `title` (required)
+- `purpose` (required)
+- `when_to_use[]` (required, ≥ 1)
+- `when_not_to_use[]` (required, ≥ 1)
+- `examples[]` (required, ≥ 1, each with `command` + `description`)
+- `schema_version: '0.1'` (required)
+- `related[]`, `tags[]`, `ide_compatibility[]`, `requires_args`, `mutates_repo`, `network_required` (optional)
+
+Existing `name` + `description` fields are preserved.
+
+Skills to enrich (all 12, single file edit):
+
+| # | Skill | Mutates | Network | Notes |
+|---|-------|---------|---------|-------|
+| 1 | project-status | true | false | Core tracking |
+| 2 | parallel-dispatch | true | false | Requires args (task list) |
+| 3 | parallel-dispatch-audit | partial | false | Read-mostly + minor fixes |
+| 4 | hunt | true | false | Requires args (target) |
+| 5 | fix | true | false | Optional args |
+| 6 | review-code-with-codex | false | **true** | Codex CLI calls |
+| 7 | review-plan-internal | true | false | Mutates plan |
+| 8 | review-plan-vs-artifacts | true | false | Mutates plan |
+| 9 | review-plan-with-codex | true | **true** | Codex CLI calls + plan mutation |
+| 10 | prompt | false | false | Pure generation |
+| 11 | save-and-push | true | true | Network for push |
+| 12 | init-memory | true | false | Setup |
 
 **Exit gate**:
-- All 12 files have frontmatter passing the validation script (A.T-003)
-- `npm run validate-skills` exits 0
+- `meta/skills.yaml` has all required fields for all 12 skills
+- `npm run validate-skills` (A.T-003) exits 0
+- No regression: `installSkills` still produces same IDE-format frontmatter for unchanged fields
 
-**Verifier**: `bash scripts/validate-skills.sh` exits 0
+**Verifier**: `node scripts/validate-skills.js` exits 0
+
+**Out of scope for A.T-001**: NO changes to `.md` skill bodies; NO changes to `render.js` (rendered output unchanged for v0.1).
 
 ### A.T-002 — Installer language refactor
 
@@ -170,26 +203,9 @@ Behavior:
 
 **Exit gate**: project-status can host the sda-v2 v3-redesign plan natively; old initiatives auto-migrate on first save without data loss.
 
-### B.T-001 — Migrate YAML parser
+### B.T-001 — [SUPERSEDED — see A.T-000]
 
-Remove `src/yaml.js` (custom minimal parser; can't handle arrays / inline objects required by new schemas).
-
-Replace with [`yaml`](https://www.npmjs.com/package/yaml) npm package.
-
-Changes:
-- `package.json`: add `yaml` to dependencies
-- `src/install.js`: `import { parse, stringify } from 'yaml'` instead of internal parser
-- `src/yaml.js`: delete file
-- Skill body docs referencing `src/yaml.js` updated to mention `yaml` package
-- Tests for parser handling: nested objects, arrays, inline syntax, multi-line strings, comments
-
-**Exit gate**:
-- `yaml` package in deps
-- `src/yaml.js` deleted
-- All existing fixtures still parse correctly (regression-free)
-- New schema YAML (with arrays + inline objects) parses without errors
-
-**Verifier**: `npm test` passes; parsing sda-v2-style fixture succeeds
+This task was promoted to Phase A as a prerequisite for A.T-001's enriched metadata. Completed; see A.T-000 above.
 
 ### B.T-002 — New schema (Plan / Initiative / Task)
 

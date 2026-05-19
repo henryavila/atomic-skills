@@ -1,37 +1,304 @@
 core:
   fix:
     name: fix
-    description: "Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior."
+    title: 'Fix — Root Cause + TDD'
+    description: 'Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.'
+    purpose: >
+      Identify the root cause of a bug, write a reproducing test, and only
+      then apply the fix. Detective mindset, not firefighter.
+    when_to_use:
+      - 'You observed a bug or unexpected behavior'
+      - 'A test is failing for unclear reasons'
+      - 'A regression appeared after a recent change'
+    when_not_to_use:
+      - 'You want to add a new feature (use prompt)'
+      - 'The issue is in design, not implementation'
+      - 'You have no symptom to reproduce'
+    examples:
+      - command: '/atomic-skills:fix "duplicates in /musicas listing"'
+        description: 'Diagnose and fix with provided symptom'
+      - command: '/atomic-skills:fix'
+        description: 'Skill prompts you for the symptom interactively'
+    related: [hunt, review-code-with-codex]
+    tags: [quality, debugging, tdd, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   save-and-push:
     name: save-and-push
-    description: "Review conversation, save learnings to memory, commit and push work."
+    title: 'Save & Push — Commit + Memory + Push'
+    description: 'Review conversation, save learnings to memory, commit and push work.'
+    purpose: >
+      End-of-session ritual: extract learnings to persistent memory, stage
+      relevant files, commit with conventional message, push to remote.
+    when_to_use:
+      - 'You finished a coherent piece of work'
+      - 'About to switch context or end the session'
+      - 'You want learnings persisted before forgetting'
+    when_not_to_use:
+      - 'Work in progress, not yet a coherent commit'
+      - 'Tests still failing'
+      - 'You only want to commit (use git directly)'
+    examples:
+      - command: '/atomic-skills:save-and-push'
+        description: 'Full flow: memory + commits + push'
+    related: [project-status, init-memory]
+    tags: [workflow, git, memory, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: true
+    schema_version: '0.1'
+
   review-plan-internal:
     name: review-plan-internal
-    description: "Adversarial review of an implementation plan for gaps and risks."
+    title: 'Review Plan — Internal Adversarial'
+    description: 'Adversarial review of an implementation plan for gaps and risks.'
+    purpose: >
+      Read a plan file as if the author were wrong. Find contradictions,
+      broken dependencies, ordering errors, ambiguities, missing tests.
+      Iterates up to 3 passes until clean or escalation needed.
+    when_to_use:
+      - 'You just finished writing a plan'
+      - 'You want a structural sanity check before execution'
+      - 'A plan touches schema/migrations and needs cross-task verification'
+    when_not_to_use:
+      - 'The plan is still a brainstorm (not structured yet)'
+      - 'You want a cross-model review (use review-plan-with-codex)'
+      - 'You want to compare plan vs PRD (use review-plan-vs-artifacts)'
+    examples:
+      - command: '/atomic-skills:review-plan-internal docs/plans/migration.md'
+        description: 'Adversarially review a plan file'
+    related: [review-plan-with-codex, review-plan-vs-artifacts]
+    tags: [review, planning, adversarial]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: true
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   review-plan-vs-artifacts:
     name: review-plan-vs-artifacts
-    description: "Adversarial review comparing plan against actual generated artifacts."
+    title: 'Review Plan vs Artifacts'
+    description: 'Adversarial review comparing plan against actual generated artifacts.'
+    purpose: >
+      Cross-reference a plan against source artifacts (PRD, epics, specs,
+      architecture, UX). Find requirements without tasks, oversimplification,
+      coverage gaps. Plan is corrected; artifacts are never edited.
+    when_to_use:
+      - 'A plan claims to cover a PRD or set of epics'
+      - 'You want to verify all requirements have tasks'
+      - 'Schema or API changes must match the architecture doc'
+    when_not_to_use:
+      - 'No source artifacts exist'
+      - 'You only need internal structural review (use review-plan-internal)'
+    examples:
+      - command: '/atomic-skills:review-plan-vs-artifacts docs/plans/v3-redesign/00-master.md'
+        description: 'Check plan against linked artifacts'
+    related: [review-plan-internal, review-plan-with-codex]
+    tags: [review, planning, coverage, traceability]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: true
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   project-status:
     name: project-status
+    title: 'Project Status — Initiative Tracking'
     description: "Canonical per-initiative status tracking. Maintains .atomic-skills/ tree with stack + tasks + parked + emerged per initiative. Terminal compact view + browser via mdprobe. Auto-installs CLAUDE.md HARD-GATE + AGENTS.md redirect + Claude Code hooks (SessionStart injection, Stop predicate in dry-run). Use whenever starting, resuming, pushing/popping stack frames, parking lateral findings, or viewing status across sessions and worktrees."
+    purpose: >
+      Track work via Plan/Initiative/Task hierarchy with stack, parked,
+      emerged, and verifiable exit gates. Bird's-eye + zoom mental model.
+    when_to_use:
+      - 'Starting a new piece of work'
+      - 'Resuming after a break'
+      - 'Pushing or popping a stack frame'
+      - 'Parking lateral findings or emerging new initiatives'
+      - 'Viewing status across sessions or worktrees'
+    when_not_to_use:
+      - 'One-shot questions'
+      - 'Work that fits entirely in the current session'
+      - 'Creating a multi-phase plan (use project-plan instead)'
+    examples:
+      - command: '/atomic-skills:project-status'
+        description: 'View current state'
+      - command: '/atomic-skills:project-status new my-feature'
+        description: 'Start a new standalone initiative'
+      - command: '/atomic-skills:project-status push "investigating slow query"'
+        description: 'Push a side-investigation frame'
+      - command: '/atomic-skills:project-status done T-005'
+        description: 'Close a task (triggers phase-completion check if last)'
+    related: [project-plan, fix, save-and-push]
+    tags: [tracking, anchoring, planning, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   prompt:
     name: prompt
-    description: "Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails."
+    title: 'Prompt — Generate Optimized Prompt'
+    description: 'Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails.'
+    purpose: >
+      Turn a vague task description into an optimized, self-contained prompt
+      with file paths, guardrails, and acceptance criteria. Use as input to
+      another AI session.
+    when_to_use:
+      - 'You have a vague task and want to make it actionable'
+      - 'You need to brief a parallel agent precisely'
+      - 'You will hand off the work to a different session'
+    when_not_to_use:
+      - 'You will execute the task in this same session'
+      - 'You need a multi-phase plan (use project-plan)'
+      - 'You want to dispatch many tasks (use parallel-dispatch)'
+    examples:
+      - command: '/atomic-skills:prompt "refactor auth middleware to use new session API"'
+        description: 'Generate a precise prompt with file paths and guards'
+      - command: '/atomic-skills:prompt'
+        description: 'Skill asks for task interactively'
+    related: [parallel-dispatch, fix]
+    tags: [meta, generation, planning]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: false
+    network_required: false
+    schema_version: '0.1'
+
   hunt:
     name: hunt
-    description: "Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run."
+    title: 'Hunt — Adversarial Tests'
+    description: 'Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run.'
+    purpose: >
+      Write adversarial tests to break code and find hidden bugs.
+      Bounded to one class or function per run.
+    when_to_use:
+      - 'Code lacks tests'
+      - 'You suspect untested edge cases'
+      - 'Pre-merge quality check'
+    when_not_to_use:
+      - 'Scope larger than 1 class or function'
+      - 'Existing test suite is already comprehensive'
+      - 'You want to add features (use prompt instead)'
+    examples:
+      - command: '/atomic-skills:hunt src/matcher.php'
+        description: 'Hunt bugs in a single file'
+      - command: '/atomic-skills:hunt src/auth/'
+        description: 'Triage mode for directory (max 30 files)'
+    related: [fix, review-code-with-codex]
+    tags: [testing, quality, pre-implementation]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: true
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   parallel-dispatch:
     name: parallel-dispatch
+    title: 'Parallel Dispatch — Independent Tasks'
     description: "Dispatch a user-provided list of independent tasks to N parallel sessions with verified scope isolation and a batch id for tracking. Validates parallelism benefit (Q1-Q4 HARD-GATE) before exploring; proves scope disjointness via pairwise grep before generating prompts. Use when the user brings a consolidated task list — this skill does NOT invent tasks."
+    purpose: >
+      Verify, isolate, and dispatch a user-provided task list to N parallel
+      sessions. Mechanical scope isolation, batch id, and audit pass.
+    when_to_use:
+      - 'You have a finalized list of independent tasks'
+      - 'Tasks have concrete file-path scopes'
+      - 'You will be away while agents run'
+    when_not_to_use:
+      - 'Work fits in the current session'
+      - 'The list is still exploratory'
+      - 'Tasks have hard sequential dependencies'
+    examples:
+      - command: '/atomic-skills:parallel-dispatch task-list.md'
+        description: 'Dispatch validated task list'
+    related: [parallel-dispatch-audit, prompt]
+    tags: [parallelism, dispatch, workflow]
+    ide_compatibility: [claude-code]
+    requires_args: true
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   parallel-dispatch-audit:
     name: parallel-dispatch-audit
+    title: 'Parallel Dispatch — Audit'
     description: "Audit the output of a parallel-dispatch batch. Reads the plan file, verifies each agent's deliverables on disk against the user's original request, applies cosmetic fixes, and produces a report with pending decisions. HARD-GATEs on active batch (<2min commits) and read-only mode (≥5 issues). Use after parallel-dispatch agents complete."
+    purpose: >
+      Verify each dispatched agent's deliverables on disk against the
+      original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
+    when_to_use:
+      - 'A parallel-dispatch batch has completed'
+      - 'You need objective verification of agent outputs'
+    when_not_to_use:
+      - 'Agents are still running (commits less than 2 min old)'
+      - 'You want to refactor what agents wrote (out of scope)'
+    examples:
+      - command: '/atomic-skills:parallel-dispatch-audit onboard-ci'
+        description: 'Audit batch by slug'
+    related: [parallel-dispatch]
+    tags: [parallelism, audit, review, quality]
+    ide_compatibility: [claude-code]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
   review-plan-with-codex:
     name: review-plan-with-codex
-    description: "Cross-model adversarial review of a plan/spec via OpenAI Codex CLI in two-pass sealed envelope. Use when finishing a plan and wanting a second opinion from a different model family to mitigate self-preference bias."
+    title: 'Review Plan — Codex Cross-Model'
+    description: 'Cross-model adversarial review of a plan/spec via OpenAI Codex CLI in two-pass sealed envelope. Use when finishing a plan and wanting a second opinion from a different model family to mitigate self-preference bias.'
+    purpose: >
+      Two-pass sealed-envelope review of a plan via Codex CLI. Mitigates
+      self-preference bias by getting a different model family's read.
+    when_to_use:
+      - 'A significant plan is about to enter execution'
+      - 'You want an independent (different model family) review'
+      - 'Self-preference bias risk is high (you and the plan author are the same model)'
+    when_not_to_use:
+      - 'Codex CLI is not installed'
+      - 'Plan is trivial or low-stakes'
+      - 'You only need internal review (use review-plan-internal)'
+    examples:
+      - command: '/atomic-skills:review-plan-with-codex docs/plans/v3-redesign/00-master.md'
+        description: 'Cross-model review of a plan'
+    related: [review-plan-internal, review-plan-vs-artifacts, review-code-with-codex]
+    tags: [review, planning, cross-model, adversarial]
+    ide_compatibility: [claude-code]
+    requires_args: true
+    mutates_repo: true
+    network_required: true
+    schema_version: '0.1'
+
   review-code-with-codex:
     name: review-code-with-codex
-    description: "Cross-model adversarial review of code changes (diff/branch) via OpenAI Codex CLI in two-pass sealed envelope. Use before merging significant changes to catch bugs that same-model review missed."
+    title: 'Review Code — Codex Cross-Model'
+    description: 'Cross-model adversarial review of code changes (diff/branch) via OpenAI Codex CLI in two-pass sealed envelope. Use before merging significant changes to catch bugs that same-model review missed.'
+    purpose: >
+      Two-pass sealed-envelope review of code changes via Codex CLI.
+      Catches bugs that same-model review missed.
+    when_to_use:
+      - 'A significant code change is about to merge'
+      - 'You want an independent (different model family) bug hunt'
+      - 'Critical path changes (auth, payments, data integrity)'
+    when_not_to_use:
+      - 'Codex CLI is not installed'
+      - 'Change is trivial or already heavily reviewed'
+    examples:
+      - command: '/atomic-skills:review-code-with-codex main..HEAD'
+        description: 'Review current branch vs main'
+      - command: '/atomic-skills:review-code-with-codex feat/auth-redesign'
+        description: 'Review a specific branch'
+    related: [review-plan-with-codex, fix, hunt]
+    tags: [review, code, cross-model, adversarial, pre-merge]
+    ide_compatibility: [claude-code]
+    requires_args: true
+    mutates_repo: false
+    network_required: true
+    schema_version: '0.1'
 
 modules:
   codex-bridge: {}
@@ -39,4 +306,24 @@ modules:
   memory:
     init-memory:
       name: init-memory
-      description: "Initialize persistent memory structure for cross-session context."
+      title: 'Init Memory — Persistent Context'
+      description: 'Initialize persistent memory structure for cross-session context.'
+      purpose: >
+        Bootstrap the persistent memory directory and index so that future
+        sessions can pick up where this one left off.
+      when_to_use:
+        - 'First time using atomic-skills in a project'
+        - 'Memory directory missing or corrupted'
+        - 'You want to standardize the memory layout'
+      when_not_to_use:
+        - 'Memory already initialized and healthy'
+      examples:
+        - command: '/atomic-skills:init-memory'
+          description: 'Bootstrap memory in the current project'
+      related: [save-and-push]
+      tags: [memory, setup]
+      ide_compatibility: [claude-code, gemini, cursor]
+      requires_args: false
+      mutates_repo: true
+      network_required: false
+      schema_version: '0.1'
