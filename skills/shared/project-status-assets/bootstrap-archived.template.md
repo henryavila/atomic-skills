@@ -1,31 +1,35 @@
 ---
-initiative_id: REPLACE_CANONICAL_SLUG
+schemaVersion: '0.1'
+slug: REPLACE_CANONICAL_SLUG
+title: 'REPLACE_TITLE'
+goal: 'REPLACE_GOAL'
 status: proposed-archived
-proposed_at: REPLACE_PROPOSED_AT
-proposed_bucket: historical
+proposedAt: REPLACE_PROPOSED_AT
+proposedBucket: historical
 started: REPLACE_STARTED_DATE
-last_updated: REPLACE_LAST_UPDATED
+lastUpdated: REPLACE_LAST_UPDATED
 branch: REPLACE_BRANCH
-plan_link: REPLACE_PLAN_LINK
-wip_limit: 2
-scope_paths:
-  - .
+nextAction: null
+
+exitGates: []
 
 stack:
-  - {id: 1, title: "REPLACE_TITLE", type: initiative, opened_at: REPLACE_LAST_UPDATED}
+  - { id: 1, title: 'REPLACE_TITLE', type: task, openedAt: REPLACE_LAST_UPDATED }
 
-tasks: {}
+tasks: []
 
 parked: []
 
 emerged: []
 
+planLink: REPLACE_PLAN_LINK
+
 bootstrap:
-  rationale: "REPLACE_RATIONALE"
-  historical_reason: "REPLACE_HISTORICAL_REASON"
+  rationale: 'REPLACE_RATIONALE'
+  historicalReason: 'REPLACE_HISTORICAL_REASON'
   confidence: REPLACE_CONFIDENCE
-  slug_match_type: REPLACE_SLUG_MATCH_TYPE
-  merge_rationale: null
+  slugMatchType: REPLACE_SLUG_MATCH_TYPE
+  mergeRationale: null
   evidence:
 REPLACE_EVIDENCE_BLOCK
 ---

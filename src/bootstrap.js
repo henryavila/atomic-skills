@@ -248,6 +248,16 @@ const STATUS_MAP = Object.freeze({
   'proposed-archived': 'archived',
 });
 
+/**
+ * Transform a bootstrap draft into a canonical initiative.
+ *
+ * Draft frontmatter is in schemaVersion 0.1 shape (camelCase) but carries
+ * extra bootstrap-only fields (`bootstrap:`, `proposedAt`, `proposedBucket`,
+ * `planLink`) and a non-canonical `status` (proposed / proposed-archived).
+ *
+ * On commit: map status, refresh lastUpdated, fold `planLink` into
+ * `references[]` if present, and strip bootstrap metadata.
+ */
 export function draftToInitiative(draft, now = new Date()) {
   const fm = { ...draft.frontmatter };
 
@@ -257,12 +267,25 @@ export function draftToInitiative(draft, now = new Date()) {
   }
 
   fm.status = newStatus;
-  fm.last_updated = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  fm.lastUpdated = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
-  // Strip bootstrap-only fields
+  // Fold planLink (free-form pointer used during bootstrap) into structured
+  // references[] so the committed initiative matches initiative.schema.json.
+  if (fm.planLink && typeof fm.planLink === 'string' && fm.planLink.trim() && fm.planLink !== 'REPLACE_PLAN_LINK') {
+    const refs = Array.isArray(fm.references) ? [...fm.references] : [];
+    refs.push({
+      kind: fm.planLink.startsWith('http') ? 'url' : 'file',
+      path: fm.planLink,
+      label: 'Planning doc (bootstrap)',
+    });
+    fm.references = refs;
+  }
+  delete fm.planLink;
+
+  // Strip bootstrap-only metadata.
   delete fm.bootstrap;
-  delete fm.proposed_at;
-  delete fm.proposed_bucket;
+  delete fm.proposedAt;
+  delete fm.proposedBucket;
 
   return {
     frontmatter: fm,

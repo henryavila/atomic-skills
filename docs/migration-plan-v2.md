@@ -45,7 +45,7 @@ Phase A — Independent of aiDeck (can ship standalone)
 
 Phase B — project-status redesign (3-level hierarchy)
   B.T-002  [DONE] New schema (Plan / Initiative / Task) matching aiDeck
-  B.T-003  Templates for plans/ and initiatives/ directories
+  B.T-003  [DONE] Templates for plans/ and initiatives/ directories
   B.T-004  Migration script for legacy initiatives (one-time on save)
   B.T-005  Update project-status.md skill body (3-level commands)
   B.T-006  Exit gates + verifiers infrastructure
@@ -245,20 +245,27 @@ Key additions:
 
 **Deferred to B.T-005**: documenting all schema fields in the skill body (project-status.md rewrite).
 
-### B.T-003 — Templates for plans/ and initiatives/
+### B.T-003 — [DONE] Templates for plans/ and initiatives/
 
-Update `skills/shared/project-status-assets/`:
+Updated `skills/shared/project-status-assets/`:
 
-- `initiative.template.md` → 3-level-aware initiative template
-- `plan.template.md` → new file, Plan template
-- `PROJECT-STATUS.md.template.md` → hierarchical view (Active Plan + Current Initiative + Ad-Hoc)
-- `CLAUDE.md-gate.template.md` → HARD-GATE extended for plan/phase awareness
-- `bootstrap-*.template.md` → updated to discover plans + initiatives separately
+- `initiative.template.md` → camelCase 3-level shape; uses a sentinel-marked `plan-membership-block` so the skill (B.T-005) can strip it for standalone or fill `parentPlan`/`phaseId` for in-plan initiatives
+- `plan.template.md` → **new file**; Plan template with frontmatter principles, glossary, phases (with exit-gate scaffold), references; markdown body for narrative
+- `PROJECT-STATUS.md.template.md` → hierarchical view: Active Plans table + Active Initiatives (standalone) table + Recently Archived + Ad-Hoc Sessions Log. Frontmatter now camelCase + `schemaVersion: '0.1'`.
+- `CLAUDE.md-gate.template.md` → bumped to v2.0.0; HARD-GATE now resolves Plan → Phase → Initiative → StackFrame; resolution rules expanded with the 5 disambiguation options (continuation / lateral / new-phase-of-plan / new-standalone / ad-hoc); drift detection mentioned as step 6.
+- `bootstrap-draft.template.md`, `bootstrap-archived.template.md` → migrated to camelCase + `schemaVersion: '0.1'`; new required fields (goal, lastUpdated, nextAction). Bootstrap-only fields (`proposedAt`, `proposedBucket`, `bootstrap:` block, free-form `planLink`) live alongside; `draftToInitiative` strips them on commit.
 
-**Exit gate**:
-- Templates produce valid YAML matching new schemas
-- Fresh `project-status setup` creates 3-level-aware structure
-- PROJECT-STATUS.md renders bird's-eye + zoom
+**Code changes**:
+- `src/bootstrap.js` `draftToInitiative` rewritten: produces camelCase output, folds `planLink` (if non-sentinel) into a structured `references[]` entry on commit, then deletes the bootstrap-only fields.
+- `tests/bootstrap.test.js` fixture migrated to camelCase + added 3 new tests covering planLink folding (file/url classification + REPLACE_* sentinel guard).
+- `tests/project-status.test.js` template-marker assertion updated to also check the new 3-level shape (schemaVersion, camelCase fields, no legacy `initiative_id` / `scope_paths`).
+- `tests/validate-state.test.js` + 3 new tests: standalone-mode initiative template + in-plan-mode initiative template + plan template each validate against the JSON schemas.
+- `tests/install.test.js` asset counts incremented for the new `plan.template.md` (7 → 8 project-status assets).
+
+**Exit gate met**:
+- Templates produce valid YAML matching new schemas (3 new tests in validate-state.test.js)
+- `npm test` exits 0 with 198 passing (191 prior + 7 new)
+- PROJECT-STATUS.md template renders the 3-level hierarchical view (Active Plans + Active Initiatives + Archive + Ad-Hoc)
 
 ### B.T-004 — Migration script for legacy initiatives
 

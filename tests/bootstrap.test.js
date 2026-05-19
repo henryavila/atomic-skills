@@ -405,17 +405,22 @@ import { draftToInitiative } from '../src/bootstrap.js';
 describe('draftToInitiative', () => {
   const sampleDraft = {
     frontmatter: {
-      initiative_id: 'as-review-code',
+      schemaVersion: '0.1',
+      slug: 'as-review-code',
+      title: 'Review skill',
+      goal: 'Cross-model adversarial review wired to Codex CLI',
       status: 'proposed',
-      proposed_at: '2026-04-23T10:00:00Z',
-      proposed_bucket: 'strong',
-      started: '2026-04-10',
-      last_updated: '2026-04-23T10:00:00Z',
-      stack: [{ id: 1, title: 'Review skill', type: 'initiative', opened_at: '2026-04-23T10:00:00Z' }],
-      tasks: {},
+      proposedAt: '2026-04-23T10:00:00Z',
+      proposedBucket: 'strong',
+      started: '2026-04-10T00:00:00Z',
+      lastUpdated: '2026-04-23T10:00:00Z',
+      branch: 'feat/review-code',
+      nextAction: 'Resume T-3',
+      exitGates: [],
+      stack: [{ id: 1, title: 'Review skill', type: 'task', openedAt: '2026-04-23T10:00:00Z' }],
+      tasks: [],
       parked: [],
       emerged: [],
-      next_action: 'Resume T-3',
       bootstrap: {
         rationale: 'strong: PR + branch',
         evidence: [],
@@ -436,17 +441,17 @@ describe('draftToInitiative', () => {
     assert.equal(result.frontmatter.status, 'archived');
   });
 
-  it('removes bootstrap block', () => {
+  it('removes bootstrap block + proposedAt/proposedBucket', () => {
     const result = draftToInitiative(sampleDraft, new Date());
     assert.equal(result.frontmatter.bootstrap, undefined);
-    assert.equal(result.frontmatter.proposed_at, undefined);
-    assert.equal(result.frontmatter.proposed_bucket, undefined);
+    assert.equal(result.frontmatter.proposedAt, undefined);
+    assert.equal(result.frontmatter.proposedBucket, undefined);
   });
 
-  it('updates last_updated to now', () => {
+  it('updates lastUpdated to now', () => {
     const now = new Date('2026-04-23T15:30:00Z');
     const result = draftToInitiative(sampleDraft, now);
-    assert.equal(result.frontmatter.last_updated, '2026-04-23T15:30:00Z');
+    assert.equal(result.frontmatter.lastUpdated, '2026-04-23T15:30:00Z');
   });
 
   it('preserves body content', () => {
@@ -460,5 +465,37 @@ describe('draftToInitiative', () => {
       () => draftToInitiative(bad, new Date()),
       /invalid status/
     );
+  });
+
+  it('folds planLink into references[] then strips planLink', () => {
+    const withPlanLink = {
+      ...sampleDraft,
+      frontmatter: { ...sampleDraft.frontmatter, planLink: 'docs/plans/v3.md' },
+    };
+    const result = draftToInitiative(withPlanLink, new Date());
+    assert.equal(result.frontmatter.planLink, undefined);
+    assert.ok(Array.isArray(result.frontmatter.references));
+    assert.equal(result.frontmatter.references[0].path, 'docs/plans/v3.md');
+    assert.equal(result.frontmatter.references[0].kind, 'file');
+    assert.equal(result.frontmatter.references[0].label, 'Planning doc (bootstrap)');
+  });
+
+  it('classifies http planLink as url ref', () => {
+    const withPlanLink = {
+      ...sampleDraft,
+      frontmatter: { ...sampleDraft.frontmatter, planLink: 'https://example.com/plan' },
+    };
+    const result = draftToInitiative(withPlanLink, new Date());
+    assert.equal(result.frontmatter.references[0].kind, 'url');
+  });
+
+  it('ignores REPLACE_PLAN_LINK sentinel from template', () => {
+    const withSentinel = {
+      ...sampleDraft,
+      frontmatter: { ...sampleDraft.frontmatter, planLink: 'REPLACE_PLAN_LINK' },
+    };
+    const result = draftToInitiative(withSentinel, new Date());
+    assert.equal(result.frontmatter.planLink, undefined);
+    assert.equal(result.frontmatter.references, undefined);
   });
 });

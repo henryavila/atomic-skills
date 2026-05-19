@@ -1,25 +1,35 @@
 ---
-initiative_id: REPLACE_SLUG
+schemaVersion: '0.1'
+slug: REPLACE_SLUG
+title: 'REPLACE_INITIATIVE_TITLE'
+goal: 'REPLACE_INITIATIVE_GOAL'
 status: active
-started: REPLACE_DATE
-last_updated: REPLACE_ISO_TIMESTAMP
-branch: REPLACE_BRANCH_OR_EMPTY
-worktree:
-plan_link:
-wip_limit: 2
-scope_paths:
-  - .
+branch: REPLACE_BRANCH_OR_NULL
+started: REPLACE_ISO_TIMESTAMP
+lastUpdated: REPLACE_ISO_TIMESTAMP
+nextAction: 'REPLACE_INITIAL_NEXT_ACTION'
+
+# === plan-membership-block (delete entire block + sentinels if standalone) ===
+parentPlan: REPLACE_PARENT_PLAN_SLUG
+phaseId: REPLACE_PHASE_ID
+# === /plan-membership-block ===
+
+# audience: 'REPLACE_AUDIENCE'  # uncomment if known (e.g. Developer, Admin user)
+
+exitGates: []
+
+# scope:
+#   paths:
+#     - .  # narrow once known; use `npm run detect-scope` to suggest
 
 stack:
-  - {id: 1, title: "REPLACE_INITIATIVE_TITLE", type: initiative, opened_at: REPLACE_ISO_TIMESTAMP}
+  - { id: 1, title: 'REPLACE_INITIATIVE_TITLE', type: task, openedAt: REPLACE_ISO_TIMESTAMP }
 
-tasks: {}
+tasks: []
 
 parked: []
 
 emerged: []
-
-next_action: "REPLACE_INITIAL_NEXT_ACTION"
 ---
 
 # Narrative / notes
@@ -32,4 +42,4 @@ _(record decisions here as they are made)_
 
 ## Links
 
-_(plan doc, external refs, etc.)_
+_(plan doc, external refs, etc. — for structured references use `references:` in frontmatter)_

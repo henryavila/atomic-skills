@@ -1,34 +1,41 @@
 ---
-initiative_id: REPLACE_CANONICAL_SLUG
+schemaVersion: '0.1'
+slug: REPLACE_CANONICAL_SLUG
+title: 'REPLACE_TITLE'
+goal: 'REPLACE_GOAL'
 status: proposed
-proposed_at: REPLACE_PROPOSED_AT
-proposed_bucket: REPLACE_PROPOSED_BUCKET
+proposedAt: REPLACE_PROPOSED_AT
+proposedBucket: REPLACE_PROPOSED_BUCKET
 started: REPLACE_STARTED_DATE
-last_updated: REPLACE_LAST_UPDATED
+lastUpdated: REPLACE_LAST_UPDATED
 branch: REPLACE_BRANCH
-worktree:
-plan_link: REPLACE_PLAN_LINK
-wip_limit: 2
-scope_paths:
-  - .
+nextAction: 'REPLACE_NEXT_ACTION'
+
+exitGates: []
+
+# scope:
+#   paths:
+#     - .
 
 stack:
-  - {id: 1, title: "REPLACE_TITLE", type: initiative, opened_at: REPLACE_LAST_UPDATED}
+  - { id: 1, title: 'REPLACE_TITLE', type: task, openedAt: REPLACE_LAST_UPDATED }
 
-tasks: {}
+tasks: []
 
 parked: []
 
 emerged: []
 
-next_action: "REPLACE_NEXT_ACTION"
+# Optional pointer to a planning doc — kept as a free-form reference for
+# bootstrap drafts; converts to a `references:` entry on commit.
+planLink: REPLACE_PLAN_LINK
 
 bootstrap:
-  rationale: "REPLACE_RATIONALE"
+  rationale: 'REPLACE_RATIONALE'
   confidence: REPLACE_CONFIDENCE
-  slug_match_type: REPLACE_SLUG_MATCH_TYPE
-  merge_rationale: null
-  slug_alternatives: []
+  slugMatchType: REPLACE_SLUG_MATCH_TYPE
+  mergeRationale: null
+  slugAlternatives: []
   evidence:
 REPLACE_EVIDENCE_BLOCK
 ---

@@ -158,7 +158,7 @@ describe('project-status skill', () => {
     for (const marker of [
       'REPLACE_CANONICAL_SLUG', 'REPLACE_PROPOSED_AT', 'REPLACE_PROPOSED_BUCKET',
       'REPLACE_STARTED_DATE', 'REPLACE_LAST_UPDATED', 'REPLACE_BRANCH',
-      'REPLACE_PLAN_LINK', 'REPLACE_TITLE', 'REPLACE_NEXT_ACTION',
+      'REPLACE_PLAN_LINK', 'REPLACE_TITLE', 'REPLACE_NEXT_ACTION', 'REPLACE_GOAL',
       'REPLACE_RATIONALE', 'REPLACE_CONFIDENCE', 'REPLACE_SLUG_MATCH_TYPE',
       'REPLACE_CONTEXT_PARAGRAPHS', 'REPLACE_EVIDENCE_BLOCK',
     ]) {
@@ -166,6 +166,13 @@ describe('project-status skill', () => {
     }
     assert.ok(content.includes('status: proposed'));
     assert.ok(content.match(/bootstrap:\s*$/m), 'must have bootstrap: yaml block');
+    // New 3-level schema markers (camelCase, schemaVersion 0.1).
+    assert.ok(content.includes("schemaVersion: '0.1'"));
+    assert.ok(content.includes('slug:'));
+    assert.ok(content.includes('lastUpdated:'));
+    assert.ok(content.includes('nextAction:'));
+    assert.ok(!content.includes('initiative_id:'), 'legacy snake_case field must be gone');
+    assert.ok(!content.includes('scope_paths:'), 'legacy snake_case field must be gone');
   });
 
   it('bootstrap-archived template exists with historical-specific fields', () => {
@@ -173,7 +180,9 @@ describe('project-status skill', () => {
     const content = readFileSync(tplPath, 'utf8');
     assert.ok(content.includes('status: proposed-archived'));
     assert.ok(content.includes('REPLACE_HISTORICAL_REASON'));
-    assert.ok(!content.includes('next_action'), 'historical drafts must not define next_action');
+    // Historical drafts set nextAction explicitly null; they must NOT use the legacy snake_case form.
+    assert.ok(!content.includes('next_action'), 'historical drafts must not define next_action (legacy snake_case)');
+    assert.ok(content.includes('nextAction: null'), 'historical drafts pin nextAction to null');
   });
 
   it('bootstrap-index template has 3 bucket sections + Already tracked', () => {

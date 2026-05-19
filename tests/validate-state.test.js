@@ -105,6 +105,108 @@ test('round-trip: parse → stringify → parse produces structurally identical 
   assert.deepStrictEqual(fm2, fm1, 'initiative frontmatter must round-trip without data loss');
 });
 
+/**
+ * Substitute REPLACE_* markers in a template with realistic values that
+ * satisfy the schema. Used by the template-validation tests below.
+ */
+function fillTemplate(raw, kind) {
+  const ts = '2026-05-19T10:00:00Z';
+  const common = {
+    REPLACE_ISO_TIMESTAMP: ts,
+    REPLACE_SLUG: 'my-initiative',
+    REPLACE_BRANCH_OR_NULL: 'feat/my-initiative',
+  };
+  const initiative = {
+    ...common,
+    REPLACE_INITIATIVE_TITLE: 'My initiative title',
+    REPLACE_INITIATIVE_GOAL: 'Ship X by next milestone',
+    REPLACE_INITIAL_NEXT_ACTION: 'Read the docs',
+    REPLACE_PARENT_PLAN_SLUG: 'v3-redesign',
+    REPLACE_PHASE_ID: 'F0',
+  };
+  const plan = {
+    ...common,
+    REPLACE_PLAN_TITLE: 'My plan title',
+    REPLACE_INITIAL_PHASE_SLUG: 'my-initiative-f0',
+    REPLACE_INITIAL_PHASE_ID: 'F0',
+    REPLACE_INITIAL_PHASE_TITLE: 'Foundation',
+    REPLACE_INITIAL_PHASE_GOAL: 'Establish foundation',
+    REPLACE_INITIAL_PHASE_EXIT_SUMMARY: 'Foundation set',
+  };
+  const subs = kind === 'plan' ? plan : initiative;
+  let out = raw;
+  for (const [marker, value] of Object.entries(subs)) {
+    out = out.replaceAll(marker, value);
+  }
+  return out;
+}
+
+test('initiative.template.md (standalone mode, with plan-membership-block stripped) passes schema', () => {
+  const validators = buildValidators();
+  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-status-assets', 'initiative.template.md');
+  let raw = readFileSync(tplPath, 'utf8');
+  // Standalone mode: strip the plan-membership-block (between sentinels, inclusive).
+  raw = raw.replace(
+    /# === plan-membership-block[\s\S]*?# === \/plan-membership-block ===\n/,
+    '',
+  );
+  const filled = fillTemplate(raw, 'initiative');
+
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-tpl-'));
+  try {
+    mkdirSync(join(dir, 'initiatives'), { recursive: true });
+    const tmpFile = join(dir, 'initiatives', 'my-initiative.md');
+    writeFileSync(tmpFile, filled);
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.ok, true, `standalone initiative template failed: ${JSON.stringify(result.errors)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('initiative.template.md (in-plan mode, REPLACE_* filled) passes schema', () => {
+  const validators = buildValidators();
+  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-status-assets', 'initiative.template.md');
+  let raw = readFileSync(tplPath, 'utf8');
+  // In-plan mode: keep parentPlan/phaseId lines but drop sentinel comments.
+  raw = raw.replace(/# === plan-membership-block.*\n/, '');
+  raw = raw.replace(/# === \/plan-membership-block ===\n/, '');
+  const filled = fillTemplate(raw, 'initiative');
+
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-tpl-'));
+  try {
+    mkdirSync(join(dir, 'initiatives'), { recursive: true });
+    const tmpFile = join(dir, 'initiatives', 'my-initiative.md');
+    writeFileSync(tmpFile, filled);
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.ok, true, `in-plan initiative template failed: ${JSON.stringify(result.errors)}`);
+    // Confirm parentPlan + phaseId were preserved.
+    const { frontmatter } = parseFrontmatter(filled);
+    assert.equal(frontmatter.parentPlan, 'v3-redesign');
+    assert.equal(frontmatter.phaseId, 'F0');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('plan.template.md (REPLACE_* filled) passes schema', () => {
+  const validators = buildValidators();
+  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-status-assets', 'plan.template.md');
+  const raw = readFileSync(tplPath, 'utf8');
+  const filled = fillTemplate(raw, 'plan');
+
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-tpl-'));
+  try {
+    mkdirSync(join(dir, 'plans'), { recursive: true });
+    const tmpFile = join(dir, 'plans', 'my-initiative.md');
+    writeFileSync(tmpFile, filled);
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.ok, true, `plan template failed: ${JSON.stringify(result.errors)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('round-trip: parsed plan passes schema after re-serialization', () => {
   const validators = buildValidators();
   const raw = readFileSync(join(FIXTURES, 'plans', 'v3-redesign.md'), 'utf8');
