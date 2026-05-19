@@ -1,9 +1,27 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { decomposePlan, previewDecomposition } from '../src/decompose.js';
+import { parse as parseYaml } from 'yaml';
+import Ajv from 'ajv/dist/2020.js';
+import { decomposePlan, previewDecomposition, materializeDecomposition } from '../src/decompose.js';
+import { validateFile } from '../scripts/validate-state.js';
+
+const SCHEMA_DIR = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'meta', 'schemas');
+
+function buildValidators() {
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  for (const name of ['common.schema.json', 'plan.schema.json', 'initiative.schema.json']) {
+    const schema = JSON.parse(readFileSync(join(SCHEMA_DIR, name), 'utf8'));
+    ajv.addSchema(schema);
+  }
+  return {
+    validatePlan: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/plan.schema.json'),
+    validateInitiative: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/initiative.schema.json'),
+  };
+}
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const FIXTURE = readFileSync(
@@ -169,5 +187,152 @@ describe('previewDecomposition (C.T-002)', () => {
     const preview = previewDecomposition(r);
     assert.match(preview, /Warnings:/);
     assert.match(preview, /Open questions/);
+  });
+});
+
+describe('materializeDecomposition (C.T-004 — adopt path)', () => {
+  const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
+
+  it('emits one plan file + one initiative file per phase', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    assert.equal(files.length, 1 + r.initiatives.length);
+    assert.equal(files[0].kind, 'plan');
+    assert.equal(files[0].slug, 'sample');
+    assert.equal(files[0].relativePath, '.atomic-skills/plans/sample.md');
+    for (let i = 0; i < r.initiatives.length; i++) {
+      const f = files[i + 1];
+      assert.equal(f.kind, 'initiative');
+      assert.match(f.relativePath, /^\.atomic-skills\/initiatives\/sample-f\d+/);
+    }
+  });
+
+  it('Plan frontmatter validates against plan.schema.json', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFile = files.find((f) => f.kind === 'plan');
+    const fm = parseYaml(planFile.content.split('---\n')[1]);
+    const validators = buildValidators();
+    const ok = validators.validatePlan(fm);
+    assert.equal(ok, true, `expected valid plan; errors: ${JSON.stringify(validators.validatePlan.errors)}`);
+  });
+
+  it('every initiative frontmatter validates against initiative.schema.json', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const validators = buildValidators();
+    for (const f of files.filter((f) => f.kind === 'initiative')) {
+      const fm = parseYaml(f.content.split('---\n')[1]);
+      const ok = validators.validateInitiative(fm);
+      assert.equal(ok, true, `expected valid initiative ${f.slug}; errors: ${JSON.stringify(validators.validateInitiative.errors)}`);
+    }
+  });
+
+  it('materialized files validate end-to-end via scripts/validate-state.js (write to tmp + validateFile)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', branch: 'main', now: FROZEN_DATE });
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'as-mat-'));
+    try {
+      const validators = buildValidators();
+      for (const f of files) {
+        const absPath = join(tmpRoot, f.relativePath);
+        mkdirSync(dirname(absPath), { recursive: true });
+        writeFileSync(absPath, f.content, 'utf8');
+        const result = validateFile(absPath, validators);
+        assert.equal(result.ok, true, `validateFile failed for ${f.relativePath}: ${JSON.stringify(result.errors)}`);
+        assert.equal(result.kind, f.kind);
+      }
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('first phase + first initiative are active; rest are pending', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    assert.equal(planFm.phases[0].status, 'active');
+    assert.equal(planFm.phases[1].status, 'pending');
+    assert.equal(planFm.phases[2].status, 'pending');
+    assert.equal(planFm.currentPhase, 'F0');
+    // Initiatives mirror the phase status
+    const inits = files.filter((f) => f.kind === 'initiative');
+    const fm0 = parseYaml(inits[0].content.split('---\n')[1]);
+    const fm1 = parseYaml(inits[1].content.split('---\n')[1]);
+    assert.equal(fm0.status, 'active');
+    assert.equal(fm1.status, 'pending');
+  });
+
+  it('each initiative carries parentPlan + phaseId + exit gates + tasks', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const inits = files.filter((f) => f.kind === 'initiative');
+    const fm0 = parseYaml(inits[0].content.split('---\n')[1]);
+    assert.equal(fm0.parentPlan, 'sample');
+    assert.equal(fm0.phaseId, 'F0');
+    assert.equal(fm0.tasks.length, 3);
+    assert.equal(fm0.tasks[0].id, 'T0.1');
+    assert.equal(fm0.tasks[0].status, 'pending');
+    assert.equal(fm0.exitGates.length, 2);
+    assert.equal(fm0.exitGates[0].id, 'F0-G1');
+    assert.equal(fm0.exitGates[0].status, 'pending');
+    assert.equal(fm0.stack.length, 1);
+    assert.equal(fm0.stack[0].type, 'task');
+    assert.equal(fm0.stack[0].openedAt, FROZEN_DATE.toISOString());
+  });
+
+  it('phase dependsOn is sequential by default (each phase depends on the previous)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    assert.deepEqual(planFm.phases[0].dependsOn, []);
+    assert.deepEqual(planFm.phases[1].dependsOn, ['F0']);
+    assert.deepEqual(planFm.phases[2].dependsOn, ['F1']);
+  });
+
+  it('falls back to TODO sentinels for required-but-empty fields (schema still passes)', () => {
+    const stub = '# T\n\n## F0 — S\n\n### A first task\n';
+    const r = decomposePlan(stub, { planSlug: 'tiny' });
+    const files = materializeDecomposition(r, { planSlug: 'tiny', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    const validators = buildValidators();
+    assert.equal(validators.validatePlan(planFm), true);
+    assert.match(planFm.phases[0].goal, /TODO/);
+    assert.match(planFm.phases[0].exitGate.summary, /TODO|criteria/);
+    const initFm = parseYaml(files[1].content.split('---\n')[1]);
+    assert.equal(validators.validateInitiative(initFm), true);
+    assert.match(initFm.goal, /TODO/);
+  });
+
+  it('rejects missing opts.planSlug', () => {
+    const r = decomposePlan(FIXTURE);
+    assert.throws(() => materializeDecomposition(r, {}), /planSlug is required/);
+  });
+
+  it('passes through verifier kinds (shell, query, manual) unchanged', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    assert.equal(planFm.phases[0].exitGate.criteria[0].verifier.kind, 'shell');
+    assert.equal(planFm.phases[0].exitGate.criteria[1].verifier.kind, 'query');
+    assert.equal(planFm.phases[1].exitGate.criteria[0].verifier.kind, 'manual');
+  });
+
+  it('plan body has navigable §1/§2/§3 sections per Iron Law', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFile = files[0];
+    const body = planFile.content.split(/^---\s*$/m)[2] || '';
+    assert.match(body, /## 1\. Context/);
+    assert.match(body, /## 2\. Inviolable principles/);
+    assert.match(body, /## 3\. Phase tree/);
+  });
+
+  it('warnings from decompose are surfaced in the plan body', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const body = files[0].content;
+    assert.match(body, /## Decompose warnings/);
+    assert.match(body, /Open questions/);
   });
 });

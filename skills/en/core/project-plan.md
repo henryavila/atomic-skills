@@ -247,16 +247,67 @@ The skill never errors out just because superpowers is absent.
 
 ## `adopt <file.md>`
 
-(Populated by C.T-004. Placeholder so the Modes table has a target.)
+`adopt` is the retroactive-capture path: take an existing markdown plan file the user already wrote (e.g. the 843-line `docs/superpowers/plans/v3-redesign/00-master.md`) and materialize Plan + N Initiatives + Tasks from it. Skips Stages 2–4 (no superpowers delegation, no template handoff) and goes straight from input file to materialized files.
 
-`adopt` is the retroactive-capture path. Skips Stages 2-4 (no superpowers delegation, no template handoff) and runs only:
+### Step-by-step
 
-1. Validate the input markdown file exists and is readable.
-2. Run Stage 5 (decompose) on it.
-3. Run Stages 6-7 (materialize + activate first phase).
-4. Optionally archive the source file (move to `docs/archive/` with a date prefix).
+1. **Validate the input.** Resolve the path the user passed. Fail with a clear message if:
+   - the file does not exist,
+   - it is not a regular file (e.g., directory, symlink to nowhere),
+   - it does not end in `.md`,
+   - it lives under `.atomic-skills/plans/` (refuse to re-decompose canonical state).
 
-This is the path the v3-redesign migration uses to materialize the existing 843-line `docs/superpowers/plans/v3-redesign/00-master.md` into structured `.atomic-skills/` state.
+2. **Derive the plan slug.** Default: kebab-case the source file's basename minus extension (e.g., `00-master.md` → `00-master`; ask the user to confirm or override). Apply the slug regex `^[a-z][a-z0-9-]{1,63}$`; reject leading digits by stripping them or prompting for a new slug.
+
+3. **Collision check.** Pre-flight `test -f .atomic-skills/plans/<slug>.md` and `test -d .atomic-skills/initiatives/`. Abort on any collision with the proposed plan slug or with any derived initiative slug. Point the user at `project-status switch` or a fresh slug.
+
+4. **Decompose.** Run the Stage 5 helper exactly as the default flow does:
+
+   ```bash
+   node -e "
+   import('./src/decompose.js').then(({ decomposePlan, previewDecomposition }) => {
+     const md = require('node:fs').readFileSync('<source-path>', 'utf8');
+     const result = decomposePlan(md, { planSlug: '<slug>' });
+     console.log(previewDecomposition(result));
+     console.log('---JSON---');
+     console.log(JSON.stringify(result));
+   });"
+   ```
+
+5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
+
+6. **Materialize.** On confirmation, run the pure transform:
+
+   ```bash
+   node -e "
+   import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
+     const md = require('node:fs').readFileSync('<source-path>', 'utf8');
+     const result = decomposePlan(md, { planSlug: '<slug>' });
+     const files = materializeDecomposition(result, { planSlug: '<slug>', branch: '<branch-or-null>' });
+     console.log(JSON.stringify(files));
+   });"
+   ```
+
+   Then for each `{relativePath, content}` in the returned array, create the parent directory (`mkdir -p`) and write the file. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
+
+7. **Validate.** Run `npm run validate-state .atomic-skills/plans/<slug>.md` and `npm run validate-state .atomic-skills/initiatives/` (recursive). On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
+
+8. **Update PROJECT-STATUS.md.** Append rows in the canonical tables: the Plan to "Active Plans", each Initiative to its plan's group. (Same content `project-status` writes — `adopt` does it inline rather than calling out.)
+
+9. **Optional source archive.** Ask: "Archive the source markdown to `docs/archive/<YYYY-MM-DD>-<basename>`? (y/N)". If yes, `git mv` the file (preserves history). If no, leave it in place; the user can repeat `adopt` against an updated copy without conflict because the materialized state is the canonical source from this point forward.
+
+10. **Activate first phase + announce.** Same as Stage 7 of the default flow:
+    - Plan path
+    - N initiatives created
+    - Active phase: `<F0> — <title>`
+    - Suggested next: `atomic-skills:project-status` to view the bird's-eye
+
+### Failure-mode summary
+
+- **Decompose throws (zero phases):** the source file does not match the convention. Surface the message verbatim; abort. Suggest the user run the default flow's Branch B and migrate content into the minimal template.
+- **Validation fails after materialize:** roll back (delete files), surface schema errors. The decomposer or materialize logic has a bug — file an initiative against atomic-skills, do NOT manually patch the files.
+- **User aborts at step 5:** no files written, no rollback needed. The user can re-run `adopt` with an edited source file.
+- **User aborts during step 6 (rare — fs errors):** roll back any files written so far. The repo state must return to pre-`adopt` state on any failure.
 
 ## Red Flags
 

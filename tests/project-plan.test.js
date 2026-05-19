@@ -115,9 +115,29 @@ describe('project-plan skill (C.T-001 scaffold)', () => {
     assert.match(content, /never errors out just because superpowers is absent/);
   });
 
-  it('skill body documents the `adopt` mode section (placeholder for C.T-004)', () => {
+  it('skill body documents the `adopt` mode in detail (C.T-004)', () => {
     const content = install();
     assert.match(content, /## `adopt <file\.md>`/);
+    // Step-by-step
+    assert.match(content, /Validate the input/);
+    assert.match(content, /Derive the plan slug/);
+    assert.match(content, /Collision check/);
+    assert.match(content, /Decompose/);
+    assert.match(content, /Preview \+ explicit confirmation/);
+    assert.match(content, /Materialize/);
+    assert.match(content, /Validate/);
+    assert.match(content, /Update PROJECT-STATUS\.md/);
+    assert.match(content, /Optional source archive/);
+    assert.match(content, /Activate first phase/);
+    // Helper invocation
+    assert.match(content, /materializeDecomposition/);
+    // Rollback discipline
+    assert.match(content, /roll back/);
+    // Failure modes documented
+    assert.match(content, /Failure-mode summary/);
+    // Reference to the v3-redesign use case is no longer required (cleaner section);
+    // assert decompose-throws case is mentioned.
+    assert.match(content, /Decompose throws/);
   });
 
   it('project-plan-assets ship a minimal-source template', () => {

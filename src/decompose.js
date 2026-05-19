@@ -88,7 +88,7 @@
  * @returns {DecomposeResult}
  */
 
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, stringify as yamlStringify } from 'yaml';
 
 const H1_RE = /^#\s+(.+?)\s*$/m;
 const H2_RE = /^##\s+(.+?)\s*$/;
@@ -368,6 +368,242 @@ export function decomposePlan(markdown, opts = {}) {
     initiatives,
     warnings,
   };
+}
+
+/**
+ * Materialize a decompose result into Plan + Initiative file contents that
+ * Stage 6 (and `adopt`) write to disk. Pure function: returns a list of
+ * `{kind, slug, relativePath, content}` items; the skill body owns the actual
+ * fs writes and the post-write `npm run validate-state` invocation.
+ *
+ * Materialization rules:
+ *
+ *   - Plan frontmatter: schemaVersion '0.1', slug = opts.planSlug, status
+ *     'active', started/lastUpdated = opts.now ISO timestamp, parallelismAllowed
+ *     false (user can flip later), currentPhase = first phase id.
+ *
+ *   - Phase descriptors: built from decompose.initiatives in order. Each
+ *     phase's dependsOn is set to [prevPhaseId] so the default decompose
+ *     produces a strictly sequential plan (the user can edit later). The
+ *     first phase is `status: active`; the rest are `pending`. subPhaseCount
+ *     equals the number of H3-derived tasks.
+ *
+ *   - Exit-gate summary: when criteria exist, "N criterion(a) to meet";
+ *     when empty, "TODO: define exit gate" (schema requires minLength 1).
+ *
+ *   - Initiative frontmatter: parentPlan + phaseId always set (this skill
+ *     only materializes in-plan initiatives — standalone is project-status'
+ *     job). exitGates is the phase's criteria array (same shape). stack
+ *     seeds a single frame opened at `started`. tasks all start `pending`.
+ *     parked + emerged are empty arrays.
+ *
+ *   - Required-but-empty fallbacks: when decompose left a required string
+ *     empty (e.g., goal, principle body, glossary definition), a `TODO: ...`
+ *     sentinel is written so the output validates against the schema. The
+ *     user is expected to fix these — every sentinel is visible.
+ *
+ * @typedef {object} MaterializedFile
+ * @property {'plan'|'initiative'} kind
+ * @property {string} slug
+ * @property {string} relativePath — relative to repo root
+ * @property {string} content — full file content (frontmatter + body)
+ *
+ * @param {DecomposeResult} decompose
+ * @param {object} opts
+ * @param {string} opts.planSlug — required
+ * @param {string} [opts.branch] — optional branch name
+ * @param {string} [opts.version] — Plan `version` field (default '1.0')
+ * @param {Date} [opts.now] — defaults to new Date()
+ * @returns {MaterializedFile[]}
+ */
+export function materializeDecomposition(decompose, opts = {}) {
+  if (!decompose || typeof decompose !== 'object' || !decompose.plan) {
+    throw new TypeError('materializeDecomposition: decompose result must be the object returned by decomposePlan()');
+  }
+  if (!opts.planSlug || typeof opts.planSlug !== 'string') {
+    throw new Error('materializeDecomposition: opts.planSlug is required');
+  }
+  const planSlug = opts.planSlug;
+  const branch = opts.branch || null;
+  const version = opts.version || '1.0';
+  const now = opts.now instanceof Date ? opts.now : new Date();
+  const iso = now.toISOString();
+
+  const plan = decompose.plan;
+  const initiatives = decompose.initiatives;
+
+  if (initiatives.length === 0) {
+    throw new Error('materializeDecomposition: decompose has no initiatives — cannot materialize an empty plan');
+  }
+
+  // Phase descriptors (built from initiatives, sequential by default)
+  const phases = initiatives.map((init, idx) => {
+    const prevId = idx > 0 ? initiatives[idx - 1].phaseId : null;
+    const criteria = init.exitGates.map((g, gIdx) => {
+      const c = {
+        id: g.id || `${init.phaseId}-G${gIdx + 1}`,
+        description: g.description || `TODO: fill criterion description for ${init.phaseId}`,
+        status: 'pending',
+      };
+      if (g.verifier) c.verifier = g.verifier;
+      return c;
+    });
+    return {
+      id: init.phaseId,
+      slug: init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`,
+      title: init.title || init.phaseId,
+      goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
+      dependsOn: prevId ? [prevId] : [],
+      subPhaseCount: init.tasks.length,
+      exitGate: {
+        summary: criteria.length > 0
+          ? `${criteria.length} ${criteria.length === 1 ? 'criterion' : 'criteria'} to meet`
+          : 'TODO: define exit gate',
+        criteria,
+      },
+      status: idx === 0 ? 'active' : 'pending',
+    };
+  });
+
+  // Principles + glossary: fill empty fields with sentinels so schema passes
+  const principles = plan.principles.map((p, idx) => ({
+    id: p.id || `P${idx + 1}`,
+    title: p.title || `Principle ${idx + 1}`,
+    body: p.body || p.title || `TODO: fill principle ${p.id || idx + 1} body`,
+  }));
+  const glossary = plan.glossary.map((g) => ({
+    term: g.term,
+    definition: g.definition || `TODO: fill definition for "${g.term}"`,
+  }));
+
+  // Plan frontmatter
+  const planFm = {
+    schemaVersion: '0.1',
+    slug: planSlug,
+    title: plan.title || `TODO: fill plan title (${planSlug})`,
+    version,
+    status: 'active',
+    started: iso,
+    lastUpdated: iso,
+    ...(branch ? { branch } : {}),
+    currentPhase: phases[0].id,
+    parallelismAllowed: false,
+    principles,
+    glossary,
+    phases,
+    references: [],
+  };
+
+  const planBody = renderPlanBody(plan, decompose.warnings);
+  const planContent = `---\n${yamlStringify(planFm)}---\n\n${planBody}\n`;
+  const files = [{
+    kind: 'plan',
+    slug: planSlug,
+    relativePath: `.atomic-skills/plans/${planSlug}.md`,
+    content: planContent,
+  }];
+
+  // Initiative files (one per phase)
+  for (let idx = 0; idx < initiatives.length; idx++) {
+    const init = initiatives[idx];
+    const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
+    const tasks = init.tasks.map((t) => ({
+      id: t.id,
+      title: t.title || `Task ${t.id}`,
+      status: 'pending',
+      lastUpdated: iso,
+    }));
+    const exitGates = init.exitGates.map((g, gIdx) => {
+      const c = {
+        id: g.id || `${init.phaseId}-G${gIdx + 1}`,
+        description: g.description || `TODO: fill criterion description for ${init.phaseId}`,
+        status: 'pending',
+      };
+      if (g.verifier) c.verifier = g.verifier;
+      return c;
+    });
+    const title = init.title || init.phaseId;
+    const initFm = {
+      schemaVersion: '0.1',
+      slug: initSlug,
+      title,
+      goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
+      status: idx === 0 ? 'active' : 'pending',
+      branch: branch || null,
+      started: iso,
+      lastUpdated: iso,
+      nextAction: tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null,
+      parentPlan: planSlug,
+      phaseId: init.phaseId,
+      exitGates,
+      stack: [{
+        id: 1,
+        title,
+        type: 'task',
+        openedAt: iso,
+      }],
+      tasks,
+      parked: [],
+      emerged: [],
+    };
+    const initBody = renderInitiativeBody(init);
+    const initContent = `---\n${yamlStringify(initFm)}---\n\n${initBody}\n`;
+    files.push({
+      kind: 'initiative',
+      slug: initSlug,
+      relativePath: `.atomic-skills/initiatives/${initSlug}.md`,
+      content: initContent,
+    });
+  }
+
+  return files;
+}
+
+function renderPlanBody(plan, warnings) {
+  const lines = [];
+  lines.push(`# ${plan.title || 'TODO: fill plan title'}`);
+  lines.push('');
+  lines.push('## 1. Context');
+  lines.push('');
+  lines.push(plan.narrative || '_(narrative — fill or paste here)_');
+  lines.push('');
+  lines.push('## 2. Inviolable principles');
+  lines.push('');
+  if (plan.principles.length > 0) {
+    for (const p of plan.principles) {
+      const body = p.body || p.title || '(no body)';
+      lines.push(`- **${p.id} ${p.title}** — ${body}`);
+    }
+  } else {
+    lines.push('_(no principles captured by decompose; fill in.)_');
+  }
+  lines.push('');
+  lines.push('## 3. Phase tree');
+  lines.push('');
+  lines.push('_(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_');
+  if (Array.isArray(warnings) && warnings.length > 0) {
+    lines.push('');
+    lines.push('## Decompose warnings');
+    lines.push('');
+    for (const w of warnings) lines.push(`- ${w}`);
+  }
+  return lines.join('\n');
+}
+
+function renderInitiativeBody(init) {
+  return [
+    '# Narrative / notes',
+    '',
+    `Initiative for phase **${init.phaseId} — ${init.title || init.phaseId}**.`,
+    '',
+    '## Decisions',
+    '',
+    '_(record decisions here as they are made)_',
+    '',
+    '## Links',
+    '',
+    '_(plan doc, external refs)_',
+  ].join('\n');
 }
 
 /**
