@@ -169,18 +169,81 @@ User must explicitly confirm before Stage 6. If the user wants edits, they re-ru
 
 ## Superpowers integration
 
-(Populated by C.T-003. Placeholder so Stages 2-3 have a target to link to.)
+This section covers Stages 2 and 3 in full. The skill works identically with or without [superpowers](https://github.com/anthropics/superpowers) installed; superpowers is an optimization, not a dependency.
 
-Detection:
+### Stage 2 — Detect superpowers
+
+Run with {{BASH_TOOL}}:
 
 ```bash
-test -d "$HOME/.claude/plugins/superpowers" || command -v superpowers >/dev/null 2>&1
+test -d "$HOME/.claude/plugins/superpowers" \
+  || command -v superpowers >/dev/null 2>&1 \
+  && echo "superpowers: available" \
+  || echo "superpowers: absent"
 ```
 
-If available: offer `superpowers:brainstorm` then `superpowers:write-execution-plan`; pipe the resulting markdown through Stage 5.
-If not: ask the user for a path to an existing plan file, OR drop a minimal in-skill template into a temp file and have them fill it in.
+Cache the result for Stage 3. Do not re-probe later in the flow.
 
-Either way, the skill never errors when superpowers is absent.
+Announce the detection outcome to the user in one sentence:
+- Available: "superpowers detected — you can delegate brainstorming + plan writing to it."
+- Absent: "superpowers not installed — I'll ask for an existing plan file or hand you a minimal template to fill."
+
+### Stage 3 — Optional delegation OR fallback
+
+Branch on the Stage 2 result.
+
+#### Branch A — superpowers available
+
+Present Structured Options:
+
+```
+Plan input source?
+  (a) Delegate to superpowers (brainstorm + write-execution-plan)  ← recommended
+  (b) I'll paste an existing markdown plan file path
+  (c) Give me the minimal template — I'll fill it
+```
+
+If `(a)`:
+
+1. Invoke `superpowers:brainstorm` with the user's goal as the seed prompt. The user iterates with superpowers until they accept the brainstorm output.
+2. Invoke `superpowers:write-execution-plan` with the brainstorm artifact. Receive the resulting structured markdown file.
+3. The output's path becomes the source-plan path for Stage 4.
+
+If `(b)`:
+- Ask for the markdown file path. Validate it exists. Skip to Stage 4.
+
+If `(c)`:
+- Fall through to Branch B's minimal-template subflow.
+
+#### Branch B — superpowers absent
+
+Present Structured Options:
+
+```
+Plan input source?
+  (a) I'll paste an existing markdown plan file path
+  (b) Give me the minimal template — I'll fill it  ← default
+```
+
+If `(a)`:
+- Ask for the markdown file path. Validate it exists. Skip to Stage 4.
+
+If `(b)` (the minimal-template subflow):
+
+1. Copy `skills/shared/project-plan-assets/minimal-source.template.md` to a temp path inside the repo, e.g. `.atomic-skills/_drafts/<slug>-source.md`. Create the `_drafts/` directory if needed.
+2. Tell the user the file path and what sections to fill (title, narrative, principles, glossary, ≥ 1 phase with ≥ 1 task). Suggest they leave the `REPLACE_*` markers in any section they don't want to fill — the decomposer's no-phase guard surfaces the only hard-required section.
+3. Wait for the user to confirm they've finished editing. Re-read the file.
+4. Use this path as the source-plan path for Stage 4.
+
+`.atomic-skills/_drafts/` should be added to `.gitignore` if not already (the temp source is not canonical state). Append the entry idempotently.
+
+### Failure modes
+
+- **superpowers detected but invocation fails** (e.g., plugin disabled, network down): announce the error verbatim, drop back to Branch B. Do not retry silently.
+- **User aborts mid-flow**: the skill keeps the source file (if any) but does NOT write to `.atomic-skills/`. The flow can be resumed by re-invoking `project-plan <slug>` and pointing at the same source file via option `(b)`.
+- **Both branches exhausted and user has no source**: abort with a clear message — there is nothing to decompose. Suggest they describe the project to superpowers or sketch it directly into the minimal template.
+
+The skill never errors out just because superpowers is absent.
 
 ## `adopt <file.md>`
 

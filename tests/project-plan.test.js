@@ -95,10 +95,43 @@ describe('project-plan skill (C.T-001 scaffold)', () => {
     assert.match(content, /sample-f0-foundation-repair/);
   });
 
-  it('skill body documents Superpowers integration + `adopt` mode sections (placeholders for C.T-003/004)', () => {
+  it('skill body documents Superpowers integration in detail (C.T-003)', () => {
     const content = install();
     assert.match(content, /## Superpowers integration/);
+    // Detection: probes both ~/.claude/plugins/superpowers and PATH
+    assert.match(content, /\.claude\/plugins\/superpowers/);
+    assert.match(content, /command -v superpowers/);
+    // Branches A + B with explicit options
+    assert.match(content, /Branch A — superpowers available/);
+    assert.match(content, /Branch B — superpowers absent/);
+    // Delegation commands
+    assert.match(content, /superpowers:brainstorm/);
+    assert.match(content, /superpowers:write-execution-plan/);
+    // Minimal-template fallback
+    assert.match(content, /minimal-source\.template\.md/);
+    assert.match(content, /\.atomic-skills\/_drafts\//);
+    // Explicit failure-mode handling
+    assert.match(content, /Failure modes/);
+    assert.match(content, /never errors out just because superpowers is absent/);
+  });
+
+  it('skill body documents the `adopt` mode section (placeholder for C.T-004)', () => {
+    const content = install();
     assert.match(content, /## `adopt <file\.md>`/);
+  });
+
+  it('project-plan-assets ship a minimal-source template', () => {
+    install();
+    const assetPath = join(
+      tempDir,
+      '.claude/commands/atomic-skills/_assets/minimal-source.template.md'
+    );
+    assert.ok(existsSync(assetPath), `expected asset at ${assetPath}`);
+    const asset = readFileSync(assetPath, 'utf8');
+    // Sanity: template has the REPLACE_* markers + at least one phase H2
+    assert.match(asset, /REPLACE_PLAN_TITLE/);
+    assert.match(asset, /^## F0 —/m);
+    assert.match(asset, /exit_gate:/);
   });
 
   it('skill body documents Red Flags and Rationalization sections', () => {
