@@ -429,6 +429,36 @@ describe('project-status skill', () => {
     assert.ok(content.includes('fromFrame'), 'must use camelCase `fromFrame` field');
   });
 
+  it('skill body documents Verifier execution patterns workflow (B.T-006)', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('Verifier execution patterns'), 'must have a Verifier execution patterns section');
+    assert.ok(content.includes('verify_exit_gate'), 'must name the verify_exit_gate workflow');
+    // All 4 verifier kinds get their own treatment.
+    for (const kind of ['shell', 'manual', 'query', 'test']) {
+      assert.ok(
+        content.includes('#### `kind: ' + kind + '`'),
+        `must document workflow for verifier kind: ${kind}`
+      );
+    }
+    // Evidence shape documented.
+    assert.ok(content.includes('evidence:'), 'must document the evidence YAML block');
+    assert.ok(content.includes('verifierKind'), 'evidence block must include verifierKind');
+    assert.ok(content.includes('verifiedAt'), 'evidence block must include verifiedAt');
+    assert.ok(content.includes('outputSummary'), 'evidence block must include outputSummary');
+    // Pre-task verifier workflow exists.
+    assert.ok(content.includes('Per-task verifiers'), 'must document tasks[].verifier handling');
+  });
+
   it('skill body documents Plan-aware archive propagation and 2-level switch', () => {
     installSkills(tempDir, {
       language: 'en',

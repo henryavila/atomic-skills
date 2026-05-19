@@ -70,6 +70,99 @@ test('v3-redesign plan has 9 phases (real sda-v2 shape)', () => {
   assert.equal(frontmatter.phases[8].id, 'F8');
 });
 
+test('ExitCriterion accepts the optional evidence block (B.T-006)', () => {
+  const validators = buildValidators();
+  const initiativeWithEvidence = {
+    schemaVersion: '0.1',
+    slug: 'v3-f0-foundation-repair',
+    title: 'F0 — Foundation Repair',
+    goal: 'Foundation repair',
+    status: 'active',
+    branch: 'v2-rebuild',
+    started: '2026-05-19T10:00:00Z',
+    lastUpdated: '2026-05-19T18:42:00Z',
+    nextAction: null,
+    exitGates: [
+      {
+        id: 'F0-G1',
+        description: 'Tag git core-v2 created',
+        verifier: { kind: 'shell', command: 'git tag | grep core-v2', expectExitCode: 0 },
+        status: 'met',
+        metAt: '2026-05-19T20:00:00Z',
+        evidence: {
+          verifierKind: 'shell',
+          verifiedAt: '2026-05-19T20:00:00Z',
+          passed: true,
+          exitCode: 0,
+          outputSummary: 'core-v2',
+        },
+      },
+      {
+        id: 'F0-G2',
+        description: 'No duplicates',
+        verifier: { kind: 'query', sql: 'SELECT COUNT(*) FROM v_song_duplicates', expectRowCount: 0 },
+        status: 'met',
+        metAt: '2026-05-19T20:05:00Z',
+        evidence: {
+          verifierKind: 'query',
+          verifiedAt: '2026-05-19T20:05:00Z',
+          passed: true,
+          rowCount: 0,
+          outputSummary: 'verified via psql',
+        },
+      },
+      {
+        id: 'F0-G3',
+        description: 'Visual review complete',
+        verifier: { kind: 'manual', description: 'Visual review per Resource' },
+        status: 'deferred',
+        deferredReason: 'Postponed to next sprint',
+        evidence: {
+          verifierKind: 'manual',
+          verifiedAt: '2026-05-19T20:10:00Z',
+          passed: false,
+          outputSummary: 'reviewer unavailable; defer',
+        },
+      },
+    ],
+    stack: [{ id: 1, title: 'F0 kickoff', type: 'task', openedAt: '2026-05-19T10:00:00Z' }],
+    tasks: [],
+    parked: [],
+    emerged: [],
+  };
+  const ok = validators.validateInitiative(initiativeWithEvidence);
+  assert.equal(ok, true, `evidence block should validate: ${JSON.stringify(validators.validateInitiative.errors)}`);
+});
+
+test('evidence block requires verifierKind + verifiedAt', () => {
+  const validators = buildValidators();
+  const badInitiative = {
+    schemaVersion: '0.1',
+    slug: 'bad',
+    title: 'bad',
+    goal: 'bad',
+    status: 'active',
+    branch: null,
+    started: '2026-05-19T10:00:00Z',
+    lastUpdated: '2026-05-19T10:00:00Z',
+    nextAction: null,
+    exitGates: [{
+      id: 'G1',
+      description: 'desc',
+      status: 'met',
+      evidence: { passed: true },  // missing verifierKind + verifiedAt
+    }],
+    stack: [],
+    tasks: [],
+    parked: [],
+    emerged: [],
+  };
+  const ok = validators.validateInitiative(badInitiative);
+  assert.equal(ok, false);
+  const errText = (validators.validateInitiative.errors || []).map((e) => e.message).join('; ');
+  assert.match(errText, /verifierKind|verifiedAt/);
+});
+
 test('initiative with missing required fields fails validation', () => {
   const validators = buildValidators();
   const result = validateFile(join(FIXTURES, 'invalid', 'initiatives', 'missing-required.md'), validators);

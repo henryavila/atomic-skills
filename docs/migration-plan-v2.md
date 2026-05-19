@@ -48,7 +48,7 @@ Phase B — project-status redesign (3-level hierarchy)
   B.T-003  [DONE] Templates for plans/ and initiatives/ directories
   B.T-004  [DONE] Migration script for legacy initiatives (one-time on save)
   B.T-005  [DONE] Update project-status.md skill body (3-level commands)
-  B.T-006  Exit gates + verifiers infrastructure
+  B.T-006  [DONE] Exit gates + verifiers infrastructure
 
 Phase C — project-plan skill (new)
   C.T-001  Create skills/en/core/project-plan.md
@@ -350,20 +350,36 @@ Rewrote skill instructions for the 3-level model. Edited `skills/en/core/project
 - Every new command has expected behavior + exit criteria documented (asserted by tests 1-3)
 - HARD-GATE was already plan/phase-aware after B.T-003 (template); the skill body now references it for the pre-mutation check and disambiguation flow.
 
-### B.T-006 — Exit gates + verifiers infrastructure
+### B.T-006 — [DONE] Exit gates + verifiers infrastructure
 
-Implement verifier execution (shell + manual in v0.1; query + test schemas land in v0.1 but execution stubbed).
+Implemented as a named workflow ("Verifier execution patterns") in the skill body, plus an optional `evidence` block on `ExitCriterion` in the JSON Schema so verifier output persists on disk.
 
-Skill instruction patterns:
-- When user invokes `phase-done`, skill iterates exit_gates, asks IA to run each verifier
-- Shell verifier: AI runs the command, checks exit code, captures output
-- Manual verifier: AI asks user for ack
-- Output stored in evidence field of the criterion
+**Changes applied**:
 
-**Exit gate**:
-- `verify_exit_gate` workflow exists in skill body
-- Real sda-v2 F0 gates can be verified (shell command runs, exit code captured, status updated)
-- Manual gates require explicit user confirmation
+- `meta/schemas/common.schema.json`: `ExitCriterion.evidence` (optional object). Required sub-fields: `verifierKind`, `verifiedAt`. Optional: `passed`, `exitCode` (shell), `rowCount` (query), `outputSummary` (truncated excerpt or user note). `additionalProperties: false` so spurious fields surface as errors.
+
+- `skills/en/core/project-status.md`: dedicated section **"Verifier execution patterns (`verify_exit_gate` workflow)"** documenting the four kinds (shell, manual, query, test) with explicit per-kind UX flow. Workflow contract:
+  - `evidence` is REQUIRED to set `status: met` when a verifier is present.
+  - Without `evidence`, the criterion stays `pending` (manual override → `deferred` with `deferredReason`).
+  - Shell: AI runs the command via {{BASH_TOOL}}, captures exit code + stdout tail (≤500 chars), compares with `expectExitCode`.
+  - Manual: AI asks user for ack; user's note becomes `outputSummary`.
+  - Query / Test: declared in v0.1 schema, execution stubbed — user runs externally and reports result; the skill stores it as evidence.
+  - Per-task `verifier:` fields use the same workflow; result is recorded inline in the task description until v0.2 extends `Task` with its own `evidence` block.
+
+**Tests added** (`tests/validate-state.test.js`, 2 new):
+1. Initiative with three exit gates carrying full evidence blocks (shell, query, manual) validates.
+2. Evidence block missing `verifierKind` + `verifiedAt` is rejected by schema.
+
+**Tests added** (`tests/project-status.test.js`, 1 new):
+- "Verifier execution patterns" section exists; all 4 verifier kinds get their own `#### \`kind: ...\`` subsection; evidence YAML shape documented; per-task verifier path documented.
+
+**Exit gate met**:
+- `verify_exit_gate` workflow exists in skill body (asserted)
+- Real sda-v2 F0 gates can be verified: the v3-f0-foundation-repair fixture uses shell + query + manual verifier kinds, and a synthesized "verified" version with `evidence` blocks validates against the schema (asserted by validate-state.test.js).
+- Manual gates require explicit user confirmation (documented in the workflow section + Rationalization row added in B.T-005).
+- `npm test` exits 0 with 224 passing (221 prior + 3 new).
+
+**Schema drift note** (for aideck side): the `evidence` block was added to atomic-skills' JSON Schema first. The aideck TypeScript `ExitCriterion` interface should be extended to mirror it in a follow-up. Until then: aideck readers will silently ignore the field; atomic-skills writers will populate it. No breakage either way.
 
 ---
 

@@ -309,17 +309,92 @@ Invoked when the active initiative is the phase initiative of an active plan AND
 
 1. Load the active initiative. Verify it has `parentPlan` + `phaseId` set. Else abort.
 2. Load the parent plan from `.atomic-skills/plans/<parentPlan>.md`. Locate the phase by `phaseId`. Read `phase.exitGate.criteria` AND `initiative.exitGates` (combine; phase-level criteria are authoritative for the gate).
-3. For each criterion (status === `pending`):
-   - Present to the user: criterion `id` + `description` + (if present) verifier kind + verifier preview.
-   - If `verifier.kind === 'shell'`: ask "Run `<command>`? (y/N)". On y, execute with {{BASH_TOOL}}, capture exit code. Compare with `expectExitCode` (default 0). On match, mark `status: met`, set `metAt`. On mismatch, ask "Mark `deferred` with a reason, retry, or leave pending?".
-   - If `verifier.kind === 'manual'`: ask the user for ack. On `y`, mark `met` + `metAt`. On `n`, optionally `deferred` with reason.
-   - If `verifier.kind === 'query'` or `'test'`: schema is declared but execution is stubbed in v0.1. Print the declared kind + payload, ask user to verify externally, accept manual ack.
-   - No verifier → manual mode.
+3. For each criterion (status === `pending`) → apply the **Verifier execution patterns** below.
 4. After iterating: report status summary. If all criteria `met`:
    - Set the initiative's `status: done`, `lastUpdated: <now>`.
    - Update the parent plan: set the matching phase's `status: done`. If the plan has a `dependsOn` graph, compute the next eligible phase and propose: "Phase `<id>` done. Advance `currentPhase` to `<next>`? (y/N)". On y, update plan `currentPhase` + offer to `new <next-phase-slug>` initiative.
    - Save both files. Update PROJECT-STATUS.md.
 5. If any criterion is `pending` after iteration: ask "Some gates remain pending. Mark phase done anyway? (y/N)". On `n`, leave initiative in `active` state. On `y`, document the override (set `deferredReason` on the remaining criteria, mark phase done).
+
+### Verifier execution patterns (`verify_exit_gate` workflow)
+
+Applies to **each** `ExitCriterion` with `status === 'pending'` (or any criterion the user asks to re-verify). Used by `phase-done`, by per-task `verifier:` fields, and by ad-hoc verification from the user.
+
+The output of every successful (or attempted) verification is stamped into the criterion's optional `evidence` block. The shape is:
+
+```yaml
+evidence:
+  verifierKind: shell | query | test | manual
+  verifiedAt: <ISO8601>
+  passed: true | false
+  exitCode: <integer>      # shell only
+  rowCount: <integer>      # query only
+  outputSummary: "<≤500 chars excerpt or user note>"
+```
+
+`evidence` is REQUIRED to set `status: met` when a verifier is present. Without `evidence`, the criterion stays `pending` (manual override → `deferred` with `deferredReason`).
+
+#### `kind: shell`
+
+1. Present the criterion `id` + `description` + the full `command` to the user.
+2. Ask: "Run this verifier? (y/N)" — intrusive-actions rule applies.
+3. On `y`: execute with {{BASH_TOOL}}, capture exit code AND a tail of stdout (≤500 chars). Compare exit code with `expectExitCode` (default `0`).
+4. Write `evidence`:
+   - `verifierKind: shell`, `verifiedAt: <now>`
+   - `exitCode: <observed>`, `passed: <bool>`
+   - `outputSummary: <stdout tail>`
+5. If `passed === true`: set `status: met`, `metAt: <now>`.
+6. If `passed === false`: ask "Mark `deferred` with a reason, retry, or leave pending?".
+   - On `deferred`: keep the `evidence` block (so the failed run is recorded), set `status: deferred`, capture `deferredReason`.
+   - On retry: loop back to step 3.
+   - On leave-pending: keep `evidence` (records the failed attempt) but leave `status: pending`.
+
+#### `kind: manual`
+
+1. Present the criterion `id` + `description` + the verifier's `description`.
+2. Ask: "Confirm this criterion is met? (y/n/defer)".
+3. Write `evidence`:
+   - `verifierKind: manual`, `verifiedAt: <now>`
+   - `passed: <true if y else false>`
+   - `outputSummary: <user's note, or empty>`
+4. On `y`: set `status: met`, `metAt: <now>`.
+5. On `n`: ask "Mark `deferred` (with reason) or leave `pending`?". Apply.
+6. On `defer`: capture `deferredReason`, set `status: deferred`.
+
+#### `kind: query` (v0.1: stubbed execution)
+
+The schema is declared; the skill does NOT auto-run SQL in v0.1 (no DB conn assumed).
+
+1. Present the criterion `id` + `description` + `sql` + `expectRowCount` (if any).
+2. Ask: "Run this query externally and report the row count, or skip?".
+3. If user provides a row count:
+   - Write `evidence`:
+     - `verifierKind: query`, `verifiedAt: <now>`
+     - `rowCount: <reported>`, `passed: <rowCount === expectRowCount>`
+     - `outputSummary: <user's note>`
+   - Set `status: met` / `deferred` based on `passed` and user confirmation.
+4. If user skips: leave `status: pending`, no `evidence` written.
+
+#### `kind: test` (v0.1: stubbed execution)
+
+The schema is declared; the skill does NOT auto-run test runners in v0.1.
+
+1. Present the criterion `id` + `description` + `runner` + `pattern`.
+2. Ask: "Run the test pattern (e.g., `<runner> <pattern>`) externally and report pass/fail, or skip?".
+3. If user provides a result:
+   - Write `evidence`:
+     - `verifierKind: test`, `verifiedAt: <now>`
+     - `passed: <bool>`, `outputSummary: <user's note>`
+   - Set `status: met` / `deferred` per user.
+4. If user skips: leave `status: pending`, no `evidence` written.
+
+#### No verifier present
+
+Treat as `kind: manual` with an empty `description`. Ask the user for explicit ack before marking `met`.
+
+#### Per-task verifiers (`tasks[].verifier`)
+
+When closing a task (`done <task-id>`) whose entry has a non-empty `verifier:`, apply the same workflow before marking the task done. Store the result inline on the task — task-level evidence is NOT in the v0.1 Task schema, so for now record it as a one-line note in the task's `description` (`"verified <verifierKind> at <ISO>: passed=<bool>"`) and stamp `closedAt`. A future v0.2 may extend the Task schema with its own `evidence` block.
 
 ### `phase-reopen`
 

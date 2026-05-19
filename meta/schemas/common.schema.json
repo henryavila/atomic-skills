@@ -85,7 +85,21 @@
         "verifier": { "$ref": "#/$defs/exitCriterionVerifier" },
         "status": { "type": "string", "enum": ["pending", "met", "deferred"] },
         "metAt": { "$ref": "#/$defs/isoTimestamp" },
-        "deferredReason": { "type": "string" }
+        "deferredReason": { "type": "string" },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verifierKind", "verifiedAt"],
+          "description": "Captured result of running the criterion's verifier. Written by the project-status skill's phase-done workflow. Read by aiDeck (when present) to render gate evidence.",
+          "properties": {
+            "verifierKind": { "type": "string", "enum": ["shell", "query", "test", "manual"] },
+            "verifiedAt": { "$ref": "#/$defs/isoTimestamp" },
+            "passed": { "type": "boolean", "description": "True iff the verifier produced the expected result. Stored even when status='met' to disambiguate user-overrides from verified passes." },
+            "exitCode": { "type": "integer", "description": "Shell verifier: actual exit code observed." },
+            "rowCount": { "type": "integer", "minimum": 0, "description": "Query verifier: row count observed (stubbed in v0.1; written when caller has run the query externally)." },
+            "outputSummary": { "type": "string", "description": "Brief excerpt of verifier output (truncated to ~500 chars). For manual verifier, the user's confirmation note." }
+          }
+        }
       }
     }
   }
