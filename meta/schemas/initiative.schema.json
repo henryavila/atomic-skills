@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/initiative.schema.json",
+  "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1)",
+  "description": "Validates the YAML frontmatter of `.atomic-skills/initiatives/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives omit `parentPlan` and `phaseId`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "slug",
+    "title",
+    "goal",
+    "status",
+    "branch",
+    "started",
+    "lastUpdated",
+    "nextAction",
+    "exitGates",
+    "stack",
+    "tasks",
+    "parked",
+    "emerged"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "slug": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1 },
+    "goal": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "active", "paused", "done", "archived"]
+    },
+    "branch": { "type": ["string", "null"] },
+    "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "nextAction": { "type": ["string", "null"] },
+    "parentPlan": { "$ref": "common.schema.json#/$defs/slug" },
+    "phaseId": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string" },
+    "exitGates": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/exitCriterion" }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "stack": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "type", "openedAt"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "type": {
+            "type": "string",
+            "enum": ["task", "research", "validation", "discussion"]
+          },
+          "openedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" }
+    },
+    "parked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "surfacedAt", "fromFrame"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "surfacedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+          "fromFrame": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "emerged": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "surfacedAt", "promoted"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "surfacedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+          "promoted": { "type": "boolean" }
+        }
+      }
+    },
+    "externalImports": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
+    },
+    "references": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
+    },
+    "crossTaskRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fromTaskId", "toInitiativeSlug", "toTaskId", "relation"],
+        "properties": {
+          "fromTaskId": { "type": "string", "minLength": 1 },
+          "toInitiativeSlug": { "$ref": "common.schema.json#/$defs/slug" },
+          "toTaskId": { "type": "string", "minLength": 1 },
+          "relation": {
+            "type": "string",
+            "enum": ["depends_on", "extends", "unblocks", "references"]
+          },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status", "lastUpdated"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "done", "blocked"]
+        },
+        "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+        "closedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+        "blockedBy": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/taskOutput" }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "resourceCounts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "verifier": { "$ref": "common.schema.json#/$defs/exitCriterionVerifier" }
+      }
+    },
+    "taskOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["command", "file", "migration", "json", "test"]
+        },
+        "path": { "type": "string" },
+        "command": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

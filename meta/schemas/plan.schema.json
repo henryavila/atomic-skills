@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/plan.schema.json",
+  "title": "atomic-skills Plan frontmatter (schemaVersion 0.1)",
+  "description": "Validates the YAML frontmatter of `.atomic-skills/plans/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "slug",
+    "title",
+    "version",
+    "status",
+    "started",
+    "lastUpdated",
+    "currentPhase",
+    "parallelismAllowed",
+    "phases"
+  ],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "slug": { "$ref": "common.schema.json#/$defs/slug" },
+    "title": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["active", "paused", "done", "archived"] },
+    "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "branch": { "type": "string" },
+    "currentPhase": { "type": ["string", "null"] },
+    "parallelismAllowed": { "type": "boolean" },
+    "principles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "body"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "body": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "glossary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term", "definition"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1 },
+          "definition": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "domain": { "type": "string" }
+        }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/phaseDescriptor" }
+    },
+    "interPhaseGates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "criteria"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "criteria": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "supersedes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "supersedeScope"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "supersedeScope": { "type": "string", "enum": ["full", "partial"] },
+        "partialAreas": { "type": "array", "items": { "type": "string" } },
+        "remainsValid": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
+    },
+    "whatStaysValid": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "phaseDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "slug", "title", "goal", "dependsOn", "subPhaseCount", "exitGate", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "slug": { "$ref": "common.schema.json#/$defs/slug" },
+        "title": { "type": "string", "minLength": 1 },
+        "goal": { "type": "string", "minLength": 1 },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "parallelWith": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "track": { "type": "string" },
+        "audience": { "type": "string" },
+        "subPhaseCount": { "type": "integer", "minimum": 0 },
+        "exitGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "criteria"],
+          "properties": {
+            "summary": { "type": "string", "minLength": 1 },
+            "criteria": {
+              "type": "array",
+              "items": { "$ref": "common.schema.json#/$defs/exitCriterion" }
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "paused", "done", "archived"]
+        },
+        "externalImports": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
+        },
+        "exitGateType": {
+          "type": "string",
+          "enum": ["standard", "ui-gate", "custom"]
+        }
+      }
+    }
+  }
+}

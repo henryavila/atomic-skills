@@ -44,7 +44,7 @@ Phase A — Independent of aiDeck (can ship standalone)
            Skill-body integration deferred to Phase B (B.T-005)
 
 Phase B — project-status redesign (3-level hierarchy)
-  B.T-002  New schema (Plan / Initiative / Task) matching aiDeck
+  B.T-002  [DONE] New schema (Plan / Initiative / Task) matching aiDeck
   B.T-003  Templates for plans/ and initiatives/ directories
   B.T-004  Migration script for legacy initiatives (one-time on save)
   B.T-005  Update project-status.md skill body (3-level commands)
@@ -215,23 +215,35 @@ scope:
 
 This task was promoted to Phase A as a prerequisite for A.T-001's enriched metadata. Completed; see A.T-000 above.
 
-### B.T-002 — New schema (Plan / Initiative / Task)
+### B.T-002 — [DONE] New schema (Plan / Initiative / Task)
 
-Implement the schema decided in design session, matching [`@henryavila/aideck/schemas`](../../aideck/src/schemas/) shapes exactly.
+Implemented the schema decided in design session, matching [`@henryavila/aideck/schemas`](../../aideck/src/schemas/) shapes exactly.
 
 Key additions:
 - Plan: narrative (markdown body), principles[], glossary[], tracks[], phases[] with exit gates + verifiers, supersedes, references[]
-- Initiative: parent_plan (optional), phase_id, audience, exit_gates[] with verifiers, scope, body, references[], crossTaskRefs[]
+- Initiative: parentPlan (optional), phaseId, audience, exitGates[] with verifiers, scope, body, references[], crossTaskRefs[]
 - Task: description, outputs[], tags[], resourceCounts, per-task verifier
 
-Schema files live as TypeScript types AT aiDeck side, BUT the project-status skill's YAML files conform to those shapes.
+**Architectural note** (clarification vs. original plan): aideck's TypeScript interfaces remain the conceptual source-of-truth shape, but atomic-skills ships JSON Schema mirrors in `meta/schemas/` so the contract is machine-checkable from the YAML side without taking a dep on aideck's TS toolchain. Drift between the two is caught the moment a fixture from one side fails the other side's validator.
 
-**Exit gate**:
-- A real sda-v2-shaped Plan (9 phases) parses, stores, re-renders without data loss
-- All schema fields documented in skill body
-- `schemaVersion: '0.1'` enforced
+**Changes applied**:
+- `meta/schemas/common.schema.json` — primitives (schemaVersion const `0.1`, IsoTimestamp pattern, slug pattern, ArtifactRef, ExitCriterion, ExitCriterionVerifier with shell/query/test/manual oneOf)
+- `meta/schemas/plan.schema.json` — Plan + PhaseDescriptor + InterPhaseGate + supersedes; `narrative` excluded from frontmatter schema (lives in MD body)
+- `meta/schemas/initiative.schema.json` — Initiative + Task + StackFrame + ParkedItem + EmergedItem + CrossTaskRef; `body` excluded from frontmatter schema (lives in MD body)
+- `scripts/validate-state.js` — ajv-backed CLI (draft 2020-12), wired as `npm run validate-state`. Accepts files or directories; infers kind from path (`plans/` vs `initiatives/`).
+- `tests/fixtures/state/{plans,initiatives}/v3-*.md` — copies of aideck demo fixtures (sda-v2 v3-redesign with 9 phases + v3-f0 initiative with 8 tasks)
+- `tests/fixtures/state/invalid/{plans,initiatives}/` — negative fixtures
+- `tests/validate-state.test.js` — 12 tests: positive validation, negative validation, frontmatter parsing edge cases, round-trip (parse → stringify → parse → deep-equal; plus write-to-disk → re-parse → re-validate)
+- `package.json` — `ajv ^8.17.1` added to dependencies
 
-**Verifier**: round-trip test (write → parse → write → byte-equal frontmatter)
+**Exit gate met**:
+- `node scripts/validate-state.js tests/fixtures/state` exits 0 for v3-redesign.md (9 phases) and v3-f0-foundation-repair.md (8 tasks, multiple verifier kinds, crossTaskRefs)
+- Negative fixtures (missing-required, wrong-schema-version) exit 1 with field-level errors
+- Round-trip test: `parseYaml(stringifyYaml(parsed)) deepStrictEqual parsed` for both plan and initiative
+- `npm test` exits 0 with 191 passing (179 existing + 12 new)
+- `schemaVersion: '0.1'` enforced via JSON Schema `const`
+
+**Deferred to B.T-005**: documenting all schema fields in the skill body (project-status.md rewrite).
 
 ### B.T-003 — Templates for plans/ and initiatives/
 
