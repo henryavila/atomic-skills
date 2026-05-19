@@ -1,0 +1,475 @@
+# Atomic Skills — Migration Plan v2
+
+> Canonical implementation plan for the redesign decided in the 2026-05-19 design session.
+> This document is the menu. Execution happens in `.atomic-skills/initiatives/` once project-status is bootstrapped on THIS repo.
+
+## Context
+
+In May 2026 a design session identified that:
+
+1. `project-status` skill is **silent during planning** — 843 lines of structured plan got created in sda-v2 without the skill being invoked once.
+2. The skill is **too flat** for real multi-phase work (no Plan level, only flat initiatives).
+3. There is **no visual interface** for the bird's-eye-+zoom mental model the skill was supposed to enable.
+4. **PT+EN parallel maintenance** of skills creates translation drift and double cost without measurable benefit.
+
+The session produced two artifacts:
+
+- **aiDeck** (new sibling package at `/Volumes/External/code/aideck/`): AI-native dashboard runtime with MCP, HTTP, SSE.
+- **This migration plan**: changes needed in atomic-skills to leverage aiDeck and address the flat-model and bilingual problems.
+
+For full design rationale see [`aideck/docs/why.md`](../../aideck/docs/why.md). Decisions log: [`aideck/docs/decisions.md`](../../aideck/docs/decisions.md).
+
+## Reference test target
+
+After all phases land, the test target is the **sda-v2 v3-redesign plan** (9 phases, 61 sub-phases, 70+ tasks). If the redesigned atomic-skills + aiDeck can host this plan natively, the migration succeeded.
+
+## Inviolable principles
+
+1. **Files canonical**: skills always work without aiDeck. aiDeck is an optimization layer, never a dependency.
+2. **Backward compat preserved**: existing standalone initiatives (without `parent_plan`) continue functioning.
+3. **EN-canonical**: skill source in English; communication language is per-repo configuration.
+4. **One commit per atomic change**: each phase below maps to a focused PR / commit batch.
+5. **Test before ship**: each phase has a verifiable exit gate.
+
+## Phases overview
+
+```
+Phase A — Independent of aiDeck (can ship standalone)
+  A.T-001  Frontmatter on all 12 skills
+  A.T-002  Skill installer language refactor (PT removal + repurpose)
+  A.T-003  Skill validation script
+  A.T-004  scope:paths detection helper
+
+Phase B — project-status redesign (3-level hierarchy)
+  B.T-001  Migrate YAML parser to `yaml` npm package
+  B.T-002  New schema (Plan / Initiative / Task) matching aiDeck
+  B.T-003  Templates for plans/ and initiatives/ directories
+  B.T-004  Migration script for legacy initiatives (one-time on save)
+  B.T-005  Update project-status.md skill body (3-level commands)
+  B.T-006  Exit gates + verifiers infrastructure
+
+Phase C — project-plan skill (new)
+  C.T-001  Create skills/en/core/project-plan.md
+  C.T-002  Markdown decompose logic (H2/H3 → Plan + Initiatives + Tasks)
+  C.T-003  Superpowers integration (optional delegation)
+  C.T-004  `adopt` command for retroactive plan capture
+
+Phase D — Hooks rewrite + aiDeck deep integration
+  D.T-001  SessionStart hook v2 (3-level + dashboard URL hint)
+  D.T-002  Stop hook v2 (drift detection via scope:paths)
+  D.T-003  Phase-transition hooks (auto-detect last-task-done)
+  D.T-004  MCP client wrapper (graceful degradation)
+```
+
+---
+
+## Phase A — Independent of aiDeck
+
+**Goal**: ship value immediately without waiting for aiDeck implementation. These tasks pay dividends even before aiDeck v0.1 lands.
+
+**Dependencies**: none.
+
+**Exit gate**: all 12 skills have valid frontmatter; installer asks language as communication preference; validation script passes.
+
+### A.T-001 — Frontmatter on all 12 skills
+
+Add YAML frontmatter to each skill file per [`skill-frontmatter-spec.md`](./kb/skill-frontmatter-spec.md).
+
+Skills to migrate:
+
+| # | Skill | Path |
+|---|-------|------|
+| 1 | project-status | `skills/en/core/project-status.md` |
+| 2 | parallel-dispatch | `skills/en/core/parallel-dispatch.md` |
+| 3 | parallel-dispatch-audit | `skills/en/core/parallel-dispatch-audit.md` |
+| 4 | hunt | `skills/en/core/hunt.md` |
+| 5 | fix | `skills/en/core/fix.md` |
+| 6 | review-code-with-codex | `skills/en/core/review-code-with-codex.md` |
+| 7 | review-plan-internal | `skills/en/core/review-plan-internal.md` |
+| 8 | review-plan-vs-artifacts | `skills/en/core/review-plan-vs-artifacts.md` |
+| 9 | review-plan-with-codex | `skills/en/core/review-plan-with-codex.md` |
+| 10 | prompt | `skills/en/core/prompt.md` |
+| 11 | save-and-push | `skills/en/core/save-and-push.md` |
+| 12 | init-memory | `skills/en/modules/memory/init-memory.md` |
+
+**Exit gate**:
+- All 12 files have frontmatter passing the validation script (A.T-003)
+- `npm run validate-skills` exits 0
+
+**Verifier**: `bash scripts/validate-skills.sh` exits 0
+
+### A.T-002 — Installer language refactor
+
+Repurpose `promptLanguageSelection` in `src/ui.js`:
+
+**Before**: "Which language for skills?" → selects `skills/pt/` or `skills/en/`.
+
+**After**: "Which language do you want me to communicate with you?" → stored in `MANIFEST_DIR/config.yaml` as `communication_language: pt-BR` (or other).
+
+Concrete changes:
+1. Delete `skills/pt/` directory (clean cut per design decision)
+2. Remove PT fallback branching in `src/install.js:60-68` (always read from `skills/en/`)
+3. Repurpose `promptLanguageSelection` text
+4. Store result in config file
+5. Add template variable `{{COMMUNICATION_LANGUAGE}}` substituted into skills at install time
+6. Skills get a directive header: `Respond to the user in {{COMMUNICATION_LANGUAGE}} (default: en-US).`
+
+**Exit gate**:
+- `skills/pt/` no longer exists
+- Installer asks language, stores in config
+- Fresh install in clean repo: CLAUDE.md or skill files include the language directive
+- AI responds in user's chosen language across all skills
+
+**Verifier**: fresh install + invoke any skill + verify response is in chosen locale
+
+### A.T-003 — Skill validation script
+
+Create `scripts/validate-skills.sh` (or `.js` if cleaner) that:
+
+1. Reads all `skills/**/*.md`
+2. Parses YAML frontmatter
+3. Validates against the schema in `skill-frontmatter-spec.md`
+4. Reports issues with file:line precision
+5. Exits 1 if any invalid
+
+Add to `package.json`:
+```json
+"scripts": {
+  "validate-skills": "node scripts/validate-skills.js"
+}
+```
+
+Hook into pre-publish via existing release process.
+
+**Exit gate**:
+- `npm run validate-skills` runs in < 2s, prints clear errors for invalid frontmatter
+- CI / pre-publish includes this check
+
+### A.T-004 — scope:paths detection helper
+
+New comando: `atomic-skills:project-status detect-scope` (lives within project-status skill).
+
+Behavior:
+1. Reads `git log --name-only -n 20 --branches=<current-branch>` (or relevant time window)
+2. Extracts most-touched paths
+3. Presents to user: "Based on recent commits, scope:paths looks like: [list]. Accept? (y/N/edit)"
+4. On accept: writes scope:paths to the active initiative's frontmatter
+
+**Exit gate**:
+- Command exists in project-status skill body
+- Runs on a real repo, suggests reasonable paths
+- User confirmation writes to initiative file correctly
+
+---
+
+## Phase B — project-status redesign (3-level hierarchy)
+
+**Goal**: introduce Plan / Initiative / Task hierarchy matching aiDeck schemas.
+
+**Dependencies**: Phase A complete (frontmatter ready, validation in place).
+
+**Exit gate**: project-status can host the sda-v2 v3-redesign plan natively; old initiatives auto-migrate on first save without data loss.
+
+### B.T-001 — Migrate YAML parser
+
+Remove `src/yaml.js` (custom minimal parser; can't handle arrays / inline objects required by new schemas).
+
+Replace with [`yaml`](https://www.npmjs.com/package/yaml) npm package.
+
+Changes:
+- `package.json`: add `yaml` to dependencies
+- `src/install.js`: `import { parse, stringify } from 'yaml'` instead of internal parser
+- `src/yaml.js`: delete file
+- Skill body docs referencing `src/yaml.js` updated to mention `yaml` package
+- Tests for parser handling: nested objects, arrays, inline syntax, multi-line strings, comments
+
+**Exit gate**:
+- `yaml` package in deps
+- `src/yaml.js` deleted
+- All existing fixtures still parse correctly (regression-free)
+- New schema YAML (with arrays + inline objects) parses without errors
+
+**Verifier**: `npm test` passes; parsing sda-v2-style fixture succeeds
+
+### B.T-002 — New schema (Plan / Initiative / Task)
+
+Implement the schema decided in design session, matching [`@henryavila/aideck/schemas`](../../aideck/src/schemas/) shapes exactly.
+
+Key additions:
+- Plan: narrative (markdown body), principles[], glossary[], tracks[], phases[] with exit gates + verifiers, supersedes, references[]
+- Initiative: parent_plan (optional), phase_id, audience, exit_gates[] with verifiers, scope, body, references[], crossTaskRefs[]
+- Task: description, outputs[], tags[], resourceCounts, per-task verifier
+
+Schema files live as TypeScript types AT aiDeck side, BUT the project-status skill's YAML files conform to those shapes.
+
+**Exit gate**:
+- A real sda-v2-shaped Plan (9 phases) parses, stores, re-renders without data loss
+- All schema fields documented in skill body
+- `schemaVersion: '0.1'` enforced
+
+**Verifier**: round-trip test (write → parse → write → byte-equal frontmatter)
+
+### B.T-003 — Templates for plans/ and initiatives/
+
+Update `skills/shared/project-status-assets/`:
+
+- `initiative.template.md` → 3-level-aware initiative template
+- `plan.template.md` → new file, Plan template
+- `PROJECT-STATUS.md.template.md` → hierarchical view (Active Plan + Current Initiative + Ad-Hoc)
+- `CLAUDE.md-gate.template.md` → HARD-GATE extended for plan/phase awareness
+- `bootstrap-*.template.md` → updated to discover plans + initiatives separately
+
+**Exit gate**:
+- Templates produce valid YAML matching new schemas
+- Fresh `project-status setup` creates 3-level-aware structure
+- PROJECT-STATUS.md renders bird's-eye + zoom
+
+### B.T-004 — Migration script for legacy initiatives
+
+One-time-on-save migration per the "forçar migração no primeiro save" decision.
+
+Logic:
+1. When project-status loads an existing initiative for mutation:
+2. If `schemaVersion` is missing or < `0.1`:
+3. Prompt user: "This initiative uses the legacy format. Migrate now? (y — required to save)"
+4. Choices:
+   - Mark as standalone (no parent_plan)
+   - Group under a plan (pick existing, or create new)
+5. Apply transform, save with `schemaVersion: '0.1'`
+6. Continue with the user's original action
+
+Migration is **idempotent**: re-running on already-migrated initiative is no-op.
+
+**Exit gate**:
+- Existing sda-v2 initiative (legacy format) migrates on first edit without data loss
+- All required fields populated (or defaults applied)
+- User cannot bypass migration (mutation aborts if migration declined)
+
+**Verifier**: fixture-based regression test with sample legacy + post-migration shapes
+
+### B.T-005 — Update project-status.md skill body
+
+Rewrite skill instructions for 3-level model. Key changes:
+
+- `new <slug>` → asks: standalone or part of plan?
+- New commands: `phase-done`, `phase-reopen`, `detect-scope`
+- `done <task-id>` extended: auto-detects last-pending-task in phase, prompts transition
+- `archive` propagates: archive plan → archive child initiatives
+- `switch` works at 2 levels (plan + initiative within plan)
+- `--plan` view mode: bird's-eye for active plan
+- `--phase` view mode: detail for current phase only
+
+**Exit gate**:
+- Skill body reflects all new behaviors
+- Every command has expected behavior + exit criterion documented
+- HARD-GATE in CLAUDE.md updated to plan/phase awareness
+
+### B.T-006 — Exit gates + verifiers infrastructure
+
+Implement verifier execution (shell + manual in v0.1; query + test schemas land in v0.1 but execution stubbed).
+
+Skill instruction patterns:
+- When user invokes `phase-done`, skill iterates exit_gates, asks IA to run each verifier
+- Shell verifier: AI runs the command, checks exit code, captures output
+- Manual verifier: AI asks user for ack
+- Output stored in evidence field of the criterion
+
+**Exit gate**:
+- `verify_exit_gate` workflow exists in skill body
+- Real sda-v2 F0 gates can be verified (shell command runs, exit code captured, status updated)
+- Manual gates require explicit user confirmation
+
+---
+
+## Phase C — project-plan skill (new)
+
+**Goal**: provide the entry point for starting planning work. Resolves the "skill silent during planning" root problem.
+
+**Dependencies**: Phase B complete (project-status hosts plans).
+
+**Exit gate**: user invokes `project-plan v3-redesign`, gets a Plan + N Initiatives with tasks populated, ready to execute.
+
+### C.T-001 — Create skills/en/core/project-plan.md
+
+New skill file with:
+- Frontmatter per A.T-001 schema
+- Body: 5-7 stages of planning flow
+- Stages: validate slug → detect superpowers → optional delegation → receive markdown plan → decompose → create Plan + Initiatives → activate first phase
+
+**Exit gate**: skill file exists with valid frontmatter, body covers all required behaviors
+
+### C.T-002 — Markdown decompose logic
+
+Skill instruction for parsing structured markdown into Plan + Initiatives + Tasks:
+
+- H1 / first paragraph → Plan title + narrative
+- Sections with "Principles" → principles[]
+- Sections with "Glossary" → glossary[]
+- H2 (with pattern `F<N>` or similar) → PhaseDescriptor + Initiative
+- H3 within H2 → Task within that Initiative
+- Code blocks declaring `exit_gate:` or `verifier:` → ExitCriterion
+
+Convention is opportunistic — skill applies heuristics, then asks user to confirm/edit.
+
+**Exit gate**:
+- A test fixture markdown (similar to v3-redesign) decomposes into expected Plan + Initiatives + Tasks
+- User can edit before confirmation
+
+### C.T-003 — Superpowers integration
+
+Detect if superpowers is installed:
+```
+test -d ~/.claude/plugins/superpowers || which superpowers
+```
+
+If available:
+- Offer to invoke `superpowers:brainstorm` for discovery
+- Then `superpowers:write-execution-plan` for structure
+- Receive resulting markdown
+- Pipe through C.T-002 decompose
+
+If not available:
+- Ask user for existing plan file OR
+- Provide minimal template
+
+**Exit gate**:
+- With superpowers: full delegation flow works
+- Without superpowers: fallback flow works
+- Skill never errors when superpowers absent
+
+### C.T-004 — `adopt` command
+
+`atomic-skills:project-plan adopt <plan-file.md>` — retroactive capture.
+
+Resolves the sda-v2 use case TODAY: takes the existing 843-line `00-master.md` and materializes Plan + 9 Initiatives.
+
+Behavior:
+- Parse the markdown file with same decompose logic as C.T-002
+- Present preview to user (Plan summary + N initiatives + total tasks)
+- On confirmation: write all files to `.atomic-skills/project-status/`
+- Optionally archive the source file
+
+**Exit gate**:
+- Running `project-plan adopt docs/superpowers/plans/v3-redesign/00-master.md` in sda-v2 creates valid Plan + 9 Initiatives + 61 tasks
+- User can review/edit before commit
+
+---
+
+## Phase D — Hooks rewrite + aiDeck integration
+
+**Goal**: rebuild hooks per the 3-level + dashboard-aware design. Add MCP client wrapper for graceful aiDeck integration.
+
+**Dependencies**: Phase B complete (3-level schema exists). aiDeck v0.1 implemented (for MCP integration). Phase D can ship in two parts if aiDeck delayed.
+
+**Exit gate**: SessionStart re-anchors correctly; Stop detects drift; phase-transition prompts fire on last-task-done; MCP wrapper falls back gracefully when aiDeck absent.
+
+### D.T-001 — SessionStart hook v2
+
+Rewrite the SessionStart hook. New behavior:
+
+1. Read `.atomic-skills/project-status/` state
+2. Detect active Plan + current_phase
+3. Verify current branch matches phase's `branch:` field
+4. If mismatch → prompt: "Branch suggests phase X, but current_phase is Y. Switch?"
+5. If current_phase has 0 pending tasks but not marked done → prompt phase-transition
+6. If aiDeck running → include URL in injected context
+7. Inject hierarchical PROJECT-STATUS.md content into AI's session
+
+**Exit gate**:
+- Hook fires on session start
+- Detects current state correctly in real repo (sda-v2 once migrated)
+- Surfaces phase-transition prompt when applicable
+- Graceful when no plan exists (just shows ad-hoc state)
+
+### D.T-002 — Stop hook v2 (drift detection)
+
+Rewrite Stop hook with drift detection:
+
+1. List files written during the session (via `tool_use_log` or similar)
+2. Read current_phase's `scope.paths`
+3. Compare:
+   - 100% writes within scope: silent OK
+   - >50% writes outside scope: surface warning "session wrote in F3 paths while current_phase is F0. Switch?"
+4. Standalone initiatives without scope: no drift check
+5. Output dry-run mode for first 7 days (decision-tree, no actual blocking)
+
+**Exit gate**:
+- Drift detected correctly with synthetic fixture (write to phase B paths while phase A active)
+- No false positives on scope-less initiatives
+- Dry-run mode prevents enforcement during shakedown
+
+### D.T-003 — Phase-transition hooks
+
+Whenever `done T-NNN` marks the last pending task of a phase:
+
+1. Iterate exit_gates of the phase
+2. For each: present to user with criterion + verifier
+3. User responses: met / deferred / pending
+4. If all met → archive phase initiative, set current_phase to next per dependency graph, open new initiative's stack frame
+5. If any deferred → mark deferred with reason
+6. If pending → ask "Phase has pending gates. Mark phase done anyway? (y/N)"
+
+**Exit gate**:
+- Closing last task triggers transition flow
+- All exit gates iterated
+- Phase advances correctly per dependency graph
+- User can defer / skip with explicit confirmation
+
+### D.T-004 — MCP client wrapper
+
+Helper script / pattern in skill body: detect aiDeck, use MCP if present, fall back to direct file writes.
+
+Convention in each mutating command:
+```
+If aideck_* MCP tools are available:
+  Use aideck_mark_task_done(slug, task_id) etc.
+Else:
+  Read file → mutate frontmatter → write file
+```
+
+Document the pattern. Validate with mini fixture (run skill with and without aiDeck running).
+
+**Exit gate**:
+- Skill works identically with or without aiDeck running
+- When aiDeck running: mutations go via MCP (verifiable via aiDeck's state)
+- When aiDeck absent: files directly mutated
+
+---
+
+## Composite definition of done (whole migration)
+
+All of:
+
+- [ ] Phase A exit gates met (4 tasks)
+- [ ] Phase B exit gates met (6 tasks)
+- [ ] Phase C exit gates met (4 tasks)
+- [ ] Phase D exit gates met (4 tasks)
+- [ ] Reference target: project-plan in sda-v2 successfully captures v3-redesign with 9 plans + 61 tasks via `adopt` command
+- [ ] aiDeck renders the resulting data correctly (visual smoke test)
+- [ ] All previously passing tests still pass
+- [ ] No data loss on migration of any legacy initiative
+
+## Versioning impact
+
+This is a **breaking change** for atomic-skills. Version bump: 1.8.1 → **2.0.0**.
+
+Migration notes published in CHANGELOG:
+- `skills/pt/` removed (EN-only)
+- project-status frontmatter format breaking
+- New skill: project-plan
+- New install-time prompt: communication language
+- Hooks rewritten
+
+## Open questions surfaced during migration
+
+These may emerge and need decisions during execution; capture here:
+
+- (none yet)
+
+---
+
+## Tracking
+
+Once project-status v2 is bootstrapped on THIS repo (Phase B complete), we can dogfood: each remaining task tracked as a real Task in a `.atomic-skills/initiatives/migration-v2-*.md` initiative.
+
+For now, this document IS the canonical menu. Update it as decisions evolve.
