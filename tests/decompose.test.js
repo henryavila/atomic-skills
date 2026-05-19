@@ -336,3 +336,176 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     assert.match(body, /Open questions/);
   });
 });
+
+describe('Phase C codex review regression — F-001 (slug collision on long planSlug)', () => {
+  const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
+
+  it('derives distinct initiative slugs even when planSlug consumes near-full 63-char budget', () => {
+    const md = [
+      '# X',
+      '',
+      '## F0 — Foundation Repair',
+      '### A',
+      '',
+      '## F1 — UI Redesign',
+      '### B',
+      '',
+      '## F2 — Growth',
+      '### C',
+      '',
+    ].join('\n');
+    const longSlug = 'a'.repeat(60); // 60 chars — near the 64-char schema limit
+    const r = decomposePlan(md, { planSlug: longSlug });
+    const slugs = r.initiatives.map((i) => i.slug);
+    // All three must be distinct AND each must include the phase id
+    assert.equal(new Set(slugs).size, 3, `expected 3 distinct slugs, got ${JSON.stringify(slugs)}`);
+    assert.ok(slugs[0].includes('-f0'), `phase suffix missing in ${slugs[0]}`);
+    assert.ok(slugs[1].includes('-f1'), `phase suffix missing in ${slugs[1]}`);
+    assert.ok(slugs[2].includes('-f2'), `phase suffix missing in ${slugs[2]}`);
+    // Schema slug regex must still pass
+    const slugRe = /^[a-z][a-z0-9-]{1,63}$/;
+    for (const s of slugs) assert.match(s, slugRe);
+  });
+
+  it('materializeDecomposition throws on derived-path collision rather than overwriting', () => {
+    // Construct a decompose result with two phases whose derived slugs collide.
+    const r = {
+      plan: { title: 'X', narrative: '', principles: [], glossary: [], phaseIds: ['F0', 'F1'] },
+      initiatives: [
+        { phaseId: 'F0', slug: 'plan-shared-slug', title: 'A', goal: 'g', tasks: [{ id: 'T-001', title: 't' }], exitGates: [] },
+        { phaseId: 'F1', slug: 'plan-shared-slug', title: 'B', goal: 'g', tasks: [{ id: 'T-001', title: 't' }], exitGates: [] },
+      ],
+      warnings: [],
+    };
+    assert.throws(
+      () => materializeDecomposition(r, { planSlug: 'plan', now: FROZEN_DATE }),
+      /slug collision/
+    );
+  });
+});
+
+describe('Phase C codex review regression — F-002 (duplicate phaseId detection)', () => {
+  it('throws when source markdown declares the same phase id twice', () => {
+    const md = [
+      '# X',
+      '',
+      '## F0 — First',
+      '### task one',
+      '',
+      '## F0 — Second',
+      '### task two',
+      '',
+    ].join('\n');
+    assert.throws(
+      () => decomposePlan(md, { planSlug: 'dup' }),
+      /duplicate phase id "F0"/
+    );
+  });
+
+  it('does not throw when phase ids are unique (regression guard for false positives)', () => {
+    const md = [
+      '# X',
+      '',
+      '## F0 — First',
+      '### task one',
+      '',
+      '## F1 — Second',
+      '### task two',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'ok' });
+    assert.equal(r.initiatives.length, 2);
+  });
+});
+
+describe('Phase C codex review regression — F-003 (malformed exit_gate YAML surfaces warning)', () => {
+  it('emits a warning naming the phase when an exit_gate fenced YAML fails to parse', () => {
+    const md = [
+      '# X',
+      '',
+      '## F0 — Setup',
+      '',
+      '```yaml',
+      'exit_gate:',
+      '  - id: F0-G1',
+      '    description: "unclosed string here',
+      '```',
+      '',
+      '### A task',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    // Decompose succeeds but warns about the broken block
+    assert.equal(r.initiatives.length, 1);
+    assert.equal(r.initiatives[0].exitGates.length, 0);
+    const warn = r.warnings.find((w) => /Malformed `exit_gate:` YAML block/.test(w));
+    assert.ok(warn, `expected malformed exit_gate warning; got: ${JSON.stringify(r.warnings)}`);
+    assert.match(warn, /in phase F0/);
+  });
+
+  it('does not warn when exit_gate YAML is well-formed (regression guard)', () => {
+    const r = decomposePlan(readFileSync(join(__dirname, 'fixtures/project-plan/sample-source.md'), 'utf8'), { planSlug: 'sample' });
+    assert.ok(!r.warnings.some((w) => /Malformed/.test(w)));
+  });
+});
+
+describe('Phase C codex review regression — F-004 (colon-separator bullets without leading whitespace)', () => {
+  it('splits `- Term: definition` into term + definition (glossary)', () => {
+    const md = [
+      '# X',
+      '',
+      '## Glossary',
+      '',
+      '- Tenant song: Song owned by a tenant.',
+      '- Collection song: Shared catalog song.',
+      '',
+      '## F0 — S',
+      '### A',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.plan.glossary.length, 2);
+    assert.equal(r.plan.glossary[0].term, 'Tenant song');
+    assert.equal(r.plan.glossary[0].definition, 'Song owned by a tenant.');
+    assert.equal(r.plan.glossary[1].term, 'Collection song');
+    assert.equal(r.plan.glossary[1].definition, 'Shared catalog song.');
+  });
+
+  it('splits `- Principle title: body` into title + body (principles)', () => {
+    const md = [
+      '# X',
+      '',
+      '## Inviolable principles',
+      '',
+      '- Truth source: Single dump is authoritative.',
+      '- Determinism: No LLM at runtime.',
+      '',
+      '## F0 — S',
+      '### A',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.plan.principles.length, 2);
+    assert.equal(r.plan.principles[0].title, 'Truth source');
+    assert.equal(r.plan.principles[0].body, 'Single dump is authoritative.');
+    assert.equal(r.plan.principles[1].title, 'Determinism');
+    assert.equal(r.plan.principles[1].body, 'No LLM at runtime.');
+  });
+
+  it('does not split hyphenated words with no surrounding whitespace (regression guard for dash regex)', () => {
+    const md = [
+      '# X',
+      '',
+      '## Glossary',
+      '',
+      '- well-known term: definition.',
+      '',
+      '## F0 — S',
+      '### A',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.plan.glossary[0].term, 'well-known term');
+    assert.equal(r.plan.glossary[0].definition, 'definition.');
+  });
+});

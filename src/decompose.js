@@ -110,11 +110,41 @@ function slugify(str, max = 60) {
     .slice(0, max);
 }
 
+const SLUG_MAX = 63;
+
 function deriveInitiativeSlug(planSlug, phaseId, title) {
+  // Reserve budget so the phase suffix never gets sliced off when the planSlug
+  // is long. Layout: `<planTrimmed>-<phasePart>(-<titleTrimmed>)`
   const phasePart = String(phaseId || '').toLowerCase();
-  const titlePart = slugify(title, 40);
-  const base = [planSlug, phasePart, titlePart].filter(Boolean).join('-');
-  return slugify(base, 63);
+  if (!phasePart) {
+    // No phase id — fall back to the legacy join (caller decides what to do
+    // with the result; this branch is not exercised by decomposePlan).
+    return slugify([planSlug, slugify(title, 40)].filter(Boolean).join('-'), SLUG_MAX);
+  }
+  const phaseChunk = phasePart.length + 1; // `-<phasePart>`
+  const planBudget = Math.max(2, SLUG_MAX - phaseChunk);
+  const planTrimmed = slugify(planSlug, planBudget);
+  const remaining = SLUG_MAX - planTrimmed.length - phaseChunk;
+  const titleBudget = remaining > 1 ? Math.min(40, remaining - 1) : 0;
+  const titleTrimmed = titleBudget > 0 ? slugify(title, titleBudget) : '';
+  const base = [planTrimmed, phasePart, titleTrimmed].filter(Boolean).join('-');
+  return slugify(base, SLUG_MAX);
+}
+
+// Title/body separators:
+//   - Dashes (`-`, em-dash, en-dash) require whitespace on BOTH sides so they
+//     don't eat hyphens inside words (e.g. "well-known terms — definition").
+//   - Colon allows zero whitespace before but requires whitespace after, so
+//     plain `Term: definition` splits as documented in the skill body.
+const DASH_SEP_RE = /^(.+?)\s+[-—–]\s+(.+)$/;
+const COLON_SEP_RE = /^([^:]+?)\s*:\s+(.+)$/;
+
+function splitOnSeparator(text) {
+  const dash = text.match(DASH_SEP_RE);
+  if (dash) return { head: dash[1].trim(), tail: dash[2].trim() };
+  const colon = text.match(COLON_SEP_RE);
+  if (colon) return { head: colon[1].trim(), tail: colon[2].trim() };
+  return null;
 }
 
 function parsePrincipleBullet(line, autoId) {
@@ -131,18 +161,15 @@ function parsePrincipleBullet(line, autoId) {
     rest = idMatch[2].trim();
   }
 
-  // Try to split title/body on em-dash, en-dash, colon, or hyphen with spaces.
-  const splitMatch = rest.match(/^(.+?)\s+[-—–:]\s+(.+)$/);
-  if (splitMatch) {
-    return { id, title: splitMatch[1].trim(), body: splitMatch[2].trim() };
-  }
+  const split = splitOnSeparator(rest);
+  if (split) return { id, title: split.head, body: split.tail };
   return { id, title: rest, body: '' };
 }
 
 function parseGlossaryBullet(line) {
   const raw = line.replace(/\*+/g, '').trim();
-  const m = raw.match(/^(.+?)\s+[-—–:]\s+(.+)$/);
-  if (m) return { term: m[1].trim(), definition: m[2].trim() };
+  const split = splitOnSeparator(raw);
+  if (split) return { term: split.head, definition: split.tail };
   return { term: raw, definition: '' };
 }
 
@@ -164,9 +191,10 @@ function splitH2Sections(lines, startIdx) {
   return sections;
 }
 
-function extractFirstYamlBlock(bodyLines, key) {
+function extractFirstYamlBlock(bodyLines, key, warnings, phaseId) {
   // Return parsed YAML object if a fenced ```yaml block exists whose top-level
-  // key matches `key`. Otherwise null.
+  // key matches `key`. Otherwise null. Parse failures push a message to
+  // `warnings` (if provided) so the caller surfaces them in the preview.
   let inFence = false;
   let buf = [];
   for (const line of bodyLines) {
@@ -185,8 +213,14 @@ function extractFirstYamlBlock(bodyLines, key) {
           if (parsed && typeof parsed === 'object' && parsed[key]) {
             return parsed[key];
           }
-        } catch {
-          // ignore parse errors — surface as warning at caller level
+        } catch (err) {
+          if (Array.isArray(warnings)) {
+            const where = phaseId ? ` in phase ${phaseId}` : '';
+            warnings.push(
+              `Malformed \`${key}:\` YAML block${where} — dropped from decompose. ` +
+              `Parser said: ${String(err && err.message || err).split('\n')[0]}`
+            );
+          }
         }
       }
       buf = [];
@@ -329,12 +363,18 @@ export function decomposePlan(markdown, opts = {}) {
     const phaseMatch = section.title.match(PHASE_H2_RE);
     if (phaseMatch) {
       const phaseId = phaseMatch[1].toUpperCase();
+      if (phaseIds.includes(phaseId)) {
+        throw new Error(
+          `decomposePlan: duplicate phase id "${phaseId}" (H2 "${section.title}"). ` +
+          `Each phase H2 must declare a unique id like F0, F1, F2, …`
+        );
+      }
       const phaseTitleRaw = (phaseMatch[2] || '').trim();
       const phaseTitle = phaseTitleRaw || phaseId;
       const goal = extractGoal(section.bodyLines);
       const tasks = extractTasks(section.bodyLines);
-      const exitGateRaw = extractFirstYamlBlock(section.bodyLines, 'exit_gate')
-        ?? extractFirstYamlBlock(section.bodyLines, 'exitGate');
+      const exitGateRaw = extractFirstYamlBlock(section.bodyLines, 'exit_gate', warnings, phaseId)
+        ?? extractFirstYamlBlock(section.bodyLines, 'exitGate', warnings, phaseId);
       const exitGates = normalizeExitGateCriteria(exitGateRaw);
 
       initiatives.push({
@@ -503,6 +543,9 @@ export function materializeDecomposition(decompose, opts = {}) {
     content: planContent,
   }];
 
+  const seenPaths = new Set([files[0].relativePath]);
+  const seenSlugs = new Set();
+
   // Initiative files (one per phase)
   for (let idx = 0; idx < initiatives.length; idx++) {
     const init = initiatives[idx];
@@ -548,10 +591,20 @@ export function materializeDecomposition(decompose, opts = {}) {
     };
     const initBody = renderInitiativeBody(init);
     const initContent = `---\n${yamlStringify(initFm)}---\n\n${initBody}\n`;
+    const relativePath = `.atomic-skills/initiatives/${initSlug}.md`;
+    if (seenSlugs.has(initSlug) || seenPaths.has(relativePath)) {
+      throw new Error(
+        `materializeDecomposition: slug collision for phase ${init.phaseId} ` +
+        `(slug "${initSlug}"). Two phases produced the same initiative path; ` +
+        `shorten the plan slug or rename the conflicting phase title.`
+      );
+    }
+    seenSlugs.add(initSlug);
+    seenPaths.add(relativePath);
     files.push({
       kind: 'initiative',
       slug: initSlug,
-      relativePath: `.atomic-skills/initiatives/${initSlug}.md`,
+      relativePath,
       content: initContent,
     });
   }
