@@ -68,6 +68,16 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
     result = result.replaceAll(`{{${key}}}`, value);
   }
 
+  // Inject communication-language directive at the top of the body when configured.
+  // This makes the AI respond to the user in their chosen language regardless of
+  // the (English) language the skill source is written in.
+  if (allVars.COMMUNICATION_LANGUAGE) {
+    const langLabels = { en: 'English', pt: 'Portuguese (Brazilian)' };
+    const label = langLabels[allVars.COMMUNICATION_LANGUAGE] || allVars.COMMUNICATION_LANGUAGE;
+    const directive = `> Communicate with the user in ${label}. Translate any English example strings in this skill at runtime; do not output them verbatim.`;
+    result = `${directive}\n\n${result}`;
+  }
+
   // Strip consecutive blank lines (more than 2 newlines → 2)
   result = result.replace(/\n{3,}/g, '\n\n');
 

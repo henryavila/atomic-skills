@@ -132,7 +132,7 @@ core:
         description: 'Push a side-investigation frame'
       - command: '/atomic-skills:project-status done T-005'
         description: 'Close a task (triggers phase-completion check if last)'
-    related: [project-plan, fix, save-and-push]
+    related: [fix, save-and-push]
     tags: [tracking, anchoring, planning, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false

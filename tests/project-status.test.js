@@ -109,7 +109,7 @@ describe('project-status skill', () => {
     assert.ok(!content.includes('{{BASH_TOOL}}'));
   });
 
-  it('renders PT skill file with Portuguese headings + same substantive sections', () => {
+  it('install with language=pt injects PT communication directive at top of body', () => {
     installSkills(tempDir, {
       language: 'pt',
       ides: ['claude-code'],
@@ -122,11 +122,34 @@ describe('project-status skill', () => {
       'utf8'
     );
     assert.ok(!content.includes('{{BASH_TOOL}}'), '{{BASH_TOOL}} must be rendered');
-    assert.ok(content.includes('Regra Fundamental'), 'PT file must have Portuguese Iron Law header');
-    assert.ok(content.includes('Setup (quando'), 'PT file must have Portuguese setup section');
-    assert.ok(content.includes('Modos de mutação'), 'PT file must have Portuguese mutation modes');
-    assert.ok(content.includes('Red Flags'), 'PT file must have Red Flags section');
-    assert.ok(content.includes('Racionalização'), 'PT file must have Rationalization section');
+    // Communication-language directive injected by render.js for language=pt.
+    assert.ok(
+      content.includes('Communicate with the user in Portuguese'),
+      'must inject PT communication directive at top of body'
+    );
+    // Same EN canonical body sections must still be present (skill source is always EN).
+    assert.ok(content.includes('Iron Law'), 'must have EN Iron Law section');
+    assert.ok(content.includes('Setup'), 'must have setup section');
+    assert.ok(content.includes('Mutation modes'), 'must have mutation modes section');
+    assert.ok(content.includes('Red Flags'), 'must have Red Flags section');
+  });
+
+  it('install with language=en injects EN communication directive at top of body', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(
+      content.includes('Communicate with the user in English'),
+      'must inject EN communication directive at top of body'
+    );
   });
 
   it('bootstrap-draft template exists with required markers', () => {
@@ -164,7 +187,7 @@ describe('project-status skill', () => {
     assert.ok(content.includes('Delete the draft file to skip'));
   });
 
-  for (const lang of ['pt', 'en']) {
+  for (const lang of ['en']) {
     it(`skill documents bootstrap subcommand and options (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
@@ -183,7 +206,7 @@ describe('project-status skill', () => {
     });
   }
 
-  for (const lang of ['pt', 'en']) {
+  for (const lang of ['en']) {
     it(`skill documents Phase 1a shell commands for all Layer 1 sources (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
@@ -196,7 +219,7 @@ describe('project-status skill', () => {
         join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
         'utf8'
       );
-      const phaseLabel = lang === 'pt' ? 'Fase' : 'Phase';
+      const phaseLabel = 'Phase';
       assert.ok(content.includes(`${phaseLabel} 1a`), `[${lang}] missing ${phaseLabel} 1a`);
       for (const cmd of [
         'git for-each-ref',
@@ -211,7 +234,7 @@ describe('project-status skill', () => {
     });
   }
 
-  for (const lang of ['pt', 'en']) {
+  for (const lang of ['en']) {
     it(`skill documents Phase 1b LLM extraction for narrative sources (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
@@ -224,7 +247,7 @@ describe('project-status skill', () => {
         join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
         'utf8'
       );
-      const phaseLabel = lang === 'pt' ? 'Fase' : 'Phase';
+      const phaseLabel = 'Phase';
       assert.ok(content.includes(`${phaseLabel} 1b`), `[${lang}] missing ${phaseLabel} 1b`);
       assert.ok(content.includes('topic_hint'), `[${lang}] missing topic_hint`);
       assert.ok(content.includes('evidence_quote'), `[${lang}] missing evidence_quote`);
@@ -232,7 +255,7 @@ describe('project-status skill', () => {
     });
   }
 
-  for (const lang of ['pt', 'en']) {
+  for (const lang of ['en']) {
     it(`skill documents Phase 2 clustering, Phase 3 synthesis, Phase 4 commit (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
@@ -245,7 +268,7 @@ describe('project-status skill', () => {
         join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
         'utf8'
       );
-      const phaseLabel = lang === 'pt' ? 'Fase' : 'Phase';
+      const phaseLabel = 'Phase';
       for (const token of [
         `${phaseLabel} 2`, 'clusterByExactSlug', 'mergeFuzzySingletons', 'pickCanonicalSlug',
         `${phaseLabel} 3`, 'classifyBucket', 'calculateConfidence',
@@ -257,7 +280,7 @@ describe('project-status skill', () => {
     });
   }
 
-  for (const lang of ['pt', 'en']) {
+  for (const lang of ['en']) {
     it(`setup flow offers bootstrap and updates gitignore (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,

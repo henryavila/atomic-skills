@@ -10,14 +10,14 @@ export const MESSAGES = {
   pt: {
     installDefaults: 'Instalar com padrões detectados',
     updateDefaults: 'Atualizar com configuração atual',
-    customizeLang: 'Mudar idioma',
+    customizeLang: 'Mudar idioma de comunicação',
     customizeIDEs: 'Mudar IDEs',
     customizeModules: 'Mudar módulos',
     viewConflicts: 'Ver conflitos',
     quit: 'Sair',
     detected: 'detectado',
     selectIDEs: 'Quais IDEs você usa?',
-    selectLang: 'Idioma / Language:',
+    selectLang: 'Em qual idioma você quer que eu me comunique com você?',
     confirmUninstall: 'Remover arquivos gerados?',
     uninstallScope: 'Qual instalação remover?',
     scopeProject: 'Projeto — somente este repo',
@@ -44,14 +44,14 @@ export const MESSAGES = {
   en: {
     installDefaults: 'Install with detected defaults',
     updateDefaults: 'Update with current configuration',
-    customizeLang: 'Change language',
+    customizeLang: 'Change communication language',
     customizeIDEs: 'Change IDEs',
     customizeModules: 'Change modules',
     viewConflicts: 'View conflicts',
     quit: 'Quit',
     detected: 'detected',
     selectIDEs: 'Which IDEs do you use?',
-    selectLang: 'Language / Idioma:',
+    selectLang: 'Which language should I communicate with you in?',
     confirmUninstall: 'Remove generated files?',
     uninstallScope: 'Which installation to remove?',
     scopeProject: 'Project — this repo only',
@@ -322,7 +322,10 @@ export async function promptIDESelection(lang, currentIDEs = []) {
 }
 
 /**
- * Select language: pt or en.
+ * Select communication language: which language Claude (or other AI) should
+ * use when talking to the user in this project. Skill source is always EN;
+ * this preference is injected as a directive at the top of each rendered skill.
+ *
  * @param {string} lang - current language (used to pre-select)
  * @returns {Promise<string>} 'pt'|'en'
  */

@@ -16,7 +16,9 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "test:hooks": "bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh"
+    "test:hooks": "bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh",
+    "validate-skills": "node scripts/validate-skills.js",
+    "detect-scope": "node scripts/detect-scope.js"
   },
   "keywords": [
     "ai",

@@ -56,16 +56,15 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
   const createdFiles = [];
 
+  // Inject communication language into vars so renderTemplate can prepend the directive
+  vars.COMMUNICATION_LANGUAGE = language;
+
   // Helper to process a skill
   function processSkill(skillId, skillMeta, langDir, sourceType) {
-    let sourceFile = join(skillsDir, language, langDir, `${skillId}.md`);
-    let fallback = false;
-
-    if (!existsSync(sourceFile)) {
-      sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
-      if (!existsSync(sourceFile)) return;
-      fallback = true;
-    }
+    // Skill source is always EN canonical (PT versions removed in v2.0.0).
+    // `language` is now the user's communication-language preference, NOT a skill-source selector.
+    const sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
+    if (!existsSync(sourceFile)) return;
 
     const rawContent = readFileSync(sourceFile, 'utf8');
 
@@ -85,10 +84,6 @@ export function installSkills(projectDir, options, callbacks = {}) {
         hash: hashContent(content),
         source: sourceType,
       });
-    }
-
-    if (fallback) {
-      console.log(`  ⚠ ${skillMeta.name}: fallback to en (${language} not available)`);
     }
   }
 
