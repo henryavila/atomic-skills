@@ -132,8 +132,39 @@ core:
         description: 'Push a side-investigation frame'
       - command: '/atomic-skills:project-status done T-005'
         description: 'Close a task (triggers phase-completion check if last)'
-    related: [fix, save-and-push]
+    related: [fix, save-and-push, project-plan]
     tags: [tracking, anchoring, planning, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    schema_version: '0.1'
+
+  project-plan:
+    name: project-plan
+    title: 'Project Plan — Multi-Phase Plan Bootstrap'
+    description: "Bootstrap a multi-phase Plan in .atomic-skills/plans/<slug>.md with N child Initiatives + Tasks. Entry point for starting planning work — the creator counterpart to project-status (the manager). Decomposes a markdown plan into structured Plan + Initiatives + Tasks; optionally delegates discovery and plan-writing to superpowers. Use the `adopt` mode to retroactively capture an existing markdown plan."
+    purpose: >
+      Bootstrap a multi-phase Plan + N child Initiatives in one flow.
+      Walks 7 stages (validate slug → detect superpowers → optional
+      delegation → receive markdown → decompose → create files →
+      activate first phase). `adopt` mode captures an existing markdown
+      plan retroactively.
+    when_to_use:
+      - 'User describes a multi-phase project ("redo our admin UI", "rebuild matching")'
+      - 'A free-form plan markdown exists somewhere and should be captured (use `adopt`)'
+      - 'A `project-status:new` invocation was pushed back as "bigger than one initiative"'
+    when_not_to_use:
+      - 'Single-phase work that fits in one initiative (use `project-status:new`)'
+      - '.atomic-skills/ does not exist yet (run `atomic-skills:project-status` setup first)'
+      - 'You only need to view existing plans (use `project-status --plan <slug>`)'
+    examples:
+      - command: '/atomic-skills:project-plan v3-redesign'
+        description: 'Bootstrap a new Plan interactively (7-stage flow)'
+      - command: '/atomic-skills:project-plan adopt docs/superpowers/plans/v3-redesign/00-master.md'
+        description: 'Capture an existing markdown plan into structured state'
+    related: [project-status, review-plan-internal]
+    tags: [planning, bootstrap, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
     mutates_repo: true
@@ -161,7 +192,7 @@ core:
         description: 'Generate a precise prompt with file paths and guards'
       - command: '/atomic-skills:prompt'
         description: 'Skill asks for task interactively'
-    related: [parallel-dispatch, fix]
+    related: [parallel-dispatch, fix, project-plan]
     tags: [meta, generation, planning]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
