@@ -35,7 +35,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 23); // 11 core + 11 codex-bridge assets + 1 auto-update hook (no namespace root for commands)
+    assert.strictEqual(result.files.length, 30); // 11 core + 11 codex-bridge assets + 7 project-status assets + 1 auto-update hook (no namespace root for commands)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -80,7 +80,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 24); // 11 core + 1 module + 11 codex-bridge assets + 1 auto-update hook (no namespace root for commands)
+    assert.strictEqual(result.files.length, 31); // 11 core + 1 module + 11 codex-bridge assets + 7 project-status assets + 1 auto-update hook (no namespace root for commands)
   });
 
   it('substitutes memory_path variable', () => {
@@ -141,10 +141,10 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 45); // (11 core + 11 codex-bridge assets) * 2 IDEs + 1 auto-update hook (no namespace root for command or toml formats)
+    assert.strictEqual(result.files.length, 59); // (11 core + 11 codex-bridge assets + 7 project-status assets) * 2 IDEs + 1 auto-update hook (no namespace root for command or toml formats)
   });
 
-  it('uses pt language when specified', () => {
+  it('injects PT communication directive when language=pt; skill body remains EN', () => {
     installSkills(tempDir, {
       language: 'pt',
       ides: ['claude-code'],
@@ -154,8 +154,13 @@ describe('installSkills', () => {
     });
 
     const content = readFileSync(join(tempDir, '.claude/commands/atomic-skills/fix.md'), 'utf8');
-    // Portuguese content should have Portuguese keywords
-    assert.ok(content.includes('Regra Fundamental') || content.includes('Processo') || content.includes('Red Flags'));
+    // Communication language is injected as a directive at top of body.
+    assert.ok(
+      content.includes('Communicate with the user in Portuguese'),
+      'must inject PT communication directive at top of skill body'
+    );
+    // Skill source is EN canonical, so body keeps EN section names.
+    assert.ok(content.includes('Red Flags'), 'skill body remains EN canonical');
   });
 
   it('skips .gitignore when scope is user', () => {
@@ -217,8 +222,8 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    // Only core skills + codex-bridge assets + auto-update hook, no module skills (no namespace root for commands)
-    assert.strictEqual(result.files.length, 23);
+    // Only core skills + codex-bridge assets + project-status assets + auto-update hook, no module skills (no namespace root for commands)
+    assert.strictEqual(result.files.length, 30);
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -295,7 +300,7 @@ describe('installSkills', () => {
     }
   });
 
-  it('copies all 11 codex-bridge assets to claude-code namespace', async () => {
+  it('copies codex-bridge and project-status assets to claude-code namespace', async () => {
     const { mkdtempSync, existsSync, readdirSync, mkdirSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join: pjoin, dirname: pdirname } = await import('node:path');
@@ -321,8 +326,12 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/commands/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    assert.strictEqual(files.length, 11,
-      `expected 11 assets, got ${files.length}: ${files.join(', ')}`);
+    // 11 codex-bridge + 7 project-status (hooks subdir is skipped — not a file)
+    assert.strictEqual(files.length, 18,
+      `expected 18 assets (11 codex-bridge + 7 project-status), got ${files.length}: ${files.join(', ')}`);
+    // Spot-check one from each origin
+    assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');
+    assert.ok(files.includes('CLAUDE.md-gate.template.md'), 'must include project-status asset');
   });
 });
 

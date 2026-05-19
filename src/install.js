@@ -56,8 +56,11 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
   const createdFiles = [];
 
-  // Inject communication language into vars so renderTemplate can prepend the directive
-  vars.COMMUNICATION_LANGUAGE = language;
+  // Skill bodies receive the communication-language directive (renderTemplate prepends it
+  // when COMMUNICATION_LANGUAGE is set). Shared assets (templates, snippets, config inputs)
+  // must NOT receive that directive — they are inputs to skills, not skill bodies.
+  // Keep `vars` clean for shared-asset rendering; build a per-call `skillVars` for skill bodies.
+  const skillVars = { ...vars, COMMUNICATION_LANGUAGE: language };
 
   // Helper to process a skill
   function processSkill(skillId, skillMeta, langDir, sourceType) {
@@ -69,7 +72,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
     const rawContent = readFileSync(sourceFile, 'utf8');
 
     for (const ideId of ides) {
-      const body = renderTemplate(rawContent, vars, moduleFlags, ideId);
+      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
       const relPath = getSkillPath(ideId, skillMeta.name);
@@ -103,15 +106,21 @@ export function installSkills(projectDir, options, callbacks = {}) {
     }
   }
 
-  // Process shared assets (templates etc shared across skills)
+  // Process shared assets (templates etc shared across skills).
+  // An asset directory `<name>-assets/` is installed when `<name>` is a registered
+  // module OR a registered core skill. Without the core-skill branch, assets like
+  // `project-status-assets/` (referenced by the project-status skill body) would
+  // never be copied into the IDE asset path.
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
     const sharedEntries = readdirSync(sharedDir, { withFileTypes: true });
     for (const entry of sharedEntries) {
       if (!entry.isDirectory()) continue;
       if (!entry.name.endsWith('-assets')) continue;
-      const moduleName = entry.name.slice(0, -'-assets'.length);
-      if (!meta.modules || !meta.modules[moduleName]) continue;
+      const ownerName = entry.name.slice(0, -'-assets'.length);
+      const isModule = meta.modules && meta.modules[ownerName];
+      const isCoreSkill = meta.core && meta.core[ownerName];
+      if (!isModule && !isCoreSkill) continue;
 
       const assetsSourceDir = join(sharedDir, entry.name);
       const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
@@ -286,17 +295,20 @@ function preRenderFiles(options) {
 
   const rendered = new Map();
 
+  // Mirror installSkills: skill bodies get COMMUNICATION_LANGUAGE; shared assets do not.
+  // Without this, preRenderFiles would compute a different hash than installSkills wrote,
+  // producing phantom conflicts on update.
+  const skillVars = { ...vars, COMMUNICATION_LANGUAGE: language };
+
   function renderSkill(skillId, skillMeta, langDir) {
-    let sourceFile = join(skillsDir, language, langDir, `${skillId}.md`);
-    if (!existsSync(sourceFile)) {
-      sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
-      if (!existsSync(sourceFile)) return;
-    }
+    // Skill source is always EN canonical (PT removed in v2.0.0).
+    const sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
+    if (!existsSync(sourceFile)) return;
 
     const rawContent = readFileSync(sourceFile, 'utf8');
 
     for (const ideId of ides) {
-      const body = renderTemplate(rawContent, vars, moduleFlags, ideId);
+      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
       const relPath = getSkillPath(ideId, skillMeta.name);
@@ -317,14 +329,16 @@ function preRenderFiles(options) {
     }
   }
 
-  // Pre-render shared assets
+  // Pre-render shared assets — mirror installSkills' core-skill + module branches.
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
     const sharedEntries = readdirSync(sharedDir, { withFileTypes: true });
     for (const entry of sharedEntries) {
       if (!entry.isDirectory() || !entry.name.endsWith('-assets')) continue;
-      const moduleName = entry.name.slice(0, -'-assets'.length);
-      if (!meta.modules || !meta.modules[moduleName]) continue;
+      const ownerName = entry.name.slice(0, -'-assets'.length);
+      const isModule = meta.modules && meta.modules[ownerName];
+      const isCoreSkill = meta.core && meta.core[ownerName];
+      if (!isModule && !isCoreSkill) continue;
       const assetsSourceDir = join(sharedDir, entry.name);
       const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
       for (const ideId of ides) {

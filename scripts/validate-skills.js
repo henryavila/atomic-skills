@@ -165,11 +165,11 @@ function main() {
   if (data.modules && typeof data.modules === 'object') {
     for (const [modName, modEntries] of Object.entries(data.modules)) {
       if (modEntries == null || typeof modEntries !== 'object') continue;
-      // Module-level entries can be empty objects (placeholders like codex-bridge: {})
-      // Skip those — they're modules without exposed skills.
+      // Empty module placeholders (e.g., codex-bridge: {}) iterate as zero
+      // entries — naturally skipped without special-casing.
+      // For non-empty modules, EVERY child must validate: surface non-objects
+      // and missing fields via validateSkill rather than silently skipping.
       for (const [key, entry] of Object.entries(modEntries)) {
-        if (entry == null || typeof entry !== 'object') continue;
-        if (!('name' in entry)) continue; // skip non-skill structures
         skills.push({ key, entry, location: `modules.${modName}.${key}` });
       }
     }

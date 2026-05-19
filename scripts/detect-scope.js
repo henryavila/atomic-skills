@@ -27,7 +27,7 @@
  *   2 — git error or invalid args
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
 function parseArgs(argv) {
@@ -69,9 +69,16 @@ function parseArgs(argv) {
   return args;
 }
 
-function run(cmd) {
+/**
+ * Run `git` with an argv array (no shell interpolation).
+ * Refs and other user-supplied values pass safely as separate argv entries.
+ */
+function runGit(args) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
   } catch (err) {
     console.error(`git failed: ${err.message.trim()}`);
     process.exit(2);
@@ -82,7 +89,7 @@ function detectGit() {
   if (!existsSync('.git') && !existsSync('../.git')) {
     // Walk up a few levels in case we're in a worktree subdir
     try {
-      run('git rev-parse --is-inside-work-tree');
+      runGit(['rev-parse', '--is-inside-work-tree']);
     } catch {
       console.error('Not inside a git work tree.');
       process.exit(2);
@@ -91,15 +98,39 @@ function detectGit() {
 }
 
 function getCurrentBranch() {
-  const out = run('git rev-parse --abbrev-ref HEAD').trim();
-  return out;
+  return runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+}
+
+/**
+ * Validate a ref or branch name before passing to git.
+ * Even with execFileSync (no shell), refs prefixed with `-` would be interpreted
+ * as flags by git. Reject anything that starts with `-` or contains characters
+ * outside the conservative ref grammar.
+ */
+function validateRef(ref) {
+  if (typeof ref !== 'string' || ref.length === 0) {
+    console.error(`Invalid ref: empty`);
+    process.exit(2);
+  }
+  if (ref.startsWith('-')) {
+    console.error(`Invalid ref: refs starting with '-' are rejected (would be parsed as a git flag)`);
+    process.exit(2);
+  }
+  // git refs are conservative: alphanumerics, slash, dot, dash, underscore, plus.
+  // Reject control characters, whitespace, and shell metacharacters.
+  if (!/^[A-Za-z0-9._/+@^~-]+$/.test(ref)) {
+    console.error(`Invalid ref: '${ref}' contains characters outside the allowed set`);
+    process.exit(2);
+  }
 }
 
 function getChangedPaths(branch, limit, includeDeleted) {
   const ref = branch || 'HEAD';
-  const filter = includeDeleted ? '' : '--diff-filter=AMR';
-  const cmd = `git log -n ${limit} ${filter} --name-only --pretty=format: ${ref}`;
-  const out = run(cmd);
+  validateRef(ref);
+  const args = ['log', '-n', String(limit)];
+  if (!includeDeleted) args.push('--diff-filter=AMR');
+  args.push('--name-only', '--pretty=format:', ref);
+  const out = runGit(args);
   return out
     .split('\n')
     .map((p) => p.trim())
@@ -139,7 +170,9 @@ function renderYaml(sorted, branch, limit) {
   lines.push('scope:');
   lines.push('  paths:');
   for (const g of sorted) {
-    lines.push(`    - '${g.key}'  # ${g.count} touch${g.count === 1 ? '' : 'es'}`);
+    // YAML single-quoted scalars escape ' as ''.
+    const escapedKey = g.key.replace(/'/g, "''");
+    lines.push(`    - '${escapedKey}'  # ${g.count} touch${g.count === 1 ? '' : 'es'}`);
   }
   return lines.join('\n');
 }
