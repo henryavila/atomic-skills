@@ -75,9 +75,28 @@ describe('project-plan skill (C.T-001 scaffold)', () => {
     assert.match(content, /npm run validate-state/);
   });
 
-  it('skill body documents the `adopt` mode and Markdown decompose / Superpowers sections (placeholders for C.T-002/003/004)', () => {
+  it('skill body documents the Markdown decompose section in detail (C.T-002)', () => {
     const content = install();
     assert.match(content, /## Markdown decompose/);
+    // Heuristics: plan title, narrative, principles, glossary, phases, exit-gate, warnings, no-phase guard
+    assert.match(content, /first H1.*plan\.title/);
+    assert.match(content, /plan\.narrative/);
+    assert.match(content, /starts with `principle`/);
+    assert.match(content, /starts with `glossary`/);
+    assert.match(content, /F\\d\+/); // phase regex documented
+    assert.match(content, /exit_gate.*exitGate/);
+    assert.match(content, /Unrecognized H2/);
+    assert.match(content, /No-phase guard/);
+    // Helper invocation
+    assert.match(content, /src\/decompose\.js/);
+    assert.match(content, /decomposePlan/);
+    assert.match(content, /previewDecomposition/);
+    // Slug derivation
+    assert.match(content, /sample-f0-foundation-repair/);
+  });
+
+  it('skill body documents Superpowers integration + `adopt` mode sections (placeholders for C.T-003/004)', () => {
+    const content = install();
     assert.match(content, /## Superpowers integration/);
     assert.match(content, /## `adopt <file\.md>`/);
   });

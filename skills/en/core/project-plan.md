@@ -108,9 +108,64 @@ If any file fails schema validation, surface the errors and roll back (delete th
 
 ## Markdown decompose
 
-(Populated by C.T-002. Placeholder so the Default flow Stage 5 has a target to link to.)
+Decomposition reads a source markdown file and emits a structured proposal (`{plan, initiatives, warnings}`) for user confirmation. The pure transform lives in `src/decompose.js`:`decomposePlan(markdown, { planSlug })`. The skill body owns the interactive confirmation and the eventual file write (Stage 6); the helper only owns the transform.
 
-Decomposition reads a source markdown file and emits a structured proposal (`{plan, initiatives, tasks}`) for user confirmation. The detailed heuristic rules (H1 → Plan title, "Principles" section → `principles[]`, H2 with `F<N>` pattern → `Phase + Initiative`, H3 within H2 → Task, fenced code blocks declaring `exit_gate:` or `verifier:` → `ExitCriterion`) are documented in C.T-002.
+### Heuristic rules
+
+The source markdown must follow these documented conventions:
+
+1. **Plan title** — the first H1 (`# ...`) becomes `plan.title`. If no H1 exists, the helper records a warning and leaves the title empty — you must fill it before Stage 6.
+
+2. **Plan narrative** — every line between the H1 and the first H2 becomes `plan.narrative` (whitespace-trimmed, joined as-is). The skill writes this as the Plan markdown body's intro paragraph.
+
+3. **Principles** — an H2 whose title (case-insensitive) starts with `principle` (matches `Principles`, `Inviolable principles`, …) becomes the principles section. Each top-level bullet inside it parses as:
+   - `**P1 Title** — body`
+   - `P1 Title — body`
+   - `**Title** — body`
+   - `Title — body` / `Title: body` (id auto-assigned `P1`, `P2`, …)
+
+4. **Glossary** — an H2 whose title starts with `glossary` becomes the glossary section. Each bullet parses as `term — definition`, `term – definition`, `term: definition`, or `**term** — definition`.
+
+5. **Phases** — an H2 whose title matches `^(F\d+)\b\s*[-—–]?\s*(.+)?$` becomes a phase. Capture-group 1 (e.g. `F0`) is the `phaseId`; capture-group 2 is the title. Inside that H2:
+   - The first line whose trimmed start matches `^(goal|objetivo)\s*:` becomes the phase `goal` (prefix stripped).
+   - Every H3 (`### ...`) becomes a task. The H3 line is parsed for an optional leading `T<N>` / `T-NNN` / `T0.1` token; if absent, ids are auto-assigned `T-001`, `T-002`, … within that phase.
+   - ` ```yaml ... ``` ` (or `yml`) fenced blocks whose top level declares `exit_gate:` or `exitGate:` (either as an array directly, or with a `criteria:` array inside) parse via the `yaml` npm package and become the phase's exit-gate criteria. Each criterion's `status` is forced to `pending` on initial decompose — the user runs the verifier later via `project-status:phase-done`.
+
+6. **Unrecognized H2** — any other H2 is captured in `warnings`. The decompose does **not** error on unrecognized sections; the user sees the warning during Stage 5 preview and decides whether to keep the section in the plan body, move it, or drop it.
+
+7. **No-phase guard** — if zero H2 sections match the phase pattern, `decomposePlan` throws. A Plan with no phases is invalid per `meta/schemas/plan.schema.json` (`phases.minItems: 1`); failing fast is friendlier than writing invalid state.
+
+### Slug derivation
+
+Each phase's initiative slug is derived as `<planSlug>-<phaseId-lowercase>-<phase-title-kebab>` (truncated to 63 chars, must match `^[a-z][a-z0-9-]{1,63}$`). Example: `<sample, F0, "Foundation Repair">` → `sample-f0-foundation-repair`.
+
+### How to invoke (Stage 5)
+
+Run from the package root via `node -e`:
+
+```bash
+node -e "
+import('./src/decompose.js').then(async ({ decomposePlan, previewDecomposition }) => {
+  const md = require('node:fs').readFileSync('<path-to-source.md>', 'utf8');
+  const result = decomposePlan(md, { planSlug: '<slug>' });
+  console.log(previewDecomposition(result));
+  console.log('---');
+  console.log(JSON.stringify(result, null, 2));
+});"
+```
+
+The skill body (you, the LLM) reads the preview to the user, waits for explicit confirmation, then maps the JSON result into the plan + initiative templates during Stage 6.
+
+### Preview / confirmation flow
+
+Always run `previewDecomposition(result)` and display it before any file write. The preview shows:
+
+- Plan title (or `(none — must fill)`)
+- Counts: principles, glossary, phases, tasks, exit gates
+- First 3 phase titles with per-phase task + gate counts
+- Warnings list (skipped sections, missing H1, …)
+
+User must explicitly confirm before Stage 6. If the user wants edits, they re-run with a fixed source file rather than ad-hoc patching the JSON — keeps the source markdown as the canonical input.
 
 ## Superpowers integration
 
