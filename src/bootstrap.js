@@ -248,6 +248,26 @@ const STATUS_MAP = Object.freeze({
   'proposed-archived': 'archived',
 });
 
+const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+const BARE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Coerce common date-shaped values into the strict ISO timestamp the
+ * initiative schema requires. Used on commit so date-only values that
+ * sneak in from drafts (or hand-edits) become schema-valid before they
+ * reach .atomic-skills/initiatives/.
+ */
+function coerceToIsoTimestamp(value, fallbackNow) {
+  if (typeof value === 'string') {
+    if (ISO_TIMESTAMP_RE.test(value)) return value;
+    if (BARE_DATE_RE.test(value)) return `${value}T00:00:00Z`;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
+  return fallbackNow;
+}
+
 /**
  * Transform a bootstrap draft into a canonical initiative.
  *
@@ -255,8 +275,10 @@ const STATUS_MAP = Object.freeze({
  * extra bootstrap-only fields (`bootstrap:`, `proposedAt`, `proposedBucket`,
  * `planLink`) and a non-canonical `status` (proposed / proposed-archived).
  *
- * On commit: map status, refresh lastUpdated, fold `planLink` into
- * `references[]` if present, and strip bootstrap metadata.
+ * On commit: map status, refresh lastUpdated, normalize `started` to
+ * a full ISO timestamp (drafts may carry date-only values from older
+ * bootstraps or hand-edits), fold `planLink` into `references[]` if
+ * present, and strip bootstrap metadata.
  */
 export function draftToInitiative(draft, now = new Date()) {
   const fm = { ...draft.frontmatter };
@@ -267,7 +289,9 @@ export function draftToInitiative(draft, now = new Date()) {
   }
 
   fm.status = newStatus;
-  fm.lastUpdated = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const nowIso = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  fm.lastUpdated = nowIso;
+  fm.started = coerceToIsoTimestamp(fm.started, nowIso);
 
   // Fold planLink (free-form pointer used during bootstrap) into structured
   // references[] so the committed initiative matches initiative.schema.json.

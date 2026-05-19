@@ -6,7 +6,7 @@ goal: 'REPLACE_GOAL'
 status: proposed-archived
 proposedAt: REPLACE_PROPOSED_AT
 proposedBucket: historical
-started: REPLACE_STARTED_DATE
+started: REPLACE_STARTED_ISO_TIMESTAMP
 lastUpdated: REPLACE_LAST_UPDATED
 branch: REPLACE_BRANCH
 nextAction: null

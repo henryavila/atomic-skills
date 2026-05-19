@@ -489,6 +489,45 @@ describe('draftToInitiative', () => {
     assert.equal(result.frontmatter.references[0].kind, 'url');
   });
 
+  it('normalizes date-only `started` to a full ISO timestamp (codex F-001 regression)', () => {
+    const withDateOnly = {
+      ...sampleDraft,
+      frontmatter: { ...sampleDraft.frontmatter, started: '2026-04-10' },
+    };
+    const result = draftToInitiative(withDateOnly, new Date('2026-04-23T12:00:00Z'));
+    assert.equal(result.frontmatter.started, '2026-04-10T00:00:00Z');
+  });
+
+  it('preserves full ISO `started` unchanged', () => {
+    const result = draftToInitiative(sampleDraft, new Date('2026-04-23T12:00:00Z'));
+    assert.equal(result.frontmatter.started, '2026-04-10T00:00:00Z');
+  });
+
+  it('committed draft (date-only started) passes schema validation end-to-end (codex F-001 regression)', async () => {
+    const { default: AjvCtor } = await import('ajv/dist/2020.js');
+    const { readFileSync } = await import('node:fs');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const here = dirname(fileURLToPath(import.meta.url));
+    const schemaDir = join(here, '..', 'meta', 'schemas');
+    const ajv = new AjvCtor({ allErrors: true, strict: false });
+    for (const n of ['common.schema.json', 'plan.schema.json', 'initiative.schema.json']) {
+      ajv.addSchema(JSON.parse(readFileSync(join(schemaDir, n), 'utf8')));
+    }
+    const validate = ajv.getSchema('https://atomic-skills.henryavila.com/schemas/initiative.schema.json');
+
+    const dateOnlyDraft = {
+      frontmatter: {
+        ...sampleDraft.frontmatter,
+        started: '2026-04-10',  // bare date — what the template's REPLACE_STARTED_ISO_TIMESTAMP marker could be filled with by a careless writer
+      },
+      body: sampleDraft.body,
+    };
+    const committed = draftToInitiative(dateOnlyDraft, new Date('2026-04-23T12:00:00Z'));
+    const ok = validate(committed.frontmatter);
+    assert.equal(ok, true, `committed initiative must validate; errors: ${JSON.stringify(validate.errors)}`);
+  });
+
   it('ignores REPLACE_PLAN_LINK sentinel from template', () => {
     const withSentinel = {
       ...sampleDraft,

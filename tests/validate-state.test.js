@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,18 +48,38 @@ test('parseFrontmatter rejects non-object frontmatter', () => {
   assert.match(out.error || '', /not a YAML object/);
 });
 
-test('valid plan fixture passes schema validation', () => {
-  const validators = buildValidators();
-  const result = validateFile(join(FIXTURES, 'plans', 'v3-redesign.md'), validators);
-  assert.equal(result.ok, true, `expected ok, got errors: ${JSON.stringify(result.errors)}`);
-  assert.equal(result.kind, 'plan');
-});
+/**
+ * Walk the canonical positive-fixture directories. NOT recursive — by
+ * design `invalid/` (negative tests) and `legacy/` (migration source
+ * fixtures) live deeper and are not picked up.
+ */
+function listCanonicalFixtures() {
+  const out = [];
+  for (const sub of ['plans', 'initiatives']) {
+    const dir = join(FIXTURES, sub);
+    try {
+      for (const entry of readdirSync(dir)) {
+        if (entry.endsWith('.md')) out.push(join(dir, entry));
+      }
+    } catch {
+      // dir may not exist (e.g. if a future fixture restructure happens) — skip.
+    }
+  }
+  return out;
+}
 
-test('valid initiative fixture passes schema validation', () => {
+test('every canonical fixture under tests/fixtures/state/{plans,initiatives}/ passes schema (codex F-002 regression)', () => {
   const validators = buildValidators();
-  const result = validateFile(join(FIXTURES, 'initiatives', 'v3-f0-foundation-repair.md'), validators);
-  assert.equal(result.ok, true, `expected ok, got errors: ${JSON.stringify(result.errors)}`);
-  assert.equal(result.kind, 'initiative');
+  const files = listCanonicalFixtures();
+  assert.ok(files.length >= 2, `expected at least 2 canonical fixtures, found ${files.length}`);
+  for (const file of files) {
+    const result = validateFile(file, validators);
+    assert.equal(
+      result.ok,
+      true,
+      `fixture ${file} must validate (kind ${result.kind}); errors: ${JSON.stringify(result.errors)}`,
+    );
+  }
 });
 
 test('v3-redesign plan has 9 phases (real sda-v2 shape)', () => {
