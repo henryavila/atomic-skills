@@ -46,7 +46,7 @@ Phase A — Independent of aiDeck (can ship standalone)
 Phase B — project-status redesign (3-level hierarchy)
   B.T-002  [DONE] New schema (Plan / Initiative / Task) matching aiDeck
   B.T-003  [DONE] Templates for plans/ and initiatives/ directories
-  B.T-004  Migration script for legacy initiatives (one-time on save)
+  B.T-004  [DONE] Migration script for legacy initiatives (one-time on save)
   B.T-005  Update project-status.md skill body (3-level commands)
   B.T-006  Exit gates + verifiers infrastructure
 
@@ -267,28 +267,45 @@ Updated `skills/shared/project-status-assets/`:
 - `npm test` exits 0 with 198 passing (191 prior + 7 new)
 - PROJECT-STATUS.md template renders the 3-level hierarchical view (Active Plans + Active Initiatives + Archive + Ad-Hoc)
 
-### B.T-004 — Migration script for legacy initiatives
+### B.T-004 — [DONE] Migration script for legacy initiatives
 
-One-time-on-save migration per the "forçar migração no primeiro save" decision.
+Pure-function transform; the interactive prompt (standalone vs in-plan; force-migrate-or-abort) lives in the skill body (B.T-005). Keeping the transform pure makes it trivially testable and reusable from a `node -e` one-liner.
 
-Logic:
-1. When project-status loads an existing initiative for mutation:
-2. If `schemaVersion` is missing or < `0.1`:
-3. Prompt user: "This initiative uses the legacy format. Migrate now? (y — required to save)"
-4. Choices:
-   - Mark as standalone (no parent_plan)
-   - Group under a plan (pick existing, or create new)
-5. Apply transform, save with `schemaVersion: '0.1'`
-6. Continue with the user's original action
+**Changes applied**:
+- `src/migrate.js`: `migrateLegacyInitiative(legacy, opts) → { migrated, frontmatter }`.
+  - Idempotent: if `schemaVersion === '0.1'`, returns `{ migrated: false, frontmatter: legacy }`.
+  - Throws on unsupported future `schemaVersion` (anything not in {undefined, '0.1'}).
+  - Throws if input lacks both `initiative_id` and `slug`.
+  - Plan membership is caller-driven: `opts.parentPlan` + `opts.phaseId` for in-plan; omit for standalone.
+- `tests/fixtures/state/legacy/initiatives/sample-legacy.md`: representative legacy file (snake_case, tasks-as-map, plan_link, worktree, wip_limit, stack `type: initiative`).
+- `tests/migrate.test.js`: 17 tests covering mapping, idempotency, error paths, schema validity of the migrated output.
 
-Migration is **idempotent**: re-running on already-migrated initiative is no-op.
+**Field mapping**:
 
-**Exit gate**:
-- Existing sda-v2 initiative (legacy format) migrates on first edit without data loss
-- All required fields populated (or defaults applied)
-- User cannot bypass migration (mutation aborts if migration declined)
+| Legacy (snake_case)                              | 0.1 (camelCase)                                | Notes |
+|--------------------------------------------------|------------------------------------------------|-------|
+| `initiative_id`                                  | `slug`                                         |       |
+| `last_updated`                                   | `lastUpdated`                                  |       |
+| `next_action`                                    | `nextAction`                                   |       |
+| `scope_paths: [...]`                             | `scope: { paths: [...] }`                      |       |
+| `stack[].opened_at`                              | `stack[].openedAt`                             |       |
+| `stack[].type === 'initiative'`                  | `stack[].type === 'task'`                      | new enum doesn't have `initiative` |
+| `parked[].surfaced_at`, `from_frame`             | `parked[].surfacedAt`, `fromFrame`             |       |
+| `emerged[].surfaced_at`                          | `emerged[].surfacedAt`                         |       |
+| `tasks: { T-001: {...} }` (map)                  | `tasks: [{id: 'T-001', ...}]` (array)          | each task: `closed_at→closedAt`, `last_updated→lastUpdated`, `blocked_by→blockedBy` |
+| `plan_link: <string>`                            | `references[]` entry                           | folded, not dropped |
+| `worktree`, `wip_limit`                          | (dropped)                                      | not in 0.1 schema |
+| bare-date `started: 2026-04-01`                  | `started: '2026-04-01T00:00:00Z'`              | normalized to full ISO timestamp |
+| missing `goal`                                   | `goal: <first-stack-frame.title>`              | with a sentinel fallback if no stack |
 
-**Verifier**: fixture-based regression test with sample legacy + post-migration shapes
+**Exit gate met**:
+- Migrated output validates against `initiative.schema.json` (verified by writing to temp file + invoking `validateFile`)
+- All required 0.1 fields populated (asserted)
+- Idempotency verified (re-running on migrated frontmatter returns `migrated: false` + identical object)
+- `plan_link` not dropped — folded into structured `references[]`
+- `npm test` exits 0 with 215 passing (198 prior + 17 new)
+
+**Deferred to B.T-005**: the interactive prompt + the "user cannot bypass migration" enforcement — those are skill-body concerns, not pure-function concerns.
 
 ### B.T-005 — Update project-status.md skill body
 
