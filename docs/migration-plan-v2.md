@@ -47,7 +47,7 @@ Phase B — project-status redesign (3-level hierarchy)
   B.T-002  [DONE] New schema (Plan / Initiative / Task) matching aiDeck
   B.T-003  [DONE] Templates for plans/ and initiatives/ directories
   B.T-004  [DONE] Migration script for legacy initiatives (one-time on save)
-  B.T-005  Update project-status.md skill body (3-level commands)
+  B.T-005  [DONE] Update project-status.md skill body (3-level commands)
   B.T-006  Exit gates + verifiers infrastructure
 
 Phase C — project-plan skill (new)
@@ -307,22 +307,48 @@ Pure-function transform; the interactive prompt (standalone vs in-plan; force-mi
 
 **Deferred to B.T-005**: the interactive prompt + the "user cannot bypass migration" enforcement — those are skill-body concerns, not pure-function concerns.
 
-### B.T-005 — Update project-status.md skill body
+### B.T-005 — [DONE] Update project-status.md skill body
 
-Rewrite skill instructions for 3-level model. Key changes:
+Rewrote skill instructions for the 3-level model. Edited `skills/en/core/project-status.md` incrementally to preserve the bootstrap pipeline content while extending the surrounding model.
 
-- `new <slug>` → asks: standalone or part of plan?
-- New commands: `phase-done`, `phase-reopen`, `detect-scope`
-- `done <task-id>` extended: auto-detects last-pending-task in phase, prompts transition
-- `archive` propagates: archive plan → archive child initiatives
-- `switch` works at 2 levels (plan + initiative within plan)
-- `--plan` view mode: bird's-eye for active plan
-- `--phase` view mode: detail for current phase only
+**Changes applied**:
+- Header: now describes the 3-level model + references `meta/schemas/` as the authoritative contract.
+- Iron Law: extended to "anchored initiative — standalone OR under an active plan".
+- Initial detection: detects active Plan + currentPhase first, then resolves Initiative.
+- Setup §6: creates `.atomic-skills/plans/archive/` alongside `initiatives/archive/`.
+- Setup §7: gitignore adds `plans/*.rendered.md`.
+- View modes: added `--plan [<slug>]` (bird's-eye, principles + phase table + inter-phase gates) and `--phase [<phase-id>]` (current phase detail). Default view prepends `<plan-slug>/<phaseId>` when the initiative has plan membership. `--list` now shows two tables (plans + standalone initiatives).
+- **New section: Schema reference** — quick reference for Plan / Initiative / Task / nested types (StackFrame, ExitCriterion, verifier oneOf, CrossTaskRef). Fulfils the deferred goal from B.T-002 ("All schema fields documented in skill body").
+- Mutation modes prelude: **Pre-mutation migration check** documented as a HARD-GATE step on every load — abort if `schemaVersion` is missing and user declines migration. Cites `src/migrate.js`:`migrateLegacyInitiative` and the standalone-vs-in-plan choice.
+- `new-plan <slug>` (new): copies `plan.template.md`, optional superpowers delegation, offers to chain into the initial phase initiative.
+- `new <slug>` (updated): asks standalone-or-in-plan; handles the `plan-membership-block` sentinel (strip for standalone, fill for in-plan); offers `detect-scope` suggestion.
+- `push` / `park` / `emerge` / `promote` (updated): all field names switched to camelCase (`openedAt`, `surfacedAt`, `fromFrame`, `lastUpdated`); `promote` now writes to a tasks **array** (not map).
+- `done <task-id>` (extended): after closing, counts remaining open tasks; if zero AND under a plan, prompts user to invoke `phase-done` (user opts in — never auto).
+- `phase-done` (new): iterates exit gate criteria (phase + initiative), runs shell verifiers via {{BASH_TOOL}}, asks user for manual acks, marks `status: met / deferred / pending` with `metAt` / `deferredReason`. On all-met, sets initiative `status: done`, updates plan's phase status, proposes phase advance via `dependsOn` graph.
+- `phase-reopen` (new): reverse of phase-done; resets criteria to `pending`, sets initiative back to `active`.
+- `detect-scope` (new): wraps `scripts/detect-scope.js --json`, presents groupings as checklist, merges accepted globs into the active initiative's `scope.paths`.
+- `migrate <slug>` (new): explicit migration trigger calling `migrateLegacyInitiative`, with the standalone-vs-in-plan choice flow and a post-migration `npm run validate-state` invocation.
+- `archive` (extended): plan archival propagates to all child initiatives (status: archived + moved to archive subtree).
+- `switch` (extended): works at 2 levels — switching plans pauses any other active plan; switching initiatives across plans warns and offers to also switch the plan.
+- Disambiguation flow: 5 options (continuation / lateral / new-phase-of-plan / new-standalone / ad-hoc) — matches the gate template's resolution rules.
+- `--browser`: separate render templates for Plan view (principles, glossary, mermaid phase graph with `dependsOn` edges, phase table) vs Initiative view (gantt of tasks, dependency flowchart from `blockedBy`, exit gates checklist, cross-task refs).
+- `--report`: emits Plans section + Initiatives section; open-exit-gates count surfaced.
+- Red Flags: 3 new items (legacy snake_case edit, phase-done without verifying gates, branch ≠ currentPhase).
+- Rationalization table: 3 new rows (legacy in-place edit, manual verifier bypass, phase advance without gates).
+- Bootstrap section: field references updated (`slug` regex, `schemaVersion: '0.1'` validation step, `nextAction`/`goal` generation per draft).
 
-**Exit gate**:
-- Skill body reflects all new behaviors
-- Every command has expected behavior + exit criterion documented
-- HARD-GATE in CLAUDE.md updated to plan/phase awareness
+**Tests added** (`tests/project-status.test.js`, 6 new):
+1. 3-level commands (`new-plan`, `phase-done`, `phase-reopen`, `detect-scope`, `migrate`) each documented under their own `### \`<cmd>\``.
+2. `--plan` and `--phase` view modes documented.
+3. Pre-mutation migration check section exists; `migrateLegacyInitiative` referenced; 5-option disambiguation flow present.
+4. Schema reference section documents Plan + Initiative + nested types + all 4 verifier kinds.
+5. **camelCase enforcement** — skill body must not contain `initiative_id`, `scope_paths`, `opened_at`, `surfaced_at`, `from_frame`; MUST contain camelCase variants (`lastUpdated`, `nextAction`, `openedAt`, `surfacedAt`, `fromFrame`).
+6. `archive` documents plan propagation; `switch` documents 2-level switching.
+
+**Exit gate met**:
+- `npm test` exits 0 with 221 passing (215 prior + 6 new)
+- Every new command has expected behavior + exit criteria documented (asserted by tests 1-3)
+- HARD-GATE was already plan/phase-aware after B.T-003 (template); the skill body now references it for the pre-mutation check and disambiguation flow.
 
 ### B.T-006 — Exit gates + verifiers infrastructure
 

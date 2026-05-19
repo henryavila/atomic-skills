@@ -309,4 +309,140 @@ describe('project-status skill', () => {
       );
     });
   }
+
+  // ─── 3-level model (B.T-005) ────────────────────────────────────────────
+  it('skill body documents 3-level commands (new-plan, phase-done, phase-reopen, detect-scope, migrate)', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    for (const cmd of ['new-plan', 'phase-done', 'phase-reopen', 'detect-scope', 'migrate']) {
+      assert.ok(
+        content.includes('### `' + cmd),
+        `skill body must document mutation command: ${cmd}`
+      );
+    }
+  });
+
+  it('skill body documents --plan and --phase view modes', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('### `--plan'), 'must document --plan view mode');
+    assert.ok(content.includes('### `--phase'), 'must document --phase view mode');
+  });
+
+  it('skill body documents the pre-mutation migration check + 5 disambiguation options', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('Pre-mutation migration check'), 'must document pre-mutation check');
+    assert.ok(content.includes('migrateLegacyInitiative'), 'must reference the migration function');
+    // 5-option disambiguation flow (vs the old 4).
+    for (const opt of ['(a)', '(b)', '(c)', '(d)', '(e)']) {
+      assert.ok(content.includes(opt), `disambiguation flow must include option ${opt}`);
+    }
+    assert.ok(content.includes('New phase initiative'), 'must offer phase-initiative option');
+    assert.ok(content.includes('standalone'), 'must offer standalone option');
+  });
+
+  it('skill body documents schema reference (Plan / Initiative / Task fields)', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('Schema reference'), 'must have Schema reference section');
+    // Spot-check core required fields per shape.
+    for (const field of [
+      'currentPhase', 'parallelismAllowed', 'phases[]',          // Plan
+      'parentPlan', 'phaseId', 'exitGates[]', 'scope',           // Initiative
+      'StackFrame', 'CrossTaskRef', 'ExitCriterion',             // Nested
+      'shell', 'query', 'test', 'manual',                        // Verifier kinds
+    ]) {
+      assert.ok(content.includes(field), `Schema reference must mention: ${field}`);
+    }
+  });
+
+  it('skill body uses camelCase fields, no legacy snake_case in canonical state contexts', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    // Legacy snake_case fields must NOT appear as canonical references.
+    // (`scope_paths`, `initiative_id`, `last_updated`, `next_action`, `opened_at`,
+    //  `surfaced_at`, `from_frame` were the v1 field names — all renamed for 0.1.)
+    for (const legacy of [
+      'initiative_id', 'scope_paths', 'opened_at',
+      'surfaced_at', 'from_frame',
+    ]) {
+      assert.ok(
+        !content.includes(legacy),
+        `skill body must not reference legacy field: ${legacy}`
+      );
+    }
+    // `next_action` survives in the bootstrap-archived test assertion context,
+    // but the skill body itself should be camelCase only.
+    // `last_updated` appears in shell command snippets that use `date -u` output;
+    // those are commands, not field names — they're fine. But the field references
+    // must be `lastUpdated`.
+    assert.ok(content.includes('lastUpdated'), 'must use camelCase `lastUpdated` field');
+    assert.ok(content.includes('nextAction'), 'must use camelCase `nextAction` field');
+    assert.ok(content.includes('openedAt'), 'must use camelCase `openedAt` field');
+    assert.ok(content.includes('surfacedAt'), 'must use camelCase `surfacedAt` field');
+    assert.ok(content.includes('fromFrame'), 'must use camelCase `fromFrame` field');
+  });
+
+  it('skill body documents Plan-aware archive propagation and 2-level switch', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.match(/Plan archival/i), 'archive must document plan propagation');
+    assert.ok(content.match(/Plan switch/i), 'switch must document plan-level switching');
+    assert.ok(content.match(/propagate/i), 'archive must mention propagation to child initiatives');
+  });
 });
