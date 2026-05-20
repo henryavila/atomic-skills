@@ -59,11 +59,15 @@ Check if markers `<!-- atomic-skills:status-gate:start -->` already exist:
 Present Structured Options:
 > What enforcement level?
 > (a) Passive — hard-gate in CLAUDE.md only, no hooks
-> (b) Soft (recommended) — hard-gate + SessionStart hook
-> (c) Strict — hard-gate + SessionStart + Stop hook (dry-run 7d before real strict)
+> (b) Soft (recommended) — hard-gate + SessionStart hook + PreToolUse provenance gate (dry-run)
+> (c) Strict — hard-gate + SessionStart + Stop hook + PreToolUse provenance gate (all dry-run 7d before real strict)
 
-For (b) and (c): copy scripts to `.atomic-skills/status/hooks/`, register in `.claude/settings.local.json`.
-For (c): copy `config.json` with `strict_mode: false` and `dry_run_started: $(date -I)`.
+For (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` to `.atomic-skills/status/hooks/`, register them in `.claude/settings.local.json` under `SessionStart`, `Stop`, and `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) respectively.
+
+For (b): copy `config.json` with `strict_mode: false`, `emergent_strict_mode: false`, and `dry_run_started: $(date -I)`.
+For (c): same `config.json` shape — both strict knobs default false during the 7-day dry-run window.
+
+The `pre-write.sh` gate intercepts direct Edits to `.atomic-skills/initiatives/*.md` and `plans/*.md` that add entries to `tasks[]` or `phases[]` without a `provenance:` field. Use the documented `new-task` / `new-phase` / `split-phase` / `emerge --target` commands (they set provenance automatically) instead. Bypass for 24h with `touch .atomic-skills/status/SKIP-EMERGENT`.
 
 ### 6. Create structure
 
@@ -81,7 +85,9 @@ Append (if not present):
 ```
 .atomic-skills/status/stop.log
 .atomic-skills/status/drift.log
+.atomic-skills/status/emergent-drift.log
 .atomic-skills/status/SKIP
+.atomic-skills/status/SKIP-EMERGENT
 .atomic-skills/plans/*.rendered.md
 .atomic-skills/initiatives/*.rendered.md
 .atomic-skills/bootstrap-drafts/
@@ -642,6 +648,8 @@ The banner is informational — it does not block any command. The user can igno
 Task and phase objects carry an optional `provenance: { surfacedAt, surfacedDuring, surfacedBy, originalPhaseId? }` field (schema: `common.schema.json#/$defs/provenance`). This is mandatory for items added via `new-task`, `new-phase`, `split-phase`, `promote`, `emerge --target`, but absent on items shipped in the original plan/initiative materialization.
 
 The choice (vs a separate `.atomic-skills/changelog.jsonl`) was deliberate: provenance stays with the data, survives initiative archive, is auditable with `grep -A 2 "surfacedDuring" .atomic-skills/`, and doesn't require dual-write on every mutation. Cost: no chronological cross-cuts the way a single log would give. The `scope-creep` view is the workaround — it aggregates provenance across all initiatives into a chronologically-ordered table on demand.
+
+When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level (b) or (c)), it enforces the same rule mechanically: any `Edit` / `Write` / `MultiEdit` that adds a `tasks[]` or `phases[]` entry without `provenance:` is logged in dry-run mode or denied in strict mode (`emergent_strict_mode: true`). The hook exempts file creation (original materialization), updates to existing entries, deletions, archive subdirs, and `*.rendered.md` artifacts. See `.atomic-skills/status/hooks/README.md` for promotion + bypass instructions.
 
 ## aiDeck integration
 

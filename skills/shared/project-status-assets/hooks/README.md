@@ -4,8 +4,10 @@
 
 - `session-start.sh` — L2b. v2 hook: walks the 3-level state (PROJECT-STATUS index → active Plan → phase Initiative), surfaces branch mismatches, signals phase-transition when the active initiative has 0 pending/active tasks, and injects the aiDeck dashboard URL when `~/.aideck/env` is present. Falls back to a standalone branch-matched initiative when no plan is active. Emits via `additionalContext` at SessionStart.
 - `stop.sh` — L3. v2 hook: compares files written during the turn (via the JSONL transcript's `Write` / `Edit` / `MultiEdit` / `NotebookEdit` tool calls) against the active initiative's `scope.paths`. When out-of-scope writes exceed `drift_threshold` (default 0.5), logs a dry-run decision or blocks via exit 2 in strict mode. Scope-less initiatives skip the check.
-- `config.json` — `strict_mode`, `drift_threshold` (default 0.5), `dry_run_started` date, legacy `source_globs`, and stack/archive heuristics.
+- `pre-write.sh` — L4. PreToolUse hook: intercepts `Edit` / `Write` / `MultiEdit` on `.atomic-skills/initiatives/*.md` and `.atomic-skills/plans/*.md`. Compares the OLD and NEW frontmatter for tasks/phases additions; any new entry lacking a `provenance:` field counts as a silent on-the-fly mutation and is logged (dry-run) or blocked via exit 2 (when `emergent_strict_mode: true`). File creation, deletions, updates to existing entries, archive subdirs, and `*.rendered.md` derived artifacts are all exempt.
+- `config.json` — `strict_mode`, `emergent_strict_mode`, `drift_threshold` (default 0.5), `dry_run_started` date, legacy `source_globs`, and stack/archive heuristics.
 - `drift.log` — dry-run decision log emitted by `stop.sh` v2 (gitignored). One JSON object per Stop event.
+- `emergent-drift.log` — dry-run decision log emitted by `pre-write.sh` (gitignored). One JSON object per blocked-in-dry-run mutation.
 - `stop.log` — legacy v1 dry-run decision log (kept for backward compatibility on existing installs; no longer written by v2).
 
 ## SessionStart v2 — context layout
@@ -25,7 +27,7 @@ The hook composes its `additionalContext` payload in this order, skipping any se
 cat .claude/settings.local.json | jq '.hooks'
 ```
 
-Expected: entries for `SessionStart` and optionally `Stop` pointing to `.atomic-skills/status/hooks/*.sh`.
+Expected: entries for `SessionStart`, optionally `Stop`, and optionally `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) pointing to `.atomic-skills/status/hooks/*.sh`.
 
 ### Simulate a Stop hook call
 
@@ -35,20 +37,24 @@ echo '{"stop_hook_active":false,"transcript_path":"/path/to/transcript.jsonl"}' 
 echo "exit=$?"
 ```
 
-### Read the dry-run log
+### Read the dry-run logs
 
 ```bash
-tail -50 .atomic-skills/status/drift.log | jq .
+tail -50 .atomic-skills/status/drift.log | jq .            # stop.sh decisions
+tail -50 .atomic-skills/status/emergent-drift.log | jq .   # pre-write.sh decisions
 ```
 
-Each line is a JSON object: `{ts, mode, initiative, breadcrumb, total_files, out_of_scope, threshold, would_block, out_files[]}`. Tune `drift_threshold` in `config.json` if the would-block decisions don't match your judgment.
+`drift.log` lines: `{ts, mode, initiative, breadcrumb, total_files, out_of_scope, threshold, would_block, out_files[]}`. Tune `drift_threshold` in `config.json` if the would-block decisions don't match your judgment.
+
+`emergent-drift.log` lines: `{ts, mode, initiative_or_plan, file, tool, would_block, violations[]}`. Each `violations[]` entry is `<kind>:<id>` (e.g. `task:T-002`, `phase:F1`) for an addition that lacks `provenance`. Promote to strict via `emergent_strict_mode: true` once the log is clean.
 
 ## Disabling
 
 ### Temporary (24h)
 
 ```bash
-touch .atomic-skills/status/SKIP
+touch .atomic-skills/status/SKIP            # disables BOTH stop.sh and pre-write.sh
+touch .atomic-skills/status/SKIP-EMERGENT   # disables ONLY pre-write.sh (lets stop.sh keep checking scope)
 ```
 
 Auto-expires after 24h. Delete the file to re-enable sooner.
@@ -63,10 +69,14 @@ npx atomic-skills uninstall --project  # removes this skill's artifacts
 
 ## Promoting to strict mode
 
-After reviewing `drift.log` and confirming the would-block decisions were correct:
+After reviewing the relevant log and confirming the would-block decisions were correct:
 
 ```bash
+# Promote stop.sh (scope-drift gate) to strict:
 jq '.strict_mode = true' .atomic-skills/status/config.json > /tmp/c.json && mv /tmp/c.json .atomic-skills/status/config.json
+
+# Promote pre-write.sh (emergent-work provenance gate) to strict:
+jq '.emergent_strict_mode = true' .atomic-skills/status/config.json > /tmp/c.json && mv /tmp/c.json .atomic-skills/status/config.json
 ```
 
-Or invoke `atomic-skills:project-status` — it offers strict-mode promotion if dry-run has been active 7+ days.
+The two knobs are independent — promote each gate when its log shows clean decisions for 7+ days. `atomic-skills:project-status` offers the same promotion interactively.
