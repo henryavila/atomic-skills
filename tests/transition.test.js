@@ -91,6 +91,24 @@ describe('nextEligiblePhases', () => {
     assert.deepEqual(nextEligiblePhases({}, 'F0'), []);
     assert.deepEqual(nextEligiblePhases({ phases: 'not-an-array' }, 'F0'), []);
   });
+
+  it('skips already-active phases (only `pending` is startable)', () => {
+    const plan = mkPlan([
+      ['F0', [], 'active'],
+      ['F1', ['F0'], 'active'], // already running — must not be re-proposed
+      ['F2', ['F0']],
+    ]);
+    assert.deepEqual(nextEligiblePhases(plan, 'F0'), ['F2']);
+  });
+
+  it('skips paused phases (deliberately suspended)', () => {
+    const plan = mkPlan([
+      ['F0', [], 'active'],
+      ['F1', ['F0'], 'paused'], // suspended — resume manually, do not auto-advance
+      ['F2', ['F0']],
+    ]);
+    assert.deepEqual(nextEligiblePhases(plan, 'F0'), ['F2']);
+  });
 });
 
 describe('unknownDeps', () => {

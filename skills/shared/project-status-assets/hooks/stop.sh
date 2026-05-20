@@ -120,39 +120,113 @@ detect_active_initiative() {
 }
 
 # Lists file paths written during the current turn. Reads the JSONL transcript
-# from `last_user_ts` forward and pulls `tool_use.input.file_path` for any
-# Write/Edit/MultiEdit/NotebookEdit invocation.
+# from `last_user_ts` forward and pulls `file_path` for any Write / Edit /
+# MultiEdit / NotebookEdit tool use.
+#
+# Claude Code's real transcript schema (verified by sampling
+# ~/.claude/projects/<repo>/*.jsonl): assistant turns are `{"type":"assistant",
+# "message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":
+# "..."}}, ...], ...}, "timestamp": "..."}`. There is no top-level `.tool_use`
+# field; the legacy filter that read `.tool_use.input.file_path` never matched
+# a real session. v2 also handles NotebookEdit's `notebook_path` input field.
 list_files_written() {
   local transcript=$1 last_user_ts=$2
   [[ -f "$transcript" ]] || return 0
   [[ -z "$last_user_ts" ]] && return 0
   jq -r --arg ts "$last_user_ts" '
-    select(.timestamp > $ts
-      and .tool_use != null
-      and (.tool_use.name == "Write"
-        or .tool_use.name == "Edit"
-        or .tool_use.name == "MultiEdit"
-        or .tool_use.name == "NotebookEdit"))
-    | .tool_use.input.file_path // empty
+    select(.timestamp > $ts and .type == "assistant"
+      and (.message.content // []) != [])
+    | .message.content[]?
+    | select(.type == "tool_use"
+        and (.name == "Write"
+          or .name == "Edit"
+          or .name == "MultiEdit"
+          or .name == "NotebookEdit"))
+    | (.input.file_path // .input.notebook_path // empty)
   ' "$transcript" 2>/dev/null | sort -u
 }
 
-# Returns 0 (in-scope) when $file_path starts with one of the scope prefixes
-# in $@. Paths are compared after normalizing $file_path relative to PROJ_DIR.
+# Returns 0 (in-scope) when $file_path resolves under one of the scope
+# prefixes in $@. Both the file path and each scope prefix are canonicalized
+# (`.`, `..`, double slashes stripped) before prefix-matching, so a path like
+# `$PROJ_DIR/src/../lib/secret.js` is correctly classified as out of scope
+# for `scope.paths: [src/]`.
+#
+# Note: this is a *lexical* canonicalizer — it does NOT resolve symlinks.
+# Hooks fire many times per session; calling `realpath` on every file path
+# would block on slow filesystems and require a tool that's not universally
+# available. For drift detection, lexical normalization is sufficient: a
+# malicious user who wants to evade scope checks via symlinks can also just
+# disable the hook entirely. The threat model here is honest mistakes, not
+# active evasion.
+canonicalize_path() {
+  local p=$1
+  # Collapse multiple slashes, drop trailing slash (except for root).
+  p=$(printf '%s' "$p" | sed -E 's://+:/:g; s:/$::')
+  [[ -z "$p" ]] && { echo "."; return 0; }
+  # Walk components, resolving `.` and `..` lexically.
+  local IFS='/' parts=() out=() leading_slash=""
+  [[ "$p" == /* ]] && leading_slash="/"
+  read -ra parts <<< "${p#/}"
+  for c in "${parts[@]}"; do
+    case "$c" in
+      "" | .) continue ;;
+      ..)
+        # Bash 3.2 has no `${array[-1]}`; emulate with computed index. Pop the
+        # last component unless it is itself `..` (in which case `..` stacks).
+        if (( ${#out[@]} > 0 )); then
+          local last_idx=$(( ${#out[@]} - 1 ))
+          if [[ "${out[$last_idx]}" != ".." ]]; then
+            unset "out[$last_idx]"
+            out=("${out[@]}") # re-index after unset
+          elif [[ -z "$leading_slash" ]]; then
+            out+=('..')
+          fi
+        elif [[ -z "$leading_slash" ]]; then
+          out+=('..')
+        fi
+        # Absolute path: `..` above root is dropped (POSIX behavior).
+        ;;
+      *) out+=("$c") ;;
+    esac
+  done
+  if (( ${#out[@]} == 0 )); then
+    [[ -n "$leading_slash" ]] && echo "/" || echo "."
+  else
+    local joined
+    joined=$(IFS='/'; echo "${out[*]}")
+    echo "${leading_slash}${joined}"
+  fi
+}
+
 path_in_scope() {
   local file=$1; shift
-  local relative=$file
-  case "$file" in
-    "$PROJ_DIR"/*) relative="${file#$PROJ_DIR/}" ;;
-    /*) return 1 ;; # absolute path outside repo — out of scope
-  esac
-  for prefix in "$@"; do
-    # Treat trailing slash as directory, no slash as exact-or-prefix match.
+  local canonical
+  canonical=$(canonicalize_path "$file")
+
+  # Reduce to repo-relative form. `..` that escaped the canonicalizer means
+  # the original path resolved outside PROJ_DIR — out of scope.
+  local relative=$canonical
+  if [[ "$canonical" == "$PROJ_DIR"/* ]]; then
+    relative="${canonical#$PROJ_DIR/}"
+  elif [[ "$canonical" == "$PROJ_DIR" ]]; then
+    relative="."
+  elif [[ "$canonical" == /* ]]; then
+    # Absolute path that doesn't live under the project root — never in scope.
+    return 1
+  elif [[ "$canonical" == .. || "$canonical" == ../* ]]; then
+    # Relative path that escapes the repo — out of scope.
+    return 1
+  fi
+
+  for raw_prefix in "$@"; do
+    local prefix
+    prefix=$(canonicalize_path "$raw_prefix")
     case "$prefix" in
       .) return 0 ;;
-      ./*) prefix="${prefix#./}" ;;
+      /*) prefix="${prefix#/}" ;;
     esac
-    if [[ "$relative" == "$prefix" || "$relative" == "$prefix"/* || "$relative" == "${prefix%/}"/* ]]; then
+    if [[ "$relative" == "$prefix" || "$relative" == "$prefix"/* ]]; then
       return 0
     fi
   done
@@ -216,10 +290,11 @@ active=$(detect_active_initiative "$branch")
 
 [[ -z "$transcript_path" || ! -f "$transcript_path" ]] && exit 0
 
-# `tac` is GNU-only; `tail -r` is BSD-only. Portable approach: grep all user
-# turn lines and take the last one.
-last_user_ts=$(grep '"role":"user"' "$transcript_path" 2>/dev/null | tail -1 \
-  | jq -r '.timestamp // empty' 2>/dev/null || echo "")
+# Find the last user-turn timestamp. Real Claude Code transcripts identify
+# user turns with `.type == "user"` (NOT `.role == "user"`). `tac` is GNU-only
+# and `tail -r` is BSD-only, so we filter via jq and pick the last match.
+last_user_ts=$(jq -r 'select(.type == "user") | .timestamp // empty' \
+  "$transcript_path" 2>/dev/null | tail -1)
 [[ -z "$last_user_ts" ]] && exit 0
 
 # Bash 3.2 (macOS default) lacks `mapfile`; use `while read` instead.

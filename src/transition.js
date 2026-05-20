@@ -22,6 +22,13 @@
  */
 
 const TERMINAL_STATUSES = new Set(['done', 'archived']);
+// A phase becomes eligible to be the NEXT active phase only when it hasn't
+// started yet. `active` and `paused` phases are already in progress (or
+// deliberately suspended) — advancing into them would seed a duplicate
+// successor initiative and corrupt plan state in parallel-mode plans. The
+// phase status enum is {pending, active, paused, done, archived} per
+// meta/schemas/plan.schema.json $defs.phaseDescriptor.properties.status.
+const STARTABLE_STATUS = 'pending';
 
 /**
  * Given a plan and the id of the phase whose exit gates just passed, return
@@ -29,7 +36,7 @@ const TERMINAL_STATUSES = new Set(['done', 'archived']);
  *
  * A phase is eligible iff:
  *   - It is not itself the just-completed phase.
- *   - Its status is not already `done` or `archived`.
+ *   - Its status is exactly `pending` (not `active`/`paused`/`done`/`archived`).
  *   - Every entry in its `dependsOn` either equals `completedPhaseId` or
  *     refers to another phase whose status is already `done` (after the
  *     just-completed phase is considered done for this computation).
@@ -61,7 +68,7 @@ export function nextEligiblePhases(plan, completedPhaseId) {
   for (const p of plan.phases) {
     if (!p || typeof p.id !== 'string') continue;
     if (p.id === completedPhaseId) continue;
-    if (TERMINAL_STATUSES.has(p.status)) continue;
+    if (p.status !== STARTABLE_STATUS) continue;
     const deps = Array.isArray(p.dependsOn) ? p.dependsOn : [];
     const allSatisfied = deps.every((d) => {
       if (!phaseById.has(d)) return false; // unknown dep — never satisfiable

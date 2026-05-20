@@ -88,21 +88,21 @@ write_initiative() {
 }
 
 # Synthesize a Claude Code transcript JSONL with a user turn at `user_ts`
-# followed by tool_use Edit/Write events at increasing timestamps. file_paths
-# is a CSV.
+# followed by assistant turns containing Edit tool uses at increasing
+# timestamps. Mirrors the real on-disk schema: assistant turns are
+# `{"type":"assistant","message":{"content":[{"type":"tool_use", ...}]}, ...}`.
+# `paths_csv` is a CSV of file paths.
 write_transcript() {
   local file=$1 user_ts=$2 paths_csv=$3
   : > "$file"
-  printf '{"role":"user","timestamp":"%s","content":"go"}\n' "$user_ts" >> "$file"
+  printf '{"type":"user","timestamp":"%s","message":{"content":"go"}}\n' "$user_ts" >> "$file"
   local i=0
   IFS=',' read -ra arr <<< "$paths_csv"
   for p in "${arr[@]}"; do
     i=$((i+1))
-    # 2026-05-20T00:00:01Z + i seconds. Keep it simple — strings sort
-    # lexicographically because zero-padded.
     local ts
     ts=$(printf '2026-05-20T00:00:%02dZ' "$((i+10))")
-    printf '{"role":"assistant","timestamp":"%s","tool_use":{"name":"Edit","input":{"file_path":"%s"}}}\n' "$ts" "$p" >> "$file"
+    printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"%s"}}]}}\n' "$ts" "$p" >> "$file"
   done
 }
 
@@ -128,6 +128,30 @@ run "SKIP sentinel → exit 0 within 24h"
 echo '{"stop_hook_active":false,"transcript_path":"/any"}' | bash "$HOOK"
 [[ "$?" == "0" ]] && ok || no "nonzero with SKIP present"
 cd - >/dev/null; rm -rf "$TMP"
+
+# Test 3b: F-001 regression — real Claude Code transcript schema parses
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative .atomic-skills/initiatives/i.md i active feat "" "" "src/"
+# Real schema: assistant turns nest tool_use under message.content[]; user turn
+# uses `.type == "user"` rather than `.role == "user"`.
+cat > /tmp/t.jsonl <<JSONL
+{"type":"permission-mode","permissionMode":"bypass","sessionId":"s"}
+{"type":"user","timestamp":"2026-05-20T00:00:00Z","message":{"content":"go"}}
+{"type":"assistant","timestamp":"2026-05-20T00:00:11Z","message":{"content":[{"type":"text","text":"working"},{"type":"tool_use","name":"Edit","input":{"file_path":"$TMP/lib/bad-1.js"}}]}}
+{"type":"assistant","timestamp":"2026-05-20T00:00:12Z","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"$TMP/lib/bad-2.js"}}]}}
+{"type":"assistant","timestamp":"2026-05-20T00:00:13Z","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"$TMP/src/ok.js"}}]}}
+JSONL
+run "F-001: real transcript schema (nested message.content[]) is parsed"
+echo '{"stop_hook_active":false,"transcript_path":"/tmp/t.jsonl"}' | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing — parser failed to see 2/3 out-of-scope writes"
+grep -q '"total_files": 3' .atomic-skills/status/drift.log && ok || no "expected total_files=3"
+grep -q '"out_of_scope": 2' .atomic-skills/status/drift.log && ok || no "expected out_of_scope=2 (lib/bad-1, lib/bad-2)"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
 
 # Test 4: scope-less initiative → no drift check
 TMP=$(mktemp -d); cd "$TMP"
@@ -219,7 +243,39 @@ rc=$?
 [[ ! -f .atomic-skills/status/drift.log ]] && ok || no "drift.log should not exist at exactly threshold"
 cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
 
-# Test 10: configurable drift_threshold honored
+# Test 10a: F-002 regression — path traversal cannot bypass scope
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative .atomic-skills/initiatives/i.md i active feat "" "" "src/"
+# Single write that lexically resolves OUTSIDE src/ via `..`. The naive
+# prefix check would accept this; the canonicalizer must reject it as
+# out-of-scope.
+write_transcript /tmp/t.jsonl 2026-05-20T00:00:00Z "$TMP/src/../lib/secret.js"
+run "F-002: src/../lib path is canonicalized and classified out-of-scope"
+echo "{\"stop_hook_active\":false,\"transcript_path\":\"/tmp/t.jsonl\"}" | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0 (dry-run), got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "expected drift.log to be written (1/1 out-of-scope)"
+grep -q '"out_of_scope": 1' .atomic-skills/status/drift.log && ok || no "expected out_of_scope=1 in log"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
+
+# Test 10b: F-002 regression — `./src/foo.js` is canonicalized to in-scope
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative .atomic-skills/initiatives/i.md i active feat "" "" "src/"
+write_transcript /tmp/t.jsonl 2026-05-20T00:00:00Z "$TMP/./src/foo.js,$TMP/src//bar.js"
+run "F-002: ./src and src// canonicalize to in-scope (no drift)"
+echo "{\"stop_hook_active\":false,\"transcript_path\":\"/tmp/t.jsonl\"}" | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ ! -f .atomic-skills/status/drift.log ]] && ok || no "drift.log should not exist — both writes in scope"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
+
+# Test 11 (was 10): configurable drift_threshold honored
 TMP=$(mktemp -d); cd "$TMP"
 init_git_branch feat
 mkdir -p .atomic-skills/initiatives .atomic-skills/status

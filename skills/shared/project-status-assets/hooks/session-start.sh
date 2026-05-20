@@ -47,9 +47,14 @@ get_field() {
   ' "$file"
 }
 
-# count_pending_tasks <file>  → number of tasks whose status is pending or active.
-# Scans the YAML region between `tasks:` and the next top-level key, inside
-# frontmatter only. Robust against parked/emerged blocks that have no `status`.
+# count_pending_tasks <file>  → number of tasks whose status is NOT done.
+# The task status enum is {pending, active, done, blocked} (see
+# meta/schemas/initiative.schema.json). `blocked` is unfinished work — counting
+# only pending/active would let a phase report "0 remaining" while blocked
+# tasks still need a human decision. Scans the YAML region between `tasks:`
+# and the next top-level key, inside frontmatter only. Robust against
+# parked/emerged blocks (which have no `status`) and quoted scalars
+# (`status: "pending"` or `status: 'pending'`).
 count_pending_tasks() {
   local file=$1
   [[ -f "$file" ]] || { echo 0; return 0; }
@@ -62,7 +67,7 @@ count_pending_tasks() {
     }
     fm == 1 && /^tasks:[[:space:]]*$/ { in_tasks = 1; next }
     fm == 1 && in_tasks && /^[A-Za-z][A-Za-z0-9_]*:/ { in_tasks = 0 }
-    fm == 1 && in_tasks && /^[[:space:]]+status:[[:space:]]*(pending|active)([[:space:]]|$)/ { count++ }
+    fm == 1 && in_tasks && /^[[:space:]]+status:[[:space:]]*['"'"'"]?(pending|active|blocked)['"'"'"]?([[:space:]]|$)/ { count++ }
     END { if (fm < 2) print count }
   ' "$file"
 }

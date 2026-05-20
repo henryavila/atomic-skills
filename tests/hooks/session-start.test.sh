@@ -157,6 +157,21 @@ out=$(bash "$HOOK")
 echo "$out" | grep -q "phase-done" && ok || no "missing phase-transition signal: $out"
 cd - >/dev/null; rm -rf "$TMP"
 
+# Test 6b: F-003 regression — blocked tasks count as remaining work
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feature/x
+mkdir -p .atomic-skills/plans .atomic-skills/initiatives
+write_plan .atomic-skills/plans/p.md p active F0
+write_initiative .atomic-skills/initiatives/i.md i active feature/x p F0 "done,blocked"
+run "F-003: initiative with one 'blocked' task → NO phase-transition signal"
+out=$(bash "$HOOK")
+if echo "$out" | grep -q "phase-done"; then
+  no "blocked task should NOT trigger phase-transition: $out"
+else
+  ok
+fi
+cd - >/dev/null; rm -rf "$TMP"
+
 # Test 7: initiative branch mismatch warning
 TMP=$(mktemp -d); cd "$TMP"
 init_git_branch main
