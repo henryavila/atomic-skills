@@ -16,6 +16,9 @@ try {
       'all-detected': { type: 'boolean', default: false },
       scope: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
+      port: { type: 'string' },
+      'force-build': { type: 'boolean', default: false },
+      'aideck-bin': { type: 'string' },
     },
   }));
 } catch (err) {
@@ -41,13 +44,18 @@ if (values.help || !command) {
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status
     npx @henryavila/atomic-skills uninstall  [--project]
+    npx @henryavila/atomic-skills serve      [--port <N>] [--force-build] [--aideck-bin <path>]
 
   Options:
-    --yes, -y     Accept auto-detected defaults (non-interactive)
-    --project     Install to ./ instead of ~/ (default: user scope)
-    --ide <ids>   Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
-                  Use --ide detected or --all-detected to refresh from installed IDEs
-    --lang <code> Language: en, pt
+    --yes, -y         Accept auto-detected defaults (non-interactive)
+    --project         Install to ./ instead of ~/ (default: user scope)
+    --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
+                      Use --ide detected or --all-detected to refresh from installed IDEs
+    --lang <code>     Language: en, pt
+    --port <N>        (serve) Port for the aideck backend (default 7777)
+    --force-build     (serve) Rebuild dashboard bundle even if dist/dashboard exists
+    --aideck-bin <p>  (serve) Path to aideck binary or its dist/cli.js. Default: probes
+                      $AIDECK_BIN, ../aideck/dist/cli.js, then PATH lookup of "aideck"
 
   Docs: https://github.com/henryavila/atomic-skills
   `);
@@ -85,6 +93,13 @@ if (values.help || !command) {
 } else if (command === 'status') {
   const { status } = await import('../src/status.js');
   status(process.cwd());
+} else if (command === 'serve') {
+  const { serve } = await import('../src/serve.js');
+  await serve({
+    port: values.port,
+    forceBuild: values['force-build'],
+    aideckBin: values['aideck-bin'],
+  });
 } else {
   console.error(`  Unknown command: ${command}. Run with --help for usage.`);
   process.exit(1);
