@@ -11,6 +11,7 @@
     "src/",
     "skills/",
     "meta/",
+    "dist/dashboard/",
     "README.md",
     "assets/"
   ],
@@ -19,7 +20,11 @@
     "test:hooks": "bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh",
     "validate-skills": "node scripts/validate-skills.js",
     "validate-state": "node scripts/validate-state.js",
-    "detect-scope": "node scripts/detect-scope.js"
+    "detect-scope": "node scripts/detect-scope.js",
+    "dev:dashboard": "vite --config vite.config.ts",
+    "build:dashboard": "vite build --config vite.config.ts",
+    "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
+    "prepublishOnly": "npm run build:dashboard"
   },
   "keywords": [
     "ai",
@@ -45,6 +50,24 @@
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",
     "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@tanstack/react-query": "^5.59.0",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router": "^7.0.0",
+    "tailwind-merge": "^2.5.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
   },
   "engines": {
     "node": ">=18.0.0"

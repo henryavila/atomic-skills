@@ -12,3 +12,7 @@ node_modules/
 nexus.yaml
 .superpowers/
 *.annotations.yaml
+
+# Build artifacts
+dist/
+node_modules/
