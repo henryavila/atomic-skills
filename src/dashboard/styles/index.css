@@ -78,3 +78,9 @@ body {
   outline: 2px solid var(--accent-focus);
   outline-offset: 2px;
 }
+
+/* LocalhostPill liveness indicator — gentle outer-ring pulse. */
+@keyframes atomic-pulse {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
