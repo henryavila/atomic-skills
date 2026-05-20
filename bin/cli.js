@@ -19,6 +19,7 @@ try {
       port: { type: 'string' },
       'force-build': { type: 'boolean', default: false },
       'aideck-bin': { type: 'string' },
+      demo: { type: 'boolean', default: false },
     },
   }));
 } catch (err) {
@@ -44,7 +45,7 @@ if (values.help || !command) {
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status
     npx @henryavila/atomic-skills uninstall  [--project]
-    npx @henryavila/atomic-skills serve      [--port <N>] [--force-build] [--aideck-bin <path>]
+    npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--force-build] [--aideck-bin <path>]
 
   Options:
     --yes, -y         Accept auto-detected defaults (non-interactive)
@@ -52,6 +53,9 @@ if (values.help || !command) {
     --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
                       Use --ide detected or --all-detected to refresh from installed IDEs
     --lang <code>     Language: en, pt
+    --demo            (serve) Stage demo fixtures (a sample plan + initiative)
+                      in a tmp dir and serve from there. Useful for first
+                      look without bootstrapping your own .atomic-skills/.
     --port <N>        (serve) Port for the aideck backend (default 7777)
     --force-build     (serve) Rebuild dashboard bundle even if dist/dashboard exists
     --aideck-bin <p>  (serve) Path to aideck binary or its dist/cli.js. Default: probes
@@ -99,6 +103,7 @@ if (values.help || !command) {
     port: values.port,
     forceBuild: values['force-build'],
     aideckBin: values['aideck-bin'],
+    demo: values.demo,
   });
 } else {
   console.error(`  Unknown command: ${command}. Run with --help for usage.`);

@@ -2,7 +2,10 @@
 *.swo
 *~
 node_modules/
-.atomic-skills/
+/.atomic-skills/
+# Demo fixtures bundled in the package (gitignore above is unanchored
+# and would otherwise drop these).
+!/assets/demo-fixtures/.atomic-skills/
 .agents/
 .claude/
 .cursor/

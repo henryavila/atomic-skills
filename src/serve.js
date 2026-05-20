@@ -19,14 +19,15 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, unlinkSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = resolve(__dirname, '..')
 const DEFAULT_BUNDLE_DIR = join(PACKAGE_ROOT, 'dist', 'dashboard')
+const DEMO_FIXTURES_DIR = join(PACKAGE_ROOT, 'assets', 'demo-fixtures')
 const ENV_FILE_PATH = join(homedir(), '.atomic-skills', 'env')
 
 /**
@@ -79,6 +80,26 @@ async function ensureBundle(opts = {}) {
     )
   }
   return DEFAULT_BUNDLE_DIR
+}
+
+/**
+ * Stages the demo fixtures into a fresh tmp directory and returns its path.
+ * Caller is responsible for `rmSync` on cleanup.
+ *
+ * The fixtures live in `<package-root>/assets/demo-fixtures/.atomic-skills/`.
+ * We copy them to a tmp dir (rather than serving directly from the package)
+ * because (a) some configurations write inbox/annotations alongside, and
+ * (b) the tmp dir becomes aideck's cwd so its watcher sees a clean state.
+ */
+function stageDemoFixtures() {
+  if (!existsSync(DEMO_FIXTURES_DIR)) {
+    throw new Error(
+      `Demo fixtures not found at ${DEMO_FIXTURES_DIR}. Reinstall atomic-skills or check the package contents.`
+    )
+  }
+  const tmpRoot = mkdtempSync(join(tmpdir(), 'atomic-skills-demo-'))
+  cpSync(DEMO_FIXTURES_DIR, tmpRoot, { recursive: true })
+  return tmpRoot
 }
 
 /**
@@ -176,20 +197,36 @@ async function pollHealth(baseUrl, { timeoutMs = 5000, intervalMs = 100 } = {}) 
  * @param {string|number} [opts.port]
  * @param {boolean} [opts.forceBuild]
  * @param {string} [opts.aideckBin]
+ * @param {boolean} [opts.demo]  Stage demo fixtures and serve from that
+ *   tmp dir instead of the current working directory.
  */
 export async function serve(opts = {}) {
   const bundleDir = await ensureBundle({ forceBuild: opts.forceBuild })
-  // Validate port BEFORE any side effect or spawn (Codex F-002).
   const port = parsePort(opts.port ?? '7777')
   const url = `http://127.0.0.1:${port}`
 
-  const child = spawnAideck({ bundleDir, port, aideckBin: opts.aideckBin })
+  let demoRoot = null
+  let spawnCwd = process.cwd()
+  if (opts.demo) {
+    demoRoot = stageDemoFixtures()
+    spawnCwd = demoRoot
+    console.error(`atomic-skills serve: demo fixtures staged at ${demoRoot}`)
+  }
+
+  const child = spawnAideck({ bundleDir, port, aideckBin: opts.aideckBin, cwd: spawnCwd })
 
   let envWritten = false
   let spawnFailed = false
 
   const cleanup = () => {
     if (envWritten) removeEnvFile()
+    if (demoRoot) {
+      try {
+        rmSync(demoRoot, { recursive: true, force: true })
+      } catch {
+        /* tmp dir cleanup is best-effort */
+      }
+    }
     if (!child.killed) child.kill('SIGINT')
   }
   process.once('SIGINT', cleanup)
@@ -219,6 +256,13 @@ export async function serve(opts = {}) {
   await new Promise((resolveP) => {
     child.on('exit', (code, signal) => {
       if (envWritten) removeEnvFile()
+      if (demoRoot) {
+        try {
+          rmSync(demoRoot, { recursive: true, force: true })
+        } catch {
+          /* best effort */
+        }
+      }
       if (signal === 'SIGINT' || signal === 'SIGTERM') process.exit(0)
       process.exit(code ?? process.exitCode ?? 0)
       resolveP(undefined)
