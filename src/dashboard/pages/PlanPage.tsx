@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Btn } from '../components/atoms'
 import { ActivePhaseCallout, TrackHeader } from '../components/plan/ActivePhaseCallout'
+import { DepGraphOverlay } from '../components/plan/DepGraphOverlay'
+import { InconsistencyBanner } from '../components/plan/InconsistencyBanner'
 import { PhaseCard, ParallelGroup, groupParallels } from '../components/plan/PhaseCard'
 import { PlanHero } from '../components/plan/PlanHero'
 import { GlossaryPanel, LegacySection, NarrativePanel, PrinciplesPanel } from '../components/plan/Panels'
@@ -20,6 +22,7 @@ export function PlanPage() {
   const [showNarrative, setShowNarrative] = useState(false)
   const [narrativeExpanded, setNarrativeExpanded] = useState(false)
   const [showRefs, setShowRefs] = useState(false)
+  const [showGraph, setShowGraph] = useState(false)
 
   if (isLoading) return <Frame>Loading plan…</Frame>
   if (error)
@@ -32,6 +35,17 @@ export function PlanPage() {
 
   const plan = adaptPlanForUI(planRaw, state?.initiatives ?? [])
   const activePhase = plan.phases.find((p) => p.status === 'active')
+  const inconsistentPhases = plan.parallelismAllowed
+    ? []
+    : plan.phases.filter((p) => Array.isArray(p.parallelWith) && p.parallelWith.length > 0)
+  // When inconsistent, strip parallelWith so the tree renders solo phases.
+  const renderablePhases = useMemo(
+    () =>
+      inconsistentPhases.length > 0
+        ? plan.phases.map((p) => ({ ...p, parallelWith: undefined }))
+        : plan.phases,
+    [plan.phases, inconsistentPhases.length]
+  )
 
   const openPhase = (phase: UIPhase) => {
     // Find the initiative for this phase and navigate to it.
@@ -42,12 +56,11 @@ export function PlanPage() {
   const trackBuckets = plan.tracks
     .map((track) => ({
       track,
-      phases: plan.phases.filter((p) => (p.track ?? plan.tracks[0]?.id) === track.id),
+      phases: renderablePhases.filter((p) => (p.track ?? plan.tracks[0]?.id) === track.id),
     }))
     .filter((b) => b.phases.length > 0)
-  // If no phases match any track (e.g. tracks not set), fall back to a single "main" bucket.
-  if (trackBuckets.length === 0 && plan.phases.length > 0) {
-    trackBuckets.push({ track: { id: 'main', title: 'Main' }, phases: plan.phases })
+  if (trackBuckets.length === 0 && renderablePhases.length > 0) {
+    trackBuckets.push({ track: { id: 'main', title: 'Main' }, phases: renderablePhases })
   }
 
   return (
@@ -59,6 +72,8 @@ export function PlanPage() {
         onToggleGlossary={() => setShowGlossary((v) => !v)}
         onToggleRefs={() => setShowRefs(true)}
       />
+
+      {inconsistentPhases.length > 0 && <InconsistencyBanner phases={inconsistentPhases} />}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
         <Btn variant={showNarrative ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowNarrative((v) => !v)}>
@@ -72,6 +87,9 @@ export function PlanPage() {
             </span>
           </Btn>
         )}
+        <Btn variant="ghost" size="sm" onClick={() => setShowGraph(true)}>
+          ⌬ Dependency graph
+        </Btn>
         <div style={{ flex: 1 }} />
         {plan.principles.length > 0 && (
           <Btn variant={showPrinciples ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowPrinciples((v) => !v)}>
@@ -126,6 +144,15 @@ export function PlanPage() {
       <LegacySection phases={plan.legacyPhases} />
 
       <ReferencesModal open={showRefs} refs={plan.refs} onClose={() => setShowRefs(false)} />
+      <DepGraphOverlay
+        open={showGraph}
+        plan={plan}
+        onClose={() => setShowGraph(false)}
+        onOpenPhase={(p) => {
+          setShowGraph(false)
+          openPhase(p)
+        }}
+      />
     </Frame>
   )
 }

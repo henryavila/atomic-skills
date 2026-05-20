@@ -1,29 +1,38 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
 import { IconBtn, Kbd, LocalhostPill, Wordmark } from '../atoms'
+import { AnnotationPanel } from '../feedback/AnnotationPanel'
+import { FeedbackDrawer } from '../feedback/FeedbackDrawer'
 import { useProjectState } from '../../lib/hooks'
+import { DemoBanner } from './DemoBanner'
 
 interface Props {
   children: ReactNode
+  /** Show the seeded-data DemoBanner — driven by ?demo=1 or AS_DEMO env */
+  demoMode?: boolean
 }
 
-export function LayoutShell({ children }: Props) {
+export function LayoutShell({ children, demoMode = false }: Props) {
+  const [openDrawer, setOpenDrawer] = useState<null | 'annotations' | 'feedback'>(null)
   return (
     <div className="flex min-h-screen flex-col" style={{ background: 'var(--bg-canvas)' }}>
       <SkipLink />
-      <TopChrome />
+      <DemoBanner visible={demoMode} />
+      <TopChrome
+        openDrawer={openDrawer}
+        onToggleAnnotations={() => setOpenDrawer((d) => (d === 'annotations' ? null : 'annotations'))}
+        onToggleFeedback={() => setOpenDrawer((d) => (d === 'feedback' ? null : 'feedback'))}
+      />
       <div style={{ flex: 1, display: 'flex', minHeight: 0, position: 'relative' }}>
         <main
           id="content"
           tabIndex={-1}
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            background: 'var(--bg-canvas)',
-          }}
+          style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-canvas)' }}
         >
           {children}
         </main>
+        <AnnotationPanel open={openDrawer === 'annotations'} onClose={() => setOpenDrawer(null)} />
+        <FeedbackDrawer open={openDrawer === 'feedback'} onClose={() => setOpenDrawer(null)} />
       </div>
     </div>
   )
@@ -61,7 +70,15 @@ function SkipLink() {
   )
 }
 
-function TopChrome() {
+function TopChrome({
+  openDrawer,
+  onToggleAnnotations,
+  onToggleFeedback,
+}: {
+  openDrawer: null | 'annotations' | 'feedback'
+  onToggleAnnotations: () => void
+  onToggleFeedback: () => void
+}) {
   const { data: state } = useProjectState()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -98,9 +115,7 @@ function TopChrome() {
         >
           <Wordmark size={18} />
         </a>
-
         <span style={{ width: 1, height: 20, background: 'var(--border-default)', flex: 'none' }} />
-
         <nav style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <NavLink to="/" end style={navStyle}>
             home
@@ -116,27 +131,32 @@ function TopChrome() {
             help
           </NavLink>
         </nav>
-
         <div style={{ flex: 1 }} />
-
         <LocalhostPill />
-
         <div style={{ display: 'flex', gap: 4 }}>
           <IconBtn label="Help" onClick={() => navigate('/help')}>
             ?
+          </IconBtn>
+          <IconBtn
+            label={openDrawer === 'feedback' ? 'Close feedback drawer' : 'Open feedback drawer'}
+            onClick={onToggleFeedback}
+          >
+            ⚑
+          </IconBtn>
+          <IconBtn
+            label={openDrawer === 'annotations' ? 'Close annotations' : 'Open annotations'}
+            onClick={onToggleAnnotations}
+          >
+            ◗
           </IconBtn>
           <IconBtn label="Menu" onClick={() => setMenuOpen((o) => !o)}>
             ≡
           </IconBtn>
         </div>
       </header>
-
       {menuOpen && (
         <>
-          <div
-            onClick={() => setMenuOpen(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 30, background: 'transparent' }}
-          />
+          <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
           <div
             role="menu"
             aria-label="Application menu"
@@ -155,16 +175,8 @@ function TopChrome() {
               fontSize: 13,
             }}
           >
-            <div
-              style={{
-                padding: '6px 10px 8px',
-                borderBottom: '1px solid var(--border-subtle)',
-                marginBottom: 4,
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-subtle)' }}>
-                atomic-skills · dashboard
-              </div>
+            <div style={{ padding: '6px 10px 8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-subtle)' }}>atomic-skills · dashboard</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-faint)', marginTop: 2 }}>
                 localhost · MIT · zero telemetry
               </div>
