@@ -80,6 +80,7 @@ Copy `PROJECT-STATUS.md.template.md` to `.atomic-skills/PROJECT-STATUS.md`, repl
 Append (if not present):
 ```
 .atomic-skills/status/stop.log
+.atomic-skills/status/drift.log
 .atomic-skills/status/SKIP
 .atomic-skills/plans/*.rendered.md
 .atomic-skills/initiatives/*.rendered.md

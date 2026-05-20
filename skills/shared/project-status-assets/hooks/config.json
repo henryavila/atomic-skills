@@ -1,6 +1,7 @@
 {
   "strict_mode": false,
   "dry_run_started": "REPLACE_DATE",
+  "drift_threshold": 0.5,
   "source_globs": [
     "src/",
     "lib/",

@@ -3,9 +3,10 @@
 ## Files
 
 - `session-start.sh` — L2b. v2 hook: walks the 3-level state (PROJECT-STATUS index → active Plan → phase Initiative), surfaces branch mismatches, signals phase-transition when the active initiative has 0 pending/active tasks, and injects the aiDeck dashboard URL when `~/.aideck/env` is present. Falls back to a standalone branch-matched initiative when no plan is active. Emits via `additionalContext` at SessionStart.
-- `stop.sh` — L3. On Stop event, if code was edited but initiative file unchanged, logs (dry-run) or blocks (strict).
-- `config.json` — thresholds and mode flag.
-- `stop.log` — dry-run decision log (gitignored).
+- `stop.sh` — L3. v2 hook: compares files written during the turn (via the JSONL transcript's `Write` / `Edit` / `MultiEdit` / `NotebookEdit` tool calls) against the active initiative's `scope.paths`. When out-of-scope writes exceed `drift_threshold` (default 0.5), logs a dry-run decision or blocks via exit 2 in strict mode. Scope-less initiatives skip the check.
+- `config.json` — `strict_mode`, `drift_threshold` (default 0.5), `dry_run_started` date, legacy `source_globs`, and stack/archive heuristics.
+- `drift.log` — dry-run decision log emitted by `stop.sh` v2 (gitignored). One JSON object per Stop event.
+- `stop.log` — legacy v1 dry-run decision log (kept for backward compatibility on existing installs; no longer written by v2).
 
 ## SessionStart v2 — context layout
 
@@ -37,10 +38,10 @@ echo "exit=$?"
 ### Read the dry-run log
 
 ```bash
-tail -50 .atomic-skills/status/stop.log
+tail -50 .atomic-skills/status/drift.log | jq .
 ```
 
-Each line is a timestamped decision the hook would have taken in strict mode.
+Each line is a JSON object: `{ts, mode, initiative, breadcrumb, total_files, out_of_scope, threshold, would_block, out_files[]}`. Tune `drift_threshold` in `config.json` if the would-block decisions don't match your judgment.
 
 ## Disabling
 
@@ -62,7 +63,7 @@ npx atomic-skills uninstall --project  # removes this skill's artifacts
 
 ## Promoting to strict mode
 
-After reviewing `stop.log` and confirming dry-run decisions were correct:
+After reviewing `drift.log` and confirming the would-block decisions were correct:
 
 ```bash
 jq '.strict_mode = true' .atomic-skills/status/config.json > /tmp/c.json && mv /tmp/c.json .atomic-skills/status/config.json

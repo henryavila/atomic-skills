@@ -1,73 +1,285 @@
 #!/usr/bin/env bash
-# atomic-skills:project-status — Stop hook
-# Validates that code edits triggered a status file update. Dry-run logs; strict blocks via exit 2.
+# atomic-skills:project-status — Stop hook (v2, scope-drift detection)
+#
+# Compares files written during the current turn vs the active initiative's
+# `scope.paths`. >50% out-of-scope writes surface a drift warning; the warning
+# is logged in dry-run mode (default) and blocks via exit 2 only when
+# `strict_mode: true` in config.json. Scope-less initiatives (no `scope.paths`)
+# skip drift checks entirely. Loop prevention + SKIP-flag bypass are preserved
+# from the v1 hook.
 set -euo pipefail
 
 PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
-CONFIG="$PROJ_DIR/.atomic-skills/status/config.json"
-LOG="$PROJ_DIR/.atomic-skills/status/stop.log"
-SKIP_FLAG="$PROJ_DIR/.atomic-skills/status/SKIP"
+ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
+PLANS_DIR="$ASKILLS_DIR/plans"
+INITIATIVES_DIR="$ASKILLS_DIR/initiatives"
+CONFIG="$ASKILLS_DIR/status/config.json"
+DRIFT_LOG="$ASKILLS_DIR/status/drift.log"
+SKIP_FLAG="$ASKILLS_DIR/status/SKIP"
 
-# Emergency bypass (24h grace)
+# --- helpers ----------------------------------------------------------------
+
+# Mirrors session-start.sh's parser. Reads a top-level frontmatter scalar.
+get_field() {
+  local file=$1 key=$2
+  [[ -f "$file" ]] || return 0
+  awk -v key="$key" '
+    BEGIN { fm = 0 }
+    /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
+    fm == 1 {
+      pat = "^" key ":[[:space:]]*"
+      if ($0 ~ pat) {
+        sub(pat, "", $0)
+        sub(/^['"'"'"]/, "", $0)
+        sub(/['"'"'"][[:space:]]*$/, "", $0)
+        sub(/[[:space:]]+#.*$/, "", $0)
+        print $0
+        exit
+      }
+    }
+  ' "$file"
+}
+
+# Reads the `scope.paths` list from an initiative frontmatter, one entry per
+# stdout line. Outputs nothing when the field is absent or empty.
+get_scope_paths() {
+  local file=$1
+  [[ -f "$file" ]] || return 0
+  awk '
+    BEGIN { fm = 0; in_scope = 0; in_paths = 0 }
+    /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
+    fm != 1 { next }
+    /^scope:[[:space:]]*$/ { in_scope = 1; in_paths = 0; next }
+    in_scope && /^[A-Za-z][A-Za-z0-9_]*:/ && !/^[[:space:]]/ { in_scope = 0; in_paths = 0 }
+    in_scope && /^[[:space:]]+paths:[[:space:]]*$/ { in_paths = 1; next }
+    in_scope && in_paths && /^[[:space:]]+-[[:space:]]+/ {
+      sub(/^[[:space:]]+-[[:space:]]+/, "", $0)
+      sub(/^['"'"'"]/, "", $0)
+      sub(/['"'"'"][[:space:]]*$/, "", $0)
+      sub(/[[:space:]]+#.*$/, "", $0)
+      if (length($0) > 0) print $0
+    }
+    in_scope && in_paths && /^[[:space:]]+[A-Za-z][A-Za-z0-9_]*:/ { in_paths = 0 }
+  ' "$file"
+}
+
+# Picks the active initiative, mirroring session-start.sh:
+#   plan-anchored → standalone branch-match → empty.
+detect_active_initiative() {
+  local branch=$1
+  local plan_slug="" current_phase_id="" active_plan="" newest=""
+  local newest_mtime=0 branch_matched=""
+
+  if [[ -d "$PLANS_DIR" ]]; then
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      [[ "$(get_field "$f" status)" == "active" ]] || continue
+      local pbranch
+      pbranch=$(get_field "$f" branch)
+      if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
+        branch_matched="$f"
+      fi
+      local mtime
+      mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      if (( mtime > newest_mtime )); then
+        newest_mtime=$mtime
+        newest="$f"
+      fi
+    done < <(find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+    active_plan="${branch_matched:-$newest}"
+  fi
+
+  if [[ -n "$active_plan" ]]; then
+    plan_slug=$(basename "$active_plan" .md)
+    current_phase_id=$(get_field "$active_plan" currentPhase)
+    if [[ -d "$INITIATIVES_DIR" && -n "$current_phase_id" ]]; then
+      while IFS= read -r f; do
+        [[ -z "$f" ]] && continue
+        [[ "$(get_field "$f" parentPlan)" == "$plan_slug" ]] || continue
+        [[ "$(get_field "$f" phaseId)" == "$current_phase_id" ]] || continue
+        [[ "$(get_field "$f" status)" == "active" ]] || continue
+        echo "$f"
+        return 0
+      done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+    fi
+  fi
+
+  if [[ -d "$INITIATIVES_DIR" && -n "$branch" ]]; then
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      [[ "$(get_field "$f" status)" == "active" ]] || continue
+      local fbranch
+      fbranch=$(get_field "$f" branch)
+      if [[ "$fbranch" == "$branch" || "$fbranch" == "${branch%%/*}" ]]; then
+        echo "$f"
+        return 0
+      fi
+    done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+  fi
+  echo ""
+}
+
+# Lists file paths written during the current turn. Reads the JSONL transcript
+# from `last_user_ts` forward and pulls `tool_use.input.file_path` for any
+# Write/Edit/MultiEdit/NotebookEdit invocation.
+list_files_written() {
+  local transcript=$1 last_user_ts=$2
+  [[ -f "$transcript" ]] || return 0
+  [[ -z "$last_user_ts" ]] && return 0
+  jq -r --arg ts "$last_user_ts" '
+    select(.timestamp > $ts
+      and .tool_use != null
+      and (.tool_use.name == "Write"
+        or .tool_use.name == "Edit"
+        or .tool_use.name == "MultiEdit"
+        or .tool_use.name == "NotebookEdit"))
+    | .tool_use.input.file_path // empty
+  ' "$transcript" 2>/dev/null | sort -u
+}
+
+# Returns 0 (in-scope) when $file_path starts with one of the scope prefixes
+# in $@. Paths are compared after normalizing $file_path relative to PROJ_DIR.
+path_in_scope() {
+  local file=$1; shift
+  local relative=$file
+  case "$file" in
+    "$PROJ_DIR"/*) relative="${file#$PROJ_DIR/}" ;;
+    /*) return 1 ;; # absolute path outside repo — out of scope
+  esac
+  for prefix in "$@"; do
+    # Treat trailing slash as directory, no slash as exact-or-prefix match.
+    case "$prefix" in
+      .) return 0 ;;
+      ./*) prefix="${prefix#./}" ;;
+    esac
+    if [[ "$relative" == "$prefix" || "$relative" == "$prefix"/* || "$relative" == "${prefix%/}"/* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Best-effort timestamp → epoch seconds. GNU `date -d`, BSD `date -j -f`,
+# python3 fallback.
+ts_to_epoch() {
+  local ts=$1
+  local out
+  out=$(date -d "$ts" +%s 2>/dev/null) && { echo "$out"; return; }
+  out=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${ts%.*}" +%s 2>/dev/null) && { echo "$out"; return; }
+  out=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "${ts%.*}Z" +%s 2>/dev/null) && { echo "$out"; return; }
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+from datetime import datetime
+import sys
+s = sys.argv[1].rstrip('Z')
+for fmt in ('%Y-%m-%dT%H:%M:%S.%f','%Y-%m-%dT%H:%M:%S'):
+    try:
+        print(int(datetime.strptime(s, fmt).timestamp())); break
+    except Exception: pass
+" "$ts" 2>/dev/null
+    return
+  fi
+  echo 0
+}
+
+# --- pre-flight bypasses ----------------------------------------------------
+
+# Emergency bypass (24h grace).
 if [[ -f "$SKIP_FLAG" ]]; then
   skip_mtime=$(stat -c %Y "$SKIP_FLAG" 2>/dev/null || stat -f %m "$SKIP_FLAG" 2>/dev/null || echo 0)
   now=$(date +%s)
   [[ $((now - skip_mtime)) -lt 86400 ]] && exit 0
 fi
 
-# Parse stdin payload
+# Parse stdin payload.
 payload=$(cat)
 transcript_path=$(printf '%s' "$payload" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
 stop_hook_active=$(printf '%s' "$payload" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
 
-# Loop prevention (Anthropic-recommended)
+# Anthropic-recommended loop prevention.
 [[ "$stop_hook_active" == "true" ]] && exit 0
 
-# Config must exist
+# Config + initiative resolution must both succeed; otherwise no-op.
 [[ ! -f "$CONFIG" ]] && exit 0
+strict_mode=$(jq -r '.strict_mode // false' "$CONFIG" 2>/dev/null || echo false)
+drift_threshold=$(jq -r '.drift_threshold // 0.5' "$CONFIG" 2>/dev/null || echo 0.5)
 
-strict_mode=$(jq -r '.strict_mode // false' "$CONFIG")
-mapfile -t source_globs < <(jq -r '.source_globs[]' "$CONFIG")
+branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
+  || git -C "$PROJ_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null \
+  || echo "")
+[[ "$branch" == "HEAD" ]] && branch=""
 
-# Determine active initiative by branch
-branch=$(git -C "$PROJ_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-[[ -z "$branch" ]] && exit 0
-
-active=""
-if [[ -d "$PROJ_DIR/.atomic-skills/initiatives" ]]; then
-  while IFS= read -r f; do
-    grep -q "^status: active$" "$f" && grep -q "^branch: $branch$" "$f" && { active="$f"; break; }
-  done < <(find "$PROJ_DIR/.atomic-skills/initiatives" -maxdepth 1 -name '*.md')
-fi
+active=$(detect_active_initiative "$branch")
 [[ -z "$active" ]] && exit 0
 
-# Check code edits since last user turn
+# --- drift check ------------------------------------------------------------
+
 [[ -z "$transcript_path" || ! -f "$transcript_path" ]] && exit 0
 
-last_user_ts=$(tac "$transcript_path" 2>/dev/null | grep -m1 '"role":"user"' | jq -r '.timestamp // empty' 2>/dev/null || echo "")
+# `tac` is GNU-only; `tail -r` is BSD-only. Portable approach: grep all user
+# turn lines and take the last one.
+last_user_ts=$(grep '"role":"user"' "$transcript_path" 2>/dev/null | tail -1 \
+  | jq -r '.timestamp // empty' 2>/dev/null || echo "")
 [[ -z "$last_user_ts" ]] && exit 0
 
-# Build regex from source_globs
-glob_pattern=$(IFS='|'; echo "${source_globs[*]}")
-code_edits=$(jq -r --arg ts "$last_user_ts" \
-  'select(.timestamp > $ts and (.tool_use.name == "Write" or .tool_use.name == "Edit")) | .tool_use.input.file_path // empty' \
-  "$transcript_path" 2>/dev/null | grep -E "$glob_pattern" || true)
-[[ -z "$code_edits" ]] && exit 0
+# Bash 3.2 (macOS default) lacks `mapfile`; use `while read` instead.
+scope_paths=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && scope_paths+=("$line")
+done < <(get_scope_paths "$active")
 
-# Check initiative mtime vs turn start
-initiative_mtime=$(stat -c %Y "$active" 2>/dev/null || stat -f %m "$active" 2>/dev/null || echo 0)
-turn_start_ts=$(date -d "$last_user_ts" +%s 2>/dev/null || echo 0)
-
-if [[ "$initiative_mtime" -lt "$turn_start_ts" ]]; then
-  msg="Code edited without updating $(basename "$active"). Update stack/parking lot/tasks before ending turn."
-  if [[ "$strict_mode" == "true" ]]; then
-    echo "$msg" >&2
-    exit 2
-  else
-    mkdir -p "$(dirname "$LOG")"
-    echo "[$(date -Iseconds)] DRY-RUN would-block: $msg" >> "$LOG"
-    exit 0
-  fi
+# Scope-less initiative → no drift check.
+if (( ${#scope_paths[@]} == 0 )); then
+  exit 0
 fi
+
+written=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && written+=("$line")
+done < <(list_files_written "$transcript_path" "$last_user_ts")
+total=${#written[@]}
+(( total == 0 )) && exit 0
+
+out_of_scope=0
+declare -a out_files=()
+for f in "${written[@]}"; do
+  [[ -z "$f" ]] && continue
+  if path_in_scope "$f" "${scope_paths[@]}"; then
+    continue
+  fi
+  out_of_scope=$((out_of_scope + 1))
+  out_files+=("$f")
+done
+
+# Threshold check via awk (pure-bash floats don't exist).
+should_warn=$(awk -v out="$out_of_scope" -v tot="$total" -v th="$drift_threshold" \
+  'BEGIN { print (tot > 0 && (out / tot) > th) ? "yes" : "no" }')
+[[ "$should_warn" != "yes" ]] && exit 0
+
+slug=$(basename "$active" .md)
+phase_id=$(get_field "$active" phaseId)
+parent_plan=$(get_field "$active" parentPlan)
+breadcrumb="$slug"
+[[ -n "$parent_plan" && -n "$phase_id" ]] && breadcrumb="${parent_plan}/${phase_id} ▸ ${slug}"
+
+msg="Session wrote ${out_of_scope}/${total} files outside the scope of active initiative ${breadcrumb}. Switch initiatives, expand scope.paths, or park the lateral work."
+
+if [[ "$strict_mode" == "true" ]]; then
+  echo "$msg" >&2
+  printf 'Out-of-scope files:\n' >&2
+  printf '  - %s\n' "${out_files[@]}" >&2
+  exit 2
+fi
+
+# Dry-run: append structured JSON line for later analysis.
+mkdir -p "$(dirname "$DRIFT_LOG")"
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+out_files_json=$(printf '%s\n' "${out_files[@]}" | jq -R . | jq -s . 2>/dev/null || echo '[]')
+jq -n --arg ts "$ts" --arg slug "$slug" --arg crumb "$breadcrumb" \
+  --argjson total "$total" --argjson out "$out_of_scope" \
+  --argjson th "$drift_threshold" --argjson files "$out_files_json" \
+  '{ts: $ts, mode: "dry-run", initiative: $slug, breadcrumb: $crumb,
+    total_files: $total, out_of_scope: $out, threshold: $th,
+    would_block: true, out_files: $files}' >> "$DRIFT_LOG"
 
 exit 0
