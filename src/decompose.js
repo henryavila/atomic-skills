@@ -105,8 +105,12 @@ const NUMBERED_PREFIX_RE = /^\d+(?:\.\d+)*\.?\s*/;
 
 // Heading marker H3 inside a phase section that signals "the next bullets are
 // tasks", not free-form notes. Matches Sub-fases / Sub-phases / Tasks /
-// Sub-tasks (PT + EN, with or without hyphen).
-const TASK_MARKER_H3_RE = /^(?:sub[-\s]?fases?|sub[-\s]?phases?|tasks?|sub[-\s]?tasks?)\b/i;
+// Sub-tasks (PT + EN, with or without hyphen). The marker must be the WHOLE
+// H3 title — optionally followed by a parenthesized suffix like `(menu)`.
+// Anchoring with `$` prevents `### Task one` or `### Tasks cleanup` from
+// being misclassified as a marker (which would then be dropped by Mode 2
+// fallback in extractTasks).
+const TASK_MARKER_H3_RE = /^(?:sub[-\s]?fases?|sub[-\s]?phases?|tasks?|sub[-\s]?tasks?)(?:\s*\([^)]*\))?\s*$/i;
 
 // Bold-prefix task bullet: `- **<id> — <title>.** body`. The `<id>` may carry
 // a phase prefix (`F0.T-001`) which we strip before storing.
@@ -757,6 +761,7 @@ export function materializeDecomposition(decompose, opts = {}) {
     const tasks = init.tasks.map((t) => ({
       id: t.id,
       title: t.title || `Task ${t.id}`,
+      ...(t.description ? { description: t.description } : {}),
       status: 'pending',
       lastUpdated: iso,
     }));

@@ -619,6 +619,131 @@ describe('C.T-005 — sda-v2 shape (i18n, numbered prefix, H3 principles, table 
   });
 });
 
+describe('Phase C extension codex review regression — F-001 (TASK_MARKER_H3_RE over-matches H3 task titles)', () => {
+  it('preserves `### Task one` H3 as a task in fallback mode (not misclassified as marker)', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### Task one',
+      '### Task two',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.initiatives[0].tasks.length, 2);
+    assert.equal(r.initiatives[0].tasks[0].title, 'Task one');
+    assert.equal(r.initiatives[0].tasks[1].title, 'Task two');
+  });
+
+  it('preserves `### Tasks cleanup` H3 as a task (marker requires whole-line match)', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### Tasks cleanup',
+      '### Other work',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.initiatives[0].tasks.length, 2);
+    assert.equal(r.initiatives[0].tasks[0].title, 'Tasks cleanup');
+  });
+
+  it('still recognises `### Sub-fases (menu)` as marker (parenthesized suffix allowed)', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### Sub-fases (menu)',
+      '- **F0.T-001 — A task.** body',
+      '- **F0.T-002 — Another.** body',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.initiatives[0].tasks.length, 2);
+    assert.equal(r.initiatives[0].tasks[0].id, 'T-001');
+    assert.equal(r.initiatives[0].tasks[0].title, 'A task');
+  });
+
+  it('still recognises bare `### Tasks` as marker (no suffix required)', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### Tasks',
+      '- **T-001 — Task A.** body',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.initiatives[0].tasks.length, 1);
+    assert.equal(r.initiatives[0].tasks[0].title, 'Task A');
+  });
+});
+
+describe('Phase C extension codex review regression — F-002 (materialize drops task.description)', () => {
+  const FROZEN_DATE = new Date('2026-05-20T12:00:00.000Z');
+
+  it('preserves bullet task description through materializeDecomposition', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### Sub-fases (menu)',
+      '- **F0.T-001 — Restore local infra.** Composer install, .env, PostgreSQL.',
+      '- **F0.T-002 — Pipeline.** Script reproduzível.',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'plan' });
+    // Decompose layer already captures description (regression guard)
+    assert.match(r.initiatives[0].tasks[0].description, /Composer install/);
+    // Materialize layer must preserve it (the F-002 fix)
+    const files = materializeDecomposition(r, { planSlug: 'plan', now: FROZEN_DATE });
+    const initFile = files.find((f) => f.kind === 'initiative');
+    const fm = parseYaml(initFile.content.split('---\n')[1]);
+    assert.equal(fm.tasks.length, 2);
+    assert.match(fm.tasks[0].description, /Composer install/);
+    assert.match(fm.tasks[1].description, /Script reproduzível/);
+    // Schema validation must still pass (description is optional per schema)
+    const validators = buildValidators();
+    assert.equal(validators.validateInitiative(fm), true);
+  });
+
+  it('omits the description field entirely when no description was parsed (regression guard for H3 fallback)', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### A first task',
+      '### A second task',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'plan' });
+    const files = materializeDecomposition(r, { planSlug: 'plan', now: FROZEN_DATE });
+    const fm = parseYaml(files[1].content.split('---\n')[1]);
+    for (const t of fm.tasks) {
+      assert.equal(Object.prototype.hasOwnProperty.call(t, 'description'), false, `unexpected description on ${t.id}`);
+    }
+  });
+});
+
 describe('Phase C codex review regression — F-004 (colon-separator bullets without leading whitespace)', () => {
   it('splits `- Term: definition` into term + definition (glossary)', () => {
     const md = [
