@@ -449,6 +449,176 @@ describe('Phase C codex review regression — F-003 (malformed exit_gate YAML su
   });
 });
 
+describe('C.T-005 — sda-v2 shape (i18n, numbered prefix, H3 principles, table glossary, bullet tasks, bold goal, prose exit-gate)', () => {
+  const SDA = readFileSync(join(__dirname, 'fixtures/project-plan/sda-v2-shape.md'), 'utf8');
+
+  it('detects PT principles section despite numbered prefix `## 2. Princípios invioláveis`', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.plan.principles.length, 3);
+  });
+
+  it('extracts principles from H3 children, deriving ids from numbered prefix (2.1 → P1, 2.2 → P2, …)', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.plan.principles[0].id, 'P1');
+    assert.equal(r.plan.principles[0].title, 'Fonte da verdade são os 2 dumps');
+    assert.match(r.plan.principles[0].body, /única fonte autoritativa/);
+    assert.equal(r.plan.principles[1].id, 'P2');
+    assert.match(r.plan.principles[1].title, /Determinismo total/);
+    assert.equal(r.plan.principles[2].id, 'P3');
+  });
+
+  it('detects PT glossary section despite numbered prefix `## 5. Glossário`', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.plan.glossary.length, 3);
+  });
+
+  it('extracts glossary from markdown table (header row skipped, cells stripped of bold)', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.plan.glossary[0].term, 'Tenant song');
+    assert.match(r.plan.glossary[0].definition, /tenant_id NOT NULL/);
+    assert.equal(r.plan.glossary[1].term, 'Collection song');
+    assert.equal(r.plan.glossary[2].term, 'Exit gate');
+  });
+
+  it('extracts goal from bold-prefix lines (`**Goal:** prose`)', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.match(r.initiatives[0].goal, /Resolver os dados/);
+    assert.match(r.initiatives[1].goal, /Redesenhar 100% do Filament/);
+    assert.match(r.initiatives[2].goal, /Validar end-to-end/);
+  });
+
+  it('extracts tasks from bullets under `### Sub-fases (menu)` H3 marker', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.initiatives[0].tasks.length, 3); // F0
+    assert.equal(r.initiatives[1].tasks.length, 2); // F1
+    assert.equal(r.initiatives[2].tasks.length, 1); // F8
+  });
+
+  it('strips phase prefix from task ids (`F0.T-001` → `T-001`)', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.initiatives[0].tasks[0].id, 'T-001');
+    assert.equal(r.initiatives[0].tasks[0].title, 'Restore local infra');
+    assert.equal(r.initiatives[0].tasks[1].id, 'T-002');
+    assert.equal(r.initiatives[1].tasks[0].id, 'T-001'); // F1 task numbering restarts per phase
+  });
+
+  it('captures task description (text after the `**id — title.**` bold prefix)', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.match(r.initiatives[0].tasks[0].description, /Composer install/);
+    assert.match(r.initiatives[1].tasks[0].description, /Adaptar v4/);
+  });
+
+  it('extracts prose exit-gate (`**Exit gate da fase:** prose`) when no fenced YAML present', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    assert.equal(r.initiatives[0].exitGates.length, 1);
+    assert.equal(r.initiatives[0].exitGates[0].id, 'G-1');
+    assert.equal(r.initiatives[0].exitGates[0].verifier.kind, 'manual');
+    assert.match(r.initiatives[0].exitGates[0].description, /core-v2/);
+  });
+
+  it('surfaces unrecognized structural sections as warnings (not errors)', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    const skipped = r.warnings.filter((w) => /Skipped H2 section/.test(w));
+    assert.ok(skipped.some((w) => /Sumário/.test(w)));
+    assert.ok(skipped.some((w) => /Contexto/.test(w)));
+    assert.ok(skipped.some((w) => /Fontes e referências/.test(w)));
+  });
+
+  it('materialize end-to-end produces schema-valid Plan + 3 Initiatives', () => {
+    const r = decomposePlan(SDA, { planSlug: 'sda' });
+    const files = materializeDecomposition(r, { planSlug: 'sda', branch: 'main', now: new Date('2026-05-20T12:00:00Z') });
+    assert.equal(files.length, 4); // 1 plan + 3 initiatives
+    const validators = buildValidators();
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    assert.equal(validators.validatePlan(planFm), true, `plan invalid: ${JSON.stringify(validators.validatePlan.errors)}`);
+    for (const f of files.filter((x) => x.kind === 'initiative')) {
+      const fm = parseYaml(f.content.split('---\n')[1]);
+      assert.equal(validators.validateInitiative(fm), true, `${f.slug} invalid: ${JSON.stringify(validators.validateInitiative.errors)}`);
+    }
+  });
+
+  it('YAML exit-gate takes priority over prose when both present', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '**Exit gate da fase:** prose version',
+      '',
+      '```yaml',
+      'exit_gate:',
+      '  - id: F0-G1',
+      '    description: yaml version',
+      '    verifier: { kind: shell, command: "echo ok", expectExitCode: 0 }',
+      '```',
+      '',
+      '### Sub-fases (menu)',
+      '- **F0.T-001 — Task.** body',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.initiatives[0].exitGates.length, 1);
+    assert.equal(r.initiatives[0].exitGates[0].verifier.kind, 'shell');
+    assert.equal(r.initiatives[0].exitGates[0].description, 'yaml version');
+  });
+
+  it('H3-as-task fallback still works when no Sub-fases marker H3 present (regression guard)', () => {
+    const md = [
+      '# T',
+      '',
+      '## F0 — S',
+      '',
+      '**Goal:** g',
+      '',
+      '### Direct task one',
+      '### Direct task two',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.initiatives[0].tasks.length, 2);
+    assert.equal(r.initiatives[0].tasks[0].title, 'Direct task one');
+  });
+
+  it('falls back from H3-principles to bullet-principles when section has 0–1 H3s', () => {
+    const md = [
+      '# T',
+      '',
+      '## Principles',
+      '',
+      '- **P1 Truth source** — Single dump is authoritative.',
+      '- **P2 Determinism** — No LLM at runtime.',
+      '',
+      '## F0 — S',
+      '### A',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.plan.principles.length, 2);
+    assert.equal(r.plan.principles[0].id, 'P1');
+    assert.equal(r.plan.principles[0].title, 'Truth source');
+  });
+
+  it('falls back from table-glossary to bullet-glossary when no table present', () => {
+    const md = [
+      '# T',
+      '',
+      '## Glossary',
+      '',
+      '- **Tenant song** — Owned by a tenant.',
+      '- **Collection song** — Shared catalog.',
+      '',
+      '## F0 — S',
+      '### A',
+      '',
+    ].join('\n');
+    const r = decomposePlan(md, { planSlug: 'x' });
+    assert.equal(r.plan.glossary.length, 2);
+    assert.equal(r.plan.glossary[0].term, 'Tenant song');
+  });
+});
+
 describe('Phase C codex review regression — F-004 (colon-separator bullets without leading whitespace)', () => {
   it('splits `- Term: definition` into term + definition (glossary)', () => {
     const md = [

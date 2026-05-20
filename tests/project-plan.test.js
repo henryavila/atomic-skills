@@ -81,8 +81,14 @@ describe('project-plan skill (C.T-001 scaffold)', () => {
     // Heuristics: plan title, narrative, principles, glossary, phases, exit-gate, warnings, no-phase guard
     assert.match(content, /first H1.*plan\.title/);
     assert.match(content, /plan\.narrative/);
-    assert.match(content, /starts with `principle`/);
-    assert.match(content, /starts with `glossary`/);
+    assert.match(content, /starts with `princip`/);
+    assert.match(content, /starts with `glossar`/);
+    // C.T-005 additions
+    assert.match(content, /numbered prefixes/);
+    assert.match(content, /Princípios invioláveis/);
+    assert.match(content, /Sub-fases bullet mode/);
+    assert.match(content, /Prose mode/);
+    assert.match(content, /Duplicate phase id guard/);
     assert.match(content, /F\\d\+/); // phase regex documented
     assert.match(content, /exit_gate.*exitGate/);
     assert.match(content, /Unrecognized H2/);

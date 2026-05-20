@@ -95,10 +95,47 @@ const H2_RE = /^##\s+(.+?)\s*$/;
 const H3_RE = /^###\s+(.+?)\s*$/;
 const PHASE_H2_RE = /^(F\d+)\b\s*[-—–]?\s*(.*)$/i;
 const TASK_ID_RE = /^((?:T[-.]?\d+(?:\.\d+)?))\s+(.+)$/i;
-const GOAL_PREFIX_RE = /^(?:goal|objetivo)\s*:\s*(.+)$/i;
 const FENCED_YAML_RE = /^```(?:yaml|yml)\s*$/i;
 const FENCE_CLOSE_RE = /^```\s*$/;
 const BULLET_RE = /^\s*[-*]\s+(.+)$/;
+
+// Numbered prefix on headings like `## 2. Princípios invioláveis` or
+// `### 2.1 Fonte da verdade`. Stripped before content matching.
+const NUMBERED_PREFIX_RE = /^\d+(?:\.\d+)*\.?\s*/;
+
+// Heading marker H3 inside a phase section that signals "the next bullets are
+// tasks", not free-form notes. Matches Sub-fases / Sub-phases / Tasks /
+// Sub-tasks (PT + EN, with or without hyphen).
+const TASK_MARKER_H3_RE = /^(?:sub[-\s]?fases?|sub[-\s]?phases?|tasks?|sub[-\s]?tasks?)\b/i;
+
+// Bold-prefix task bullet: `- **<id> — <title>.** body`. The `<id>` may carry
+// a phase prefix (`F0.T-001`) which we strip before storing.
+const TASK_BULLET_RE = /^\s*[-*]\s*\*\*([^*]+?)\*\*\s*(.*)$/;
+
+// Plain-bullet task fallback: `- T-001 Title` or `- T0.1 Title`.
+const TASK_PLAIN_BULLET_RE = /^\s*[-*]\s*(T-?\d+(?:\.\d+)?|\d+\.\d+)\s+(.+)$/i;
+
+/**
+ * Lowercase, strip diacritics, strip leading numbered prefix.
+ * Used for section-name matching so PT (`Princípios invioláveis`,
+ * `Glossário`) and numbered-prefix English (`## 2. Principles`) both detect.
+ */
+function normalizeHeading(title) {
+  return String(title || '')
+    .replace(NUMBERED_PREFIX_RE, '')
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Strip markdown bold markers (`**`) for pattern matching without losing
+ * other content. Used by extractGoal + extractExitGateProse.
+ */
+function stripBold(s) {
+  return s.replace(/\*\*/g, '');
+}
 
 function slugify(str, max = 60) {
   return String(str || '')
@@ -232,28 +269,89 @@ function extractFirstYamlBlock(bodyLines, key, warnings, phaseId) {
 }
 
 function extractGoal(bodyLines) {
+  // Accepts `Goal: ...`, `**Goal:** ...`, `**Goal**: ...`, `**Objetivo:** ...`,
+  // and bolded value (`**Goal:** **prose**`).
   for (const line of bodyLines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     if (H3_RE.test(trimmed)) break; // tasks start
-    const m = trimmed.match(GOAL_PREFIX_RE);
+    const stripped = stripBold(trimmed);
+    const m = stripped.match(/^(?:goal|objetivo)\s*:\s*(.+)$/i);
     if (m) return m[1].trim();
-    // First non-empty, non-H3 paragraph that isn't a fenced block or bullet
-    // is treated as goal candidate ONLY when prefix-matched. Otherwise
-    // we leave goal empty and the user fills it.
   }
   return '';
 }
 
+function parseTaskBullet(line, autoCounter) {
+  // Mode 1: bold-prefix bullet `- **<id> — <title>.** body`
+  const bold = line.match(TASK_BULLET_RE);
+  if (bold) {
+    const boldContent = bold[1].trim();
+    const descRaw = bold[2].trim().replace(/^[\s—–-]+/, '');
+    const split = splitOnSeparator(boldContent);
+    let id;
+    let title;
+    if (split) {
+      id = split.head;
+      title = split.tail.replace(/\.$/, '').trim();
+    } else {
+      id = `T-${String(autoCounter).padStart(3, '0')}`;
+      title = boldContent.replace(/\.$/, '').trim();
+    }
+    // Strip phase prefix like `F0.` from id so the stored id is the
+    // intra-initiative id (`T-001`) that matches the initiative task array.
+    const idClean = id.replace(/^F\d+[.\-]\s*/i, '').trim();
+    return {
+      id: idClean || id,
+      title: title || `Task ${autoCounter}`,
+      ...(descRaw ? { description: descRaw } : {}),
+    };
+  }
+  // Mode 2: plain bullet `- T-001 title — extra`
+  const plain = line.match(TASK_PLAIN_BULLET_RE);
+  if (plain) {
+    const split = splitOnSeparator(plain[2]);
+    return {
+      id: plain[1].toUpperCase(),
+      title: split ? split.head : plain[2].trim(),
+      ...(split && split.tail ? { description: split.tail } : {}),
+    };
+  }
+  return null;
+}
+
 function extractTasks(bodyLines) {
-  // Each H3 line becomes a task. Lines between H3s are NOT captured as
-  // descriptions in v0.1 — keeps the proposal short. The skill body can
-  // add a follow-up prompt asking the user to describe each task.
+  // Mode 1: bullets under a marker H3 (`### Sub-fases`, `### Tasks`, …).
+  // The bullets must start with `- **<id> — <title>.**` to qualify.
+  let markerIdx = -1;
+  for (let i = 0; i < bodyLines.length; i++) {
+    const m = bodyLines[i].match(H3_RE);
+    if (!m) continue;
+    const h3Title = normalizeHeading(m[1]);
+    if (TASK_MARKER_H3_RE.test(h3Title)) {
+      markerIdx = i;
+      break;
+    }
+  }
+  if (markerIdx >= 0) {
+    const tasks = [];
+    let counter = 0;
+    for (let i = markerIdx + 1; i < bodyLines.length; i++) {
+      if (H3_RE.test(bodyLines[i])) break;
+      const t = parseTaskBullet(bodyLines[i], counter + 1);
+      if (!t) continue;
+      counter += 1;
+      tasks.push(t);
+    }
+    if (tasks.length > 0) return tasks;
+  }
+  // Mode 2: H3 = task (fallback). Skips marker H3s.
   const tasks = [];
   let counter = 0;
   for (const line of bodyLines) {
     const m = line.match(H3_RE);
     if (!m) continue;
+    if (TASK_MARKER_H3_RE.test(normalizeHeading(m[1]))) continue;
     counter += 1;
     const raw = m[1];
     const idMatch = raw.match(TASK_ID_RE);
@@ -262,6 +360,118 @@ function extractTasks(bodyLines) {
     tasks.push({ id, title });
   }
   return tasks;
+}
+
+function extractPrinciples(bodyLines) {
+  // Mode 1: H3 children (each H3 = one principle; body = paragraphs until
+  // the next H3). Triggered when the section has ≥ 2 H3s.
+  const h3Hits = [];
+  for (let i = 0; i < bodyLines.length; i++) {
+    const m = bodyLines[i].match(H3_RE);
+    if (m) h3Hits.push({ idx: i, title: m[1] });
+  }
+  if (h3Hits.length >= 2) {
+    const principles = [];
+    for (let i = 0; i < h3Hits.length; i++) {
+      const h3 = h3Hits[i];
+      const start = h3.idx + 1;
+      const end = i + 1 < h3Hits.length ? h3Hits[i + 1].idx : bodyLines.length;
+      const bodyText = bodyLines.slice(start, end).join('\n').trim();
+      let id = `P${i + 1}`;
+      let titleText = h3.title;
+      const numMatch = titleText.match(/^(\d+(?:\.\d+)*)\s+(.+)$/);
+      if (numMatch) {
+        const lastSeg = numMatch[1].split('.').pop();
+        id = `P${lastSeg}`;
+        titleText = numMatch[2].trim();
+      } else {
+        const pMatch = titleText.match(/^(P-?\d+)\b[\s:.\-—–]+(.*)$/i);
+        if (pMatch) {
+          id = pMatch[1].toUpperCase().replace('-', '');
+          titleText = pMatch[2].trim();
+        }
+      }
+      principles.push({ id, title: titleText, body: bodyText });
+    }
+    return principles;
+  }
+  // Mode 2: bullets (fallback)
+  const bulletPrinciples = [];
+  let autoCounter = 0;
+  for (const line of bodyLines) {
+    const m = line.match(BULLET_RE);
+    if (!m) continue;
+    autoCounter += 1;
+    bulletPrinciples.push(parsePrincipleBullet(m[1], `P${autoCounter}`));
+  }
+  return bulletPrinciples;
+}
+
+function extractGlossary(bodyLines) {
+  // Mode 1: markdown table `| Termo | Significado |`. Detected by ≥ 1 pipe-
+  // delimited row plus a separator row of dashes.
+  const tableRows = [];
+  let sawSeparator = false;
+  for (const line of bodyLines) {
+    const trimmed = line.trim();
+    if (!/^\|.*\|$/.test(trimmed)) continue;
+    // Separator row: cells contain only dashes/colons/spaces
+    const inner = trimmed.slice(1, -1);
+    if (/^[\s\-:|]+$/.test(inner)) {
+      sawSeparator = true;
+      continue;
+    }
+    const cells = inner.split('|').map((c) => c.trim());
+    if (cells.length < 2) continue;
+    tableRows.push(cells);
+  }
+  if (sawSeparator && tableRows.length > 0) {
+    let dataRows = tableRows;
+    const headerKw = /^(termo|term|word|definicao|definition|significado|meaning)$/i;
+    const firstStripped = tableRows[0].map((c) => normalizeHeading(c.replace(/\*+/g, '')));
+    if (firstStripped.every((c) => headerKw.test(c))) {
+      dataRows = tableRows.slice(1);
+    }
+    const entries = [];
+    for (const row of dataRows) {
+      const term = (row[0] || '').replace(/\*+/g, '').trim();
+      const definition = (row[1] || '').replace(/\*+/g, '').trim();
+      if (term && definition) entries.push({ term, definition });
+    }
+    if (entries.length > 0) return entries;
+  }
+  // Mode 2: bullets (fallback)
+  const bulletEntries = [];
+  for (const line of bodyLines) {
+    const m = line.match(BULLET_RE);
+    if (!m) continue;
+    const entry = parseGlossaryBullet(m[1]);
+    if (entry.term && entry.definition) bulletEntries.push(entry);
+  }
+  return bulletEntries;
+}
+
+function extractExitGateProse(bodyLines) {
+  // Looks for a line like `**Exit gate da fase:** prose` (PT/EN bold-prefix
+  // variants). Returns a single manual-verifier criterion when found.
+  for (const line of bodyLines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const stripped = stripBold(trimmed);
+    const m = stripped.match(/^(?:exit\s+gate(?:\s+da\s+fase)?|gate\s+de\s+saida(?:\s+da\s+fase)?)\s*:\s*(.+)$/i);
+    if (m) {
+      const description = m[1].trim();
+      if (description) {
+        return [{
+          id: 'G-1',
+          description,
+          status: 'pending',
+          verifier: { kind: 'manual', description: 'Verify exit-gate prose with the user during phase-done.' },
+        }];
+      }
+    }
+  }
+  return null;
 }
 
 function normalizeExitGateCriteria(raw) {
@@ -334,32 +544,23 @@ export function decomposePlan(markdown, opts = {}) {
   const phaseIds = [];
 
   for (const section of sections) {
-    const titleLower = section.title.toLowerCase().trim();
+    const normalized = normalizeHeading(section.title);
 
-    // Principles section
-    if (/^(inviolable\s+)?principle/.test(titleLower)) {
-      let autoCounter = 0;
-      for (const line of section.bodyLines) {
-        const m = line.match(BULLET_RE);
-        if (!m) continue;
-        autoCounter += 1;
-        principles.push(parsePrincipleBullet(m[1], `P${autoCounter}`));
-      }
+    // Principles section (EN `principles` / PT `princípios`; numbered prefix
+    // like `## 2. ...` is stripped by normalizeHeading).
+    if (/^(inviolable\s+)?princip/.test(normalized)) {
+      for (const p of extractPrinciples(section.bodyLines)) principles.push(p);
       continue;
     }
 
-    // Glossary section
-    if (/^glossary/.test(titleLower)) {
-      for (const line of section.bodyLines) {
-        const m = line.match(BULLET_RE);
-        if (!m) continue;
-        const entry = parseGlossaryBullet(m[1]);
-        if (entry.term) glossary.push(entry);
-      }
+    // Glossary section (EN `glossary` / PT `glossário`).
+    if (/^glossar/.test(normalized)) {
+      for (const g of extractGlossary(section.bodyLines)) glossary.push(g);
       continue;
     }
 
-    // Phase section
+    // Phase section — phase H2s are NOT stripped of numbered prefix (the
+    // `F<N>` token is the phase id and must remain at the start of the title).
     const phaseMatch = section.title.match(PHASE_H2_RE);
     if (phaseMatch) {
       const phaseId = phaseMatch[1].toUpperCase();
@@ -375,7 +576,10 @@ export function decomposePlan(markdown, opts = {}) {
       const tasks = extractTasks(section.bodyLines);
       const exitGateRaw = extractFirstYamlBlock(section.bodyLines, 'exit_gate', warnings, phaseId)
         ?? extractFirstYamlBlock(section.bodyLines, 'exitGate', warnings, phaseId);
-      const exitGates = normalizeExitGateCriteria(exitGateRaw);
+      const exitGatesFromYaml = normalizeExitGateCriteria(exitGateRaw);
+      const exitGates = exitGatesFromYaml.length > 0
+        ? exitGatesFromYaml
+        : (extractExitGateProse(section.bodyLines) || []);
 
       initiatives.push({
         phaseId,
