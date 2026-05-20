@@ -299,23 +299,32 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 1. Locate task in `tasks:` (array). Find the entry where `id === <task-id>`.
 2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.
 3. Save the initiative file.
-4. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero AND the initiative has a `parentPlan`:
-   - Announce: "Last task of `<phaseId>` closed. Run `phase-done` to verify exit gates?"
-   - Do NOT automatically run `phase-done` — the user opts in (intrusive-actions rule).
+4. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
+   - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
+   - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
+   - Do NOT automatically run `phase-done` or `archive` — the user opts in (intrusive-actions rule).
 5. Announce the task closure.
 
 ### `phase-done`
 
-Invoked when the active initiative is the phase initiative of an active plan AND all its tasks are closed. Iterates the phase's exit gate criteria and asks for verification.
+Invoked when the active initiative is the phase initiative of an active plan AND all its tasks are closed. Iterates the phase's exit gate criteria, archives the phase initiative, advances `currentPhase` per the dependency graph, and seeds the next phase's initiative.
 
 1. Load the active initiative. Verify it has `parentPlan` + `phaseId` set. Else abort.
 2. Load the parent plan from `.atomic-skills/plans/<parentPlan>.md`. Locate the phase by `phaseId`. Read `phase.exitGate.criteria` AND `initiative.exitGates` (combine; phase-level criteria are authoritative for the gate).
 3. For each criterion (status === `pending`) → apply the **Verifier execution patterns** below.
-4. After iterating: report status summary. If all criteria `met`:
-   - Set the initiative's `status: done`, `lastUpdated: <now>`.
-   - Update the parent plan: set the matching phase's `status: done`. If the plan has a `dependsOn` graph, compute the next eligible phase and propose: "Phase `<id>` done. Advance `currentPhase` to `<next>`? (y/N)". On y, update plan `currentPhase` + offer to `new <next-phase-slug>` initiative.
-   - Save both files. Update PROJECT-STATUS.md.
-5. If any criterion is `pending` after iteration: ask "Some gates remain pending. Mark phase done anyway? (y/N)". On `n`, leave initiative in `active` state. On `y`, document the override (set `deferredReason` on the remaining criteria, mark phase done).
+4. After iterating: report status summary. Continue to advance only when every criterion is `met` OR was explicitly `deferred` with a `deferredReason`.
+5. If any criterion is still `pending` after iteration: ask "Some gates remain pending. Mark phase done anyway? (y/N)". On `n`, leave initiative in `active` state and stop. On `y`, document the override (set `deferredReason` on the remaining criteria) and proceed to step 6.
+6. **Advance the plan** — call `src/transition.js`:`proposeAdvance(plan, phaseId)` to decide what's next. The function returns one of three shapes:
+   - `{ kind: 'plan-done', eligible: [] }` — no more eligible phases. Offer to mark the plan itself `status: done` and `archive` it.
+   - `{ kind: 'single', next: '<id>', alternatives: [...] }` — propose "Phase `<id>` done. Advance `currentPhase` to `<next>`? (y/N)". List `alternatives` so the user can override before accepting.
+   - `{ kind: 'parallel-choice', eligible: [...] }` — when the plan has `parallelismAllowed: true`, ask "Which of `<eligible...>` should be activated now? Select one or more (or `none`)".
+   Before presenting any of the above, call `src/transition.js`:`unknownDeps(plan)`. If it returns non-empty, surface the typos to the user and abort the advance — the dependency graph is broken.
+7. On the user's accept of an advance:
+   - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>`. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
+   - Run `archive <slug>` on the just-closed initiative so its file moves to `initiatives/archive/`.
+   - For each newly-active phase id, propose `new <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new` flow already seeds the initiative's first stack frame from `initiative.template.md`.
+   - Save the plan + PROJECT-STATUS.md.
+8. On user decline (or `plan-done` accept without `currentPhase` change): set the parent plan's phase `status: done` and stop without seeding a successor.
 
 ### Verifier execution patterns (`verify_exit_gate` workflow)
 
