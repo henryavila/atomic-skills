@@ -151,7 +151,8 @@
         "exitGateType": {
           "type": "string",
           "enum": ["standard", "ui-gate", "custom"]
-        }
+        },
+        "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
       }
     }
   }

@@ -19,6 +19,29 @@
       "pattern": "^[a-z][a-z0-9-]{1,63}$",
       "description": "kebab-case identifier. Lowercase, starts with letter, 2-64 chars."
     },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surfacedAt"],
+      "description": "Records when and how an item (task or phase) was added AFTER the initial materialization of its container. Absent on items that shipped in the original plan/initiative; present on items added mid-execution via the agent-proposes / user-invokes flow described in skills/en/core/project-status.md.",
+      "properties": {
+        "surfacedAt": { "$ref": "#/$defs/isoTimestamp" },
+        "surfacedDuring": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Either `<initiative-slug>/<task-id>` (most common: emerged while working on a specific task) or `<initiative-slug>` (emerged during initiative-level work) or a short free-form note when no anchor is appropriate."
+        },
+        "surfacedBy": {
+          "type": "string",
+          "enum": ["human", "ai"],
+          "description": "Who surfaced the item — human in conversation, or AI that noticed it while working."
+        },
+        "originalPhaseId": {
+          "type": "string",
+          "description": "For tasks moved cross-phase via reanchor: the phase the task originally belonged to."
+        }
+      }
+    },
     "artifactRef": {
       "type": "object",
       "additionalProperties": false,

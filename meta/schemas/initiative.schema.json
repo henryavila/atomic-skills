@@ -158,7 +158,8 @@
           "type": "object",
           "additionalProperties": { "type": "integer", "minimum": 0 }
         },
-        "verifier": { "$ref": "common.schema.json#/$defs/exitCriterionVerifier" }
+        "verifier": { "$ref": "common.schema.json#/$defs/exitCriterionVerifier" },
+        "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
       }
     },
     "taskOutput": {

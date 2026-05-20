@@ -225,6 +225,11 @@ Quick map (mutations that exist + their section anchor):
 | `migrate <slug>` | Migrate a legacy file to schema 0.1 |
 | `detect-scope` | Suggest scope.paths from recent git activity |
 | `review-due` | Cross-model codex review against the diff since last review |
+| `new-task [--target <phaseId>] "<title>"` | Add a task to current OR specified initiative (records provenance) |
+| `new-phase <id> "<title>" --after <other-id>` | Insert a new phase into the active plan + materialize its initiative |
+| `split-phase <id>` | Split an over-sized phase into two sub-phases (archives the original) |
+| `emerge --target <phaseId> "<title>"` | Cross-phase emergence (adds to target phase's initiative, not the active one) |
+| `scope-creep` | On-demand drift report (phases grew, scope expansion %, parked zombies) |
 
 **Pre-mutation migration check** — every time you load an existing initiative or plan for mutation:
 1. Parse its frontmatter.
@@ -489,6 +494,154 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
    - Set target initiative to `status: active`.
    - Update PROJECT-STATUS.md.
 4. Announce.
+
+## Emergent work — proposal / commit pattern
+
+Work that surfaces mid-execution (new task, new phase, scope split) is the most common reason a 10-phase × 10-task plan drifts into 14-phase × 18-task chaos. This skill handles it through an **agent-proposes / user-invokes** pattern: the agent never silently mutates plan structure; it prints a copy-pasteable command and waits for the user to invoke it.
+
+### When the agent enters proposal mode
+
+Any time the user says (in conversation) something like:
+
+> "while doing this, I realized we also need to <X>"
+> "this depends on something we haven't planned"
+> "we should add a task to fix <Y> before continuing"
+> "<Z> is bigger than we thought, needs its own phase"
+
+The agent does NOT add anything directly. It classifies the request through the **emergence ladder** below, picks the right magnitude, prints a `Proposed mutation:` block, and waits for the user to either:
+
+- copy-paste the command into the terminal, or
+- explicitly authorize ("ok", "do it", "yes apply"), in which case the agent runs the same command itself.
+
+### Emergence ladder (which command for which magnitude)
+
+| Magnitude | Surface | Command |
+|---|---|---|
+| **1.** Note for later, no decision | "we should think about Z eventually" | `park "<title>"` (existing) |
+| **2.** Real follow-up worth promoting | "Z deserves its own initiative someday" | `emerge "<title>"` (existing) |
+| **3.** Promote a parked/emerged item to a task | "let's actually do that parked thing" | `promote <title-or-idx>` (existing) |
+| **4.** New task in CURRENT phase | "T-002 needs T-008 to run first" | `new-task "<title>" [--blocked-by T-002] [--tags ...]` |
+| **5.** New task in DIFFERENT phase | "F2 needs an extra task before it can finish" | `new-task --target F2 "<title>"` |
+| **6.** New phase inserted into the plan | "Need a validation phase F0.5 between F0 and F1" | `new-phase <id> "<title>" --after <other-id> [--parallel-with ...]` |
+| **7.** Phase grew too big — split | "F2 is now 18 tasks, split into F2a + F2b" | `split-phase <id>` |
+| **8.** Strategic shift — half the plan is wrong | "rethink everything, this is a different project" | `atomic-skills:project-plan adopt <new-source.md>` with `supersedes` link (existing) |
+
+The ladder doubles in cost per step. The agent picks the lowest rung that fits — promoting up only when explicitly justified.
+
+### Proposed-mutation print format
+
+The agent's proposal block must follow this exact shape. The user can copy the `atomic-skills:project-status …` line and paste it directly:
+
+```
+Proposed mutation: <magnitude name, e.g. "new task in different phase">
+
+  atomic-skills:project-status new-task --target F2 \
+    --title "Add canary smoke test for cross-landlord case" \
+    --blocked-by T-002 \
+    --tags critical
+
+  Provenance: surfaced during F0/T-002 (this conversation)
+  Reasoning:  <one line: why this is the right magnitude, not lower/higher>
+  Cost:       <fast / medium / heavy — what changes on disk>
+
+To apply: paste the command above, or reply with "do it" / "yes".
+```
+
+The `Reasoning` line is mandatory. It forces the agent to defend why magnitude N and not N-1 was chosen — defends against scope inflation.
+
+### `new-task [--target <phaseId>] "<title>" [options]`
+
+Adds a task to an active initiative.
+
+Options:
+- `--target <phaseId>` (default: current active initiative). If specified, finds the active initiative whose `phaseId` matches.
+- `--blocked-by <task-id>[,<task-id>...]` — sets `blockedBy[]`.
+- `--tags <tag>[,<tag>...]` — sets `tags[]`.
+- `--verifier-shell "<command>"` — sets `verifier: { kind: shell, command: ... }`.
+- `--description "<text>"` — sets `description`.
+
+Steps:
+1. Resolve target initiative (current active OR by `--target` phaseId).
+2. Generate next task id: scan `tasks[].id`, pick the next `T-NNN` (zero-pad to 3).
+3. Build the task object: `{id, title, status: pending, lastUpdated: now, …}`.
+4. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: "human" }`. If the user invoked the command after agent proposal in conversation, set `surfacedBy: "ai"` — capture who first noticed.
+5. Append to `tasks[]`, bump initiative `lastUpdated`.
+6. Validate against schema. Save file.
+7. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
+
+### `new-phase <id> "<title>" --after <other-id> [options]`
+
+Inserts a new phase into the active plan. Heavy ritual — creates a new initiative file too.
+
+Options:
+- `<id>` — phase id, must be unique. Convention: use `<base>.5` for inserts (`F0.5`), or next integer for appends.
+- `<title>` — phase title.
+- `--after <other-id>` — the phase this new one depends on. Sets `dependsOn: [<other-id>]`.
+- `--parallel-with <id>` — declares parallel pairing.
+- `--track <id>` — assigns to a track if the plan has them.
+- `--goal "<text>"` — short goal sentence.
+
+Steps:
+1. Load the active plan. If no active plan, abort with: "new-phase requires an active plan. Use `atomic-skills:project-plan` to create one."
+2. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
+3. Show the user the proposed phase descriptor (frontmatter shape) + the change to `phases[]` order. Ask: "Insert phase `<id>` after `<other-id>` and materialize initiative `<plan-slug>-<id>-<slug>`? (y/N)"
+4. On `y`:
+   - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }`.
+   - Create the initiative file `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md` from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
+   - Save plan + initiative.
+   - Validate both files via `npm run validate-state`.
+5. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
+6. **MANDATORY review**: run `atomic-skills:review-plan-internal` against the updated plan (Stage 8a equivalent). Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
+
+### `split-phase <id>`
+
+A phase has grown too big. Split into two — typically `<id>a` and `<id>b`, but the user picks names interactively.
+
+Steps:
+1. Load the active plan + the phase's initiative. Show current state: N tasks, growth ratio, parked count.
+2. Ask the user: "Split `<id>` into how many sub-phases? Suggest names + which tasks go to each."
+3. Materialize the new phases (using `new-phase` semantics — provenance + plan body update + new initiative files).
+4. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks.
+5. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to `initiatives/archive/`.
+6. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
+7. Validate everything. Roll back on any failure.
+
+### `emerge --target <phaseId> "<title>"`
+
+Extension of the existing `emerge` command. Without `--target`, behaves as today (adds to current initiative's `emerged[]`). With `--target`, adds to the target phase's initiative `emerged[]` instead — useful when the surfacing context is task-A-in-F0 but the emerging item belongs to F2.
+
+The `emerged[]` entry carries provenance just like tasks do.
+
+### `scope-creep` (view command)
+
+On-demand drift report. Renders the output of `src/scope-drift.js`:`computeDrift(plan, initiatives)` formatted for terminal.
+
+Output sections:
+- **Header**: plan slug + total phases + plan-wide scope expansion %
+- **Phases that grew** (table): phase id, initiative slug, original/added/growth%, closed?
+- **Phases added mid-execution** (list): phase id + provenance.surfacedAt + surfacedDuring
+- **Parked zombies** (table): initiative · title · age in days. Default threshold: 30 days. Configurable via `.atomic-skills/status/config.json` `parkedZombieDays`.
+- **Recommendation footer**: e.g. "F0 grew 67% — consider `split-phase F0`. 3 parked zombies older than 30d — `promote` or `park <idx> --delete`."
+
+The command is read-only. It surfaces drift; it does not mutate.
+
+### Default view — DRIFT banner
+
+Whenever the default view renders an active initiative, also call `computeDrift(plan, allInitiatives)` and `renderBanner(report)` from `src/scope-drift.js`. If the banner is non-null, prepend it to the default-view output (above the header line) with a leading `⚠ ` glyph and color it yellow (status-blocked).
+
+Thresholds (default, configurable per-repo via `.atomic-skills/status/config.json`):
+
+- `phaseGrowthPctWarn`: 40
+- `scopeExpansionPctWarn`: 25
+- `parkedZombieDays`: 30
+
+The banner is informational — it does not block any command. The user can ignore it. But the next `phase-done` flow (see Codex review tracking integration above) re-checks drift and surfaces a stronger prompt before archive.
+
+### Why provenance lives on the item itself (not a separate log)
+
+Task and phase objects carry an optional `provenance: { surfacedAt, surfacedDuring, surfacedBy, originalPhaseId? }` field (schema: `common.schema.json#/$defs/provenance`). This is mandatory for items added via `new-task`, `new-phase`, `split-phase`, `promote`, `emerge --target`, but absent on items shipped in the original plan/initiative materialization.
+
+The choice (vs a separate `.atomic-skills/changelog.jsonl`) was deliberate: provenance stays with the data, survives initiative archive, is auditable with `grep -A 2 "surfacedDuring" .atomic-skills/`, and doesn't require dual-write on every mutation. Cost: no chronological cross-cuts the way a single log would give. The `scope-creep` view is the workaround — it aggregates provenance across all initiatives into a chronologically-ordered table on demand.
 
 ## aiDeck integration
 
