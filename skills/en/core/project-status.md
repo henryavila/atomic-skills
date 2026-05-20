@@ -469,6 +469,47 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
    - Update PROJECT-STATUS.md.
 4. Announce.
 
+## aiDeck MCP integration
+
+When [aiDeck](https://github.com/henryavila/aideck) is running alongside Claude Code, it exposes mutating tools over MCP. Use them in preference to direct file writes — aiDeck owns conflict resolution, file-watcher debouncing, and broadcast to connected dashboards, so going through MCP keeps the dashboard view in sync and avoids lost updates when a human is editing the same file via the UI.
+
+**Detection rule** (per turn, not cached): a single MCP tool named like `mcp__*aideck*__get_state` (or `mcp__aideck__get_state`, depending on the connector's namespacing convention) being present in the current tool set means aiDeck is connected. The matching set of `mcp__*aideck*__*` tools listed in `aideck/docs/mcp-tools.md` then becomes the canonical path for mutations.
+
+**Fallback rule**: when none of the `mcp__*aideck*__*` tools are listed, the skill operates exclusively on the filesystem under `.atomic-skills/` — every command in this document already describes that path. The two modes must produce equivalent on-disk state, so a session that starts with aiDeck running can finish without it (or vice versa) with no migration.
+
+**Command → MCP tool map**. For each mutating command in this skill, prefer the listed MCP tool when available; otherwise use the file-mutation steps documented in that command's section.
+
+| Skill command | Preferred MCP tool | Notes |
+|---|---|---|
+| `new-plan <slug>` | `mcp__*aideck*__update_initiative_status` *(create-plan tool TBD in aiDeck)* | When no create-plan tool exists, write the file directly and aiDeck's watcher will pick it up. |
+| `new <slug>` | direct file write | aiDeck v0.1 doesn't expose a `create_initiative` tool; rely on the watcher. |
+| `push <description>` | `mcp__*aideck*__push_frame` | One frame per call. |
+| `pop --resolve` / `--park` / `--emerge` | `mcp__*aideck*__pop_frame` | Pass the destination as the tool's `destination` field. |
+| `park <description>` | `mcp__*aideck*__park_item` | |
+| `emerge <description>` | `mcp__*aideck*__emerge_item` | |
+| `promote <title-or-idx>` | `mcp__*aideck*__promote_parked` | |
+| `done <task-id>` | `mcp__*aideck*__mark_task_done` | aiDeck also fires its own phase-completion check — still run this skill's local `Auto-transition detection` after the tool returns. |
+| `phase-done` | `mcp__*aideck*__verify_exit_gate` per criterion, then `mcp__*aideck*__update_initiative_status` with `done` | Plan-side `currentPhase` advance still goes through direct file write today; aiDeck's watcher re-emits. |
+| `archive [<slug>]` | `mcp__*aideck*__update_initiative_status` with `archived` | File move (to `archive/` subdir) is filesystem-only — aiDeck watches the move. |
+| `switch <slug>` | `mcp__*aideck*__update_initiative_status` (paused/active toggles) | |
+| `detect-scope` (write) | direct file write | No scope-mutation MCP tool. |
+| `migrate <slug>` | direct file write | One-time schema bump; not a state mutation. |
+
+The mapping above is also encoded in `src/mcp-mode.js` (`mcpToolMap`). The matching test `tests/mcp-mode.test.js` asserts the documented command set exactly equals the runtime map, so the two will fail CI together if they drift.
+
+**Verification helper** (manual). To confirm the two modes converge:
+
+```bash
+# Snapshot before any mutation.
+cp .atomic-skills/initiatives/<slug>.md /tmp/before.md
+
+# Mutate via the skill (with aideck running, then again with it stopped).
+# Compare the on-disk result against the no-aideck baseline.
+diff /tmp/before.md .atomic-skills/initiatives/<slug>.md
+```
+
+When the diff diverges between the two modes, file a bug — that's a contract violation between this skill and aiDeck's serializer.
+
 ## Disambiguation flow
 
 Triggers when: current branch does not match any active initiative, OR multiple match, OR `disambiguate` is called explicitly.
