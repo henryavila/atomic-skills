@@ -1,49 +1,222 @@
 #!/usr/bin/env bash
-# atomic-skills:project-status — SessionStart hook
-# Injects PROJECT-STATUS.md index + matching initiative detail via additionalContext.
+# atomic-skills:project-status — SessionStart hook (v2, 3-level + aiDeck-aware)
+# Emits a hierarchical PROJECT-STATUS view via Claude Code's additionalContext.
+#
+# Hierarchy (when present):
+#   PROJECT-STATUS.md index  →  Active Plan  →  Current phase's Initiative
+# Falls back to a standalone initiative matched by branch when no plan is active.
+#
+# Hints surfaced:
+#   - branch mismatch (Plan-level and Initiative-level)
+#   - phase-transition (initiative has 0 pending/active tasks)
+#   - aiDeck dashboard URL when ~/.aideck/env present (writeEnvFile on serve,
+#     removeEnvFile on shutdown — see aideck/src/server/env-file.ts)
 set -euo pipefail
 
 PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
-STATUS_FILE="$PROJ_DIR/.atomic-skills/PROJECT-STATUS.md"
-INITIATIVES_DIR="$PROJ_DIR/.atomic-skills/initiatives"
+ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
+STATUS_FILE="$ASKILLS_DIR/PROJECT-STATUS.md"
+PLANS_DIR="$ASKILLS_DIR/plans"
+INITIATIVES_DIR="$ASKILLS_DIR/initiatives"
+AIDECK_ENV="${HOME:-}/.aideck/env"
+
+# --- helpers ----------------------------------------------------------------
+
+# get_field <file> <key>  → prints the value of a top-level frontmatter scalar.
+# Handles `key: value`, `key: 'value'`, and `key: "value"`. Only scans within
+# the leading `---` ... `---` block; ignores body matches.
+get_field() {
+  local file=$1 key=$2
+  [[ -f "$file" ]] || return 0
+  awk -v key="$key" '
+    BEGIN { fm = 0 }
+    /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
+    fm == 1 {
+      pat = "^" key ":[[:space:]]*"
+      if ($0 ~ pat) {
+        sub(pat, "", $0)
+        # strip surrounding single or double quotes
+        sub(/^['"'"'"]/, "", $0)
+        sub(/['"'"'"][[:space:]]*$/, "", $0)
+        # strip trailing inline comment
+        sub(/[[:space:]]+#.*$/, "", $0)
+        print $0
+        exit
+      }
+    }
+  ' "$file"
+}
+
+# count_pending_tasks <file>  → number of tasks whose status is pending or active.
+# Scans the YAML region between `tasks:` and the next top-level key, inside
+# frontmatter only. Robust against parked/emerged blocks that have no `status`.
+count_pending_tasks() {
+  local file=$1
+  [[ -f "$file" ]] || { echo 0; return 0; }
+  awk '
+    BEGIN { fm = 0; in_tasks = 0; count = 0 }
+    /^---[[:space:]]*$/ {
+      fm++
+      if (fm == 2) { print count; exit }
+      next
+    }
+    fm == 1 && /^tasks:[[:space:]]*$/ { in_tasks = 1; next }
+    fm == 1 && in_tasks && /^[A-Za-z][A-Za-z0-9_]*:/ { in_tasks = 0 }
+    fm == 1 && in_tasks && /^[[:space:]]+status:[[:space:]]*(pending|active)([[:space:]]|$)/ { count++ }
+    END { if (fm < 2) print count }
+  ' "$file"
+}
+
+# emit_json <markdown-context>  → prints the additionalContext JSON envelope.
+emit_json() {
+  local ctx=$1
+  if command -v jq >/dev/null 2>&1; then
+    jq -n --arg ctx "$ctx" \
+      '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
+  elif command -v python3 >/dev/null 2>&1; then
+    local escaped
+    escaped=$(printf '%s' "$ctx" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$escaped"
+  else
+    # Last-resort manual escape. Loses fidelity on newlines/backslashes but
+    # never blocks the session.
+    local escaped
+    escaped='"'$(printf '%s' "$ctx" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')'"'
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$escaped"
+  fi
+}
+
+# --- context assembly -------------------------------------------------------
 
 context=""
+# Prefer `symbolic-ref` — works on freshly-initialized repos with no commits
+# (where `rev-parse --abbrev-ref HEAD` errors); fails cleanly on detached HEAD,
+# which we want treated as "no branch" anyway.
+branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
+  || git -C "$PROJ_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null \
+  || echo "")
+[[ "$branch" == "HEAD" ]] && branch=""
 
-# 1. Inject project-level index (top 20 lines of PROJECT-STATUS.md)
+# 1. Project-level index — first chunk of PROJECT-STATUS.md.
 if [[ -f "$STATUS_FILE" ]]; then
   context+="## Active Project Status"$'\n'
-  context+="$(head -20 "$STATUS_FILE")"$'\n\n'
+  context+="$(head -30 "$STATUS_FILE")"$'\n\n'
 fi
 
-# 2. Detect active initiative by branch match
-branch=$(git -C "$PROJ_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-match=""
-if [[ -n "$branch" && -d "$INITIATIVES_DIR" ]]; then
-  match=$(grep -l "^branch: $branch$" "$INITIATIVES_DIR"/*.md 2>/dev/null | head -1)
-  if [[ -z "$match" ]]; then
-    match=$(grep -l "^branch: ${branch%%/*}" "$INITIATIVES_DIR"/*.md 2>/dev/null | head -1)
+# 2. Active Plan — prefer one whose `branch:` matches current branch; else
+#    pick the most recently modified active plan. Surface ambiguity warning
+#    when multiple active plans exist with no branch tiebreaker.
+active_plan=""
+active_plan_count=0
+if [[ -d "$PLANS_DIR" ]]; then
+  branch_matched=""
+  newest=""
+  newest_mtime=0
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    status=$(get_field "$f" status)
+    [[ "$status" != "active" ]] && continue
+    active_plan_count=$((active_plan_count + 1))
+    pbranch=$(get_field "$f" branch)
+    if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
+      branch_matched="$f"
+    fi
+    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+    if (( mtime > newest_mtime )); then
+      newest_mtime=$mtime
+      newest="$f"
+    fi
+  done < <(find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+  active_plan="${branch_matched:-$newest}"
+fi
+
+active_initiative=""
+current_phase_id=""
+
+if [[ -n "$active_plan" ]]; then
+  plan_slug=$(basename "$active_plan" .md)
+  current_phase_id=$(get_field "$active_plan" currentPhase)
+  plan_branch=$(get_field "$active_plan" branch)
+  plan_title=$(get_field "$active_plan" title)
+
+  context+="## Active Plan: ${plan_slug}"
+  [[ -n "$plan_title" ]] && context+=" — ${plan_title}"
+  context+=$'\n\n'
+  context+="- Current phase: \`${current_phase_id:-<none>}\`"$'\n'
+  if [[ -n "$plan_branch" ]]; then
+    context+="- Plan branch: \`${plan_branch}\`"$'\n'
+    if [[ -n "$branch" && "$plan_branch" != "$branch" ]]; then
+      context+=$'\n'"⚠️ Plan branch \`${plan_branch}\` ≠ current branch \`${branch}\`. Switch branches or update the plan's \`branch:\` field."$'\n'
+    fi
+  fi
+  if (( active_plan_count > 1 )); then
+    context+=$'\n'"⚠️ ${active_plan_count} active plans found — using \`${plan_slug}\` (branch-match or most-recent). Disambiguate by setting \`branch:\` on each plan."$'\n'
+  fi
+  context+=$'\n'
+
+  # 3. Match the phase's initiative — same parentPlan + phaseId, status active.
+  if [[ -d "$INITIATIVES_DIR" && -n "$current_phase_id" ]]; then
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      [[ "$(get_field "$f" parentPlan)" == "$plan_slug" ]] || continue
+      [[ "$(get_field "$f" phaseId)" == "$current_phase_id" ]] || continue
+      [[ "$(get_field "$f" status)" == "active" ]] || continue
+      active_initiative="$f"
+      break
+    done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
   fi
 fi
 
-# 3. Inject initiative detail (top 40 lines) if matched
-if [[ -n "$match" ]]; then
-  slug=$(basename "$match" .md)
-  context+="## Current Initiative: $slug"$'\n'
-  context+="$(head -40 "$match")"$'\n'
+# 4. Standalone fallback — no plan or no phase initiative: branch-match active
+#    initiative (preserves prior hook behavior).
+if [[ -z "$active_initiative" && -d "$INITIATIVES_DIR" && -n "$branch" ]]; then
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$(get_field "$f" status)" == "active" ]] || continue
+    fbranch=$(get_field "$f" branch)
+    if [[ "$fbranch" == "$branch" || "$fbranch" == "${branch%%/*}" ]]; then
+      active_initiative="$f"
+      break
+    fi
+  done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
 fi
 
-# 4. Emit as JSON with additionalContext
-if command -v jq >/dev/null 2>&1; then
-  jq -n --arg ctx "$context" \
-    '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
-else
-  # Fallback: manual JSON escape via python3 if available, else basic sed escape
-  if command -v python3 >/dev/null 2>&1; then
-    escaped=$(printf '%s' "$context" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
-  else
-    escaped='"'$(printf '%s' "$context" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')'"'
+# 5. Inject initiative detail + branch + phase-transition signals.
+if [[ -n "$active_initiative" ]]; then
+  slug=$(basename "$active_initiative" .md)
+  init_branch=$(get_field "$active_initiative" branch)
+  parent_plan=$(get_field "$active_initiative" parentPlan)
+  phase_id=$(get_field "$active_initiative" phaseId)
+
+  context+="## Current Initiative: ${slug}"
+  if [[ -n "$parent_plan" && -n "$phase_id" ]]; then
+    context+=" (${parent_plan}/${phase_id})"
+  elif [[ -z "$parent_plan" ]]; then
+    context+=" (standalone)"
   fi
-  printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$escaped"
+  context+=$'\n\n'
+
+  if [[ -n "$init_branch" && "$init_branch" != "null" && -n "$branch" && "$init_branch" != "$branch" ]]; then
+    context+="⚠️ Initiative branch \`${init_branch}\` ≠ current branch \`${branch}\`. Switch branches or update the initiative."$'\n\n'
+  fi
+
+  pending=$(count_pending_tasks "$active_initiative")
+  if [[ "$pending" == "0" ]]; then
+    context+="🔔 Initiative has 0 pending/active tasks but \`status\` is still \`active\`. Run \`atomic-skills:project-status phase-done\` to close the phase."$'\n\n'
+  fi
+
+  context+="$(head -40 "$active_initiative")"$'\n'
 fi
 
+# 6. aiDeck URL hint — env file is written on serve, removed on shutdown.
+if [[ -f "$AIDECK_ENV" ]]; then
+  aideck_url=$(grep -E "^export AIDECK_URL=" "$AIDECK_ENV" 2>/dev/null | head -1 \
+    | sed -E "s/^export AIDECK_URL=//; s/^'//; s/'\$//; s/^\"//; s/\"\$//")
+  if [[ -n "$aideck_url" ]]; then
+    context+=$'\n'"## aiDeck running"$'\n\n'
+    context+="Dashboard: ${aideck_url}"$'\n'
+  fi
+fi
+
+emit_json "$context"
 exit 0
