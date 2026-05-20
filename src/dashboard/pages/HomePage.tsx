@@ -1,95 +1,54 @@
-import { Link } from 'react-router'
+import { useNavigate } from 'react-router'
 import { useProjectState } from '../lib/hooks'
-import { Card, SectionHeader, StatusChip } from '../components/atoms'
+import { adaptStateForHome } from '../lib/adapters'
+import { ConsumerBand, EmptyState, HomeHeader } from '../components/home/HomeComponents'
 
 export function HomePage() {
-  // SSE subscription is mounted once at App level — no per-page hook here.
+  const navigate = useNavigate()
   const { data, isLoading, error } = useProjectState()
 
   if (isLoading) {
-    return (
-      <Frame>
-        <p className="text-fg-muted">Loading state…</p>
-      </Frame>
-    )
+    return <Frame><p className="text-fg-muted">Loading project state…</p></Frame>
   }
   if (error) {
     return (
       <Frame>
-        <Card className="border-severity-critical">
-          <SectionHeader>Cannot reach aideck</SectionHeader>
-          <div className="space-y-2 p-4 text-sm">
-            <p className="text-fg-muted">
-              The dashboard expects an aideck server on{' '}
-              <code className="font-mono text-fg-default">127.0.0.1:7777</code>. Run{' '}
-              <code className="font-mono text-fg-default">npx atomic-skills serve</code> from the
-              target repo.
-            </p>
-            <pre className="overflow-auto rounded border border-border-default bg-bg-sunken p-3 text-xs text-fg-muted">
-              {String(error)}
-            </pre>
+        <div
+          style={{
+            padding: '16px 18px',
+            background: 'color-mix(in srgb, var(--severity-critical) 6%, var(--bg-surface))',
+            border: '1px solid color-mix(in srgb, var(--severity-critical) 35%, transparent)',
+            borderRadius: 8,
+          }}
+        >
+          <div
+            className="t-eyebrow"
+            style={{ color: 'var(--severity-critical)', marginBottom: 6 }}
+          >
+            CANNOT REACH AIDECK
           </div>
-        </Card>
+          <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 13 }}>
+            The dashboard expects an aideck server on{' '}
+            <code className="font-mono" style={{ color: 'var(--fg-default)' }}>127.0.0.1:7777</code>. Run{' '}
+            <code className="font-mono" style={{ color: 'var(--fg-default)' }}>npx atomic-skills serve</code> from the
+            target repo.
+          </p>
+        </div>
       </Frame>
     )
   }
 
-  const plans = data?.plans ?? []
-  const standalone = (data?.initiatives ?? []).filter((i) => !i.parentPlan)
-
+  const consumers = data ? adaptStateForHome(data) : []
   return (
     <Frame>
-      <div className="mb-4 flex items-baseline justify-between">
-        <h1 className="text-xl font-medium text-fg-default">Project status</h1>
-        <span className="font-mono text-[11px] text-fg-subtle">
-          {plans.length} plan{plans.length === 1 ? '' : 's'} · {standalone.length} standalone
-        </span>
-      </div>
-
-      <Card>
-        <SectionHeader count={plans.length}>Active plans</SectionHeader>
-        {plans.length === 0 ? (
-          <div className="p-4 text-sm text-fg-faint">No active plans.</div>
-        ) : (
-          <ul className="divide-y divide-border-subtle">
-            {plans.map((p) => (
-              <li key={p.slug}>
-                <Link
-                  to={`/plans/${p.slug}`}
-                  className="flex items-baseline gap-3 px-4 py-3 transition-colors hover:bg-bg-elevated"
-                >
-                  <span className="font-mono text-[13px] text-accent-primary">{p.slug}</span>
-                  <span className="flex-1 truncate text-sm text-fg-default">{p.title}</span>
-                  <span className="font-mono text-[11px] text-fg-subtle">
-                    {p.currentPhase ?? '—'} · {p.phases.length}p
-                  </span>
-                  <StatusChip status={p.status} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      {standalone.length > 0 && (
-        <div className="mt-6">
-          <Card>
-            <SectionHeader count={standalone.length}>Standalone initiatives</SectionHeader>
-            <ul className="divide-y divide-border-subtle">
-              {standalone.map((i) => (
-                <li key={i.slug}>
-                  <Link
-                    to={`/initiatives/${i.slug}`}
-                    className="flex items-baseline gap-3 px-4 py-3 transition-colors hover:bg-bg-elevated"
-                  >
-                    <span className="font-mono text-[13px] text-accent-primary">{i.slug}</span>
-                    <span className="flex-1 truncate text-sm text-fg-default">{i.title}</span>
-                    <StatusChip status={i.status} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Card>
+      <HomeHeader consumerCount={consumers.length} />
+      {consumers.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div style={{ marginTop: 12 }}>
+          {consumers.map((c) => (
+            <ConsumerBand key={c.id} consumer={c} onOpen={navigate} />
+          ))}
         </div>
       )}
     </Frame>
@@ -97,5 +56,5 @@ export function HomePage() {
 }
 
 function Frame({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>
+  return <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 24px 80px' }}>{children}</div>
 }

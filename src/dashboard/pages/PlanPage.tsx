@@ -1,137 +1,139 @@
-import { Link, useParams } from 'react-router'
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { Btn } from '../components/atoms'
+import { ActivePhaseCallout, TrackHeader } from '../components/plan/ActivePhaseCallout'
+import { PhaseCard, ParallelGroup, groupParallels } from '../components/plan/PhaseCard'
+import { PlanHero } from '../components/plan/PlanHero'
+import { GlossaryPanel, LegacySection, NarrativePanel, PrinciplesPanel } from '../components/plan/Panels'
+import { ReferencesModal } from '../components/plan/ReferencesModal'
+import { adaptPlanForUI, type UIPhase } from '../lib/adapters'
 import { usePlan, useProjectState } from '../lib/hooks'
-import {
-  Card,
-  GateStatusBadge,
-  SectionHeader,
-  StatusChip,
-  StatusGlyph,
-  TagChip,
-} from '../components/atoms'
-import type { PhaseDescriptor } from '../lib/types'
 
 export function PlanPage() {
+  const navigate = useNavigate()
   const { slug } = useParams<{ slug: string }>()
-  const { data: plan, isLoading, error } = usePlan(slug)
+  const { data: planRaw, isLoading, error } = usePlan(slug)
   const { data: state } = useProjectState()
+
+  const [showPrinciples, setShowPrinciples] = useState(false)
+  const [showGlossary, setShowGlossary] = useState(false)
+  const [showNarrative, setShowNarrative] = useState(false)
+  const [narrativeExpanded, setNarrativeExpanded] = useState(false)
+  const [showRefs, setShowRefs] = useState(false)
 
   if (isLoading) return <Frame>Loading plan…</Frame>
   if (error)
     return (
       <Frame>
-        <p className="text-severity-critical">Cannot load plan: {String(error)}</p>
+        <p style={{ color: 'var(--severity-critical)' }}>Cannot load plan: {String(error)}</p>
       </Frame>
     )
-  if (!plan) return <Frame>Plan not found.</Frame>
+  if (!planRaw) return <Frame>Plan not found.</Frame>
 
-  // Map: phaseId → initiative slug (for in-plan initiatives that are active or
-  // archived). Used to make phase rows clickable when there's a backing init.
-  const phaseInit = new Map<string, string>()
-  for (const i of state?.initiatives ?? []) {
-    if (i.parentPlan === plan.slug && i.phaseId) phaseInit.set(i.phaseId, i.slug)
+  const plan = adaptPlanForUI(planRaw, state?.initiatives ?? [])
+  const activePhase = plan.phases.find((p) => p.status === 'active')
+
+  const openPhase = (phase: UIPhase) => {
+    // Find the initiative for this phase and navigate to it.
+    const init = state?.initiatives.find((i) => i.parentPlan === plan.slug && i.phaseId === phase.id)
+    if (init) navigate(`/initiatives/${init.slug}`)
+  }
+
+  const trackBuckets = plan.tracks
+    .map((track) => ({
+      track,
+      phases: plan.phases.filter((p) => (p.track ?? plan.tracks[0]?.id) === track.id),
+    }))
+    .filter((b) => b.phases.length > 0)
+  // If no phases match any track (e.g. tracks not set), fall back to a single "main" bucket.
+  if (trackBuckets.length === 0 && plan.phases.length > 0) {
+    trackBuckets.push({ track: { id: 'main', title: 'Main' }, phases: plan.phases })
   }
 
   return (
     <Frame>
-      <header className="mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-wider text-fg-subtle">
-          plan · v{plan.version}
-        </div>
-        <h1 className="mt-1 text-2xl font-medium text-fg-default">{plan.title}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-fg-muted">
-          <span>
-            current phase:{' '}
-            <span className="font-mono text-accent-primary">{plan.currentPhase ?? '—'}</span>
-          </span>
-          <span className="text-fg-faint">·</span>
-          <span>{plan.phases.length} phases</span>
-          {plan.parallelismAllowed && (
-            <>
-              <span className="text-fg-faint">·</span>
-              <TagChip kind="parallel">parallel</TagChip>
-            </>
-          )}
-          <span className="text-fg-faint">·</span>
-          <StatusChip status={plan.status} />
-        </div>
-      </header>
+      <PlanHero
+        plan={plan}
+        refsCount={plan.refs.length}
+        onTogglePrinciples={() => setShowPrinciples((v) => !v)}
+        onToggleGlossary={() => setShowGlossary((v) => !v)}
+        onToggleRefs={() => setShowRefs(true)}
+      />
 
-      <Card>
-        <SectionHeader count={plan.phases.length}>Phases</SectionHeader>
-        <ul className="divide-y divide-border-subtle">
-          {plan.phases.map((phase) => (
-            <PhaseRow key={phase.id} phase={phase} initiativeSlug={phaseInit.get(phase.id)} />
-          ))}
-        </ul>
-      </Card>
+      <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+        <Btn variant={showNarrative ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowNarrative((v) => !v)}>
+          {showNarrative ? '▾' : '▸'} {showNarrative ? 'Close' : 'Open'} narrative
+        </Btn>
+        {plan.refs.length > 0 && (
+          <Btn variant="ghost" size="sm" onClick={() => setShowRefs(true)}>
+            References{' '}
+            <span style={{ color: 'var(--fg-subtle)', fontFamily: 'var(--font-mono)', fontSize: 10, marginLeft: 4 }}>
+              {plan.refs.length}
+            </span>
+          </Btn>
+        )}
+        <div style={{ flex: 1 }} />
+        {plan.principles.length > 0 && (
+          <Btn variant={showPrinciples ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowPrinciples((v) => !v)}>
+            {showPrinciples ? '▾' : '▸'} Principles
+          </Btn>
+        )}
+        {plan.glossary.length > 0 && (
+          <Btn variant={showGlossary ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowGlossary((v) => !v)}>
+            {showGlossary ? '▾' : '▸'} Glossary
+          </Btn>
+        )}
+      </div>
 
-      <p className="mt-6 text-sm">
-        <Link to="/" className="text-accent-link hover:underline">
-          ← home
-        </Link>
-      </p>
+      {showNarrative && plan.narrative && (
+        <NarrativePanel
+          markdown={plan.narrative}
+          expanded={narrativeExpanded}
+          onToggleExpanded={() => setNarrativeExpanded((v) => !v)}
+        />
+      )}
+      {showPrinciples && <PrinciplesPanel principles={plan.principles} />}
+      {showGlossary && <GlossaryPanel glossary={plan.glossary} />}
+
+      {activePhase && <ActivePhaseCallout phase={activePhase} onOpen={openPhase} />}
+
+      <div style={{ marginTop: 6 }}>
+        {trackBuckets.map(({ track, phases }) => {
+          const groups = groupParallels(phases)
+          return (
+            <div key={track.id}>
+              {trackBuckets.length > 1 && <TrackHeader track={track} />}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {groups.map((g, i) => {
+                  if (g.kind === 'parallel') {
+                    return (
+                      <ParallelGroup
+                        key={`p-${i}`}
+                        phases={g.phases}
+                        onOpen={openPhase}
+                        variant="container"
+                      />
+                    )
+                  }
+                  return <PhaseCard key={g.phases[0]!.id} phase={g.phases[0]!} onOpen={openPhase} />
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <LegacySection phases={plan.legacyPhases} />
+
+      <ReferencesModal open={showRefs} refs={plan.refs} onClose={() => setShowRefs(false)} />
     </Frame>
   )
 }
 
-interface PhaseRowProps {
-  phase: PhaseDescriptor
-  initiativeSlug?: string
-}
-
-function PhaseRow({ phase, initiativeSlug }: PhaseRowProps) {
-  const pendingCount = phase.exitGate.criteria.filter((c) => c.status === 'pending').length
-  const metCount = phase.exitGate.criteria.filter((c) => c.status === 'met').length
-  const totalGates = phase.exitGate.criteria.length
-
-  const body = (
-    <div className="space-y-2 px-4 py-3">
-      <div className="flex items-baseline gap-3">
-        <StatusGlyph status={phase.status} size={14} />
-        <span className="font-mono text-[13px] text-accent-primary">{phase.id}</span>
-        <span className="flex-1 truncate text-sm text-fg-default">{phase.title}</span>
-        {phase.track && <TagChip kind="parallel">{phase.track}</TagChip>}
-        <StatusChip status={phase.status} />
-      </div>
-      <p className="text-xs text-fg-muted">{phase.goal}</p>
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-fg-subtle">
-        {phase.dependsOn.length > 0 && (
-          <span className="font-mono">depends on: {phase.dependsOn.join(', ')}</span>
-        )}
-        {totalGates > 0 && (
-          <>
-            {phase.dependsOn.length > 0 && <span className="text-fg-faint">·</span>}
-            <span className="font-mono">
-              gates: {metCount}/{totalGates} met
-              {pendingCount > 0 && ` · ${pendingCount} pending`}
-            </span>
-          </>
-        )}
-        {phase.exitGate.summary && (
-          <>
-            <span className="text-fg-faint">·</span>
-            <GateStatusBadge status={pendingCount === 0 && totalGates > 0 ? 'met' : 'pending'} />
-          </>
-        )}
-      </div>
+function Frame({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 24px 80px', width: '100%', boxSizing: 'border-box' }}>
+      {children}
     </div>
   )
-
-  if (initiativeSlug) {
-    return (
-      <li>
-        <Link
-          to={`/initiatives/${initiativeSlug}`}
-          className="block transition-colors hover:bg-bg-elevated"
-        >
-          {body}
-        </Link>
-      </li>
-    )
-  }
-  return <li>{body}</li>
-}
-
-function Frame({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>
 }
