@@ -591,6 +591,28 @@ Emit MD to stdout, pasteable format for standups/PRs/updates:
 
 No browser launch; pure stdout.
 
+## Code-quality gates
+
+This skill is bound by the gates in `docs/kb/code-quality-gates.md`. The state files this skill writes must comply with:
+
+- **G1 read-before-claim** — when materializing a Task description that references existing code, paste the relevant source lines into the task's `description` field. Inferring "T-005 fixes the matcher join" without reading the matcher is forbidden.
+- **G2 soft-language ban** — `nextAction`, task `description`, and exit-criterion `description` fields MUST NOT contain `should`, `probably`, `may`, `typically`, `I think`. Convert each occurrence to a verified statement or `unverified: <why>` marker.
+- **G6 reference-or-strike** — every exit-criterion claim ("the matcher round-trip test passes") carries a verifier or an `unverified` marker. The `verifier:` field is the structured form; for criteria without a verifier, the description text MUST start with `unverified: <why>`.
+
+## Self-review against gates
+
+When closing a phase via `phase-done`, before archiving the initiative, append a `## Self-review against code-quality gates` block to the initiative file body:
+
+```markdown
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: N tasks closed, each linked to source lines in its `outputs[]` field. / N/A — phase was pure planning (no code).
+- **G2 soft-language**: scanned `nextAction` + task descriptions + criterion descriptions for the ban list; 0 violations (or list with rewrites).
+- **G6 reference-or-strike**: K exit criteria, J met with `evidence:` populated, L deferred with `deferredReason:`, M unverified-and-flagged.
+```
+
+The block stays with the archived initiative so future spelunking can audit whether the gates were applied. Silent skipping is forbidden — the phase does not close without the checkpoint.
+
 ## Red Flags
 
 If any of these thoughts appeared: STOP and validate.

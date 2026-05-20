@@ -295,6 +295,30 @@ For each deferred bug, offer: "Fix [bug description] with /as-fix? The reproduci
 - Remaining gaps and suggested next runs
 {{/if}}
 
+## Code-quality gates
+
+This skill is bound by the gates in `docs/kb/code-quality-gates.md`. For hunt specifically:
+
+- **G1 read-before-claim** — before asserting what the target function/class does, paste the relevant source lines into your investigation notes. Inferring from the method name is the #1 source of tautological tests.
+- **G3 anti-tautology in tests** — for every assertion you write, name the implementation mutation that would break it. If the answer is "none" or "I'd change the test too", rewrite the assertion to test behavior, not implementation. The HARD-GATE above already enforces this for expected values; G3 extends it to ALL assertions including mock interactions, side-effect spies, and snapshot tests.
+- **G4 fixture realism** — before constructing test inputs, sample a real example of the data shape (open a real file, run a real query, sample a real log line). Synthesizing the shape from intuition is forbidden. The 60-second sample rule applies: real-producer data takes under a minute to sample.
+
+## Self-review against gates
+
+Before finalizing the hunt report, append a `## Self-review against code-quality gates` block:
+
+```
+- G1 read-before-claim: applied — source lines pasted at <…>
+- G3 anti-tautology: applied — for each of N assertions, named mutation that breaks it:
+    - assertion X: mutation = <…>
+    - assertion Y: mutation = <…>
+  Mutation-test discipline: picked 3 production lines, mentally swapped to `return null` / `return []` /
+  removed, counted failing tests per mutation: <m1: 3 fail, m2: 2 fail, m3: 4 fail>.
+- G4 fixture realism: applied — fixtures derived from <real source path> / not-applicable (target is pure function with primitive inputs)
+```
+
+`not-applicable` is acceptable for inputs that are genuinely primitives (numbers, simple strings). It is NOT acceptable for JSON/YAML payloads, log lines, or any external schema — those require sampling.
+
 ## Red Flags
 
 - "The code looks straightforward, I'll just write a few happy path tests"

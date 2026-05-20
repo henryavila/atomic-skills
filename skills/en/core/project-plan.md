@@ -317,6 +317,28 @@ The skill never errors out just because superpowers is absent.
 - **User aborts at step 5:** no files written, no rollback needed. The user can re-run `adopt` with an edited source file.
 - **User aborts during step 6 (rare — fs errors):** roll back any files written so far. The repo state must return to pre-`adopt` state on any failure.
 
+## Code-quality gates
+
+This skill is bound by the gates in `docs/kb/code-quality-gates.md`. The plan you generate must comply with:
+
+- **G1 read-before-claim** — when the plan asserts what an existing file does (e.g. "the `matcher` function joins on tenant_id"), paste the relevant source lines into the plan body next to the claim. Inferring from the file name is forbidden. This catches what the Phase D contract review found: a plan that contradicts the real code because nobody read it.
+- **G2 soft-language ban** — the plan body MUST NOT contain `should`, `probably`, `may`, `typically`, `usually`, `I think`, `it seems`, `in theory`, `tends to`. Convert every such phrase to either a verified statement or an explicit `unverified: <why>` marker. Words like "will" (future tense for tasks you commit to) are fine.
+- **G6 reference-or-strike** — every assertion in the plan body or in a task description carries one of: `verified_by: <file:line>`, `verified_by: <command>`, or `unverified: <why>`. A bare claim with no marker is deleted on the next review pass.
+
+## Self-review against gates
+
+After the plan file is written (Stage 6 in the default flow, or after `adopt` materializes), before declaring the plan ready, append a `## Self-review against code-quality gates` block at the end of the plan body:
+
+```markdown
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: N claims about existing code, all backed by pasted source lines (see §X.Y for each). / N/A — plan describes entirely new work, no existing code referenced.
+- **G2 soft-language**: scanned the plan for the ban list; M occurrences found and rewritten (changelog: <…>). / 0 occurrences.
+- **G6 reference-or-strike**: K assertions, each carries `verified_by:` or `unverified:`. Unverified assertions: <list with reasons>.
+```
+
+If any gate is violated, do NOT close the planning session. Either fix the violation inline or write a follow-up task to address it before implementation begins. Silent application is forbidden — the checkpoint must be in the committed plan file.
+
 ## Red Flags
 
 If any of these thoughts surfaced, STOP and validate.

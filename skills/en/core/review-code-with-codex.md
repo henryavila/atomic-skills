@@ -79,6 +79,30 @@ vulnerabilities, race conditions — don't defend the code.
 - **major:** real bug with workaround — fix if possible
 - **minor / nit:** record, no required action
 
+## Code-quality gates (review lens)
+
+When triaging Codex findings + applying fixes, the code you write must comply with `docs/kb/code-quality-gates.md`. The Pass-1 briefing already asks Codex to look for substantive issues; this section governs the FIX implementation phase that follows.
+
+- **G1 read-before-claim** — when applying a fix, paste the actual source lines being changed into the fix description before writing the Edit. Inferring "the bug is in line 42" without reading line 42 is forbidden.
+- **G2 soft-language ban** — fix descriptions and commit messages MUST NOT contain `should`, `probably`, `may`, `typically`. State what the fix does, not what it should do.
+- **G3 anti-tautology in tests** — if the fix adds a test that codifies the bug-then-fix, for each new assertion answer: "what mutation in the fix would make this test fail?" If the answer is "none", rewrite. (Phase D Codex F-002 was exactly this — `parsePort` had 100% coverage on the helper, 0% on its integration.)
+- **G4 fixture realism** — if the bug involves external data (transcript, HTTP payload, config file), sample a real instance before constructing the test fixture. The 60-second sample rule applies. (Phase D Codex F-001 critical was synthesized fixture diverging from real Claude Code transcript shape.)
+- **G7 premature-abstraction ban** — fixing one bug does not justify introducing a helper "for future similar bugs". Three identical sites = consider helper. Two or fewer = duplicate, document the pattern in a comment, move on.
+
+## Self-review against gates
+
+After applying fixes from Codex findings, before the closing report (the format block at the end), append a `## Self-review against code-quality gates` block:
+
+```
+- G1 read-before-claim: for each fix, pasted source lines before/after the edit / N/A.
+- G2 soft-language: scanned fix descriptions + commit message for ban list; 0 occurrences (or list with rewrites).
+- G3 anti-tautology: for each new test assertion, named the mutation that breaks it.
+- G4 fixture realism: for each new fixture, cited the real source it was sampled from / N/A — fix touched only pure-function paths.
+- G7 anti-premature-abstraction: no new helper introduced unless 3+ sites required it.
+```
+
+The block goes into the consolidated review file (`.atomic-skills/reviews/<…>.md`) under "Fixes applied in this session". Silent skipping is forbidden — the checkpoint must appear in the persisted review.
+
 ## Red Flags
 
 - "I'll skip the whole diff, it's too big"

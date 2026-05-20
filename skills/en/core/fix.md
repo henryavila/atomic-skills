@@ -140,6 +140,32 @@ If any answer is "no": add a test that would catch it.
 
 If you thought any of the above: STOP. Go back to the phase you were skipping.
 
+## Code-quality gates
+
+This skill is bound by the gates defined in `docs/kb/code-quality-gates.md`. Apply the rules below for THIS skill; consult the KB for full rule definition + good/bad examples.
+
+- **G1 read-before-claim** — before stating what the broken code does, paste the relevant source lines (the buggy lines and the function signature). Inferring from the name is forbidden.
+- **G2 soft-language ban** — words like `should`, `probably`, `may`, `typically` are forbidden in the root-cause statement. The cause is what the code does, not what it might do. Convert to verified statement or mark explicitly `unverified: <why>`.
+- **G3 anti-tautology in tests** — for each regression/boundary/edge test, name the mutation in the implementation that would break the test. If "none" or "I'd change the test too" — the assertion is tautological. Rewrite.
+- **G4 fixture realism** — before writing test fixtures, sample a real example of the broken input. Synthesizing the shape from intuition is forbidden (Phase D's stop hook failed exactly this way — synthetic JSONL didn't match the real Claude Code transcript schema).
+- **G5 red phase mandatory** — paste the failing test output BEFORE writing the fix. The output of the test runner showing the failing assertion is the entry token to the green phase.
+- **G7 premature-abstraction ban** — three is the abstraction floor. The fix touches one function unless three independent sites have the same root cause. Adding a helper "for future use" is forbidden.
+
+## Self-review against gates
+
+Before reporting the fix as done, append to the report a `## Self-review against code-quality gates` block of the form:
+
+```
+- G1 read-before-claim: applied — <paste of source lines used>
+- G2 soft-language: applied — no banned words in root-cause / not-applicable
+- G3 anti-tautology: applied — for each test, the mutation that breaks it is: <…>
+- G4 fixture realism: applied — fixtures sampled from <real source> / not-applicable (pure-function fix)
+- G5 red phase: applied — failing output pasted above
+- G7 anti-premature-abstraction: applied — touched N files, no new helper / not-applicable
+```
+
+If you violated any gate, write `violated — <reason + remediation>`. Do not skip the checkpoint; silent application is forbidden.
+
 ## Rationalization
 
 | Temptation | Reality |
