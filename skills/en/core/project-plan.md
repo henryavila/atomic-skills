@@ -100,11 +100,39 @@ If any file fails schema validation, surface the errors and roll back (delete th
 
 - Set the first phase's initiative to `status: active`; the rest stay `status: pending`.
 - Set the Plan's `currentPhase` to the first phase id.
-- Announce:
-  - Plan path
-  - N initiatives created
-  - Active phase: `<F0> — <title>`
-  - Suggested next: `atomic-skills:project-status` to view the bird's-eye
+
+### Stage 8 — Adversarial review (always runs)
+
+The plan is materialized but NOT yet ready. Run review before declaring done.
+
+**Stage 8a — Internal review (always, no user prompt).**
+
+Invoke `atomic-skills:review-plan-internal` with arg = the plan file path. This is cheap (no external dependency, no token cost beyond the skill itself) and catches:
+
+- Soft-language violations (G2 — see `docs/kb/code-quality-gates.md`)
+- Bare assertions without `verified_by:` or `unverified:` (G6)
+- Internal contradictions, broken dependencies, ambiguous tasks
+
+Apply the findings inline before proceeding to 8b. Re-run review-plan-internal until it returns zero findings of severity major or higher.
+
+**Stage 8b — Cross-model review with Codex (intrusive-actions rule).**
+
+Announce to the user:
+
+> The plan is materialized and passed internal review. Run a cross-model adversarial review via Codex (`atomic-skills:review-plan-with-codex`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
+
+- On `y`: invoke `atomic-skills:review-plan-with-codex` with arg = plan path. Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item.
+- On `n`: continue, but record the skip in the plan's `## Self-review against code-quality gates` block (new line: `Codex review: SKIPPED — <user reason or "not provided">`).
+
+Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan-with-codex` contract. The plan body MUST link to it in a `## Reviews` section appended after `## Self-review against code-quality gates`.
+
+### Stage 9 — Announce
+
+- Plan path
+- N initiatives created
+- Active phase: `<F0> — <title>`
+- Reviews: internal (zero findings) + codex (verdict, counts, link to `.atomic-skills/reviews/<…>.md`) OR (skipped per user)
+- Suggested next: `atomic-skills:project-status` to view the bird's-eye
 
 ## Markdown decompose
 
@@ -304,10 +332,15 @@ The skill never errors out just because superpowers is absent.
 
 9. **Optional source archive.** Ask: "Archive the source markdown to `docs/archive/<YYYY-MM-DD>-<basename>`? (y/N)". If yes, `git mv` the file (preserves history). If no, leave it in place; the user can repeat `adopt` against an updated copy without conflict because the materialized state is the canonical source from this point forward.
 
-10. **Activate first phase + announce.** Same as Stage 7 of the default flow:
+10. **Activate first phase.** Same as Stage 7 of the default flow.
+
+11. **Adversarial review.** Same as Stages 8a + 8b of the default flow — internal review always (apply findings inline), Codex cross-model review prompted to user (y/N). Persist the codex review file to `.atomic-skills/reviews/<…>.md` and link from the plan body's `## Reviews` section.
+
+12. **Announce.** Same as Stage 9 of the default flow:
     - Plan path
     - N initiatives created
     - Active phase: `<F0> — <title>`
+    - Reviews: internal (zero findings) + codex (verdict, counts, file) OR (skipped per user)
     - Suggested next: `atomic-skills:project-status` to view the bird's-eye
 
 ### Failure-mode summary

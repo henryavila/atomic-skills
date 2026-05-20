@@ -106,6 +106,7 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
   3. TASKS (table): ID | Title | State-with-icon | Updated
   4. PARKED + EMERGED side by side (2 columns)
   5. NEXT: `<nextAction>` from frontmatter
+  6. **CODEX REVIEW** line: see `## Codex review tracking` below — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
 
 Unicode icons:
 - `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged
@@ -204,6 +205,26 @@ You (LLM) can parse frontmatter YAML directly — it is plain text with predicta
 ## Mutation modes
 
 In each case, update the target frontmatter YAML and bump `lastUpdated:` to now (`date -u +%Y-%m-%dT%H:%M:%SZ`).
+
+Quick map (mutations that exist + their section anchor):
+
+| Command | What it does |
+|---------|--------------|
+| `new-plan <slug>` | Bootstrap a new Plan via the `project-plan` skill |
+| `new <slug>` | Create a new Initiative (standalone or under active plan) |
+| `push <description>` | Push a new stack frame (lateral expansion) |
+| `pop [--resolve\|--park\|--emerge]` | Pop top frame with destination |
+| `park <description>` | Add a parked item |
+| `emerge <description>` | Add an emerged finding |
+| `promote <title-or-idx>` | Promote a parked item to a real task |
+| `done <task-id>` | Mark task done; auto-detect last-task-done |
+| `phase-done` | Verify exit gates, advance to next phase (now prompts codex review) |
+| `phase-reopen` | Reverse of phase-done |
+| `archive [<slug>]` | Move plan/initiative to archive/ |
+| `switch <slug>` | Pause current active, set target as active |
+| `migrate <slug>` | Migrate a legacy file to schema 0.1 |
+| `detect-scope` | Suggest scope.paths from recent git activity |
+| `review-due` | Cross-model codex review against the diff since last review |
 
 **Pre-mutation migration check** — every time you load an existing initiative or plan for mutation:
 1. Parse its frontmatter.
@@ -591,6 +612,95 @@ Emit MD to stdout, pasteable format for standups/PRs/updates:
 
 No browser launch; pure stdout.
 
+## Codex review tracking
+
+`review-code-with-codex` is the cross-model adversarial review gate (see `skills/en/core/review-code-with-codex.md`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
+
+### State file
+
+`.atomic-skills/status/last-review.json` — single source of truth, updated by the user (or by this skill's `review-due` command on completion):
+
+```json
+{
+  "schemaVersion": "0.1",
+  "branch": "v2-rebuild",
+  "lastReviewedCommit": "a3f1c2d",
+  "lastReviewedAt": "2026-05-20T13:38:06Z",
+  "reviewFile": ".atomic-skills/reviews/2026-05-20T13-38-06Z-phase-e.md",
+  "verdict": "needs_changes",
+  "counts": { "blocker": 0, "critical": 1, "major": 3, "minor": 0, "nit": 0 }
+}
+```
+
+If the file is absent, treat as "never reviewed".
+
+### Default view — CODEX REVIEW line
+
+Run with {{BASH_TOOL}}:
+
+```bash
+last_review_commit=$(jq -r '.lastReviewedCommit // empty' .atomic-skills/status/last-review.json 2>/dev/null)
+head_commit=$(git rev-parse HEAD)
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ -z "$last_review_commit" ]; then
+  echo "CODEX REVIEW: never run on this repo"
+elif [ "$last_review_commit" = "$head_commit" ]; then
+  echo "CODEX REVIEW: up to date (HEAD reviewed at $(jq -r '.lastReviewedAt' .atomic-skills/status/last-review.json))"
+else
+  commits_behind=$(git rev-list --count "$last_review_commit..HEAD")
+  lines_diff=$(git diff --stat "$last_review_commit..HEAD" | tail -1 | grep -oE '[0-9]+ insertions' | grep -oE '[0-9]+' || echo 0)
+  echo "CODEX REVIEW: $commits_behind commit(s) behind · $lines_diff lines un-reviewed"
+fi
+```
+
+Threshold for the visual cue (color the line yellow → "review recommended", red → "review overdue"):
+
+- **green / up-to-date**: HEAD = lastReviewedCommit
+- **yellow / recommended**: 1–3 commits OR 1–100 lines un-reviewed
+- **red / overdue**: ≥4 commits OR ≥100 lines un-reviewed OR ≥7 days since lastReviewedAt OR a `phase-done` has run since lastReviewedAt
+
+If yellow or red, append to the same line: `→ run \`atomic-skills:project-status review-due\``
+
+### `review-due`
+
+On-demand command. Invokes `atomic-skills:review-code-with-codex` with the diff range `<lastReviewedCommit>..HEAD` (or whole branch if last-review.json is absent), then updates `last-review.json` on completion.
+
+Steps:
+
+1. Read `.atomic-skills/status/last-review.json`. If absent, set `<base>` to `main` (or whatever this repo's main branch is — auto-detect via `git symbolic-ref refs/remotes/origin/HEAD` falling back to `main`/`master`). Else set `<base>` to `lastReviewedCommit`.
+2. Compute `<range> = <base>..HEAD`. If `git diff --stat <range>` is empty, announce "No changes to review" and exit.
+3. Announce to user:
+
+   > Run cross-model adversarial review on `<range>` (`<N>` commits, `<L>` lines)? Cost: ~$0.50–$1.50, ~5–10 minutes. (y/N)
+
+4. On `y`: invoke `atomic-skills:review-code-with-codex` with arg = `<range>`. The skill produces a review file in `.atomic-skills/reviews/`.
+5. On completion (review skill returned a verdict): update `last-review.json`:
+   ```json
+   {
+     "schemaVersion": "0.1",
+     "branch": "<current branch>",
+     "lastReviewedCommit": "<HEAD sha at start of review>",
+     "lastReviewedAt": "<ISO timestamp>",
+     "reviewFile": ".atomic-skills/reviews/<filename>.md",
+     "verdict": "<from review frontmatter>",
+     "counts": <from review frontmatter>
+   }
+   ```
+6. Apply fixes for blocker/critical (`review-code-with-codex` already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
+
+### `phase-done` integration
+
+The existing `phase-done` flow (Mutation modes section above) gains a new step BETWEEN "all gates met" and "archive":
+
+> Before archiving the phase initiative, check `.atomic-skills/status/last-review.json`. If `lastReviewedCommit` ≠ HEAD, announce to user:
+>
+> > Phase `<id>` is closing with `<N>` commits / `<L>` lines un-reviewed since last codex review. Run cross-model review against `<lastReviewedCommit>..HEAD` before archiving? (y/N)
+>
+> On `y`: invoke `atomic-skills:project-status review-due` (which delegates to `review-code-with-codex`). Apply blocker/critical fixes. After completion, proceed to archive.
+> On `n`: archive proceeds, but record `Codex review: SKIPPED at phase-done` in the archived initiative's `## Self-review against code-quality gates` block (alongside the existing G1-G6 entries).
+
+This makes the codex review part of the natural phase-close ceremony rather than a separate ritual the user has to remember.
+
 ## Code-quality gates
 
 This skill is bound by the gates in `docs/kb/code-quality-gates.md`. The state files this skill writes must comply with:
@@ -609,9 +719,10 @@ When closing a phase via `phase-done`, before archiving the initiative, append a
 - **G1 read-before-claim**: N tasks closed, each linked to source lines in its `outputs[]` field. / N/A — phase was pure planning (no code).
 - **G2 soft-language**: scanned `nextAction` + task descriptions + criterion descriptions for the ban list; 0 violations (or list with rewrites).
 - **G6 reference-or-strike**: K exit criteria, J met with `evidence:` populated, L deferred with `deferredReason:`, M unverified-and-flagged.
+- **Codex review**: ran via `atomic-skills:project-status review-due` at HEAD = `<sha>`, verdict `<v>`, counts `<…>`, file `.atomic-skills/reviews/<…>.md`. / SKIPPED at phase-done per user (`<reason or "no reason given">`).
 ```
 
-The block stays with the archived initiative so future spelunking can audit whether the gates were applied. Silent skipping is forbidden — the phase does not close without the checkpoint.
+The block stays with the archived initiative so future spelunking can audit whether the gates were applied AND whether the codex review ran. Silent skipping is forbidden — the phase does not close without the checkpoint.
 
 ## Red Flags
 
