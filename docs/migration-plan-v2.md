@@ -57,10 +57,23 @@ Phase C — project-plan skill (new)
   C.T-004  `adopt` command for retroactive plan capture
 
 Phase D — Hooks rewrite + aiDeck deep integration
-  D.T-001  SessionStart hook v2 (3-level + dashboard URL hint)
-  D.T-002  Stop hook v2 (drift detection via scope:paths)
-  D.T-003  Phase-transition hooks (auto-detect last-task-done)
-  D.T-004  MCP client wrapper (graceful degradation)
+  D.T-001  [DONE] SessionStart hook v2 (3-level + dashboard URL hint)
+  D.T-002  [DONE] Stop hook v2 (drift detection via scope:paths)
+  D.T-003  [DONE] Phase-transition hooks (auto-detect last-task-done)
+  D.T-004  [SUPERSEDED] MCP client wrapper — to be reverted by E.T-004
+                       (assumed contract drifted from aiDeck reality)
+  D.T-005  [DONE] Fixes for Codex review findings (1C/3M)
+
+Phase E — Dashboard UI + aiDeck contract alignment (added 2026-05-20)
+  E.T-001  Path drift fix (F-A): aiDeck accepts flat layout
+  E.T-002  Evidence schema (F-C)
+  E.T-003  Narrative contract cross-repo test (F-D)
+  E.T-004  Revert D.T-004 (mcp-mode + skill section)
+  E.T-005  Scaffold src/dashboard/ (Vite + React 19 + TS + Tailwind 4 + shadcn)
+  E.T-006  Convert Claude Design prototypes to production TSX
+  E.T-007  Wire 5 views to aiDeck REST + SSE
+  E.T-008  aiDeck serves the bundle
+  E.T-009  Cross-repo end-to-end smoke
 ```
 
 ---
@@ -538,6 +551,124 @@ Document the pattern. Validate with mini fixture (run skill with and without aiD
 
 ---
 
+## Phase E — Dashboard UI + aiDeck contract alignment
+
+**Goal**: ship a functional dashboard (the missing half of "aiDeck integration") by implementing the UI in atomic-skills/src/dashboard/ and fixing the 4 contract findings surfaced by the post-D review.
+
+**Dependencies**: Phase D complete (hooks v2). aiDeck v0.1 backend already present.
+
+**Exit gate**: `npx atomic-skills serve` builds the dashboard bundle, spawns aideck server pointed at the build output, opens a browser, and renders the sda-v2 v3-redesign plan correctly — phase tree, initiative zoom, exit gates, annotations panel.
+
+### Background
+
+Phase D's `mcp-mode.js` and the "aiDeck MCP integration" section in the project-status skill were written against an assumed contract that turned out to drift from aiDeck's actual implementation in 4 places (see `.atomic-skills/reviews/2026-05-20T*-phase-d-hooks-aideck.md` and the contract review session). Findings:
+
+- **F-A (blocker)**: atomic-skills writes `.atomic-skills/{plans,initiatives}/*.md`; aiDeck's `classifyFile` expects `.atomic-skills/<consumer-id>/{plans,initiatives}/...`. Files are silently ignored as `kind: 'other'`.
+- **F-B (blocker)**: aiDeck's mutation MCP tools (`aideck_mark_task_done`, etc.) record append-only intent records via `appendIntent()` — they do NOT edit entity files. The D.T-004 doc claimed "use MCP in preference to file writes" which would leave files stale.
+- **F-C (major)**: atomic-skills added `evidence: {verifierKind, verifiedAt, ...}` on `ExitCriterion` in B.T-006; aiDeck's `ExitCriterion` has no such field. Strict Zod parse would reject.
+- **F-D (major)**: aiDeck `Plan.narrative` is required; atomic-skills declares it lives in markdown body but has no contract test confirming the templates round-trip through aiDeck's parser.
+
+Architecture for v0.1 (decided 2026-05-20):
+
+- **aiDeck full-stack** — keeps HTTP server, chokidar watcher, parsers, REST, SSE. Acts as the dashboard server.
+- **atomic-skills/src/dashboard/** — owns React UI source. Vite + React 19 + TypeScript + Tailwind 4 + shadcn/ui + TanStack Query + React Router. Build output served by aideck.
+- **MCP server / intent model** — deferred to v2.1+. No code in v2.0.0 attempts to use MCP mutation tools.
+- **Design source** — Claude Design handoff bundles stashed under `docs/design/claude-design-handoff/`: design system + 5 finalized screens (Home, Plan, Initiative, Help, Feedback Channel).
+
+### E.T-001 — Path drift fix (F-A): aiDeck accepts flat layout
+
+Edit `aideck/src/server/writers/paths.ts`. `extractConsumerId` returns `"project-status"` (default) when the first path segment under `.atomic-skills/` is an entity dir (`plans|initiatives|annotations|highlights|inbox`). Preserves backward-compat: explicit `<consumer-id>/` paths continue to work.
+
+**Exit gate**: aideck watcher emits `state-change` events for `.atomic-skills/plans/v3-redesign.md`; `classifyFile` returns `{consumer: "project-status", kind: "plan", slug: "v3-redesign"}`. Existing aideck test suite still green.
+
+### E.T-002 — Evidence schema (F-C)
+
+Edit `aideck/src/schemas/project-status.ts` `ExitCriterion`: add optional `evidence?: EvidenceBlock` with the 6 fields mirroring `atomic-skills/meta/schemas/common.schema.json` `$defs.evidence`. Update Zod validator. Update `parsePlanFile` / `parseInitiativeFile` to surface evidence in the parsed entity.
+
+**Exit gate**: an initiative file with `evidence` block on its exit criterion parses cleanly through aideck; `aideck_get_initiative` MCP tool returns the block.
+
+### E.T-003 — Narrative contract cross-repo test (F-D)
+
+Add `tests/integration/aideck-contract.test.js` in atomic-skills: assemble a filled template via `renderTemplate(plan.template.md, ...)` and a filled initiative template; pipe each through `aideck/dist/server/parsers/project-status.js` parsing. Both must return `{ ok: true }`. Document the narrative-extraction contract in `aideck/docs/data-format.md`.
+
+**Exit gate**: integration test passes from atomic-skills CI against a pinned aideck version.
+
+### E.T-004 — Revert D.T-004 (mcp-mode + skill section)
+
+Remove `src/mcp-mode.js`, `tests/mcp-mode.test.js`, and the entire "aiDeck MCP integration" section in `skills/en/core/project-status.md`. Update `skills/shared/project-status-assets/hooks/session-start.sh` to point at the new dashboard URL convention (TBD by E.T-008 — possibly `http://127.0.0.1:7777/` flat, or `http://127.0.0.1:7777/c/project-status/` if aideck adds consumer-prefixed routing).
+
+**Exit gate**: `npm test` still green (down 18 tests); no reference to `mcpToolMap` or `aideck MCP integration` left in codebase.
+
+### E.T-005 — Scaffold src/dashboard/ (Vite + React 19 + TS + Tailwind 4 + shadcn)
+
+Add:
+- `src/dashboard/{App.tsx,main.tsx,index.html}` — entry
+- `src/dashboard/components/` — UI components
+- `src/dashboard/lib/{api.ts,hooks.ts,types.ts}` — REST/SSE client
+- `src/dashboard/styles/tokens.css` — copied from `docs/design/claude-design-handoff/design-system/project/colors_and_type.css`
+- `vite.config.ts` — output to `dist/dashboard/`
+- `tailwind.config.ts`, `postcss.config.ts`
+- `tsconfig.dashboard.json` — separate from existing tsconfig
+- `package.json` deps under `devDependencies`: `vite`, `@vitejs/plugin-react`, `react@19`, `react-dom@19`, `@types/react`, `@types/react-dom`, `typescript`, `tailwindcss@4`, `@tailwindcss/vite`, `@tanstack/react-query@5`, `react-router@7`, plus shadcn peer deps (`class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`)
+- `npm scripts`: `dev:dashboard`, `build:dashboard`, `typecheck:dashboard`
+
+**Exit gate**: `npm run dev:dashboard` opens Vite dev server with HMR; clicking the placeholder route shows a "hello aideck" page using a shadcn `<Button>`; bundle build < 5s; no eslint/tsc errors.
+
+### E.T-006 — Convert Claude Design prototypes to production TSX
+
+For each JSX file under `docs/design/claude-design-handoff/screens/project/*.jsx`:
+- Convert `/* global React, ReactDOM */` pattern to ESM imports.
+- Rename to `.tsx`, add prop types based on `data.jsx` fixture shape.
+- Split shared atoms into `src/dashboard/components/atoms/`.
+- Split screen components into `src/dashboard/components/{home,plan,initiative,help,feedback}/`.
+- Preserve original Tailwind classes; map `colors_and_type.css` tokens into Tailwind 4 config via `@theme inline`.
+- Keep `tweaks-panel.jsx` in `docs/design/` (dev-only design tool, not shipped).
+
+**Exit gate**: all 5 screens render with `data.jsx` fixtures wired through TanStack Query mocks; visual diff vs Claude Design screenshots (in `docs/design/claude-design-handoff/screens/project/screenshots/`) within tolerance.
+
+### E.T-007 — Wire 5 views to aiDeck REST + SSE
+
+- `src/dashboard/lib/api.ts` — typed fetch wrappers around `GET /api/state/:consumer/:slug?`, `GET /api/help`, and `EventSource` for `/api/events`.
+- TanStack Query providers: queryClient + SSE subscription that calls `queryClient.invalidateQueries` on `state-change` events.
+- React Router routes: `/`, `/plans/:slug`, `/initiatives/:slug`, `/help`, `/feedback`.
+- Replace `data.jsx` fixtures with live API responses; keep fixtures as dev fallback when `import.meta.env.DEV && !VITE_API_URL`.
+
+**Exit gate**: launch aideck pointed at this repo's `.atomic-skills/`; the dashboard renders this repo's actual plans/initiatives state with SSE updates < 200ms after a file edit.
+
+### E.T-008 — aiDeck serves the bundle
+
+aiDeck side: `aideck/src/cli/args.ts` gains `--static-dir <path>` flag for `serve` subcommand. When set, Hono serves files from that path; when unset, serves the (now-empty) placeholder.
+
+atomic-skills side: new bin command `bin/atomic-skills serve` (or `npx atomic-skills serve`) that:
+1. Runs `vite build` (if `dist/dashboard/` missing or stale).
+2. Spawns `aideck serve --static-dir <atomic-skills-pkg>/dist/dashboard --port <auto>`.
+3. Opens browser via `open` package.
+4. Writes `~/.atomic-skills/env` (`AS_DASHBOARD_URL=...`) so the SessionStart hook can pick it up.
+
+Update `session-start.sh` to read `~/.atomic-skills/env` instead of `~/.aideck/env` (or both, for compat). Per E.T-004 the URL injection convention is finalized here.
+
+**Exit gate**: `npx atomic-skills serve` works end-to-end on a fresh checkout; URL appears in next Claude Code SessionStart.
+
+### E.T-009 — Cross-repo end-to-end smoke
+
+Integration test that runs both repos:
+1. `npm pack` atomic-skills + aideck.
+2. `mkdir /tmp/smoke && cd /tmp/smoke && npm init -y && npm install <both tarballs>`.
+3. `npx atomic-skills install --skill project-status`.
+4. `npx atomic-skills new-plan smoke-test`.
+5. `npx atomic-skills serve --headless` (no browser).
+6. `curl http://127.0.0.1:7777/api/state/project-status/smoke-test` → expect 200 + JSON matching the just-created plan.
+
+**Exit gate**: smoke test passes from a clean tmp dir; CI runs it on every Phase E PR.
+
+### Phase E task ordering
+
+E.T-001 through E.T-004 are independent cleanup — can be parallel commits. E.T-005 must precede E.T-006; both precede E.T-007. E.T-008 can start once E.T-007 has a working build. E.T-009 fires last.
+
+Recommended sequential cadence (matching A/B/C/D rhythm): E.T-001 → E.T-002 → E.T-003 → E.T-004 → E.T-005 → E.T-006 → E.T-007 → E.T-008 → E.T-009, with Codex review every 3-4 tasks.
+
+---
+
 ## Composite definition of done (whole migration)
 
 All of:
@@ -546,8 +677,9 @@ All of:
 - [ ] Phase B exit gates met (6 tasks)
 - [ ] Phase C exit gates met (4 tasks)
 - [ ] Phase D exit gates met (4 tasks)
+- [ ] Phase E exit gates met (9 tasks)
 - [ ] Reference target: project-plan in sda-v2 successfully captures v3-redesign with 9 plans + 61 tasks via `adopt` command
-- [ ] aiDeck renders the resulting data correctly (visual smoke test)
+- [ ] aiDeck renders the resulting data correctly (visual smoke test) — covered by E.T-009
 - [ ] All previously passing tests still pass
 - [ ] No data loss on migration of any legacy initiative
 

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>html,body{height:200px;}</style>
+</head>
+<body>
+<div class="card" style="height:200px;">
+
+<div class="col" style="gap:14px;">
+  <div class="row wrap" style="gap:10px;">
+    <button style="height:32px; padding:0 14px; background:var(--status-active); color:var(--fg-on-accent); border:none; border-radius:6px; font-family:var(--font-sans); font-size:13px; font-weight:600; cursor:pointer;">Primary action</button>
+    <button style="height:32px; padding:0 14px; background:var(--bg-elevated); color:var(--fg-default); border:1px solid var(--border-default); border-radius:6px; font-family:var(--font-sans); font-size:13px; font-weight:500; cursor:pointer;">Secondary</button>
+    <button style="height:32px; padding:0 14px; background:transparent; color:var(--fg-muted); border:1px solid var(--border-subtle); border-radius:6px; font-family:var(--font-sans); font-size:13px; cursor:pointer;">Ghost</button>
+    <button style="height:32px; padding:0 14px; background:transparent; color:var(--fg-muted); border:none; border-radius:6px; font-family:var(--font-sans); font-size:13px; cursor:pointer;">Tertiary</button>
+    <button style="height:32px; padding:0 14px; background:transparent; color:var(--severity-critical); border:1px solid color-mix(in srgb, var(--severity-critical) 40%, transparent); border-radius:6px; font-family:var(--font-sans); font-size:13px; font-weight:500; cursor:pointer;">Destructive</button>
+  </div>
+  <div class="row wrap" style="gap:8px;">
+    <button style="height:26px; width:26px; padding:0; background:var(--bg-elevated); color:var(--fg-muted); border:1px solid var(--border-default); border-radius:4px; cursor:pointer; font-family:var(--font-mono); font-size:14px;">?</button>
+    <button style="height:26px; padding:0 8px; background:var(--bg-elevated); color:var(--fg-muted); border:1px solid var(--border-default); border-radius:4px; cursor:pointer; font-family:var(--font-mono); font-size:12px;">⚑ 3</button>
+    <button style="height:26px; width:26px; padding:0; background:var(--bg-elevated); color:var(--fg-muted); border:1px solid var(--border-default); border-radius:4px; cursor:pointer; font-family:var(--font-mono); font-size:14px;">≡</button>
+    <button style="height:26px; padding:0 8px; background:transparent; color:var(--fg-muted); border:1px dashed var(--border-default); border-radius:4px; cursor:pointer; font-family:var(--font-sans); font-size:11px;">▾ Open narrative</button>
+    <button style="height:26px; padding:0 8px; background:transparent; color:var(--accent-link); border:none; cursor:pointer; font-family:var(--font-mono); font-size:11px; text-decoration:underline; text-decoration-style:dotted;">[Resolve]</button>
+  </div>
+  <div class="t-caption">Five sizes total — primary cyan only for the rare CTAs. Most actions are ghost/tertiary. Destructive uses outlined red.</div>
+</div>
+
+</div>
+</body>
+</html>

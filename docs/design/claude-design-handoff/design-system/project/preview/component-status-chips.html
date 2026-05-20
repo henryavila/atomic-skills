@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>html,body{height:230px;}</style>
+</head>
+<body>
+<div class="card" style="height:230px;">
+
+<div class="col" style="gap:14px;">
+  <div class="row wrap" style="gap:10px;">
+    
+      <span class="chip" style="color:var(--status-done); background:var(--status-done-bg); border-color:color-mix(in srgb, var(--status-done) 30%, transparent);">✓ done</span>
+    
+      <span class="chip" style="color:var(--status-active); background:var(--status-active-bg); border-color:color-mix(in srgb, var(--status-active) 30%, transparent);">◉ active</span>
+    
+      <span class="chip" style="color:var(--status-pending); background:var(--status-pending-bg); border-color:color-mix(in srgb, var(--status-pending) 30%, transparent);">· pending</span>
+    
+      <span class="chip" style="color:var(--status-blocked); background:var(--status-blocked-bg); border-color:color-mix(in srgb, var(--status-blocked) 30%, transparent);">⊘ blocked</span>
+    
+      <span class="chip" style="color:var(--status-parked); background:var(--status-parked-bg); border-color:color-mix(in srgb, var(--status-parked) 30%, transparent);">⌂ parked</span>
+    
+      <span class="chip" style="color:var(--status-emerged); background:var(--status-emerged-bg); border-color:color-mix(in srgb, var(--status-emerged) 30%, transparent);">⇥ emerged</span>
+    
+  </div>
+  <div class="row wrap" style="gap:10px;">
+    
+      <span class="chip" style="color:var(--status-blocked); background:transparent; border-color:color-mix(in srgb, var(--status-blocked) 50%, transparent); border-radius:4px;">gap-legacy</span>
+    
+      <span class="chip" style="color:var(--severity-critical); background:transparent; border-color:color-mix(in srgb, var(--severity-critical) 50%, transparent); border-radius:4px;">critical</span>
+    
+      <span class="chip" style="color:var(--status-active); background:transparent; border-color:color-mix(in srgb, var(--status-active) 50%, transparent); border-radius:4px;">ui-gate</span>
+    
+      <span class="chip" style="color:var(--status-emerged); background:transparent; border-color:color-mix(in srgb, var(--status-emerged) 50%, transparent); border-radius:4px;">parallel</span>
+    
+      <span class="chip" style="color:var(--fg-subtle); background:transparent; border-color:color-mix(in srgb, var(--fg-subtle) 50%, transparent); border-radius:4px;">gitignored</span>
+    
+  </div>
+  <div class="t-caption">Filled pills for status. Outlined squarish chips for tags (legacy markers, gate types, parallelism notes).</div>
+</div>
+
+</div>
+</body>
+</html>
