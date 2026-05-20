@@ -1,34 +1,77 @@
 // Thin client around aiDeck's REST + SSE surface.
-// In dev: hits `/api/...` via Vite's proxy (vite.config.ts) which forwards
-// to 127.0.0.1:7777. In prod (served by aideck itself), same-origin.
+//
+// Dev (Vite dev server): requests to `/api/...` and `/sse` hit Vite's proxy
+// (see vite.config.ts) which forwards to 127.0.0.1:7777.
+// Production (served by aideck with --static-dir): same-origin, no proxy.
 
-import type { ProjectStatusState, Plan, Initiative } from './types'
+import type { Annotation, Highlight, Initiative, Plan, ProjectStatusState } from './types'
 
 const CONSUMER = 'project-status'
+
+interface StateResponse {
+  schemaVersion: string
+  state: ProjectStatusState
+}
+
+interface EntityResponse {
+  schemaVersion: string
+  entity: Plan | Initiative
+}
+
+interface InboxResponse {
+  schemaVersion: string
+  items: Array<Annotation | Highlight | Record<string, unknown>>
+  nextSince?: string
+}
 
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Accept: 'application/json' } })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`HTTP ${res.status} ${res.statusText} on ${path}\n${body}`)
+    throw new Error(`HTTP ${res.status} on ${path}\n${body}`)
   }
   return (await res.json()) as T
 }
 
 export async function getState(): Promise<ProjectStatusState> {
-  return fetchJson<ProjectStatusState>(`/api/state/${CONSUMER}`)
+  const r = await fetchJson<StateResponse>(`/api/state/${CONSUMER}`)
+  return r.state
+}
+
+/**
+ * aiDeck's `/api/state/:consumer/:slug` resolves the slug against both
+ * `plans/<slug>.md` and `initiatives/<slug>.md` (plan wins on conflict).
+ * The route does NOT differentiate by URL — the caller decides which one
+ * it is from context.
+ */
+export async function getEntityBySlug(slug: string): Promise<Plan | Initiative> {
+  const r = await fetchJson<EntityResponse>(`/api/state/${CONSUMER}/${slug}`)
+  return r.entity
 }
 
 export async function getPlan(slug: string): Promise<Plan> {
-  return fetchJson<Plan>(`/api/state/${CONSUMER}/plans/${slug}`)
+  const entity = await getEntityBySlug(slug)
+  if (!('phases' in entity)) {
+    throw new Error(`Expected plan at slug "${slug}" but got an initiative`)
+  }
+  return entity
 }
 
 export async function getInitiative(slug: string): Promise<Initiative> {
-  return fetchJson<Initiative>(`/api/state/${CONSUMER}/initiatives/${slug}`)
+  const entity = await getEntityBySlug(slug)
+  if (!('tasks' in entity)) {
+    throw new Error(`Expected initiative at slug "${slug}" but got a plan`)
+  }
+  return entity
 }
 
-export interface StateChangeEvent {
-  kind: 'state-change' | 'error'
+export async function getInbox(): Promise<InboxResponse> {
+  return fetchJson<InboxResponse>(`/api/inbox?consumer=${CONSUMER}&limit=50`)
+}
+
+export interface RuntimeEvent {
+  kind: 'state-change' | 'error' | 'health-tick'
+  id?: number
   consumer?: string
   slug?: string
   entityKind?: 'plan' | 'initiative' | 'annotations-jsonl' | 'highlights-jsonl' | 'inbox-jsonl'
@@ -36,19 +79,24 @@ export interface StateChangeEvent {
 }
 
 /**
- * Opens an SSE connection to aideck's `/sse` endpoint and invokes `onChange`
- * for every `state-change` message. Returns the EventSource so callers can
- * `.close()` on unmount.
+ * Opens an SSE connection to aideck's `/sse`. The server emits named events
+ * (`event: state-change`, `event: error`, `event: health-tick`). We forward
+ * the parsed payload to `onEvent`. Callers `.close()` on unmount.
+ *
+ * Reconnection: EventSource auto-reconnects with `Last-Event-ID`; aideck's
+ * SSE replays since that id. No client-side bookkeeping needed.
  */
-export function subscribeToChanges(onChange: (evt: StateChangeEvent) => void): EventSource {
+export function subscribeToEvents(onEvent: (evt: RuntimeEvent) => void): EventSource {
   const es = new EventSource('/sse')
-  es.addEventListener('state-change', (ev) => {
-    try {
-      const data = JSON.parse((ev as MessageEvent).data) as StateChangeEvent
-      onChange(data)
-    } catch {
-      // Drop malformed payloads; aideck owns the schema and will fix upstream.
-    }
-  })
+  for (const name of ['state-change', 'error', 'health-tick'] as const) {
+    es.addEventListener(name, (ev) => {
+      try {
+        const data = JSON.parse((ev as MessageEvent).data) as RuntimeEvent
+        onEvent(data)
+      } catch {
+        // Drop malformed payloads; aideck owns the schema.
+      }
+    })
+  }
   return es
 }

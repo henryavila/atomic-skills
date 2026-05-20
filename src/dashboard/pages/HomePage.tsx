@@ -1,9 +1,9 @@
 import { Link } from 'react-router'
-import { useProjectState, useStateChangeSubscription } from '../lib/hooks'
+import { useProjectState } from '../lib/hooks'
 import { Card, SectionHeader, StatusChip } from '../components/atoms'
 
 export function HomePage() {
-  useStateChangeSubscription()
+  // SSE subscription is mounted once at App level — no per-page hook here.
   const { data, isLoading, error } = useProjectState()
 
   if (isLoading) {

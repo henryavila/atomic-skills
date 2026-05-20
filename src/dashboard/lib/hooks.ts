@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from './api'
-import { subscribeToChanges } from './api'
 
 export function useProjectState() {
   return useQuery({
@@ -27,17 +26,21 @@ export function useInitiative(slug: string | undefined) {
 }
 
 /**
- * Mount once at the App level. Subscribes to aideck's SSE stream and
- * invalidates the matching TanStack Query keys whenever an entity changes
- * on disk. The watcher fires within 50-200ms of file write per the aideck
- * contract, so the UI converges quickly without polling.
+ * Mount ONCE at the App level. Opens the SSE connection and invalidates the
+ * matching TanStack Query keys on every state-change event. aiDeck pushes the
+ * watcher event in <200ms of the file write, so the UI converges quickly with
+ * no polling.
+ *
+ * Errors and health-ticks are ignored at this layer — health is for liveness
+ * probes (handled by EventSource auto-reconnect), errors should surface via
+ * the per-query error state if they affect the data the user is looking at.
  */
 export function useStateChangeSubscription(): void {
   const queryClient = useQueryClient()
   useEffect(() => {
-    const es = subscribeToChanges((evt) => {
+    const es = api.subscribeToEvents((evt) => {
       if (evt.kind !== 'state-change') return
-      // Project-state aggregator is always invalidated — it covers any change.
+      // Aggregate state is invalidated on any change — covers list views.
       queryClient.invalidateQueries({ queryKey: ['state', 'project-status'] })
       if (evt.entityKind === 'plan' && evt.slug) {
         queryClient.invalidateQueries({ queryKey: ['plan', evt.slug] })
