@@ -18,7 +18,6 @@ ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
 STATUS_FILE="$ASKILLS_DIR/PROJECT-STATUS.md"
 PLANS_DIR="$ASKILLS_DIR/plans"
 INITIATIVES_DIR="$ASKILLS_DIR/initiatives"
-AIDECK_ENV="${HOME:-}/.aideck/env"
 
 # --- helpers ----------------------------------------------------------------
 
@@ -213,14 +212,25 @@ if [[ -n "$active_initiative" ]]; then
   context+="$(head -40 "$active_initiative")"$'\n'
 fi
 
-# 6. aiDeck URL hint — env file is written on serve, removed on shutdown.
-if [[ -f "$AIDECK_ENV" ]]; then
-  aideck_url=$(grep -E "^export AIDECK_URL=" "$AIDECK_ENV" 2>/dev/null | head -1 \
+# 6. Dashboard URL hint — `atomic-skills serve` writes ~/.atomic-skills/env on
+# startup and removes it on shutdown; the SessionStart hook surfaces the URL
+# so the AI sees where the user's dashboard is running. Falls back to the
+# legacy ~/.aideck/env path for installations that started a bare `aideck
+# serve` outside the atomic-skills wrapper.
+DASHBOARD_ENV="${HOME:-}/.atomic-skills/env"
+LEGACY_AIDECK_ENV="${HOME:-}/.aideck/env"
+dashboard_url=""
+if [[ -f "$DASHBOARD_ENV" ]]; then
+  dashboard_url=$(grep -E "^export AS_DASHBOARD_URL=" "$DASHBOARD_ENV" 2>/dev/null | head -1 \
+    | sed -E "s/^export AS_DASHBOARD_URL=//; s/^'//; s/'\$//; s/^\"//; s/\"\$//")
+fi
+if [[ -z "$dashboard_url" && -f "$LEGACY_AIDECK_ENV" ]]; then
+  dashboard_url=$(grep -E "^export AIDECK_URL=" "$LEGACY_AIDECK_ENV" 2>/dev/null | head -1 \
     | sed -E "s/^export AIDECK_URL=//; s/^'//; s/'\$//; s/^\"//; s/\"\$//")
-  if [[ -n "$aideck_url" ]]; then
-    context+=$'\n'"## aiDeck running"$'\n\n'
-    context+="Dashboard: ${aideck_url}"$'\n'
-  fi
+fi
+if [[ -n "$dashboard_url" ]]; then
+  context+=$'\n'"## Dashboard running"$'\n\n'
+  context+="${dashboard_url}"$'\n'
 fi
 
 emit_json "$context"

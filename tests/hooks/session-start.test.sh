@@ -204,20 +204,51 @@ out=$(bash "$HOOK")
 if echo "$out" | grep -q "Active Plan:"; then no "should not surface paused plan: $out"; else ok; fi
 cd - >/dev/null; rm -rf "$TMP"
 
-# Test 10: aiDeck env file → dashboard URL injected
+# Test 10a: ~/.atomic-skills/env (preferred) → dashboard URL injected
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch main
+mkdir -p .atomic-skills
+fake_home=$(mktemp -d)
+mkdir -p "$fake_home/.atomic-skills"
+cat > "$fake_home/.atomic-skills/env" <<EOF
+export AS_DASHBOARD_URL='http://127.0.0.1:7777'
+EOF
+run "AS_DASHBOARD_URL present → Dashboard running section"
+out=$(HOME="$fake_home" bash "$HOOK")
+echo "$out" | grep -q "Dashboard running" && ok || no "missing 'Dashboard running' section: $out"
+echo "$out" | grep -q "127.0.0.1:7777" && ok || no "missing dashboard URL"
+rm -rf "$fake_home"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 10b: legacy ~/.aideck/env fallback
 TMP=$(mktemp -d); cd "$TMP"
 init_git_branch main
 mkdir -p .atomic-skills
 fake_home=$(mktemp -d)
 mkdir -p "$fake_home/.aideck"
 cat > "$fake_home/.aideck/env" <<EOF
-export AIDECK_URL='http://127.0.0.1:7777'
-export AIDECK_PORT=7777
+export AIDECK_URL='http://127.0.0.1:7778'
+export AIDECK_PORT=7778
 EOF
-run "aiDeck env present → dashboard URL hint"
+run "Legacy ~/.aideck/env fallback → Dashboard URL injected"
 out=$(HOME="$fake_home" bash "$HOOK")
-echo "$out" | grep -q "aiDeck running" && ok || no "missing 'aiDeck running' section: $out"
-echo "$out" | grep -q "127.0.0.1:7777" && ok || no "missing aiDeck URL"
+echo "$out" | grep -q "Dashboard running" && ok || no "missing 'Dashboard running': $out"
+echo "$out" | grep -q "127.0.0.1:7778" && ok || no "missing legacy URL"
+rm -rf "$fake_home"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 10c: AS_DASHBOARD_URL wins over legacy when both present
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch main
+mkdir -p .atomic-skills
+fake_home=$(mktemp -d)
+mkdir -p "$fake_home/.atomic-skills" "$fake_home/.aideck"
+echo "export AS_DASHBOARD_URL='http://127.0.0.1:9999'" > "$fake_home/.atomic-skills/env"
+echo "export AIDECK_URL='http://127.0.0.1:7777'" > "$fake_home/.aideck/env"
+run "Both env files present → AS_DASHBOARD_URL wins"
+out=$(HOME="$fake_home" bash "$HOOK")
+echo "$out" | grep -q "9999" && ok || no "expected 9999, got: $out"
+if echo "$out" | grep -q "7777"; then no "legacy URL should not appear: $out"; else ok; fi
 rm -rf "$fake_home"
 cd - >/dev/null; rm -rf "$TMP"
 
