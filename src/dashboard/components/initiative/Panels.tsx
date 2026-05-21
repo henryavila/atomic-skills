@@ -474,6 +474,7 @@ export function ParkedPanel({ items }: { items: UIParked[] }) {
             <StatusGlyph status="parked" size={12} />
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--fg-default)', flex: 1, lineHeight: 1.35 }}>
               {p.title}
+              <StaleGlyph staleAge={p.staleAge} />
             </span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-subtle)', flex: 'none' }}>
               parked {p.parkedAt}
@@ -500,6 +501,23 @@ export function ParkedPanel({ items }: { items: UIParked[] }) {
   )
 }
 
+function StaleGlyph({ staleAge }: { staleAge?: number }) {
+  if (staleAge === undefined || staleAge < 14) return null
+  return (
+    <span
+      title={`Last reviewed ${staleAge} days ago`}
+      style={{
+        marginLeft: 6,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+        color: 'var(--severity-warn)',
+      }}
+    >
+      ⌛
+    </span>
+  )
+}
+
 export function EmergedPanel({ items }: { items: UIEmerged[] }) {
   return (
     <PanelShell
@@ -520,32 +538,50 @@ export function EmergedPanel({ items }: { items: UIEmerged[] }) {
             padding: '10px 14px',
             borderBottom: idx < items.length - 1 ? '1px solid var(--border-subtle)' : 'none',
             display: 'flex',
-            alignItems: 'center',
-            gap: 8,
+            flexDirection: 'column',
+            gap: 4,
           }}
         >
-          <StatusGlyph status="emerged" size={12} />
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--fg-default)', flex: 1, lineHeight: 1.35 }}>
-            {e.title}
-          </span>
-          {e.promoted && (
-            <span
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <StatusGlyph status="emerged" size={12} />
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--fg-default)', flex: 1, lineHeight: 1.35 }}>
+              {e.title}
+              <StaleGlyph staleAge={e.staleAge} />
+            </span>
+            {e.promoted && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  color: 'var(--status-done)',
+                  padding: '1px 6px',
+                  borderRadius: 999,
+                  background: 'color-mix(in srgb, var(--status-done) 10%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--status-done) 25%, transparent)',
+                }}
+              >
+                ✓ promoted
+              </span>
+            )}
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-subtle)', flex: 'none' }}>
+              {e.surfacedAt}
+            </span>
+          </div>
+          {e.reason && (
+            <div
               style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-                color: 'var(--status-done)',
-                padding: '1px 6px',
-                borderRadius: 999,
-                background: 'color-mix(in srgb, var(--status-done) 10%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--status-done) 25%, transparent)',
+                marginLeft: 28,
+                paddingLeft: 10,
+                borderLeft: '2px solid color-mix(in srgb, var(--status-emerged) 30%, transparent)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 12,
+                color: 'var(--fg-muted)',
+                lineHeight: 1.5,
               }}
             >
-              ✓ promoted
-            </span>
+              {e.reason}
+            </div>
           )}
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-subtle)', flex: 'none' }}>
-            {e.surfacedAt}
-          </span>
         </div>
       ))}
     </PanelShell>

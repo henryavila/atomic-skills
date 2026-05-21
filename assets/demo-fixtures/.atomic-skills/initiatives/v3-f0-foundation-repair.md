@@ -74,7 +74,7 @@ tasks:
     lastUpdated: '2026-05-20T17:00:00Z'
 parked:
   - title: 'Reconsider tenant_id format — should be UUID instead of int?'
-    surfacedAt: '2026-05-19T15:00:00Z'
+    surfacedAt: '2026-04-15T15:00:00Z'
     fromFrame: 1
     context:
       solves: 'Int tenant_id forces sequential allocation and leaks tenant count to anyone with a record id — a UUID is what every multi-tenant playbook recommends.'
@@ -82,9 +82,9 @@ parked:
       assumesStillValid:
         - 'Migrating tenant_id format is cheaper now than after F1/F2 ship'
         - 'No external integration currently depends on the int shape'
-      ratifiedAt: '2026-05-19T15:05:00Z'
+      ratifiedAt: '2026-04-15T15:05:00Z'
       ratifiedBy: 'human'
-      lastReviewedAt: '2026-05-19T15:05:00Z'
+      lastReviewedAt: '2026-04-15T15:05:00Z'
 emerged:
   - title: 'Canary dataset should be versioned in a separate v0.2 initiative'
     surfacedAt: '2026-05-19T16:00:00Z'

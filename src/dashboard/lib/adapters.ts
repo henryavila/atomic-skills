@@ -234,6 +234,8 @@ export interface UIParked {
   title: string
   parkedAt: string
   reason?: string
+  lastReviewedAt?: string
+  staleAge?: number
 }
 
 export interface UIEmerged {
@@ -241,6 +243,14 @@ export interface UIEmerged {
   title: string
   surfacedAt: string
   promoted?: boolean
+  reason?: string
+  lastReviewedAt?: string
+  staleAge?: number
+}
+
+function computeStaleAge(lastReviewedAt?: string): number | undefined {
+  if (!lastReviewedAt) return undefined
+  return Math.floor((Date.now() - Date.parse(lastReviewedAt)) / 86400000)
 }
 
 export function adaptInitiativeForUI(initiative: Initiative, plan?: Plan): UIInitiative {
@@ -323,12 +333,18 @@ export function adaptInitiativeForUI(initiative: Initiative, plan?: Plan): UIIni
       id: `P-${i + 1}`,
       title: p.title,
       parkedAt: p.surfacedAt.slice(0, 10),
+      reason: p.context.solves,
+      lastReviewedAt: p.context.lastReviewedAt,
+      staleAge: computeStaleAge(p.context.lastReviewedAt),
     })),
     emerged: initiative.emerged.map((e, i) => ({
       id: `E-${i + 1}`,
       title: e.title,
       surfacedAt: e.surfacedAt.slice(0, 10),
       promoted: e.promoted,
+      reason: e.context.solves,
+      lastReviewedAt: e.context.lastReviewedAt,
+      staleAge: computeStaleAge(e.context.lastReviewedAt),
     })),
     references: (initiative.references ?? []).map(adaptRef),
     body: initiative.body,

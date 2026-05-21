@@ -53,6 +53,8 @@ export interface PhaseDescriptor {
   exitGate: PhaseExitGate
   status: InitiativeStatus
   exitGateType?: 'standard' | 'ui-gate' | 'custom'
+  provenance?: Provenance
+  context?: Context
 }
 
 export interface Principle {
@@ -113,6 +115,22 @@ export interface TaskOutput {
   description?: string
 }
 
+export interface Provenance {
+  surfacedAt: string
+  surfacedDuring?: string
+  surfacedBy?: 'human' | 'ai'
+  originalPhaseId?: string
+}
+
+export interface Context {
+  solves: string
+  trigger: string
+  assumesStillValid: string[]
+  ratifiedAt: string
+  ratifiedBy?: 'human' | 'ai-with-explicit-user-confirm'
+  lastReviewedAt?: string
+}
+
 export interface Task {
   id: string
   title: string
@@ -125,18 +143,22 @@ export interface Task {
   tags?: string[]
   resourceCounts?: Record<string, number>
   verifier?: ExitCriterionVerifier
+  provenance?: Provenance
+  context?: Context
 }
 
 export interface ParkedItem {
   title: string
   surfacedAt: string
   fromFrame: number | null
+  context: Context
 }
 
 export interface EmergedItem {
   title: string
   surfacedAt: string
   promoted: boolean
+  context: Context
 }
 
 export interface InitiativeScope {

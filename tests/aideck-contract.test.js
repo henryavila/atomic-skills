@@ -152,6 +152,67 @@ describe('aideck cross-repo contract', () => {
     }
   })
 
+  it('parseInitiativeFile preserves context on populated parked/emerged', { skip: !HAS_AIDECK && SKIP_REASON }, async () => {
+    const parsers = await loadParsers()
+    assert.ok(parsers)
+
+    const raw = readFileSync(INITIATIVE_TEMPLATE_PATH, 'utf8')
+    let filled = fillPlaceholders(raw, INITIATIVE_SUBS)
+
+    // Replace the empty parked/emerged arrays with populated entries that include
+    // a complete context block (mirrors meta/schemas/common.schema.json $defs.context).
+    filled = filled.replace(
+      /^parked: \[\]$/m,
+      `parked:
+  - title: 'sample parked item with context'
+    surfacedAt: '2026-05-20T18:00:00Z'
+    fromFrame: null
+    context:
+      solves: 'concrete problem solved here'
+      trigger: 'concrete trigger description'
+      assumesStillValid: []
+      ratifiedAt: '2026-05-20T18:15:00Z'
+      ratifiedBy: human`
+    )
+    filled = filled.replace(
+      /^emerged: \[\]$/m,
+      `emerged:
+  - title: 'sample emerged item with context'
+    surfacedAt: '2026-05-20T19:00:00Z'
+    promoted: false
+    context:
+      solves: 'another concrete problem here'
+      trigger: 'another concrete trigger description'
+      assumesStillValid: []
+      ratifiedAt: '2026-05-20T19:15:00Z'
+      ratifiedBy: human
+      lastReviewedAt: '2026-04-15T10:00:00Z'`
+    )
+
+    const tmp = mkdtempSync(join(tmpdir(), 'as-contract-init-ctx-'))
+    const path = join(tmp, 'with-context.md')
+    writeFileSync(path, filled)
+
+    try {
+      const result = await parsers.parseInitiativeFile(path)
+      assert.equal(
+        result.ok,
+        true,
+        `parseInitiativeFile failed: ${result.ok ? '' : JSON.stringify(result.error, null, 2)}`
+      )
+      if (result.ok) {
+        assert.equal(result.value.parked.length, 1)
+        assert.ok(result.value.parked[0].context, 'parked[0].context must be present')
+        assert.equal(result.value.parked[0].context.solves, 'concrete problem solved here')
+        assert.equal(result.value.emerged.length, 1)
+        assert.ok(result.value.emerged[0].context, 'emerged[0].context must be present')
+        assert.equal(result.value.emerged[0].context.lastReviewedAt, '2026-04-15T10:00:00Z')
+      }
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('parseInitiativeFile accepts standalone mode (no parentPlan/phaseId)', { skip: !HAS_AIDECK && SKIP_REASON }, async () => {
     const parsers = await loadParsers()
     assert.ok(parsers)
