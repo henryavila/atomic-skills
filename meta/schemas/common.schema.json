@@ -23,7 +23,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["surfacedAt"],
-      "description": "Records when and how an item (task or phase) was added AFTER the initial materialization of its container. Absent on items that shipped in the original plan/initiative; present on items added mid-execution via the agent-proposes / user-invokes flow described in skills/en/core/project-status.md.",
+      "description": "Records when and how an item (task or phase) was added AFTER the initial materialization of its container. Absent on items that shipped in the original plan/initiative; present on items added mid-execution via the agent-proposes / user-invokes flow described in skills/en/core/project-status.md. When present on a task/phase, `context` becomes mandatory.",
       "properties": {
         "surfacedAt": { "$ref": "#/$defs/isoTimestamp" },
         "surfacedDuring": {
@@ -39,6 +39,44 @@
         "originalPhaseId": {
           "type": "string",
           "description": "For tasks moved cross-phase via reanchor: the phase the task originally belonged to."
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["solves", "trigger", "ratifiedAt"],
+      "description": "Captures the WHY of an item that wasn't part of the original materialization. `solves` and `trigger` answer 'what problem does this address?' and 'what made it surface?'. `ratifiedAt` records that the human explicitly approved this articulation (vs. an agent-only draft). Mandatory on every `parked` and `emerged` entry, and on any task/phase that also carries `provenance`. The mandatory-ratify flow lives in skills/en/core/project-status.md under 'Emergent work — proposal / ratify / commit pattern'.",
+      "properties": {
+        "solves": {
+          "type": "string",
+          "minLength": 8,
+          "description": "One-sentence statement of the problem this item addresses. Read first when re-evaluating the backlog — if `solves` no longer applies, the item is stale."
+        },
+        "trigger": {
+          "type": "string",
+          "minLength": 8,
+          "description": "What caused the item to surface — an incident, a code-review finding, a test failure, an observation while implementing another task, a user request. Concrete, not generic."
+        },
+        "assumesStillValid": {
+          "type": "array",
+          "default": [],
+          "description": "Premises that, if invalidated, render the item moot. Used by re-evaluation prompts and `lastReviewedAt`-aging banners — when any item in this list is no longer true, the item should be re-ratified or archived.",
+          "items": { "type": "string", "minLength": 4 }
+        },
+        "ratifiedAt": {
+          "$ref": "#/$defs/isoTimestamp",
+          "description": "Timestamp of the explicit user confirmation (`ratify` command or equivalent paste-back). Distinct from `provenance.surfacedAt` — a thing can be surfaced by the agent at T1 and only ratified by the human at T2."
+        },
+        "ratifiedBy": {
+          "type": "string",
+          "enum": ["human", "ai-with-explicit-user-confirm"],
+          "default": "human",
+          "description": "Almost always `human`. `ai-with-explicit-user-confirm` covers the narrow case where the user authorized the agent (mid-conversation) to ratify on their behalf — recorded so audits can distinguish."
+        },
+        "lastReviewedAt": {
+          "$ref": "#/$defs/isoTimestamp",
+          "description": "Last time the item's `solves` and `assumesStillValid` were re-checked against current reality. Initialized to `ratifiedAt` on creation; updated by future `re-ratify` runs. Aging thresholds in `.atomic-skills/status/config.json`."
         }
       }
     },

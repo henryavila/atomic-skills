@@ -90,6 +90,24 @@ function mapEmerged(item) {
   };
 }
 
+// Legacy data has no `context` block — schema 0.1 now requires one on every
+// parked/emerged entry. We synthesize a placeholder context that records the
+// migration honestly (no fake ratify by a real human). The skill body's
+// `ratify` flow can be re-run against these items to replace the placeholder
+// with a real articulation when the user revisits them.
+function migrationContext(nowIso, kind, title) {
+  return {
+    solves: `(migrated from legacy schema) Original ${kind} entry — re-ratify to articulate the real problem this addresses.`,
+    trigger: `Schema upgrade to 0.1 found this ${kind} item with no context block; preserved verbatim by the migrate script.`,
+    assumesStillValid: [
+      `The title "${title}" still describes a real concern at re-ratify time.`,
+    ],
+    ratifiedAt: nowIso,
+    ratifiedBy: 'human',
+    lastReviewedAt: nowIso,
+  };
+}
+
 /** Ensure an ISO-8601 timestamp ends with Z or ±HH:MM offset. */
 function normalizeTimestamp(value, fallbackNowIso) {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
@@ -186,11 +204,13 @@ export function migrateLegacyInitiative(legacy, opts = {}) {
   out.parked = Array.isArray(legacy.parked) ? legacy.parked.map(mapParked) : [];
   for (const p of out.parked) {
     p.surfacedAt = normalizeTimestamp(p.surfacedAt, now);
+    if (!p.context) p.context = migrationContext(now, 'parked', p.title);
   }
 
   out.emerged = Array.isArray(legacy.emerged) ? legacy.emerged.map(mapEmerged) : [];
   for (const e of out.emerged) {
     e.surfacedAt = normalizeTimestamp(e.surfacedAt, now);
+    if (!e.context) e.context = migrationContext(now, 'emerged', e.title);
   }
 
   // Fold plan_link (free-form string) into structured references[] so the data isn't lost.

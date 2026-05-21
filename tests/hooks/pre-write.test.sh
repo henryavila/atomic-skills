@@ -105,11 +105,12 @@ phases:
 EOF
 }
 
-# Render an initiative body containing N tasks, optionally with provenance on
-# specified ids. `prov_ids_csv` is a comma-separated list of T-NNN ids that
-# should carry provenance in the rendered output. Empty CSV → none.
+# Render an initiative body containing N tasks. Items in `prov_ids_csv` get a
+# `provenance` block. Items in `ctx_ids_csv` get a complete `context` block
+# (solves + trigger + ratifiedAt). The two are independent so tests can isolate
+# "has provenance but no context" violations.
 render_initiative_full() {
-  local n=$1 prov_ids_csv=${2:-}
+  local n=$1 prov_ids_csv=${2:-} ctx_ids_csv=${3:-}
   local body
   body=$(cat <<EOF
 ---
@@ -127,18 +128,25 @@ stack: []
 tasks:
 EOF
 )
-  local i id has_prov IFS_OLD=$IFS
+  local i id has_prov has_ctx IFS_OLD=$IFS
   for ((i=1; i<=n; i++)); do
     id=$(printf 'T-%03d' "$i")
-    has_prov=no
+    has_prov=no; has_ctx=no
     if [[ -n "$prov_ids_csv" ]]; then
       IFS=',' read -ra arr <<< "$prov_ids_csv"
       for p in "${arr[@]}"; do [[ "$p" == "$id" ]] && has_prov=yes; done
     fi
+    if [[ -n "$ctx_ids_csv" ]]; then
+      IFS=',' read -ra arr <<< "$ctx_ids_csv"
+      for p in "${arr[@]}"; do [[ "$p" == "$id" ]] && has_ctx=yes; done
+    fi
     IFS=$IFS_OLD
-    body+=$(printf '\n  - id: %s\n    title: '\''task-%d'\''\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z' "$id" "$i")
+    body+=$(printf '\n  - id: %s\n    title: \047task-%d\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z' "$id" "$i")
     if [[ "$has_prov" == "yes" ]]; then
       body+=$(printf '\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedDuring: i/T-001\n      surfacedBy: human')
+    fi
+    if [[ "$has_ctx" == "yes" ]]; then
+      body+=$(printf '\n    context:\n      solves: \047real problem statement here\047\n      trigger: \047concrete trigger here\047\n      ratifiedAt: 2026-05-20T18:15:00Z\n      ratifiedBy: human')
     fi
   done
   body+=$(printf '\nparked: []\nemerged: []\n---\n')
@@ -202,15 +210,15 @@ rc=$?
 [[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written"
 cd - >/dev/null; rm -rf "$TMP"
 
-# --- T5: add task WITH provenance → exit 0, no log --------------------------
+# --- T5: add task WITH provenance + complete context → exit 0, no log -------
 TMP=$(mktemp -d); cd "$TMP"
 mkdir -p .atomic-skills/initiatives .atomic-skills/status
 printf '{"emergent_strict_mode":false}' > .atomic-skills/status/config.json
 write_initiative_one_task .atomic-skills/initiatives/i.md
-NEW=$(render_initiative_full 2 "T-002")  # T-002 has provenance
+NEW=$(render_initiative_full 2 "T-002" "T-002")  # T-002 has provenance + context
 PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" --arg ct "$NEW" \
   '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
-run "T5: add task with provenance → exit 0, no log"
+run "T5: add task with provenance + ratified context → exit 0, no log"
 feed "$PAYLOAD"
 rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
@@ -231,7 +239,7 @@ rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0 (dry-run), got $rc"
 [[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log missing"
 grep -q '"mode": "dry-run"' .atomic-skills/status/emergent-drift.log && ok || no "missing dry-run marker"
-grep -q '"task:T-002"' .atomic-skills/status/emergent-drift.log && ok || no "missing violation entry"
+grep -q 'task:T-002 (no provenance)' .atomic-skills/status/emergent-drift.log && ok || no "missing violation entry"
 cd - >/dev/null; rm -rf "$TMP"
 
 # --- T7: add task WITHOUT provenance, strict_mode → exit 2 ------------------
@@ -248,8 +256,8 @@ out=$(feed "$PAYLOAD" 2>&1)
 rc=$?
 set -e
 [[ "$rc" == "2" ]] && ok || no "expected exit 2, got $rc"
-printf '%s' "$out" | grep -q "without provenance" && ok || no "expected explanation in stderr"
-printf '%s' "$out" | grep -q "task:T-002" && ok || no "expected violation id in stderr"
+printf '%s' "$out" | grep -q "user-ratifies" && ok || no "expected ratify-flow explanation in stderr"
+printf '%s' "$out" | grep -q "task:T-002 (no provenance)" && ok || no "expected violation id in stderr"
 cd - >/dev/null; rm -rf "$TMP"
 
 # --- T8: update existing task status (no addition) → exit 0, no log ---------
@@ -331,7 +339,7 @@ feed "$PAYLOAD"
 rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
 [[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log missing"
-grep -q '"phase:F1"' .atomic-skills/status/emergent-drift.log && ok || no "missing phase:F1 violation"
+grep -q 'phase:F1 (no provenance)' .atomic-skills/status/emergent-drift.log && ok || no "missing phase:F1 violation"
 cd - >/dev/null; rm -rf "$TMP"
 
 # --- T11: archive/ subdir edit → exit 0 (out of gated path) -----------------
@@ -373,7 +381,7 @@ feed "$PAYLOAD"
 rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0 (dry-run), got $rc"
 [[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log missing"
-grep -q '"task:T-002"' .atomic-skills/status/emergent-drift.log && ok || no "missing task:T-002 violation"
+grep -q 'task:T-002 (no provenance)' .atomic-skills/status/emergent-drift.log && ok || no "missing task:T-002 violation"
 cd - >/dev/null; rm -rf "$TMP"
 
 # --- T14: MultiEdit, mix of OK and missing provenance → log violation -------
@@ -386,9 +394,9 @@ write_initiative_one_task .atomic-skills/initiatives/i.md
 # sequence and turn subsequent \n into literal backslash-n. Use \047 (ASCII for
 # `'`) so the entire string stays inside the same $'...' quotation.
 E1_OLD="parked: []"
-E1_NEW=$'  - id: T-002\n    title: \047with-prov\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedBy: human\nparked: []'
-E2_OLD=$'  - id: T-002\n    title: \047with-prov\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedBy: human'
-E2_NEW=$'  - id: T-002\n    title: \047with-prov\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedBy: human\n  - id: T-003\n    title: \047silent\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z'
+E1_NEW=$'  - id: T-002\n    title: \047with-prov\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedBy: human\n    context:\n      solves: \047real problem here\047\n      trigger: \047concrete trigger here\047\n      ratifiedAt: 2026-05-20T18:15:00Z\n      ratifiedBy: human\nparked: []'
+E2_OLD=$'  - id: T-002\n    title: \047with-prov\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedBy: human\n    context:\n      solves: \047real problem here\047\n      trigger: \047concrete trigger here\047\n      ratifiedAt: 2026-05-20T18:15:00Z\n      ratifiedBy: human'
+E2_NEW=$'  - id: T-002\n    title: \047with-prov\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z\n    provenance:\n      surfacedAt: 2026-05-20T18:14:16Z\n      surfacedBy: human\n    context:\n      solves: \047real problem here\047\n      trigger: \047concrete trigger here\047\n      ratifiedAt: 2026-05-20T18:15:00Z\n      ratifiedBy: human\n  - id: T-003\n    title: \047silent\047\n    status: pending\n    lastUpdated: 2026-05-20T00:00:00Z'
 PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" \
   --arg e1o "$E1_OLD" --arg e1n "$E1_NEW" \
   --arg e2o "$E2_OLD" --arg e2n "$E2_NEW" \
@@ -401,8 +409,8 @@ feed "$PAYLOAD"
 rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
 [[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log missing"
-grep -q '"task:T-003"' .atomic-skills/status/emergent-drift.log && ok || no "missing task:T-003 violation"
-! grep -q '"task:T-002"' .atomic-skills/status/emergent-drift.log && ok || no "T-002 (legit) should NOT be in violations"
+grep -q 'task:T-003 (no provenance)' .atomic-skills/status/emergent-drift.log && ok || no "missing task:T-003 violation"
+! grep -q 'task:T-002' .atomic-skills/status/emergent-drift.log && ok || no "T-002 (legit) should NOT be in violations"
 cd - >/dev/null; rm -rf "$TMP"
 
 # --- T15: NotebookEdit on .md → exit 0 (notebook hook doesn't apply) --------
@@ -446,6 +454,77 @@ run "T17: rendered.md derived artifact is exempt"
 feed "$PAYLOAD"
 rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T18: add task with provenance but NO context → context violation -------
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+printf '{"emergent_strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/initiatives/i.md
+NEW=$(render_initiative_full 2 "T-002")  # provenance YES, context NO
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T18: provenance present but context missing → log entry naming the gaps"
+feed "$PAYLOAD"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0 (dry-run), got $rc"
+[[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log missing"
+grep -q 'task:T-002 (missing context' .atomic-skills/status/emergent-drift.log && ok || no "violation should be context-flavored, not provenance"
+grep -q 'solves' .atomic-skills/status/emergent-drift.log && ok || no "expected 'solves' named in missing list"
+grep -q 'trigger' .atomic-skills/status/emergent-drift.log && ok || no "expected 'trigger' named in missing list"
+grep -q 'ratifiedAt' .atomic-skills/status/emergent-drift.log && ok || no "expected 'ratifiedAt' named in missing list"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T19: provenance + partial context (only solves) → still violates -------
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/initiatives/i.md
+NEW=$(cat <<EOF
+---
+schemaVersion: '0.1'
+slug: i
+title: 'X'
+goal: 'Y'
+status: active
+branch: null
+started: 2026-05-20T00:00:00Z
+lastUpdated: 2026-05-20T00:00:00Z
+nextAction: null
+exitGates: []
+stack: []
+tasks:
+  - id: T-001
+    title: 'foo'
+    status: pending
+    lastUpdated: 2026-05-20T00:00:00Z
+  - id: T-002
+    title: 'partially-ratified'
+    status: pending
+    lastUpdated: 2026-05-20T00:00:00Z
+    provenance:
+      surfacedAt: 2026-05-20T18:14:16Z
+      surfacedBy: human
+    context:
+      solves: 'a real solve statement'
+parked: []
+emerged: []
+---
+EOF
+)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T19: partial context (only solves) + strict → exit 2 naming gaps"
+set +e
+out=$(feed "$PAYLOAD" 2>&1)
+rc=$?
+set -e
+[[ "$rc" == "2" ]] && ok || no "expected exit 2, got $rc"
+printf '%s' "$out" | grep -q "missing context" && ok || no "expected 'missing context' diagnostic in stderr"
+printf '%s' "$out" | grep -q "trigger" && ok || no "expected 'trigger' named as missing"
+printf '%s' "$out" | grep -q "ratifiedAt" && ok || no "expected 'ratifiedAt' named as missing"
+# solves was present — should NOT appear in the missing list
+! printf '%s' "$out" | grep -q "solves," && ok || no "'solves' should NOT be in missing list when present"
 cd - >/dev/null; rm -rf "$TMP"
 
 echo ""

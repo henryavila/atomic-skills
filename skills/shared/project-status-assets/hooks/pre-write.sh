@@ -95,9 +95,10 @@ in_gated_path() {
   return 1
 }
 
-# Extract task / phase entries (id + provenance presence) from a markdown file's
-# frontmatter. Reads from stdin; emits one line per entry: `<kind>|<id>|<has_prov>`
-# where <kind> is `task` or `phase` and <has_prov> is `yes`/`no`.
+# Extract task / phase entries (id + provenance + context presence) from a
+# markdown file's frontmatter. Reads from stdin; emits one line per entry:
+#   <kind>|<id>|<has_prov>|<has_ctx_solves>|<has_ctx_trigger>|<has_ctx_ratified>
+# where <kind> is `task` or `phase` and each presence flag is `yes`/`no`.
 #
 # Handles two YAML forms produced by the project-status skill:
 #   block form:
@@ -105,8 +106,12 @@ in_gated_path() {
 #       title: 'foo'
 #       provenance:
 #         surfacedAt: ...
-#   inline form:
-#     - { id: T-001, status: pending, provenance: { surfacedAt: ... } }
+#       context:
+#         solves: '...'
+#         trigger: '...'
+#         ratifiedAt: '...'
+#   inline form (rare for tasks/phases — usually only stack frames):
+#     - { id: T-001, status: pending, provenance: { ... }, context: { ... } }
 #
 # Skips lines outside the frontmatter (between the first two `---` markers).
 extract_entries() {
@@ -114,12 +119,14 @@ extract_entries() {
     BEGIN {
       fm = 0
       in_tasks = 0; in_phases = 0
-      cur_kind = ""; cur_id = ""; cur_prov = "no"
+      cur_kind = ""; cur_id = ""
+      cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
     }
     function flush() {
       if (cur_id != "") {
-        print cur_kind "|" cur_id "|" cur_prov
-        cur_id = ""; cur_prov = "no"
+        print cur_kind "|" cur_id "|" cur_prov "|" cur_ctx_solves "|" cur_ctx_trigger "|" cur_ctx_ratified
+        cur_id = ""
+        cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
       }
     }
     /^---[[:space:]]*$/ { fm++; if (fm == 2) { flush(); exit } next }
@@ -136,16 +143,17 @@ extract_entries() {
     /^[[:space:]]+-[[:space:]]+\{/ {
       flush()
       line = $0
-      # Inline form: capture id and provenance presence in one pass.
+      # Inline form: capture id + presence flags in one pass.
       if (match(line, /id:[[:space:]]*['"'"'"]?[A-Za-z0-9_.-]+['"'"'"]?/)) {
         id_str = substr(line, RSTART, RLENGTH)
         sub(/^id:[[:space:]]*/, "", id_str)
         gsub(/['"'"'"]/, "", id_str)
         cur_id = id_str
       }
-      if (line ~ /provenance[[:space:]]*:/) {
-        cur_prov = "yes"
-      }
+      if (line ~ /provenance[[:space:]]*:/)         cur_prov = "yes"
+      if (line ~ /solves[[:space:]]*:/)             cur_ctx_solves = "yes"
+      if (line ~ /trigger[[:space:]]*:/)            cur_ctx_trigger = "yes"
+      if (line ~ /ratifiedAt[[:space:]]*:/)         cur_ctx_ratified = "yes"
       flush()
       next
     }
@@ -157,13 +165,24 @@ extract_entries() {
       sub(/[[:space:]]+#.*$/, "", line)
       sub(/[[:space:]]+$/, "", line)
       cur_id = line
-      cur_prov = "no"
+      cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
       next
     }
-    # A nested provenance key at child indent of the current entry.
+    # Nested keys at child indent of the current entry. We match by key name
+    # without parsing exact indent; valid YAML never reuses these names at a
+    # top level outside their parent block, and the top-level-key rule above
+    # already ends the entry scope before that could happen.
     /^[[:space:]]+provenance[[:space:]]*:/ {
-      if (cur_id != "") cur_prov = "yes"
-      next
+      if (cur_id != "") cur_prov = "yes"; next
+    }
+    /^[[:space:]]+solves[[:space:]]*:/ {
+      if (cur_id != "") cur_ctx_solves = "yes"; next
+    }
+    /^[[:space:]]+trigger[[:space:]]*:/ {
+      if (cur_id != "") cur_ctx_trigger = "yes"; next
+    }
+    /^[[:space:]]+ratifiedAt[[:space:]]*:/ {
+      if (cur_id != "") cur_ctx_ratified = "yes"; next
     }
   '
 }
@@ -294,23 +313,37 @@ new_entries=$(extract_entries < "$new_tmp" 2>/dev/null || true)
 # IDs present in OLD (regardless of provenance).
 old_ids=$(printf '%s\n' "$old_entries" | awk -F'|' 'NF>=2 {print $1"|"$2}' | sort -u)
 
-# Walk NEW entries; flag any whose `<kind>|<id>` doesn't exist in OLD AND lacks
-# provenance in NEW.
+# Walk NEW entries; flag any whose `<kind>|<id>` doesn't exist in OLD AND
+# either (a) lacks provenance OR (b) has provenance but lacks a complete
+# context block (solves + trigger + ratifiedAt). The two failure modes are
+# tagged separately so the violation message is actionable.
 violations=()
 while IFS= read -r row; do
   [[ -z "$row" ]] && continue
   kind=$(printf '%s' "$row" | awk -F'|' '{print $1}')
   id=$(printf '%s' "$row" | awk -F'|' '{print $2}')
   has_prov=$(printf '%s' "$row" | awk -F'|' '{print $3}')
+  has_solves=$(printf '%s' "$row" | awk -F'|' '{print $4}')
+  has_trigger=$(printf '%s' "$row" | awk -F'|' '{print $5}')
+  has_ratified=$(printf '%s' "$row" | awk -F'|' '{print $6}')
   [[ -z "$id" ]] && continue
   key="$kind|$id"
   if printf '%s\n' "$old_ids" | grep -Fxq "$key"; then
     continue  # existing entry, not an addition
   fi
-  if [[ "$has_prov" == "yes" ]]; then
-    continue  # added with provenance — legitimate
+  if [[ "$has_prov" != "yes" ]]; then
+    violations+=("$kind:$id (no provenance)")
+    continue
   fi
-  violations+=("$kind:$id")
+  # provenance present — context must also be complete
+  missing=()
+  [[ "$has_solves"   == "yes" ]] || missing+=("solves")
+  [[ "$has_trigger"  == "yes" ]] || missing+=("trigger")
+  [[ "$has_ratified" == "yes" ]] || missing+=("ratifiedAt")
+  if (( ${#missing[@]} > 0 )); then
+    missing_csv=$(IFS=','; echo "${missing[*]}")
+    violations+=("$kind:$id (missing context.{$missing_csv})")
+  fi
 done <<< "$new_entries"
 
 (( ${#violations[@]} == 0 )) && exit 0
@@ -318,8 +351,13 @@ done <<< "$new_entries"
 # --- decide -----------------------------------------------------------------
 
 slug=$(basename "$abs_path" .md)
-violations_csv=$(IFS=','; echo "${violations[*]}")
-msg="Edit to ${slug}.md adds entries without provenance: ${violations_csv}. Use the new-task / new-phase / split-phase / emerge --target commands (they record provenance automatically) instead of editing the file directly. To bypass for 24h: \`touch .atomic-skills/status/SKIP-EMERGENT\`."
+violations_csv=$(IFS=$'\n'; echo "${violations[*]}")
+msg="Edit to ${slug}.md violates the agent-proposes / user-ratifies flow:
+${violations_csv}
+
+Use the new-task / new-phase / split-phase / emerge --target / park commands; each prompts the user to ratify a context block (solves + trigger + assumesStillValid) before mutating state. Direct edits bypass that articulation, which is why downstream listings end up as cryptic title-only stubs.
+
+To bypass for 24h: \`touch .atomic-skills/status/SKIP-EMERGENT\`."
 
 if [[ "$strict_mode" == "true" ]]; then
   echo "$msg" >&2

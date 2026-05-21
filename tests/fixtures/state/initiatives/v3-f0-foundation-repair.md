@@ -149,6 +149,15 @@ emerged:
   - title: 'Investigate Patrimony Clone (mentioned in F1 docs but might affect F0 audit)'
     surfacedAt: '2026-05-19T13:15:00Z'
     promoted: false
+    context:
+      solves: 'F0 audit may be incomplete if the Patrimony Clone shares the same legacy auth middleware — without checking, the legal-compliance scope is undercounted.'
+      trigger: 'While reviewing F1 design docs the team noticed Patrimony Clone references the same auth path F0 is auditing.'
+      assumesStillValid:
+        - 'Patrimony Clone still exists in production'
+        - 'F0 audit scope still treats auth middleware as in-scope'
+      ratifiedAt: '2026-05-19T13:15:00Z'
+      ratifiedBy: 'human'
+      lastReviewedAt: '2026-05-19T13:15:00Z'
 
 references:
   - { kind: section, path: '../plans/v3-redesign.demo.md', section: 'F0 — Foundation Repair (Data)', label: 'Phase definition in master plan', inside_repo: true }

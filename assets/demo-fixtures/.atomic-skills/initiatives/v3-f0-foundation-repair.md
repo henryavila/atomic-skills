@@ -76,10 +76,28 @@ parked:
   - title: 'Reconsider tenant_id format — should be UUID instead of int?'
     surfacedAt: '2026-05-19T15:00:00Z'
     fromFrame: 1
+    context:
+      solves: 'Int tenant_id forces sequential allocation and leaks tenant count to anyone with a record id — a UUID is what every multi-tenant playbook recommends.'
+      trigger: 'While writing the matcher SQL noticed the join uses int FK and pondered whether the format should be revisited before more code depends on it.'
+      assumesStillValid:
+        - 'Migrating tenant_id format is cheaper now than after F1/F2 ship'
+        - 'No external integration currently depends on the int shape'
+      ratifiedAt: '2026-05-19T15:05:00Z'
+      ratifiedBy: 'human'
+      lastReviewedAt: '2026-05-19T15:05:00Z'
 emerged:
   - title: 'Canary dataset should be versioned in a separate v0.2 initiative'
     surfacedAt: '2026-05-19T16:00:00Z'
     promoted: true
+    context:
+      solves: 'Without a versioned canary dataset, F0 fixes are unprovable — every comparison runs against a moving target.'
+      trigger: 'Saw matcher fix candidate pass on yesterday''s data but fail on today''s; realized the dataset itself is drifting.'
+      assumesStillValid:
+        - 'Canary dataset is still the right verification mechanism for the matcher'
+        - 'A separate v0.2 initiative is preferable to folding into F0'
+      ratifiedAt: '2026-05-19T16:10:00Z'
+      ratifiedBy: 'human'
+      lastReviewedAt: '2026-05-19T16:10:00Z'
 references: []
 ---
 

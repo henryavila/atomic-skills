@@ -109,8 +109,15 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
   1. Header: `▸ <slug> · <status> · depth <N> · updated <human-timestamp>`
      - If the initiative has `parentPlan` + `phaseId`, prepend: `<plan-slug>/<phaseId> ▸ <slug>`
   2. STACK (tree with box-drawing): each frame from `stack:` indented; mark last with ` ◉ HERE`
-  3. TASKS (table): ID | Title | State-with-icon | Updated
-  4. PARKED + EMERGED side by side (2 columns)
+  3. TASKS (table): ID | Title | State-with-icon | Updated | Solves
+     - The `Solves` column renders `context.solves` (truncated to fit, e.g. 60 chars + `…`). For original-materialization tasks (no context), render `—`. The column is what makes every row self-explanatory in a listing — without it, the user has to `why <id>` every line to remember what each task is about.
+  4. PARKED + EMERGED side by side (2 columns). Each item renders as:
+     ```
+     ⌂ <truncated title>
+        solves: <truncated context.solves>
+        <age> · ⌛ if lastReviewedAt > staleContextDays
+     ```
+     The `solves` line is mandatory in the render — when `context.solves` is absent (shouldn't happen post-migration, but legacy data may), render `solves: (legacy — re-ratify to articulate)` to nudge the user toward `re-ratify <id>`.
   5. NEXT: `<nextAction>` from frontmatter
   6. **CODEX REVIEW** line: see `## Codex review tracking` below — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
 
@@ -118,9 +125,10 @@ Unicode icons:
 - `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged
 - `◉ HERE` marks the active frame
 - `←` or `waits X` for dependencies
+- `⌛` lastReviewedAt is older than `staleContextDays`
 
 ANSI colors (respecting `$NO_COLOR`):
-- done → green, active/HERE → cyan, pending/— → gray, blocked → yellow, parked → magenta
+- done → green, active/HERE → cyan, pending/— → gray, blocked → yellow, parked → magenta, stale-context → dim
 
 ### `--list`
 
@@ -231,11 +239,13 @@ Quick map (mutations that exist + their section anchor):
 | `migrate <slug>` | Migrate a legacy file to schema 0.1 |
 | `detect-scope` | Suggest scope.paths from recent git activity |
 | `review-due` | Cross-model codex review against the diff since last review |
-| `new-task [--target <phaseId>] "<title>"` | Add a task to current OR specified initiative (records provenance) |
-| `new-phase <id> "<title>" --after <other-id>` | Insert a new phase into the active plan + materialize its initiative |
-| `split-phase <id>` | Split an over-sized phase into two sub-phases (archives the original) |
-| `emerge --target <phaseId> "<title>"` | Cross-phase emergence (adds to target phase's initiative, not the active one) |
-| `scope-creep` | On-demand drift report (phases grew, scope expansion %, parked zombies) |
+| `new-task [--target <phaseId>] "<title>"` | Add a task to current OR specified initiative (records provenance + requires ratified context) |
+| `new-phase <id> "<title>" --after <other-id>` | Insert a new phase into the active plan + materialize its initiative (requires ratified context) |
+| `split-phase <id>` | Split an over-sized phase into two sub-phases (archives the original; ratify each new phase) |
+| `emerge --target <phaseId> "<title>"` | Cross-phase emergence (adds to target phase's initiative, not the active one; requires ratified context) |
+| `why <id>` | Show full context for a task / phase / parked / emerged entry — title, status, provenance, ratified solves/trigger, lastReviewedAt aging |
+| `re-ratify <id>` | Re-articulate the context of an existing item (refreshes `lastReviewedAt`, optionally rewrites solves/trigger) |
+| `scope-creep` | On-demand drift report (phases grew, scope expansion %, parked zombies, stale-context items) |
 
 **Pre-mutation migration check** — every time you load an existing initiative or plan for mutation:
 1. Parse its frontmatter.
@@ -299,32 +309,37 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 1. Identify top frame of the stack.
 2. Destination:
    - `--resolve` (default): remove from stack, add note in Done if it was a task
-   - `--park`: move content to `parked:` (same initiative)
-   - `--emerge`: move to `emerged:` (candidate for new initiative)
+   - `--park`: route through the `park` flow above — including the ratify gate before the entry is written to `parked[]`
+   - `--emerge`: route through the `emerge` flow above — including the ratify gate before the entry is written to `emerged[]`
 3. Remove frame from stack.
 4. Announce: "Frame <N> popped to <destination>. Current frame: <new top>."
 5. Update `lastUpdated` and save.
 
+`pop --resolve` skips the ratify gate entirely — resolving a frame doesn't create a new backlog entry, so there's nothing to articulate.
+
 ### `park <description>`
 
 1. Identify active initiative.
-2. Append to `parked:`: `{title: "<description>", surfacedAt: <now>, fromFrame: <current-top-id>}`.
-3. Save.
+2. **Ratify gate**: print the `Proposed mutation:` block with the drafted `context` (solves/trigger/assumesStillValid). HALT until `ratify` / edited context / `cancel`. Park items live in `parked[]` indefinitely — without a ratified context, the entry decays into a title-only stub no one can interpret three months later. The ratify is what justifies parking instead of just discussing.
+3. On ratify: append to `parked:`: `{title: "<description>", surfacedAt: <now>, fromFrame: <current-top-id>, context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }}`.
+4. Save.
 
 ### `emerge <description>`
 
 1. Identify active initiative.
-2. Append to `emerged:`: `{title: "<description>", surfacedAt: <now>, promoted: false}`.
-3. Save.
-4. Offer: "Create new initiative now for '<description>'? (`new <slug>`)" — if yes, call `new` handler.
+2. **Ratify gate**: same shape as `park`. HALT until ratify / edited / cancel.
+3. On ratify: append to `emerged:`: `{title: "<description>", surfacedAt: <now>, promoted: false, context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }}`.
+4. Save.
+5. Offer: "Create new initiative now for '<description>'? (`new <slug>`)" — if yes, call `new` handler.
 
 ### `promote <parking-item-title-or-index>`
 
-1. Locate item in `parked:`.
+1. Locate item in `parked:`. Confirm it carries a `context` block (it must — schema requires it for every parked entry).
 2. Generate next task ID (`T-<NNN+1>` based on the highest existing).
-3. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, status: pending, lastUpdated: <now>}`.
-4. Remove item from `parked:`.
-5. Announce new task ID.
+3. **Re-ratify check** (only if `context.lastReviewedAt` is older than `parkedZombieDays` in config — default 30): print the existing context, ask "Premises still valid? `ratify` to keep, paste edits to update, `cancel` to abort." Fresh items skip this prompt — their context was just ratified.
+4. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, status: pending, lastUpdated: <now>, provenance: { surfacedAt: <parked surfacedAt>, surfacedDuring: "promote(<current-init>)", surfacedBy: human }, context: { …carried from parked, lastReviewedAt: now …}}`. The carried context's `ratifiedAt` is preserved (proof the human articulated this once); `lastReviewedAt` advances if step 3 ran.
+5. Remove item from `parked:`.
+6. Announce new task ID.
 
 ### `done <task-id>`
 
@@ -501,9 +516,11 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
    - Update PROJECT-STATUS.md.
 4. Announce.
 
-## Emergent work — proposal / commit pattern
+## Emergent work — proposal / ratify / commit pattern
 
-Work that surfaces mid-execution (new task, new phase, scope split) is the most common reason a 10-phase × 10-task plan drifts into 14-phase × 18-task chaos. This skill handles it through an **agent-proposes / user-invokes** pattern: the agent never silently mutates plan structure; it prints a copy-pasteable command and waits for the user to invoke it.
+Work that surfaces mid-execution (new task, new phase, scope split) is the most common reason a 10-phase × 10-task plan drifts into 14-phase × 18-task chaos. This skill handles it through a three-stage **agent-proposes / user-ratifies / agent-commits** pattern. The middle stage — `ratify` — is the hard gate that prevents cryptic title-only stubs from ever entering the backlog. Every emergent item carries a `context` block (`solves`, `trigger`, `assumesStillValid`) ratified by the human BEFORE the file is touched.
+
+The cost of skipping ratify is exactly the failure mode this section exists to prevent: months later, looking at `parked[]` or `emerged[]`, neither the human nor the agent can tell what the entry was about, why it was added, or whether it still matters. The ratify step trades 30 seconds at surfacing time for a backlog that survives the read at any later point.
 
 ### When the agent enters proposal mode
 
@@ -514,10 +531,13 @@ Any time the user says (in conversation) something like:
 > "we should add a task to fix <Y> before continuing"
 > "<Z> is bigger than we thought, needs its own phase"
 
-The agent does NOT add anything directly. It classifies the request through the **emergence ladder** below, picks the right magnitude, prints a `Proposed mutation:` block, and waits for the user to either:
+The agent does NOT add anything directly. It classifies the request through the **emergence ladder** below, picks the right magnitude, drafts a `context` block, prints a `Proposed mutation:` block, and waits for the user to:
 
-- copy-paste the command into the terminal, or
-- explicitly authorize ("ok", "do it", "yes apply"), in which case the agent runs the same command itself.
+- type **`ratify`** (apply the drafted context verbatim), OR
+- paste an **edited Drafted-context block** (the agent applies the edited version), OR
+- type **`cancel`** (abort, no file touched).
+
+A generic "ok" / "do it" / "yes" reply MUST be treated as the agent asking the user to be more specific — never as ratify. The point of the ratify gate is that the human reads and approves the WHY before it lands on disk. A reflexive "yes" would defeat that.
 
 ### Emergence ladder (which command for which magnitude)
 
@@ -536,7 +556,7 @@ The ladder doubles in cost per step. The agent picks the lowest rung that fits �
 
 ### Proposed-mutation print format
 
-The agent's proposal block must follow this exact shape. The user can copy the `atomic-skills:project-status …` line and paste it directly:
+The agent's proposal block must follow this exact shape. The `Drafted context` block is mandatory for every magnitude (1-7); the user must `ratify` it before the agent applies anything.
 
 ```
 Proposed mutation: <magnitude name, e.g. "new task in different phase">
@@ -546,14 +566,30 @@ Proposed mutation: <magnitude name, e.g. "new task in different phase">
     --blocked-by T-002 \
     --tags critical
 
-  Provenance: surfaced during F0/T-002 (this conversation)
-  Reasoning:  <one line: why this is the right magnitude, not lower/higher>
+  Drafted context (✋ ratify or edit before applying):
+    solves:  <one sentence: the concrete problem this addresses;
+              if removed tomorrow, what would degrade?>
+    trigger: <one sentence: the specific observation that surfaced this;
+              the incident, the code-review note, the test that failed>
+    assumesStillValid:
+      - <premise 1 — if it stops being true, item becomes moot>
+      - <premise 2>
+
+  Provenance: surfaced during F0/T-002 (this conversation), surfacedBy: ai
+  Reasoning:  <one line: why this magnitude, not the rung below or above>
   Cost:       <fast / medium / heavy — what changes on disk>
 
-To apply: paste the command above, or reply with "do it" / "yes".
+To apply: reply "ratify" (accept context as drafted), OR paste a corrected
+Drafted-context block, OR "cancel".
 ```
 
-The `Reasoning` line is mandatory. It forces the agent to defend why magnitude N and not N-1 was chosen — defends against scope inflation.
+Both `Reasoning` and `Drafted context` are mandatory. The first defends against magnitude inflation; the second defends against title-only stubs. A proposal block that omits either is malformed — the agent must re-print it correctly, not proceed.
+
+#### How to draft a useful context (so the user doesn't reject the ratify)
+
+- **`solves`** answers "what concrete pain does this address?". `Audit may be incomplete` beats `Investigate Patrimony Clone`. A title doubled into a verb is a tell that the agent didn't actually understand the WHY — re-read the user's message before drafting.
+- **`trigger`** is the literal observation that surfaced this. `Reviewing F1 design docs we noticed it references the same auth path F0 audits` beats `seemed relevant`. If the trigger is "the agent thought of it", say that — `surfacedBy: ai` already records the source.
+- **`assumesStillValid`** lists 1-3 premises that, if invalidated, make the item moot. They're the antidote to backlog rot: a `lastReviewedAt` re-ratify check asks "are these still true?" and an item with zero premises offers no answer.
 
 ### `new-task [--target <phaseId>] "<title>" [options]`
 
@@ -569,11 +605,13 @@ Options:
 Steps:
 1. Resolve target initiative (current active OR by `--target` phaseId).
 2. Generate next task id: scan `tasks[].id`, pick the next `T-NNN` (zero-pad to 3).
-3. Build the task object: `{id, title, status: pending, lastUpdated: now, …}`.
-4. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: "human" }`. If the user invoked the command after agent proposal in conversation, set `surfacedBy: "ai"` — capture who first noticed.
-5. Append to `tasks[]`, bump initiative `lastUpdated`.
-6. Validate against schema. Save file.
-7. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
+3. **Ratify gate**: print the `Proposed mutation:` block (including the drafted `context`). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. Without a ratify reply, do NOT proceed to steps 4+.
+4. Build the task object: `{id, title, status: pending, lastUpdated: now, …}`.
+5. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: <human|ai> }`. `surfacedBy: human` when the user typed the command directly; `surfacedBy: ai` when the agent surfaced it and the user only ratified.
+6. **MANDATORY**: set `context: { solves, trigger, assumesStillValid?, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }` — from the ratified block (verbatim if the user typed `ratify`, edited version if they pasted corrections).
+7. Append to `tasks[]`, bump initiative `lastUpdated`.
+8. Validate against schema. Save file.
+9. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
 
 ### `new-phase <id> "<title>" --after <other-id> [options]`
 
@@ -590,9 +628,9 @@ Options:
 Steps:
 1. Load the active plan. If no active plan, abort with: "new-phase requires an active plan. Use `atomic-skills:project-plan` to create one."
 2. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
-3. Show the user the proposed phase descriptor (frontmatter shape) + the change to `phases[]` order. Ask: "Insert phase `<id>` after `<other-id>` and materialize initiative `<plan-slug>-<id>-<slug>`? (y/N)"
-4. On `y`:
-   - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }`.
+3. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
+4. On ratify (or edited context):
+   - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
    - Create the initiative file `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md` from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
    - Save plan + initiative.
    - Validate both files via `npm run validate-state`.
@@ -606,17 +644,68 @@ A phase has grown too big. Split into two — typically `<id>a` and `<id>b`, but
 Steps:
 1. Load the active plan + the phase's initiative. Show current state: N tasks, growth ratio, parked count.
 2. Ask the user: "Split `<id>` into how many sub-phases? Suggest names + which tasks go to each."
-3. Materialize the new phases (using `new-phase` semantics — provenance + plan body update + new initiative files).
-4. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks.
-5. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to `initiatives/archive/`.
-6. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
-7. Validate everything. Roll back on any failure.
+3. **Ratify gate** (per new sub-phase): print one `Proposed mutation:` block per new phase being materialized, each with its own drafted context. The user can `ratify` once per phase or `ratify-all` to accept all drafts. `cancel` on any one aborts the entire split (no partial materialization).
+4. Materialize the new phases (using `new-phase` semantics — provenance + plan body update + new initiative files), embedding each phase's ratified context.
+5. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks. Moved tasks keep their existing `context` (no re-ratify — the articulation was already done when each task was added).
+6. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to `initiatives/archive/`.
+7. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
+8. Validate everything. Roll back on any failure.
 
 ### `emerge --target <phaseId> "<title>"`
 
-Extension of the existing `emerge` command. Without `--target`, behaves as today (adds to current initiative's `emerged[]`). With `--target`, adds to the target phase's initiative `emerged[]` instead — useful when the surfacing context is task-A-in-F0 but the emerging item belongs to F2.
+Extension of the existing `emerge` command. Without `--target`, behaves as the base `emerge` above. With `--target`, adds to the target phase's initiative `emerged[]` instead — useful when the surfacing context is task-A-in-F0 but the emerging item belongs to F2.
 
-The `emerged[]` entry carries provenance just like tasks do.
+Same ratify gate as base `emerge` — the `--target` flag only changes WHERE the entry lands, not whether the user must ratify the `context` block.
+
+### `why <id>` (view command)
+
+The canonical answer to "what is this item and does it still make sense?". Locates `<id>` across tasks / parked / emerged / phases (in that priority order, returning the first match — or asking the user to disambiguate if a `parked`/`emerged` title collides with a task id).
+
+Output shape:
+
+```
+T-002 · pending · age 2d · lastReviewedAt: 2d ago
+
+TITLE:  Add canary smoke test for cross-landlord case
+
+SOLVES: Without a canary, every matcher fix runs against a moving target —
+        regressions in the data layer go undetected for weeks.
+
+TRIGGER (when surfaced):
+        Matcher fix candidate passed yesterday and failed today on the same
+        input; realized the dataset itself is drifting.
+
+ASSUMES STILL VALID:
+  ✓ Canary dataset is the right verification mechanism
+  ✓ A single canary covers the cross-landlord case
+
+PROVENANCE:
+  surfacedAt:     2026-05-19T16:00:00Z
+  surfacedDuring: v3-redesign/F0/T-002
+  surfacedBy:     ai
+
+RATIFIED:
+  ratifiedAt:     2026-05-19T16:10:00Z (by human)
+  lastReviewedAt: 2026-05-19T16:10:00Z
+
+NEXT: blocked on T-002 — run `done T-002` to unblock.
+```
+
+The render is read-only. It does not mutate. When `lastReviewedAt` exceeds `staleContextDays` (default 14, configurable), prepend a `⚠ Not re-reviewed in <N> days — premises may have shifted. Run \`re-ratify <id>\`?` banner.
+
+Items shipped in the original materialization (no provenance, no context) get a minimal render — title + status + age + "this is an original-materialization item; narrative lives in the plan body".
+
+### `re-ratify <id>` (mutation command)
+
+Re-articulates the `context` of an existing item. Used when `lastReviewedAt` is stale, when the user notices the original `solves` no longer applies, or before promoting a long-parked item.
+
+Steps:
+1. Locate `<id>` (same resolver as `why`). Print the current context.
+2. Print a `Proposed re-ratify:` block with the current values pre-filled — the user can `ratify` (just bump `lastReviewedAt`), paste edits (full re-articulation), or `cancel`.
+3. On ratify: update `context.lastReviewedAt = now`. If edits were pasted: also update `solves` / `trigger` / `assumesStillValid` per the edit. `ratifiedAt` advances to now; `ratifiedBy: human`.
+4. Save. Print a one-line confirmation.
+
+The original `ratifiedAt` is replaced — that's intentional. The audit trail of "this item used to mean X, now means Y" lives in git history of the .md file, not in a separate field, to avoid context bloat.
 
 ### `scope-creep` (view command)
 
@@ -625,9 +714,10 @@ On-demand drift report. Renders the output of `src/scope-drift.js`:`computeDrift
 Output sections:
 - **Header**: plan slug + total phases + plan-wide scope expansion %
 - **Phases that grew** (table): phase id, initiative slug, original/added/growth%, closed?
-- **Phases added mid-execution** (list): phase id + provenance.surfacedAt + surfacedDuring
-- **Parked zombies** (table): initiative · title · age in days. Default threshold: 30 days. Configurable via `.atomic-skills/status/config.json` `parkedZombieDays`.
-- **Recommendation footer**: e.g. "F0 grew 67% — consider `split-phase F0`. 3 parked zombies older than 30d — `promote` or `park <idx> --delete`."
+- **Phases added mid-execution** (list): phase id + provenance.surfacedAt + surfacedDuring + `context.solves` (truncated to one line)
+- **Parked zombies** (table): initiative · title · `solves` · age in days · lastReviewedAt age. Default age threshold: 30 days. Configurable via `.atomic-skills/status/config.json` `parkedZombieDays`. Items where `lastReviewedAt` > `staleContextDays` (default 14) are marked with a `⌛` glyph.
+- **Stale-context items** (list): every task/parked/emerged with `lastReviewedAt` older than `staleContextDays`, sorted by age. Recommends `re-ratify <id>` per row.
+- **Recommendation footer**: e.g. "F0 grew 67% — consider `split-phase F0`. 3 parked zombies older than 30d — `promote` or `park <idx> --delete`. 5 items with stale context — `re-ratify` each."
 
 The command is read-only. It surfaces drift; it does not mutate.
 
@@ -643,13 +733,25 @@ Thresholds (default, configurable per-repo via `.atomic-skills/status/config.jso
 
 The banner is informational — it does not block any command. The user can ignore it. But the next `phase-done` flow (see Codex review tracking integration above) re-checks drift and surfaces a stronger prompt before archive.
 
-### Why provenance lives on the item itself (not a separate log)
+### Why provenance + context live on the item itself (not a separate log)
 
-Task and phase objects carry an optional `provenance: { surfacedAt, surfacedDuring, surfacedBy, originalPhaseId? }` field (schema: `common.schema.json#/$defs/provenance`). This is mandatory for items added via `new-task`, `new-phase`, `split-phase`, `promote`, `emerge --target`, but absent on items shipped in the original plan/initiative materialization.
+Every emergent item carries two co-located blocks in its frontmatter:
 
-The choice (vs a separate `.atomic-skills/changelog.jsonl`) was deliberate: provenance stays with the data, survives initiative archive, is auditable with `grep -A 2 "surfacedDuring" .atomic-skills/`, and doesn't require dual-write on every mutation. Cost: no chronological cross-cuts the way a single log would give. The `scope-creep` view is the workaround — it aggregates provenance across all initiatives into a chronologically-ordered table on demand.
+- `provenance: { surfacedAt, surfacedDuring, surfacedBy, originalPhaseId? }` — the WHEN and WHO of the addition. Schema: `common.schema.json#/$defs/provenance`.
+- `context: { solves, trigger, assumesStillValid?, ratifiedAt, ratifiedBy, lastReviewedAt }` — the WHY, articulated by the human at `ratify` time. Schema: `common.schema.json#/$defs/context`.
 
-When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level (b) or (c)), it enforces the same rule mechanically: any `Edit` / `Write` / `MultiEdit` that adds a `tasks[]` or `phases[]` entry without `provenance:` is logged in dry-run mode or denied in strict mode (`emergent_strict_mode: true`). The hook exempts file creation (original materialization), updates to existing entries, deletions, archive subdirs, and `*.rendered.md` artifacts. See `.atomic-skills/status/hooks/README.md` for promotion + bypass instructions.
+The schema makes them inseparable: any task/phase that carries `provenance` MUST also carry `context` (`if/then` constraint in initiative.schema.json and plan.schema.json). And every `parked[]` and `emerged[]` entry — emergent by definition — requires `context` unconditionally. Items shipped in the original materialization have neither field; their narrative lives in the plan or initiative body and the listing rendering falls back to `—`.
+
+The choice (vs a separate `.atomic-skills/changelog.jsonl` or a `.atomic-skills/why/<id>.md` sidecar) was deliberate:
+
+1. **The WHY survives initiative archive.** When the initiative moves to `archive/`, the context block moves with it. A separate log would either grow forever or rotate, breaking grep-style audits.
+2. **`grep -A 12 "solves:" .atomic-skills/`** answers "show me what every emergent item is supposed to solve" in one line. No tooling needed.
+3. **Dual-write would diverge.** Editing the task without updating the log is the default failure mode of any sidecar; making the WHY part of the same YAML eliminates the synchronization problem.
+4. **The ratify gate has somewhere to write to.** Forcing the human to articulate `solves` + `trigger` only makes sense if those land on the item itself — a separate ratify log would feel ceremonial and get skipped.
+
+Cost: no chronological cross-cuts the way a single log would give. The `scope-creep` view is the workaround — it aggregates context + provenance across all initiatives into chronologically-ordered tables on demand, including the stale-context section that surfaces items whose `lastReviewedAt` aged past `staleContextDays`.
+
+When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level (b) or (c)), it enforces both rules mechanically: any `Edit` / `Write` / `MultiEdit` that adds a `tasks[]` or `phases[]` entry without `provenance:` — OR with `provenance:` but missing any of `context.solves` / `context.trigger` / `context.ratifiedAt` — is logged in dry-run mode or denied in strict mode (`emergent_strict_mode: true`). The hook exempts file creation (original materialization), updates to existing entries, deletions, archive subdirs, and `*.rendered.md` artifacts. See `.atomic-skills/status/hooks/README.md` for promotion + bypass instructions.
 
 ## aiDeck integration
 

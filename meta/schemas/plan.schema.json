@@ -152,8 +152,16 @@
           "type": "string",
           "enum": ["standard", "ui-gate", "custom"]
         },
-        "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
-      }
+        "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
+        "context": { "$ref": "common.schema.json#/$defs/context" }
+      },
+      "allOf": [
+        {
+          "description": "Phases inserted mid-plan (with provenance) must articulate WHY via context. Original-materialization phases live without context — their narrative is the plan body.",
+          "if": { "required": ["provenance"] },
+          "then": { "required": ["context"] }
+        }
+      ]
     }
   }
 }

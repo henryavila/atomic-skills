@@ -193,6 +193,73 @@ test('initiative with missing required fields fails validation', () => {
   assert.match(errText, /goal|started|lastUpdated|nextAction|stack|tasks/);
 });
 
+test('task with provenance but no context fails validation (conditional required)', () => {
+  const validators = buildValidators();
+  const init = {
+    schemaVersion: '0.1',
+    slug: 'ii', title: 'X', goal: 'Y', status: 'active', branch: null,
+    started: '2026-05-20T00:00:00Z', lastUpdated: '2026-05-20T00:00:00Z',
+    nextAction: null, exitGates: [], stack: [],
+    tasks: [{
+      id: 'T-001', title: 'foo', status: 'pending',
+      lastUpdated: '2026-05-20T00:00:00Z',
+      provenance: { surfacedAt: '2026-05-20T18:14:16Z', surfacedBy: 'human' }
+      // context: MISSING — must trigger the if/then constraint
+    }],
+    parked: [], emerged: []
+  };
+  const ok = validators.validateInitiative(init);
+  assert.equal(ok, false, 'task with provenance must require context');
+  const errText = (validators.validateInitiative.errors || []).map((e) => e.message + ' ' + JSON.stringify(e.params)).join('; ');
+  assert.match(errText, /context/, `expected error to name 'context' missing — got: ${errText}`);
+});
+
+test('task with provenance + complete context passes validation', () => {
+  const validators = buildValidators();
+  const init = {
+    schemaVersion: '0.1',
+    slug: 'ii', title: 'X', goal: 'Y', status: 'active', branch: null,
+    started: '2026-05-20T00:00:00Z', lastUpdated: '2026-05-20T00:00:00Z',
+    nextAction: null, exitGates: [], stack: [],
+    tasks: [{
+      id: 'T-001', title: 'foo', status: 'pending',
+      lastUpdated: '2026-05-20T00:00:00Z',
+      provenance: { surfacedAt: '2026-05-20T18:14:16Z', surfacedBy: 'human' },
+      context: {
+        solves: 'real problem statement here',
+        trigger: 'concrete trigger that surfaced this',
+        ratifiedAt: '2026-05-20T18:15:00Z',
+        ratifiedBy: 'human'
+      }
+    }],
+    parked: [], emerged: []
+  };
+  const ok = validators.validateInitiative(init);
+  assert.equal(ok, true, `should pass; errors: ${JSON.stringify(validators.validateInitiative.errors)}`);
+});
+
+test('parked entry without context fails validation (always required)', () => {
+  const validators = buildValidators();
+  const init = {
+    schemaVersion: '0.1',
+    slug: 'ii', title: 'X', goal: 'Y', status: 'active', branch: null,
+    started: '2026-05-20T00:00:00Z', lastUpdated: '2026-05-20T00:00:00Z',
+    nextAction: null, exitGates: [], stack: [],
+    tasks: [],
+    parked: [{
+      title: 'untriaged item',
+      surfacedAt: '2026-05-20T18:14:16Z',
+      fromFrame: 1
+      // context: MISSING
+    }],
+    emerged: []
+  };
+  const ok = validators.validateInitiative(init);
+  assert.equal(ok, false, 'parked entries must always carry context');
+  const errText = (validators.validateInitiative.errors || []).map((e) => e.message).join('; ');
+  assert.match(errText, /context/);
+});
+
 test('plan with wrong schemaVersion fails validation', () => {
   const validators = buildValidators();
   const result = validateFile(join(FIXTURES, 'invalid', 'plans', 'wrong-schema-version.md'), validators);

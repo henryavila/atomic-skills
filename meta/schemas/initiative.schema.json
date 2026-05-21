@@ -79,11 +79,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["title", "surfacedAt", "fromFrame"],
+        "required": ["title", "surfacedAt", "fromFrame", "context"],
         "properties": {
           "title": { "type": "string", "minLength": 1 },
           "surfacedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
-          "fromFrame": { "type": ["integer", "null"] }
+          "fromFrame": { "type": ["integer", "null"] },
+          "context": { "$ref": "common.schema.json#/$defs/context" }
         }
       }
     },
@@ -92,11 +93,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["title", "surfacedAt", "promoted"],
+        "required": ["title", "surfacedAt", "promoted", "context"],
         "properties": {
           "title": { "type": "string", "minLength": 1 },
           "surfacedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
-          "promoted": { "type": "boolean" }
+          "promoted": { "type": "boolean" },
+          "context": { "$ref": "common.schema.json#/$defs/context" }
         }
       }
     },
@@ -159,8 +161,16 @@
           "additionalProperties": { "type": "integer", "minimum": 0 }
         },
         "verifier": { "$ref": "common.schema.json#/$defs/exitCriterionVerifier" },
-        "provenance": { "$ref": "common.schema.json#/$defs/provenance" }
-      }
+        "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
+        "context": { "$ref": "common.schema.json#/$defs/context" }
+      },
+      "allOf": [
+        {
+          "description": "Tasks added mid-execution (with provenance) must articulate WHY via context. Original-materialization tasks live without context — their narrative is the plan/initiative body.",
+          "if": { "required": ["provenance"] },
+          "then": { "required": ["context"] }
+        }
+      ]
     },
     "taskOutput": {
       "type": "object",
