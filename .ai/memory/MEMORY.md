@@ -11,3 +11,4 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [feedback-formato-retorno.md](feedback-formato-retorno.md) — Skills interativas: markdown + frontmatter YAML > JSON Schema puro. JSON é só para pipeline CI.
 - [feedback-framing-llm-judge.md](feedback-framing-llm-judge.md) — LLM-as-judge: cortar intent narrativo e memória curada do briefing (envenena em -93pp). Só fatos verificáveis.
 - [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`
+- [feedback-versioning.md](feedback-versioning.md) — Não inflar versão autonomamente; usuário prefere minor (1.x.y) mesmo para mudanças de schema

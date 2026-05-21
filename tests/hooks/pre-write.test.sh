@@ -527,6 +527,181 @@ printf '%s' "$out" | grep -q "ratifiedAt" && ok || no "expected 'ratifiedAt' nam
 ! printf '%s' "$out" | grep -q "solves," && ok || no "'solves' should NOT be in missing list when present"
 cd - >/dev/null; rm -rf "$TMP"
 
+# --- T20: parked addition without context → log entry ----------------------
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+printf '{"emergent_strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/initiatives/i.md
+# OLD has empty parked: []. NEW adds a parked entry with NO context.
+NEW=$(cat <<EOF
+---
+schemaVersion: '0.1'
+slug: i
+title: 'X'
+goal: 'Y'
+status: active
+branch: null
+started: 2026-05-20T00:00:00Z
+lastUpdated: 2026-05-20T00:00:00Z
+nextAction: null
+exitGates: []
+stack: []
+tasks:
+  - id: T-001
+    title: 'foo'
+    status: pending
+    lastUpdated: 2026-05-20T00:00:00Z
+parked:
+  - title: 'silent parked stub'
+    surfacedAt: '2026-05-20T18:00:00Z'
+    fromFrame: 1
+emerged: []
+---
+EOF
+)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T20: parked addition without context → log entry naming missing fields"
+feed "$PAYLOAD"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0 (dry-run), got $rc"
+[[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log missing"
+grep -q 'parked:2026-05-20T18:00:00Z (missing context' .atomic-skills/status/emergent-drift.log && ok || no "violation should be context-flavored for parked"
+grep -q 'solves' .atomic-skills/status/emergent-drift.log && ok || no "expected 'solves' named"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T21: parked addition with complete context → exit 0, no log -----------
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/initiatives/i.md
+NEW=$(cat <<EOF
+---
+schemaVersion: '0.1'
+slug: i
+title: 'X'
+goal: 'Y'
+status: active
+branch: null
+started: 2026-05-20T00:00:00Z
+lastUpdated: 2026-05-20T00:00:00Z
+nextAction: null
+exitGates: []
+stack: []
+tasks:
+  - id: T-001
+    title: 'foo'
+    status: pending
+    lastUpdated: 2026-05-20T00:00:00Z
+parked:
+  - title: 'legit parked'
+    surfacedAt: '2026-05-20T18:00:00Z'
+    fromFrame: 1
+    context:
+      solves: 'real concrete pain'
+      trigger: 'observed during T-001 review'
+      ratifiedAt: '2026-05-20T18:05:00Z'
+      ratifiedBy: human
+emerged: []
+---
+EOF
+)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T21: parked addition with complete context + strict → exit 0"
+feed "$PAYLOAD"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T22: emerged addition without context + strict → exit 2 ---------------
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/initiatives/i.md
+NEW=$(cat <<EOF
+---
+schemaVersion: '0.1'
+slug: i
+title: 'X'
+goal: 'Y'
+status: active
+branch: null
+started: 2026-05-20T00:00:00Z
+lastUpdated: 2026-05-20T00:00:00Z
+nextAction: null
+exitGates: []
+stack: []
+tasks:
+  - id: T-001
+    title: 'foo'
+    status: pending
+    lastUpdated: 2026-05-20T00:00:00Z
+parked: []
+emerged:
+  - title: 'unratified emergence'
+    surfacedAt: '2026-05-20T19:00:00Z'
+    promoted: false
+---
+EOF
+)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T22: emerged addition without context + strict → exit 2"
+set +e
+out=$(feed "$PAYLOAD" 2>&1)
+rc=$?
+set -e
+[[ "$rc" == "2" ]] && ok || no "expected exit 2, got $rc"
+printf '%s' "$out" | grep -q 'emerged:2026-05-20T19:00:00Z' && ok || no "expected emerged violation in stderr"
+printf '%s' "$out" | grep -q 'missing context' && ok || no "expected 'missing context' diagnostic"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T23: existing parked entry unchanged → no violation -------------------
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+# OLD already has one parked entry (with full context). NEW just bumps lastUpdated.
+cat > .atomic-skills/initiatives/i.md <<EOF
+---
+schemaVersion: '0.1'
+slug: i
+title: 'X'
+goal: 'Y'
+status: active
+branch: null
+started: 2026-05-20T00:00:00Z
+lastUpdated: 2026-05-20T00:00:00Z
+nextAction: null
+exitGates: []
+stack: []
+tasks:
+  - id: T-001
+    title: 'foo'
+    status: pending
+    lastUpdated: 2026-05-20T00:00:00Z
+parked:
+  - title: 'pre-existing'
+    surfacedAt: '2026-05-19T10:00:00Z'
+    fromFrame: 1
+    context:
+      solves: 'real'
+      trigger: 'real'
+      ratifiedAt: '2026-05-19T10:05:00Z'
+emerged: []
+---
+EOF
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/initiatives/i.md" \
+  --arg os "lastUpdated: 2026-05-20T00:00:00Z" --arg ns "lastUpdated: 2026-05-20T19:30:00Z" \
+  '{tool_name:"Edit", tool_input:{file_path:$fp, old_string:$os, new_string:$ns}}')
+run "T23: existing parked entry unchanged → exit 0, no violation"
+feed "$PAYLOAD"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written"
+cd - >/dev/null; rm -rf "$TMP"
+
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"
 [[ "$FAIL" == "0" ]]

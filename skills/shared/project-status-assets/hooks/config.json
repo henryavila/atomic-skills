@@ -3,6 +3,8 @@
   "emergent_strict_mode": false,
   "dry_run_started": "REPLACE_DATE",
   "drift_threshold": 0.5,
+  "staleContextDays": 14,
+  "parkedZombieDays": 30,
   "source_globs": [
     "src/",
     "lib/",

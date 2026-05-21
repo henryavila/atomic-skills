@@ -7,7 +7,7 @@
     "schemaVersion": {
       "type": "string",
       "const": "0.1",
-      "description": "Frozen at 0.1 for atomic-skills v2.0.0. Future bumps require a migration path."
+      "description": "Frozen at 0.1 for the current atomic-skills line. Future bumps require a migration path; the version-bump cadence is decided by the maintainer at release time."
     },
     "isoTimestamp": {
       "type": "string",

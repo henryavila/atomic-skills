@@ -95,12 +95,17 @@ in_gated_path() {
   return 1
 }
 
-# Extract task / phase entries (id + provenance + context presence) from a
-# markdown file's frontmatter. Reads from stdin; emits one line per entry:
+# Extract task / phase / parked / emerged entries from a markdown file's
+# frontmatter. Reads from stdin; emits one line per entry:
 #   <kind>|<id>|<has_prov>|<has_ctx_solves>|<has_ctx_trigger>|<has_ctx_ratified>
-# where <kind> is `task` or `phase` and each presence flag is `yes`/`no`.
+# where:
+#   <kind>    — `task` | `phase` | `parked` | `emerged`
+#   <id>      — `id` field for task/phase; `surfacedAt` for parked/emerged
+#               (parked/emerged have no `id`; surfacedAt is the unique key
+#                generated on insert and preserved across edits).
+#   flags     — `yes`/`no`
 #
-# Handles two YAML forms produced by the project-status skill:
+# Handles two YAML forms:
 #   block form:
 #     - id: T-001
 #       title: 'foo'
@@ -113,76 +118,134 @@ in_gated_path() {
 #   inline form (rare for tasks/phases — usually only stack frames):
 #     - { id: T-001, status: pending, provenance: { ... }, context: { ... } }
 #
+# Parked / emerged entries don't carry `id` or `provenance` — only the `context`
+# requirement applies. has_prov is forced to "yes" on these kinds so the
+# downstream violation logic flows through the context-completeness check.
+#
 # Skips lines outside the frontmatter (between the first two `---` markers).
 extract_entries() {
   awk '
     BEGIN {
       fm = 0
-      in_tasks = 0; in_phases = 0
+      in_tasks = 0; in_phases = 0; in_parked = 0; in_emerged = 0
       cur_kind = ""; cur_id = ""
       cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
+      cur_pending_surfacedat = "no"  # parked/emerged: capture surfacedAt as id
+    }
+    function reset_entry() {
+      cur_id = ""
+      cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
+      cur_pending_surfacedat = "no"
     }
     function flush() {
       if (cur_id != "") {
-        print cur_kind "|" cur_id "|" cur_prov "|" cur_ctx_solves "|" cur_ctx_trigger "|" cur_ctx_ratified
-        cur_id = ""
-        cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
+        # parked/emerged have no provenance field — context-check is the only
+        # gate. Force has_prov to "yes" so the violation logic treats their
+        # missing context fields as the real failure, not "no provenance".
+        prov = cur_prov
+        if (cur_kind == "parked" || cur_kind == "emerged") prov = "yes"
+        print cur_kind "|" cur_id "|" prov "|" cur_ctx_solves "|" cur_ctx_trigger "|" cur_ctx_ratified
       }
+      reset_entry()
     }
     /^---[[:space:]]*$/ { fm++; if (fm == 2) { flush(); exit } next }
     fm != 1 { next }
 
     # Block transitions — a top-level key resets state.
-    /^tasks:[[:space:]]*$/    { flush(); in_tasks = 1; in_phases = 0; cur_kind = "task";  next }
-    /^phases:[[:space:]]*$/   { flush(); in_tasks = 0; in_phases = 1; cur_kind = "phase"; next }
-    /^[A-Za-z][A-Za-z0-9_]*:/ { flush(); in_tasks = 0; in_phases = 0; next }
+    /^tasks:[[:space:]]*$/    { flush(); in_tasks = 1; in_phases = 0; in_parked = 0; in_emerged = 0; cur_kind = "task";    next }
+    /^phases:[[:space:]]*$/   { flush(); in_tasks = 0; in_phases = 1; in_parked = 0; in_emerged = 0; cur_kind = "phase";   next }
+    /^parked:[[:space:]]*$/   { flush(); in_tasks = 0; in_phases = 0; in_parked = 1; in_emerged = 0; cur_kind = "parked";  next }
+    /^emerged:[[:space:]]*$/  { flush(); in_tasks = 0; in_phases = 0; in_parked = 0; in_emerged = 1; cur_kind = "emerged"; next }
+    /^[A-Za-z][A-Za-z0-9_]*:/ { flush(); in_tasks = 0; in_phases = 0; in_parked = 0; in_emerged = 0; next }
 
-    (in_tasks == 0 && in_phases == 0) { next }
+    (in_tasks == 0 && in_phases == 0 && in_parked == 0 && in_emerged == 0) { next }
 
-    # New entry — `  - id: X` (block) or `  - { id: X, ... }` (inline).
+    # New entry — inline form `  - { ... }` (one-line shape).
     /^[[:space:]]+-[[:space:]]+\{/ {
       flush()
       line = $0
-      # Inline form: capture id + presence flags in one pass.
-      if (match(line, /id:[[:space:]]*['"'"'"]?[A-Za-z0-9_.-]+['"'"'"]?/)) {
-        id_str = substr(line, RSTART, RLENGTH)
-        sub(/^id:[[:space:]]*/, "", id_str)
-        gsub(/['"'"'"]/, "", id_str)
-        cur_id = id_str
+      # tasks/phases: id is the natural key. parked/emerged: surfacedAt is.
+      if (in_tasks || in_phases) {
+        if (match(line, /id:[[:space:]]*['"'"'"]?[A-Za-z0-9_.-]+['"'"'"]?/)) {
+          id_str = substr(line, RSTART, RLENGTH)
+          sub(/^id:[[:space:]]*/, "", id_str)
+          gsub(/['"'"'"]/, "", id_str)
+          cur_id = id_str
+        }
+      } else {
+        # parked/emerged: surfacedAt is the unique key. Tolerate quoted and
+        # unquoted ISO timestamps.
+        if (match(line, /surfacedAt:[[:space:]]*['"'"'"]?[0-9T:.+Z-]+['"'"'"]?/)) {
+          id_str = substr(line, RSTART, RLENGTH)
+          sub(/^surfacedAt:[[:space:]]*/, "", id_str)
+          gsub(/['"'"'"]/, "", id_str)
+          cur_id = id_str
+        }
       }
-      if (line ~ /provenance[[:space:]]*:/)         cur_prov = "yes"
-      if (line ~ /solves[[:space:]]*:/)             cur_ctx_solves = "yes"
-      if (line ~ /trigger[[:space:]]*:/)            cur_ctx_trigger = "yes"
-      if (line ~ /ratifiedAt[[:space:]]*:/)         cur_ctx_ratified = "yes"
+      if (line ~ /provenance[[:space:]]*:/) cur_prov = "yes"
+      if (line ~ /solves[[:space:]]*:/)     cur_ctx_solves = "yes"
+      if (line ~ /trigger[[:space:]]*:/)    cur_ctx_trigger = "yes"
+      if (line ~ /ratifiedAt[[:space:]]*:/) cur_ctx_ratified = "yes"
       flush()
       next
     }
+
+    # tasks/phases block form — entry starts with `  - id: X`.
     /^[[:space:]]+-[[:space:]]+id:/ {
-      flush()
-      line = $0
-      sub(/^[[:space:]]+-[[:space:]]+id:[[:space:]]*/, "", line)
-      gsub(/['"'"'"]/, "", line)
-      sub(/[[:space:]]+#.*$/, "", line)
-      sub(/[[:space:]]+$/, "", line)
-      cur_id = line
-      cur_prov = "no"; cur_ctx_solves = "no"; cur_ctx_trigger = "no"; cur_ctx_ratified = "no"
+      if (in_tasks || in_phases) {
+        flush()
+        line = $0
+        sub(/^[[:space:]]+-[[:space:]]+id:[[:space:]]*/, "", line)
+        gsub(/['"'"'"]/, "", line)
+        sub(/[[:space:]]+#.*$/, "", line)
+        sub(/[[:space:]]+$/, "", line)
+        cur_id = line
+      }
       next
     }
-    # Nested keys at child indent of the current entry. We match by key name
-    # without parsing exact indent; valid YAML never reuses these names at a
-    # top level outside their parent block, and the top-level-key rule above
-    # already ends the entry scope before that could happen.
+
+    # parked/emerged block form — entry starts with `  - title: ...`. The
+    # surfacedAt (which we use as the key) is on a following line; capture it
+    # via the nested-key rule below.
+    /^[[:space:]]+-[[:space:]]+title:/ {
+      if (in_parked || in_emerged) {
+        flush()
+        # cur_id stays empty; will be set when we see `    surfacedAt: ...`
+        cur_pending_surfacedat = "waiting"
+      }
+      next
+    }
+
+    # Nested keys at child indent of the current entry. Match by key name; the
+    # top-level-key rule above already ends the entry scope before any of
+    # these keywords could reappear at a sibling level.
+    /^[[:space:]]+surfacedAt[[:space:]]*:/ {
+      if (cur_pending_surfacedat == "waiting") {
+        line = $0
+        sub(/^[[:space:]]+surfacedAt[[:space:]]*:[[:space:]]*/, "", line)
+        gsub(/['"'"'"]/, "", line)
+        sub(/[[:space:]]+#.*$/, "", line)
+        sub(/[[:space:]]+$/, "", line)
+        cur_id = line
+        cur_pending_surfacedat = "done"
+      }
+      next
+    }
     /^[[:space:]]+provenance[[:space:]]*:/ {
-      if (cur_id != "") cur_prov = "yes"; next
+      if (cur_id != "" || cur_pending_surfacedat == "waiting") cur_prov = "yes"
+      next
     }
     /^[[:space:]]+solves[[:space:]]*:/ {
-      if (cur_id != "") cur_ctx_solves = "yes"; next
+      if (cur_id != "" || cur_pending_surfacedat == "waiting") cur_ctx_solves = "yes"
+      next
     }
     /^[[:space:]]+trigger[[:space:]]*:/ {
-      if (cur_id != "") cur_ctx_trigger = "yes"; next
+      if (cur_id != "" || cur_pending_surfacedat == "waiting") cur_ctx_trigger = "yes"
+      next
     }
     /^[[:space:]]+ratifiedAt[[:space:]]*:/ {
-      if (cur_id != "") cur_ctx_ratified = "yes"; next
+      if (cur_id != "" || cur_pending_surfacedat == "waiting") cur_ctx_ratified = "yes"
+      next
     }
   '
 }
