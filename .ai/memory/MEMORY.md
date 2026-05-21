@@ -12,3 +12,4 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [feedback-framing-llm-judge.md](feedback-framing-llm-judge.md) — LLM-as-judge: cortar intent narrativo e memória curada do briefing (envenena em -93pp). Só fatos verificáveis.
 - [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`
 - [feedback-versioning.md](feedback-versioning.md) — Não inflar versão autonomamente; usuário prefere minor (1.x.y) mesmo para mudanças de schema
+- [reference-codex-macos-timeout.md](reference-codex-macos-timeout.md) — Canonical Codex invocation usa `timeout` (GNU); no macOS, usar `perl -e 'alarm N; exec @ARGV'` como wrapper

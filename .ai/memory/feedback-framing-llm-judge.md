@@ -39,6 +39,15 @@ A distinção que a literatura traça é clara:
 
 5. **Se precisar de validação empírica**: two-pass sealed envelope (pattern ARIS). Pass 1 blind, Pass 2 revela constraints factuais. Delta = sinal de framing.
 
+**Validação empírica in-house (2026-05-21):** Two-pass Codex review (gpt-5-codex) sobre plano de implementação que EU (Claude Opus 4.7) tinha autorizado como "pronto pra executar" encontrou 4 majors reais que self-review havia perdido:
+- Ordering bug: `provenanceSchema`/`contextSchema` referenciados antes de definidos
+- Contradição interna: feature marcada "opcional" mas exigida em DoD/smoke
+- Coverage gap: testes omitiam um schema com mesma regra
+- Coverage gap: contract test só parseava templates vazios, não provava preservação do campo
+
+Framing Δ do Pass 1 → Pass 2: 0 dropped, 4 maintained, 1 emerged (apenas após revelar constraints externos). Custo: ~$1-2, ~2 min wall. Confirmação prática do self-preference bias (arXiv 2410.21819) — a cadência "Claude propõe → Codex revisa antes de executar" tem retorno concreto, não é só ritual.
+
 **Related:**
+- [[reference-codex-macos-timeout]] — workaround para `timeout` no macOS
 - [[feedback-formato-retorno]] — retorno em markdown vs JSON
 - [[feedback-prompts]] — verbos abstratos vs concretos, checklists vs prosa
