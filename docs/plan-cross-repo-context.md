@@ -4,7 +4,7 @@ Sessão 2026-05-21. Pré-requisito para release v1.9.0. Implementa o que falta e
 `HANDOFF-cross-repo-context.md` (handoff escrito na sessão anterior). As 4 camadas
 do lado atomic-skills (schema, hook, skill body, scope-drift) já fecharam nos
 commits `45453d6..8f9579b`. Este plano cobre o plumbing downstream: aideck zod +
-dashboard types/adapters/render, plus uma feature opcional (glyph ⌛ para
+dashboard types/adapters/render, plus uma feature de polish (glyph ⌛ para
 itens com contexto envelhecido).
 
 ## Contexto
@@ -40,12 +40,13 @@ fixtures carregarem `context` completo.
 | 3 | aideck rebuild | (`npm run build`) | 2 min |
 | 4 | atomic-skills TS types (2 interfaces + estensões) | `src/dashboard/lib/types.ts` | 5 min |
 | 5 | atomic-skills adapters + EmergedPanel layout | `src/dashboard/lib/adapters.ts`, `src/dashboard/components/initiative/Panels.tsx` | 20 min |
-| 5b | (Opcional §3d) Glyph ⌛ quando `staleAge >= 14` | mesmo Panels.tsx | 5 min |
+| 5b | Glyph ⌛ quando `staleAge >= 14` (exigido por smoke/DoD) | mesmo Panels.tsx | 5 min |
 | 5c | Seed demo fixture com `lastReviewedAt` antigo | `assets/demo-fixtures/.atomic-skills/initiatives/v3-f0-foundation-repair.md` | 2 min |
+| 5d | Cross-repo contract test: assertion de preservação de context em parked/emerged populated | `tests/aideck-contract.test.js` | 10 min |
 | 6 | E2E smoke (browser) | `bin/cli.js serve --demo` | 5 min |
 | 7 | Codex review pré-release | thread #3 do handoff | ~10 min, ~$1-2 |
 
-**Total: ~1h hands-on** + ~10 min Codex.
+**Total: ~1h10 hands-on** + ~10 min Codex.
 
 ---
 
@@ -53,7 +54,7 @@ fixtures carregarem `context` completo.
 
 **Arquivo:** `/Volumes/External/code/aideck/src/schemas/validators/project-status.ts`
 
-### 1a. Adicionar entre `taskOutputSchema` (l. 149-154) e `taskSchema` (l. 156):
+### 1a. Adicionar ANTES de `phaseDescriptorSchema` (l. 94), entre `planSupersedeRefSchema` (l. 87-92) e `phaseDescriptorSchema`:
 
 ```ts
 export const provenanceSchema = z.object({
@@ -72,6 +73,13 @@ export const contextSchema = z.object({
   lastReviewedAt: isoTimestampSchema.optional()
 }).strict()
 ```
+
+**Por que ANTES de `phaseDescriptorSchema`:** o passo 1c estende
+`phaseDescriptorSchema` referenciando `provenanceSchema` e `contextSchema`.
+Defini-los só entre `taskOutputSchema` (l. 149) e `taskSchema` (l. 156) — depois
+de `phaseDescriptorSchema` (l. 94-108) — produz `ReferenceError` no module init
+porque `const` bindings em TS não são hoisted para uso em expressões executadas
+no top-level. Inserir antes do primeiro consumidor resolve.
 
 **Por que `.strict()`:** paridade com `additionalProperties: false` no JSON Schema
 (`meta/schemas/common.schema.json:47`). Sem isso, arquivos escritos pelo aideck
@@ -144,14 +152,14 @@ Confirmar que nada precisa ser adicionado em `aideck/src/schemas/validators/comm
 
 ---
 
-## Fase 2 — aideck zod tests (paridade T20-T22)
+## Fase 2 — aideck zod tests (paridade T20-T22 + phaseDescriptor + strict)
 
 **Arquivo:** `/Volumes/External/code/aideck/tests/unit/schemas/validators.test.ts`
 
-**Pré-trabalho:** confirmar runner — ler `aideck/package.json` para ver se é `vitest` ou `node:test`. Sintaxe abaixo assume `vitest`; traduzir se necessário.
+**Runner:** vitest 2.1.0 (confirmado em `aideck/package.json`). Sintaxe abaixo usa `expect/toThrow`.
 
 ```ts
-import { taskSchema, parkedItemSchema, emergedItemSchema, contextSchema } from '../../../src/schemas/validators/project-status'
+import { taskSchema, phaseDescriptorSchema, parkedItemSchema, emergedItemSchema, contextSchema } from '../../../src/schemas/validators/project-status'
 
 describe('context field — schema parity with atomic-skills pre-write gate', () => {
   const validContext = {
@@ -217,6 +225,59 @@ describe('context field — schema parity with atomic-skills pre-write gate', ()
       ...validContext,
       solves: 'short'
     })).toThrow()
+  })
+
+  // F-005: strict() parity with JSON Schema additionalProperties:false
+  it('rejects context with unknown property (mirrors additionalProperties:false)', () => {
+    expect(() => contextSchema.parse({
+      ...validContext,
+      extraneousField: 'should be rejected by .strict()'
+    })).toThrow()
+  })
+
+  // F-003: phaseDescriptorSchema superRefine — provenance without context
+  it('rejects phase descriptor with provenance but no context', () => {
+    expect(() => phaseDescriptorSchema.parse({
+      id: 'F0',
+      slug: 'foundation',
+      title: 'Foundation',
+      goal: 'Lay the groundwork',
+      dependsOn: [],
+      subPhaseCount: 0,
+      exitGate: { summary: 'all done', criteria: [] },
+      status: 'pending',
+      provenance: { surfacedAt: '2026-05-20T18:00:00Z' }
+    })).toThrow(/context is required when provenance is present/)
+  })
+
+  // F-003: phaseDescriptorSchema accepts provenance + context together
+  it('accepts phase descriptor with provenance + context', () => {
+    expect(() => phaseDescriptorSchema.parse({
+      id: 'F0',
+      slug: 'foundation',
+      title: 'Foundation',
+      goal: 'Lay the groundwork',
+      dependsOn: [],
+      subPhaseCount: 0,
+      exitGate: { summary: 'all done', criteria: [] },
+      status: 'pending',
+      provenance: { surfacedAt: '2026-05-20T18:00:00Z' },
+      context: validContext
+    })).not.toThrow()
+  })
+
+  // F-003: phaseDescriptorSchema without either field (original materialization)
+  it('accepts phase descriptor without provenance/context (original materialization)', () => {
+    expect(() => phaseDescriptorSchema.parse({
+      id: 'F0',
+      slug: 'foundation',
+      title: 'Foundation',
+      goal: 'Lay the groundwork',
+      dependsOn: [],
+      subPhaseCount: 0,
+      exitGate: { summary: 'all done', criteria: [] },
+      status: 'pending'
+    })).not.toThrow()
   })
 })
 ```
@@ -435,7 +496,7 @@ export function EmergedPanel({ items }: { items: UIEmerged[] }) {
 }
 ```
 
-**5g. (Opcional §3d) Glyph ⌛ — em ParkedPanel l. ~475 e EmergedPanel novo título:**
+**5g. Glyph ⌛ (obrigatório) — em ParkedPanel l. ~475 e EmergedPanel novo título:**
 
 ```tsx
 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--fg-default)', flex: 1, lineHeight: 1.35 }}>
@@ -474,6 +535,88 @@ context:
 ```
 
 `lastReviewedAt` em 2026-04-15 → `staleAge ≈ 36` (> 14) → glyph ⌛ aparece.
+
+---
+
+## Fase 5d — Cross-repo contract test: assertion de preservação de context
+
+**Arquivo:** `/Volumes/External/code/atomic-skills/tests/aideck-contract.test.js`
+
+**Por que existe esta fase:** o contract test atual parseia `plan.template.md`
+e `initiative.template.md` que shippam `parked: []` / `emerged: []` vazios. Sem
+um caso populated, ele passa mesmo se a aideck dist reconstruída continuar
+dropando ou mishandling `context` em items reais — exatamente o bug que esse
+plumbing existe para resolver. Adicionar um caso novo que injeta parked/emerged
+populated com context e prova que o parser preserva os campos críticos
+(`solves`, `lastReviewedAt`).
+
+Adicionar `it()` block no fim do `describe('aideck cross-repo contract', ...)` em
+`tests/aideck-contract.test.js` (após o caso standalone, antes do fechamento do
+describe block na linha ~192):
+
+```js
+it('parseInitiativeFile preserves context on populated parked/emerged', { skip: !HAS_AIDECK && SKIP_REASON }, async () => {
+  const parsers = await loadParsers()
+  assert.ok(parsers)
+
+  const raw = readFileSync(INITIATIVE_TEMPLATE_PATH, 'utf8')
+  let filled = fillPlaceholders(raw, INITIATIVE_SUBS)
+
+  // Replace the empty parked/emerged arrays with populated entries that include
+  // a complete context block (mirrors meta/schemas/common.schema.json $defs.context).
+  filled = filled.replace(
+    /^parked: \[\]$/m,
+    `parked:
+  - title: 'sample parked item with context'
+    surfacedAt: '2026-05-20T18:00:00Z'
+    fromFrame: null
+    context:
+      solves: 'concrete problem solved here'
+      trigger: 'concrete trigger description'
+      assumesStillValid: []
+      ratifiedAt: '2026-05-20T18:15:00Z'
+      ratifiedBy: human`
+  )
+  filled = filled.replace(
+    /^emerged: \[\]$/m,
+    `emerged:
+  - title: 'sample emerged item with context'
+    surfacedAt: '2026-05-20T19:00:00Z'
+    promoted: false
+    context:
+      solves: 'another concrete problem here'
+      trigger: 'another concrete trigger description'
+      assumesStillValid: []
+      ratifiedAt: '2026-05-20T19:15:00Z'
+      ratifiedBy: human
+      lastReviewedAt: '2026-04-15T10:00:00Z'`
+  )
+
+  const tmp = mkdtempSync(join(tmpdir(), 'as-contract-init-ctx-'))
+  const path = join(tmp, 'with-context.md')
+  writeFileSync(path, filled)
+
+  try {
+    const result = await parsers.parseInitiativeFile(path)
+    assert.equal(result.ok, true, `parseInitiativeFile failed: ${result.ok ? '' : JSON.stringify(result.error, null, 2)}`)
+    if (result.ok) {
+      assert.equal(result.value.parked.length, 1)
+      assert.ok(result.value.parked[0].context, 'parked[0].context must be present')
+      assert.equal(result.value.parked[0].context.solves, 'concrete problem solved here')
+      assert.equal(result.value.emerged.length, 1)
+      assert.ok(result.value.emerged[0].context, 'emerged[0].context must be present')
+      assert.equal(result.value.emerged[0].context.lastReviewedAt, '2026-04-15T10:00:00Z')
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+```
+
+**O que essa assertion garante:**
+- A zod `.strict()` em `contextSchema` não está acidentalmente rejeitando o `human` default em `ratifiedBy`.
+- `parkedItemSchema`/`emergedItemSchema` aceitam o context na entrada e o preservam até o `.value` retornado.
+- `lastReviewedAt` (opcional) sobrevive ao parse — sem isso, o staleAge no UI nunca dispara o glyph.
 
 ---
 
