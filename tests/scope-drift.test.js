@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import { strict as assert } from 'node:assert'
 import {
   computeDrift,
+  computeStaleContext,
   evaluateWarnings,
   renderBanner,
   DEFAULT_THRESHOLDS,
@@ -58,6 +59,7 @@ describe('computeDrift — no drift', () => {
       phasesGrew: [],
       parkedZombies: [],
       scopeExpansionPct: 0,
+      staleContext: [],
     })
     assert.equal(computeDrift({}, []).totalPhases, 0)
   })
@@ -297,16 +299,138 @@ describe('renderBanner', () => {
   })
 })
 
+describe('computeStaleContext', () => {
+  // Fixed `now` so test ages are deterministic.
+  const NOW = new Date('2026-05-21T00:00:00Z')
+
+  function ctx(reviewedAt) {
+    return {
+      solves: 'real',
+      trigger: 'real',
+      ratifiedAt: reviewedAt,
+      ratifiedBy: 'human',
+      lastReviewedAt: reviewedAt,
+    }
+  }
+
+  it('returns empty when no items carry context', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const initiatives = [init('i', 'F0', [task('T-001')])]
+    const stale = computeStaleContext(plan, initiatives, { now: NOW })
+    assert.equal(stale.length, 0)
+  })
+
+  it('returns empty when every item was reviewed within threshold', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const fresh = '2026-05-15T00:00:00Z'  // 6 days before NOW
+    const initiatives = [
+      init('i', 'F0', [{ ...task('T-001'), context: ctx(fresh) }]),
+    ]
+    const stale = computeStaleContext(plan, initiatives, { now: NOW, staleContextDays: 14 })
+    assert.equal(stale.length, 0)
+  })
+
+  it('flags tasks with stale lastReviewedAt', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const old = '2026-04-01T00:00:00Z'  // 50 days before NOW
+    const initiatives = [
+      init('i', 'F0', [{ ...task('T-001'), context: ctx(old) }]),
+    ]
+    const stale = computeStaleContext(plan, initiatives, { now: NOW, staleContextDays: 14 })
+    assert.equal(stale.length, 1)
+    assert.equal(stale[0].kind, 'task')
+    assert.equal(stale[0].locator, 'T-001')
+    assert.equal(stale[0].initiativeSlug, 'i')
+    assert.equal(stale[0].ageDays, 50)
+  })
+
+  it('flags parked + emerged with stale lastReviewedAt', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const old = '2026-04-20T00:00:00Z'  // 31 days before NOW
+    const initiatives = [{
+      slug: 'i', parentPlan: 'p', phaseId: 'F0', status: 'active',
+      tasks: [],
+      parked: [{ title: 'parked-1', surfacedAt: '2026-04-20T00:00:00Z', fromFrame: 1, context: ctx(old) }],
+      emerged: [{ title: 'emerged-1', surfacedAt: '2026-04-20T00:00:00Z', promoted: false, context: ctx(old) }],
+    }]
+    const stale = computeStaleContext(plan, initiatives, { now: NOW, staleContextDays: 14 })
+    const kinds = stale.map((s) => s.kind).sort()
+    assert.deepEqual(kinds, ['emerged', 'parked'])
+    // Locator for parked/emerged is surfacedAt, not an id field.
+    assert.equal(stale.find((s) => s.kind === 'parked').locator, '2026-04-20T00:00:00Z')
+  })
+
+  it('flags phases inserted mid-plan with stale lastReviewedAt', () => {
+    const old = '2026-04-01T00:00:00Z'
+    const plan = {
+      slug: 'p',
+      phases: [
+        { id: 'F0', status: 'active' },                              // original — no context
+        { id: 'F0.5', status: 'pending', provenance: { surfacedAt: old }, context: ctx(old) },
+      ],
+    }
+    const stale = computeStaleContext(plan, [], { now: NOW, staleContextDays: 14 })
+    assert.equal(stale.length, 1)
+    assert.equal(stale[0].kind, 'phase')
+    assert.equal(stale[0].locator, 'F0.5')
+    assert.equal(stale[0].initiativeSlug, 'p')  // plan slug, not initiative slug, when phase sits on plan
+  })
+
+  it('sorts results oldest-first so "fix dustiest first" is the natural read', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const t30 = '2026-04-21T00:00:00Z'
+    const t90 = '2026-02-20T00:00:00Z'
+    const t60 = '2026-03-22T00:00:00Z'
+    const initiatives = [{
+      slug: 'i', parentPlan: 'p', phaseId: 'F0', status: 'active',
+      tasks: [
+        { ...task('T-001'), context: ctx(t30) },
+        { ...task('T-002'), context: ctx(t90) },
+        { ...task('T-003'), context: ctx(t60) },
+      ],
+      parked: [],
+      emerged: [],
+    }]
+    const stale = computeStaleContext(plan, initiatives, { now: NOW, staleContextDays: 14 })
+    assert.deepEqual(stale.map((s) => s.locator), ['T-002', 'T-003', 'T-001'])
+  })
+
+  it('respects edge case: ageDays === threshold counts as stale', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const exactly14 = '2026-05-07T00:00:00Z'  // 14 days before NOW
+    const initiatives = [
+      init('i', 'F0', [{ ...task('T-001'), context: ctx(exactly14) }]),
+    ]
+    const stale = computeStaleContext(plan, initiatives, { now: NOW, staleContextDays: 14 })
+    assert.equal(stale.length, 1, 'threshold is inclusive (>=) — exactly 14 days counts as stale')
+  })
+
+  it('integrates into computeDrift().staleContext', () => {
+    const plan = { slug: 'p', phases: [{ id: 'F0', status: 'active' }] }
+    const old = '2026-04-01T00:00:00Z'
+    const initiatives = [
+      init('i', 'F0', [{ ...task('T-001'), context: ctx(old) }]),
+    ]
+    const report = computeDrift(plan, initiatives, { now: NOW })
+    assert.ok(Array.isArray(report.staleContext))
+    assert.equal(report.staleContext.length, 1)
+    const w = evaluateWarnings(report)
+    assert.equal(w.shouldWarn, true)
+    assert.ok(w.reasons.some((r) => r.includes('stale context')), `expected a stale-context reason in: ${JSON.stringify(w.reasons)}`)
+  })
+})
+
 describe('DEFAULT_THRESHOLDS', () => {
   it('is frozen so callers cannot accidentally tweak globals', () => {
     assert.ok(Object.isFrozen(DEFAULT_THRESHOLDS))
   })
 
-  it('exposes the three documented thresholds', () => {
+  it('exposes the four documented thresholds', () => {
     assert.deepEqual(Object.keys(DEFAULT_THRESHOLDS).sort(), [
       'parkedZombieDays',
       'phaseGrowthPctWarn',
       'scopeExpansionPctWarn',
+      'staleContextDays',
     ])
   })
 })

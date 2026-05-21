@@ -8,6 +8,9 @@
 //   2. Phases added mid-execution (provenance on the phase descriptor)
 //   3. Parked items aging past a threshold (zombies)
 //   4. Phase-completion vs originally-planned task count (closure drift)
+//   5. Items whose `context.lastReviewedAt` aged past staleContextDays —
+//      a signal to run `re-ratify <id>` because the original solves/trigger
+//      premises may no longer hold.
 //
 // No I/O. Pass in already-parsed plan + initiatives objects.
 
@@ -54,11 +57,25 @@
  * @property {string} surfacedAt
  * @property {number} ageDays
  */
+/**
+ * @typedef {Object} StaleContextEntry
+ * @property {'task'|'phase'|'parked'|'emerged'} kind
+ * @property {string} locator    `T-001` for tasks/phases; surfacedAt ISO for
+ *                                parked/emerged (their natural key, since they
+ *                                carry no `id`).
+ * @property {string} initiativeSlug
+ *                                For phases sitting on the plan itself, the
+ *                                plan slug is used.
+ * @property {string} title       Truncation is the renderer's job, not ours.
+ * @property {string} lastReviewedAt
+ * @property {number} ageDays     Floored days since lastReviewedAt at `now`.
+ */
 
 const DEFAULT_THRESHOLDS = Object.freeze({
   phaseGrowthPctWarn: 40, // banner when a phase grew >=40% via added tasks
   scopeExpansionPctWarn: 25, // plan-wide warn when overall expansion >=25%
   parkedZombieDays: 30, // parked items > N days old count as zombies
+  staleContextDays: 14, // items whose lastReviewedAt aged >= this need re-ratify
 })
 
 /**
@@ -127,13 +144,114 @@ export function computeDrift(plan, initiatives, opts = {}) {
   const scopeExpansionPct =
     totalOriginal > 0 ? Math.round((totalAdded / totalOriginal) * 100) : 0
 
+  const staleContext = computeStaleContext(plan, initiatives, {
+    now,
+    staleContextDays: thresholds.staleContextDays,
+  })
+
   return {
     totalPhases: plan.phases.length,
     phasesAddedMidExecution,
     phasesGrew,
     parkedZombies,
     scopeExpansionPct,
+    staleContext,
   }
+}
+
+/**
+ * Walks every task / parked / emerged entry under `initiatives`, plus every
+ * phase descriptor on `plan`, and returns the entries whose
+ * `context.lastReviewedAt` aged past `staleContextDays`. Items without a
+ * `context` block (original-materialization items) are skipped — they have
+ * no review timestamp by design.
+ *
+ * Sorted oldest-first so the renderer can show "fix the dustiest stuff first".
+ *
+ * @param {PlanLike | null | undefined} plan
+ * @param {InitiativeLike[] | undefined} initiatives
+ * @param {{now?: Date, staleContextDays?: number}} [opts]
+ * @returns {StaleContextEntry[]}
+ */
+export function computeStaleContext(plan, initiatives, opts = {}) {
+  const now = opts.now ?? new Date()
+  const threshold = opts.staleContextDays ?? DEFAULT_THRESHOLDS.staleContextDays
+  const stale = []
+
+  function age(iso) {
+    const t = Date.parse(iso)
+    if (Number.isNaN(t)) return null
+    return Math.floor((now.getTime() - t) / 86400000)
+  }
+
+  // Tasks + parked + emerged on each initiative.
+  for (const init of initiatives ?? []) {
+    if (!init) continue
+    const slug = init.slug
+    for (const t of init.tasks ?? []) {
+      const rev = t.context?.lastReviewedAt
+      if (!rev) continue
+      const ageDays = age(rev)
+      if (ageDays == null || ageDays < threshold) continue
+      stale.push({
+        kind: 'task',
+        locator: t.id,
+        initiativeSlug: slug,
+        title: t.title ?? `(unnamed ${t.id})`,
+        lastReviewedAt: rev,
+        ageDays,
+      })
+    }
+    for (const p of init.parked ?? []) {
+      const rev = p.context?.lastReviewedAt
+      if (!rev) continue
+      const ageDays = age(rev)
+      if (ageDays == null || ageDays < threshold) continue
+      stale.push({
+        kind: 'parked',
+        locator: p.surfacedAt,
+        initiativeSlug: slug,
+        title: p.title ?? '(unnamed parked)',
+        lastReviewedAt: rev,
+        ageDays,
+      })
+    }
+    for (const e of init.emerged ?? []) {
+      const rev = e.context?.lastReviewedAt
+      if (!rev) continue
+      const ageDays = age(rev)
+      if (ageDays == null || ageDays < threshold) continue
+      stale.push({
+        kind: 'emerged',
+        locator: e.surfacedAt,
+        initiativeSlug: slug,
+        title: e.title ?? '(unnamed emerged)',
+        lastReviewedAt: rev,
+        ageDays,
+      })
+    }
+  }
+
+  // Phases on the plan itself (those inserted mid-execution carry context).
+  if (plan && Array.isArray(plan.phases)) {
+    for (const ph of plan.phases) {
+      const rev = ph.context?.lastReviewedAt
+      if (!rev) continue
+      const ageDays = age(rev)
+      if (ageDays == null || ageDays < threshold) continue
+      stale.push({
+        kind: 'phase',
+        locator: ph.id,
+        initiativeSlug: plan.slug ?? '(unknown plan)',
+        title: ph.title ?? ph.id,
+        lastReviewedAt: rev,
+        ageDays,
+      })
+    }
+  }
+
+  stale.sort((a, b) => b.ageDays - a.ageDays)
+  return stale
 }
 
 /**
@@ -164,6 +282,11 @@ export function evaluateWarnings(report, overrides = {}) {
   if (report.phasesAddedMidExecution > 0) {
     reasons.push(`${report.phasesAddedMidExecution} phase(s) added mid-execution`)
   }
+  if (Array.isArray(report.staleContext) && report.staleContext.length > 0) {
+    reasons.push(
+      `${report.staleContext.length} item(s) with stale context (lastReviewedAt > ${t.staleContextDays}d) — run \`re-ratify <id>\``
+    )
+  }
   return { shouldWarn: reasons.length > 0, reasons }
 }
 
@@ -187,6 +310,7 @@ function emptyReport() {
     phasesGrew: [],
     parkedZombies: [],
     scopeExpansionPct: 0,
+    staleContext: [],
   }
 }
 
