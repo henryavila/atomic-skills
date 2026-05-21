@@ -248,9 +248,9 @@ export interface UIEmerged {
   staleAge?: number
 }
 
-function computeStaleAge(lastReviewedAt?: string): number | undefined {
-  if (!lastReviewedAt) return undefined
-  return Math.floor((Date.now() - Date.parse(lastReviewedAt)) / 86400000)
+function computeStaleAge(lastReviewedAt: string | undefined, ratifiedAt: string): number {
+  const ref = lastReviewedAt ?? ratifiedAt
+  return Math.floor((Date.now() - Date.parse(ref)) / 86400000)
 }
 
 export function adaptInitiativeForUI(initiative: Initiative, plan?: Plan): UIInitiative {
@@ -335,7 +335,7 @@ export function adaptInitiativeForUI(initiative: Initiative, plan?: Plan): UIIni
       parkedAt: p.surfacedAt.slice(0, 10),
       reason: p.context.solves,
       lastReviewedAt: p.context.lastReviewedAt,
-      staleAge: computeStaleAge(p.context.lastReviewedAt),
+      staleAge: computeStaleAge(p.context.lastReviewedAt, p.context.ratifiedAt),
     })),
     emerged: initiative.emerged.map((e, i) => ({
       id: `E-${i + 1}`,
@@ -344,7 +344,7 @@ export function adaptInitiativeForUI(initiative: Initiative, plan?: Plan): UIIni
       promoted: e.promoted,
       reason: e.context.solves,
       lastReviewedAt: e.context.lastReviewedAt,
-      staleAge: computeStaleAge(e.context.lastReviewedAt),
+      staleAge: computeStaleAge(e.context.lastReviewedAt, e.context.ratifiedAt),
     })),
     references: (initiative.references ?? []).map(adaptRef),
     body: initiative.body,
