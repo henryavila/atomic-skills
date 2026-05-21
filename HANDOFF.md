@@ -1,189 +1,156 @@
-# Handoff — sessão 2026-05-20
+# Handoff — sessão 2026-05-21
 
-Documento de carry-over para a próxima sessão Claude. Leitura cold-start (sem contexto da conversa anterior). Quando começar, leia este arquivo PRIMEIRO antes de tomar qualquer decisão.
+Documento de carry-over para a próxima sessão Claude. Cold-start ready (sem contexto da conversa). Leia este arquivo PRIMEIRO antes de tomar qualquer decisão.
 
 ## TL;DR
 
-**Onde parou.** Migration v2 do atomic-skills tecnicamente completa (Phases A→E todas com exit gates fechadas). Última sessão adicionou três camadas de qualidade no topo das skills: **code-quality gates G1-G7**, **integração de codex review no workflow**, e **fluxo de emergent work com provenance tracking**. Tudo commitado, todos os testes verdes (377 unit + 6 e2e + 51 hook), build do dashboard limpo.
+**Onde parou.** A camada de `emergent work` ganhou a peça que faltava: **ratify obrigatório** com bloco `context` (solves/trigger/assumesStillValid) em todo item criado on-the-fly. O hook `pre-write.sh` enforce isso mecanicamente, o skill body documenta o fluxo agente-propõe / usuário-ratifica / agente-commits, o `src/scope-drift.js` agora detecta items com contexto envelhecido. Schema mudou de forma breaking (parked/emerged exigem context). Production ainda em 1.8.1, próximo release planejado: **1.9.0**.
 
-**Próximo passo natural.** Bump para `2.0.0` + CHANGELOG + tag. Ou pegar uma das open threads (hard-gate via hook, MCP setup section no HelpView). Decisão do user.
+**Próximo passo natural.** Executar o `HANDOFF-cross-repo-context.md` (aideck zod + dashboard types/adapters) — ~1h. Depois CHANGELOG + bump 1.8.1 → 1.9.0 + tag.
 
 ## Estado do repo
 
 - **Branch:** `main`
-- **HEAD:** `2ff9ae2` (`feat: emergent work — agent-proposes / user-invokes flow with provenance`)
+- **HEAD:** `8f9579b` (scope-drift staleness + cross-repo handoff doc)
 - **Working tree:** clean
-- **Version (package.json):** `1.8.1` — **pendente bump para 2.0.0**
-- **Sessão começou em:** `5dcc59c` (`docs(phase-e): plan + Claude Design handoff bundles`)
-- **Sessão produziu:** 15 commits, 65 arquivos, +14141 / −372 linhas
+- **Version (package.json):** `1.8.1` — **pendente bump para 1.9.0**
+- **Sessão começou em:** `4a28f80` (handoff anterior)
+- **Sessão produziu:** 5 commits, 18 arquivos, +2114 / −74 linhas
 
-### Quick health check (cole pra confirmar nada quebrou)
+### Quick health check
 
 ```bash
 cd /Volumes/External/code/atomic-skills
 git status -s                                         # → empty
-npm run validate-skills 2>&1 | tail -3                # → "All 13 skills valid"
-npm test 2>&1 | tail -5                               # → "pass 357"
-npm run test:hooks 2>&1 | tail -3                     # → "29 passed"
-node --test tests/e2e-smoke.test.js 2>&1 | tail -5    # → "pass 6"
+npm run validate-skills 2>&1 | tail -1                # → "All 13 skills valid"
+npm test 2>&1 | grep "ℹ pass\|ℹ fail" | head -2       # → "pass 368, fail 0"
+npm run test:hooks 2>&1 | tail -1                     # → "58 passed, 0 failed"
 npm run typecheck:dashboard 2>&1 | tail -3            # → clean
-npm run build:dashboard 2>&1 | tail -5                # → builds in <1s
 ```
 
 ## O que foi entregue nesta sessão (por commit)
 
 | Commit | Resumo |
 |--------|--------|
-| `5dcc59c` | Phase E plan + Claude Design handoff bundles (4MB, 27 JSX, screenshots) |
-| `46e0cdc` | E.T-004: revert D.T-004 (MCP-or-file dispatch, padrão errado per F-B) |
-| `d0a7c84` | E.T-005: scaffold `src/dashboard/` (Vite + React 19 + TS + Tailwind 4) |
-| `6497b94` | E.T-006: atoms do Claude Design + páginas básicas |
-| `9ed2e4e` | E.T-007: REST client alinhado com contrato real aiDeck (envelope + flat /:slug) |
-| `bf59b7e` | E.T-008: `atomic-skills serve` command (build + spawn aideck + env file lifecycle) |
-| `2654da5` | E.T-003: cross-repo narrative contract test (4 assertions) |
-| `7a61f00` | E.T-009: e2e smoke test (6 assertions, achou bug residual no E.T-001 do aideck) |
-| `66565b4` | E.T-010: Codex review findings de Phase E (1C/3M aplicados) |
-| `eb780a0` | E.T-011: port fiel inicial dos prototypes do Claude Design |
-| `9b8db71` | E.T-012: port das 6 telas restantes (DepGraphOverlay, AnnotationPanel, FeedbackDrawer, HelpView, etc.) |
-| `403e006` | E.T-013: `serve --demo` com fixtures embutidos (plano sda v3) |
-| `edb6c8d` | Code-quality gates G1-G7 + Self-review checkpoint em 6 skill bodies |
-| `73b03be` | Integração de codex review no `project-plan` (Stages 8a/8b) + `project-status` (review-due tracking) |
-| `2ff9ae2` | Emergent work flow: 5 comandos novos + provenance schema + scope-drift detection |
+| `45453d6` | pre-write.sh hook (HANDOFF #2 anterior — provenance gate em Edit/Write/MultiEdit) |
+| `3fbadba` | ratify mandatory + bloco `context` exigido por schema em parked/emerged + conditional em task/phase |
+| `46add74` | hook estende para parked/emerged + `staleContextDays`/`parkedZombieDays` no config; memoria registrada sobre versionamento |
+| `8f9579b` | `computeStaleContext` em src/scope-drift.js + HANDOFF-cross-repo-context.md para a peça que falta antes do release |
 
 ## Arquivos críticos criados/atualizados (mapa rápido)
 
-### Camada de gates + workflow (mais relevante pra próximas sessões)
+### Schema
+- `meta/schemas/common.schema.json` — novo `$defs.context` (solves/trigger/assumesStillValid/ratifiedAt/ratifiedBy/lastReviewedAt)
+- `meta/schemas/initiative.schema.json` — task ganha context condicional (`if provenance then context`); parked/emerged exigem context unconditionalmente
+- `meta/schemas/plan.schema.json` — phaseDescriptor ganha context condicional
 
-- `docs/kb/code-quality-gates.md` — fonte única das 7 regras (G1-G7) + good/bad exemplos + bug→gate map
-- `skills/en/core/project-plan.md` — Stages 8a (internal review) + 8b (codex review) antes de declarar plano pronto
-- `skills/en/core/project-status.md` — Codex review tracking, review-due command, scope-drift banner no default view, seção Emergent work com a ladder de 8 degraus
-- `src/scope-drift.js` — pure helper: `computeDrift()` + `evaluateWarnings()` + `renderBanner()`. 20 testes em `tests/scope-drift.test.js`
-- `meta/schemas/common.schema.json` — novo `$defs.provenance` para tasks e phases adicionadas mid-execution
+### Hooks
+- `skills/shared/project-status-assets/hooks/pre-write.sh` — PreToolUse hook que gate Edit/Write/MultiEdit em `.atomic-skills/{initiatives,plans}/*.md`. Detecta tasks/phases/parked/emerged sem provenance OU sem context.{solves,trigger,ratifiedAt}. Dry-run default, strict opt-in.
+- `skills/shared/project-status-assets/hooks/config.json` — knobs novos: `emergent_strict_mode`, `staleContextDays: 14`, `parkedZombieDays: 30`
+- `skills/shared/project-status-assets/hooks/README.md` — documenta pre-write.sh, log format, bypass
 
-### Dashboard React (Phase E)
+### Skill body
+- `skills/en/core/project-status.md` — seção "Emergent work" renomeada para "proposal / ratify / commit pattern"; todos os 8 comandos da ladder ganham ratify gate; novos comandos `why <id>` e `re-ratify <id>`; views (default, --list, scope-creep) mostram `solves` inline
 
-- `src/dashboard/` — Vite + React 19 + TS + Tailwind 4 + shadcn deps. Build em <1s para 408KB JS / 22KB CSS.
-- `src/dashboard/components/atoms/` — 5 arquivos (StatusChip, Badges, Chrome, Buttons, tokens)
-- `src/dashboard/components/{layout,plan,initiative,home,feedback,help}/` — todas as telas do Claude Design portadas fielmente
-- `src/dashboard/lib/{api,hooks,types,adapters}.ts` — REST client + TanStack Query + SSE subscription + cross-schema adapters
-- `src/serve.js` + `bin/cli.js serve [--demo]` — comando que builda + spawna aideck + env file lifecycle
-- `assets/demo-fixtures/.atomic-skills/` — plan + initiative ricos para `serve --demo`
+### Lib
+- `src/scope-drift.js` — novo `computeStaleContext()` + integração em `computeDrift()`/`evaluateWarnings()`/`renderBanner()`. `DEFAULT_THRESHOLDS` ganha `staleContextDays: 14`.
+- `src/migrate.js` — legacy parked/emerged ganham placeholder context honesto durante migração
+
+### Fixtures
+- `tests/fixtures/state/initiatives/v3-f0-foundation-repair.md` — emerged[0] ganhou context real ratificado
+- `assets/demo-fixtures/.atomic-skills/initiatives/v3-f0-foundation-repair.md` — parked[0] + emerged[0] ganharam context completo
 
 ### Tests
+- `tests/validate-state.test.js` — 3 testes novos (context required iff provenance; complete context passes; parked-sem-context falha)
+- `tests/hooks/pre-write.test.sh` — 17 → 23 cases (T18-T19: partial context; T20-T23: parked/emerged gating + regressão)
+- `tests/scope-drift.test.js` — 8 testes novos para `computeStaleContext` + assertion de threshold keys
 
-- `tests/scope-drift.test.js` — 20 assertions (8 suites) sobre o helper de drift
-- `tests/aideck-contract.test.js` — 4 assertions (sibling-aideck dependent, skip se ausente)
-- `tests/e2e-smoke.test.js` — 6 assertions (spawn aideck real, verifica REST + SSE + static + SPA fallback)
-- `tests/serve.test.js` — 11 assertions (parsePort, resolveAideckBin, env file helpers)
+### Memória
+- `.ai/memory/feedback-versioning.md` — não inflar versão autonomamente; usuário prefere minor (1.x.y) mesmo para mudanças de schema
 
-### aiDeck (repo irmão)
+### Docs
+- `HANDOFF-cross-repo-context.md` — handoff específico para o trabalho cross-repo antes de cortar v1.9.0 (aideck zod + dashboard types/adapters)
 
-O sibling em `/Volumes/External/code/aideck/` também recebeu commits durante esta sessão:
-- `5d3c872` chore: drop Vue scaffold, pivot UI to atomic-skills
-- `4e2fd2c` feat(E.T-002): support optional evidence block on ExitCriterion
-- `8d44f79` feat(E.T-001): accept flat .atomic-skills/ layout as default project-status consumer
-- `12c488f` feat(E.T-008): --static-dir flag serves SPA bundle with API passthrough
-- `93f3939` fix(E.T-001): extend flat-layout fallback to REST projections (e2e bug fix)
+## Open threads
 
-Não verifiquei se foram pushados. **Checar:** `cd /Volumes/External/code/aideck && git status && git log --oneline -6`.
+### 1. Cross-repo plumbing (HANDOFF-cross-repo-context.md) — ~1h
 
-## Open threads (next session pode pegar qualquer um)
+Levar `context` para aideck (zod validators) + dashboard (TS types + adapters). Sem isso o release funciona mas o dashboard nunca mostra `solves`/`trigger`, e o aideck dropa silenciosamente o campo no parse. Documento auto-contido com diffs concretos antes/depois — peg up cold em uma sessão.
 
-### 1. Bump para v2.0.0 + tag + CHANGELOG (mais óbvio)
+**Decisão do usuário** (registrada na conversa): vai fazer isso antes de lançar a versão.
 
-Migration v2 está completa. `package.json` ainda em `1.8.1`. Hora de:
-- Editar `package.json` version → `2.0.0`
-- Criar `CHANGELOG.md` capturando as breaking changes (skills/pt removido, frontmatter format breaking, hooks rewritten, project-plan novo)
-- `git tag v2.0.0`
-- `npm publish` (se for publicar)
+### 2. Release v1.9.0 — ~15 min após (#1)
 
-Tempo estimado: 30min.
+- Bump `package.json` 1.8.1 → 1.9.0
+- Escrever `CHANGELOG.md` cobrindo: pre-write hook, ratify+context obrigatório, gate parked/emerged, why/re-ratify, scope-drift staleness, cross-repo plumbing
+- `git tag v1.9.0`
+- `npm publish` (opcional)
 
-### 2. Hard-gate via hook para emergent work (eu mencionei no fim da última rodada)
+**NÃO bumpar versão sem perguntar** — registrado em `.ai/memory/feedback-versioning.md`. Usuário decide qual versão (1.9.0 confirmado).
 
-Hoje a regra "agente nunca muta plan structure silenciosamente" mora no skill body. Se o agente burlar, só `scope-creep` view ou banner no default expõem post-hoc.
+### 3. Codex review do range completo (opcional, recomendado pré-release) — 10 min + ~$1-2
 
-Próximo nível: **pre-write hook que monitora Edits em `.atomic-skills/initiatives/*.md` e `.atomic-skills/plans/*.md`. Se o Edit adiciona uma entry em `tasks[]` ou `phases[]` sem o campo `provenance` correspondente, bloqueia.** Detecta provenance ausente via parsing simples YAML diff.
+Range `4a28f80..HEAD` (5 commits, ~2100 linhas) não passou por codex review. Patrão do projeto é review pré-release. Comando: `atomic-skills:review-code-with-codex`.
 
-Tempo estimado: 1-2h. Risco: false positives bloqueando legítimas edits (template fills, etc). Precisa de allowlist (mutation veio do `new-task` script vs Edit direto).
+### 4. Dogfood: `project-plan adopt` para este repo (deferido da sessão anterior) — 30 min
 
-### 3. MCP setup section no HelpView
+A migração v2 foi tratada como doc plana (`docs/migration-plan-v2.md`) em vez de Plan + Initiatives reais. Rodar `project-plan adopt` materializaria as Phases A→E como estrutura `.atomic-skills/` real. Vai exercitar `adopt` em condições reais — bom regression test, ruim timing (depois do release).
 
-O `HelpView.tsx` (port atual em `src/dashboard/components/help/HelpView.tsx`) tem 12 skills hardcoded. Falta a seção do prototype original que ensina como configurar MCP (Claude Code, Cursor, Cline) para usar o aideck MCP server. Era ~200 linhas do `HelpView.jsx` que eu pulei para encurtar o port.
+### 5. MCP setup section no HelpView (deferido da sessão anterior) — 1h
 
-Tempo estimado: 1h. Volume baixo, é majoritariamente conteúdo estático.
+~200 linhas de conteúdo estático (configuração MCP para Claude Code/Cursor/Cline) pulado durante port do Claude Design. Baixa prioridade, conteúdo majoritariamente estático.
 
-### 4. project-status `bootstrap` para este próprio repo (dogfooding)
+## Decisões importantes registradas
 
-A migration v2 foi tratada como `docs/migration-plan-v2.md` em vez de `.atomic-skills/plans/migration-v2.md`. Faltou o momento dogfood: rodar o próprio `project-plan adopt docs/migration-plan-v2.md` neste repo para materializar Phases A→E como Plan + Initiatives reais.
+- **Ratify é obrigatório, não opt-in.** Reflexo "yes"/"ok"/"do it" NÃO conta como ratify — usuário tem que tipar literal `ratify` ou colar bloco editado. Sem isso o gate vira ceremonial e perde a função.
+- **Context vive no item (frontmatter YAML), não em sidecar log.** Sobrevive archive, audita por grep, sem dual-write divergência, ratify tem onde escrever.
+- **`parked[]` e `emerged[]` exigem context UNCONDITIONALLY.** São emergentes por definição. Tasks/phases usam `if/then` porque podem ser original-materialization.
+- **Original-materialization items não têm context.** Narrativa vive no body do plan/initiative — duplicar em cada task seria ceremonial e apodreceria.
+- **`re-ratify` AVANÇA `ratifiedAt`, não anexa.** Audit trail vive no git history do .md, não em campo separado, pra evitar context bloat.
+- **Não inflar versão autonomamente.** Production em 1.8.1, próximo 1.9.0 (não 2.0.0 como handoff anterior sugeria). Registrado em `feedback-versioning.md`. O texto "Frozen at 0.1 for atomic-skills v2.0.0" no `common.schema.json` foi corrigido para frase agnóstica.
+- **Hook é dry-run por default.** Strict mode opt-in via `emergent_strict_mode: true` após drift.log limpo por 7+ dias. Knob independente do `strict_mode` da stop.sh.
 
-Tempo estimado: 30min. Vai exercitar o `adopt` em condições reais e expor qualquer bug residual antes do release.
-
-### 5. Codex review do bloco G1-G7 + emergent work
-
-Adicionei muito skill body sem rodar codex review. Próxima sessão poderia rodar `atomic-skills:review-plan-with-codex` ou `review-code-with-codex` contra o range `5dcc59c..HEAD` para validar que as 7 regras + ladder + provenance estão internamente consistentes.
-
-Tempo estimado: 10min wall + custo Codex (~$1-$2).
-
-## Decisões importantes registradas (para não re-litigar)
-
-- **aiDeck full-stack:** aideck mantém backend (HTTP/REST/SSE/watcher/parsers/MCP). atomic-skills owns React UI. MCP integration deferred to v2.1+. (Decidida em 2026-05-20, durante contract review post-Phase-D.)
-- **Provenance no item, não em changelog separado:** task/phase carregam `provenance: {…}` opcional. Items shipados no materialize original NÃO têm o campo. Choice deliberada vs `.atomic-skills/changelog.jsonl` (escolha do user explicitamente).
-- **Drift detection no default view (sempre):** sem opt-in. Threshold default 40% growth, 25% scope expansion plan-wide, 30 dias parked-zombie. Configurável em `.atomic-skills/status/config.json`.
-- **Agent-proposes / user-invokes para emergent work:** agente NUNCA muta plan structure direto. Imprime comando copy-pasteável, espera user invocar ou autorizar com "do it".
-- **Hybrid skill-body + KB pra gates:** regras G1-G7 vivem em `docs/kb/code-quality-gates.md` (fonte única). Cada skill body injeta subset relevante + checkpoint Self-review. Drift entre skills evitado.
-
-## Como o user testa localmente (recipe atual)
+## Como o usuário testa localmente (recipe atual)
 
 ```bash
-# Quickstart com fixtures embutidos
 cd /Volumes/External/code/atomic-skills
 node bin/cli.js serve --demo --port 7777
-
-# → abre http://127.0.0.1:7777 no browser
-# → vai ver SDA v3 plan + F0 initiative com tasks/gates/stack/parked/emerged
-# → Ctrl+C limpa tudo (tmp dir + ~/.atomic-skills/env)
+# Abre http://127.0.0.1:7777
+# Vai ver demo fixtures com parked + emerged carregando context real
+# Quando #1 (HANDOFF-cross-repo-context) fechar, ParkedPanel/EmergedPanel
+# vão mostrar o `solves` inline abaixo do título.
 ```
-
-Validado funcionando ao fim da sessão. Se quebrar, o smoke E2E é o canário (`node --test tests/e2e-smoke.test.js`).
 
 ## Cuidados para a próxima sessão
 
-1. **Não regenerar o port das telas.** As 10 telas do Claude Design estão portadas fielmente em `src/dashboard/components/`. Mexer só pra corrigir bugs específicos.
+1. **Não tocar nos schemas sem rebuild do aideck.** Se mudar `meta/schemas/*.json`, aideck precisa rebuild. E pode quebrar o cross-repo contract test.
 
-2. **Não tocar nos schemas sem rebuilder o aideck.** Se mudar `meta/schemas/*.json`, aideck precisa de rebuild (`cd /Volumes/External/code/aideck && npm run build`). E pode quebrar o cross-repo contract test.
+2. **Não bumpar `package.json` sem perguntar.** Memória registrada: `feedback-versioning.md`. Próximo release decidido: 1.9.0.
 
-3. **Manter os Self-review blocks em commits futuros.** Os gates G1-G7 só funcionam se aplicados. Se for fechar phase nova, mostrar o block de auto-avaliação.
+3. **Não regenerar o port das telas do Claude Design.** As 10 telas já estão portadas fielmente em `src/dashboard/components/`.
 
-4. **Codex review NÃO foi rodado nas últimas 3 mudanças** (`edb6c8d`, `73b03be`, `2ff9ae2`). São skill body changes — baixa probabilidade de bug, mas o pattern do projeto é review antes de release. Considerar rodar antes do v2.0.0 tag.
+4. **Antes de aplicar HANDOFF-cross-repo-context:** rebuild aideck PRIMEIRO (`cd /Volumes/External/code/aideck && npm run build`), ou o cross-repo contract test falha.
 
-5. **aiDeck pushed?** Verifica `cd /Volumes/External/code/aideck && git log --oneline @{u}..HEAD`. Se houver commits ahead, decidir se publica.
-
-## Como invocar a si próprio (próxima sessão)
-
-Abra a próxima sessão em `/Volumes/External/code/atomic-skills` e diga algo como:
-
-> "Leia `HANDOFF.md` e me diga o que está pendente. Quero seguir com [#1 / #2 / #3 / ...]."
-
-Ou se for uma sessão limpa sem leitura prévia:
-
-> "Estou voltando a atomic-skills depois de uma sessão longa. Leia HANDOFF.md no root primeiro."
+5. **Hook em strict mode pode bloquear edits legítimos.** Se for promover `emergent_strict_mode: true`, primeiro revise `.atomic-skills/status/emergent-drift.log` por 7+ dias de dry-run e confirme zero false positives.
 
 ## Métricas finais da sessão
 
-| | Antes (`5dcc59c`) | Agora (`2ff9ae2`) | Δ |
+| | Antes (`4a28f80`) | Agora (`8f9579b`) | Δ |
 |---|---|---|---|
-| Commits | — | +15 | — |
-| Files changed | — | 65 | — |
-| Linhas | — | +14141 / −372 | +13769 |
-| Skills | 12 | 13 | +1 |
-| Unit tests | 314 | 357 | +43 |
-| Hook tests | 51 | 51 | = |
-| E2E tests | 0 | 6 | +6 |
-| Build size (JS gz) | — | 113 KB | — |
-| Build size (CSS gz) | — | 5.3 KB | — |
-| Build time | — | <700ms | — |
-| Reviews persistidos | 4 | 5 | +1 (Phase E) |
-| Gates instrucionais | 0 | 7 (G1-G7) | +7 |
+| Commits | — | +5 (incluindo o de pre-write da última fase da sessão anterior) | — |
+| Linhas | — | +2114 / −74 | +2040 |
+| Unit tests | 357 | 368 | +11 |
+| Hook tests | 29 (session-start+stop) | 87 (+58 do pre-write) | +58 |
+| Skills | 13 | 13 | = |
+| Schemas com context | 0 | 3 (common, initiative, plan) | +3 |
+| Memory files | 7 | 8 (+feedback-versioning) | +1 |
+
+## Como invocar a próxima sessão
+
+> "Leia `HANDOFF.md` e me diga o que está pendente. Quero seguir com #1 (cross-repo plumbing) antes do release v1.9.0."
+
+Ou pra release direto:
+
+> "Cross-repo plumbing já fechou (commits na main). Quero cortar v1.9.0 agora — escreva o CHANGELOG cobrindo as 5 mudanças desta linha de commits, bumpa o package.json e cria o tag."
 
 Fim do handoff.
