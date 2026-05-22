@@ -96,9 +96,11 @@ function mapEmerged(item) {
 // `ratify` flow can be re-run against these items to replace the placeholder
 // with a real articulation when the user revisits them.
 
-// Marker prefix used by migrationContext().solves. Detect-and-replace by
-// re-bootstrap; do NOT shorten without updating MIGRATION_PLACEHOLDER_PREFIX.
+// Two-anchor markers around migrationContext().solves. Detector requires BOTH
+// the prefix AND the suffix to match, so a user-edited `solves` that merely
+// starts with the prefix is not misclassified as a placeholder.
 const MIGRATION_PLACEHOLDER_PREFIX = '(migrated from legacy schema)';
+const MIGRATION_PLACEHOLDER_SUFFIX = 're-ratify to articulate the real problem this addresses.';
 
 /**
  * True iff `context.solves` was synthesized by migrationContext() and has
@@ -110,12 +112,13 @@ const MIGRATION_PLACEHOLDER_PREFIX = '(migrated from legacy schema)';
 export function isMigratedPlaceholder(context) {
   if (context == null || typeof context !== 'object') return false;
   if (typeof context.solves !== 'string') return false;
-  return context.solves.startsWith(MIGRATION_PLACEHOLDER_PREFIX);
+  return context.solves.startsWith(MIGRATION_PLACEHOLDER_PREFIX)
+      && context.solves.endsWith(MIGRATION_PLACEHOLDER_SUFFIX);
 }
 
 function migrationContext(nowIso, kind, title) {
   return {
-    solves: `${MIGRATION_PLACEHOLDER_PREFIX} Original ${kind} entry — re-ratify to articulate the real problem this addresses.`,
+    solves: `${MIGRATION_PLACEHOLDER_PREFIX} Original ${kind} entry — ${MIGRATION_PLACEHOLDER_SUFFIX}`,
     trigger: `Schema upgrade to 0.1 found this ${kind} item with no context block; preserved verbatim by the migrate script.`,
     assumesStillValid: [
       `The title "${title}" still describes a real concern at re-ratify time.`,

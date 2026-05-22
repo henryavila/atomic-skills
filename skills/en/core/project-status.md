@@ -758,9 +758,10 @@ For each target item (P-1, P-2, ..., E-1, E-2, ...):
      - Take the 3 longest non-stopword tokens (≥6 chars) from the title. EN+PT stopwords list: `the, a, an, and, or, but, of, in, on, with, that, this, for, from, after, before, into, onto, over, under, com, para, sem, entre, sobre, antes, depois, ainda, mesmo`.
      - If STILL 0 (title is purely short stopwords, e.g. `'fix bug'`): skip the entire evidence step. Mark every draft field with `[no evidence — title too generic; needs user input]` and proceed directly to step 3.
    - For each keyword (cap 3):
-     - {{GREP_TOOL}} recursive in the project root, applying the `excludes` list built in pre-flight step 3. Cap 3 hits per keyword.
+     - {{GREP_TOOL}} recursive in the project root, applying the `excludes` list built in pre-flight step 3. Cap 3 hits per keyword. ({{GREP_TOOL}} takes the pattern as a structured tool arg — no shell interpolation, so any keyword is safe here.)
      - If any hit looks like a file path with extension: {{READ_TOOL}} the first ~80 lines for additional context (cap 2 reads total per item).
-   - If keywords list is non-empty: {{BASH_TOOL}} `git log --oneline -10 --grep="<top-keyword>"` (1 call) to surface commits referencing the topic. **Skip this call when keywords list is empty** (otherwise `git log` with no pattern would dump unrelated commits).
+   - **Keyword sanitization for {{BASH_TOOL}}** (mandatory before the git log step below): for each keyword, verify it matches `^[A-Za-z0-9._/-]+$`. If it doesn't (contains a quote, `$`, backtick, semicolon, pipe, newline, space, etc.), DROP it from the git log step — adversarial parked/emerged titles could otherwise inject shell commands via the interpolated `--grep` argument. The keyword extraction rules already produce alphanumeric tokens; the zero-keyword fallback's "longest non-stopword tokens" is the only path that can yield titles with unusual characters.
+   - If at least one sanitized keyword remains: {{BASH_TOOL}} `git log --oneline -10 --grep="<top-sanitized-keyword>"` (1 call) to surface commits referencing the topic. **Skip this call when no sanitized keyword remains** (otherwise `git log` with no pattern would dump unrelated commits).
 
 3. **Draft proposal**:
    - Based on title + evidence + surfacedAt, draft:
@@ -785,7 +786,7 @@ For each target item (P-1, P-2, ..., E-1, E-2, ...):
    Type ONE OF:
      - `ratify`           apply this draft verbatim
      - <paste edits>      paste a full corrected block; lastReviewedAt advances to now
-     - `skip`             keep placeholder; this item stays in scope-creep until handled
+     - `skip`             keep placeholder; re-run `re-bootstrap` to handle later (scope-creep only flags it after `staleContextDays`, default 14)
      - `cancel-batch`     stop the loop; already-ratified items in this run are kept
    ```
    - HALT until input.
@@ -813,7 +814,7 @@ assumesStillValid:
 **Optional:** `assumesStillValid` (defaults to `[]` when omitted; matches the contextSchema default).
 **Forbidden:** any key other than the three above. `ratifiedAt`, `ratifiedBy`, `lastReviewedAt` are NEVER pasted — the command always advances them to now.
 
-**Validation** (mirror `contextSchema` in `aideck/src/schemas/validators/project-status.ts`):
+**Validation** (mirror `context` schema in `meta/schemas/common.schema.json#/$defs/context` — the canonical contract for this repo):
 - `solves.length >= 8`, otherwise parse failure.
 - `trigger.length >= 8`, otherwise parse failure.
 - Every item in `assumesStillValid`: `length >= 4`, otherwise parse failure.

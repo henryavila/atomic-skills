@@ -226,11 +226,37 @@ test('isMigratedPlaceholder rejects malformed input', () => {
   assert.equal(isMigratedPlaceholder({ solves: 'not a placeholder' }), false);
 });
 
+test('isMigratedPlaceholder rejects user-edited solves that only matches the prefix', () => {
+  // Regression for codex F-001: prefix-only detection misclassified legitimate
+  // ratified content whose articulation happens to start with the prefix.
+  assert.equal(
+    isMigratedPlaceholder({
+      solves: '(migrated from legacy schema) but this is my real explanation of why we kept it.',
+      trigger: 'Real trigger after re-ratify.',
+      ratifiedAt: '2026-05-22T08:00:00Z',
+    }),
+    false,
+  );
+});
+
+test('isMigratedPlaceholder rejects solves that only matches the suffix', () => {
+  // Symmetric to the prefix-only case — both anchors are required.
+  assert.equal(
+    isMigratedPlaceholder({
+      solves: 'Operator must re-ratify to articulate the real problem this addresses.',
+      trigger: 'Real trigger.',
+      ratifiedAt: '2026-05-22T08:00:00Z',
+    }),
+    false,
+  );
+});
+
 test('re-bootstrap idempotence: detector skips items already replaced', () => {
-  // Simulates the post-re-bootstrap state: 1 item ratified, 1 still placeholder.
+  // Simulates the post-re-bootstrap state: 1 item still placeholder (both
+  // anchors present), 1 already ratified.
   const initiative = {
     parked: [
-      { title: 'item A', context: { solves: '(migrated from legacy schema) ...', trigger: '...', ratifiedAt: '2026-05-21T08:00:00Z' } },
+      { title: 'item A', context: { solves: '(migrated from legacy schema) Original parked entry — re-ratify to articulate the real problem this addresses.', trigger: '...', ratifiedAt: '2026-05-21T08:00:00Z' } },
       { title: 'item B', context: { solves: 'Real articulation by user', trigger: 'Real trigger', ratifiedAt: '2026-05-21T09:00:00Z' } },
     ],
   };
