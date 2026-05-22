@@ -375,6 +375,13 @@ o Codex envelope de qualquer jeito.
 3. **Validate:**
    - SINGLE: {{BASH_TOOL}}: `git rev-parse --verify {{ARG_VAR}}` exits 0.
    - RANGE: split on the detected separator (do NOT split on `..` when separator was `...` — would yield wrong tokens like `['main', '.HEAD']`). Validate each non-empty endpoint with `git rev-parse --verify <endpoint>`. Empty endpoint (e.g. `..HEAD`) is shorthand for `HEAD` — valid.
+3.5. **For SINGLE, distinguish COMMIT vs BRANCH (deterministic):**
+   - If `git show-ref --verify --quiet refs/heads/{{ARG_VAR}}` exits 0 → SINGLE BRANCH (it is a local branch name).
+   - Else if `git show-ref --verify --quiet refs/remotes/{{ARG_VAR}}` exits 0 → SINGLE BRANCH (treat remote-tracking branch as branch input).
+   - Else if `git cat-file -t {{ARG_VAR}}` outputs `commit` → SINGLE COMMIT.
+   - Else if `git cat-file -t {{ARG_VAR}}` outputs `tag` → resolve via `git rev-parse {{ARG_VAR}}^{commit}` and treat as SINGLE COMMIT.
+   - Else abort: "Cannot classify `{{ARG_VAR}}` as branch or commit; refusing to guess."
+   - **Ambiguity rule:** if `{{ARG_VAR}}` matches BOTH a local branch and a commit SHA (rare — a branch literally named like a hex SHA), prefer BRANCH and warn the user. Document this in the ask-the-user-for-base prompt of step 4.
 4. **Pick the right diff command per shape (`git diff <ref>` is NOT uniform):**
    - SINGLE COMMIT: `git show --format= --patch {{ARG_VAR}}` (equivalent: `git diff {{ARG_VAR}}^!`) — patch of THAT commit alone.
    - SINGLE BRANCH: ask the user for an explicit base ref (default suggestion: `main` or the repo's configured default branch). Run `git diff $(git merge-base <base> {{ARG_VAR}})..{{ARG_VAR}}` — changes the branch introduces vs the chosen base. DO NOT use `HEAD` as one side: when the user is currently checked out on the branch they want reviewed (`HEAD` resolves to the branch tip), `merge-base <branch> HEAD == <branch>` and the diff is empty. If `git merge-base` returns nothing for the chosen base (disjoint history), abort and re-ask.
@@ -396,6 +403,16 @@ ambos endpoints existem. Verificado nesta sessão via codex review F-003.
 worktree-vs-commit, não o patch do commit. `git diff <branch>` mostra
 worktree-vs-branch-tip, não os commits da branch. Apenas `git diff <range>`
 funciona como esperado. Verificado nesta sessão via codex review F-002 (rev2).
+
+**Por que classificar commit vs branch deterministicamente:** sem o
+passo 3.5, "SINGLE ref" engloba ambos e dois implementadores podem
+gerar comportamentos incompatíveis (one-commit review vs branch
+review) pro mesmo input. `git show-ref --verify` é a probe canônica
+pra branch existence; `git cat-file -t` resolve commit vs tag. Em
+caso de colisão hex-vs-branch-name, "prefer branch + warn" é a
+política menos surprising — um usuário que digita um nome legível
+quase certamente quer a branch. Verificado nesta sessão via codex
+review F-002 (rev3).
 
 ### 2.3 — Gather artifacts
 
