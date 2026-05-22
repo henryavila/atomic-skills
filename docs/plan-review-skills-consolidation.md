@@ -44,7 +44,7 @@ A simetria fica clara:
 
 | # | Fase | Arquivos | Tempo |
 |---|---|---|---|
-| 0 | **Infra: adicionar `ASK_USER_QUESTION_TOOL` template var** | `src/render.js`, `CLAUDE.md`, `AGENTS.md`, `docs/kb/gemini-cli-compatibility.md` | 20 min |
+| 0 | **Infra: adicionar `ASK_USER_QUESTION_TOOL` template var** | `src/render.js`, `CLAUDE.md`, `AGENTS.md`, `docs/kb/gemini-cli-compatibility.md`, `tests/render.test.js` | 30 min |
 | 1 | Design + write `skills/en/core/review-plan.md` body (usa `{{ASK_USER_QUESTION_TOOL}}`, NÃO hardcode) | novo arquivo | 45 min |
 | 2 | Design + write `skills/en/core/review-code.md` body (validação git ref tolerante a ranges) | novo arquivo | 30 min |
 | 3 | Adicionar G1+G2+G6 gates em `skills/en/core/review-plan-with-codex.md` + corrigir `git rev-parse --verify` em `review-code-with-codex.md:25` | edits | 15 min |
@@ -141,7 +141,54 @@ edit que 0.3:
 +- `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`, `{{ASK_USER_QUESTION_TOOL}}`.
 ```
 
-### 0.5 — Validação (post-Fase 1)
+### 0.5 — Teste automatizado em `tests/render.test.js`
+
+Verificado nesta sessão: `tests/render.test.js` existe. Adicionar
+suite de testes que afirma `renderTemplate` resolve
+`{{ASK_USER_QUESTION_TOOL}}` corretamente para cada branch da Fase 0.1.
+Sem este teste, `npm test` passa mesmo quando uma das branches deixa
+o var sem resolver — installed skill prompts vazam syntax literal pro
+usuário. Verificado via codex review F-005 (rev3).
+
+Estrutura mínima a adicionar (não copy-paste verbatim — adaptar ao
+shape de `import`/test runner já em uso no arquivo):
+
+```js
+describe('ASK_USER_QUESTION_TOOL substitution', () => {
+  const sample = 'Use {{ASK_USER_QUESTION_TOOL}} to ask the user.';
+
+  test('claude-code → AskUserQuestion tool (native)', () => {
+    const out = renderTemplate(sample, {}, {}, 'claude-code');
+    expect(out).toBe('Use AskUserQuestion tool to ask the user.');
+  });
+
+  test('gemini → multiple-choice prompt string (no native tool)', () => {
+    const out = renderTemplate(sample, {}, {}, 'gemini');
+    expect(out).toContain('ask the user via a multiple-choice prompt');
+    expect(out).not.toContain('{{ASK_USER_QUESTION_TOOL}}');
+  });
+
+  test('cursor → same descriptive string as Gemini (no native tool)', () => {
+    const out = renderTemplate(sample, {}, {}, 'cursor');
+    expect(out).toContain('ask the user via a multiple-choice prompt');
+    expect(out).not.toContain('{{ASK_USER_QUESTION_TOOL}}');
+  });
+
+  test.each(['codex', 'opencode', 'github-copilot', 'generic'])(
+    '%s → no-native-tool string (covers ELSE branch)',
+    (ide) => {
+      const out = renderTemplate(sample, {}, {}, ide);
+      expect(out).not.toContain('{{ASK_USER_QUESTION_TOOL}}');
+    },
+  );
+});
+```
+
+Adicionar à Definition of Done (Fase 0): "tests/render.test.js cobre
+substituição de ASK_USER_QUESTION_TOOL para claude-code + gemini +
+cursor + ao menos um IDE no ELSE branch (codex / opencode / github-copilot / generic)".
+
+### 0.6 — Validação manual (post-Fase 1)
 
 Skill bodies que usam `{{ASK_USER_QUESTION_TOOL}}` só existem após Fase 1.
 Portanto a validação manual roda DEPOIS de Fase 1 estar completa:
@@ -854,7 +901,7 @@ em uma conversa subsequente, validar com `ls` antes de avançar.
 
 ### Por fase
 
-- [ ] **Fase 0:** `src/render.js` define `ASK_USER_QUESTION_TOOL` template var (Claude/Gemini branches); `CLAUDE.md:16` e `AGENTS.md:17` listam `{{ASK_USER_QUESTION_TOOL}}` junto com os outros 7 tool vars; `docs/kb/gemini-cli-compatibility.md` tem entrada para o novo var
+- [ ] **Fase 0:** `src/render.js` define `ASK_USER_QUESTION_TOOL` template var (Claude/Gemini branches); `CLAUDE.md:16` e `AGENTS.md:17` listam `{{ASK_USER_QUESTION_TOOL}}` junto com os outros 7 tool vars; `docs/kb/gemini-cli-compatibility.md` tem entrada para o novo var; `tests/render.test.js` cobre substituição de `ASK_USER_QUESTION_TOOL` para `claude-code` + `gemini` + `cursor` + ao menos um IDE no ELSE branch
 - [ ] **Fase 1:** `skills/en/core/review-plan.md` existe, contém Step 0 usando `{{ASK_USER_QUESTION_TOOL}}` (não hardcode), 7 internal checks + 6 cross-ref condicionais, Iron Law unificado, G1+G2+G6 gates, closing format adaptado a ambos os modos
 - [ ] **Fase 2:** `skills/en/core/review-code.md` existe, contém Step 0 com validação git ref **tolerante a ranges** (detecta `..`/`...`, valida endpoints), 7 code-specific checks, Iron Law, G1+G2+G3+G4+G7 gates, closing format
 - [ ] **Fase 3:** `skills/en/core/review-plan-with-codex.md` ganha seção `## Code-quality gates` com G1+G2+G6 + self-review block; `review-code-with-codex.md:25` corrigido pra range-aware validation
