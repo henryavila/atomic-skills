@@ -281,8 +281,13 @@ o Codex envelope de qualquer jeito.
 3. **Validate:**
    - SINGLE: {{BASH_TOOL}}: `git rev-parse --verify {{ARG_VAR}}` exits 0.
    - RANGE: split on the detected separator (do NOT split on `..` when separator was `...` — would yield wrong tokens like `['main', '.HEAD']`). Validate each non-empty endpoint with `git rev-parse --verify <endpoint>`. Empty endpoint (e.g. `..HEAD`) is shorthand for `HEAD` — valid.
-4. {{BASH_TOOL}}: `git diff --name-only {{ARG_VAR}}` → list modified files. If empty: abort with "No changes in ref".
-5. {{BASH_TOOL}}: `git diff {{ARG_VAR}} | wc -c`. If > 50000 bytes: warn user (large diff, cost). Ask: continue / abort.
+4. **Pick the right diff command per shape (`git diff <ref>` is NOT uniform):**
+   - SINGLE COMMIT: `git show --format= --patch {{ARG_VAR}}` (equivalent: `git diff {{ARG_VAR}}^!`) — patch of THAT commit alone.
+   - SINGLE BRANCH: `git diff $(git merge-base {{ARG_VAR}} HEAD)..{{ARG_VAR}}` — changes the branch introduces against the merge-base with HEAD. If `git merge-base` returns nothing (disjoint history), abort and ask the user for an explicit base.
+   - RANGE: `git diff {{ARG_VAR}}` — already correct.
+   - NEVER use `git diff <single-ref>` raw: it diffs the WORKTREE against the ref, leaking unrelated local edits into the review.
+5. {{BASH_TOOL}}: `git diff --name-only` using the same shape-specific command as step 4 → list modified files. If empty: abort with "No changes in ref".
+6. {{BASH_TOOL}}: pipe the shape-specific diff to `wc -c`. If > 50000 bytes: warn user (large diff, cost). Ask: continue / abort.
 ```
 
 **Por que detectar triple-dot ANTES:** se você testar `..` primeiro e usar
@@ -293,12 +298,17 @@ ele como split separator, o input `'main...HEAD'.split('..')` retorna
 rejeita revision-range syntax — passar `main..HEAD` falha mesmo quando
 ambos endpoints existem. Verificado nesta sessão via codex review F-003.
 
+**Por que diff command condicional ao shape:** `git diff <commit>` mostra
+worktree-vs-commit, não o patch do commit. `git diff <branch>` mostra
+worktree-vs-branch-tip, não os commits da branch. Apenas `git diff <range>`
+funciona como esperado. Verificado nesta sessão via codex review F-002 (rev2).
+
 ### 2.3 — Gather artifacts
 
 ```markdown
 ## Step 1 — Gather artifacts
 
-- {{BASH_TOOL}}: `git diff {{ARG_VAR}}` → DIFF
+- {{BASH_TOOL}}: gather the DIFF using the shape-specific command chosen in Step 0 (NOT raw `git diff {{ARG_VAR}}` — see Step 0.4).
 - For each modified file: {{READ_TOOL}} full content
 - For each modified PUBLIC symbol (exported function, exported class): {{GREP_TOOL}} recursive for callers (limit 5 per symbol)
 ```
