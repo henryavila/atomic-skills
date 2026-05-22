@@ -930,9 +930,11 @@ em uma conversa subsequente, validar com `ls` antes de avançar.
 
 ## Como invocar a próxima sessão
 
-> "Leia `docs/plan-review-skills-consolidation.md` e execute as fases 1-9."
+> "Leia `docs/plan-review-skills-consolidation.md` e execute as fases 0-9."
 
 Pra rodar em duas sessões (mais seguro):
 
-> Sessão 1: "Execute fases 1-3 do plan-review-skills-consolidation.md (bodies novos)"
+> Sessão 1: "Execute fases 0-3 do plan-review-skills-consolidation.md (infra + bodies novos)"
 > Sessão 2: "Execute fases 4-9 do plan-review-skills-consolidation.md (catalog + README + HelpView + version)"
+
+**Por que Fase 0 não pode ser pulada:** Fase 1 usa `{{ASK_USER_QUESTION_TOOL}}` no body do `review-plan`, e esse template var só existe depois que Fase 0 edita `src/render.js`. Pular Fase 0 = skills renderizadas vazam syntax `{{ASK_USER_QUESTION_TOOL}}` literal pro usuário. Verificado via codex review F-001 (rev3).
