@@ -456,10 +456,16 @@ pra atomicidade.
 
 ### 4.2 — Add entries (rodar PRIMEIRO dentro da Fase 4)
 
-Inserir 2 entries novas, no formato v0.1 atual (catalog v0.2 vem depois):
+Inserir 2 entries novas, no formato v0.1 atual (catalog v0.2 vem depois).
+
+**Onde inserir:** sob a chave root `core:` JÁ EXISTENTE em `meta/skills.yaml`
+(linha 1), na mesma indentação dos outros itens core (2 espaços). NÃO
+recriar a chave `core:` — o snippet abaixo começa direto em `review-plan:`
+exatamente por esse motivo. Pasting-verbatim com `core:` por cima cria
+`core.core.review-plan`, e `npm run validate-skills` falha. Verificado nesta
+sessão via codex review F-003 (rev2).
 
 ```yaml
-core:
   review-plan:
     name: review-plan
     title: 'Review Plan — Same-Model Adversarial'
