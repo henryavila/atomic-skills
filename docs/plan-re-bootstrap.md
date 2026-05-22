@@ -77,11 +77,20 @@ detecção continua funcionando. O prefixo é o contrato.
 
 ## Fase 2 — testes em `tests/migrate.test.js`
 
-Adicionar bloco no fim do arquivo existente:
+### 2a. Estender o import existente
+
+O arquivo já tem na linha 9: `import { migrateLegacyInitiative } from '../src/migrate.js';`. Edite essa linha para incluir `isMigratedPlaceholder`:
 
 ```js
-import { isMigratedPlaceholder, migrateLegacyInitiative } from '../src/migrate.js';
+// linha 9 — substituir:
+import { migrateLegacyInitiative, isMigratedPlaceholder } from '../src/migrate.js';
+```
 
+**Não adicione um segundo bloco de import** — duplicar `migrateLegacyInitiative` quebra o módulo com erro de declaração léxica antes dos testes rodarem.
+
+### 2b. Append dos novos testes no fim do arquivo
+
+```js
 test('isMigratedPlaceholder detects placeholder from migrationContext', () => {
   const legacy = {
     initiative_id: 'demo',
@@ -144,9 +153,7 @@ migration placeholder. Runs after `migrate <slug>` to replace the honest
 `solves` / `trigger` / `assumesStillValid` block per item, using evidence
 gathered from the current project state.
 
-**When to run:** right after `migrate <slug>`, OR any time you find a
-post-migration initiative with placeholder items still hanging around (the
-`scope-creep` view flags these — they read as legacy context).
+**When to run:** right after `migrate <slug>`, OR any time you want to convert remaining placeholder items into real articulations. Note that `scope-creep` does NOT surface fresh placeholders — its detector ages by `lastReviewedAt` and migration sets that to `now`. Placeholder items appear in `scope-creep` only after they age past `staleContextDays` (default 14). To find them earlier: grep the initiative file for `(migrated from legacy schema)` or check `isMigratedPlaceholder` on each parked/emerged context.
 
 **When NOT to run:** if the initiative has no placeholder items
 (`isMigratedPlaceholder` returns false for every parked/emerged context),
@@ -155,16 +162,22 @@ only prompts the remaining placeholder items — fully idempotent.
 
 #### Pre-flight
 
-1. Load `.atomic-skills/initiatives/<slug>.md`. Parse frontmatter.
+1. `{{READ_TOOL}}` `.atomic-skills/initiatives/<slug>.md`. Parse YAML frontmatter.
 2. If `schemaVersion !== '0.1'`: abort with "Initiative is legacy. Run `migrate <slug>` first."
-3. Build the target list: every `parked[i]` and `emerged[i]` where
+3. **Load excludes config.** `{{READ_TOOL}}` `.atomic-skills/status/config.json` (treat absent file or missing key as empty). Build the effective excludes list:
+   ```js
+   excludes = ['node_modules', 'dist', '.git', '*.lock']
+              .concat(config.reBootstrapExcludes ?? [])
+   ```
+   Hold `excludes` for use in the per-item evidence step. Dedupe.
+4. Build the target list: every `parked[i]` and `emerged[i]` where
    `isMigratedPlaceholder(context)` (imported from `src/migrate.js`) returns true.
-4. If target list empty: announce "No placeholder items to re-articulate." and exit.
-5. Print cost preview:
+5. If target list empty: announce "No placeholder items to re-articulate." and exit.
+6. Print cost preview:
    > "<N> items to re-articulate. Each runs ~3 greps + ~1 git log + ~2 reads + 1 LLM draft.
    > Estimated wall: <N × ~20s>. Estimated $: depends on context, typically <N × ~$0.05>.
    > Proceed? [(y)es / (n)o]"
-6. On `(n)`: abort. On `(y)`: continue.
+7. On `(n)`: abort. On `(y)`: continue.
 
 #### Per-item loop
 
@@ -178,10 +191,13 @@ For each target item (P-1, P-2, ..., E-1, E-2, ...):
      - File paths (regex `[a-zA-Z0-9_/.-]+\.(ts|js|md|sh|yaml|yml|json|tsx)`).
      - CamelCase / kebab-case symbols longer than 4 chars (e.g. `parseInitiativeFile`, `matcher-key`).
      - Stop at 5 keywords max — order by specificity (paths > identifiers > symbols).
+   - **Zero-keyword fallback** (when the rules above yield 0 matches):
+     - Take the 3 longest non-stopword tokens (≥6 chars) from the title. EN+PT stopwords list: `the, a, an, and, or, but, of, in, on, with, that, this, for, from, after, before, into, onto, over, under, com, para, sem, entre, sobre, antes, depois, ainda, mesmo`.
+     - If STILL 0 (title is purely short stopwords, e.g. `'fix bug'`): skip the entire evidence step. Mark every draft field with `[no evidence — title too generic; needs user input]` and proceed directly to step 3.
    - For each keyword (cap 3):
-     - `{{GREP_TOOL}}` recursive in the project root, exclude `node_modules`, `dist`, `.git`. Cap 3 hits per keyword.
+     - `{{GREP_TOOL}}` recursive in the project root, applying the `excludes` list built in pre-flight step 3. Cap 3 hits per keyword.
      - If any hit looks like a file path with extension: `{{READ_TOOL}}` the first ~80 lines for additional context (cap 2 reads total per item).
-   - `{{BASH_TOOL}}` `git log --oneline -10 --grep="<top-keyword>"` (1 call) to surface commits referencing the topic.
+   - If keywords list is non-empty: `{{BASH_TOOL}}` `git log --oneline -10 --grep="<top-keyword>"` (1 call) to surface commits referencing the topic. **Skip this call when keywords list is empty** (otherwise `git log` with no pattern would dump unrelated commits).
 
 3. **Draft proposal**:
    - Based on title + evidence + surfacedAt, draft:
@@ -214,9 +230,36 @@ For each target item (P-1, P-2, ..., E-1, E-2, ...):
 
 5. **Apply**:
    - On `ratify`: write the drafted context to the item. Advance `ratifiedAt` and `lastReviewedAt` to now. `ratifiedBy: human`.
-   - On paste edits: parse the pasted block (same shape as the draft). Apply user values. Same timestamp advance.
    - On `skip`: no write. Continue loop.
    - On `cancel-batch`: stop loop. Items ratified earlier in the run stay saved.
+   - On **paste edits**: see the canonical format below.
+
+#### Pasted-edit canonical format
+
+The user pastes a YAML-shaped block. Exactly these keys, in any order:
+
+```yaml
+solves: <string, ≥8 chars>
+trigger: <string, ≥8 chars>
+assumesStillValid:
+  - <string, ≥4 chars>
+  - <string, ≥4 chars>   # 0..N items, omit the key entirely for empty list
+```
+
+**Required fields:** `solves`, `trigger`.
+**Optional:** `assumesStillValid` (defaults to `[]` when omitted; matches the contextSchema default).
+**Forbidden:** any key other than the three above. `ratifiedAt`, `ratifiedBy`, `lastReviewedAt` are NEVER pasted — the command always advances them to now.
+
+**Validation** (mirror `contextSchema` in `aideck/src/schemas/validators/project-status.ts`):
+- `solves.length >= 8`, otherwise parse failure.
+- `trigger.length >= 8`, otherwise parse failure.
+- Every item in `assumesStillValid`: `length >= 4`, otherwise parse failure.
+
+**Parse failure behavior** (any of: YAML syntax error, missing required field, length violation, unknown key):
+1. Print the specific error: e.g. `"parse failed: missing required field 'trigger'"` or `"parse failed: solves length 5 < 8"` or `"parse failed: unknown key 'ratifiedBy' — timestamps advance automatically, do not paste them"`.
+2. Re-print the canonical example block (above).
+3. Re-prompt the user with the SAME four options (`ratify` / paste edits / `skip` / `cancel-batch`). The item is NOT skipped on parse failure — the user has to make an explicit choice.
+4. Three consecutive parse failures on the same item: abort the loop with `"too many parse failures on <id>; cancel-batch invoked automatically"`. Items ratified earlier stay saved.
 
 #### Post-loop
 
@@ -224,17 +267,17 @@ For each target item (P-1, P-2, ..., E-1, E-2, ...):
    ```
    re-bootstrap <slug> complete:
      ratified:     <R> items
-     skipped:      <S> items (still placeholder — appear in scope-creep)
+     skipped:      <S> items (still placeholder; re-run to handle them)
      cancelled at: <item id, if any>
    ```
-2. If S > 0: remind "Run `re-bootstrap <slug>` or `re-ratify <id>` to handle the remaining <S> items."
-3. If R > 0: bump initiative `lastUpdated` to now. Save file.
+2. If S > 0: remind "Run `re-bootstrap <slug>` or `re-ratify <id>` to handle the remaining <S> items. Note that `scope-creep` will only flag them after `staleContextDays` (default 14)."
+3. If R > 0: bump initiative `lastUpdated` to now. `{{WRITE_TOOL}}` the updated frontmatter back to `.atomic-skills/initiatives/<slug>.md`.
 
 #### Honest limits
 
 - The agent CAN fabricate plausible-but-wrong `solves`. The ratify gate is the only guarantee against this — read every draft before approving.
 - `assumesStillValid` is the field most likely to be wrong: it asks "what makes this moot?" and the agent rarely knows the user's mental model. Prefer pasting edits over `ratify` for non-trivial premises.
-- The grep-based evidence is project-wide. Old archived branches, vendored code, or generated files can trigger false-positive hits — exclude with `.gitignore`-style patterns in `.atomic-skills/status/config.json:reBootstrapExcludes` (default: `node_modules`, `dist`, `.git`, `*.lock`).
+- The grep-based evidence is project-wide. Old archived branches, vendored code, or generated files can trigger false-positive hits. Defaults exclude `node_modules`, `dist`, `.git`, `*.lock`; extend per-repo via `.atomic-skills/status/config.json:reBootstrapExcludes` (loaded in pre-flight step 3, applied in evidence step).
 ````
 
 ### 3b. Atualizar a seção `migrate <slug>` (linha 475-484) — adicionar nudge no relatório:
@@ -290,8 +333,13 @@ npm test                      # roda os 369 testes existentes + 4 novos do migra
 
 - [ ] `isMigratedPlaceholder` exportada de `src/migrate.js`
 - [ ] `MIGRATION_PLACEHOLDER_PREFIX` constante extraída e referenciada por `migrationContext`
+- [ ] Import na linha 9 de `tests/migrate.test.js` estendido (NÃO duplicado) para incluir `isMigratedPlaceholder`
 - [ ] 4 testes novos passam em `npm test`
-- [ ] Seção `### re-bootstrap <slug>` presente em ambos os skill bodies EN + PT
+- [ ] Seção `### re-bootstrap <slug>` presente em ambos os skill bodies EN + PT, usando `{{READ_TOOL}}`/`{{WRITE_TOOL}}`/`{{GREP_TOOL}}`/`{{BASH_TOOL}}` nos passos operacionais
+- [ ] Pre-flight da nova seção carrega `.atomic-skills/status/config.json:reBootstrapExcludes` e aplica no grep step
+- [ ] Zero-keyword fallback documentado: stopwords list + skip-evidence quando lista fica vazia
+- [ ] Pasted-edit canonical format documentado (campos required + validação + parse-failure behavior)
+- [ ] Nenhuma claim de que `scope-creep` flagga placeholders frescos (só após `staleContextDays`)
 - [ ] `### migrate <slug>` aponta para `re-bootstrap` no relatório (passo 6)
 - [ ] `npm run validate-skills` verde
 - [ ] `npm test` verde
