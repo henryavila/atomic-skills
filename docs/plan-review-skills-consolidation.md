@@ -538,15 +538,24 @@ esses calls apontam pra comando deletado. Verificado nesta sessão via
 
 ### 3.5.2 — Grep wide pra catch any miss
 
-Antes de avançar pra Fase 4, rodar:
+Antes de avançar pra Fase 4, rodar (cobre TODOS os targets que a
+Cross-cutting DoD exige clean — `skills/`, `meta/`, `src/`, `tests/`,
+mais `README.md` e `CHANGELOG.md` onde apenas menções de
+migration narrative são permitidas):
 
 ```bash
-grep -rn 'review-plan-internal\|review-plan-vs-artifacts' skills/ src/
+grep -rn 'review-plan-internal\|review-plan-vs-artifacts' \
+  skills/ meta/ src/ tests/ README.md CHANGELOG.md 2>/dev/null
 ```
 
-Esperar zero matches além dos próprios arquivos a deletar
-(`skills/en/core/review-plan-internal.md` + `review-plan-vs-artifacts.md`).
-Se houver outras matches, atualizar.
+Esperar zero matches além de:
+- `skills/en/core/review-plan-internal.md` + `review-plan-vs-artifacts.md` (os próprios arquivos a deletar — sumirão na Fase 5)
+- linhas narrativas de breaking-change/migration em `README.md` e `CHANGELOG.md` (carve-out do gate; vide DoD Cross-cutting)
+
+Qualquer outra match — inclusive em `tests/` (fixtures, snapshots,
+assertions) ou em `meta/skills.yaml` (refs em `related:` ou
+`when_not_to_use:`) — exige update antes de prosseguir. Codex review
+F-004 (rev4) flagged tests/ e meta/ ausentes desse grep.
 
 ---
 
