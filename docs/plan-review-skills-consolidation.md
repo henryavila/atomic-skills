@@ -841,7 +841,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ```bash
 npm test                       # 375 tests still pass (no test depends on the deleted skills)
-npm run validate-skills        # 13 skills valid → 13 skills valid (still)
+npm run validate-skills        # 12 skills valid → 12 skills valid (delete 2, add 2, net 0)
 npm run build:dashboard        # HelpView changes compile
 ```
 
@@ -928,7 +928,7 @@ em uma conversa subsequente, validar com `ls` antes de avançar.
 - [ ] **Fase 6:** README.md tabela + seções detalhadas atualizadas; nota de breaking change no topo da seção Skills
 - [ ] **Fase 7:** HelpView.tsx const `SKILLS` atualizado; `related` refs cross-validadas
 - [ ] **Fase 8:** `package.json:version == "2.0.0"`; `package-lock.json` regenerado com mesma versão; `CHANGELOG.md` criado com release notes do 2.0.0
-- [ ] **Fase 9:** `npm test` verde (375 tests); `npm run validate-skills` verde (13 skills); `npm run build:dashboard` sem erros; HelpView no browser mostra os 2 novos e não mostra os 2 deletados
+- [ ] **Fase 9:** `npm test` verde (375 tests); `npm run validate-skills` verde (12 skills — delete 2, add 2, net 0 vs hoje); `npm run build:dashboard` sem erros; HelpView no browser mostra os 2 novos e não mostra os 2 deletados
 
 ### Cross-cutting
 
