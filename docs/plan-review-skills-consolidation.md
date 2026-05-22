@@ -151,11 +151,30 @@ Portanto a validação manual roda DEPOIS de Fase 1 estar completa:
 - Renderizar pra Gemini: → `ask the user via a multiple-choice prompt...`
 - Renderizar pra Cursor: → mesma string descritiva (sem tool nativo)
 
-Comando útil:
+Comando útil (verificado nesta sessão: `src/render.js` exporta
+`renderTemplate(content, vars, modules, ideId)` como ES module):
+
 ```bash
-npx @henryavila/atomic-skills install --ide claude-code --skip-modules --dry-run
-# verificar substituição no output rendered
+node -e "
+import('./src/render.js').then(({renderTemplate}) => {
+  const sample = 'Use {{ASK_USER_QUESTION_TOOL}} to ask the user.';
+  for (const ide of ['claude-code', 'gemini', 'cursor']) {
+    console.log('[' + ide + ']', renderTemplate(sample, {}, {}, ide));
+  }
+});
+"
 ```
+
+Saída esperada:
+- `[claude-code] Use AskUserQuestion tool to ask the user.`
+- `[gemini] Use ask the user via a multiple-choice prompt... to ask the user.`
+- `[cursor] Use ask the user via a multiple-choice prompt... to ask the user.`
+
+**Nota:** o snippet anterior usava `npx ... install --skip-modules
+--dry-run`, mas `bin/cli.js:44-54` documenta `install` aceitando apenas
+`[--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang
+<code>]`. Os dois flags não existem. Verificado via codex review F-005
+(rev2).
 
 Em Fase 0 propriamente (antes de Fase 1), validação automatizada é
 impossível porque ninguém usa o var ainda. Apenas conferir visualmente
