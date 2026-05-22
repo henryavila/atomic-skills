@@ -543,19 +543,19 @@ sessão via codex review F-003 (rev2).
   review-code:
     name: review-code
     title: 'Review Code — Same-Model Adversarial'
-    description: 'Adversarial self-loop review of code changes (git ref or diff). Same-model checklist for bugs, race conditions, error handling, and test coverage. Free alternative to review-code-with-codex.'
+    description: 'Adversarial self-loop review of code changes given a git ref (branch, commit, or range). Same-model checklist for bugs, race conditions, error handling, and test coverage. Free alternative to review-code-with-codex.'
     purpose: >
-      Review a git ref or diff adversarially looking for logic bugs, race
-      conditions, error handling gaps, schema/migration inconsistencies,
-      and test coverage gaps. Self-loop up to 3 iterations. Free
-      alternative to review-code-with-codex.
+      Review a git ref (branch, commit, or range) adversarially looking
+      for logic bugs, race conditions, error handling gaps,
+      schema/migration inconsistencies, and test coverage gaps. Self-loop
+      up to 3 iterations. Free alternative to review-code-with-codex.
     when_to_use:
       - 'You finished a coherent code change'
       - 'Cheap pre-merge sanity check'
       - 'Codex CLI not installed or you don''t want to spend on it'
     when_not_to_use:
       - 'Critical change (auth, payments, data integrity) — use review-code-with-codex'
-      - 'No diff or git ref to review'
+      - 'No git ref to review (and you don''t want to commit/stash first)'
     examples:
       - command: '/atomic-skills:review-code main..HEAD'
         description: 'Review the current branch vs main'
