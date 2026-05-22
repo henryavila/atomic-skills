@@ -64,6 +64,12 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 ## Skills
 
+> **Note (v2.0.0):** `review-plan-internal` and `review-plan-vs-artifacts`
+> were merged into a single `review-plan` skill with an optional
+> cross-reference mode. A new `review-code` skill ships alongside as the
+> same-model mirror of `review-code-with-codex`. See
+> [CHANGELOG.md](CHANGELOG.md) for migration.
+
 ### Overview
 
 | | Skill | One-liner | Iron Law |
@@ -73,10 +79,10 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 | 📝 | [`prompt`](#atomic-skillsprompt--optimized-prompt-generation) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS` |
 | 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--dispatch-a-task-list-to-n-parallel-sessions) | Dispatch a user-provided task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION` |
 | 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--audit-a-parallel-dispatch-batch) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK` |
-| 🔍 | [`review-plan-internal`](#atomic-skillsreview-plan-internal--adversarial-plan-review) | Find contradictions, broken deps, and gaps in a plan | `NO APPROVAL WITHOUT EVIDENCE` |
-| 📋 | [`review-plan-vs-artifacts`](#atomic-skillsreview-plan-vs-artifacts--plan-vs-artifacts) | Cross-reference plan against PRD/specs for missing requirements | `NO APPROVAL WITHOUT CROSS-REFERENCE` |
+| 🔍 | [`review-plan`](#atomic-skillsreview-plan--same-model-adversarial-plan-review) | Adversarial self-loop review of a plan; optional cross-ref against PRD/specs | `NO APPROVAL WITHOUT EVIDENCE` |
+| 🔬 | [`review-code`](#atomic-skillsreview-code--same-model-adversarial-code-review-new-in-200) | Adversarial self-loop review of a git ref/diff; same-model checklist for bugs and coverage | `NO APPROVAL WITHOUT EVIDENCE` |
 | 🤖 | [`review-plan-with-codex`](#atomic-skillsreview-plan-with-codex--cross-model-plan-review-new-in-180) | Cross-family review of a plan via OpenAI Codex CLI (two-pass sealed envelope) | `NO INTENT IN THE BRIEFING` |
-| 🔬 | [`review-code-with-codex`](#atomic-skillsreview-code-with-codex--cross-model-code-review-new-in-180) | Cross-family review of code changes (diff/branch) via OpenAI Codex CLI | `NO INTENT IN THE BRIEFING` |
+| 🧪 | [`review-code-with-codex`](#atomic-skillsreview-code-with-codex--cross-model-code-review-new-in-180) | Cross-family review of code changes (diff/branch) via OpenAI Codex CLI | `NO INTENT IN THE BRIEFING` |
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--save-work--publish) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION` |
 | 📊 | [`project-status`](#atomic-skillsproject-status--canonical-per-initiative-status-tracking) | Canonical per-initiative status tree with stack + tasks + parked + emerged; enforces via hooks | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE` |
 | 🧠 | [`init-memory`](#atomic-skillsinit-memory--persistent-memory-initialization) | Centralize project memory to `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
@@ -185,39 +191,51 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 ---
 
-### `atomic-skills:review-plan-internal` — Adversarial Plan Review
+### `atomic-skills:review-plan` — Same-Model Adversarial Plan Review
 
-**Problem it solves:** Plans contain internal contradictions, broken dependencies, ambiguous tasks, and missing steps — problems that only surface during implementation, when the cost of correction is high.
+**Problem it solves:** Plans contain internal contradictions, broken dependencies, ambiguous tasks, and missing steps. When a plan was derived from a PRD/spec, those source artifacts also drift silently — requirements get oversimplified, acceptance criteria lose details, or phantom features creep in.
 
-**What it does:** Applies a 7-item checklist (contradictions, broken dependencies, ordering, ambiguity, schema, file existence, test coverage), cites line numbers as proof, and iterates up to 3 times to verify that fixes didn't introduce new problems.
+**What it does:** Adversarial self-loop review with a Step 0 confirmation that picks the scope:
+- **Internal only** — applies the 7-item checklist (contradictions, broken dependencies, ordering, ambiguity, schema, file existence, test coverage).
+- **Cross-reference with detected/custom artifacts** — adds 6 more checks (requirement coverage, acceptance criteria, phase gates, dependency graphs, schema/API match, UX) and activates the HARD-GATE that forbids editing the source artifacts.
 
-**When to use:** Before executing any implementation plan — internal consistency validation.
+Every finding cites line numbers from the plan (and the artifact when cross-ref is active). Iterates up to 3 times to verify fixes don't introduce new problems. Non-interactive callers (like `project-plan` Stage 8a) pass `--mode=internal` to short-circuit the prompt.
+
+**When to use:** Before executing any plan — structural validation. When a plan was derived from a PRD/spec, the cross-ref mode catches missing requirements and oversimplified acceptance criteria.
 
 **Advantages:**
+- Step 0 prompt makes the scope decision auditable instead of inferring from a fragile heading
+- LOCAL-only artifact rule (URLs are not auto-fetched) keeps the evidence requirement enforceable
 - Verifies file/command existence with Glob/Grep (doesn't trust the plan)
 - Severity classification: Critical (blocks), Significant (causes rework), Minor
 - Verification loop prevents fixes from introducing new errors
-- Every finding cites the exact plan line number
+- Code-quality self-review (G1 + G2 + G6) catches bare assertions and soft-language
 
 **Iron Law:** `NO APPROVAL WITHOUT EVIDENCE`
 
 ---
 
-### `atomic-skills:review-plan-vs-artifacts` — Plan vs. Artifacts
+### `atomic-skills:review-code` — Same-Model Adversarial Code Review (new in 2.0.0)
 
-**Problem it solves:** Plans oversimplify requirements, lose acceptance criteria details, or add features nobody asked for. The gap between PRD/spec and plan grows silently.
+**Problem it solves:** Reviewing code without a structured adversarial pass misses logic bugs, race conditions, swallowed errors, and missing test coverage. `review-code-with-codex` does this cross-model but costs money and depends on the Codex CLI. There was no same-model equivalent for cheap pre-merge sanity checks.
 
-**What it does:** Cross-references the plan against source artifacts (PRD, specs, designs) with a 6-item checklist (requirement coverage, acceptance criteria, phase gates, dependencies, schema/API, UX). Requires line numbers from BOTH documents as proof.
+**What it does:** Adversarial self-loop review of a git ref — branch, single commit, or commit range (`main..HEAD`, `main...HEAD`). Step 0 classifies the ref shape deterministically:
+- **Triple-dot range** (`a...b`) — splits on `...` first to avoid eating the leftover dot.
+- **Double-dot range** (`a..b`) — endpoint-by-endpoint validation (raw `git rev-parse --verify` rejects range syntax).
+- **Single ref** — distinguishes branch vs commit via `git show-ref` then `git cat-file -t`; asks the user which base to diff a branch against.
 
-**When to use:** After generating a plan from specs/PRD — cross-coverage validation.
+Picks the shape-specific diff command (commit: `git show --patch`; branch: `git diff $(git merge-base <base> <branch>)..<branch>`; range: `git diff <range>`). Applies a 7-item checklist (logic bugs, race conditions, error handling, schema/migrations, API contracts, file/function references, test coverage). Iterates up to 3 passes.
+
+**When to use:** Pre-merge sanity check on a coherent change. Codex CLI not installed or you don't want to spend on it.
 
 **Advantages:**
-- HARD-GATE: corrects the PLAN, never the source artifact (if the artifact has an error, asks the user)
-- Coverage proof with plan line + artifact line
-- Detects missing requirements, oversimplified acceptance criteria, and phantom features
-- Verification loop (up to 3x) ensures fixes don't break other references
+- Free alternative to `review-code-with-codex` for everyday review
+- Range-aware ref validation (triple-dot first) — avoids the classic `'main...HEAD'.split('..')` bug
+- Shape-specific diff command — never falls into `git diff <single-ref>` leaking worktree edits
+- All user prompts routed through `{{ASK_USER_QUESTION_TOOL}}` — Claude Code uses the native tool; other IDEs receive a plain-text fallback
+- Code-quality self-review (G1 + G2 + G3 + G4 + G7) for the fixes you apply
 
-**Iron Law:** `NO APPROVAL WITHOUT CROSS-REFERENCE`
+**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE`
 
 ---
 
@@ -229,7 +247,7 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 - **Pass 1 (blind):** Codex reviews with *factual constraints only* — no intent narrative (intent framing can drop bug detection by up to **-93pp**, per arXiv [2603.18740](https://arxiv.org/abs/2603.18740)).
 - **Pass 2 (informed):** constraints are revealed, Codex reconciles findings with `Dropped / Maintained / Emerged` blocks. The delta blind→informed is the empirical signal of framing bias.
 
-**When to use:** Finishing a plan/spec/design doc and wanting a second opinion before implementation. High-stakes architectural decisions. Complements `review-plan-internal` (same-model).
+**When to use:** Finishing a plan/spec/design doc and wanting a second opinion before implementation. High-stakes architectural decisions. Complements `review-plan` (same-model).
 
 **Pre-requisites:**
 - OpenAI Codex CLI installed (`npm install -g @openai/codex` or `brew install --cask codex`)

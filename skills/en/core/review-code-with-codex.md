@@ -21,8 +21,21 @@ vulnerabilities, race conditions — don't defend the code.
 1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`. ABORT if any fails.
 
 2. **Collect input**
-   - $ARGUMENTS is a git ref: `main..HEAD`, branch, commit range.
-   - Validate with {{BASH_TOOL}}: `git rev-parse --verify <ref>` exits 0.
+   - $ARGUMENTS is a git ref: branch, single commit, or commit range
+     (e.g. `main..HEAD`, `main...HEAD`).
+   - **Detect ref shape (test in order, triple-dot FIRST):**
+     - Contains `...` → RANGE, separator `...`.
+     - Else contains `..` → RANGE, separator `..`.
+     - Else SINGLE ref.
+   - **Validate:**
+     - SINGLE: {{BASH_TOOL}}: `git rev-parse --verify $ARGUMENTS` exits 0.
+     - RANGE: split on the DETECTED separator (do NOT split on `..` when
+       separator was `...`). Validate each non-empty endpoint with
+       `git rev-parse --verify <endpoint>`. Empty endpoint (e.g.
+       `..HEAD`) is shorthand for `HEAD` — valid.
+   - Why conditional validation: `git rev-parse --verify` rejects
+     revision-range syntax — passing `main..HEAD` raw fails even when
+     both endpoints exist.
 
 3. **Gather artifacts**
    - {{BASH_TOOL}}: `git diff <ref>` → capture DIFF

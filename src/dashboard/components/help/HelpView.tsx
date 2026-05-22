@@ -39,7 +39,7 @@ const SKILLS: Skill[] = [
       '/atomic-skills:project-status done T-002',
       '/atomic-skills:project-status phase-done',
     ],
-    related: ['project-plan', 'fix', 'review-plan-internal'],
+    related: ['project-plan', 'fix', 'review-plan'],
   },
   {
     id: 'project-plan',
@@ -71,13 +71,30 @@ const SKILLS: Skill[] = [
     related: ['fix'],
   },
   {
-    id: 'review-plan-internal',
-    title: 'review-plan-internal',
-    summary: 'Adversarial review of an implementation plan for gaps and risks.',
+    id: 'review-plan',
+    title: 'review-plan',
+    summary:
+      'Adversarial self-loop review of an implementation plan. Step 0 asks whether to cross-reference against external artifacts (PRD, specs, designs); answer determines checklist scope.',
     active: true,
-    when: ['Finishing a plan and you want a second look', 'Before committing to a multi-day implementation'],
-    examples: ['/atomic-skills:review-plan-internal'],
-    related: ['review-plan-with-codex', 'review-code-with-codex'],
+    when: [
+      'Finishing a plan and you want a second look',
+      'Before committing to a multi-day implementation',
+      'Plan derived from a PRD/spec and you want coverage verification',
+    ],
+    whenNot: ['Plan is still brainstorming (not structured yet)', 'You want a cross-model review (use review-plan-with-codex)'],
+    examples: ['/atomic-skills:review-plan docs/plans/migration.md', '/atomic-skills:review-plan docs/plans/migration.md --mode=internal'],
+    related: ['review-plan-with-codex', 'review-code', 'review-code-with-codex'],
+  },
+  {
+    id: 'review-code',
+    title: 'review-code',
+    summary:
+      'Adversarial self-loop review of code changes given a git ref (branch, commit, or range). Same-model checklist for bugs, race conditions, error handling, and test coverage. Free alternative to review-code-with-codex.',
+    active: true,
+    when: ['You finished a coherent code change', 'Cheap pre-merge sanity check', 'Codex CLI not installed or you don\'t want to spend on it'],
+    whenNot: ['Critical change (auth, payments, data integrity) — use review-code-with-codex', 'No git ref to review'],
+    examples: ['/atomic-skills:review-code main..HEAD', '/atomic-skills:review-code feat/new-feature'],
+    related: ['review-code-with-codex', 'review-plan', 'fix', 'hunt'],
   },
   {
     id: 'review-plan-with-codex',
@@ -87,7 +104,7 @@ const SKILLS: Skill[] = [
     active: true,
     when: ['Finishing a plan and wanting a second opinion from a different model family'],
     examples: ['/atomic-skills:review-plan-with-codex'],
-    related: ['review-plan-internal', 'review-code-with-codex'],
+    related: ['review-plan', 'review-code-with-codex'],
   },
   {
     id: 'review-code-with-codex',
@@ -97,7 +114,7 @@ const SKILLS: Skill[] = [
     active: true,
     when: ['Before merging significant changes', 'To catch bugs that same-model review missed'],
     examples: ['/atomic-skills:review-code-with-codex'],
-    related: ['review-plan-with-codex'],
+    related: ['review-code', 'review-plan-with-codex'],
   },
   {
     id: 'prompt',

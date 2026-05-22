@@ -636,7 +636,7 @@ Steps:
    - Save plan + initiative.
    - Validate both files via `npm run validate-state`.
 5. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
-6. **MANDATORY review**: run `atomic-skills:review-plan-internal` against the updated plan (Stage 8a equivalent). Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
+6. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan (Stage 8a equivalent — the `--mode=internal` flag short-circuits the Step 0 prompt so this non-interactive stage doesn't block on user input). Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
 
 ### `split-phase <id>`
 

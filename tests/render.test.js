@@ -74,6 +74,35 @@ describe('renderTemplate', () => {
     assert.ok(result.includes('asset at .gemini/commands/atomic-skills-_assets/foo.md'),
       `expected TOML flat pattern, got: ${result}`);
   });
+
+  describe('ASK_USER_QUESTION_TOOL substitution', () => {
+    const sample = 'Use {{ASK_USER_QUESTION_TOOL}} to ask the user.';
+
+    it('claude-code → AskUserQuestion tool (native)', () => {
+      const out = renderTemplate(sample, {}, {}, 'claude-code');
+      assert.strictEqual(out, 'Use AskUserQuestion tool to ask the user.\n');
+    });
+
+    it('gemini → multiple-choice prompt string (no native tool)', () => {
+      const out = renderTemplate(sample, {}, {}, 'gemini');
+      assert.ok(out.includes('ask the user via a multiple-choice prompt'));
+      assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
+    });
+
+    it('cursor → same descriptive string as Gemini (no native tool)', () => {
+      const out = renderTemplate(sample, {}, {}, 'cursor');
+      assert.ok(out.includes('ask the user via a multiple-choice prompt'));
+      assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
+    });
+
+    for (const ide of ['codex', 'opencode', 'github-copilot', 'generic']) {
+      it(`${ide} → no-native-tool string (covers ELSE branch)`, () => {
+        const out = renderTemplate(sample, {}, {}, ide);
+        assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
+        assert.ok(out.includes('ask the user via a multiple-choice prompt'));
+      });
+    }
+  });
 });
 
 describe('renderForIDE', () => {

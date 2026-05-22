@@ -107,13 +107,13 @@ The plan is materialized but NOT yet ready. Run review before declaring done.
 
 **Stage 8a — Internal review (always, no user prompt).**
 
-Invoke `atomic-skills:review-plan-internal` with arg = the plan file path. This is cheap (no external dependency, no token cost beyond the skill itself) and catches:
+Invoke `atomic-skills:review-plan --mode=internal` with arg = the plan file path. The `--mode=internal` flag short-circuits the Step 0 prompt so this non-interactive stage doesn't block on user input each iteration. This is cheap (no external dependency, no token cost beyond the skill itself) and catches:
 
 - Soft-language violations (G2 — see `docs/kb/code-quality-gates.md`)
 - Bare assertions without `verified_by:` or `unverified:` (G6)
 - Internal contradictions, broken dependencies, ambiguous tasks
 
-Apply the findings inline before proceeding to 8b. Re-run review-plan-internal until it returns zero findings of severity major or higher.
+Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher.
 
 **Stage 8b — Cross-model review with Codex (intrusive-actions rule).**
 

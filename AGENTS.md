@@ -14,7 +14,7 @@ All agents working on this repository must adhere to the following:
 
 ### 1. Tool Abstraction
 NEVER use hardcoded tool names in skill files (`.md`). Always use the template variables:
-- `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`.
+- `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`, `{{ASK_USER_QUESTION_TOOL}}`.
 
 ### 2. Argument Handling
 Use `{{ARG_VAR}}` to reference command-line arguments.

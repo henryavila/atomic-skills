@@ -15,6 +15,7 @@ Gemini CLI uses different tool names than Claude Code. To maintain compatibility
 | `{{GREP_TOOL}}` | `Grep` | `grep_search` | Searching file contents |
 | `{{GLOB_TOOL}}` | `Glob` | `glob` | Listing files by pattern |
 | `{{INVESTIGATOR_TOOL}}` | `Agent` | `codebase_investigator` | Subagent delegation |
+| `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | `ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)` | Multi-choice user prompt. Only Claude Code has a native tool; Gemini and all other IDEs in the ELSE branch (Cursor, Codex CLI, Opencode, GitHub Copilot, generic) fall back to the descriptive string and render the prompt in plain text. |
 | `{{ARG_VAR}}` | `$ARGUMENTS` | `$ARGUMENTS` | Accessing command arguments |
 
 ## 2. Conditional Rendering

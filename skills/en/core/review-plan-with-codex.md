@@ -112,6 +112,38 @@ is to find gaps Claude missed due to self-preference bias
 - **blocker / critical:** propose immediate fix; blocks "all approved"
 - **major / minor / nit:** record in review file; no required action
 
+## Code-quality gates (audit lens)
+
+You orchestrate Codex on a plan. Beyond Codex's adversarial review, audit
+the plan you're sending against `docs/kb/code-quality-gates.md`:
+
+- **G1 read-before-claim** — does the plan reference existing code? Each
+  reference should cite line numbers, not just a filename. Plan claims
+  "the matcher joins on tenant_id" without showing the JOIN clause = G1
+  finding to surface.
+- **G2 soft-language ban** — grep the plan for `should|probably|may|typically|usually`.
+  Each occurrence that is NOT marked `unverified:` is a G2 finding.
+- **G6 reference-or-strike** — every assertion in the plan body should
+  carry `verified_by:` or `unverified:`. Bare assertions = G6 findings.
+
+If you find any G1/G2/G6 violations BEFORE sending to Codex, add them to
+the briefing as "constraints" so Codex can corroborate. After Codex
+responds, cross-check that Codex caught the same issues.
+
+## Self-review against gates
+
+Before the closing report, append a `## Self-review against code-quality
+gates` block (same shape as `review-plan` body):
+
+```
+- G1 read-before-claim: found N (lines …) / 0
+- G2 soft-language: found M (lines …) / 0
+- G6 reference-or-strike: K total, J verified, L unverified, R bare (lines …)
+```
+
+The block goes into the consolidated review file
+(`.atomic-skills/reviews/<…>.md`). Silent skipping is forbidden.
+
 ## Red Flags
 
 - "I'll inject project memory into the briefing to help Codex"

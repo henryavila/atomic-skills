@@ -32,6 +32,9 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
   
   // Add IDE-specific tool names
   const isGemini = ideId === 'gemini' || ideId === 'gemini-commands';
+  const isClaudeCode = ideId === 'claude-code';
+  const noNativeAskTool =
+    'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)';
   if (isGemini) {
     allVars.BASH_TOOL = 'run_shell_command';
     allVars.READ_TOOL = 'read_file';
@@ -41,6 +44,7 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
     allVars.GLOB_TOOL = 'glob';
     allVars.INVESTIGATOR_TOOL = 'codebase_investigator';
     allVars.ARG_VAR = '$ARGUMENTS';
+    allVars.ASK_USER_QUESTION_TOOL = noNativeAskTool;
   } else {
     // Default to Claude Code style tool names
     allVars.BASH_TOOL = 'Bash';
@@ -51,6 +55,7 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
     allVars.GLOB_TOOL = 'Glob';
     allVars.INVESTIGATOR_TOOL = 'Agent';
     allVars.ARG_VAR = '$ARGUMENTS';
+    allVars.ASK_USER_QUESTION_TOOL = isClaudeCode ? 'AskUserQuestion tool' : noNativeAskTool;
   }
 
   // Add IDE-specific ASSETS_PATH (where shared assets live for this IDE)

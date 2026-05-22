@@ -19,7 +19,7 @@ core:
         description: 'Diagnose and fix with provided symptom'
       - command: '/atomic-skills:fix'
         description: 'Skill prompts you for the symptom interactively'
-    related: [hunt, review-code-with-codex]
+    related: [hunt, review-code, review-code-with-codex]
     tags: [quality, debugging, tdd, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
@@ -53,26 +53,26 @@ core:
     network_required: true
     schema_version: '0.1'
 
-  review-plan-internal:
-    name: review-plan-internal
-    title: 'Review Plan — Internal Adversarial'
-    description: 'Adversarial review of an implementation plan for gaps and risks.'
+  review-plan:
+    name: review-plan
+    title: 'Review Plan — Same-Model Adversarial'
+    description: 'Adversarial self-loop review of an implementation plan. Step 0 asks whether to cross-reference against external artifacts (PRD, specs, designs); answer determines checklist scope.'
     purpose: >
-      Read a plan file as if the author were wrong. Find contradictions,
-      broken dependencies, ordering errors, ambiguities, missing tests.
-      Iterates up to 3 passes until clean or escalation needed.
+      Read a plan adversarially looking for contradictions, broken
+      dependencies, ordering errors, ambiguities, and missing tests.
+      Optionally cross-references against source artifacts when present.
+      Iterates up to 3 passes until clean.
     when_to_use:
-      - 'You just finished writing a plan'
-      - 'You want a structural sanity check before execution'
-      - 'A plan touches schema/migrations and needs cross-task verification'
+      - 'You finished writing a plan'
+      - 'Structural sanity check before execution'
+      - 'Plan was derived from a PRD/spec and you want coverage verification'
     when_not_to_use:
-      - 'The plan is still a brainstorm (not structured yet)'
+      - 'Plan is still brainstorming (not structured yet)'
       - 'You want a cross-model review (use review-plan-with-codex)'
-      - 'You want to compare plan vs PRD (use review-plan-vs-artifacts)'
     examples:
-      - command: '/atomic-skills:review-plan-internal docs/plans/migration.md'
-        description: 'Adversarially review a plan file'
-    related: [review-plan-with-codex, review-plan-vs-artifacts]
+      - command: '/atomic-skills:review-plan docs/plans/migration.md'
+        description: 'Adversarially review a plan, with optional artifact cross-ref'
+    related: [review-plan-with-codex, review-code]
     tags: [review, planning, adversarial]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
@@ -80,29 +80,32 @@ core:
     network_required: false
     schema_version: '0.1'
 
-  review-plan-vs-artifacts:
-    name: review-plan-vs-artifacts
-    title: 'Review Plan vs Artifacts'
-    description: 'Adversarial review comparing plan against actual generated artifacts.'
+  review-code:
+    name: review-code
+    title: 'Review Code — Same-Model Adversarial'
+    description: 'Adversarial self-loop review of code changes given a git ref (branch, commit, or range). Same-model checklist for bugs, race conditions, error handling, and test coverage. Free alternative to review-code-with-codex.'
     purpose: >
-      Cross-reference a plan against source artifacts (PRD, epics, specs,
-      architecture, UX). Find requirements without tasks, oversimplification,
-      coverage gaps. Plan is corrected; artifacts are never edited.
+      Review a git ref (branch, commit, or range) adversarially looking
+      for logic bugs, race conditions, error handling gaps,
+      schema/migration inconsistencies, and test coverage gaps. Self-loop
+      up to 3 iterations. Free alternative to review-code-with-codex.
     when_to_use:
-      - 'A plan claims to cover a PRD or set of epics'
-      - 'You want to verify all requirements have tasks'
-      - 'Schema or API changes must match the architecture doc'
+      - 'You finished a coherent code change'
+      - 'Cheap pre-merge sanity check'
+      - 'Codex CLI not installed or you don''t want to spend on it'
     when_not_to_use:
-      - 'No source artifacts exist'
-      - 'You only need internal structural review (use review-plan-internal)'
+      - 'Critical change (auth, payments, data integrity) — use review-code-with-codex'
+      - 'No git ref to review (and you don''t want to commit/stash first)'
     examples:
-      - command: '/atomic-skills:review-plan-vs-artifacts docs/plans/v3-redesign/00-master.md'
-        description: 'Check plan against linked artifacts'
-    related: [review-plan-internal, review-plan-with-codex]
-    tags: [review, planning, coverage, traceability]
+      - command: '/atomic-skills:review-code main..HEAD'
+        description: 'Review the current branch vs main'
+      - command: '/atomic-skills:review-code feat/new-feature'
+        description: 'Review a specific branch'
+    related: [review-code-with-codex, review-plan, fix, hunt]
+    tags: [review, code, adversarial]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
-    mutates_repo: true
+    mutates_repo: false
     network_required: false
     schema_version: '0.1'
 
@@ -163,7 +166,7 @@ core:
         description: 'Bootstrap a new Plan interactively (7-stage flow)'
       - command: '/atomic-skills:project-plan adopt docs/superpowers/plans/v3-redesign/00-master.md'
         description: 'Capture an existing markdown plan into structured state'
-    related: [project-status, review-plan-internal]
+    related: [project-status, review-plan]
     tags: [planning, bootstrap, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
@@ -220,7 +223,7 @@ core:
         description: 'Hunt bugs in a single file'
       - command: '/atomic-skills:hunt src/auth/'
         description: 'Triage mode for directory (max 30 files)'
-    related: [fix, review-code-with-codex]
+    related: [fix, review-code, review-code-with-codex]
     tags: [testing, quality, pre-implementation]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
@@ -292,11 +295,11 @@ core:
     when_not_to_use:
       - 'Codex CLI is not installed'
       - 'Plan is trivial or low-stakes'
-      - 'You only need internal review (use review-plan-internal)'
+      - 'You only need same-model review without codex (use review-plan)'
     examples:
       - command: '/atomic-skills:review-plan-with-codex docs/plans/v3-redesign/00-master.md'
         description: 'Cross-model review of a plan'
-    related: [review-plan-internal, review-plan-vs-artifacts, review-code-with-codex]
+    related: [review-plan, review-code-with-codex]
     tags: [review, planning, cross-model, adversarial]
     ide_compatibility: [claude-code]
     requires_args: true
@@ -323,7 +326,7 @@ core:
         description: 'Review current branch vs main'
       - command: '/atomic-skills:review-code-with-codex feat/auth-redesign'
         description: 'Review a specific branch'
-    related: [review-plan-with-codex, fix, hunt]
+    related: [review-code, review-plan-with-codex, fix, hunt]
     tags: [review, code, cross-model, adversarial, pre-merge]
     ide_compatibility: [claude-code]
     requires_args: true
