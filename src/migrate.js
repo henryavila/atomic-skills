@@ -95,9 +95,27 @@ function mapEmerged(item) {
 // migration honestly (no fake ratify by a real human). The skill body's
 // `ratify` flow can be re-run against these items to replace the placeholder
 // with a real articulation when the user revisits them.
+
+// Marker prefix used by migrationContext().solves. Detect-and-replace by
+// re-bootstrap; do NOT shorten without updating MIGRATION_PLACEHOLDER_PREFIX.
+const MIGRATION_PLACEHOLDER_PREFIX = '(migrated from legacy schema)';
+
+/**
+ * True iff `context.solves` was synthesized by migrationContext() and has
+ * not yet been replaced by a real re-ratify / re-bootstrap.
+ *
+ * Pure: no I/O. Idempotency-safe — re-bootstrap iterates only over items
+ * where this returns true, so already-ratified items are never re-prompted.
+ */
+export function isMigratedPlaceholder(context) {
+  if (context == null || typeof context !== 'object') return false;
+  if (typeof context.solves !== 'string') return false;
+  return context.solves.startsWith(MIGRATION_PLACEHOLDER_PREFIX);
+}
+
 function migrationContext(nowIso, kind, title) {
   return {
-    solves: `(migrated from legacy schema) Original ${kind} entry — re-ratify to articulate the real problem this addresses.`,
+    solves: `${MIGRATION_PLACEHOLDER_PREFIX} Original ${kind} entry — re-ratify to articulate the real problem this addresses.`,
     trigger: `Schema upgrade to 0.1 found this ${kind} item with no context block; preserved verbatim by the migrate script.`,
     assumesStillValid: [
       `The title "${title}" still describes a real concern at re-ratify time.`,

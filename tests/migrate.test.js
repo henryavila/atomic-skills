@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
-import { migrateLegacyInitiative } from '../src/migrate.js';
+import { migrateLegacyInitiative, isMigratedPlaceholder } from '../src/migrate.js';
 import { parseFrontmatter, validateFile } from '../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -193,4 +193,48 @@ test('goal falls back to first stack frame title when legacy file has none', () 
   };
   const { frontmatter } = migrateLegacyInitiative(minimal);
   assert.equal(frontmatter.goal, 'Mini work');
+});
+
+test('isMigratedPlaceholder detects placeholder from migrationContext', () => {
+  const legacy = {
+    initiative_id: 'demo',
+    started: '2026-05-01',
+    last_updated: '2026-05-01',
+    stack: [{ id: 1, title: 'work', type: 'task', opened_at: '2026-05-01T00:00:00Z' }],
+    parked: [{ title: 'sample', surfaced_at: '2026-05-01T00:00:00Z', from_frame: 1 }],
+    emerged: [],
+  };
+  const result = migrateLegacyInitiative(legacy);
+  assert.equal(isMigratedPlaceholder(result.frontmatter.parked[0].context), true);
+});
+
+test('isMigratedPlaceholder rejects ratified context', () => {
+  assert.equal(
+    isMigratedPlaceholder({
+      solves: 'Real problem articulated by user.',
+      trigger: 'Real trigger.',
+      ratifiedAt: '2026-05-21T08:00:00Z',
+    }),
+    false,
+  );
+});
+
+test('isMigratedPlaceholder rejects malformed input', () => {
+  assert.equal(isMigratedPlaceholder(null), false);
+  assert.equal(isMigratedPlaceholder({}), false);
+  assert.equal(isMigratedPlaceholder({ solves: null }), false);
+  assert.equal(isMigratedPlaceholder({ solves: 'not a placeholder' }), false);
+});
+
+test('re-bootstrap idempotence: detector skips items already replaced', () => {
+  // Simulates the post-re-bootstrap state: 1 item ratified, 1 still placeholder.
+  const initiative = {
+    parked: [
+      { title: 'item A', context: { solves: '(migrated from legacy schema) ...', trigger: '...', ratifiedAt: '2026-05-21T08:00:00Z' } },
+      { title: 'item B', context: { solves: 'Real articulation by user', trigger: 'Real trigger', ratifiedAt: '2026-05-21T09:00:00Z' } },
+    ],
+  };
+  const targets = initiative.parked.filter((p) => isMigratedPlaceholder(p.context));
+  assert.equal(targets.length, 1);
+  assert.equal(targets[0].title, 'item A');
 });
