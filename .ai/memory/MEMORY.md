@@ -13,3 +13,4 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`
 - [feedback-versioning.md](feedback-versioning.md) — Não inflar versão autonomamente; usuário prefere minor (1.x.y) mesmo para mudanças de schema
 - [reference-codex-macos-timeout.md](reference-codex-macos-timeout.md) — Canonical Codex invocation usa `timeout` (GNU); no macOS, usar `perl -e 'alarm N; exec @ARGV'` como wrapper
+- [decisao-skills-en-only.md](decisao-skills-en-only.md) — Skill bodies são EN-only; PT é diretiva injetada em runtime pelo renderer. Nunca criar `skills/pt/`.
