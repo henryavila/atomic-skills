@@ -44,7 +44,7 @@ A simetria fica clara:
 
 | # | Fase | Arquivos | Tempo |
 |---|---|---|---|
-| 0 | **Infra: adicionar `ASK_USER_QUESTION_TOOL` template var** | `src/render.js`, `docs/kb/gemini-cli-compatibility.md` (se existir) | 15 min |
+| 0 | **Infra: adicionar `ASK_USER_QUESTION_TOOL` template var** | `src/render.js`, `CLAUDE.md`, `AGENTS.md`, `docs/kb/gemini-cli-compatibility.md` | 20 min |
 | 1 | Design + write `skills/en/core/review-plan.md` body (usa `{{ASK_USER_QUESTION_TOOL}}`, NÃO hardcode) | novo arquivo | 45 min |
 | 2 | Design + write `skills/en/core/review-code.md` body (validação git ref tolerante a ranges) | novo arquivo | 30 min |
 | 3 | Adicionar G1+G2+G6 gates em `skills/en/core/review-plan-with-codex.md` + corrigir `git rev-parse --verify` em `review-code-with-codex.md:25` | edits | 15 min |
@@ -113,7 +113,35 @@ Verificado nesta sessão: o arquivo existe. Adicionar entrada para
 existe). Se a tabela não existe ainda, criar uma sub-seção minimal
 listando os 8 template vars existentes + o novo.
 
-### 0.3 — Validação (post-Fase 1)
+### 0.3 — Atualizar `CLAUDE.md`
+
+Verificado nesta sessão: `CLAUDE.md:16` enumera os tool vars permitidos
+hoje (`{{BASH_TOOL}}, {{READ_TOOL}}, {{WRITE_TOOL}}, {{REPLACE_TOOL}},
+{{GREP_TOOL}}, {{GLOB_TOOL}}, {{INVESTIGATOR_TOOL}}`) e NÃO inclui
+`{{ASK_USER_QUESTION_TOOL}}`. Sem este edit, instruções repo-level
+ficam stale e agentes futuros tratam o novo var como inválido (codex
+review F-004, rev2).
+
+Editar `CLAUDE.md:16`. Append `{{ASK_USER_QUESTION_TOOL}}` ao final da
+lista (mesma linha):
+
+```diff
+-   - `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`.
++   - `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`, `{{ASK_USER_QUESTION_TOOL}}`.
+```
+
+### 0.4 — Atualizar `AGENTS.md`
+
+Verificado nesta sessão: `AGENTS.md:17` repete a mesma lista de tool
+vars em inglês ("Cross-Agent Standards · Tool Abstraction"). Mesmo
+edit que 0.3:
+
+```diff
+-- `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`.
++- `{{BASH_TOOL}}`, `{{READ_TOOL}}`, `{{WRITE_TOOL}}`, `{{REPLACE_TOOL}}`, `{{GREP_TOOL}}`, `{{GLOB_TOOL}}`, `{{INVESTIGATOR_TOOL}}`, `{{ASK_USER_QUESTION_TOOL}}`.
+```
+
+### 0.5 — Validação (post-Fase 1)
 
 Skill bodies que usam `{{ASK_USER_QUESTION_TOOL}}` só existem após Fase 1.
 Portanto a validação manual roda DEPOIS de Fase 1 estar completa:
@@ -807,7 +835,7 @@ em uma conversa subsequente, validar com `ls` antes de avançar.
 
 ### Por fase
 
-- [ ] **Fase 0:** `src/render.js` define `ASK_USER_QUESTION_TOOL` template var (Claude/Gemini branches)
+- [ ] **Fase 0:** `src/render.js` define `ASK_USER_QUESTION_TOOL` template var (Claude/Gemini branches); `CLAUDE.md:16` e `AGENTS.md:17` listam `{{ASK_USER_QUESTION_TOOL}}` junto com os outros 7 tool vars; `docs/kb/gemini-cli-compatibility.md` tem entrada para o novo var
 - [ ] **Fase 1:** `skills/en/core/review-plan.md` existe, contém Step 0 usando `{{ASK_USER_QUESTION_TOOL}}` (não hardcode), 7 internal checks + 6 cross-ref condicionais, Iron Law unificado, G1+G2+G6 gates, closing format adaptado a ambos os modos
 - [ ] **Fase 2:** `skills/en/core/review-code.md` existe, contém Step 0 com validação git ref **tolerante a ranges** (detecta `..`/`...`, valida endpoints), 7 code-specific checks, Iron Law, G1+G2+G3+G4+G7 gates, closing format
 - [ ] **Fase 3:** `skills/en/core/review-plan-with-codex.md` ganha seção `## Code-quality gates` com G1+G2+G6 + self-review block; `review-code-with-codex.md:25` corrigido pra range-aware validation
