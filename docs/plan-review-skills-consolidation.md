@@ -388,11 +388,18 @@ o Codex envelope de qualquer jeito.
    - **Ambiguity rule:** if `{{ARG_VAR}}` matches BOTH a local branch and a commit SHA (rare — a branch literally named like a hex SHA), prefer BRANCH and warn the user. Document this in the ask-the-user-for-base prompt of step 4.
 4. **Pick the right diff command per shape (`git diff <ref>` is NOT uniform):**
    - SINGLE COMMIT: `git show --format= --patch {{ARG_VAR}}` (equivalent: `git diff {{ARG_VAR}}^!`) — patch of THAT commit alone.
-   - SINGLE BRANCH: ask the user for an explicit base ref (default suggestion: `main` or the repo's configured default branch). Run `git diff $(git merge-base <base> {{ARG_VAR}})..{{ARG_VAR}}` — changes the branch introduces vs the chosen base. DO NOT use `HEAD` as one side: when the user is currently checked out on the branch they want reviewed (`HEAD` resolves to the branch tip), `merge-base <branch> HEAD == <branch>` and the diff is empty. If `git merge-base` returns nothing for the chosen base (disjoint history), abort and re-ask.
+   - SINGLE BRANCH: use `{{ASK_USER_QUESTION_TOOL}}` to ask **"Which base should we diff `{{ARG_VAR}}` against?"** with options derived from `git symbolic-ref refs/remotes/origin/HEAD` (default branch) and `main`/`master` if they exist (dedupe). Once base is chosen, run `git diff $(git merge-base <base> {{ARG_VAR}})..{{ARG_VAR}}`. DO NOT use `HEAD` as one side: when the user is currently checked out on the branch they want reviewed (`HEAD` resolves to the branch tip), `merge-base <branch> HEAD == <branch>` and the diff is empty. If `git merge-base` returns nothing for the chosen base (disjoint history), abort and re-ask via the same prompt.
    - RANGE: `git diff {{ARG_VAR}}` — already correct.
    - NEVER use `git diff <single-ref>` raw: it diffs the WORKTREE against the ref, leaking unrelated local edits into the review.
 5. {{BASH_TOOL}}: `git diff --name-only` using the same shape-specific command as step 4 → list modified files. If empty: abort with "No changes in ref".
-6. {{BASH_TOOL}}: pipe the shape-specific diff to `wc -c`. If > 50000 bytes: warn user (large diff, cost). Ask: continue / abort.
+6. {{BASH_TOOL}}: pipe the shape-specific diff to `wc -c`. If > 50000 bytes: use `{{ASK_USER_QUESTION_TOOL}}` to ask **"Diff is N bytes (large). Continue review or abort?"** with options `Continue` / `Abort`.
+
+**Por que rotear prompts por `{{ASK_USER_QUESTION_TOOL}}`:** o tool var
+resolve por IDE em Fase 0.1 — Claude Code usa AskUserQuestion nativo,
+demais agentes recebem string descritiva pra renderizar em texto.
+Sem isso, implementadores podem hardcode AskUserQuestion (viola
+abstração) ou usar prompts inconsistentes por IDE. Verificado via
+codex review F-002 (rev4).
 ```
 
 **Por que detectar triple-dot ANTES:** se você testar `..` primeiro e usar
