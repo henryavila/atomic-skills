@@ -377,7 +377,7 @@ o Codex envelope de qualquer jeito.
    - RANGE: split on the detected separator (do NOT split on `..` when separator was `...` — would yield wrong tokens like `['main', '.HEAD']`). Validate each non-empty endpoint with `git rev-parse --verify <endpoint>`. Empty endpoint (e.g. `..HEAD`) is shorthand for `HEAD` — valid.
 4. **Pick the right diff command per shape (`git diff <ref>` is NOT uniform):**
    - SINGLE COMMIT: `git show --format= --patch {{ARG_VAR}}` (equivalent: `git diff {{ARG_VAR}}^!`) — patch of THAT commit alone.
-   - SINGLE BRANCH: `git diff $(git merge-base {{ARG_VAR}} HEAD)..{{ARG_VAR}}` — changes the branch introduces against the merge-base with HEAD. If `git merge-base` returns nothing (disjoint history), abort and ask the user for an explicit base.
+   - SINGLE BRANCH: ask the user for an explicit base ref (default suggestion: `main` or the repo's configured default branch). Run `git diff $(git merge-base <base> {{ARG_VAR}})..{{ARG_VAR}}` — changes the branch introduces vs the chosen base. DO NOT use `HEAD` as one side: when the user is currently checked out on the branch they want reviewed (`HEAD` resolves to the branch tip), `merge-base <branch> HEAD == <branch>` and the diff is empty. If `git merge-base` returns nothing for the chosen base (disjoint history), abort and re-ask.
    - RANGE: `git diff {{ARG_VAR}}` — already correct.
    - NEVER use `git diff <single-ref>` raw: it diffs the WORKTREE against the ref, leaking unrelated local edits into the review.
 5. {{BASH_TOOL}}: `git diff --name-only` using the same shape-specific command as step 4 → list modified files. If empty: abort with "No changes in ref".
