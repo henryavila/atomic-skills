@@ -105,7 +105,7 @@ core:
     tags: [review, code, adversarial]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
-    mutates_repo: false
+    mutates_repo: true
     network_required: false
     schema_version: '0.1'
 

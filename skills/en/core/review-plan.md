@@ -26,28 +26,35 @@ lose details, oversimplify, or add things nobody asked for.
 
 ## Step 0 — Detect and confirm scope
 
-1. {{READ_TOOL}} the plan file at {{ARG_VAR}}.
-2. Scan for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From|Based On)` (regex case-insensitive). Under each, extract bullet/link tokens and CLASSIFY each one:
+1. **Parse {{ARG_VAR}} BEFORE any file read.** {{ARG_VAR}} is the raw argument string; split it into `plan_path` + optional flags. Tokens that start with `--` are flags:
+   - `--mode=internal` or `--mode=cross-ref` (sets `cli_mode`)
+   - `--artifacts=path1,path2,...` (comma-separated list of LOCAL paths)
+
+   Everything that is NOT a `--` token is part of `plan_path`. Strip any trailing whitespace. If `plan_path` is empty after parsing, abort with: "review-plan requires a plan file path as the first argument." Do NOT pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that would try to open the literal string "docs/plan.md --mode=internal" as a file.
+
+2. {{READ_TOOL}} the plan file at `plan_path` (the parsed value from step 1, NOT raw {{ARG_VAR}}).
+
+3. Scan the plan for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From|Based On)` (regex case-insensitive). Under each, extract bullet/link tokens and CLASSIFY each one:
    - **LOCAL PATH** (relative or absolute filesystem path that resolves to a readable file): keep in the `detected_artifacts` list.
    - **URL** (anything matching `^https?://` or `^//`): DO NOT include in `detected_artifacts`. Record it in a `links_seen` list shown to the user as "URL artifacts not auto-fetched — provide local copies if you want cross-ref coverage."
    - **AMBIGUOUS** (e.g. bare repo identifier, ticket ref like `JIRA-123`): treat as URL — not auto-fetched.
 
    Rationale: cross-ref mode's Iron Law requires line-number evidence from each cited artifact. URLs cannot be opened by {{READ_TOOL}} and have no stable line numbers, so allowing them would either stall the loop or weaken the evidence rule.
 
-3. **Non-interactive mode short-circuit:** if {{ARG_VAR}} matches `<plan-path> --mode=internal` (or the agent's caller passed `mode=internal` via a structured invocation envelope where supported), SKIP the prompt in step 4 and set `mode = internal` directly. The symmetric form is `<plan-path> --mode=cross-ref --artifacts=path1,path2,...` (custom artifact list passed explicitly). Workflows that invoke `review-plan` in a loop (e.g. `project-plan` Stage 8b, `project-status` Stage 8a-equivalent) MUST pass `--mode=internal` to avoid prompting the user on every iteration.
+4. **Non-interactive mode short-circuit.** If `cli_mode == 'internal'` (parsed in step 1), SKIP the prompt in step 5 and set `mode = internal` directly. If `cli_mode == 'cross-ref'`, also skip the prompt and set `mode = cross-ref` using `--artifacts=` (parsed in step 1) as the artifact list; abort if `--artifacts=` was not supplied. Workflows that invoke `review-plan` in a loop (e.g. `project-plan` Stage 8b, `project-status` Stage 8a-equivalent) MUST pass `--mode=internal` to avoid prompting the user on every iteration.
 
-4. If no mode short-circuit applied, use {{ASK_USER_QUESTION_TOOL}} to ask:
+5. If no mode short-circuit applied, use {{ASK_USER_QUESTION_TOOL}} to ask:
 
    **Question:** "How should this plan be reviewed?"
 
    **Options:**
    - **Internal only** — adversarial review of internal consistency (contradictions, deps, ordering, ambiguity, schema, file existence, test coverage). Cheap, fast. Use when the plan was written from scratch or you don't have source artifacts to cross-check.
-   - **Cross-reference with detected artifacts** (ONLY show this option when step 2 found ≥1 local artifact) — applies internal review PLUS coverage check against `<detected list>`. Activates the HARD-GATE: plan corrected, artifacts never edited.
+   - **Cross-reference with detected artifacts** (ONLY show this option when step 3 found ≥1 local artifact) — applies internal review PLUS coverage check against `<detected list>`. Activates the HARD-GATE: plan corrected, artifacts never edited.
    - **Cross-reference with custom artifact list** — user provides paths manually. Same checks as the detected-artifacts option.
 
-5. Based on the answer (or short-circuit value from step 3), set `mode = internal | cross-ref`.
+6. Based on the answer (or short-circuit value from step 4), set `mode = internal | cross-ref`.
 
-6. On `cross-ref` AND no `--artifacts=` was passed: list the artifacts to the user for final confirmation. The user can add or remove paths. After confirmation, {{READ_TOOL}} each artifact and record:
+7. On `mode == cross-ref` AND no `--artifacts=` was passed: list the artifacts to the user for final confirmation. The user can add or remove paths. After confirmation, {{READ_TOOL}} each artifact and record:
    - Full file path
    - Type (PRD, epic, spec, architecture, UX, other)
    - Number of requirements/stories/FRs identified

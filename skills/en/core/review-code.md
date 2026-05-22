@@ -64,12 +64,12 @@ the checklist and force a second pass.
    `Abort`.
 
 Why route all user prompts through {{ASK_USER_QUESTION_TOOL}}: the
-template var resolves per IDE — Claude Code uses the native
-AskUserQuestion tool; Gemini / Cursor / Codex CLI / Opencode /
-GitHub Copilot / generic receive a descriptive string so the agent
-renders the prompt as plain text. Hardcoding the tool name would break
-non-Claude IDEs; hardcoding the plain-text form would skip the native
-tool in Claude Code.
+template var resolves per IDE — Claude Code uses its native multi-choice
+prompt tool; Gemini / Cursor / Codex CLI / Opencode / GitHub Copilot /
+generic receive a descriptive string so the agent renders the prompt as
+plain text. Hardcoding any specific tool name would break the other IDEs;
+hardcoding the plain-text form would skip the native tool where one
+exists.
 
 ## Step 1 — Gather artifacts
 
