@@ -242,7 +242,11 @@ fazem hoje, com **modo cross-ref opcional**. Step 0 detecta + pergunta.
 ## Step 0 — Detect and confirm scope
 
 1. {{READ_TOOL}} the plan file at {{ARG_VAR}}.
-2. Scan for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From)` (regex case-insensitive). Extract the file paths/links listed under each.
+2. Scan for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From)` (regex case-insensitive). Under each, extract bullet/link tokens and CLASSIFY each one:
+   - **LOCAL PATH** (relative or absolute filesystem path that resolves to a readable file): keep in the detected-artifacts list.
+   - **URL** (anything matching `^https?://` or `^//`): DO NOT include in detected-artifacts. Record it in a `links_seen` list shown to the user as "URL artifacts not auto-fetched — provide local copies if you want cross-ref coverage."
+   - **AMBIGUOUS** (e.g. bare repo identifier, ticket ref like `JIRA-123`): treat as URL — not auto-fetched.
+   Rationale: cross-ref mode's Iron Law requires line-number evidence from each cited artifact. URLs cannot be opened by `{{READ_TOOL}}` and have no stable line numbers, so allowing them would either stall the loop or weaken the evidence rule. Verificado via codex review F-003 (rev4).
 3. Use {{ASK_USER_QUESTION_TOOL}} to ask:
 
    **Question:** "How should this plan be reviewed?"
