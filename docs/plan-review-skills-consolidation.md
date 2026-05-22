@@ -247,7 +247,8 @@ fazem hoje, com **modo cross-ref opcional**. Step 0 detecta + pergunta.
    - **URL** (anything matching `^https?://` or `^//`): DO NOT include in detected-artifacts. Record it in a `links_seen` list shown to the user as "URL artifacts not auto-fetched — provide local copies if you want cross-ref coverage."
    - **AMBIGUOUS** (e.g. bare repo identifier, ticket ref like `JIRA-123`): treat as URL — not auto-fetched.
    Rationale: cross-ref mode's Iron Law requires line-number evidence from each cited artifact. URLs cannot be opened by `{{READ_TOOL}}` and have no stable line numbers, so allowing them would either stall the loop or weaken the evidence rule. Verificado via codex review F-003 (rev4).
-3. Use {{ASK_USER_QUESTION_TOOL}} to ask:
+3. **Non-interactive mode short-circuit:** if `{{ARG_VAR}}` matches `<plan-path> --mode=internal` (or the agent's caller passed `mode=internal` via a structured invocation envelope where supported), SKIP the AskUserQuestion in step 4 and set `mode = internal` directly. Workflows that invoke `review-plan` in a loop (e.g. `project-plan.md` Stage 8b, `project-status.md` Stage 8a-equivalent) MUST pass `--mode=internal` to avoid prompting the user on every iteration. Same applies symmetrically with `--mode=cross-ref` (requires a custom artifact list passed as `--artifacts=path1,path2,...`).
+4. If no mode short-circuit applied, use {{ASK_USER_QUESTION_TOOL}} to ask:
 
    **Question:** "How should this plan be reviewed?"
 
@@ -256,9 +257,9 @@ fazem hoje, com **modo cross-ref opcional**. Step 0 detecta + pergunta.
    - **Cross-reference with detected artifacts** (only shown when step 2 found ≥1 artifact) — applies internal review PLUS coverage check against `<detected list>`. Add HARD-GATE: plan corrected, artifacts never edited.
    - **Cross-reference with custom artifact list** — user provides paths manually. Same checks as option 2.
 
-4. Based on answer, set `mode` = `internal` | `cross-ref`.
+5. Based on answer (or short-circuit value from step 3), set `mode` = `internal` | `cross-ref`.
 
-5. On `cross-ref`: list artifacts to user for final confirmation. User can add/remove. Then proceed.
+6. On `cross-ref` AND no `--artifacts=` was passed: list artifacts to user for final confirmation. User can add/remove. Then proceed.
 ```
 
 **Por que ask user no Step 0:** o skill antigo `review-plan-vs-artifacts`
@@ -541,11 +542,21 @@ esses calls apontam pra comando deletado. Verificado nesta sessão via
 
 ### 3.5.1 — Updates concretos
 
-- `project-status.md:639`: trocar `atomic-skills:review-plan-internal` por
-  `atomic-skills:review-plan`. Contexto operacional não muda — o new
-  `review-plan` cobre o caso `mode=internal` automaticamente.
-- `project-plan.md:110`: mesmo replacement.
-- `project-plan.md:116`: trocar `review-plan-internal` por `review-plan`.
+Todos os 3 sites são callers NON-INTERACTIVE (loops automatizados, sem
+input humano por iteração). O new `review-plan` Step 0 abre uma
+AskUserQuestion por default — sem o flag `--mode=internal`, esses
+callers passariam a bloquear em prompt em CADA iteração do loop.
+Verificado via codex review F-001 (rev4).
+
+- `project-status.md:639`: trocar
+  `atomic-skills:review-plan-internal` por
+  `atomic-skills:review-plan --mode=internal`. Mantém comportamento
+  non-interactive equivalente ao antigo `review-plan-internal`.
+- `project-plan.md:110`: mesmo replacement com `--mode=internal`.
+- `project-plan.md:116`: trocar `review-plan-internal` por
+  `review-plan --mode=internal` no texto do loop ("Re-run
+  `review-plan --mode=internal` until..."). Loop continua sem prompt
+  humano em cada iteração.
 
 ### 3.5.2 — Grep wide pra catch any miss
 
@@ -939,10 +950,10 @@ em uma conversa subsequente, validar com `ls` antes de avançar.
 ### Por fase
 
 - [ ] **Fase 0:** `src/render.js` define `ASK_USER_QUESTION_TOOL` template var (Claude/Gemini branches); `CLAUDE.md:16` e `AGENTS.md:17` listam `{{ASK_USER_QUESTION_TOOL}}` junto com os outros 7 tool vars; `docs/kb/gemini-cli-compatibility.md` tem entrada para o novo var; `tests/render.test.js` cobre substituição de `ASK_USER_QUESTION_TOOL` para `claude-code` + `gemini` + `cursor` + ao menos um IDE no ELSE branch
-- [ ] **Fase 1:** `skills/en/core/review-plan.md` existe, contém Step 0 usando `{{ASK_USER_QUESTION_TOOL}}` (não hardcode), 7 internal checks + 6 cross-ref condicionais, Iron Law unificado, G1+G2+G6 gates, closing format adaptado a ambos os modos
+- [ ] **Fase 1:** `skills/en/core/review-plan.md` existe, contém Step 0 usando `{{ASK_USER_QUESTION_TOOL}}` (não hardcode), Step 0 honra `--mode=internal` / `--mode=cross-ref --artifacts=...` como short-circuit non-interactive, 7 internal checks + 6 cross-ref condicionais, Iron Law unificado, G1+G2+G6 gates, closing format adaptado a ambos os modos
 - [ ] **Fase 2:** `skills/en/core/review-code.md` existe, contém Step 0 com validação git ref **tolerante a ranges** (detecta `..`/`...`, valida endpoints), 7 code-specific checks, Iron Law, G1+G2+G3+G4+G7 gates, closing format
 - [ ] **Fase 3:** `skills/en/core/review-plan-with-codex.md` ganha seção `## Code-quality gates` com G1+G2+G6 + self-review block; `review-code-with-codex.md:25` corrigido pra range-aware validation
-- [ ] **Fase 3.5:** refs a `review-plan-internal` em `project-status.md:639` e `project-plan.md:110,116` atualizadas pra `review-plan`. Grep wide confirma zero refs antigas em `skills/` + `src/`.
+- [ ] **Fase 3.5:** refs a `review-plan-internal` em `project-status.md:639` e `project-plan.md:110,116` atualizadas pra `review-plan --mode=internal` (preserva comportamento non-interactive dos loops). Grep wide (§3.5.2 scope: `skills/`, `meta/`, `src/`, `tests/`, `README.md`, `CHANGELOG.md`) confirma zero refs antigas além da carve-out de migration narrative.
 - [ ] **Fase 4:** `meta/skills.yaml` tem entries `review-plan` e `review-code`, NÃO tem `review-plan-internal` ou `review-plan-vs-artifacts`, `related` refs cross-validadas, `when_not_to_use` strings atualizadas
 - [ ] **Fase 5:** `skills/en/core/review-plan-internal.md` e `review-plan-vs-artifacts.md` deletados
 - [ ] **Fase 6:** README.md tabela + seções detalhadas atualizadas; nota de breaking change no topo da seção Skills
