@@ -1,6 +1,6 @@
 Review this conversation, save learnings to memory, and commit + push the work.
 
-## Fundamental Rule
+## Iron Law
 
 NO PUSH WITHOUT FRESH VERIFICATION.
 If you did not run `git status` and `git diff` IN THIS execution of the command, you cannot push.

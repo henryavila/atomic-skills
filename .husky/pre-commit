@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+# Only validate the catalog when relevant files changed — keeps the hook
+# fast on commits that touch only e.g. docs/ or tests/ for other modules.
+
+if git diff --cached --name-only | grep -qE '^(meta/skills\.yaml|skills/en/|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-)|src/dashboard/data/skills\.generated\.ts|README\.md)'; then
+  echo "[husky] catalog-related files changed — running validate-catalog"
+  npm run validate-catalog
+fi

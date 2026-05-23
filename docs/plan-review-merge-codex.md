@@ -57,6 +57,33 @@ Final: 2 skills de review. Cada uma com 3 modos:
 - `local only`
 - `codex only`
 
+### Argument contract (non-interactive)
+
+Antes do Step 0 mode picker, ambos os skills DEVEM parsear `{{ARG_VAR}}` e
+honrar flags explícitas. O picker (`{{ASK_USER_QUESTION_TOOL}}`) só é
+invocado quando NENHUMA flag explícita resolve o modo. Isso preserva uso
+em scripts, hooks, e loops de status que rodavam os skills pre-merge.
+
+Contrato (vale pra `review-plan` e `review-code`):
+
+| Flag | Efeito | Compatibilidade |
+|---|---|---|
+| `--mode=local` | Skip mode picker; força local self-loop. | Novo (v3.0.0). |
+| `--mode=codex` | Skip mode picker; força codex envelope. | Novo. |
+| `--mode=both` | Skip mode picker; força local→codex. | Novo. |
+| `--mode=internal` | Alias pra `--mode=local`. | Compat com flag de `review-plan` v2.x. |
+| `--no-cross-ref` (review-plan apenas) | Skip cross-ref picker; força internal-only. Vale só quando `mode ∈ {local, both}`. | Compat com `review-plan` v2.x. |
+| `--cross-ref=<path>` (review-plan apenas) | Skip cross-ref picker; usa o artifact informado. | Compat com `review-plan` v2.x. |
+| (nenhuma flag) | Roda Step 0 picker(s). | Default. |
+
+Modo invocado sem TTY (e.g. via hook ou `parallel-dispatch`) com nenhuma
+flag explícita: skill aborta com mensagem orientando o caller a passar
+`--mode=...`. NÃO invoca `{{ASK_USER_QUESTION_TOOL}}` em background.
+
+Fase 2 (review-plan body) e Fase 4 (review-code body) DEVEM incluir
+sub-task explícito implementando esse parser e os early-exits antes do
+Step 0a.
+
 ## Pré-requisitos (já completos quando este plan executar)
 
 Vindo do `plan-review-skills-consolidation.md`:
@@ -115,15 +142,25 @@ Default: Both. The user explicitly opts down for cost-sensitive cases.
 
 Set `mode` ∈ {`both`, `local`, `codex`} based on answer.
 
-### 1.2 — Cross-ref picker (only on local OR both — codex doesn't use it)
+### 1.2 — Cross-ref picker (vale em TODOS os modos)
 
-If `mode` ∈ {`local`, `both`}: run the existing artifact detection +
-AskUserQuestion from current `review-plan.md:Step 0` (cross-ref or
-internal-only).
+Cross-reference artifact selection (PRD, spec, decision record etc.) é
+ortogonal ao mode picker. Em todos os modos — `local`, `codex`, `both` —
+roda a detecção existente de artifacts + `{{ASK_USER_QUESTION_TOOL}}`
+("internal-only" ou "cross-ref + path(s)") do atual `review-plan.md:Step 0`.
 
-If `mode == codex`: skip — codex envelope reviews the plan against the
-external constraints baked into the briefing template; no cross-ref
-mechanism needed.
+- `mode == local`: artifacts selecionados entram no checklist do self-loop.
+- `mode == codex`: artifacts selecionados são anexados ao Pass 1 briefing
+  como **source facts neutros** (sob heading `## External artifacts`), com
+  o mesmo anti-framing das constraints externas. NÃO inclui findings do
+  local nem narrative — só o conteúdo do artifact + path. Sealed envelope
+  preservado.
+- `mode == both`: artifacts entram nas duas fases (checklist local +
+  briefing codex). O briefing codex usa a versão CLEANED dos artifacts se
+  o local tiver corrigido qualquer um deles inline.
+
+Skip explícito: `--no-cross-ref` ou ausência total de artifacts detectáveis
+mantém o behavior pre-merge (review puramente sobre o plan).
 
 ### 1.3 — Flow per mode
 
@@ -205,6 +242,25 @@ Body novo merges:
 
 Plus Step 0a mode picker (Fase 1.1) controlling which sections run.
 
+**Fonte canônica do sub-flow codex:** o body NÃO pode duplicar a lógica
+do envelope two-pass via copy-paste do `review-plan-with-codex.md`. Em vez
+disso, deve **referenciar/incluir** os assets canônicos em
+`skills/shared/codex-bridge-assets/` (pre-flight, briefing templates,
+invocation canonical, validation checklist, output templates, review file
+template, index row template). Mecânica:
+
+- Cada etapa do sub-flow codex no body cita o asset relevante por path
+  (e.g. "Pre-flight: aplicar `skills/shared/codex-bridge-assets/preflight-checks.txt`").
+- Sub-task obrigatório antes do delete da Fase 5: rodar `diff` entre o
+  fluxo embutido no body novo e os assets em `skills/shared/codex-bridge-assets/`.
+  Qualquer divergência semântica é resolvida em favor dos assets (single
+  source of truth). Divergências reais documentadas inline no body com
+  comentário explícito do motivo.
+- Validação cross-cutting: nenhum bloco do sub-flow codex no body novo
+  contradiz os assets compartilhados. Critério de done auditável via
+  checklist na Fase 10 (manual diff + `grep -c "codex-bridge-assets"` em
+  ambos os bodies retorna ≥ 1).
+
 ### 2.2 — Tamanho esperado
 
 Atual `review-plan.md` (após consolidation): ~250 linhas
@@ -277,12 +333,44 @@ Use {{ASK_USER_QUESTION_TOOL}}:
 Pre-flight (git ref validation, dirty tree check) runs AFTER mode picker,
 since it applies to all modes.
 
+### 3.1 — Argument & diff capture contract (review-code)
+
+Antes do mode picker, e antes de qualquer prompt, o skill DEVE:
+
+1. **Parsear `{{ARG_VAR}}`** seguindo o mesmo Argument Contract da seção
+   `Argument contract (non-interactive)` (suportar `--mode=local|codex|both`,
+   `--allow-dirty`, abort-without-TTY).
+2. **Validar a ref/range** com a lógica range-aware existente em
+   `review-code` v2.x (commit hash, branch, `A..B`, `A...B`).
+3. **Materializar o diff UMA vez** via `git diff <resolved-ref> --` e
+   armazenar o output em uma variável de sessão (`CAPTURED_DIFF`). Ambas
+   as fases (local e codex) consomem `CAPTURED_DIFF`, NUNCA re-executam
+   `git diff` — garante que vêem exatamente o mesmo material.
+4. **Dirty-tree policy** (vale em todos os modos):
+   - Tree limpo: prossegue normalmente.
+   - Tree sujo + `--allow-dirty`: warning + inclui working-tree changes no
+     `CAPTURED_DIFF`.
+   - Tree sujo sem `--allow-dirty`: aborta com mensagem (mesma do pre-flight
+     de codex-bridge-assets — bug #8404 hallucinations).
+5. **Mode picker (Step 0)** roda DEPOIS dos passos 1–4 acima, garantindo
+   que abortos por ref inválida ou tree sujo não dependem de TTY.
+
 ---
 
 ## Fase 4 — Reescrever `skills/en/core/review-code.md` body
 
 Mesmo padrão do Fase 2 mas pra código. Estima ~400 linhas combinadas
 (menos que review-plan porque review-code não tem cross-ref complexity).
+
+Sub-tasks explícitos (além do merge de bodies):
+
+- Implementar Argument & diff capture contract (Fase 3.1) no topo do body.
+- Garantir que tanto a fase `local` (checklist) quanto a fase `codex`
+  (Pass 1 + Pass 2 briefings) recebem `CAPTURED_DIFF` como input, não a
+  ref em si.
+- Validar com smoke test: rodar `mode=both` num PR pequeno e confirmar
+  que o diff revisado é byte-identical entre as duas fases (`md5` no
+  output de `git diff` materializado em ambas).
 
 ---
 
@@ -471,7 +559,8 @@ Manual:
 
 ### Cross-cutting
 
-- [ ] Nenhuma referência aos nomes `review-plan-with-codex` ou `review-code-with-codex` sobrou em `skills/`, `meta/`, `src/`, `tests/`, `README.md`, `CHANGELOG.md`. (`README.pt-BR.md` fora de escopo per [[decisao-skills-en-only]].)
+- [ ] Nenhuma referência **funcional** (catalog entry, anchor de seção, link executável, fixture de teste, related: array, comando renderizado) aos nomes `review-plan-with-codex` ou `review-code-with-codex` sobrou em `skills/`, `meta/`, `src/`, `tests/`, `README.md`, `CHANGELOG.md`. **Exceção permitida:** os nomes podem aparecer em prosa de migração dentro de `README.md` (nota v3.0.0) e `CHANGELOG.md` (entry 3.0.0 — bullets de "Removed" + linhas de "Migration"). (`README.pt-BR.md` fora de escopo per [[decisao-skills-en-only]].)
+  - Verificação operacional: `rg "review-(plan|code)-with-codex" skills/ meta/ src/ tests/` retorna 0 matches; em `README.md` e `CHANGELOG.md`, os matches restantes devem estar contidos em blocos de migração rotulados explicitamente.
 - [ ] Sealed envelope rule validada em ambos os bodies: instrução explícita sobre o que NÃO incluir no briefing do codex quando mode=both
 - [ ] Workflow "both" mode testado manualmente em um plan real após a implementação
 

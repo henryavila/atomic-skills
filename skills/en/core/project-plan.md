@@ -119,12 +119,12 @@ Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=in
 
 Announce to the user:
 
-> The plan is materialized and passed internal review. Run a cross-model adversarial review via Codex (`atomic-skills:review-plan-with-codex`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
+> The plan is materialized and passed internal review. Run a cross-model adversarial review via Codex (`atomic-skills:review-plan --mode=codex`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
 
-- On `y`: invoke `atomic-skills:review-plan-with-codex` with arg = plan path. Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item.
+- On `y`: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=codex` (skips the Step 0a mode picker and runs only the codex sub-flow). Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item.
 - On `n`: continue, but record the skip in the plan's `## Self-review against code-quality gates` block (new line: `Codex review: SKIPPED — <user reason or "not provided">`).
 
-Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan-with-codex` contract. The plan body MUST link to it in a `## Reviews` section appended after `## Self-review against code-quality gates`.
+Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` codex sub-flow contract. The plan body MUST link to it in a `## Reviews` section appended after `## Self-review against code-quality gates`.
 
 ### Stage 9 — Announce
 

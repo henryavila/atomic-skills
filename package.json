@@ -1,6 +1,6 @@
 {
   "name": "@henryavila/atomic-skills",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Stop rewriting prompts. Install optimized developer skills in any AI IDE.",
   "type": "module",
   "bin": {
@@ -21,9 +21,15 @@
     "validate-skills": "node scripts/validate-skills.js",
     "validate-state": "node scripts/validate-state.js",
     "detect-scope": "node scripts/detect-scope.js",
+    "generate-readme": "node scripts/generate-readme.js",
+    "generate-helpview-data": "node scripts/generate-helpview-data.js",
+    "generate-docs": "node scripts/generate-readme.js && node scripts/generate-helpview-data.js",
+    "check-docs": "node scripts/generate-readme.js --check && node scripts/generate-helpview-data.js --check",
+    "validate-catalog": "npm run validate-skills && npm run check-docs",
     "dev:dashboard": "vite --config vite.config.ts",
     "build:dashboard": "vite build --config vite.config.ts",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
+    "prepare": "husky",
     "prepublishOnly": "npm run build:dashboard"
   },
   "keywords": [
@@ -60,6 +66,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "husky": "^9.1.7",
     "lucide-react": "^0.460.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

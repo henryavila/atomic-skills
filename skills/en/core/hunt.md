@@ -3,7 +3,7 @@ Write adversarial tests for existing code to find hidden bugs and add meaningful
 If {{ARG_VAR}} was provided, use as the target (file path, class, function, or directory).
 If not, ask: "Which file, function, or directory do you want to hunt bugs in?"
 
-## Fundamental Rule
+## Iron Law
 
 NO HUNT WITHOUT BOUNDED SCOPE.
 One class or one public function per execution. If a single file exceeds ~300 lines,

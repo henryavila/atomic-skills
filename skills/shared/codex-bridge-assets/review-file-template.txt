@@ -59,7 +59,7 @@ schema_version: "1.0"
 | `{{ISO_TIMESTAMP}}` | ISO-8601 with TZ, e.g. `2026-05-17T14:30:00-03:00` |
 | `{{SLUG}}` | kebab-case, derived from artifact basename or branch name |
 | `{{ARTIFACT_PATH}}` | Path of reviewed plan/spec or git ref for code |
-| `{{SKILL_NAME}}` | `review-plan-with-codex` or `review-code-with-codex` |
+| `{{SKILL_NAME}}` | `review-plan` or `review-code` (codex sub-flow) |
 | `{{MODEL_ID}}` | From frontmatter of pass outputs |
 | `{{CODEX_VERSION}}` | `codex --version` output, parsed |
 | `{{VERDICT}}` | From Pass 2 frontmatter |

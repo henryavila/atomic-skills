@@ -3,7 +3,7 @@ Identify the root cause of the problem and fix it with TDD.
 If {{ARG_VAR}} was provided, use it as the problem description.
 If not, ask the user: "What is the problem? Describe the observed symptom."
 
-## Fundamental Rule
+## Iron Law
 
 NO FIX WITHOUT ROOT CAUSE.
 Do not write fix code without first having identified and documented

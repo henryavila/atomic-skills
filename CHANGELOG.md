@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] — 2026-05-22
+
+### Breaking changes
+
+- **Removed `review-plan-with-codex`** — merged into `review-plan`. The codex
+  cross-model envelope is now opt-in via a Step 0 mode picker.
+  Migration: replace `/atomic-skills:review-plan-with-codex <path>` with
+  `/atomic-skills:review-plan <path>`; when prompted, choose "Codex only" or
+  "Both". Non-interactive callers must pass `--mode=codex` or `--mode=both`.
+- **Removed `review-code-with-codex`** — merged into `review-code`. Same
+  pattern as above with `/atomic-skills:review-code <git-ref>`. Non-interactive
+  callers must pass `--mode=codex` or `--mode=both`.
+
+### Added
+
+- **Step 0 mode picker in `review-plan` and `review-code`** — choose between
+  `local` (cheap, fast same-model self-loop), `codex` (cross-model two-pass
+  sealed envelope, ~$1-2), or `both` (default — local first then codex on the
+  cleaned plan / same captured diff). Honors `--mode=local|codex|both` from
+  the argument string for non-interactive use; aborts without TTY if no
+  `--mode=` flag is supplied.
+- **Sealed envelope preservation in "both" mode** — when the merged skill
+  runs local + codex sequentially, the codex briefing receives only the
+  cleaned artifact + external constraints, never the local findings or fix
+  descriptions. Anti-framing rule baked into the skill body and Red Flags
+  table (cites [arXiv 2603.18740](https://arxiv.org/abs/2603.18740)).
+- **`review-code` captured-diff invariant** — both phases consume the same
+  `CAPTURED_DIFF` materialized once via the shape-specific diff command;
+  `git diff` is never re-run between phases. Guarantees byte-identical
+  material across local and codex reviewers.
+- **Argument contract documented** at the top of both skill bodies:
+  `--mode=local|codex|both|internal`, `--no-cross-ref`, `--cross-ref=...`,
+  `--allow-dirty`, plus the non-interactive abort policy.
+
+### Changed
+
+- `review-plan` Step 0 split into Step 0a (mode picker) + Step 0b (cross-ref
+  picker). The two pickers are orthogonal — cross-ref selection applies to
+  every mode.
+- `review-code` Step 0 simplified to a single mode picker; ref validation and
+  diff capture moved to a dedicated "Argument & diff capture contract"
+  section that runs BEFORE the picker so abort paths (invalid ref, dirty
+  tree without `--allow-dirty`) do not depend on TTY.
+- `meta/skills.yaml`: 13 → 11 entries; `related:` arrays no longer reference
+  the removed `-with-codex` skills.
+
+### Rationale
+
+Empirically verified across two consecutive sessions (2026-05-21 and
+2026-05-22), local self-review and codex cross-review catch DISJOINT sets of
+findings — neither subsumes the other (literature backs this: arXiv
+[2603.12123](https://arxiv.org/abs/2603.12123), [2410.21819](https://arxiv.org/abs/2410.21819),
+[2604.19049](https://arxiv.org/html/2604.19049v1)). The user explicitly stated
+wanting both reviews for significant work. Forcing two slash commands
+sequentially was friction; the mode picker encodes the common workflow with
+a default and lets the user opt down for cost-sensitive cases. Local runs
+first in `both` so cheap obvious issues filter out before the paid codex
+pass, and so codex sees a CLEANED artifact without anchoring on local
+findings (reverse order would let GPT-from-Claude self-preference bias
+contaminate the cross-model invariant).
+
 ## [2.0.0] — 2026-05-22
 
 ### Breaking changes

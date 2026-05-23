@@ -6,12 +6,12 @@ display_name:
 description:
   pt: |
     Infraestrutura compartilhada para invocar OpenAI Codex CLI como reviewer
-    adversarial em padrão two-pass sealed envelope. Usado por
-    review-plan-with-codex e review-code-with-codex.
+    adversarial em padrão two-pass sealed envelope. Usado pelo codex sub-flow
+    dentro de review-plan e review-code (modos codex/both).
   en: |
     Shared infrastructure to invoke OpenAI Codex CLI as adversarial reviewer
-    in two-pass sealed envelope pattern. Used by review-plan-with-codex and
-    review-code-with-codex.
+    in two-pass sealed envelope pattern. Used by the codex sub-flow inside
+    review-plan and review-code (codex/both modes).
 variables:
   timeout_seconds:
     description:

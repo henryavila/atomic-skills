@@ -27,6 +27,21 @@ This means:
 - **Render-time flexibility**: each IDE format (Claude markdown, TOML for Codex, command-style for Claude Code commands) gets the metadata it needs without skill files knowing about IDE specifics.
 - **aiDeck contract is stable**: aiDeck consumes `meta/skills.yaml`. Skills can change body without affecting aiDeck.
 
+## Schema versions
+
+Two versions are currently accepted by the validator:
+
+- **v0.1** (legacy) — the original shape documented below. Existing entries
+  remain valid during the migration window.
+- **v0.2** (canonical, target) — adds 7 fields (3 required + 4 optional) so
+  the catalog can drive generated docs (README table, dashboard HelpView).
+  See `## Schema (v0.2)` below.
+
+The validator's `ACCEPTED_SCHEMA_VERSIONS` set holds both during migration
+(see `scripts/lib/validate-skills-core.js`). After all 11 entries are
+migrated and Phase C of `docs/plan-skills-catalog-v0.2.md` completes, the
+set will be narrowed to `{'0.2'}` (hard cut).
+
 ## Schema (v0.1)
 
 The structure of `meta/skills.yaml` is a 2-level tree: `core` and `modules`. Each skill is an entry under one of these. Inside each entry:
@@ -89,6 +104,68 @@ core:
     schema_version: '0.1'
 ```
 
+## Schema (v0.2)
+
+v0.2 is **additive**: every v0.1 field still applies, with the same shape.
+Three new fields become required, and four optional ones are introduced.
+
+```yaml
+core:
+  project-status:
+    # ... all v0.1 fields ...
+    schema_version: '0.2'
+
+    # REQUIRED in v0.2 — table + card metadata
+    one_liner: 'Canonical per-initiative status tree with stack + parked + emerged'
+    emoji: '📊'
+    version_added: '1.5.0'
+
+    # OPTIONAL in v0.2 — surface area
+    subcommands:
+      - name: new           # kebab-case, unique within the skill
+        signature: '<slug>' # CLI-style: <required> [<optional>] --flag
+        description: 'Create a new Initiative (standalone or under active plan)'
+        example: '/atomic-skills:project-status new my-feature'
+      - name: pop
+        signature: '[--resolve|--park|--emerge]'
+        description: 'Pop the top stack frame with a destination'
+        example: '/atomic-skills:project-status pop --park'
+
+    args:
+      - name: '--list'
+        kind: flag           # 'positional' | 'flag' | 'option'
+        required: false
+        description: 'List all initiatives across all plans'
+      - name: '--plan'
+        kind: option
+        required: false
+        description: 'Filter view to a specific plan slug'
+        default: 'active plan'  # prose description of the default
+
+    output_artifacts:
+      - '.atomic-skills/PROJECT-STATUS.md'
+      - '.atomic-skills/plans/<slug>.md'
+
+    dependencies: [git]
+```
+
+### v0.2 field validation rules
+
+- `one_liner` — 10-80 chars. Distinct from `description`: this is the
+  tagline shown in the README table + HelpView card; `description` keeps
+  feeding IDE frontmatter via `render.js`.
+- `emoji` — non-empty string; accepts grapheme clusters (composed emoji).
+- `version_added` — regex `^\d+\.\d+\.\d+$`. Used by the README generator
+  to tag "new in X.Y.Z".
+- `subcommands[].name` — kebab-case (`^[a-z][a-z0-9-]*$`), unique within
+  the skill.
+- `subcommands[].example` — must begin with `/atomic-skills:<skill-name>`
+  (sanity check against copy-paste mistakes).
+- `args[].kind` — one of `positional`, `flag`, `option`.
+- `args[].default` — string interpreted as a PROSE description of the
+  default (e.g. `'active phase'`), not a literal value. UI renders it as
+  "defaults to <description>".
+
 ## Field reference
 
 ### Required fields
@@ -102,18 +179,30 @@ core:
 | `when_to_use` | string[] | At least 1 trigger. Shown as bullet list. |
 | `when_not_to_use` | string[] | At least 1 anti-trigger. Helps users avoid misuse. |
 | `examples` | object[] | At least 1 example with `command` and `description`. |
-| `schema_version` | string | Currently `'0.1'`. Bumps when this schema evolves. |
+| `schema_version` | string | One of `ACCEPTED_SCHEMA_VERSIONS` — `'0.1'` (legacy) or `'0.2'` (canonical). |
 
-### Optional fields
+### Required in v0.2 (additive)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `related` | string[] | Names of related skills. Rendered as cross-links. |
-| `tags` | string[] | Free-form categorization. `pre-implementation`, `testing`, `review`, etc. |
-| `ide_compatibility` | string[] | Subset of `[claude-code, gemini, cursor, generic]`. Default: all. |
-| `requires_args` | boolean | If true, help page indicates arg is required. |
-| `mutates_repo` | boolean | If true, help page shows warning icon (skill may write files). |
-| `network_required` | boolean | If true, indicates external API/service dependency. |
+| `one_liner` | string (10-80 chars) | Tagline shown in the README table + HelpView card. |
+| `emoji` | string | Icon shown next to the skill in the README table. |
+| `version_added` | string (regex `^\d+\.\d+\.\d+$`) | `package.json` version in which the skill first shipped. |
+
+### Optional fields
+
+| Field | Type | Description | Since |
+|-------|------|-------------|-------|
+| `related` | string[] | Names of related skills. Rendered as cross-links. | v0.1 |
+| `tags` | string[] | Free-form categorization. `pre-implementation`, `testing`, `review`, etc. | v0.1 |
+| `ide_compatibility` | string[] | Subset of `[claude-code, gemini, cursor, codex, opencode, github-copilot, generic]`. Default: all. | v0.1 |
+| `requires_args` | boolean | If true, help page indicates arg is required. | v0.1 |
+| `mutates_repo` | boolean | If true, help page shows warning icon (skill may write files). | v0.1 |
+| `network_required` | boolean | If true, indicates external API/service dependency. | v0.1 |
+| `subcommands` | object[] | Structured index of subcommands (name, signature, description, example). | v0.2 |
+| `args` | object[] | Top-level positional args + flags + options for the skill. | v0.2 |
+| `output_artifacts` | string[] | Paths/patterns the skill writes (e.g. `.atomic-skills/reviews/<date>-<slug>.md`). | v0.2 |
+| `dependencies` | string[] | External tools required (`codex`, `git`, `gh`). | v0.2 |
 
 ## Conventions
 
@@ -136,29 +225,52 @@ Skills themselves are written in EN canonical. The AI translates user-facing str
 
 A skill metadata block is valid if:
 1. YAML parses
-2. All required fields present
+2. All v0.1 required fields present
 3. `name` matches its key in the tree (`core.hunt.name === 'hunt'`)
-4. `schema_version` matches a known version
+4. `schema_version` is in `ACCEPTED_SCHEMA_VERSIONS` (`'0.1'` or `'0.2'`)
 5. At least 1 entry in `when_to_use`, `when_not_to_use`, and `examples`
 6. `ide_compatibility` values (if present) are from the allowed set
 7. `related` values (if present) reference other valid skill names in the same `meta/skills.yaml`
+8. When `schema_version == '0.2'`: `one_liner` (10-80 chars), `emoji`,
+   `version_added` (matching `^\d+\.\d+\.\d+$`) are all present
+9. When `schema_version == '0.2'` and `subcommands` is present: each entry
+   has a kebab-case `name` (unique within the skill), non-empty `signature`,
+   `description`, and `example` beginning with `/atomic-skills:<name>`
+10. When `schema_version == '0.2'` and `args` is present: each entry has
+    `name`, `kind ∈ {positional, flag, option}`, boolean `required`, and
+    a non-empty `description`; optional `default` is a string
+
+Additionally, the catalog-level cross-checks (run by
+`scripts/validate-skills.js`):
+- Each catalog entry has a matching body at `skills/en/<core|modules/M>/<name>.md`
+- Each body file has a matching catalog entry (inverse check)
+- Optional gate (enabled after Phase C of the catalog migration): every
+  body file contains a canonical `^## Iron Law` H2 section
 
 Validation runs at:
 - Install time (`installSkills` rejects invalid skills with clear error)
-- Build/CI time (`npm run validate-skills` script — to be added)
+- Build/CI time (`npm run validate-skills`)
 - aiDeck help page load (skips invalid skills, logs warning)
 
-## Migration path for existing metadata
+## Migration v0.1 → v0.2
 
-Existing `meta/skills.yaml` has only `name` + `description` per skill. Migration adds:
-- `title`, `purpose`, `when_to_use`, `when_not_to_use`, `examples`, `schema_version` (required)
-- Optional fields as appropriate
+The validator accepts both versions during the migration window
+(`ACCEPTED_SCHEMA_VERSIONS = {'0.1', '0.2'}`). The plan:
 
-Existing `description` is preserved (still used by `renderForIDE`).
+1. Phase B — pilot one entry (`project-status`) to v0.2; confirm the
+   shape works for the most surface-rich skill in the catalog.
+2. Phase C — bulk-migrate the remaining 10 entries; normalize the 6
+   bodies that are missing `## Iron Law`; flip `ACCEPTED_SCHEMA_VERSIONS`
+   to `{'0.2'}` (hard cut of v0.1).
 
-Estimated cost: ~5 min per skill × 12 skills = ~1 hour to enrich the YAML.
+See `docs/plan-skills-catalog-v0.2.md` for the full migration plan.
 
-The migration is the first deliverable of Phase A (see [`migration-plan-v2.md`](../migration-plan-v2.md)).
+For each skill, the migration adds (when applicable):
+- `one_liner`, `emoji`, `version_added` (required)
+- `subcommands`, `args`, `output_artifacts`, `dependencies` (optional)
+- Bumps `schema_version: '0.1'` → `'0.2'`
+
+Existing v0.1 fields are preserved literally — v0.2 does NOT rewrite them.
 
 ## Consumer rendering
 
@@ -253,7 +365,7 @@ core:
         description: 'Hunt bugs in a single file'
       - command: '/atomic-skills:hunt src/auth/'
         description: 'Triage mode for directory (max 30 files)'
-    related: [fix, review-code-with-codex]
+    related: [fix, review-code]
     tags: [testing, quality, pre-implementation]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
@@ -262,12 +374,16 @@ core:
     schema_version: '0.1'
 ```
 
-## Future fields (v0.2+, not in v0.1)
+For a worked v0.2 example with subcommands + args + output_artifacts, see
+`project-status` in `meta/skills.yaml` (the pilot for the v0.2 migration —
+Phase B of `docs/plan-skills-catalog-v0.2.md`).
+
+## Future fields (beyond v0.2)
 
 Documented here so we don't accidentally reuse the names:
 
 - `aliases` (alternative names for slash command)
 - `deprecated` / `deprecated_in_favor_of`
 - `min_atomic_skills_version`
-- `output_artifacts` (declarative list of what the skill produces)
-- `skill_dependencies` (other skills required to be present)
+- `skill_dependencies` (other skills required to be present — distinct from
+  `dependencies` which lists external tools)

@@ -12,7 +12,7 @@ Optimized prompts you install once and invoke in any AI IDE. Each skill is an at
 
 *Stop rewriting prompts.*
 
-> **[Versão em Português (BR)](README.pt-BR.md)** · **[View on npm](https://www.npmjs.com/package/@henryavila/atomic-skills)**
+> **[View on npm](https://www.npmjs.com/package/@henryavila/atomic-skills)**
 
 ```bash
 npx @henryavila/atomic-skills install
@@ -64,30 +64,512 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 ## Skills
 
-> **Note (v2.0.0):** `review-plan-internal` and `review-plan-vs-artifacts`
-> were merged into a single `review-plan` skill with an optional
-> cross-reference mode. A new `review-code` skill ships alongside as the
-> same-model mirror of `review-code-with-codex`. See
-> [CHANGELOG.md](CHANGELOG.md) for migration.
+> **Note (v3.0.0):** `review-plan-with-codex` and `review-code-with-codex`
+> were merged into their same-model counterparts. The codex envelope flow
+> is now opt-in via a Step 0 mode picker ("both", "local", or "codex").
+> See [CHANGELOG.md](CHANGELOG.md) for migration.
 
 ### Overview
 
+<!-- SKILLS_TABLE_START -->
 | | Skill | One-liner | Iron Law |
 |-|-------|-----------|----------|
-| 🔧 | [`fix`](#atomic-skillsfix--root-cause-diagnosis--tdd-fix) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE` |
-| 🎯 | [`hunt`](#atomic-skillshunt--adversarial-tests-for-existing-code) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE` |
-| 📝 | [`prompt`](#atomic-skillsprompt--optimized-prompt-generation) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS` |
-| 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--dispatch-a-task-list-to-n-parallel-sessions) | Dispatch a user-provided task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION` |
-| 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--audit-a-parallel-dispatch-batch) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK` |
-| 🔍 | [`review-plan`](#atomic-skillsreview-plan--same-model-adversarial-plan-review) | Adversarial self-loop review of a plan; optional cross-ref against PRD/specs | `NO APPROVAL WITHOUT EVIDENCE` |
-| 🔬 | [`review-code`](#atomic-skillsreview-code--same-model-adversarial-code-review-new-in-200) | Adversarial self-loop review of a git ref/diff; same-model checklist for bugs and coverage | `NO APPROVAL WITHOUT EVIDENCE` |
-| 🤖 | [`review-plan-with-codex`](#atomic-skillsreview-plan-with-codex--cross-model-plan-review-new-in-180) | Cross-family review of a plan via OpenAI Codex CLI (two-pass sealed envelope) | `NO INTENT IN THE BRIEFING` |
-| 🧪 | [`review-code-with-codex`](#atomic-skillsreview-code-with-codex--cross-model-code-review-new-in-180) | Cross-family review of code changes (diff/branch) via OpenAI Codex CLI | `NO INTENT IN THE BRIEFING` |
-| 💾 | [`save-and-push`](#atomic-skillssave-and-push--save-work--publish) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION` |
-| 📊 | [`project-status`](#atomic-skillsproject-status--canonical-per-initiative-status-tracking) | Canonical per-initiative status tree with stack + tasks + parked + emerged; enforces via hooks | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE` |
-| 🧠 | [`init-memory`](#atomic-skillsinit-memory--persistent-memory-initialization) | Centralize project memory to `.ai/memory/` | `NO DELETION WITHOUT CONFIRMED BACKUP` |
+| 🔧 | [`fix`](#atomic-skillsfix--root-cause--tdd) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE.` |
+| 💾 | [`save-and-push`](#atomic-skillssave-and-push--commit--memory--push) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
+| 🔍 | [`review-plan`](#atomic-skillsreview-plan--adversarial-local--codex) | Adversarial plan review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
+| 🔬 | [`review-code`](#atomic-skillsreview-code--adversarial-local--codex) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
+| 📊 | [`project-status`](#atomic-skillsproject-status--initiative-tracking) | Canonical per-initiative status tree with stack + parked + emerged | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
+| 🗺️ | [`project-plan`](#atomic-skillsproject-plan--multi-phase-plan-bootstrap) | Bootstrap a multi-phase Plan with child Initiatives + Tasks | `NO PLAN WITHOUT NARRATIVE.` |
+| 📝 | [`prompt`](#atomic-skillsprompt--generate-optimized-prompt) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
+| 🎯 | [`hunt`](#atomic-skillshunt--adversarial-tests) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE.` |
+| 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--independent-tasks) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
+| 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--audit) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
+| 🧠 | [`init-memory`](#atomic-skillsinit-memory--persistent-context) | Centralize project memory to .ai/memory/ | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
+<!-- SKILLS_TABLE_END -->
 
 ---
+
+<!-- SKILL_DETAILS_START -->
+### `atomic-skills:fix` — Root Cause + TDD
+
+**Iron Law:** `NO FIX WITHOUT ROOT CAUSE.`
+
+**One-liner:** Diagnose root cause → write test → fix → verify
+
+**Summary:** Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.
+
+**Purpose:** Identify the root cause of a bug, write a reproducing test, and only then apply the fix. Detective mindset, not firefighter.
+
+**When to use:**
+- You observed a bug or unexpected behavior
+- A test is failing for unclear reasons
+- A regression appeared after a recent change
+
+**When NOT to use:**
+- You want to add a new feature (use prompt)
+- The issue is in design, not implementation
+- You have no symptom to reproduce
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `symptom` | positional | optional | Observed bug or unexpected behavior. If omitted, skill prompts interactively. |
+
+**Examples:**
+- `/atomic-skills:fix "duplicates in /musicas listing"` — Diagnose and fix with provided symptom
+- `/atomic-skills:fix` — Skill prompts you for the symptom interactively
+
+**Dependencies:** `git`
+
+**Related:** `hunt`, `review-code`
+
+**Tags:** `quality`, `debugging`, `tdd`, `core`
+
+**Version added:** `1.0.0`
+
+---
+
+### `atomic-skills:save-and-push` — Commit + Memory + Push
+
+**Iron Law:** `NO PUSH WITHOUT FRESH VERIFICATION.`
+
+**One-liner:** Save learnings to memory, group commits, push safely
+
+**Summary:** Review conversation, save learnings to memory, commit and push work.
+
+**Purpose:** End-of-session ritual: extract learnings to persistent memory, stage relevant files, commit with conventional message, push to remote.
+
+**When to use:**
+- You finished a coherent piece of work
+- About to switch context or end the session
+- You want learnings persisted before forgetting
+
+**When NOT to use:**
+- Work in progress, not yet a coherent commit
+- Tests still failing
+- You only want to commit (use git directly)
+
+**Examples:**
+- `/atomic-skills:save-and-push` — Full flow: memory + commits + push
+
+**Dependencies:** `git`
+
+**Related:** `project-status`, `init-memory`
+
+**Tags:** `workflow`, `git`, `memory`, `core`
+
+**Version added:** `1.0.0`
+
+---
+
+### `atomic-skills:review-plan` — Adversarial (Local + Codex)
+
+**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE.`
+
+**One-liner:** Adversarial plan review with local/codex/both mode picker
+
+**Summary:** Adversarial review of an implementation plan. Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on cleaned plan). Optional cross-reference against external artifacts.
+
+**Purpose:** Adversarial review with mode picker: local (cheap, fast), codex (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local first, codex second on cleaned plan with sealed envelope). Optionally cross-references against source artifacts. Iterates up to 3 passes in local; two-pass envelope in codex.
+
+**When to use:**
+- You finished writing a plan and want a structural review
+- Significant plan about to enter execution (both mode recommended)
+- Cross-model bug hunt against self-preference bias (codex or both)
+- Plan was derived from a PRD/spec and you want coverage verification
+
+**When NOT to use:**
+- Plan is still brainstorming (not structured yet)
+- Trivial plan (skip review entirely)
+- Codex CLI not installed and you need codex mode (use --mode=local)
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `plan-path` | positional | required | Path to the plan markdown file under review. |
+| `--mode` | option | optional | Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker. |
+| `--no-cross-ref` | flag | optional | Skip the Step 0b cross-ref picker; force internal-only. |
+| `--cross-ref` | option | optional | Comma-separated list of artifact paths to cross-reference against. Skips the picker. |
+| `--artifacts` | option | optional | Alias of --cross-ref (compat with v2.x). |
+| `--allow-dirty` | flag | optional | Pass through to the codex pre-flight; suppresses the dirty-tree abort. |
+
+**Examples:**
+- `/atomic-skills:review-plan docs/plans/migration.md` — Interactive picker — chooses mode + cross-ref
+- `/atomic-skills:review-plan docs/plans/migration.md --mode=local` — Force local-only self-loop
+- `/atomic-skills:review-plan docs/plans/migration.md --mode=both` — Local then codex (sealed envelope)
+
+**Output artifacts:** `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)`, `.atomic-skills/reviews/INDEX.md`
+
+**Dependencies:** `codex`, `git`
+
+**Related:** `review-code`
+
+**Tags:** `review`, `planning`, `adversarial`, `cross-model`
+
+**Version added:** `2.0.0`
+
+---
+
+### `atomic-skills:review-code` — Adversarial (Local + Codex)
+
+**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE.`
+
+**One-liner:** Adversarial code review with local/codex/both mode picker
+
+**Summary:** Adversarial review of code changes given a git ref (branch, commit, or range). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).
+
+**Purpose:** Review a git ref (branch, commit, or range) adversarially. Mode picker: local (cheap, fast), codex (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local first, codex second on the byte-identical captured diff with sealed envelope). Range-aware ref validation + shape-specific diff command.
+
+**When to use:**
+- You finished a coherent code change
+- Significant change about to merge (both mode recommended)
+- Critical path (auth, payments, data integrity) — both mode
+- Cheap pre-merge sanity check (local mode)
+
+**When NOT to use:**
+- No git ref to review (and you don't want to commit/stash first)
+- Trivial change already heavily reviewed
+- Codex CLI not installed and you need codex mode (use --mode=local)
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `git-ref` | positional | required | Branch, single commit, or commit range (a..b / a...b). |
+| `--mode` | option | optional | Force a review mode (local, codex, both). Skips the Step 0 picker. |
+| `--allow-dirty` | flag | optional | Include working-tree changes in the captured diff; suppresses the dirty-tree abort. |
+
+**Examples:**
+- `/atomic-skills:review-code main..HEAD` — Interactive picker — chooses mode
+- `/atomic-skills:review-code feat/new-feature --mode=local` — Force local-only self-loop
+- `/atomic-skills:review-code main..HEAD --mode=both` — Local then codex (sealed envelope)
+
+**Output artifacts:** `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)`, `.atomic-skills/reviews/INDEX.md`
+
+**Dependencies:** `codex`, `git`
+
+**Related:** `review-plan`, `fix`, `hunt`
+
+**Tags:** `review`, `code`, `adversarial`, `cross-model`
+
+**Version added:** `2.0.0`
+
+---
+
+### `atomic-skills:project-status` — Initiative Tracking
+
+**Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.`
+
+**One-liner:** Canonical per-initiative status tree with stack + parked + emerged
+
+**Summary:** Canonical per-initiative status tracking. Maintains .atomic-skills/ tree with stack + tasks + parked + emerged per initiative. Terminal compact view + browser via mdprobe. Auto-installs CLAUDE.md HARD-GATE + AGENTS.md redirect + Claude Code hooks (SessionStart injection, Stop predicate in dry-run). Use whenever starting, resuming, pushing/popping stack frames, parking lateral findings, or viewing status across sessions and worktrees.
+
+**Purpose:** Track work via Plan/Initiative/Task hierarchy with stack, parked, emerged, and verifiable exit gates. Bird's-eye + zoom mental model.
+
+**When to use:**
+- Starting a new piece of work
+- Resuming after a break
+- Pushing or popping a stack frame
+- Parking lateral findings or emerging new initiatives
+- Viewing status across sessions or worktrees
+
+**When NOT to use:**
+- One-shot questions
+- Work that fits entirely in the current session
+- Creating a multi-phase plan (use project-plan instead)
+
+**Subcommands:**
+
+| Example | Description |
+|---------|-------------|
+| `/atomic-skills:project-status new-plan v3-redesign` | Bootstrap a new Plan via the project-plan skill |
+| `/atomic-skills:project-status new my-feature` | Create a new Initiative (standalone or under active plan) |
+| `/atomic-skills:project-status push "investigating slow query"` | Push a new stack frame (lateral expansion) |
+| `/atomic-skills:project-status pop --park` | Pop top frame with destination |
+| `/atomic-skills:project-status park "consider caching layer"` | Add a parked item (note for later, no decision yet) |
+| `/atomic-skills:project-status emerge "auth refactor needed"` | Add an emerged finding (real follow-up worth promoting) |
+| `/atomic-skills:project-status promote 2` | Promote a parked item to a real task |
+| `/atomic-skills:project-status done T-005` | Mark task done; triggers phase-completion check if last |
+| `/atomic-skills:project-status phase-done` | Verify exit gates, advance to next phase (prompts codex review) |
+| `/atomic-skills:project-status phase-reopen F2` | Reverse of phase-done — clears metAt on exit criteria |
+| `/atomic-skills:project-status archive v3-redesign` | Move plan/initiative to archive/ (cascades from plan to children) |
+| `/atomic-skills:project-status switch my-feature` | Pause current active plan/initiative, set target as active |
+| `/atomic-skills:project-status migrate sample-legacy` | Migrate a legacy file to schema 0.1 |
+| `/atomic-skills:project-status re-ratify P-3` | Re-articulate context of an existing item (stale lastReviewedAt) |
+| `/atomic-skills:project-status re-bootstrap sample-legacy` | Batch re-articulate placeholder context after migrate |
+| `/atomic-skills:project-status scope-creep` | On-demand drift report (read-only, surfaces stale items) |
+| `/atomic-skills:project-status detect-scope` | Suggest scope.paths value based on recent git activity |
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `--list` | flag | optional | List all initiatives across all plans |
+| `--plan` | option | optional | Filter view to a specific plan slug |
+| `--phase` | option | optional | Filter view to a specific phase id |
+| `--stack` | flag | optional | Show only the active stack (compact view) |
+| `--archived` | flag | optional | Show archived items |
+
+**Examples:**
+- `/atomic-skills:project-status` — View current state
+- `/atomic-skills:project-status new my-feature` — Start a new standalone initiative
+- `/atomic-skills:project-status push "investigating slow query"` — Push a side-investigation frame
+- `/atomic-skills:project-status done T-005` — Close a task (triggers phase-completion check if last)
+
+**Output artifacts:** `.atomic-skills/PROJECT-STATUS.md`, `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/status/config.json`, `.atomic-skills/dispatches/<slug>.md (when promote-to-dispatch)`
+
+**Dependencies:** `git`
+
+**Related:** `fix`, `save-and-push`, `project-plan`
+
+**Tags:** `tracking`, `anchoring`, `planning`, `core`
+
+**Version added:** `1.5.0`
+
+---
+
+### `atomic-skills:project-plan` — Multi-Phase Plan Bootstrap
+
+**Iron Law:** `NO PLAN WITHOUT NARRATIVE.`
+
+**One-liner:** Bootstrap a multi-phase Plan with child Initiatives + Tasks
+
+**Summary:** Bootstrap a multi-phase Plan in .atomic-skills/plans/<slug>.md with N child Initiatives + Tasks. Entry point for starting planning work — the creator counterpart to project-status (the manager). Decomposes a markdown plan into structured Plan + Initiatives + Tasks; optionally delegates discovery and plan-writing to superpowers. Use the `adopt` mode to retroactively capture an existing markdown plan.
+
+**Purpose:** Bootstrap a multi-phase Plan + N child Initiatives in one flow. Walks 7 stages (validate slug → detect superpowers → optional delegation → receive markdown → decompose → create files → activate first phase). `adopt` mode captures an existing markdown plan retroactively.
+
+**When to use:**
+- User describes a multi-phase project ("redo our admin UI", "rebuild matching")
+- A free-form plan markdown exists somewhere and should be captured (use `adopt`)
+- A `project-status:new` invocation was pushed back as "bigger than one initiative"
+
+**When NOT to use:**
+- Single-phase work that fits in one initiative (use `project-status:new`)
+- .atomic-skills/ does not exist yet (run `atomic-skills:project-status` setup first)
+- You only need to view existing plans (use `project-status --plan <slug>`)
+
+**Subcommands:**
+
+| Example | Description |
+|---------|-------------|
+| `/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md` | Capture an existing markdown plan into structured Plan + Initiatives + Tasks |
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `slug` | positional | optional | Plan slug for the default (bootstrap) flow. Omit and the skill prompts interactively. |
+
+**Examples:**
+- `/atomic-skills:project-plan v3-redesign` — Bootstrap a new Plan interactively (7-stage flow)
+- `/atomic-skills:project-plan adopt docs/superpowers/plans/v3-redesign/00-master.md` — Capture an existing markdown plan into structured state
+
+**Output artifacts:** `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`
+
+**Dependencies:** `git`
+
+**Related:** `project-status`, `review-plan`
+
+**Tags:** `planning`, `bootstrap`, `core`
+
+**Version added:** `3.0.0`
+
+---
+
+### `atomic-skills:prompt` — Generate Optimized Prompt
+
+**Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS.`
+
+**One-liner:** Generate a self-contained prompt with exact paths and guardrails
+
+**Summary:** Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails.
+
+**Purpose:** Turn a vague task description into an optimized, self-contained prompt with file paths, guardrails, and acceptance criteria. Use as input to another AI session.
+
+**When to use:**
+- You have a vague task and want to make it actionable
+- You need to brief a parallel agent precisely
+- You will hand off the work to a different session
+
+**When NOT to use:**
+- You will execute the task in this same session
+- You need a multi-phase plan (use project-plan)
+- You want to dispatch many tasks (use parallel-dispatch)
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `task` | positional | optional | Task description in natural language. If omitted, skill asks interactively. |
+
+**Examples:**
+- `/atomic-skills:prompt "refactor auth middleware to use new session API"` — Generate a precise prompt with file paths and guards
+- `/atomic-skills:prompt` — Skill asks for task interactively
+
+**Related:** `parallel-dispatch`, `fix`, `project-plan`
+
+**Tags:** `meta`, `generation`, `planning`
+
+**Version added:** `1.0.0`
+
+---
+
+### `atomic-skills:hunt` — Adversarial Tests
+
+**Iron Law:** `NO HUNT WITHOUT BOUNDED SCOPE.`
+
+**One-liner:** Write adversarial tests to break code, not confirm it
+
+**Summary:** Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run.
+
+**Purpose:** Write adversarial tests to break code and find hidden bugs. Bounded to one class or function per run.
+
+**When to use:**
+- Code lacks tests
+- You suspect untested edge cases
+- Pre-merge quality check
+
+**When NOT to use:**
+- Scope larger than 1 class or function
+- Existing test suite is already comprehensive
+- You want to add features (use prompt instead)
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `target` | positional | required | File, directory, or function/class to hunt. Directory mode caps at 30 files. |
+
+**Examples:**
+- `/atomic-skills:hunt src/matcher.php` — Hunt bugs in a single file
+- `/atomic-skills:hunt src/auth/` — Triage mode for directory (max 30 files)
+
+**Dependencies:** `git`
+
+**Related:** `fix`, `review-code`
+
+**Tags:** `testing`, `quality`, `pre-implementation`
+
+**Version added:** `1.0.0`
+
+---
+
+### `atomic-skills:parallel-dispatch` — Independent Tasks
+
+**Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.`
+
+**One-liner:** Dispatch a task list to N parallel sessions with verified isolation
+
+**Summary:** Dispatch a user-provided list of independent tasks to N parallel sessions with verified scope isolation and a batch id for tracking. Validates parallelism benefit (Q1-Q4 HARD-GATE) before exploring; proves scope disjointness via pairwise grep before generating prompts. Use when the user brings a consolidated task list — this skill does NOT invent tasks.
+
+**Purpose:** Verify, isolate, and dispatch a user-provided task list to N parallel sessions. Mechanical scope isolation, batch id, and audit pass.
+
+**When to use:**
+- You have a finalized list of independent tasks
+- Tasks have concrete file-path scopes
+- You will be away while agents run
+
+**When NOT to use:**
+- Work fits in the current session
+- The list is still exploratory
+- Tasks have hard sequential dependencies
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `task-list` | positional | required | Path to the markdown file containing the finalized task list. |
+
+**Examples:**
+- `/atomic-skills:parallel-dispatch task-list.md` — Dispatch validated task list
+
+**Output artifacts:** `.atomic-skills/dispatches/<batch-id>.md`
+
+**Dependencies:** `git`
+
+**Related:** `parallel-dispatch-audit`, `prompt`
+
+**Tags:** `parallelism`, `dispatch`, `workflow`
+
+**Version added:** `1.6.0`
+
+---
+
+### `atomic-skills:parallel-dispatch-audit` — Audit
+
+**Iron Law:** `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.`
+
+**One-liner:** Audit output of a parallel-dispatch batch, apply fixes, report
+
+**Summary:** Audit the output of a parallel-dispatch batch. Reads the plan file, verifies each agent's deliverables on disk against the user's original request, applies cosmetic fixes, and produces a report with pending decisions. HARD-GATEs on active batch (<2min commits) and read-only mode (≥5 issues). Use after parallel-dispatch agents complete.
+
+**Purpose:** Verify each dispatched agent's deliverables on disk against the original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
+
+**When to use:**
+- A parallel-dispatch batch has completed
+- You need objective verification of agent outputs
+
+**When NOT to use:**
+- Agents are still running (commits less than 2 min old)
+- You want to refactor what agents wrote (out of scope)
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `slug` | positional | optional | Batch slug to audit. Defaults to the most recent dispatch. |
+
+**Examples:**
+- `/atomic-skills:parallel-dispatch-audit onboard-ci` — Audit batch by slug
+
+**Output artifacts:** `.atomic-skills/dispatches/<slug>.md (annotated with audit results)`
+
+**Dependencies:** `git`
+
+**Related:** `parallel-dispatch`
+
+**Tags:** `parallelism`, `audit`, `review`, `quality`
+
+**Version added:** `1.6.0`
+
+---
+
+### `atomic-skills:init-memory` — Persistent Context
+
+**Iron Law:** `NO DELETION WITHOUT CONFIRMED BACKUP.`
+
+**One-liner:** Centralize project memory to .ai/memory/
+
+**Summary:** Initialize persistent memory structure for cross-session context.
+
+**Purpose:** Bootstrap the persistent memory directory and index so that future sessions can pick up where this one left off.
+
+**When to use:**
+- First time using atomic-skills in a project
+- Memory directory missing or corrupted
+- You want to standardize the memory layout
+
+**When NOT to use:**
+- Memory already initialized and healthy
+
+**Examples:**
+- `/atomic-skills:init-memory` — Bootstrap memory in the current project
+
+**Output artifacts:** `.ai/memory/MEMORY.md`
+
+**Related:** `save-and-push`
+
+**Tags:** `memory`, `setup`
+
+**Version added:** `1.0.0`
+
+---
+<!-- SKILL_DETAILS_END -->
+
+<details>
+<summary>Legacy hand-written per-skill prose (preserved here while the generated section above is canonical)</summary>
 
 ### `atomic-skills:fix` — Root Cause Diagnosis + TDD Fix
 
@@ -191,102 +673,78 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 ---
 
-### `atomic-skills:review-plan` — Same-Model Adversarial Plan Review
+### `atomic-skills:review-plan` — Adversarial Plan Review (Local + Codex)
 
-**Problem it solves:** Plans contain internal contradictions, broken dependencies, ambiguous tasks, and missing steps. When a plan was derived from a PRD/spec, those source artifacts also drift silently — requirements get oversimplified, acceptance criteria lose details, or phantom features creep in.
+**Problem it solves:** Plans contain internal contradictions, broken dependencies, ambiguous tasks, and missing steps. When derived from a PRD/spec, the plan also drifts silently — requirements get oversimplified, ACs lose details, phantom features creep in. Same-model review (Claude reviewing Claude) misses bugs by self-preference bias (arXiv [2410.21819](https://arxiv.org/abs/2410.21819)); cross-model review alone still misses bugs that self-review catches cheaply. Empirically the two modes catch DISJOINT sets of findings (verified across two real sessions; see CHANGELOG 3.0.0 rationale).
 
-**What it does:** Adversarial self-loop review with a Step 0 confirmation that picks the scope:
-- **Internal only** — applies the 7-item checklist (contradictions, broken dependencies, ordering, ambiguity, schema, file existence, test coverage).
-- **Cross-reference with detected/custom artifacts** — adds 6 more checks (requirement coverage, acceptance criteria, phase gates, dependency graphs, schema/API match, UX) and activates the HARD-GATE that forbids editing the source artifacts.
+**What it does:** Step 0a picks the review mode; Step 0b picks cross-ref scope.
 
-Every finding cites line numbers from the plan (and the artifact when cross-ref is active). Iterates up to 3 times to verify fixes don't introduce new problems. Non-interactive callers (like `project-plan` Stage 8a) pass `--mode=internal` to short-circuit the prompt.
+- **Mode picker (Step 0a):**
+  - **Both (default)** — local self-loop runs first (catches contradictions, broken deps, ordering); plan is fixed inline; then codex cross-model review runs on the CLEANED plan with sealed envelope.
+  - **Local only** — same-model self-loop. Cheap, fast.
+  - **Codex only** — straight to cross-model envelope. Use when another agent already self-reviewed.
+- **Cross-ref picker (Step 0b)** — orthogonal to mode picker. `Internal only` runs the 7-item self-loop checklist; `Cross-reference with detected/custom artifacts` adds 6 more checks (requirement coverage, AC, phase gates, dep graph, schema/API, UX) and activates the HARD-GATE forbidding artifact edits.
 
-**When to use:** Before executing any plan — structural validation. When a plan was derived from a PRD/spec, the cross-ref mode catches missing requirements and oversimplified acceptance criteria.
+Codex sub-flow follows the **two-pass sealed envelope** pattern (Pass 1 blind / Pass 2 informed, delta = framing-bias signal). When mode=both, the codex briefing receives only the CLEANED plan + external constraints — NEVER the local findings or fix log.
 
-**Advantages:**
-- Step 0 prompt makes the scope decision auditable instead of inferring from a fragile heading
-- LOCAL-only artifact rule (URLs are not auto-fetched) keeps the evidence requirement enforceable
-- Verifies file/command existence with Glob/Grep (doesn't trust the plan)
-- Severity classification: Critical (blocks), Significant (causes rework), Minor
-- Verification loop prevents fixes from introducing new errors
-- Code-quality self-review (G1 + G2 + G6) catches bare assertions and soft-language
+**When to use:**
+- Significant plan about to enter execution — use `both`.
+- Cheap structural sanity check — use `local`.
+- Cross-model bug hunt only — use `codex`.
 
-**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE`
-
----
-
-### `atomic-skills:review-code` — Same-Model Adversarial Code Review (new in 2.0.0)
-
-**Problem it solves:** Reviewing code without a structured adversarial pass misses logic bugs, race conditions, swallowed errors, and missing test coverage. `review-code-with-codex` does this cross-model but costs money and depends on the Codex CLI. There was no same-model equivalent for cheap pre-merge sanity checks.
-
-**What it does:** Adversarial self-loop review of a git ref — branch, single commit, or commit range (`main..HEAD`, `main...HEAD`). Step 0 classifies the ref shape deterministically:
-- **Triple-dot range** (`a...b`) — splits on `...` first to avoid eating the leftover dot.
-- **Double-dot range** (`a..b`) — endpoint-by-endpoint validation (raw `git rev-parse --verify` rejects range syntax).
-- **Single ref** — distinguishes branch vs commit via `git show-ref` then `git cat-file -t`; asks the user which base to diff a branch against.
-
-Picks the shape-specific diff command (commit: `git show --patch`; branch: `git diff $(git merge-base <base> <branch>)..<branch>`; range: `git diff <range>`). Applies a 7-item checklist (logic bugs, race conditions, error handling, schema/migrations, API contracts, file/function references, test coverage). Iterates up to 3 passes.
-
-**When to use:** Pre-merge sanity check on a coherent change. Codex CLI not installed or you don't want to spend on it.
-
-**Advantages:**
-- Free alternative to `review-code-with-codex` for everyday review
-- Range-aware ref validation (triple-dot first) — avoids the classic `'main...HEAD'.split('..')` bug
-- Shape-specific diff command — never falls into `git diff <single-ref>` leaking worktree edits
-- All user prompts routed through `{{ASK_USER_QUESTION_TOOL}}` — Claude Code uses the native tool; other IDEs receive a plain-text fallback
-- Code-quality self-review (G1 + G2 + G3 + G4 + G7) for the fixes you apply
-
-**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE`
-
----
-
-### `atomic-skills:review-plan-with-codex` — Cross-Model Plan Review (new in 1.8.0)
-
-**Problem it solves:** Same-model review (Claude reviewing Claude) suffers from documented self-preference bias (arXiv [2410.21819](https://arxiv.org/abs/2410.21819), [2508.06709](https://arxiv.org/abs/2508.06709), [2509.26464](https://arxiv.org/abs/2509.26464)). High-stakes plans/specs need a second opinion from a different model family.
-
-**What it does:** Dispatches the OpenAI Codex CLI as an adversarial reviewer in a **two-pass sealed envelope** pattern.
-- **Pass 1 (blind):** Codex reviews with *factual constraints only* — no intent narrative (intent framing can drop bug detection by up to **-93pp**, per arXiv [2603.18740](https://arxiv.org/abs/2603.18740)).
-- **Pass 2 (informed):** constraints are revealed, Codex reconciles findings with `Dropped / Maintained / Emerged` blocks. The delta blind→informed is the empirical signal of framing bias.
-
-**When to use:** Finishing a plan/spec/design doc and wanting a second opinion before implementation. High-stakes architectural decisions. Complements `review-plan` (same-model).
-
-**Pre-requisites:**
+**Pre-requisites for codex/both modes:**
 - OpenAI Codex CLI installed (`npm install -g @openai/codex` or `brew install --cask codex`)
 - `codex login` completed
 - Clean working tree (or `--allow-dirty` flag)
 
-**Output:** Consolidated review file in `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` with both pass outputs, reconciliation block, framing delta, and applied fixes. `INDEX.md` tracks history.
+**Non-interactive callers** (loops in `project-plan` Stage 8b, `project-status` phase-completion review) MUST pass `--mode=local` (alias `--mode=internal`) to skip the picker.
+
+**Output (codex/both modes):** Consolidated review file in `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` with both pass outputs, reconciliation, framing delta, and (in `both` mode) the local fix log. `INDEX.md` tracks history.
 
 **Advantages:**
-- Cross-family review attacks self-preference bias from a different vector than same-model review
-- Two-pass sealed envelope produces an empirical metric (framing delta) for run quality
-- Factual-only briefing prevents the most documented form of reviewer poisoning
-- All findings cite `file:line` + 4 mandatory fields (Claim, Impact, Recommendation, Confidence)
+- Mode picker formalizes the empirical workflow ("both" covers disjoint findings)
+- Sealed envelope contract — codex never sees local findings or fix descriptions; preserves the cross-model invariant
+- Cross-ref HARD-GATE forbids editing source artifacts
+- All findings cite line numbers (local) or `file:line` + 4 fields (codex)
+- Code-quality self-review (G1 + G2 + G6) catches bare assertions and soft-language
 
-**Iron Law:** `NO INTENT IN THE BRIEFING`
+**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE` + `NO INTENT IN THE BRIEFING` (codex sub-flow)
 
-See [`docs/kb/cross-model-review-design.md`](docs/kb/cross-model-review-design.md) for design principles.
+See [`docs/kb/cross-model-review-design.md`](docs/kb/cross-model-review-design.md) for envelope design.
 
 ---
 
-### `atomic-skills:review-code-with-codex` — Cross-Model Code Review (new in 1.8.0)
+### `atomic-skills:review-code` — Adversarial Code Review (Local + Codex)
 
-**Problem it solves:** Reviewing code with the same model that wrote it misses bugs by self-preference bias. Especially risky in critical paths (auth, data integrity, infra, async/concurrent logic).
+**Problem it solves:** Reviewing code with the same model that wrote it misses bugs by self-preference bias. Especially risky in critical paths (auth, payments, data integrity, async/concurrent logic). Empirically same-model and cross-model catch DISJOINT sets of bugs.
 
-**What it does:** Same **two-pass sealed envelope** pattern as `review-plan-with-codex`, but for code (diff/branch). Attack-surface checklist focused on bugs: race conditions, auth bypass, data integrity, error handling, rollback safety, perf regressions, test gaps, observability.
+**What it does:** Same mode picker (local / codex / both, default both) for code changes given a git ref — branch, single commit, or commit range (`main..HEAD`, `main...HEAD`).
 
-**When to use:** Before merging significant changes. Security-sensitive code. Complex async/concurrent logic. Whenever you want a cross-family second opinion on code Claude wrote.
+- **Range-aware ref validation** — triple-dot detected FIRST (avoids the classic `'main...HEAD'.split('..')` bug), then double-dot, then SINGLE.
+- **Shape-specific diff command** — commit: `git show --patch`; branch: `git diff $(git merge-base <base> <branch>)..<branch>`; range: `git diff <range>`. Never `git diff <single-ref>` raw (leaks worktree edits).
+- **Captured diff invariant** — both phases (local checklist + codex briefing) consume the SAME `CAPTURED_DIFF` materialized once; never re-run `git diff`. Guarantees byte-identical material across reviewers.
 
-**Pre-requisites:** Same as `review-plan-with-codex`.
+**Local mode** runs a 7-item checklist (logic bugs, race conditions, error handling, schema/migrations, API contracts, file/function references, test coverage), iterating up to 3 passes.
 
-**Output:** Consolidated review file in `.atomic-skills/reviews/`. Includes briefings (audit trail), both passes, reconciliation, and fixes applied during triage.
+**Codex sub-flow** runs the **two-pass sealed envelope** pattern (Pass 1 blind / Pass 2 informed). When mode=both, the codex briefing receives only the CLEANED diff + external constraints — NEVER the local findings or fix log.
+
+**When to use:**
+- Critical change (auth, payments, data integrity) — use `both`.
+- Routine pre-merge sanity check — use `local`.
+- Cross-model bug hunt only — use `codex`.
+
+**Pre-requisites for codex/both modes:** Same as `review-plan` (codex CLI + login + clean tree or `--allow-dirty`).
+
+**Output (codex/both modes):** Consolidated review file in `.atomic-skills/reviews/` with both pass outputs, reconciliation, framing delta, and (in `both` mode) the local fix log.
 
 **Advantages:**
-- Empirically validated: real-run on `dotfiles` repo caught a regex token-parsing bug and a test-coverage gap that same-model review missed
-- Code-focused attack surfaces (not generic checklist) — race conditions, auth, etc.
-- Cost-aware: warns if diff exceeds 50KB before invoking; respects user's `~/.codex/config.toml` model choice
-- Fixes are proposed individually with file:line context — you approve/edit/skip each one
+- Mode picker covers the empirically disjoint find-sets
+- Sealed envelope contract preserved across local→codex hand-off
+- Range-aware validation avoids ref-parsing bugs; shape-specific diff avoids worktree leaks
+- Cost-aware: warns if diff exceeds 50KB before invoking codex
+- Code-quality self-review (G1 + G2 + G3 + G4 + G7) for the fixes you apply
 
-**Iron Law:** `NO INTENT IN THE BRIEFING`
+**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE` + `NO INTENT IN THE BRIEFING` (codex sub-flow)
 
 ---
 
@@ -343,6 +801,8 @@ See [`docs/kb/cross-model-review-design.md`](docs/kb/cross-model-review-design.m
 
 **Iron Law:** `NO DELETION WITHOUT CONFIRMED BACKUP`
 
+</details>
+
 ---
 
 ## Techniques
@@ -393,7 +853,7 @@ Persistent context across sessions. The agent saves learnings, decisions, and fe
 
 ### Codex Bridge (new in 1.8.0)
 
-Shared infrastructure for the cross-model review skills. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists used by `review-plan-with-codex` and `review-code-with-codex`:
+Shared infrastructure for the codex sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists consumed by the codex envelope:
 
 - Anti-framing directive (literal text injected into every briefing)
 - Pre-flight checks, canonical Codex invocation, output validation checklist
@@ -439,11 +899,6 @@ npx @henryavila/atomic-skills uninstall [--project]
 **Scope trade-off:**
 - *user scope* (default): one install serves every project; not versioned in git.
 - *project scope* (`--project`): skills live in the repo, are versioned, and overlay the user scope. Pick this for teams.
-
-## Languages
-
-- [Português (BR)](README.pt-BR.md)
-- English ← you are here
 
 ## License
 

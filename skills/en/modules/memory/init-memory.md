@@ -2,7 +2,7 @@ Standardize this project's memory to `{{memory_path}}` (canonical, versioned in 
 
 Announce when starting: "I will standardize this project's memory to `{{memory_path}}`."
 
-## Fundamental Rule
+## Iron Law
 
 NO DELETION WITHOUT CONFIRMED BACKUP.
 Original memory directories can only be removed AFTER confirming that

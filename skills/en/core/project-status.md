@@ -1013,7 +1013,7 @@ No browser launch; pure stdout.
 
 ## Codex review tracking
 
-`review-code-with-codex` is the cross-model adversarial review gate (see `skills/en/core/review-code-with-codex.md`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
+`review-code --mode=codex` (or `--mode=both`) is the cross-model adversarial review gate (see `skills/en/core/review-code.md` — the codex sub-flow inside `review-code`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
 
 ### State file
 
@@ -1062,7 +1062,7 @@ If yellow or red, append to the same line: `→ run \`atomic-skills:project-stat
 
 ### `review-due`
 
-On-demand command. Invokes `atomic-skills:review-code-with-codex` with the diff range `<lastReviewedCommit>..HEAD` (or whole branch if last-review.json is absent), then updates `last-review.json` on completion.
+On-demand command. Invokes `atomic-skills:review-code` with args = `<lastReviewedCommit>..HEAD --mode=codex` (or whole branch if last-review.json is absent), then updates `last-review.json` on completion.
 
 Steps:
 
@@ -1072,7 +1072,7 @@ Steps:
 
    > Run cross-model adversarial review on `<range>` (`<N>` commits, `<L>` lines)? Cost: ~$0.50–$1.50, ~5–10 minutes. (y/N)
 
-4. On `y`: invoke `atomic-skills:review-code-with-codex` with arg = `<range>`. The skill produces a review file in `.atomic-skills/reviews/`.
+4. On `y`: invoke `atomic-skills:review-code` with args = `<range> --mode=codex` (skips the Step 0 picker and runs only the codex sub-flow). The skill produces a review file in `.atomic-skills/reviews/`.
 5. On completion (review skill returned a verdict): update `last-review.json`:
    ```json
    {
@@ -1085,7 +1085,7 @@ Steps:
      "counts": <from review frontmatter>
    }
    ```
-6. Apply fixes for blocker/critical (`review-code-with-codex` already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
+6. Apply fixes for blocker/critical (`review-code` codex sub-flow already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
 
 ### `phase-done` integration
 
@@ -1095,7 +1095,7 @@ The existing `phase-done` flow (Mutation modes section above) gains a new step B
 >
 > > Phase `<id>` is closing with `<N>` commits / `<L>` lines un-reviewed since last codex review. Run cross-model review against `<lastReviewedCommit>..HEAD` before archiving? (y/N)
 >
-> On `y`: invoke `atomic-skills:project-status review-due` (which delegates to `review-code-with-codex`). Apply blocker/critical fixes. After completion, proceed to archive.
+> On `y`: invoke `atomic-skills:project-status review-due` (which delegates to `atomic-skills:review-code --mode=codex`). Apply blocker/critical fixes. After completion, proceed to archive.
 > On `n`: archive proceeds, but record `Codex review: SKIPPED at phase-done` in the archived initiative's `## Self-review against code-quality gates` block (alongside the existing G1-G6 entries).
 
 This makes the codex review part of the natural phase-close ceremony rather than a separate ritual the user has to remember.

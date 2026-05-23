@@ -2,15 +2,19 @@
 
 ## When to use
 
-Use `review-plan-with-codex` or `review-code-with-codex` when:
+Use `review-plan --mode=codex` (or `--mode=both`) or `review-code --mode=codex` (or `--mode=both`) when:
 - Plan/spec is large or architecturally significant
 - Code change is in a critical path (auth, data, infra)
 - You want a second opinion from a different model family (mitigates self-preference bias)
 
-Use `review-plan-internal` (same-model) when:
-- Quick sanity check on a plan
+Use `review-plan --mode=local` or `review-code --mode=local` (same-model self-loop) when:
+- Quick sanity check
 - Codex CLI not available
 - Iterating fast
+
+Default (no `--mode=` flag, interactive TTY): the Step 0 mode picker
+runs and defaults to `both` — local first then codex on the cleaned
+artifact / same captured diff, with the sealed envelope preserved.
 
 ## Core principles
 

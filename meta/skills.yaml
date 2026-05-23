@@ -19,13 +19,22 @@ core:
         description: 'Diagnose and fix with provided symptom'
       - command: '/atomic-skills:fix'
         description: 'Skill prompts you for the symptom interactively'
-    related: [hunt, review-code, review-code-with-codex]
+    related: [hunt, review-code]
     tags: [quality, debugging, tdd, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
     mutates_repo: true
     network_required: false
-    schema_version: '0.1'
+    one_liner: 'Diagnose root cause → write test → fix → verify'
+    emoji: '🔧'
+    version_added: '1.0.0'
+    args:
+      - name: symptom
+        kind: positional
+        required: false
+        description: 'Observed bug or unexpected behavior. If omitted, skill prompts interactively.'
+    dependencies: [git]
+    schema_version: '0.2'
 
   save-and-push:
     name: save-and-push
@@ -51,63 +60,131 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: true
-    schema_version: '0.1'
+    one_liner: 'Save learnings to memory, group commits, push safely'
+    emoji: '💾'
+    version_added: '1.0.0'
+    dependencies: [git]
+    schema_version: '0.2'
 
   review-plan:
     name: review-plan
-    title: 'Review Plan — Same-Model Adversarial'
-    description: 'Adversarial self-loop review of an implementation plan. Step 0 asks whether to cross-reference against external artifacts (PRD, specs, designs); answer determines checklist scope.'
+    title: 'Review Plan — Adversarial (Local + Codex)'
+    description: 'Adversarial review of an implementation plan. Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on cleaned plan). Optional cross-reference against external artifacts.'
     purpose: >
-      Read a plan adversarially looking for contradictions, broken
-      dependencies, ordering errors, ambiguities, and missing tests.
-      Optionally cross-references against source artifacts when present.
-      Iterates up to 3 passes until clean.
+      Adversarial review with mode picker: local (cheap, fast), codex
+      (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local
+      first, codex second on cleaned plan with sealed envelope).
+      Optionally cross-references against source artifacts. Iterates up
+      to 3 passes in local; two-pass envelope in codex.
     when_to_use:
-      - 'You finished writing a plan'
-      - 'Structural sanity check before execution'
+      - 'You finished writing a plan and want a structural review'
+      - 'Significant plan about to enter execution (both mode recommended)'
+      - 'Cross-model bug hunt against self-preference bias (codex or both)'
       - 'Plan was derived from a PRD/spec and you want coverage verification'
     when_not_to_use:
       - 'Plan is still brainstorming (not structured yet)'
-      - 'You want a cross-model review (use review-plan-with-codex)'
+      - 'Trivial plan (skip review entirely)'
+      - 'Codex CLI not installed and you need codex mode (use --mode=local)'
     examples:
       - command: '/atomic-skills:review-plan docs/plans/migration.md'
-        description: 'Adversarially review a plan, with optional artifact cross-ref'
-    related: [review-plan-with-codex, review-code]
-    tags: [review, planning, adversarial]
+        description: 'Interactive picker — chooses mode + cross-ref'
+      - command: '/atomic-skills:review-plan docs/plans/migration.md --mode=local'
+        description: 'Force local-only self-loop'
+      - command: '/atomic-skills:review-plan docs/plans/migration.md --mode=both'
+        description: 'Local then codex (sealed envelope)'
+    related: [review-code]
+    tags: [review, planning, adversarial, cross-model]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
     mutates_repo: true
-    network_required: false
-    schema_version: '0.1'
+    network_required: true
+    one_liner: 'Adversarial plan review with local/codex/both mode picker'
+    emoji: '🔍'
+    version_added: '2.0.0'
+    args:
+      - name: plan-path
+        kind: positional
+        required: true
+        description: 'Path to the plan markdown file under review.'
+      - name: '--mode'
+        kind: option
+        required: false
+        description: 'Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker.'
+      - name: '--no-cross-ref'
+        kind: flag
+        required: false
+        description: 'Skip the Step 0b cross-ref picker; force internal-only.'
+      - name: '--cross-ref'
+        kind: option
+        required: false
+        description: 'Comma-separated list of artifact paths to cross-reference against. Skips the picker.'
+      - name: '--artifacts'
+        kind: option
+        required: false
+        description: 'Alias of --cross-ref (compat with v2.x).'
+      - name: '--allow-dirty'
+        kind: flag
+        required: false
+        description: 'Pass through to the codex pre-flight; suppresses the dirty-tree abort.'
+    output_artifacts:
+      - '.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)'
+      - '.atomic-skills/reviews/INDEX.md'
+    dependencies: [codex, git]
+    schema_version: '0.2'
 
   review-code:
     name: review-code
-    title: 'Review Code — Same-Model Adversarial'
-    description: 'Adversarial self-loop review of code changes given a git ref (branch, commit, or range). Same-model checklist for bugs, race conditions, error handling, and test coverage. Free alternative to review-code-with-codex.'
+    title: 'Review Code — Adversarial (Local + Codex)'
+    description: 'Adversarial review of code changes given a git ref (branch, commit, or range). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).'
     purpose: >
-      Review a git ref (branch, commit, or range) adversarially looking
-      for logic bugs, race conditions, error handling gaps,
-      schema/migration inconsistencies, and test coverage gaps. Self-loop
-      up to 3 iterations. Free alternative to review-code-with-codex.
+      Review a git ref (branch, commit, or range) adversarially. Mode
+      picker: local (cheap, fast), codex (cross-model via OpenAI Codex
+      CLI, ~$1-2), or both (default — local first, codex second on the
+      byte-identical captured diff with sealed envelope). Range-aware
+      ref validation + shape-specific diff command.
     when_to_use:
       - 'You finished a coherent code change'
-      - 'Cheap pre-merge sanity check'
-      - 'Codex CLI not installed or you don''t want to spend on it'
+      - 'Significant change about to merge (both mode recommended)'
+      - 'Critical path (auth, payments, data integrity) — both mode'
+      - 'Cheap pre-merge sanity check (local mode)'
     when_not_to_use:
-      - 'Critical change (auth, payments, data integrity) — use review-code-with-codex'
       - 'No git ref to review (and you don''t want to commit/stash first)'
+      - 'Trivial change already heavily reviewed'
+      - 'Codex CLI not installed and you need codex mode (use --mode=local)'
     examples:
       - command: '/atomic-skills:review-code main..HEAD'
-        description: 'Review the current branch vs main'
-      - command: '/atomic-skills:review-code feat/new-feature'
-        description: 'Review a specific branch'
-    related: [review-code-with-codex, review-plan, fix, hunt]
-    tags: [review, code, adversarial]
+        description: 'Interactive picker — chooses mode'
+      - command: '/atomic-skills:review-code feat/new-feature --mode=local'
+        description: 'Force local-only self-loop'
+      - command: '/atomic-skills:review-code main..HEAD --mode=both'
+        description: 'Local then codex (sealed envelope)'
+    related: [review-plan, fix, hunt]
+    tags: [review, code, adversarial, cross-model]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
     mutates_repo: true
-    network_required: false
-    schema_version: '0.1'
+    network_required: true
+    one_liner: 'Adversarial code review with local/codex/both mode picker'
+    emoji: '🔬'
+    version_added: '2.0.0'
+    args:
+      - name: git-ref
+        kind: positional
+        required: true
+        description: 'Branch, single commit, or commit range (a..b / a...b).'
+      - name: '--mode'
+        kind: option
+        required: false
+        description: 'Force a review mode (local, codex, both). Skips the Step 0 picker.'
+      - name: '--allow-dirty'
+        kind: flag
+        required: false
+        description: 'Include working-tree changes in the captured diff; suppresses the dirty-tree abort.'
+    output_artifacts:
+      - '.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)'
+      - '.atomic-skills/reviews/INDEX.md'
+    dependencies: [codex, git]
+    schema_version: '0.2'
 
   project-status:
     name: project-status
@@ -141,7 +218,107 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    schema_version: '0.1'
+    one_liner: 'Canonical per-initiative status tree with stack + parked + emerged'
+    emoji: '📊'
+    version_added: '1.5.0'
+    subcommands:
+      - name: new-plan
+        signature: '<slug>'
+        description: 'Bootstrap a new Plan via the project-plan skill'
+        example: '/atomic-skills:project-status new-plan v3-redesign'
+      - name: new
+        signature: '<slug>'
+        description: 'Create a new Initiative (standalone or under active plan)'
+        example: '/atomic-skills:project-status new my-feature'
+      - name: push
+        signature: '<description>'
+        description: 'Push a new stack frame (lateral expansion)'
+        example: '/atomic-skills:project-status push "investigating slow query"'
+      - name: pop
+        signature: '[--resolve|--park|--emerge]'
+        description: 'Pop top frame with destination'
+        example: '/atomic-skills:project-status pop --park'
+      - name: park
+        signature: '<description>'
+        description: 'Add a parked item (note for later, no decision yet)'
+        example: '/atomic-skills:project-status park "consider caching layer"'
+      - name: emerge
+        signature: '<description>'
+        description: 'Add an emerged finding (real follow-up worth promoting)'
+        example: '/atomic-skills:project-status emerge "auth refactor needed"'
+      - name: promote
+        signature: '<title-or-idx>'
+        description: 'Promote a parked item to a real task'
+        example: '/atomic-skills:project-status promote 2'
+      - name: done
+        signature: '<task-id>'
+        description: 'Mark task done; triggers phase-completion check if last'
+        example: '/atomic-skills:project-status done T-005'
+      - name: phase-done
+        signature: ''
+        description: 'Verify exit gates, advance to next phase (prompts codex review)'
+        example: '/atomic-skills:project-status phase-done'
+      - name: phase-reopen
+        signature: '[<phase-id>]'
+        description: 'Reverse of phase-done — clears metAt on exit criteria'
+        example: '/atomic-skills:project-status phase-reopen F2'
+      - name: archive
+        signature: '[<slug>]'
+        description: 'Move plan/initiative to archive/ (cascades from plan to children)'
+        example: '/atomic-skills:project-status archive v3-redesign'
+      - name: switch
+        signature: '<slug>'
+        description: 'Pause current active plan/initiative, set target as active'
+        example: '/atomic-skills:project-status switch my-feature'
+      - name: migrate
+        signature: '<slug>'
+        description: 'Migrate a legacy file to schema 0.1'
+        example: '/atomic-skills:project-status migrate sample-legacy'
+      - name: re-ratify
+        signature: '<id>'
+        description: 'Re-articulate context of an existing item (stale lastReviewedAt)'
+        example: '/atomic-skills:project-status re-ratify P-3'
+      - name: re-bootstrap
+        signature: '<slug>'
+        description: 'Batch re-articulate placeholder context after migrate'
+        example: '/atomic-skills:project-status re-bootstrap sample-legacy'
+      - name: scope-creep
+        signature: ''
+        description: 'On-demand drift report (read-only, surfaces stale items)'
+        example: '/atomic-skills:project-status scope-creep'
+      - name: detect-scope
+        signature: ''
+        description: 'Suggest scope.paths value based on recent git activity'
+        example: '/atomic-skills:project-status detect-scope'
+    args:
+      - name: '--list'
+        kind: flag
+        required: false
+        description: 'List all initiatives across all plans'
+      - name: '--plan'
+        kind: option
+        required: false
+        description: 'Filter view to a specific plan slug'
+      - name: '--phase'
+        kind: option
+        required: false
+        description: 'Filter view to a specific phase id'
+      - name: '--stack'
+        kind: flag
+        required: false
+        description: 'Show only the active stack (compact view)'
+      - name: '--archived'
+        kind: flag
+        required: false
+        description: 'Show archived items'
+    output_artifacts:
+      - '.atomic-skills/PROJECT-STATUS.md'
+      - '.atomic-skills/plans/<slug>.md'
+      - '.atomic-skills/initiatives/<slug>.md'
+      - '.atomic-skills/status/config.json'
+      - '.atomic-skills/dispatches/<slug>.md (when promote-to-dispatch)'
+    dependencies: [git]
+    schema_version: '0.2'
 
   project-plan:
     name: project-plan
@@ -172,7 +349,24 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    schema_version: '0.1'
+    one_liner: 'Bootstrap a multi-phase Plan with child Initiatives + Tasks'
+    emoji: '🗺️'
+    version_added: '3.0.0'
+    subcommands:
+      - name: adopt
+        signature: '<file.md>'
+        description: 'Capture an existing markdown plan into structured Plan + Initiatives + Tasks'
+        example: '/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md'
+    args:
+      - name: slug
+        kind: positional
+        required: false
+        description: 'Plan slug for the default (bootstrap) flow. Omit and the skill prompts interactively.'
+    output_artifacts:
+      - '.atomic-skills/plans/<slug>.md'
+      - '.atomic-skills/initiatives/<slug>.md'
+    dependencies: [git]
+    schema_version: '0.2'
 
   prompt:
     name: prompt
@@ -201,7 +395,15 @@ core:
     requires_args: false
     mutates_repo: false
     network_required: false
-    schema_version: '0.1'
+    one_liner: 'Generate a self-contained prompt with exact paths and guardrails'
+    emoji: '📝'
+    version_added: '1.0.0'
+    args:
+      - name: task
+        kind: positional
+        required: false
+        description: 'Task description in natural language. If omitted, skill asks interactively.'
+    schema_version: '0.2'
 
   hunt:
     name: hunt
@@ -223,13 +425,22 @@ core:
         description: 'Hunt bugs in a single file'
       - command: '/atomic-skills:hunt src/auth/'
         description: 'Triage mode for directory (max 30 files)'
-    related: [fix, review-code, review-code-with-codex]
+    related: [fix, review-code]
     tags: [testing, quality, pre-implementation]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: true
     mutates_repo: true
     network_required: false
-    schema_version: '0.1'
+    one_liner: 'Write adversarial tests to break code, not confirm it'
+    emoji: '🎯'
+    version_added: '1.0.0'
+    args:
+      - name: target
+        kind: positional
+        required: true
+        description: 'File, directory, or function/class to hunt. Directory mode caps at 30 files.'
+    dependencies: [git]
+    schema_version: '0.2'
 
   parallel-dispatch:
     name: parallel-dispatch
@@ -255,7 +466,18 @@ core:
     requires_args: true
     mutates_repo: true
     network_required: false
-    schema_version: '0.1'
+    one_liner: 'Dispatch a task list to N parallel sessions with verified isolation'
+    emoji: '🚀'
+    version_added: '1.6.0'
+    args:
+      - name: task-list
+        kind: positional
+        required: true
+        description: 'Path to the markdown file containing the finalized task list.'
+    output_artifacts:
+      - '.atomic-skills/dispatches/<batch-id>.md'
+    dependencies: [git]
+    schema_version: '0.2'
 
   parallel-dispatch-audit:
     name: parallel-dispatch-audit
@@ -279,60 +501,18 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    schema_version: '0.1'
-
-  review-plan-with-codex:
-    name: review-plan-with-codex
-    title: 'Review Plan — Codex Cross-Model'
-    description: 'Cross-model adversarial review of a plan/spec via OpenAI Codex CLI in two-pass sealed envelope. Use when finishing a plan and wanting a second opinion from a different model family to mitigate self-preference bias.'
-    purpose: >
-      Two-pass sealed-envelope review of a plan via Codex CLI. Mitigates
-      self-preference bias by getting a different model family's read.
-    when_to_use:
-      - 'A significant plan is about to enter execution'
-      - 'You want an independent (different model family) review'
-      - 'Self-preference bias risk is high (you and the plan author are the same model)'
-    when_not_to_use:
-      - 'Codex CLI is not installed'
-      - 'Plan is trivial or low-stakes'
-      - 'You only need same-model review without codex (use review-plan)'
-    examples:
-      - command: '/atomic-skills:review-plan-with-codex docs/plans/v3-redesign/00-master.md'
-        description: 'Cross-model review of a plan'
-    related: [review-plan, review-code-with-codex]
-    tags: [review, planning, cross-model, adversarial]
-    ide_compatibility: [claude-code]
-    requires_args: true
-    mutates_repo: true
-    network_required: true
-    schema_version: '0.1'
-
-  review-code-with-codex:
-    name: review-code-with-codex
-    title: 'Review Code — Codex Cross-Model'
-    description: 'Cross-model adversarial review of code changes (diff/branch) via OpenAI Codex CLI in two-pass sealed envelope. Use before merging significant changes to catch bugs that same-model review missed.'
-    purpose: >
-      Two-pass sealed-envelope review of code changes via Codex CLI.
-      Catches bugs that same-model review missed.
-    when_to_use:
-      - 'A significant code change is about to merge'
-      - 'You want an independent (different model family) bug hunt'
-      - 'Critical path changes (auth, payments, data integrity)'
-    when_not_to_use:
-      - 'Codex CLI is not installed'
-      - 'Change is trivial or already heavily reviewed'
-    examples:
-      - command: '/atomic-skills:review-code-with-codex main..HEAD'
-        description: 'Review current branch vs main'
-      - command: '/atomic-skills:review-code-with-codex feat/auth-redesign'
-        description: 'Review a specific branch'
-    related: [review-code, review-plan-with-codex, fix, hunt]
-    tags: [review, code, cross-model, adversarial, pre-merge]
-    ide_compatibility: [claude-code]
-    requires_args: true
-    mutates_repo: false
-    network_required: true
-    schema_version: '0.1'
+    one_liner: 'Audit output of a parallel-dispatch batch, apply fixes, report'
+    emoji: '👁️'
+    version_added: '1.6.0'
+    args:
+      - name: slug
+        kind: positional
+        required: false
+        description: 'Batch slug to audit. Defaults to the most recent dispatch.'
+    output_artifacts:
+      - '.atomic-skills/dispatches/<slug>.md (annotated with audit results)'
+    dependencies: [git]
+    schema_version: '0.2'
 
 modules:
   codex-bridge: {}
@@ -360,4 +540,9 @@ modules:
       requires_args: false
       mutates_repo: true
       network_required: false
-      schema_version: '0.1'
+      one_liner: 'Centralize project memory to .ai/memory/'
+      emoji: '🧠'
+      version_added: '1.0.0'
+      output_artifacts:
+        - '.ai/memory/MEMORY.md'
+      schema_version: '0.2'

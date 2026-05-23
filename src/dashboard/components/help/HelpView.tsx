@@ -1,162 +1,12 @@
 // Faithful port of HelpView.jsx — skill directory with filter pills,
-// search input, 2-col card grid, expandable detail panel. Skills are
-// hardcoded from meta/skills.yaml since aideck does not yet expose them
-// over REST.
+// search input, 2-col card grid, expandable detail panel.
+//
+// Skill data is GENERATED from meta/skills.yaml — see
+// scripts/generate-helpview-data.js and the v0.2 catalog migration plan
+// at docs/plan-skills-catalog-v0.2.md.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-
-interface Skill {
-  id: string
-  title: string
-  summary?: string
-  active?: boolean
-  incomplete?: boolean
-  when?: string[]
-  whenNot?: string[]
-  examples?: string[]
-  related?: string[]
-}
-
-const SKILLS: Skill[] = [
-  {
-    id: 'project-status',
-    title: 'project-status',
-    summary:
-      'Per-initiative canonical state tracking. Maintains .atomic-skills/ tree with stack + tasks + parked + emerged per initiative. Plan + Initiative + Task 3-level model.',
-    active: true,
-    when: [
-      'Starting, resuming, pushing/popping stack frames',
-      'Parking lateral findings or surfacing emerged items',
-      'Viewing status across sessions and worktrees',
-    ],
-    whenNot: [
-      'Tracking issues across multiple unrelated projects (use Linear/GitHub Issues)',
-      'Ephemeral one-off tasks',
-    ],
-    examples: [
-      '/atomic-skills:project-status',
-      '/atomic-skills:project-status push "Investigate matcher regression"',
-      '/atomic-skills:project-status done T-002',
-      '/atomic-skills:project-status phase-done',
-    ],
-    related: ['project-plan', 'fix', 'review-plan'],
-  },
-  {
-    id: 'project-plan',
-    title: 'project-plan',
-    summary:
-      'Turn loose ideas into a structured multi-phase Plan with phases, tasks, exit gates, and references. Outputs canonical project-status state.',
-    active: true,
-    when: ['Bootstrapping a new initiative', 'Adopting an existing plan document into the canonical state'],
-    examples: ['/atomic-skills:project-plan', '/atomic-skills:project-plan adopt docs/my-plan.md'],
-    related: ['project-status'],
-  },
-  {
-    id: 'fix',
-    title: 'fix',
-    summary: 'Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.',
-    active: true,
-    when: ['A test or behavior fails unexpectedly', 'You can isolate a reproducer'],
-    whenNot: ['Feature work', 'Refactors without a failing case'],
-    examples: ['/atomic-skills:fix'],
-    related: ['hunt'],
-  },
-  {
-    id: 'hunt',
-    title: 'hunt',
-    summary: 'Write adversarial tests for existing code to find hidden bugs.',
-    active: true,
-    when: ['Code lacks tests', 'You suspect untested edge cases'],
-    examples: ['/atomic-skills:hunt'],
-    related: ['fix'],
-  },
-  {
-    id: 'review-plan',
-    title: 'review-plan',
-    summary:
-      'Adversarial self-loop review of an implementation plan. Step 0 asks whether to cross-reference against external artifacts (PRD, specs, designs); answer determines checklist scope.',
-    active: true,
-    when: [
-      'Finishing a plan and you want a second look',
-      'Before committing to a multi-day implementation',
-      'Plan derived from a PRD/spec and you want coverage verification',
-    ],
-    whenNot: ['Plan is still brainstorming (not structured yet)', 'You want a cross-model review (use review-plan-with-codex)'],
-    examples: ['/atomic-skills:review-plan docs/plans/migration.md', '/atomic-skills:review-plan docs/plans/migration.md --mode=internal'],
-    related: ['review-plan-with-codex', 'review-code', 'review-code-with-codex'],
-  },
-  {
-    id: 'review-code',
-    title: 'review-code',
-    summary:
-      'Adversarial self-loop review of code changes given a git ref (branch, commit, or range). Same-model checklist for bugs, race conditions, error handling, and test coverage. Free alternative to review-code-with-codex.',
-    active: true,
-    when: ['You finished a coherent code change', 'Cheap pre-merge sanity check', 'Codex CLI not installed or you don\'t want to spend on it'],
-    whenNot: ['Critical change (auth, payments, data integrity) — use review-code-with-codex', 'No git ref to review'],
-    examples: ['/atomic-skills:review-code main..HEAD', '/atomic-skills:review-code feat/new-feature'],
-    related: ['review-code-with-codex', 'review-plan', 'fix', 'hunt'],
-  },
-  {
-    id: 'review-plan-with-codex',
-    title: 'review-plan-with-codex',
-    summary:
-      'Cross-model adversarial review of a plan/spec via OpenAI Codex CLI in two-pass sealed envelope.',
-    active: true,
-    when: ['Finishing a plan and wanting a second opinion from a different model family'],
-    examples: ['/atomic-skills:review-plan-with-codex'],
-    related: ['review-plan', 'review-code-with-codex'],
-  },
-  {
-    id: 'review-code-with-codex',
-    title: 'review-code-with-codex',
-    summary:
-      'Cross-model adversarial review of code changes (diff/branch) via OpenAI Codex CLI in two-pass sealed envelope.',
-    active: true,
-    when: ['Before merging significant changes', 'To catch bugs that same-model review missed'],
-    examples: ['/atomic-skills:review-code-with-codex'],
-    related: ['review-code', 'review-plan-with-codex'],
-  },
-  {
-    id: 'prompt',
-    title: 'prompt',
-    summary: 'Generate an optimized, self-contained prompt from a task description.',
-    active: true,
-    when: ['You need a precise prompt with exact file paths and guardrails'],
-    examples: ['/atomic-skills:prompt'],
-  },
-  {
-    id: 'parallel-dispatch',
-    title: 'parallel-dispatch',
-    summary:
-      'Dispatch a user-provided list of independent tasks to N parallel sessions with verified scope isolation.',
-    active: true,
-    when: ['You have a consolidated task list', 'Tasks can be verified disjoint by pairwise grep'],
-    related: ['parallel-dispatch-audit'],
-  },
-  {
-    id: 'parallel-dispatch-audit',
-    title: 'parallel-dispatch-audit',
-    summary:
-      "Audit the output of a parallel-dispatch batch. Verifies deliverables on disk, applies cosmetic fixes, reports pending decisions.",
-    active: true,
-    when: ['After parallel-dispatch agents complete'],
-    related: ['parallel-dispatch'],
-  },
-  {
-    id: 'save-and-push',
-    title: 'save-and-push',
-    summary: 'Review conversation, save learnings to memory, commit and push work.',
-    active: true,
-    when: ['End of session', 'After landing a meaningful chunk'],
-  },
-  {
-    id: 'init-memory',
-    title: 'init-memory',
-    summary: 'Initialize persistent memory structure for cross-session context.',
-    active: true,
-    when: ['First time using memory in a repo'],
-  },
-]
+import { SKILLS, type Skill } from '../../data/skills.generated'
 
 const slashCommand = (id: string) => `/atomic-skills:${id}`
 
@@ -682,6 +532,28 @@ function SkillDetail({
                   copiedKey={copiedKey}
                   onCopy={onCopy}
                 />
+              ))}
+            </div>
+          </Section>
+        )}
+        {skill.subcommands && skill.subcommands.length > 0 && (
+          <Section eyebrow="SUBCOMMANDS" count={skill.subcommands.length}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {skill.subcommands.map((sub, i) => (
+                <div key={sub.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                    <span style={{ color: 'var(--status-done)' }}>{sub.name}</span>
+                    <span style={{ color: 'var(--fg-subtle)' }}>{sub.signature}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--fg-default)' }}>{sub.description}</div>
+                  <CommandRow
+                    command={sub.example}
+                    copyKey={`detail:${skill.id}:sub:${i}`}
+                    copiedKey={copiedKey}
+                    onCopy={onCopy}
+                    dense
+                  />
+                </div>
               ))}
             </div>
           </Section>

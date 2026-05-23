@@ -35,7 +35,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 33); // 12 core + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset + 1 auto-update hook (no namespace root for commands)
+    assert.strictEqual(result.files.length, 31); // 10 core + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset + 1 auto-update hook (no namespace root for commands)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -80,7 +80,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 34); // 12 core + 1 module + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset + 1 auto-update hook (no namespace root for commands)
+    assert.strictEqual(result.files.length, 32); // 10 core + 1 module + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset + 1 auto-update hook (no namespace root for commands)
   });
 
   it('substitutes memory_path variable', () => {
@@ -141,7 +141,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 65); // (12 core + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset) * 2 IDEs + 1 auto-update hook (no namespace root for command or toml formats)
+    assert.strictEqual(result.files.length, 61); // (10 core + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset) * 2 IDEs + 1 auto-update hook (no namespace root for command or toml formats)
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -223,7 +223,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills + codex-bridge assets + project-status assets + project-plan assets + auto-update hook, no module skills (no namespace root for commands)
-    assert.strictEqual(result.files.length, 33);
+    assert.strictEqual(result.files.length, 31);
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -262,7 +262,7 @@ describe('installSkills', () => {
       'ASSETS_PATH should be substituted');
   });
 
-  it('review-{plan,code}-with-codex renders with ASSETS_PATH for each IDE', async () => {
+  it('review-{plan,code} render with ASSETS_PATH substituted (codex sub-flow assets reachable per IDE)', async () => {
     const { mkdtempSync, existsSync, readFileSync, mkdirSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join: pjoin, dirname: pdirname } = await import('node:path');
@@ -287,7 +287,7 @@ describe('installSkills', () => {
         scope: 'project',
       });
 
-      for (const skillName of ['review-plan-with-codex', 'review-code-with-codex']) {
+      for (const skillName of ['review-plan', 'review-code']) {
         const installed = pjoin(projectDir, getSkillPath(ideId, skillName));
         assert.ok(existsSync(installed),
           `${skillName} not installed for ${ideId}: ${installed}`);
