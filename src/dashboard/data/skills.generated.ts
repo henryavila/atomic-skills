@@ -1,4 +1,4 @@
-// GENERATED — do not edit. Source: meta/skills.yaml.
+// GENERATED — do not edit. Source: meta/catalog.yaml.
 // Run `npm run generate-docs` to regenerate. See
 // docs/plan-skills-catalog-v0.2.md for the generator contract.
 

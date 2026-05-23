@@ -19,17 +19,34 @@ function stripIdeSuffix(name) {
   return name.replace(/ \(Skills\)$/, '').replace(/ \(Commands\)$/, '');
 }
 
-export function status(projectDir) {
-  // Check user-scope manifest first, then project-scope
+/**
+ * @param {string} projectDir - cwd from caller
+ * @param {object} [options]
+ * @param {boolean} [options.forceProject] - when true, read project manifest
+ *   (./.atomic-skills/manifest.json) instead of falling back to user scope.
+ *   Mirrors the `--project` flag on install/detect/uninstall.
+ */
+export function status(projectDir, options = {}) {
   const homeDir = homedir();
-  let manifest = readManifest(homeDir);
-  let manifestScope = 'user';
-  let manifestBase = homeDir;
+  let manifest;
+  let manifestScope;
+  let manifestBase;
 
-  if (!manifest && projectDir) {
-    manifest = readManifest(projectDir);
+  if (options.forceProject) {
+    manifest = projectDir ? readManifest(projectDir) : null;
     manifestScope = 'project';
     manifestBase = projectDir;
+  } else {
+    // Default: check user-scope first, fall back to project.
+    manifest = readManifest(homeDir);
+    manifestScope = 'user';
+    manifestBase = homeDir;
+
+    if (!manifest && projectDir) {
+      manifest = readManifest(projectDir);
+      manifestScope = 'project';
+      manifestBase = projectDir;
+    }
   }
 
   p.intro(pc.bold(pc.cyan('⚛ Atomic Skills — Status')));

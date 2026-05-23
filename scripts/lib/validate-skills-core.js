@@ -1,5 +1,5 @@
 /**
- * Pure-function validator for `meta/skills.yaml`. Consumed by
+ * Pure-function validator for `meta/catalog.yaml`. Consumed by
  * `scripts/validate-skills.js` (CLI) and `tests/validate-skills.test.js`.
  *
  * Supports schema v0.1 (legacy) and v0.2 (canonical). The v0.2 hard cut
@@ -416,6 +416,103 @@ export function runCrossChecks(skills, skillsDir, options = {}) {
 }
 
 /**
+ * Lint README.md for `atomic-skills:<name>` mentions that don't resolve to
+ * any catalog entry. Catches drift in static prose (release notes, module
+ * descriptions) that the marker-bounded generator can't see.
+ *
+ * Returns an array of issue strings (empty = no drift).
+ */
+export function validateReadmeMentions(readmeText, knownSkillNames) {
+  if (typeof readmeText !== 'string' || readmeText.length === 0) return [];
+  const mentions = new Map(); // name -> [lineNumbers]
+  const lines = readmeText.split('\n');
+  const re = /\batomic-skills:([a-z][a-z0-9-]*)\b/g;
+  for (let i = 0; i < lines.length; i++) {
+    let match;
+    re.lastIndex = 0;
+    while ((match = re.exec(lines[i])) !== null) {
+      const name = match[1];
+      if (!mentions.has(name)) mentions.set(name, []);
+      mentions.get(name).push(i + 1);
+    }
+  }
+
+  const issues = [];
+  for (const [name, lineNos] of mentions) {
+    if (!knownSkillNames.has(name)) {
+      const locs = lineNos.slice(0, 3).join(', ');
+      const more = lineNos.length > 3 ? ` (+${lineNos.length - 3} more)` : '';
+      issues.push(
+        `README mentions unknown skill "atomic-skills:${name}" at line(s) ${locs}${more}`
+      );
+    }
+  }
+  return issues;
+}
+
+/**
+ * Cross-check `module_meta` documentation block against the canonical
+ * `modules` block. Every `module_meta` key must correspond to a real module
+ * (no orphan docs) and every module must have docs (no missing entry that
+ * would silently disappear from the rendered README).
+ */
+export function validateModuleMeta(data) {
+  const issues = [];
+  const moduleKeys = data?.modules && typeof data.modules === 'object'
+    ? new Set(Object.keys(data.modules))
+    : new Set();
+
+  if (data?.module_meta === undefined) {
+    if (moduleKeys.size > 0) {
+      issues.push(
+        `module_meta block missing from catalog.yaml; cannot render README ` +
+        `Modules section (${moduleKeys.size} module(s) without docs)`
+      );
+    }
+    return issues;
+  }
+  if (data.module_meta == null || typeof data.module_meta !== 'object') {
+    issues.push('module_meta must be a mapping of moduleKey → {title, intro, ...}');
+    return issues;
+  }
+
+  const metaKeys = new Set(Object.keys(data.module_meta));
+
+  for (const orphan of [...metaKeys].filter((k) => !moduleKeys.has(k))) {
+    issues.push(`module_meta.${orphan} has no matching entry under modules`);
+  }
+  for (const undocumented of [...moduleKeys].filter((k) => !metaKeys.has(k))) {
+    issues.push(`modules.${undocumented} has no module_meta entry (would disappear from README)`);
+  }
+
+  for (const [key, meta] of Object.entries(data.module_meta)) {
+    if (meta == null || typeof meta !== 'object') {
+      issues.push(`module_meta.${key} must be an object`);
+      continue;
+    }
+    if (typeof meta.title !== 'string' || meta.title.trim().length === 0) {
+      issues.push(`module_meta.${key}.title is required (non-empty string)`);
+    }
+    if (typeof meta.intro !== 'string' || meta.intro.trim().length === 0) {
+      issues.push(`module_meta.${key}.intro is required (non-empty string)`);
+    }
+    if ('version_added' in meta && (typeof meta.version_added !== 'string' || !VERSION_REGEX.test(meta.version_added))) {
+      issues.push(`module_meta.${key}.version_added must match \`X.Y.Z\``);
+    }
+    if ('features' in meta) {
+      if (!Array.isArray(meta.features) || meta.features.some((f) => typeof f !== 'string')) {
+        issues.push(`module_meta.${key}.features must be an array of strings`);
+      }
+    }
+    if ('notes' in meta && typeof meta.notes !== 'string') {
+      issues.push(`module_meta.${key}.notes must be a string`);
+    }
+  }
+
+  return issues;
+}
+
+/**
  * Validate the entire catalog. Returns a structured report:
  *   { totalSkills, totalIssues, failedSkills, failures, versionsSeen, parseError }
  *
@@ -434,13 +531,13 @@ export function validateCatalog(data, options = {}) {
   };
 
   if (data == null || typeof data !== 'object') {
-    report.parseError = 'skills.yaml root is not an object';
+    report.parseError = 'catalog.yaml root is not an object';
     return report;
   }
 
   const skills = collectSkills(data);
   if (skills.length === 0) {
-    report.parseError = 'no skill entries found in skills.yaml';
+    report.parseError = 'no skill entries found in catalog.yaml';
     return report;
   }
 
@@ -467,6 +564,16 @@ export function validateCatalog(data, options = {}) {
       } else {
         perSkillFailures.set(cf.location, cf);
       }
+    }
+  }
+
+  if (options.requireModuleMeta) {
+    const moduleMetaIssues = validateModuleMeta(data);
+    if (moduleMetaIssues.length > 0) {
+      perSkillFailures.set('__module_meta__', {
+        location: '__module_meta__',
+        issues: moduleMetaIssues,
+      });
     }
   }
 

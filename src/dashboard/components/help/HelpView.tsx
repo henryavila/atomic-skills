@@ -1,7 +1,7 @@
 // Faithful port of HelpView.jsx — skill directory with filter pills,
 // search input, 2-col card grid, expandable detail panel.
 //
-// Skill data is GENERATED from meta/skills.yaml — see
+// Skill data is GENERATED from meta/catalog.yaml — see
 // scripts/generate-helpview-data.js and the v0.2 catalog migration plan
 // at docs/plan-skills-catalog-v0.2.md.
 

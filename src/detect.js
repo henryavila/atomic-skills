@@ -42,7 +42,7 @@ export function detectIDEState(basePath) {
 }
 
 export function countSkills(metaDir, modules) {
-  const meta = parseYaml(readFileSync(join(metaDir, 'skills.yaml'), 'utf8'));
+  const meta = parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
   const coreCount = Object.keys(meta.core || {}).length;
   let moduleCount = 0;
   for (const [modName, modConfig] of Object.entries(modules)) {

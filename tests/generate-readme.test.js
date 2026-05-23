@@ -26,6 +26,13 @@ const buildReadmeShell = (extras = '') =>
 
 Some prose.
 
+<!-- IDES_TABLE_START -->
+placeholder
+<!-- IDES_TABLE_END -->
+
+<!-- VERSION_NOTE_START -->
+<!-- VERSION_NOTE_END -->
+
 <!-- SKILLS_TABLE_START -->
 placeholder
 <!-- SKILLS_TABLE_END -->
@@ -35,6 +42,9 @@ placeholder
 <!-- SKILL_DETAILS_START -->
 placeholder
 <!-- SKILL_DETAILS_END -->
+
+<!-- MODULES_START -->
+<!-- MODULES_END -->
 
 ## Hand-written section that must NOT be touched
 
@@ -166,7 +176,7 @@ describe('renderReadmeFromPaths (project-root integration)', () => {
       '## Iron Law\nNO ZERO COVERAGE.\n'
     );
     writeFileSync(
-      join(projectRoot, 'meta', 'skills.yaml'),
+      join(projectRoot, 'meta', 'catalog.yaml'),
       stringify({ core: { demo: minimalV02Entry('demo') } })
     );
     writeFileSync(join(projectRoot, 'README.md'), buildReadmeShell());

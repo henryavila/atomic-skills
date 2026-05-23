@@ -239,7 +239,7 @@ describe('installSkills', () => {
     mkdirSync(metaDir, { recursive: true });
     writeFileSync(join(skillsDir, 'shared', 'codex-bridge-assets', 'sample.md'),
       'asset content path={{ASSETS_PATH}}');
-    writeFileSync(join(metaDir, 'skills.yaml'),
+    writeFileSync(join(metaDir, 'catalog.yaml'),
       'core: {}\nmodules:\n  codex-bridge:\n    name: codex-bridge\n    description: test\n');
 
     const projectDir = join(tmp, 'project');

@@ -21,7 +21,7 @@ review-code-with-codex on the resulting commit — and Codex found 3 NEW majors
 that the plan-review had no way to catch:
 
 - F-001: a step-ordering bug in the rendered review-plan body (the plan said "parse flags" but the body I wrote said "READ_TOOL at ARG_VAR" first — implementation drift from plan)
-- F-002: meta/skills.yaml `mutates_repo: false` contradicting the body that instructs edits — purely an implementation-level catalog/body mismatch invisible at plan-review time
+- F-002: meta/catalog.yaml `mutates_repo: false` contradicting the body that instructs edits — purely an implementation-level catalog/body mismatch invisible at plan-review time
 - F-003: a literal tool name in rationale prose — implementation-level wording the plan never specified
 
 The catches are disjoint from plan-review catches. Pattern is consistent with

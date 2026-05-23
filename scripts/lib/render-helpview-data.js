@@ -1,6 +1,6 @@
 import { collectSkills } from './validate-skills-core.js';
 
-const FILE_HEADER = `// GENERATED — do not edit. Source: meta/skills.yaml.
+const FILE_HEADER = `// GENERATED — do not edit. Source: meta/catalog.yaml.
 // Run \`npm run generate-docs\` to regenerate. See
 // docs/plan-skills-catalog-v0.2.md for the generator contract.
 

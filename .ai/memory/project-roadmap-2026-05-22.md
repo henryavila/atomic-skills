@@ -28,7 +28,7 @@ Três planos no `docs/` aguardando execução, em **ordem obrigatória**:
    - Bump major: 2.0.0 → **3.0.0** (mais 2 breaking removes)
 
 3. **`docs/plan-skills-catalog-v0.2.md`** — terceiro
-   - Schema v0.2 em `meta/skills.yaml`: 7 campos novos (one_liner, emoji, version_added, subcommands, args, output_artifacts, dependencies)
+   - Schema v0.2 em `meta/catalog.yaml` (renomeado de `skills.yaml` no rename-to-catalog initiative): 7 campos novos (one_liner, emoji, version_added, subcommands, args, output_artifacts, dependencies)
    - Validator cross-checks (skill body ↔ catalog entry)
    - Gerador de README.md + `src/dashboard/data/skills.generated.ts`
    - Pre-commit hook + CI workflow

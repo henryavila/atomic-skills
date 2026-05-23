@@ -1,3 +1,13 @@
+version: '0.2'
+
+# Optional callout rendered under `## Skills` as a versioned `> Note`.
+# Version string is pulled from package.json automatically; only the body
+# text lives here. Leave the block out entirely to suppress the note.
+release_highlight:
+  body: |
+    First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
+    See [CHANGELOG.md](CHANGELOG.md) for the full migration matrix.
+
 core:
   fix:
     name: fix
@@ -546,3 +556,38 @@ modules:
       output_artifacts:
         - '.ai/memory/MEMORY.md'
       schema_version: '0.2'
+
+# Documentation for the Modules section of README.md. Keys MUST match
+# entries under `modules:` above. Order here drives section order in the
+# rendered README.
+module_meta:
+  memory:
+    title: 'Memory'
+    intro: 'Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.'
+    features:
+      - 'Configurable path (default: `.ai/memory/`)'
+      - 'Adds the `atomic-skills:init-memory` skill'
+      - "Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)"
+      - 'Available in both project and user scope installations'
+  codex-bridge:
+    title: 'Codex Bridge'
+    version_added: '1.8.0'
+    intro: 'Shared infrastructure for the codex sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists consumed by the codex envelope:'
+    features:
+      - 'Anti-framing directive (literal text injected into every briefing)'
+      - 'Pre-flight checks, canonical Codex invocation, output validation checklist'
+      - 'Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)'
+      - 'Briefing templates (plan + code) and consolidated review file template'
+      - 'Reviews INDEX.md row template'
+    notes: 'Assets are installed per-IDE at `<ide-namespace>/_assets/` (e.g. `.claude/commands/atomic-skills/_assets/`) and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
+  auto-update:
+    title: 'Auto-Update'
+    version_added: '1.8.0'
+    intro: 'SessionStart hook that notifies you when a new version is available on npm — without polling or interrupting your flow.'
+    features:
+      - 'Hook script installed at `~/.atomic-skills/hooks/version-check.sh`'
+      - 'Merged into `~/.claude/settings.json` non-destructively (coexists with existing hooks)'
+      - '24h TTL on npm checks; async background fetch (0ms perceived latency)'
+      - 'Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var'
+      - 'Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`'
+      - 'Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)'

@@ -3,11 +3,93 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { collectSkills, bodyPathForSkill } from './validate-skills-core.js';
 import { extractIronLaw } from './extract-iron-law.js';
+import { IDE_CONFIG, SKILL_NAMESPACE } from '../../src/config.js';
 
 const TABLE_START = '<!-- SKILLS_TABLE_START -->';
 const TABLE_END = '<!-- SKILLS_TABLE_END -->';
 const DETAILS_START = '<!-- SKILL_DETAILS_START -->';
 const DETAILS_END = '<!-- SKILL_DETAILS_END -->';
+const IDES_START = '<!-- IDES_TABLE_START -->';
+const IDES_END = '<!-- IDES_TABLE_END -->';
+const MODULES_START = '<!-- MODULES_START -->';
+const MODULES_END = '<!-- MODULES_END -->';
+const VERSION_NOTE_START = '<!-- VERSION_NOTE_START -->';
+const VERSION_NOTE_END = '<!-- VERSION_NOTE_END -->';
+
+const FORMAT_LABELS = {
+  command: 'Command (slash)',
+  markdown: 'Markdown',
+  toml: 'TOML (Slash commands)',
+};
+
+function ideTargetDir(ide) {
+  // `toml` installers encode the namespace in the filename prefix
+  // (`atomic-skills-X.toml`), so the directory itself is the literal `ide.dir`.
+  // Every other format nests skill bodies under `<ide.dir>/<namespace>/`.
+  return ide.format === 'toml' ? `${ide.dir}/` : `${ide.dir}/${SKILL_NAMESPACE}/`;
+}
+
+export function renderIdesTable() {
+  const header = '| IDE | Profile | Directory | Format |\n|-----|---------|-----------|--------|';
+  const rows = Object.entries(IDE_CONFIG).map(([id, ide]) => {
+    const label = FORMAT_LABELS[ide.format] || ide.format;
+    return `| ${ide.name} | \`${id}\` | \`${ideTargetDir(ide)}\` | ${label} |`;
+  });
+  return [header, ...rows].join('\n');
+}
+
+function renderOneModule(key, meta) {
+  const heading = meta.version_added
+    ? `### ${meta.title} (new in ${meta.version_added})`
+    : `### ${meta.title}`;
+  const parts = [heading, '', meta.intro];
+  if (Array.isArray(meta.features) && meta.features.length > 0) {
+    parts.push('');
+    for (const f of meta.features) parts.push(`- ${f}`);
+  }
+  if (meta.notes) {
+    parts.push('');
+    parts.push(meta.notes);
+  }
+  return parts.join('\n');
+}
+
+/**
+ * Render the `> Note (vX.Y.Z): ...` callout under `## Skills`. Returns an
+ * empty string when `release_highlight` is absent (note is suppressed).
+ * Version is authoritative from `package.json` — the catalog only carries
+ * the editorial body so the two cannot disagree.
+ */
+export function renderVersionNote(releaseHighlight, pkgVersion) {
+  if (!releaseHighlight) return '';
+  if (typeof releaseHighlight !== 'object') {
+    throw new Error('release_highlight must be an object with a `body` field');
+  }
+  const body = typeof releaseHighlight.body === 'string' ? releaseHighlight.body.trim() : '';
+  if (body.length === 0) {
+    throw new Error('release_highlight.body must be a non-empty string');
+  }
+  const lines = body.split('\n');
+  const first = `> **Note (v${pkgVersion}):** ${lines[0]}`;
+  const rest = lines.slice(1).map((l) => `> ${l}`);
+  return [first, ...rest].join('\n');
+}
+
+/**
+ * Render the `## Modules` body from `data.module_meta`. Order follows the
+ * insertion order of the YAML map. Returns an empty string when the block
+ * is absent (suppresses the section — useful in unit-test fixtures). The
+ * orphan/missing cross-check is enforced separately by validateModuleMeta.
+ */
+export function renderModulesSection(moduleMeta) {
+  if (moduleMeta == null) return '';
+  if (typeof moduleMeta !== 'object') {
+    throw new Error('module_meta must be a mapping');
+  }
+  return Object.entries(moduleMeta)
+    .map(([key, meta]) => renderOneModule(key, meta))
+    .join('\n\n');
+}
 
 /**
  * Reproduce GitHub's auto-anchor algorithm for a Markdown heading:
@@ -148,7 +230,13 @@ export function renderDetails(skills, ironLaws) {
 }
 
 function ensureMarkers(readme) {
-  for (const marker of [TABLE_START, TABLE_END, DETAILS_START, DETAILS_END]) {
+  for (const marker of [
+    TABLE_START, TABLE_END,
+    DETAILS_START, DETAILS_END,
+    IDES_START, IDES_END,
+    MODULES_START, MODULES_END,
+    VERSION_NOTE_START, VERSION_NOTE_END,
+  ]) {
     if (!readme.includes(marker)) {
       throw new Error(
         `README missing required marker "${marker}". ` +
@@ -173,8 +261,17 @@ function replaceBetween(text, startMarker, endMarker, replacement) {
  * Pure renderer: takes a parsed catalog + current README content + a function
  * to read body files, returns the new README content.
  */
-export function renderReadme({ catalogData, readme, skillsDir }) {
+export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
   ensureMarkers(readme);
+
+  // pkgVersion is only required when the catalog carries a release_highlight
+  // block; otherwise the version-note section renders empty and the absence
+  // of package.json is tolerated (useful in unit-test fixtures).
+  if (catalogData.release_highlight && (!pkgVersion || typeof pkgVersion !== 'string')) {
+    throw new Error(
+      'renderReadme: pkgVersion is required when catalog has release_highlight'
+    );
+  }
 
   const skills = collectSkills(catalogData);
   const ironLaws = new Map();
@@ -191,9 +288,15 @@ export function renderReadme({ catalogData, readme, skillsDir }) {
 
   const table = renderTable(skills, ironLaws);
   const details = renderDetails(skills, ironLaws);
+  const idesTable = renderIdesTable();
+  const modulesBody = renderModulesSection(catalogData.module_meta);
+  const versionNote = renderVersionNote(catalogData.release_highlight, pkgVersion);
 
   let next = replaceBetween(readme, TABLE_START, TABLE_END, table);
   next = replaceBetween(next, DETAILS_START, DETAILS_END, details);
+  next = replaceBetween(next, IDES_START, IDES_END, idesTable);
+  next = replaceBetween(next, MODULES_START, MODULES_END, modulesBody);
+  next = replaceBetween(next, VERSION_NOTE_START, VERSION_NOTE_END, versionNote);
   return next;
 }
 
@@ -201,13 +304,27 @@ export function renderReadme({ catalogData, readme, skillsDir }) {
  * Convenience: read catalog and README from a project root, return the
  * rendered README.
  */
-export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, skillsDir }) {
-  const yamlPath = catalogPath || join(projectRoot, 'meta', 'skills.yaml');
+export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, skillsDir, pkgPath }) {
+  const yamlPath = catalogPath || join(projectRoot, 'meta', 'catalog.yaml');
   const mdPath = readmePath || join(projectRoot, 'README.md');
   const skDir = skillsDir || join(projectRoot, 'skills', 'en');
+  const pkgJsonPath = pkgPath || join(projectRoot, 'package.json');
   const catalogData = parse(readFileSync(yamlPath, 'utf8'));
   const readme = readFileSync(mdPath, 'utf8');
-  return renderReadme({ catalogData, readme, skillsDir: skDir });
+  let pkgVersion;
+  try {
+    pkgVersion = JSON.parse(readFileSync(pkgJsonPath, 'utf8')).version;
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    pkgVersion = undefined; // tolerated only when catalog has no release_highlight
+  }
+  return renderReadme({ catalogData, readme, skillsDir: skDir, pkgVersion });
 }
 
-export const MARKERS = { TABLE_START, TABLE_END, DETAILS_START, DETAILS_END };
+export const MARKERS = {
+  TABLE_START, TABLE_END,
+  DETAILS_START, DETAILS_END,
+  IDES_START, IDES_END,
+  MODULES_START, MODULES_END,
+  VERSION_NOTE_START, VERSION_NOTE_END,
+};

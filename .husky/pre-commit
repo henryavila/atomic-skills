@@ -1,8 +1,33 @@
 #!/usr/bin/env sh
-# Only validate the catalog when relevant files changed — keeps the hook
-# fast on commits that touch only e.g. docs/ or tests/ for other modules.
+set -e
 
-if git diff --cached --name-only | grep -qE '^(meta/skills\.yaml|skills/en/|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-)|src/dashboard/data/skills\.generated\.ts|README\.md)'; then
-  echo "[husky] catalog-related files changed — running validate-catalog"
+# Catalog → docs auto-regen pipeline.
+#
+# Step 1: if any catalog INPUT is staged, regenerate docs and re-stage the
+#         OUTPUTS so the commit captures the up-to-date generated files
+#         atomically (no second "fix README" commit needed).
+#
+# Step 2: if any catalog-coupled file is staged (inputs OR outputs OR README),
+#         run validate-catalog as the final guard. Catches manual edits to
+#         marker-bounded regions and unknown `atomic-skills:<name>` mentions.
+#
+# Hand-edits to README.md outside markers and outside the lint regex are not
+# touched by the regenerator — they survive across regen runs.
+
+STAGED=$(git diff --cached --name-only)
+
+# Inputs: catalog, skill bodies, IDE registry, package version, generator code.
+INPUTS_REGEX='^(meta/catalog\.yaml|skills/en/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law))'
+
+# Coupled = inputs + outputs (README, dashboard data).
+COUPLED_REGEX='^(meta/catalog\.yaml|skills/en/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law)|src/dashboard/data/skills\.generated\.ts|README\.md)'
+
+if echo "$STAGED" | grep -qE "$INPUTS_REGEX"; then
+  echo "[husky] catalog inputs changed — regenerating docs"
+  npm run generate-docs
+  git add README.md src/dashboard/data/skills.generated.ts
+fi
+
+if echo "$STAGED" | grep -qE "$COUPLED_REGEX"; then
   npm run validate-catalog
 fi

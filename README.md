@@ -50,24 +50,26 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 ### Supported IDEs
 
+<!-- IDES_TABLE_START -->
 | IDE | Profile | Directory | Format |
 |-----|---------|-----------|--------|
-| **Claude Code** | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
-| **Gemini CLI** | `gemini` | `.gemini/skills/atomic-skills/` | Markdown (Recommended) |
-| **Gemini CLI** | `gemini-commands`| `.gemini/commands/` | TOML (Slash commands) |
+| Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
 | Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown |
+| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills/` | Markdown |
+| Gemini CLI (Commands) | `gemini-commands` | `.gemini/commands/` | TOML (Slash commands) |
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
-| GitHub Copilot | `github-copilot`| `.github/skills/atomic-skills/` | Markdown |
+| GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown |
+<!-- IDES_TABLE_END -->
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
 
 ## Skills
 
-> **Note (v3.0.0):** `review-plan-with-codex` and `review-code-with-codex`
-> were merged into their same-model counterparts. The codex envelope flow
-> is now opt-in via a Step 0 mode picker ("both", "local", or "codex").
-> See [CHANGELOG.md](CHANGELOG.md) for migration.
+<!-- VERSION_NOTE_START -->
+> **Note (v2.0.0):** First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
+> See [CHANGELOG.md](CHANGELOG.md) for the full migration matrix.
+<!-- VERSION_NOTE_END -->
 
 ### Overview
 
@@ -568,241 +570,6 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 ---
 <!-- SKILL_DETAILS_END -->
 
-<details>
-<summary>Legacy hand-written per-skill prose (preserved here while the generated section above is canonical)</summary>
-
-### `atomic-skills:fix` — Root Cause Diagnosis + TDD Fix
-
-**Problem it solves:** Agents jump straight to a fix without investigating the root cause, producing fragile patches that break in other scenarios and introduce regressions.
-
-**What it does:** Enforces a 4-phase detective process — observe evidence, diagnose with testable hypotheses, fix with TDD (test first, fix second), and verify with the full suite.
-
-**When to use:** Whenever you find a bug or unexpected behavior in code.
-
-**Advantages:**
-- Eliminates guesswork fixes — every correction has a documented root cause with line numbers
-- Test cluster covers regression, equivalence partitions, boundaries, and error inputs
-- Mental mutation spot-checks verify each condition has coverage ("if I changed `>=` to `>`, would a test catch it?")
-- 5-hypothesis escalation limit prevents infinite loops
-
-**Iron Law:** `NO FIX WITHOUT ROOT CAUSE`
-
----
-
-### `atomic-skills:hunt` — Adversarial Tests for Existing Code
-
-**Problem it solves:** Code without tests or with shallow coverage hides silent bugs. Tests written "to confirm" the code (instead of breaking it) are tautological and catch nothing.
-
-**What it does:** Writes aggressive, adversarial tests designed to *break* code, not confirm it. Single-file: 6-phase deep hunt (read, understand intent, map gaps, plan attack, write, report). Directory: triages by risk and spawns isolated subagents per file.
-
-**When to use:** When code lacks tests, coverage is low, or you suspect untested edge cases.
-
-**Advantages:**
-- HARD-GATE against tautology: "Does the expected value come from SPEC or CODE?" — if from code, the test is useless
-- Risk-based ranking for directories (0 test refs OR >8 commits = high risk)
-- Isolated subagents per file prevent cross-file context contamination
-- Bugs found generate a structured report with a reproducing test ready for `as-fix`
-
-**Iron Law:** `NO HUNT WITHOUT BOUNDED SCOPE`
-
----
-
-### `atomic-skills:prompt` — Optimized Prompt Generation
-
-**Problem it solves:** Generic prompts fail because they lack exact file paths, real codebase context, and guardrails against agent shortcuts.
-
-**What it does:** Explores the codebase first (Glob, Grep, Read), identifies relevant files and dependencies, then generates a self-contained prompt with Iron Law, tool-naming steps, Red Flags, and a task-specific Rationalization table.
-
-**When to use:** When you need a precise prompt with exact paths and guardrails — whether to execute yourself or delegate to a subagent.
-
-**Advantages:**
-- Generated prompt has verified absolute paths (not guesses)
-- Each step names the tool and requires evidence (line numbers)
-- Offers 3 options: copy, execute via subagent, or adjust
-- Compatible with any IDE via template variables
-
-**Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS`
-
----
-
-### `atomic-skills:parallel-dispatch` — Dispatch a Task List to N Parallel Sessions
-
-**Problem it solves:** You have a consolidated list of independent tasks you want to run in parallel sessions while you sleep / attend a meeting / work on something else. Running agent swarms without structure causes file collisions, paraphrased intent, broad-stage git contamination, and merge wars. Sequential work leaves the machine idle.
-
-**What it does:** Takes a user-provided task list and dispatches it through a four-gate pipeline. **HARD-GATE #1 (Q1-Q4)** validates parallelism benefit — aborts on exploratory requests, non-concrete end states, trivial scope, or hard dependencies. **HARD-GATE #2** proves scope disjointness via pairwise grep (convergence criterion, no operational limits). Generates N self-contained prompts with the user's original request **verbatim** (no paraphrase), a unique batch id (`[dispatch-<timestamp>-<slug>]`), branch record, and explicit `git add <path>` protocol (blocks `git add -A` contamination from sibling sessions). Writes the combined plan to `.atomic-skills/dispatches/<slug>.md` and asks before opening it in mdprobe.
-
-**When to use:** User has a well-defined task list with paths per task. Skill is NOT for brainstorming or inventing tasks from a vague prompt — it validates what the user brought and dispatches mechanically.
-
-**Advantages:**
-- HARD-GATE #1 aborts bad-fit invocations early (exploratory work, hard deps, trivial scope)
-- Convergence criterion over arbitrary operation limits — stops exploring when decomposition hypothesis stabilizes
-- User's task text preserved verbatim in each prompt — no lossy paraphrase
-- Batch id is unique per invocation (timestamp + slug) — `git log --grep` audits are deterministic
-- Explicit `git add <path>` protocol prevents sibling-session staging contamination
-- Confidence scoring (HIGH/MEDIUM/LOW) — LOW refuses by default
-
-**Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION`
-
-> **Related: `superpowers:dispatching-parallel-agents`**
-> Different dispatch model, different problem:
-> - Use **superpowers** when work fits the current session — `Task()` primitive runs sub-agents synchronously inside the parent context. Good for "3 failing test files to debug right now".
-> - Use **parallel-dispatch** when you're stepping away — copy-paste handoff to N fresh sessions, parent context freed, persistent plan + audit trail. Good for overnight work, long meetings, or when the parent context is tight.
->
-> The two are complementary, not substitutes.
-
----
-
-### `atomic-skills:parallel-dispatch-audit` — Audit a parallel-dispatch Batch
-
-**Problem it solves:** After N parallel agents run, trusting commit messages leads to silent failures — empty files commit fine, wrong content commits fine, broken cross-references commit fine. Without a narrow-authority auditor, either nothing gets verified or the auditor refactors what it shouldn't.
-
-**What it does:** Reads the plan file at `.atomic-skills/dispatches/<slug>.md`, inventories commits by batch id (`git log --grep`), runs a count check (expected N vs found M), opens **every** expected deliverable on disk, audits each agent on 4 dimensions (completeness, quality, integration, executability), runs a 2.5th pass for documentation integrity and shared-state collisions, applies cosmetic fixes with a derived `[audit-dispatch-<slug>]` prefix, consolidates memory if in scope, and produces a report with push-status and pending decisions. **Active-batch HARD-GATE** pauses if the latest matching commit is <2 min old (slow agent misclassified as failed). **Read-only mode** triggers on ≥5 issues or architectural problems — no fixes, report only.
-
-**When to use:** After all `parallel-dispatch` agents complete — run in a fresh session with the batch slug as argument. Supports a **degraded mode** when no plan file is present (manual dispatch).
-
-**Advantages:**
-- HARD-GATE #1: ≥5 issues or any architectural problem → read-only mode (prevents piecemeal fixes hiding a bad dispatch)
-- HARD-GATE #2: latest commit <2 min old → pause and confirm completion (prevents misclassifying slow agents)
-- Narrow authority: verify + cosmetic fix only. No refactor, no revert without confirmation, no auto-push
-- Count check (expected N vs found M) catches incomplete batches early
-- Phase 2.5 catches broken cross-references AND shared-state collisions (lockfiles, build artifacts, root config) the N agents missed
-- Contradiction protocol: newest timestamp wins, with explicit resolution logged
-- Degraded mode for manual dispatches: audit by prefix only when plan is absent, announce limitation
-
-**Iron Law:** `NO CONCLUSION WITHOUT EVIDENCE FROM DISK`
-
----
-
-### `atomic-skills:review-plan` — Adversarial Plan Review (Local + Codex)
-
-**Problem it solves:** Plans contain internal contradictions, broken dependencies, ambiguous tasks, and missing steps. When derived from a PRD/spec, the plan also drifts silently — requirements get oversimplified, ACs lose details, phantom features creep in. Same-model review (Claude reviewing Claude) misses bugs by self-preference bias (arXiv [2410.21819](https://arxiv.org/abs/2410.21819)); cross-model review alone still misses bugs that self-review catches cheaply. Empirically the two modes catch DISJOINT sets of findings (verified across two real sessions; see CHANGELOG 3.0.0 rationale).
-
-**What it does:** Step 0a picks the review mode; Step 0b picks cross-ref scope.
-
-- **Mode picker (Step 0a):**
-  - **Both (default)** — local self-loop runs first (catches contradictions, broken deps, ordering); plan is fixed inline; then codex cross-model review runs on the CLEANED plan with sealed envelope.
-  - **Local only** — same-model self-loop. Cheap, fast.
-  - **Codex only** — straight to cross-model envelope. Use when another agent already self-reviewed.
-- **Cross-ref picker (Step 0b)** — orthogonal to mode picker. `Internal only` runs the 7-item self-loop checklist; `Cross-reference with detected/custom artifacts` adds 6 more checks (requirement coverage, AC, phase gates, dep graph, schema/API, UX) and activates the HARD-GATE forbidding artifact edits.
-
-Codex sub-flow follows the **two-pass sealed envelope** pattern (Pass 1 blind / Pass 2 informed, delta = framing-bias signal). When mode=both, the codex briefing receives only the CLEANED plan + external constraints — NEVER the local findings or fix log.
-
-**When to use:**
-- Significant plan about to enter execution — use `both`.
-- Cheap structural sanity check — use `local`.
-- Cross-model bug hunt only — use `codex`.
-
-**Pre-requisites for codex/both modes:**
-- OpenAI Codex CLI installed (`npm install -g @openai/codex` or `brew install --cask codex`)
-- `codex login` completed
-- Clean working tree (or `--allow-dirty` flag)
-
-**Non-interactive callers** (loops in `project-plan` Stage 8b, `project-status` phase-completion review) MUST pass `--mode=local` (alias `--mode=internal`) to skip the picker.
-
-**Output (codex/both modes):** Consolidated review file in `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md` with both pass outputs, reconciliation, framing delta, and (in `both` mode) the local fix log. `INDEX.md` tracks history.
-
-**Advantages:**
-- Mode picker formalizes the empirical workflow ("both" covers disjoint findings)
-- Sealed envelope contract — codex never sees local findings or fix descriptions; preserves the cross-model invariant
-- Cross-ref HARD-GATE forbids editing source artifacts
-- All findings cite line numbers (local) or `file:line` + 4 fields (codex)
-- Code-quality self-review (G1 + G2 + G6) catches bare assertions and soft-language
-
-**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE` + `NO INTENT IN THE BRIEFING` (codex sub-flow)
-
-See [`docs/kb/cross-model-review-design.md`](docs/kb/cross-model-review-design.md) for envelope design.
-
----
-
-### `atomic-skills:review-code` — Adversarial Code Review (Local + Codex)
-
-**Problem it solves:** Reviewing code with the same model that wrote it misses bugs by self-preference bias. Especially risky in critical paths (auth, payments, data integrity, async/concurrent logic). Empirically same-model and cross-model catch DISJOINT sets of bugs.
-
-**What it does:** Same mode picker (local / codex / both, default both) for code changes given a git ref — branch, single commit, or commit range (`main..HEAD`, `main...HEAD`).
-
-- **Range-aware ref validation** — triple-dot detected FIRST (avoids the classic `'main...HEAD'.split('..')` bug), then double-dot, then SINGLE.
-- **Shape-specific diff command** — commit: `git show --patch`; branch: `git diff $(git merge-base <base> <branch>)..<branch>`; range: `git diff <range>`. Never `git diff <single-ref>` raw (leaks worktree edits).
-- **Captured diff invariant** — both phases (local checklist + codex briefing) consume the SAME `CAPTURED_DIFF` materialized once; never re-run `git diff`. Guarantees byte-identical material across reviewers.
-
-**Local mode** runs a 7-item checklist (logic bugs, race conditions, error handling, schema/migrations, API contracts, file/function references, test coverage), iterating up to 3 passes.
-
-**Codex sub-flow** runs the **two-pass sealed envelope** pattern (Pass 1 blind / Pass 2 informed). When mode=both, the codex briefing receives only the CLEANED diff + external constraints — NEVER the local findings or fix log.
-
-**When to use:**
-- Critical change (auth, payments, data integrity) — use `both`.
-- Routine pre-merge sanity check — use `local`.
-- Cross-model bug hunt only — use `codex`.
-
-**Pre-requisites for codex/both modes:** Same as `review-plan` (codex CLI + login + clean tree or `--allow-dirty`).
-
-**Output (codex/both modes):** Consolidated review file in `.atomic-skills/reviews/` with both pass outputs, reconciliation, framing delta, and (in `both` mode) the local fix log.
-
-**Advantages:**
-- Mode picker covers the empirically disjoint find-sets
-- Sealed envelope contract preserved across local→codex hand-off
-- Range-aware validation avoids ref-parsing bugs; shape-specific diff avoids worktree leaks
-- Cost-aware: warns if diff exceeds 50KB before invoking codex
-- Code-quality self-review (G1 + G2 + G3 + G4 + G7) for the fixes you apply
-
-**Iron Law:** `NO APPROVAL WITHOUT EVIDENCE` + `NO INTENT IN THE BRIEFING` (codex sub-flow)
-
----
-
-### `atomic-skills:save-and-push` — Save Work & Publish
-
-**Problem it solves:** Work stays scattered in conversation, memory isn't preserved for future sessions, commits are chaotic, and secrets get accidentally committed.
-
-**What it does:** Reviews conversation to extract learnings (saves to memory), saves work-in-progress as files, groups commits by logical unit (feature, layer, nature), formats code if configured, and pushes — with HARD-GATE on main/master.
-
-**When to use:** At the end of a work session, or whenever you want to save progress and publish.
-
-**Advantages:**
-- Persistent memory: patterns and decisions survive between sessions
-- Logically grouped commits (not a dump of everything)
-- Secret filtering (.env, credentials) with mandatory STOP
-- HARD-GATE prevents direct push to main/master — requires branch + PR
-
-**Iron Law:** `NO PUSH WITHOUT FRESH VERIFICATION`
-
----
-
-### `atomic-skills:project-status` — Canonical Per-Initiative Status Tracking
-
-**Problem it solves:** Users and AI agents lose track of where they are mid-implementation when tasks spawn sub-tasks, bugs, scope expansions, and lateral explorations across sessions and worktrees.
-
-**What it does:** Maintains `.atomic-skills/PROJECT-STATUS.md` (index) and `.atomic-skills/initiatives/<slug>.md` (per-initiative: stack + tasks + parked + emerged + next action) as canonical source of truth. Three enforcement layers: (a) skill invocation, (b) CLAUDE.md HARD-GATE + AGENTS.md redirect auto-installed, (c) Claude Code hooks (SessionStart injection + Stop predicate in dry-run). Terminal rendering is compact and works out of the box; browser rendering is optional via `npx -y @henryavila/mdprobe` with Mermaid Gantt/Flowchart/Stack diagrams.
-
-**When to use:** Starting a new initiative, resuming after context switch, pushing a new stack frame (research/discussion), parking lateral findings, promoting parked items, marking tasks done, archiving, or viewing current state.
-
-**Advantages:**
-- Single canonical source; survives sessions and worktrees
-- Enforcement via hooks (not just prompts) — hard to "forget"
-- Cross-repo scope auto-tracked from tool activity
-- Terminal + browser rendering built-in
-- AGENTS.md compatibility for multi-IDE projects
-
-**Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE`
-
----
-
-### `atomic-skills:init-memory` — Persistent Memory Initialization
-
-**Problem it solves:** Projects have memory scattered across different locations (`.memory/`, `.claude/memory/`, `docs/memory/`, etc.), causing duplication, context loss, and inconsistency.
-
-**What it does:** Detects existing memory in all known locations, migrates to the canonical path (`.ai/memory/`), organizes by theme, configures Claude Code integration (`autoMemoryDirectory`), and cleans up original directories (with confirmation).
-
-**When to use:** When starting a new project or standardizing memory structure for an existing one.
-
-**Advantages:**
-- Single canonical location, versioned in git and shared with the team
-- Respects the 200-line MEMORY.md limit (content beyond is silently truncated by Claude)
-- Safe migration: copies first, validates, only removes originals with confirmation
-- `autoMemoryDirectory` support for direct integration (no redirect needed)
-
-**Iron Law:** `NO DELETION WITHOUT CONFIRMED BACKUP`
-
-</details>
-
 ---
 
 ## Techniques
@@ -842,6 +609,7 @@ When creating new skills, always use the variables defined in `AGENTS.md`.
 
 Modules bundle optional skills, shared assets, or hooks on top of the core skills. Today, activation happens through the interactive dashboard (`customize modules` action) — there is no `--modules` CLI flag. The `memory`, `codex-bridge`, and `auto-update` modules are enabled on every install.
 
+<!-- MODULES_START -->
 ### Memory
 
 Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.
@@ -873,6 +641,7 @@ SessionStart hook that notifies you when a new version is available on npm — w
 - Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var
 - Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`
 - Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)
+<!-- MODULES_END -->
 
 ## Install, Update, Uninstall
 

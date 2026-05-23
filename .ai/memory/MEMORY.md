@@ -16,3 +16,4 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, e
 - [decisao-skills-en-only.md](decisao-skills-en-only.md) — Skill bodies são EN-only; PT é diretiva injetada em runtime pelo renderer. Nunca criar `skills/pt/`.
 - [project-roadmap-2026-05-22.md](project-roadmap-2026-05-22.md) — 2 planos sequenciais: `plan-review-skills-consolidation.md` PRIMEIRO, `plan-skills-catalog-v0.2.md` depois. Ordem obrigatória.
 - [feedback-skill-body-review-rules.md](feedback-skill-body-review-rules.md) — 3 regras pra revisar skill bodies antes de publicar: run code-review-with-codex pós-impl, grep literal tool names em rationale, parse-flags-first em Step 0.
+- [reference-readme-generator-contract.md](reference-readme-generator-contract.md) — README gerado de `meta/catalog.yaml` + `src/config.js` via 5 markers; `module_meta` é irmão de `modules` (não reshape); lint de menções pega drift estático.

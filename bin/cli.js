@@ -43,7 +43,7 @@ if (values.help || !command) {
   Usage:
     npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>]
     npx @henryavila/atomic-skills detect     [--project] [--json]
-    npx @henryavila/atomic-skills status
+    npx @henryavila/atomic-skills status     [--project]
     npx @henryavila/atomic-skills uninstall  [--project]
     npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--force-build] [--aideck-bin <path>]
 
@@ -96,7 +96,7 @@ if (values.help || !command) {
   await uninstall(process.cwd(), scope);
 } else if (command === 'status') {
   const { status } = await import('../src/status.js');
-  status(process.cwd());
+  status(process.cwd(), { forceProject: values.project });
 } else if (command === 'serve') {
   const { serve } = await import('../src/serve.js');
   await serve({

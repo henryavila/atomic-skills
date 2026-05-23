@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regenerate `src/dashboard/data/skills.generated.ts` from
- * `meta/skills.yaml`.
+ * `meta/catalog.yaml`.
  *
  * Usage:
  *   node scripts/generate-helpview-data.js          # rewrites the file
@@ -16,7 +16,7 @@ import { renderHelpViewData } from './lib/render-helpview-data.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
-const CATALOG_PATH = join(PROJECT_ROOT, 'meta', 'skills.yaml');
+const CATALOG_PATH = join(PROJECT_ROOT, 'meta', 'catalog.yaml');
 const OUT_PATH = join(PROJECT_ROOT, 'src', 'dashboard', 'data', 'skills.generated.ts');
 
 function main() {
@@ -37,7 +37,7 @@ function main() {
     if (current === next) {
       process.exit(0);
     }
-    console.error(`✖ ${OUT_PATH} is out of sync with meta/skills.yaml`);
+    console.error(`✖ ${OUT_PATH} is out of sync with meta/catalog.yaml`);
     process.exit(1);
   }
 

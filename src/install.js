@@ -39,7 +39,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
   const { onFileWritten } = callbacks;
 
   // Load skill metadata
-  const metaRaw = readFileSync(join(metaDir, 'skills.yaml'), 'utf8');
+  const metaRaw = readFileSync(join(metaDir, 'catalog.yaml'), 'utf8');
   const meta = parseYaml(metaRaw);
 
   // Build variables and module flags
@@ -279,7 +279,7 @@ export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWrit
 function preRenderFiles(options) {
   const { language, ides, modules, skillsDir, metaDir } = options;
 
-  const metaRaw = readFileSync(join(metaDir, 'skills.yaml'), 'utf8');
+  const metaRaw = readFileSync(join(metaDir, 'catalog.yaml'), 'utf8');
   const meta = parseYaml(metaRaw);
 
   const vars = {};

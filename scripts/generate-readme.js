@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regenerate the SKILLS_TABLE + SKILL_DETAILS sections of README.md from
- * `meta/skills.yaml` + skill bodies.
+ * `meta/catalog.yaml` + skill bodies.
  *
  * Usage:
  *   node scripts/generate-readme.js          # rewrites README.md in place
@@ -59,7 +59,7 @@ function main() {
     if (current === next) {
       process.exit(0);
     }
-    console.error('✖ README.md is out of sync with meta/skills.yaml');
+    console.error('✖ README.md is out of sync with meta/catalog.yaml');
     console.error(diffLines(current, next));
     process.exit(1);
   }

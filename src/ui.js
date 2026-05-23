@@ -40,6 +40,8 @@ export const MESSAGES = {
     noIDEsDetected: 'Nenhuma IDE detectada — selecione manualmente.',
     done: 'Concluído.',
     installingMsg: (version) => `Instalando atomic-skills v${version}...`,
+    skillsCount: (n) => `${n} skills`,
+    filesInstalled: (n) => `${n} arquivos instalados.`,
   },
   en: {
     installDefaults: 'Install with detected defaults',
@@ -74,6 +76,8 @@ export const MESSAGES = {
     noIDEsDetected: 'No IDEs detected — please select manually.',
     done: 'Done.',
     installingMsg: (version) => `Installing atomic-skills v${version}...`,
+    skillsCount: (n) => `${n} skills`,
+    filesInstalled: (n) => `${n} files installed.`,
   },
 };
 
@@ -195,7 +199,7 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
     if (!cfg) continue;
     const count = byIDE[id] ?? 0;
     const dirLabel = `${cfg.dir}/${SKILL_NAMESPACE}/`;
-    p.log.success(`${pc.bold(ideDisplayName(id))}  ${count} skills → ${pc.dim(dirLabel)}`);
+    p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(count)} → ${pc.dim(dirLabel)}`);
   }
 
   if (isFirstInstall) {
@@ -240,10 +244,10 @@ export function showNonInteractiveResult(result, ides, lang) {
     const cfg = IDE_CONFIG[id];
     if (!cfg) continue;
     const count = byIDE[id] ?? 0;
-    p.log.success(`${pc.bold(ideDisplayName(id))}  ${count} skills`);
+    p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(count)}`);
   }
 
-  p.outro(`${m.done} ${result.files.length} files installed.`);
+  p.outro(`${m.done} ${m.filesInstalled(result.files.length)}`);
 }
 
 // ---------------------------------------------------------------------------
