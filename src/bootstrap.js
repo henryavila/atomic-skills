@@ -280,6 +280,33 @@ function coerceToIsoTimestamp(value, fallbackNow) {
  * bootstraps or hand-edits), fold `planLink` into `references[]` if
  * present, and strip bootstrap metadata.
  */
+/**
+ * Detect whether a markdown source describes a multi-phase Plan (≥ 2 phase
+ * headings) vs a single Initiative (everything else). Used by `discover`
+ * Phase 1b to route signals to the right cluster shape, and by Phase 4 to
+ * route drafts through decompose.js vs the legacy draftToInitiative path.
+ *
+ * Matches H2 headings like:
+ *   ## F0 — Foundation
+ *   ## F12: Cleanup
+ *   ## Phase 3 — Migration
+ *   ## Fase 2 — Validação
+ *
+ * Returns 'plan' on ≥ 2 matches, 'initiative' otherwise.
+ */
+export function detectPlanShape(markdown) {
+  if (typeof markdown !== 'string' || markdown.length === 0) return 'initiative';
+  // Phase headings — EN (Phase N), PT (Fase N), or canonical (F0/F12/...)
+  const re = /^##\s+(F\d+|Phase\s+\d+|Fase\s+\d+)\b/gim;
+  let count = 0;
+  // eslint-disable-next-line no-unused-vars
+  for (const _m of markdown.matchAll(re)) {
+    count++;
+    if (count >= 2) return 'plan';
+  }
+  return 'initiative';
+}
+
 export function draftToInitiative(draft, now = new Date()) {
   const fm = { ...draft.frontmatter };
 

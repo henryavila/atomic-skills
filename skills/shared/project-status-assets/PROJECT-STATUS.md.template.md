@@ -20,8 +20,9 @@ Standalone initiatives (no `parentPlan`) coexist with plan-anchored initiatives.
 
 ## Active Plans
 
-_(none yet — run `atomic-skills:project-status new-plan <slug>` to start one,
-or `atomic-skills:project-status adopt <plan-file.md>` to capture an existing plan)_
+_(none yet — run `atomic-skills:project-plan <slug>` to bootstrap interactively,
+`atomic-skills:project-plan adopt <plan-file.md>` to capture an existing plan,
+or `atomic-skills:project-plan discover` to scan repo for in-flight work)_
 
 | Slug | Status | Current Phase | Branch | Started |
 |------|--------|---------------|--------|---------|
@@ -29,7 +30,7 @@ or `atomic-skills:project-status adopt <plan-file.md>` to capture an existing pl
 
 ## Active Initiatives (standalone)
 
-_(initiatives not anchored to a plan — run `atomic-skills:project-status new <slug>` to start one)_
+_(initiatives not anchored to a plan — run `atomic-skills:project-plan new <slug>` to start one)_
 
 | Slug | Status | Branch | Started | Next Action |
 |------|--------|--------|---------|-------------|

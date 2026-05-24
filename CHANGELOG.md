@@ -7,10 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] — 2026-05-23
 
-First major bump since 1.8.x. Consolidates four threads of work — the review
-skills refactor (4 → 2 with a mode picker), the catalog v0.2 schema + rename
-to `meta/catalog.yaml`, a README + dashboard doc generator with five
-marker-bounded regions, and a husky auto-regen pre-commit hook.
+First major bump since 1.8.x. Consolidates **five** threads of work — the
+review skills refactor (4 → 2 with a mode picker), the catalog v0.2 schema
++ rename to `meta/catalog.yaml`, a README + dashboard doc generator with
+five marker-bounded regions, a husky auto-regen pre-commit hook, and a
+verb-based split between `project-status` (VIEW + daily mutations) and
+`project-plan` (CREATE + STRUCTURAL + DISCOVER).
+
+### Project-status / project-plan refactor
+
+- **`project-status` shrinks from 23 → 16 subcommands.** Only view + daily
+  mutation commands remain (push, pop, park, emerge, promote, done,
+  phase-done, phase-reopen, archive, switch, re-ratify, scope-creep, why,
+  detect-scope, review-due). Skill body drops from 1347 → 908 lines.
+- **`project-plan` absorbs all CREATE + STRUCTURAL + MIGRATION commands:**
+  default bootstrap, `adopt`, `discover` (NEW), `new`, `new-task`,
+  `new-phase`, `split-phase`, `migrate`, `re-bootstrap`. Skill body grows
+  from 415 → 865 lines.
+- **`discover` subcommand (NEW, renamed from the legacy `bootstrap`).**
+  Multi-source scan (git, github, docs, roadmap, `.ai/memory/`, custom
+  paths via `--scan=<path>`) → cluster → synthesize → propose Plans +
+  Initiatives in one preview. Extended with plan-detection heuristic
+  (`detectPlanShape` in `src/bootstrap.js`): markdown sources with ≥ 2
+  phase headings (`## F0`, `## Phase 0`, `## Fase 0`) route through
+  `decomposePlan` + `materializeDecomposition` to become Plans, not just
+  standalone Initiatives. Closes the gap where the legacy `bootstrap`
+  only produced flat initiatives even when the source had phase structure.
+- **Verb-based mental model:** "track existing state" → `project-status`;
+  "create or restructure state" → `project-plan`. Single entry-point for
+  "I don't know where to start" is `project-plan discover`.
+- PROJECT-STATUS.md template + skill cross-references updated to point at
+  the new homes for moved commands. No backwards-compat aliases — this
+  ships before the v2.0.0 publish.
 
 ### Breaking changes
 

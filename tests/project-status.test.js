@@ -197,7 +197,7 @@ describe('project-status skill', () => {
   });
 
   for (const lang of ['en']) {
-    it(`skill documents bootstrap subcommand and options (${lang})`, () => {
+    it(`project-plan skill documents discover subcommand and options (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
         ides: ['claude-code'],
@@ -206,17 +206,17 @@ describe('project-status skill', () => {
         metaDir: META_DIR,
       });
       const content = readFileSync(
-        join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+        join(tempDir, '.claude/commands/atomic-skills/project-plan.md'),
         'utf8'
       );
-      for (const token of ['bootstrap', '--dry-run', '--commit', '--scope']) {
+      for (const token of ['discover', '--dry-run', '--commit', '--scope']) {
         assert.ok(content.includes(token), `[${lang}] missing token: ${token}`);
       }
     });
   }
 
   for (const lang of ['en']) {
-    it(`skill documents Phase 1a shell commands for all Layer 1 sources (${lang})`, () => {
+    it(`project-plan skill documents Phase 1a shell commands for all Layer 1 sources (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
         ides: ['claude-code'],
@@ -225,7 +225,7 @@ describe('project-status skill', () => {
         metaDir: META_DIR,
       });
       const content = readFileSync(
-        join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+        join(tempDir, '.claude/commands/atomic-skills/project-plan.md'),
         'utf8'
       );
       const phaseLabel = 'Phase';
@@ -244,7 +244,7 @@ describe('project-status skill', () => {
   }
 
   for (const lang of ['en']) {
-    it(`skill documents Phase 1b LLM extraction for narrative sources (${lang})`, () => {
+    it(`project-plan skill documents Phase 1b LLM extraction for narrative sources (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
         ides: ['claude-code'],
@@ -253,7 +253,7 @@ describe('project-status skill', () => {
         metaDir: META_DIR,
       });
       const content = readFileSync(
-        join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+        join(tempDir, '.claude/commands/atomic-skills/project-plan.md'),
         'utf8'
       );
       const phaseLabel = 'Phase';
@@ -265,7 +265,7 @@ describe('project-status skill', () => {
   }
 
   for (const lang of ['en']) {
-    it(`skill documents Phase 2 clustering, Phase 3 synthesis, Phase 4 commit (${lang})`, () => {
+    it(`project-plan skill documents Phase 2 clustering, Phase 3 synthesis, Phase 4 commit (${lang})`, () => {
       installSkills(tempDir, {
         language: lang,
         ides: ['claude-code'],
@@ -274,7 +274,7 @@ describe('project-status skill', () => {
         metaDir: META_DIR,
       });
       const content = readFileSync(
-        join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+        join(tempDir, '.claude/commands/atomic-skills/project-plan.md'),
         'utf8'
       );
       const phaseLabel = 'Phase';
@@ -310,8 +310,8 @@ describe('project-status skill', () => {
     });
   }
 
-  // ─── 3-level model (B.T-005) ────────────────────────────────────────────
-  it('skill body documents 3-level commands (new-plan, phase-done, phase-reopen, detect-scope, migrate)', () => {
+  // ─── 3-level model (B.T-005, then split between status + plan) ──────────
+  it('skill bodies document 3-level commands across the project-status/project-plan split', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
@@ -319,14 +319,26 @@ describe('project-status skill', () => {
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
-    const content = readFileSync(
+    const statusContent = readFileSync(
       join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
       'utf8'
     );
-    for (const cmd of ['new-plan', 'phase-done', 'phase-reopen', 'detect-scope', 'migrate']) {
+    const planContent = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-plan.md'),
+      'utf8'
+    );
+    // Status owns daily mutations + transitions
+    for (const cmd of ['phase-done', 'phase-reopen', 'detect-scope']) {
       assert.ok(
-        content.includes('### `' + cmd),
-        `skill body must document mutation command: ${cmd}`
+        statusContent.includes('### `' + cmd),
+        `project-status body must document: ${cmd}`
+      );
+    }
+    // Plan owns creation + migration + structural
+    for (const cmd of ['discover', 'adopt', 'new', 'migrate']) {
+      assert.ok(
+        planContent.includes('## `' + cmd),
+        `project-plan body must document: ${cmd}`
       );
     }
   });

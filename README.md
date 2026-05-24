@@ -80,8 +80,8 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 | 💾 | [`save-and-push`](#atomic-skillssave-and-push--commit--memory--push) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
 | 🔍 | [`review-plan`](#atomic-skillsreview-plan--adversarial-local--codex) | Adversarial plan review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
 | 🔬 | [`review-code`](#atomic-skillsreview-code--adversarial-local--codex) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
-| 📊 | [`project-status`](#atomic-skillsproject-status--initiative-tracking) | Canonical per-initiative status tree with stack + parked + emerged | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
-| 🗺️ | [`project-plan`](#atomic-skillsproject-plan--multi-phase-plan-bootstrap) | Bootstrap a multi-phase Plan with child Initiatives + Tasks | `NO PLAN WITHOUT NARRATIVE.` |
+| 📊 | [`project-status`](#atomic-skillsproject-status--initiative-tracking) | View + daily mutations on the .atomic-skills/ tree | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
+| 🗺️ | [`project-plan`](#atomic-skillsproject-plan--create-discover-migrate) | Create + restructure + discover Plans and Initiatives | `NO PLAN WITHOUT NARRATIVE.` |
 | 📝 | [`prompt`](#atomic-skillsprompt--generate-optimized-prompt) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
 | 🎯 | [`hunt`](#atomic-skillshunt--adversarial-tests) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE.` |
 | 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--independent-tasks) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
@@ -264,30 +264,30 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 **Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.`
 
-**One-liner:** Canonical per-initiative status tree with stack + parked + emerged
+**One-liner:** View + daily mutations on the .atomic-skills/ tree
 
-**Summary:** Canonical per-initiative status tracking. Maintains .atomic-skills/ tree with stack + tasks + parked + emerged per initiative. Terminal compact view + browser via mdprobe. Auto-installs CLAUDE.md HARD-GATE + AGENTS.md redirect + Claude Code hooks (SessionStart injection, Stop predicate in dry-run). Use whenever starting, resuming, pushing/popping stack frames, parking lateral findings, or viewing status across sessions and worktrees.
+**Summary:** View and daily-mutate Plan/Initiative/Task state in .atomic-skills/. Compact terminal view + browser via mdprobe. Stack frames, parked/emerged items, task transitions, phase-done/reopen, archive, scope-creep, codex review tracking. Creation, migration, and structural commands live in atomic-skills:project-plan.
 
-**Purpose:** Track work via Plan/Initiative/Task hierarchy with stack, parked, emerged, and verifiable exit gates. Bird's-eye + zoom mental model.
+**Purpose:** Track work via Plan/Initiative/Task hierarchy: view current state, manage stack/parked/emerged, transition tasks/phases, archive, report drift. Sibling skill `project-plan` handles all CREATE and structural operations.
 
 **When to use:**
-- Starting a new piece of work
-- Resuming after a break
-- Pushing or popping a stack frame
-- Parking lateral findings or emerging new initiatives
-- Viewing status across sessions or worktrees
+- Resuming after a break — view current state
+- Pushing or popping a stack frame (lateral expansion)
+- Parking lateral findings or surfacing emerged work
+- Marking tasks done, advancing phases
+- Archiving completed plans/initiatives
+- Viewing drift / scope-creep / un-reviewed code
 
 **When NOT to use:**
-- One-shot questions
-- Work that fits entirely in the current session
-- Creating a multi-phase plan (use project-plan instead)
+- Starting a new plan — use atomic-skills:project-plan
+- Creating a new initiative / task / phase — use atomic-skills:project-plan
+- Migrating legacy files — use atomic-skills:project-plan migrate
+- One-shot questions or work that fits in the current session
 
 **Subcommands:**
 
 | Example | Description |
 |---------|-------------|
-| `/atomic-skills:project-status new-plan v3-redesign` | Bootstrap a new Plan via the project-plan skill |
-| `/atomic-skills:project-status new my-feature` | Create a new Initiative (standalone or under active plan) |
 | `/atomic-skills:project-status push "investigating slow query"` | Push a new stack frame (lateral expansion) |
 | `/atomic-skills:project-status pop --park` | Pop top frame with destination |
 | `/atomic-skills:project-status park "consider caching layer"` | Add a parked item (note for later, no decision yet) |
@@ -298,11 +298,11 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 | `/atomic-skills:project-status phase-reopen F2` | Reverse of phase-done — clears metAt on exit criteria |
 | `/atomic-skills:project-status archive v3-redesign` | Move plan/initiative to archive/ (cascades from plan to children) |
 | `/atomic-skills:project-status switch my-feature` | Pause current active plan/initiative, set target as active |
-| `/atomic-skills:project-status migrate sample-legacy` | Migrate a legacy file to schema 0.1 |
 | `/atomic-skills:project-status re-ratify P-3` | Re-articulate context of an existing item (stale lastReviewedAt) |
-| `/atomic-skills:project-status re-bootstrap sample-legacy` | Batch re-articulate placeholder context after migrate |
+| `/atomic-skills:project-status why T-005` | Show full context for a task / phase / parked / emerged entry |
 | `/atomic-skills:project-status scope-creep` | On-demand drift report (read-only, surfaces stale items) |
 | `/atomic-skills:project-status detect-scope` | Suggest scope.paths value based on recent git activity |
+| `/atomic-skills:project-status review-due` | Cross-model codex review against the diff since last review |
 
 **Arguments:**
 
@@ -316,9 +316,9 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 **Examples:**
 - `/atomic-skills:project-status` — View current state
-- `/atomic-skills:project-status new my-feature` — Start a new standalone initiative
 - `/atomic-skills:project-status push "investigating slow query"` — Push a side-investigation frame
 - `/atomic-skills:project-status done T-005` — Close a task (triggers phase-completion check if last)
+- `/atomic-skills:project-status phase-done` — Verify exit gates and advance the plan
 
 **Output artifacts:** `.atomic-skills/PROJECT-STATUS.md`, `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/status/config.json`, `.atomic-skills/dispatches/<slug>.md (when promote-to-dispatch)`
 
@@ -332,51 +332,66 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 
 ---
 
-### `atomic-skills:project-plan` — Multi-Phase Plan Bootstrap
+### `atomic-skills:project-plan` — Create, Discover, Migrate
 
 **Iron Law:** `NO PLAN WITHOUT NARRATIVE.`
 
-**One-liner:** Bootstrap a multi-phase Plan with child Initiatives + Tasks
+**One-liner:** Create + restructure + discover Plans and Initiatives
 
-**Summary:** Bootstrap a multi-phase Plan in .atomic-skills/plans/<slug>.md with N child Initiatives + Tasks. Entry point for starting planning work — the creator counterpart to project-status (the manager). Decomposes a markdown plan into structured Plan + Initiatives + Tasks; optionally delegates discovery and plan-writing to superpowers. Use the `adopt` mode to retroactively capture an existing markdown plan.
+**Summary:** Single entry-point for CREATE and STRUCTURAL operations on .atomic-skills/. Bootstrap multi-phase Plans, discover in-flight work across the repo (multi-source scan), adopt existing markdown plans, migrate legacy state, add initiatives/tasks/phases, split overgrown phases, batch re-articulate placeholder context. Sibling skill project-status handles VIEW + daily mutations.
 
-**Purpose:** Bootstrap a multi-phase Plan + N child Initiatives in one flow. Walks 7 stages (validate slug → detect superpowers → optional delegation → receive markdown → decompose → create files → activate first phase). `adopt` mode captures an existing markdown plan retroactively.
+**Purpose:** All paths that CREATE or RESTRUCTURE state in `.atomic-skills/`: bootstrap fresh Plans (interactive 7-stage), discover in-flight work from memory + docs + git, adopt existing markdown plans, add initiatives/tasks/phases, split phases, migrate legacy.
 
 **When to use:**
-- User describes a multi-phase project ("redo our admin UI", "rebuild matching")
-- A free-form plan markdown exists somewhere and should be captured (use `adopt`)
-- A `project-status:new` invocation was pushed back as "bigger than one initiative"
+- Want to organize what the repo already has → `discover`
+- Multi-phase project described in conversation → default bootstrap
+- Existing markdown plan to capture → `adopt`
+- Standalone initiative for single-phase work → `new`
+- Add task/phase to active plan → `new-task` / `new-phase` / `split-phase`
+- Legacy initiative needs schema 0.1 → `migrate`
+- Post-migration batch context re-articulation → `re-bootstrap`
 
 **When NOT to use:**
-- Single-phase work that fits in one initiative (use `project-status:new`)
-- .atomic-skills/ does not exist yet (run `atomic-skills:project-status` setup first)
-- You only need to view existing plans (use `project-status --plan <slug>`)
+- .atomic-skills/ does not exist yet (run atomic-skills:project-status setup first)
+- Daily tracking (view, push/pop, done, phase-done, etc.) — use project-status
+- Just viewing existing plans (use project-status --plan <slug>)
 
 **Subcommands:**
 
 | Example | Description |
 |---------|-------------|
+| `/atomic-skills:project-plan discover` | Multi-source scan + cluster + synthesize → propose Plans + Initiatives |
 | `/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md` | Capture an existing markdown plan into structured Plan + Initiatives + Tasks |
+| `/atomic-skills:project-plan new my-feature` | Create a new Initiative (standalone or under active plan) |
+| `/atomic-skills:project-plan new-task --target F2 "Add canary smoke test"` | Add a task to current OR specified initiative (records provenance + requires ratified context) |
+| `/atomic-skills:project-plan new-phase F0.5 "Validation" --after F0` | Insert a new phase into the active plan + materialize its initiative (requires ratified context) |
+| `/atomic-skills:project-plan split-phase F2` | Split an over-sized phase into two sub-phases (archives the original; ratify each new phase) |
+| `/atomic-skills:project-plan migrate sample-legacy` | Migrate a legacy initiative file to schemaVersion 0.1 |
+| `/atomic-skills:project-plan re-bootstrap sample-legacy` | Batch re-articulate placeholder context after migrate |
 
 **Arguments:**
 
 | Name | Kind | Required | Description |
 |------|------|----------|-------------|
 | `slug` | positional | optional | Plan slug for the default (bootstrap) flow. Omit and the skill prompts interactively. |
+| `--scan` | option | optional | Extra source paths for discover (comma-separated). E.g. --scan=NOTES/,~/team-plans/ |
+| `--scope` | option | optional | Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem) |
 
 **Examples:**
+- `/atomic-skills:project-plan discover` — Multi-source scan: propose Plans + Initiatives from .ai/memory, docs, git
 - `/atomic-skills:project-plan v3-redesign` — Bootstrap a new Plan interactively (7-stage flow)
-- `/atomic-skills:project-plan adopt docs/superpowers/plans/v3-redesign/00-master.md` — Capture an existing markdown plan into structured state
+- `/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md` — Capture an existing markdown plan into structured state
+- `/atomic-skills:project-plan migrate mesh-restructure` — Convert a legacy initiative file to schema 0.1
 
-**Output artifacts:** `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`
+**Output artifacts:** `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/bootstrap-drafts/ (discover output)`
 
 **Dependencies:** `git`
 
 **Related:** `project-status`, `review-plan`
 
-**Tags:** `planning`, `bootstrap`, `core`
+**Tags:** `planning`, `bootstrap`, `create`, `migrate`, `core`
 
-**Version added:** `3.0.0`
+**Version added:** `2.0.0`
 
 ---
 

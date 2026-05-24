@@ -538,3 +538,43 @@ describe('draftToInitiative', () => {
     assert.equal(result.frontmatter.references, undefined);
   });
 });
+
+import { detectPlanShape } from '../src/bootstrap.js';
+
+describe('detectPlanShape', () => {
+  it('returns "plan" for markdown with >=2 F<N> phase headings', () => {
+    const md = `# Some Plan\n\n## F0 — Foundation\ntext\n\n## F1 — Build\ntext\n`;
+    assert.equal(detectPlanShape(md), 'plan');
+  });
+
+  it('returns "plan" for "Phase N" headings (EN)', () => {
+    const md = `# Plan\n## Phase 0 — Pre-flight\n\n## Phase 1 — Implement\n`;
+    assert.equal(detectPlanShape(md), 'plan');
+  });
+
+  it('returns "plan" for "Fase N" headings (PT)', () => {
+    const md = `# Plano\n## Fase 0 — Preparação\n\n## Fase 1 — Execução\n`;
+    assert.equal(detectPlanShape(md), 'plan');
+  });
+
+  it('returns "initiative" for a single phase heading', () => {
+    const md = `# Initiative\n## F0 — Only\nnothing else\n`;
+    assert.equal(detectPlanShape(md), 'initiative');
+  });
+
+  it('returns "initiative" for prose without phase headings', () => {
+    const md = `# Notes\n## Pending\n- task 1\n- task 2\n\n## Decisions\nfoo\n`;
+    assert.equal(detectPlanShape(md), 'initiative');
+  });
+
+  it('returns "initiative" for empty/non-string input', () => {
+    assert.equal(detectPlanShape(''), 'initiative');
+    assert.equal(detectPlanShape(null), 'initiative');
+    assert.equal(detectPlanShape(undefined), 'initiative');
+  });
+
+  it('matches case-insensitively', () => {
+    const md = `# X\n## phase 1 — a\n## phase 2 — b\n`;
+    assert.equal(detectPlanShape(md), 'plan');
+  });
+});
