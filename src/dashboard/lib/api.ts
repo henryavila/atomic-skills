@@ -90,7 +90,7 @@ interface DiscoverStateResponse {
 interface DiscoverInboxResponse {
   schemaVersion: string
   items: Array<{ kind: string; payload?: DiscoverDecision } & Record<string, unknown>>
-  nextSince?: string
+  nextCursor?: string
 }
 
 export async function getDiscoverState(): Promise<DiscoverRun> {
@@ -123,18 +123,18 @@ export async function postDecision(
 export async function getDiscoverDecisions(slugs: string[]): Promise<DiscoverDecision[]> {
   const slugSet = new Set(slugs)
   const decisions: DiscoverDecision[] = []
-  let since: string | undefined
+  let cursor: string | undefined
   for (let page = 0; page < 10; page++) {
     const params = new URLSearchParams({ consumer: DISCOVER_CONSUMER, limit: '500' })
-    if (since) params.set('since', since)
+    if (cursor) params.set('since', cursor)
     const r = await fetchJson<DiscoverInboxResponse>(`/api/inbox?${params}`)
     for (const item of r.items) {
       if (item.kind === 'decision' && item.payload && slugSet.has(item.payload.target?.slug ?? '')) {
         decisions.push(item.payload)
       }
     }
-    if (!r.nextSince || r.items.length === 0) break
-    since = r.nextSince
+    if (!r.nextCursor || r.items.length === 0) break
+    cursor = r.nextCursor
   }
   return decisions
 }
@@ -144,7 +144,7 @@ export interface RuntimeEvent {
   id?: number
   consumer?: string
   slug?: string
-  entityKind?: 'plan' | 'initiative' | 'annotations-jsonl' | 'highlights-jsonl' | 'inbox-jsonl'
+  entityKind?: 'plan' | 'initiative' | 'discover-run' | 'annotations-jsonl' | 'highlights-jsonl' | 'inbox-jsonl'
   changeType?: 'add' | 'change' | 'unlink'
 }
 

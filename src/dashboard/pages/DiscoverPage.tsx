@@ -22,8 +22,7 @@ export function DiscoverPage() {
     if (!existingDecisions) return m
     for (const d of existingDecisions) {
       if (d.target.slug && (d.decision === 'approve' || d.decision === 'reject')) {
-        const existing = m.get(d.target.slug)
-        if (!existing) m.set(d.target.slug, d.decision)
+        m.set(d.target.slug, d.decision)
       }
     }
     return m
@@ -45,7 +44,7 @@ export function DiscoverPage() {
     )
   }
 
-  const isReadOnly = submitted || submittedMap.size > 0
+  const isReadOnly = submitted
 
   const bucketOrder = ['strong', 'worth-reviewing', 'historical'] as const
   const filteredCandidates = run.candidates.filter((c) => {
@@ -99,8 +98,12 @@ export function DiscoverPage() {
       alert('Some candidates are missing draftPath — cannot submit.')
       return
     }
-    await postMutation.mutateAsync(entries)
-    setSubmitted(true)
+    try {
+      await postMutation.mutateAsync(entries)
+      setSubmitted(true)
+    } catch {
+      // error is surfaced via postMutation.error in ActionBar
+    }
   }
 
   const approveCount = [...localDecisions.values()].filter((d) => d.decision === 'approve').length
@@ -129,6 +132,22 @@ export function DiscoverPage() {
         </div>
       ))}
 
+      {filter === 'tracked' && run.alreadyTracked.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px', color: 'var(--fg-default)' }}>
+            Already tracked ({run.alreadyTracked.length})
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--fg-muted)', margin: '0 0 8px' }}>
+            These items are already managed in .atomic-skills/ and were not proposed.
+          </p>
+          {run.alreadyTracked.map((slug) => (
+            <div key={slug} style={{ padding: '4px 0', fontSize: 13, color: 'var(--fg-subtle)' }}>
+              <span className="font-mono">{slug}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {run.orphanSignals.length > 0 && (!filter || filter === 'orphan') && (
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px', color: 'var(--fg-default)' }}>
@@ -148,11 +167,12 @@ export function DiscoverPage() {
       <div style={{ height: 60 }} />
 
       <ActionBar
-        approveCount={submitted ? submittedMap.size : approveCount}
-        rejectCount={submitted ? 0 : rejectCount}
+        approveCount={approveCount}
+        rejectCount={rejectCount}
         totalPending={totalPending}
-        submitted={isReadOnly}
+        submitted={submitted}
         submitting={postMutation.isPending}
+        error={postMutation.error?.message}
         onApproveAllStrong={handleApproveAllStrong}
         onSubmit={handleSubmit}
       />

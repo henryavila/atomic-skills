@@ -4,11 +4,12 @@ interface Props {
   totalPending: number
   submitted: boolean
   submitting: boolean
+  error?: string
   onApproveAllStrong: () => void
   onSubmit: () => void
 }
 
-export function ActionBar({ approveCount, rejectCount, totalPending, submitted, submitting, onApproveAllStrong, onSubmit }: Props) {
+export function ActionBar({ approveCount, rejectCount, totalPending, submitted, submitting, error, onApproveAllStrong, onSubmit }: Props) {
   const totalDecided = approveCount + rejectCount
 
   return (
@@ -30,11 +31,16 @@ export function ActionBar({ approveCount, rejectCount, totalPending, submitted, 
     >
       {submitted ? (
         <div style={{ flex: 1, fontSize: 13, color: 'var(--accent-emerald)' }}>
-          ✓ {approveCount} approved, {rejectCount} rejected. Volte ao Claude e execute <code className="font-mono">discover --commit</code>.
+          ✓ {approveCount} approved, {rejectCount} rejected. Return to Claude and run <code className="font-mono">discover --commit</code>.
         </div>
       ) : (
         <>
-          <div style={{ flex: 1, fontSize: 12, color: 'var(--fg-muted)' }}>
+          {error && (
+            <div style={{ flex: 1, fontSize: 12, color: 'var(--severity-critical)' }}>
+              Failed to submit: {error}
+            </div>
+          )}
+          <div style={{ flex: error ? 0 : 1, fontSize: 12, color: 'var(--fg-muted)' }}>
             {totalDecided > 0
               ? `${approveCount} to approve, ${rejectCount} to reject, ${totalPending} pending`
               : `${totalPending} candidates pending`}
