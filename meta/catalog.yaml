@@ -38,6 +38,7 @@ core:
     one_liner: 'Diagnose root cause → write test → fix → verify'
     emoji: '🔧'
     version_added: '1.0.0'
+    argument_hint: '[symptom]'
     args:
       - name: symptom
         kind: positional
@@ -111,6 +112,7 @@ core:
     one_liner: 'Adversarial plan review with local/codex/both mode picker'
     emoji: '🔍'
     version_added: '2.0.0'
+    argument_hint: '<plan.md> [--mode=local|codex|both] [--cross-ref=paths] [--allow-dirty]'
     args:
       - name: plan-path
         kind: positional
@@ -177,6 +179,7 @@ core:
     one_liner: 'Adversarial code review with local/codex/both mode picker'
     emoji: '🔬'
     version_added: '2.0.0'
+    argument_hint: '<branch | commit | main..HEAD> [--mode=local|codex|both] [--allow-dirty]'
     args:
       - name: git-ref
         kind: positional
@@ -232,6 +235,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
+    argument_hint: 'done | push | pop | phase-done | park | emerge | promote | switch | archive | why | scope-creep | review-due | phase-reopen | re-ratify | detect-scope'
     one_liner: 'View + daily mutations on the .atomic-skills/ tree'
     emoji: '📊'
     version_added: '1.5.0'
@@ -362,6 +366,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
+    argument_hint: 'discover | adopt | new | new-task | new-phase | split-phase | migrate | re-bootstrap'
     one_liner: 'Create + restructure + discover Plans and Initiatives'
     emoji: '🗺️'
     version_added: '2.0.0'
@@ -445,6 +450,7 @@ core:
     requires_args: false
     mutates_repo: false
     network_required: false
+    argument_hint: '[task description]'
     one_liner: 'Generate a self-contained prompt with exact paths and guardrails'
     emoji: '📝'
     version_added: '1.0.0'
@@ -481,6 +487,7 @@ core:
     requires_args: true
     mutates_repo: true
     network_required: false
+    argument_hint: '<file|dir|function>'
     one_liner: 'Write adversarial tests to break code, not confirm it'
     emoji: '🎯'
     version_added: '1.0.0'
@@ -516,6 +523,7 @@ core:
     requires_args: true
     mutates_repo: true
     network_required: false
+    argument_hint: '<task-list.md>'
     one_liner: 'Dispatch a task list to N parallel sessions with verified isolation'
     emoji: '🚀'
     version_added: '1.6.0'
@@ -551,6 +559,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
+    argument_hint: '[batch-slug]'
     one_liner: 'Audit output of a parallel-dispatch batch, apply fixes, report'
     emoji: '👁️'
     version_added: '1.6.0'

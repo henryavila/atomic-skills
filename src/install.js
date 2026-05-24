@@ -189,7 +189,8 @@ export function installSkills(projectDir, options, callbacks = {}) {
     for (const ideId of ides) {
       const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
-      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
+      const renderOpts = skillMeta.argument_hint ? { argumentHint: skillMeta.argument_hint } : {};
+      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, renderOpts);
       const relPath = getSkillPath(ideId, skillMeta.name);
       const absPath = join(projectDir, relPath);
 
@@ -424,7 +425,8 @@ function preRenderFiles(options) {
     for (const ideId of ides) {
       const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId);
       const format = getSkillFormat(ideId);
-      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
+      const renderOpts = skillMeta.argument_hint ? { argumentHint: skillMeta.argument_hint } : {};
+      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, renderOpts);
       const relPath = getSkillPath(ideId, skillMeta.name);
       rendered.set(relPath, content);
     }

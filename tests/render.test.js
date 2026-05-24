@@ -140,4 +140,26 @@ describe('renderForIDE', () => {
     assert.ok(!result.includes('user-invocable'));  // commands don't need this
     assert.ok(result.includes('prompt body'));
   });
+
+  it('includes argument-hint in command format when provided', () => {
+    const result = renderForIDE('command', 'fix', 'My description', 'body', { argumentHint: '[symptom]' });
+    assert.ok(result.includes("argument-hint: '[symptom]'"));
+  });
+
+  it('omits argument-hint in command format when not provided', () => {
+    const result = renderForIDE('command', 'fix', 'My description', 'body');
+    assert.ok(!result.includes('argument-hint'));
+  });
+
+  it('omits argument-hint in non-command formats even when provided', () => {
+    const markdown = renderForIDE('markdown', 'fix', 'desc', 'body', { argumentHint: '[x]' });
+    const toml = renderForIDE('toml', 'fix', 'desc', 'body', { argumentHint: '[x]' });
+    assert.ok(!markdown.includes('argument-hint'));
+    assert.ok(!toml.includes('argument-hint'));
+  });
+
+  it('escapes single quotes in argument-hint', () => {
+    const result = renderForIDE('command', 'fix', 'desc', 'body', { argumentHint: "it's a test" });
+    assert.ok(result.includes("argument-hint: 'it''s a test'"));
+  });
 });

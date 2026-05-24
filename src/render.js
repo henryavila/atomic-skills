@@ -101,18 +101,22 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
  * @param {string} name - Skill name (e.g. 'as-fix')
  * @param {string} description - English description
  * @param {string} body - Rendered prompt body
+ * @param {object} [opts] - Optional fields
+ * @param {string} [opts.argumentHint] - Displayed in autocomplete (Claude Code)
  * @returns {string}
  */
-export function renderForIDE(format, name, description, body) {
+export function renderForIDE(format, name, description, body, opts = {}) {
   if (format === 'toml') {
     const escaped = description.replace(/"/g, '\\"');
     return `description = "${escaped}"\nprompt = """\n${body}\n"""\n`;
   }
 
   if (format === 'command') {
-    // Claude Code commands — name comes from filename, no user-invocable needed
     const escaped = description.replace(/'/g, "''");
-    return `---\ndescription: '${escaped}'\n---\n\n${body}\n`;
+    const hintLine = opts.argumentHint
+      ? `\nargument-hint: '${opts.argumentHint.replace(/'/g, "''")}'`
+      : '';
+    return `---\ndescription: '${escaped}'${hintLine}\n---\n\n${body}\n`;
   }
 
   // markdown (default for Cursor, Gemini, Codex, etc.) — YAML single-quote escaping: ' → ''

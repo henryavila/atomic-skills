@@ -178,6 +178,6 @@ describe('project-plan skill (C.T-001 scaffold)', () => {
 
   it('skill renders communication-language directive at top when language=pt', () => {
     const content = install('pt');
-    assert.match(content.slice(0, 500), /Communicate with the user in Portuguese/);
+    assert.match(content.slice(0, 800), /Communicate with the user in Portuguese/);
   });
 });

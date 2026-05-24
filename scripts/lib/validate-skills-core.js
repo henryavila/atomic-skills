@@ -138,10 +138,22 @@ function validateV02Fields(entry, issues) {
     issues.push('version_added must be a string');
   }
 
+  validateArgumentHint(entry, issues);
   validateSubcommands(entry, issues);
   validateArgs(entry, issues);
   validateOutputArtifacts(entry, issues);
   validateDependencies(entry, issues);
+}
+
+function validateArgumentHint(entry, issues) {
+  if (!('argument_hint' in entry)) return;
+  if (typeof entry.argument_hint !== 'string') {
+    issues.push(`argument_hint must be a string (got ${typeof entry.argument_hint})`);
+    return;
+  }
+  if (entry.argument_hint.trim().length === 0) {
+    issues.push('argument_hint must be a non-empty string');
+  }
 }
 
 function validateSubcommands(entry, issues) {
