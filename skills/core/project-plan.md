@@ -390,6 +390,8 @@ When `.atomic-skills/` was created via setup, the following are already gitignor
 
 Deterministic collection. No content interpretation.
 
+> **Exit-code rule**: every command in 1a MUST exit 0 (append `|| true` or use `find` patterns that never fail). Non-zero exits cancel parallel sibling calls and waste tokens on retries.
+
 #### Git (always)
 
 ```bash
@@ -400,18 +402,18 @@ git for-each-ref --sort=-committerdate \
 
 # Recent commits grouped by Conventional Commits scope (90d)
 git log --since='90 days ago' --pretty=format:'%h|%s|%ci' \
-  | grep -E '^[a-f0-9]+\|(feat|fix|refactor|docs|test|chore)\([^)]+\):'
+  | grep -E '^[a-f0-9]+\|(feat|fix|refactor|docs|test|chore)\([^)]+\):' || true
 
 # Push debt — commits ahead of origin/main (signal of unmerged work)
-git log --oneline origin/main..HEAD 2>/dev/null | head -20
+git log --oneline origin/main..HEAD 2>/dev/null | head -20 || true
 ```
 
 #### GitHub CLI (if `gh` is available)
 
 ```bash
-gh pr list --state open --json number,title,headRefName,updatedAt,body,labels 2>/dev/null
-gh pr list --state merged --limit 20 --json number,title,headRefName,mergedAt 2>/dev/null
-gh issue list --state open --assignee @me --json number,title,labels,updatedAt 2>/dev/null
+gh pr list --state open --json number,title,headRefName,updatedAt,body,labels 2>/dev/null || true
+gh pr list --state merged --limit 20 --json number,title,headRefName,mergedAt 2>/dev/null || true
+gh issue list --state open --assignee @me --json number,title,labels,updatedAt 2>/dev/null || true
 ```
 
 If it fails: log `source: github skipped (gh unavailable)` and continue. Not fatal.
@@ -428,9 +430,7 @@ find docs -maxdepth 3 -type f -name '*plan*.md' 2>/dev/null
 #### Roadmap (always)
 
 ```bash
-for f in TODO.md ROADMAP.md NEXT.md docs/TODO.md docs/ROADMAP.md BACKLOG.md NOTES.md; do
-  test -f "$f" && echo "$f"
-done
+find . -maxdepth 2 -type f \( -name 'TODO.md' -o -name 'ROADMAP.md' -o -name 'NEXT.md' -o -name 'BACKLOG.md' -o -name 'NOTES.md' \) 2>/dev/null
 ```
 
 For each file found, parse H2/H3 headers with line spans (shell reads the headers; LLM reads the sections in 1b).
@@ -438,9 +438,7 @@ For each file found, parse H2/H3 headers with line spans (shell reads the header
 #### Local memory (always)
 
 ```bash
-test -f .ai/memory/MEMORY.md && echo ".ai/memory/MEMORY.md"
-test -f .ai/memory/PROJECT_STATUS.md && echo ".ai/memory/PROJECT_STATUS.md"
-find .ai/memory -maxdepth 2 -name '*.md' -not -name 'MEMORY.md' 2>/dev/null
+find .ai/memory -maxdepth 2 -name '*.md' 2>/dev/null | sort
 ```
 
 Parse `MEMORY.md` as an index (format `[Title](file.md) — hook`). Parse `PROJECT_STATUS.md` (if present) as a dashboard with "Pending" / "Pendente" / "Next steps" / "Próximos passos" sections.
@@ -460,8 +458,7 @@ done
 ```bash
 REPO_PATH=$(pwd | sed 's|^/|-|; s|/|-|g')
 CLAUDE_PROJ_DIR="$HOME/.claude/projects/$REPO_PATH"
-test -d "$CLAUDE_PROJ_DIR/memory" && \
-  find "$CLAUDE_PROJ_DIR/memory" -maxdepth 1 -name '*.md' -not -name 'MEMORY.md'
+find "$CLAUDE_PROJ_DIR/memory" -maxdepth 1 -name '*.md' -not -name 'MEMORY.md' 2>/dev/null
 ```
 
 claude-mem note: use MCP tool `mcp__plugin_claude-mem_mcp-search__search` (deferred) with project filter.
