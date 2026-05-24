@@ -135,6 +135,65 @@ tmp=$(mk_tmp_repo)
 ) && ok || no "Test 3 failed"
 rm -rf "$tmp"
 
+# ─── Test 4: worktree commit triggers regen via real git commit ───
+run "git commit in worktree with catalog input → hook regenerates README"
+BRANCH="pre-commit-test-wt-$$"
+git branch "$BRANCH" HEAD 2>/dev/null
+WDIR=$(mktemp -d -t wt-hook-XXXXXX)
+git worktree add "$WDIR" "$BRANCH" -q 2>/dev/null
+(
+  cd "$WDIR"
+  ln -s "$REPO_ROOT/node_modules" "$WDIR/node_modules" 2>/dev/null || true
+  git config user.email "test@local"
+  git config user.name "Test"
+  git config commit.gpgsign false
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/WORKTREE DRIFT/" meta/catalog.yaml
+  rm meta/catalog.yaml.bak
+  git add meta/catalog.yaml
+  if git commit -m "test: worktree hook" >/tmp/hook-out-4.log 2>&1; then
+    if grep -q "WORKTREE DRIFT" README.md; then
+      if git diff-tree --no-commit-id --name-only -r HEAD | grep -q "^README.md$"; then
+        exit 0
+      else
+        echo "  README.md not in commit"
+        exit 1
+      fi
+    else
+      echo "  README not regenerated in worktree. Log:"
+      cat /tmp/hook-out-4.log
+      exit 1
+    fi
+  else
+    echo "  commit failed. Log:"
+    cat /tmp/hook-out-4.log
+    exit 1
+  fi
+) && ok || no "Test 4 failed (worktree)"
+git worktree remove "$WDIR" --force 2>/dev/null || true
+git branch -D "$BRANCH" 2>/dev/null || true
+
+# ─── Test 5: HUSKY=0 disables hook ───
+run "HUSKY=0 skips hook (no regen even with catalog input staged)"
+tmp=$(mk_tmp_repo)
+(
+  cd "$tmp"
+  sed -i.bak "s/Diagnose root cause → write test → fix → verify/HUSKY0 DRIFT/" meta/catalog.yaml
+  rm meta/catalog.yaml.bak
+  git add meta/catalog.yaml
+  if HUSKY=0 sh .husky/pre-commit >/tmp/hook-out-5.log 2>&1; then
+    if grep -q "HUSKY0 DRIFT" README.md; then
+      echo "  README was regenerated despite HUSKY=0"
+      exit 1
+    fi
+    exit 0
+  else
+    echo "  hook exited non-zero with HUSKY=0. Log:"
+    cat /tmp/hook-out-5.log
+    exit 1
+  fi
+) && ok || no "Test 5 failed"
+rm -rf "$tmp"
+
 # ─── Summary ───
 echo ""
 echo "pre-commit.test.sh: $PASS passed, $FAIL failed"

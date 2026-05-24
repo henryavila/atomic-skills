@@ -29,7 +29,7 @@
     "dev:dashboard": "vite --config vite.config.ts",
     "build:dashboard": "vite build --config vite.config.ts",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
-    "prepare": "husky",
+    "prepare": "husky && git config core.hooksPath .husky",
     "prepublishOnly": "npm run build:dashboard"
   },
   "keywords": [
