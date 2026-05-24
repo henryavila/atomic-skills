@@ -7,6 +7,7 @@ import * as p from '@clack/prompts';
 import {
   IDE_CONFIG, PUBLIC_IDE_IDS, getSkillPath, getSkillFormat,
   SKILL_NAMESPACE, getNamespaceRootPath, normalizeIDESelection,
+  LEGACY_NAMESPACE_PATHS,
 } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
@@ -26,6 +27,59 @@ function generateNamespaceRoot() {
   const desc = "Stop rewriting prompts. Install optimized developer skills in any AI IDE.";
   const escaped = desc.replace(/'/g, "''");
   return `---\nname: ${SKILL_NAMESPACE}\ndescription: '${escaped}'\nuser-invocable: false\n---\n\nNamespace package for Atomic Skills.\n`;
+}
+
+/**
+ * Scan obsolete install paths (see LEGACY_NAMESPACE_PATHS) for any file
+ * still living under the atomic-skills namespace. These are invisible to
+ * the manifest-based orphan detector because they predate the current
+ * IDE_CONFIG. Returns [{path, legacyRoot, reason}].
+ */
+export function findLegacyOrphans(basePath) {
+  const found = [];
+  for (const { dir, reason } of LEGACY_NAMESPACE_PATHS) {
+    const nsRoot = join(basePath, dir, SKILL_NAMESPACE);
+    if (!existsSync(nsRoot)) continue;
+    const walk = (cur) => {
+      for (const entry of readdirSync(cur, { withFileTypes: true })) {
+        const full = join(cur, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.isFile()) found.push({ path: full, legacyRoot: nsRoot, reason });
+      }
+    };
+    walk(nsRoot);
+  }
+  return found;
+}
+
+/**
+ * Delete each legacy-orphan file, then walk back up removing empty parents
+ * until (and including) the namespace root. Never touches dirs above the
+ * namespace root (e.g. .claude/skills/ itself may be co-owned with other
+ * tools and is left in place).
+ */
+export function removeLegacyOrphans(basePath, orphans) {
+  const nsRootsSeen = new Set();
+  for (const { path: full, legacyRoot } of orphans) {
+    try { unlinkSync(full); } catch {}
+    nsRootsSeen.add(legacyRoot);
+    let parent = dirname(full);
+    while (parent !== legacyRoot && parent.startsWith(legacyRoot)) {
+      try {
+        if (readdirSync(parent).length === 0) {
+          rmdirSync(parent);
+          parent = dirname(parent);
+        } else break;
+      } catch { break; }
+    }
+  }
+  // Try to remove each namespace root if it's now empty (siblings may have
+  // been emptied by this call); the parent legacy dir is intentionally left.
+  for (const nsRoot of nsRootsSeen) {
+    try {
+      if (readdirSync(nsRoot).length === 0) rmdirSync(nsRoot);
+    } catch {}
+  }
 }
 
 /**
@@ -419,11 +473,25 @@ export async function install(projectDir, options = {}) {
 
   const scope = project ? 'project' : 'user';
 
+  // ─── Legacy-namespace cleanup (runs in both modes, before main install) ───
+  // Removes files at obsolete install paths (see LEGACY_NAMESPACE_PATHS)
+  // that the manifest can't track because they predate the current
+  // IDE_CONFIG. Auto-removed in --yes; prompts in interactive mode.
+  const legacyOrphans = findLegacyOrphans(basePath);
+
   // ─── Non-interactive mode (--yes) ───
   if (yes) {
     if (ides.length === 0) {
       console.error(`  ${pc.red('Error:')} No IDEs detected. Use --ide to specify.`);
       process.exit(1);
+    }
+
+    if (legacyOrphans.length > 0) {
+      console.log(`  ${pc.dim(`Cleaning ${legacyOrphans.length} legacy orphan file(s) at obsolete install path(s):`)}`);
+      for (const o of legacyOrphans) {
+        console.log(`    ${pc.dim('-')} ${relative(basePath, o.path)}`);
+      }
+      removeLegacyOrphans(basePath, legacyOrphans);
     }
 
     console.log(`◇ ${msg(language).installingMsg(pkgVersion)}`);
@@ -520,6 +588,35 @@ export async function install(projectDir, options = {}) {
   }
 
   showIntro(config, { isUpdate, pkgVersion });
+
+  // Surface legacy-namespace orphans (obsolete install paths) and prompt
+  // for cleanup before the regular action loop.
+  if (legacyOrphans.length > 0) {
+    const isPt = config.lang === 'pt';
+    p.log.warn(
+      isPt
+        ? `${legacyOrphans.length} arquivo(s) órfão(s) encontrado(s) em caminhos antigos:`
+        : `Found ${legacyOrphans.length} orphan file(s) at obsolete install path(s):`
+    );
+    for (const o of legacyOrphans) {
+      p.log.message(`  ${pc.dim('-')} ${relative(basePath, o.path)}  ${pc.dim(`(${o.reason})`)}`);
+    }
+    const removeOrphans = await p.confirm({
+      message: isPt ? 'Remover esses arquivos?' : 'Remove these files?',
+      initialValue: true,
+    });
+    if (p.isCancel(removeOrphans)) {
+      p.outro(msg(config.lang).cancelled);
+      return;
+    }
+    if (removeOrphans) {
+      removeLegacyOrphans(basePath, legacyOrphans);
+      p.log.success(
+        isPt ? `${legacyOrphans.length} arquivo(s) órfão(s) removido(s).`
+             : `Removed ${legacyOrphans.length} orphan file(s).`
+      );
+    }
+  }
 
   // If no IDEs detected, force selection
   if (config.ides.length === 0) {
