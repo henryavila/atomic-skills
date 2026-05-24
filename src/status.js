@@ -25,6 +25,10 @@ function stripIdeSuffix(name) {
  * @param {boolean} [options.forceProject] - when true, read project manifest
  *   (./.atomic-skills/manifest.json) instead of falling back to user scope.
  *   Mirrors the `--project` flag on install/detect/uninstall.
+ * @returns {{manifest: object|null, scope: 'user'|'project', base: string|null}}
+ *   The manifest read (or null if not found), the scope it came from, and
+ *   the base path it was resolved against. Returned so tests and callers
+ *   can verify routing without scraping console output.
  */
 export function status(projectDir, options = {}) {
   const homeDir = homedir();
@@ -55,7 +59,7 @@ export function status(projectDir, options = {}) {
     p.log.error(pc.red('Not installed') + ' — no manifest found.');
     p.log.message('Run ' + pc.bold('npx atomic-skills') + ' to install.');
     p.outro('');
-    return;
+    return { manifest: null, scope: manifestScope, base: manifestBase };
   }
 
   const pkgVersion = getPackageVersion();
@@ -107,4 +111,5 @@ export function status(projectDir, options = {}) {
   }
 
   p.outro(pc.bold('Done.'));
+  return { manifest, scope: manifestScope, base: manifestBase };
 }

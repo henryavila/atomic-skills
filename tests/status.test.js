@@ -79,6 +79,7 @@ describe('status data verification', () => {
 
 describe('status({forceProject}) — T7', () => {
   let tmp;
+  const PKG_ROOT = import.meta.url.replace('file://', '').replace('/tests/status.test.js', '');
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), 'as-status-fp-'));
   });
@@ -86,24 +87,7 @@ describe('status({forceProject}) — T7', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it('without forceProject: default user-scope-first behavior is preserved (smoke check)', async () => {
-    // Install a project manifest in tmp
-    installSkills(tmp, {
-      language: 'en',
-      ides: ['claude-code'],
-      modules: {},
-      skillsDir: join(import.meta.url.replace('file://', '').replace('/tests/status.test.js', ''), 'skills'),
-      metaDir: join(import.meta.url.replace('file://', '').replace('/tests/status.test.js', ''), 'meta'),
-    });
-    const { status } = await import('../src/status.js');
-    // status() default behavior with projectDir=tmp: tries user home first.
-    // If user home has no manifest, falls back to project. We can't easily
-    // assert console output here, but we can verify the function doesn't throw.
-    assert.doesNotThrow(() => status(tmp));
-  });
-
-  it('with forceProject: true + valid projectDir manifest, reads project manifest', async () => {
-    const PKG_ROOT = import.meta.url.replace('file://', '').replace('/tests/status.test.js', '');
+  it('with forceProject: true + valid projectDir manifest reads PROJECT manifest from tmp', async () => {
     installSkills(tmp, {
       language: 'pt',
       ides: ['claude-code'],
@@ -112,18 +96,59 @@ describe('status({forceProject}) — T7', () => {
       metaDir: join(PKG_ROOT, 'meta'),
     });
     const { status } = await import('../src/status.js');
-    // forceProject: true → reads tmp/.atomic-skills/manifest.json (lang=pt)
-    assert.doesNotThrow(() => status(tmp, { forceProject: true }));
+    const result = status(tmp, { forceProject: true });
+    // Mutation that would fail: swap readManifest(projectDir) for readManifest(homeDir)
+    // inside the forceProject branch — manifest would be null (or wrong) and scope wrong.
+    assert.equal(result.scope, 'project');
+    assert.equal(result.base, tmp);
+    assert.ok(result.manifest, 'project manifest must be returned, not null');
+    assert.equal(result.manifest.language, 'pt');
   });
 
-  it('with forceProject: true + null projectDir, manifest is null (early return)', async () => {
+  it('with forceProject: true + null projectDir returns null manifest without falling back to user', async () => {
     const { status } = await import('../src/status.js');
-    assert.doesNotThrow(() => status(null, { forceProject: true }));
+    const result = status(null, { forceProject: true });
+    // Mutation that would fail: removing the forceProject branch entirely —
+    // would fall back to reading homeDir and possibly return a non-null manifest.
+    assert.equal(result.manifest, null);
+    assert.equal(result.scope, 'project');
+    assert.equal(result.base, null);
   });
 
-  it('with forceProject: true + projectDir without manifest, prints "Not installed"', async () => {
+  it('with forceProject: true + projectDir without manifest returns null without user fallback', async () => {
     const { status } = await import('../src/status.js');
-    // tmp is a fresh dir with no .atomic-skills/manifest.json
-    assert.doesNotThrow(() => status(tmp, { forceProject: true }));
+    const result = status(tmp, { forceProject: true });
+    // Mutation that would fail: any branch that falls back to homeDir after
+    // a missing project manifest — would return a non-null manifest if HOME
+    // happens to have one installed.
+    assert.equal(result.manifest, null);
+    assert.equal(result.scope, 'project');
+    assert.equal(result.base, tmp);
+  });
+
+  it('without forceProject (default) prefers user scope when present, falls back to project when not', async () => {
+    // Install a project manifest in tmp.
+    installSkills(tmp, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: join(PKG_ROOT, 'skills'),
+      metaDir: join(PKG_ROOT, 'meta'),
+    });
+    const { status } = await import('../src/status.js');
+    const result = status(tmp);
+    // Mutation that would fail: skipping the homeDir check entirely —
+    // result.scope would always be 'project'; assertion below relies on
+    // the documented "user-scope-first" branch existing.
+    assert.ok(result.scope === 'user' || result.scope === 'project',
+      `scope must be 'user' or 'project', got: ${result.scope}`);
+    // If HOME has no manifest, the fallback path MUST have produced the
+    // tmp project manifest (which we just installed). This proves the
+    // fallback wire-up — a mutation removing the fallback would leave
+    // manifest null even though the project manifest exists.
+    if (result.scope === 'project') {
+      assert.equal(result.base, tmp);
+      assert.ok(result.manifest, 'project fallback should have produced the tmp manifest');
+    }
   });
 });

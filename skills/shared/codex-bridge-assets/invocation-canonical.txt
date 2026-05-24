@@ -17,27 +17,36 @@ contamination, orphan processes).
 Linux + WSL it is. The skill MUST detect the available wrapper before
 constructing the command — never hardcode `timeout`.
 
-Detection (run once per session, cache the result):
+Detection (run once per session — defines a shell function `run_with_timeout`).
+Do NOT store the wrapper in a plain string variable: shell variable expansion
+does not re-parse embedded quotes, so a string like
+`TIMEOUT_CMD="perl -e 'alarm shift @ARGV; exec @ARGV' --"` is broken when
+invoked as `$TIMEOUT_CMD <SECONDS> ...` (perl receives word-split tokens with
+literal quote characters and dies parsing `-e`).
 
 ```bash
 if command -v timeout >/dev/null 2>&1; then
-  TIMEOUT_CMD="timeout"
+  run_with_timeout() { timeout "$@"; }
 elif command -v gtimeout >/dev/null 2>&1; then
-  TIMEOUT_CMD="gtimeout"           # macOS via `brew install coreutils`
+  run_with_timeout() { gtimeout "$@"; }                                # macOS via `brew install coreutils`
 elif command -v perl >/dev/null 2>&1; then
-  TIMEOUT_CMD="perl -e 'alarm shift @ARGV; exec @ARGV' --"   # POSIX-portable fallback
+  run_with_timeout() { perl -e 'alarm shift @ARGV; exec @ARGV' -- "$@"; }   # POSIX-portable fallback
 else
   echo "ERROR: no timeout wrapper available. Install coreutils (Linux: apt/yum; macOS: brew install coreutils) or perl." >&2
   exit 1
 fi
 ```
 
-The three wrappers have COMPATIBLE call shape: `<wrapper> <SECONDS> <command...>`. The perl form's `--` terminates perl option parsing so `<command>` starts cleanly.
+All three branches expose the same shell function with COMPATIBLE call shape:
+`run_with_timeout <SECONDS> <command...>`. The perl form's `--` terminates
+perl option parsing so `<command>` starts cleanly, and `"$@"` preserves
+argument word boundaries (quoting that a plain `$TIMEOUT_CMD` expansion
+would destroy).
 
 ## Command
 
 ```bash
-$TIMEOUT_CMD <TIMEOUT_SECONDS> codex -a never exec \
+run_with_timeout <TIMEOUT_SECONDS> codex -a never exec \
   <MODEL_FLAG> \
   -c model_reasoning_effort=high \
   --sandbox read-only \
@@ -56,7 +65,7 @@ this is `- < /path/to/briefing.md`.
 
 | Flag | Why |
 |------|-----|
-| `$TIMEOUT_CMD <N>` | External kill. Codex has known hangs (issues #7852, #4337). Portable across Linux/macOS/WSL via the detector above. |
+| `run_with_timeout <N>` | External kill. Codex has known hangs (issues #7852, #4337). Portable across Linux/macOS/WSL via the function defined above (do NOT use a string-stored `TIMEOUT_CMD` variant — embedded quotes break under `$VAR` expansion). |
 | `-a never` | Approval mode `never` — required for non-interactive. |
 | `exec` | Subcommand for headless execution. |
 | `-c model_reasoning_effort=high` | Forces deep reasoning. Worth the tokens for adversarial review. |

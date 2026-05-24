@@ -573,7 +573,7 @@ export async function install(projectDir, options = {}) {
       for (const o of unsafeOrphans) {
         console.log(`    ${pc.dim('-')} ${relative(basePath, o.path)}`);
       }
-      console.log(`  ${pc.dim('Inspect manually and remove if intended. Pass --force-legacy-cleanup to override.')}`);
+      console.log(`  ${pc.dim('Inspect manually and remove if intended.')}`);
     }
 
     console.log(`◇ ${msg(language).installingMsg(pkgVersion)}`);
