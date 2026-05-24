@@ -253,6 +253,45 @@ describe('aideck cross-repo contract', () => {
   })
 })
 
+// ── Discover-run contract ──────────────────────────────────────────────────
+
+const AIDECK_DISCOVER_PARSER = resolve(REPO_ROOT, '..', 'aideck', 'dist', 'server', 'parsers', 'discover-run.js')
+const HAS_DISCOVER_PARSER = existsSync(AIDECK_DISCOVER_PARSER)
+const DISCOVER_FIXTURE = join(REPO_ROOT, 'assets', 'fixtures', 'discover-run.fixture.json')
+
+async function loadDiscoverParser() {
+  if (!HAS_DISCOVER_PARSER) return null
+  return await import(AIDECK_DISCOVER_PARSER)
+}
+
+describe('aideck cross-repo contract — discover-run', () => {
+  it('canonical fixture parses through aiDeck discover-run parser', { skip: !HAS_DISCOVER_PARSER && `discover parser not at ${AIDECK_DISCOVER_PARSER}` }, async () => {
+    const { parseDiscoverRunFile } = await loadDiscoverParser()
+    const result = await parseDiscoverRunFile(DISCOVER_FIXTURE)
+    assert.ok(result.ok, `expected ok, got: ${JSON.stringify(result.error ?? {})}`)
+    assert.strictEqual(result.value.runId, 'disc-20260524-103000')
+    assert.ok(result.value.candidates.length >= 2, 'fixture should have at least 2 candidates')
+    assert.ok(result.value.orphanSignals.length >= 1, 'fixture should have at least 1 orphan signal')
+    assert.ok(result.value.relationships.length >= 1, 'fixture should have at least 1 relationship')
+  })
+
+  it('rejects fixture with extra fields (strict mode)', { skip: !HAS_DISCOVER_PARSER && `discover parser not at ${AIDECK_DISCOVER_PARSER}` }, async () => {
+    const { parseDiscoverRunFile } = await loadDiscoverParser()
+    const tmp = mkdtempSync(join(tmpdir(), 'discover-contract-'))
+    try {
+      const data = JSON.parse(readFileSync(DISCOVER_FIXTURE, 'utf8'))
+      data.extraField = 'should fail'
+      const tmpFile = join(tmp, 'discover-run.json')
+      writeFileSync(tmpFile, JSON.stringify(data))
+      const result = await parseDiscoverRunFile(tmpFile)
+      assert.ok(!result.ok, 'strict mode should reject extra fields')
+      assert.strictEqual(result.error.code, 'invalid_input')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('aideck cross-repo contract — meta', () => {
   it('reports whether the contract test ran or skipped', () => {
     // Visibility-only: makes the skip reason explicit in test output so a

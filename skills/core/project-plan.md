@@ -543,9 +543,12 @@ For each cluster:
    - **nextAction** (strong = "Resume T-N: ..."; worth-reviewing = question form; historical = null)
    - **rationale** (1–2 lines citing decisive signals)
    - **Context synthesis** (2–3 paragraphs)
-7. After all drafts, generate `INDEX.md` using `skills/shared/project-status-assets/bootstrap-index.template.md`.
-8. Ask confirmation (intrusive-actions): "Open discover proposal in browser? (y/N)".
-9. If `y`: execute `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`.
+7. Generate `discover-run.json` in `.atomic-skills/bootstrap-drafts/` with the complete DiscoverRun shape: `{ runId, generatedAt, scanConfig, sourcesSummary, counts, candidates, alreadyTracked, orphanSignals, relationships }`. Each candidate carries: `slug, slugAlternatives, title, goal, kind, bucket, confidence, confidenceBreakdown, started, lastUpdated, activityTimeline, branch, nextAction, rationale, scopePaths, signalIds, evidence[], contextMarkdown, evidenceExcerpts, previewYaml, draftPath, approved: false`. Historical candidates additionally carry `historicalReason` and `completionSummary`. Schema reference: `assets/fixtures/discover-run.fixture.json`.
+8. Check if aiDeck is running: `curl -sf http://127.0.0.1:7777/api/health >/dev/null 2>&1`.
+   - If not running: inform user "aiDeck is not running. Start it with `npx atomic-skills serve` then re-run discover, or use the legacy INDEX.md fallback below."
+   - **Legacy fallback (aiDeck unavailable):** generate `INDEX.md` using `skills/shared/project-status-assets/bootstrap-index.template.md`, ask "Open in browser? (y/N)", if `y`: `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`.
+9. If aiDeck is running: open browser at `http://127.0.0.1:7777/discover`.
+10. Inform user: "Review candidates at http://127.0.0.1:7777/discover. Mark approve/reject on each, click 'Submit decisions', then come back here."
 
 ### Phase 4 — Commit
 
@@ -555,9 +558,20 @@ Algorithm:
 
 ```
 1. If .atomic-skills/bootstrap-drafts/ does not exist: error "nothing to commit".
+1b. Read decisions from ALL JSONL files in .atomic-skills/bootstrap-drafts/inbox/*.jsonl
+    (glob — decisions may span multiple UTC dates or review sessions).
+    Filter lines by kind === 'decision' and target.consumer === 'bootstrap-drafts'.
+    For each slug, keep only the latest decision (highest createdAt).
+    Build a Map<slug, 'approve'|'reject'>.
+    Fallback: if no inbox/ JSONL exists, ask user "Did you review candidates in the browser?"
+    If no: proceed without decisions (ask per-candidate in step 3).
 2. List all *.draft.md (initiative) AND *.plan.draft.md (plan), including archive/.
 3. For each draft:
    a. Parse frontmatter YAML.
+   a2. Check decision map from step 1b:
+       - If slug has decision 'reject': delete the draft file, skip to next.
+       - If slug has decision 'approve': proceed with materialization.
+       - If slug has no decision: ask user "Approve <slug> — <title>? (y/N/skip)".
    b. Validate: slug regex, unique vs plans/** + initiatives/**.
    c. Branch on kind:
       - kind=plan → run materializeDecomposition (from src/decompose.js) on the
