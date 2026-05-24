@@ -266,7 +266,7 @@ NOT inline-rewrite these; reference them and substitute placeholders.
    - `<TIMEOUT_SECONDS>` = 600
    - `<MODEL_FLAG>` = empty (codex resolves)
 
-   Capture exit code. 124 (timeout) or non-zero: abort.
+   Capture exit code. 124 (GNU timeout) or 142 (perl alarm fallback) → timeout, abort with retry suggestion. Other non-zero → codex error, abort.
 
 6. **Pass 1 validation** — follow
    `{{ASSETS_PATH}}/validation-checklist.txt` (universal checks 1-9).

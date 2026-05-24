@@ -315,3 +315,183 @@ describe('validateCatalog — cross-checks', () => {
     assert.ok(report.parseError);
   });
 });
+
+import {
+  validateModuleMeta,
+  validateReadmeMentions,
+  validateCatalogVersion,
+  validateReleaseHighlight,
+} from '../scripts/lib/validate-skills-core.js';
+
+describe('validateModuleMeta', () => {
+  it('returns no issues when module_meta absent and modules empty', () => {
+    assert.deepEqual(validateModuleMeta({ modules: {} }), []);
+    assert.deepEqual(validateModuleMeta({}), []);
+  });
+
+  it('flags missing module_meta when modules has entries', () => {
+    const issues = validateModuleMeta({ modules: { foo: {}, bar: {} } });
+    assert.equal(issues.length, 1);
+    assert.match(issues[0], /module_meta block missing/);
+    assert.match(issues[0], /2 module/);
+  });
+
+  it('flags orphan module_meta keys (no matching module)', () => {
+    const data = {
+      modules: { foo: {} },
+      module_meta: {
+        foo: { title: 'Foo', intro: 'F' },
+        ghost: { title: 'Ghost', intro: 'G' },
+      },
+    };
+    const issues = validateModuleMeta(data);
+    assert.ok(issues.some((i) => i.includes('module_meta.ghost has no matching')));
+  });
+
+  it('flags modules missing from module_meta (undocumented)', () => {
+    const data = {
+      modules: { foo: {}, undocumented: {} },
+      module_meta: { foo: { title: 'Foo', intro: 'F' } },
+    };
+    const issues = validateModuleMeta(data);
+    assert.ok(issues.some((i) => i.includes('modules.undocumented has no module_meta')));
+  });
+
+  it('flags missing required fields (title, intro)', () => {
+    const data = {
+      modules: { foo: {} },
+      module_meta: { foo: { /* no title, no intro */ } },
+    };
+    const issues = validateModuleMeta(data);
+    assert.ok(issues.some((i) => i.includes('module_meta.foo.title is required')));
+    assert.ok(issues.some((i) => i.includes('module_meta.foo.intro is required')));
+  });
+
+  it('flags malformed version_added', () => {
+    const data = {
+      modules: { foo: {} },
+      module_meta: { foo: { title: 'Foo', intro: 'Bar', version_added: 'not-a-version' } },
+    };
+    const issues = validateModuleMeta(data);
+    assert.ok(issues.some((i) => i.includes('version_added must match')));
+  });
+
+  it('flags features not being array of strings', () => {
+    const data = {
+      modules: { foo: {} },
+      module_meta: { foo: { title: 'Foo', intro: 'Bar', features: 'not-array' } },
+    };
+    assert.ok(validateModuleMeta(data).some((i) => i.includes('features must be an array of strings')));
+  });
+
+  it('passes a fully valid module_meta entry', () => {
+    const data = {
+      modules: { foo: {} },
+      module_meta: {
+        foo: {
+          title: 'Foo',
+          intro: 'A real intro.',
+          version_added: '1.2.3',
+          features: ['Feature A', 'Feature B'],
+          notes: 'Some notes.',
+        },
+      },
+    };
+    assert.deepEqual(validateModuleMeta(data), []);
+  });
+
+  it('flags module_meta entry that is not an object', () => {
+    const data = { modules: { foo: {} }, module_meta: { foo: 'not-object' } };
+    assert.ok(validateModuleMeta(data).some((i) => i.includes('must be an object')));
+  });
+});
+
+describe('validateReadmeMentions', () => {
+  const known = new Set(['fix', 'hunt', 'review-plan']);
+
+  it('returns no issues for empty/non-string input', () => {
+    assert.deepEqual(validateReadmeMentions('', known), []);
+    assert.deepEqual(validateReadmeMentions(null, known), []);
+  });
+
+  it('returns no issues when all mentions resolve', () => {
+    const md = '# X\n\nRun `atomic-skills:fix` and `atomic-skills:hunt`.';
+    assert.deepEqual(validateReadmeMentions(md, known), []);
+  });
+
+  it('flags unknown skill mentions with line number', () => {
+    const md = '# X\n\n`atomic-skills:does-not-exist` here.';
+    const issues = validateReadmeMentions(md, known);
+    assert.equal(issues.length, 1);
+    assert.match(issues[0], /does-not-exist/);
+    assert.match(issues[0], /line\(s\) 3/);
+  });
+
+  it('groups multiple mentions of same unknown name', () => {
+    const md = '`atomic-skills:foo` on line 1\n`atomic-skills:foo` on line 2\n`atomic-skills:foo` on line 3\n`atomic-skills:foo` on line 4';
+    const issues = validateReadmeMentions(md, known);
+    assert.equal(issues.length, 1);
+    assert.match(issues[0], /1, 2, 3 \(\+1 more\)/);
+  });
+
+  it('separate issues for different unknown names', () => {
+    const md = '`atomic-skills:foo` then `atomic-skills:bar`';
+    const issues = validateReadmeMentions(md, known);
+    assert.equal(issues.length, 2);
+  });
+});
+
+describe('validateCatalogVersion', () => {
+  it('flags missing version field', () => {
+    const issues = validateCatalogVersion({ core: {} });
+    assert.equal(issues.length, 1);
+    assert.match(issues[0], /missing required root field: version/);
+  });
+
+  it('flags non-string version', () => {
+    assert.match(validateCatalogVersion({ version: 0.2 })[0], /must be a string/);
+  });
+
+  it('flags unsupported version', () => {
+    const issues = validateCatalogVersion({ version: '0.1' });
+    assert.match(issues[0], /unsupported root version "0.1"/);
+  });
+
+  it('passes valid version', () => {
+    assert.deepEqual(validateCatalogVersion({ version: '0.2' }), []);
+  });
+
+  it('handles null/non-object data gracefully', () => {
+    assert.deepEqual(validateCatalogVersion(null), []);
+    assert.deepEqual(validateCatalogVersion('string'), []);
+  });
+});
+
+describe('validateReleaseHighlight', () => {
+  it('returns no issues when block absent', () => {
+    assert.deepEqual(validateReleaseHighlight({ core: {} }), []);
+    assert.deepEqual(validateReleaseHighlight({}), []);
+  });
+
+  it('flags non-object release_highlight', () => {
+    assert.match(validateReleaseHighlight({ release_highlight: 'string' })[0], /must be an object/);
+    assert.match(validateReleaseHighlight({ release_highlight: [] })[0], /must be an object/);
+    assert.match(validateReleaseHighlight({ release_highlight: null })[0], /must be an object/);
+  });
+
+  it('flags missing body', () => {
+    assert.match(validateReleaseHighlight({ release_highlight: { } })[0], /body is required/);
+  });
+
+  it('flags non-string body', () => {
+    assert.match(validateReleaseHighlight({ release_highlight: { body: 42 } })[0], /must be a string/);
+  });
+
+  it('flags empty body', () => {
+    assert.match(validateReleaseHighlight({ release_highlight: { body: '   ' } })[0], /non-empty string/);
+  });
+
+  it('passes valid release_highlight', () => {
+    assert.deepEqual(validateReleaseHighlight({ release_highlight: { body: 'Real release notes.' } }), []);
+  });
+});

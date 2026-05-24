@@ -349,3 +349,149 @@ describe('install.js source guards', () => {
     );
   });
 });
+
+import {
+  findLegacyOrphans,
+  removeLegacyOrphans,
+  isAtomicSkillsArtifact,
+} from '../src/install.js';
+import { existsSync as fsExistsSync, mkdirSync as fsMkdirSync, writeFileSync as fsWriteFileSync, rmSync as fsRmSync, mkdtempSync as fsMkdtempSync } from 'node:fs';
+import { tmpdir as fsTmpdir } from 'node:os';
+import { join as pjoin, dirname as pdirname } from 'node:path';
+
+describe('findLegacyOrphans + removeLegacyOrphans', () => {
+  let tmp;
+  beforeEach(() => {
+    tmp = fsMkdtempSync(pjoin(fsTmpdir(), 'as-legacy-'));
+  });
+  afterEach(() => {
+    fsRmSync(tmp, { recursive: true, force: true });
+  });
+
+  const writeSkill = (subPath, name) => {
+    const full = pjoin(tmp, subPath);
+    fsMkdirSync(pdirname(full), { recursive: true });
+    fsWriteFileSync(full, `---\nname: ${name}\ndescription: test\n---\n\nBody\n`);
+    return full;
+  };
+
+  it('returns empty when no legacy paths exist', () => {
+    const orphans = findLegacyOrphans(tmp, new Set(['fix']));
+    assert.deepEqual(orphans, []);
+  });
+
+  it('finds files under <legacyRoot>/atomic-skills/', () => {
+    writeSkill('.claude/skills/atomic-skills/fix/SKILL.md', 'fix');
+    writeSkill('.claude/skills/atomic-skills/hunt/SKILL.md', 'hunt');
+    const orphans = findLegacyOrphans(tmp, new Set(['fix', 'hunt']));
+    assert.equal(orphans.length, 2);
+  });
+
+  it('marks orphans with frontmatter `name:` matching current known names as safe', () => {
+    writeSkill('.claude/skills/atomic-skills/fix/SKILL.md', 'fix');
+    const [orphan] = findLegacyOrphans(tmp, new Set(['fix']));
+    assert.equal(orphan.safe, true);
+  });
+
+  it('marks orphans matching HISTORICAL names as safe (removed skills)', () => {
+    writeSkill('.claude/skills/atomic-skills/review-plan-internal/SKILL.md', 'review-plan-internal');
+    const [orphan] = findLegacyOrphans(tmp, new Set(['fix']));
+    assert.equal(orphan.safe, true);
+  });
+
+  it('marks files WITHOUT atomic-skills signature as UNSAFE (preserve)', () => {
+    writeSkill('.claude/skills/atomic-skills/my-custom/SKILL.md', 'my-custom-thing');
+    const [orphan] = findLegacyOrphans(tmp, new Set(['fix']));
+    assert.equal(orphan.safe, false);
+  });
+
+  it('marks files without frontmatter as UNSAFE', () => {
+    const full = pjoin(tmp, '.claude/skills/atomic-skills/random.txt');
+    fsMkdirSync(pdirname(full), { recursive: true });
+    fsWriteFileSync(full, 'plain text no frontmatter');
+    const [orphan] = findLegacyOrphans(tmp, new Set(['fix']));
+    assert.equal(orphan.safe, false);
+  });
+
+  it('treats namespace root SKILL.md as safe (name = atomic-skills)', () => {
+    const full = pjoin(tmp, '.claude/skills/atomic-skills/SKILL.md');
+    fsMkdirSync(pdirname(full), { recursive: true });
+    fsWriteFileSync(full, `---\nname: atomic-skills\ndescription: ns\n---\n\nBody\n`);
+    const [orphan] = findLegacyOrphans(tmp, new Set());
+    assert.equal(orphan.safe, true);
+  });
+
+  it('removes safe orphans + walks back up empty parents up to namespace root', () => {
+    writeSkill('.claude/skills/atomic-skills/fix/SKILL.md', 'fix');
+    writeSkill('.claude/skills/atomic-skills/hunt/SKILL.md', 'hunt');
+    const orphans = findLegacyOrphans(tmp, new Set(['fix', 'hunt']));
+    removeLegacyOrphans(tmp, orphans);
+    // Files removed
+    assert.equal(fsExistsSync(pjoin(tmp, '.claude/skills/atomic-skills/fix/SKILL.md')), false);
+    // Sub-dirs removed
+    assert.equal(fsExistsSync(pjoin(tmp, '.claude/skills/atomic-skills/fix')), false);
+    // Namespace root removed (empty)
+    assert.equal(fsExistsSync(pjoin(tmp, '.claude/skills/atomic-skills')), false);
+    // Legacy dir PRESERVED (not ours)
+    assert.equal(fsExistsSync(pjoin(tmp, '.claude/skills')), true);
+  });
+
+  it('L1: does NOT walk into sibling dirs with prefix collision', () => {
+    // Sibling dir starting with namespace prefix
+    writeSkill('.claude/skills/atomic-skills/fix/SKILL.md', 'fix');
+    fsMkdirSync(pjoin(tmp, '.claude/skills/atomic-skills-sibling/inner'), { recursive: true });
+    fsWriteFileSync(pjoin(tmp, '.claude/skills/atomic-skills-sibling/inner/keep.md'), 'do not touch');
+    const orphans = findLegacyOrphans(tmp, new Set(['fix']));
+    removeLegacyOrphans(tmp, orphans);
+    // Sibling preserved
+    assert.equal(fsExistsSync(pjoin(tmp, '.claude/skills/atomic-skills-sibling/inner/keep.md')), true);
+  });
+});
+
+describe('isAtomicSkillsArtifact', () => {
+  let tmp;
+  beforeEach(() => { tmp = fsMkdtempSync(pjoin(fsTmpdir(), 'as-art-')); });
+  afterEach(() => { fsRmSync(tmp, { recursive: true, force: true }); });
+
+  const write = (name, content) => {
+    const p = pjoin(tmp, name);
+    fsWriteFileSync(p, content);
+    return p;
+  };
+
+  it('returns true when frontmatter name matches known current skill', () => {
+    const p = write('a.md', `---\nname: fix\n---\nbody`);
+    assert.equal(isAtomicSkillsArtifact(p, new Set(['fix'])), true);
+  });
+
+  it('returns true when frontmatter name matches historical skill', () => {
+    const p = write('a.md', `---\nname: review-plan-internal\n---\nbody`);
+    assert.equal(isAtomicSkillsArtifact(p, new Set()), true);
+  });
+
+  it('returns false when frontmatter name is unknown', () => {
+    const p = write('a.md', `---\nname: my-thing\n---\nbody`);
+    assert.equal(isAtomicSkillsArtifact(p, new Set(['fix'])), false);
+  });
+
+  it('returns false when no frontmatter', () => {
+    const p = write('a.md', `plain text`);
+    assert.equal(isAtomicSkillsArtifact(p, new Set(['fix'])), false);
+  });
+
+  it('returns false when frontmatter has no name field', () => {
+    const p = write('a.md', `---\ndescription: foo\n---\nbody`);
+    assert.equal(isAtomicSkillsArtifact(p, new Set(['fix'])), false);
+  });
+
+  it('returns false on unreadable file (conservative preserve)', () => {
+    assert.equal(isAtomicSkillsArtifact('/nonexistent/path/file.md', new Set(['fix'])), false);
+  });
+
+  it('handles quoted frontmatter name', () => {
+    const p1 = write('a.md', `---\nname: "fix"\n---\nbody`);
+    const p2 = write('b.md', `---\nname: 'fix'\n---\nbody`);
+    assert.equal(isAtomicSkillsArtifact(p1, new Set(['fix'])), true);
+    assert.equal(isAtomicSkillsArtifact(p2, new Set(['fix'])), true);
+  });
+});

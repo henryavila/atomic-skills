@@ -11,10 +11,33 @@ contamination, orphan processes).
 - `<TIMEOUT_SECONDS>`: integer seconds (default 600 = 10 min)
 - `<MODEL_FLAG>`: empty by default. If user passed `--model X`, set to `--model X`.
 
+## Pre-step: portable timeout wrapper
+
+`timeout(1)` is GNU coreutils. On macOS it is NOT installed by default; on
+Linux + WSL it is. The skill MUST detect the available wrapper before
+constructing the command — never hardcode `timeout`.
+
+Detection (run once per session, cache the result):
+
+```bash
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_CMD="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_CMD="gtimeout"           # macOS via `brew install coreutils`
+elif command -v perl >/dev/null 2>&1; then
+  TIMEOUT_CMD="perl -e 'alarm shift @ARGV; exec @ARGV' --"   # POSIX-portable fallback
+else
+  echo "ERROR: no timeout wrapper available. Install coreutils (Linux: apt/yum; macOS: brew install coreutils) or perl." >&2
+  exit 1
+fi
+```
+
+The three wrappers have COMPATIBLE call shape: `<wrapper> <SECONDS> <command...>`. The perl form's `--` terminates perl option parsing so `<command>` starts cleanly.
+
 ## Command
 
 ```bash
-timeout <TIMEOUT_SECONDS> codex -a never exec \
+$TIMEOUT_CMD <TIMEOUT_SECONDS> codex -a never exec \
   <MODEL_FLAG> \
   -c model_reasoning_effort=high \
   --sandbox read-only \
@@ -33,7 +56,7 @@ this is `- < /path/to/briefing.md`.
 
 | Flag | Why |
 |------|-----|
-| `timeout <N>` | External kill. Codex has known hangs (issues #7852, #4337). |
+| `$TIMEOUT_CMD <N>` | External kill. Codex has known hangs (issues #7852, #4337). Portable across Linux/macOS/WSL via the detector above. |
 | `-a never` | Approval mode `never` — required for non-interactive. |
 | `exec` | Subcommand for headless execution. |
 | `-c model_reasoning_effort=high` | Forces deep reasoning. Worth the tokens for adversarial review. |
@@ -47,8 +70,12 @@ this is `- < /path/to/briefing.md`.
 ## Exit codes
 
 - `0`: ok, parse output file
-- `124`: timeout (set by `timeout(1)`). Abort with message + suggest retry.
+- `124`: timeout (set by `timeout(1)` / `gtimeout`)
+- `142` or `SIGALRM-killed`: timeout (set by perl `alarm` fallback)
 - other: Codex error. Abort with message + capture stderr if user wants debug.
+
+Both timeout exit codes (124 and 142) MUST be handled as "timeout" by the
+skill — the wrapper choice is invisible to the user.
 
 ## DO NOT
 
@@ -56,3 +83,4 @@ this is `- < /path/to/briefing.md`.
 - Omit stdin redirection (`- < /path`) — `codex exec` may hang.
 - Use `--full-auto` — deprecated.
 - Use `--yolo` / `--dangerously-bypass-approvals-and-sandbox` — bypasses sandbox.
+- Hardcode `timeout` (will fail on macOS without coreutils). Use the detector above.

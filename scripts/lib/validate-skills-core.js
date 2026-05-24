@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const ACCEPTED_SCHEMA_VERSIONS = new Set(['0.2']);
+export const ACCEPTED_CATALOG_VERSIONS = new Set(['0.2']);
 export const KNOWN_IDES = new Set([
   'claude-code',
   'gemini',
@@ -513,6 +514,59 @@ export function validateModuleMeta(data) {
 }
 
 /**
+ * F-003 (codex review 2026-05-24): validate the top-level `version` field
+ * declared at the root of catalog.yaml. Required, must be a string, must
+ * be in ACCEPTED_CATALOG_VERSIONS. Catches typos and unsupported root
+ * formats before downstream generators consume the file.
+ */
+export function validateCatalogVersion(data) {
+  const issues = [];
+  if (data == null || typeof data !== 'object') return issues;
+  if (!('version' in data)) {
+    issues.push("missing required root field: version (expected e.g. '0.2')");
+    return issues;
+  }
+  if (typeof data.version !== 'string') {
+    issues.push(`root version must be a string (got ${typeof data.version})`);
+    return issues;
+  }
+  if (!ACCEPTED_CATALOG_VERSIONS.has(data.version)) {
+    issues.push(
+      `unsupported root version "${data.version}" ` +
+      `(accepted: ${[...ACCEPTED_CATALOG_VERSIONS].join(', ')})`
+    );
+  }
+  return issues;
+}
+
+/**
+ * S2 (review 2026-05-24): validate the optional `release_highlight` block.
+ * When present, must be an object with a non-empty string `body`. Catches
+ * garbage like `{body: 42}` before the renderer throws.
+ */
+export function validateReleaseHighlight(data) {
+  const issues = [];
+  if (!data || data.release_highlight === undefined) return issues;
+  const rh = data.release_highlight;
+  if (rh === null || typeof rh !== 'object' || Array.isArray(rh)) {
+    issues.push('release_highlight must be an object with a `body` field');
+    return issues;
+  }
+  if (!('body' in rh)) {
+    issues.push('release_highlight.body is required');
+    return issues;
+  }
+  if (typeof rh.body !== 'string') {
+    issues.push(`release_highlight.body must be a string (got ${typeof rh.body})`);
+    return issues;
+  }
+  if (rh.body.trim().length === 0) {
+    issues.push('release_highlight.body must be a non-empty string');
+  }
+  return issues;
+}
+
+/**
  * Validate the entire catalog. Returns a structured report:
  *   { totalSkills, totalIssues, failedSkills, failures, versionsSeen, parseError }
  *
@@ -575,6 +629,28 @@ export function validateCatalog(data, options = {}) {
         issues: moduleMetaIssues,
       });
     }
+  }
+
+  // F-003 (codex review): opt-in (CLI sets requireCatalogVersion: true;
+  // tests default off so synthetic fixtures don't need the root field).
+  if (options.requireCatalogVersion) {
+    const versionIssues = validateCatalogVersion(data);
+    if (versionIssues.length > 0) {
+      perSkillFailures.set('__catalog_version__', {
+        location: '__catalog_version__',
+        issues: versionIssues,
+      });
+    }
+  }
+
+  // S2 (review): release_highlight is always validated when present;
+  // absent is fine (renders no version note).
+  const releaseHighlightIssues = validateReleaseHighlight(data);
+  if (releaseHighlightIssues.length > 0) {
+    perSkillFailures.set('__release_highlight__', {
+      location: '__release_highlight__',
+      issues: releaseHighlightIssues,
+    });
   }
 
   report.failures = [...perSkillFailures.values()];

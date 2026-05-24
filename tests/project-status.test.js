@@ -192,7 +192,7 @@ describe('project-status skill', () => {
     assert.ok(content.includes('## ? Worth reviewing'));
     assert.ok(content.includes('## ◉ Historical'));
     assert.ok(content.includes('## Already tracked'));
-    assert.ok(content.includes('bootstrap --commit'));
+    assert.ok(content.includes('discover --commit'));
     assert.ok(content.includes('Delete the draft file to skip'));
   });
 

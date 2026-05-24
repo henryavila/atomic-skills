@@ -1,5 +1,7 @@
 /**
- * Deterministic helpers for project-status bootstrap mode.
+ * Deterministic helpers for the `project-plan discover` flow (formerly
+ * `project-status bootstrap`). File kept under src/bootstrap.js for
+ * historical continuity; the discover subcommand renamed-and-moved in v2.0.0.
  * All functions are pure; no I/O, no globals.
  */
 
@@ -297,12 +299,21 @@ function coerceToIsoTimestamp(value, fallbackNow) {
 export function detectPlanShape(markdown) {
   if (typeof markdown !== 'string' || markdown.length === 0) return 'initiative';
   // Phase headings — EN (Phase N), PT (Fase N), or canonical (F0/F12/...)
-  const re = /^##\s+(F\d+|Phase\s+\d+|Fase\s+\d+)\b/gim;
+  // T11 (review 2026-05-24): a naive regex over the whole document
+  // false-positives on phase headings INSIDE fenced code blocks
+  // (```python\n## Phase 1\n```). Track fence state line-by-line; only
+  // count headings at fence-depth 0.
+  const headingRe = /^##\s+(F\d+|Phase\s+\d+|Fase\s+\d+)\b/i;
+  const fenceRe = /^\s*(```|~~~)/;
+  let inFence = false;
   let count = 0;
-  // eslint-disable-next-line no-unused-vars
-  for (const _m of markdown.matchAll(re)) {
-    count++;
-    if (count >= 2) return 'plan';
+  for (const line of markdown.split('\n')) {
+    if (fenceRe.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    if (headingRe.test(line)) {
+      count++;
+      if (count >= 2) return 'plan';
+    }
   }
   return 'initiative';
 }

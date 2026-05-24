@@ -23,6 +23,20 @@ INPUTS_REGEX='^(meta/catalog\.yaml|skills/en/|src/config\.js|package\.json|scrip
 COUPLED_REGEX='^(meta/catalog\.yaml|skills/en/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law)|src/dashboard/data/skills\.generated\.ts|README\.md)'
 
 if echo "$STAGED" | grep -qE "$INPUTS_REGEX"; then
+  # F-001 guard (codex review 2026-05-24): refuse to silently sweep
+  # pre-existing unstaged edits to the generator outputs into the commit.
+  # If README.md or skills.generated.ts has unstaged changes, the user must
+  # commit/stash them explicitly first — otherwise the `git add` below
+  # would absorb their unrelated work alongside the catalog change.
+  UNSTAGED_OUTPUTS=$(git diff --name-only -- README.md src/dashboard/data/skills.generated.ts)
+  if [ -n "$UNSTAGED_OUTPUTS" ]; then
+    echo "[husky] ✖ aborting: regenerator outputs have unstaged changes:" >&2
+    echo "$UNSTAGED_OUTPUTS" | sed 's/^/  - /' >&2
+    echo "[husky] commit, stash, or restore those first — otherwise auto-regen" >&2
+    echo "[husky] would stage them alongside the catalog change." >&2
+    exit 1
+  fi
+
   echo "[husky] catalog inputs changed — regenerating docs"
   npm run generate-docs
   git add README.md src/dashboard/data/skills.generated.ts

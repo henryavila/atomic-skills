@@ -49,6 +49,7 @@ function main() {
     skillsDir: DEFAULT_SKILLS_DIR,
     requireIronLaw: true,
     requireModuleMeta: true,
+    requireCatalogVersion: true,
   });
 
   if (report.parseError) {

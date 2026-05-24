@@ -40,6 +40,54 @@ verb-based split between `project-status` (VIEW + daily mutations) and
   the new homes for moved commands. No backwards-compat aliases — this
   ships before the v2.0.0 publish.
 
+### Cross-model review fixes (origin/main..HEAD @ 2026-05-24)
+
+Following the local + codex review on the v2.0.0 prep branch
+(`.atomic-skills/reviews/20260524-055236-origin-main-to-head-v2-refactor.md`),
+the following fixes were applied:
+
+- **Husky pre-commit guard** (F-001 from codex, major): hook now refuses to
+  regenerate when `README.md` or `src/dashboard/data/skills.generated.ts`
+  have unstaged changes. Without this guard the auto-`git add` would sweep
+  unrelated hand-edits into the commit. Shell test in
+  `tests/hooks/pre-commit.test.sh` covers the abort path.
+- **Safe legacy cleanup** (F-002 from codex blind, dropped via constraints
+  but applied anyway): `findLegacyOrphans` now returns `{path, safe}`
+  per file; only files whose frontmatter `name:` matches a known
+  atomic-skills artifact (current catalog + `HISTORICAL_ATOMIC_SKILLS_NAMES`
+  safelist) are deleted in `--yes`. Unrecognized files at the legacy path
+  are preserved with a clear warning.
+- **Root catalog version validation** (F-003): `validateCatalogVersion`
+  enforces `data.version === '0.2'`. Opt-in via `requireCatalogVersion`
+  (CLI on, tests off).
+- **`release_highlight` validation** (S2): `validateReleaseHighlight`
+  rejects garbage `{body: 42}` before the renderer throws.
+- **`detectPlanShape` code-block awareness** (T11): state-machine pass
+  over lines so phase headings inside fenced code blocks (```python\n##
+  Phase 1) don't false-positive as Plan candidates.
+- **`removeLegacyOrphans` path-aware boundary** (L1): switched from
+  `parent.startsWith(legacyRoot)` to `parent === legacyRoot ||
+  parent.startsWith(legacyRoot + path.sep)`. Defensive against
+  prefix-collision siblings.
+- **Silent failure surfaced** (E1): `removeLegacyOrphans` now logs
+  `[atomic-skills] could not remove <path>: <err>` when `unlinkSync`
+  fails, instead of swallowing.
+- **`bootstrap-index.template.md` command rename** (C1 from local):
+  template instruction `atomic-skills:project-status bootstrap --commit`
+  → `atomic-skills:project-plan discover --commit` to match the
+  project-status/project-plan refactor.
+- **Codex invocation portable on macOS** (skill body fix):
+  `skills/shared/codex-bridge-assets/invocation-canonical.txt` now
+  documents a detector that picks `timeout` / `gtimeout` / `perl -e
+  'alarm shift @ARGV; exec @ARGV' --` based on what's available. Native
+  macOS users no longer hit `command not found: timeout`.
+
+Test coverage delta: 425 → 474 (+49 new unit tests across
+`validateModuleMeta`, `validateReadmeMentions`, `validateCatalogVersion`,
+`validateReleaseHighlight`, `findLegacyOrphans`, `removeLegacyOrphans`,
+`isAtomicSkillsArtifact`, `detectPlanShape` code-block, `status` forceProject)
+plus 3 shell tests for `.husky/pre-commit`.
+
 ### Breaking changes
 
 - **Removed `review-plan-internal` and `review-plan-vs-artifacts`** — merged

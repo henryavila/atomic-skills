@@ -578,3 +578,34 @@ describe('detectPlanShape', () => {
     assert.equal(detectPlanShape(md), 'plan');
   });
 });
+
+describe('detectPlanShape — code block awareness (T11)', () => {
+  it('does NOT count phase headings inside fenced code blocks (triple backtick)', () => {
+    const md = `# Initiative
+
+Example code:
+\`\`\`python
+## Phase 1: do X
+## Phase 2: do Y
+\`\`\`
+
+Just one initiative.`;
+    assert.equal(detectPlanShape(md), 'initiative');
+  });
+
+  it('does NOT count phase headings inside ~~~ fenced blocks', () => {
+    const md = `# Plan\n~~~\n## Phase 1\n## Phase 2\n~~~\n`;
+    assert.equal(detectPlanShape(md), 'initiative');
+  });
+
+  it('counts phase headings BEFORE and AFTER code blocks', () => {
+    const md = `# Plan\n## F0 — Setup\n\`\`\`\n## Phase X (inside)\n\`\`\`\n## F1 — Build\n`;
+    assert.equal(detectPlanShape(md), 'plan');
+  });
+
+  it('handles unclosed code fence (treats rest as inside fence)', () => {
+    const md = `# Initiative\n## F0 — start\n\`\`\`\n## F1 — never closes\n## F2 — also inside\n`;
+    // F0 is at fence-depth 0 (count=1); F1+F2 are inside open fence → not counted
+    assert.equal(detectPlanShape(md), 'initiative');
+  });
+});

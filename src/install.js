@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname, relative, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import pc from 'picocolors';
@@ -30,12 +30,61 @@ function generateNamespaceRoot() {
 }
 
 /**
+ * Names that have historically been atomic-skills artifacts and are safe to
+ * delete from legacy paths. F-002 (codex review 2026-05-24): without this
+ * safelist, `--yes` cleanup would silently delete ANY file at a legacy
+ * namespace path, including user-owned custom skills the user happened to
+ * place under our namespace. Frontmatter-based safelist preserves those.
+ *
+ * Add removed skill names here when consolidating (so post-removal cleanups
+ * still recognize the artifact as ours). Pre-1.x `as-` prefix is included.
+ */
+const HISTORICAL_ATOMIC_SKILLS_NAMES = new Set([
+  // Removed in v2.0.0 consolidation
+  'review-plan-internal', 'review-plan-vs-artifacts',
+  'review-plan-with-codex', 'review-code-with-codex',
+  // Pre-1.x prefix (original `as-` form, deprecated)
+  'as-fix', 'as-hunt', 'as-prompt', 'as-save-and-push', 'as-init-memory',
+  // Namespace root SKILL.md
+  SKILL_NAMESPACE,
+]);
+
+/**
+ * F-002 (review): inspect frontmatter for an atomic-skills signature.
+ * Returns true if the file's first frontmatter block has a `name:` field
+ * that matches a known atomic-skills name (current catalog or historical).
+ * Files without atomic-skills shape are preserved during legacy cleanup.
+ */
+export function isAtomicSkillsArtifact(filePath, knownCurrentNames) {
+  let head;
+  try {
+    head = readFileSync(filePath, 'utf8').slice(0, 4096);
+  } catch {
+    // Unreadable file → conservative: preserve.
+    return false;
+  }
+  if (!head.startsWith('---\n')) return false;
+  const end = head.indexOf('\n---\n', 4);
+  if (end < 0) return false;
+  const fm = head.slice(4, end);
+  const m = fm.match(/^name:\s*['"]?([a-z][a-z0-9-]*)['"]?\s*$/m);
+  if (!m) return false;
+  const name = m[1];
+  return knownCurrentNames.has(name) || HISTORICAL_ATOMIC_SKILLS_NAMES.has(name);
+}
+
+/**
  * Scan obsolete install paths (see LEGACY_NAMESPACE_PATHS) for any file
  * still living under the atomic-skills namespace. These are invisible to
  * the manifest-based orphan detector because they predate the current
- * IDE_CONFIG. Returns [{path, legacyRoot, reason}].
+ * IDE_CONFIG. Returns [{path, legacyRoot, reason, safe}].
+ *
+ * `safe: true` means the file's frontmatter identifies it as a known
+ * atomic-skills artifact (current or historical). `safe: false` means
+ * the file is at the legacy path but does not look like an atomic-skills
+ * artifact — likely user-owned, preserve it.
  */
-export function findLegacyOrphans(basePath) {
+export function findLegacyOrphans(basePath, knownCurrentNames = new Set()) {
   const found = [];
   for (const { dir, reason } of LEGACY_NAMESPACE_PATHS) {
     const nsRoot = join(basePath, dir, SKILL_NAMESPACE);
@@ -44,7 +93,10 @@ export function findLegacyOrphans(basePath) {
       for (const entry of readdirSync(cur, { withFileTypes: true })) {
         const full = join(cur, entry.name);
         if (entry.isDirectory()) walk(full);
-        else if (entry.isFile()) found.push({ path: full, legacyRoot: nsRoot, reason });
+        else if (entry.isFile()) {
+          const safe = isAtomicSkillsArtifact(full, knownCurrentNames);
+          found.push({ path: full, legacyRoot: nsRoot, reason, safe });
+        }
       }
     };
     walk(nsRoot);
@@ -61,10 +113,21 @@ export function findLegacyOrphans(basePath) {
 export function removeLegacyOrphans(basePath, orphans) {
   const nsRootsSeen = new Set();
   for (const { path: full, legacyRoot } of orphans) {
-    try { unlinkSync(full); } catch {}
+    try {
+      unlinkSync(full);
+    } catch (err) {
+      // E1 (review 2026-05-24): surface deletion failures so the user knows
+      // the cleanup was partial. Skip the parent walkback on failure too.
+      console.warn(`[atomic-skills] could not remove legacy orphan ${full}: ${err.message}`);
+      continue;
+    }
     nsRootsSeen.add(legacyRoot);
     let parent = dirname(full);
-    while (parent !== legacyRoot && parent.startsWith(legacyRoot)) {
+    // L1 (review 2026-05-24): path-aware boundary check. A bare `startsWith`
+    // would match `<legacyRoot>-sibling/...` directories with a common prefix.
+    // Walk up only inside the namespace root (and stop AT the root).
+    const legacyRootWithSep = legacyRoot + PATH_SEP;
+    while (parent !== legacyRoot && parent.startsWith(legacyRootWithSep)) {
       try {
         if (readdirSync(parent).length === 0) {
           rmdirSync(parent);
@@ -476,8 +539,20 @@ export async function install(projectDir, options = {}) {
   // ─── Legacy-namespace cleanup (runs in both modes, before main install) ───
   // Removes files at obsolete install paths (see LEGACY_NAMESPACE_PATHS)
   // that the manifest can't track because they predate the current
-  // IDE_CONFIG. Auto-removed in --yes; prompts in interactive mode.
-  const legacyOrphans = findLegacyOrphans(basePath);
+  // IDE_CONFIG. F-002 (codex review): files at the legacy path that do NOT
+  // look like atomic-skills artifacts are preserved (could be user-owned
+  // content placed under our namespace). Only files matching the
+  // frontmatter safelist are auto-removed.
+  const catalogForCleanup = parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
+  const knownCurrentNames = new Set(
+    [...Object.keys(catalogForCleanup?.core || {}),
+     ...Object.values(catalogForCleanup?.modules || {})
+       .filter((m) => m && typeof m === 'object')
+       .flatMap((m) => Object.keys(m))]
+  );
+  const legacyOrphans = findLegacyOrphans(basePath, knownCurrentNames);
+  const safeOrphans = legacyOrphans.filter((o) => o.safe);
+  const unsafeOrphans = legacyOrphans.filter((o) => !o.safe);
 
   // ─── Non-interactive mode (--yes) ───
   if (yes) {
@@ -486,12 +561,19 @@ export async function install(projectDir, options = {}) {
       process.exit(1);
     }
 
-    if (legacyOrphans.length > 0) {
-      console.log(`  ${pc.dim(`Cleaning ${legacyOrphans.length} legacy orphan file(s) at obsolete install path(s):`)}`);
-      for (const o of legacyOrphans) {
+    if (safeOrphans.length > 0) {
+      console.log(`  ${pc.dim(`Cleaning ${safeOrphans.length} legacy orphan file(s) at obsolete install path(s):`)}`);
+      for (const o of safeOrphans) {
         console.log(`    ${pc.dim('-')} ${relative(basePath, o.path)}`);
       }
-      removeLegacyOrphans(basePath, legacyOrphans);
+      removeLegacyOrphans(basePath, safeOrphans);
+    }
+    if (unsafeOrphans.length > 0) {
+      console.log(`  ${pc.yellow(`Preserved ${unsafeOrphans.length} file(s) at legacy path that don't look like atomic-skills artifacts (no recognized frontmatter \`name:\`):`)}`);
+      for (const o of unsafeOrphans) {
+        console.log(`    ${pc.dim('-')} ${relative(basePath, o.path)}`);
+      }
+      console.log(`  ${pc.dim('Inspect manually and remove if intended. Pass --force-legacy-cleanup to override.')}`);
     }
 
     console.log(`◇ ${msg(language).installingMsg(pkgVersion)}`);
@@ -590,15 +672,17 @@ export async function install(projectDir, options = {}) {
   showIntro(config, { isUpdate, pkgVersion });
 
   // Surface legacy-namespace orphans (obsolete install paths) and prompt
-  // for cleanup before the regular action loop.
-  if (legacyOrphans.length > 0) {
+  // for cleanup before the regular action loop. F-002 (codex review):
+  // safe vs unsafe split by frontmatter signature — only safe ones offered
+  // for delete; unsafe ones logged for user inspection.
+  if (safeOrphans.length > 0) {
     const isPt = config.lang === 'pt';
     p.log.warn(
       isPt
-        ? `${legacyOrphans.length} arquivo(s) órfão(s) encontrado(s) em caminhos antigos:`
-        : `Found ${legacyOrphans.length} orphan file(s) at obsolete install path(s):`
+        ? `${safeOrphans.length} arquivo(s) órfão(s) atomic-skills encontrado(s) em caminhos antigos:`
+        : `Found ${safeOrphans.length} atomic-skills orphan file(s) at obsolete install path(s):`
     );
-    for (const o of legacyOrphans) {
+    for (const o of safeOrphans) {
       p.log.message(`  ${pc.dim('-')} ${relative(basePath, o.path)}  ${pc.dim(`(${o.reason})`)}`);
     }
     const removeOrphans = await p.confirm({
@@ -610,12 +694,28 @@ export async function install(projectDir, options = {}) {
       return;
     }
     if (removeOrphans) {
-      removeLegacyOrphans(basePath, legacyOrphans);
+      removeLegacyOrphans(basePath, safeOrphans);
       p.log.success(
-        isPt ? `${legacyOrphans.length} arquivo(s) órfão(s) removido(s).`
-             : `Removed ${legacyOrphans.length} orphan file(s).`
+        isPt ? `${safeOrphans.length} arquivo(s) órfão(s) removido(s).`
+             : `Removed ${safeOrphans.length} orphan file(s).`
       );
     }
+  }
+  if (unsafeOrphans.length > 0) {
+    const isPt = config.lang === 'pt';
+    p.log.warn(
+      isPt
+        ? `${unsafeOrphans.length} arquivo(s) preservado(s) em caminhos antigos (sem assinatura atomic-skills no frontmatter):`
+        : `Preserved ${unsafeOrphans.length} file(s) at legacy path(s) without atomic-skills frontmatter signature:`
+    );
+    for (const o of unsafeOrphans) {
+      p.log.message(`  ${pc.dim('-')} ${relative(basePath, o.path)}`);
+    }
+    p.log.message(
+      isPt
+        ? `  ${pc.dim('Inspecione e remova manualmente se for o caso.')}`
+        : `  ${pc.dim('Inspect and remove manually if intended.')}`
+    );
   }
 
   // If no IDEs detected, force selection
