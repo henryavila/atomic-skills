@@ -52,7 +52,7 @@ if (values.help || !command) {
     --project         Install to ./ instead of ~/ (default: user scope)
     --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
                       Use --ide detected or --all-detected to refresh from installed IDEs
-    --lang <code>     Language: en, pt
+    --lang <code>     Communication language for all skills (e.g. en, pt, es, fr, ja)
     --demo            (serve) Stage demo fixtures (a sample plan + initiative)
                       in a tmp dir and serve from there. Useful for first
                       look without bootstrapping your own .atomic-skills/.

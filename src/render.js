@@ -77,7 +77,13 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
   // This makes the AI respond to the user in their chosen language regardless of
   // the (English) language the skill source is written in.
   if (allVars.COMMUNICATION_LANGUAGE) {
-    const langLabels = { en: 'English', pt: 'Portuguese (Brazilian)' };
+    const langLabels = {
+      en: 'English', pt: 'Portuguese (Brazilian)',
+      es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
+      ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ru: 'Russian',
+      nl: 'Dutch', pl: 'Polish', ar: 'Arabic', hi: 'Hindi',
+      tr: 'Turkish', sv: 'Swedish', da: 'Danish', nb: 'Norwegian',
+    };
     const label = langLabels[allVars.COMMUNICATION_LANGUAGE] || allVars.COMMUNICATION_LANGUAGE;
     const directive = `> Communicate with the user in ${label}. Translate any English example strings in this skill at runtime; do not output them verbatim.`;
     result = `${directive}\n\n${result}`;

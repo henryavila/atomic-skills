@@ -157,7 +157,8 @@ export function printConfig(config, conflictCount = 0) {
         .join('  ')
     : pc.dim('none');
 
-  p.log.message(`  Language    ${pc.cyan(lang)}`);
+  const langLabel = lang === 'pt' ? 'Comunicação' : 'Communication';
+  p.log.message(`  ${langLabel}  ${pc.cyan(lang)}`);
   p.log.message(`  Scope       ${scopeLabel}`);
   p.log.message(`  IDEs        ${ideLabels || pc.dim('none')}`);
   p.log.message(`  Modules     ${modulesLabel}`);
@@ -331,7 +332,7 @@ export async function promptIDESelection(lang, currentIDEs = []) {
  * this preference is injected as a directive at the top of each rendered skill.
  *
  * @param {string} lang - current language (used to pre-select)
- * @returns {Promise<string>} 'pt'|'en'
+ * @returns {Promise<string>} language code (e.g. 'pt', 'en', 'ja', 'fr')
  */
 export async function promptLanguageSelection(lang) {
   const m = msg(lang);
@@ -341,6 +342,10 @@ export async function promptLanguageSelection(lang) {
     options: [
       { value: 'pt', label: 'Português (BR)' },
       { value: 'en', label: 'English' },
+      { value: 'es', label: 'Español' },
+      { value: 'fr', label: 'Français' },
+      { value: 'de', label: 'Deutsch' },
+      { value: '__other', label: lang === 'pt' ? 'Outro (digitar código)' : 'Other (type code)' },
     ],
     initialValue: lang,
   });
@@ -348,6 +353,27 @@ export async function promptLanguageSelection(lang) {
   if (p.isCancel(result)) {
     p.cancel(m.cancelled);
     process.exit(0);
+  }
+
+  if (result === '__other') {
+    const custom = await p.text({
+      message: lang === 'pt'
+        ? 'Digite o código do idioma (ex: ja, ko, zh, it, ru):'
+        : 'Type the language code (e.g. ja, ko, zh, it, ru):',
+      placeholder: 'ja',
+      validate: (v) => {
+        if (!v || v.trim().length < 2) {
+          return lang === 'pt' ? 'Mínimo 2 caracteres' : 'At least 2 characters';
+        }
+      },
+    });
+
+    if (p.isCancel(custom)) {
+      p.cancel(m.cancelled);
+      process.exit(0);
+    }
+
+    return custom.trim().toLowerCase();
   }
 
   return result;
