@@ -4,7 +4,16 @@
 // (see vite.config.ts) which forwards to 127.0.0.1:7777.
 // Production (served by aideck with --static-dir): same-origin, no proxy.
 
-import type { Annotation, Highlight, Initiative, Plan, ProjectStatusState } from './types'
+import type {
+  Annotation,
+  DiscoverCandidate,
+  DiscoverDecision,
+  DiscoverRun,
+  Highlight,
+  Initiative,
+  Plan,
+  ProjectStatusState,
+} from './types'
 
 const CONSUMER = 'project-status'
 
@@ -67,6 +76,67 @@ export async function getInitiative(slug: string): Promise<Initiative> {
 
 export async function getInbox(): Promise<InboxResponse> {
   return fetchJson<InboxResponse>(`/api/inbox?consumer=${CONSUMER}&limit=50`)
+}
+
+// ── Discover-run API ──────────────────────────────────────────────────────
+
+const DISCOVER_CONSUMER = 'bootstrap-drafts'
+
+interface DiscoverStateResponse {
+  schemaVersion: string
+  state: DiscoverRun
+}
+
+interface DiscoverInboxResponse {
+  schemaVersion: string
+  items: Array<{ kind: string; payload?: DiscoverDecision } & Record<string, unknown>>
+  nextSince?: string
+}
+
+export async function getDiscoverState(): Promise<DiscoverRun> {
+  const r = await fetchJson<DiscoverStateResponse>(`/api/state/${DISCOVER_CONSUMER}`)
+  return r.state
+}
+
+export async function postDecision(
+  candidate: DiscoverCandidate,
+  decision: 'approve' | 'reject',
+  reason?: string
+): Promise<{ id: string; createdAt: string }> {
+  const res = await fetch('/api/decision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      target: { consumer: DISCOVER_CONSUMER, slug: candidate.slug, path: candidate.draftPath },
+      decision,
+      by: 'human' as const,
+      ...(reason ? { reason } : {}),
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`HTTP ${res.status} on POST /api/decision\n${body}`)
+  }
+  return (await res.json()) as { id: string; createdAt: string }
+}
+
+export async function getDiscoverDecisions(slugs: string[]): Promise<DiscoverDecision[]> {
+  const slugSet = new Set(slugs)
+  const decisions: DiscoverDecision[] = []
+  let since: string | undefined
+  for (let page = 0; page < 10; page++) {
+    const params = new URLSearchParams({ consumer: DISCOVER_CONSUMER, limit: '500' })
+    if (since) params.set('since', since)
+    const r = await fetchJson<DiscoverInboxResponse>(`/api/inbox?${params}`)
+    for (const item of r.items) {
+      if (item.kind === 'decision' && item.payload && slugSet.has(item.payload.target?.slug ?? '')) {
+        decisions.push(item.payload)
+      }
+    }
+    if (!r.nextSince || r.items.length === 0) break
+    since = r.nextSince
+  }
+  return decisions
 }
 
 export interface RuntimeEvent {

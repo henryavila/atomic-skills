@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { DiscoverCandidate } from './types'
 import * as api from './api'
 
 export function useProjectState() {
@@ -40,8 +41,10 @@ export function useStateChangeSubscription(): void {
   useEffect(() => {
     const es = api.subscribeToEvents((evt) => {
       if (evt.kind !== 'state-change') return
-      // Aggregate state is invalidated on any change — covers list views.
       queryClient.invalidateQueries({ queryKey: ['state', 'project-status'] })
+      if (evt.consumer) {
+        queryClient.invalidateQueries({ queryKey: ['state', evt.consumer] })
+      }
       if (evt.entityKind === 'plan' && evt.slug) {
         queryClient.invalidateQueries({ queryKey: ['plan', evt.slug] })
       }
@@ -51,4 +54,38 @@ export function useStateChangeSubscription(): void {
     })
     return () => es.close()
   }, [queryClient])
+}
+
+// ── Discover hooks ────────────────────────────────────────────────────────
+
+export function useDiscoverRun() {
+  return useQuery({
+    queryKey: ['state', 'bootstrap-drafts'],
+    queryFn: api.getDiscoverState,
+    retry: false,
+  })
+}
+
+export function useDiscoverDecisions(slugs: string[]) {
+  return useQuery({
+    queryKey: ['discover-decisions', slugs],
+    queryFn: () => api.getDiscoverDecisions(slugs),
+    enabled: slugs.length > 0,
+  })
+}
+
+export function usePostDecisions() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (entries: Array<{ candidate: DiscoverCandidate; decision: 'approve' | 'reject' }>) => {
+      const results = []
+      for (const { candidate, decision } of entries) {
+        results.push(await api.postDecision(candidate, decision))
+      }
+      return results
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discover-decisions'] })
+    },
+  })
 }

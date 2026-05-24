@@ -1,0 +1,106 @@
+{
+  "runId": "disc-20260524-103000",
+  "generatedAt": "2026-05-24T10:30:00Z",
+  "scanConfig": {
+    "scope": ["git", "github", "docs", "memory-local"],
+    "repoPath": "/home/dev/test-repo"
+  },
+  "sourcesSummary": [
+    { "layer": "git", "label": "3 branches", "signalCount": 3 },
+    { "layer": "docs", "label": "1 plan file", "signalCount": 1 }
+  ],
+  "counts": { "strong": 1, "worthReviewing": 1, "historical": 0, "alreadyTracked": 0 },
+  "candidates": [
+    {
+      "slug": "test-feature",
+      "slugAlternatives": [],
+      "title": "Test feature implementation",
+      "goal": "Implement the test feature end-to-end",
+      "kind": "initiative",
+      "bucket": "strong",
+      "confidence": 0.65,
+      "confidenceBreakdown": { "git-branch": 0.30, "doc-plan": 0.20, "memory-local-entry": 0.10, "commit-group": 0.05 },
+      "started": "2026-05-10",
+      "lastUpdated": "2026-05-24",
+      "activityTimeline": [
+        { "date": "2026-05-10", "count": 1, "types": ["git-branch"] },
+        { "date": "2026-05-20", "count": 2, "types": ["commit-group", "doc-plan"] }
+      ],
+      "branch": "feat/test-feature",
+      "nextAction": "Resume T-001: write integration tests",
+      "rationale": "Active branch with recent commits and a plan doc.",
+      "scopePaths": ["src/feature/"],
+      "signalIds": ["s1", "s2", "s3"],
+      "evidence": [
+        {
+          "sourceType": "git-branch",
+          "sourceId": "feat/test-feature",
+          "topicHint": "test-feature",
+          "evidenceQuote": "Branch with 5 commits, last activity today",
+          "candidateCompletion": "active",
+          "lastActivity": "2026-05-24"
+        }
+      ],
+      "contextMarkdown": "A test feature being developed.",
+      "evidenceExcerpts": "Branch `feat/test-feature`: 5 commits.",
+      "previewYaml": "slug: test-feature\ntitle: 'Test feature'\nstatus: active",
+      "draftPath": ".atomic-skills/bootstrap-drafts/test-feature.draft.md",
+      "approved": false
+    },
+    {
+      "slug": "ci-setup",
+      "slugAlternatives": ["github-actions"],
+      "title": "Set up CI pipeline",
+      "goal": "Automate test runs on every PR",
+      "kind": "initiative",
+      "bucket": "worth-reviewing",
+      "confidence": 0.20,
+      "confidenceBreakdown": { "doc-spec": 0.20 },
+      "started": "2026-05-01",
+      "lastUpdated": "2026-05-05",
+      "activityTimeline": [
+        { "date": "2026-05-01", "count": 1, "types": ["doc-spec"] }
+      ],
+      "branch": null,
+      "nextAction": null,
+      "rationale": "Spec found but no branch or PR.",
+      "scopePaths": [".github/workflows/"],
+      "signalIds": ["s4"],
+      "evidence": [
+        {
+          "sourceType": "doc-spec",
+          "sourceId": "docs/specs/ci-setup.md",
+          "topicHint": "ci-pipeline",
+          "evidenceQuote": "Spec for GitHub Actions CI",
+          "candidateCompletion": "unknown",
+          "lastActivity": "2026-05-05"
+        }
+      ],
+      "contextMarkdown": "A spec document for CI.",
+      "evidenceExcerpts": "docs/specs/ci-setup.md describes CI pipeline.",
+      "previewYaml": "slug: ci-setup\ntitle: 'Set up CI'\nstatus: active",
+      "draftPath": ".atomic-skills/bootstrap-drafts/ci-setup.draft.md",
+      "approved": false
+    }
+  ],
+  "alreadyTracked": ["auth-session-tokens"],
+  "orphanSignals": [
+    {
+      "id": "s5",
+      "sourceType": "roadmap-section",
+      "sourceId": "ROADMAP.md#q3",
+      "topicHint": "q3-planning",
+      "evidenceQuote": "Q3: evaluate moving to Drizzle ORM",
+      "lastActivity": "2026-05-01"
+    }
+  ],
+  "relationships": [
+    {
+      "fromSlug": "test-feature",
+      "toSlug": "ci-setup",
+      "kind": "shared-paths",
+      "sharedIdentifiers": [],
+      "strength": 0.3
+    }
+  ]
+}
