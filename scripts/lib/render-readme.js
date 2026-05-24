@@ -307,7 +307,7 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
 export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, skillsDir, pkgPath }) {
   const yamlPath = catalogPath || join(projectRoot, 'meta', 'catalog.yaml');
   const mdPath = readmePath || join(projectRoot, 'README.md');
-  const skDir = skillsDir || join(projectRoot, 'skills', 'en');
+  const skDir = skillsDir || join(projectRoot, 'skills');
   const pkgJsonPath = pkgPath || join(projectRoot, 'package.json');
   const catalogData = parse(readFileSync(yamlPath, 'utf8'));
   const readme = readFileSync(mdPath, 'utf8');

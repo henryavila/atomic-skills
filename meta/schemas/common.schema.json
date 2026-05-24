@@ -23,7 +23,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["surfacedAt"],
-      "description": "Records when and how an item (task or phase) was added AFTER the initial materialization of its container. Absent on items that shipped in the original plan/initiative; present on items added mid-execution via the agent-proposes / user-invokes flow described in skills/en/core/project-status.md. When present on a task/phase, `context` becomes mandatory.",
+      "description": "Records when and how an item (task or phase) was added AFTER the initial materialization of its container. Absent on items that shipped in the original plan/initiative; present on items added mid-execution via the agent-proposes / user-invokes flow described in skills/core/project-status.md. When present on a task/phase, `context` becomes mandatory.",
       "properties": {
         "surfacedAt": { "$ref": "#/$defs/isoTimestamp" },
         "surfacedDuring": {
@@ -46,7 +46,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["solves", "trigger", "ratifiedAt"],
-      "description": "Captures the WHY of an item that wasn't part of the original materialization. `solves` and `trigger` answer 'what problem does this address?' and 'what made it surface?'. `ratifiedAt` records that the human explicitly approved this articulation (vs. an agent-only draft). Mandatory on every `parked` and `emerged` entry, and on any task/phase that also carries `provenance`. The mandatory-ratify flow lives in skills/en/core/project-status.md under 'Emergent work — proposal / ratify / commit pattern'.",
+      "description": "Captures the WHY of an item that wasn't part of the original materialization. `solves` and `trigger` answer 'what problem does this address?' and 'what made it surface?'. `ratifiedAt` records that the human explicitly approved this articulation (vs. an agent-only draft). Mandatory on every `parked` and `emerged` entry, and on any task/phase that also carries `provenance`. The mandatory-ratify flow lives in skills/core/project-status.md under 'Emergent work — proposal / ratify / commit pattern'.",
       "properties": {
         "solves": {
           "type": "string",

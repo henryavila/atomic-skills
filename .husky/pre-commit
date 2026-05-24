@@ -18,10 +18,10 @@ set -e
 STAGED=$(git diff --cached --name-only)
 
 # Inputs: catalog, skill bodies, IDE registry, package version, generator code.
-INPUTS_REGEX='^(meta/catalog\.yaml|skills/en/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law))'
+INPUTS_REGEX='^(meta/catalog\.yaml|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law))'
 
 # Coupled = inputs + outputs (README, dashboard data).
-COUPLED_REGEX='^(meta/catalog\.yaml|skills/en/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law)|src/dashboard/data/skills\.generated\.ts|README\.md)'
+COUPLED_REGEX='^(meta/catalog\.yaml|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law)|src/dashboard/data/skills\.generated\.ts|README\.md)'
 
 if echo "$STAGED" | grep -qE "$INPUTS_REGEX"; then
   # F-001 guard (codex review 2026-05-24): refuse to silently sweep

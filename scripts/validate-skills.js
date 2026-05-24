@@ -19,7 +19,7 @@ import { validateCatalog, validateReadmeMentions, collectSkills } from './lib/va
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PATH = join(__dirname, '..', 'meta', 'catalog.yaml');
-const DEFAULT_SKILLS_DIR = join(__dirname, '..', 'skills', 'en');
+const DEFAULT_SKILLS_DIR = join(__dirname, '..', 'skills');
 const DEFAULT_README_PATH = join(__dirname, '..', 'README.md');
 
 function main() {

@@ -248,7 +248,7 @@ describe('validateCatalog — cross-checks', () => {
 
   beforeEach(() => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'validate-skills-'));
-    skillsDir = join(tmpRoot, 'skills', 'en');
+    skillsDir = join(tmpRoot, 'skills');
     mkdirSync(join(skillsDir, 'core'), { recursive: true });
     mkdirSync(join(skillsDir, 'modules', 'memory'), { recursive: true });
   });

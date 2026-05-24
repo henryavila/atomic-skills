@@ -1,6 +1,6 @@
 // Pure helpers that compute scope drift signals over a plan + its
 // initiatives. Consumed by:
-//   - skills/en/core/project-status.md default view (banner trigger)
+//   - skills/core/project-status.md default view (banner trigger)
 //   - the `scope-creep` mutation-mode command (full report)
 //
 // Drift sources tracked:

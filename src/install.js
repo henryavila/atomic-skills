@@ -181,9 +181,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
   // Helper to process a skill
   function processSkill(skillId, skillMeta, langDir, sourceType) {
-    // Skill source is always EN canonical (PT versions removed in v2.0.0).
-    // `language` is now the user's communication-language preference, NOT a skill-source selector.
-    const sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
+    const sourceFile = join(skillsDir, langDir, `${skillId}.md`);
     if (!existsSync(sourceFile)) return;
 
     const rawContent = readFileSync(sourceFile, 'utf8');
@@ -418,8 +416,7 @@ function preRenderFiles(options) {
   const skillVars = { ...vars, COMMUNICATION_LANGUAGE: language };
 
   function renderSkill(skillId, skillMeta, langDir) {
-    // Skill source is always EN canonical (PT removed in v2.0.0).
-    const sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
+    const sourceFile = join(skillsDir, langDir, `${skillId}.md`);
     if (!existsSync(sourceFile)) return;
 
     const rawContent = readFileSync(sourceFile, 'utf8');

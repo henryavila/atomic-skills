@@ -57,7 +57,7 @@ describe('renderReadme', () => {
 
   beforeEach(() => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'gen-readme-'));
-    skillsDir = join(tmpRoot, 'skills', 'en');
+    skillsDir = join(tmpRoot, 'skills');
     mkdirSync(join(skillsDir, 'core'), { recursive: true });
   });
 
@@ -170,9 +170,9 @@ describe('renderReadmeFromPaths (project-root integration)', () => {
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'gen-readme-root-'));
     mkdirSync(join(projectRoot, 'meta'), { recursive: true });
-    mkdirSync(join(projectRoot, 'skills', 'en', 'core'), { recursive: true });
+    mkdirSync(join(projectRoot, 'skills', 'core'), { recursive: true });
     writeFileSync(
-      join(projectRoot, 'skills', 'en', 'core', 'demo.md'),
+      join(projectRoot, 'skills', 'core', 'demo.md'),
       '## Iron Law\nNO ZERO COVERAGE.\n'
     );
     writeFileSync(
