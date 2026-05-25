@@ -221,6 +221,85 @@ When a fourth caller shows up, you have grounds to extract a helper. Until then,
 
 ---
 
+## G8 — React hook safety (dashboard components)
+
+**Rule.** Every React function component must satisfy two invariants:
+
+1. **Hooks before early returns.** ALL hook calls (`useState`, `useMemo`, `useEffect`, `useCallback`, `useRef`, `useQuery`, custom hooks) must appear BEFORE the first conditional `return` statement. React requires the same hooks to be called in the same order on every render. An early return that skips a hook causes error #310 in production.
+
+2. **Stable references for hook deps.** When a component parameter defaults to `[]` or `{}` in the destructuring signature, each render creates a **new object reference**. If that parameter is used as a dependency of `useEffect`, `useMemo`, or `useCallback`, the hook fires every render, causing an infinite loop. Extract the default to a **module-level constant**.
+
+**Failure it catches.** Two production crashes in the aiDeck dashboard (2026-05-25):
+
+- `PlanPage.tsx`: `useMemo` was called after `if (isLoading) return <Frame>...` early returns. During the loading render, React saw 10 hooks; after data arrived, it saw 11. React threw error #310 ("Minified React error") in production.
+- `FeedbackDrawer.tsx`: `items = []` inline default created a new `[]` on every render. `useEffect(() => { setLocalItems(items) }, [items])` detected a "change" (new reference), called `setState`, triggered re-render, new `[]`, infinite loop. Console flooded with "Maximum update depth exceeded".
+
+**Bad — hook after early return:**
+
+```tsx
+function PlanPage() {
+  const { data, isLoading } = usePlan(slug)
+  const [show, setShow] = useState(false)         // hook #3
+  if (isLoading) return <Loading />                // early return — skips useMemo
+  if (!data) return <NotFound />
+  const phases = useMemo(() => adapt(data), [data]) // hook #4 — ONLY on data renders
+  return <View phases={phases} />
+}
+// Loading render: 3 hooks. Data render: 4 hooks. React crashes.
+```
+
+**Good — hooks before returns:**
+
+```tsx
+function PlanPage() {
+  const { data, isLoading } = usePlan(slug)
+  const [show, setShow] = useState(false)
+  const phases = useMemo(                           // hook #4 — ALWAYS called
+    () => data ? adapt(data) : [],
+    [data]
+  )
+  if (isLoading) return <Loading />                 // early returns AFTER all hooks
+  if (!data) return <NotFound />
+  return <View phases={phases} />
+}
+```
+
+**Bad — inline default causes infinite loop:**
+
+```tsx
+function Drawer({ items = [], onClose }: Props) {   // new [] every render
+  const [local, setLocal] = useState(items)
+  useEffect(() => { setLocal(items) }, [items])      // fires every render
+  // ...
+}
+```
+
+**Good — module-level constant:**
+
+```tsx
+const EMPTY_ITEMS: Item[] = []                        // stable reference
+
+function Drawer({ items = EMPTY_ITEMS, onClose }: Props) {
+  const [local, setLocal] = useState(items)
+  useEffect(() => { setLocal(items) }, [items])       // fires only when items actually changes
+  // ...
+}
+```
+
+**Verification checklist (for self-review):**
+
+1. For every function component: list all hook calls and all early returns. Confirm every hook line number < every early return line number.
+2. For every destructured parameter with `= []` or `= {}`: check if it flows into any hook dependency array. If yes, extract to module-level constant.
+
+**References:**
+- React Rules of Hooks: https://react.dev/reference/rules/rules-of-hooks
+- React error #310 decoder: https://react.dev/errors/310
+- React docs on referential equality: https://react.dev/reference/react/useMemo#every-time-my-component-renders-the-calculation-in-usememo-re-runs
+
+**Applies to:** every React component in `src/dashboard/`, the `review-code` skill (checklist item for React diffs), the `fix` skill (when fixing dashboard bugs).
+
+---
+
 ## Index — rule × skill matrix
 
 | Rule | project-plan | project-status | hunt | fix | review-plan-internal | review-code-with-codex | simplify |
@@ -232,6 +311,8 @@ When a fourth caller shows up, you have grounds to extract a helper. Until then,
 | G5 red-phase | | | | ✓ | | | |
 | G6 reference-or-strike | ✓ | ✓ | | | ✓ | ✓ | |
 | G7 anti-premature-abstraction | | | | ✓ | | ✓ | ✓ |
+
+G8 (react-hook-safety) aplica-se ao dashboard deste repo — injetado via CLAUDE.md, não via skills genéricos.
 
 Skills inject only the rules they ✓. The Self-review checkpoint at the end of each task mentions those rules by id, forcing explicit application.
 

@@ -375,11 +375,14 @@ interface Props {
   onToggleLive?: () => void
 }
 
+const EMPTY_ITEMS: FeedbackItem[] = []
+const EMPTY_TITLES: EntityTitleMap = {}
+
 export function FeedbackDrawer({
   open,
   onClose,
-  items = [],
-  entityTitles = {},
+  items = EMPTY_ITEMS,
+  entityTitles = EMPTY_TITLES,
   liveStream = true,
   onToggleLive,
 }: Props) {

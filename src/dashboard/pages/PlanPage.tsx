@@ -24,6 +24,22 @@ export function PlanPage() {
   const [showRefs, setShowRefs] = useState(false)
   const [showGraph, setShowGraph] = useState(false)
 
+  const plan = planRaw ? adaptPlanForUI(planRaw, state?.initiatives ?? []) : null
+  const inconsistentPhases = plan
+    ? plan.parallelismAllowed
+      ? []
+      : plan.phases.filter((p) => Array.isArray(p.parallelWith) && p.parallelWith.length > 0)
+    : []
+  const renderablePhases = useMemo(
+    () => {
+      if (!plan) return []
+      return inconsistentPhases.length > 0
+        ? plan.phases.map((p) => ({ ...p, parallelWith: undefined }))
+        : plan.phases
+    },
+    [plan?.phases, inconsistentPhases.length]
+  )
+
   if (isLoading) return <Frame>Loading plan…</Frame>
   if (error)
     return (
@@ -31,21 +47,9 @@ export function PlanPage() {
         <p style={{ color: 'var(--severity-critical)' }}>Cannot load plan: {String(error)}</p>
       </Frame>
     )
-  if (!planRaw) return <Frame>Plan not found.</Frame>
+  if (!plan) return <Frame>Plan not found.</Frame>
 
-  const plan = adaptPlanForUI(planRaw, state?.initiatives ?? [])
   const activePhase = plan.phases.find((p) => p.status === 'active')
-  const inconsistentPhases = plan.parallelismAllowed
-    ? []
-    : plan.phases.filter((p) => Array.isArray(p.parallelWith) && p.parallelWith.length > 0)
-  // When inconsistent, strip parallelWith so the tree renders solo phases.
-  const renderablePhases = useMemo(
-    () =>
-      inconsistentPhases.length > 0
-        ? plan.phases.map((p) => ({ ...p, parallelWith: undefined }))
-        : plan.phases,
-    [plan.phases, inconsistentPhases.length]
-  )
 
   const openPhase = (phase: UIPhase) => {
     // Find the initiative for this phase and navigate to it.
