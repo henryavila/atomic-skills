@@ -19,7 +19,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, unlinkSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -48,17 +48,22 @@ export function parsePort(input) {
 /**
  * Probes for the aideck CLI binary. Order:
  *   1. $AIDECK_BIN env override (full path).
- *   2. ../aideck/dist/cli.js (sibling repo, dev).
- *   3. "aideck" on PATH.
+ *   2. dist/aideck/cli.js (vendored — shipped with the package).
+ *   3. ../aideck/dist/cli.js (sibling repo, dev).
+ *   4. "aideck" on PATH.
  *
  * Returns the string passed to spawn(). The actual existence check for
- * cases 1 and 3 happens lazily when spawn() runs — case 3's PATH lookup
+ * cases 1 and 4 happens lazily when spawn() runs — case 4's PATH lookup
  * is handled by the OS exec loader.
  */
 export function resolveAideckBin() {
   if (process.env.AIDECK_BIN) return process.env.AIDECK_BIN
   const sibling = resolve(PACKAGE_ROOT, '..', 'aideck', 'dist', 'cli.js')
   if (existsSync(sibling)) return sibling
+  const installed = join(homedir(), '.atomic-skills', 'bin', 'aideck.mjs')
+  if (existsSync(installed)) return installed
+  const vendored = join(PACKAGE_ROOT, 'dist', 'aideck.mjs')
+  if (existsSync(vendored)) return vendored
   return 'aideck'
 }
 
@@ -157,6 +162,102 @@ function removeEnvFile() {
   } catch {
     /* swallow */
   }
+}
+
+const AIDECK_ENV_FILE_PATH = join(homedir(), '.aideck', 'env')
+
+function readUrlFromAnyEnvFile() {
+  for (const { path, pattern } of [
+    { path: ENV_FILE_PATH, pattern: /AS_DASHBOARD_URL='([^']+)'/ },
+    { path: AIDECK_ENV_FILE_PATH, pattern: /AIDECK_URL='([^']+)'/ }
+  ]) {
+    if (!existsSync(path)) continue
+    try {
+      const content = readFileSync(path, 'utf8')
+      const match = content.match(pattern)
+      if (match) return match[1]
+    } catch { /* unreadable */ }
+  }
+  return null
+}
+
+/**
+ * Idempotent "ensure aiDeck is running". If already healthy, returns the URL.
+ * Otherwise spawns `aideck serve` detached and polls until healthy.
+ * Returns the dashboard URL or null on failure.
+ */
+export async function ensureAideck(opts = {}) {
+  const { port, timeoutMs = 10000 } = opts
+
+  // 1. Check if already running via env file (either ~/.atomic-skills/env or ~/.aideck/env)
+  const existingUrl = readUrlFromAnyEnvFile()
+  if (existingUrl) {
+    try {
+      const res = await fetch(`${existingUrl}/api/health`)
+      if (res.ok) {
+        const body = await res.json()
+        if (body?.service === 'aideck') {
+          const cwd = process.cwd()
+          if (!body.rootDir || body.rootDir === cwd) return existingUrl
+          // rootDir mismatch — shut down old instance and start fresh
+          process.stderr.write(
+            `atomic-skills: aiDeck rootDir mismatch (running: ${body.rootDir}, need: ${cwd}). Restarting.\n`
+          )
+          try {
+            await fetch(`${existingUrl}/api/shutdown`, { method: 'POST' })
+            // Wait for old instance to release the port
+            const shutdownDeadline = Date.now() + 5000
+            while (Date.now() < shutdownDeadline) {
+              try {
+                const probe = await fetch(`${existingUrl}/api/health`)
+                if (!probe.ok) break
+              } catch { break }
+              await new Promise(r => setTimeout(r, 300))
+            }
+          } catch { /* already gone */ }
+        }
+      }
+    } catch { /* stale */ }
+    // Stale or rootDir mismatch — clean up both env files
+    try { unlinkSync(ENV_FILE_PATH) } catch { /* swallow */ }
+    try { unlinkSync(AIDECK_ENV_FILE_PATH) } catch { /* swallow */ }
+  }
+
+  // 2. Start fresh — spawn detached
+  const bin = resolveAideckBin()
+  const args = ['serve']
+  if (port) args.push(`--port=${port}`)
+  const dashboardDir = join(homedir(), '.atomic-skills', 'dashboard')
+  if (existsSync(join(dashboardDir, 'index.html'))) {
+    args.push('--static-dir', dashboardDir)
+  } else if (existsSync(DEFAULT_BUNDLE_DIR)) {
+    args.push('--static-dir', DEFAULT_BUNDLE_DIR)
+  }
+
+  const isPath = bin.includes('/') || bin.includes('\\')
+  const cmd = isPath ? process.execPath : bin
+  const cmdArgs = isPath ? [bin, ...args] : args
+
+  const child = spawn(cmd, cmdArgs, {
+    detached: true,
+    stdio: 'ignore',
+    cwd: process.cwd()
+  })
+  child.unref()
+
+  // 3. Poll until healthy (check both env file locations)
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const url = readUrlFromAnyEnvFile()
+    if (url) {
+      try {
+        const res = await fetch(`${url}/api/health`)
+        if (res.ok) return url
+      } catch { /* not ready yet */ }
+    }
+    await new Promise(r => setTimeout(r, 500))
+  }
+  return null
 }
 
 function runStreaming(cmd, args, opts) {

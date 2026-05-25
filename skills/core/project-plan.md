@@ -366,7 +366,7 @@ Replaces the legacy `bootstrap` subcommand (which lived in `project-status`). Sa
 
 ### Invocations
 
-- `discover` — full pipeline (scan + cluster + synthesize); writes drafts to `.atomic-skills/bootstrap-drafts/`; opens `INDEX.md` in mdprobe (with confirmation)
+- `discover` — full pipeline (scan + cluster + synthesize); writes drafts to `.atomic-skills/bootstrap-drafts/`; starts aiDeck if needed (`aideck up`), opens discover UI; HALTs for user review before commit
 - `discover --dry-run` — same scan, terminal summary only; no files written
 - `discover --commit` — materializes approved drafts into `.atomic-skills/plans/` + `initiatives/`; updates PROJECT-STATUS.md
 - `discover --scope=<list>` — limits sources. Defaults: `git,github,docs,roadmap,memory-local,memory-claude,claude-mem`
@@ -543,12 +543,35 @@ For each cluster:
    - **nextAction** (strong = "Resume T-N: ..."; worth-reviewing = question form; historical = null)
    - **rationale** (1–2 lines citing decisive signals)
    - **Context synthesis** (2–3 paragraphs)
-7. Generate `discover-run.json` in `.atomic-skills/bootstrap-drafts/` with the complete DiscoverRun shape: `{ runId, generatedAt, scanConfig, sourcesSummary, counts, candidates, alreadyTracked, orphanSignals, relationships }`. Each candidate carries: `slug, slugAlternatives, title, goal, kind, bucket, confidence, confidenceBreakdown, started, lastUpdated, activityTimeline, branch, nextAction, rationale, scopePaths, signalIds, evidence[], contextMarkdown, evidenceExcerpts, previewYaml, draftPath, approved: false`. Historical candidates additionally carry `historicalReason` and `completionSummary`. Schema reference: `assets/fixtures/discover-run.fixture.json`.
-8. Check if aiDeck is running: `curl -sf http://127.0.0.1:7777/api/health >/dev/null 2>&1`.
-   - If not running: inform user "aiDeck is not running. Start it with `npx atomic-skills serve` then re-run discover, or use the legacy INDEX.md fallback below."
-   - **Legacy fallback (aiDeck unavailable):** generate `INDEX.md` using `skills/shared/project-status-assets/bootstrap-index.template.md`, ask "Open in browser? (y/N)", if `y`: `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`.
-9. If aiDeck is running: open browser at `http://127.0.0.1:7777/discover`.
-10. Inform user: "Review candidates at http://127.0.0.1:7777/discover. Mark approve/reject on each, click 'Submit decisions', then come back here."
+7. Write a **draft** discover-run JSON to `.atomic-skills/bootstrap-drafts/discover-run.draft.json`. This is a simplified shape — the builder normalizes it into the strict schema. Required fields per candidate: `slug, title, goal, kind, bucket, confidence, started, lastUpdated, rationale, draftPath`. All other fields are optional (builder adds defaults). The builder also:
+   - Generates `runId` and `generatedAt` if missing
+   - Adds `repoPath` from CWD if not in `scanConfig`
+   - Converts `sourcesSummary` from `{"git-branch": 3}` to `[{layer, label, signalCount}]`
+   - Recalculates `counts` from the candidates
+   - Normalizes `bucket` values (`worthReviewing` → `worth-reviewing`)
+   - Moves `bucket: "alreadyTracked"` candidates to the `alreadyTracked[]` array
+   - Maps `evidence[].quote` → `evidenceQuote`, `relationships[].from/to` → `fromSlug/toSlug`
+   - Fills missing arrays/strings with empty defaults
+   - Strips extra fields that strict mode rejects
+7b. **MANDATORY build step** — run immediately after writing the draft:
+   ```bash
+   node ~/.atomic-skills/bin/aideck.mjs build-discover-run \
+     .atomic-skills/bootstrap-drafts/discover-run.draft.json \
+     --out .atomic-skills/bootstrap-drafts/discover-run.json
+   ```
+   - If stdout prints the output path: the JSON is valid. Proceed to step 8.
+   - If exit code is non-zero: read the error, fix the **draft** file, and re-run. **Do NOT proceed until the build succeeds.** The builder normalizes most common mistakes automatically — errors at this stage mean the draft is missing critical semantic data (e.g., no `slug` on a candidate).
+8. Ensure aiDeck is running:
+   ```bash
+   AIDECK_URL=$(node ~/.atomic-skills/bin/aideck.mjs up --static-dir ~/.atomic-skills/dashboard 2>/dev/null)
+   ```
+   The bundle and dashboard are installed by `atomic-skills install`. `up` is idempotent: reuses an existing instance or spawns a detached one; stdout = URL only.
+   - If `$AIDECK_URL` is non-empty: aiDeck is running. Proceed to step 9.
+   - If empty (binary missing — run `atomic-skills install` first —, timeout, port exhaustion):
+     **Fallback:** generate `INDEX.md` using `skills/shared/project-status-assets/bootstrap-index.template.md`, ask "Open in browser? (y/N)" (intrusive-actions rule applies), if `y`: `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`. Continue to step 11.
+9. Open browser at `$AIDECK_URL/discover`.
+10. Inform user: "Review candidates at $AIDECK_URL/discover. Mark approve/reject on each, click 'Submit decisions', then say **done** here."
+11. **HALT** — do NOT proceed to Phase 4. Wait until the user explicitly confirms review is complete ("done" / "reviewed" / "done reviewing") or runs `discover --commit`.
 
 ### Phase 4 — Commit
 

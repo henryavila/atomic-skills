@@ -11,6 +11,8 @@ export function HomePage() {
     return <Frame><p className="text-fg-muted">Loading project state…</p></Frame>
   }
   if (error) {
+    const msg = error.message ?? ''
+    const isApiError = msg.startsWith('HTTP ')
     return (
       <Frame>
         <div
@@ -25,14 +27,18 @@ export function HomePage() {
             className="t-eyebrow"
             style={{ color: 'var(--severity-critical)', marginBottom: 6 }}
           >
-            CANNOT REACH AIDECK
+            {isApiError ? 'STATE ERROR' : 'CANNOT REACH AIDECK'}
           </div>
-          <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 13 }}>
-            The dashboard expects an aideck server on{' '}
-            <code className="font-mono" style={{ color: 'var(--fg-default)' }}>127.0.0.1:7777</code>. Run{' '}
-            <code className="font-mono" style={{ color: 'var(--fg-default)' }}>npx atomic-skills serve</code> from the
-            target repo.
-          </p>
+          {isApiError ? (
+            <pre style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg}</pre>
+          ) : (
+            <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 13 }}>
+              The dashboard expects an aideck server on{' '}
+              <code className="font-mono" style={{ color: 'var(--fg-default)' }}>127.0.0.1:7777</code>. Run{' '}
+              <code className="font-mono" style={{ color: 'var(--fg-default)' }}>npx atomic-skills serve</code> from the
+              target repo.
+            </p>
+          )}
         </div>
       </Frame>
     )
