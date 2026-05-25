@@ -287,12 +287,15 @@ phase in the plan.
     implement without guessing? Evaluate each task individually, not just
     the phase goal. A task with only a title and no description is
     automatically **major**.
-18. **Task-level file verification:** for each task's `outputs[].path` and
-    file paths mentioned in its `description`, run {{GLOB_TOOL}} to
-    verify they exist OR that a prior task in the plan creates them.
-19. **Initiative completeness:** does each phase's `subPhaseCount` in the
-    plan frontmatter match the actual number of tasks in the
-    corresponding initiative? Mismatch = **major**.
+18. **Task-level file verification:** `outputs[].path` are deliverables
+    the task CREATES — do NOT check their existence. Instead, verify
+    input file paths mentioned in the task's `description` (files the
+    task reads or modifies): run {{GLOB_TOOL}} to confirm they exist OR
+    that a prior task in the plan creates them.
+19. **Initiative completeness:** `subPhaseCount` is a materialization-time
+    snapshot. The initiative may have MORE tasks (added via `new-task`)
+    but FEWER means tasks were removed — check if intentional. Only flag
+    as **major** when `tasks.length < subPhaseCount` (tasks lost).
 20. **Scope isolation:** if initiatives declare `scope.paths[]`, do any
     two initiatives touch the same files without an explicit `dependsOn`
     relationship? Overlap without dependency = **significant** (potential
@@ -354,16 +357,22 @@ NOT inline-rewrite these; reference them and substitute placeholders.
    - **Composite artifact construction:** When `initiative_map` is
      non-empty, `{{ARTIFACT}}` is NOT just the plan file content. Build:
      1. Full plan content (read with {{READ_TOOL}}).
-     2. A separator: `\n\n---INITIATIVE DETAIL---\n\n`
+     2. A separator: `\n\n---INITIATIVE DETAIL (context only)---\n\n`
      3. For EACH phase in `initiative_map` (ordered by phaseId), append a
         compact initiative summary (NOT the full file — token budget):
         ```
-        ---INITIATIVE <phaseId>: <slug>---
+        ---INITIATIVE <phaseId>: <slug> (file: <relative-path>)---
         Tasks: <T-001 title> | <T-002 title> | ...
         Exit gates: <G1 description (truncated to 80 chars)> | <G2 ...> | ...
         Scope: <scope.paths[] joined with ", "> (or "not declared")
         ---END INITIATIVE <phaseId>---
         ```
+     Initiative summaries are CONTEXT for codex — they help codex
+     identify plan-level gaps (e.g., a gate with no plausible task).
+     Codex MUST NOT cite initiative summaries as `file:line` evidence;
+     its findings reference only the plan file. The detailed
+     initiative-depth checks (items 14-20) are executed by the LOCAL
+     self-loop which reads full initiative files with line numbers.
      When `initiative_map` is empty, `{{ARTIFACT}}` is the plan content
      only (unchanged from current behavior).
    - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
