@@ -83,7 +83,14 @@
       "approved": false
     }
   ],
-  "alreadyTracked": ["auth-session-tokens"],
+  "alreadyTracked": [
+    {
+      "slug": "auth-session-tokens",
+      "title": "Rotate session tokens on privilege change",
+      "trackedAs": "plans/auth-session-tokens",
+      "lastUpdated": "2026-05-21"
+    }
+  ],
   "orphanSignals": [
     {
       "id": "s5",

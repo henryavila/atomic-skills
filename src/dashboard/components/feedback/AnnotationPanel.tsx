@@ -399,14 +399,17 @@ interface Props {
   onClose: () => void
 }
 
-export function AnnotationPanel({ open, initialItems = [], onClose }: Props) {
+const EMPTY_ITEMS: AnnotationItem[] = []
+
+export function AnnotationPanel({ open, initialItems, onClose }: Props) {
+  const stableItems = initialItems ?? EMPTY_ITEMS
   const [filter, setFilter] = useState<'all' | 'human' | 'ai' | 'resolved'>('all')
   const [composing, setComposing] = useState(false)
-  const [items, setItems] = useState<AnnotationItem[]>(initialItems)
+  const [items, setItems] = useState<AnnotationItem[]>(stableItems)
 
   useEffect(() => {
-    setItems(initialItems)
-  }, [initialItems])
+    setItems(stableItems)
+  }, [stableItems])
 
   const addReply = (annId: string, payload: { author: 'human' | 'ai'; body: string }) => {
     setItems((prev) =>

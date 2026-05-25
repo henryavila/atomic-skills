@@ -8,7 +8,7 @@ const outDir = fileURLToPath(new URL('./dist/dashboard', import.meta.url))
 
 export default defineConfig({
   root,
-  base: './',
+  base: '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

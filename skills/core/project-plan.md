@@ -549,7 +549,7 @@ For each cluster:
    - Converts `sourcesSummary` from `{"git-branch": 3}` to `[{layer, label, signalCount}]`
    - Recalculates `counts` from the candidates
    - Normalizes `bucket` values (`worthReviewing` → `worth-reviewing`)
-   - Moves `bucket: "alreadyTracked"` candidates to the `alreadyTracked[]` array
+   - Moves `bucket: "alreadyTracked"` candidates to `alreadyTracked[]` as `{slug, title, trackedAs, lastUpdated}` objects
    - Maps `evidence[].quote` → `evidenceQuote`, `relationships[].from/to` → `fromSlug/toSlug`
    - Fills missing arrays/strings with empty defaults
    - Strips extra fields that strict mode rejects

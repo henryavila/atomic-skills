@@ -212,6 +212,8 @@ export interface DiscoverEvidence {
   evidenceQuote: string
   candidateCompletion: string
   lastActivity: string
+  merged?: boolean
+  mergeRationale?: string
 }
 
 export interface ActivityPoint {
@@ -270,6 +272,13 @@ export interface SourceSummary {
   signalCount: number
 }
 
+export interface AlreadyTrackedItem {
+  slug: string
+  title: string
+  trackedAs: string
+  lastUpdated: string
+}
+
 export interface DiscoverRun {
   runId: string
   generatedAt: string
@@ -277,7 +286,7 @@ export interface DiscoverRun {
   sourcesSummary: SourceSummary[]
   counts: { strong: number; worthReviewing: number; historical: number; alreadyTracked: number }
   candidates: DiscoverCandidate[]
-  alreadyTracked: string[]
+  alreadyTracked: Array<string | AlreadyTrackedItem>
   orphanSignals: OrphanSignal[]
   relationships: DiscoverRelationship[]
 }

@@ -1,80 +1,392 @@
 import { useState } from 'react'
 import type { DiscoverRun } from '../../lib/types'
+import { BUCKETS, SOURCE_LAYERS } from './constants'
 
 interface Props {
   run: DiscoverRun
-  activeFilter: string | null
-  onFilter: (bucket: string | null) => void
+  activeBuckets: Set<string>
+  onToggleBucket: (bucket: string) => void
 }
 
-const LAYER_ICONS: Record<string, string> = {
-  git: '⑂',
-  github: '⊙',
-  docs: '▤',
-  memory: '◈',
-  claude: '◎',
+function BucketChip({
+  bucketKey,
+  count,
+  active,
+  onToggle,
+}: {
+  bucketKey: string
+  count: number
+  active: boolean
+  onToggle: () => void
+}) {
+  const b = BUCKETS[bucketKey]
+  if (!b) return null
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        all: 'unset',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        height: 26,
+        padding: '0 11px',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 12,
+        fontWeight: 500,
+        color: active ? b.color : 'var(--fg-subtle)',
+        background: active ? `color-mix(in srgb, ${b.color} 12%, var(--bg-surface))` : 'var(--bg-surface)',
+        border: `1px solid ${active ? `color-mix(in srgb, ${b.color} 40%, transparent)` : 'var(--border-default)'}`,
+        borderRadius: 999,
+        transition: 'background 120ms, border-color 120ms, color 120ms',
+        opacity: active ? 1 : 0.7,
+        whiteSpace: 'nowrap',
+        flex: 'none',
+      }}
+    >
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: active ? 1 : 0.6 }}>{b.glyph}</span>
+      <span>{b.label}</span>
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '0 5px',
+          borderRadius: 3,
+          minWidth: 16,
+          textAlign: 'center',
+          background: active ? `color-mix(in srgb, ${b.color} 22%, transparent)` : 'var(--bg-elevated)',
+          color: active ? b.color : 'var(--fg-muted)',
+        }}
+      >
+        {count}
+      </span>
+    </button>
+  )
 }
 
-export function DiscoverHeader({ run, activeFilter, onFilter }: Props) {
-  const [sourcesOpen, setSourcesOpen] = useState(false)
-  const c = run.counts
-
-  const chips: Array<{ label: string; count: number; key: string }> = [
-    { label: 'Strong', count: c.strong, key: 'strong' },
-    { label: 'Worth reviewing', count: c.worthReviewing, key: 'worth-reviewing' },
-    { label: 'Historical', count: c.historical, key: 'historical' },
-    { label: 'Already tracked', count: c.alreadyTracked, key: 'tracked' },
-  ]
+function SourcesScanned({
+  sources,
+  scanConfig,
+  runId,
+}: {
+  sources: DiscoverRun['sourcesSummary']
+  scanConfig: DiscoverRun['scanConfig']
+  runId: string
+}) {
+  const [open, setOpen] = useState(false)
+  const totalSignals = sources.reduce((a, s) => a + s.signalCount, 0)
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <div className="t-eyebrow" style={{ color: 'var(--fg-subtle)', marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
-        Proposal
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Discover</h1>
-        <span style={{ fontSize: 12, color: 'var(--fg-subtle)' }}>
-          {new Date(run.generatedAt).toLocaleString()}
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 8,
+        boxShadow: 'var(--shadow-ambient)',
+      }}
+    >
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          all: 'unset',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          width: '100%',
+          padding: '10px 14px',
+          boxSizing: 'border-box',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+        }}
+      >
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-subtle)', display: 'inline-block', width: 10 }}>
+          {open ? '▾' : '▸'}
         </span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-        {chips.map((chip) => (
-          <button
-            key={chip.key}
-            onClick={() => onFilter(activeFilter === chip.key ? null : chip.key)}
+        <span className="t-eyebrow" style={{ color: 'var(--fg-muted)' }}>
+          SOURCES SCANNED
+        </span>
+        <span style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
+          {sources.map((s) => {
+            const L = SOURCE_LAYERS[s.layer] || { glyph: '·', color: 'var(--fg-muted)' }
+            return (
+              <span
+                key={s.layer}
+                title={`${s.layer} · ${s.signalCount} signal${s.signalCount !== 1 ? 's' : ''}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  color: L.color,
+                }}
+              >
+                <span style={{ fontSize: 12 }}>{L.glyph}</span>
+                <span style={{ color: 'var(--fg-muted)' }}>{s.signalCount}</span>
+              </span>
+            )
+          })}
+        </span>
+        <div style={{ flex: 1 }} />
+        <span
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            color: 'var(--fg-subtle)',
+            whiteSpace: 'nowrap',
+            flex: 'none',
+          }}
+        >
+          {totalSignals} signal{totalSignals !== 1 ? 's' : ''} · {sources.length} layer{sources.length !== 1 ? 's' : ''}
+        </span>
+      </button>
+      {open && (
+        <div
+          style={{
+            borderTop: '1px solid var(--border-subtle)',
+            padding: '12px 14px',
+            display: 'grid',
+            gridTemplateColumns: `repeat(${Math.min(sources.length, 5)}, 1fr)`,
+            gap: 10,
+          }}
+        >
+          {sources.map((s) => {
+            const L = SOURCE_LAYERS[s.layer] || { glyph: '·', color: 'var(--fg-muted)' }
+            return (
+              <div
+                key={s.layer}
+                style={{
+                  padding: '10px 12px',
+                  background: 'var(--bg-sunken)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 6,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <span style={{ color: L.color, fontFamily: 'var(--font-mono)', fontSize: 14 }}>{L.glyph}</span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'var(--fg-default)',
+                      textTransform: 'lowercase',
+                    }}
+                  >
+                    {s.layer}
+                  </span>
+                  <div style={{ flex: 1 }} />
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: L.color, fontWeight: 600 }}>
+                    {s.signalCount}
+                  </span>
+                </div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--fg-muted)', lineHeight: 1.4 }}>
+                  {s.label}
+                </div>
+              </div>
+            )
+          })}
+          <div
             style={{
-              padding: '3px 10px',
-              borderRadius: 12,
-              fontSize: 12,
-              border: '1px solid',
-              cursor: 'pointer',
-              borderColor: activeFilter === chip.key ? 'var(--accent-emerald)' : 'var(--border-default)',
-              background: activeFilter === chip.key ? 'color-mix(in srgb, var(--accent-emerald) 12%, var(--bg-surface))' : 'var(--bg-surface)',
-              color: 'var(--fg-default)',
+              gridColumn: '1 / -1',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              paddingTop: 10,
+              borderTop: '1px solid var(--border-subtle)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              color: 'var(--fg-subtle)',
+              flexWrap: 'wrap',
             }}
           >
-            {chip.label} ({chip.count})
-          </button>
+            <span>
+              <span style={{ color: 'var(--fg-faint)' }}>run</span>{' '}
+              <span style={{ color: 'var(--fg-default)' }}>{runId}</span>
+            </span>
+            <span style={{ width: 1, height: 10, background: 'var(--border-default)' }} />
+            <span>
+              <span style={{ color: 'var(--fg-faint)' }}>repo</span>{' '}
+              <span style={{ color: 'var(--fg-default)' }}>{scanConfig.repoPath}</span>
+            </span>
+            <span style={{ width: 1, height: 10, background: 'var(--border-default)' }} />
+            <span>
+              <span style={{ color: 'var(--fg-faint)' }}>scope</span> [{scanConfig.scope.join(', ')}]
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function DiscoverHeader({ run, activeBuckets, onToggleBucket }: Props) {
+  const ts = new Date(run.generatedAt)
+  const tsLabel = `${ts.toISOString().slice(0, 10)} · ${ts.toISOString().slice(11, 16)}Z`
+  const totalCandidates = Object.values(run.counts).reduce((a, b) => a + b, 0)
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: 820 }}>
+          <div
+            className="t-eyebrow"
+            style={{
+              color: 'var(--status-emerged)',
+              marginBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ whiteSpace: 'nowrap' }}>⇥ PROPOSAL</span>
+            <span style={{ color: 'var(--fg-faint)' }}>·</span>
+            <span style={{ color: 'var(--fg-subtle)', whiteSpace: 'nowrap' }}>aideck discover</span>
+            <span style={{ color: 'var(--fg-faint)' }}>·</span>
+            <span
+              style={{
+                color: 'var(--fg-subtle)',
+                fontFamily: 'var(--font-mono)',
+                textTransform: 'none',
+                letterSpacing: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {run.runId}
+            </span>
+          </div>
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 30,
+              fontWeight: 600,
+              color: 'var(--fg-default)',
+              letterSpacing: '-0.025em',
+              lineHeight: 1.1,
+            }}
+          >
+            Discover
+          </h1>
+          <p
+            style={{
+              margin: '10px 0 0',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 13.5,
+              color: 'var(--fg-muted)',
+              lineHeight: 1.55,
+              maxWidth: 760,
+            }}
+          >
+            We scanned your repo for work-in-flight that isn't tracked yet — branches, PRs, issues, plans, memory entries.
+            Approve the candidates that match, reject the noise, then commit.
+          </p>
+        </div>
+      </div>
+
+      {/* Metadata strip */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 0,
+          marginTop: 16,
+          padding: '8px 14px',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 8,
+          boxShadow: 'var(--shadow-ambient)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+        }}
+      >
+        {[
+          {
+            label: 'generated',
+            value: (
+              <span style={{ color: 'var(--fg-default)', whiteSpace: 'nowrap' }}>{tsLabel}</span>
+            ),
+          },
+          {
+            label: 'scope',
+            value: (
+              <span style={{ color: 'var(--fg-default)', whiteSpace: 'nowrap' }}>
+                {run.sourcesSummary.length} layers
+              </span>
+            ),
+          },
+          {
+            label: 'total',
+            value: (
+              <span style={{ color: 'var(--status-emerged)', whiteSpace: 'nowrap' }}>
+                {totalCandidates} candidates
+              </span>
+            ),
+          },
+          {
+            label: 'drafts to',
+            value: (
+              <span style={{ color: 'var(--fg-default)', whiteSpace: 'nowrap' }}>
+                .atomic-skills/bootstrap-drafts/
+              </span>
+            ),
+          },
+        ].map((m, i, arr) => (
+          <span key={m.label} style={{ display: 'contents' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '2px 14px',
+                whiteSpace: 'nowrap',
+                flex: 'none',
+              }}
+            >
+              <span style={{ color: 'var(--fg-subtle)' }}>{m.label}</span>
+              {m.value}
+            </span>
+            {i < arr.length - 1 && (
+              <span style={{ width: 1, height: 12, background: 'var(--border-default)', flex: 'none' }} />
+            )}
+          </span>
         ))}
       </div>
 
-      <button
-        onClick={() => setSourcesOpen(!sourcesOpen)}
-        style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--fg-muted)', cursor: 'pointer' }}
-      >
-        {sourcesOpen ? '▾' : '▸'} Sources scanned ({run.sourcesSummary.reduce((s, x) => s + x.signalCount, 0)} signals)
-      </button>
-      {sourcesOpen && (
-        <div style={{ marginTop: 6, paddingLeft: 8 }}>
-          {run.sourcesSummary.map((s, i) => (
-            <div key={i} style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 2 }}>
-              <span style={{ marginRight: 6 }}>{LAYER_ICONS[s.layer] ?? '•'}</span>
-              <span style={{ fontWeight: 500 }}>{s.layer}</span> — {s.label} ({s.signalCount})
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Filter chips */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+        <span className="t-eyebrow" style={{ color: 'var(--fg-subtle)', marginRight: 4 }}>
+          FILTER
+        </span>
+        {(['strong', 'worth-reviewing', 'historical', 'already-tracked'] as const).map((k) => (
+          <BucketChip
+            key={k}
+            bucketKey={k}
+            count={
+              k === 'strong'
+                ? run.counts.strong
+                : k === 'worth-reviewing'
+                  ? run.counts.worthReviewing
+                  : k === 'historical'
+                    ? run.counts.historical
+                    : run.counts.alreadyTracked
+            }
+            active={activeBuckets.has(k)}
+            onToggle={() => onToggleBucket(k)}
+          />
+        ))}
+        <div style={{ flex: 1 }} />
+      </div>
+
+      {/* Sources scanned */}
+      <div style={{ marginTop: 12 }}>
+        <SourcesScanned sources={run.sourcesSummary} scanConfig={run.scanConfig} runId={run.runId} />
+      </div>
     </div>
   )
 }
