@@ -55,6 +55,7 @@ start with `--` are flags:
 | `--cross-ref=path1,path2,...` | Skip Step 0b picker; use the listed artifacts. Valid only when mode ∈ {local, both}. |
 | `--artifacts=path1,path2,...` | Alias for `--cross-ref=` (compat with v2.x). |
 | `--allow-dirty` | Pass through to codex pre-flight (suppresses dirty-tree abort). |
+| `--no-initiatives` | Skip Step 0c; review plan structure only without task-level depth. |
 
 Everything that is NOT a `--` token is part of `plan_path`. Strip trailing
 whitespace. If `plan_path` is empty after parsing, abort with:
@@ -141,6 +142,56 @@ If you find an error in the artifact: record it as "artifact divergence"
 and ask the user how to resolve it. DO NOT edit artifacts.
 </HARD-GATE>
 
+## Step 0c — Auto-discover initiative files
+
+Skip this step if `--no-initiatives` was supplied.
+
+1. Parse `plan_path` YAML frontmatter. If it has no `phases:` array,
+   skip Step 0c (standalone plan or flat plan without phases).
+
+2. Derive the initiative directory: resolve `dirname(plan_path)` — if it
+   ends with `/plans` (or is literally `plans`), the initiative dir is its
+   sibling `initiatives/` (i.e., replace the trailing `plans` segment with
+   `initiatives`). If `dirname(plan_path)` does NOT end with `/plans`,
+   skip Step 0c — the plan is not in the standard `.atomic-skills/plans/`
+   location and initiative auto-discovery is not possible.
+
+3. Extract `slug` from the plan's frontmatter `slug:` field.
+
+4. For each phase in `phases:`, search for a matching initiative file:
+   - {{GREP_TOOL}} in the initiative directory for files containing
+     `parentPlan: <slug>` in their YAML frontmatter.
+   - From the matches, filter for files whose frontmatter also contains
+     `phaseId: <phase.id>`.
+   - This is schema-driven (uses the actual linking fields from
+     `initiative.schema.json`), not slug-derivation-dependent.
+
+5. Build `initiative_map`: `{ phaseId → { path, slug, tasks[], exitGates[], scope? } }`
+
+6. Report to user:
+   - "Found N/M initiative files for M phases"
+   - List each: phaseId, initiative slug, task count
+   - If any phase has NO matching initiative file: record as structural
+     finding (severity: significant — "Phase <id> has no materialized
+     initiative file")
+
+7. {{READ_TOOL}} each discovered initiative file and index its content
+   for use in checklist items 14-20.
+
+**Non-interactive behavior:** Step 0c is automatic (no user prompt). Always
+runs unless `--no-initiatives` is passed or the structural prerequisites
+(phases array, plans/ directory) are not met.
+
+## Initiative HARD-GATE (only when initiative_map is non-empty)
+
+<HARD-GATE>
+This skill corrects the PLAN file, NEVER the initiative files.
+Initiative files are the source of truth for task-level detail.
+If a plan phase contradicts its initiative: fix the plan phase, not the initiative.
+If an initiative task has problems: record as finding with initiative file:line,
+and recommend the fix be applied via project-status skill (which owns initiative mutations).
+</HARD-GATE>
+
 ---
 
 ## Flow per mode
@@ -204,17 +255,50 @@ verified.
 12. **Schema/API:** do migrations and endpoints match the architecture doc?
 13. **UX:** do components, states, tokens, and responsive match the UX spec?
 
+When `initiative_map` is non-empty, ADDITIONALLY run the 7 initiative-depth
+checks. For each item, cite line numbers from BOTH the plan file AND the
+relevant initiative file(s). Format: `plan.md:L42 ↔ init-f0.md:L18`.
+
+14. **Gate-task alignment:** for each exit gate criterion in each phase,
+    verify that at least one task in the corresponding initiative has
+    outputs/description that deliver what the gate requires. Gate with no
+    covering task = critical.
+15. **Task-level contradictions:** do tasks across different initiatives
+    contradict each other? (e.g., F0/T-003 validates X but F3/T-001
+    changes the code that provides X)
+16. **Task-level broken deps:** does a task reference a file/artifact that
+    a task in a PRIOR phase creates? Verify the creating task exists and
+    its phase is listed in dependsOn.
+17. **Task-level ambiguity:** is any task description too vague to
+    implement without guessing? Check each task individually — not just
+    the phase goal.
+18. **Task-level file verification:** for each task's outputs[].path and
+    files mentioned in description, run {{GLOB_TOOL}} to verify they exist
+    OR that a prior task creates them.
+19. **Initiative completeness:** does each phase's `subPhaseCount` match
+    the actual number of tasks in the corresponding initiative?
+    Mismatch = major. (subPhaseCount is set to tasks.length by
+    decomposePlan — see src/decompose.js:705.)
+20. **Scope isolation:** if initiatives declare `scope.paths[]`, do any
+    two initiatives touch the same files without an explicit dependency
+    (via dependsOn or crossTaskRefs)? Overlap without dependency =
+    significant (potential merge conflicts).
+
 ### Iteration
 
-**ITERATION 1.** {{READ_TOOL}} the entire plan. Apply EACH applicable
-checklist item. For each, record: status (ok / problem), line numbers
-verified (plan + artifact when cross-ref). Fix errors found directly in
-the plan. When cross-ref and the divergence is intentional, document it
-as an "alignment note" in the plan itself.
+**ITERATION 1.** {{READ_TOOL}} the entire plan. When `initiative_map` is
+non-empty, also {{READ_TOOL}} each discovered initiative file. Apply items
+1-7 to the plan, items 14-20 to plan+initiatives. Items 8-13 remain
+cross-ref-only (unaffected by initiative discovery). For each item,
+record: status (ok / problem), line numbers verified (plan + artifact
+when cross-ref, plan + initiative when initiative-depth). Fix errors
+found directly in the plan. When cross-ref and the divergence is
+intentional, document it as an "alignment note" in the plan itself.
 
 **VERIFICATION LOOP (max 3 iterations).**
 - {{READ_TOOL}} the CORRECTED plan from the beginning (NOT mental review — execute {{READ_TOOL}} on the file). Cite line numbers.
-- Verify that the corrections did not introduce new problems; no checklist item was missed; when cross-ref: no requirement from the artifacts was missed.
+- For initiative-depth items: re-read only initiatives where findings were recorded (not all — avoid token waste on clean initiatives).
+- Verify that the corrections did not introduce new problems; no checklist item was missed; when cross-ref: no requirement from the artifacts was missed; when initiative-depth: no gate-task gap or task-level issue was missed.
 - If new errors / gaps were found: fix and loop.
 - If the reread found nothing new: the loop ends.
 - If you reached 3 iterations and still find problems: STOP and escalate — the plan may have structural issues that require human decision.
@@ -248,12 +332,24 @@ NOT inline-rewrite these; reference them and substitute placeholders.
      - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
      - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
      - `{{ARTIFACT_PATH}}` ← `plan_path`
-     - `{{ARTIFACT}}` ← plan content read with {{READ_TOOL}}
+     - `{{ARTIFACT}}` ← plan content read with {{READ_TOOL}}. When
+       `initiative_map` is non-empty, append initiative summaries after
+       the plan content, separated by a blank line. Each initiative
+       summary uses this compact format (NOT full initiative file):
+       ```
+       ---INITIATIVE <phaseId>: <initiative-slug>---
+       Tasks: T-001 <title> | T-002 <title> | ...
+       Exit gates: <G1 description> | <G2 description> | ...
+       Scope: <paths if declared>
+       ---END INITIATIVE <phaseId>---
+       ```
      - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
    - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
    - {{BASH_TOOL}}: `wc -c /tmp/codex-briefing-pass1-<ts>.md`. If
-     (size_bytes / 4) > 800 without the artifact: WARNING — likely
-     residual framing; request extra approval.
+     (size_bytes / 4) > 800 without the artifact (plan + initiative
+     summaries): WARNING — likely residual framing; request extra
+     approval. When `initiative_map` is non-empty, bump the threshold
+     to 1600 tokens for the non-artifact portion of the briefing.
 
 4. **Briefing confirmation** — show user in compact form (artifact path,
    factual constraints, non-goals, estimated tokens). Ask
@@ -361,6 +457,7 @@ skipping is forbidden.
 - "I finished without finding anything — the plan is perfect"
 - "I'll skip the reread, my corrections are right"
 - "I'll edit the artifact to make it consistent with the plan" (cross-ref mode only)
+- "I'll edit the initiative file to fix the task" (initiative HARD-GATE)
 - "This artifact isn't relevant" (cross-ref mode only)
 - "I'll inject project memory into the briefing to help codex" (codex sub-flow)
 - "I'll write an intent steelman so codex understands better" (codex sub-flow)
@@ -386,6 +483,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "I'll skim the artifact" (cross-ref) | Skimming = missing requirements. Full {{READ_TOOL}} |
 | "Intentional divergence, no need to document" (cross-ref) | If it's not documented, it's not intentional |
 | "Editing the artifact is faster" (cross-ref) | HARD-GATE: never edit artifacts |
+| "Editing the initiative is faster" (initiative) | HARD-GATE: never edit initiatives — route through project-status |
 | "Codex will figure it out from context" (codex) | Sealed envelope: facts only |
 | "The local pass already fixed everything, codex is a formality" (both) | Empirically codex catches disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
 
@@ -401,15 +499,22 @@ appear in the corresponding mode; `(codex/both)` likewise.
 **Cross-ref:** internal | <artifacts list> (local/both only)
 **Iterations (local):** [N] (local/both only)
 **Codex iterations:** 2 (blind + informed) (codex/both only)
+**Initiatives discovered:** N/M phases (list any missing) (when initiative_map is non-empty)
 **Counts (local):** critical: X, significant: Y, minor: Z (local/both only)
+**Counts (initiative-depth):** critical: X, significant: Y, minor: Z (when initiative_map is non-empty)
 **Counts (codex blind):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
 **Counts (codex final):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
 **Framing Δ (codex):** <d>d / <=>= / <+>+ (codex/both only)
 
-| # | Finding | Severity | Mode | Plan:line | Artifact:line | Action |
-|---|---------|----------|------|-----------|---------------|--------|
-| 1 | <summary> | critical | local | plan.md:108 | prd.md:42 | applied |
-| 2 | <summary> | blocker | codex | plan.md:212 | — | applied |
+| # | Finding | Severity | Mode | Plan:line | Artifact:line | Initiative:line | Action |
+|---|---------|----------|------|-----------|---------------|-----------------|--------|
+| 1 | <summary> | critical | local | plan.md:108 | prd.md:42 | — | applied |
+| 2 | <summary> | blocker | codex | plan.md:212 | — | — | applied |
+| 3 | <summary> | major | local | plan.md:55 | — | init-f0.md:47 | applied |
+
+The `Initiative:line` column only appears when `initiative_map` is non-empty.
+Cross-ref findings use `Artifact:line`; initiative findings use `Initiative:line`.
+A finding uses whichever column applies (the other gets `—`).
 
 **Alignment notes added:** [N] (cross-ref only)
 **Reviews saved at:** `.atomic-skills/reviews/<file>.md` (codex/both only)
