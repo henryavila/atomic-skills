@@ -20,7 +20,7 @@
 
 import { spawn } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
@@ -182,8 +182,24 @@ function readUrlFromAnyEnvFile() {
 }
 
 /**
+ * Derive a projectId slug from a directory path, matching the algorithm in
+ * aideck's ProjectRegistry: lowercase basename, replace invalid chars with
+ * hyphens, strip leading digits/hyphens, truncate to 64 chars.
+ */
+export function deriveProjectId(rootDir) {
+  let id = basename(rootDir)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/^[^a-z]+/, '')
+    .slice(0, 64)
+  return id || 'project'
+}
+
+/**
  * Idempotent "ensure aiDeck is running". If already healthy, returns the URL.
- * Otherwise spawns `aideck serve` detached and polls until healthy.
+ * If running with a different rootDir, registers this project instead of
+ * killing the existing instance. Otherwise spawns `aideck serve` detached
+ * and polls until healthy.
  * Returns the dashboard URL or null on failure.
  */
 export async function ensureAideck(opts = {}) {
@@ -199,13 +215,29 @@ export async function ensureAideck(opts = {}) {
         if (body?.service === 'aideck') {
           const cwd = process.cwd()
           if (!body.rootDir || body.rootDir === cwd) return existingUrl
-          // rootDir mismatch — shut down old instance and start fresh
+
+          // rootDir mismatch — register this project with the running instance
+          const projectId = deriveProjectId(cwd)
+          try {
+            const regRes = await fetch(`${existingUrl}/api/projects/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rootDir: cwd, projectId })
+            })
+            if (regRes.ok) {
+              process.stderr.write(
+                `atomic-skills: registered project "${projectId}" with running aiDeck at ${existingUrl}\n`
+              )
+              return existingUrl
+            }
+          } catch { /* registration failed — fall through to restart */ }
+
+          // Registration endpoint not available (old aideck) — fall back to restart
           process.stderr.write(
             `atomic-skills: aiDeck rootDir mismatch (running: ${body.rootDir}, need: ${cwd}). Restarting.\n`
           )
           try {
             await fetch(`${existingUrl}/api/shutdown`, { method: 'POST' })
-            // Wait for old instance to release the port
             const shutdownDeadline = Date.now() + 5000
             while (Date.now() < shutdownDeadline) {
               try {
@@ -218,7 +250,7 @@ export async function ensureAideck(opts = {}) {
         }
       }
     } catch { /* stale */ }
-    // Stale or rootDir mismatch — clean up both env files
+    // Stale or registration failed — clean up both env files
     try { unlinkSync(ENV_FILE_PATH) } catch { /* swallow */ }
     try { unlinkSync(AIDECK_ENV_FILE_PATH) } catch { /* swallow */ }
   }

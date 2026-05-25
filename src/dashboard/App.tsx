@@ -17,6 +17,10 @@ export function App() {
     <LayoutShell>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        {/* Project-scoped routes */}
+        <Route path="/:projectId/plans/:slug" element={<PlanPage />} />
+        <Route path="/:projectId/initiatives/:slug" element={<InitiativePage />} />
+        {/* Legacy routes (backward-compat: no projectId prefix) */}
         <Route path="/plans/:slug" element={<PlanPage />} />
         <Route path="/initiatives/:slug" element={<InitiativePage />} />
         <Route path="/discover" element={<DiscoverPage />} />

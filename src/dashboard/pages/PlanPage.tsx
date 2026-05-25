@@ -13,8 +13,8 @@ import { usePlan, useProjectState } from '../lib/hooks'
 
 export function PlanPage() {
   const navigate = useNavigate()
-  const { slug } = useParams<{ slug: string }>()
-  const { data: planRaw, isLoading, error } = usePlan(slug)
+  const { slug, projectId } = useParams<{ slug: string; projectId?: string }>()
+  const { data: planRaw, isLoading, error } = usePlan(slug, projectId)
   const { data: state } = useProjectState()
 
   const [showPrinciples, setShowPrinciples] = useState(false)

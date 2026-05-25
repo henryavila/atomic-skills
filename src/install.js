@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, cpSync, mkdirSync, existsSync, unlinkSync, rmSync, rmdirSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -834,6 +834,20 @@ export async function install(projectDir, options = {}) {
     });
   } finally {
     process.removeListener('SIGINT', cleanup);
+  }
+
+  // Install aideck bundle + dashboard to ~/.atomic-skills/
+  const aideckBundle = join(PACKAGE_ROOT, 'dist', 'aideck.mjs');
+  if (existsSync(aideckBundle)) {
+    const binDir = join(homedir(), '.atomic-skills', 'bin');
+    mkdirSync(binDir, { recursive: true });
+    copyFileSync(aideckBundle, join(binDir, 'aideck.mjs'));
+  }
+  const dashboardSrc = join(PACKAGE_ROOT, 'dist', 'dashboard');
+  const dashboardDest = join(homedir(), '.atomic-skills', 'dashboard');
+  if (existsSync(join(dashboardSrc, 'index.html'))) {
+    if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
+    cpSync(dashboardSrc, dashboardDest, { recursive: true });
   }
 
   // Restore files user chose to keep

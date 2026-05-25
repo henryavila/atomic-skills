@@ -103,6 +103,40 @@ Also ask: "Scan repo to discover in-flight initiatives? (y/N)". If yes, invoke `
 
 ### Default (no args, structure exists)
 
+The default view opens the **aiDeck dashboard** in the browser. aiDeck is the canonical visual surface for `.atomic-skills/` state — it renders plans, initiatives, tasks, exit gates, annotations, and highlights in real-time via a chokidar watcher + SSE push.
+
+Steps:
+
+1. Ensure aiDeck is running by calling `ensureAideck()` from `src/serve.js`. This is idempotent:
+   - Reads `~/.atomic-skills/env` (`AS_DASHBOARD_URL`) or `~/.aideck/env` (`AIDECK_URL`)
+   - Probes `/api/health` to verify liveness
+   - If already healthy and rootDir matches CWD: reuses URL
+   - If rootDir mismatch: registers this project via `POST /api/projects/register` (multi-project support)
+   - If not running: spawns `aideck serve` detached, polls until healthy, returns URL
+   - Returns the dashboard URL or null on failure
+
+2. If `ensureAideck()` returns a URL:
+   - Open the browser to that URL using `open` (npm package) or platform-native fallback:
+     ```
+     node -e "import('open').then(m => m.default('<url>'))"
+     ```
+     On failure (headless, missing `open`), fall back to printing the URL for the user.
+   - Print a one-line confirmation: `Dashboard: <url>`
+
+3. If `ensureAideck()` returns null (aideck binary not found, port collision, spawn failure):
+   - Fall back to the **terminal view** (`--terminal` behavior below)
+   - Print a warning: `aiDeck not available — showing terminal view. Install aideck or run \`npx atomic-skills serve\`.`
+
+4. After opening the browser, also print a **compact terminal summary** (3-5 lines) so the AI has context without needing to fetch from the API:
+   - Active plan/phase (if any)
+   - Active initiative slug + task progress (e.g. `3/7 done, 1 blocked`)
+   - Next action
+   - CODEX REVIEW line (see `## Codex review tracking` below)
+
+### `--terminal`
+
+Full terminal-only view (the previous default). No browser launch.
+
 If there is an active initiative whose `branch:` matches `git rev-parse --abbrev-ref HEAD`:
 - Read `.atomic-skills/initiatives/<slug>.md`, parse frontmatter YAML
 - Render in terminal:
@@ -646,7 +680,7 @@ When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level
 
 ## aiDeck integration
 
-When [aiDeck](https://github.com/henryavila/aideck) is running alongside this skill, it observes the canonical files in `.atomic-skills/` via a chokidar watcher and projects them onto the dashboard at `http://127.0.0.1:7777` (or the URL written to `~/.atomic-skills/env`, surfaced by the SessionStart hook). The skill always writes the files directly — aiDeck does NOT serve as an intermediary for mutations. Its MCP mutation tools (`aideck_mark_task_done`, etc.) record append-only intents and are intended for cross-tool consumers like other AI IDEs; the project-status skill itself does not call them, because the file-write path is faster and the intent log would just shadow the same change.
+When [aiDeck](https://github.com/henryavila/aideck) is running alongside this skill, it observes the canonical files in `.atomic-skills/` via a chokidar watcher and projects them onto the dashboard at the URL written to `~/.aideck/env` (default port 7777, auto-fallback to 7778–7787 if busy; use `aideck up` to ensure it is running and discover the actual URL). The skill always writes the files directly — aiDeck does NOT serve as an intermediary for mutations. Its MCP mutation tools (`aideck_mark_task_done`, etc.) record append-only intents and are intended for cross-tool consumers like other AI IDEs; the project-status skill itself does not call them, because the file-write path is faster and the intent log would just shadow the same change.
 
 The dashboard surface (v0.1) is read-only: it renders plans, initiatives, exit gates, annotations, and highlights, and does not mutate state from the browser. Human input flows through `inbox/*.jsonl` JSONL files that this skill drains on demand (a future task). In short: files are canonical, the dashboard is a projection, and there is no "MCP-or-file" choice for this skill.
 
@@ -683,60 +717,14 @@ By choice:
 
 ## `--browser [<slug>]`
 
-1. Determine target: if `<slug>` matches a plan, render a plan view; if it matches an initiative, render an initiative view; otherwise default to the active initiative.
-2. **Ask confirmation** (intrusive-actions rule):
-   > "Open <kind> `<slug>` in browser? (y/N)"
-   If no, abort.
-3. Generate rendering at `.atomic-skills/<kind>s/<slug>.rendered.md`:
+Opens the aiDeck dashboard in the browser, optionally deep-linking to a specific plan or initiative. This is the same mechanism used by the default view — the `--browser` flag is kept as an explicit alias for cases where the user invoked `--terminal` or a mutation command and now wants to jump to the dashboard.
 
-   **For an Initiative**:
-   - Header with metadata (slug, status, parentPlan/phaseId if present)
-   - Mermaid Gantt of tasks (done/active/blocked)
-   - Mermaid flowchart of dependencies (T-X → T-Y via `blockedBy`)
-   - Stack as nested MD list
-   - Tasks as MD table (id, title, status icon, lastUpdated)
-   - Exit gates as a checklist (id, description, status icon, verifier kind)
-   - Cross-task refs section (if non-empty): "T-X → <other-slug>:T-Y (relation)"
-   - Parked + Emerged as bullets
-   - Narrative body from source file (passthrough)
-
-   **For a Plan**:
-   - Header with metadata (slug, version, status, currentPhase)
-   - Principles as numbered list
-   - Glossary as a `<dl>` block
-   - Phases as a Mermaid flowchart (`dependsOn` edges + `parallelWith` annotation)
-   - Phase table: id, title, status icon, subPhaseCount, exit gate summary, audience
-   - Inter-phase gates as a list
-   - References (kind, label, path)
-   - Narrative body from source file (passthrough)
-
-4. Execute with {{BASH_TOOL}}:
-   ```bash
-   mdprobe .atomic-skills/<kind>s/<slug>.rendered.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/<kind>s/<slug>.rendered.md
-   ```
-5. Report URL displayed by mdprobe.
-
-Mermaid Gantt template:
-```mermaid
-gantt
-    title <slug>
-    dateFormat YYYY-MM-DD
-    section Done
-    <Task> :done, <start>, <end>
-    section Active
-    <Task> :active, <start>, <duration>
-    section Blocked
-    <Task> :crit, after <blocker>, <duration>
-```
-
-Mermaid Flowchart template:
-```mermaid
-flowchart LR
-    T001[Task A] -->|done| T002[Task B]
-    T002 --> T003[Task C]
-```
-
-(Substitute `T001/T002/T003` and titles with the real task IDs at render time.)
+1. Run `ensureAideck()` (same as default view step 1).
+2. If `ensureAideck()` returns a URL:
+   - If `<slug>` is provided: determine if it matches a plan or initiative, and open `<url>/plans/<slug>` or `<url>/initiatives/<slug>`.
+   - If no `<slug>`: open the root URL (HomePage).
+   - Open via `open` npm package; fall back to printing the URL.
+3. If `ensureAideck()` returns null: print error and suggest `npx atomic-skills serve`.
 
 ## `--report`
 
@@ -901,7 +889,7 @@ If any of these thoughts appeared: STOP and validate.
 | "Manual YAML parsing is fine, I don't need a parser library" | Manual parsing breaks on edge cases (nested quotes, multi-line, arrays); use the `yaml` npm package for robustness |
 | "I don't know if this change is lateral or a new initiative, I'll guess" | Use the disambiguation flow; 5 questions resolve it |
 | "A stack with 8 frames means I'm overthinking" | Maybe — consider archive or split into a new initiative |
-| "I can skip the confirmation before browser launch" | No — the intrusive-actions rule is firm |
+| "I can skip the aiDeck launch, the terminal view is enough" | The browser view is the default because aiDeck shows richer context (Mermaid graphs, exit gate status, real-time SSE). Use `--terminal` when you specifically need CLI-only output. |
 | "Legacy initiative is small; I'll write to it directly in snake_case" | Pre-mutation check exists for this exact reason. Writing legacy shape silently corrupts the state. Always migrate first. |
 | "Exit gate is `manual` so just mark all `met` and move on" | The user must ack manually — that's the whole point of `manual` kind. Bypassing it defeats the gate's purpose. |
 | "Phase advance doesn't need exit gates verified" | It does. `phase-done` exists to make this explicit; never set a phase to `done` without iterating the criteria. |

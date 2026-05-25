@@ -180,16 +180,18 @@ export function printConfig(config, conflictCount = 0) {
 export function showPostInstall(result, ides, lang, isFirstInstall) {
   const m = msg(lang);
 
-  // Group files by IDE
+  // Count skills (not files) per IDE
   const byIDE = {};
   for (const id of ides) {
-    byIDE[id] = 0;
+    byIDE[id] = { skills: 0, assets: 0 };
   }
   for (const f of result.files) {
+    const isSkill = f.source.startsWith('core/') || f.source.startsWith('modules/');
     for (const id of ides) {
       const cfg = IDE_CONFIG[id];
       if (cfg && f.path.startsWith(cfg.dir + '/')) {
-        byIDE[id] = (byIDE[id] || 0) + 1;
+        if (isSkill) byIDE[id].skills++;
+        else byIDE[id].assets++;
       }
     }
   }
@@ -198,9 +200,10 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
     if (id === 'gemini-commands') continue;
     const cfg = IDE_CONFIG[id];
     if (!cfg) continue;
-    const count = byIDE[id] ?? 0;
+    const { skills, assets } = byIDE[id] ?? { skills: 0, assets: 0 };
     const dirLabel = `${cfg.dir}/${SKILL_NAMESPACE}/`;
-    p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(count)} → ${pc.dim(dirLabel)}`);
+    const detail = assets > 0 ? ` ${pc.dim(`(+${assets} assets)`)}` : '';
+    p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(skills)}${detail} → ${pc.dim(dirLabel)}`);
   }
 
   if (isFirstInstall) {
@@ -229,13 +232,15 @@ export function showNonInteractiveResult(result, ides, lang) {
 
   const byIDE = {};
   for (const id of ides) {
-    byIDE[id] = 0;
+    byIDE[id] = { skills: 0, assets: 0 };
   }
   for (const f of result.files) {
+    const isSkill = f.source.startsWith('core/') || f.source.startsWith('modules/');
     for (const id of ides) {
       const cfg = IDE_CONFIG[id];
       if (cfg && f.path.startsWith(cfg.dir + '/')) {
-        byIDE[id] = (byIDE[id] || 0) + 1;
+        if (isSkill) byIDE[id].skills++;
+        else byIDE[id].assets++;
       }
     }
   }
@@ -244,8 +249,8 @@ export function showNonInteractiveResult(result, ides, lang) {
     if (id === 'gemini-commands') continue;
     const cfg = IDE_CONFIG[id];
     if (!cfg) continue;
-    const count = byIDE[id] ?? 0;
-    p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(count)}`);
+    const { skills } = byIDE[id] ?? { skills: 0 };
+    p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(skills)}`);
   }
 
   p.outro(`${m.done} ${m.filesInstalled(result.files.length)}`);

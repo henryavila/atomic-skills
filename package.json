@@ -12,6 +12,7 @@
     "skills/",
     "meta/",
     "dist/dashboard/",
+    "dist/aideck.mjs",
     "README.md",
     "assets/"
   ],
@@ -30,7 +31,8 @@
     "build:dashboard": "vite build --config vite.config.ts",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
     "prepare": "husky && git config core.hooksPath .husky",
-    "prepublishOnly": "npm run build:dashboard"
+    "build:aideck": "node scripts/vendor-aideck.js",
+    "prepublishOnly": "npm run build:dashboard && npm run build:aideck"
   },
   "keywords": [
     "ai",

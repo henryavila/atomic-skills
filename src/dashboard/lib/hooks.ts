@@ -10,18 +10,38 @@ export function useProjectState() {
   })
 }
 
-export function usePlan(slug: string | undefined) {
+export function useProjects() {
   return useQuery({
-    queryKey: ['plan', slug],
-    queryFn: () => api.getPlan(slug as string),
+    queryKey: ['projects'],
+    queryFn: api.getProjects,
+    retry: false,
+  })
+}
+
+export function useProjectScopedState(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['state', 'project-status', projectId],
+    queryFn: () => api.getProjectState(projectId as string),
+    enabled: Boolean(projectId),
+  })
+}
+
+export function usePlan(slug: string | undefined, projectId?: string) {
+  return useQuery({
+    queryKey: projectId ? ['plan', projectId, slug] : ['plan', slug],
+    queryFn: () => projectId
+      ? api.getProjectPlan(projectId, slug as string)
+      : api.getPlan(slug as string),
     enabled: Boolean(slug),
   })
 }
 
-export function useInitiative(slug: string | undefined) {
+export function useInitiative(slug: string | undefined, projectId?: string) {
   return useQuery({
-    queryKey: ['initiative', slug],
-    queryFn: () => api.getInitiative(slug as string),
+    queryKey: projectId ? ['initiative', projectId, slug] : ['initiative', slug],
+    queryFn: () => projectId
+      ? api.getProjectInitiative(projectId, slug as string)
+      : api.getInitiative(slug as string),
     enabled: Boolean(slug),
   })
 }
@@ -42,6 +62,7 @@ export function useStateChangeSubscription(): void {
     const es = api.subscribeToEvents((evt) => {
       if (evt.kind !== 'state-change') return
       queryClient.invalidateQueries({ queryKey: ['state', 'project-status'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
       if (evt.consumer) {
         queryClient.invalidateQueries({ queryKey: ['state', evt.consumer] })
       }

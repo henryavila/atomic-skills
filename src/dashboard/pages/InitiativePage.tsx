@@ -13,9 +13,9 @@ import { useInitiative, usePlan, useProjectState } from '../lib/hooks'
 
 export function InitiativePage() {
   const navigate = useNavigate()
-  const { slug } = useParams<{ slug: string }>()
-  const { data: init, isLoading, error } = useInitiative(slug)
-  const { data: planData } = usePlan(init?.parentPlan)
+  const { slug, projectId } = useParams<{ slug: string; projectId?: string }>()
+  const { data: init, isLoading, error } = useInitiative(slug, projectId)
+  const { data: planData } = usePlan(init?.parentPlan, projectId)
   const { data: state } = useProjectState()
 
   if (isLoading) return <Frame>Loading initiative…</Frame>

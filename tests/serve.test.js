@@ -66,6 +66,29 @@ describe('__testing surface (Codex F-004)', () => {
   })
 })
 
+describe('derive projectId', () => {
+  it('lowercases and sanitizes basename', () => {
+    assert.equal(serve.deriveProjectId('/home/user/MyProject'), 'myproject')
+  })
+
+  it('replaces non-alphanumeric chars with hyphens', () => {
+    assert.equal(serve.deriveProjectId('/home/user/my_project.v2'), 'my-project-v2')
+  })
+
+  it('strips leading digits and hyphens', () => {
+    assert.equal(serve.deriveProjectId('/home/user/123-project'), 'project')
+  })
+
+  it('returns "project" for fully invalid basenames', () => {
+    assert.equal(serve.deriveProjectId('/home/user/123'), 'project')
+  })
+
+  it('validates as a slug (matches projectId regex)', () => {
+    const id = serve.deriveProjectId('/home/user/Atomic-Skills')
+    assert.match(id, /^[a-z][a-z0-9-]{0,63}$/)
+  })
+})
+
 describe('serve constants', () => {
   it('ENV_FILE_PATH points at $HOME/.atomic-skills/env', () => {
     assert.match(serve.__testing.ENV_FILE_PATH, /\.atomic-skills\/env$/)

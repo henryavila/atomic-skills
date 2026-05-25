@@ -17,6 +17,50 @@ import type {
 
 const CONSUMER = 'project-status'
 
+// ── Multi-project API ─────────────────────────────────────────────────────
+
+export interface RegisteredProject {
+  projectId: string
+  rootDir: string
+  registeredAt: string
+}
+
+interface ProjectsResponse {
+  schemaVersion: string
+  projects: RegisteredProject[]
+}
+
+export async function getProjects(): Promise<RegisteredProject[]> {
+  const r = await fetchJson<ProjectsResponse>('/api/projects')
+  return r.projects
+}
+
+export async function getProjectState(projectId: string): Promise<ProjectStatusState> {
+  const r = await fetchJson<StateResponse>(`/api/projects/${projectId}/state/${CONSUMER}`)
+  return r.state
+}
+
+export async function getProjectEntityBySlug(projectId: string, slug: string): Promise<Plan | Initiative> {
+  const r = await fetchJson<EntityResponse>(`/api/projects/${projectId}/state/${CONSUMER}/${slug}`)
+  return r.entity
+}
+
+export async function getProjectPlan(projectId: string, slug: string): Promise<Plan> {
+  const entity = await getProjectEntityBySlug(projectId, slug)
+  if (!('phases' in entity)) {
+    throw new Error(`Expected plan at slug "${slug}" but got an initiative`)
+  }
+  return entity
+}
+
+export async function getProjectInitiative(projectId: string, slug: string): Promise<Initiative> {
+  const entity = await getProjectEntityBySlug(projectId, slug)
+  if (!('tasks' in entity)) {
+    throw new Error(`Expected initiative at slug "${slug}" but got a plan`)
+  }
+  return entity
+}
+
 interface StateResponse {
   schemaVersion: string
   state: ProjectStatusState
