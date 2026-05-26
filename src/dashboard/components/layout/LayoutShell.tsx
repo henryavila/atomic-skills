@@ -15,7 +15,7 @@ interface Props {
 export function LayoutShell({ children, demoMode = false }: Props) {
   const [openDrawer, setOpenDrawer] = useState<null | 'annotations' | 'feedback'>(null)
   return (
-    <div className="flex min-h-screen flex-col" style={{ background: 'var(--bg-canvas)' }}>
+    <div className="flex min-h-screen flex-col" style={{ background: 'transparent' }}>
       <SkipLink />
       <DemoBanner visible={demoMode} />
       <TopChrome
@@ -27,7 +27,7 @@ export function LayoutShell({ children, demoMode = false }: Props) {
         <main
           id="content"
           tabIndex={-1}
-          style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-canvas)' }}
+          style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}
         >
           {children}
         </main>
