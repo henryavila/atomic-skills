@@ -98,7 +98,16 @@ function buildBreadcrumbs(pathname: string, projectDisplayName?: string): Array<
     return crumbs
   }
 
-  // /discover
+  // /:projectId/discover
+  const discoverScopedMatch = pathname.match(/^\/([^/]+)\/discover$/)
+  if (discoverScopedMatch) {
+    const [, pid] = discoverScopedMatch
+    crumbs.push({ label: projectDisplayName ?? pid, to: `/projects/${pid}` })
+    crumbs.push({ label: 'discover' })
+    return crumbs
+  }
+
+  // /discover (legacy)
   if (pathname === '/discover') {
     crumbs.push({ label: 'discover' })
     return crumbs

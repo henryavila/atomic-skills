@@ -95,10 +95,10 @@ export function useStateChangeSubscription(): void {
 
 // ── Discover hooks ────────────────────────────────────────────────────────
 
-export function useDiscoverRun() {
+export function useDiscoverRun(projectId?: string) {
   return useQuery({
-    queryKey: ['state', 'bootstrap-drafts'],
-    queryFn: api.getDiscoverState,
+    queryKey: projectId ? ['state', 'bootstrap-drafts', projectId] : ['state', 'bootstrap-drafts'],
+    queryFn: () => api.getDiscoverState(projectId),
     retry: false,
   })
 }

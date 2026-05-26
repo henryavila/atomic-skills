@@ -22,6 +22,7 @@ export function App() {
         {/* Legacy routes (backward-compat: no projectId prefix) */}
         <Route path="/plans/:slug" element={<PlanPage />} />
         <Route path="/initiatives/:slug" element={<InitiativePage />} />
+        <Route path="/:projectId/discover" element={<DiscoverPage />} />
         <Route path="/discover" element={<DiscoverPage />} />
         <Route path="/help" element={<HelpPage />} />
       </Routes>

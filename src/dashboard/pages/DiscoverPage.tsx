@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useParams } from 'react-router'
 import { useDiscoverRun, useDiscoverDecisions, usePostDecisions } from '../lib/hooks'
 import type { DiscoverCandidate, DiscoverRelationship, AlreadyTrackedItem } from '../lib/types'
 import { DiscoverHeader } from '../components/discover/DiscoverHeader'
@@ -9,7 +10,8 @@ import { BUCKETS, SOURCE_TYPES, fmtRelativeDays } from '../components/discover/c
 type LocalDecisions = Map<string, { decision: 'approve' | 'reject'; candidate: DiscoverCandidate }>
 
 export function DiscoverPage() {
-  const { data: run, isLoading, error } = useDiscoverRun()
+  const { projectId } = useParams<{ projectId?: string }>()
+  const { data: run, isLoading, error } = useDiscoverRun(projectId)
   const slugs = useMemo(() => run?.candidates.map((c) => c.slug) ?? [], [run])
   const { data: existingDecisions } = useDiscoverDecisions(slugs)
   const postMutation = usePostDecisions()

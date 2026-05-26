@@ -148,13 +148,16 @@ interface DiscoverInboxResponse {
   nextCursor?: string
 }
 
-export async function getDiscoverState(): Promise<DiscoverRun> {
-  const r = await fetchJson<DiscoverStateResponse>(`/api/state/${DISCOVER_CONSUMER}`)
+export async function getDiscoverState(projectId?: string): Promise<DiscoverRun> {
+  const path = projectId
+    ? `/api/projects/${projectId}/state/${DISCOVER_CONSUMER}`
+    : `/api/state/${DISCOVER_CONSUMER}`
+  const r = await fetchJson<DiscoverStateResponse>(path)
   const run = r.state
   // Enrich alreadyTracked: aiDeck sends string slugs; resolve against project-status
   if (run.alreadyTracked?.length && typeof run.alreadyTracked[0] === 'string') {
     try {
-      const ps = await getState()
+      const ps = projectId ? await getProjectState(projectId) : await getState()
       const lookup = new Map<string, { title: string; trackedAs: string; lastUpdated: string }>()
       for (const p of ps.plans) {
         lookup.set(p.slug, { title: p.title, trackedAs: `plans/${p.slug}`, lastUpdated: p.lastUpdated.slice(0, 10) })
