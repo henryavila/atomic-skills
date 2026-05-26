@@ -2,21 +2,20 @@ import { Route, Routes } from 'react-router'
 import { LayoutShell } from './components/layout/LayoutShell'
 import { useStateChangeSubscription } from './lib/hooks'
 import { HomePage } from './pages/HomePage'
+import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { PlanPage } from './pages/PlanPage'
 import { InitiativePage } from './pages/InitiativePage'
 import { DiscoverPage } from './pages/DiscoverPage'
 import { HelpPage } from './pages/HelpPage'
 
 export function App() {
-  // Single SSE subscription for the whole app — invalidates Query cache on
-  // every aideck `state-change` event so every page reflects writes within
-  // ~200ms of disk change.
   useStateChangeSubscription()
 
   return (
     <LayoutShell>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
         {/* Project-scoped routes */}
         <Route path="/:projectId/plans/:slug" element={<PlanPage />} />
         <Route path="/:projectId/initiatives/:slug" element={<InitiativePage />} />

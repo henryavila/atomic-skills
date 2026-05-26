@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router'
+import { NavLink, useNavigate, useLocation } from 'react-router'
 import { IconBtn, Kbd, LocalhostPill, Wordmark } from '../atoms'
 import { AnnotationPanel } from '../feedback/AnnotationPanel'
 import { FeedbackDrawer } from '../feedback/FeedbackDrawer'
@@ -81,10 +81,15 @@ function TopChrome({
 }) {
   const { data: state } = useProjectState()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const firstPlanSlug = state?.plans[0]?.slug
   const plansTarget = firstPlanSlug ? `/plans/${firstPlanSlug}` : '/'
   const hasPlans = Boolean(firstPlanSlug)
+
+  // Breadcrumb: detect project detail route
+  const projectDetailMatch = location.pathname.match(/^\/projects\/([^/]+)$/)
+  const projectId = projectDetailMatch?.[1]
 
   return (
     <>
@@ -117,19 +122,36 @@ function TopChrome({
         </a>
         <span style={{ width: 1, height: 20, background: 'var(--border-default)', flex: 'none' }} />
         <nav style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <NavLink to="/" end style={navStyle}>
-            home
-          </NavLink>
-          {hasPlans ? (
-            <NavLink to={plansTarget} style={navStyle}>
-              plans
-            </NavLink>
+          {projectId ? (
+            <>
+              <button
+                onClick={() => navigate('/')}
+                style={{ ...baseNav, color: 'var(--accent-link)', cursor: 'pointer', background: 'none', border: 'none' }}
+              >
+                Projects
+              </button>
+              <span style={{ color: 'var(--fg-faint)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>›</span>
+              <span style={{ ...baseNav, color: 'var(--fg-default)', fontWeight: 500 }}>
+                {projectId}
+              </span>
+            </>
           ) : (
-            <span style={{ ...baseNav, color: 'var(--fg-faint)', cursor: 'default' }}>plans</span>
+            <>
+              <NavLink to="/" end style={navStyle}>
+                home
+              </NavLink>
+              {hasPlans ? (
+                <NavLink to={plansTarget} style={navStyle}>
+                  plans
+                </NavLink>
+              ) : (
+                <span style={{ ...baseNav, color: 'var(--fg-faint)', cursor: 'default' }}>plans</span>
+              )}
+              <NavLink to="/help" style={navStyle}>
+                help
+              </NavLink>
+            </>
           )}
-          <NavLink to="/help" style={navStyle}>
-            help
-          </NavLink>
         </nav>
         <div style={{ flex: 1 }} />
         <LocalhostPill />
