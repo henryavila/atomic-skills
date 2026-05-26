@@ -39,15 +39,21 @@ function MultiProjectHome({
 }: {
   projects: RegisteredProject[]; onOpen: (projectId: string) => void
 }) {
+  const cols = projects.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(520px, 1fr))'
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))',
+      gridTemplateColumns: cols,
       gap: 14, marginTop: 14,
     }}>
-      {projects.map(p => (
-        <ProjectCardWrapper key={p.projectId} project={p} onOpen={onOpen} />
-      ))}
+      {projects.map((p, i) => {
+        const isLastOdd = projects.length > 1 && i === projects.length - 1 && projects.length % 2 === 1
+        return (
+          <div key={p.projectId} style={isLastOdd ? { gridColumn: '1 / -1' } : undefined}>
+            <ProjectCardWrapper project={p} onOpen={onOpen} />
+          </div>
+        )
+      })}
     </div>
   )
 }

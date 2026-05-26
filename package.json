@@ -28,7 +28,7 @@
     "check-docs": "node scripts/generate-readme.js --check && node scripts/generate-helpview-data.js --check",
     "validate-catalog": "npm run validate-skills && npm run check-docs",
     "dev:dashboard": "vite --config vite.config.ts",
-    "build:dashboard": "vite build --config vite.config.ts",
+    "build:dashboard": "vite build --config vite.config.ts && node -e \"import{cpSync as c,rmSync as r,existsSync as e}from'fs';import{join as j}from'path';import{homedir as h}from'os';const p=j(h(),'.atomic-skills','dashboard');if(e(p))r(p,{recursive:true});c('dist/dashboard',p,{recursive:true});\"",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
     "prepare": "husky && git config core.hooksPath .husky",
     "build:aideck": "node scripts/vendor-aideck.js",

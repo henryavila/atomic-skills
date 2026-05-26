@@ -259,11 +259,13 @@ export async function ensureAideck(opts = {}) {
   const bin = resolveAideckBin()
   const args = ['serve']
   if (port) args.push(`--port=${port}`)
-  const dashboardDir = join(homedir(), '.atomic-skills', 'dashboard')
-  if (existsSync(join(dashboardDir, 'index.html'))) {
-    args.push('--static-dir', dashboardDir)
-  } else if (existsSync(DEFAULT_BUNDLE_DIR)) {
+  if (existsSync(join(DEFAULT_BUNDLE_DIR, 'index.html'))) {
     args.push('--static-dir', DEFAULT_BUNDLE_DIR)
+  } else {
+    const dashboardDir = join(homedir(), '.atomic-skills', 'dashboard')
+    if (existsSync(join(dashboardDir, 'index.html'))) {
+      args.push('--static-dir', dashboardDir)
+    }
   }
 
   const isPath = bin.includes('/') || bin.includes('\\')

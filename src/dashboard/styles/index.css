@@ -63,6 +63,9 @@
 html, body, #root {
   height: 100%;
   background: var(--bg-canvas);
+  background-image: var(--texture-grid);
+  background-size: var(--texture-grid-size);
+  background-attachment: fixed;
   color: var(--fg-default);
   font-family: var(--font-sans);
 }

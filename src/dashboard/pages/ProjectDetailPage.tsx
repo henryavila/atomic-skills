@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { useProjectScopedState } from '../lib/hooks'
+import { useProjectScopedState, useProjectState } from '../lib/hooks'
 import { adaptStateForHome } from '../lib/adapters'
 import type { UIConsumer } from '../lib/adapters'
 import { Roadmap, RoadmapSources } from '../components/home/Roadmap'
@@ -31,7 +31,14 @@ function ConsumerErroredBlock({ consumer }: { consumer: UIConsumer }) {
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { data, isLoading, error } = useProjectScopedState(projectId)
+
+  // Try project-scoped API first, fall back to legacy single-project API
+  const scopedState = useProjectScopedState(projectId)
+  const legacyState = useProjectState()
+
+  const data = scopedState.data ?? legacyState.data
+  const isLoading = scopedState.isLoading && legacyState.isLoading
+  const error = scopedState.error && legacyState.error
 
   if (isLoading) {
     return <Frame><p style={{ color: 'var(--fg-muted)' }}>Loading project…</p></Frame>
@@ -66,7 +73,6 @@ export function ProjectDetailPage() {
 
   const erroredConsumers = consumers.filter(c => c.health === 'errored')
 
-  // Metric strip values
   const planCount = consumers.reduce((n, c) => n + c.plans.length, 0)
   const initCount = consumers.reduce((n, c) => n + c.initiatives.length, 0)
   const activeConsumers = consumers.filter(c => c.health === 'active').length
