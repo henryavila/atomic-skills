@@ -214,9 +214,9 @@ export async function ensureAideck(opts = {}) {
         const body = await res.json()
         if (body?.service === 'aideck') {
           const cwd = process.cwd()
-          if (!body.rootDir || body.rootDir === cwd) return existingUrl
 
-          // rootDir mismatch — register this project with the running instance
+          // Always register so this project appears in /api/projects,
+          // even when the server was originally started from this rootDir.
           const projectId = deriveProjectId(cwd)
           try {
             const regRes = await fetch(`${existingUrl}/api/projects/register`, {
@@ -225,14 +225,15 @@ export async function ensureAideck(opts = {}) {
               body: JSON.stringify({ rootDir: cwd, projectId })
             })
             if (regRes.ok) {
-              process.stderr.write(
-                `atomic-skills: registered project "${projectId}" with running aiDeck at ${existingUrl}\n`
-              )
               return existingUrl
             }
-          } catch { /* registration failed — fall through to restart */ }
+          } catch { /* registration failed */ }
 
-          // Registration endpoint not available (old aideck) — fall back to restart
+          // Registration endpoint not available (old aideck) and rootDir
+          // matches — still usable as-is.
+          if (!body.rootDir || body.rootDir === cwd) return existingUrl
+
+          // rootDir mismatch + old aideck without /api/projects — restart
           process.stderr.write(
             `atomic-skills: aiDeck rootDir mismatch (running: ${body.rootDir}, need: ${cwd}). Restarting.\n`
           )
@@ -286,7 +287,19 @@ export async function ensureAideck(opts = {}) {
     if (url) {
       try {
         const res = await fetch(`${url}/api/health`)
-        if (res.ok) return url
+        if (res.ok) {
+          // Register this project with the freshly started server
+          const cwd = process.cwd()
+          const projectId = deriveProjectId(cwd)
+          try {
+            await fetch(`${url}/api/projects/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rootDir: cwd, projectId })
+            })
+          } catch { /* best effort */ }
+          return url
+        }
       } catch { /* not ready yet */ }
     }
     await new Promise(r => setTimeout(r, 500))
