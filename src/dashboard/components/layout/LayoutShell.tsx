@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router'
 import { IconBtn, Kbd, LocalhostPill, Wordmark } from '../atoms'
 import { AnnotationPanel } from '../feedback/AnnotationPanel'
 import { FeedbackDrawer } from '../feedback/FeedbackDrawer'
-import { useProjectState } from '../../lib/hooks'
+import { useProjectState, useHealth } from '../../lib/hooks'
 import { DemoBanner } from './DemoBanner'
 
 interface Props {
@@ -80,6 +80,7 @@ function TopChrome({
   onToggleFeedback: () => void
 }) {
   const { data: state } = useProjectState()
+  const { data: health } = useHealth()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -90,6 +91,12 @@ function TopChrome({
   // Breadcrumb: detect project detail route
   const projectDetailMatch = location.pathname.match(/^\/projects\/([^/]+)$/)
   const projectId = projectDetailMatch?.[1]
+
+  // Wordmark: show project name on detail page, "aiDeck" on home
+  const projectDisplayName = health?.rootDir
+    ? health.rootDir.split('/').pop() ?? undefined
+    : undefined
+  const wordmarkLabel = projectId ? (projectDisplayName ?? projectId) : undefined
 
   return (
     <>
@@ -118,7 +125,7 @@ function TopChrome({
           style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', flex: 'none' }}
           aria-label="atomic-skills home"
         >
-          <Wordmark size={18} />
+          <Wordmark size={18} label={wordmarkLabel} />
         </a>
         <span style={{ width: 1, height: 20, background: 'var(--border-default)', flex: 'none' }} />
         <nav style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -132,7 +139,7 @@ function TopChrome({
               </button>
               <span style={{ color: 'var(--fg-faint)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>›</span>
               <span style={{ ...baseNav, color: 'var(--fg-default)', fontWeight: 500 }}>
-                {projectId}
+                {projectDisplayName ?? projectId}
               </span>
             </>
           ) : (

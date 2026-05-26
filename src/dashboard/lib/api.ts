@@ -86,6 +86,17 @@ async function fetchJson<T>(path: string): Promise<T> {
   return (await res.json()) as T
 }
 
+export interface HealthResponse {
+  service: string
+  status: string
+  rootDir: string
+  projects: string[]
+}
+
+export async function getHealth(): Promise<HealthResponse> {
+  return fetchJson<HealthResponse>('/api/health')
+}
+
 export async function getState(): Promise<ProjectStatusState> {
   const r = await fetchJson<StateResponse>(`/api/state/${CONSUMER}`)
   return r.state

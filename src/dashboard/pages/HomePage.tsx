@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { useProjectState, useProjects, useProjectScopedState } from '../lib/hooks'
+import { useProjectState, useProjects, useProjectScopedState, useHealth } from '../lib/hooks'
 import { adaptStateForHome } from '../lib/adapters'
 import type { RegisteredProject } from '../lib/api'
 import type { ProjectStatusState } from '../lib/types'
@@ -61,17 +61,20 @@ function MultiProjectHome({
 // ── SingleProjectHome (legacy fallback) ───────────────────────────────────
 
 function SingleProjectHome({
-  data, onOpen,
+  data, onOpen, rootDir,
 }: {
-  data: ProjectStatusState; onOpen: (path: string) => void
+  data: ProjectStatusState; onOpen: (path: string) => void; rootDir?: string
 }) {
   const consumers = adaptStateForHome(data)
   if (consumers.length === 0) return <EmptyState />
 
+  const projectName = rootDir ? rootDir.split('/').pop() ?? 'project' : 'project'
+  const projectId = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
   const cardData: ProjectCardData = {
-    id: 'default',
-    name: 'this project',
-    fullPath: '~',
+    id: projectId,
+    name: projectName,
+    fullPath: rootDir ? rootDir.replace(/^\/Users\/[^/]+/, '~') : '~',
     branch: data.plans[0]?.branch ?? 'main',
     lastActivity: formatRelativeTime(data.generatedAt),
     health: deriveHealth(data),
@@ -185,6 +188,7 @@ function EmptyProjectsState() {
 
 export function HomePage() {
   const navigate = useNavigate()
+  const { data: health } = useHealth()
   const { data: projects, error: projectsError } = useProjects()
   const { data: singleState, isLoading: stateLoading, error: stateError } = useProjectState()
 
@@ -236,7 +240,7 @@ export function HomePage() {
           onOpen={(projectId) => navigate(`/projects/${projectId}`)}
         />
       ) : singleState ? (
-        <SingleProjectHome data={singleState} onOpen={navigate} />
+        <SingleProjectHome data={singleState} onOpen={navigate} rootDir={health?.rootDir} />
       ) : (
         <EmptyProjectsState />
       )}

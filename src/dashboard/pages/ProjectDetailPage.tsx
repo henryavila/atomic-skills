@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { useProjectScopedState, useProjectState } from '../lib/hooks'
+import { useProjectScopedState, useProjectState, useHealth } from '../lib/hooks'
 import { adaptStateForHome } from '../lib/adapters'
 import type { UIConsumer } from '../lib/adapters'
 import { Roadmap, RoadmapSources } from '../components/home/Roadmap'
@@ -31,6 +31,7 @@ function ConsumerErroredBlock({ consumer }: { consumer: UIConsumer }) {
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const { data: health } = useHealth()
 
   // Try project-scoped API first, fall back to legacy single-project API
   const scopedState = useProjectScopedState(projectId)
@@ -39,6 +40,11 @@ export function ProjectDetailPage() {
   const data = scopedState.data ?? legacyState.data
   const isLoading = scopedState.isLoading && legacyState.isLoading
   const error = scopedState.error && legacyState.error
+
+  // Derive display name from health rootDir or projectId
+  const projectName = health?.rootDir
+    ? health.rootDir.split('/').pop() ?? projectId ?? 'project'
+    : projectId ?? 'project'
 
   if (isLoading) {
     return <Frame><p style={{ color: 'var(--fg-muted)' }}>Loading project…</p></Frame>
@@ -98,7 +104,7 @@ export function ProjectDetailPage() {
         <h1 style={{
           margin: 0, fontFamily: 'var(--font-sans)', fontSize: 30, fontWeight: 600,
           color: 'var(--fg-default)', letterSpacing: '-0.025em', lineHeight: 1.1,
-        }}>{projectId}</h1>
+        }}>{projectName}</h1>
       </div>
 
       {/* metric strip */}

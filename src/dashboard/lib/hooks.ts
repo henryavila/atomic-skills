@@ -3,6 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { DiscoverCandidate } from './types'
 import * as api from './api'
 
+export function useHealth() {
+  return useQuery({
+    queryKey: ['health'],
+    queryFn: api.getHealth,
+    staleTime: 60 * 1000,
+  })
+}
+
 export function useProjectState() {
   return useQuery({
     queryKey: ['state', 'project-status'],
