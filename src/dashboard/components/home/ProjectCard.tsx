@@ -382,6 +382,7 @@ export function ProjectCard({ project, onClick }: { project: ProjectCardData; on
   const cardStyle: CSSProperties = {
     all: 'unset', cursor: 'pointer',
     display: 'flex', flexDirection: 'column', gap: 10,
+    width: '100%', boxSizing: 'border-box',
     padding: '14px 16px',
     background: 'var(--bg-surface)',
     border: '1px solid var(--border-default)',

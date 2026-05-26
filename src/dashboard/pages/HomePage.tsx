@@ -80,13 +80,12 @@ function SingleProjectHome({
 
   return (
     <div style={{ marginTop: 14 }}>
-      <ProjectCard
-        project={cardData}
-        onClick={() => {
-          const firstPlan = data.plans[0]
-          if (firstPlan) onOpen(`/plans/${firstPlan.slug}`)
-        }}
-      />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
+        <ProjectCard
+          project={cardData}
+          onClick={() => onOpen(`/projects/${cardData.id}`)}
+        />
+      </div>
     </div>
   )
 }
