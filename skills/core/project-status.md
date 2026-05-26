@@ -358,11 +358,18 @@ Invoked when the active initiative is the phase initiative of an active plan AND
    - `{ kind: 'parallel-choice', eligible: [...] }` — when the plan has `parallelismAllowed: true`, ask "Which of `<eligible...>` should be activated now? Select one or more (or `none`)".
    Before presenting any of the above, call `src/transition.js`:`unknownDeps(plan)`. If it returns non-empty, surface the typos to the user and abort the advance — the dependency graph is broken.
 7. On the user's accept of an advance:
+   - **Propagate completion to the initiative** (BEFORE archiving):
+     a. Set all `tasks[].status = 'done'`, `tasks[].closedAt = <now>`, `tasks[].lastUpdated = <now>` for any task not already `done`.
+     b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
+     c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
+     d. Save the initiative file.
    - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>`. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
    - Run `archive <slug>` on the just-closed initiative so its file moves to `initiatives/archive/`.
    - For each newly-active phase id, propose `atomic-skills:project-plan new <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new` flow already seeds the initiative's first stack frame from `initiative.template.md`.
    - Save the plan + PROJECT-STATUS.md.
-8. On user decline (or `plan-done` accept without `currentPhase` change): set the parent plan's phase `status: done` and stop without seeding a successor.
+8. On user decline (or `plan-done` accept without `currentPhase` change):
+   - **Propagate completion to the initiative** (same steps 7a-d above).
+   - Set the parent plan's phase `status: done` and stop without seeding a successor.
 
 ### Verifier execution patterns (`verify_exit_gate` workflow)
 
@@ -449,10 +456,15 @@ When closing a task (`done <task-id>`) whose entry has a non-empty `verifier:`, 
 Reverse of `phase-done`. Used when a closed phase needs more work (regression, scope expansion).
 
 1. Identify the target phase (by `phaseId` arg or by reading the parent plan's last-done phase).
-2. Confirm with user: "Reopen phase `<id>`? This sets initiative status back to active and clears `metAt` on all criteria."
-3. On accept: set initiative `status: active`; set every `exitGate[].status` and `phases[<id>].exitGate.criteria[].status` to `pending`; clear `metAt`.
-4. If the plan had advanced past this phase, leave `currentPhase` unchanged (user decides whether to re-route).
-5. Save. Update PROJECT-STATUS.md.
+2. Locate the initiative file. Check both `initiatives/<slug>.md` and `initiatives/archive/` for the file. Note whether it is archived (do NOT move yet).
+3. Confirm with user: "Reopen phase `<id>`? This sets initiative status back to active, clears `metAt` on all criteria, and resets all tasks to pending."
+4. On accept:
+   - If the initiative file was in `initiatives/archive/`: move it back to `initiatives/<slug>.md`.
+   - Set initiative `status: active`.
+   - Set every `exitGate[].status` and `phases[<id>].exitGate.criteria[].status` to `pending`; clear `metAt`.
+   - Set all `tasks[].status = 'pending'`; clear `tasks[].closedAt`; refresh `tasks[].lastUpdated = <now>`.
+5. If the plan had advanced past this phase, leave `currentPhase` unchanged (user decides whether to re-route).
+6. Save. Update PROJECT-STATUS.md.
 
 ### `detect-scope`
 
@@ -473,6 +485,7 @@ Works on both plans and initiatives. If `<slug>` matches `.atomic-skills/plans/<
    - For every initiative with `parentPlan === <slug>` and `status` in {`active`, `paused`, `pending`}: set its `status: archived`, move file to `initiatives/archive/<YYYY-MM>-<slug>.md`.
    - Move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
 3. **Initiative archival**:
+   - If the initiative has `parentPlan` and the matching plan phase has `status: done`, verify that the initiative `status` is `done` (not `active`/`pending`). If not, apply the propagation steps from `phase-done` step 7a-d first (set all tasks `done`, exitGates `met`, initiative `status: done`), then continue.
    - Set the initiative's `status: archived`.
    - Move file to `initiatives/archive/<YYYY-MM>-<slug>.md`.
 4. Update PROJECT-STATUS.md: remove archived rows from active tables; append to "Recently Archived" (keep last 10).

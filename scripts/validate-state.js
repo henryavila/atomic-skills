@@ -137,6 +137,18 @@ function collectTargets(args) {
           targets.push(filePath);
           seen.add(filePath);
         }
+        if (sub === 'initiatives') {
+          const archiveDir = join(subDir, 'archive');
+          if (existsSync(archiveDir) && statSync(archiveDir).isDirectory()) {
+            for (const entry of readdirSync(archiveDir)) {
+              if (!entry.endsWith('.md')) continue;
+              const filePath = join(archiveDir, entry);
+              if (seen.has(filePath)) continue;
+              targets.push(filePath);
+              seen.add(filePath);
+            }
+          }
+        }
       }
     }
   }
@@ -175,6 +187,64 @@ export function validateFile(filePath, validators) {
     return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
   });
   return { ok: false, kind, errors };
+}
+
+/**
+ * Cross-validate plan↔initiative consistency for done phases.
+ * Returns array of { planSlug, phaseId, initiativeSlug, errors: string[] }.
+ */
+export function crossValidate(planFrontmatters, initiativeFrontmatters) {
+  const errors = [];
+  const initBySlug = new Map();
+  for (const [slug, fm] of initiativeFrontmatters) {
+    initBySlug.set(slug, fm);
+  }
+
+  for (const [, plan] of planFrontmatters) {
+    if (!plan.phases) continue;
+    for (const phase of plan.phases) {
+      if (phase.status !== 'done') continue;
+      if (!phase.slug) continue;
+
+      const init = initBySlug.get(phase.slug);
+      if (!init) continue;
+
+      const phaseErrors = [];
+
+      if (init.status !== 'done' && init.status !== 'archived') {
+        phaseErrors.push(
+          `initiative status is '${init.status}' but plan phase ${phase.id} is 'done'`
+        );
+      }
+
+      const pendingTasks = (init.tasks || []).filter((t) => t.status !== 'done');
+      if (pendingTasks.length > 0) {
+        phaseErrors.push(
+          `${pendingTasks.length} initiative task(s) not done: ${pendingTasks.map((t) => t.id).join(', ')}`
+        );
+      }
+
+      for (const planCrit of (phase.exitGate?.criteria || [])) {
+        if (planCrit.status !== 'met') continue;
+        const initCrit = (init.exitGates || []).find((c) => c.id === planCrit.id);
+        if (initCrit && initCrit.status !== 'met') {
+          phaseErrors.push(
+            `plan criterion ${planCrit.id} is 'met' but initiative exitGate is '${initCrit.status}'`
+          );
+        }
+      }
+
+      if (phaseErrors.length > 0) {
+        errors.push({
+          planSlug: plan.slug,
+          phaseId: phase.id,
+          initiativeSlug: phase.slug,
+          errors: phaseErrors,
+        });
+      }
+    }
+  }
+  return errors;
 }
 
 function main() {
@@ -219,11 +289,36 @@ function main() {
     }
   }
 
-  if (failed === 0) {
-    console.log(`\n✓ All ${targets.length} file(s) valid (schemaVersion 0.1)`);
+  const planFrontmatters = new Map();
+  const initiativeFrontmatters = new Map();
+  for (const target of targets) {
+    const kind = kindFromPath(target);
+    let raw;
+    try { raw = readFileSync(target, 'utf8'); } catch { continue; }
+    const parsed = parseFrontmatter(raw);
+    if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
+    if (kind === 'plan') planFrontmatters.set(parsed.frontmatter.slug, parsed.frontmatter);
+    if (kind === 'initiative') initiativeFrontmatters.set(parsed.frontmatter.slug, parsed.frontmatter);
+  }
+
+  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters);
+  for (const ce of crossErrors) {
+    console.error(`\n✖ cross-validation: plan '${ce.planSlug}' phase ${ce.phaseId} ↔ initiative '${ce.initiativeSlug}'`);
+    for (const err of ce.errors) {
+      console.error(`    - ${err}`);
+    }
+  }
+
+  if (failed === 0 && crossErrors.length === 0) {
+    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated (schemaVersion 0.1)`);
     process.exit(0);
   }
-  console.error(`\n✖ ${failed} of ${targets.length} file(s) failed validation`);
+  if (failed > 0) {
+    console.error(`\n✖ ${failed} of ${targets.length} file(s) failed schema validation`);
+  }
+  if (crossErrors.length > 0) {
+    console.error(`✖ ${crossErrors.length} cross-validation error(s)`);
+  }
   process.exit(1);
 }
 

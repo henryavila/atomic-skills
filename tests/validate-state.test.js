@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -404,4 +404,96 @@ test('round-trip: parsed plan passes schema after re-serialization', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('crossValidate: done phase + done initiative with done tasks → no errors', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met' }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
+});
+
+test('crossValidate: done phase + active initiative with pending tasks → errors', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'active',
+    tasks: [{ id: 'T-001', status: 'pending' }, { id: 'T-002', status: 'pending' }],
+    exitGates: [{ id: 'F0-G1', status: 'pending' }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].phaseId, 'F0');
+  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
+  assert.ok(errors[0].errors.some((e) => e.includes('2 initiative task(s) not done')));
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+});
+
+test('crossValidate: done phase + no matching initiative → no errors (graceful skip)', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
+    }],
+  }]]);
+  const inits = new Map();
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
+});
+
+test('crossValidate: met plan criterion + pending initiative gate → error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met' },
+        { id: 'F0-G2', status: 'met' },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [
+      { id: 'F0-G1', status: 'met' },
+      { id: 'F0-G2', status: 'pending' },
+    ],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G2') && e.includes('pending')));
+});
+
+test('crossValidate: pending phase + pending initiative → no cross-check', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'pending',
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'pending' }] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'pending',
+    tasks: [{ id: 'T-001', status: 'pending' }],
+    exitGates: [{ id: 'F0-G1', status: 'pending' }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
 });

@@ -111,11 +111,26 @@ function adaptPhase(p: PhaseDescriptor, initiative?: Initiative): UIPhase {
     met: p.exitGate.criteria.filter((c) => c.status === 'met').length,
     total: p.exitGate.criteria.length,
   }
+
+  let effectiveStatus = p.status
+  if (p.status === 'done' && initiative) {
+    const allTasksDone = initiative.tasks.length === 0 || initiative.tasks.every((t) => t.status === 'done')
+    const isInitTerminal = initiative.status === 'done' || initiative.status === 'archived'
+    if (!allTasksDone || !isInitTerminal) {
+      effectiveStatus = isInitTerminal ? 'active' : initiative.status
+    }
+  }
+
+  const isTerminal =
+    initiative?.status === 'done' || initiative?.status === 'archived'
+  const isEffectivelyDone =
+    effectiveStatus === 'done' || (p.status === 'done' && !initiative)
+
   return {
     id: p.id,
     title: p.title,
     goal: p.goal,
-    status: p.status,
+    status: effectiveStatus,
     track: p.track,
     parallelWith: p.parallelWith,
     audience: p.audience,
@@ -125,13 +140,17 @@ function adaptPhase(p: PhaseDescriptor, initiative?: Initiative): UIPhase {
     gates,
     next: initiative?.nextAction ?? undefined,
     exit: p.exitGate.summary,
-    completedAt: initiative?.status === 'done' ? initiative.lastUpdated.slice(0, 10) : undefined,
+    completedAt:
+      isEffectivelyDone && isTerminal
+        ? initiative!.lastUpdated.slice(0, 10)
+        : undefined,
     durationDays:
-      initiative?.status === 'done'
+      isEffectivelyDone && isTerminal
         ? Math.max(
             1,
             Math.round(
-              (new Date(initiative.lastUpdated).getTime() - new Date(initiative.started).getTime()) /
+              (new Date(initiative!.lastUpdated).getTime() -
+                new Date(initiative!.started).getTime()) /
                 86400000
             )
           )
