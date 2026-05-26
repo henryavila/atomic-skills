@@ -569,8 +569,12 @@ For each cluster:
    - If `$AIDECK_URL` is non-empty: aiDeck is running. Proceed to step 9.
    - If empty (binary missing — run `atomic-skills install` first —, timeout, port exhaustion):
      **Fallback:** generate `INDEX.md` using `skills/shared/project-status-assets/bootstrap-index.template.md`, ask "Open in browser? (y/N)" (intrusive-actions rule applies), if `y`: `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`. Continue to step 11.
-9. Open browser at `$AIDECK_URL/discover`.
-10. Inform user: "Review candidates at $AIDECK_URL/discover. Mark approve/reject on each, click 'Submit decisions', then say **done** here."
+9. Derive the project slug for the scoped URL:
+   ```bash
+   PROJECT_SLUG=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/^[^a-z]*//' | cut -c1-64)
+   ```
+   Open browser at `$AIDECK_URL/$PROJECT_SLUG/discover`.
+10. Inform user: "Review candidates at $AIDECK_URL/$PROJECT_SLUG/discover. Mark approve/reject on each, click 'Submit decisions', then say **done** here."
 11. **HALT** — do NOT proceed to Phase 4. Wait until the user explicitly confirms review is complete ("done" / "reviewed" / "done reviewing") or runs `discover --commit`.
 
 ### Phase 4 — Commit
@@ -605,11 +609,12 @@ Algorithm:
       - kind=initiative (status=archived) → write to .atomic-skills/initiatives/archive/<YYYY-MM>-<slug>.md
    d. Delete the draft.
    e. On name conflict at destination: log, skip, continue.
-4. Update PROJECT-STATUS.md (Active Plans, Active Initiatives, Recently Archived).
-5. Write audit log to .atomic-skills/status/bootstrap.json:
+4. **Validate.** Run `npm run validate-state .atomic-skills/plans/ .atomic-skills/initiatives/`. On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
+5. Update PROJECT-STATUS.md (Active Plans, Active Initiatives, Recently Archived).
+6. Write audit log to .atomic-skills/status/bootstrap.json:
    { timestamp, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.
-6. Report summary: "Committed N (P plans, A active initiatives, H archived), skipped K, errors L".
-7. If bootstrap-drafts/ is empty: ask "Remove bootstrap-drafts/? (y/N)". If drafts remain: skip the question, inform "N drafts remain; fix and re-run".
+7. Report summary: "Committed N (P plans, A active initiatives, H archived), skipped K, errors L".
+8. If bootstrap-drafts/ is empty: ask "Remove bootstrap-drafts/? (y/N)". If drafts remain: skip the question, inform "N drafts remain; fix and re-run".
 ```
 
 ## `new <slug>`
