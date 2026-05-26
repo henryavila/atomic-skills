@@ -93,9 +93,7 @@ function buildBreadcrumbs(pathname: string, projectDisplayName?: string): Array<
   const legacyMatch = pathname.match(/^\/(plans|initiatives)\/([^/]+)/)
   if (legacyMatch) {
     const [, kind, slug] = legacyMatch
-    if (projectDisplayName) {
-      crumbs.push({ label: projectDisplayName, to: '/' })
-    }
+    crumbs.push({ label: projectDisplayName ?? '…', to: '/' })
     crumbs.push({ label: `${kind}/${slug}` })
     return crumbs
   }
