@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { stringify } from 'yaml';
-import { renderReadme, renderReadmeFromPaths, MARKERS } from '../scripts/lib/render-readme.js';
+import { renderReadme, renderReadmeFromPaths, buildSkillDocs, MARKERS } from '../scripts/lib/render-readme.js';
 
 const minimalV02Entry = (name, overrides = {}) => ({
   name,
@@ -83,12 +83,13 @@ describe('renderReadme', () => {
     assert.ok(tableSection.includes('`NO TEST WITHOUT EVIDENCE.`'));
   });
 
-  it('renders skill detail sections with all v0.2 fields', () => {
+  it('renders compact skill detail blurbs with link to per-skill docs', () => {
     writeFileSync(
       join(skillsDir, 'core', 'demo.md'),
       '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
     );
     const entry = minimalV02Entry('demo', {
+      value_pitch: 'This skill catches bugs before they reach production.',
       subcommands: [
         {
           name: 'go',
@@ -117,16 +118,15 @@ describe('renderReadme', () => {
       out.indexOf(MARKERS.DETAILS_START),
       out.indexOf(MARKERS.DETAILS_END) + MARKERS.DETAILS_END.length
     );
-    assert.ok(detailSection.includes('### `atomic-skills:demo`'));
+    assert.ok(detailSection.includes('`demo`'), 'heading contains skill key');
     assert.ok(detailSection.includes('**Iron Law:** `NO TEST WITHOUT EVIDENCE.`'));
-    assert.ok(detailSection.includes('**One-liner:**'));
-    assert.ok(detailSection.includes('**Subcommands:**'));
-    assert.ok(detailSection.includes('`/atomic-skills:demo go thing`'));
-    assert.ok(detailSection.includes('**Arguments:**'));
-    assert.ok(detailSection.includes('`--flag`'));
-    assert.ok(detailSection.includes('**Output artifacts:** `.atomic-skills/out.md`'));
-    assert.ok(detailSection.includes('**Dependencies:** `git`'));
-    assert.ok(detailSection.includes('**Version added:** `3.1.0`'));
+    assert.ok(detailSection.includes('catches bugs before they reach production'), 'value pitch present');
+    assert.ok(detailSection.includes('/atomic-skills:demo'), 'example command present');
+    assert.ok(detailSection.includes('[Full reference →](docs/skills/demo.md)'), 'link to per-skill doc');
+    // Full details (subcommands, args, artifacts) are NOT in the README — they live in per-skill docs
+    assert.ok(!detailSection.includes('**Subcommands:**'), 'subcommands not in compact blurb');
+    assert.ok(!detailSection.includes('**Arguments:**'), 'arguments not in compact blurb');
+    assert.ok(!detailSection.includes('**Version added:**'), 'version not in compact blurb');
   });
 
   it('preserves hand-written content outside markers', () => {
@@ -191,5 +191,67 @@ describe('renderReadmeFromPaths (project-root integration)', () => {
     writeFileSync(join(projectRoot, 'README.md'), first);
     const second = renderReadmeFromPaths({ projectRoot });
     assert.strictEqual(first, second);
+  });
+});
+
+describe('buildSkillDocs (per-skill reference pages)', () => {
+  let tmpRoot;
+  let skillsDir;
+
+  beforeEach(() => {
+    tmpRoot = mkdtempSync(join(tmpdir(), 'skill-docs-'));
+    skillsDir = join(tmpRoot, 'skills');
+    mkdirSync(join(skillsDir, 'core'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpRoot, { recursive: true, force: true });
+  });
+
+  it('generates full reference docs with all fields', () => {
+    writeFileSync(
+      join(skillsDir, 'core', 'demo.md'),
+      '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
+    );
+    const entry = minimalV02Entry('demo', {
+      value_pitch: 'Catches bugs before production.',
+      args: [
+        { name: '--flag', kind: 'flag', required: false, description: 'Enable a flag' },
+      ],
+      output_artifacts: ['.atomic-skills/out.md'],
+      dependencies: ['git'],
+      related: ['fix'],
+      tags: ['testing'],
+    });
+    const data = { core: { demo: entry } };
+    const docs = buildSkillDocs({ catalogData: data, skillsDir });
+
+    assert.strictEqual(docs.length, 1);
+    assert.strictEqual(docs[0].key, 'demo');
+    const content = docs[0].content;
+    assert.ok(content.includes('# `atomic-skills:demo`'), 'H1 with skill key');
+    assert.ok(content.includes('`NO TEST WITHOUT EVIDENCE.`'), 'Iron Law');
+    assert.ok(content.includes('Catches bugs before production'), 'value pitch');
+    assert.ok(content.includes('## Purpose'), 'purpose section');
+    assert.ok(content.includes('## Usage'), 'usage section');
+    assert.ok(content.includes('## Reference'), 'reference section');
+    assert.ok(content.includes('`--flag`'), 'args present');
+    assert.ok(content.includes('**Version added:** `3.1.0`'), 'version in metadata');
+  });
+
+  it('returns one entry per skill', () => {
+    writeFileSync(join(skillsDir, 'core', 'a.md'), '## Iron Law\nNO A.\n');
+    writeFileSync(join(skillsDir, 'core', 'b.md'), '## Iron Law\nNO B.\n');
+    const data = {
+      core: {
+        a: minimalV02Entry('a'),
+        b: minimalV02Entry('b'),
+      },
+    };
+    const docs = buildSkillDocs({ catalogData: data, skillsDir });
+    assert.strictEqual(docs.length, 2);
+    const keys = docs.map((d) => d.key);
+    assert.ok(keys.includes('a'));
+    assert.ok(keys.includes('b'));
   });
 });

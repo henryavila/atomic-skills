@@ -91,34 +91,10 @@ export function renderModulesSection(moduleMeta) {
     .join('\n\n');
 }
 
-/**
- * Reproduce GitHub's auto-anchor algorithm for a Markdown heading:
- *   1. lowercase
- *   2. strip punctuation that GitHub drops (backticks, dots, parens, etc.)
- *   3. replace spaces with hyphens
- *   4. preserve hyphens and alphanumerics
- *
- * Empirically matched against GitHub-rendered anchors for the headings in
- * this README (e.g. "atomic-skills:fix — Root Cause + TDD"
- * → "atomic-skillsfix--root-cause--tdd").
- */
-function githubAnchor(headingText) {
-  return headingText
-    .toLowerCase()
-    .replace(/[`*_~()[\].,;:!?'"\\/]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9\-]/g, '');
-}
-
-function anchor(skill) {
-  const headingText = `atomic-skills:${skill.key} — ${titleSuffix(skill.entry.title || skill.key)}`;
-  return `#${githubAnchor(headingText)}`;
-}
-
 function renderTableRow(skill, ironLaw) {
   const e = skill.entry;
   const law = ironLaw ? `\`${ironLaw}\`` : '`—`';
-  return `| ${e.emoji} | [\`${skill.key}\`](${anchor(skill)}) | ${e.one_liner} | ${law} |`;
+  return `| ${e.emoji} | [\`${skill.key}\`](docs/skills/${skill.key}.md) | ${e.one_liner} | ${law} |`;
 }
 
 export function renderTable(skills, ironLaws) {
@@ -189,14 +165,35 @@ function titleSuffix(title) {
   return idx >= 0 ? title.slice(idx + 3) : title;
 }
 
-function renderDetail(skill, ironLaw) {
+function renderDetailCompact(skill, ironLaw) {
   const e = skill.entry;
-  const title = `### \`atomic-skills:${skill.key}\` — ${titleSuffix(e.title)}`;
-  const lines = [title, ''];
+  const heading = `### ${e.emoji} \`${skill.key}\` — ${titleSuffix(e.title)}`;
+  const lines = [heading, ''];
   if (ironLaw) lines.push(`**Iron Law:** \`${ironLaw}\``, '');
-  lines.push(`**One-liner:** ${e.one_liner}`, '');
-  lines.push(`**Summary:** ${e.description}`, '');
-  if (e.purpose) lines.push(`**Purpose:** ${e.purpose.trim()}`, '');
+  const pitch = (e.value_pitch || e.description || '').trim();
+  lines.push(pitch, '');
+  const ex = Array.isArray(e.examples) && e.examples.length > 0 ? e.examples[0] : null;
+  if (ex) {
+    lines.push('```', ex.command, '```', '');
+  }
+  lines.push(`[Full reference →](docs/skills/${skill.key}.md)`, '');
+  lines.push('---');
+  return lines.join('\n');
+}
+
+export function renderDetails(skills, ironLaws) {
+  return skills.map((s) => renderDetailCompact(s, ironLaws.get(s.key))).join('\n\n');
+}
+
+function renderDetailFull(skill, ironLaw) {
+  const e = skill.entry;
+  const title = `# \`atomic-skills:${skill.key}\` — ${titleSuffix(e.title)}`;
+  const lines = [title, ''];
+  if (ironLaw) lines.push(`> **Iron Law:** \`${ironLaw}\``, '');
+  lines.push(`**${e.one_liner}**`, '');
+  const pitch = (e.value_pitch || '').trim();
+  if (pitch) lines.push(pitch, '');
+  if (e.purpose) lines.push(`## Purpose`, '', e.purpose.trim(), '');
   const usage = renderUsageList('When to use', e.when_to_use);
   const usageNot = renderUsageList('When NOT to use', e.when_not_to_use);
   const subs = renderSubcommands(skill);
@@ -206,27 +203,29 @@ function renderDetail(skill, ironLaw) {
   const deps = renderListField('Dependencies', e.dependencies);
   const related = renderListField('Related', e.related);
   const tags = renderListField('Tags', e.tags);
-  const versionLine = `**Version added:** \`${e.version_added}\`\n\n`;
+  const versionLine = `**Version added:** \`${e.version_added}\`\n`;
+
+  const usageSection = (usage || usageNot)
+    ? `## Usage\n\n${usage}${usageNot}`
+    : '';
+  const refSection = [subs, args, examples].filter(Boolean).join('');
+  const refBlock = refSection ? `## Reference\n\n${refSection}` : '';
+  const metaBlock = [outputs, deps, related, tags, versionLine].filter(Boolean).join('');
 
   return (
     lines.join('\n').trimEnd() +
     '\n\n' +
-    usage +
-    usageNot +
-    subs +
-    args +
-    examples +
-    outputs +
-    deps +
-    related +
-    tags +
-    versionLine +
-    '---'
-  );
+    usageSection +
+    refBlock +
+    (metaBlock ? `## Metadata\n\n${metaBlock}` : '')
+  ).trimEnd();
 }
 
-export function renderDetails(skills, ironLaws) {
-  return skills.map((s) => renderDetail(s, ironLaws.get(s.key))).join('\n\n');
+export function renderSkillDocs(skills, ironLaws) {
+  return skills.map((s) => ({
+    key: s.key,
+    content: renderDetailFull(s, ironLaws.get(s.key)),
+  }));
 }
 
 function ensureMarkers(readme) {
@@ -319,6 +318,21 @@ export function renderReadmeFromPaths({ projectRoot, catalogPath, readmePath, sk
     pkgVersion = undefined; // tolerated only when catalog has no release_highlight
   }
   return renderReadme({ catalogData, readme, skillsDir: skDir, pkgVersion });
+}
+
+/**
+ * Build per-skill doc pages from a parsed catalog + skills dir.
+ * Returns an array of { key, content } objects.
+ */
+export function buildSkillDocs({ catalogData, skillsDir }) {
+  const skills = collectSkills(catalogData);
+  const ironLaws = new Map();
+  for (const skill of skills) {
+    const bodyPath = bodyPathForSkill(skill, skillsDir);
+    const law = extractIronLaw(bodyPath);
+    if (law) ironLaws.set(skill.key, law);
+  }
+  return renderSkillDocs(skills, ironLaws);
 }
 
 export const MARKERS = {

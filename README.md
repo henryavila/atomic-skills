@@ -8,9 +8,9 @@
   <a href="https://github.com/henryavila/atomic-skills/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/@henryavila/atomic-skills.svg?color=success" alt="license" /></a>
 </p>
 
-Optimized prompts you install once and invoke in any AI IDE. Each skill is an atom — small enough to stay focused, specific enough to leave no ambiguity, capable enough to make the agent actually follow through.
+AI agents skip steps, cut corners, and ignore what they promised two messages ago. Atomic Skills are battle-tested prompts that make them follow through — install once, invoke in any AI IDE.
 
-*Stop rewriting prompts.*
+*Stop babysitting your agent.*
 
 > **[View on npm](https://www.npmjs.com/package/@henryavila/atomic-skills)**
 
@@ -34,7 +34,7 @@ npx @henryavila/atomic-skills detect --json
 
 ## Why Atomic?
 
-AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atomic Skills solve this with battle-tested techniques baked into every prompt:
+Vague instructions produce vague results. Each Atomic Skill encodes hard-won patterns that prevent agent drift:
 
 - **Small** — one skill, one job. No bloat, no dependencies between skills
 - **Specific** — every step names the tool, demands evidence, defines what "done" looks like
@@ -76,511 +76,173 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 <!-- SKILLS_TABLE_START -->
 | | Skill | One-liner | Iron Law |
 |-|-------|-----------|----------|
-| 🔧 | [`fix`](#atomic-skillsfix--root-cause--tdd) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE.` |
-| 💾 | [`save-and-push`](#atomic-skillssave-and-push--commit--memory--push) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
-| 🔍 | [`review-plan`](#atomic-skillsreview-plan--adversarial-local--codex) | Adversarial plan review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
-| 🔬 | [`review-code`](#atomic-skillsreview-code--adversarial-local--codex) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
-| 📊 | [`project-status`](#atomic-skillsproject-status--initiative-tracking) | View + daily mutations on the .atomic-skills/ tree | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
-| 🗺️ | [`project-plan`](#atomic-skillsproject-plan--create-discover-migrate) | Create + restructure + discover Plans and Initiatives | `NO PLAN WITHOUT NARRATIVE.` |
-| 📝 | [`prompt`](#atomic-skillsprompt--generate-optimized-prompt) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
-| 🎯 | [`hunt`](#atomic-skillshunt--adversarial-tests) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE.` |
-| 🚀 | [`parallel-dispatch`](#atomic-skillsparallel-dispatch--independent-tasks) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
-| 👁️ | [`parallel-dispatch-audit`](#atomic-skillsparallel-dispatch-audit--audit) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
-| 🧠 | [`init-memory`](#atomic-skillsinit-memory--persistent-context) | Centralize project memory to .ai/memory/ | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
+| 🔧 | [`fix`](docs/skills/fix.md) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE.` |
+| 💾 | [`save-and-push`](docs/skills/save-and-push.md) | Save learnings to memory, group commits, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
+| 🔍 | [`review-plan`](docs/skills/review-plan.md) | Adversarial plan review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
+| 🔬 | [`review-code`](docs/skills/review-code.md) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
+| 📊 | [`project-status`](docs/skills/project-status.md) | View + daily mutations on the .atomic-skills/ tree | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
+| 🗺️ | [`project-plan`](docs/skills/project-plan.md) | Create + restructure + discover Plans and Initiatives | `NO PLAN WITHOUT NARRATIVE.` |
+| 📝 | [`prompt`](docs/skills/prompt.md) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
+| 🎯 | [`hunt`](docs/skills/hunt.md) | Write adversarial tests to break code, not confirm it | `NO HUNT WITHOUT BOUNDED SCOPE.` |
+| 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
+| 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
+| 🧠 | [`init-memory`](docs/skills/init-memory.md) | Centralize project memory to .ai/memory/ | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 <!-- SKILLS_TABLE_END -->
 
 ---
 
 <!-- SKILL_DETAILS_START -->
-### `atomic-skills:fix` — Root Cause + TDD
+### 🔧 `fix` — Root Cause + TDD
 
 **Iron Law:** `NO FIX WITHOUT ROOT CAUSE.`
 
-**One-liner:** Diagnose root cause → write test → fix → verify
+AI agents love to jump to fixes. `fix` forces the detective path: reproduce first, understand the root cause, write a failing test, *then* fix. The test stays — so the bug never comes back.
 
-**Summary:** Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.
+```
+/atomic-skills:fix "duplicates in /musicas listing"
+```
 
-**Purpose:** Identify the root cause of a bug, write a reproducing test, and only then apply the fix. Detective mindset, not firefighter.
-
-**When to use:**
-- You observed a bug or unexpected behavior
-- A test is failing for unclear reasons
-- A regression appeared after a recent change
-
-**When NOT to use:**
-- You want to add a new feature (use prompt)
-- The issue is in design, not implementation
-- You have no symptom to reproduce
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `symptom` | positional | optional | Observed bug or unexpected behavior. If omitted, skill prompts interactively. |
-
-**Examples:**
-- `/atomic-skills:fix "duplicates in /musicas listing"` — Diagnose and fix with provided symptom
-- `/atomic-skills:fix` — Skill prompts you for the symptom interactively
-
-**Dependencies:** `git`
-
-**Related:** `hunt`, `review-code`
-
-**Tags:** `quality`, `debugging`, `tdd`, `core`
-
-**Version added:** `1.0.0`
+[Full reference →](docs/skills/fix.md)
 
 ---
 
-### `atomic-skills:save-and-push` — Commit + Memory + Push
+### 💾 `save-and-push` — Commit + Memory + Push
 
 **Iron Law:** `NO PUSH WITHOUT FRESH VERIFICATION.`
 
-**One-liner:** Save learnings to memory, group commits, push safely
+Context dies when the session ends. `save-and-push` captures what you learned into persistent memory, groups changes into clean commits, and pushes safely. The next session picks up where you left off.
 
-**Summary:** Review conversation, save learnings to memory, commit and push work.
+```
+/atomic-skills:save-and-push
+```
 
-**Purpose:** End-of-session ritual: extract learnings to persistent memory, stage relevant files, commit with conventional message, push to remote.
-
-**When to use:**
-- You finished a coherent piece of work
-- About to switch context or end the session
-- You want learnings persisted before forgetting
-
-**When NOT to use:**
-- Work in progress, not yet a coherent commit
-- Tests still failing
-- You only want to commit (use git directly)
-
-**Examples:**
-- `/atomic-skills:save-and-push` — Full flow: memory + commits + push
-
-**Dependencies:** `git`
-
-**Related:** `project-status`, `init-memory`
-
-**Tags:** `workflow`, `git`, `memory`, `core`
-
-**Version added:** `1.0.0`
+[Full reference →](docs/skills/save-and-push.md)
 
 ---
 
-### `atomic-skills:review-plan` — Adversarial (Local + Codex)
+### 🔍 `review-plan` — Adversarial (Local + Codex)
 
 **Iron Law:** `NO APPROVAL WITHOUT EVIDENCE.`
 
-**One-liner:** Adversarial plan review with local/codex/both mode picker
+Plans fail when the author reviews their own work. `review-plan` runs adversarial passes — locally, via a cross-model codex envelope, or both — to catch gaps, missing edge cases, and optimistic assumptions before execution begins.
 
-**Summary:** Adversarial review of an implementation plan. Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on cleaned plan). Optional cross-reference against external artifacts.
+```
+/atomic-skills:review-plan docs/plans/migration.md
+```
 
-**Purpose:** Adversarial review with mode picker: local (cheap, fast), codex (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local first, codex second on cleaned plan with sealed envelope). Optionally cross-references against source artifacts. Iterates up to 3 passes in local; two-pass envelope in codex.
-
-**When to use:**
-- You finished writing a plan and want a structural review
-- Significant plan about to enter execution (both mode recommended)
-- Cross-model bug hunt against self-preference bias (codex or both)
-- Plan was derived from a PRD/spec and you want coverage verification
-
-**When NOT to use:**
-- Plan is still brainstorming (not structured yet)
-- Trivial plan (skip review entirely)
-- Codex CLI not installed and you need codex mode (use --mode=local)
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `plan-path` | positional | required | Path to the plan markdown file under review. |
-| `--mode` | option | optional | Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker. |
-| `--no-cross-ref` | flag | optional | Skip the Step 0b cross-ref picker; force internal-only. |
-| `--cross-ref` | option | optional | Comma-separated list of artifact paths to cross-reference against. Skips the picker. |
-| `--artifacts` | option | optional | Alias of --cross-ref (compat with v2.x). |
-| `--allow-dirty` | flag | optional | Pass through to the codex pre-flight; suppresses the dirty-tree abort. |
-
-**Examples:**
-- `/atomic-skills:review-plan docs/plans/migration.md` — Interactive picker — chooses mode + cross-ref
-- `/atomic-skills:review-plan docs/plans/migration.md --mode=local` — Force local-only self-loop
-- `/atomic-skills:review-plan docs/plans/migration.md --mode=both` — Local then codex (sealed envelope)
-
-**Output artifacts:** `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)`, `.atomic-skills/reviews/INDEX.md`
-
-**Dependencies:** `codex`, `git`
-
-**Related:** `review-code`
-
-**Tags:** `review`, `planning`, `adversarial`, `cross-model`
-
-**Version added:** `2.0.0`
+[Full reference →](docs/skills/review-plan.md)
 
 ---
 
-### `atomic-skills:review-code` — Adversarial (Local + Codex)
+### 🔬 `review-code` — Adversarial (Local + Codex)
 
 **Iron Law:** `NO APPROVAL WITHOUT EVIDENCE.`
 
-**One-liner:** Adversarial code review with local/codex/both mode picker
+Same-model reviews have blind spots. `review-code` captures your diff and runs adversarial passes — locally, cross-model via codex, or both — to catch bugs, security issues, and logic errors before merge.
 
-**Summary:** Adversarial review of code changes given a git ref (branch, commit, or range). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).
+```
+/atomic-skills:review-code main..HEAD
+```
 
-**Purpose:** Review a git ref (branch, commit, or range) adversarially. Mode picker: local (cheap, fast), codex (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local first, codex second on the byte-identical captured diff with sealed envelope). Range-aware ref validation + shape-specific diff command.
-
-**When to use:**
-- You finished a coherent code change
-- Significant change about to merge (both mode recommended)
-- Critical path (auth, payments, data integrity) — both mode
-- Cheap pre-merge sanity check (local mode)
-
-**When NOT to use:**
-- No git ref to review (and you don't want to commit/stash first)
-- Trivial change already heavily reviewed
-- Codex CLI not installed and you need codex mode (use --mode=local)
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `git-ref` | positional | required | Branch, single commit, or commit range (a..b / a...b). |
-| `--mode` | option | optional | Force a review mode (local, codex, both). Skips the Step 0 picker. |
-| `--allow-dirty` | flag | optional | Include working-tree changes in the captured diff; suppresses the dirty-tree abort. |
-
-**Examples:**
-- `/atomic-skills:review-code main..HEAD` — Interactive picker — chooses mode
-- `/atomic-skills:review-code feat/new-feature --mode=local` — Force local-only self-loop
-- `/atomic-skills:review-code main..HEAD --mode=both` — Local then codex (sealed envelope)
-
-**Output artifacts:** `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)`, `.atomic-skills/reviews/INDEX.md`
-
-**Dependencies:** `codex`, `git`
-
-**Related:** `review-plan`, `fix`, `hunt`
-
-**Tags:** `review`, `code`, `adversarial`, `cross-model`
-
-**Version added:** `2.0.0`
+[Full reference →](docs/skills/review-code.md)
 
 ---
 
-### `atomic-skills:project-status` — Initiative Tracking
+### 📊 `project-status` — Initiative Tracking
 
 **Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.`
 
-**One-liner:** View + daily mutations on the .atomic-skills/ tree
+Multi-session projects lose context between conversations. `project-status` tracks Plans, Initiatives, and Tasks in `.atomic-skills/` — with stack frames for lateral work, scope-creep detection, and phase gates that keep the agent anchored.
 
-**Summary:** View and daily-mutate Plan/Initiative/Task state in .atomic-skills/. Compact terminal view + browser via mdprobe. Stack frames, parked/emerged items, task transitions, phase-done/reopen, archive, scope-creep, codex review tracking. Creation, migration, and structural commands live in atomic-skills:project-plan.
+```
+/atomic-skills:project-status
+```
 
-**Purpose:** Track work via Plan/Initiative/Task hierarchy: view current state, manage stack/parked/emerged, transition tasks/phases, archive, report drift. Sibling skill `project-plan` handles all CREATE and structural operations.
-
-**When to use:**
-- Resuming after a break — view current state
-- Pushing or popping a stack frame (lateral expansion)
-- Parking lateral findings or surfacing emerged work
-- Marking tasks done, advancing phases
-- Archiving completed plans/initiatives
-- Viewing drift / scope-creep / un-reviewed code
-
-**When NOT to use:**
-- Starting a new plan — use atomic-skills:project-plan
-- Creating a new initiative / task / phase — use atomic-skills:project-plan
-- Migrating legacy files — use atomic-skills:project-plan migrate
-- One-shot questions or work that fits in the current session
-
-**Subcommands:**
-
-| Example | Description |
-|---------|-------------|
-| `/atomic-skills:project-status push "investigating slow query"` | Push a new stack frame (lateral expansion) |
-| `/atomic-skills:project-status pop --park` | Pop top frame with destination |
-| `/atomic-skills:project-status park "consider caching layer"` | Add a parked item (note for later, no decision yet) |
-| `/atomic-skills:project-status emerge "auth refactor needed"` | Add an emerged finding (real follow-up worth promoting) |
-| `/atomic-skills:project-status promote 2` | Promote a parked item to a real task |
-| `/atomic-skills:project-status done T-005` | Mark task done; triggers phase-completion check if last |
-| `/atomic-skills:project-status phase-done` | Verify exit gates, advance to next phase (prompts codex review) |
-| `/atomic-skills:project-status phase-reopen F2` | Reverse of phase-done — clears metAt on exit criteria |
-| `/atomic-skills:project-status archive v3-redesign` | Move plan/initiative to archive/ (cascades from plan to children) |
-| `/atomic-skills:project-status switch my-feature` | Pause current active plan/initiative, set target as active |
-| `/atomic-skills:project-status re-ratify P-3` | Re-articulate context of an existing item (stale lastReviewedAt) |
-| `/atomic-skills:project-status why T-005` | Show full context for a task / phase / parked / emerged entry |
-| `/atomic-skills:project-status scope-creep` | On-demand drift report (read-only, surfaces stale items) |
-| `/atomic-skills:project-status detect-scope` | Suggest scope.paths value based on recent git activity |
-| `/atomic-skills:project-status review-due` | Cross-model codex review against the diff since last review |
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `--list` | flag | optional | List all initiatives across all plans |
-| `--plan` | option | optional | Filter view to a specific plan slug |
-| `--phase` | option | optional | Filter view to a specific phase id |
-| `--stack` | flag | optional | Show only the active stack (compact view) |
-| `--archived` | flag | optional | Show archived items |
-
-**Examples:**
-- `/atomic-skills:project-status` — View current state
-- `/atomic-skills:project-status push "investigating slow query"` — Push a side-investigation frame
-- `/atomic-skills:project-status done T-005` — Close a task (triggers phase-completion check if last)
-- `/atomic-skills:project-status phase-done` — Verify exit gates and advance the plan
-
-**Output artifacts:** `.atomic-skills/PROJECT-STATUS.md`, `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/status/config.json`, `.atomic-skills/dispatches/<slug>.md (when promote-to-dispatch)`
-
-**Dependencies:** `git`
-
-**Related:** `fix`, `save-and-push`, `project-plan`
-
-**Tags:** `tracking`, `anchoring`, `planning`, `core`
-
-**Version added:** `1.5.0`
+[Full reference →](docs/skills/project-status.md)
 
 ---
 
-### `atomic-skills:project-plan` — Create, Discover, Migrate
+### 🗺️ `project-plan` — Create, Discover, Migrate
 
 **Iron Law:** `NO PLAN WITHOUT NARRATIVE.`
 
-**One-liner:** Create + restructure + discover Plans and Initiatives
+Every repo has in-flight work scattered across docs, branches, and memory. `project-plan` discovers it, clusters it into structured Plans, or adopts existing markdown plans — turning scattered intent into trackable state.
 
-**Summary:** Single entry-point for CREATE and STRUCTURAL operations on .atomic-skills/. Bootstrap multi-phase Plans, discover in-flight work across the repo (multi-source scan), adopt existing markdown plans, migrate legacy state, add initiatives/tasks/phases, split overgrown phases, batch re-articulate placeholder context. Sibling skill project-status handles VIEW + daily mutations.
+```
+/atomic-skills:project-plan discover
+```
 
-**Purpose:** All paths that CREATE or RESTRUCTURE state in `.atomic-skills/`: bootstrap fresh Plans (interactive 7-stage), discover in-flight work from memory + docs + git, adopt existing markdown plans, add initiatives/tasks/phases, split phases, migrate legacy.
-
-**When to use:**
-- Want to organize what the repo already has → `discover`
-- Multi-phase project described in conversation → default bootstrap
-- Existing markdown plan to capture → `adopt`
-- Standalone initiative for single-phase work → `new`
-- Add task/phase to active plan → `new-task` / `new-phase` / `split-phase`
-- Legacy initiative needs schema 0.1 → `migrate`
-- Post-migration batch context re-articulation → `re-bootstrap`
-
-**When NOT to use:**
-- .atomic-skills/ does not exist yet (run atomic-skills:project-status setup first)
-- Daily tracking (view, push/pop, done, phase-done, etc.) — use project-status
-- Just viewing existing plans (use project-status --plan <slug>)
-
-**Subcommands:**
-
-| Example | Description |
-|---------|-------------|
-| `/atomic-skills:project-plan discover` | Multi-source scan + cluster + synthesize → propose Plans + Initiatives |
-| `/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md` | Capture an existing markdown plan into structured Plan + Initiatives + Tasks |
-| `/atomic-skills:project-plan new my-feature` | Create a new Initiative (standalone or under active plan) |
-| `/atomic-skills:project-plan new-task --target F2 "Add canary smoke test"` | Add a task to current OR specified initiative (records provenance + requires ratified context) |
-| `/atomic-skills:project-plan new-phase F0.5 "Validation" --after F0` | Insert a new phase into the active plan + materialize its initiative (requires ratified context) |
-| `/atomic-skills:project-plan split-phase F2` | Split an over-sized phase into two sub-phases (archives the original; ratify each new phase) |
-| `/atomic-skills:project-plan migrate sample-legacy` | Migrate a legacy initiative file to schemaVersion 0.1 |
-| `/atomic-skills:project-plan re-bootstrap sample-legacy` | Batch re-articulate placeholder context after migrate |
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `slug` | positional | optional | Plan slug for the default (bootstrap) flow. Omit and the skill prompts interactively. |
-| `--scan` | option | optional | Extra source paths for discover (comma-separated). E.g. --scan=NOTES/,~/team-plans/ |
-| `--scope` | option | optional | Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem) |
-
-**Examples:**
-- `/atomic-skills:project-plan discover` — Multi-source scan: propose Plans + Initiatives from .ai/memory, docs, git
-- `/atomic-skills:project-plan v3-redesign` — Bootstrap a new Plan interactively (7-stage flow)
-- `/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md` — Capture an existing markdown plan into structured state
-- `/atomic-skills:project-plan migrate mesh-restructure` — Convert a legacy initiative file to schema 0.1
-
-**Output artifacts:** `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/bootstrap-drafts/ (discover output)`
-
-**Dependencies:** `git`
-
-**Related:** `project-status`, `review-plan`
-
-**Tags:** `planning`, `bootstrap`, `create`, `migrate`, `core`
-
-**Version added:** `2.0.0`
+[Full reference →](docs/skills/project-plan.md)
 
 ---
 
-### `atomic-skills:prompt` — Generate Optimized Prompt
+### 📝 `prompt` — Generate Optimized Prompt
 
 **Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS.`
 
-**One-liner:** Generate a self-contained prompt with exact paths and guardrails
+Vague tasks produce vague results. `prompt` analyzes your codebase and generates a precise, self-contained prompt with exact file paths, guardrails, and acceptance criteria — ready to hand off to a parallel agent or a fresh session.
 
-**Summary:** Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails.
+```
+/atomic-skills:prompt "refactor auth middleware to use new session API"
+```
 
-**Purpose:** Turn a vague task description into an optimized, self-contained prompt with file paths, guardrails, and acceptance criteria. Use as input to another AI session.
-
-**When to use:**
-- You have a vague task and want to make it actionable
-- You need to brief a parallel agent precisely
-- You will hand off the work to a different session
-
-**When NOT to use:**
-- You will execute the task in this same session
-- You need a multi-phase plan (use project-plan)
-- You want to dispatch many tasks (use parallel-dispatch)
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `task` | positional | optional | Task description in natural language. If omitted, skill asks interactively. |
-
-**Examples:**
-- `/atomic-skills:prompt "refactor auth middleware to use new session API"` — Generate a precise prompt with file paths and guards
-- `/atomic-skills:prompt` — Skill asks for task interactively
-
-**Related:** `parallel-dispatch`, `fix`, `project-plan`
-
-**Tags:** `meta`, `generation`, `planning`
-
-**Version added:** `1.0.0`
+[Full reference →](docs/skills/prompt.md)
 
 ---
 
-### `atomic-skills:hunt` — Adversarial Tests
+### 🎯 `hunt` — Adversarial Tests
 
 **Iron Law:** `NO HUNT WITHOUT BOUNDED SCOPE.`
 
-**One-liner:** Write adversarial tests to break code, not confirm it
+Your tests confirm the happy path. `hunt` writes adversarial tests to *break* your code — edge cases, boundary conditions, error paths you didn't think of. Bounded to one class or function per run.
 
-**Summary:** Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run.
+```
+/atomic-skills:hunt src/matcher.php
+```
 
-**Purpose:** Write adversarial tests to break code and find hidden bugs. Bounded to one class or function per run.
-
-**When to use:**
-- Code lacks tests
-- You suspect untested edge cases
-- Pre-merge quality check
-
-**When NOT to use:**
-- Scope larger than 1 class or function
-- Existing test suite is already comprehensive
-- You want to add features (use prompt instead)
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `target` | positional | required | File, directory, or function/class to hunt. Directory mode caps at 30 files. |
-
-**Examples:**
-- `/atomic-skills:hunt src/matcher.php` — Hunt bugs in a single file
-- `/atomic-skills:hunt src/auth/` — Triage mode for directory (max 30 files)
-
-**Dependencies:** `git`
-
-**Related:** `fix`, `review-code`
-
-**Tags:** `testing`, `quality`, `pre-implementation`
-
-**Version added:** `1.0.0`
+[Full reference →](docs/skills/hunt.md)
 
 ---
 
-### `atomic-skills:parallel-dispatch` — Independent Tasks
+### 🚀 `parallel-dispatch` — Independent Tasks
 
 **Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.`
 
-**One-liner:** Dispatch a task list to N parallel sessions with verified isolation
+Parallel agents that touch the same files produce merge conflicts and wasted runs. `parallel-dispatch` proves scope disjointness via pairwise grep *before* launching — verified isolation, not hopeful isolation.
 
-**Summary:** Dispatch a user-provided list of independent tasks to N parallel sessions with verified scope isolation and a batch id for tracking. Validates parallelism benefit (Q1-Q4 HARD-GATE) before exploring; proves scope disjointness via pairwise grep before generating prompts. Use when the user brings a consolidated task list — this skill does NOT invent tasks.
+```
+/atomic-skills:parallel-dispatch task-list.md
+```
 
-**Purpose:** Verify, isolate, and dispatch a user-provided task list to N parallel sessions. Mechanical scope isolation, batch id, and audit pass.
-
-**When to use:**
-- You have a finalized list of independent tasks
-- Tasks have concrete file-path scopes
-- You will be away while agents run
-
-**When NOT to use:**
-- Work fits in the current session
-- The list is still exploratory
-- Tasks have hard sequential dependencies
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `task-list` | positional | required | Path to the markdown file containing the finalized task list. |
-
-**Examples:**
-- `/atomic-skills:parallel-dispatch task-list.md` — Dispatch validated task list
-
-**Output artifacts:** `.atomic-skills/dispatches/<batch-id>.md`
-
-**Dependencies:** `git`
-
-**Related:** `parallel-dispatch-audit`, `prompt`
-
-**Tags:** `parallelism`, `dispatch`, `workflow`
-
-**Version added:** `1.6.0`
+[Full reference →](docs/skills/parallel-dispatch.md)
 
 ---
 
-### `atomic-skills:parallel-dispatch-audit` — Audit
+### 👁️ `parallel-dispatch-audit` — Audit
 
 **Iron Law:** `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.`
 
-**One-liner:** Audit output of a parallel-dispatch batch, apply fixes, report
+Parallel agents finish — but did they actually deliver? `parallel-dispatch-audit` verifies each output against the original plan, applies cosmetic fixes automatically, and escalates real issues with evidence — not opinions.
 
-**Summary:** Audit the output of a parallel-dispatch batch. Reads the plan file, verifies each agent's deliverables on disk against the user's original request, applies cosmetic fixes, and produces a report with pending decisions. HARD-GATEs on active batch (<2min commits) and read-only mode (≥5 issues). Use after parallel-dispatch agents complete.
+```
+/atomic-skills:parallel-dispatch-audit onboard-ci
+```
 
-**Purpose:** Verify each dispatched agent's deliverables on disk against the original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
-
-**When to use:**
-- A parallel-dispatch batch has completed
-- You need objective verification of agent outputs
-
-**When NOT to use:**
-- Agents are still running (commits less than 2 min old)
-- You want to refactor what agents wrote (out of scope)
-
-**Arguments:**
-
-| Name | Kind | Required | Description |
-|------|------|----------|-------------|
-| `slug` | positional | optional | Batch slug to audit. Defaults to the most recent dispatch. |
-
-**Examples:**
-- `/atomic-skills:parallel-dispatch-audit onboard-ci` — Audit batch by slug
-
-**Output artifacts:** `.atomic-skills/dispatches/<slug>.md (annotated with audit results)`
-
-**Dependencies:** `git`
-
-**Related:** `parallel-dispatch`
-
-**Tags:** `parallelism`, `audit`, `review`, `quality`
-
-**Version added:** `1.6.0`
+[Full reference →](docs/skills/parallel-dispatch-audit.md)
 
 ---
 
-### `atomic-skills:init-memory` — Persistent Context
+### 🧠 `init-memory` — Persistent Context
 
 **Iron Law:** `NO DELETION WITHOUT CONFIRMED BACKUP.`
 
-**One-liner:** Centralize project memory to .ai/memory/
+New sessions start from zero. `init-memory` bootstraps a persistent memory directory so every future session inherits context from past ones. Run once, benefit forever.
 
-**Summary:** Initialize persistent memory structure for cross-session context.
+```
+/atomic-skills:init-memory
+```
 
-**Purpose:** Bootstrap the persistent memory directory and index so that future sessions can pick up where this one left off.
-
-**When to use:**
-- First time using atomic-skills in a project
-- Memory directory missing or corrupted
-- You want to standardize the memory layout
-
-**When NOT to use:**
-- Memory already initialized and healthy
-
-**Examples:**
-- `/atomic-skills:init-memory` — Bootstrap memory in the current project
-
-**Output artifacts:** `.ai/memory/MEMORY.md`
-
-**Related:** `save-and-push`
-
-**Tags:** `memory`, `setup`
-
-**Version added:** `1.0.0`
+[Full reference →](docs/skills/init-memory.md)
 
 ---
 <!-- SKILL_DETAILS_END -->

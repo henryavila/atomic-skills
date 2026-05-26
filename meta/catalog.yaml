@@ -13,6 +13,10 @@ core:
     name: fix
     title: 'Fix — Root Cause + TDD'
     description: 'Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.'
+    value_pitch: >
+      AI agents love to jump to fixes. `fix` forces the detective path:
+      reproduce first, understand the root cause, write a failing test,
+      *then* fix. The test stays — so the bug never comes back.
     purpose: >
       Identify the root cause of a bug, write a reproducing test, and only
       then apply the fix. Detective mindset, not firefighter.
@@ -51,6 +55,10 @@ core:
     name: save-and-push
     title: 'Save & Push — Commit + Memory + Push'
     description: 'Review conversation, save learnings to memory, commit and push work.'
+    value_pitch: >
+      Context dies when the session ends. `save-and-push` captures what you
+      learned into persistent memory, groups changes into clean commits, and
+      pushes safely. The next session picks up where you left off.
     purpose: >
       End-of-session ritual: extract learnings to persistent memory, stage
       relevant files, commit with conventional message, push to remote.
@@ -81,6 +89,11 @@ core:
     name: review-plan
     title: 'Review Plan — Adversarial (Local + Codex)'
     description: 'Adversarial review of an implementation plan. Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on cleaned plan). Optional cross-reference against external artifacts.'
+    value_pitch: >
+      Plans fail when the author reviews their own work. `review-plan` runs
+      adversarial passes — locally, via a cross-model codex envelope, or
+      both — to catch gaps, missing edge cases, and optimistic assumptions
+      before execution begins.
     purpose: >
       Adversarial review with mode picker: local (cheap, fast), codex
       (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local
@@ -148,6 +161,10 @@ core:
     name: review-code
     title: 'Review Code — Adversarial (Local + Codex)'
     description: 'Adversarial review of code changes given a git ref (branch, commit, or range). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).'
+    value_pitch: >
+      Same-model reviews have blind spots. `review-code` captures your diff
+      and runs adversarial passes — locally, cross-model via codex, or
+      both — to catch bugs, security issues, and logic errors before merge.
     purpose: >
       Review a git ref (branch, commit, or range) adversarially. Mode
       picker: local (cheap, fast), codex (cross-model via OpenAI Codex
@@ -203,6 +220,11 @@ core:
     name: project-status
     title: 'Project Status — Initiative Tracking'
     description: "View and daily-mutate Plan/Initiative/Task state in .atomic-skills/. Compact terminal view + browser via mdprobe. Stack frames, parked/emerged items, task transitions, phase-done/reopen, archive, scope-creep, codex review tracking. Creation, migration, and structural commands live in atomic-skills:project-plan."
+    value_pitch: >
+      Multi-session projects lose context between conversations.
+      `project-status` tracks Plans, Initiatives, and Tasks in
+      `.atomic-skills/` — with stack frames for lateral work, scope-creep
+      detection, and phase gates that keep the agent anchored.
     purpose: >
       Track work via Plan/Initiative/Task hierarchy: view current state,
       manage stack/parked/emerged, transition tasks/phases, archive,
@@ -334,6 +356,11 @@ core:
     name: project-plan
     title: 'Project Plan — Create, Discover, Migrate'
     description: "Single entry-point for CREATE and STRUCTURAL operations on .atomic-skills/. Bootstrap multi-phase Plans, discover in-flight work across the repo (multi-source scan), adopt existing markdown plans, migrate legacy state, add initiatives/tasks/phases, split overgrown phases, batch re-articulate placeholder context. Sibling skill project-status handles VIEW + daily mutations."
+    value_pitch: >
+      Every repo has in-flight work scattered across docs, branches, and
+      memory. `project-plan` discovers it, clusters it into structured Plans,
+      or adopts existing markdown plans — turning scattered intent into
+      trackable state.
     purpose: >
       All paths that CREATE or RESTRUCTURE state in `.atomic-skills/`:
       bootstrap fresh Plans (interactive 7-stage), discover in-flight
@@ -427,6 +454,11 @@ core:
     name: prompt
     title: 'Prompt — Generate Optimized Prompt'
     description: 'Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails.'
+    value_pitch: >
+      Vague tasks produce vague results. `prompt` analyzes your codebase and
+      generates a precise, self-contained prompt with exact file paths,
+      guardrails, and acceptance criteria — ready to hand off to a parallel
+      agent or a fresh session.
     purpose: >
       Turn a vague task description into an optimized, self-contained prompt
       with file paths, guardrails, and acceptance criteria. Use as input to
@@ -465,6 +497,10 @@ core:
     name: hunt
     title: 'Hunt — Adversarial Tests'
     description: 'Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run.'
+    value_pitch: >
+      Your tests confirm the happy path. `hunt` writes adversarial tests to
+      *break* your code — edge cases, boundary conditions, error paths you
+      didn't think of. Bounded to one class or function per run.
     purpose: >
       Write adversarial tests to break code and find hidden bugs.
       Bounded to one class or function per run.
@@ -503,6 +539,10 @@ core:
     name: parallel-dispatch
     title: 'Parallel Dispatch — Independent Tasks'
     description: "Dispatch a user-provided list of independent tasks to N parallel sessions with verified scope isolation and a batch id for tracking. Validates parallelism benefit (Q1-Q4 HARD-GATE) before exploring; proves scope disjointness via pairwise grep before generating prompts. Use when the user brings a consolidated task list — this skill does NOT invent tasks."
+    value_pitch: >
+      Parallel agents that touch the same files produce merge conflicts and
+      wasted runs. `parallel-dispatch` proves scope disjointness via pairwise
+      grep *before* launching — verified isolation, not hopeful isolation.
     purpose: >
       Verify, isolate, and dispatch a user-provided task list to N parallel
       sessions. Mechanical scope isolation, batch id, and audit pass.
@@ -541,6 +581,10 @@ core:
     name: parallel-dispatch-audit
     title: 'Parallel Dispatch — Audit'
     description: "Audit the output of a parallel-dispatch batch. Reads the plan file, verifies each agent's deliverables on disk against the user's original request, applies cosmetic fixes, and produces a report with pending decisions. HARD-GATEs on active batch (<2min commits) and read-only mode (≥5 issues). Use after parallel-dispatch agents complete."
+    value_pitch: >
+      Parallel agents finish — but did they actually deliver? `parallel-dispatch-audit`
+      verifies each output against the original plan, applies cosmetic fixes
+      automatically, and escalates real issues with evidence — not opinions.
     purpose: >
       Verify each dispatched agent's deliverables on disk against the
       original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
@@ -581,6 +625,10 @@ modules:
       name: init-memory
       title: 'Init Memory — Persistent Context'
       description: 'Initialize persistent memory structure for cross-session context.'
+      value_pitch: >
+        New sessions start from zero. `init-memory` bootstraps a persistent
+        memory directory so every future session inherits context from past
+        ones. Run once, benefit forever.
       purpose: >
         Bootstrap the persistent memory directory and index so that future
         sessions can pick up where this one left off.
