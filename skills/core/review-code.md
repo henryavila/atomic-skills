@@ -2,9 +2,9 @@ Perform an adversarial analysis of the code changes at {{ARG_VAR}}
 (git ref: branch, single commit, or commit range) looking for logic
 bugs, race conditions, error handling gaps, schema/migration
 inconsistencies, and missing tests. Step 0 picks one of three modes:
-`local` (same-model self-loop), `codex` (cross-model two-pass sealed
-envelope via OpenAI Codex CLI), or `both` (local first → codex on the
-same captured diff).
+`local` (same-model sealed envelope via agent with clean context),
+`codex` (cross-model two-pass sealed envelope via OpenAI Codex CLI), or
+`both` (local agent first → codex on the same captured diff).
 
 ## Iron Law
 
@@ -12,13 +12,16 @@ NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: each finding MUST cite `file:line`. Bug claims without `file:line` are rejected.
 - Codex mode: every codex finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
-NO INTENT IN THE BRIEFING (codex sub-flow).
-The briefing sent to codex contains ONLY externally verifiable facts.
-Intent narrative poisons the reviewer by up to -93pp detection rate
-([arXiv 2603.18740](https://arxiv.org/abs/2603.18740)). When the active
-mode is `both`, the codex briefing additionally must NOT include local
-findings, fix descriptions, iteration counts, or any narrative implying a
-prior review took place.
+NO INTENT IN THE BRIEFING (local + codex).
+Intent narrative poisons reviewers by up to -93pp detection rate
+([arXiv 2603.18740](https://arxiv.org/abs/2603.18740)).
+- **Local review** runs in a separate agent with clean context via
+  {{INVESTIGATOR_TOOL}}. The agent receives only the diff and file list —
+  no conversation history, no commit messages, no user intent.
+- **Codex review** uses a sealed briefing with anti-framing directive.
+- **Both mode:** neither reviewer sees the other's findings. The codex
+  briefing must NOT include local findings, fix descriptions, iteration
+  counts, or any narrative implying a prior review took place.
 
 ## Mindset
 
@@ -39,7 +42,7 @@ starting with `--` are flags:
 
 | Flag | Effect |
 |---|---|
-| `--mode=local` | Skip Step 0 mode picker; force local self-loop. |
+| `--mode=local` | Skip Step 0 mode picker; force local sealed envelope. |
 | `--mode=codex` | Skip Step 0 mode picker; force codex envelope. |
 | `--mode=both` | Skip Step 0 mode picker; force local→codex. |
 | `--allow-dirty` | Include working-tree changes in the captured diff; suppress the dirty-tree abort. |
@@ -96,7 +99,7 @@ invoke {{ASK_USER_QUESTION_TOOL}} in background.
 
 6. **Materialize `CAPTURED_DIFF` ONCE.** Run the shape-specific command
    from step 5 and store the output as `CAPTURED_DIFF`. Both phases
-   (local checklist + codex briefing) MUST consume `CAPTURED_DIFF`, never
+   (local agent briefing + codex briefing) MUST consume `CAPTURED_DIFF`, never
    re-execute `git diff`. This guarantees both reviewers see byte-identical
    material.
 
@@ -118,8 +121,8 @@ Skip this step if `--mode=` was supplied. Otherwise, use
 
 **Options:**
 - **Both (local then codex)** — Recommended for significant changes
-  (auth, payments, data integrity). Self-loop catches obvious bugs;
-  codex catches what self missed. ~$1-2 codex cost.
+  (auth, payments, data integrity). Local agent catches obvious bugs;
+  codex catches what the agent missed. ~$1-2 codex cost.
 - **Local only** — Cheap, fast. Use for routine PRs or pre-commit checks.
 - **Codex only** — Skip local. Use when another agent self-reviewed.
 
@@ -139,7 +142,8 @@ plain text. Hardcoding any specific tool name would break the other IDEs.
 
 ### Flow A — `mode == local`
 
-Argument & diff capture → Step 0 → `local`. Run **Self-loop checklist**
+Argument & diff capture → Step 0 → `local`. Prepare briefing → spawn
+**Local review agent** (below) → receive findings → **Triage + fix**
 (below). END.
 
 ### Flow B — `mode == codex`
@@ -151,10 +155,10 @@ Argument & diff capture → Step 0 → `codex`. Run **Codex sub-flow**
 
 Argument & diff capture → Step 0 → `both`.
 
-1. **LOCAL PHASE** — Run Self-loop checklist on `CAPTURED_DIFF`. Apply
-   fixes inline where obvious; track fix descriptions for the audit trail.
-   The audit trail goes into the persisted review file, NOT the codex
-   briefing.
+1. **LOCAL PHASE** — Prepare briefing → spawn **Local review agent** on
+   `CAPTURED_DIFF` → receive findings → **Triage + fix** (below). Track
+   fix descriptions for the audit trail. The audit trail goes into the
+   persisted review file, NOT the codex briefing.
 
 2. **CODEX PHASE** — Run Codex sub-flow on the SAME `CAPTURED_DIFF`. The
    Pass-1 briefing MUST NOT mention local findings, fix descriptions,
@@ -163,48 +167,75 @@ Argument & diff capture → Step 0 → `both`.
 
    **Smoke test invariant:** the `CAPTURED_DIFF` consumed by both phases
    must be byte-identical. If you suspect drift (e.g. fixes mutated the
-   tree), abort the codex phase and warn — the local fixes contaminate
-   the cross-model invariant.
+   tree between local triage and codex phase), abort the codex phase and
+   warn — the local fixes contaminate the cross-model invariant.
+
+   **Stash protocol (mode == both):** if the local triage applied fixes,
+   `git stash` the dirty tree before the codex phase, then `git stash pop`
+   after. This keeps the working tree clean for codex preflight checks
+   while preserving the local fixes.
 
 END.
 
 ---
 
-## Self-loop checklist (modes: local, both)
+## Local review agent (modes: local, both)
 
-### Step 1 — Gather artifacts
+The local review runs in a **separate agent with clean context** to
+prevent intent leakage from the conversation. The operator prepares a
+sealed briefing; the agent reviews and returns findings; the operator
+triages and applies fixes.
 
-- Use `CAPTURED_DIFF` from the argument-capture step (do NOT re-run `git diff`).
-- For each file in `CAPTURED_FILES`: {{READ_TOOL}} the full content.
-- For each modified PUBLIC symbol (exported function, exported class): {{GREP_TOOL}} recursively for callers (limit 5 per symbol).
+**Rationale:** reviewing in the same context window that discussed the
+change causes confirmation bias — the reviewer "knows" what the code
+should do and validates intent instead of verifying behavior. A clean
+context forces the reviewer to derive intent from the code itself.
 
-### Checklist
+### Step 1 — Prepare briefing (operator)
 
-For each item, cite `file:line` from the diff or from the modified file
-that proves the verification. If you cannot cite line numbers, the item
-was NOT verified.
+1. {{READ_TOOL}} `skills/shared/local-review-assets/briefing-template.txt`.
+2. {{READ_TOOL}} `skills/shared/codex-bridge-assets/anti-framing-directive.txt`.
+3. Substitute placeholders in the template:
+   - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of anti-framing-directive.txt
+   - `{{GIT_REF}}` ← the git ref being reviewed
+   - `{{CAPTURED_FILES_LIST}}` ← newline-separated list from `CAPTURED_FILES`
+   - `{{DIFF}}` ← `CAPTURED_DIFF`
+4. The substituted briefing is the agent's prompt. It contains NO
+   conversation context, NO commit messages, NO user intent.
 
-1. **Logic bugs:** off-by-one, null/undefined, type confusion, unreachable branches.
-2. **Race conditions:** shared state, async ordering, missing locks.
-3. **Error handling:** silently swallowed failures, generic catches without rethrow.
-4. **Schema/migrations:** new migrations consistent with each other AND reversible.
-5. **API contracts:** public signatures changed without doc / callers updated. Use the callers list from Step 1.
-6. **File / function references:** does each `import` / `require` in modified files resolve? Run {{GREP_TOOL}} or {{GLOB_TOOL}} to confirm.
-7. **Test coverage:** new code paths without tests?
+### Step 2 — Spawn review agent
 
-### Iteration
+Invoke {{INVESTIGATOR_TOOL}} with:
+- **description:** `Adversarial code review of <git_ref>`
+- **prompt:** the substituted briefing from Step 1
 
-**ITERATION 1.** Walk the diff once. Apply EACH checklist item. For
-each, record: status (ok / problem), `file:line` verified. Fix findings
-directly in the source files when a fix is obvious; otherwise propose
-the correction in the closing table for the user to apply.
+The agent operates in a clean context: no conversation history, no
+knowledge of why the change was made, no prior findings. It reads files
+and greps callers using its own tools.
 
-**VERIFICATION LOOP (max 3 iterations).**
-- {{READ_TOOL}} the CORRECTED files from the beginning (NOT mental review — execute {{READ_TOOL}} on each modified file). Cite line numbers.
-- Verify corrections did not introduce new problems; no checklist item was missed.
-- If new bugs were found: fix and loop.
-- If the reread found nothing new: the loop ends.
-- If you reached 3 iterations and still find problems: STOP and escalate — the change may have structural issues that require human decision.
+**Fallback:** if {{INVESTIGATOR_TOOL}} is unavailable (IDE does not
+support agent spawning), run the checklist inline in the current context.
+Log a warning: "Local review running in shared context — isolation
+degraded." Apply the checklist items from the briefing template directly.
+
+### Step 3 — Triage + fix (operator)
+
+Parse the agent's output. For each finding:
+
+1. **Verify** — {{READ_TOOL}} the cited `file:line`. Confirm the finding
+   is real, not a hallucination or stale reference.
+2. **Classify** — real bug / false positive / already handled.
+3. **Act:**
+   - Real bug with obvious fix → apply via {{REPLACE_TOOL}}.
+   - Ambiguous finding → present to user: `apply / edit / skip`.
+   - False positive → record as dismissed with reason.
+
+**Verification loop (max 3 iterations):**
+- After applying fixes: {{READ_TOOL}} each modified file from the beginning.
+- Verify fixes did not introduce new problems and no finding was missed.
+- If new bugs found: fix and loop.
+- If clean: loop ends.
+- If 3 iterations and still problems: STOP and escalate.
 
 ---
 
@@ -286,9 +317,9 @@ The codex sub-flow uses canonical assets in
 
 ## Severity → Action
 
-- **Critical / blocker:** breaks prod / data loss / security breach / bug hitting users in normal use — MUST be fixed before merge.
-- **Significant / major:** real bug with workaround — fix if possible.
-- **Minor / nit:** style / readability / micro-perf — record, no required action.
+- **Blocker / critical:** breaks prod / data loss / security breach / bug hitting users in normal use — MUST be fixed before merge.
+- **Major:** real bug with workaround — fix if possible.
+- **Minor:** small issue; rare edge case — record, no required action.
 
 ## Code-quality gates (review lens)
 
@@ -330,6 +361,8 @@ session". Silent skipping is forbidden.
 - "The migration is reversible, I don't need to check"
 - "I'll re-run `git diff` for the codex briefing — close enough" (mode == both — breaks the byte-identical invariant)
 - "I'll mention the local pass in the codex briefing — codex deserves context" (mode == both)
+- "I'll run the local review in my current context — spawning an agent is overkill" (breaks sealed envelope)
+- "I'll include a summary of the user's request in the agent briefing — it needs context" (intent leakage into local review)
 - "I'll add architectural context to help codex" (codex sub-flow)
 - "Codex said approve but I think it needs more review"
 
@@ -345,6 +378,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "The diff is small, it doesn't need all this" | Small diffs hide simple bugs in obvious places |
 | "It's already 3 iterations, I'll approve" | If there are still problems, escalate — don't approve with defects |
 | "The import probably resolves" | Sensible names are how bugs hide. Run {{GREP_TOOL}} to confirm |
+| "I already know what the code does, reviewing in a fresh context is wasteful" | That knowledge IS the contamination — the agent must derive intent from code, not from you |
 | "Codex will figure it out from context" (codex) | Sealed envelope: facts only |
 | "The local pass already found everything, codex is a formality" (both) | Empirically codex catches disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
 
@@ -359,9 +393,9 @@ appear in the corresponding mode; `(codex/both)` likewise.
 **Ref:** {{ARG_VAR}}
 **Mode:** local | codex | both
 **Files reviewed:** [N]
-**Iterations (local):** [N] (local/both only)
+**Passes (local):** [N] (local/both only)
 **Codex iterations:** 2 (blind + informed) (codex/both only)
-**Counts (local):** critical: X, significant: Y, minor: Z (local/both only)
+**Counts (local):** blocker: X, critical: Y, major: Z, minor: W (local/both only)
 **Counts (codex blind):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
 **Counts (codex final):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
 **Framing Δ (codex):** <d>d / <=>= / <+>+ (codex/both only)
