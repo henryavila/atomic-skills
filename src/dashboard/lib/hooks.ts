@@ -37,9 +37,13 @@ export function useProjectScopedState(projectId: string | undefined) {
 export function usePlan(slug: string | undefined, projectId?: string) {
   return useQuery({
     queryKey: projectId ? ['plan', projectId, slug] : ['plan', slug],
-    queryFn: () => projectId
-      ? api.getProjectPlan(projectId, slug as string)
-      : api.getPlan(slug as string),
+    queryFn: async () => {
+      if (projectId) {
+        try { return await api.getProjectPlan(projectId, slug as string) }
+        catch { return api.getPlan(slug as string) }
+      }
+      return api.getPlan(slug as string)
+    },
     enabled: Boolean(slug),
   })
 }
@@ -47,9 +51,13 @@ export function usePlan(slug: string | undefined, projectId?: string) {
 export function useInitiative(slug: string | undefined, projectId?: string) {
   return useQuery({
     queryKey: projectId ? ['initiative', projectId, slug] : ['initiative', slug],
-    queryFn: () => projectId
-      ? api.getProjectInitiative(projectId, slug as string)
-      : api.getInitiative(slug as string),
+    queryFn: async () => {
+      if (projectId) {
+        try { return await api.getProjectInitiative(projectId, slug as string) }
+        catch { return api.getInitiative(slug as string) }
+      }
+      return api.getInitiative(slug as string)
+    },
     enabled: Boolean(slug),
   })
 }
