@@ -26,25 +26,25 @@ const buildReadmeShell = (extras = '') =>
 
 Some prose.
 
-<!-- IDES_TABLE_START -->
+[IDES_TABLE_START]: #
 placeholder
-<!-- IDES_TABLE_END -->
+[IDES_TABLE_END]: #
 
-<!-- VERSION_NOTE_START -->
-<!-- VERSION_NOTE_END -->
+[VERSION_NOTE_START]: #
+[VERSION_NOTE_END]: #
 
-<!-- SKILLS_TABLE_START -->
+[SKILLS_TABLE_START]: #
 placeholder
-<!-- SKILLS_TABLE_END -->
+[SKILLS_TABLE_END]: #
 
 ---
 
-<!-- SKILL_DETAILS_START -->
+[SKILL_DETAILS_START]: #
 placeholder
-<!-- SKILL_DETAILS_END -->
+[SKILL_DETAILS_END]: #
 
-<!-- MODULES_START -->
-<!-- MODULES_END -->
+[MODULES_START]: #
+[MODULES_END]: #
 
 ## Hand-written section that must NOT be touched
 

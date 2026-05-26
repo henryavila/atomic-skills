@@ -5,16 +5,16 @@ import { collectSkills, bodyPathForSkill } from './validate-skills-core.js';
 import { extractIronLaw } from './extract-iron-law.js';
 import { IDE_CONFIG, SKILL_NAMESPACE } from '../../src/config.js';
 
-const TABLE_START = '<!-- SKILLS_TABLE_START -->';
-const TABLE_END = '<!-- SKILLS_TABLE_END -->';
-const DETAILS_START = '<!-- SKILL_DETAILS_START -->';
-const DETAILS_END = '<!-- SKILL_DETAILS_END -->';
-const IDES_START = '<!-- IDES_TABLE_START -->';
-const IDES_END = '<!-- IDES_TABLE_END -->';
-const MODULES_START = '<!-- MODULES_START -->';
-const MODULES_END = '<!-- MODULES_END -->';
-const VERSION_NOTE_START = '<!-- VERSION_NOTE_START -->';
-const VERSION_NOTE_END = '<!-- VERSION_NOTE_END -->';
+const TABLE_START = '[SKILLS_TABLE_START]: #';
+const TABLE_END = '[SKILLS_TABLE_END]: #';
+const DETAILS_START = '[SKILL_DETAILS_START]: #';
+const DETAILS_END = '[SKILL_DETAILS_END]: #';
+const IDES_START = '[IDES_TABLE_START]: #';
+const IDES_END = '[IDES_TABLE_END]: #';
+const MODULES_START = '[MODULES_START]: #';
+const MODULES_END = '[MODULES_END]: #';
+const VERSION_NOTE_START = '[VERSION_NOTE_START]: #';
+const VERSION_NOTE_END = '[VERSION_NOTE_END]: #';
 
 const FORMAT_LABELS = {
   command: 'Command (slash)',

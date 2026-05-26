@@ -50,7 +50,7 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 ### Supported IDEs
 
-<!-- IDES_TABLE_START -->
+[IDES_TABLE_START]: #
 | IDE | Profile | Directory | Format |
 |-----|---------|-----------|--------|
 | Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
@@ -60,20 +60,20 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown |
-<!-- IDES_TABLE_END -->
+[IDES_TABLE_END]: #
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
 
 ## Skills
 
-<!-- VERSION_NOTE_START -->
+[VERSION_NOTE_START]: #
 > **Note (v2.0.0):** First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
 > See [CHANGELOG.md](CHANGELOG.md) for the full migration matrix.
-<!-- VERSION_NOTE_END -->
+[VERSION_NOTE_END]: #
 
 ### Overview
 
-<!-- SKILLS_TABLE_START -->
+[SKILLS_TABLE_START]: #
 | | Skill | One-liner | Iron Law |
 |-|-------|-----------|----------|
 | 🔧 | [`fix`](docs/skills/fix.md) | Diagnose root cause → write test → fix → verify | `NO FIX WITHOUT ROOT CAUSE.` |
@@ -87,11 +87,11 @@ For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatib
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
 | 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Audit output of a parallel-dispatch batch, apply fixes, report | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Centralize project memory to .ai/memory/ | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
-<!-- SKILLS_TABLE_END -->
+[SKILLS_TABLE_END]: #
 
 ---
 
-<!-- SKILL_DETAILS_START -->
+[SKILL_DETAILS_START]: #
 ### 🔧 `fix` — Root Cause + TDD
 
 **Iron Law:** `NO FIX WITHOUT ROOT CAUSE.`
@@ -245,7 +245,7 @@ New sessions start from zero. `init-memory` bootstraps a persistent memory direc
 [Full reference →](docs/skills/init-memory.md)
 
 ---
-<!-- SKILL_DETAILS_END -->
+[SKILL_DETAILS_END]: #
 
 ---
 
@@ -286,7 +286,7 @@ When creating new skills, always use the variables defined in `AGENTS.md`.
 
 Modules bundle optional skills, shared assets, or hooks on top of the core skills. Today, activation happens through the interactive dashboard (`customize modules` action) — there is no `--modules` CLI flag. The `memory`, `codex-bridge`, and `auto-update` modules are enabled on every install.
 
-<!-- MODULES_START -->
+[MODULES_START]: #
 ### Memory
 
 Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.
@@ -318,7 +318,7 @@ SessionStart hook that notifies you when a new version is available on npm — w
 - Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var
 - Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`
 - Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)
-<!-- MODULES_END -->
+[MODULES_END]: #
 
 ## Install, Update, Uninstall
 
