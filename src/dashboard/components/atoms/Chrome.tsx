@@ -4,13 +4,13 @@ import type { CSSProperties, ReactNode } from 'react'
  * Brand wordmark with a small animated accent dot. Used in the top chrome.
  * Size is the type size in px; the dot scales proportionally.
  */
-export function Wordmark({ size = 16, label }: { size?: number; label?: string }) {
+export function Wordmark({ size = 16 }: { size?: number }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 font-medium tracking-tight text-fg-default"
       style={{ fontSize: size, letterSpacing: '-0.025em' }}
     >
-      {label ?? 'aiDeck'}
+      aiDeck
       <span
         className="relative inline-block flex-none"
         style={{

@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router'
+import { useNavigate, useLocation } from 'react-router'
 import { IconBtn, Kbd, LocalhostPill, Wordmark } from '../atoms'
 import { AnnotationPanel } from '../feedback/AnnotationPanel'
 import { FeedbackDrawer } from '../feedback/FeedbackDrawer'
-import { useProjectState, useHealth } from '../../lib/hooks'
+import { useHealth } from '../../lib/hooks'
 import { DemoBanner } from './DemoBanner'
 
 interface Props {
@@ -70,6 +70,48 @@ function SkipLink() {
   )
 }
 
+function buildBreadcrumbs(pathname: string, projectDisplayName?: string): Array<{ label: string; to?: string }> {
+  const crumbs: Array<{ label: string; to?: string }> = []
+
+  // /projects/:projectId
+  const projectMatch = pathname.match(/^\/projects\/([^/]+)/)
+  if (projectMatch) {
+    crumbs.push({ label: projectDisplayName ?? projectMatch[1], to: `/projects/${projectMatch[1]}` })
+    return crumbs
+  }
+
+  // /:projectId/plans/:slug or /:projectId/initiatives/:slug
+  const scopedMatch = pathname.match(/^\/([^/]+)\/(plans|initiatives)\/([^/]+)/)
+  if (scopedMatch) {
+    const [, pid, kind, slug] = scopedMatch
+    crumbs.push({ label: projectDisplayName ?? pid, to: `/projects/${pid}` })
+    crumbs.push({ label: `${kind}/${slug}` })
+    return crumbs
+  }
+
+  // /plans/:slug or /initiatives/:slug (legacy)
+  const legacyMatch = pathname.match(/^\/(plans|initiatives)\/([^/]+)/)
+  if (legacyMatch) {
+    const [, kind, slug] = legacyMatch
+    crumbs.push({ label: `${kind}/${slug}` })
+    return crumbs
+  }
+
+  // /discover
+  if (pathname === '/discover') {
+    crumbs.push({ label: 'discover' })
+    return crumbs
+  }
+
+  // /help
+  if (pathname === '/help') {
+    crumbs.push({ label: 'help' })
+    return crumbs
+  }
+
+  return crumbs
+}
+
 function TopChrome({
   openDrawer,
   onToggleAnnotations,
@@ -79,24 +121,16 @@ function TopChrome({
   onToggleAnnotations: () => void
   onToggleFeedback: () => void
 }) {
-  const { data: state } = useProjectState()
   const { data: health } = useHealth()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const firstPlanSlug = state?.plans[0]?.slug
-  const plansTarget = firstPlanSlug ? `/plans/${firstPlanSlug}` : '/'
-  const hasPlans = Boolean(firstPlanSlug)
 
-  // Breadcrumb: detect project detail route
-  const projectDetailMatch = location.pathname.match(/^\/projects\/([^/]+)$/)
-  const projectId = projectDetailMatch?.[1]
-
-  // Wordmark: show project name on detail page, "aiDeck" on home
   const projectDisplayName = health?.rootDir
     ? health.rootDir.split('/').pop() ?? undefined
     : undefined
-  const wordmarkLabel = projectId ? (projectDisplayName ?? projectId) : undefined
+
+  const crumbs = buildBreadcrumbs(location.pathname, projectDisplayName)
 
   return (
     <>
@@ -118,48 +152,34 @@ function TopChrome({
       >
         <a
           href="#/"
-          onClick={(e) => {
-            e.preventDefault()
-            navigate('/')
-          }}
+          onClick={(e) => { e.preventDefault(); navigate('/') }}
           style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', flex: 'none' }}
-          aria-label="atomic-skills home"
+          aria-label="aiDeck home"
         >
-          <Wordmark size={18} label={wordmarkLabel} />
+          <Wordmark size={18} />
         </a>
-        <span style={{ width: 1, height: 20, background: 'var(--border-default)', flex: 'none' }} />
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {projectId ? (
-            <>
-              <button
-                onClick={() => navigate('/')}
-                style={{ ...baseNav, color: 'var(--accent-link)', cursor: 'pointer', background: 'none', border: 'none' }}
-              >
-                Projects
-              </button>
-              <span style={{ color: 'var(--fg-faint)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>›</span>
-              <span style={{ ...baseNav, color: 'var(--fg-default)', fontWeight: 500 }}>
-                {projectDisplayName ?? projectId}
-              </span>
-            </>
-          ) : (
-            <>
-              <NavLink to="/" end style={navStyle}>
-                home
-              </NavLink>
-              {hasPlans ? (
-                <NavLink to={plansTarget} style={navStyle}>
-                  plans
-                </NavLink>
-              ) : (
-                <span style={{ ...baseNav, color: 'var(--fg-faint)', cursor: 'default' }}>plans</span>
-              )}
-              <NavLink to="/help" style={navStyle}>
-                help
-              </NavLink>
-            </>
-          )}
-        </nav>
+        {crumbs.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 20, background: 'var(--border-default)', flex: 'none' }} />
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {crumbs.map((c, i) => (
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i > 0 && <span style={{ color: 'var(--fg-faint)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>›</span>}
+                  {c.to && i < crumbs.length - 1 ? (
+                    <button
+                      onClick={() => navigate(c.to!)}
+                      style={{ ...baseNav, color: 'var(--accent-link)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 6px' }}
+                    >{c.label}</button>
+                  ) : (
+                    <span style={{ ...baseNav, color: 'var(--fg-default)', fontWeight: 500, padding: '4px 6px' }}>
+                      {c.label}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </nav>
+          </>
+        )}
         <div style={{ flex: 1 }} />
         <LocalhostPill />
         <div style={{ display: 'flex', gap: 4 }}>
@@ -250,15 +270,6 @@ const baseNav: React.CSSProperties = {
   fontFamily: 'var(--font-sans)',
   fontSize: 13,
   textDecoration: 'none',
-  padding: '4px 8px',
   borderRadius: 4,
   transition: 'background 120ms, color 120ms',
-}
-
-function navStyle({ isActive }: { isActive: boolean }): React.CSSProperties {
-  return {
-    ...baseNav,
-    color: isActive ? 'var(--accent-primary)' : 'var(--fg-muted)',
-    background: isActive ? 'var(--bg-elevated)' : 'transparent',
-  }
 }
