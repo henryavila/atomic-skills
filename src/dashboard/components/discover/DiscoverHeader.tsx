@@ -227,6 +227,7 @@ export function DiscoverHeader({ run, activeBuckets, onToggleBucket }: Props) {
   const ts = new Date(run.generatedAt)
   const tsLabel = `${ts.toISOString().slice(0, 10)} · ${ts.toISOString().slice(11, 16)}Z`
   const totalCandidates = Object.values(run.counts).reduce((a, b) => a + b, 0)
+  const repoName = run.scanConfig.repoPath?.split('/').filter(Boolean).pop() ?? ''
 
   return (
     <div style={{ marginBottom: 18 }}>
@@ -271,6 +272,21 @@ export function DiscoverHeader({ run, activeBuckets, onToggleBucket }: Props) {
             }}
           >
             Discover
+            {repoName && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: 'var(--fg-subtle)',
+                  marginLeft: 12,
+                  letterSpacing: 0,
+                  verticalAlign: 'middle',
+                }}
+              >
+                {repoName}
+              </span>
+            )}
           </h1>
           <p
             style={{
@@ -306,6 +322,18 @@ export function DiscoverHeader({ run, activeBuckets, onToggleBucket }: Props) {
         }}
       >
         {[
+          ...(run.scanConfig.repoPath
+            ? [
+                {
+                  label: 'repo',
+                  value: (
+                    <span style={{ color: 'var(--fg-default)', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      {run.scanConfig.repoPath}
+                    </span>
+                  ),
+                },
+              ]
+            : []),
           {
             label: 'generated',
             value: (
