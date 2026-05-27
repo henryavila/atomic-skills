@@ -107,25 +107,70 @@ The default view opens the **aiDeck dashboard** in the browser. aiDeck is the ca
 
 Steps:
 
-1. Ensure aiDeck is running by calling `ensureAideck()` from `src/serve.js`. This is idempotent:
-   - Reads `~/.atomic-skills/env` (`AS_DASHBOARD_URL`) or `~/.aideck/env` (`AIDECK_URL`)
-   - Probes `/api/health` to verify liveness
-   - If already healthy and rootDir matches CWD: reuses URL
-   - If rootDir mismatch: registers this project via `POST /api/projects/register` (multi-project support)
-   - If not running: spawns `aideck serve` detached, polls until healthy, returns URL
-   - Returns the dashboard URL or null on failure
+1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`:
 
-2. If `ensureAideck()` returns a URL:
-   - Open the browser to that URL using `open` (npm package) or platform-native fallback:
-     ```
-     node -e "import('open').then(m => m.default('<url>'))"
-     ```
-     On failure (headless, missing `open`), fall back to printing the URL for the user.
-   - Print a one-line confirmation: `Dashboard: <url>`
+   ```bash
+   AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
+   DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
+   AIDECK_URL=""
 
-3. If `ensureAideck()` returns null (aideck binary not found, port collision, spawn failure):
+   # 1. Check env files for an already-running instance
+   for envf in "$HOME/.aideck/env" "$HOME/.atomic-skills/env"; do
+     if [ -f "$envf" ]; then
+       url=$(grep -oP "(?<=AIDECK_URL=')[^']+" "$envf" 2>/dev/null \
+         || grep -o "http://[^ '\"]*" "$envf" 2>/dev/null | head -1)
+       if [ -n "$url" ]; then
+         health=$(curl -sf "$url/api/health" 2>/dev/null)
+         if echo "$health" | grep -q '"service":"aideck"'; then
+           # Register this project
+           curl -sf -X POST "$url/api/projects/register" \
+             -H 'Content-Type: application/json' \
+             -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$(basename "$PWD")\"}" >/dev/null 2>&1
+           AIDECK_URL="$url"
+         fi
+       fi
+     fi
+   done
+
+   # 2. If not running, spawn it
+   if [ -z "$AIDECK_URL" ] && [ -f "$AIDECK_BIN" ] && [ -d "$DASHBOARD_DIR" ]; then
+     nohup node "$AIDECK_BIN" serve --static-dir "$DASHBOARD_DIR" >/dev/null 2>&1 &
+     disown 2>/dev/null
+     # Poll until healthy (max 8s)
+     for i in $(seq 1 16); do
+       sleep 0.5
+       for envf in "$HOME/.aideck/env" "$HOME/.atomic-skills/env"; do
+         if [ -f "$envf" ]; then
+           url=$(grep -o "http://[^ '\"]*" "$envf" 2>/dev/null | head -1)
+           if [ -n "$url" ] && curl -sf "$url/api/health" >/dev/null 2>&1; then
+             curl -sf -X POST "$url/api/projects/register" \
+               -H 'Content-Type: application/json' \
+               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$(basename "$PWD")\"}" >/dev/null 2>&1
+             AIDECK_URL="$url"
+             break 2
+           fi
+         fi
+       done
+     done
+   fi
+
+   # 3. Output
+   if [ -n "$AIDECK_URL" ]; then
+     echo "AIDECK_URL=$AIDECK_URL"
+   else
+     echo "AIDECK_URL="
+   fi
+   ```
+
+   Parse the output: if `AIDECK_URL` is non-empty, aiDeck is running.
+
+2. If `AIDECK_URL` is non-empty:
+   - Open the browser: `open "$AIDECK_URL"` (macOS) or `xdg-open "$AIDECK_URL"` (Linux). On failure, print the URL for the user.
+   - Print: `Dashboard: <url>`
+
+3. If `AIDECK_URL` is empty (binary not found, spawn failure):
    - Fall back to the **terminal view** (`--terminal` behavior below)
-   - Print a warning: `aiDeck not available — showing terminal view. Install aideck or run \`npx atomic-skills serve\`.`
+   - Print: `aiDeck not available — showing terminal view. Run \`atomic-skills install\` to set up the dashboard.`
 
 4. After opening the browser, also print a **compact terminal summary** (3-5 lines) so the AI has context without needing to fetch from the API:
    - Active plan/phase (if any)
@@ -732,12 +777,12 @@ By choice:
 
 Opens the aiDeck dashboard in the browser, optionally deep-linking to a specific plan or initiative. This is the same mechanism used by the default view — the `--browser` flag is kept as an explicit alias for cases where the user invoked `--terminal` or a mutation command and now wants to jump to the dashboard.
 
-1. Run `ensureAideck()` (same as default view step 1).
-2. If `ensureAideck()` returns a URL:
-   - If `<slug>` is provided: determine if it matches a plan or initiative, and open `<url>/plans/<slug>` or `<url>/initiatives/<slug>`.
+1. Run the ensure-aideck script from the default view (step 1) to get `AIDECK_URL`.
+2. If `AIDECK_URL` is non-empty:
+   - If `<slug>` is provided: determine if it matches a plan or initiative, and open `<AIDECK_URL>/plans/<slug>` or `<AIDECK_URL>/initiatives/<slug>`.
    - If no `<slug>`: open the root URL (HomePage).
-   - Open via `open` npm package; fall back to printing the URL.
-3. If `ensureAideck()` returns null: print error and suggest `npx atomic-skills serve`.
+   - Open via `open` (macOS) or `xdg-open` (Linux); fall back to printing the URL.
+3. If `AIDECK_URL` is empty: print error and suggest `atomic-skills install`.
 
 ## `--report`
 
