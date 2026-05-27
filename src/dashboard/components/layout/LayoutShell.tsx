@@ -136,9 +136,12 @@ function TopChrome({
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const projectDisplayName = health?.rootDir
-    ? health.rootDir.split('/').pop() ?? undefined
-    : undefined
+  const projectIdFromUrl = location.pathname.match(/^\/(?:projects\/)?([^/]+)/)?.[1]
+  const projectDisplayName = projectIdFromUrl && projectIdFromUrl !== 'plans' && projectIdFromUrl !== 'initiatives' && projectIdFromUrl !== 'discover' && projectIdFromUrl !== 'help'
+    ? projectIdFromUrl
+    : health?.rootDir
+      ? health.rootDir.split('/').pop() ?? undefined
+      : undefined
 
   const crumbs = buildBreadcrumbs(location.pathname, projectDisplayName)
 

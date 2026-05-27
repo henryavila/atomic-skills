@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { useProjectScopedState, useProjectState, useHealth } from '../lib/hooks'
+import { useProjectScopedState, useProjectState, useHealth, useProjects } from '../lib/hooks'
 import { adaptStateForHome } from '../lib/adapters'
 import type { UIConsumer } from '../lib/adapters'
 import { Roadmap, RoadmapSources } from '../components/home/Roadmap'
@@ -31,7 +31,8 @@ function ConsumerErroredBlock({ consumer }: { consumer: UIConsumer }) {
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { data: health } = useHealth()
+  useHealth()
+  const { data: projects } = useProjects()
 
   // Try project-scoped API first, fall back to legacy single-project API
   const scopedState = useProjectScopedState(projectId)
@@ -41,10 +42,11 @@ export function ProjectDetailPage() {
   const isLoading = scopedState.isLoading && legacyState.isLoading
   const error = scopedState.error && legacyState.error
 
-  // Derive display name from health rootDir or projectId
-  const projectName = health?.rootDir
-    ? health.rootDir.split('/').pop() ?? projectId ?? 'project'
-    : projectId ?? 'project'
+  const registered = projects?.find(p => p.projectId === projectId)
+  const projectName = projectId ?? 'project'
+  const projectPath = registered?.rootDir
+    ? registered.rootDir.replace(/^\/Users\/[^/]+/, '~')
+    : undefined
 
   if (isLoading) {
     return <Frame><p style={{ color: 'var(--fg-muted)' }}>Loading project…</p></Frame>
@@ -99,7 +101,7 @@ export function ProjectDetailPage() {
         }}>
           <span>PROJECT</span>
           <span style={{ color: 'var(--fg-faint)' }}>·</span>
-          <span style={{ color: 'var(--fg-faint)' }}>~/.atomic-skills/</span>
+          <span style={{ color: 'var(--fg-faint)' }}>{projectPath ?? '~/.atomic-skills/'}</span>
         </div>
         <h1 style={{
           margin: 0, fontFamily: 'var(--font-sans)', fontSize: 30, fontWeight: 600,
