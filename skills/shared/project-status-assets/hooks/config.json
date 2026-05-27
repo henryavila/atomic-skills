@@ -14,5 +14,8 @@
     "internal/"
   ],
   "max_stack_depth_warning": 6,
-  "auto_archive_done_threshold": 30
+  "auto_archive_done_threshold": 30,
+  "reconciliationThresholdHours": 24,
+  "maxTaskDescriptionLines": 15,
+  "maxTaskAcceptance": 5
 }

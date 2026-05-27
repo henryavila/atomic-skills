@@ -212,11 +212,80 @@ if [[ -n "$active_initiative" ]]; then
   context+="$(head -40 "$active_initiative")"$'\n'
 fi
 
-# 6. Dashboard URL hint — `atomic-skills serve` writes ~/.atomic-skills/env on
-# startup and removes it on shutdown; the SessionStart hook surfaces the URL
-# so the AI sees where the user's dashboard is running. Falls back to the
-# legacy ~/.aideck/env path for installations that started a bare `aideck
-# serve` outside the atomic-skills wrapper.
+# 6. Commit → Task reconciliation: detect task IDs referenced in recent commits.
+LAST_SESSION_FILE="$ASKILLS_DIR/status/last-session.json"
+if [[ -n "$active_initiative" ]]; then
+  last_known_commit=""
+  if [[ -f "$LAST_SESSION_FILE" ]]; then
+    last_known_commit=$(jq -r '.lastKnownCommit // empty' "$LAST_SESSION_FILE" 2>/dev/null || echo "")
+  fi
+
+  # Default to 20 commits back if no last session marker
+  commit_range=""
+  if [[ -n "$last_known_commit" ]]; then
+    # Verify the commit still exists (could have been rebased away)
+    if git -C "$PROJ_DIR" cat-file -t "$last_known_commit" >/dev/null 2>&1; then
+      commit_range="${last_known_commit}..HEAD"
+    fi
+  fi
+  if [[ -z "$commit_range" ]]; then
+    commit_range="HEAD~20..HEAD"
+  fi
+
+  # Extract T-NNN patterns from commit messages
+  referenced_tasks=$(git -C "$PROJ_DIR" log --oneline "$commit_range" 2>/dev/null \
+    | grep -oE '\[T-[0-9]+\]|T-[0-9]+' | grep -oE 'T-[0-9]+' | sort -u)
+
+  if [[ -n "$referenced_tasks" ]]; then
+    # Cross-reference with active initiative's non-done tasks
+    suggestions=""
+    while IFS= read -r task_id; do
+      [[ -z "$task_id" ]] && continue
+      # Check if this task exists and is NOT done in the initiative
+      task_status=$(awk -v id="$task_id" '
+        BEGIN { fm = 0; in_tasks = 0; found = 0 }
+        /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
+        fm != 1 { next }
+        /^tasks:/ { in_tasks = 1; next }
+        in_tasks && /^[A-Za-z]/ && !/^[[:space:]]/ { exit }
+        in_tasks && /id:/ {
+          sub(/.*id:[[:space:]]*/, "", $0)
+          sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+          if ($0 == id) found = 1
+        }
+        found && /status:/ {
+          sub(/.*status:[[:space:]]*/, "", $0)
+          sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+          print $0; exit
+        }
+      ' "$active_initiative")
+
+      if [[ -n "$task_status" && "$task_status" != "done" ]]; then
+        commit_ref=$(git -C "$PROJ_DIR" log --oneline "$commit_range" 2>/dev/null \
+          | grep -m1 "$task_id" | head -1)
+        suggestions+="  ${task_id} (status: ${task_status}) — referenced in: ${commit_ref}"$'\n'
+      fi
+    done <<< "$referenced_tasks"
+
+    if [[ -n "$suggestions" ]]; then
+      context+=$'\n'"## 📋 Tasks referenced in recent commits but not marked done"$'\n\n'
+      context+="${suggestions}"
+      context+="Run \`done <task-id>\` for each completed task."$'\n'
+    fi
+  fi
+
+  # Update last-session marker with current HEAD
+  current_head=$(git -C "$PROJ_DIR" rev-parse HEAD 2>/dev/null || echo "")
+  if [[ -n "$current_head" ]]; then
+    mkdir -p "$(dirname "$LAST_SESSION_FILE")"
+    jq -n --arg commit "$current_head" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg branch "$branch" \
+      '{lastKnownCommit: $commit, lastSessionAt: $ts, branch: $branch}' \
+      > "$LAST_SESSION_FILE" 2>/dev/null || true
+  fi
+fi
+
+# 7. Dashboard URL hint — surfaces the aiDeck URL when running.
 DASHBOARD_ENV="${HOME:-}/.atomic-skills/env"
 LEGACY_AIDECK_ENV="${HOME:-}/.aideck/env"
 dashboard_url=""

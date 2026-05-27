@@ -46,6 +46,7 @@ starting with `--` are flags:
 | `--mode=codex` | Skip Step 0 mode picker; force codex envelope. |
 | `--mode=both` | Skip Step 0 mode picker; force local→codex. |
 | `--allow-dirty` | Include working-tree changes in the captured diff; suppress the dirty-tree abort. |
+| `--max-iterations=N` | Max verification-loop iterations (default 3). Convergence rule (plateau detection) may stop earlier. |
 
 Everything not starting with `--` is `git_ref`. If `git_ref` is empty,
 abort with: "review-code requires a git ref as the first argument."
@@ -230,12 +231,13 @@ Parse the agent's output. For each finding:
    - Ambiguous finding → present to user: `apply / edit / skip`.
    - False positive → record as dismissed with reason.
 
-**Verification loop (max 3 iterations):**
+**Verification loop (max `--max-iterations`, default 3):**
 - After applying fixes: {{READ_TOOL}} each modified file from the beginning.
 - Verify fixes did not introduce new problems and no finding was missed.
 - If new bugs found: fix and loop.
 - If clean: loop ends.
-- If 3 iterations and still problems: STOP and escalate.
+- **Convergence rule (plateau detection):** after each iteration, count remaining CRITICAL + MAJOR findings. If the count did NOT decrease compared to the previous iteration (plateau or increase), STOP immediately and escalate to the user: "Findings plateaued at N CRITICAL + M MAJOR after K iterations. Fix-review loop is not converging — manual review needed." Do NOT continue looping when findings are not converging — additional iterations produce churn without progress.
+- If `--max-iterations` reached and still problems: STOP and escalate.
 
 ---
 

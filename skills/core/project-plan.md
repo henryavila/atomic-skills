@@ -318,7 +318,7 @@ The skill never errors out just because superpowers is absent.
    });"
    ```
 
-5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
+5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
 
 6. **Materialize.** On confirmation, run the pure transform:
 
@@ -645,17 +645,26 @@ Options:
 - `--tags <tag>[,<tag>...]` — sets `tags[]`.
 - `--verifier-shell "<command>"` — sets `verifier: { kind: shell, command: ... }`.
 - `--description "<text>"` — sets `description`.
+- `--scope-boundary "<text>"[,"<text>"...]` — sets `scopeBoundary[]` (explicit "do NOT do X" exclusions).
+- `--acceptance "<assertion>"[,"<assertion>"...]` — sets `acceptance[]` (max 5, `it()`-style assertions).
+
+When `--scope-boundary` or `--acceptance` are NOT provided, the agent SHOULD still draft them in the `Proposed mutation:` block if the task is non-trivial (more than a config change). The user can delete them during ratify. This makes exclusions and success criteria visible by default.
 
 Steps:
 1. Resolve target initiative (current active OR by `--target` phaseId).
-2. Generate next task id: scan `tasks[].id`, pick the next `T-NNN` (zero-pad to 3).
-3. **Ratify gate**: print the `Proposed mutation:` block (including the drafted `context`). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. Without a ratify reply, do NOT proceed to steps 4+.
-4. Build the task object: `{id, title, status: pending, lastUpdated: now, …}`.
-5. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: <human|ai> }`. `surfacedBy: human` when the user typed the command directly; `surfacedBy: ai` when the agent surfaced it and the user only ratified.
-6. **MANDATORY**: set `context: { solves, trigger, assumesStillValid?, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }` — from the ratified block (verbatim if the user typed `ratify`, edited version if they pasted corrections).
-7. Append to `tasks[]`, bump initiative `lastUpdated`.
-8. Validate against schema. Save file.
-9. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
+2. **Reconciliation gate**: run the pre-mutation reconciliation gate from `atomic-skills:project-status` — scan `tasks[]` for `status: active` entries with `lastUpdated` older than `reconciliationThresholdHours` (default 24). If found, present them and reconcile before proceeding. See `project-status.md` § "Pre-mutation reconciliation gate" for the full flow.
+3. Generate next task id: scan `tasks[].id`, pick the next `T-NNN` (zero-pad to 3).
+4. **Ratify gate**: print the `Proposed mutation:` block (including the drafted `context`). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. Without a ratify reply, do NOT proceed to steps 5+.
+5. Build the task object: `{id, title, status: pending, lastUpdated: now, …}`.
+6. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: <human|ai> }`. `surfacedBy: human` when the user typed the command directly; `surfacedBy: ai` when the agent surfaced it and the user only ratified.
+7. **MANDATORY**: set `context: { solves, trigger, assumesStillValid?, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }` — from the ratified block (verbatim if the user typed `ratify`, edited version if they pasted corrections).
+8. Append to `tasks[]`, bump initiative `lastUpdated`.
+9. **Cognitive load warnings** (non-blocking):
+   - If `description` exceeds `maxTaskDescriptionLines` (default 15 from config.json): warn "Task description is N lines (limit: 15). Consider splitting into sub-tasks or moving detail to the initiative body."
+   - If `acceptance[]` exceeds `maxTaskAcceptance` (default 5 from config.json): warn "Task has N acceptance criteria (limit: 5). Focus on the most critical assertions."
+   - Warnings do NOT block task creation — the user can proceed after acknowledging.
+10. Validate against schema. Save file.
+11. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
 
 ## `new-phase <id> "<title>" --after <other-id> [options]`
 
@@ -671,15 +680,16 @@ Options:
 
 Steps:
 1. Load the active plan. If no active plan, abort with: "new-phase requires an active plan. Run `atomic-skills:project-plan <slug>` to create one first."
-2. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
-3. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
-4. On ratify (or edited context):
+2. **Reconciliation gate**: run the pre-mutation reconciliation gate from `atomic-skills:project-status` on the active phase initiative. See `project-status.md` § "Pre-mutation reconciliation gate".
+3. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
+4. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
+5. On ratify (or edited context):
    - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
    - Create the initiative file `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md` from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
    - Save plan + initiative.
    - Validate both files via `npm run validate-state`.
-5. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
-6. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan. Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
+6. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
+7. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan. Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
 
 ## `split-phase <id>`
 

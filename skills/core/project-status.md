@@ -88,6 +88,8 @@ Append (if not present):
 .atomic-skills/status/emergent-drift.log
 .atomic-skills/status/SKIP
 .atomic-skills/status/SKIP-EMERGENT
+.atomic-skills/status/reconciliation.log
+.atomic-skills/status/last-session.json
 .atomic-skills/plans/*.rendered.md
 .atomic-skills/initiatives/*.rendered.md
 .atomic-skills/bootstrap-drafts/
@@ -285,7 +287,7 @@ Optional: `parentPlan`, `phaseId`, `audience`, `scope {paths[]}`, `externalImpor
 
 Markdown body: `body` — additional rationale, decisions, gotchas. Not in frontmatter.
 
-`Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `verifier`.
+`Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `scopeBoundary[]` (explicit "do NOT do X" exclusions), `acceptance[]` (max 5 `it()`-style assertions), `verifier`.
 
 `StackFrame`: `id` (int ≥ 1), `title`, `type` (`task`/`research`/`validation`/`discussion`), `openedAt`.
 
@@ -327,6 +329,35 @@ Quick map (mutations that exist + their section anchor):
 2. If `schemaVersion` is absent or missing, this is a **legacy file**. STOP and prompt the user to invoke `atomic-skills:project-plan migrate <slug>` (which handles the standalone-vs-in-plan choice and calls `src/migrate.js:migrateLegacyInitiative`). Abort the current mutation with: "Mutation cancelled — file is legacy. Run `atomic-skills:project-plan migrate <slug>` first, then retry."
 
 The pre-mutation check is the **only** way legacy files are touched, and migration itself is delegated to `project-plan`. This skill never silently writes legacy-shape YAML.
+
+**Pre-mutation reconciliation gate** — every time you load an active initiative for a **mutating** command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `re-ratify`), run this check AFTER the migration check and BEFORE executing the command:
+
+1. Parse `tasks[]` from the active initiative's frontmatter.
+2. Collect tasks where `status` is `active` AND `lastUpdated` is older than 24 hours from now.
+3. If the collected list is empty → skip, proceed to the command.
+4. If the list is non-empty → present a reconciliation prompt using {{ASK_USER_QUESTION_TOOL}}:
+
+   ```
+   ⚠ Unreconciled tasks detected (active >24h):
+
+     T-001 "Add scopeBoundary to schema" — active 3d
+     T-002 "Session-End reconciliation"  — active 1d
+
+   For each: still active? done? blocked?
+   ```
+
+   Present one structured question per stale task (max 4; if more than 4, batch the oldest 4 first). Options per task: `Still active`, `Done`, `Blocked`, `Skip`.
+
+5. Apply user answers immediately:
+   - **Done** → run the `done <task-id>` flow (including auto-transition detection).
+   - **Blocked** → set `status: blocked`, ask for `blockedBy[]` (optional), bump `lastUpdated`.
+   - **Still active** → bump `lastUpdated` to now (acknowledges the task, resets the 24h clock).
+   - **Skip** → no change, proceed.
+6. After reconciliation, proceed to the original command.
+
+The gate is skipped for read-only commands (`--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, `--browser`, `why`, `scope-creep`). It is also skipped when the user is already running `done` on one of the stale tasks (avoid double-prompting).
+
+The 24-hour threshold is configurable via `.atomic-skills/status/config.json` key `reconciliationThresholdHours` (default: 24). Set to `0` to disable.
 
 ### `push <description>`
 
@@ -397,12 +428,17 @@ Invoked when the active initiative is the phase initiative of an active plan AND
 3. For each criterion (status === `pending`) → apply the **Verifier execution patterns** below.
 4. After iterating: report status summary. Continue to advance only when every criterion is `met` OR was explicitly `deferred` with a `deferredReason`.
 5. If any criterion is still `pending` after iteration: ask "Some gates remain pending. Mark phase done anyway? (y/N)". On `n`, leave initiative in `active` state and stop. On `y`, document the override (set `deferredReason` on the remaining criteria) and proceed to step 6.
-6. **Advance the plan** — call `src/transition.js`:`proposeAdvance(plan, phaseId)` to decide what's next. The function returns one of three shapes:
+6. **Review gate** — run `atomic-skills:review-code` on the phase diff. This step is mandatory unless `--skip-review` is passed explicitly.
+   - Compute the diff range: from the phase initiative's `started` timestamp (find the closest commit via `git log --before=<started> -1 --format=%H`) to HEAD.
+   - Run `atomic-skills:review-code <range> --mode=local`. The convergence rule (plateau detection, `--max-iterations`) applies automatically.
+   - Apply blocker/critical findings. If fixes are committed, the review range shifts — this is expected and handled by the convergence rule.
+   - If `--skip-review` was passed: record `Codex review: SKIPPED at phase-done (user requested --skip-review)` in the self-review block (see § "Self-review against code-quality gates") and proceed.
+7. **Advance the plan** — call `src/transition.js`:`proposeAdvance(plan, phaseId)` to decide what's next. The function returns one of three shapes:
    - `{ kind: 'plan-done', eligible: [] }` — no more eligible phases. Offer to mark the plan itself `status: done` and `archive` it.
    - `{ kind: 'single', next: '<id>', alternatives: [...] }` — propose "Phase `<id>` done. Advance `currentPhase` to `<next>`? (y/N)". List `alternatives` so the user can override before accepting.
    - `{ kind: 'parallel-choice', eligible: [...] }` — when the plan has `parallelismAllowed: true`, ask "Which of `<eligible...>` should be activated now? Select one or more (or `none`)".
    Before presenting any of the above, call `src/transition.js`:`unknownDeps(plan)`. If it returns non-empty, surface the typos to the user and abort the advance — the dependency graph is broken.
-7. On the user's accept of an advance:
+8. On the user's accept of an advance:
    - **Propagate completion to the initiative** (BEFORE archiving):
      a. Set all `tasks[].status = 'done'`, `tasks[].closedAt = <now>`, `tasks[].lastUpdated = <now>` for any task not already `done`.
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
@@ -412,8 +448,8 @@ Invoked when the active initiative is the phase initiative of an active plan AND
    - Run `archive <slug>` on the just-closed initiative so its file moves to `initiatives/archive/`.
    - For each newly-active phase id, propose `atomic-skills:project-plan new <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new` flow already seeds the initiative's first stack frame from `initiative.template.md`.
    - Save the plan + PROJECT-STATUS.md.
-8. On user decline (or `plan-done` accept without `currentPhase` change):
-   - **Propagate completion to the initiative** (same steps 7a-d above).
+9. On user decline (or `plan-done` accept without `currentPhase` change):
+   - **Propagate completion to the initiative** (same steps 8a-d above).
    - Set the parent plan's phase `status: done` and stop without seeding a successor.
 
 ### Verifier execution patterns (`verify_exit_gate` workflow)

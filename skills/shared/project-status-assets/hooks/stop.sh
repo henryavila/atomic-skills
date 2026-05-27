@@ -286,6 +286,130 @@ branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
 active=$(detect_active_initiative "$branch")
 [[ -z "$active" ]] && exit 0
 
+# --- task reconciliation (suggest `done` for tasks whose outputs were touched) ---
+
+reconciliation_enabled=$(jq -r '.reconciliationThresholdHours // 24' "$CONFIG" 2>/dev/null || echo 24)
+if [[ "$reconciliation_enabled" != "0" && -n "$active" ]]; then
+  # Extract tasks with outputs[].path from the active initiative frontmatter.
+  # Produces lines: T-NNN<TAB>status<TAB>path
+  task_output_map=$(awk '
+    BEGIN { fm = 0; in_tasks = 0; in_outputs = 0; cur_id = ""; cur_status = "" }
+    /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
+    fm != 1 { next }
+    /^tasks:[[:space:]]*$/ { in_tasks = 1; next }
+    in_tasks && /^[A-Za-z][A-Za-z0-9_]*:/ && !/^[[:space:]]/ { in_tasks = 0 }
+    in_tasks && /^[[:space:]]+-[[:space:]]*id:/ {
+      sub(/.*id:[[:space:]]*/, "", $0)
+      sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+      cur_id = $0
+    }
+    in_tasks && /^[[:space:]]+status:/ {
+      sub(/.*status:[[:space:]]*/, "", $0)
+      sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+      cur_status = $0
+    }
+    in_tasks && /^[[:space:]]+outputs:/ { in_outputs = 1; next }
+    in_tasks && in_outputs && /^[[:space:]]+-[[:space:]]*id:/ { in_outputs = 0 }
+    in_tasks && in_outputs && /^[[:space:]]+[A-Za-z][A-Za-z0-9_]*:/ && !/path:/ { next }
+    in_tasks && in_outputs && /path:/ {
+      sub(/.*path:[[:space:]]*/, "", $0)
+      sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+      if (cur_id != "" && cur_status != "done" && length($0) > 0) {
+        print cur_id "\t" cur_status "\t" $0
+      }
+    }
+  ' "$active")
+
+  if [[ -n "$task_output_map" && -n "$transcript_path" && -f "$transcript_path" ]]; then
+    last_user_ts_recon=$(jq -r 'select(.type == "user") | .timestamp // empty' \
+      "$transcript_path" 2>/dev/null | tail -1)
+    if [[ -n "$last_user_ts_recon" ]]; then
+      files_written_recon=()
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && files_written_recon+=("$line")
+      done < <(list_files_written "$transcript_path" "$last_user_ts_recon")
+
+      if (( ${#files_written_recon[@]} > 0 )); then
+        # Also check git diff for files changed since session start
+        git_changed=()
+        session_start_sha=$(jq -r 'select(.type == "user") | .timestamp // empty' \
+          "$transcript_path" 2>/dev/null | head -1)
+        if [[ -n "$session_start_sha" ]]; then
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && git_changed+=("$line")
+          done < <(git -C "$PROJ_DIR" diff --name-only HEAD 2>/dev/null)
+        fi
+
+        # Merge both sources
+        all_changed=()
+        for f in "${files_written_recon[@]}"; do
+          # Normalize to repo-relative
+          rel="${f#$PROJ_DIR/}"
+          all_changed+=("$rel")
+        done
+        for f in "${git_changed[@]}"; do
+          all_changed+=("$f")
+        done
+        all_changed_sorted=$(printf '%s\n' "${all_changed[@]}" | sort -u)
+
+        likely_done=()
+        while IFS=$'\t' read -r tid tstatus tpath; do
+          [[ -z "$tid" ]] && continue
+          # Check if any changed file matches the output path (prefix match)
+          while IFS= read -r changed_file; do
+            [[ -z "$changed_file" ]] && continue
+            if [[ "$changed_file" == "$tpath"* || "$changed_file" == *"$tpath"* ]]; then
+              likely_done+=("$tid")
+              break
+            fi
+          done <<< "$all_changed_sorted"
+        done <<< "$task_output_map"
+
+        if (( ${#likely_done[@]} > 0 )); then
+          unique_done=$(printf '%s\n' "${likely_done[@]}" | sort -u)
+          recon_msg="📋 State Reconciliation: files matching task outputs were modified this session."
+          recon_msg+=$'\n'"Likely done:"
+          while IFS= read -r tid; do
+            [[ -z "$tid" ]] && continue
+            # Get task title
+            ttitle=$(awk -v id="$tid" '
+              BEGIN { fm = 0; in_tasks = 0; found = 0 }
+              /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
+              fm != 1 { next }
+              /^tasks:/ { in_tasks = 1; next }
+              in_tasks && /^[A-Za-z]/ && !/^[[:space:]]/ { exit }
+              in_tasks && /id:/ {
+                sub(/.*id:[[:space:]]*/, "", $0)
+                sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+                if ($0 == id) found = 1
+              }
+              found && /title:/ {
+                sub(/.*title:[[:space:]]*/, "", $0)
+                sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
+                print $0; exit
+              }
+            ' "$active")
+            recon_msg+=$'\n'"  ${tid} \"${ttitle}\""
+          done <<< "$unique_done"
+          done_ids=$(echo "$unique_done" | tr '\n' ' ' | sed 's/ *$//')
+          recon_msg+=$'\n'"Run: $(for id in $done_ids; do printf "done %s && " "$id"; done | sed 's/ && $//')"
+
+          # Log to reconciliation log
+          mkdir -p "$(dirname "$DRIFT_LOG")"
+          RECON_LOG="$ASKILLS_DIR/status/reconciliation.log"
+          ts_recon=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          jq -n --arg ts "$ts_recon" --arg slug "$(basename "$active" .md)" \
+            --argjson tasks "$(printf '%s\n' ${likely_done[@]} | jq -R . | jq -s .)" \
+            '{ts: $ts, initiative: $slug, likely_done: $tasks}' >> "$RECON_LOG" 2>/dev/null
+
+          # Surface via additionalContext (non-blocking)
+          printf '%s\n' "$recon_msg" >&2
+        fi
+      fi
+    fi
+  fi
+fi
+
 # --- drift check ------------------------------------------------------------
 
 [[ -z "$transcript_path" || ! -f "$transcript_path" ]] && exit 0
