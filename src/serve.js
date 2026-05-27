@@ -58,12 +58,14 @@ export function parsePort(input) {
  */
 export function resolveAideckBin() {
   if (process.env.AIDECK_BIN) return process.env.AIDECK_BIN
-  const sibling = resolve(PACKAGE_ROOT, '..', 'aideck', 'dist', 'cli.js')
-  if (existsSync(sibling)) return sibling
-  const installed = join(homedir(), '.atomic-skills', 'bin', 'aideck.mjs')
-  if (existsSync(installed)) return installed
+  // Prefer vendored/installed bundles (stable, from last build:aideck).
+  // Sibling repo is last resort — it may be on a feature branch.
   const vendored = join(PACKAGE_ROOT, 'dist', 'aideck.mjs')
   if (existsSync(vendored)) return vendored
+  const installed = join(homedir(), '.atomic-skills', 'bin', 'aideck.mjs')
+  if (existsSync(installed)) return installed
+  const sibling = resolve(PACKAGE_ROOT, '..', 'aideck', 'dist', 'cli.js')
+  if (existsSync(sibling)) return sibling
   return 'aideck'
 }
 
