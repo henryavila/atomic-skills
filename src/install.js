@@ -26,6 +26,22 @@ export { resolveProjectScopeTarget } from './scope.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
 
+function installRuntimeArtifacts() {
+  const aideckBundle = join(PACKAGE_ROOT, 'dist', 'aideck.mjs');
+  if (existsSync(aideckBundle)) {
+    const binDir = join(homedir(), '.atomic-skills', 'bin');
+    mkdirSync(binDir, { recursive: true });
+    copyFileSync(aideckBundle, join(binDir, 'aideck.mjs'));
+  }
+
+  const dashboardSrc = join(PACKAGE_ROOT, 'dist', 'dashboard');
+  const dashboardDest = join(homedir(), '.atomic-skills', 'dashboard');
+  if (existsSync(join(dashboardSrc, 'index.html'))) {
+    if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
+    cpSync(dashboardSrc, dashboardDest, { recursive: true });
+  }
+}
+
 function generateNamespaceRoot() {
   const desc = "Stop rewriting prompts. Install optimized developer skills in any AI IDE.";
   const escaped = desc.replace(/'/g, "''");
@@ -660,6 +676,7 @@ export async function install(projectDir, options = {}) {
       }
     }
 
+    installRuntimeArtifacts();
     showNonInteractiveResult(result, ides, language);
     return;
   }
@@ -865,18 +882,7 @@ export async function install(projectDir, options = {}) {
   }
 
   // Install aideck bundle + dashboard to ~/.atomic-skills/
-  const aideckBundle = join(PACKAGE_ROOT, 'dist', 'aideck.mjs');
-  if (existsSync(aideckBundle)) {
-    const binDir = join(homedir(), '.atomic-skills', 'bin');
-    mkdirSync(binDir, { recursive: true });
-    copyFileSync(aideckBundle, join(binDir, 'aideck.mjs'));
-  }
-  const dashboardSrc = join(PACKAGE_ROOT, 'dist', 'dashboard');
-  const dashboardDest = join(homedir(), '.atomic-skills', 'dashboard');
-  if (existsSync(join(dashboardSrc, 'index.html'))) {
-    if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
-    cpSync(dashboardSrc, dashboardDest, { recursive: true });
-  }
+  installRuntimeArtifacts();
 
   // Restore files user chose to keep
   for (const [filePath, content] of savedContent) {

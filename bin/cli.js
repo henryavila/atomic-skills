@@ -51,7 +51,8 @@ if (values.help || !command) {
     --port <N>        (serve) Port for the aideck backend (default 7777)
     --force-build     (serve) Rebuild dashboard bundle even if dist/dashboard exists
     --aideck-bin <p>  (serve) Path to aideck binary or its dist/cli.js. Default: probes
-                      $AIDECK_BIN, ../aideck/dist/cli.js, then PATH lookup of "aideck"
+                      $AIDECK_BIN, vendored bundle, installed bundle,
+                      ../aideck/dist/cli.js, then PATH lookup of "aideck"
 
   Docs: https://github.com/henryavila/atomic-skills
   `);

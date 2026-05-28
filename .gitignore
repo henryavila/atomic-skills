@@ -18,5 +18,6 @@ nexus.yaml
 *.annotations.yaml
 
 # Build artifacts
-dist/
+dist/*
+!dist/aideck.mjs
 node_modules/

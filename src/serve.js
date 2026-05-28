@@ -48,7 +48,7 @@ export function parsePort(input) {
 /**
  * Probes for the aideck CLI binary. Order:
  *   1. $AIDECK_BIN env override (full path).
- *   2. dist/aideck/cli.js (vendored — shipped with the package).
+ *   2. dist/aideck.mjs (vendored — shipped with the package).
  *   3. ../aideck/dist/cli.js (sibling repo, dev).
  *   4. "aideck" on PATH.
  *

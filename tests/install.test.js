@@ -337,7 +337,36 @@ describe('installSkills', () => {
   });
 });
 
-describe('install command project scope', () => {
+describe('install command artifacts', () => {
+  it('copies bundled aideck and dashboard during non-interactive install', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-install-project-'));
+    const originalHome = process.env.HOME;
+
+    try {
+      process.env.HOME = fakeHome;
+      await install(projectDir, {
+        yes: true,
+        ide: ['claude-code'],
+        lang: 'en',
+      });
+
+      const sourceBundle = join(__dirname, '..', 'dist', 'aideck.mjs');
+      const installedBundle = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
+      assert.ok(existsSync(installedBundle), 'non-interactive install must copy aideck.mjs');
+      assert.equal(readFileSync(installedBundle, 'utf8'), readFileSync(sourceBundle, 'utf8'));
+      assert.ok(
+        existsSync(join(fakeHome, '.atomic-skills', 'dashboard', 'index.html')),
+        'non-interactive install must copy dashboard bundle'
+      );
+    } finally {
+      if (originalHome === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHome;
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
   it('resolves project scope to the git root when run from a subdirectory', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-install-repo-'));
