@@ -6,6 +6,7 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { readManifest } from './manifest.js';
 import { IDE_CONFIG } from './config.js';
+import { resolveProjectScopeTarget } from './scope.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
@@ -37,9 +38,11 @@ export function status(projectDir, options = {}) {
   let manifestBase;
 
   if (options.forceProject) {
-    manifest = projectDir ? readManifest(projectDir) : null;
+    const target = projectDir ? resolveProjectScopeTarget(projectDir) : null;
+    const projectBase = target?.ok ? target.path : projectDir;
+    manifest = projectBase ? readManifest(projectBase) : null;
     manifestScope = 'project';
-    manifestBase = projectDir;
+    manifestBase = projectBase;
   } else {
     // Default: check user-scope first, fall back to project.
     manifest = readManifest(homeDir);

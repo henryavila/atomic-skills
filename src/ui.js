@@ -18,6 +18,10 @@ export const MESSAGES = {
     detected: 'detectado',
     selectIDEs: 'Quais IDEs você usa?',
     selectLang: 'Em qual idioma você quer que eu me comunique com você?',
+    selectScope: 'Onde instalar?',
+    scopeUserInstall: 'Usuário — todos os seus repos',
+    scopeProjectInstall: 'Projeto — repo atual',
+    scopeProjectUnavailable: (reason) => `Projeto indisponível: ${reason}`,
     confirmUninstall: 'Remover arquivos gerados?',
     uninstallScope: 'Qual instalação remover?',
     scopeProject: 'Projeto — somente este repo',
@@ -54,6 +58,10 @@ export const MESSAGES = {
     detected: 'detected',
     selectIDEs: 'Which IDEs do you use?',
     selectLang: 'Which language should I communicate with you in?',
+    selectScope: 'Where should Atomic Skills be installed?',
+    scopeUserInstall: 'User — all your repos',
+    scopeProjectInstall: 'Project — current repo',
+    scopeProjectUnavailable: (reason) => `Project unavailable: ${reason}`,
     confirmUninstall: 'Remove generated files?',
     uninstallScope: 'Which installation to remove?',
     scopeProject: 'Project — this repo only',
@@ -138,9 +146,11 @@ export function showIntro(config, { isUpdate, pkgVersion } = {}) {
  * @param {number} conflictCount
  */
 export function printConfig(config, conflictCount = 0) {
-  const { lang, scope, ides = [], modules = {}, skillCount } = config;
+  const { lang, scope, scopePath, ides = [], modules = {}, skillCount } = config;
 
-  const scopeLabel = scope === 'user' ? `user (${pc.dim('~/')})` : `project (${pc.dim('./')})`;
+  const scopeLabel = scope === 'user'
+    ? `user (${pc.dim(scopePath || '~/')})`
+    : `project (${pc.dim(scopePath || './')})`;
 
   const ideLabels = ides
     .filter((id) => id !== 'gemini-commands')
@@ -379,6 +389,43 @@ export async function promptLanguageSelection(lang) {
     }
 
     return custom.trim().toLowerCase();
+  }
+
+  return result;
+}
+
+/**
+ * Select install scope. Project scope is only offered when the current
+ * directory resolves to a valid, writable Git worktree root.
+ * @param {string} lang
+ * @param {object} opts
+ * @param {{ok: boolean, path?: string, reason?: string}} opts.projectTarget
+ * @param {'user'|'project'} opts.initialScope
+ * @returns {Promise<'user'|'project'>}
+ */
+export async function promptInstallScope(lang, opts = {}) {
+  const m = msg(lang);
+  const projectTarget = opts.projectTarget || { ok: false, reason: 'No project target resolved.' };
+  const options = [
+    { value: 'user', label: m.scopeUserInstall, hint: '~/' },
+  ];
+
+  if (projectTarget.ok) {
+    options.push({ value: 'project', label: m.scopeProjectInstall, hint: projectTarget.path });
+  } else {
+    p.log.warn(m.scopeProjectUnavailable(projectTarget.reason));
+  }
+
+  const initialValue = projectTarget.ok && opts.initialScope === 'project' ? 'project' : 'user';
+  const result = await p.select({
+    message: m.selectScope,
+    options,
+    initialValue,
+  });
+
+  if (p.isCancel(result)) {
+    p.cancel(m.cancelled);
+    process.exit(0);
   }
 
   return result;

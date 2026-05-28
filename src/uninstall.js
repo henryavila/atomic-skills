@@ -3,6 +3,7 @@ import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
+import { resolveProjectScopeTarget } from './scope.js';
 
 const UNINSTALL_MESSAGES = {
   pt: {
@@ -26,13 +27,15 @@ const UNINSTALL_MESSAGES = {
 };
 
 export async function uninstall(projectDir, scope = null) {
-  const hasProject = readManifest(projectDir) !== null;
+  const projectTarget = resolveProjectScopeTarget(projectDir);
+  const projectBase = projectTarget.ok ? projectTarget.path : projectDir;
+  const hasProject = readManifest(projectBase) !== null;
   const hasUser = readManifest(homedir()) !== null;
 
   if (!scope) {
     if (hasProject && hasUser) {
       // Use project manifest's language for the prompt
-      const projectManifest = readManifest(projectDir);
+      const projectManifest = readManifest(projectBase);
       const lang0 = projectManifest?.language || 'en';
       scope = await promptUninstallScope(lang0);
     } else if (hasProject) {
@@ -45,7 +48,7 @@ export async function uninstall(projectDir, scope = null) {
     }
   }
 
-  const basePath = scope === 'user' ? homedir() : projectDir;
+  const basePath = scope === 'user' ? homedir() : projectBase;
   const manifest = readManifest(basePath);
   const lang = manifest?.language || 'en';
   const msg = UNINSTALL_MESSAGES[lang] || UNINSTALL_MESSAGES.en;

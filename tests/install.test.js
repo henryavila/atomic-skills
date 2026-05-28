@@ -1,10 +1,11 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { installSkills } from '../src/install.js';
+import { install, installSkills, resolveProjectScopeTarget } from '../src/install.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
@@ -333,6 +334,49 @@ describe('installSkills', () => {
     assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');
     assert.ok(files.includes('CLAUDE.md-gate.template.md'), 'must include project-status asset');
     assert.ok(files.includes('minimal-source.template.md'), 'must include project-plan asset');
+  });
+});
+
+describe('install command project scope', () => {
+  it('resolves project scope to the git root when run from a subdirectory', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-install-repo-'));
+    const nested = join(repo, 'src', 'nested');
+    const originalHome = process.env.HOME;
+
+    try {
+      mkdirSync(nested, { recursive: true });
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      process.env.HOME = fakeHome;
+
+      await install(nested, {
+        yes: true,
+        project: true,
+        ide: ['claude-code'],
+        lang: 'en',
+      });
+
+      assert.ok(existsSync(join(repo, '.claude/commands/atomic-skills/fix.md')));
+      assert.ok(existsSync(join(repo, '.atomic-skills/manifest.json')));
+      assert.ok(!existsSync(join(nested, '.claude/commands/atomic-skills/fix.md')));
+      assert.ok(!existsSync(join(nested, '.atomic-skills/manifest.json')));
+    } finally {
+      if (originalHome === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHome;
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects project scope outside a git worktree', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'as-install-not-repo-'));
+    try {
+      const result = resolveProjectScopeTarget(dir);
+      assert.equal(result.ok, false);
+      assert.match(result.reason, /not inside a Git repository/i);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

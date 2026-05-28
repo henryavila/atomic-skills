@@ -323,10 +323,10 @@ SessionStart hook that notifies you when a new version is available on npm — w
 ## Install, Update, Uninstall
 
 ```bash
-# Default: user scope (~/.claude/, ~/.gemini/, …) — shared across every project
+# Interactive: choose user scope or project scope
 npx @henryavila/atomic-skills install
 
-# Project scope: installs into ./ so the team can version-control the skills
+# Non-interactive project scope: install into the current repo's Git root
 npx @henryavila/atomic-skills install --project
 
 # Same command updates an existing install (preserves local edits via 3-hash diff)
@@ -344,7 +344,7 @@ npx @henryavila/atomic-skills uninstall [--project]
 
 **Scope trade-off:**
 - *user scope* (default): one install serves every project; not versioned in git.
-- *project scope* (`--project`): skills live in the repo, are versioned, and overlay the user scope. Pick this for teams.
+- *project scope* (`--project` or the installer picker): skills live in the current repo's Git root, are versioned, and overlay the user scope. Pick this for teams.
 
 ## License
 

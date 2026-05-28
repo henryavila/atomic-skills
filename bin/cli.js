@@ -14,7 +14,6 @@ try {
       lang: { type: 'string' },
       json: { type: 'boolean', default: false },
       'all-detected': { type: 'boolean', default: false },
-      scope: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
       port: { type: 'string' },
       'force-build': { type: 'boolean', default: false },
@@ -29,13 +28,6 @@ try {
 
 const command = positionals[0];
 
-// Backward compat: --scope project → --project
-if (values.scope === 'project') values.project = true;
-if (values.scope && values.scope !== 'user' && values.scope !== 'project') {
-  console.error('  Error: --scope must be "user" or "project"');
-  process.exit(1);
-}
-
 if (values.help || !command) {
   console.log(`
   ⚛ Atomic Skills — Stop rewriting prompts.
@@ -49,7 +41,7 @@ if (values.help || !command) {
 
   Options:
     --yes, -y         Accept auto-detected defaults (non-interactive)
-    --project         Install to ./ instead of ~/ (default: user scope)
+    --project         Skip scope picker and install to the current repo's Git root
     --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
                       Use --ide detected or --all-detected to refresh from installed IDEs
     --lang <code>     Communication language for all skills (e.g. en, pt, es, fr, ja)
@@ -81,7 +73,16 @@ if (values.help || !command) {
   const { homedir } = await import('node:os');
   const pc = (await import('picocolors')).default;
   const { detectIDEState } = await import('../src/detect.js');
-  const basePath = values.project ? process.cwd() : homedir();
+  let basePath = homedir();
+  if (values.project) {
+    const { resolveProjectScopeTarget } = await import('../src/scope.js');
+    const target = resolveProjectScopeTarget(process.cwd());
+    if (!target.ok) {
+      console.error(`  Error: ${target.reason}`);
+      process.exit(1);
+    }
+    basePath = target.path;
+  }
   const state = detectIDEState(basePath);
   if (values.json) {
     console.log(JSON.stringify(state, null, 2));
@@ -92,8 +93,7 @@ if (values.help || !command) {
   }
 } else if (command === 'uninstall') {
   const { uninstall } = await import('../src/uninstall.js');
-  const scope = values.project ? 'project' : (values.scope || null);
-  await uninstall(process.cwd(), scope);
+  await uninstall(process.cwd(), values.project ? 'project' : null);
 } else if (command === 'status') {
   const { status } = await import('../src/status.js');
   status(process.cwd(), { forceProject: values.project });

@@ -10,14 +10,14 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const CLI = join(__dirname, '..', 'bin', 'cli.js');
 
 describe('CLI flag parsing', () => {
-  it('rejects invalid --scope value', () => {
+  it('rejects removed legacy --scope flag', () => {
     assert.throws(() => {
-      execFileSync('node', [CLI, 'install', '--scope', 'invalid'], {
+      execFileSync('node', [CLI, 'install', '--scope', 'project', '--yes', '--ide', 'claude-code'], {
         encoding: 'utf8',
         timeout: 5000,
       });
     }, (err) => {
-      assert.ok(err.stderr.includes('--scope must be'));
+      assert.ok(err.stderr.includes("Unknown option '--scope'"));
       return true;
     });
   });

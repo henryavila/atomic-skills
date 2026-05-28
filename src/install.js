@@ -14,11 +14,14 @@ import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
 import { parse as parseYaml } from 'yaml';
 import { detectLanguage, detectIDEs, countSkills } from './detect.js';
+import { resolveProjectScopeTarget } from './scope.js';
 import {
   showIntro, printConfig, promptAction, promptIDESelection,
-  promptLanguageSelection, promptModuleConfig, promptConflict,
+  promptLanguageSelection, promptModuleConfig, promptInstallScope, promptConflict,
   promptOrphanConflict, showPostInstall, showNonInteractiveResult, msg,
 } from './ui.js';
+
+export { resolveProjectScopeTarget } from './scope.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
@@ -492,7 +495,32 @@ export async function install(projectDir, options = {}) {
     allDetected = false,
   } = options;
 
-  const basePath = project ? projectDir : homedir();
+  const userBasePath = homedir();
+  const projectTarget = resolveProjectScopeTarget(projectDir);
+
+  if (project && !projectTarget.ok) {
+    console.error(`  ${pc.red('Error:')} ${projectTarget.reason}`);
+    process.exit(1);
+  }
+
+  const userManifest = readManifest(userBasePath);
+  const projectManifest = projectTarget.ok ? readManifest(projectTarget.path) : null;
+  const initialLanguage = cliLang || userManifest?.language || projectManifest?.language || detectLanguage();
+
+  let scope = project ? 'project' : 'user';
+  if (!yes && !project) {
+    scope = await promptInstallScope(initialLanguage, {
+      projectTarget,
+      initialScope: projectManifest && !userManifest ? 'project' : 'user',
+    });
+  }
+
+  if (scope === 'project' && !projectTarget.ok) {
+    console.error(`  ${pc.red('Error:')} ${projectTarget.reason}`);
+    process.exit(1);
+  }
+
+  const basePath = scope === 'project' ? projectTarget.path : userBasePath;
   const existingManifest = readManifest(basePath);
   const isFirstInstall = !existingManifest;
   const isUpdate = !!existingManifest;
@@ -501,7 +529,7 @@ export async function install(projectDir, options = {}) {
   const metaDir = join(PACKAGE_ROOT, 'meta');
 
   // Build initial config: CLI overrides > manifest > auto-detection > defaults
-  let language = cliLang || existingManifest?.language || detectLanguage();
+  let language = cliLang || existingManifest?.language || initialLanguage;
   const languageDetected = !cliLang && !existingManifest?.language;
 
   let ides;
@@ -532,8 +560,6 @@ export async function install(projectDir, options = {}) {
     const moduleYaml = parseYaml(readFileSync(join(skillsDir, 'modules', 'memory', 'module.yaml'), 'utf8'));
     modules = { memory: { installed: true, config: { memory_path: moduleYaml.variables.memory_path.default } } };
   }
-
-  const scope = project ? 'project' : 'user';
 
   // ─── Legacy-namespace cleanup (runs in both modes, before main install) ───
   // Removes files at obsolete install paths (see LEGACY_NAMESPACE_PATHS)
@@ -646,6 +672,8 @@ export async function install(projectDir, options = {}) {
     modules,
     project,
     scope,
+    scopePath: scope === 'project' ? basePath : '~/',
+    projectTarget,
     existingVersion: existingManifest?.version,
     skillCount: countSkills(metaDir, modules),
   };
