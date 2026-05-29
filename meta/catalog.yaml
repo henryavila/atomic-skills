@@ -662,6 +662,70 @@ core:
     dependencies: [git]
     schema_version: '0.2'
 
+  debate:
+    name: debate
+    title: 'Debate — Multi-Agent Roundtable'
+    description: 'Facilitate a multi-voice debate where 2-4 personas argue as real, independent subagents — each spawned separately so it thinks for itself, presented unblended. Use for design debates, brainstorming, adversarial panels, or any time you want genuinely divergent perspectives instead of one model''s averaged take.'
+    value_pitch: >
+      Ask one model for "the architect''s view and the QA view" and both
+      collapse toward the same voice — convergent, performative, useless for
+      finding blind spots. `debate` spawns each persona as its own subagent
+      so they genuinely disagree, and presents every response unabridged instead
+      of digesting them into your summary. The roster is pluggable (inline list,
+      `.claude/agents/*.md`, `personas/*.md`, or a shipped default), so it runs
+      in any repo. It''s the divergent, human-in-the-loop step that produces the
+      consolidated direction `parallel-dispatch` consumes.
+    purpose: >
+      Run a multi-persona roundtable as independent subagents for divergent
+      thinking — design debates, brainstorming, adversarial review panels — with
+      the human steering each round.
+    when_to_use:
+      - 'You want genuinely divergent perspectives on an open question'
+      - 'Debating a design, architecture, or product trade-off'
+      - 'Brainstorming or widening the option space before deciding'
+      - 'Running an adversarial review panel (dev + architect + QA cross-talk)'
+    when_not_to_use:
+      - 'You have a finalized, disjoint task list (use parallel-dispatch)'
+      - 'You need a single converged answer or committed artifacts'
+      - 'A one-shot factual question with no perspectives to weigh'
+    examples:
+      - command: '/atomic-skills:debate "should we split the monolith now or after launch?"'
+        description: 'Debate an open decision using the auto-detected roster'
+      - command: '/atomic-skills:debate --solo "review this API design"'
+        description: 'Single-LLM role-play fallback when subagents are unavailable'
+      - command: '/atomic-skills:debate --roster personas/security-panel.yaml'
+        description: 'Convene a specific named panel from a roster file'
+    related: [parallel-dispatch, review-plan, review-code]
+    tags: [brainstorming, multi-agent, roundtable, divergent, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: false
+    network_required: false
+    argument_hint: '[topic] [--solo] [--model <model>] [--roster <path>]'
+    one_liner: 'Roundtable of independent subagent personas for divergent thinking'
+    emoji: '🎭'
+    version_added: '2.1.0'
+    args:
+      - name: topic
+        kind: positional
+        required: false
+        description: 'Opening topic for the roundtable. If omitted, the skill asks after showing the roster.'
+      - name: '--solo'
+        kind: flag
+        required: false
+        description: 'Role-play all personas in one response instead of spawning subagents (fallback when the spawn tool is unavailable).'
+      - name: '--model'
+        kind: option
+        required: false
+        description: 'Force all subagents onto a specific model.'
+        default: 'model matched to each round''s depth'
+      - name: '--roster'
+        kind: option
+        required: false
+        description: 'Explicit roster file (YAML list or directory of persona files) instead of auto-detection.'
+    dependencies: []
+    schema_version: '0.2'
+
 modules:
   codex-bridge: {}
   auto-update: {}

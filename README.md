@@ -102,6 +102,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 | 🎯 | [`hunt`](docs/skills/hunt.md) | Adversarial tests from the spec, not the code — depth over breadth | `NO HUNT WITHOUT BOUNDED SCOPE.` |
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
 | 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Verify each batch deliverable on disk; fix or escalate with evidence | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
+| 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 [SKILLS_TABLE_END]: #
 
@@ -245,6 +246,20 @@ A green commit can sit on top of an empty file, and a still-running agent looks 
 ```
 
 [Full reference →](docs/skills/parallel-dispatch-audit.md)
+
+---
+
+### 🎭 `debate` — Multi-Agent Roundtable
+
+**Iron Law:** `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.`
+
+Ask one model for "the architect''s view and the QA view" and both collapse toward the same voice — convergent, performative, useless for finding blind spots. `debate` spawns each persona as its own subagent so they genuinely disagree, and presents every response unabridged instead of digesting them into your summary. The roster is pluggable (inline list, `.claude/agents/*.md`, `personas/*.md`, or a shipped default), so it runs in any repo. It''s the divergent, human-in-the-loop step that produces the consolidated direction `parallel-dispatch` consumes.
+
+```
+/atomic-skills:debate "should we split the monolith now or after launch?"
+```
+
+[Full reference →](docs/skills/debate.md)
 
 ---
 
