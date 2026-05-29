@@ -39,6 +39,8 @@
  * If neither provided → standalone (no parentPlan/phaseId fields).
  */
 
+import { normalizeEntity } from './normalize.js';
+
 const LEGACY_TASK_FIELD_MAP = Object.freeze({
   closed_at: 'closedAt',
   last_updated: 'lastUpdated',
@@ -252,5 +254,10 @@ export function migrateLegacyInitiative(legacy, opts = {}) {
 
   // Dropped intentionally: worktree, wip_limit, plan_link (folded above).
 
-  return { migrated: true, frontmatter: out };
+  // Repair schema drift the field-by-field mapping above passes through verbatim
+  // (gate-status synonyms, references missing kind / using title). This is what
+  // keeps a migrated legacy file from being rejected by aiDeck's strict schema.
+  const { entity: normalized } = normalizeEntity(out, { nowIso: now, kind: 'initiative' });
+
+  return { migrated: true, frontmatter: normalized };
 }

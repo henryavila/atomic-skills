@@ -95,14 +95,28 @@ Materialize the decomposed structure:
 - `.atomic-skills/initiatives/<slug>-<phase-id>.md` per phase, from `skills/shared/project-status-assets/initiative.template.md` with `parentPlan: <slug>` + `phaseId: <id>` filled and the plan-membership-block kept
 - Append rows to `.atomic-skills/PROJECT-STATUS.md` (the Plan in "Active Plans", each Initiative under it)
 
-After writing every file, run:
+After writing every file, **normalize then validate**:
 
 ```bash
+# 1. Auto-repair known drift (gate status synonyms, references kind/title,
+#    missing required initiative fields). Idempotent; safe to always run.
+#    Resolve the script the same way the project-status default view does.
+NORM=""
+for c in "$PWD/src/normalize.js" \
+         "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js" \
+         "$HOME/.atomic-skills/src/normalize.js"; do
+  [ -f "$c" ] && NORM="$c" && break
+done
+[ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
+
+# 2. Validate.
 npm run validate-state .atomic-skills/plans/<slug>.md
 npm run validate-state .atomic-skills/initiatives/<slug>-<phase-id>.md   # per phase
 ```
 
-If any file fails schema validation, surface the errors and roll back (delete the just-written files). Do not leave partial state on disk.
+If `NORM` is empty (script not resolvable in this repo), apply the normalization rules inline before validating — same rules as the *project-status* default view step 2b: gate `status` synonyms → `met`/`pending` (never `done` on a gate), `references[]` get a `kind` and `label` (not `title`), missing required **initiative** arrays → `[]` and `branch`/`nextAction` → `null` (never touch plan files this way — they are `.strict()`).
+
+If any file still fails schema validation after normalization, surface the errors and roll back (delete the just-written files). Do not leave partial state on disk.
 
 ### Stage 7 — Activate first phase
 

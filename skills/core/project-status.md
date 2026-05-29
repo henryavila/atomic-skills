@@ -156,9 +156,23 @@ Steps:
      done
    fi
 
-   # 3. Output
+   # 3. Validate THIS project's state before opening the browser.
+   #    aiDeck validates the whole project state all-or-nothing; one schema
+   #    error makes the dashboard card render only "⊘ <project> — failed to
+   #    load" with the real message hidden. Surface it here instead.
+   STATE_ERROR=""
+   if [ -n "$AIDECK_URL" ]; then
+     pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+     # NOTE: -s only (NOT -sf): aiDeck returns HTTP 400 on schema errors, and
+     # curl -f would discard the body — i.e. swallow the very message we want.
+     STATE_ERROR=$(curl -s "$AIDECK_URL/api/projects/$pid/state/project-status" 2>/dev/null \
+       | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.error){const e=j.error,d=e.details||{};const loc=d.path?` | file: ${d.path}`:"";const n=d.totalErrors&&d.totalErrors>1?` (+${d.totalErrors-1} more)`:"";process.stdout.write(`${e.message}${n}${loc}`)}}catch(_){}})' 2>/dev/null)
+   fi
+
+   # 4. Output
    if [ -n "$AIDECK_URL" ]; then
      echo "AIDECK_URL=$AIDECK_URL"
+     [ -n "$STATE_ERROR" ] && echo "STATE_ERROR=$STATE_ERROR"
    else
      echo "AIDECK_URL="
    fi
@@ -166,15 +180,33 @@ Steps:
 
    Parse the output: if `AIDECK_URL` is non-empty, aiDeck is running.
 
-2. If `AIDECK_URL` is non-empty:
+2. **Auto-repair on `STATE_ERROR`.** If the script printed a non-empty `STATE_ERROR=...` line, this project's state failed aiDeck's `.strict()` schema validation — the dashboard would otherwise show `⊘ <project> — failed to load` with the real reason hidden. Repair the data **automatically** (do not just report it), then continue:
+
+   a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it in this order and run the first that exists:
+      ```bash
+      NORM=""
+      for c in "$PWD/src/normalize.js" \
+               "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js" \
+               "$HOME/.atomic-skills/src/normalize.js"; do
+        [ -f "$c" ] && NORM="$c" && break
+      done
+      [ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
+      echo "NORM=$NORM"
+      ```
+   b. **If `NORM` is empty** (script not resolvable in this repo), apply the same rules yourself with your file tools on the file named in `STATE_ERROR` (and any others that still fail): for each `exitGates[]` / phase `criteria[]` entry, map `status: done`→`met` (add `metAt` from `lastUpdated`/`started`), any other invalid value → `pending` — **never** write `done` on a gate (see *Gate status invariant*); for each `references[]` entry add `kind` (`url` if the path is `http(s)://`, else `file`) and rename `title`→`label`; backfill any missing required initiative array as `[]` and `branch`/`nextAction` as `null`. **Never** add these keys to a plan file (plans are `.strict()` and reject them).
+   c. **Re-validate** by re-running the `STATE_ERROR` curl from step 1's script. Repeat (a)/(b) for any newly-surfaced file until `STATE_ERROR` is empty.
+   d. Print a one-line summary of what was repaired. The aiDeck watcher reloads the card via SSE once the data is valid — no rebuild or reinstall needed (the bundle is never the problem; the data is).
+   e. Then continue to open the browser so the user sees the corrected card.
+
+3. If `AIDECK_URL` is non-empty:
    - Open the browser: `open "$AIDECK_URL"` (macOS) or `xdg-open "$AIDECK_URL"` (Linux). On failure, print the URL for the user.
    - Print: `Dashboard: <url>`
 
-3. If `AIDECK_URL` is empty (binary not found, spawn failure):
+4. If `AIDECK_URL` is empty (binary not found, spawn failure):
    - Fall back to the **terminal view** (`--terminal` behavior below)
    - Print: `aiDeck not available — showing terminal view. Run \`atomic-skills install\` to set up the dashboard.`
 
-4. After opening the browser, also print a **compact terminal summary** (3-5 lines) so the AI has context without needing to fetch from the API:
+5. After opening the browser, also print a **compact terminal summary** (3-5 lines) so the AI has context without needing to fetch from the API:
    - Active plan/phase (if any)
    - Active initiative slug + task progress (e.g. `3/7 done, 1 blocked`)
    - Next action
@@ -272,6 +304,8 @@ Markdown body: `narrative` — the long-form context, motivation, full decomposi
 `PhaseDescriptor`: `id`, `slug`, `title`, `goal`, `dependsOn[]`, `subPhaseCount`, `exitGate {summary, criteria[]}`, `status`. Optional: `parallelWith[]`, `track`, `audience`, `externalImports[]`, `exitGateType` (`standard`/`ui-gate`/`custom`).
 
 `ExitCriterion`: `id`, `description`, `status` (`pending`/`met`/`deferred`). Optional: `verifier`, `metAt`, `deferredReason`.
+
+> **Gate status invariant.** Exit-gate `status` is `pending`/`met`/`deferred` ONLY. It is NOT a Task status — never write `done`, `active`, or `blocked` on a gate. A completed gate is `met` (with `metAt`); a skipped gate is `deferred` (with `deferredReason`). aiDeck validates this enum with a `.strict()` schema and rejects the **entire** project state on the first violation, so one stray `done` on a gate makes the whole project card render `⊘ <project> — failed to load` in the dashboard. This is the single most common cause of that card.
 
 `ExitCriterionVerifier` (oneOf):
 - `{ kind: shell, command, expectExitCode? }`
@@ -566,6 +600,7 @@ Works on both plans and initiatives. If `<slug>` matches `.atomic-skills/plans/<
    - For every initiative with `parentPlan === <slug>` and `status` in {`active`, `paused`, `pending`}: set its `status: archived`, move file to `initiatives/archive/<YYYY-MM>-<slug>.md`.
    - Move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
 3. **Initiative archival**:
+   - **Resolve open exit gates first** (applies to BOTH standalone and plan-anchored initiatives — standalone has no `phase-done`, so this is the only place its gates get closed). For each `exitGates[]` entry whose `status` is not already `met` or `deferred`: run its `verifier` per the **Verifier execution patterns** (or ask the user when `kind: manual`), then set `status: met` (`metAt: <now>`, plus `evidence` when a verifier ran) on pass, or `status: deferred` (`deferredReason`) when the user skips it. **Never set `done`** — that is a Task status; gate status is `pending`/`met`/`deferred` only (see the *Gate status invariant* above). If the user wants to archive without verifying, mark the remaining gates `deferred` with a reason — do not leave them `pending` and do not coerce them to `done`.
    - If the initiative has `parentPlan` and the matching plan phase has `status: done`, verify that the initiative `status` is `done` (not `active`/`pending`). If not, apply the propagation steps from `phase-done` step 7a-d first (set all tasks `done`, exitGates `met`, initiative `status: done`), then continue.
    - Set the initiative's `status: archived`.
    - Move file to `initiatives/archive/<YYYY-MM>-<slug>.md`.
