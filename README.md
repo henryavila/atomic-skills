@@ -44,6 +44,32 @@ npx @henryavila/atomic-skills detect --json
 
 No config files, no API keys for the core skills — the installer detects your IDE(s) and writes the command files in place. Full update / uninstall / scope options are [at the bottom](#install-update-uninstall).
 
+## The Tracking Model at a Glance
+
+Two of the skills — `project-status` and `project-plan` — keep multi-session work on disk in a `.atomic-skills/` tree so every session reloads the exact frame. Four entities; this is how they nest:
+
+```mermaid
+flowchart TD
+    subgraph DASH["&nbsp;🖥️ &nbsp;DASHBOARD TOP LEVEL — the only two things shown on the home view&nbsp;"]
+        direction LR
+        PLAN["📋 <b>PLAN</b><br/>plans/&lt;slug&gt;.md<br/><i>optional root · narrative + phases</i>"]
+        SOLO["🎯 <b>INITIATIVE</b> · standalone<br/>initiatives/&lt;slug&gt;.md<br/><i>no parentPlan</i>"]
+    end
+
+    PLAN -- "phases[]<br/>inline, NOT files" --> PH["🚩 <b>PHASE</b> · F0 → F1 → F2<br/><i>entry inside the Plan + exitGate</i>"]
+    PH -- "materialized 1:1" --> INIT["🛠️ <b>INITIATIVE</b> · phase-anchored<br/>initiatives/&lt;slug&gt;.md<br/><i>parentPlan + phaseId</i>"]
+
+    INIT -- "tasks[]" --> T1["✅ <b>TASK</b><br/><i>only anchor = its initiative</i>"]
+    SOLO -- "tasks[]" --> T2["✅ <b>TASK</b>"]
+
+    classDef top fill:#1f6feb,stroke:#388bfd,color:#ffffff;
+    classDef nested fill:#21262d,stroke:#30363d,color:#e6edf3;
+    class PLAN,SOLO top
+    class PH,INIT,T1,T2 nested
+```
+
+> **How to read it.** The two blue boxes are everything the dashboard home shows — *which efforts are live*. Drill into a **Plan** to see its **Phases**, each materialized 1:1 as a phase-anchored **Initiative**; drill into any Initiative (anchored or standalone) to see its **Tasks**. A Task's only direct anchor is its Initiative — Phase and Plan are inherited, never set on the task. Full model, schema fields, and lifecycle live in [The Tracking Model](#the-tracking-model--plan--initiative--phase--task) below.
+
 ## Why Atomic?
 
 Vague instructions produce vague results, and a "good prompt" you keep in your head dies with the conversation. Each Atomic Skill encodes hard-won patterns that prevent agent drift:
@@ -282,7 +308,7 @@ Memory often already exists but is scattered across `.memory/`, `docs/memory/`, 
 
 ## The Tracking Model — Plan / Initiative / Phase / Task
 
-> Skip this section if you only want the single-shot skills. It matters when you run `project-status` and `project-plan` for multi-session work.
+> Skip this section if you only want the single-shot skills. It matters when you run `project-status` and `project-plan` for multi-session work. The shape is diagrammed [at the top of this README](#the-tracking-model-at-a-glance).
 
 Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. The two heaviest skills — `project-status` and `project-plan` — keep that state on disk in a `.atomic-skills/` tree so every session reloads the exact frame. Four entities, each living in a known place:
 
@@ -291,10 +317,11 @@ Resume a multi-day project and the agent has forgotten which phase you're in, wh
 - **Phase** — one ordered stage of a Plan, gated by an exit gate. (an *inline entry* in the Plan's `phases[]`)
 - **Task** — an atomic action inside an initiative. (frontmatter `tasks[]`)
 
-Two facts the model hinges on, and that most TODO trackers get wrong:
+Three facts the model hinges on, and that most TODO trackers get wrong:
 
 1. **A Phase is not its own file.** It is an inline entry in the Plan's `phases[]` array; the actual *work* for that phase lives in a separate phase-anchored Initiative, linked back via `parentPlan` + `phaseId`. This Plan-phase ↔ Initiative link is the load-bearing relationship.
 2. **Plans are optional.** A repo can run on standalone initiatives alone — a Plan is not always the root.
+3. **A Task's only direct anchor is its Initiative.** A task lives in exactly one initiative's `tasks[]` and carries no `phaseId` or `parentPlan` of its own. Its Phase and Plan are *inherited* from the initiative's `phaseId` / `parentPlan` — set there, never on the task. So a task cannot live directly on a Plan, cannot belong to two phases at once, and "moving a task to another phase" means moving it into that phase's initiative (which `split-phase` does, preserving `provenance`).
 
 ```
 .atomic-skills/                       (canonical state; aiDeck dashboard = read-only projection)
@@ -315,6 +342,16 @@ Two facts the model hinges on, and that most TODO trackers get wrong:
 │
 └── status/   config.json · hooks/ · last-review.json · bootstrap-drafts/
 ```
+
+**What shows at the dashboard top level.** The aiDeck home (and the `PROJECT-STATUS.md` index) lists exactly **two** kinds of entry: **active Plans** and **standalone Initiatives**. Everything else is nested *inside* one of those — a phase-anchored Initiative appears under its Plan (never in the standalone table), a Phase is an entry inside its Plan, and a Task is a row inside its Initiative. So the top level answers "which efforts are live?"; you drill into a Plan or Initiative to see phases and tasks.
+
+| Entity | Top level of dashboard? | Where it shows |
+|--------|:-----------------------:|----------------|
+| Plan | ✅ | "Active Plans" table |
+| Initiative (standalone) | ✅ | "Active Initiatives (standalone)" table |
+| Initiative (phase-anchored) | ❌ | nested under its Plan |
+| Phase | ❌ | inline entry inside its Plan |
+| Task | ❌ | row inside its Initiative's `tasks[]` |
 
 **Why you can trust it.** Emergent work — anything that surfaces mid-task — flows through one discipline: **agent proposes → user RATIFIES → agent commits.** Every emergent task or phase is stamped with `provenance` (WHEN/WHO) plus a ratified `context` (WHY: `solves` / `trigger` / `assumesStillValid`). Ratify is a hard gate — a generic *"ok"* or *"yes"* is **not** ratify; you reply `ratify`, paste edits, or `cancel`.
 
