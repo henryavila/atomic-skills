@@ -33,3 +33,20 @@ metadata:
 1. Add skill entries under `modules.<name>:` in catalog.yaml.
 2. Add `module_meta.<name>: {title, intro, features?, notes?, version_added?}`.
 3. Run `npm run generate-docs`.
+
+## Subcommand grouping (project-status / project-plan docs)
+- Catalog subcommands accept an optional `group` field. `render-readme.js` `renderSubcommands`
+  groups them under bold `*<group>*` labels in **first-appearance order** and renders each command
+  as `` `name signature` `` (pipes in the signature are escaped for the table; the old `example`
+  column was dropped). Keep the catalog entries ordered by group so groups stay contiguous. The
+  validator tolerates `group` — it only checks `name`/`signature`/`description`/`example`.
+- `render-helpview-data.js` (dashboard) intentionally IGNORES `group`. It is **not dead metadata** —
+  it drives the `docs/skills/*.md` grouping only. Don't "fix" the dashboard expecting grouping there.
+- Grouping renders ONLY in `docs/skills/<key>.md` (`renderDetailFull`), never in README.md — the
+  SKILL_DETAILS region is `renderDetailCompact` (value_pitch + first example, no subcommands).
+
+## Hand-written conceptual docs (NOT generated)
+- `docs/concepts/project-tracking.md` is the canonical, hand-written explanation of the
+  Plan/Initiative/Phase/Task model (entities, exit gates/verifiers, stack/parked/emerged, ratify
+  flow, lifecycle, commands-by-workflow). `generate-skill-docs.js` only writes `docs/skills/<key>.md`,
+  so `docs/concepts/` is never regenerated — update it by hand when the schema or model changes.
