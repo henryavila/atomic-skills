@@ -2,9 +2,9 @@
 
 > **Iron Law:** `NO PUSH WITHOUT FRESH VERIFICATION.`
 
-**Save learnings to memory, group commits, push safely**
+**Scan for secrets, group commits, save learnings, push safely**
 
-Context dies when the session ends. `save-and-push` captures what you learned into persistent memory, groups changes into clean commits, and pushes safely. The next session picks up where you left off.
+Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and refuses to push to main/master without confirmation. The next session resumes with clean history and context intact.
 
 ## Purpose
 

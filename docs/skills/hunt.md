@@ -2,9 +2,9 @@
 
 > **Iron Law:** `NO HUNT WITHOUT BOUNDED SCOPE.`
 
-**Write adversarial tests to break code, not confirm it**
+**Adversarial tests from the spec, not the code — depth over breadth**
 
-Your tests confirm the happy path. `hunt` writes adversarial tests to *break* your code — edge cases, boundary conditions, error paths you didn't think of. Bounded to one class or function per run.
+Asking an agent to "add tests" produces happy-path tests that mirror the code — they confirm bugs instead of catching them. `hunt` writes adversarial tests whose expected values come from the spec, not the implementation (a HARD-GATE rejects any assertion derived from the code), and goes deep on one class or function per run instead of skimming. It maps every execution path, then tries to break the boundaries and error cases the code never anticipated.
 
 ## Purpose
 

@@ -90,7 +90,9 @@ describe('project-status skill', () => {
     assert.ok(content.toLowerCase().includes('disambig'));
     assert.ok(content.includes('--browser'));
     assert.ok(content.includes('--report'));
-    assert.ok(content.includes('@henryavila/mdprobe'));
+    // --browser opens the aiDeck dashboard (the browser surface migrated from
+    // mdprobe to aiDeck; mdprobe still lives in project-plan/parallel-dispatch).
+    assert.ok(content.includes('aiDeck'));
   });
 
   it('renders skill for gemini with proper tool name substitution', () => {

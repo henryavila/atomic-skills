@@ -2,9 +2,9 @@
 
 > **Iron Law:** `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.`
 
-**Audit output of a parallel-dispatch batch, apply fixes, report**
+**Verify each batch deliverable on disk; fix or escalate with evidence**
 
-Parallel agents finish — but did they actually deliver? `parallel-dispatch-audit` verifies each output against the original plan, applies cosmetic fixes automatically, and escalates real issues with evidence — not opinions.
+A green commit can sit on top of an empty file, and a still-running agent looks identical to a failed one. `parallel-dispatch-audit` opens each deliverable on disk and reads the content against the original plan — commit messages don't count as proof. It applies cosmetic fixes only when the batch is clean; the moment it finds five or more issues (or scope drift, a missing deliverable, a destructive op) it flips to read-only and escalates with evidence, because piecemeal fixes would hide that the plan itself was wrong.
 
 ## Purpose
 

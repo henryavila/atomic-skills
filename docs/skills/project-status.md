@@ -4,7 +4,7 @@
 
 **View + daily mutations on the .atomic-skills/ tree**
 
-Multi-session projects lose context between conversations. `project-status` tracks Plans, Initiatives, and Tasks in `.atomic-skills/` — with stack frames for lateral work, scope-creep detection, and phase gates that keep the agent anchored.
+Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. `project-status` keeps Plan/Initiative/Task state in `.atomic-skills/` so every session reloads the exact frame — with stack frames for side-investigations, scope-creep detection, and phase exit-gates that block advancing until criteria are met. Compact terminal view or browser dashboard, no re-explaining required.
 
 ## Purpose
 
@@ -28,25 +28,52 @@ Track work via Plan/Initiative/Task hierarchy: view current state, manage stack/
 
 ## Reference
 
-**Subcommands:**
+**Subcommands**
 
-| Example | Description |
+*Stack frames*
+
+| Command | Description |
 |---------|-------------|
-| `/atomic-skills:project-status push "investigating slow query"` | Push a new stack frame (lateral expansion) |
-| `/atomic-skills:project-status pop --park` | Pop top frame with destination |
-| `/atomic-skills:project-status park "consider caching layer"` | Add a parked item (note for later, no decision yet) |
-| `/atomic-skills:project-status emerge "auth refactor needed"` | Add an emerged finding (real follow-up worth promoting) |
-| `/atomic-skills:project-status promote 2` | Promote a parked item to a real task |
-| `/atomic-skills:project-status done T-005` | Mark task done; triggers phase-completion check if last |
-| `/atomic-skills:project-status phase-done` | Verify exit gates, advance to next phase (prompts codex review) |
-| `/atomic-skills:project-status phase-reopen F2` | Reverse of phase-done — clears metAt on exit criteria |
-| `/atomic-skills:project-status archive v3-redesign` | Move plan/initiative to archive/ (cascades from plan to children) |
-| `/atomic-skills:project-status switch my-feature` | Pause current active plan/initiative, set target as active |
-| `/atomic-skills:project-status re-ratify P-3` | Re-articulate context of an existing item (stale lastReviewedAt) |
-| `/atomic-skills:project-status why T-005` | Show full context for a task / phase / parked / emerged entry |
-| `/atomic-skills:project-status scope-creep` | On-demand drift report (read-only, surfaces stale items) |
-| `/atomic-skills:project-status detect-scope` | Suggest scope.paths value based on recent git activity |
-| `/atomic-skills:project-status review-due` | Cross-model codex review against the diff since last review |
+| `push <description>` | Open a lateral stack frame on top of the current work; type is inferred from the verb |
+| `pop [--resolve\|--park\|--emerge]` | Close the top frame with a destination: --resolve (drop), --park (note), or --emerge (follow-up) |
+
+*Backlog*
+
+| Command | Description |
+|---------|-------------|
+| `park <description>` | File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger |
+| `emerge <description>` | File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase |
+| `promote <title-or-idx>` | Turn a parked item into a real task (assigns next T-NNN, carries its context forward) |
+
+*Tasks & phases*
+
+| Command | Description |
+|---------|-------------|
+| `done <task-id>` | Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive |
+| `phase-done` | Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase |
+| `phase-reopen [<phase-id>]` | Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending |
+
+*Lifecycle*
+
+| Command | Description |
+|---------|-------------|
+| `archive [<slug>]` | Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives) |
+| `switch <slug>` | Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs |
+
+*Context & drift*
+
+| Command | Description |
+|---------|-------------|
+| `why <id>` | Read-only deep view of one item: status, ratified solves/trigger/assumptions, provenance, staleness |
+| `re-ratify <id>` | Refresh a stale item: re-confirm the premises (bump review date) or rewrite solves/trigger/assumptions |
+| `scope-creep` | Read-only drift report: phase growth %, scope expansion %, parked zombies, and stale-context items |
+| `detect-scope` | Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept |
+
+*Review*
+
+| Command | Description |
+|---------|-------------|
+| `review-due` | Run a cross-model codex review on the diff since the last review and record the result for the default view |
 
 **Arguments:**
 

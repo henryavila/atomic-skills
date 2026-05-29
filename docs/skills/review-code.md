@@ -4,7 +4,7 @@
 
 **Adversarial code review with local/codex/both mode picker**
 
-Same-model reviews have blind spots. `review-code` captures your diff and runs adversarial passes — locally, cross-model via codex, or both — to catch bugs, security issues, and logic errors before merge.
+Reviewing your own diff in the same context that wrote it inherits every blind spot and rationalization. `review-code` captures the diff once and hands it to a sealed reviewer with clean context — locally, cross-model via codex, or both — stripped of commit messages and intent so framing can't suppress findings. Every finding cites file:line; no evidence, no approval.
 
 ## Purpose
 

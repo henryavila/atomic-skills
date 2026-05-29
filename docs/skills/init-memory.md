@@ -2,9 +2,9 @@
 
 > **Iron Law:** `NO DELETION WITHOUT CONFIRMED BACKUP.`
 
-**Centralize project memory to .ai/memory/**
+**Consolidate scattered memory into .ai/memory/ and wire it to the IDE**
 
-New sessions start from zero. `init-memory` bootstraps a persistent memory directory so every future session inherits context from past ones. Run once, benefit forever.
+Memory often already exists but is scattered across `.memory/`, `docs/memory/`, and Claude's auto-memory dir — duplicated, contradictory, or never actually read because it was never wired up. `init-memory` consolidates it into one indexed `.ai/memory/`, connects it via `autoMemoryDirectory` (the durable path, not the fragile redirect), and keeps `MEMORY.md` under the 200-line load limit. Originals are deleted only after an ls-compare confirms every file copied.
 
 ## Purpose
 

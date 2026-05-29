@@ -4,7 +4,7 @@
 
 **Create + restructure + discover Plans and Initiatives**
 
-Every repo has in-flight work scattered across docs, branches, and memory. `project-plan` discovers it, clusters it into structured Plans, or adopts existing markdown plans — turning scattered intent into trackable state.
+Plans rot into bare frontmatter or live as scattered intent across docs, branches, and memory. `project-plan` is the single create-and-restructure entry point: bootstrap a multi-phase Plan interactively, adopt an existing markdown plan, or `discover` in-flight work and cluster it — and it refuses to emit a plan without a real narrative (Context, Principles, Phase tree). Daily tracking then flows through `project-status`.
 
 ## Purpose
 
@@ -28,18 +28,35 @@ All paths that CREATE or RESTRUCTURE state in `.atomic-skills/`: bootstrap fresh
 
 ## Reference
 
-**Subcommands:**
+**Subcommands**
 
-| Example | Description |
+*Discover & adopt*
+
+| Command | Description |
 |---------|-------------|
-| `/atomic-skills:project-plan discover` | Multi-source scan + cluster + synthesize → propose Plans + Initiatives |
-| `/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md` | Capture an existing markdown plan into structured Plan + Initiatives + Tasks |
-| `/atomic-skills:project-plan new my-feature` | Create a new Initiative (standalone or under active plan) |
-| `/atomic-skills:project-plan new-task --target F2 "Add canary smoke test"` | Add a task to current OR specified initiative (records provenance + requires ratified context) |
-| `/atomic-skills:project-plan new-phase F0.5 "Validation" --after F0` | Insert a new phase into the active plan + materialize its initiative (requires ratified context) |
-| `/atomic-skills:project-plan split-phase F2` | Split an over-sized phase into two sub-phases (archives the original; ratify each new phase) |
-| `/atomic-skills:project-plan migrate sample-legacy` | Migrate a legacy initiative file to schemaVersion 0.1 |
-| `/atomic-skills:project-plan re-bootstrap sample-legacy` | Batch re-articulate placeholder context after migrate |
+| `discover [--dry-run\|--commit] [--scope=<list>] [--scan=<path>]` | Scan the whole repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject |
+| `adopt <file.md>` | Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing |
+
+*Create units*
+
+| Command | Description |
+|---------|-------------|
+| `new <slug>` | Create one Initiative from the template, standalone or anchored to an active plan's phase; offers scope auto-detect |
+| `new-task "<title>" [--target <phaseId>] [--blocked-by <id>] [--tags ...]` | Add a task to the active (or --target) initiative; records provenance and requires a ratified context block |
+| `new-phase <id> "<title>" --after <other-id>` | Insert a new phase into the active plan and materialize its initiative; sets dependsOn via --after, requires ratified context |
+
+*Restructure*
+
+| Command | Description |
+|---------|-------------|
+| `split-phase <id>` | Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done |
+
+*Migrate legacy*
+
+| Command | Description |
+|---------|-------------|
+| `migrate <slug>` | Convert a legacy (pre-0.1) initiative file to schemaVersion 0.1; reports the field-mapping diff and flags placeholder context |
+| `re-bootstrap <slug>` | After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context |
 
 **Arguments:**
 

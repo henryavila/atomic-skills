@@ -110,18 +110,54 @@ function renderUsageList(label, items) {
   return `**${label}:**\n${bullets}\n\n`;
 }
 
+// `|` inside a table cell breaks the row even within a code span, so escape
+// it. Signatures like `[--resolve|--park|--emerge]` rely on this.
+function escapeCell(text) {
+  return String(text).replace(/\|/g, '\\|');
+}
+
+// The command itself, as `name <signature>` (signature may be empty).
+function subcommandLabel(s) {
+  const sig = typeof s.signature === 'string' ? s.signature.trim() : '';
+  return sig ? `${s.name} ${sig}` : s.name;
+}
+
+function renderSubcommandTable(items) {
+  const rows = items
+    .map((s) => `| \`${escapeCell(subcommandLabel(s))}\` | ${escapeCell(s.description)} |`)
+    .join('\n');
+  return `| Command | Description |\n|---------|-------------|\n${rows}`;
+}
+
+// Render subcommands as a single table, or — when entries carry a `group`
+// label — as one table per group, in first-appearance order. Grouping turns a
+// long flat dump (e.g. project-status' 15 commands) into a legible map.
 function renderSubcommands(skill) {
   const subs = skill.entry.subcommands;
   if (!Array.isArray(subs) || subs.length === 0) return '';
-  const rows = subs
-    .map((s) => `| \`${s.example}\` | ${s.description} |`)
-    .join('\n');
-  return (
-    '**Subcommands:**\n\n' +
-    '| Example | Description |\n|---------|-------------|\n' +
-    rows +
-    '\n\n'
+
+  const hasGroups = subs.some(
+    (s) => typeof s.group === 'string' && s.group.trim().length > 0
   );
+  if (!hasGroups) {
+    return `**Subcommands**\n\n${renderSubcommandTable(subs)}\n\n`;
+  }
+
+  const order = [];
+  const byGroup = new Map();
+  for (const s of subs) {
+    const key =
+      typeof s.group === 'string' && s.group.trim().length > 0 ? s.group : 'Other';
+    if (!byGroup.has(key)) {
+      byGroup.set(key, []);
+      order.push(key);
+    }
+    byGroup.get(key).push(s);
+  }
+  const blocks = order.map(
+    (g) => `*${g}*\n\n${renderSubcommandTable(byGroup.get(g))}`
+  );
+  return `**Subcommands**\n\n${blocks.join('\n\n')}\n\n`;
 }
 
 function renderArgs(skill) {

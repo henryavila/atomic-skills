@@ -56,9 +56,13 @@ core:
     title: 'Save & Push — Commit + Memory + Push'
     description: 'Review conversation, save learnings to memory, commit and push work.'
     value_pitch: >
-      Context dies when the session ends. `save-and-push` captures what you
-      learned into persistent memory, groups changes into clean commits, and
-      pushes safely. The next session picks up where you left off.
+      Ending a session sloppily means a leaked `.env`, one giant unrelated
+      blob commit, and learnings lost to context death. `save-and-push`
+      scans the diff for secrets and sensitive files before staging, groups
+      changes into logical commits (never `git add .`), persists durable
+      learnings to memory, and refuses to push to main/master without
+      confirmation. The next session resumes with clean history and context
+      intact.
     purpose: >
       End-of-session ritual: extract learnings to persistent memory, stage
       relevant files, commit with conventional message, push to remote.
@@ -79,7 +83,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: true
-    one_liner: 'Save learnings to memory, group commits, push safely'
+    one_liner: 'Scan for secrets, group commits, save learnings, push safely'
     emoji: '💾'
     version_added: '1.0.0'
     dependencies: [git]
@@ -162,9 +166,12 @@ core:
     title: 'Review Code — Adversarial (Local + Codex)'
     description: 'Adversarial review of code changes given a git ref (branch, commit, or range). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).'
     value_pitch: >
-      Same-model reviews have blind spots. `review-code` captures your diff
-      and runs adversarial passes — locally, cross-model via codex, or
-      both — to catch bugs, security issues, and logic errors before merge.
+      Reviewing your own diff in the same context that wrote it inherits
+      every blind spot and rationalization. `review-code` captures the diff
+      once and hands it to a sealed reviewer with clean context — locally,
+      cross-model via codex, or both — stripped of commit messages and intent
+      so framing can't suppress findings. Every finding cites file:line; no
+      evidence, no approval.
     purpose: >
       Review a git ref (branch, commit, or range) adversarially. Mode
       picker: local (cheap, fast), codex (cross-model via OpenAI Codex
@@ -221,10 +228,13 @@ core:
     title: 'Project Status — Initiative Tracking'
     description: "View and daily-mutate Plan/Initiative/Task state in .atomic-skills/. Compact terminal view + browser via mdprobe. Stack frames, parked/emerged items, task transitions, phase-done/reopen, archive, scope-creep, codex review tracking. Creation, migration, and structural commands live in atomic-skills:project-plan."
     value_pitch: >
-      Multi-session projects lose context between conversations.
-      `project-status` tracks Plans, Initiatives, and Tasks in
-      `.atomic-skills/` — with stack frames for lateral work, scope-creep
-      detection, and phase gates that keep the agent anchored.
+      Resume a multi-day project and the agent has forgotten which phase
+      you're in, what's parked, and why a task exists. `project-status`
+      keeps Plan/Initiative/Task state in `.atomic-skills/` so every session
+      reloads the exact frame — with stack frames for side-investigations,
+      scope-creep detection, and phase exit-gates that block advancing until
+      criteria are met. Compact terminal view or browser dashboard, no
+      re-explaining required.
     purpose: >
       Track work via Plan/Initiative/Task hierarchy: view current state,
       manage stack/parked/emerged, transition tasks/phases, archive,
@@ -263,64 +273,79 @@ core:
     version_added: '1.5.0'
     subcommands:
       - name: push
+        group: 'Stack frames'
         signature: '<description>'
-        description: 'Push a new stack frame (lateral expansion)'
+        description: 'Open a lateral stack frame on top of the current work; type is inferred from the verb'
         example: '/atomic-skills:project-status push "investigating slow query"'
       - name: pop
+        group: 'Stack frames'
         signature: '[--resolve|--park|--emerge]'
-        description: 'Pop top frame with destination'
+        description: 'Close the top frame with a destination: --resolve (drop), --park (note), or --emerge (follow-up)'
         example: '/atomic-skills:project-status pop --park'
       - name: park
+        group: 'Backlog'
         signature: '<description>'
-        description: 'Add a parked item (note for later, no decision yet)'
+        description: 'File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger'
         example: '/atomic-skills:project-status park "consider caching layer"'
       - name: emerge
+        group: 'Backlog'
         signature: '<description>'
-        description: 'Add an emerged finding (real follow-up worth promoting)'
+        description: 'File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase'
         example: '/atomic-skills:project-status emerge "auth refactor needed"'
       - name: promote
+        group: 'Backlog'
         signature: '<title-or-idx>'
-        description: 'Promote a parked item to a real task'
+        description: 'Turn a parked item into a real task (assigns next T-NNN, carries its context forward)'
         example: '/atomic-skills:project-status promote 2'
       - name: done
+        group: 'Tasks & phases'
         signature: '<task-id>'
-        description: 'Mark task done; triggers phase-completion check if last'
+        description: 'Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive'
         example: '/atomic-skills:project-status done T-005'
       - name: phase-done
+        group: 'Tasks & phases'
         signature: ''
-        description: 'Verify exit gates, advance to next phase (prompts codex review)'
+        description: 'Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase'
         example: '/atomic-skills:project-status phase-done'
       - name: phase-reopen
+        group: 'Tasks & phases'
         signature: '[<phase-id>]'
-        description: 'Reverse of phase-done — clears metAt on exit criteria'
+        description: 'Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending'
         example: '/atomic-skills:project-status phase-reopen F2'
       - name: archive
+        group: 'Lifecycle'
         signature: '[<slug>]'
-        description: 'Move plan/initiative to archive/ (cascades from plan to children)'
+        description: 'Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)'
         example: '/atomic-skills:project-status archive v3-redesign'
       - name: switch
+        group: 'Lifecycle'
         signature: '<slug>'
-        description: 'Pause current active plan/initiative, set target as active'
+        description: 'Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs'
         example: '/atomic-skills:project-status switch my-feature'
-      - name: re-ratify
-        signature: '<id>'
-        description: 'Re-articulate context of an existing item (stale lastReviewedAt)'
-        example: '/atomic-skills:project-status re-ratify P-3'
       - name: why
+        group: 'Context & drift'
         signature: '<id>'
-        description: 'Show full context for a task / phase / parked / emerged entry'
+        description: 'Read-only deep view of one item: status, ratified solves/trigger/assumptions, provenance, staleness'
         example: '/atomic-skills:project-status why T-005'
+      - name: re-ratify
+        group: 'Context & drift'
+        signature: '<id>'
+        description: 'Refresh a stale item: re-confirm the premises (bump review date) or rewrite solves/trigger/assumptions'
+        example: '/atomic-skills:project-status re-ratify P-3'
       - name: scope-creep
+        group: 'Context & drift'
         signature: ''
-        description: 'On-demand drift report (read-only, surfaces stale items)'
+        description: 'Read-only drift report: phase growth %, scope expansion %, parked zombies, and stale-context items'
         example: '/atomic-skills:project-status scope-creep'
       - name: detect-scope
+        group: 'Context & drift'
         signature: ''
-        description: 'Suggest scope.paths value based on recent git activity'
+        description: 'Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept'
         example: '/atomic-skills:project-status detect-scope'
       - name: review-due
+        group: 'Review'
         signature: ''
-        description: 'Cross-model codex review against the diff since last review'
+        description: 'Run a cross-model codex review on the diff since the last review and record the result for the default view'
         example: '/atomic-skills:project-status review-due'
     args:
       - name: '--list'
@@ -357,10 +382,13 @@ core:
     title: 'Project Plan — Create, Discover, Migrate'
     description: "Single entry-point for CREATE and STRUCTURAL operations on .atomic-skills/. Bootstrap multi-phase Plans, discover in-flight work across the repo (multi-source scan), adopt existing markdown plans, migrate legacy state, add initiatives/tasks/phases, split overgrown phases, batch re-articulate placeholder context. Sibling skill project-status handles VIEW + daily mutations."
     value_pitch: >
-      Every repo has in-flight work scattered across docs, branches, and
-      memory. `project-plan` discovers it, clusters it into structured Plans,
-      or adopts existing markdown plans — turning scattered intent into
-      trackable state.
+      Plans rot into bare frontmatter or live as scattered intent across
+      docs, branches, and memory. `project-plan` is the single
+      create-and-restructure entry point: bootstrap a multi-phase Plan
+      interactively, adopt an existing markdown plan, or `discover` in-flight
+      work and cluster it — and it refuses to emit a plan without a real
+      narrative (Context, Principles, Phase tree). Daily tracking then flows
+      through `project-status`.
     purpose: >
       All paths that CREATE or RESTRUCTURE state in `.atomic-skills/`:
       bootstrap fresh Plans (interactive 7-stage), discover in-flight
@@ -399,36 +427,44 @@ core:
     version_added: '2.0.0'
     subcommands:
       - name: discover
+        group: 'Discover & adopt'
         signature: '[--dry-run|--commit] [--scope=<list>] [--scan=<path>]'
-        description: 'Multi-source scan + cluster + synthesize → propose Plans + Initiatives'
+        description: 'Scan the whole repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject'
         example: '/atomic-skills:project-plan discover'
       - name: adopt
+        group: 'Discover & adopt'
         signature: '<file.md>'
-        description: 'Capture an existing markdown plan into structured Plan + Initiatives + Tasks'
+        description: 'Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing'
         example: '/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md'
       - name: new
+        group: 'Create units'
         signature: '<slug>'
-        description: 'Create a new Initiative (standalone or under active plan)'
+        description: "Create one Initiative from the template, standalone or anchored to an active plan's phase; offers scope auto-detect"
         example: '/atomic-skills:project-plan new my-feature'
       - name: new-task
+        group: 'Create units'
         signature: '"<title>" [--target <phaseId>] [--blocked-by <id>] [--tags ...]'
-        description: 'Add a task to current OR specified initiative (records provenance + requires ratified context)'
+        description: 'Add a task to the active (or --target) initiative; records provenance and requires a ratified context block'
         example: '/atomic-skills:project-plan new-task --target F2 "Add canary smoke test"'
       - name: new-phase
+        group: 'Create units'
         signature: '<id> "<title>" --after <other-id>'
-        description: 'Insert a new phase into the active plan + materialize its initiative (requires ratified context)'
+        description: 'Insert a new phase into the active plan and materialize its initiative; sets dependsOn via --after, requires ratified context'
         example: '/atomic-skills:project-plan new-phase F0.5 "Validation" --after F0'
       - name: split-phase
+        group: 'Restructure'
         signature: '<id>'
-        description: 'Split an over-sized phase into two sub-phases (archives the original; ratify each new phase)'
+        description: 'Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done'
         example: '/atomic-skills:project-plan split-phase F2'
       - name: migrate
+        group: 'Migrate legacy'
         signature: '<slug>'
-        description: 'Migrate a legacy initiative file to schemaVersion 0.1'
+        description: 'Convert a legacy (pre-0.1) initiative file to schemaVersion 0.1; reports the field-mapping diff and flags placeholder context'
         example: '/atomic-skills:project-plan migrate sample-legacy'
       - name: re-bootstrap
+        group: 'Migrate legacy'
         signature: '<slug>'
-        description: 'Batch re-articulate placeholder context after migrate'
+        description: 'After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context'
         example: '/atomic-skills:project-plan re-bootstrap sample-legacy'
     args:
       - name: slug
@@ -498,9 +534,13 @@ core:
     title: 'Hunt — Adversarial Tests'
     description: 'Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run.'
     value_pitch: >
-      Your tests confirm the happy path. `hunt` writes adversarial tests to
-      *break* your code — edge cases, boundary conditions, error paths you
-      didn't think of. Bounded to one class or function per run.
+      Asking an agent to "add tests" produces happy-path tests that mirror
+      the code — they confirm bugs instead of catching them. `hunt` writes
+      adversarial tests whose expected values come from the spec, not the
+      implementation (a HARD-GATE rejects any assertion derived from the
+      code), and goes deep on one class or function per run instead of
+      skimming. It maps every execution path, then tries to break the
+      boundaries and error cases the code never anticipated.
     purpose: >
       Write adversarial tests to break code and find hidden bugs.
       Bounded to one class or function per run.
@@ -524,7 +564,7 @@ core:
     mutates_repo: true
     network_required: false
     argument_hint: '<file|dir|function>'
-    one_liner: 'Write adversarial tests to break code, not confirm it'
+    one_liner: 'Adversarial tests from the spec, not the code — depth over breadth'
     emoji: '🎯'
     version_added: '1.0.0'
     args:
@@ -582,9 +622,14 @@ core:
     title: 'Parallel Dispatch — Audit'
     description: "Audit the output of a parallel-dispatch batch. Reads the plan file, verifies each agent's deliverables on disk against the user's original request, applies cosmetic fixes, and produces a report with pending decisions. HARD-GATEs on active batch (<2min commits) and read-only mode (≥5 issues). Use after parallel-dispatch agents complete."
     value_pitch: >
-      Parallel agents finish — but did they actually deliver? `parallel-dispatch-audit`
-      verifies each output against the original plan, applies cosmetic fixes
-      automatically, and escalates real issues with evidence — not opinions.
+      A green commit can sit on top of an empty file, and a still-running
+      agent looks identical to a failed one. `parallel-dispatch-audit` opens
+      each deliverable on disk and reads the content against the original
+      plan — commit messages don't count as proof. It applies cosmetic fixes
+      only when the batch is clean; the moment it finds five or more issues
+      (or scope drift, a missing deliverable, a destructive op) it flips to
+      read-only and escalates with evidence, because piecemeal fixes would
+      hide that the plan itself was wrong.
     purpose: >
       Verify each dispatched agent's deliverables on disk against the
       original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
@@ -604,7 +649,7 @@ core:
     mutates_repo: true
     network_required: false
     argument_hint: '[batch-slug]'
-    one_liner: 'Audit output of a parallel-dispatch batch, apply fixes, report'
+    one_liner: 'Verify each batch deliverable on disk; fix or escalate with evidence'
     emoji: '👁️'
     version_added: '1.6.0'
     args:
@@ -626,9 +671,14 @@ modules:
       title: 'Init Memory — Persistent Context'
       description: 'Initialize persistent memory structure for cross-session context.'
       value_pitch: >
-        New sessions start from zero. `init-memory` bootstraps a persistent
-        memory directory so every future session inherits context from past
-        ones. Run once, benefit forever.
+        Memory often already exists but is scattered across `.memory/`,
+        `docs/memory/`, and Claude's auto-memory dir — duplicated,
+        contradictory, or never actually read because it was never wired up.
+        `init-memory` consolidates it into one indexed `.ai/memory/`, connects
+        it via `autoMemoryDirectory` (the durable path, not the fragile
+        redirect), and keeps `MEMORY.md` under the 200-line load limit.
+        Originals are deleted only after an ls-compare confirms every file
+        copied.
       purpose: >
         Bootstrap the persistent memory directory and index so that future
         sessions can pick up where this one left off.
@@ -647,7 +697,7 @@ modules:
       requires_args: false
       mutates_repo: true
       network_required: false
-      one_liner: 'Centralize project memory to .ai/memory/'
+      one_liner: 'Consolidate scattered memory into .ai/memory/ and wire it to the IDE'
       emoji: '🧠'
       version_added: '1.0.0'
       output_artifacts:

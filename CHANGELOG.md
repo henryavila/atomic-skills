@@ -16,7 +16,7 @@ verb-based split between `project-status` (VIEW + daily mutations) and
 
 ### Project-status / project-plan refactor
 
-- **`project-status` shrinks from 23 → 16 subcommands.** Only view + daily
+- **`project-status` shrinks from 23 → 15 subcommands.** Only view + daily
   mutation commands remain (push, pop, park, emerge, promote, done,
   phase-done, phase-reopen, archive, switch, re-ratify, scope-creep, why,
   detect-scope, review-due). Skill body drops from 1347 → 908 lines.

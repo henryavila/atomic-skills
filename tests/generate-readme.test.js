@@ -239,6 +239,41 @@ describe('buildSkillDocs (per-skill reference pages)', () => {
     assert.ok(content.includes('**Version added:** `3.1.0`'), 'version in metadata');
   });
 
+  it('renders a flat command/description table when subcommands have no group', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
+    const entry = minimalV02Entry('demo', {
+      subcommands: [
+        { name: 'go', signature: '<slug>', description: 'Run go', example: '/atomic-skills:demo go x' },
+        { name: 'stop', signature: '', description: 'Halt', example: '/atomic-skills:demo stop' },
+      ],
+    });
+    const content = buildSkillDocs({ catalogData: { core: { demo: entry } }, skillsDir })[0].content;
+    assert.ok(content.includes('**Subcommands**'), 'subcommands header present');
+    assert.ok(content.includes('| Command | Description |'), 'command/description table');
+    assert.ok(content.includes('`go <slug>`'), 'command renders name + signature');
+    assert.ok(content.includes('`stop`'), 'empty signature renders bare name');
+    assert.ok(!content.includes('| Example |'), 'old example column dropped');
+  });
+
+  it('renders one table per group, in first-appearance order, with escaped pipes', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO X.\n');
+    const entry = minimalV02Entry('demo', {
+      subcommands: [
+        { name: 'push', group: 'Stack', signature: '<desc>', description: 'Open frame', example: '/atomic-skills:demo push x' },
+        { name: 'pop', group: 'Stack', signature: '[--a|--b]', description: 'Close frame', example: '/atomic-skills:demo pop' },
+        { name: 'park', group: 'Backlog', signature: '<desc>', description: 'Note later', example: '/atomic-skills:demo park x' },
+      ],
+    });
+    const content = buildSkillDocs({ catalogData: { core: { demo: entry } }, skillsDir })[0].content;
+    assert.ok(content.includes('*Stack*'), 'first group label present');
+    assert.ok(content.includes('*Backlog*'), 'second group label present');
+    assert.ok(
+      content.indexOf('*Stack*') < content.indexOf('*Backlog*'),
+      'groups render in first-appearance order'
+    );
+    assert.ok(content.includes('`pop [--a\\|--b]`'), 'pipes in signature are escaped for the table');
+  });
+
   it('returns one entry per skill', () => {
     writeFileSync(join(skillsDir, 'core', 'a.md'), '## Iron Law\nNO A.\n');
     writeFileSync(join(skillsDir, 'core', 'b.md'), '## Iron Law\nNO B.\n');
