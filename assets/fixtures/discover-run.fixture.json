@@ -9,7 +9,7 @@
     { "layer": "git", "label": "3 branches", "signalCount": 3 },
     { "layer": "docs", "label": "1 plan file", "signalCount": 1 }
   ],
-  "counts": { "strong": 1, "worthReviewing": 1, "historical": 0, "alreadyTracked": 0 },
+  "counts": { "strong": 1, "worthReviewing": 1, "historical": 0, "alreadyTracked": 1 },
   "candidates": [
     {
       "slug": "test-feature",
@@ -83,14 +83,7 @@
       "approved": false
     }
   ],
-  "alreadyTracked": [
-    {
-      "slug": "auth-session-tokens",
-      "title": "Rotate session tokens on privilege change",
-      "trackedAs": "plans/auth-session-tokens",
-      "lastUpdated": "2026-05-21"
-    }
-  ],
+  "alreadyTracked": ["auth-session-tokens"],
   "orphanSignals": [
     {
       "id": "s5",
