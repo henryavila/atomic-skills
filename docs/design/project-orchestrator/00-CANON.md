@@ -21,6 +21,7 @@ TRIAGE → DESIGN → PLAN → DECOMPOSE+SPEC → IMPLEMENT → VERIFY
 - `03-execution-mode2-spec.md` — Mode 2 purpose + spec (Codex-only verdict).
 - `04-gate-system-spec.md` — the gate system (anti-vanity principle, behavioral-test/mutation-kill, manual gate).
 - `05-fork-resolutions.md` — **RESOLVED open forks** (16 decisions + consistency/completeness critique, 2026-06-01). Closes the "Open decisions still pending" list below. Read it before touching any increment — it pins the concrete specs (0.2 schema delta, no-4th-content-schema, redirectable-root cost, Mode-2-Codex-only label, critic home/provider, DESIGN v1-vs-v2 line, phase-review escalation).
+- `06-session-boundary-and-telemetry.md` — **POST-resolution refinements** (2026-06-01, session 2): F-E1 Mode-1 session cut-over (relatedness-driven, advisory; reuses F-A7 grep over `scopeBoundary[]`; context-% fence is a hard falsifier) + F-E2 skill telemetry & decision-validation loop (observe-only sidecar generalizing F-A6's dispatch-log; falsifier-tracking, anti-Goodhart). Both are **R-ORCH-32 refinements**, v1-advisory/observe-only.
 
 ## Decision log (CONFIRMED across the 6 sessions)
 
@@ -77,7 +78,11 @@ All 16 are decided + critic-checked. Quick index (full decision + falsifier in a
 - Mode 2 merge-back v1 → **operator-prompted + mandatory skill-owned post-merge re-verify**; keep worktree isolation. [F-A1]
 - Mode 2 honest label → **Codex-only on EVERY host in v1**; the Anthropic-subagent executor tier is **DEFERRED entirely** (not CC-gated). [F-A2]
 
-**Still genuinely deferred to v2 (recorded, NOT resolved):** merge-back v2 mechanism — the unattended deterministic serial-rebase, with its two sub-forks (trigger auto-vs-opt-in; dependency-order source `depends_on` vs declared order). Do NOT build serial-rebase automation in v1.
+**Post-resolution refinements (session 2, see `06-`):**
+- Mode-1 session cut-over → **relatedness-driven, ADVISORY**: at `done <task-id>`, F-A7 pairwise-grep (inverse) over recent-working-set vs next-task `scopeBoundary[]`; phase boundary primary + relatedness modifier; recommend (never force) a fresh session; budget X is **purely structural** (context-% fence = hard falsifier). Refines R-ORCH-32, v1. [F-E1]
+- Skill telemetry → **observe-only sidecar `.atomic-skills/status/telemetry.jsonl`** generalizing F-A6's dispatch-log; falsifier-tracking (not activity-counting), anti-vanity (coverage% banned), no self-read context-%; 4-layer rollout (observe → digest → human-re-decide → data-weighted defaults); skill never auto-tunes. [F-E2]
+
+**Still genuinely deferred to v2 (recorded, NOT resolved):** merge-back v2 mechanism — the unattended deterministic serial-rebase, with its two sub-forks (trigger auto-vs-opt-in; dependency-order source `depends_on` vs declared order). Do NOT build serial-rebase automation in v1. · F-E1/F-E2 data-driven halves (telemetry-weighted budget X; the L2/L3 re-resolution loop) are v2.
 
 ## Artifacts created so far
 
