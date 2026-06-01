@@ -33,6 +33,7 @@ Run a multi-persona roundtable as independent subagents for divergent thinking â
 | `--solo` | flag | optional | Role-play all personas in one response instead of spawning subagents (fallback when the spawn tool is unavailable). |
 | `--model` | option | optional | Force all subagents onto a specific model. _(defaults to model matched to each round's depth)_ |
 | `--roster` | option | optional | Explicit roster file (YAML list or directory of persona files) instead of auto-detection. |
+| `--gate` | flag | optional | Gate-mode: bounded agenda + mandatory contrarian every round + a machine-readable Synthesis verdict block handed to a critic. Produces evidence for a stage gate; never decides. |
 
 **Examples:**
 - `/atomic-skills:debate "should we split the monolith now or after launch?"` â€” Debate an open decision using the auto-detected roster

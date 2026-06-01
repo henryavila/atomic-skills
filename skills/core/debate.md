@@ -55,6 +55,11 @@ for a list of pros and cons.
   for deep or cross-cutting topics.
 - `--roster <path>` — Use an explicit roster file (YAML list or directory of
   persona files) instead of auto-detection.
+- `--gate [agenda]` — Run in **gate-mode**: a bounded agenda, a mandatory
+  contrarian every round, and a machine-readable Synthesis verdict block at
+  close. Gate-mode produces the EVIDENCE a stage gate consumes; it does **not**
+  decide (see "Gate-mode"). Without this flag the skill behaves exactly as a
+  normal open-ended debate.
 
 ## On activation
 
@@ -214,6 +219,60 @@ While the debate is still live and the user has NOT asked for a verdict, do not
 pre-empt with a synthesis — keep facilitating. The synthesis is a closing move,
 not a running commentary.
 
+## Gate-mode (`--gate`) — actor for a stage gate, never the judge
+
+Gate-mode is an **opt-in** variant for when a debate feeds a lifecycle stage gate
+(e.g. `atomic-skills:brainstorm`'s DESIGN gate). It is purely additive: without
+`--gate`, everything above is unchanged. In gate-mode `debate` is the **ACTOR** —
+it produces divergence and a structured record. **It does not decide.** A
+separate fresh critic (`skills/shared/debate-assets/critic.md`) emits the binary
+verdict; gate-pass is read from the critic, **never from panel agreement**. A
+unanimous panel is not a pass — it can be a panel that conformed.
+
+The Iron Law still holds in full: every voice is a separately-spawned subagent.
+Gate-mode adds rigor, it does not add shortcuts.
+
+What `--gate` changes:
+
+1. **Bounded agenda.** Take the agenda from the `--gate` argument, or elicit it
+   up front as a short list of decision questions, and announce it. Rounds stay
+   on the agenda — gate-mode is not open chat. When every agenda item has been
+   argued, the debate is ready to close.
+2. **Mandatory contrarian every round.** Each round MUST include at least one
+   voice spawned with an explicit contrarian framing — argue against the
+   emerging consensus, surface the strongest objection. This is proactive every
+   round, not the reactive "all agents agree → bring in a contrarian" of normal
+   mode. Heterogeneity is required: pull voices from different domains, never the
+   same two.
+3. **Machine-readable Synthesis verdict block at close.** Instead of (or after)
+   the prose Orchestrator Synthesis, emit this fenced block so the gate can parse
+   one shape:
+
+   ```yaml
+   ready_for_validation: <yes | no>
+   agenda:
+     - <decision question 1>
+   positions:
+     - voice: <name>
+       stance: <one line — the position this voice settled on>
+   dissent:
+     - voice: <name>
+       objection: <one line — preserved, not smoothed over>
+   open_questions:
+     - <what the panel could not resolve, and what evidence would>
+   ```
+
+   `ready_for_validation: yes` means only that the divergence is exhausted and
+   the artifact is ready to be **handed to the critic** — it is NOT an approval.
+   `no` means a round is still owed (an agenda item unargued, or new dissent that
+   reframes the decision).
+
+**Handoff (R-SP-31).** Gate-mode's Orchestrator-Synthesis hands off to the critic
+as the verdict authority: present the Synthesis verdict block + the artifact under
+review to `skills/shared/debate-assets/critic.md`, which returns the binary
+`Approved | Issues-Found`. Do not compute a pass here. Non-gate synthesis behavior
+(the prose closing on demand or at exit) is unchanged.
+
 ## Where this fits (divergent → convergent)
 A debate is the **divergent, human-in-the-loop** tool: it turns an open question
 into a set of perspectives and, ultimately, a consolidated direction. That
@@ -248,6 +307,9 @@ room.
   request is the cue to deliver the Orchestrator Synthesis — don't dodge it.
 - "I'll synthesize a recommendation after round one to be helpful." → Too early.
   Synthesize only on demand or at exit, never as running commentary.
+- "Gate-mode panel reached consensus, so the gate passes." → Consensus is not
+  the gate. The fresh critic decides; a conformed panel can agree on a wrong
+  answer and commit it as PASS.
 
 ## Rationalization Table
 
@@ -258,3 +320,4 @@ room.
 | "2-4 agents is arbitrary; I'll spawn 8" | More voices dilute signal and blow context — pick the most relevant few and rotate |
 | "I need a `.claude/agents/` dir to start" | The roster provider falls back to a shipped default; the debate runs anywhere |
 | "Passing the whole transcript keeps agents informed" | It blows their context — a tight <400-word summary outperforms the raw log |
+| "The gate-mode panel was unanimous — that's a pass" | Unanimity measures conformity as much as correctness (the MAD false-pass trap). The pass comes only from the fresh critic's binary verdict, never from the panel |

@@ -604,6 +604,53 @@ core:
     dependencies: [git]
     schema_version: '0.2'
 
+  brainstorm:
+    name: brainstorm
+    title: 'Brainstorm — Divergent DESIGN front-half'
+    description: 'Turn an open idea into a committed, critic-approved design.md — the divergent front-half of DESIGN. Use before writing a multi-phase plan, when the WHAT/WHY and the chosen approach are not yet decided.'
+    value_pitch: >
+      The failure this prevents is premature convergence — locking onto the
+      first workable approach and writing it up as "the design". `brainstorm`
+      widens before it narrows: it frames the real forks, diverges via a
+      gate-mode debate panel (only when the decision is expensive-to-reverse),
+      lets the user ratify, writes a sectioned `design.md`, and gates it with a
+      fresh independent critic — never panel consensus. PLAN refuses to start
+      without that approved, lint-clean design.
+    purpose: >
+      Drive an idea to a committed, section-linted, critic-approved design
+      document that `project new plan` decomposes — the head of the lifecycle
+      chain.
+    when_to_use:
+      - 'Starting a multi-phase plan whose approach is not yet decided'
+      - 'There are ≥2 viable approaches and the decision is expensive to reverse'
+      - 'You need a committed design.md before decomposing into tasks'
+    when_not_to_use:
+      - 'An ad-hoc or single-task change (triage exempts it from DESIGN)'
+      - 'The design is already committed and critic-approved'
+      - 'You only need divergent perspectives, not a committed artifact (use debate)'
+    examples:
+      - command: '/atomic-skills:brainstorm "self-host the project lifecycle"'
+        description: 'Run the DESIGN front-half and land a critic-approved design.md'
+      - command: '/atomic-skills:brainstorm'
+        description: 'Skill asks for the problem, goal, project-id, and slug interactively'
+    related: [debate, project, review-plan]
+    tags: [design, brainstorming, lifecycle, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    one_liner: 'Diverge, decide, then write a critic-gated design.md before any plan'
+    emoji: '💡'
+    version_added: '2.2.0'
+    argument_hint: '[goal]'
+    args:
+      - name: goal
+        kind: positional
+        required: false
+        description: 'The problem/goal to design. If omitted, the skill asks interactively.'
+    dependencies: [git]
+    schema_version: '0.2'
+
   debate:
     name: debate
     title: 'Debate — Multi-Agent Roundtable'
@@ -643,7 +690,7 @@ core:
     requires_args: false
     mutates_repo: false
     network_required: false
-    argument_hint: '[topic] [--solo] [--model <model>] [--roster <path>]'
+    argument_hint: '[topic] [--solo] [--model <model>] [--roster <path>] [--gate]'
     one_liner: 'Roundtable of independent subagent personas for divergent thinking'
     emoji: '🎭'
     version_added: '2.1.0'
@@ -665,6 +712,10 @@ core:
         kind: option
         required: false
         description: 'Explicit roster file (YAML list or directory of persona files) instead of auto-detection.'
+      - name: '--gate'
+        kind: flag
+        required: false
+        description: 'Gate-mode: bounded agenda + mandatory contrarian every round + a machine-readable Synthesis verdict block handed to a critic. Produces evidence for a stage gate; never decides.'
     dependencies: []
     schema_version: '0.2'
 

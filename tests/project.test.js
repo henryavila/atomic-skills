@@ -230,8 +230,8 @@ describe('project skill (unified router + lazy assets)', () => {
     const content = readAsset('project-create-plan.md');
     for (const stage of [
       'Stage 1 — Validate slug',
-      'Stage 2 — Detect superpowers',
-      'Stage 3 — Optional delegation',
+      'Stage 2 — DESIGN (brainstorm)',
+      'Stage 3 — Plan input source',
       'Stage 4 — Receive markdown plan',
       'Stage 5 — Decompose',
       'Stage 6 — Create Plan + Initiatives',
@@ -275,18 +275,23 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /sample-f0-foundation-repair/);
   });
 
-  it('project-create-plan documents Superpowers integration', () => {
+  it('project-create-plan wires DESIGN to atomic-skills:brainstorm with a PLAN precondition (R-ORCH-07/08/09)', () => {
     install();
     const content = readAsset('project-create-plan.md');
-    assert.match(content, /## Superpowers integration/);
-    assert.match(content, /\.claude\/plugins\/superpowers/);
+    // DESIGN is owned by brainstorm; the superpowers delegation is removed (R-ORCH-08).
+    assert.match(content, /## DESIGN integration \(brainstorm\)/);
+    assert.match(content, /atomic-skills:brainstorm/);
+    assert.ok(!/superpowers:brainstorm/.test(content), 'must not delegate to superpowers:brainstorm');
+    assert.ok(!/superpowers:write-execution-plan/.test(content), 'must not delegate to superpowers:write-execution-plan');
+    // PLAN refuses without an approved, lint-clean design.md (R-ORCH-09).
+    assert.match(content, /PLAN precondition/);
+    assert.match(content, /lint-design\.js/);
+    assert.match(content, /HARD-BLOCKS/);
+    // superpowers survives only as an optional detect-and-degrade RENT probe (R-SP-27/28).
     assert.match(content, /command -v superpowers/);
-    assert.match(content, /Branch A — superpowers available/);
-    assert.match(content, /Branch B — superpowers absent/);
-    assert.match(content, /superpowers:brainstorm/);
-    assert.match(content, /superpowers:write-execution-plan/);
+    assert.match(content, /RENT probe/);
     assert.match(content, /minimal-source\.template\.md/);
-    assert.match(content, /never errors out just because superpowers is absent/);
+    assert.match(content, /never errors out because superpowers is absent/);
   });
 
   it('project-create-plan documents the adopt flow in detail', () => {

@@ -31,21 +31,32 @@ Stages run in order. Each stage gates the next: do not advance past a stage with
 - Duplicate check: if `.atomic-skills/plans/<slug>.md` exists, abort with a suggested alt-slug (e.g., `<slug>-v2`).
 - Reserved slugs (`archive`, `index`) are rejected.
 
-### Stage 2 — Detect superpowers
+### Stage 2 — DESIGN (brainstorm)
 
-Detect whether the [superpowers](https://github.com/anthropics/superpowers) plugin is installed and announce the result. The detection signal flows into Stage 3 (decide whether to delegate planning to superpowers, or fall back to user-supplied input).
+Before any plan is decomposed, the WHAT/WHY + chosen approach must exist as a committed, critic-approved `design.md`. Invoke `atomic-skills:brainstorm` with the user's goal and the `<project-id>`/`<slug>`; it runs the divergent DESIGN front-half (frame → diverge → user ratifies → write → critic gate) and lands `projects/<project-id>/<slug>/design.md`.
 
-Detection details and the delegate-vs-fallback decision tree live in the **Superpowers integration** section below.
+Magnitude exemption (R-ORCH-03): the ad-hoc / single-task lanes routed by triage run ZERO gates and skip DESIGN. This multi-phase bootstrap does not.
 
-### Stage 3 — Optional delegation (superpowers)
+Full procedure (and the optional superpowers RENT probe) in the **DESIGN integration** section below.
 
-If superpowers is available AND the user opts in, delegate the discovery + plan-writing steps to it. Otherwise, ask the user for a path to an existing plan markdown OR offer a minimal in-skill template. Either way, the output is a single markdown document — the "source plan" — that Stage 5 will decompose.
+### Stage 3 — Plan input source
 
-Full procedure in the **Superpowers integration** section.
+With an approved `design.md` in hand, produce the decompose-shaped "source plan" markdown that Stage 5 consumes — seeded from the design's Decisions + Chosen approach, or pointed at an existing markdown, or filled from the minimal template.
+
+Full procedure in the **DESIGN integration** section.
 
 ### Stage 4 — Receive markdown plan
 
-Read the source plan (either the file produced by superpowers, the file the user pointed at, or the in-skill template the user filled in).
+Read the source plan (either the file seeded from the approved design, the file the user pointed at, or the in-skill template the user filled in).
+
+**PLAN precondition — refuse without an approved design (R-ORCH-09).** Before decomposing, confirm a committed `design.md` exists for this plan and passes the section lint:
+
+```bash
+node scripts/lint-design.js projects/<project-id>/<slug>/design.md
+# add --migration when the plan is a one-way-door / migration (requires a Blast radius section)
+```
+
+A non-zero exit (missing file, or a missing/empty required section) **HARD-BLOCKS** the plan — do not decompose. Either run `atomic-skills:brainstorm` to produce the design, or, for a lane triage explicitly exempted from DESIGN (ad-hoc / single-task per R-ORCH-03, or `adopt` capturing a pre-lifecycle plan), record that exemption verbatim. PLAN never starts on a design that does not lint clean.
 
 Sanity checks before decomposing:
 - File is well-formed markdown (has at least one H1 or H2 header).
@@ -198,68 +209,45 @@ Always run `previewDecomposition(result)` and display it before any file write. 
 
 User must explicitly confirm before Stage 6. If the user wants edits, they re-run with a fixed source file rather than ad-hoc patching the JSON — keeps the source markdown as the canonical input.
 
-## Superpowers integration
+## DESIGN integration (brainstorm)
 
-This section covers Stages 2 and 3 in full. The skill works identically with or without [superpowers](https://github.com/anthropics/superpowers) installed; superpowers is an optimization, not a dependency.
+This section covers Stages 2 and 3 in full. The DESIGN front-half is **owned** by `atomic-skills:brainstorm`; the skill works identically with or without [superpowers](https://github.com/anthropics/superpowers) installed — superpowers is an optional RENT probe for discipline phrasing, not a dependency.
 
-### Stage 2 — Detect superpowers
+### Stage 2 — Run DESIGN via brainstorm
 
-Run with {{BASH_TOOL}}:
+Invoke `atomic-skills:brainstorm` with the user's goal as the seed and the `<project-id>`/`<slug>` this plan belongs to. brainstorm runs B0–B5 (frame the decision questions → diverge via `atomic-skills:debate --gate` only when ≥2 viable approaches AND the decision is expensive-to-reverse → user ratifies → write `design.md` → critic gate → handoff). It returns a committed `projects/<project-id>/<slug>/design.md` that has passed the section lint, the critic's binary `Approved`, and the user's explicit approval.
+
+If brainstorm was interrupted, or the user already has an approved design, accept an existing `design.md` path instead — it still must pass `node scripts/lint-design.js` before Stage 4 decomposes (the PLAN precondition).
+
+**Optional RENT probe (detect-and-degrade, R-SP-27/28).** superpowers discipline phrasing can enrich the design conversation but is never required. Detect it without blocking, with {{BASH_TOOL}}:
 
 ```bash
 test -d "$HOME/.claude/plugins/superpowers" \
   || command -v superpowers >/dev/null 2>&1 \
-  && echo "superpowers: available" \
-  || echo "superpowers: absent"
+  && echo "superpowers: available (phrasing probe only)" \
+  || echo "superpowers: absent — brainstorm owns DESIGN fully"
 ```
 
-Cache the result for Stage 3. Do not re-probe later in the flow.
+Whatever the result, the DESIGN decision and the `design.md` are produced by `atomic-skills:brainstorm` + the critic — never delegated to superpowers. The probe rents phrasing only and is exempt from the pressure-test budget (R-SP-32, `docs/kb/skill-authoring.md`). If absent, proceed with brainstorm exactly the same — no degradation.
 
-Announce the detection outcome to the user in one sentence:
-- Available: "superpowers detected — you can delegate brainstorming + plan writing to it."
-- Absent: "superpowers not installed — I'll ask for an existing plan file or hand you a minimal template to fill."
+### Stage 3 — Plan input source
 
-### Stage 3 — Optional delegation OR fallback
-
-Branch on the Stage 2 result.
-
-#### Branch A — superpowers available
-
-Present Structured Options:
+Once an approved `design.md` exists, choose the source the decomposer will consume. Present Structured Options:
 
 ```
-Plan input source?
-  (a) Delegate to superpowers (brainstorm + write-execution-plan)  ← recommended
+Plan source?
+  (a) Seed a decompose-shaped source from the approved design  ← recommended
   (b) I'll paste an existing markdown plan file path
   (c) Give me the minimal template — I'll fill it
 ```
 
 If `(a)`:
-
-1. Invoke `superpowers:brainstorm` with the user's goal as the seed prompt. The user iterates with superpowers until they accept the brainstorm output.
-2. Invoke `superpowers:write-execution-plan` with the brainstorm artifact. Receive the resulting structured markdown file.
-3. The output's path becomes the source-plan path for Stage 4.
+- Translate the design's **Decisions** + **Chosen approach** into the decompose grammar (`## F0/F1` phases + `Goal:` + `### Tn` + fenced `exit_gate` YAML) in a draft source (the gitignored `source.md` / `.atomic-skills/_drafts/<slug>-source.md`). The design is the source of truth; the source markdown is its decompose-ready projection. Use this path for Stage 4.
 
 If `(b)`:
 - Ask for the markdown file path. Validate it exists. Skip to Stage 4.
 
-If `(c)`:
-- Fall through to Branch B's minimal-template subflow.
-
-#### Branch B — superpowers absent
-
-Present Structured Options:
-
-```
-Plan input source?
-  (a) I'll paste an existing markdown plan file path
-  (b) Give me the minimal template — I'll fill it  ← default
-```
-
-If `(a)`:
-- Ask for the markdown file path. Validate it exists. Skip to Stage 4.
-
-If `(b)` (the minimal-template subflow):
+If `(c)` (the minimal-template subflow):
 
 1. Copy `{{ASSETS_PATH}}/minimal-source.template.md` to a temp path inside the repo, e.g. `.atomic-skills/_drafts/<slug>-source.md`. Create the `_drafts/` directory if needed.
 2. Tell the user the file path and what sections to fill (title, narrative, principles, glossary, ≥ 1 phase with ≥ 1 task). Suggest they leave the `REPLACE_*` markers in any section they don't want to fill — the decomposer's no-phase guard surfaces the only hard-required section.
@@ -272,15 +260,16 @@ If `(b)` (the minimal-template subflow):
 
 ### Failure modes
 
-- **superpowers detected but invocation fails** (e.g., plugin disabled, network down): announce the error verbatim, drop back to Branch B. Do not retry silently.
-- **User aborts mid-flow**: the skill keeps the source file (if any) but does NOT write to `.atomic-skills/`. The flow can be resumed by re-invoking `new plan <slug>` and pointing at the same source file via option `(b)`.
-- **Both branches exhausted and user has no source**: abort with a clear message — there is nothing to decompose. Suggest they describe the project to superpowers or sketch it directly into the minimal template.
+- **brainstorm not run / no approved design**: the Stage 4 PLAN precondition HARD-BLOCKS (R-ORCH-09). Run `atomic-skills:brainstorm` first; never decompose without an approved, lint-clean `design.md`. The only exceptions are the triage-exempted lanes (ad-hoc / single-task, `adopt`), recorded verbatim.
+- **superpowers probe fails / absent**: no effect — brainstorm owns DESIGN. Never silently retry superpowers; never treat its absence as a blocker.
+- **User aborts mid-flow**: the skill keeps the design/source files (if any) but does NOT write to `.atomic-skills/`. Resume by re-invoking `new plan <slug>` and pointing at the same source file via option `(b)`.
+- **No source and no design**: abort with a clear message — there is nothing to decompose. Suggest running `atomic-skills:brainstorm`, or sketching directly into the minimal template.
 
-The skill never errors out just because superpowers is absent.
+The skill never errors out because superpowers is absent — DESIGN is owned internally by `atomic-skills:brainstorm`.
 
 ## `adopt <file.md>`
 
-`adopt` is the retroactive-capture path: take an existing markdown plan file the user already wrote (e.g. the 843-line `docs/superpowers/plans/v3-redesign/00-master.md`) and materialize Plan + N Initiatives + Tasks from it. Skips Stages 2–4 (no superpowers delegation, no template handoff) and goes straight from input file to materialized files.
+`adopt` is the retroactive-capture path: take an existing markdown plan file the user already wrote (e.g. the 843-line `docs/superpowers/plans/v3-redesign/00-master.md`) and materialize Plan + N Initiatives + Tasks from it. Skips Stages 2–4 (no DESIGN/brainstorm gate, no template handoff — `adopt` captures a plan authored before the lifecycle existed, so it is explicitly exempt from the R-ORCH-09 design precondition) and goes straight from input file to materialized files.
 
 > **Invocation:** `adopt` is a **top-level** verb (`/atomic-skills:project adopt <file.md>`), NOT part of the `new` menu. It is the highest-risk capture path and keeps its own name.
 
@@ -344,7 +333,7 @@ The skill never errors out just because superpowers is absent.
 
 ### Failure-mode summary
 
-- **Decompose throws (zero phases):** the source file does not match the convention. Surface the message verbatim; abort. Suggest the user run the default flow's Branch B and migrate content into the minimal template.
+- **Decompose throws (zero phases):** the source file does not match the convention. Surface the message verbatim; abort. Suggest the user run the default flow's minimal-template subflow (Stage 3 option `(c)`) and migrate content into it.
 - **Validation fails after materialize:** roll back (delete files), surface schema errors. The decomposer or materialize logic has a bug — file an initiative against atomic-skills, do NOT manually patch the files.
 - **User aborts at step 5:** no files written, no rollback needed. The user can re-run `adopt` with an edited source file.
 - **User aborts during step 6 (rare — fs errors):** roll back any files written so far. The repo state must return to pre-`adopt` state on any failure.
