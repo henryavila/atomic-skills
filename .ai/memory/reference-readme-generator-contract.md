@@ -23,6 +23,7 @@ metadata:
 - `npm run check-docs` — exits non-zero if any region drifts.
 - `npm run validate-skills` — opt-in `requireModuleMeta` (CLI on, tests off) ensures every `modules.X` has a `module_meta.X` and vice versa.
 - `validateReadmeMentions()` — greps `\batomic-skills:([a-z][a-z0-9-]*)\b` over README; fails on unknown skill names. Catches drift in static prose the marker generator can't see.
+- **Field caps:** `one_liner` must be **10–80 chars** (validate-skills rejects otherwise). `replaceBetween` (render-readme.js) replaces ONLY content between the 5 marker pairs, so hand-written sections outside them are preserved and safe to edit directly — `check-docs` won't flag them.
 - **Husky pre-commit auto-regenerates** when any input is staged (`meta/catalog.yaml`, `skills/en/**`, `src/config.js`, `package.json`, renderer code) and re-stages `README.md` + `src/dashboard/data/skills.generated.ts` so the commit is atomic. Manual edits to static sections survive.
 - GitHub Actions runs `validate-catalog` (validate only, no regen — CI is downstream of the hook).
 
@@ -34,7 +35,7 @@ metadata:
 2. Add `module_meta.<name>: {title, intro, features?, notes?, version_added?}`.
 3. Run `npm run generate-docs`.
 
-## Subcommand grouping (project-status / project-plan docs)
+## Subcommand grouping (project docs)
 - Catalog subcommands accept an optional `group` field. `render-readme.js` `renderSubcommands`
   groups them under bold `*<group>*` labels in **first-appearance order** and renders each command
   as `` `name signature` `` (pipes in the signature are escaped for the table; the old `example`
