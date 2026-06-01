@@ -16,7 +16,18 @@ phaseId: REPLACE_PHASE_ID
 
 # audience: 'REPLACE_AUDIENCE'  # uncomment if known (e.g. Developer, Admin user)
 
+# Standalone initiatives MUST end with the reserved, non-deferrable final manual-validation
+# gate (G-MANUAL). `atomic-skills:project-plan new` injects it for standalone initiatives;
+# IN-PLAN phase initiatives OMIT it (the plan's terminal phase owns the gate). It blocks
+# `archive` until a human validates. See project-plan §"Mandatory final manual-validation gate".
 exitGates: []
+# exitGates:   # ← standalone shape: replace the empty `[]` above with this block
+#   - id: G-MANUAL
+#     description: 'Final manual validation — a human has personally verified the delivered work meets the goal before close.'
+#     verifier:
+#       kind: manual
+#       description: 'Demonstrate the completed work to the user and obtain explicit sign-off. This is the LAST gate; the initiative does not close until the user confirms.'
+#     status: pending
 
 # scope:
 #   paths:

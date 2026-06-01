@@ -89,6 +89,7 @@
  */
 
 import { parse as parseYaml, stringify as yamlStringify } from 'yaml';
+import { withManualGate } from './manual-gate.js';
 
 const H1_RE = /^#\s+(.+?)\s*$/m;
 const H2_RE = /^##\s+(.+?)\s*$/;
@@ -712,6 +713,15 @@ export function materializeDecomposition(decompose, opts = {}) {
       status: idx === 0 ? 'active' : 'pending',
     };
   });
+
+  // Inject the reserved final manual-validation gate onto the plan's TERMINAL
+  // phase (last in `phases` order). Exactly one G-MANUAL per plan; project-status
+  // enforces it at phase-done→plan-done. In-plan phase initiatives never carry
+  // it (the terminal phase owns it). See src/manual-gate.js.
+  const terminalPhase = phases[phases.length - 1];
+  terminalPhase.exitGate.criteria = withManualGate(terminalPhase.exitGate.criteria);
+  const tpCount = terminalPhase.exitGate.criteria.length;
+  terminalPhase.exitGate.summary = `${tpCount} ${tpCount === 1 ? 'criterion' : 'criteria'} to meet`;
 
   // Principles + glossary: fill empty fields with sentinels so schema passes
   const principles = plan.principles.map((p, idx) => ({

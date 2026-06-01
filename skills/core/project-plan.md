@@ -13,6 +13,33 @@ A bare frontmatter is not a Plan. Every plan created here ships a markdown body 
 
 If the user pushes back ("just create empty plan"), produce a `## TODO` skeleton for each section instead of skipping it. Empty sections are explicit, not implicit.
 
+## Mandatory final manual-validation gate
+
+Every Plan and every standalone Initiative created here ships a **reserved, non-deferrable manual-validation gate** as its LAST exit gate. Nothing closes until a human has personally validated the delivered work — this is enforced at close time by `atomic-skills:project-status` (`phase-done` → plan-done, and `archive`).
+
+The gate is a single reserved `ExitCriterion`:
+
+```yaml
+- id: G-MANUAL
+  description: 'Final manual validation — a human has personally verified the delivered work meets the goal before close.'
+  verifier:
+    kind: manual
+    description: 'Demonstrate the completed work to the user and obtain explicit sign-off. This is the LAST gate; the plan/initiative does not close until the user confirms.'
+  status: pending
+```
+
+**Where it lives** — exactly one gate per Plan, one per standalone Initiative; never per-phase:
+
+- **Standalone Initiative** → appended to its `exitGates[]`. Enforced at `archive`.
+- **Plan** → appended to the **terminal phase's** `exitGate.criteria[]` — the last phase in `phases[]` order, the one whose `phase-done` triggers plan-done. Enforced when `phase-done` detects `plan-done`.
+- **In-plan phase Initiatives do NOT carry it** — the gate belongs to the plan's terminal phase, not to each phase initiative.
+
+**Reserved id.** `G-MANUAL` is reserved. Never reuse it for another criterion, and never give one Plan/standalone-Initiative two `G-MANUAL` gates. Even when a phase already numbers gates `G-1, G-2, …`, the manual gate stays `G-MANUAL` (not `G-3`) so it is unambiguous to find, enforce, and relocate.
+
+**Non-deferrable.** Unlike ordinary gates, `G-MANUAL` can never be `deferred` — its only terminal status is `met`, set after explicit user sign-off. `project-status` refuses to close while it is `pending` (see that skill's *Manual-validation gate invariant*).
+
+Every creation path below injects this gate. If a Plan or standalone Initiative is ever materialized without it, that is a defect — `project-status` self-heals by injecting the gate at close time, but creation must never rely on that.
+
 ## When to invoke
 
 - "I want to organize what I have" → `discover` (scans memory + plans + git divergence)
@@ -94,6 +121,7 @@ Materialize the decomposed structure:
 - `.atomic-skills/plans/<slug>.md` from `skills/shared/project-status-assets/plan.template.md`
 - `.atomic-skills/initiatives/<slug>-<phase-id>.md` per phase, from `skills/shared/project-status-assets/initiative.template.md` with `parentPlan: <slug>` + `phaseId: <id>` filled and the plan-membership-block kept
 - Append rows to `.atomic-skills/PROJECT-STATUS.md` (the Plan in "Active Plans", each Initiative under it)
+- **Inject the manual-validation gate**: append the reserved `G-MANUAL` criterion (see *Mandatory final manual-validation gate*) to the **terminal phase's** `exitGate.criteria[]` in `.atomic-skills/plans/<slug>.md` — the last phase in `phases[]` order. Exactly one per plan; do not add it to any other phase or to the phase initiatives.
 
 After writing every file, **normalize then validate**:
 
@@ -347,6 +375,8 @@ The skill never errors out just because superpowers is absent.
    ```
 
    Then for each `{relativePath, content}` in the returned array, create the parent directory (`mkdir -p`) and write the file. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
+
+   After writing, **inject the manual-validation gate**: append the reserved `G-MANUAL` criterion (see *Mandatory final manual-validation gate*) to the **terminal phase's** `exitGate.criteria[]` of the just-written plan — the last phase in `phases[]` order. Exactly one per plan. (`adopt` always produces a Plan, so the standalone-initiative case does not apply here.)
 
 7. **Validate.** Run `npm run validate-state .atomic-skills/plans/<slug>.md` and `npm run validate-state .atomic-skills/initiatives/` (recursive). On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
 
@@ -621,6 +651,11 @@ Algorithm:
       - kind=initiative (status=active) → call draftToInitiative(draft, new Date());
         write to .atomic-skills/initiatives/<slug>.md
       - kind=initiative (status=archived) → write to .atomic-skills/initiatives/archive/<YYYY-MM>-<slug>.md
+   c2. Inject the manual-validation gate (see "Mandatory final manual-validation gate"):
+       - kind=plan → append the reserved G-MANUAL criterion to the terminal phase's
+         exitGate.criteria[] (last phase in phases[] order). Exactly one per plan.
+       - kind=initiative, status=active (standalone) → append G-MANUAL to its exitGates[].
+       - kind=initiative, status=archived → skip (already-closed historical capture).
    d. Delete the draft.
    e. On name conflict at destination: log, skip, continue.
 4. **Validate.** Run `npm run validate-state .atomic-skills/plans/ .atomic-skills/initiatives/`. On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
@@ -645,6 +680,7 @@ Algorithm:
 5. Handle the **plan-membership-block** in the template:
    - Standalone: delete the entire block including both `# === ... ===` sentinel lines.
    - In-plan: delete the two sentinel comment lines but fill `REPLACE_PARENT_PLAN_SLUG` and `REPLACE_PHASE_ID`.
+5b. **Inject the manual-validation gate — standalone only.** If this is a **standalone** initiative (plan-membership-block deleted), append the reserved `G-MANUAL` criterion (see *Mandatory final manual-validation gate*) to `exitGates[]`. If this is an **in-plan** phase initiative, do NOT add it — the gate lives on the plan's terminal phase, not here.
 6. Offer to detect scope automatically: invoke `atomic-skills:project-status detect-scope`; on user accept, write the suggested `scope.paths` into the new initiative.
 7. Append row to either "Active Initiatives (standalone)" or under the relevant plan in `.atomic-skills/PROJECT-STATUS.md`.
 8. Report to user with the created path.
@@ -700,6 +736,7 @@ Steps:
 5. On ratify (or edited context):
    - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
    - Create the initiative file `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md` from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
+   - **Relocate the manual-validation gate if the terminal phase changed.** A plan carries exactly one `G-MANUAL` gate, always on the terminal phase (the last in `phases[]` order, with nothing depending on it). If the inserted phase becomes the new terminal phase (appended at the end / no other phase depends on it), MOVE the reserved `G-MANUAL` criterion out of the previous terminal phase's `exitGate.criteria[]` and into the new phase's. If the phase is inserted mid-plan (a later phase still depends on the chain), leave `G-MANUAL` where it is. Never end up with zero or two `G-MANUAL` gates. See *Mandatory final manual-validation gate*.
    - Save plan + initiative.
    - Validate both files via `npm run validate-state`.
 6. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
@@ -716,6 +753,7 @@ Steps:
 4. Materialize the new phases (using `new-phase` semantics — provenance + plan body update + new initiative files), embedding each phase's ratified context.
 5. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks. Moved tasks keep their existing `context` (no re-ratify — the articulation was already done when each task was added).
 6. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to `initiatives/archive/`.
+6b. **Carry the manual-validation gate forward.** If the phase being split was the plan's terminal phase (it held the reserved `G-MANUAL` gate), move `G-MANUAL` to whichever new sub-phase becomes the terminal one. Archiving the original must never drop the only `G-MANUAL` gate. See *Mandatory final manual-validation gate*.
 7. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
 8. Validate everything. Roll back on any failure.
 

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { normalizeSlug, editDistance, SOURCE_TYPE_WEIGHTS, calculateConfidence } from '../src/bootstrap.js';
+import { MANUAL_GATE_ID, makeManualGate } from '../src/manual-gate.js';
 
 describe('normalizeSlug', () => {
   it('lowercases and kebab-cases simple input', () => {
@@ -536,6 +537,33 @@ describe('draftToInitiative', () => {
     const result = draftToInitiative(withSentinel, new Date());
     assert.equal(result.frontmatter.planLink, undefined);
     assert.equal(result.frontmatter.references, undefined);
+  });
+
+  it('appends the final manual-validation gate (G-MANUAL) for active standalone initiatives', () => {
+    const result = draftToInitiative(sampleDraft, new Date('2026-04-23T12:00:00Z'));
+    const manual = result.frontmatter.exitGates.filter((g) => g.id === MANUAL_GATE_ID);
+    assert.equal(manual.length, 1, 'exactly one G-MANUAL gate');
+    assert.equal(manual[0].status, 'pending');
+    assert.equal(manual[0].verifier.kind, 'manual');
+  });
+
+  it('does NOT add G-MANUAL to archived (historical) captures', () => {
+    const archDraft = { ...sampleDraft, frontmatter: { ...sampleDraft.frontmatter, status: 'proposed-archived' } };
+    const result = draftToInitiative(archDraft, new Date('2026-04-23T12:00:00Z'));
+    assert.ok(!result.frontmatter.exitGates.some((g) => g.id === MANUAL_GATE_ID));
+  });
+
+  it('is idempotent — does not duplicate an existing G-MANUAL gate', () => {
+    const withGate = {
+      ...sampleDraft,
+      frontmatter: {
+        ...sampleDraft.frontmatter,
+        exitGates: [makeManualGate()],
+      },
+    };
+    const result = draftToInitiative(withGate, new Date('2026-04-23T12:00:00Z'));
+    const manual = result.frontmatter.exitGates.filter((g) => g.id === MANUAL_GATE_ID);
+    assert.equal(manual.length, 1, 'still exactly one G-MANUAL gate');
   });
 });
 

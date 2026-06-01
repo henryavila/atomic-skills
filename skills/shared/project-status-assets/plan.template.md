@@ -28,7 +28,18 @@ phases:
     status: active
     exitGate:
       summary: 'REPLACE_INITIAL_PHASE_EXIT_SUMMARY'
+      # The plan's TERMINAL phase (last in `phases:` order) MUST end its criteria with the
+      # reserved, non-deferrable final manual-validation gate (G-MANUAL). project-plan injects
+      # it; it is enforced at phase-done→plan-done. Exactly one G-MANUAL per plan, on the
+      # terminal phase only. See project-plan §"Mandatory final manual-validation gate".
       criteria: []
+      # criteria:   # ← terminal-phase shape: replace the empty `[]` above with this block
+      #   - id: G-MANUAL
+      #     description: 'Final manual validation — a human has personally verified the delivered work meets the goal before close.'
+      #     verifier:
+      #       kind: manual
+      #       description: 'Demonstrate the completed work to the user and obtain explicit sign-off. This is the LAST gate; the plan does not close until the user confirms.'
+      #     status: pending
 
 # interPhaseGates: []  # populate when phases have hard handoff gates
 

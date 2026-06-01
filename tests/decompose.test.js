@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { decomposePlan, previewDecomposition, materializeDecomposition } from '../src/decompose.js';
+import { MANUAL_GATE_ID } from '../src/manual-gate.js';
 import { validateFile } from '../scripts/validate-state.js';
 
 const SCHEMA_DIR = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'meta', 'schemas');
@@ -298,7 +299,10 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     const validators = buildValidators();
     assert.equal(validators.validatePlan(planFm), true);
     assert.match(planFm.phases[0].goal, /TODO/);
-    assert.match(planFm.phases[0].exitGate.summary, /TODO|criteria/);
+    // The terminal phase always carries the injected G-MANUAL gate, so its
+    // summary is never the empty "TODO: define exit gate" sentinel — it counts
+    // at least the one manual criterion.
+    assert.match(planFm.phases[0].exitGate.summary, /TODO|criteri(on|a)/);
     const initFm = parseYaml(files[1].content.split('---\n')[1]);
     assert.equal(validators.validateInitiative(initFm), true);
     assert.match(initFm.goal, /TODO/);
@@ -334,6 +338,96 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     const body = files[0].content;
     assert.match(body, /## Decompose warnings/);
     assert.match(body, /Open questions/);
+  });
+});
+
+describe('materializeDecomposition — final manual-validation gate (G-MANUAL)', () => {
+  const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
+  function allCriteria(planFm) {
+    return planFm.phases.flatMap((p) => p.exitGate.criteria);
+  }
+
+  it('appends exactly one G-MANUAL gate, on the TERMINAL phase only', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+
+    const manualGates = allCriteria(planFm).filter((c) => c.id === MANUAL_GATE_ID);
+    assert.equal(manualGates.length, 1, 'exactly one G-MANUAL across the whole plan');
+
+    const terminal = planFm.phases[planFm.phases.length - 1];
+    const onTerminal = terminal.exitGate.criteria.filter((c) => c.id === MANUAL_GATE_ID);
+    assert.equal(onTerminal.length, 1, 'the gate lives on the terminal phase');
+
+    // No earlier phase carries it.
+    for (let i = 0; i < planFm.phases.length - 1; i++) {
+      assert.ok(
+        !planFm.phases[i].exitGate.criteria.some((c) => c.id === MANUAL_GATE_ID),
+        `phase ${planFm.phases[i].id} must not carry G-MANUAL`
+      );
+    }
+  });
+
+  it('the G-MANUAL gate is a pending manual verifier', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    const gate = allCriteria(planFm).find((c) => c.id === MANUAL_GATE_ID);
+    assert.equal(gate.status, 'pending');
+    assert.equal(gate.verifier.kind, 'manual');
+    assert.ok(gate.verifier.description.length > 0);
+  });
+
+  it('is appended after any pre-existing criteria on the terminal phase', () => {
+    // FIXTURE's terminal phase (F2) has zero decomposed gates; build a source
+    // whose LAST phase already has a gate, to prove G-MANUAL is appended last.
+    const src = [
+      '# Plan',
+      '',
+      '## F0 — First',
+      'Goal: do first',
+      '### A task',
+      '',
+      '## F1 — Last',
+      'Goal: do last',
+      '### A task',
+      '',
+      '```yaml',
+      'exit_gate:',
+      '  criteria:',
+      '    - id: G-1',
+      '      description: a real gate',
+      '      status: pending',
+      '```',
+    ].join('\n');
+    const r = decomposePlan(src, { planSlug: 'twophase' });
+    const files = materializeDecomposition(r, { planSlug: 'twophase', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    const terminal = planFm.phases[planFm.phases.length - 1];
+    const ids = terminal.exitGate.criteria.map((c) => c.id);
+    assert.deepEqual(ids, ['G-1', MANUAL_GATE_ID], 'G-MANUAL appended after the real gate');
+  });
+
+  it('single-phase plan puts G-MANUAL on its only phase and still validates', () => {
+    const r = decomposePlan('# T\n\n## F0 — S\n\n### A first task\n', { planSlug: 'solo' });
+    const files = materializeDecomposition(r, { planSlug: 'solo', now: FROZEN_DATE });
+    const planFm = parseYaml(files[0].content.split('---\n')[1]);
+    assert.ok(planFm.phases[0].exitGate.criteria.some((c) => c.id === MANUAL_GATE_ID));
+    const validators = buildValidators();
+    assert.equal(validators.validatePlan(planFm), true);
+  });
+
+  it('in-plan phase initiatives do NOT carry G-MANUAL (the plan owns it)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    const inits = files.filter((f) => f.kind === 'initiative');
+    for (const f of inits) {
+      const fm = parseYaml(f.content.split('---\n')[1]);
+      assert.ok(
+        !fm.exitGates.some((g) => g.id === MANUAL_GATE_ID),
+        `phase initiative ${fm.slug} must not carry G-MANUAL in exitGates`
+      );
+    }
   });
 });
 

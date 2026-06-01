@@ -5,6 +5,8 @@
  * All functions are pure; no I/O, no globals.
  */
 
+import { withManualGate } from './manual-gate.js';
+
 const BRANCH_PREFIXES = ['feat/', 'fix/', 'refactor/', 'chore/', 'docs/', 'test/'];
 const ARTICLE_PREFIXES = ['the-', 'a-', 'an-'];
 const DATE_PREFIX = /^\d{4}-\d{2}-\d{2}-/;
@@ -348,6 +350,15 @@ export function draftToInitiative(draft, now = new Date()) {
   delete fm.bootstrap;
   delete fm.proposedAt;
   delete fm.proposedBucket;
+
+  // A committed-as-active standalone initiative ends with the reserved final
+  // manual-validation gate (G-MANUAL) so it cannot be archived without a human
+  // sign-off. Archived (historical) captures are already closed — skip them.
+  // See src/manual-gate.js. (discover only produces standalone initiatives via
+  // this path; plan-shaped clusters go through materializeDecomposition.)
+  if (newStatus === 'active') {
+    fm.exitGates = withManualGate(fm.exitGates);
+  }
 
   return {
     frontmatter: fm,
