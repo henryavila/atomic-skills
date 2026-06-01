@@ -51,7 +51,15 @@ Strict sequence (correction #5), each step green before the next:
 Wiring GATE-R2 made `node scripts/validate-state.js` (live tree) fail on **5 files / ~26 criteria** from the prior `aideck-multi-project` work — all marked `status: met` with `shell`/`test` verifiers but **no evidence block** (fabricated-met under the old stubbed regime). This matches [[project-aideck-multi-project-shipped]] ("F4+F5 code complete, gates pending manual verification"). The test suite stays green (fixtures are clean; no test validates the live tree). Affected:
 `plans/aideck-multi-project.md` + `initiatives/aideck-multi-project-f{0,1,2,3}-*.md`.
 
-This is the gate doing its job — these gates were closed without running their verifiers. Remediation is the USER's call (out of Inc1 scope; do NOT fabricate evidence): per criterion → (a) re-run the verifier and record real evidence, (b) revert `met`→`pending`, or (c) `deferred` + `deferredReason`. The `.atomic-skills/` tree is gitignored local state, so this does not block the repo's CI.
+This is the gate doing its job — these gates were closed without running their verifiers.
+
+**RESOLVED (2026-06-01, user chose "re-verify now"):** ran each gate's verifier against the current aideck (`feat/aideck-v2-generic-runtime` — the multi-project work survived the rewrite). **24 of 26 criteria genuinely pass** with real tests (`register`:44, `projects`:11, `register validation`:4, `register idempotent`:2, `multi-watcher`:1, `unregister watcher`:1, `sse default project`:2, `watcher isolation`:1, `project-scoped state`:3, `backward-compat`:7, F3 serve.test.js:16) → recorded honest `evidence` (verifierKind:test, testsCollected, passed, outputSummary noting the branch). The gates were upgraded from `kind:shell`-wrapping-a-test to **`kind:test`** so GATE-R2's 0-tests guard protects them. Live tree validates again (17 files).
+
+**Two caveats flagged for the user (NOT auto-fixed):**
+- **F0-G3 (×2, plan + f0 initiative) → reverted to `pending`:** its verifier `-t 'health includes projects'` matches **0 tests** on v2 (everything skipped, `vitest` still exits 0 — the literal R-XAGENT-07 false-green). The behavior may be tested under a different name; the gate needs a corrected pattern or a real test before it can honestly be `met`. This is also why F0 phase-done is now technically optimistic (a done phase with one pending gate).
+- **F3-G1 verifier is loose:** `node --test tests/serve.test.js` passes (16 tests) but `serve.test.js` has no test specifically for "ensureAideck registers B without killing A" — the run is a weak proxy for that criterion's stated behavior. Evidence recorded honestly; a targeted test would strengthen it.
+
+Lesson worth carrying: **test-running gates should be `kind:test` (enforces `testsCollected>0`), never `kind:shell` wrapping a test command** — the shell form only checks exit code and silently passes a 0-tests run.
 
 > Also fixed out-of-band (pre-existing, unrelated to Inc1): `initiatives/bmad-porting-research.md` had `references[3].kind: initiative`, invalid for `artifactRef` (enum `file|url|repo-path|section`) → corrected to `repo-path` (matches its in-repo path + `inside_repo:true`). Gitignored, not committed.
 
