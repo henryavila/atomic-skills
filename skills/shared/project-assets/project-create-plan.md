@@ -58,6 +58,14 @@ node scripts/lint-design.js projects/<project-id>/<slug>/design.md
 
 A non-zero exit (missing file, or a missing/empty required section) **HARD-BLOCKS** the plan — do not decompose. Either run `atomic-skills:brainstorm` to produce the design, or, for a lane triage explicitly exempted from DESIGN (ad-hoc / single-task per R-ORCH-03, or `adopt` capturing a pre-lifecycle plan), record that exemption verbatim. PLAN never starts on a design that does not lint clean.
 
+**No-Placeholders precondition — reject authored fill-me markers (R-ORCH-12).** The source plan itself must be free of leftover template/placeholder markers before it can decompose:
+
+```bash
+node scripts/lint-source.js <source.md>
+```
+
+A non-zero exit — any `REPLACE_*`, `TODO`/`TBD`/`FIXME` sentinel, fuzzy `<path>`-class placeholder, or "similar to Task N" cross-task hand-waving — **HARD-BLOCKS** decompose: **no file is written**. Fix the source and re-run. The gate is deterministic and zero-token (a pure `node` string scan, no LLM call), so it runs identically on every host. Unlike DESIGN, **no lane is exempt** from this one: even the magnitude-exempt single-task lane runs the No-Placeholders lint (R-ORCH-03 — "single-task runs ZERO gates *only* No-Placeholders lint"). It is intentionally narrow — a documented path *variable* like `projects/<id>/<slug>/` is not flagged; only the fixed fuzzy vocabulary (`<path>`, `<file>`, `<dir>`, `<…>`, …) is.
+
 Sanity checks before decomposing:
 - File is well-formed markdown (has at least one H1 or H2 header).
 - File is < 5,000 lines (anything larger almost certainly contains noise that needs splitting first — surface a warning and ask the user to confirm).
@@ -70,6 +78,16 @@ If any check fails: surface the specific issue, do not proceed.
 Apply heuristics to extract `Plan` + `Initiatives[]` + `Tasks[]` from the source markdown. **Always** present the resulting structure (count of phases, initiatives, tasks; first 3 phase titles) for user confirmation before any file is written.
 
 Decomposition rules live in the **Markdown decompose** section.
+
+**SPEC per-task admission gate (R-ORCH-19/23).** After the user confirms the structure and before Stage 6 writes anything, run the per-task gate over the same source. The SPEC gate is **No-Placeholders lint + per-task ambiguity checks, no panel** (R-ORCH-19) — no debate, no critic:
+
+```bash
+node scripts/lint-source.js <source.md> --spec
+```
+
+A non-zero exit means at least one `### Tn` task lacks one of its four HOW fields — **exact paths (`Files:`), a `scopeBoundary:`, `acceptance:` criteria, or a DETERMINISTIC `verifier:`** (`kind shell`/`test`/`query`; `manual` does not satisfy the gate). No task is admitted to implement without all four (R-ORCH-23). Fix the source and re-run; the per-task interior carries into the materialized task's existing schema fields (`description`/`acceptance[≤5]`/`scopeBoundary[]`/`verifier`) — **no new schema keys**. Bullet-mode task lists (a `### Tasks` marker + `- **Tn — …**` bullets) cannot express the interior, so the gate requires the verbose `### Tn` form.
+
+**SPEC-gate exemptions (record verbatim, never silent):** the triage-routed ad-hoc / single-task lanes (R-ORCH-03) and `adopt` (pre-lifecycle capture) skip the per-task SPEC gate — they still run the bare No-Placeholders lint from Stage 4. This default multi-phase bootstrap is never exempt.
 
 ### Stage 6 — Create Plan + Initiatives
 
@@ -250,7 +268,7 @@ If `(b)`:
 If `(c)` (the minimal-template subflow):
 
 1. Copy `{{ASSETS_PATH}}/minimal-source.template.md` to a temp path inside the repo, e.g. `.atomic-skills/_drafts/<slug>-source.md`. Create the `_drafts/` directory if needed.
-2. Tell the user the file path and what sections to fill (title, narrative, principles, glossary, ≥ 1 phase with ≥ 1 task). Suggest they leave the `REPLACE_*` markers in any section they don't want to fill — the decomposer's no-phase guard surfaces the only hard-required section.
+2. Tell the user the file path and what sections to fill (title, narrative, principles, glossary, ≥ 1 phase with ≥ 1 task, and each task's four SPEC fields — Files / scopeBoundary / acceptance / verifier). **Fill every section you keep**: the No-Placeholders lint (Stage 4) rejects any leftover `REPLACE_*` marker before decompose, so to omit an optional section (e.g. glossary) *delete it entirely* rather than leaving its `REPLACE_*` markers in place.
 3. Wait for the user to confirm they've finished editing. Re-read the file.
 4. Use this path as the source-plan path for Stage 4.
 
@@ -298,7 +316,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
    });"
    ```
 
-5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
+5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **Advisory No-Placeholders surface (R-ORCH-12):** `adopt` is the pre-lifecycle capture path, so the No-Placeholders lint runs **advisorily, not as a hard gate** — run `node scripts/lint-source.js <source-path>` and surface any `REPLACE_*`/`TODO`/fuzzy-path hits as warnings so the user can decide to clean them before or after capture; never block the capture on them. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
 
 6. **Materialize.** On confirmation, run the pure transform:
 
