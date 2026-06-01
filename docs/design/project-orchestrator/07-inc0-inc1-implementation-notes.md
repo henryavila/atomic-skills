@@ -1,6 +1,6 @@
-# Inc0 + Inc1 — implementation notes & verified ground-truth corrections
+# Inc0–Inc2 — implementation notes & verified ground-truth corrections
 
-> **Status:** Inc0 DONE; Inc1 in progress (2026-06-01). Branch `dogfood/self-host-migration`.
+> **Status:** Inc0 + Inc1 + Inc2 DONE (2026-06-01). Branch `dogfood/self-host-migration`. **Next = Inc3.** See the `## SESSION HANDOFF` block at the END of this file to resume.
 > This file is the durable record of what was BUILT (vs. designed) and where the appendices' `file:line` claims drifted from the real code. A ground-truth verification sweep (6 parallel readers) ran before any code; its corrections are recorded here so future sessions trust the code, not the snapshot in 01/05.
 
 ## Ground-truth verification — 5 material corrections to the appendices
@@ -80,3 +80,44 @@ Lands the `projects/<id>/<slug>/` tree so the first plan (the migration) can mat
 ## Next (Inc3)
 
 DESIGN cognition (built on a throwaway, then replayed): brainstorm + debate gate-mode + critic asset + DESIGN gate ladder + `design.md` section lint (R-XAGENT-06) + rewire `project-create-plan` to internal `atomic-skills:brainstorm`. Pressure-test every new Iron Law (3+ scenarios) before ship. NOT on the migration critical path (build conventionally, replay as regression — appendix 01 §5).
+
+---
+
+## SESSION HANDOFF — resume at Inc3 (2026-06-01)
+
+**Read order for the resuming session:** this block → `00-CANON.md` RESUME HERE → `00-CANON.md` decision log + build order → this file top-to-bottom (the 5 ground-truth corrections + Inc0–Inc2 detail) → `05-fork-resolutions.md` (F-C1/F-C2 for Inc3) → `01-…§5` (dogfood line: cognitive skills are build-conventionally-then-replay).
+
+### Narrative (where we are)
+project→lifecycle-orchestrator: design decision-complete; **Inc0+Inc1+Inc2 built & committed** on `dogfood/self-host-migration` (off `main`). Mechanical/enforcement spine is done: the cross-agent strip-test gate, nested-layout kind inference, the verify-on-done teeth (GATE-R2 met-invariant — the real enforcement, since verifier-exec is markdown prose), the 0.2 schema, and the `projects/<id>/<slug>/` path-emit/normalize/serve/validate-state plumbing (opt-in, coexisting with the flat tree). Nothing destructive has touched the live `.atomic-skills/` tree except honest re-verification of the aideck-multi-project gates.
+
+### State (verbatim)
+- Branch: `dogfood/self-host-migration` (base `main`). **Working tree CLEAN.**
+- Commits (newest first): `a996371` Inc2 · `d182047` re-verify doc · `ab4b9dc` Inc1 · `febe267` Inc0. (`main` tip before this work: `7500822`.)
+- Suite: `npm test` → **614 pass / 0 fail** (baseline 539).
+- Live tree: `node scripts/validate-state.js` → **All 17 file(s) valid** (schemaVersion 0.1/0.2).
+- Memory updated: [[project-orchestrator-redesign-canon]], [[project-aideck-multi-project-shipped]], MEMORY.md index.
+
+### Single nextAction
+Start **Inc3**, prerequisite FIRST: author `docs/kb/skill-authoring.md` (R-SP-12) — the RED-GREEN-REFACTOR pressure-test method + the 3+-combined-factor rule + the rented-phrasing exemption — because every other Inc3 deliverable (brainstorm/critic/debate-gate Iron Laws) must cite it and be pressure-tested against it before ship.
+
+### Inc3 build order (after skill-authoring.md)
+1. `skills/core/brainstorm.md` (R-SP-01/02/03) — divergent front-half of DESIGN → committed `design.md`; ≥1 Iron Law + Red-Flags + Rationalization table; pressure-tested (3+ scenarios).
+2. Critic asset `skills/shared/debate-assets/critic.md` (R-XAGENT-04, F-C1) — non-callable lazy asset (header: "NOT a debate persona; never resolved from roster.yaml"); **tiered provider** (same-provider-fresh on Claude Code → codex critic where isolation unproven → solo-advisory). Emits binary `Approved | Issues-Found` (reuse codex pass1 `verdict:` frontmatter shape). Gate-pass wires to the verdict, NEVER panel consensus.
+3. `debate.md` thin GATE-MODE (R-SP-13/15/31) — bounded agenda + per-round contrarian + machine-readable verdict block; Iron Law preserved; non-gate behavior unchanged.
+4. DESIGN gate ladder (R-ORCH-16/17) — panel ONLY if ≥2 viable approaches AND expensive-to-reverse; else skip. When panel runs → critic R3 + explicit user approval.
+5. `design.md` section lint (R-XAGENT-06) — deterministic, zero-token, cross-agent; require `decisions` + `chosen-approach` (+ blast-radius for migrations); mirrors the No-Placeholders lint shape; gives R-ORCH-09 ("PLAN refuses without design.md") something testable.
+6. Rewire `project-create-plan.md` Stages 2-3 / §201-277 (R-ORCH-07/08, R-SP-27/28) to call internal `atomic-skills:brainstorm` (replace superpowers delegation); keep the optional detect-and-degrade probe (RENT, exempt from pressure-test budget per R-SP-32).
+- **F-C2 (v1 scope):** DESIGN ships as committed `design.md` + section lint + hard PLAN-precondition — NOT a tracked `stage`-object gate (that + the DESIGN-CRITIC = v2). Don't build a tracked DESIGN stage.
+
+### Critical constraints for Inc3 (do NOT violate)
+- **Build on a THROWAWAY plan + pressure-test, then REPLAY over the migration as regression — Inc3 is OFF the migration critical path** (appendix 01 §5 / build order). Do not let unproven cognitive skills run on the migration's first pass.
+- **R-XAGENT-01 strip-test is live:** any `{{#if ide.claude-code}}`-only host-orchestration tool in a new skill body must be inside the CC block, or CI fails. New bodies use tool-abstraction template vars only (`{{INVESTIGATOR_TOOL}}` etc.) — `tests/compatibility.test.js` enforces it.
+- **Pressure-test record required** before any new Iron Law/Red-Flag block ships (R-SP-03/08, R-EXEC-31): ≥3 combined-pressure scenarios, dated, cited.
+- Register new skills/assets in `meta/catalog.yaml` + regenerate (R-SP-33) — the husky pre-commit hook runs `validate-catalog`/`check-docs`, so catalog/doc drift blocks the commit (seen this session).
+
+### Open caveats carried forward (flagged, user-deferred — NOT blockers)
+- **F0-G3 (×2) pending** in the live aideck-multi-project state: its verifier `-t 'health includes projects'` matches 0 tests on aideck@`feat/aideck-v2-generic-runtime`. Either fix the `-t` pattern to the real test name or add a real test before it can honestly be `met`. (F0 phase is now technically optimistic — done phase, one pending gate.)
+- **F3-G1 loose verifier:** `node --test tests/serve.test.js` passes but has no test specifically for "ensureAideck registers B without killing A". A targeted test would strengthen it.
+
+### Resume hygiene (the design's own `resume` refuses on these)
+Tree is clean and there are no TODO placeholders in the handoff, so a fresh session may proceed. If anything is dirty on resume, stash/commit before starting Inc3. Optionally open a PR for the branch first (`gh pr create`) if you want review before Inc3 — ask the user; not done automatically.
