@@ -92,6 +92,18 @@ export function parseFrontmatter(raw) {
 /**
  * Infer schema kind ('plan' | 'initiative') from a file path.
  * Returns null if the path is not under a recognised directory.
+ *
+ * Two layouts are recognised (R-XAGENT-08 / F-B3):
+ *  - FLAT (legacy, live during the dogfood window):
+ *      <root>/plans/<slug>.md            → 'plan'
+ *      <root>/initiatives/<slug>.md      → 'initiative'
+ *  - NESTED (projects/<id>/<slug>/, the migration target):
+ *      <root>/projects/<id>/<slug>/plan.md           → 'plan'
+ *      <root>/projects/<id>/<slug>/phases/f<N>-*.md  → 'initiative'
+ *      (a phase initiative *is* an initiative — Decision #9; no 4th schema)
+ *
+ * The flat checks run FIRST and the loop returns at the segment closest to the
+ * file, so adding the nested checks cannot change any flat-tree result.
  */
 function kindFromPath(filePath) {
   const parts = resolve(filePath).split('/');
@@ -101,6 +113,14 @@ function kindFromPath(filePath) {
   for (let i = parts.length - 2; i >= 0; i--) {
     if (parts[i] === 'plans') return 'plan';
     if (parts[i] === 'initiatives') return 'initiative';
+    // NESTED layout: a `phases/` ancestor marks a phase initiative. Checked
+    // LAST in the loop body so a flat path with a `plans`/`initiatives`
+    // segment is unaffected (it short-circuits above).
+    if (parts[i] === 'phases') return 'initiative';
+  }
+  // NESTED layout plan: `plan.md` directly under a projects/<id>/<slug>/ tree.
+  if (basename(parts[parts.length - 1]) === 'plan.md' && parts.includes('projects')) {
+    return 'plan';
   }
   return null;
 }
@@ -164,7 +184,7 @@ export function validateFile(filePath, validators) {
     return {
       ok: false,
       kind: null,
-      errors: [`cannot infer kind from path (must be under plans/ or initiatives/)`],
+      errors: [`cannot infer kind from path (must be under plans/, initiatives/, or projects/<id>/<slug>/{plan.md,phases/})`],
     };
   }
   let raw;

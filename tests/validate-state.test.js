@@ -497,3 +497,100 @@ test('crossValidate: pending phase + pending initiative → no cross-check', () 
   const errors = crossValidate(plans, inits);
   assert.equal(errors.length, 0);
 });
+
+// ── R-XAGENT-08: kind inference for the nested projects/<id>/<slug>/ layout ──
+// The nested layout is a *relocation* (Decision #9 / F-B3): plan.md validates
+// against plan.schema.json, phases/fN-*.md against initiative.schema.json — no
+// 4th content schema. These tests prove the new kindFromPath branches AND that
+// the flat-tree walk is byte-unaffected (the live tree must keep validating
+// during the dogfood window).
+
+test('kind inference (nested): projects/<id>/<slug>/plan.md → plan and validates', () => {
+  const validators = buildValidators();
+  const content = readFileSync(join(FIXTURES, 'plans', 'v3-redesign.md'), 'utf8');
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-nested-'));
+  try {
+    const planDir = join(dir, 'projects', 'atomic-skills', 'migration-self-host');
+    mkdirSync(planDir, { recursive: true });
+    const tmpFile = join(planDir, 'plan.md');
+    writeFileSync(tmpFile, content);
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.kind, 'plan', 'plan.md under projects/*/*/ must infer kind=plan');
+    assert.equal(result.ok, true, `nested plan.md must validate: ${JSON.stringify(result.errors)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('kind inference (nested): projects/<id>/<slug>/phases/fN-*.md → initiative and validates', () => {
+  const validators = buildValidators();
+  const content = readFileSync(join(FIXTURES, 'initiatives', 'v3-f0-foundation-repair.md'), 'utf8');
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-nested-'));
+  try {
+    const phasesDir = join(dir, 'projects', 'atomic-skills', 'migration-self-host', 'phases');
+    mkdirSync(phasesDir, { recursive: true });
+    const tmpFile = join(phasesDir, 'f0-foundation-repair.md');
+    writeFileSync(tmpFile, content);
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.kind, 'initiative', 'phases/fN-*.md must infer kind=initiative');
+    assert.equal(result.ok, true, `nested phase initiative must validate: ${JSON.stringify(result.errors)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('kind inference (nested): archived phase under phases/archive/ → initiative', () => {
+  const validators = buildValidators();
+  const content = readFileSync(join(FIXTURES, 'initiatives', 'v3-f0-foundation-repair.md'), 'utf8');
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-nested-'));
+  try {
+    const archiveDir = join(dir, 'projects', 'atomic-skills', 'migration-self-host', 'phases', 'archive');
+    mkdirSync(archiveDir, { recursive: true });
+    const tmpFile = join(archiveDir, 'f0-foundation-repair.md');
+    writeFileSync(tmpFile, content);
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.kind, 'initiative', 'archived phase must still infer kind=initiative');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('kind inference (flat regression): flat plans/ + initiatives/ still infer correctly', () => {
+  const validators = buildValidators();
+  const planResult = validateFile(join(FIXTURES, 'plans', 'v3-redesign.md'), validators);
+  assert.equal(planResult.kind, 'plan', 'flat plans/<slug>.md must still infer plan');
+  const initResult = validateFile(join(FIXTURES, 'initiatives', 'v3-f0-foundation-repair.md'), validators);
+  assert.equal(initResult.kind, 'initiative', 'flat initiatives/<slug>.md must still infer initiative');
+});
+
+test('kind inference: path under no recognised layout → kind null + named error', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-nokind-'));
+  try {
+    const tmpFile = join(dir, 'random', 'notes.md');
+    mkdirSync(dirname(tmpFile), { recursive: true });
+    writeFileSync(tmpFile, '---\nslug: x\n---\n');
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.kind, null);
+    assert.equal(result.ok, false);
+    assert.match(result.errors.join('\n'), /cannot infer kind/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('kind inference: a plain plan.md NOT under projects/ does not infer plan', () => {
+  // Guard against the projects-check over-firing: plan.md must require a
+  // `projects` ancestor, else it falls through to kind=null.
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-nokind-'));
+  try {
+    const tmpFile = join(dir, 'docs', 'plan.md');
+    mkdirSync(dirname(tmpFile), { recursive: true });
+    writeFileSync(tmpFile, '---\nslug: x\n---\n');
+    const result = validateFile(tmpFile, validators);
+    assert.equal(result.kind, null, 'plan.md outside projects/ must not infer plan');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
