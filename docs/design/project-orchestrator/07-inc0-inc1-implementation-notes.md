@@ -123,7 +123,7 @@ project→lifecycle-orchestrator: design decision-complete; **Inc0+Inc1+Inc2+Inc
 
 ### State (verbatim)
 - Branch: `dogfood/self-host-migration` (base `main`). **Working tree CLEAN** after the Inc4 commit.
-- Commits (newest first): `<Inc4 — this commit>` · `c341f44` handoff(resume@Inc4) · `4d61594` Inc3 · `a996371` Inc2 · `d182047` re-verify doc · `ab4b9dc` Inc1 · `febe267` Inc0. (`main` tip before this work: `7500822`.)
+- Commits (newest first): `d3ef61d` Inc4 · `c341f44` handoff(resume@Inc4) · `4d61594` Inc3 · `a996371` Inc2 · `d182047` re-verify doc · `ab4b9dc` Inc1 · `febe267` Inc0. (`main` tip before this work: `7500822`.)
 - Suite: `npm test` → **668 pass / 0 fail** (Inc3 baseline 640; +28 `lint-source`). Strip-test 72/72. `validate-catalog` clean (12 skills). No README/`skills.generated.ts`/`docs/skills/*` drift.
 - Live tree: `node scripts/validate-state.js` → **All 17 file(s) valid** (schemaVersion 0.1/0.2) — untouched by Inc4.
 - Memory updated: [[project-orchestrator-redesign-canon]] (now Inc0–Inc4), MEMORY.md index.
