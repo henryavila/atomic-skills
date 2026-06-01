@@ -8,7 +8,7 @@ archivedCount: 0
 
 # Project Status Index
 
-Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read first every session.
+Canonical entry point. Auto-updated by `atomic-skills:project`. Read first every session.
 
 This repo follows a 3-level model:
 
@@ -20,9 +20,9 @@ Standalone initiatives (no `parentPlan`) coexist with plan-anchored initiatives.
 
 ## Active Plans
 
-_(none yet — run `atomic-skills:project-plan <slug>` to bootstrap interactively,
-`atomic-skills:project-plan adopt <plan-file.md>` to capture an existing plan,
-or `atomic-skills:project-plan discover` to scan repo for in-flight work)_
+_(none yet — run `atomic-skills:project new plan <slug>` to bootstrap interactively,
+`atomic-skills:project adopt <plan-file.md>` to capture an existing plan,
+or `atomic-skills:project discover` to scan repo for in-flight work)_
 
 | Slug | Status | Current Phase | Branch | Started |
 |------|--------|---------------|--------|---------|
@@ -30,7 +30,7 @@ or `atomic-skills:project-plan discover` to scan repo for in-flight work)_
 
 ## Active Initiatives (standalone)
 
-_(initiatives not anchored to a plan — run `atomic-skills:project-plan new <slug>` to start one)_
+_(initiatives not anchored to a plan — run `atomic-skills:project new initiative <slug>` to start one)_
 
 | Slug | Status | Branch | Started | Next Action |
 |------|--------|--------|---------|-------------|

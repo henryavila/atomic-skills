@@ -323,7 +323,7 @@ function fillTemplate(raw, kind) {
 
 test('initiative.template.md (standalone mode, with plan-membership-block stripped) passes schema', () => {
   const validators = buildValidators();
-  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-status-assets', 'initiative.template.md');
+  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-assets', 'initiative.template.md');
   let raw = readFileSync(tplPath, 'utf8');
   // Standalone mode: strip the plan-membership-block (between sentinels, inclusive).
   raw = raw.replace(
@@ -346,7 +346,7 @@ test('initiative.template.md (standalone mode, with plan-membership-block stripp
 
 test('initiative.template.md (in-plan mode, REPLACE_* filled) passes schema', () => {
   const validators = buildValidators();
-  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-status-assets', 'initiative.template.md');
+  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-assets', 'initiative.template.md');
   let raw = readFileSync(tplPath, 'utf8');
   // In-plan mode: keep parentPlan/phaseId lines but drop sentinel comments.
   raw = raw.replace(/# === plan-membership-block.*\n/, '');
@@ -371,7 +371,7 @@ test('initiative.template.md (in-plan mode, REPLACE_* filled) passes schema', ()
 
 test('plan.template.md (REPLACE_* filled) passes schema', () => {
   const validators = buildValidators();
-  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-status-assets', 'plan.template.md');
+  const tplPath = join(REPO_ROOT, 'skills', 'shared', 'project-assets', 'plan.template.md');
   const raw = readFileSync(tplPath, 'utf8');
   const filled = fillTemplate(raw, 'plan');
 

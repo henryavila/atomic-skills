@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# atomic-skills:project-status — Stop hook (v2, scope-drift detection)
+# atomic-skills:project — Stop hook (v2, scope-drift detection)
 #
 # Compares files written during the current turn vs the active initiative's
 # `scope.paths`. >50% out-of-scope writes surface a drift warning; the warning

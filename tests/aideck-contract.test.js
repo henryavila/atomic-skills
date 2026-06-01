@@ -24,14 +24,14 @@ const PLAN_TEMPLATE_PATH = join(
   REPO_ROOT,
   'skills',
   'shared',
-  'project-status-assets',
+  'project-assets',
   'plan.template.md'
 )
 const INITIATIVE_TEMPLATE_PATH = join(
   REPO_ROOT,
   'skills',
   'shared',
-  'project-status-assets',
+  'project-assets',
   'initiative.template.md'
 )
 
@@ -46,7 +46,7 @@ async function loadParsers() {
 
 /**
  * Substitutes REPLACE_* placeholders with provided values. Mirrors the
- * project-status skill's `new-plan` / `new` flow, which the LLM applies
+ * project skill's `new plan` / `new initiative` flow, which the LLM applies
  * literally (not via renderTemplate, which is the install-time machinery).
  *
  * @param {string} raw

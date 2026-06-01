@@ -10,7 +10,7 @@ already_tracked: REPLACE_TRACKED_COUNT
 # Bootstrap Proposal
 
 > Review each candidate below. **Delete the draft file to skip.** Edit freely.
-> When done, run `atomic-skills:project-plan discover --commit`.
+> When done, run `atomic-skills:project discover --commit`.
 
 ## Sources scanned
 

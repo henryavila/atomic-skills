@@ -80,7 +80,7 @@ export function DiscoverPage() {
             NO DISCOVER DATA
           </div>
           <p style={{ margin: 0, color: 'var(--fg-muted)', fontSize: 13 }}>
-            Run <code className="font-mono">project-plan discover</code> in Claude to generate proposals, then refresh
+            Run <code className="font-mono">project discover</code> in Claude to generate proposals, then refresh
             this page.
           </p>
         </div>

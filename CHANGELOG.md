@@ -10,9 +10,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 First major bump since 1.8.x. Consolidates **five** threads of work — the
 review skills refactor (4 → 2 with a mode picker), the catalog v0.2 schema
 + rename to `meta/catalog.yaml`, a README + dashboard doc generator with
-five marker-bounded regions, a husky auto-regen pre-commit hook, and a
-verb-based split between `project-status` (VIEW + daily mutations) and
-`project-plan` (CREATE + STRUCTURAL + DISCOVER).
+five marker-bounded regions, a husky auto-regen pre-commit hook, and the
+unification of `project-status` + `project-plan` into a single `project`
+skill (a thin router + lazy-loaded detail files).
+
+### `project` skill unification (supersedes the project-status / project-plan split below)
+
+- **`project-status` + `project-plan` → one `project` skill.** The earlier
+  v2.0.0 work split tracking across two sibling skills (VIEW vs CREATE);
+  the boundary leaked (each cited the other 17–24×, the reconciliation gate
+  and emergence ladder crossed both). Both are now fused into a single
+  `atomic-skills:project` skill. Since v2.0.0 has not shipped, this is not a
+  field-breaking rename — it rides inside the unreleased 2.0.0 (no extra bump).
+- **Thin router + progressive disclosure.** `skills/core/project.md` is a
+  ~175-line router holding only the dispatch table, the no-args compact
+  summary, and the always-resident invariants (Iron Law, pre-mutation
+  gates, gate-status invariant, ratify gate, the emergence-ladder
+  magnitude→action table + ambient-trigger recognition, the `new` menu,
+  schema quick-ref). Every subcommand's full procedure lives in a lazy
+  detail file under `skills/shared/project-assets/project-<x>.md`, read on
+  demand via `{{ASSETS_PATH}}`. This is the proven `review-plan` pattern —
+  invoking `project` no longer loads ~25k tokens of body up front.
+- **Git-style grammar.** `/atomic-skills:project status [--browser|…]`,
+  `new plan|initiative`, `done|push|pop|park|emerge|promote|…`,
+  `adopt|discover|migrate|split-phase`. Bare `/atomic-skills:project`
+  prints a cheap 5-line summary (no browser). `new` exposes only the two
+  file entities (plan, initiative); phase/task are intent-driven via the
+  ladder (`new-task`/`new-phase` still valid if typed).
+- **`verify` (NEW).** Reconciles `.atomic-skills/` against the repo
+  in one command — schema validity, legacy detection, branch match, scope
+  coverage, orphan detection, aiDeck coherence. Read-only by default;
+  `--fix` applies only the safe schema normalization.
+- **aiDeck contract quarantined.** All aiDeck coupling (ensure-aideck
+  script, STATE_ERROR auto-repair, the `state/project-status` domain
+  string) lives in `project-view.md` behind a single named constant
+  (`AIDECK_STATE_DOMAIN`). The aiDeck state-domain key stays `project-status`
+  — it is a cross-repo contract with the aiDeck parser, NOT the skill name.
+- **Asset dirs consolidated.** `project-status-assets/` + `project-plan-assets/`
+  → `project-assets/` (flat, files-only — `install.js` copies non-recursively).
+- `project-status` and `project-plan` added to
+  `HISTORICAL_ATOMIC_SKILLS_NAMES` so update cleanups recognize the old
+  names. Orphan docs `docs/skills/project-{status,plan}.md` removed; the
+  merged test suite lives in `tests/project.test.js`.
+
+### Project-status / project-plan split (earlier in 2.0.0; now superseded above)
 
 ### Project-status / project-plan refactor
 

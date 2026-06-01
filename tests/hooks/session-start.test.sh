@@ -2,7 +2,7 @@
 # Tests for session-start.sh (v2: 3-level + aiDeck-aware)
 set -euo pipefail
 
-HOOK="$(pwd)/skills/shared/project-status-assets/hooks/session-start.sh"
+HOOK="$(pwd)/skills/shared/project-assets/hooks/session-start.sh"
 PASS=0; FAIL=0
 
 run() { echo "TEST: $1"; }

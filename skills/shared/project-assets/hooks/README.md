@@ -79,4 +79,4 @@ jq '.strict_mode = true' .atomic-skills/status/config.json > /tmp/c.json && mv /
 jq '.emergent_strict_mode = true' .atomic-skills/status/config.json > /tmp/c.json && mv /tmp/c.json .atomic-skills/status/config.json
 ```
 
-The two knobs are independent — promote each gate when its log shows clean decisions for 7+ days. `atomic-skills:project-status` offers the same promotion interactively.
+The two knobs are independent — promote each gate when its log shows clean decisions for 7+ days. `atomic-skills:project` offers the same promotion interactively.

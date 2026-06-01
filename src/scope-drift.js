@@ -1,7 +1,7 @@
 // Pure helpers that compute scope drift signals over a plan + its
 // initiatives. Consumed by:
-//   - skills/core/project-status.md default view (banner trigger)
-//   - the `scope-creep` mutation-mode command (full report)
+//   - skills/shared/project-assets/project-view.md (DRIFT banner trigger)
+//   - the `scope-creep` command (full report, via project-drift.md)
 //
 // Drift sources tracked:
 //   1. Tasks added mid-execution (have `provenance` field) vs original tasks
@@ -300,7 +300,7 @@ export function evaluateWarnings(report, overrides = {}) {
 export function renderBanner(report, overrides = {}) {
   const { shouldWarn, reasons } = evaluateWarnings(report, overrides)
   if (!shouldWarn) return null
-  return `SCOPE DRIFT: ${reasons.join(' · ')} → run \`atomic-skills:project-status scope-creep\``
+  return `SCOPE DRIFT: ${reasons.join(' · ')} → run \`atomic-skills:project scope-creep\``
 }
 
 function emptyReport() {

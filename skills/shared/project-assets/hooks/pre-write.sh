@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# atomic-skills:project-status — PreToolUse hook (emergent-work provenance gate)
+# atomic-skills:project — PreToolUse hook (emergent-work provenance gate)
 #
 # Intercepts Edit / Write / MultiEdit on `.atomic-skills/initiatives/*.md` and
 # `.atomic-skills/plans/*.md`. If the tool call ADDS new entries to `tasks[]`

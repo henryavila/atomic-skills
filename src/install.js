@@ -62,6 +62,8 @@ const HISTORICAL_ATOMIC_SKILLS_NAMES = new Set([
   // Removed in v2.0.0 consolidation
   'review-plan-internal', 'review-plan-vs-artifacts',
   'review-plan-with-codex', 'review-code-with-codex',
+  // Removed in v2.0.0 consolidation (project-status + project-plan → project)
+  'project-status', 'project-plan',
   // Pre-1.x prefix (original `as-` form, deprecated)
   'as-fix', 'as-hunt', 'as-prompt', 'as-save-and-push', 'as-init-memory',
   // Namespace root SKILL.md
@@ -244,7 +246,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
   // Process shared assets (templates etc shared across skills).
   // An asset directory `<name>-assets/` is installed when `<name>` is a registered
   // module OR a registered core skill. Without the core-skill branch, assets like
-  // `project-status-assets/` (referenced by the project-status skill body) would
+  // `project-assets/` (referenced by the `project` skill body) would
   // never be copied into the IDE asset path.
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
@@ -268,20 +270,34 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
         mkdirSync(destBase, { recursive: true });
 
-        for (const f of assetFiles) {
-          if (!f.isFile()) continue;
-          const sourceFile = join(assetsSourceDir, f.name);
-          const raw = readFileSync(sourceFile, 'utf8');
+        // Helper: render + write one asset file, tracking it in the manifest.
+        const writeAsset = (srcPath, destPath, srcLabel) => {
+          const raw = readFileSync(srcPath, 'utf8');
           const rendered = renderTemplate(raw, vars, moduleFlags, ideId);
-          const destFile = join(destBase, f.name);
-          writeFileSync(destFile, rendered, 'utf8');
-          const relPath = relative(projectDir, destFile);
+          writeFileSync(destPath, rendered, 'utf8');
+          const relPath = relative(projectDir, destPath);
           if (onFileWritten) onFileWritten(relPath);
-          createdFiles.push({
-            path: relPath,
-            hash: hashContent(rendered),
-            source: `_assets/${entry.name}/${f.name}`,
-          });
+          createdFiles.push({ path: relPath, hash: hashContent(rendered), source: srcLabel });
+        };
+
+        for (const f of assetFiles) {
+          if (f.isDirectory()) {
+            // Recurse ONE level into subdirs (e.g. `hooks/`). The loop was
+            // previously files-only, which silently dropped enforcement hook
+            // scripts from `_assets/` even though setup flows reference
+            // `{{ASSETS_PATH}}/hooks/...`. Each nested file is rendered + tracked
+            // so the manifest (and uninstall) stays coherent.
+            const subSrc = join(assetsSourceDir, f.name);
+            const subDest = join(destBase, f.name);
+            mkdirSync(subDest, { recursive: true });
+            for (const sf of readdirSync(subSrc, { withFileTypes: true })) {
+              if (!sf.isFile()) continue;
+              writeAsset(join(subSrc, sf.name), join(subDest, sf.name), `_assets/${entry.name}/${f.name}/${sf.name}`);
+            }
+            continue;
+          }
+          if (!f.isFile()) continue;
+          writeAsset(join(assetsSourceDir, f.name), join(destBase, f.name), `_assets/${entry.name}/${f.name}`);
         }
       }
     }

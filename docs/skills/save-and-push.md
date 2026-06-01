@@ -31,7 +31,7 @@ End-of-session ritual: extract learnings to persistent memory, stage relevant fi
 
 **Dependencies:** `git`
 
-**Related:** `project-status`, `init-memory`
+**Related:** `project`, `init-memory`
 
 **Tags:** `workflow`, `git`, `memory`, `core`
 

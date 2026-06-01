@@ -565,7 +565,7 @@ export function EmptyState() {
         <p style={{ margin: '8px 0 0', maxWidth: 680, color: 'var(--fg-muted)', fontSize: 13, lineHeight: 1.55 }}>
           A consumer is any AI skill that writes structured project data to{' '}
           <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg-default)' }}>.atomic-skills/</code> in your
-          repo. Run the project-status skill to create your first plan, or use{' '}
+          repo. Run the project skill to create your first plan, or use{' '}
           <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg-default)' }}>aideck demo</code> to see what
           this looks like populated.
         </p>

@@ -2,7 +2,7 @@
 # Tests for pre-write.sh (PreToolUse emergent-work provenance gate)
 set -euo pipefail
 
-HOOK="$(pwd)/skills/shared/project-status-assets/hooks/pre-write.sh"
+HOOK="$(pwd)/skills/shared/project-assets/hooks/pre-write.sh"
 PASS=0; FAIL=0
 
 run() { echo "TEST: $1"; }

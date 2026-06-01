@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# atomic-skills:project-status — SessionStart hook (v2, 3-level + aiDeck-aware)
+# atomic-skills:project — SessionStart hook (v2, 3-level + aiDeck-aware)
 # Emits a hierarchical PROJECT-STATUS view via Claude Code's additionalContext.
 #
 # Hierarchy (when present):
@@ -206,7 +206,7 @@ if [[ -n "$active_initiative" ]]; then
 
   pending=$(count_pending_tasks "$active_initiative")
   if [[ "$pending" == "0" ]]; then
-    context+="🔔 Initiative has 0 pending/active tasks but \`status\` is still \`active\`. Run \`atomic-skills:project-status phase-done\` to close the phase."$'\n\n'
+    context+="🔔 Initiative has 0 pending/active tasks but \`status\` is still \`active\`. Run \`atomic-skills:project phase-done\` to close the phase."$'\n\n'
   fi
 
   context+="$(head -40 "$active_initiative")"$'\n'

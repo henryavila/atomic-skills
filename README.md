@@ -44,32 +44,6 @@ npx @henryavila/atomic-skills detect --json
 
 No config files, no API keys for the core skills — the installer detects your IDE(s) and writes the command files in place. Full update / uninstall / scope options are [at the bottom](#install-update-uninstall).
 
-## The Tracking Model at a Glance
-
-Two of the skills — `project-status` and `project-plan` — keep multi-session work on disk in a `.atomic-skills/` tree so every session reloads the exact frame. Four entities; this is how they nest:
-
-```mermaid
-flowchart TD
-    subgraph DASH["&nbsp;🖥️ &nbsp;DASHBOARD TOP LEVEL — the only two things shown on the home view&nbsp;"]
-        direction LR
-        PLAN["📋 <b>PLAN</b><br/>plans/&lt;slug&gt;.md<br/><i>optional root · narrative + phases</i>"]
-        SOLO["🎯 <b>INITIATIVE</b> · standalone<br/>initiatives/&lt;slug&gt;.md<br/><i>no parentPlan</i>"]
-    end
-
-    PLAN -- "phases[]<br/>inline, NOT files" --> PH["🚩 <b>PHASE</b> · F0 → F1 → F2<br/><i>entry inside the Plan + exitGate</i>"]
-    PH -- "materialized 1:1" --> INIT["🛠️ <b>INITIATIVE</b> · phase-anchored<br/>initiatives/&lt;slug&gt;.md<br/><i>parentPlan + phaseId</i>"]
-
-    INIT -- "tasks[]" --> T1["✅ <b>TASK</b><br/><i>only anchor = its initiative</i>"]
-    SOLO -- "tasks[]" --> T2["✅ <b>TASK</b>"]
-
-    classDef top fill:#1f6feb,stroke:#388bfd,color:#ffffff;
-    classDef nested fill:#21262d,stroke:#30363d,color:#e6edf3;
-    class PLAN,SOLO top
-    class PH,INIT,T1,T2 nested
-```
-
-> **How to read it.** The two blue boxes are everything the dashboard home shows — *which efforts are live*. Drill into a **Plan** to see its **Phases**, each materialized 1:1 as a phase-anchored **Initiative**; drill into any Initiative (anchored or standalone) to see its **Tasks**. A Task's only direct anchor is its Initiative — Phase and Plan are inherited, never set on the task. Full model, schema fields, and lifecycle live in [The Tracking Model](#the-tracking-model--plan--initiative--phase--task) below.
-
 ## Why Atomic?
 
 Vague instructions produce vague results, and a "good prompt" you keep in your head dies with the conversation. Each Atomic Skill encodes hard-won patterns that prevent agent drift:
@@ -109,7 +83,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 11 skills, each with one job and one non-negotiable Iron Law — pick the one that matches today's problem.
 
 [VERSION_NOTE_START]: #
-> **Note (v2.0.0):** First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
+> **Note (v2.0.0):** First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). `project-status` + `project-plan` unified into a single `project` skill — a thin router with lazy-loaded detail files (git-style subcommands, a `verify` reconciliation command, and the aiDeck contract quarantined behind one constant). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
 > See [CHANGELOG.md](CHANGELOG.md) for the full migration matrix.
 [VERSION_NOTE_END]: #
 
@@ -122,8 +96,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 | 💾 | [`save-and-push`](docs/skills/save-and-push.md) | Scan for secrets, group commits, save learnings, push safely | `NO PUSH WITHOUT FRESH VERIFICATION.` |
 | 🔍 | [`review-plan`](docs/skills/review-plan.md) | Adversarial plan review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
 | 🔬 | [`review-code`](docs/skills/review-code.md) | Adversarial code review with local/codex/both mode picker | `NO APPROVAL WITHOUT EVIDENCE.` |
-| 📊 | [`project-status`](docs/skills/project-status.md) | View + daily mutations on the .atomic-skills/ tree | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
-| 🗺️ | [`project-plan`](docs/skills/project-plan.md) | Create + restructure + discover Plans and Initiatives | `NO PLAN WITHOUT NARRATIVE.` |
+| 📊 | [`project`](docs/skills/project.md) | Plan / Initiative / Task state your agent reloads every session | `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.` |
 | 📝 | [`prompt`](docs/skills/prompt.md) | Generate a self-contained prompt with exact paths and guardrails | `NO PROMPT WITHOUT CODEBASE ANALYSIS.` |
 | 🎯 | [`hunt`](docs/skills/hunt.md) | Adversarial tests from the spec, not the code — depth over breadth | `NO HUNT WITHOUT BOUNDED SCOPE.` |
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
@@ -191,31 +164,17 @@ Reviewing your own diff in the same context that wrote it inherits every blind s
 
 ---
 
-### 📊 `project-status` — Initiative Tracking
+### 📊 `project` — Plan / Initiative / Task Tracking
 
 **Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.`
 
-Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. `project-status` keeps Plan/Initiative/Task state in `.atomic-skills/` so every session reloads the exact frame — with stack frames for side-investigations, scope-creep detection, and phase exit-gates that block advancing until criteria are met. Compact terminal view or browser dashboard, no re-explaining required.
+Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. `project` keeps Plan/Initiative/Task state in `.atomic-skills/` so every session reloads the exact frame — stack frames for side-investigations, an emergence ladder that classifies new work before it lands, exit gates that block advancing until criteria are met, and scope-creep detection. One git-style command for the whole lifecycle: view, create, mutate, discover, migrate, verify.
 
 ```
-/atomic-skills:project-status
+/atomic-skills:project
 ```
 
-[Full reference →](docs/skills/project-status.md)
-
----
-
-### 🗺️ `project-plan` — Create, Discover, Migrate
-
-**Iron Law:** `NO PLAN WITHOUT NARRATIVE.`
-
-Plans rot into bare frontmatter or live as scattered intent across docs, branches, and memory. `project-plan` is the single create-and-restructure entry point: bootstrap a multi-phase Plan interactively, adopt an existing markdown plan, or `discover` in-flight work and cluster it — and it refuses to emit a plan without a real narrative (Context, Principles, Phase tree). Daily tracking then flows through `project-status`.
-
-```
-/atomic-skills:project-plan discover
-```
-
-[Full reference →](docs/skills/project-plan.md)
+[Full reference →](docs/skills/project.md)
 
 ---
 
@@ -308,9 +267,33 @@ Memory often already exists but is scattered across `.memory/`, `docs/memory/`, 
 
 ## The Tracking Model — Plan / Initiative / Phase / Task
 
-> Skip this section if you only want the single-shot skills. It matters when you run `project-status` and `project-plan` for multi-session work. The shape is diagrammed [at the top of this README](#the-tracking-model-at-a-glance).
+> Skip this section if you only want the single-shot skills. It matters when you run `project` for multi-session work.
 
-Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. The two heaviest skills — `project-status` and `project-plan` — keep that state on disk in a `.atomic-skills/` tree so every session reloads the exact frame. Four entities, each living in a known place:
+Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. `project` keeps that state on disk so every session reloads the exact frame. Four entities; this is how they nest:
+
+```mermaid
+flowchart TD
+    subgraph DASH["&nbsp;🖥️ &nbsp;DASHBOARD TOP LEVEL — the only two things shown on the home view&nbsp;"]
+        direction LR
+        PLAN["📋 <b>PLAN</b><br/>plans/&lt;slug&gt;.md<br/><i>optional root · narrative + phases</i>"]
+        SOLO["🎯 <b>INITIATIVE</b> · standalone<br/>initiatives/&lt;slug&gt;.md<br/><i>no parentPlan</i>"]
+    end
+
+    PLAN -- "phases[]<br/>inline, NOT files" --> PH["🚩 <b>PHASE</b> · F0 → F1 → F2<br/><i>entry inside the Plan + exitGate</i>"]
+    PH -- "materialized 1:1" --> INIT["🛠️ <b>INITIATIVE</b> · phase-anchored<br/>initiatives/&lt;slug&gt;.md<br/><i>parentPlan + phaseId</i>"]
+
+    INIT -- "tasks[]" --> T1["✅ <b>TASK</b><br/><i>only anchor = its initiative</i>"]
+    SOLO -- "tasks[]" --> T2["✅ <b>TASK</b>"]
+
+    classDef top fill:#1f6feb,stroke:#388bfd,color:#ffffff;
+    classDef nested fill:#21262d,stroke:#30363d,color:#e6edf3;
+    class PLAN,SOLO top
+    class PH,INIT,T1,T2 nested
+```
+
+> **How to read it.** The two blue boxes are everything the dashboard home shows — *which efforts are live*. Drill into a **Plan** to see its **Phases**, each materialized 1:1 as a phase-anchored **Initiative**; drill into any Initiative (anchored or standalone) to see its **Tasks**. A Task's only direct anchor is its Initiative — Phase and Plan are inherited, never set on the task.
+
+Each entity lives in a known place:
 
 - **Plan** — a multi-phase project: narrative + principles + an ordered list of phases with exit gates. The **optional** root. (`.atomic-skills/plans/<slug>.md`)
 - **Initiative** — the unit of *execution*: either one phase of a Plan, or a standalone unit of work. Owns the tasks, the stack, and the parked/emerged lists. (`.atomic-skills/initiatives/<slug>.md`)
@@ -357,9 +340,21 @@ Three facts the model hinges on, and that most TODO trackers get wrong:
 
 **Phases close against proof, not vibes.** Each exit criterion can carry a machine-checkable `verifier` (`shell` / `query` / `test` / `manual`) and captured `evidence`. No evidence, no advance. (In v0.1, `query` and `test` verifiers are stubbed — you run them externally and report the result.)
 
-**The command split newcomers get wrong.** `project-plan` owns **create + structural** operations (`new`, `new-task`, `new-phase`, `split-phase`, `adopt`, `discover`, `migrate`, `re-bootstrap`). `project-status` owns **view + daily mutations** (`push`/`pop`, `park`/`emerge`, `promote`, `done`, `phase-done`/`phase-reopen`, `archive`, `switch`, `why`, `re-ratify`, `scope-creep`, `detect-scope`, `review-due`). Note: `new-task` lives under **`project-plan`**, not `project-status`.
+**How to use it — one git-style command.** Bare `project` prints a cheap five-line summary (active plan/phase, active initiative + task progress, next action, review status); everything else is a subcommand. Procedures load on demand from `project-assets/`, so the router stays thin.
 
-**First-time setup.** Run `project-status` once with no arguments to create `.atomic-skills/` and inject the Iron-Law gate into your `CLAUDE.md` (or equivalent agent config) — the one bootstrap `project-plan` refuses to do.
+| Group | What you run |
+|-------|--------------|
+| **View** | `status` — compact view (`--browser` opens the aiDeck dashboard; `--terminal`/`--list`/`--plan`/`--phase`/`--stack`/`--archived`/`--report` for variants) · `why <id>` — full context of any item · `scope-creep` — drift report |
+| **Verify** | `verify` — reconcile `.atomic-skills/` against the repo (schema, branch match, scope coverage, orphans, aiDeck coherence); read-only unless `--fix` |
+| **Create** | `new plan <slug>` · `new initiative <slug>` · `adopt <file.md>` (capture an existing markdown plan) · `discover` (scan the repo for in-flight work) |
+| **Work the stack** | `push <desc>` / `pop [--resolve\|--park\|--emerge]` — open / close a lateral investigation frame |
+| **Backlog** | `park <desc>` (note-for-later) · `emerge <desc>` (real follow-up) · `promote <id>` (parked → task) · `re-ratify <id>` (refresh stale context) |
+| **Progress** | `done <task-id>` · `phase-done` (verify gates → review → advance) · `phase-reopen` · `switch <slug>` · `archive [<slug>]` |
+| **Structure / legacy** | `new-task` · `new-phase` · `split-phase <id>` · `migrate <slug>` · `re-bootstrap <slug>` · `detect-scope` · `review-due` |
+
+`new-task` / `new-phase` are also **intent-driven**: describe new work in conversation and the emergence ladder classifies it, drafts a `context`, and waits for your `ratify`. Full per-command reference: **[docs/skills/project.md](docs/skills/project.md)**.
+
+**First-time setup.** Run `project` once with no arguments to create `.atomic-skills/` and inject the Iron-Law gate into your `CLAUDE.md` (or equivalent agent config).
 
 → Full model, commands, schema fields, the emergence ladder, and lifecycle: [docs/concepts/project-tracking.md](docs/concepts/project-tracking.md)
 
@@ -367,13 +362,13 @@ Three facts the model hinges on, and that most TODO trackers get wrong:
 
 A team rebuilds its matching engine:
 
-1. **Plan it.** `project-plan rebuild-matcher` points at a spec and decomposes it into a Plan with phases **F0** (Foundation audit), **F1** (New matcher, `dependsOn: [F0]`), **F2** (Cutover). F0's exit criterion *"matcher round-trip test passes"* carries a `{kind: shell, command: "npm test -- matcher"}` verifier. The skill materializes one initiative per phase, activates F0, and runs `review-plan` plus a codex review.
-2. **Work it.** `project-status` matches the git branch to the active F0 initiative and shows **3/5 tasks done.**
-3. **Handle emergence.** Mid-work the agent proposes a new task, prints the mutation block with a drafted `context`, and **HALTs.** The developer types `ratify`; `project-plan new-task --target F1 "Add cross-landlord canary"` lands it with `provenance` + ratified `context`. A smaller idea (*"maybe cache the join later"*) gets `park`ed instead.
-4. **Close the phase.** `done T-005` closes the last task; `project-status phase-done` verifies each exit criterion (stamping `evidence`), runs the `review-code` gate on the phase diff, advances `currentPhase` to F1, archives F0, and seeds the F1 initiative.
+1. **Plan it.** `project new plan rebuild-matcher` points at a spec and decomposes it into a Plan with phases **F0** (Foundation audit), **F1** (New matcher, `dependsOn: [F0]`), **F2** (Cutover). F0's exit criterion *"matcher round-trip test passes"* carries a `{kind: shell, command: "npm test -- matcher"}` verifier. The skill materializes one initiative per phase, activates F0, and runs `review-plan` plus a codex review.
+2. **Work it.** `project status` matches the git branch to the active F0 initiative and shows **3/5 tasks done.**
+3. **Handle emergence.** Mid-work the agent proposes a new task, prints the mutation block with a drafted `context`, and **HALTs.** The developer types `ratify`; `project new-task --target F1 "Add cross-landlord canary"` lands it with `provenance` + ratified `context`. A smaller idea (*"maybe cache the join later"*) gets `park`ed instead.
+4. **Close the phase.** `done T-005` closes the last task; `project phase-done` verifies each exit criterion (stamping `evidence`), runs the `review-code` gate on the phase diff, advances `currentPhase` to F1, archives F0, and seeds the F1 initiative.
 5. **Watch for drift.** Weeks later, `scope-creep` flags the parked cache idea as a 40-day zombie with stale context; `re-ratify` refreshes it or retires it.
 
-Every command above is documented in [docs/skills/project-status.md](docs/skills/project-status.md) and [docs/skills/project-plan.md](docs/skills/project-plan.md).
+Every command above is documented in [docs/skills/project.md](docs/skills/project.md).
 
 ## Multi-Agent Support
 

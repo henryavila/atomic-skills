@@ -2,7 +2,7 @@
 # Tests for stop.sh (v2: scope-drift detection)
 set -euo pipefail
 
-HOOK="$(pwd)/skills/shared/project-status-assets/hooks/stop.sh"
+HOOK="$(pwd)/skills/shared/project-assets/hooks/stop.sh"
 PASS=0; FAIL=0
 
 run() { echo "TEST: $1"; }

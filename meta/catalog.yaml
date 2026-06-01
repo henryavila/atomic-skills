@@ -5,7 +5,7 @@ version: '0.2'
 # text lives here. Leave the block out entirely to suppress the note.
 release_highlight:
   body: |
-    First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
+    First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). `project-status` + `project-plan` unified into a single `project` skill — a thin router with lazy-loaded detail files (git-style subcommands, a `verify` reconciliation command, and the aiDeck contract quarantined behind one constant). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
     See [CHANGELOG.md](CHANGELOG.md) for the full migration matrix.
 
 core:
@@ -77,7 +77,7 @@ core:
     examples:
       - command: '/atomic-skills:save-and-push'
         description: 'Full flow: memory + commits + push'
-    related: [project-status, init-memory]
+    related: [project, init-memory]
     tags: [workflow, git, memory, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
@@ -223,254 +223,195 @@ core:
     dependencies: [codex, git]
     schema_version: '0.2'
 
-  project-status:
-    name: project-status
-    title: 'Project Status — Initiative Tracking'
-    description: "View and daily-mutate Plan/Initiative/Task state in .atomic-skills/. Compact terminal view + browser via mdprobe. Stack frames, parked/emerged items, task transitions, phase-done/reopen, archive, scope-creep, codex review tracking. Creation, migration, and structural commands live in atomic-skills:project-plan."
+  project:
+    name: project
+    title: 'Project — Plan / Initiative / Task Tracking'
+    description: "Single entry-point for Plan/Initiative/Task state in .atomic-skills/, git-style subcommands with lazy-loaded detail. View (compact + browser dashboard), daily mutations (push/pop, park/emerge, promote, done, phase transitions, archive), creation (new plan/initiative), discover/adopt/migrate, scope-creep + codex review tracking, and a state-vs-code verify. Fuses the former project-status + project-plan skills."
     value_pitch: >
       Resume a multi-day project and the agent has forgotten which phase
-      you're in, what's parked, and why a task exists. `project-status`
-      keeps Plan/Initiative/Task state in `.atomic-skills/` so every session
-      reloads the exact frame — with stack frames for side-investigations,
-      scope-creep detection, and phase exit-gates that block advancing until
-      criteria are met. Compact terminal view or browser dashboard, no
-      re-explaining required.
+      you're in, what's parked, and why a task exists. `project` keeps
+      Plan/Initiative/Task state in `.atomic-skills/` so every session
+      reloads the exact frame — stack frames for side-investigations,
+      an emergence ladder that classifies new work before it lands, exit
+      gates that block advancing until criteria are met, and scope-creep
+      detection. One git-style command for the whole lifecycle: view,
+      create, mutate, discover, migrate, verify.
     purpose: >
-      Track work via Plan/Initiative/Task hierarchy: view current state,
-      manage stack/parked/emerged, transition tasks/phases, archive,
-      report drift. Sibling skill `project-plan` handles all CREATE
-      and structural operations.
+      Track work via a Plan/Initiative/Task hierarchy through one
+      thin-router skill: view current state (compact terminal or browser
+      dashboard), create plans/initiatives, run daily mutations and phase
+      transitions, discover in-flight work, adopt existing markdown plans,
+      migrate legacy state, report drift, and reconcile state against code.
+      Procedures load on demand from project-assets per subcommand.
     when_to_use:
-      - 'Resuming after a break — view current state'
-      - 'Pushing or popping a stack frame (lateral expansion)'
-      - 'Parking lateral findings or surfacing emerged work'
-      - 'Marking tasks done, advancing phases'
-      - 'Archiving completed plans/initiatives'
-      - 'Viewing drift / scope-creep / un-reviewed code'
+      - 'Resuming after a break — view current state (`status`)'
+      - 'Starting a new multi-phase plan (`new plan`) or initiative (`new initiative`)'
+      - 'Daily mutations: push/pop, park/emerge, promote, done, phase-done'
+      - 'Organizing in-flight work scattered across repo (`discover`)'
+      - 'Capturing an existing markdown plan (`adopt`)'
+      - 'Migrating legacy state files (`migrate`)'
+      - 'Checking drift / un-reviewed code / state-vs-code coherence (`scope-creep`, `verify`)'
     when_not_to_use:
-      - 'Starting a new plan — use atomic-skills:project-plan'
-      - 'Creating a new initiative / task / phase — use atomic-skills:project-plan'
-      - 'Migrating legacy files — use atomic-skills:project-plan migrate'
       - 'One-shot questions or work that fits in the current session'
+      - 'Editing .atomic-skills/ files by hand (use the subcommands — they set provenance + validate)'
     examples:
-      - command: '/atomic-skills:project-status'
-        description: 'View current state'
-      - command: '/atomic-skills:project-status push "investigating slow query"'
-        description: 'Push a side-investigation frame'
-      - command: '/atomic-skills:project-status done T-005'
+      - command: '/atomic-skills:project'
+        description: 'Compact 5-line summary of the active plan/initiative'
+      - command: '/atomic-skills:project status --browser'
+        description: 'Open the aiDeck dashboard'
+      - command: '/atomic-skills:project new plan v3-redesign'
+        description: 'Bootstrap a new multi-phase Plan (7-stage flow)'
+      - command: '/atomic-skills:project done T-005'
         description: 'Close a task (triggers phase-completion check if last)'
-      - command: '/atomic-skills:project-status phase-done'
-        description: 'Verify exit gates and advance the plan'
-    related: [fix, save-and-push, project-plan]
-    tags: [tracking, anchoring, planning, core]
+      - command: '/atomic-skills:project verify'
+        description: 'Reconcile .atomic-skills/ state against the code'
+    related: [fix, save-and-push, review-plan]
+    tags: [tracking, anchoring, planning, bootstrap, create, migrate, core]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false
     mutates_repo: true
     network_required: false
-    argument_hint: 'done | push | pop | phase-done | park | emerge | promote | switch | archive | why | scope-creep | review-due | phase-reopen | re-ratify | detect-scope'
-    one_liner: 'View + daily mutations on the .atomic-skills/ tree'
+    argument_hint: 'status | new | done | push | pop | park | emerge | promote | switch | phase-done | phase-reopen | archive | why | scope-creep | review-due | re-ratify | detect-scope | discover | adopt | migrate | re-bootstrap | split-phase'
+    one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'
     subcommands:
+      - name: status
+        group: 'View'
+        signature: '[--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]'
+        description: 'View current state: compact summary, browser dashboard, full terminal view, or filtered tables'
+        example: '/atomic-skills:project status --browser'
+      - name: verify
+        group: 'View'
+        signature: '[--fix] [--slug <slug>]'
+        description: 'Reconcile .atomic-skills/ against the repo: schema, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)'
+        example: '/atomic-skills:project verify'
+      - name: new
+        group: 'Create'
+        signature: '[plan|initiative] <slug>'
+        description: 'Create a Plan (multi-phase bootstrap) or an Initiative (standalone or anchored to a phase); bare `new` prints the menu'
+        example: '/atomic-skills:project new plan v3-redesign'
+      - name: discover
+        group: 'Create'
+        signature: '[--dry-run|--commit] [--scope=<list>] [--scan=<path>]'
+        description: 'Scan the repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject'
+        example: '/atomic-skills:project discover'
+      - name: adopt
+        group: 'Create'
+        signature: '<file.md>'
+        description: 'Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing'
+        example: '/atomic-skills:project adopt docs/plans/v3-redesign/00-master.md'
       - name: push
         group: 'Stack frames'
         signature: '<description>'
         description: 'Open a lateral stack frame on top of the current work; type is inferred from the verb'
-        example: '/atomic-skills:project-status push "investigating slow query"'
+        example: '/atomic-skills:project push "investigating slow query"'
       - name: pop
         group: 'Stack frames'
         signature: '[--resolve|--park|--emerge]'
         description: 'Close the top frame with a destination: --resolve (drop), --park (note), or --emerge (follow-up)'
-        example: '/atomic-skills:project-status pop --park'
+        example: '/atomic-skills:project pop --park'
       - name: park
         group: 'Backlog'
         signature: '<description>'
         description: 'File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger'
-        example: '/atomic-skills:project-status park "consider caching layer"'
+        example: '/atomic-skills:project park "consider caching layer"'
       - name: emerge
         group: 'Backlog'
         signature: '<description>'
         description: 'File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase'
-        example: '/atomic-skills:project-status emerge "auth refactor needed"'
+        example: '/atomic-skills:project emerge "auth refactor needed"'
       - name: promote
         group: 'Backlog'
         signature: '<title-or-idx>'
         description: 'Turn a parked item into a real task (assigns next T-NNN, carries its context forward)'
-        example: '/atomic-skills:project-status promote 2'
+        example: '/atomic-skills:project promote 2'
       - name: done
         group: 'Tasks & phases'
         signature: '<task-id>'
         description: 'Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive'
-        example: '/atomic-skills:project-status done T-005'
+        example: '/atomic-skills:project done T-005'
       - name: phase-done
         group: 'Tasks & phases'
         signature: ''
         description: 'Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase'
-        example: '/atomic-skills:project-status phase-done'
+        example: '/atomic-skills:project phase-done'
       - name: phase-reopen
         group: 'Tasks & phases'
         signature: '[<phase-id>]'
         description: 'Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending'
-        example: '/atomic-skills:project-status phase-reopen F2'
+        example: '/atomic-skills:project phase-reopen F2'
+      - name: split-phase
+        group: 'Tasks & phases'
+        signature: '<id>'
+        description: 'Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done'
+        example: '/atomic-skills:project split-phase F2'
       - name: archive
         group: 'Lifecycle'
         signature: '[<slug>]'
         description: 'Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)'
-        example: '/atomic-skills:project-status archive v3-redesign'
+        example: '/atomic-skills:project archive v3-redesign'
       - name: switch
         group: 'Lifecycle'
         signature: '<slug>'
         description: 'Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs'
-        example: '/atomic-skills:project-status switch my-feature'
+        example: '/atomic-skills:project switch my-feature'
+      - name: migrate
+        group: 'Lifecycle'
+        signature: '<slug>'
+        description: 'Convert a legacy (pre-0.1) initiative file to schemaVersion 0.1; reports the field-mapping diff and flags placeholder context'
+        example: '/atomic-skills:project migrate sample-legacy'
+      - name: re-bootstrap
+        group: 'Lifecycle'
+        signature: '<slug>'
+        description: 'After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context'
+        example: '/atomic-skills:project re-bootstrap sample-legacy'
       - name: why
         group: 'Context & drift'
         signature: '<id>'
         description: 'Read-only deep view of one item: status, ratified solves/trigger/assumptions, provenance, staleness'
-        example: '/atomic-skills:project-status why T-005'
+        example: '/atomic-skills:project why T-005'
       - name: re-ratify
         group: 'Context & drift'
         signature: '<id>'
         description: 'Refresh a stale item: re-confirm the premises (bump review date) or rewrite solves/trigger/assumptions'
-        example: '/atomic-skills:project-status re-ratify P-3'
+        example: '/atomic-skills:project re-ratify P-3'
       - name: scope-creep
         group: 'Context & drift'
         signature: ''
         description: 'Read-only drift report: phase growth %, scope expansion %, parked zombies, and stale-context items'
-        example: '/atomic-skills:project-status scope-creep'
+        example: '/atomic-skills:project scope-creep'
       - name: detect-scope
         group: 'Context & drift'
         signature: ''
         description: 'Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept'
-        example: '/atomic-skills:project-status detect-scope'
+        example: '/atomic-skills:project detect-scope'
       - name: review-due
         group: 'Review'
         signature: ''
         description: 'Run a cross-model codex review on the diff since the last review and record the result for the default view'
-        example: '/atomic-skills:project-status review-due'
+        example: '/atomic-skills:project review-due'
     args:
+      - name: '--browser'
+        kind: flag
+        required: false
+        description: 'Open the aiDeck dashboard in the browser (status view)'
+      - name: '--terminal'
+        kind: flag
+        required: false
+        description: 'Full terminal-only view, no browser (status view)'
       - name: '--list'
         kind: flag
         required: false
-        description: 'List all initiatives across all plans'
+        description: 'List all plans + standalone initiatives (status view)'
       - name: '--plan'
         kind: option
         required: false
-        description: 'Filter view to a specific plan slug'
+        description: 'Filter view to a specific plan slug (status view)'
       - name: '--phase'
         kind: option
         required: false
-        description: 'Filter view to a specific phase id'
-      - name: '--stack'
-        kind: flag
-        required: false
-        description: 'Show only the active stack (compact view)'
-      - name: '--archived'
-        kind: flag
-        required: false
-        description: 'Show archived items'
-    output_artifacts:
-      - '.atomic-skills/PROJECT-STATUS.md'
-      - '.atomic-skills/plans/<slug>.md'
-      - '.atomic-skills/initiatives/<slug>.md'
-      - '.atomic-skills/status/config.json'
-      - '.atomic-skills/dispatches/<slug>.md (when promote-to-dispatch)'
-    dependencies: [git]
-    schema_version: '0.2'
-
-  project-plan:
-    name: project-plan
-    title: 'Project Plan — Create, Discover, Migrate'
-    description: "Single entry-point for CREATE and STRUCTURAL operations on .atomic-skills/. Bootstrap multi-phase Plans, discover in-flight work across the repo (multi-source scan), adopt existing markdown plans, migrate legacy state, add initiatives/tasks/phases, split overgrown phases, batch re-articulate placeholder context. Sibling skill project-status handles VIEW + daily mutations."
-    value_pitch: >
-      Plans rot into bare frontmatter or live as scattered intent across
-      docs, branches, and memory. `project-plan` is the single
-      create-and-restructure entry point: bootstrap a multi-phase Plan
-      interactively, adopt an existing markdown plan, or `discover` in-flight
-      work and cluster it — and it refuses to emit a plan without a real
-      narrative (Context, Principles, Phase tree). Daily tracking then flows
-      through `project-status`.
-    purpose: >
-      All paths that CREATE or RESTRUCTURE state in `.atomic-skills/`:
-      bootstrap fresh Plans (interactive 7-stage), discover in-flight
-      work from memory + docs + git, adopt existing markdown plans,
-      add initiatives/tasks/phases, split phases, migrate legacy.
-    when_to_use:
-      - 'Want to organize what the repo already has → `discover`'
-      - 'Multi-phase project described in conversation → default bootstrap'
-      - 'Existing markdown plan to capture → `adopt`'
-      - 'Standalone initiative for single-phase work → `new`'
-      - 'Add task/phase to active plan → `new-task` / `new-phase` / `split-phase`'
-      - 'Legacy initiative needs schema 0.1 → `migrate`'
-      - 'Post-migration batch context re-articulation → `re-bootstrap`'
-    when_not_to_use:
-      - '.atomic-skills/ does not exist yet (run atomic-skills:project-status setup first)'
-      - 'Daily tracking (view, push/pop, done, phase-done, etc.) — use project-status'
-      - 'Just viewing existing plans (use project-status --plan <slug>)'
-    examples:
-      - command: '/atomic-skills:project-plan discover'
-        description: 'Multi-source scan: propose Plans + Initiatives from .ai/memory, docs, git'
-      - command: '/atomic-skills:project-plan v3-redesign'
-        description: 'Bootstrap a new Plan interactively (7-stage flow)'
-      - command: '/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md'
-        description: 'Capture an existing markdown plan into structured state'
-      - command: '/atomic-skills:project-plan migrate mesh-restructure'
-        description: 'Convert a legacy initiative file to schema 0.1'
-    related: [project-status, review-plan]
-    tags: [planning, bootstrap, create, migrate, core]
-    ide_compatibility: [claude-code, gemini, cursor]
-    requires_args: false
-    mutates_repo: true
-    network_required: false
-    argument_hint: 'discover | adopt | new | new-task | new-phase | split-phase | migrate | re-bootstrap'
-    one_liner: 'Create + restructure + discover Plans and Initiatives'
-    emoji: '🗺️'
-    version_added: '2.0.0'
-    subcommands:
-      - name: discover
-        group: 'Discover & adopt'
-        signature: '[--dry-run|--commit] [--scope=<list>] [--scan=<path>]'
-        description: 'Scan the whole repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject'
-        example: '/atomic-skills:project-plan discover'
-      - name: adopt
-        group: 'Discover & adopt'
-        signature: '<file.md>'
-        description: 'Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing'
-        example: '/atomic-skills:project-plan adopt docs/plans/v3-redesign/00-master.md'
-      - name: new
-        group: 'Create units'
-        signature: '<slug>'
-        description: "Create one Initiative from the template, standalone or anchored to an active plan's phase; offers scope auto-detect"
-        example: '/atomic-skills:project-plan new my-feature'
-      - name: new-task
-        group: 'Create units'
-        signature: '"<title>" [--target <phaseId>] [--blocked-by <id>] [--tags ...]'
-        description: 'Add a task to the active (or --target) initiative; records provenance and requires a ratified context block'
-        example: '/atomic-skills:project-plan new-task --target F2 "Add canary smoke test"'
-      - name: new-phase
-        group: 'Create units'
-        signature: '<id> "<title>" --after <other-id>'
-        description: 'Insert a new phase into the active plan and materialize its initiative; sets dependsOn via --after, requires ratified context'
-        example: '/atomic-skills:project-plan new-phase F0.5 "Validation" --after F0'
-      - name: split-phase
-        group: 'Restructure'
-        signature: '<id>'
-        description: 'Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done'
-        example: '/atomic-skills:project-plan split-phase F2'
-      - name: migrate
-        group: 'Migrate legacy'
-        signature: '<slug>'
-        description: 'Convert a legacy (pre-0.1) initiative file to schemaVersion 0.1; reports the field-mapping diff and flags placeholder context'
-        example: '/atomic-skills:project-plan migrate sample-legacy'
-      - name: re-bootstrap
-        group: 'Migrate legacy'
-        signature: '<slug>'
-        description: 'After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context'
-        example: '/atomic-skills:project-plan re-bootstrap sample-legacy'
-    args:
-      - name: slug
-        kind: positional
-        required: false
-        description: 'Plan slug for the default (bootstrap) flow. Omit and the skill prompts interactively.'
+        description: 'Filter view to a specific phase id (status view)'
       - name: '--scan'
         kind: option
         required: false
@@ -480,12 +421,13 @@ core:
         required: false
         description: 'Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem)'
     output_artifacts:
+      - '.atomic-skills/PROJECT-STATUS.md'
       - '.atomic-skills/plans/<slug>.md'
       - '.atomic-skills/initiatives/<slug>.md'
+      - '.atomic-skills/status/config.json'
       - '.atomic-skills/bootstrap-drafts/ (discover output)'
     dependencies: [git]
     schema_version: '0.2'
-
   prompt:
     name: prompt
     title: 'Prompt — Generate Optimized Prompt'
@@ -505,14 +447,14 @@ core:
       - 'You will hand off the work to a different session'
     when_not_to_use:
       - 'You will execute the task in this same session'
-      - 'You need a multi-phase plan (use project-plan)'
+      - 'You need a multi-phase plan (use project)'
       - 'You want to dispatch many tasks (use parallel-dispatch)'
     examples:
       - command: '/atomic-skills:prompt "refactor auth middleware to use new session API"'
         description: 'Generate a precise prompt with file paths and guards'
       - command: '/atomic-skills:prompt'
         description: 'Skill asks for task interactively'
-    related: [parallel-dispatch, fix, project-plan]
+    related: [parallel-dispatch, fix, project]
     tags: [meta, generation, planning]
     ide_compatibility: [claude-code, gemini, cursor]
     requires_args: false

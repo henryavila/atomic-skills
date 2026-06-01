@@ -1,0 +1,124 @@
+# `atomic-skills:project` — Plan / Initiative / Task Tracking
+
+> **Iron Law:** `NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.`
+
+**Plan / Initiative / Task state your agent reloads every session**
+
+Resume a multi-day project and the agent has forgotten which phase you're in, what's parked, and why a task exists. `project` keeps Plan/Initiative/Task state in `.atomic-skills/` so every session reloads the exact frame — stack frames for side-investigations, an emergence ladder that classifies new work before it lands, exit gates that block advancing until criteria are met, and scope-creep detection. One git-style command for the whole lifecycle: view, create, mutate, discover, migrate, verify.
+
+## Purpose
+
+Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: view current state (compact terminal or browser dashboard), create plans/initiatives, run daily mutations and phase transitions, discover in-flight work, adopt existing markdown plans, migrate legacy state, report drift, and reconcile state against code. Procedures load on demand from project-assets per subcommand.
+
+## Usage
+
+**When to use:**
+- Resuming after a break — view current state (`status`)
+- Starting a new multi-phase plan (`new plan`) or initiative (`new initiative`)
+- Daily mutations: push/pop, park/emerge, promote, done, phase-done
+- Organizing in-flight work scattered across repo (`discover`)
+- Capturing an existing markdown plan (`adopt`)
+- Migrating legacy state files (`migrate`)
+- Checking drift / un-reviewed code / state-vs-code coherence (`scope-creep`, `verify`)
+
+**When NOT to use:**
+- One-shot questions or work that fits in the current session
+- Editing .atomic-skills/ files by hand (use the subcommands — they set provenance + validate)
+
+## Reference
+
+**Subcommands**
+
+*View*
+
+| Command | Description |
+|---------|-------------|
+| `status [--browser\|--terminal\|--list\|--plan\|--phase\|--stack\|--archived\|--report]` | View current state: compact summary, browser dashboard, full terminal view, or filtered tables |
+| `verify [--fix] [--slug <slug>]` | Reconcile .atomic-skills/ against the repo: schema, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix) |
+
+*Create*
+
+| Command | Description |
+|---------|-------------|
+| `new [plan\|initiative] <slug>` | Create a Plan (multi-phase bootstrap) or an Initiative (standalone or anchored to a phase); bare `new` prints the menu |
+| `discover [--dry-run\|--commit] [--scope=<list>] [--scan=<path>]` | Scan the repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject |
+| `adopt <file.md>` | Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing |
+
+*Stack frames*
+
+| Command | Description |
+|---------|-------------|
+| `push <description>` | Open a lateral stack frame on top of the current work; type is inferred from the verb |
+| `pop [--resolve\|--park\|--emerge]` | Close the top frame with a destination: --resolve (drop), --park (note), or --emerge (follow-up) |
+
+*Backlog*
+
+| Command | Description |
+|---------|-------------|
+| `park <description>` | File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger |
+| `emerge <description>` | File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase |
+| `promote <title-or-idx>` | Turn a parked item into a real task (assigns next T-NNN, carries its context forward) |
+
+*Tasks & phases*
+
+| Command | Description |
+|---------|-------------|
+| `done <task-id>` | Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive |
+| `phase-done` | Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase |
+| `phase-reopen [<phase-id>]` | Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending |
+| `split-phase <id>` | Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done |
+
+*Lifecycle*
+
+| Command | Description |
+|---------|-------------|
+| `archive [<slug>]` | Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives) |
+| `switch <slug>` | Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs |
+| `migrate <slug>` | Convert a legacy (pre-0.1) initiative file to schemaVersion 0.1; reports the field-mapping diff and flags placeholder context |
+| `re-bootstrap <slug>` | After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context |
+
+*Context & drift*
+
+| Command | Description |
+|---------|-------------|
+| `why <id>` | Read-only deep view of one item: status, ratified solves/trigger/assumptions, provenance, staleness |
+| `re-ratify <id>` | Refresh a stale item: re-confirm the premises (bump review date) or rewrite solves/trigger/assumptions |
+| `scope-creep` | Read-only drift report: phase growth %, scope expansion %, parked zombies, and stale-context items |
+| `detect-scope` | Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept |
+
+*Review*
+
+| Command | Description |
+|---------|-------------|
+| `review-due` | Run a cross-model codex review on the diff since the last review and record the result for the default view |
+
+**Arguments:**
+
+| Name | Kind | Required | Description |
+|------|------|----------|-------------|
+| `--browser` | flag | optional | Open the aiDeck dashboard in the browser (status view) |
+| `--terminal` | flag | optional | Full terminal-only view, no browser (status view) |
+| `--list` | flag | optional | List all plans + standalone initiatives (status view) |
+| `--plan` | option | optional | Filter view to a specific plan slug (status view) |
+| `--phase` | option | optional | Filter view to a specific phase id (status view) |
+| `--scan` | option | optional | Extra source paths for discover (comma-separated). E.g. --scan=NOTES/,~/team-plans/ |
+| `--scope` | option | optional | Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem) |
+
+**Examples:**
+- `/atomic-skills:project` — Compact 5-line summary of the active plan/initiative
+- `/atomic-skills:project status --browser` — Open the aiDeck dashboard
+- `/atomic-skills:project new plan v3-redesign` — Bootstrap a new multi-phase Plan (7-stage flow)
+- `/atomic-skills:project done T-005` — Close a task (triggers phase-completion check if last)
+- `/atomic-skills:project verify` — Reconcile .atomic-skills/ state against the code
+
+## Metadata
+
+**Output artifacts:** `.atomic-skills/PROJECT-STATUS.md`, `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/status/config.json`, `.atomic-skills/bootstrap-drafts/ (discover output)`
+
+**Dependencies:** `git`
+
+**Related:** `fix`, `save-and-push`, `review-plan`
+
+**Tags:** `tracking`, `anchoring`, `planning`, `bootstrap`, `create`, `migrate`, `core`
+
+**Version added:** `1.5.0`

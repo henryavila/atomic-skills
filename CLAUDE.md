@@ -20,4 +20,4 @@ Para manter compatibilidade entre Claude Code, Gemini CLI e outros:
 
 ## Rastreamento de iniciativas
 
-Este repo tem a skill `atomic-skills:project-status` (PT + EN). Estado operacional canônico em `.atomic-skills/` é mantido via esta skill + hooks opcionais. Execute `atomic-skills:project-status` para setup na primeira vez, depois para operação durante desenvolvimento.
+Este repo tem a skill `atomic-skills:project` (router fino + detalhe lazy em `skills/shared/project-assets/`). Estado operacional canônico em `.atomic-skills/` é mantido via esta skill + hooks opcionais. Execute `atomic-skills:project` para setup na primeira vez, depois para operação durante desenvolvimento.

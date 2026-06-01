@@ -1,5 +1,5 @@
 <!-- atomic-skills:status-gate:start v=2.0.0 -->
-## Status Tracking (atomic-skills:project-status)
+## Status Tracking (atomic-skills:project)
 
 <HARD-GATE>
 BEFORE any Write/Edit operation in source code:
@@ -18,14 +18,14 @@ BEFORE any Write/Edit operation in source code:
      (under active plan or standalone), or is it ad-hoc?"
 3. Before the edit, announce which Plan/Phase/Initiative/StackFrame anchors the work.
 4. If the edit opens a new depth (research, discussion, expansion), invoke
-   `atomic-skills:project-status push <description>` BEFORE the edit.
+   `atomic-skills:project push <description>` BEFORE the edit.
 5. If the edit closes a frame (done, parked, emerged), update via
-   `atomic-skills:project-status pop` / `park` / `emerge` / `done` AFTER the edit in the same turn.
+   `atomic-skills:project pop` / `park` / `emerge` / `done` AFTER the edit in the same turn.
 6. If the edit touches paths OUTSIDE `scope.paths` of the active initiative, surface drift:
    "Writing to <path> is outside <initiative>.scope.paths. Switch initiative or expand scope?"
 
 VIOLATION = code written without anchor = the exact problem this skill exists to prevent.
 </HARD-GATE>
 
-Invoke `atomic-skills:project-status` to view status at any time. Hooks will also auto-inject context at SessionStart.
+Invoke `atomic-skills:project status` to view status at any time (or `atomic-skills:project` for a compact summary). Hooks will also auto-inject context at SessionStart.
 <!-- atomic-skills:status-gate:end -->

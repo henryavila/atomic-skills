@@ -36,7 +36,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 31); // 10 core + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset + 1 auto-update hook (no namespace root for commands)
+    assert.strictEqual(result.files.length, 47); // 9 core skills + 12 shared codex/debate assets + 24 project assets (19 top-level + 5 hooks) + 2 (namespace root + auto-update hook)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -81,7 +81,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 32); // 10 core + 1 module + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset + 1 auto-update hook (no namespace root for commands)
+    assert.strictEqual(result.files.length, 48); // 9 core + 1 module skill + 12 shared assets + 24 project assets (19 + 5 hooks) + 2 (namespace root + auto-update hook)
   });
 
   it('substitutes memory_path variable', () => {
@@ -142,7 +142,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 61); // (10 core + 11 codex-bridge assets + 8 project-status assets + 1 project-plan asset) * 2 IDEs + 1 auto-update hook (no namespace root for command or toml formats)
+    assert.strictEqual(result.files.length, 93); // (9 core + 12 shared assets + 24 project assets [19 + 5 hooks]) * 2 IDEs (claude-code + gemini-commands) + auto-update hook (no namespace root for command/toml formats)
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -223,8 +223,8 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    // Only core skills + codex-bridge assets + project-status assets + project-plan assets + auto-update hook, no module skills (no namespace root for commands)
-    assert.strictEqual(result.files.length, 31);
+    // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
+    assert.strictEqual(result.files.length, 47);
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -301,7 +301,7 @@ describe('installSkills', () => {
     }
   });
 
-  it('copies codex-bridge and project-status assets to claude-code namespace', async () => {
+  it('copies codex-bridge and project assets to claude-code namespace', async () => {
     const { mkdtempSync, existsSync, readdirSync, mkdirSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join: pjoin, dirname: pdirname } = await import('node:path');
@@ -327,13 +327,20 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/commands/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // 11 codex-bridge + 8 project-status + 1 project-plan (hooks subdir is skipped — not a file)
-    assert.strictEqual(files.length, 20,
-      `expected 20 assets (11 codex-bridge + 8 project-status + 1 project-plan), got ${files.length}: ${files.join(', ')}`);
+    // 12 shared codex/debate assets + 19 project top-level assets + 1 hooks/ subdir = 32 entries
+    assert.strictEqual(files.length, 32,
+      `expected 32 entries (12 shared + 19 project + hooks/ dir), got ${files.length}: ${files.join(', ')}`);
+    // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
+    const hooksDir = pjoin(assetsDir, 'hooks');
+    assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
+    for (const h of ['session-start.sh', 'stop.sh', 'pre-write.sh', 'config.json']) {
+      assert.ok(existsSync(pjoin(hooksDir, h)), `_assets/hooks/${h} must be installed`);
+    }
     // Spot-check one from each origin
     assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');
     assert.ok(files.includes('CLAUDE.md-gate.template.md'), 'must include project-status asset');
-    assert.ok(files.includes('minimal-source.template.md'), 'must include project-plan asset');
+    assert.ok(files.includes('minimal-source.template.md'), 'must include project asset (minimal-source)');
+    assert.ok(files.includes('project-view.md'), 'must include project lazy detail (project-view)');
   });
 });
 

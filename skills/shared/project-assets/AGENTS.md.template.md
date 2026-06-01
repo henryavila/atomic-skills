@@ -4,4 +4,4 @@ This project follows Claude Code conventions. Read and follow @CLAUDE.md for all
 
 Additional project context:
 - Memory: `.ai/memory/MEMORY.md` (see `atomic-skills:init-memory`)
-- Status: `.atomic-skills/PROJECT-STATUS.md` (see `atomic-skills:project-status`)
+- Status: `.atomic-skills/PROJECT-STATUS.md` (see `atomic-skills:project`)

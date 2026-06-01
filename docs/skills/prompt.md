@@ -19,7 +19,7 @@ Turn a vague task description into an optimized, self-contained prompt with file
 
 **When NOT to use:**
 - You will execute the task in this same session
-- You need a multi-phase plan (use project-plan)
+- You need a multi-phase plan (use project)
 - You want to dispatch many tasks (use parallel-dispatch)
 
 ## Reference
@@ -36,7 +36,7 @@ Turn a vague task description into an optimized, self-contained prompt with file
 
 ## Metadata
 
-**Related:** `parallel-dispatch`, `fix`, `project-plan`
+**Related:** `parallel-dispatch`, `fix`, `project`
 
 **Tags:** `meta`, `generation`, `planning`
 
