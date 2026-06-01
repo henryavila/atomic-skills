@@ -1,6 +1,6 @@
-# Inc0–Inc2 — implementation notes & verified ground-truth corrections
+# Inc0–Inc3 — implementation notes & verified ground-truth corrections
 
-> **Status:** Inc0 + Inc1 + Inc2 DONE (2026-06-01). Branch `dogfood/self-host-migration`. **Next = Inc3.** See the `## SESSION HANDOFF` block at the END of this file to resume.
+> **Status:** Inc0 + Inc1 + Inc2 + Inc3 DONE (2026-06-01). Branch `dogfood/self-host-migration`. **Next = Inc4** (No-Placeholders lint + SPEC gate). See the `## SESSION HANDOFF` block at the END of this file to resume. (Inc3 detail + pressure-test record: this file `## Inc3` + `08-inc3-pressure-tests.md`.)
 > This file is the durable record of what was BUILT (vs. designed) and where the appendices' `file:line` claims drifted from the real code. A ground-truth verification sweep (6 parallel readers) ran before any code; its corrections are recorded here so future sessions trust the code, not the snapshot in 01/05.
 
 ## Ground-truth verification — 5 material corrections to the appendices
@@ -100,41 +100,38 @@ No-Placeholders lint (R-ORCH-12/R-SP-24, deterministic zero-token reject of TODO
 
 ---
 
-## SESSION HANDOFF — resume at Inc3 (2026-06-01)
+## SESSION HANDOFF — resume at Inc4 (2026-06-01)
 
-**Read order for the resuming session:** this block → `00-CANON.md` RESUME HERE → `00-CANON.md` decision log + build order → this file top-to-bottom (the 5 ground-truth corrections + Inc0–Inc2 detail) → `05-fork-resolutions.md` (F-C1/F-C2 for Inc3) → `01-…§5` (dogfood line: cognitive skills are build-conventionally-then-replay).
+**Read order for the resuming session:** this block → `00-CANON.md` RESUME HERE → `00-CANON.md` decision log + build order (Inc4 rung) → this file top-to-bottom (the 5 ground-truth corrections + Inc0–Inc3 detail) → `01-…§2.5` + `§3 WF-SPEC` (R-ORCH-11/12/19/23, R-SP-24/25) → `02-superpowers-extraction.md` §3 (the No-Placeholders/per-task-rigor extract).
 
 ### Narrative (where we are)
-project→lifecycle-orchestrator: design decision-complete; **Inc0+Inc1+Inc2 built & committed** on `dogfood/self-host-migration` (off `main`). Mechanical/enforcement spine is done: the cross-agent strip-test gate, nested-layout kind inference, the verify-on-done teeth (GATE-R2 met-invariant — the real enforcement, since verifier-exec is markdown prose), the 0.2 schema, and the `projects/<id>/<slug>/` path-emit/normalize/serve/validate-state plumbing (opt-in, coexisting with the flat tree). Nothing destructive has touched the live `.atomic-skills/` tree except honest re-verification of the aideck-multi-project gates.
+project→lifecycle-orchestrator: design decision-complete; **Inc0+Inc1+Inc2+Inc3 built & committed** on `dogfood/self-host-migration` (off `main`). The enforcement spine (strip-test gate, nested-layout kind inference, GATE-R2 met-invariant, 0.2 schema, `projects/<id>/<slug>/` plumbing) AND the DESIGN cognition (brainstorm B0–B5, the actor-critic gate, debate `--gate`, the `design.md` section lint, the create-plan rewire) are done. Inc3 was built OFF the migration critical path and pressure-tested (record in `08-inc3-pressure-tests.md`); no destructive writes to the live `.atomic-skills/` tree.
 
 ### State (verbatim)
-- Branch: `dogfood/self-host-migration` (base `main`). **Working tree CLEAN.**
-- Commits (newest first): `a996371` Inc2 · `d182047` re-verify doc · `ab4b9dc` Inc1 · `febe267` Inc0. (`main` tip before this work: `7500822`.)
-- Suite: `npm test` → **614 pass / 0 fail** (baseline 539).
-- Live tree: `node scripts/validate-state.js` → **All 17 file(s) valid** (schemaVersion 0.1/0.2).
-- Memory updated: [[project-orchestrator-redesign-canon]], [[project-aideck-multi-project-shipped]], MEMORY.md index.
+- Branch: `dogfood/self-host-migration` (base `main`). **Working tree CLEAN** (this handoff is the only pending doc edit, committed separately).
+- Commits (newest first): `4d61594` Inc3 · `a996371` Inc2 · `d182047` re-verify doc · `ab4b9dc` Inc1 · `febe267` Inc0. (`main` tip before this work: `7500822`.)
+- Suite: `npm test` → **640 pass / 0 fail** (Inc2 baseline 614; +22 `lint-design`, +4 strip coverage). Strip-test 72/72. `validate-catalog` clean.
+- Live tree: `node scripts/validate-state.js` → **All 17 file(s) valid** (schemaVersion 0.1/0.2) — untouched by Inc3.
+- Memory updated: [[project-orchestrator-redesign-canon]] (now Inc0–Inc3), MEMORY.md index.
 
 ### Single nextAction
-Start **Inc3**, prerequisite FIRST: author `docs/kb/skill-authoring.md` (R-SP-12) — the RED-GREEN-REFACTOR pressure-test method + the 3+-combined-factor rule + the rented-phrasing exemption — because every other Inc3 deliverable (brainstorm/critic/debate-gate Iron Laws) must cite it and be pressure-tested against it before ship.
+Start **Inc4 — No-Placeholders lint + SPEC gate** (R-ORCH-12/R-SP-24 first — it is the deterministic backstop the thin task bodies depend on). Enforce in `decompose.js` (or a sibling, mirroring `scripts/lint-design.js`'s pure-fn+CLI shape): reject `TODO`/`REPLACE_*`/fuzzy `<path>` refs **before** `materializeDecomposition` writes — abort with a named error, 0 files written. **decompose format UNCHANGED** (R-ORCH-10: `## F0/F1` + `### Tn` + `exit_gate` YAML). Note `decompose.test.js:293` confirms materialize today *generates* TODO sentinels; the lint must reject them pre-write.
 
-### Inc3 build order (after skill-authoring.md)
-1. `skills/core/brainstorm.md` (R-SP-01/02/03) — divergent front-half of DESIGN → committed `design.md`; ≥1 Iron Law + Red-Flags + Rationalization table; pressure-tested (3+ scenarios).
-2. Critic asset `skills/shared/debate-assets/critic.md` (R-XAGENT-04, F-C1) — non-callable lazy asset (header: "NOT a debate persona; never resolved from roster.yaml"); **tiered provider** (same-provider-fresh on Claude Code → codex critic where isolation unproven → solo-advisory). Emits binary `Approved | Issues-Found` (reuse codex pass1 `verdict:` frontmatter shape). Gate-pass wires to the verdict, NEVER panel consensus.
-3. `debate.md` thin GATE-MODE (R-SP-13/15/31) — bounded agenda + per-round contrarian + machine-readable verdict block; Iron Law preserved; non-gate behavior unchanged.
-4. DESIGN gate ladder (R-ORCH-16/17) — panel ONLY if ≥2 viable approaches AND expensive-to-reverse; else skip. When panel runs → critic R3 + explicit user approval.
-5. `design.md` section lint (R-XAGENT-06) — deterministic, zero-token, cross-agent; require `decisions` + `chosen-approach` (+ blast-radius for migrations); mirrors the No-Placeholders lint shape; gives R-ORCH-09 ("PLAN refuses without design.md") something testable.
-6. Rewire `project-create-plan.md` Stages 2-3 / §201-277 (R-ORCH-07/08, R-SP-27/28) to call internal `atomic-skills:brainstorm` (replace superpowers delegation); keep the optional detect-and-degrade probe (RENT, exempt from pressure-test budget per R-SP-32).
-- **F-C2 (v1 scope):** DESIGN ships as committed `design.md` + section lint + hard PLAN-precondition — NOT a tracked `stage`-object gate (that + the DESIGN-CRITIC = v2). Don't build a tracked DESIGN stage.
+### Inc4 build order
+1. **No-Placeholders lint (R-ORCH-12/R-SP-24)** — enforced, deterministic, zero-token; reject TODO/REPLACE_*/fuzzy paths + "similar to Task N" / undefined-type refs pre-materialize. Mirror `lint-design.js` (pure `lintSource()→string[]` + wired into the decompose materialize path). RED tests first.
+2. **Enrich `minimal-source.template.md` (R-SP-25)** — per-task Files block + RED-GREEN checklist.
+3. **SPEC / per-task gate (R-ORCH-11/19/23)** — per-task interior in the EXISTING `initiative.schema.json` fields (description + acceptance[≤5] + scopeBoundary[] + verifier), NO new keys; SPEC gate = No-Placeholders lint + `review-plan` ambiguity checks, **no panel**; no task admitted to SPEC without exact paths + scopeBoundary[] + a deterministic verifier (named error otherwise).
+- Wire the SPEC gate into `project-create-plan.md` Stage 5/6 (the lint already aborts materialize; the per-task hard gate is the admission check).
 
-### Critical constraints for Inc3 (do NOT violate)
-- **Build on a THROWAWAY plan + pressure-test, then REPLAY over the migration as regression — Inc3 is OFF the migration critical path** (appendix 01 §5 / build order). Do not let unproven cognitive skills run on the migration's first pass.
-- **R-XAGENT-01 strip-test is live:** any `{{#if ide.claude-code}}`-only host-orchestration tool in a new skill body must be inside the CC block, or CI fails. New bodies use tool-abstraction template vars only (`{{INVESTIGATOR_TOOL}}` etc.) — `tests/compatibility.test.js` enforces it.
-- **Pressure-test record required** before any new Iron Law/Red-Flag block ships (R-SP-03/08, R-EXEC-31): ≥3 combined-pressure scenarios, dated, cited.
-- Register new skills/assets in `meta/catalog.yaml` + regenerate (R-SP-33) — the husky pre-commit hook runs `validate-catalog`/`check-docs`, so catalog/doc drift blocks the commit (seen this session).
+### Critical constraints carried forward (do NOT violate)
+- **R-XAGENT-01 strip-test is live** — new/edited skill bodies use tool-abstraction template vars only; any CC-only host tool inside `{{#if ide.claude-code}}` (block form: `}}` then newline, or the renderer regex misses it — bit me in Inc3). `tests/compatibility.test.js` enforces it.
+- **Pressure-test record required** before any NEW owned Iron Law/Red-Flag/Rationalization block ships (R-SP-03/08, R-EXEC-31): ≥3 combined-pressure scenarios (≥3 factors each), dated, cited — method in `docs/kb/skill-authoring.md`; record per increment (e.g. a `09-…` file). Inc4 is mostly deterministic lint (likely no new discipline block → no budget), but the SPEC gate's refusal language, if it grows a Rationalization block, owes the budget.
+- **Catalog/doc drift blocks the commit** — the husky pre-commit runs `generate-docs` + `validate-catalog`; stage the regenerated README + `skills.generated.ts` + `docs/skills/*` together. No new core skill in Inc4 (decompose.js + template + gate only), so likely no catalog change.
+- **Dogfood-leak guardrail still active** — do NOT run `decompose materialize` against the live tree without a redirected `opts.stateRoot`; the Inc4 lint should be exercised on fixtures/throwaway, not the live `.atomic-skills/`.
 
 ### Open caveats carried forward (flagged, user-deferred — NOT blockers)
-- **F0-G3 (×2) pending** in the live aideck-multi-project state: its verifier `-t 'health includes projects'` matches 0 tests on aideck@`feat/aideck-v2-generic-runtime`. Either fix the `-t` pattern to the real test name or add a real test before it can honestly be `met`. (F0 phase is now technically optimistic — done phase, one pending gate.)
+- **F0-G3 (×2) pending** in the live aideck-multi-project state: verifier `-t 'health includes projects'` matches 0 tests on aideck@`feat/aideck-v2-generic-runtime`. Fix the `-t` pattern or add a real test before it can honestly be `met`. (F0 phase is technically optimistic — done phase, one pending gate.)
 - **F3-G1 loose verifier:** `node --test tests/serve.test.js` passes but has no test specifically for "ensureAideck registers B without killing A". A targeted test would strengthen it.
 
 ### Resume hygiene (the design's own `resume` refuses on these)
-Tree is clean and there are no TODO placeholders in the handoff, so a fresh session may proceed. If anything is dirty on resume, stash/commit before starting Inc3. Optionally open a PR for the branch first (`gh pr create`) if you want review before Inc3 — ask the user; not done automatically.
+Tree is clean and there are no TODO placeholders in this handoff, so a fresh session may proceed. If anything is dirty on resume, stash/commit before starting Inc4. Optionally open a PR for the branch first (`gh pr create`) if you want review before Inc4 — ask the user; not done automatically.
