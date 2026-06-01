@@ -1,7 +1,8 @@
 import { describe, it, afterEach } from 'node:test'
 import { strict as assert } from 'node:assert'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 const serve = await import('../src/serve.js')
 
@@ -103,5 +104,53 @@ describe('serve constants', () => {
       existsSync(join(serve.__testing.DEFAULT_BUNDLE_DIR, 'index.html')),
       'dist/dashboard/index.html missing — run `npm run build:dashboard`'
     )
+  })
+})
+
+describe('listProjects (Inc2: R-MIG-13 / R-ORCH-26 — folder name = projectId)', () => {
+  it('returns [] when projects/ is absent (pure flat tree)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'as-listproj-'))
+    try {
+      mkdirSync(join(dir, 'plans'), { recursive: true })
+      assert.deepEqual(serve.listProjects(dir), [])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('enumerates projects/<id>/ folders, each with its plan slugs, sorted', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'as-listproj-'))
+    try {
+      // two projects; project "beta" has two plans, "alpha" has one
+      for (const [proj, slugs] of [['beta', ['migration', 'cleanup']], ['alpha', ['ui-v1']]]) {
+        for (const slug of slugs) {
+          const p = join(dir, 'projects', proj, slug)
+          mkdirSync(p, { recursive: true })
+          writeFileSync(join(p, 'plan.md'), '---\nslug: x\n---\n')
+        }
+      }
+      const out = serve.listProjects(dir)
+      assert.deepEqual(out.map((p) => p.projectId), ['alpha', 'beta'], 'projectIds sorted')
+      assert.deepEqual(out.find((p) => p.projectId === 'beta').plans, ['cleanup', 'migration'], 'plans sorted')
+      assert.deepEqual(out.find((p) => p.projectId === 'alpha').plans, ['ui-v1'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('lists a project even if a subfolder lacks plan.md (plans only counts <slug>/plan.md)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'as-listproj-'))
+    try {
+      const withPlan = join(dir, 'projects', 'p', 'real')
+      mkdirSync(withPlan, { recursive: true })
+      writeFileSync(join(withPlan, 'plan.md'), '---\nslug: x\n---\n')
+      // a stray subfolder with no plan.md must not count as a plan
+      mkdirSync(join(dir, 'projects', 'p', 'stray'), { recursive: true })
+      const out = serve.listProjects(dir)
+      assert.equal(out.length, 1)
+      assert.deepEqual(out[0].plans, ['real'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

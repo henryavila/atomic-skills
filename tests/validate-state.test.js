@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, collectTargets } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -796,6 +796,36 @@ test('GATE-R2 (plan level): met phase criterion with a verifier but no evidence 
     ] } }],
   };
   assert.match(checkMetInvariant(plan).join('\n'), /phase F0 criterion F0-G1/);
+});
+
+test('collectTargets (Inc2 R-XAGENT-05): a dir arg walks BOTH flat and nested projects/*/*/ layouts', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-collect-'));
+  try {
+    // flat
+    mkdirSync(join(dir, 'plans'), { recursive: true });
+    writeFileSync(join(dir, 'plans', 'flatplan.md'), '---\nslug: flatplan\n---\n');
+    mkdirSync(join(dir, 'initiatives', 'archive'), { recursive: true });
+    writeFileSync(join(dir, 'initiatives', 'flatinit.md'), '---\nslug: flatinit\n---\n');
+    writeFileSync(join(dir, 'initiatives', 'archive', 'oldinit.md'), '---\nslug: oldinit\n---\n');
+    // nested
+    const planDir = join(dir, 'projects', 'atomic-skills', 'sample');
+    mkdirSync(join(planDir, 'phases', 'archive'), { recursive: true });
+    writeFileSync(join(planDir, 'plan.md'), '---\nslug: sample\n---\n');
+    writeFileSync(join(planDir, 'phases', 'f0-foundation.md'), '---\nslug: sample-f0\n---\n');
+    writeFileSync(join(planDir, 'phases', 'archive', 'f0-old.md'), '---\nslug: sample-f0-old\n---\n');
+
+    const found = collectTargets([dir]).map((p) => p.split('/').slice(-2).join('/'));
+    // flat still found
+    assert.ok(found.includes('plans/flatplan.md'));
+    assert.ok(found.includes('initiatives/flatinit.md'));
+    assert.ok(found.includes('archive/oldinit.md'));
+    // nested now found
+    assert.ok(found.includes('sample/plan.md'), `nested plan.md not collected: ${found.join(', ')}`);
+    assert.ok(found.includes('phases/f0-foundation.md'), 'nested phase not collected');
+    assert.ok(found.includes('archive/f0-old.md'), 'nested archived phase not collected');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('GATE-R2 wiring: validateFile REJECTS a schema-valid file whose met criterion lacks evidence', () => {

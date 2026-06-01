@@ -202,8 +202,16 @@ export function normalizeFile(filePath, { nowIso } = {}) {
   const parsed = parseFrontmatter(raw);
   if (parsed.error) return { filePath, changes: [], error: parsed.error };
 
+  // Kind from tree position — mirrors scripts/validate-state.js kindFromPath:
+  // flat checks first (plans/initiatives), then the nested projects/<id>/<slug>/
+  // layout (phases/*.md → initiative; plan.md under projects/ → plan).
   const norm = resolve(filePath).split('/');
-  const kind = norm.includes('plans') ? 'plan' : norm.includes('initiatives') ? 'initiative' : undefined;
+  const baseName = norm[norm.length - 1];
+  const kind = norm.includes('plans') ? 'plan'
+    : norm.includes('initiatives') ? 'initiative'
+    : norm.includes('phases') ? 'initiative'
+    : (baseName === 'plan.md' && norm.includes('projects')) ? 'plan'
+    : undefined;
   const { entity, changes } = normalizeEntity(parsed.frontmatter, {
     nowIso: nowIso || new Date().toISOString(),
     kind,
@@ -227,11 +235,32 @@ export function normalizeFile(filePath, { nowIso } = {}) {
 export function normalizeStateDir(dir, { nowIso } = {}) {
   const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
   const targets = [];
+  const collectMd = (base) => {
+    if (!existsSync(base) || !statSync(base).isDirectory()) return;
+    for (const entry of readdirSync(base)) {
+      if (entry.endsWith('.md') && !entry.startsWith('.')) targets.push(join(base, entry));
+    }
+  };
+
+  // Flat layout (legacy; live during the migration coexistence window).
   for (const sub of ['plans', 'initiatives']) {
-    for (const base of [join(root, sub), join(root, sub, 'archive')]) {
-      if (!existsSync(base) || !statSync(base).isDirectory()) continue;
-      for (const entry of readdirSync(base)) {
-        if (entry.endsWith('.md') && !entry.startsWith('.')) targets.push(join(base, entry));
+    collectMd(join(root, sub));
+    collectMd(join(root, sub, 'archive'));
+  }
+
+  // Nested layout: projects/<id>/<slug>/{plan.md, phases/*.md, phases/archive/*.md}.
+  const projectsDir = join(root, 'projects');
+  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+    for (const projId of readdirSync(projectsDir)) {
+      const projPath = join(projectsDir, projId);
+      if (!statSync(projPath).isDirectory()) continue;
+      for (const planSlug of readdirSync(projPath)) {
+        const planPath = join(projPath, planSlug);
+        if (!statSync(planPath).isDirectory()) continue;
+        const planMd = join(planPath, 'plan.md');
+        if (existsSync(planMd) && statSync(planMd).isFile()) targets.push(planMd);
+        collectMd(join(planPath, 'phases'));
+        collectMd(join(planPath, 'phases', 'archive'));
       }
     }
   }

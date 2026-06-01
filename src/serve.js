@@ -19,7 +19,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -195,6 +195,41 @@ export function deriveProjectId(rootDir) {
     .replace(/^[^a-z]+/, '')
     .slice(0, 64)
   return id || 'project'
+}
+
+/**
+ * Enumerate the projects present on disk under the nested layout
+ * `<stateRoot>/projects/<projectId>/<planSlug>/plan.md`. The folder name IS the
+ * projectId (Decision #9 / R-ORCH-26) — this on-disk enumeration is the source
+ * of truth for "which projects exist", replacing the aiDeck in-memory
+ * ProjectRegistry + cwd-basename derivation (R-MIG-13; the aiDeck consumer side
+ * lands WITH the rewrite, Inc7). A project is listed only if it contains at
+ * least one plan (a `<slug>/plan.md`), mirroring aiDeck's hasContent. Returns []
+ * when `projects/` is absent (e.g. a pure flat tree mid-migration).
+ *
+ * Pure read; honors a redirectable state root (F-D1) so a dogfood copy can be
+ * enumerated without touching the live tree.
+ *
+ * @param {string} [stateRoot] - path to the `.atomic-skills` dir (default './.atomic-skills')
+ * @returns {Array<{ projectId: string, plans: string[] }>} sorted by projectId
+ */
+export function listProjects(stateRoot = '.atomic-skills') {
+  const projectsDir = join(stateRoot, 'projects')
+  if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) return []
+  const out = []
+  for (const projectId of readdirSync(projectsDir).sort()) {
+    const projPath = join(projectsDir, projectId)
+    if (!statSync(projPath).isDirectory()) continue
+    const plans = []
+    for (const slug of readdirSync(projPath).sort()) {
+      const planPath = join(projPath, slug)
+      if (statSync(planPath).isDirectory() && existsSync(join(planPath, 'plan.md'))) {
+        plans.push(slug)
+      }
+    }
+    out.push({ projectId, plans })
+  }
+  return out
 }
 
 /**

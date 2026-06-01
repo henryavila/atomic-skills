@@ -1,6 +1,6 @@
 # project → lifecycle orchestrator — design CANON & session handoff
 
-> **Status:** DESIGN COMPLETE (6 design sessions, 2026-06-01). **Inc0 + Inc1 BUILT (2026-06-01)** on branch `dogfood/self-host-migration` — see `07-inc0-inc1-implementation-notes.md`. Next = Inc2 (layout JS-side).
+> **Status:** DESIGN COMPLETE (6 design sessions, 2026-06-01). **Inc0 + Inc1 + Inc2 BUILT (2026-06-01)** on branch `dogfood/self-host-migration` — see `07-inc0-inc1-implementation-notes.md` (despite the name it now covers Inc0–Inc2). Suite 614 green. Next = Inc3 (DESIGN cognition).
 > **This file is the durable handoff.** A fresh session: read THIS first, then pull the appendix for the area you touch. The appendices hold the full requirement registries / specs; this file holds the decisions + build order + resume point.
 
 ## What this is
@@ -97,4 +97,6 @@ All 16 are decided + critic-checked. Quick index (full decision + falsifier in a
 
 **⚠️ One thing needs a USER decision before/aside from Inc2:** GATE-R2 surfaced **5 pre-existing fabricated-met files** in the live tree (`aideck-multi-project` plan + f0–f3 initiatives, ~26 criteria `met` with no evidence — see [[project-aideck-multi-project-shipped]]). The repo CI is unaffected (gitignored state; fixtures clean) but `validate-state` on the live tree now (correctly) fails. Remediate per-criterion: re-verify / revert-to-pending / defer. **Do NOT fabricate evidence.**
 
-**Next concrete step is Inc2** (layout JS-side: decompose path-emit to `projects/<id>/<slug>/` + `opts.stateRoot` plumb [same edit, F-D1] + normalize walk + serve projectId enumeration + gitignore glob R-XAGENT-05). Honor the **dogfood-leak guardrail** (07 §R-XAGENT-09): no `decompose materialize` against live state until the stateRoot plumb lands. Hazard #3 already satisfied — kind-inference (Inc0) is in before any path-emit. Session-2's `06-` refinements (F-E1/F-E2) remain v1-advisory/observe-only, sequenced with/after Inc5 — they do not affect Inc2.
+**Inc2 BUILT** (07 §Inc2): decompose nested path-emit + `opts.stateRoot` (F-D1 now wired) + normalize/validate-state walks of `projects/*/*/` + serve `listProjects` enumeration; nested layout is opt-in so the flat tree + tests are byte-identical (coexistence). Dogfood-leak guardrail updated: `materialize` honors `stateRoot`, so the dogfood driver must pass the redirected root + `projectId`.
+
+**Next concrete step is Inc3** (DESIGN cognition — built on a throwaway, replayed as regression per appendix 01 §5, NOT on the migration critical path): `skills/core/brainstorm.md` + debate gate-mode + the critic asset (`skills/shared/debate-assets/critic.md`, F-C1 tiered provider) + DESIGN gate ladder (R-ORCH-16/17) + `design.md` section lint (R-XAGENT-06, mirrors No-Placeholders) + rewire `project-create-plan` Stages 2-3 to internal `atomic-skills:brainstorm`. **Pressure-test every new Iron Law (3+ combined-pressure scenarios) before ship** (needs `docs/kb/skill-authoring.md`, R-SP-12, first). Session-2's `06-` refinements (F-E1/F-E2) remain v1-advisory/observe-only, sequenced with/after Inc5.

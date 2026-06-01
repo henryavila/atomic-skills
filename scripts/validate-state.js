@@ -130,7 +130,7 @@ function kindFromPath(filePath) {
  * Each arg can be a file or a directory; directories are scanned for
  * plans/*.md + initiatives/*.md non-recursively.
  */
-function collectTargets(args) {
+export function collectTargets(args) {
   const targets = [];
   const seen = new Set();
   for (const arg of args) {
@@ -147,26 +147,37 @@ function collectTargets(args) {
       continue;
     }
     if (stat.isDirectory()) {
-      for (const sub of ['plans', 'initiatives']) {
-        const subDir = join(absPath, sub);
-        if (!existsSync(subDir) || !statSync(subDir).isDirectory()) continue;
-        for (const entry of readdirSync(subDir)) {
+      const addMd = (mdDir) => {
+        if (!existsSync(mdDir) || !statSync(mdDir).isDirectory()) return;
+        for (const entry of readdirSync(mdDir)) {
           if (!entry.endsWith('.md')) continue;
-          const filePath = join(subDir, entry);
+          const filePath = join(mdDir, entry);
           if (seen.has(filePath)) continue;
           targets.push(filePath);
           seen.add(filePath);
         }
-        if (sub === 'initiatives') {
-          const archiveDir = join(subDir, 'archive');
-          if (existsSync(archiveDir) && statSync(archiveDir).isDirectory()) {
-            for (const entry of readdirSync(archiveDir)) {
-              if (!entry.endsWith('.md')) continue;
-              const filePath = join(archiveDir, entry);
-              if (seen.has(filePath)) continue;
-              targets.push(filePath);
-              seen.add(filePath);
+      };
+      // Flat layout (legacy; live during the migration coexistence window).
+      for (const sub of ['plans', 'initiatives']) {
+        addMd(join(absPath, sub));
+        if (sub === 'initiatives') addMd(join(absPath, sub, 'archive'));
+      }
+      // Nested layout: projects/<id>/<slug>/{plan.md, phases/*.md, phases/archive/*.md}.
+      const projectsDir = join(absPath, 'projects');
+      if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+        for (const projId of readdirSync(projectsDir)) {
+          const projPath = join(projectsDir, projId);
+          if (!statSync(projPath).isDirectory()) continue;
+          for (const planSlug of readdirSync(projPath)) {
+            const planPath = join(projPath, planSlug);
+            if (!statSync(planPath).isDirectory()) continue;
+            const planMd = join(planPath, 'plan.md');
+            if (existsSync(planMd) && statSync(planMd).isFile() && !seen.has(planMd)) {
+              targets.push(planMd);
+              seen.add(planMd);
             }
+            addMd(join(planPath, 'phases'));
+            addMd(join(planPath, 'phases', 'archive'));
           }
         }
       }

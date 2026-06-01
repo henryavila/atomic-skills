@@ -219,4 +219,64 @@ body
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('walks the nested projects/<id>/<slug>/ layout (plan.md + phases/*.md) — Inc2 R-MIG-07', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'as-normalize-nested-'));
+    const readFm = (p) => {
+      const raw = readFileSync(p, 'utf8');
+      return parseYaml(raw.slice(4, raw.indexOf('\n---', 4)));
+    };
+    try {
+      const planDir = join(dir, 'projects', 'atomic-skills', 'sample');
+      mkdirSync(join(planDir, 'phases'), { recursive: true });
+      writeFileSync(join(planDir, 'plan.md'),
+`---
+schemaVersion: '0.1'
+slug: sample
+title: Sample
+status: active
+phases:
+  - id: F0
+    slug: sample-f0
+    title: F0
+    exitGate:
+      summary: one
+      criteria:
+        - id: F0-G1
+          description: gate one
+          status: done
+---
+plan body
+`);
+      writeFileSync(join(planDir, 'phases', 'f0-foundation.md'),
+`---
+schemaVersion: '0.1'
+slug: sample-f0
+status: done
+exitGates:
+  - id: F0-G1
+    description: gate one
+    status: done
+references:
+  - path: "docs/x.md"
+    title: "X doc"
+tasks: []
+---
+phase body
+`);
+      const report = normalizeStateDir(dir, { nowIso: NOW });
+      const visited = report.files.map((f) => f.filePath);
+      assert.ok(visited.some((p) => p.endsWith('/plan.md')), 'plan.md under projects/ must be walked');
+      assert.ok(visited.some((p) => p.endsWith('/phases/f0-foundation.md')), 'phases/*.md must be walked');
+      // Plan criterion + initiative gate both normalized done → met (tree-position kind).
+      const planFm = readFm(join(planDir, 'plan.md'));
+      assert.equal(planFm.phases[0].exitGate.criteria[0].status, 'met');
+      const initFm = readFm(join(planDir, 'phases', 'f0-foundation.md'));
+      assert.equal(initFm.exitGates[0].status, 'met');
+      assert.equal(initFm.references[0].kind, 'file');
+      assert.equal(initFm.references[0].label, 'X doc');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

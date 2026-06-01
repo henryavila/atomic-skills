@@ -63,6 +63,20 @@ Lesson worth carrying: **test-running gates should be `kind:test` (enforces `tes
 
 > Also fixed out-of-band (pre-existing, unrelated to Inc1): `initiatives/bmad-porting-research.md` had `references[3].kind: initiative`, invalid for `artifactRef` (enum `file|url|repo-path|section`) → corrected to `repo-path` (matches its in-repo path + `inside_repo:true`). Gitignored, not committed.
 
-## Next (Inc2)
+## Inc2 — layout JS-side (DONE)
 
-Layout JS-side: decompose path-emit to `projects/<id>/<slug>/` (+ the `opts.stateRoot` plumb = the same edit, F-D1), normalize walk, serve projectId enumeration, gitignore glob (R-XAGENT-05). Honor the **dogfood-leak guardrail** above: no `decompose materialize` against live state until the stateRoot plumb lands.
+Lands the `projects/<id>/<slug>/` tree so the first plan (the migration) can materialize there. The nested layout is **opt-in** (via `opts.projectId` / tree position) so the flat tree + all existing tests stay byte-identical during the coexistence window.
+
+1. **decompose path-emit (R-MIG-04/05, F-D1):** `materializeDecomposition` gains `opts.projectId` (→ nested `<stateRoot>/projects/<id>/<slug>/{plan.md,phases/f<N>-*.md}`) and `opts.stateRoot` (default `.atomic-skills`, applies to BOTH layouts — the F-D1 redirectable root, **now actually wired** in decompose, closing correction #2 for the path-emit). Nested phase filenames drop the redundant `<planSlug>-` prefix (the dir encodes it); identity slug unchanged. Collision guard is per-call (per-plan) → same slug across two projects/plans never collides; two phases in one plan still throw. +7 tests.
+2. **normalize walk (R-MIG-06/07):** `normalizeStateDir` also walks `projects/*/*/` (plan.md + phases/*.md incl. archive); `normalizeFile` kind-inference mirrors Inc0's `kindFromPath` (tree position). Flat loop intact. +1 test.
+3. **serve enumeration (R-MIG-13/R-ORCH-26):** new exported `listProjects(stateRoot)` — folder name = projectId, on-disk source of truth replacing the in-memory ProjectRegistry; a project counts only with ≥1 `<slug>/plan.md`. `ensureAideck` untouched (the aiDeck **consumer** side is R-MIG-14, sequenced WITH the rewrite = Inc7). +3 tests.
+4. **validate-state dir-walk (R-XAGENT-05 half):** `collectTargets` (now exported) walks `projects/*/*/` for a dir arg, so `validate-state <dir>` finds nested files (Inc0 `kindFromPath` already classifies them). +1 test.
+5. **R-XAGENT-05 gitignore:** verified `git check-ignore` — the live `projects/*/*/source.md` is ALREADY ignored by the blanket `/.atomic-skills/` rule, so no redundant glob added. `project-create-plan.md` gains a layout-aware note: idempotent `source.md` ignore is only needed for a REDIRECTED root (F-D1 dogfood) or a git-tracked location (demo-fixtures negation).
+
+**Suite:** 614 green (Inc0+Inc1+Inc2 = +75 over the 539 baseline). Live tree validates (17 files). The forward-declared `projects/atomic-skills/mode2-anthropic-subagent-tier/initiative.md` is a bare `initiative.md` (not plan.md/phases) → correctly skipped by the new walks; Inc6 migrate converts it to a degenerate 1-phase plan.
+
+**Dogfood-leak guardrail UPDATE:** decompose now honors `opts.stateRoot`, so `materialize` CAN target a copy (`stateRoot: '.atomic-skills-dogfood'`). The guardrail tightens to: the skill body / dogfood driver MUST pass the redirected `stateRoot` (and `projectId`) — a bare `materialize` with neither still defaults to the live flat tree.
+
+## Next (Inc3)
+
+DESIGN cognition (built on a throwaway, then replayed): brainstorm + debate gate-mode + critic asset + DESIGN gate ladder + `design.md` section lint (R-XAGENT-06) + rewire `project-create-plan` to internal `atomic-skills:brainstorm`. Pressure-test every new Iron Law (3+ scenarios) before ship. NOT on the migration critical path (build conventionally, replay as regression — appendix 01 §5).

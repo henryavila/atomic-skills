@@ -662,6 +662,14 @@ export function decomposePlan(markdown, opts = {}) {
  * @param {string} [opts.branch] — optional branch name
  * @param {string} [opts.version] — Plan `version` field (default '1.0')
  * @param {Date} [opts.now] — defaults to new Date()
+ * @param {string} [opts.projectId] — when set, emit the NESTED layout
+ *   `<stateRoot>/projects/<projectId>/<planSlug>/{plan.md,phases/f<N>-*.md}`
+ *   (R-MIG-04/05, R-ORCH-25). When omitted, emit the legacy FLAT layout
+ *   (`<stateRoot>/plans/<slug>.md` + `initiatives/<slug>.md`) for backward
+ *   compatibility during the migration coexistence window.
+ * @param {string} [opts.stateRoot] — state-dir prefix (default '.atomic-skills').
+ *   The F-D1 redirectable root: a dogfood copy can be targeted without touching
+ *   the live (gitignored, non-git-restorable) tree. Applies to BOTH layouts.
  * @returns {MaterializedFile[]}
  */
 export function materializeDecomposition(decompose, opts = {}) {
@@ -676,6 +684,10 @@ export function materializeDecomposition(decompose, opts = {}) {
   const version = opts.version || '1.0';
   const now = opts.now instanceof Date ? opts.now : new Date();
   const iso = now.toISOString();
+  const stateRoot = (opts.stateRoot && typeof opts.stateRoot === 'string') ? opts.stateRoot : '.atomic-skills';
+  const projectId = (opts.projectId && typeof opts.projectId === 'string') ? opts.projectId : null;
+  // Nested-layout plan directory (null in flat mode).
+  const planDir = projectId ? `${stateRoot}/projects/${projectId}/${planSlug}` : null;
 
   const plan = decompose.plan;
   const initiatives = decompose.initiatives;
@@ -747,7 +759,7 @@ export function materializeDecomposition(decompose, opts = {}) {
   const files = [{
     kind: 'plan',
     slug: planSlug,
-    relativePath: `.atomic-skills/plans/${planSlug}.md`,
+    relativePath: projectId ? `${planDir}/plan.md` : `${stateRoot}/plans/${planSlug}.md`,
     content: planContent,
   }];
 
@@ -800,7 +812,15 @@ export function materializeDecomposition(decompose, opts = {}) {
     };
     const initBody = renderInitiativeBody(init);
     const initContent = `---\n${yamlStringify(initFm)}---\n\n${initBody}\n`;
-    const relativePath = `.atomic-skills/initiatives/${initSlug}.md`;
+    // Nested filename drops the redundant `<planSlug>-` prefix (the phases/ dir
+    // already encodes the plan) → `f0-<title>.md`; flat keeps the full slug.
+    const phaseFileName = initSlug.startsWith(`${planSlug}-`) ? initSlug.slice(planSlug.length + 1) : initSlug;
+    const relativePath = projectId
+      ? `${planDir}/phases/${phaseFileName}.md`
+      : `${stateRoot}/initiatives/${initSlug}.md`;
+    // Collision guard — per-call (per-plan), so the same slug in TWO different
+    // plans never collides (separate calls, separate sets); two phases in ONE
+    // plan that produce the same identity slug OR the same emitted path throw.
     if (seenSlugs.has(initSlug) || seenPaths.has(relativePath)) {
       throw new Error(
         `materializeDecomposition: slug collision for phase ${init.phaseId} ` +

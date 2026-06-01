@@ -337,6 +337,89 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
   });
 });
 
+describe('materializeDecomposition — nested projects/<id>/<slug>/ layout (Inc2: R-MIG-04/05, F-D1)', () => {
+  const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
+
+  it('emits plan.md + phases/f<N>-*.md under projects/<projectId>/<planSlug>/ when projectId is set', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', now: FROZEN_DATE });
+    assert.equal(files[0].kind, 'plan');
+    assert.equal(files[0].relativePath, '.atomic-skills/projects/atomic-skills/sample/plan.md');
+    for (const f of files.filter((f) => f.kind === 'initiative')) {
+      assert.match(f.relativePath, /^\.atomic-skills\/projects\/atomic-skills\/sample\/phases\/f\d+/);
+    }
+  });
+
+  it('nested phase filenames drop the redundant <planSlug>- prefix (identity slug stays plan-scoped)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', now: FROZEN_DATE });
+    for (const f of files.filter((f) => f.kind === 'initiative')) {
+      assert.ok(f.slug.startsWith('sample-'), `identity slug stays plan-scoped: ${f.slug}`);
+      const base = f.relativePath.split('/').pop();
+      assert.ok(!base.startsWith('sample-'), `filename should drop the planSlug prefix: ${base}`);
+      assert.match(base, /^f\d+/, `filename should start with f<N>: ${base}`);
+    }
+  });
+
+  it('opts.stateRoot redirects BOTH layouts (F-D1 dogfood root)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const flat = materializeDecomposition(r, { planSlug: 'sample', stateRoot: '.atomic-skills-dogfood', now: FROZEN_DATE });
+    assert.equal(flat[0].relativePath, '.atomic-skills-dogfood/plans/sample.md');
+    const nested = materializeDecomposition(r, { planSlug: 'sample', projectId: 'p', stateRoot: '.atomic-skills-dogfood', now: FROZEN_DATE });
+    assert.equal(nested[0].relativePath, '.atomic-skills-dogfood/projects/p/sample/plan.md');
+  });
+
+  it('default (no projectId) still emits the FLAT layout byte-identically (backward-compat)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
+    assert.equal(files[0].relativePath, '.atomic-skills/plans/sample.md');
+    assert.match(files[1].relativePath, /^\.atomic-skills\/initiatives\/sample-f\d+/);
+  });
+
+  it('nested files validate end-to-end (Inc0 kindFromPath resolves the layout)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', branch: 'main', now: FROZEN_DATE });
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'as-nested-'));
+    try {
+      const validators = buildValidators();
+      for (const f of files) {
+        const absPath = join(tmpRoot, f.relativePath);
+        mkdirSync(dirname(absPath), { recursive: true });
+        writeFileSync(absPath, f.content, 'utf8');
+        const result = validateFile(absPath, validators);
+        assert.equal(result.ok, true, `validateFile failed for ${f.relativePath}: ${JSON.stringify(result.errors)}`);
+        assert.equal(result.kind, f.kind);
+      }
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('collision guard still fires within ONE plan in nested mode', () => {
+    const r = {
+      plan: { title: 'X', narrative: '', principles: [], glossary: [], phaseIds: ['F0', 'F1'] },
+      initiatives: [
+        { phaseId: 'F0', slug: 'plan-shared-slug', title: 'A', goal: 'g', tasks: [{ id: 'T-001', title: 't' }], exitGates: [] },
+        { phaseId: 'F1', slug: 'plan-shared-slug', title: 'B', goal: 'g', tasks: [{ id: 'T-001', title: 't' }], exitGates: [] },
+      ],
+      warnings: [],
+    };
+    assert.throws(
+      () => materializeDecomposition(r, { planSlug: 'plan', projectId: 'p', now: FROZEN_DATE }),
+      /slug collision/
+    );
+  });
+
+  it('the SAME plan slug in TWO different projects does NOT collide (per-plan namespace)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const a = materializeDecomposition(r, { planSlug: 'sample', projectId: 'proj-a', now: FROZEN_DATE });
+    const b = materializeDecomposition(r, { planSlug: 'sample', projectId: 'proj-b', now: FROZEN_DATE });
+    assert.equal(a[0].relativePath, '.atomic-skills/projects/proj-a/sample/plan.md');
+    assert.equal(b[0].relativePath, '.atomic-skills/projects/proj-b/sample/plan.md');
+    assert.notEqual(a[1].relativePath, b[1].relativePath);
+  });
+});
+
 describe('Phase C codex review regression — F-001 (slug collision on long planSlug)', () => {
   const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
 

@@ -268,6 +268,8 @@ If `(b)` (the minimal-template subflow):
 
 `.atomic-skills/_drafts/` should be added to `.gitignore` if not already (the temp source is not canonical state). Append the entry idempotently.
 
+> **Nested-layout draft (R-XAGENT-05):** in the `projects/<id>/<slug>/` layout the per-plan source draft lives at `projects/<id>/<slug>/source.md`. The blanket `/.atomic-skills/` rule already ignores it for the live tree (verify with `git check-ignore`), so no extra entry is normally needed. Only when the state root is REDIRECTED (the F-D1 dogfood root, e.g. `.atomic-skills-dogfood/`) or kept under a git-tracked path (e.g. the demo-fixtures negation) must you idempotently append a `source.md` ignore for that location — append once, never duplicate.
+
 ### Failure modes
 
 - **superpowers detected but invocation fails** (e.g., plugin disabled, network down): announce the error verbatim, drop back to Branch B. Do not retry silently.
