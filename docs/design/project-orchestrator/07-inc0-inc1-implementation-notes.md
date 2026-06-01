@@ -35,6 +35,26 @@ A live probe of Gemini's `codebase_investigator` is not runnable from this envir
 - **Convention:** the four tools accept a positional/explicit state root today (`normalize <dir>`, `validate-state <dir|file…>`); `decompose.js materializeDecomposition` does NOT — it inlines the literal `.atomic-skills/` prefix at `:750` (plan) and `:803` (phase). The `opts.stateRoot` plumb is the SAME edit as the Inc2 `projects/<id>/<slug>/` path-emit, so it folds into Inc2 (not an Inc0 refactor). The named `ATOMIC_SKILLS_DIR` env var is currently wired nowhere; wiring it (decompose + normalize CLI + validate-state default + serve callsites) is an Inc2 task, not Inc0.
 - **🚧 DOGFOOD-LEAK GUARDRAIL (load-bearing):** because `decompose.js` hardcodes the `.atomic-skills/` prefix and `.atomic-skills/` is gitignored (not git-restorable), **do NOT run `decompose materialize` against live state before the Inc2 stateRoot plumb lands.** Until then any materialize writes into the live tree, violating R-XAGENT-09's "live tree byte-frozen until D7." Inc0/Inc1 do not run materialize, so they are safe; the hazard is the migration dogfood (D1+), which must wait for Inc2.
 
-## Inc1 — what is being built
+## Inc1 — what was built (DONE)
 
-See tasks; sequence (strict, per correction #5): (1) `common.schema.json` 0.2 delta + `initiative.schema.json` `task.evidence` → (2) `src/migrate.js` `migrate01to02` + tests → (3) `validate-state.js` `checkMetInvariant` (GATE-R2) + 3 paranoid REDs → (4) `project-transitions.md` prose un-stub. Each step lands with its tests green before the next.
+Strict sequence (correction #5), each step green before the next:
+
+1. **0.2 schema delta (F-B5/F-B4):** `common.schema.json` — `schemaVersion` `const "0.1"`→`enum ["0.1","0.2"]` (single-point; plan+initiative inherit via `$ref`); `evidence.testsCollected` + `evidence.mutation{target,change,killedBy[],killTranscript≤500}`; `kind:manual` optional `demoCommand/fallbackKind/steps/expected/data`. `initiative.schema.json` — `task.evidence` `$ref common.schema.json#/$defs/exitCriterion/properties/evidence` (note the `/properties/` segment). All additive-optional; `additionalProperties:false` intact. +6 tests.
+2. **`migrate01to02` (F-B5):** exported in `src/migrate.js`, stamp-only (no backfill, no `normalizeEntity`), kind-agnostic, idempotent, throws on non-0.1. +7 tests.
+3. **GATE-R2 (F-B2, the linchpin's teeth):** exported pure `checkMetInvariant(frontmatter)→string[]` in `validate-state.js`, wired always-on into `validateFile` after the Ajv pass. Enforces: `met` criterion / `done` task with a `shell|test|query` verifier ⟹ `evidence.passed===true` (+ `kind:test` `testsCollected>0`, + `kind:query` numeric `rowCount`); absent evidence = violation; `manual`/verifier-absent not gated. +11 tests incl. the 3 R-XAGENT-07 paranoid REDs (non-zero-exit / 0-tests / runner-not-found ≠ met) + the validateFile wiring test.
+4. **Prose un-stub (`project-transitions.md`):** `kind:test` un-stubbed (real `{{BASH_TOOL}}` run behind y/N, exit-code + parsed `testsCollected`, met only on real pass, + optional G9 mutation-kill note); `kind:query` redefined DEFERRED-BY-DESIGN (killed the met-via-self-reported-rowCount path); evidence shape gains `testsCollected`+`mutation`; description-note workaround deleted in favor of `tasks[].evidence`. Strip-test (Inc0) confirms it stays Gemini-runnable.
+
+**Suite:** 602 green (baseline 539 → +63 across Inc0+Inc1).
+
+### ⚠️ GATE-R2 surfaced a real pre-existing state defect (NEEDS USER DECISION)
+
+Wiring GATE-R2 made `node scripts/validate-state.js` (live tree) fail on **5 files / ~26 criteria** from the prior `aideck-multi-project` work — all marked `status: met` with `shell`/`test` verifiers but **no evidence block** (fabricated-met under the old stubbed regime). This matches [[project-aideck-multi-project-shipped]] ("F4+F5 code complete, gates pending manual verification"). The test suite stays green (fixtures are clean; no test validates the live tree). Affected:
+`plans/aideck-multi-project.md` + `initiatives/aideck-multi-project-f{0,1,2,3}-*.md`.
+
+This is the gate doing its job — these gates were closed without running their verifiers. Remediation is the USER's call (out of Inc1 scope; do NOT fabricate evidence): per criterion → (a) re-run the verifier and record real evidence, (b) revert `met`→`pending`, or (c) `deferred` + `deferredReason`. The `.atomic-skills/` tree is gitignored local state, so this does not block the repo's CI.
+
+> Also fixed out-of-band (pre-existing, unrelated to Inc1): `initiatives/bmad-porting-research.md` had `references[3].kind: initiative`, invalid for `artifactRef` (enum `file|url|repo-path|section`) → corrected to `repo-path` (matches its in-repo path + `inside_repo:true`). Gitignored, not committed.
+
+## Next (Inc2)
+
+Layout JS-side: decompose path-emit to `projects/<id>/<slug>/` (+ the `opts.stateRoot` plumb = the same edit, F-D1), normalize walk, serve projectId enumeration, gitignore glob (R-XAGENT-05). Honor the **dogfood-leak guardrail** above: no `decompose materialize` against live state until the stateRoot plumb lands.

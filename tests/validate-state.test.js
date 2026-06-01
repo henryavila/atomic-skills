@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -590,6 +590,228 @@ test('kind inference: a plain plan.md NOT under projects/ does not infer plan', 
     writeFileSync(tmpFile, '---\nslug: x\n---\n');
     const result = validateFile(tmpFile, validators);
     assert.equal(result.kind, null, 'plan.md outside projects/ must not infer plan');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── F-B5 / F-B4: the 0.1 → 0.2 additive-optional schema bump ──
+// Every 0.2 addition must be OPTIONAL (existing 0.1 files still validate) and
+// guarded by additionalProperties:false (so the field must be declared, not
+// just written). schemaVersion is an enum so 0.1 and 0.2 coexist during the
+// copy-verify-delete window.
+
+function baseInitiative(overrides = {}) {
+  return {
+    schemaVersion: '0.2',
+    slug: 'demo-init', title: 'X', goal: 'a real goal', status: 'active', branch: null,
+    started: '2026-06-01T00:00:00Z', lastUpdated: '2026-06-01T00:00:00Z',
+    nextAction: null, exitGates: [], stack: [], tasks: [], parked: [], emerged: [],
+    ...overrides,
+  };
+}
+
+test('0.2: schemaVersion 0.1 and 0.2 both validate (coexistence)', () => {
+  const validators = buildValidators();
+  assert.equal(validators.validateInitiative(baseInitiative({ schemaVersion: '0.1' })), true,
+    `0.1 must still validate: ${JSON.stringify(validators.validateInitiative.errors)}`);
+  assert.equal(validators.validateInitiative(baseInitiative({ schemaVersion: '0.2' })), true,
+    `0.2 must validate: ${JSON.stringify(validators.validateInitiative.errors)}`);
+  assert.equal(validators.validateInitiative(baseInitiative({ schemaVersion: '0.3' })), false,
+    '0.3 must be rejected by the enum');
+});
+
+test('0.2: task.evidence (F-B4) with mutation + testsCollected validates', () => {
+  const validators = buildValidators();
+  const init = baseInitiative({
+    tasks: [{
+      id: 'T-001', title: 't', status: 'done', lastUpdated: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'test', runner: 'node --test', pattern: 'tests/x.test.js' },
+      evidence: {
+        verifierKind: 'test', verifiedAt: '2026-06-01T00:00:00Z', passed: true,
+        testsCollected: 12, outputSummary: '12 pass',
+        mutation: {
+          target: 'src/x.js:42', change: 'flip > to <',
+          killedBy: ['x asserts boundary'], killTranscript: 'RED on mutate, GREEN on revert',
+        },
+      },
+    }],
+  });
+  const ok = validators.validateInitiative(init);
+  assert.equal(ok, true, `task.evidence 0.2 must validate: ${JSON.stringify(validators.validateInitiative.errors)}`);
+});
+
+test('0.2: task.evidence reuses the exitCriterion.evidence shape (verifierKind required)', () => {
+  const validators = buildValidators();
+  const init = baseInitiative({
+    tasks: [{
+      id: 'T-001', title: 't', status: 'done', lastUpdated: '2026-06-01T00:00:00Z',
+      evidence: { passed: true },  // missing verifierKind + verifiedAt — same shape as exitCriterion
+    }],
+  });
+  assert.equal(validators.validateInitiative(init), false, 'task.evidence must enforce the shared required fields');
+  const errText = (validators.validateInitiative.errors || []).map((e) => e.message).join('; ');
+  assert.match(errText, /verifierKind|verifiedAt/);
+});
+
+test('0.2: kind:manual gains optional demo/acceptance fields; prose-only manual still validates', () => {
+  const validators = buildValidators();
+  const withFields = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'demo works', status: 'pending',
+      verifier: {
+        kind: 'manual', description: 'user confirms',
+        demoCommand: 'npm run demo', fallbackKind: 'ui',
+        steps: ['open page'], expected: ['renders'], data: 'seed=1',
+      },
+    }],
+  });
+  assert.equal(validators.validateInitiative(withFields), true,
+    `manual 0.2 fields must validate: ${JSON.stringify(validators.validateInitiative.errors)}`);
+  const proseOnly = baseInitiative({
+    exitGates: [{ id: 'G1', description: 'm', status: 'pending', verifier: { kind: 'manual', description: 'visual review' } }],
+  });
+  assert.equal(validators.validateInitiative(proseOnly), true, 'prose-only manual verifier must still validate');
+  const badFallback = baseInitiative({
+    exitGates: [{ id: 'G1', description: 'm', status: 'pending', verifier: { kind: 'manual', description: 'x', fallbackKind: 'gui' } }],
+  });
+  assert.equal(validators.validateInitiative(badFallback), false, 'fallbackKind must be constrained to the enum');
+});
+
+test('0.2: unknown evidence field still rejected (additionalProperties:false intact)', () => {
+  const validators = buildValidators();
+  const init = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+      evidence: { verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true, bogus: 1 },
+    }],
+  });
+  assert.equal(validators.validateInitiative(init), false, 'additionalProperties:false must reject unknown evidence fields');
+});
+
+// ── GATE-R2: the met-invariant + R-XAGENT-07 paranoid false-green REDs ──
+// checkMetInvariant is the one place a markdown "passed" claim becomes
+// non-self-graded. These prove the three false-green guards plus the
+// not-gated cases (manual / verifier-absent) and the task-level (F-B4) path.
+
+const metGate = (verifier, evidence) =>
+  baseInitiative({ exitGates: [{ id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z', verifier, evidence }] });
+
+test('GATE-R2 RED (a): non-zero exit ≠ met — shell verifier with evidence.passed:false', () => {
+  const fm = metGate(
+    { kind: 'shell', command: 'npm test', expectExitCode: 0 },
+    { verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: false, exitCode: 1, outputSummary: '1 failing' },
+  );
+  const v = checkMetInvariant(fm);
+  assert.ok(v.length >= 1, 'a met shell criterion with passed:false must violate');
+  assert.match(v.join('\n'), /passed is not true/);
+});
+
+test('GATE-R2 RED (b): 0 tests collected ≠ met — test verifier with testsCollected:0', () => {
+  const fm = metGate(
+    { kind: 'test', runner: 'node --test', pattern: 'tests/none.test.js' },
+    { verifierKind: 'test', verifiedAt: '2026-06-01T00:00:00Z', passed: true, testsCollected: 0, outputSummary: '0 tests' },
+  );
+  const v = checkMetInvariant(fm);
+  assert.ok(v.length >= 1, 'a met test criterion that collected 0 tests must violate even with passed:true');
+  assert.match(v.join('\n'), /testsCollected > 0/);
+});
+
+test('GATE-R2 RED (b2): missing testsCollected ≠ met (test verifier)', () => {
+  const fm = metGate(
+    { kind: 'test', runner: 'node --test', pattern: 'tests/x.test.js' },
+    { verifierKind: 'test', verifiedAt: '2026-06-01T00:00:00Z', passed: true, outputSummary: 'green' },
+  );
+  assert.match(checkMetInvariant(fm).join('\n'), /testsCollected > 0/);
+});
+
+test('GATE-R2 RED (c): runner-not-found ≠ met — met with a verifier but NO evidence block', () => {
+  const fm = metGate({ kind: 'test', runner: 'jest', pattern: 'x' }, undefined);
+  const v = checkMetInvariant(fm);
+  assert.ok(v.length >= 1, 'a met criterion with a verifier and no evidence must violate');
+  assert.match(v.join('\n'), /NO evidence block/);
+});
+
+test('GATE-R2 RED (query): kind:query met without a numeric rowCount', () => {
+  const fm = metGate(
+    { kind: 'query', sql: 'SELECT count(*)', expectRowCount: 0 },
+    { verifierKind: 'query', verifiedAt: '2026-06-01T00:00:00Z', passed: true, outputSummary: 'ran' },
+  );
+  assert.match(checkMetInvariant(fm).join('\n'), /numeric evidence.rowCount/);
+});
+
+test('GATE-R2 GREEN: met with passed:true + (test) testsCollected>0 → no violation', () => {
+  const shellOk = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    { verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true, exitCode: 0 },
+  );
+  assert.deepEqual(checkMetInvariant(shellOk), []);
+  const testOk = metGate(
+    { kind: 'test', runner: 'node --test', pattern: 'tests/x.test.js' },
+    { verifierKind: 'test', verifiedAt: '2026-06-01T00:00:00Z', passed: true, testsCollected: 12 },
+  );
+  assert.deepEqual(checkMetInvariant(testOk), []);
+  const queryOk = metGate(
+    { kind: 'query', sql: 'SELECT 1', expectRowCount: 0 },
+    { verifierKind: 'query', verifiedAt: '2026-06-01T00:00:00Z', passed: true, rowCount: 0 },
+  );
+  assert.deepEqual(checkMetInvariant(queryOk), []);
+});
+
+test('GATE-R2: manual verifier and verifier-absent met criteria are NOT gated', () => {
+  const manual = metGate({ kind: 'manual', description: 'visual review' }, undefined);
+  assert.deepEqual(checkMetInvariant(manual), [], 'manual met without evidence must be allowed (user-override / manual gate)');
+  const noVerifier = baseInitiative({ exitGates: [{ id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z' }] });
+  assert.deepEqual(checkMetInvariant(noVerifier), [], 'a met criterion with no verifier is not gated by GATE-R2');
+});
+
+test('GATE-R2: pending/deferred criteria are never gated', () => {
+  const pending = baseInitiative({ exitGates: [{ id: 'G1', description: 'd', status: 'pending', verifier: { kind: 'test', runner: 'x', pattern: 'y' } }] });
+  assert.deepEqual(checkMetInvariant(pending), []);
+  const deferred = baseInitiative({ exitGates: [{ id: 'G1', description: 'd', status: 'deferred', deferredReason: 'no DB', verifier: { kind: 'query', sql: 'x' } }] });
+  assert.deepEqual(checkMetInvariant(deferred), []);
+});
+
+test('GATE-R2 (F-B4 task level): done task with a verifier but no evidence violates; with evidence passes', () => {
+  const bad = baseInitiative({
+    tasks: [{ id: 'T-001', title: 't', status: 'done', lastUpdated: '2026-06-01T00:00:00Z', verifier: { kind: 'shell', command: 'true' } }],
+  });
+  assert.match(checkMetInvariant(bad).join('\n'), /task T-001/);
+  const good = baseInitiative({
+    tasks: [{
+      id: 'T-001', title: 't', status: 'done', lastUpdated: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true' },
+      evidence: { verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true, exitCode: 0 },
+    }],
+  });
+  assert.deepEqual(checkMetInvariant(good), []);
+});
+
+test('GATE-R2 (plan level): met phase criterion with a verifier but no evidence violates', () => {
+  const plan = {
+    schemaVersion: '0.2', slug: 'p', title: 'P',
+    phases: [{ id: 'F0', slug: 'p-f0', status: 'done', exitGate: { criteria: [
+      { id: 'F0-G1', description: 'tests pass', status: 'met', verifier: { kind: 'test', runner: 'node --test', pattern: 'x' } },
+    ] } }],
+  };
+  assert.match(checkMetInvariant(plan).join('\n'), /phase F0 criterion F0-G1/);
+});
+
+test('GATE-R2 wiring: validateFile REJECTS a schema-valid file whose met criterion lacks evidence', () => {
+  const validators = buildValidators();
+  const fm = metGate(
+    { kind: 'test', runner: 'node --test', pattern: 'tests/x.test.js' },
+    undefined,
+  );
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-gater2-'));
+  try {
+    mkdirSync(join(dir, 'initiatives'), { recursive: true });
+    const file = join(dir, 'initiatives', 'fabricated-met.md');
+    writeFileSync(file, `---\n${stringifyYaml(fm)}---\n# body\n`);
+    const result = validateFile(file, validators);
+    assert.equal(result.ok, false, 'a fabricated-met file must FAIL validateFile via GATE-R2 even though its schema is valid');
+    assert.match(result.errors.join('\n'), /NO evidence block/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

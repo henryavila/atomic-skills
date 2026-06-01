@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
-import { migrateLegacyInitiative, isMigratedPlaceholder } from '../src/migrate.js';
+import { migrateLegacyInitiative, isMigratedPlaceholder, migrate01to02 } from '../src/migrate.js';
 import { parseFrontmatter, validateFile } from '../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -263,4 +263,75 @@ test('re-bootstrap idempotence: detector skips items already replaced', () => {
   const targets = initiative.parked.filter((p) => isMigratedPlaceholder(p.context));
   assert.equal(targets.length, 1);
   assert.equal(targets[0].title, 'item A');
+});
+
+// ── F-B5: migrate01to02 — the one-shot 0.1 → 0.2 stamp ──
+// The whole 0.2 delta is additive-optional, so the ONLY operation is stamping
+// schemaVersion. No field backfill, no normalize-coercion.
+
+test('migrate01to02: stamps 0.2 on a 0.1 entity and leaves every other field byte-identical', () => {
+  const entity = {
+    schemaVersion: '0.1', slug: 'demo-init', title: 'X', goal: 'real goal',
+    status: 'active', branch: null, started: '2026-06-01T00:00:00Z',
+    lastUpdated: '2026-06-01T00:00:00Z', nextAction: null,
+    exitGates: [], stack: [], tasks: [], parked: [], emerged: [],
+  };
+  const { migrated, frontmatter } = migrate01to02(entity);
+  assert.equal(migrated, true);
+  assert.equal(frontmatter.schemaVersion, '0.2');
+  // Everything except schemaVersion is unchanged (no backfill).
+  assert.deepStrictEqual(
+    { ...frontmatter, schemaVersion: undefined },
+    { ...entity, schemaVersion: undefined },
+    'migrate01to02 must change ONLY schemaVersion',
+  );
+  // Input not mutated (pure function).
+  assert.equal(entity.schemaVersion, '0.1', 'input object must not be mutated');
+});
+
+test('migrate01to02: idempotent no-op when already 0.2', () => {
+  const entity = { schemaVersion: '0.2', slug: 'demo-init', title: 'X' };
+  const { migrated, frontmatter } = migrate01to02(entity);
+  assert.equal(migrated, false);
+  assert.equal(frontmatter, entity, 'no-op returns the same object reference');
+});
+
+test('migrate01to02: kind-agnostic — works on a plan-shaped object', () => {
+  const plan = { schemaVersion: '0.1', slug: 'p', title: 'Plan', phases: [{ id: 'F0', slug: 'p-f0', status: 'pending' }] };
+  const { migrated, frontmatter } = migrate01to02(plan);
+  assert.equal(migrated, true);
+  assert.equal(frontmatter.schemaVersion, '0.2');
+  assert.deepStrictEqual(frontmatter.phases, plan.phases);
+});
+
+test('migrate01to02: throws on a legacy (no-version) file — must run migrateLegacyInitiative first', () => {
+  assert.throws(() => migrate01to02({ slug: 'foo', status: 'active' }), /unsupported schemaVersion/);
+});
+
+test('migrate01to02: throws on an unsupported future version', () => {
+  assert.throws(() => migrate01to02({ schemaVersion: '0.3', slug: 'foo' }), /unsupported schemaVersion/);
+});
+
+test('migrate01to02: throws on non-object input', () => {
+  assert.throws(() => migrate01to02(null), /must be an object/);
+  assert.throws(() => migrate01to02([1, 2]), /must be an object/);
+});
+
+test('migrate01to02: chains after legacy migration and the result still validates', () => {
+  const { legacy, body } = loadLegacy();
+  const v01 = migrateLegacyInitiative(legacy, { nowIso: '2026-05-19T10:00:00Z' });
+  assert.equal(v01.frontmatter.schemaVersion, '0.1');
+  const v02 = migrate01to02(v01.frontmatter);
+  assert.equal(v02.frontmatter.schemaVersion, '0.2');
+
+  const dir = mkdtempSync(join(tmpdir(), 'migrate0102-'));
+  try {
+    mkdirSync(join(dir, 'initiatives'), { recursive: true });
+    const file = join(dir, 'initiatives', 'sample-legacy.md');
+    writeFileSync(file, `---\n${stringifyYaml(v02.frontmatter)}---\n${body}`);
+    const result = validateFile(file, buildValidators());
+    assert.equal(result.ok, true, `migrated-to-0.2 initiative failed schema: ${JSON.stringify(result.errors)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

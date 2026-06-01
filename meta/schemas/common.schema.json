@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atomic-skills.henryavila.com/schemas/common.schema.json",
-  "title": "atomic-skills common primitives (schemaVersion 0.1)",
+  "title": "atomic-skills common primitives (schemaVersion 0.1/0.2)",
   "description": "Shared types referenced by plan.schema.json and initiative.schema.json. Mirrors aideck/src/schemas/common.ts and the shared subset of aideck/src/schemas/project-status.ts.",
   "$defs": {
     "schemaVersion": {
       "type": "string",
-      "const": "0.1",
-      "description": "Frozen at 0.1 for the current atomic-skills line. Future bumps require a migration path; the version-bump cadence is decided by the maintainer at release time."
+      "enum": ["0.1", "0.2"],
+      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). 0.2 is additive-optional over 0.1 (mutation/manual/task.evidence fields); a one-shot src/migrate.js migrate01to02 stamps new files to '0.2'. A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
     },
     "isoTimestamp": {
       "type": "string",
@@ -131,7 +131,31 @@
           "required": ["kind", "description"],
           "properties": {
             "kind": { "const": "manual" },
-            "description": { "type": "string", "minLength": 1 }
+            "description": { "type": "string", "minLength": 1 },
+            "demoCommand": {
+              "type": "string",
+              "minLength": 1,
+              "description": "0.2 (manual gate): command that brings the change to a demoable state (run before generating the acceptance script). If absent, the criterion is only manually-checkable as-is."
+            },
+            "fallbackKind": {
+              "type": "string",
+              "enum": ["ui", "cli", "library", "api"],
+              "description": "0.2 (manual gate): the user-visible surface the manual check exercises, used to pick the acceptance-script template when no demoCommand applies."
+            },
+            "steps": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "description": "0.2 (manual gate): generated imperative Given/When/Then acceptance steps (<10), concrete data."
+            },
+            "expected": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "description": "0.2 (manual gate): the observable result(s) the user must confirm for each EXPECT step."
+            },
+            "data": {
+              "type": "string",
+              "description": "0.2 (manual gate): concrete input data the acceptance script uses (so the check is reproducible, not abstract)."
+            }
           }
         }
       ]
@@ -157,8 +181,21 @@
             "verifiedAt": { "$ref": "#/$defs/isoTimestamp" },
             "passed": { "type": "boolean", "description": "True iff the verifier produced the expected result. Stored even when status='met' to disambiguate user-overrides from verified passes." },
             "exitCode": { "type": "integer", "description": "Shell verifier: actual exit code observed." },
-            "rowCount": { "type": "integer", "minimum": 0, "description": "Query verifier: row count observed (stubbed in v0.1; written when caller has run the query externally)." },
-            "outputSummary": { "type": "string", "description": "Brief excerpt of verifier output (truncated to ~500 chars). For manual verifier, the user's confirmation note." }
+            "rowCount": { "type": "integer", "minimum": 0, "description": "Query verifier: row count observed (kind:query is DEFERRED-BY-DESIGN in this line; never reaches met without a real rowCount)." },
+            "testsCollected": { "type": "integer", "minimum": 0, "description": "0.2 (test verifier): number of tests the runner actually collected/ran, parsed from output. A pattern that matched 0 tests must NOT reach status:met (R-XAGENT-07 false-green guard)." },
+            "outputSummary": { "type": "string", "description": "Brief excerpt of verifier output (truncated to ~500 chars). For manual verifier, the user's confirmation note." },
+            "mutation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target", "change", "killedBy"],
+              "description": "0.2 (test verifier, G9 mutation-kill): records a behavioral mutation injected at a recorded file:line that a test must catch. A surviving behavioral mutant = tautological/mock-only test = HARD FAIL. Maps to a NAMED acceptance criterion + adversarial pick (fork-3).",
+              "properties": {
+                "target": { "type": "string", "minLength": 1, "description": "file:line where the behavioral mutation was injected." },
+                "change": { "type": "string", "minLength": 1, "description": "the behavioral mutation applied (e.g. flipped a comparison, off-by-one)." },
+                "killedBy": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "the test(s) that went RED on the mutation (empty = surviving mutant = fail)." },
+                "killTranscript": { "type": "string", "maxLength": 500, "description": "≤500-char excerpt of the inject→RED→revert→GREEN transcript." }
+              }
+            }
           }
         }
       }

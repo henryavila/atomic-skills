@@ -261,3 +261,46 @@ export function migrateLegacyInitiative(legacy, opts = {}) {
 
   return { migrated: true, frontmatter: normalized };
 }
+
+/**
+ * Migrate a schemaVersion 0.1 frontmatter object (plan OR initiative) to 0.2.
+ *
+ * The 0.2 delta is **additive-optional only** (F-B5): mutation/testsCollected on
+ * exitCriterion.evidence, the kind:manual demo/acceptance fields, and the new
+ * optional task.evidence block. Because every added field is optional, the ONLY
+ * operation a 0.1→0.2 migration performs is stamping `schemaVersion: '0.2'` —
+ * there is no field backfill.
+ *
+ * Kind-agnostic on purpose: the bump is content-schema-wide, so the same one-shot
+ * applies to both `plan.md` and `phases/*.md`. Unlike migrateLegacyInitiative it
+ * does NOT call normalizeEntity — normalize is a read-time tolerance layer for
+ * legacy/malformed input; a version bump is a deliberate idempotent WRITE that
+ * must leave a durable `schemaVersion:'0.2'` marker and nothing else (F-B5
+ * falsifier explicitly bans normalize-coercion creep here).
+ *
+ * Pure function: no I/O, no globals. Idempotent (no-op if already 0.2). Throws on
+ * any version other than 0.1 — legacy (no version) files must run through
+ * migrateLegacyInitiative first.
+ *
+ * @param {object} entity - a 0.1 plan or initiative frontmatter object
+ * @param {object} [opts] - reserved for signature parity with migrateLegacyInitiative
+ * @returns {{ migrated: boolean, frontmatter: object }}
+ */
+export function migrate01to02(entity, opts = {}) {
+  void opts;
+  if (entity == null || typeof entity !== 'object' || Array.isArray(entity)) {
+    throw new Error('migrate01to02: input must be an object');
+  }
+  // Idempotency: already at 0.2 → no-op (return the same object, unchanged).
+  if (entity.schemaVersion === '0.2') {
+    return { migrated: false, frontmatter: entity };
+  }
+  // Only 0.1 → 0.2 is supported here.
+  if (entity.schemaVersion !== '0.1') {
+    throw new Error(
+      `migrate01to02: unsupported schemaVersion '${entity.schemaVersion ?? '(none)'}' — only '0.1' → '0.2' is handled (run migrateLegacyInitiative first for legacy files)`,
+    );
+  }
+  // Additive-optional bump: stamp the version, change nothing else.
+  return { migrated: true, frontmatter: { ...entity, schemaVersion: '0.2' } };
+}

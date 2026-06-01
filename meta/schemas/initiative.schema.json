@@ -172,6 +172,10 @@
           "items": { "type": "string", "minLength": 1 }
         },
         "verifier": { "$ref": "common.schema.json#/$defs/exitCriterionVerifier" },
+        "evidence": {
+          "$ref": "common.schema.json#/$defs/exitCriterion/properties/evidence",
+          "description": "0.2 (F-B4): captured result of running this task's `verifier` on `done <task-id>`, reusing the exact exitCriterion.evidence shape. Replaces the v0.1 description-note string-laundering workaround so per-task verifier results are machine-enforceable (GATE-R2)."
+        },
         "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
         "context": { "$ref": "common.schema.json#/$defs/context" }
       },

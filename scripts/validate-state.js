@@ -175,6 +175,74 @@ function collectTargets(args) {
   return targets;
 }
 
+const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
+
+/**
+ * GATE-R2 — the machine-checked met-invariant (F-B2 / Inc1 linchpin).
+ *
+ * A markdown verifier procedure can be spoofed (timestamps, transcripts); the
+ * one place a "passed" claim becomes non-self-graded is the validator. This
+ * pure predicate enforces, for BOTH plan phase exit-criteria (status:'met') and
+ * initiative tasks (status:'done') that carry a DETERMINISTIC verifier
+ * (shell|test|query): the item may only be closed with an evidence block from a
+ * REAL run —
+ *   - evidence is present (absent evidence = runner-not-found / never-ran ≠ met),
+ *   - evidence.passed === true,
+ *   - kind:test additionally requires a parsed evidence.testsCollected > 0
+ *     (a pattern that matched 0 tests must NOT be 'met' — R-XAGENT-07),
+ *   - kind:query additionally requires a numeric evidence.rowCount
+ *     (query is deferred-by-design; never 'met' without a real rowCount — F-B1).
+ * manual verifiers and verifier-absent items are intentionally NOT gated here
+ * (the manual-acceptance gate and user-overrides live elsewhere).
+ *
+ * Ajv 2020 cannot express this met⟹passed cross-field conditional cleanly, and
+ * adding it to the schema would force the aiDeck TS mirror to change — so it
+ * stays JS, here. Pure: no I/O. Returns [] when the invariant holds.
+ *
+ * @param {object} frontmatter - a parsed plan or initiative frontmatter
+ * @returns {string[]} violation messages (empty = invariant holds)
+ */
+export function checkMetInvariant(frontmatter) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const arr = (x) => (Array.isArray(x) ? x : []);
+
+  const checkClaim = (label, verifier, evidence) => {
+    const kind = verifier?.kind;
+    if (!DETERMINISTIC_VERIFIER_KINDS.has(kind)) return; // manual / no verifier → not gated
+    if (evidence == null || typeof evidence !== 'object') {
+      violations.push(`${label}: closed with a ${kind} verifier but has NO evidence block — a verifier result must come from a real run, not an assertion.`);
+      return;
+    }
+    if (evidence.passed !== true) {
+      violations.push(`${label}: closed with a ${kind} verifier but evidence.passed is not true (got ${JSON.stringify(evidence.passed)}).`);
+    }
+    if (kind === 'test' && !(typeof evidence.testsCollected === 'number' && evidence.testsCollected > 0)) {
+      violations.push(`${label}: kind:test closed without evidence.testsCollected > 0 — a verifier pattern that matched 0 tests must not be 'met'.`);
+    }
+    if (kind === 'query' && typeof evidence.rowCount !== 'number') {
+      violations.push(`${label}: kind:query closed without a numeric evidence.rowCount — query is deferred-by-design and never 'met' without a real rowCount.`);
+    }
+  };
+
+  // Plan: phases[].exitGate.criteria[] with status 'met'.
+  for (const phase of arr(frontmatter.phases)) {
+    for (const crit of arr(phase?.exitGate?.criteria)) {
+      if (crit?.status === 'met') checkClaim(`phase ${phase.id ?? '?'} criterion ${crit.id ?? '?'}`, crit.verifier, crit.evidence);
+    }
+  }
+  // Initiative: exitGates[] with status 'met'.
+  for (const crit of arr(frontmatter.exitGates)) {
+    if (crit?.status === 'met') checkClaim(`exitGate ${crit.id ?? '?'}`, crit.verifier, crit.evidence);
+  }
+  // Initiative: tasks[] with status 'done' carrying a per-task verifier (F-B4).
+  for (const task of arr(frontmatter.tasks)) {
+    if (task?.status === 'done') checkClaim(`task ${task.id ?? '?'}`, task.verifier, task.evidence);
+  }
+
+  return violations;
+}
+
 /**
  * Validate a single file. Returns { ok, kind, errors[] }.
  */
@@ -199,14 +267,22 @@ export function validateFile(filePath, validators) {
   }
   const validate = kind === 'plan' ? validators.validatePlan : validators.validateInitiative;
   const ok = validate(parsed.frontmatter);
-  if (ok) {
-    return { ok: true, kind, errors: [] };
+  if (!ok) {
+    const errors = (validate.errors || []).map((e) => {
+      const where = e.instancePath || '(root)';
+      return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
+    });
+    return { ok: false, kind, errors };
   }
-  const errors = (validate.errors || []).map((e) => {
-    const where = e.instancePath || '(root)';
-    return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
-  });
-  return { ok: false, kind, errors };
+  // Schema passed. Enforce the cross-field met-invariant (GATE-R2) that
+  // JSON-Schema cannot express: a met/done item with a deterministic verifier
+  // must carry real evidence. This is the stop-the-line that makes verify-on-done
+  // non-self-graded — its failure is a hard validation error, not a warning.
+  const invariantViolations = checkMetInvariant(parsed.frontmatter);
+  if (invariantViolations.length > 0) {
+    return { ok: false, kind, errors: invariantViolations };
+  }
+  return { ok: true, kind, errors: [] };
 }
 
 /**
@@ -330,7 +406,7 @@ function main() {
   }
 
   if (failed === 0 && crossErrors.length === 0) {
-    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated (schemaVersion 0.1)`);
+    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated (schemaVersion 0.1/0.2)`);
     process.exit(0);
   }
   if (failed > 0) {
