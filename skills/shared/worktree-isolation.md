@@ -44,6 +44,18 @@ The dangerous moment is removal. **Verify the work is captured before you remove
 
 Run `git worktree list` to audit live worktrees; a leaked worktree from a crashed run is reclaimed with `prune`.
 
+## Merge-back when a BATCH of worktrees exists (Mode 2, serial — R-XAGENT-03)
+
+When Mode 2 dispatched several tasks into several worktrees, they pass *in isolation* concurrently — but they **merge back one at a time**, serialized through the primary tree. The single-threaded-coding Iron Law (`implement.md`) does not stop at the worktree edge; it extends to the merge, because the merge is where independent writers actually meet. The v1 procedure is **operator-prompted** (no unattended auto-rebase — that is the deferred v2):
+
+1. **Pick ONE worktree** whose in-worktree verifier already passed. Never start a second merge while one is in flight — there is no concurrent two-worktree merge path.
+2. **Merge/rebase it onto the primary branch** (operator-prompted), from the primary tree.
+3. **Re-run that task's deterministic verifier on the MERGED primary tree** — not the worktree. An in-worktree pass is necessary, never sufficient: a second task that touched an adjacent file can have changed the primary since this worktree's base ref. Only a pass *here* is the entry token to `done` (`verify-claim.md`).
+4. **On pass:** mark the task done, then `git worktree remove <path>` + `git worktree prune`. **On conflict or post-merge verifier FAIL:** abort the done transition, leave the task `active`, surface it — do NOT force-resolve-and-remove (force-removing the worktree discards the un-merged work). Route the failure to `atomic-skills:fix` or the user.
+5. **Then, and only then, take the next worktree** — back to step 1. Each merge re-verifies against the tree the *previous* merge produced, so a conflict surfaces at the task that caused it, not as a tangled multi-task blob.
+
+This is the deterministic serial step R-XAGENT-03 requires: pass-in-worktree → serial merge onto primary → re-verify on the merged primary → only then done; conflicts and post-merge fails leave the task active and never lose work.
+
 ## Claude Code accelerator (optional)
 
 {{#if ide.claude-code}}
@@ -54,5 +66,5 @@ This accelerator block is stripped on every other host, where the portable `git 
 
 ## How implement.md and parallel-dispatch.md consume this
 
-- `implement.md` **Mode 2 (Codex workspace-write)** → create an isolated worktree, point Codex's `--sandbox workspace-write` at it, read the diff back, merge-before-remove with a mandatory post-merge re-verify. Codex never writes the primary tree.
+- `implement.md` **Mode 2 (Codex workspace-write)** → create an isolated worktree, point Codex's `--sandbox workspace-write` at it, read the diff back, then **merge back serially** (the *Merge-back when a BATCH of worktrees exists* procedure above) with a mandatory post-merge re-verify on the primary. Codex never writes the primary tree; worktrees never merge concurrently.
 - `parallel-dispatch.md` → offer a per-agent worktree when dispatched tasks share a lockfile, build dir, or root config that would collide under concurrent writers (the collision class parallel-dispatch alone cannot solve).
