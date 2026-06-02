@@ -72,7 +72,7 @@ pages:
           - widget: kanban-board
             colSpan: 12
             source: { ref: initiatives }
-            config: { columns: [pending, active, done, archived], statusField: status }
+            config: { columns: [pending, active, paused, done, archived], statusField: status }
 
   - slug: plans
     title: 'Plans'

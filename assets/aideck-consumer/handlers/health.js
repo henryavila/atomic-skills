@@ -12,10 +12,16 @@ export default async function handler({ args, data }) {
   const unmetGates = []
 
   for (const i of getInitiatives(data)) {
-    const ts = Date.parse(i.lastUpdated)
-    if (Number.isFinite(ts) && i.status === 'active') {
-      const days = (now - ts) / DAY_MS
-      if (days > staleDays) staleInitiatives.push({ slug: i.slug, daysStale: Math.floor(days) })
+    if (i.status === 'active') {
+      const ts = Date.parse(i.lastUpdated)
+      if (Number.isFinite(ts)) {
+        const days = (now - ts) / DAY_MS
+        if (days > staleDays) staleInitiatives.push({ slug: i.slug, daysStale: Math.floor(days) })
+      } else {
+        // An active initiative with a missing/unparseable lastUpdated is exactly
+        // the data most likely to be neglected — surface it, don't drop it.
+        staleInitiatives.push({ slug: i.slug, daysStale: null, malformed: true })
+      }
     }
     for (const c of i.exitGates ?? []) {
       if (c.status !== 'met') unmetGates.push({ target: `initiative:${i.slug}`, criterion: c.id })
