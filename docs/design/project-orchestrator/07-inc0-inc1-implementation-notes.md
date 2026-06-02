@@ -168,3 +168,41 @@ Start **Inc6 — verify+migrate command + DOGFOOD cut-over (D7).** Build `projec
 
 ### Resume hygiene (the design's own `resume` refuses on these)
 Tree is clean and there are no TODO placeholders in this handoff, so a fresh session may proceed. If anything is dirty on resume, stash/commit before starting Inc6. Optionally open a PR for the branch first (`gh pr create`) if you want review before Inc6 — ask the user; not done automatically.
+
+---
+
+## Inc6 — verify+migrate layout cut-over + DOGFOOD D7 (BUILT & D7 LIVE-DONE, 2026-06-02)
+
+Inc6 closed the migration: the flat→nested layout move (`R-MIG-19/20/24`), the provenance hook for the nested layout (`R-ORCH-29`), layout-aware verify (`R-ORCH-38`), superpowers DROP-clean (`R-SP-29/30`), and the catalog touch-up (`R-SP-33`). **The D7 cut-over of the real live `.atomic-skills/` tree was executed and verified GREEN** with the user present.
+
+**What shipped:**
+- **`src/migrate.js`:`planLayoutMigration(units, opts)`** — the PURE, deterministic, idempotent move planner. `plans/<slug>.md` → `projects/<id>/<slug>/plan.md` (verbatim) · phase initiatives → `projects/<id>/<plan>/phases/f<N>-*.md` (verbatim; filename = decompose's exact inverse, `slug.startsWith(planSlug+'-') ? slug.slice(...) : slug`) · standalone orphans → degenerate 1-phase plans (synthesized `plan.md` whose `phases[0].slug === orphan slug` for crossValidate, + the initiative moved to `phases/<slug>.md` with `parentPlan`+`phaseId:F0`). **Never renames a slug** (slugs are identity). Returns `{outputs, deletes, orphans, warnings, blockers}`.
+- **`scripts/migrate-layout.js`** — the CLI executor (the D7 mechanism, NOT agent-improvised moves). Reads flat units + nested strays, plans, then **COPY → VERIFY (`validate-state` on exactly the written set) → only-on-GREEN DELETE** the flat originals (phases before their plan, for crash-recovery). `--root`/`ATOMIC_SKILLS_DIR` + `--project-id`; dry-run default; `--apply` to cut over. Fail-CLOSED: refuses `--apply` while any blocker remains.
+- **Skill bodies / hook:** `project-verify.md` legacy-LAYOUT check (check 2b) + layout-aware orphan resolution; `project-migrate.md` `migrate` (layout cut-over) procedure (snapshot → HALT → quiesce-apply-unquiesce → confirm → rollback); `pre-write.sh` `in_gated_path` now matches nested `plan.md`+`phases/*.md` (excludes `phases/archive/`), +4 nested hook tests (66/66); `parallel-dispatch.md` superpowers defers replaced (`{{INVESTIGATOR_TOOL}}` / `atomic-skills:brainstorm`).
+- **`scripts/validate-state.js`:** `kindFromPath` checks the nested `plan.md` signal BEFORE the segment scan (a slug literally named `phases`/`plans` can't be misclassified).
+
+**Adversarial review hardening (14 confirmed findings, 0 refuted → all fixed; this is why the planner has `blockers`):** fail-closed on any skipped/unparseable flat file (no partial migration); `pending` orphan → **`paused`** plan (not a false `active`) + `started` fallback; **ingest** the legacy nested `<slug>/initiative.md` (the live `mode2-anthropic-subagent-tier`) instead of stranding it, block cross-project/unknown nested strays; reversed delete order; reject reserved-word + duplicate slugs; **phaseId-keyed** phase-coverage blockers with slug-drift downgraded to a warning.
+
+**D7 cut-over (live, 2026-06-02):** tar snapshot (`/tmp/atomic-skills-state-20260602T092810Z.tgz`) → `migrate-layout.js --project-id atomic-skills --apply` → **22 files migrated, 18 flat originals removed, `validate-state` 22 valid / 6 plans cross-validated GREEN**. Byte-identity vs the snapshot confirmed. `mode2` ingested (now tracked). The live tree is now **fully nested** under `projects/atomic-skills/` (aideck-multi-project, refactor-doc-architect, bmad-af-learnings, bmad-porting-research, fix-superpowers-integration, mode2-anthropic-subagent-tier).
+
+**Open follow-ups (NOT blocking, flagged):**
+- **`aideck-multi-project` F4/F5 plan↔phase slug drift** — the plan's `phases[].slug` for F4 (`...projects-index-home-redesign`) and F5 (`...project-detail-roadmap-navegacao`) don't match the actual phase initiative slugs (`...dashboard-multi-projeto-na-homepage`, `...navegacao-project-scoped-no-dashboard`). Pre-existing; invisible to `validate-state` (F4 active / F5 pending, crossValidate only checks `done`); migrated as-is with a warning. Fix with a plan edit (update `phases[4].slug`/`phases[5].slug` to match the initiatives) so crossValidate can pair them when those phases complete.
+- **`.atomic-skills/status/` does not exist** in this repo — the D7 `touch SKIP` no-op'd. Harmless (the CLI writes via node fs, not the gated Edit/Write tools, so the PreToolUse hook never fires on it; the hook fail-opens when config is absent). Create `status/` if the project skill's SKIP/config flow is exercised.
+- **R-SP-29 docs residue (out of scope):** historical `docs/superpowers/plans/*` + `docs/analysis/*` still contain `superpowers:executing-plans`/`brainstorming` references — these are vendored/reference plan docs (the `adopt` example even cites them), not active skill delegations. `skills/` is clean of all 7 forbidden ids.
+
+---
+
+## SESSION HANDOFF — Inc6+D7 DONE; next = WF-IMPL-2 (Mode 2) or Inc7 (2026-06-02)
+
+**Read order for the resuming session:** this block → `00-CANON.md` RESUME HERE → this file `## Inc6` → for **WF-IMPL-2**: `03-execution-mode2-spec.md` + `01-…§3` (WF-IMPL-2) + `R-XAGENT-03` merge-back + `R-XAGENT-10` `status/routing.json` (both must be specified+tested BEFORE Mode 2 ships) → for **Inc7**: `01-…§2.4` R-MIG-09..18/22/23 (aiDeck + prose/schema long tail, sequenced WITH the aiDeck rewrite).
+
+**State (verbatim):**
+- Branch `dogfood/self-host-migration` (base `main`). Inc6 source committed `cf56d10`. **The D7 cut-over mutated the live gitignored `.atomic-skills/` tree (not tracked) — already done, snapshot at `/tmp/atomic-skills-state-20260602T092810Z.tgz`.**
+- Commits (newest first): `cf56d10` Inc6 · `340992a` handoff(resume@Inc6) · `24d8e38` Inc5 · … (`main` tip before this work: `7500822`).
+- Suite: `npm test` → **694 pass / 0 fail** (Inc5 baseline 676; +18 migrate tests). Strip-test 80/80. Pre-write hooks 66/66. `validate-catalog` clean (14 skills).
+- **Live tree (post-D7): `validate-state` → 22 valid / 6 plans cross-validated GREEN, fully nested.** No flat `plans/`/`initiatives/`.
+- ⚠️ Pre-existing, OUT OF SCOPE: `tests/hooks/session-start.test.sh` still fails on clean HEAD (NOT in `npm test`; hangs at "Plan + matching Initiative"; unrelated). Separate hooks pass.
+
+**Next concrete step:** **WF-IMPL-2 (Mode 2, Codex-only)** is the remaining lifecycle track — gated on `R-XAGENT-03` (deterministic merge-back) + `R-XAGENT-10` (`status/routing.json` + schema) being specified+tested FIRST, and it OWES a pressure-test (≥3 combined-pressure scenarios) for its new owned blocks (cheap-executor-never-self-certify in the dispatch path, merge-back discipline). Codex write-mode stays FENCED OUT of any live tree. Alternatively, **Inc7** (aiDeck-side + prose/schema long tail) can proceed advisory alongside the aiDeck rewrite. Optional cleanup: fix the aideck F4/F5 slug drift (above).
+
+**Constraints (do NOT violate):** strip-test R-XAGENT-01 live (template vars only; CC-only host tools in `{{#if ide.claude-code}}` block-form; never write the literal `ide.claude-code` or `{{#if` in prose); pressure-test before any NEW owned discipline block; catalog/doc drift blocks the commit (husky regenerates); dogfood-leak guardrail (no decompose materialize / codex write-mode against the live tree without a redirected `stateRoot`).
