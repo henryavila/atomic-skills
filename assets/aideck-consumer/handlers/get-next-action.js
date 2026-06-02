@@ -57,8 +57,10 @@ export default async function handler({ args, data }) {
     }
   }
 
-  const active = initiatives.find((i) => i.status === 'active')
-  if (active) {
+  // Scan ALL active initiatives, not just the first: the first active one may have
+  // no actionable task while a later active one does. Stopping at the first would
+  // falsely report "no next action" and skip real work.
+  for (const active of initiatives.filter((i) => i.status === 'active')) {
     const t = firstUnblockedPendingTask(active)
     if (t) {
       return {

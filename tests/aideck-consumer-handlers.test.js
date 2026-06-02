@@ -106,6 +106,33 @@ describe('aideck-consumer get_next_action', () => {
     assert.equal(r.initiativeSlug, 'init-1');
     assert.match(r.rationale, /first active initiative/);
   });
+
+  it('global fallback scans PAST a blocked first active initiative to an actionable later one', async () => {
+    // Mutation that breaks this: `initiatives.find(i => i.status === 'active')` instead of
+    // iterating — it would stop at init-blocked and return the global no-action result.
+    const data = new Map([
+      ['plans', []],
+      ['initiatives', [
+        { slug: 'init-blocked', status: 'active', tasks: [{ id: 'a1', title: 'blocked', status: 'pending', blockedBy: ['ghost'] }] },
+        { slug: 'init-open', status: 'active', tasks: [{ id: 'b1', title: 'go', status: 'pending', blockedBy: [] }] },
+      ]],
+    ]);
+    const r = await getNextAction({ args: {}, data });
+    assert.equal(r.initiativeSlug, 'init-open');
+    assert.equal(r.taskId, 'b1');
+  });
+
+  it('stays scoped with a no-currentPhase rationale when the plan has no currentPhase', async () => {
+    // Exercises the previously-untested ternary else arm in the plan-scoped return.
+    const data = new Map([
+      ['plans', [{ slug: 'plan-np', status: 'active', currentPhase: null, phases: [] }]],
+      ['initiatives', []],
+    ]);
+    const r = await getNextAction({ args: { planSlug: 'plan-np' }, data });
+    assert.equal(r.planSlug, 'plan-np');
+    assert.equal(r.taskId, undefined);
+    assert.match(r.rationale, /has no currentPhase set/);
+  });
 });
 
 describe('aideck-consumer firstUnblockedPendingTask (F-003: unknown blocker = blocking)', () => {
@@ -147,6 +174,19 @@ describe('aideck-consumer firstUnblockedPendingTask (F-003: unknown blocker = bl
       data: dataWith([{ id: 't1', title: 'free', status: 'pending', blockedBy: [] }]),
     });
     assert.equal(r.taskId, 't1');
+  });
+
+  it('blocks a task when ANY blocker is unresolved, even if another blocker IS done', async () => {
+    // `.every` must hold for ALL blockers: a done prereq does not rescue an unknown one.
+    const r = await getNextAction({
+      args: { initiativeSlug: 'init-x' },
+      data: dataWith([
+        { id: 't0', title: 'prereq', status: 'done', blockedBy: [] },
+        { id: 't1', title: 'mixed', status: 'pending', blockedBy: ['t0', 'ghost'] },
+      ]),
+    });
+    assert.equal(r.taskId, undefined); // t0 done but ghost unknown => still blocked
+    assert.match(r.description, /all tasks done or blocked/);
   });
 });
 

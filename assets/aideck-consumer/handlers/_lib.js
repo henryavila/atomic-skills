@@ -28,12 +28,13 @@ export function findPlan(data, slug) {
  */
 export function firstUnblockedPendingTask(initiative) {
   const tasks = initiative.tasks ?? []
+  // Index status by id once (O(n)) so each blocker check is O(1) — an unknown id
+  // resolves to `undefined` (≠ 'done' ⇒ BLOCKING), avoiding a full per-blocker scan.
+  const statusById = new Map(tasks.map((t) => [t.id, t.status]))
   return tasks
     .filter((t) => t.status === 'pending')
     .find((t) =>
-      (t.blockedBy ?? []).every(
-        (bid) => tasks.find((x) => x.id === bid)?.status === 'done'
-      )
+      (t.blockedBy ?? []).every((bid) => statusById.get(bid) === 'done')
     )
 }
 
