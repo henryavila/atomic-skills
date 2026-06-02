@@ -5,12 +5,13 @@ Memory breadcrumb: `project-aideck-v2-modelb-integration.md` (+ MEMORY.md line).
 
 ---
 
-## ▶ START HERE — Phase C (validate end-to-end), then Phase D (npm publish)
+## ▶ START HERE — Phase D (npm publish). Phase C is DONE (session 4, below).
 
-**Phases A + B + client are DONE, committed, and unit-validated** (aideck **590/590**, skills
-**705/705**; see the session-3 update lower in this doc). Trees are clean. The consumer is installed at
+**Phases A + B + client + C are DONE.** Phase C validated the full stack live (session-4 update at the
+bottom of this doc). Trees are clean. The consumer is installed at
 `~/.aideck/consumers/atomic-skills/` (manifest + schema.json + 8 handler files). What's left is
-**live human-in-the-loop validation** then **publishing aiDeck**.
+**publishing aiDeck (Phase D)** — an outward-facing npm publish under `@henryavila`, gated on explicit
+go-ahead.
 
 **Branches:** aideck `feat/aideck-v2-generic-runtime` (HEAD `ca12075`) · atomic-skills
 `dogfood/self-host-migration` (HEAD `84ea19a`). Commit only on explicit request; stage files
@@ -209,6 +210,43 @@ browser, exercise discover + the 7 MCP tools) → Phase D (npm publish + repoint
 **Deferred follow-ups:** `project-discover.md` discover-flow migration (needs a discover *page* in the
 manifest + a decision-write path); aideck `cli/validate.ts` multi-`*` glob (so `aideck validate` works
 on nested paths); fine-grained nested SSE `classifyFile`.
+
+## UPDATE 2026-06-02 (session 4): Phase C DONE — full stack validated live
+
+Rebuilt aideck (`npx vite build` + `npm run build`), served the built client via a throwaway
+`serve-check.ts` (`startServer({rootDir, port:7788, staticDir:'dist/client'})`), registered this repo
+(`POST /api/projects/register {rootDir, projectId:'atomic-skills'}`), and exercised every layer. All
+throwaway scripts deleted; server stopped; both trees clean (aideck shows only the pre-existing
+unrelated `.atomic-skills/` changes).
+
+**Validated:**
+- **Sanity:** `data-source-reader*.test.ts` 13/13 green on resume.
+- **Project-scoped reads** (`/api/consumers/atomic-skills/projects/atomic-skills/data/<ds>`): all 5
+  dataSources resolve — `plans`=7, `initiatives`=16, `initiatives_archive`=0, `discover`=1, `inbox`=0.
+  Captures injected onto records (`_body`, `_file`, `projectId`, `planSlug`). Plan-by-slug read works
+  (`…/data/plans/aideck-multi-project` → `record`). `/projects` lists the registered repo.
+- **Consumer load:** `/api/consumers` shows `atomic-skills` (5 dataSources, 3 pages). Installed
+  manifest is byte-identical to `assets/aideck-consumer/manifest.yaml`.
+- **SPA:** built client served at `/` (index.html + hashed bundle); pages declare stat/table/
+  kanban-board/card/list widgets over the resolving dataSources. (Headless — no human eyeball on the
+  rendered UI; client rendering is unit-covered 73/73 + a project-scoped test per session 2.)
+- **All 7 MCP tools** via real `aideck mcp` stdio (model A, cwd = this repo). `tools/list` registers
+  them as `aideck_atomic_skills_<name>` (the §6 rename mapping, applied automatically by the
+  namespace — **no skill-body tool renames needed**, confirming the session-3 prompt-migration call).
+  - Reads correct: `get_next_action` (initiative + plan), `get_dependencies` (task `T-006`→blockedBy
+    `T-005` resolved; phase `F4`→blockedBy `F3` resolved), `health` (stale + unmetGates report).
+  - Mutations recorded intents to the **repo** inbox `<repo>/.atomic-skills/bootstrap-drafts/inbox/`
+    (model A confirmed — NOT the consumer dir): `mark_task_done` (+phaseCompleteHint),
+    `verify_exit_gate` (+allGatesMet), `pop_frame`. The 3 throwaway test intents were deleted after
+    (would otherwise apply to real `bmad-af-learnings` state on a future inbox-apply; path is gitignored
+    so it never threatened the tracked tree).
+  - `promote_parked` cleanly errored (`parked item not found: 0` — no parked items exist) → error path OK.
+
+**Phase D (next, gated on explicit go-ahead):** bump `@henryavila/aideck` (`0.0.1`) + `npm publish` from
+`../aideck`; repoint `atomic-skills/src/serve.js:resolveAideckBin` at the published bin; refresh/drop
+`atomic-skills/vendor/aideck-runtime`; re-run `atomic-skills install`. **Deferred follow-ups unchanged**
+(`project-discover.md` discover-flow migration; `cli/validate.ts` multi-`*` glob; nested SSE
+`classifyFile`).
 
 ## Gotchas
 - aideck working tree has **pre-existing unrelated** `.atomic-skills/` changes — do NOT bundle them
