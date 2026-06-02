@@ -20,15 +20,19 @@ export function findPlan(data, slug) {
   return getPlans(data).find((p) => p.slug === slug)
 }
 
-/** First pending task whose blockers are all done (or unknown). */
+/**
+ * First pending task all of whose blockers resolve to a `done` task.
+ * An unknown/misspelled blocker ID counts as BLOCKING (not satisfied): we never
+ * recommend a task whose prerequisite cannot be verified complete. Mirrors
+ * get-dependencies.js, which likewise reports an unresolved blocker as blocking.
+ */
 export function firstUnblockedPendingTask(initiative) {
   const tasks = initiative.tasks ?? []
-  const ids = new Set(tasks.map((t) => t.id))
   return tasks
     .filter((t) => t.status === 'pending')
     .find((t) =>
       (t.blockedBy ?? []).every(
-        (bid) => !ids.has(bid) || tasks.find((x) => x.id === bid)?.status === 'done'
+        (bid) => tasks.find((x) => x.id === bid)?.status === 'done'
       )
     )
 }

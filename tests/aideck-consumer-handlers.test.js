@@ -108,6 +108,48 @@ describe('aideck-consumer get_next_action', () => {
   });
 });
 
+describe('aideck-consumer firstUnblockedPendingTask (F-003: unknown blocker = blocking)', () => {
+  // Isolated fixture (not makeData) so these probes can't perturb the shared one.
+  // A blocker ID that resolves to no task must be treated as BLOCKING. Mutation
+  // that breaks every case here: restoring the `!ids.has(bid) ||` clause in
+  // _lib.js firstUnblockedPendingTask (the original F-003 bug).
+  function dataWith(tasks) {
+    return new Map([
+      ['initiatives', [{ slug: 'init-x', status: 'active', parentPlan: 'plan-x', phaseId: 'f1', tasks }]],
+      ['plans', []],
+    ]);
+  }
+
+  it('does NOT recommend a pending task blocked by an unknown/misspelled ID', async () => {
+    const r = await getNextAction({
+      args: { initiativeSlug: 'init-x' },
+      data: dataWith([{ id: 't1', title: 'ghost-blocked', status: 'pending', blockedBy: ['t0-typo'] }]),
+    });
+    assert.equal(r.taskId, undefined); // unknown blocker => blocking => no action
+    assert.match(r.description, /all tasks done or blocked/);
+  });
+
+  it('skips the ghost-blocked task and recommends the one whose real blocker is done', async () => {
+    const r = await getNextAction({
+      args: { initiativeSlug: 'init-x' },
+      data: dataWith([
+        { id: 't1', title: 'ghost-blocked', status: 'pending', blockedBy: ['nope'] }, // unknown => blocked
+        { id: 't2', title: 'real', status: 'pending', blockedBy: ['t0'] },
+        { id: 't0', title: 'prereq', status: 'done', blockedBy: [] },
+      ]),
+    });
+    assert.equal(r.taskId, 't2'); // t1 skipped (ghost dep), t2 unblocked (t0 done)
+  });
+
+  it('still recommends a task with no blockers at all', async () => {
+    const r = await getNextAction({
+      args: { initiativeSlug: 'init-x' },
+      data: dataWith([{ id: 't1', title: 'free', status: 'pending', blockedBy: [] }]),
+    });
+    assert.equal(r.taskId, 't1');
+  });
+});
+
 describe('aideck-consumer get_dependencies', () => {
   it('reports an unmet phase dependency as blocking', async () => {
     const r = await getDependencies({ args: { scope: 'phase', planSlug: 'plan-a', phaseId: 'f2' }, data: makeData() });
