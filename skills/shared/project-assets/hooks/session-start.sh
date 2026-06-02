@@ -15,9 +15,16 @@ set -euo pipefail
 
 PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
+PROJECTS_DIR="$ASKILLS_DIR/projects"          # nested layout root: projects/<id>/<slug>/
+PLANS_DIR="$ASKILLS_DIR/plans"                # legacy flat layout
+INITIATIVES_DIR="$ASKILLS_DIR/initiatives"    # legacy flat layout
+
+# Project index: prefer the top-level PROJECT-STATUS.md (coexistence fallback);
+# else the first per-project index in the nested tree.
 STATUS_FILE="$ASKILLS_DIR/PROJECT-STATUS.md"
-PLANS_DIR="$ASKILLS_DIR/plans"
-INITIATIVES_DIR="$ASKILLS_DIR/initiatives"
+if [[ ! -f "$STATUS_FILE" && -d "$PROJECTS_DIR" ]]; then
+  STATUS_FILE=$(find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -type f -name 'PROJECT-STATUS.md' 2>/dev/null | sort | head -1)
+fi
 
 # --- helpers ----------------------------------------------------------------
 
@@ -44,6 +51,49 @@ get_field() {
       }
     }
   ' "$file"
+}
+
+# plan_slug_of <plan-file>  → the plan's slug. Nested plan files are named
+# `plan.md`, so the slug is the parent directory name; legacy flat plans are
+# `<slug>.md`, so the slug is the basename minus `.md`.
+plan_slug_of() {
+  local f=$1
+  if [[ "$(basename "$f")" == "plan.md" ]]; then
+    basename "$(dirname "$f")"
+  else
+    basename "$f" .md
+  fi
+}
+
+# list_plan_files  → every plan file across BOTH layouts, one per line:
+# nested `projects/<id>/<slug>/plan.md` first, then legacy flat `plans/*.md`.
+list_plan_files() {
+  [[ -d "$PROJECTS_DIR" ]] && \
+    find "$PROJECTS_DIR" -mindepth 3 -maxdepth 3 -type f -name 'plan.md' 2>/dev/null
+  [[ -d "$PLANS_DIR" ]] && \
+    find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null
+}
+
+# phases_dir_of <plan-file>  → the directory holding that plan's phase
+# initiatives: the sibling `phases/` dir (nested) or the legacy flat
+# `initiatives/` dir.
+phases_dir_of() {
+  local f=$1
+  if [[ "$(basename "$f")" == "plan.md" ]]; then
+    echo "$(dirname "$f")/phases"
+  else
+    echo "$INITIATIVES_DIR"
+  fi
+}
+
+# list_phase_files  → every phase-initiative file across BOTH layouts:
+# nested `projects/*/*/phases/*.md` (excluding archive/), then legacy
+# flat `initiatives/*.md`. Used by the standalone branch-match fallback.
+list_phase_files() {
+  [[ -d "$PROJECTS_DIR" ]] && \
+    find "$PROJECTS_DIR" -type f -name '*.md' ! -name '*.rendered.md' -path '*/phases/*' ! -path '*/phases/archive/*' 2>/dev/null
+  [[ -d "$INITIATIVES_DIR" ]] && \
+    find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null
 }
 
 # count_pending_tasks <file>  → number of tasks whose status is NOT done.
@@ -112,7 +162,7 @@ fi
 #    when multiple active plans exist with no branch tiebreaker.
 active_plan=""
 active_plan_count=0
-if [[ -d "$PLANS_DIR" ]]; then
+if [[ -d "$PROJECTS_DIR" || -d "$PLANS_DIR" ]]; then
   branch_matched=""
   newest=""
   newest_mtime=0
@@ -130,7 +180,7 @@ if [[ -d "$PLANS_DIR" ]]; then
       newest_mtime=$mtime
       newest="$f"
     fi
-  done < <(find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+  done < <(list_plan_files)
   active_plan="${branch_matched:-$newest}"
 fi
 
@@ -138,7 +188,7 @@ active_initiative=""
 current_phase_id=""
 
 if [[ -n "$active_plan" ]]; then
-  plan_slug=$(basename "$active_plan" .md)
+  plan_slug=$(plan_slug_of "$active_plan")
   current_phase_id=$(get_field "$active_plan" currentPhase)
   plan_branch=$(get_field "$active_plan" branch)
   plan_title=$(get_field "$active_plan" title)
@@ -159,7 +209,10 @@ if [[ -n "$active_plan" ]]; then
   context+=$'\n'
 
   # 3. Match the phase's initiative — same parentPlan + phaseId, status active.
-  if [[ -d "$INITIATIVES_DIR" && -n "$current_phase_id" ]]; then
+  #    Resolve the phase-initiative dir from the plan's layout (nested sibling
+  #    `phases/`, or legacy flat `initiatives/`).
+  phases_dir=$(phases_dir_of "$active_plan")
+  if [[ -d "$phases_dir" && -n "$current_phase_id" ]]; then
     while IFS= read -r f; do
       [[ -z "$f" ]] && continue
       [[ "$(get_field "$f" parentPlan)" == "$plan_slug" ]] || continue
@@ -167,13 +220,13 @@ if [[ -n "$active_plan" ]]; then
       [[ "$(get_field "$f" status)" == "active" ]] || continue
       active_initiative="$f"
       break
-    done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+    done < <(find "$phases_dir" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
   fi
 fi
 
 # 4. Standalone fallback — no plan or no phase initiative: branch-match active
 #    initiative (preserves prior hook behavior).
-if [[ -z "$active_initiative" && -d "$INITIATIVES_DIR" && -n "$branch" ]]; then
+if [[ -z "$active_initiative" && -n "$branch" ]] && [[ -d "$PROJECTS_DIR" || -d "$INITIATIVES_DIR" ]]; then
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
     [[ "$(get_field "$f" status)" == "active" ]] || continue
@@ -182,7 +235,7 @@ if [[ -z "$active_initiative" && -d "$INITIATIVES_DIR" && -n "$branch" ]]; then
       active_initiative="$f"
       break
     fi
-  done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+  done < <(list_phase_files)
 fi
 
 # 5. Inject initiative detail + branch + phase-transition signals.
@@ -213,8 +266,10 @@ if [[ -n "$active_initiative" ]]; then
 fi
 
 # 6. Commit → Task reconciliation: detect task IDs referenced in recent commits.
+#    Requires at least one commit — guard on a verifiable HEAD so a fresh repo
+#    (no commits) never trips `set -e`/`pipefail` on the `git log | grep` chain.
 LAST_SESSION_FILE="$ASKILLS_DIR/status/last-session.json"
-if [[ -n "$active_initiative" ]]; then
+if [[ -n "$active_initiative" ]] && git -C "$PROJ_DIR" rev-parse --verify -q HEAD >/dev/null 2>&1; then
   last_known_commit=""
   if [[ -f "$LAST_SESSION_FILE" ]]; then
     last_known_commit=$(jq -r '.lastKnownCommit // empty' "$LAST_SESSION_FILE" 2>/dev/null || echo "")
@@ -232,9 +287,10 @@ if [[ -n "$active_initiative" ]]; then
     commit_range="HEAD~20..HEAD"
   fi
 
-  # Extract T-NNN patterns from commit messages
-  referenced_tasks=$(git -C "$PROJ_DIR" log --oneline "$commit_range" 2>/dev/null \
-    | grep -oE '\[T-[0-9]+\]|T-[0-9]+' | grep -oE 'T-[0-9]+' | sort -u)
+  # Extract T-NNN patterns from commit messages. `|| true` keeps a no-match
+  # (grep exit 1) or an empty range from tripping `set -e`/`pipefail`.
+  referenced_tasks=$( { git -C "$PROJ_DIR" log --oneline "$commit_range" 2>/dev/null \
+    | grep -oE '\[T-[0-9]+\]|T-[0-9]+' | grep -oE 'T-[0-9]+' | sort -u; } || true )
 
   if [[ -n "$referenced_tasks" ]]; then
     # Cross-reference with active initiative's non-done tasks

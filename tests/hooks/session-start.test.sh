@@ -252,6 +252,70 @@ if echo "$out" | grep -q "7777"; then no "legacy URL should not appear: $out"; e
 rm -rf "$fake_home"
 cd - >/dev/null; rm -rf "$TMP"
 
+# ============================================================================
+# Nested-layout tests (projects/<id>/<slug>/{plan.md,phases/*.md}) — Inc7/F5
+# ============================================================================
+
+# Test 11: nested active Plan → Active Plan section; slug derives from the
+# directory name (plan file is `plan.md`, not `<slug>.md`).
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch main
+mkdir -p .atomic-skills/projects/acme/migration/phases
+write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
+run "nested active Plan → Active Plan section + slug from dir"
+out=$(bash "$HOOK")
+echo "$out" | grep -q "Active Plan: migration" && ok || no "missing 'Active Plan: migration' (nested): $out"
+echo "$out" | grep -q "\`F0\`" && ok || no "phase id F0 not surfaced (nested)"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 12: nested Plan + matching phase initiative (sibling phases/ dir) → both.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feature/x
+mkdir -p .atomic-skills/projects/acme/migration/phases
+write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
+write_initiative .atomic-skills/projects/acme/migration/phases/f0-work.md f0-work active feature/x migration F0 "pending,done"
+run "nested Plan + matching phase initiative → both injected"
+out=$(bash "$HOOK")
+echo "$out" | grep -q "Active Plan: migration" && ok || no "missing plan (nested)"
+echo "$out" | grep -q "Current Initiative: f0-work" && ok || no "missing initiative (nested): $out"
+echo "$out" | grep -q "(migration/F0)" && ok || no "missing plan/phase breadcrumb (nested)"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 13: per-project PROJECT-STATUS.md (no top-level) → injected head.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch main
+mkdir -p .atomic-skills/projects/acme/migration/phases
+printf "# Project Status Index\n\nper-project-index-line\n" > .atomic-skills/projects/acme/PROJECT-STATUS.md
+write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
+run "per-project PROJECT-STATUS.md (no top-level) → injected head"
+out=$(bash "$HOOK")
+echo "$out" | grep -q "per-project-index-line" && ok || no "expected per-project index head: $out"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 14: nested standalone (degenerate 1-phase plan) → branch-matched phase.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch hotfix/x
+mkdir -p .atomic-skills/projects/acme/hf/phases
+write_plan .atomic-skills/projects/acme/hf/plan.md hf active F0
+write_initiative .atomic-skills/projects/acme/hf/phases/hf.md hf active hotfix/x hf F0 "pending"
+run "nested standalone phase → branch-matched initiative surfaced"
+out=$(bash "$HOOK")
+echo "$out" | grep -q "Current Initiative: hf" && ok || no "missing nested branch-matched initiative: $out"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 15: fresh repo with NO commits + active initiative → must NOT hang and
+# must still emit (regression for the section-6 `git log` set -e/pipefail bug).
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feature/x   # init only — zero commits
+mkdir -p .atomic-skills/projects/acme/migration/phases
+write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
+write_initiative .atomic-skills/projects/acme/migration/phases/f0-work.md f0-work active feature/x migration F0 "pending"
+run "no-commit repo + active initiative → emits without hanging"
+out=$(perl -e 'alarm 20; exec @ARGV' -- bash "$HOOK" 2>/dev/null); rc=$?
+[[ "$rc" == "0" ]] && ok || no "hook exited $rc (hang/abort on commit-less repo)"
+echo "$out" | grep -q "Current Initiative: f0-work" && ok || no "no initiative emitted on commit-less repo: $out"
+cd - >/dev/null; rm -rf "$TMP"
+
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"
 [[ "$FAIL" == "0" ]]
