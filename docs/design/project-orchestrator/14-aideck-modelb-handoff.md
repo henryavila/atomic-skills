@@ -98,6 +98,46 @@ cd /Volumes/External/code/aideck && npx vitest run tests/unit/server/data-source
 # (re-run the curl smoke by starting the server + POST /api/projects/register if needed)
 ```
 
+## UPDATE 2026-06-02 (session 2): client done + B-write runtime findings
+
+**DONE this session (committed):**
+- aideck `b7a95d3` — **client project-aware rendering** (task #5 ✅). `api.fetchProjects` +
+  `fetchDataSource(projectId)`; `ConsumerPage` detects `root:project` dataSources → project selector
+  + `provide(PROJECT_ID_KEY)` (seeded from `?project=`); `WidgetRenderer` injects + passes it. Client
+  73/73 + new project-scoped test; **live serve check passed** (SPA served, project-scoped plans=7).
+- atomic-skills `8389ae2` — docs 12/13/14 + `assets/aideck-consumer/manifest.yaml`.
+
+**Two aiDeck findings that reshape B-write (resolve before porting the 7 handlers):**
+
+1. **MCP process isolation.** `aideck mcp` is a SEPARATE stdio process from the HTTP/dashboard
+   server; the in-memory `ProjectRegistry` (filled by dashboard `POST /api/projects/register`) is NOT
+   visible to MCP handlers. So handlers can't map a `projectId` → repo via that registry.
+   **RECOMMENDED handler model = per-launch-repo (model A):** `aideck mcp` is launched with cwd =
+   the repo (per-project MCP server, the Claude Code convention). Handlers operate on that repo:
+   `root:project` dataSources resolve against the launch `rootDir`; intents are written to
+   `<rootDir>/.atomic-skills/bootstrap-drafts/inbox/` (preserves where the skill already reads → MINIMAL
+   skill change). NO `projectId` tool arg. Alternative (model B, rejected unless multi-project-from-one-
+   MCP is needed): explicit `projectId` arg + a persisted `~/.aideck/projects.json` registry.
+   - **Implementation (model A):** thread a `rootDir` into the MCP server (`src/mcp/server.ts` →
+     `registerConsumerTools(registry, consumers, rootDir)`); in `src/mcp/tools/consumer-tools.ts`
+     `loadConsumerData` resolve per-dataSource baseDir (`root:project`→rootDir else consumer.dir);
+     give `executeScript`/`executeComposite` a separate **writeBaseDir** (= rootDir) so `files.append`
+     + `computeWritablePaths`/`validateWritePath` target the repo's inbox, while the handler MODULE
+     still loads from consumer.dir. `aideck mcp` must accept/derive rootDir (cwd or `--root`).
+2. **`validate` CLI glob is single-`*` only** (`src/cli/validate.ts:pathMatchesDataSource`) — it won't
+   match our multi-`*` nested paths. Reuse the new `data-source-reader` matcher there before relying on
+   `aideck validate` for the agent generate-validate-fix loop. (Read path + MCP do NOT use schema.json,
+   so this only gates the validate loop.)
+
+**schema.json (deprioritized):** AJV-based (`src/server/schema-validator.ts`). Bundle from
+atomic-skills `meta/schemas/*` by merging `$defs` (common+plan+initiative — no name collisions),
+rewriting `common.schema.json#/$defs/` → `#/$defs/`, and dropping top-level `additionalProperties:false`
+(the reader injects `_body`/`_file`/`projectId`/… so strict-extra would false-reject). Only consumed by
+the `validate` CLI → do it together with finding #2.
+
+**Revised next-step order:** handler-runtime model A (foundation) → 7 handlers → install.js →
+validate-CLI glob + schema.json → prompt migration → C → D.
+
 ## Gotchas
 - aideck working tree has **pre-existing unrelated** `.atomic-skills/` changes — do NOT bundle them
   into Model-B commits (stage files explicitly, as `7c88b1b` did).
