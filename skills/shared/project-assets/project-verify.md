@@ -35,9 +35,17 @@ Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a
 - **Failure message (no fix):** `FAIL schema: <file> — <validator message>. Run \`verify --fix\` for safe normalization, or \`migrate <slug>\` if legacy.`
 
 ### 2. Legacy detection (read-only)
-- For each `initiatives/*.md` and `plans/*.md`, parse frontmatter; collect files where `schemaVersion` is absent.
-- **WARN** per legacy file: `WARN legacy: <slug> has no schemaVersion. Run \`migrate <slug>\` before mutating it.`
-- `--fix` does NOT migrate (migration requires the standalone-vs-in-plan decision — that is interactive, owned by `migrate`).
+
+Two independent legacy conditions, each recommending a different `migrate` mode.
+
+**2a. Legacy SCHEMA** — for each entity file (flat `initiatives/*.md` + `plans/*.md` AND nested `projects/<id>/<slug>/{plan.md,phases/*.md}`), parse frontmatter; collect files where `schemaVersion` is absent.
+- **WARN** per legacy-schema file: `WARN legacy-schema: <slug> has no schemaVersion. Run \`migrate <slug>\` before mutating it.`
+- `--fix` does NOT migrate (schema migration requires the standalone-vs-in-plan decision — that is interactive, owned by `migrate`).
+
+**2b. Legacy LAYOUT (R-MIG-19)** — detect the pre-unification FLAT tree: any `.atomic-skills/plans/*.md` or `.atomic-skills/initiatives/*.md` present (count `*.md` direct children; ignore `archive/`).
+- **WARN** (default — the flat and nested trees coexist during the migration window): `WARN legacy-layout: <N> file(s) still in the flat plans//initiatives/ layout. Run \`project migrate\` to move them under projects/<id>/<slug>/.` — then list the flat files.
+- A **pure nested tree** (only `projects/<id>/<slug>/...`, with no flat `plans/`/`initiatives/` `*.md`) → **no finding**.
+- `--fix` does NOT perform the layout move: that is the irreversible copy-verify-delete cut-over owned by `migrate` (it needs a tar snapshot of the gitignored state first). `verify` only flags it.
 
 ### 3. Branch match (read-only; wraps default-view branch logic)
 - `branch=$(git rev-parse --abbrev-ref HEAD)`.
@@ -52,8 +60,9 @@ Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a
 - **WARN** when recent commits touch paths NOT covered by any `scope.paths` glob → `WARN scope: recent commits touch <paths> outside the initiative's declared scope. Run \`detect-scope\` to update, or this may be scope creep — see \`scope-creep\`.`
 - Initiatives without `scope.paths` are skipped (scope is optional), not failed.
 
-### 5. Orphan detection (read-only)
-- **Orphan initiative:** an `initiatives/<slug>.md` with `parentPlan: <p>` where `plans/<p>.md` does not exist (and is not in `plans/archive/`). → `FAIL orphan: initiative \`<slug>\` references missing parent plan \`<p>\`.`
+### 5. Orphan detection (read-only; layout-aware per R-ORCH-38)
+Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested (`projects/<id>/<slug>/{plan.md,phases/*.md}`). A phase initiative's parent is resolved within its own project folder first (nested `projects/<id>/<parentPlan>/plan.md`), then the flat `plans/<parentPlan>.md`.
+- **Orphan initiative:** a phase initiative (nested `projects/<id>/<slug>/phases/*.md` or flat `initiatives/<slug>.md`) with `parentPlan: <p>` where no `plan.md` resolves for `<p>` in either layout (and the parent is not under an `archive/`). → `FAIL orphan: initiative \`<slug>\` references missing parent plan \`<p>\`.` A standalone initiative with NO `parentPlan` is not an orphan — it is a 1-phase plan (or, pre-migration, a flat standalone awaiting `migrate`).
 - **Orphan phase reference:** a plan `currentPhase` / phase `dependsOn[]` id that no `phases[]` entry declares (use `src/transition.js`:`unknownDeps(plan)`). → `FAIL orphan: plan \`<plan>\` has dangling phase reference(s): <ids>.`
 - **Stranded active:** an initiative with `status: active` under a plan phase whose `status` is `done`/`archived`. → `WARN stranded: initiative \`<slug>\` is active but its phase \`<id>\` is \`<status>\`. Run \`phase-reopen\` or \`archive\`.`
 - **Untracked PROJECT-STATUS rows:** rows in `PROJECT-STATUS.md` whose slug has no matching file (or vice-versa). → `WARN index: PROJECT-STATUS.md is out of sync (<slug> listed but file missing / file present but unlisted).`
@@ -74,7 +83,7 @@ Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a
 project verify — <repo-name> @ <branch>
 
 [1] schema      PASS   (4 files valid)
-[2] legacy      WARN   1 file: sample-legacy (run `migrate`)
+[2] legacy      WARN   layout: 17 flat file(s) → run `project migrate`; schema: 1 (sample-legacy)
 [3] branch      PASS   anchored to v3-redesign-f0-foundation
 [4] scope       WARN   commits touch src/parser/ outside scope.paths
 [5] orphans     PASS

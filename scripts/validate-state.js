@@ -107,6 +107,13 @@ export function parseFrontmatter(raw) {
  */
 function kindFromPath(filePath) {
   const parts = resolve(filePath).split('/');
+  // NESTED layout plan FIRST: `plan.md` directly under a projects/<id>/<slug>/
+  // tree. Checked before the segment scan so a slug literally named `phases`,
+  // `plans`, or `initiatives` (the slug regex permits them) cannot shadow a real
+  // plan.md — e.g. projects/<id>/phases/plan.md is a plan, not an initiative.
+  if (basename(parts[parts.length - 1]) === 'plan.md' && parts.includes('projects')) {
+    return 'plan';
+  }
   // Walk from the end: the immediate parent dir tells us the kind.
   // tests/fixtures/state/plans/<slug>.md → 'plan'
   // .atomic-skills/initiatives/<slug>.md → 'initiative'
@@ -117,10 +124,6 @@ function kindFromPath(filePath) {
     // LAST in the loop body so a flat path with a `plans`/`initiatives`
     // segment is unaffected (it short-circuits above).
     if (parts[i] === 'phases') return 'initiative';
-  }
-  // NESTED layout plan: `plan.md` directly under a projects/<id>/<slug>/ tree.
-  if (basename(parts[parts.length - 1]) === 'plan.md' && parts.includes('projects')) {
-    return 'plan';
   }
   return null;
 }

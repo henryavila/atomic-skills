@@ -702,6 +702,96 @@ rc=$?
 [[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written"
 cd - >/dev/null; rm -rf "$TMP"
 
+# --- T24: NESTED phases/*.md — add task w/o provenance + strict → exit 2 (R-ORCH-29) ---
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/projects/proj/myplan/phases .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/projects/proj/myplan/phases/f0-x.md
+NEW=$(render_initiative_full 2)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/projects/proj/myplan/phases/f0-x.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T24: nested phases/*.md add task w/o provenance + strict → exit 2"
+set +e; out=$(feed "$PAYLOAD" 2>&1); rc=$?; set -e
+[[ "$rc" == "2" ]] && ok || no "expected exit 2, got $rc"
+printf '%s' "$out" | grep -q "task:T-002 (no provenance)" && ok || no "expected violation in stderr"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T25: NESTED plan.md — add phase w/o provenance + strict → exit 2 (R-ORCH-29) ---
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/projects/proj/myplan .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_plan_one_phase .atomic-skills/projects/proj/myplan/plan.md
+NEW=$(cat <<'EOF'
+---
+schemaVersion: '0.1'
+slug: p
+title: 'Plan'
+version: '1.0'
+status: active
+started: 2026-05-20T00:00:00Z
+lastUpdated: 2026-05-20T00:00:00Z
+currentPhase: F0
+parallelismAllowed: false
+phases:
+  - id: F0
+    slug: phase-zero
+    title: 'Phase 0'
+    goal: 'goal'
+    dependsOn: []
+    subPhaseCount: 0
+    status: active
+    exitGate:
+      summary: 'gate'
+      criteria: []
+  - id: F1
+    slug: phase-one
+    title: 'Phase 1'
+    goal: 'goal'
+    dependsOn: []
+    subPhaseCount: 0
+    status: pending
+    exitGate:
+      summary: 'gate'
+      criteria: []
+---
+EOF
+)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/projects/proj/myplan/plan.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T25: nested plan.md add phase w/o provenance + strict → exit 2"
+set +e; out=$(feed "$PAYLOAD" 2>&1); rc=$?; set -e
+[[ "$rc" == "2" ]] && ok || no "expected exit 2, got $rc"
+printf '%s' "$out" | grep -q "phase:F1 (no provenance)" && ok || no "expected phase violation in stderr"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T26: NESTED source.md (non-entity) — NOT gated → exit 0 even w/ a bare task add ---
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/projects/proj/myplan .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/projects/proj/myplan/source.md
+NEW=$(render_initiative_full 2)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/projects/proj/myplan/source.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T26: nested source.md is NOT a gated entity → exit 0"
+rc=0; feed "$PAYLOAD" || rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0 (source.md not gated), got $rc"
+[[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written for source.md"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T27: NESTED phases/archive/*.md — NOT gated → exit 0 (archive out of scope) ---
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/projects/proj/myplan/phases/archive .atomic-skills/status
+printf '{"emergent_strict_mode":true}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/projects/proj/myplan/phases/archive/old.md
+NEW=$(render_initiative_full 2)
+PAYLOAD=$(jq -n --arg fp "$TMP/.atomic-skills/projects/proj/myplan/phases/archive/old.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T27: nested phases/archive/*.md is out of scope → exit 0"
+rc=0; feed "$PAYLOAD" || rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0 (archive not gated), got $rc"
+[[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written for archive"
+cd - >/dev/null; rm -rf "$TMP"
+
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"
 [[ "$FAIL" == "0" ]]

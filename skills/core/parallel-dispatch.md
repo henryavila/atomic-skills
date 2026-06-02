@@ -15,10 +15,10 @@ Parallel work is discipline, not a shortcut. Give each agent a self-contained br
 
 ## Don't use when
 
-- **Work fits the current session** — for in-session parallel investigations while the user is active, use `superpowers:dispatching-parallel-agents` (`Task()` primitive). That skill's dispatch is synchronous and keeps coordination in the parent context.
+- **Work fits the current session** — for in-session parallel investigations while the user is active, dispatch read-only sub-agents directly via `{{INVESTIGATOR_TOOL}}` (synchronous, coordination stays in the parent context). This skill is for cross-session hand-off, not in-session fan-out.
 - **User will stay at the keyboard the whole run** — cross-session handoff costs copy-paste friction; only pays off when the user is away (sleeping, in a meeting, switched tasks) or the parent context is tight.
 - **Investigations are short** (under ~15 min each) — setup overhead of this skill (~10 min for plan + audit) outweighs the parallelism gain.
-- **User's request is vague** — HARD-GATE #1 will abort; redirect to `superpowers:brainstorming` or `atomic-skills:prompt` first.
+- **User's request is vague** — HARD-GATE #1 will abort; redirect to `atomic-skills:brainstorm` or `atomic-skills:prompt` first.
 
 ## Process
 
@@ -30,7 +30,7 @@ Before spending any exploration or generation budget, validate 4 preconditions. 
 **Q1. Scope consolidation**
 Does the user have a finalized list of tasks, or are they still figuring out what to do?
 → If exploratory ("clean up X", "improve Y", "figure out Z"): ABORT.
-  Redirect: "This is discovery work, not dispatch work. Use `superpowers:brainstorming` or `atomic-skills:prompt` to consolidate scope first, then return."
+  Redirect: "This is discovery work, not dispatch work. Use `atomic-skills:brainstorm` or `atomic-skills:prompt` to consolidate scope first, then return."
 
 **Q2. Concrete end states**
 For each task, is there a verifiable end state (file exists with content X, test T passes, doc section S exists)?

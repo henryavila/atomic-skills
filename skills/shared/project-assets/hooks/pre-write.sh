@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # atomic-skills:project — PreToolUse hook (emergent-work provenance gate)
 #
-# Intercepts Edit / Write / MultiEdit on `.atomic-skills/initiatives/*.md` and
-# `.atomic-skills/plans/*.md`. If the tool call ADDS new entries to `tasks[]`
+# Intercepts Edit / Write / MultiEdit on the flat `.atomic-skills/initiatives/*.md`
+# + `.atomic-skills/plans/*.md` AND the nested `projects/<id>/<slug>/{plan.md,
+# phases/*.md}` layout (R-ORCH-29). If the tool call ADDS new entries to `tasks[]`
 # (initiative) or `phases[]` (plan) without a `provenance:` field, the hook
 # either logs the would-block decision (dry-run, default) or denies the call
 # (strict mode, opt-in via `emergent_strict_mode: true` in config.json).
@@ -78,19 +79,40 @@ resolve_file_path() {
   canonicalize_path "$p"
 }
 
-# True iff the canonicalized path is under one of the gated prefixes (NOT
-# archive subdirs — archived initiatives/plans are out of scope).
+# True iff the canonicalized path is a gated entity file (NOT archive subdirs —
+# archived initiatives/plans are out of scope). Recognises BOTH layouts during
+# the migration coexistence window:
+#   FLAT (legacy):   .atomic-skills/{initiatives,plans}/<slug>.md  (direct child)
+#   NESTED (R-ORCH-29): .atomic-skills/projects/<id>/<slug>/plan.md
+#                       .atomic-skills/projects/<id>/<slug>/phases/<file>.md
+# Non-entity nested files (source.md, reviews/*, the legacy <slug>/initiative.md)
+# are NOT gated — only plan.md + phases/*.md carry the phases[]/tasks[] this hook
+# guards. Note: in `[[ == ]]` patterns `*` matches `/` too, so each gate uses an
+# exclusion pattern to reject anything one level deeper (archive/, sub-dirs).
 in_gated_path() {
   local abs=$1
-  local init_dir="$ASKILLS_DIR/initiatives"
-  local plans_dir="$ASKILLS_DIR/plans"
-  local init_abs plans_abs
-  init_abs=$(canonicalize_path "$init_dir")
-  plans_abs=$(canonicalize_path "$plans_dir")
-  # Direct children only — exclude archive/<file>.md and other nested dirs.
+  local init_abs plans_abs projects_abs
+  init_abs=$(canonicalize_path "$ASKILLS_DIR/initiatives")
+  plans_abs=$(canonicalize_path "$ASKILLS_DIR/plans")
+  projects_abs=$(canonicalize_path "$ASKILLS_DIR/projects")
+  # FLAT layout — direct children only (exclude archive/<file>.md and other dirs).
   case "$abs" in
     "$init_abs"/*) [[ "${abs#$init_abs/}" != */* ]] && return 0 ;;
     "$plans_abs"/*) [[ "${abs#$plans_abs/}" != */* ]] && return 0 ;;
+  esac
+  # NESTED layout — projects/<id>/<slug>/{plan.md, phases/*.md}.
+  case "$abs" in
+    "$projects_abs"/*)
+      local rel="${abs#$projects_abs/}"
+      # <id>/<slug>/plan.md exactly (not <id>/<slug>/<deeper>/plan.md).
+      case "$rel" in
+        */*/plan.md) [[ "$rel" != */*/*/plan.md ]] && return 0 ;;
+      esac
+      # <id>/<slug>/phases/<file>.md direct child (exclude phases/archive/<file>.md).
+      case "$rel" in
+        */*/phases/*.md) [[ "$rel" != */*/phases/*/* ]] && return 0 ;;
+      esac
+      ;;
   esac
   return 1
 }

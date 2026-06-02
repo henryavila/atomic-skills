@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
-import { migrateLegacyInitiative, isMigratedPlaceholder, migrate01to02 } from '../src/migrate.js';
+import { migrateLegacyInitiative, isMigratedPlaceholder, migrate01to02, planLayoutMigration } from '../src/migrate.js';
 import { parseFrontmatter, validateFile } from '../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -334,4 +335,307 @@ test('migrate01to02: chains after legacy migration and the result still validate
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ── R-MIG-20: flat → nested LAYOUT migration (planLayoutMigration + migrate-layout.js) ──
+
+const MIGRATE_LAYOUT = join(REPO_ROOT, 'scripts', 'migrate-layout.js');
+const VALIDATE_STATE = join(REPO_ROOT, 'scripts', 'validate-state.js');
+
+function planFm({ slug, phases, currentPhase, status = 'active' }) {
+  return {
+    schemaVersion: '0.1', slug, title: `Plan ${slug}`, version: '1.0', status,
+    started: '2026-05-01T00:00:00Z', lastUpdated: '2026-05-02T00:00:00Z',
+    currentPhase, parallelismAllowed: false, phases, references: [],
+  };
+}
+function phaseDescriptor({ id, slug, status = 'pending', criteria = [] }) {
+  return {
+    id, slug, title: `Phase ${id}`, goal: `Goal for ${id}`, dependsOn: [], subPhaseCount: 0,
+    exitGate: { summary: criteria.length ? `${criteria.length} criteria to meet` : 'no criteria', criteria }, status,
+  };
+}
+function initFm({ slug, parentPlan, phaseId, status = 'active', tasks = [], exitGates = [] }) {
+  const fm = {
+    schemaVersion: '0.1', slug, title: `Init ${slug}`, goal: `Goal ${slug}`, status, branch: null,
+    started: '2026-05-01T00:00:00Z', lastUpdated: '2026-05-02T00:00:00Z', nextAction: null,
+    exitGates, stack: [{ id: 1, title: 'frame', type: 'task', openedAt: '2026-05-01T00:00:00Z' }],
+    tasks, parked: [], emerged: [],
+  };
+  if (parentPlan) fm.parentPlan = parentPlan;
+  if (phaseId) fm.phaseId = phaseId;
+  return fm;
+}
+function writeUnit(stateDir, sub, fileSlug, fm, body = '# body\n') {
+  const dir = join(stateDir, sub);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${fileSlug}.md`), `---\n${stringifyYaml(fm)}---\n\n${body}`);
+}
+function lastJsonLine(out) {
+  const lines = out.trim().split('\n').filter(Boolean);
+  return JSON.parse(lines[lines.length - 1]);
+}
+
+// — pure planner —
+
+test('planLayoutMigration: multi-phase plan → plan.md + stripped phase filenames (verbatim copy)', () => {
+  const units = {
+    plans: [{ slug: 'demo', frontmatter: { slug: 'demo' }, body: '', sourceRel: 'plans/demo.md' }],
+    initiatives: [
+      { slug: 'demo-f0-alpha', frontmatter: { slug: 'demo-f0-alpha', parentPlan: 'demo', phaseId: 'F0' }, body: '', sourceRel: 'initiatives/demo-f0-alpha.md' },
+      { slug: 'demo-f1-beta', frontmatter: { slug: 'demo-f1-beta', parentPlan: 'demo', phaseId: 'F1' }, body: '', sourceRel: 'initiatives/demo-f1-beta.md' },
+    ],
+  };
+  const { outputs, deletes, orphans } = planLayoutMigration(units, { projectId: 'proj' });
+  assert.deepEqual(orphans, []);
+  const byTo = Object.fromEntries(outputs.map((o) => [o.relPath, o]));
+  assert.equal(byTo['projects/proj/demo/plan.md']?.verbatim, true);
+  assert.equal(byTo['projects/proj/demo/plan.md'].sourceRel, 'plans/demo.md');
+  assert.equal(byTo['projects/proj/demo/phases/f0-alpha.md']?.verbatim, true);
+  assert.equal(byTo['projects/proj/demo/phases/f1-beta.md']?.verbatim, true);
+  assert.deepEqual([...deletes].sort(), ['initiatives/demo-f0-alpha.md', 'initiatives/demo-f1-beta.md', 'plans/demo.md']);
+});
+
+test('planLayoutMigration: orphan → degenerate 1-phase plan (phase slug == orphan slug; parentPlan+F0 added)', () => {
+  const orphan = { slug: 'lone', title: 'Lone', goal: 'do', status: 'active', started: '2026-05-01T00:00:00Z', lastUpdated: '2026-05-02T00:00:00Z', exitGates: [{ id: 'G-1', description: 'x', status: 'pending' }], tasks: [] };
+  const { outputs, orphans, deletes } = planLayoutMigration(
+    { plans: [], initiatives: [{ slug: 'lone', frontmatter: orphan, body: 'B', sourceRel: 'initiatives/lone.md' }] },
+    { projectId: 'proj' },
+  );
+  assert.deepEqual(orphans, ['lone']);
+  const synth = outputs.find((o) => o.relPath === 'projects/proj/lone/plan.md');
+  assert.equal(synth.verbatim, false);
+  assert.equal(synth.frontmatter.currentPhase, 'F0');
+  assert.equal(synth.frontmatter.phases.length, 1);
+  assert.equal(synth.frontmatter.phases[0].slug, 'lone'); // crossValidate pairs phase↔init by slug
+  assert.equal(synth.frontmatter.phases[0].id, 'F0');
+  const phase = outputs.find((o) => o.relPath === 'projects/proj/lone/phases/lone.md');
+  assert.equal(phase.frontmatter.parentPlan, 'lone');
+  assert.equal(phase.frontmatter.phaseId, 'F0');
+  assert.equal(phase.frontmatter.slug, 'lone'); // slug NEVER renamed
+  assert.deepEqual(deletes, ['initiatives/lone.md']);
+});
+
+test('planLayoutMigration: requires projectId', () => {
+  assert.throws(() => planLayoutMigration({ plans: [], initiatives: [] }, {}), /projectId is required/);
+});
+
+test('planLayoutMigration: idempotent — no flat units → empty plan', () => {
+  const { outputs, deletes, orphans } = planLayoutMigration({ plans: [], initiatives: [] }, { projectId: 'proj' });
+  assert.deepEqual(outputs, []);
+  assert.deepEqual(deletes, []);
+  assert.deepEqual(orphans, []);
+});
+
+test('planLayoutMigration: orphan slug colliding with a plan slug throws (no silent overwrite)', () => {
+  assert.throws(() => planLayoutMigration({
+    plans: [{ slug: 'x', frontmatter: { slug: 'x' }, body: '', sourceRel: 'plans/x.md' }],
+    initiatives: [{ slug: 'x', frontmatter: { slug: 'x' /* no parentPlan → orphan */ }, body: '', sourceRel: 'initiatives/x.md' }],
+  }, { projectId: 'proj' }), /collides with a flat plan/);
+});
+
+test('planLayoutMigration: initiative whose parentPlan is absent is migrated as an orphan + warns', () => {
+  const { orphans, warnings } = planLayoutMigration({
+    plans: [],
+    initiatives: [{ slug: 'dangling', frontmatter: { slug: 'dangling', parentPlan: 'ghost' }, body: '', sourceRel: 'initiatives/dangling.md' }],
+  }, { projectId: 'proj' });
+  assert.deepEqual(orphans, ['dangling']);
+  assert.ok(warnings.some((w) => w.includes("parentPlan 'ghost'")));
+});
+
+// — CLI executor: copy-verify-delete on a real temp tree (the acceptance) —
+
+test('migrate-layout --apply: flat tree migrates to nested, validates, flat removed, idempotent re-run', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-'));
+  try {
+    // A multi-phase plan with a DONE phase (exercises crossValidate through the move) + an orphan.
+    writeUnit(stateDir, 'plans', 'mp', planFm({
+      slug: 'mp', currentPhase: 'F0',
+      phases: [
+        phaseDescriptor({ id: 'F0', slug: 'mp-f0-alpha', status: 'done', criteria: [{ id: 'F0-G1', description: 'done gate', status: 'met' }] }),
+        phaseDescriptor({ id: 'F1', slug: 'mp-f1-beta', status: 'pending' }),
+      ],
+    }));
+    writeUnit(stateDir, 'initiatives', 'mp-f0-alpha', initFm({
+      slug: 'mp-f0-alpha', parentPlan: 'mp', phaseId: 'F0', status: 'done',
+      tasks: [{ id: 'T-1', title: 'done task', status: 'done', lastUpdated: '2026-05-02T00:00:00Z' }],
+      exitGates: [{ id: 'F0-G1', description: 'done gate', status: 'met' }],
+    }));
+    writeUnit(stateDir, 'initiatives', 'mp-f1-beta', initFm({ slug: 'mp-f1-beta', parentPlan: 'mp', phaseId: 'F1', status: 'pending' }));
+    writeUnit(stateDir, 'initiatives', 'lone', initFm({ slug: 'lone', status: 'active', exitGates: [{ id: 'G-1', description: 'x', status: 'pending' }] }));
+
+    // The FLAT fixtures must validate first — else a fixture bug, not the migration, is the failure.
+    execFileSync('node', [VALIDATE_STATE, stateDir], { stdio: 'pipe' });
+
+    const res = lastJsonLine(execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { encoding: 'utf8' }));
+    assert.equal(res.migrated, true);
+    assert.equal(res.finalValidateOk, true);
+
+    for (const rel of ['projects/tp/mp/plan.md', 'projects/tp/mp/phases/f0-alpha.md', 'projects/tp/mp/phases/f1-beta.md', 'projects/tp/lone/plan.md', 'projects/tp/lone/phases/lone.md']) {
+      assert.ok(existsSync(join(stateDir, rel)), `expected nested file ${rel}`);
+    }
+    assert.ok(!existsSync(join(stateDir, 'plans')), 'flat plans/ removed');
+    assert.ok(!existsSync(join(stateDir, 'initiatives')), 'flat initiatives/ removed');
+
+    // The whole migrated tree validates on its own.
+    execFileSync('node', [VALIDATE_STATE, stateDir], { stdio: 'pipe' });
+
+    // Re-running is a no-op (nothing flat left).
+    const res2 = lastJsonLine(execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { encoding: 'utf8' }));
+    assert.equal(res2.migrated, false);
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test('migrate-layout --apply: a failed VERIFY aborts WITHOUT deleting the flat originals (data-safety)', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-fail-'));
+  try {
+    // A structurally invalid plan (missing required `version`) → the verbatim nested
+    // copy fails validate-state → the cut-over MUST abort before any delete.
+    const bad = planFm({ slug: 'bad', currentPhase: 'F0', phases: [phaseDescriptor({ id: 'F0', slug: 'bad-f0', status: 'pending' })] });
+    delete bad.version;
+    writeUnit(stateDir, 'plans', 'bad', bad);
+    writeUnit(stateDir, 'initiatives', 'bad-f0', initFm({ slug: 'bad-f0', parentPlan: 'bad', phaseId: 'F0' }));
+
+    let threw = false;
+    try {
+      execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { stdio: 'pipe' });
+    } catch { threw = true; }
+    assert.equal(threw, true, 'apply must exit non-zero when the migrated tree fails validation');
+
+    // The invariant that matters: flat originals survive a failed verify.
+    assert.ok(existsSync(join(stateDir, 'plans/bad.md')), 'flat plan must survive a failed verify');
+    assert.ok(existsSync(join(stateDir, 'initiatives/bad-f0.md')), 'flat initiative must survive a failed verify');
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test('migrate-layout (dry-run default): writes nothing, reports the plan', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-dry-'));
+  try {
+    writeUnit(stateDir, 'initiatives', 'solo', initFm({ slug: 'solo', status: 'active' }));
+    const res = lastJsonLine(execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--json'], { encoding: 'utf8' }));
+    assert.equal(res.migrated, false);
+    assert.ok(!existsSync(join(stateDir, 'projects')), 'dry-run must not create projects/');
+    assert.ok(existsSync(join(stateDir, 'initiatives/solo.md')), 'dry-run must not delete flat');
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+// ── Adversarial-review regression tests (Inc6 hardening) ──
+
+test('planLayoutMigration: a pending orphan becomes a PAUSED plan (not active) with a pending phase (finding 8)', () => {
+  const orphan = { slug: 'pend', title: 'P', goal: 'g', status: 'pending', started: '2026-05-01T00:00:00Z', lastUpdated: '2026-05-02T00:00:00Z', exitGates: [], tasks: [] };
+  const { outputs } = planLayoutMigration({ plans: [], initiatives: [{ slug: 'pend', frontmatter: orphan, body: '', sourceRel: 'initiatives/pend.md' }] }, { projectId: 'proj' });
+  const synth = outputs.find((o) => o.relPath === 'projects/proj/pend/plan.md');
+  assert.equal(synth.frontmatter.status, 'paused', 'pending orphan must NOT become an active plan');
+  assert.equal(synth.frontmatter.phases[0].status, 'pending');
+});
+
+test('planLayoutMigration: two flat plans sharing a slug throws — never a silent drop (finding 11)', () => {
+  assert.throws(() => planLayoutMigration({
+    plans: [
+      { slug: 'dup', frontmatter: { slug: 'dup' }, body: '', sourceRel: 'plans/a.md' },
+      { slug: 'dup', frontmatter: { slug: 'dup' }, body: '', sourceRel: 'plans/b.md' },
+    ], initiatives: [],
+  }, { projectId: 'proj' }), /two flat plan files share slug/);
+});
+
+test('planLayoutMigration: a reserved-word slug (phases/initiatives) is rejected (finding 10)', () => {
+  assert.throws(() => planLayoutMigration({ plans: [{ slug: 'phases', frontmatter: { slug: 'phases' }, body: '', sourceRel: 'plans/phases.md' }], initiatives: [] }, { projectId: 'proj' }), /reserved slug/);
+  assert.throws(() => planLayoutMigration({ plans: [], initiatives: [{ slug: 'initiatives', frontmatter: { slug: 'initiatives' }, body: '', sourceRel: 'initiatives/initiatives.md' }] }, { projectId: 'proj' }), /reserved slug/);
+});
+
+test('planLayoutMigration: orphan missing `started` still yields a schema-valid plan via nowIso fallback (finding 9)', () => {
+  const orphan = { slug: 'nostart', title: 'N', goal: 'g', status: 'active', lastUpdated: '2026-05-02T00:00:00Z', exitGates: [], tasks: [] }; // no started
+  const { outputs } = planLayoutMigration({ plans: [], initiatives: [{ slug: 'nostart', frontmatter: orphan, body: '', sourceRel: 'initiatives/nostart.md' }] }, { projectId: 'proj', nowIso: '2026-06-01T00:00:00Z' });
+  const synth = outputs.find((o) => o.relPath === 'projects/proj/nostart/plan.md');
+  assert.equal(synth.frontmatter.started, '2026-06-01T00:00:00Z');
+});
+
+test('planLayoutMigration: a plan declaring a phase with no initiative (flat or nested) is a blocker (finding 3)', () => {
+  const plan = { slug: 'mp', phases: [{ id: 'F0', slug: 'mp-f0' }, { id: 'F1', slug: 'mp-f1' }] };
+  // only F0 present as a flat phase init
+  const { blockers } = planLayoutMigration({
+    plans: [{ slug: 'mp', frontmatter: plan, body: '', sourceRel: 'plans/mp.md' }],
+    initiatives: [{ slug: 'mp-f0', frontmatter: { slug: 'mp-f0', parentPlan: 'mp' }, body: '', sourceRel: 'initiatives/mp-f0.md' }],
+  }, { projectId: 'proj' });
+  assert.ok(blockers.some((b) => b.includes("phase F1") && b.includes('incomplete phase set')));
+  // ...but an already-nested F1 covers it (recovery): no blocker
+  const { blockers: b2 } = planLayoutMigration({
+    plans: [{ slug: 'mp', frontmatter: plan, body: '', sourceRel: 'plans/mp.md' }],
+    initiatives: [{ slug: 'mp-f0', frontmatter: { slug: 'mp-f0', parentPlan: 'mp' }, body: '', sourceRel: 'initiatives/mp-f0.md' }],
+  }, { projectId: 'proj', existingPhaseSlugs: new Set(['mp-f1']) });
+  assert.equal(b2.length, 0, 'an already-nested phase must satisfy coverage');
+});
+
+test('migrate-layout --apply: a flat file that does not parse BLOCKS apply (nothing written or deleted) (findings 1/2)', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-skip-'));
+  try {
+    writeUnit(stateDir, 'initiatives', 'good', initFm({ slug: 'good', status: 'active' }));
+    mkdirSync(join(stateDir, 'plans'), { recursive: true });
+    writeFileSync(join(stateDir, 'plans', 'broken.md'), '---\nslug: broken\nno closing fence here\n# body'); // unparseable
+    let threw = false;
+    try { execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { stdio: 'pipe' }); } catch { threw = true; }
+    assert.equal(threw, true, 'apply must refuse when any flat file is unparseable');
+    assert.ok(!existsSync(join(stateDir, 'projects')), 'nothing written when a flat unit is unreadable');
+    assert.ok(existsSync(join(stateDir, 'plans/broken.md')), 'unparseable flat file preserved');
+    assert.ok(existsSync(join(stateDir, 'initiatives/good.md')), 'sibling flat file preserved (no partial migration)');
+  } finally { rmSync(stateDir, { recursive: true, force: true }); }
+});
+
+test('migrate-layout --apply: a legacy nested projects/<id>/<slug>/initiative.md is ingested into a 1-phase plan (finding 14)', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-nested-'));
+  try {
+    const dir = join(stateDir, 'projects', 'tp', 'mode2');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'initiative.md'), `---\n${stringifyYaml(initFm({ slug: 'mode2', status: 'pending' }))}---\n\n# m\n`);
+    const res = lastJsonLine(execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { encoding: 'utf8' }));
+    assert.equal(res.migrated, true);
+    assert.ok(existsSync(join(dir, 'plan.md')), 'synthesized plan.md in place');
+    assert.ok(existsSync(join(dir, 'phases', 'mode2.md')), 'phase file in place');
+    assert.ok(!existsSync(join(dir, 'initiative.md')), 'legacy initiative.md removed');
+    execFileSync('node', [VALIDATE_STATE, stateDir], { stdio: 'pipe' }); // now collectable + valid
+  } finally { rmSync(stateDir, { recursive: true, force: true }); }
+});
+
+test('migrate-layout --apply: a nested initiative.md under a DIFFERENT project blocks apply, preserving it (finding 14)', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-xproj-'));
+  try {
+    const dir = join(stateDir, 'projects', 'other', 'foo');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'initiative.md'), `---\n${stringifyYaml(initFm({ slug: 'foo', status: 'active' }))}---\n\n# f\n`);
+    let threw = false;
+    try { execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { stdio: 'pipe' }); } catch { threw = true; }
+    assert.equal(threw, true, 'cross-project nested initiative.md must block apply');
+    assert.ok(existsSync(join(dir, 'initiative.md')), 'stray nested entity preserved (not stranded silently)');
+  } finally { rmSync(stateDir, { recursive: true, force: true }); }
+});
+
+test('migrate-layout --apply: recovery with the parent plan still flat does NOT spawn spurious standalone plans (finding 5)', () => {
+  const stateDir = mkdtempSync(join(tmpdir(), 'layout-recover-'));
+  try {
+    // Simulate the reversed-delete-order crash state: phase F0 already migrated
+    // (nested copy present, flat original gone), parent plan + F1 still flat.
+    writeUnit(stateDir, 'plans', 'mp', planFm({ slug: 'mp', currentPhase: 'F0', phases: [
+      phaseDescriptor({ id: 'F0', slug: 'mp-f0-alpha', status: 'done', criteria: [{ id: 'F0-G1', description: 'g', status: 'met' }] }),
+      phaseDescriptor({ id: 'F1', slug: 'mp-f1-beta', status: 'pending' }),
+    ] }));
+    writeUnit(stateDir, 'initiatives', 'mp-f1-beta', initFm({ slug: 'mp-f1-beta', parentPlan: 'mp', phaseId: 'F1', status: 'pending' }));
+    const ph = join(stateDir, 'projects', 'tp', 'mp', 'phases');
+    mkdirSync(ph, { recursive: true });
+    writeFileSync(join(ph, 'f0-alpha.md'), `---\n${stringifyYaml(initFm({ slug: 'mp-f0-alpha', parentPlan: 'mp', phaseId: 'F0', status: 'done', tasks: [{ id: 'T-1', title: 't', status: 'done', lastUpdated: '2026-05-02T00:00:00Z' }], exitGates: [{ id: 'F0-G1', description: 'g', status: 'met' }] }))}---\n\n# f0\n`);
+
+    const res = lastJsonLine(execFileSync('node', [MIGRATE_LAYOUT, '--root', stateDir, '--project-id', 'tp', '--apply', '--json'], { encoding: 'utf8' }));
+    assert.equal(res.migrated, true);
+    assert.equal(res.finalValidateOk, true);
+    assert.ok(!existsSync(join(stateDir, 'projects/tp/mp-f1-beta')), 'NO spurious standalone plan for the surviving phase');
+    assert.ok(!existsSync(join(stateDir, 'projects/tp/mp-f0-alpha')), 'NO spurious standalone plan for the already-nested phase');
+    assert.ok(existsSync(join(stateDir, 'projects/tp/mp/plan.md')));
+    assert.ok(existsSync(join(stateDir, 'projects/tp/mp/phases/f0-alpha.md')), 'pre-existing nested phase preserved');
+    assert.ok(existsSync(join(stateDir, 'projects/tp/mp/phases/f1-beta.md')), 'f1 migrated under its real plan');
+  } finally { rmSync(stateDir, { recursive: true, force: true }); }
 });

@@ -304,3 +304,265 @@ export function migrate01to02(entity, opts = {}) {
   // Additive-optional bump: stamp the version, change nothing else.
   return { migrated: true, frontmatter: { ...entity, schemaVersion: '0.2' } };
 }
+
+// ── R-MIG-20: flat → nested LAYOUT migration (the D7 cut-over transform) ──
+//
+// This is ORTHOGONAL to the schema migrations above (migrateLegacyInitiative /
+// migrate01to02 change the frontmatter SHAPE; this changes the file PLACEMENT).
+// A unit's frontmatter `slug` is its identity — referenced by plan.phases[],
+// cross-validation, PROJECT-STATUS rows, and aiDeck — so the layout move NEVER
+// renames a slug. It only:
+//   - moves `plans/<slug>.md`            → `projects/<id>/<slug>/plan.md`  (verbatim)
+//   - moves `initiatives/<slug>.md` (a phase) → `projects/<id>/<plan>/phases/<f>.md` (verbatim)
+//   - wraps an orphan (no parentPlan) into a degenerate 1-phase plan:
+//       synthesize `projects/<id>/<slug>/plan.md` + move the initiative to
+//       `projects/<id>/<slug>/phases/<slug>.md` with parentPlan+phaseId:F0 added.
+//
+// The phase FILENAME mirrors decompose.js exactly (drops the redundant
+// `<planSlug>-` prefix the phases/ dir already encodes), so a migrated tree is
+// byte-path-identical to what a fresh `decompose` would emit → idempotent with
+// materialize.
+
+/** Phase filename = decompose's inverse: drop the `<planSlug>-` prefix if present. */
+function phaseFileName(planSlug, initSlug) {
+  return initSlug.startsWith(`${planSlug}-`) ? initSlug.slice(planSlug.length + 1) : initSlug;
+}
+
+const PLAN_STATUS_ENUM = new Set(['active', 'paused', 'done', 'archived']);
+const PHASE_STATUS_ENUM = new Set(['pending', 'active', 'paused', 'done', 'archived']);
+
+// Slugs that, if used as a `projects/<id>/<slug>/` folder name, would collide
+// with a layout dir token and break kind-inference. The slug regex permits them
+// (`^[a-z][a-z0-9-]{1,63}$`), so the migration refuses them rather than emit a
+// tree that validate-state misclassifies.
+const RESERVED_LAYOUT_SLUGS = new Set(['plans', 'initiatives', 'phases', 'projects', 'archive']);
+
+/**
+ * Project an INITIATIVE status onto the PLAN status enum. The initiative enum
+ * has `pending` (a not-yet-started unit); the plan enum does NOT — so a `pending`
+ * orphan must NOT silently become an `active` plan (that is a semantic lie). Map
+ * pending → paused (the plan-enum member meaning "not currently running"); pass
+ * through active/paused/done/archived; anything unknown → active.
+ */
+function planStatusFromInitiative(s) {
+  if (PLAN_STATUS_ENUM.has(s)) return s;
+  if (s === 'pending') return 'paused';
+  return 'active';
+}
+
+/**
+ * Synthesize a degenerate 1-phase plan frontmatter wrapping a standalone
+ * initiative. The single phase F0 carries `slug === initFm.slug` so
+ * crossValidate() resolves the phase ↔ initiative pairing by slug, and copies
+ * the initiative's exitGates verbatim as the phase criteria (same exitCriterion
+ * shape → preserves any GATE-R2 met⟹evidence invariant already satisfied).
+ */
+function synthesizeOrphanPlan(initFm, slug, nowIso) {
+  const criteria = Array.isArray(initFm.exitGates) ? initFm.exitGates : [];
+  const phase = {
+    id: 'F0',
+    slug,
+    title: initFm.title || slug,
+    goal: initFm.goal || initFm.title || `Standalone initiative ${slug}`,
+    dependsOn: [],
+    subPhaseCount: Array.isArray(initFm.tasks) ? initFm.tasks.length : 0,
+    exitGate: {
+      summary: criteria.length > 0
+        ? `${criteria.length} ${criteria.length === 1 ? 'criterion' : 'criteria'} to meet`
+        : 'Standalone initiative migrated as a 1-phase plan',
+      criteria,
+    },
+    // Phase enum includes `pending`, so a not-yet-started orphan stays `pending`.
+    status: PHASE_STATUS_ENUM.has(initFm.status) ? initFm.status : 'active',
+  };
+  const started = normalizeTimestamp(initFm.started, nowIso);
+  const planFm = {
+    schemaVersion: initFm.schemaVersion || '0.1',
+    slug,
+    title: initFm.title || slug,
+    version: '1.0',
+    status: planStatusFromInitiative(initFm.status),
+    started,
+    lastUpdated: normalizeTimestamp(initFm.lastUpdated || initFm.started, started),
+    currentPhase: 'F0',
+    parallelismAllowed: false,
+    phases: [phase],
+    references: [],
+  };
+  // Plan schema `branch` is a plain string (no null); only carry a real branch.
+  if (typeof initFm.branch === 'string' && initFm.branch.length > 0) planFm.branch = initFm.branch;
+  return planFm;
+}
+
+function synthesizeOrphanPlanBody(initFm, slug) {
+  const goal = initFm.goal ? `**Goal:** ${initFm.goal}\n\n` : '';
+  return `# ${initFm.title || slug}\n\n`
+    + `> Migrated standalone initiative — degenerate 1-phase plan (single phase \`F0\`).\n`
+    + `> The phase initiative under \`phases/\` holds the real work; this plan is the layout wrapper.\n\n`
+    + goal;
+}
+
+/**
+ * Plan a flat → nested layout migration. PURE: no I/O, deterministic, idempotent.
+ *
+ * @param {object} units
+ *   units.plans:        [{ slug, frontmatter, body, sourceRel }]
+ *   units.initiatives:  [{ slug, frontmatter, body, sourceRel }]
+ *   `sourceRel` is the path relative to the state root (e.g. 'plans/foo.md').
+ * @param {object} opts
+ *   opts.projectId (required) — the destination `projects/<projectId>/` folder.
+ *   opts.nowIso (optional)    — fallback timestamp for a synthesized plan whose
+ *                               source orphan is missing `started`.
+ *   opts.existingPhaseSlugs (optional) — Set/array of phase-initiative slugs ALREADY
+ *                               present in the nested tree (recovery): treated as
+ *                               covering a plan's declared phase even if no flat file remains.
+ * @returns {{ outputs, deletes, orphans, warnings, blockers }}
+ *   outputs: [{ relPath, kind, slug, verbatim, sourceRel? , frontmatter?, body? }]
+ *     - verbatim:true  → copy the original file byte-for-byte from sourceRel.
+ *     - verbatim:false → executor serializes `frontmatter` + `body` (orphan/synth).
+ *   deletes: [sourceRel]  — flat files to remove AFTER the nested tree validates.
+ *   orphans: [slug]       — initiatives wrapped into 1-phase plans.
+ *   warnings: [string]    — advisory (shown in dry-run).
+ *   blockers: [string]    — make an --apply UNSAFE; the executor refuses to apply
+ *                           while any remain. Hard structural errors throw instead.
+ *
+ * Idempotent: given no flat units (already migrated), returns empty outputs/deletes.
+ */
+export function planLayoutMigration(units, opts = {}) {
+  const projectId = opts.projectId;
+  if (!projectId || typeof projectId !== 'string') {
+    throw new Error('planLayoutMigration: opts.projectId is required (the destination projects/<id>/ folder)');
+  }
+  const nowIso = opts.nowIso;
+  const plans = Array.isArray(units?.plans) ? units.plans : [];
+  const initiatives = Array.isArray(units?.initiatives) ? units.initiatives : [];
+
+  const warnings = [];
+  // `blockers` are conditions that make an --apply UNSAFE (incomplete/inconsistent
+  // input) without being a hard structural error. The executor surfaces them in
+  // dry-run and refuses to --apply while any remain. Hard structural errors
+  // (slug collisions, reserved-word slugs) throw immediately instead.
+  const blockers = [];
+  const outputs = [];
+  const deletes = [];
+  const orphans = [];
+
+  const assertSlugMigratable = (slug, who) => {
+    if (RESERVED_LAYOUT_SLUGS.has(slug)) {
+      throw new Error(`planLayoutMigration: ${who} has the reserved slug '${slug}', which would collide with a layout directory token (plans/initiatives/phases/projects/archive) and break kind-inference. Rename it before migrating.`);
+    }
+  };
+
+  // Index flat plans by slug. A duplicate slug across two flat files is FATAL —
+  // silently keeping one would drop the other's phases/gates from the migration.
+  const planBySlug = new Map();
+  for (const p of plans) {
+    if (!p || !p.slug) { blockers.push('a flat plan has no slug — cannot place it'); continue; }
+    assertSlugMigratable(p.slug, `plan '${p.sourceRel || p.slug}'`);
+    if (planBySlug.has(p.slug)) {
+      throw new Error(`planLayoutMigration: two flat plan files share slug '${p.slug}' ('${planBySlug.get(p.slug).sourceRel}' and '${p.sourceRel}') — slugs are identity and must be unique. Resolve the duplicate before migrating; nothing was changed.`);
+    }
+    planBySlug.set(p.slug, p);
+  }
+
+  // Partition initiatives: phase-of-a-present-plan vs orphan (standalone).
+  const phaseInitsByPlan = new Map();
+  const orphanInits = [];
+  for (const init of initiatives) {
+    if (!init || !init.slug) { blockers.push('an initiative has no slug — cannot place it'); continue; }
+    const parent = init.frontmatter?.parentPlan;
+    if (parent && planBySlug.has(parent)) {
+      if (!phaseInitsByPlan.has(parent)) phaseInitsByPlan.set(parent, []);
+      phaseInitsByPlan.get(parent).push(init);
+    } else {
+      if (parent) warnings.push(`initiative '${init.slug}' references parentPlan '${parent}' not present among flat plans → migrating as a standalone 1-phase plan`);
+      orphanInits.push(init);
+    }
+  }
+
+  // Phase-coverage: every phase a plan DECLARES must have an initiative file —
+  // either a flat one we are migrating now, OR one already present in the nested
+  // tree (the recovery case: a prior run migrated it and its flat original is
+  // gone). A declared phase present in NEITHER would leave the migrated plan.md
+  // referencing a phantom phase (crossValidate silently skips it). Block the cut-over.
+  const alreadyNested = opts.existingPhaseSlugs instanceof Set
+    ? opts.existingPhaseSlugs
+    : new Set(Array.isArray(opts.existingPhaseSlugs) ? opts.existingPhaseSlugs : []);
+  for (const plan of planBySlug.values()) {
+    const declared = Array.isArray(plan.frontmatter?.phases) ? plan.frontmatter.phases : [];
+    const children = phaseInitsByPlan.get(plan.slug) || [];
+    const childIds = new Set(children.map((i) => i.frontmatter?.phaseId).filter(Boolean));
+    const childSlugs = new Set(children.map((i) => i.slug));
+    for (const ph of declared) {
+      if (!ph || !ph.id) continue;
+      // A declared phase is COVERED if some initiative corresponds to it — matched
+      // by phaseId (the robust key) OR by slug, flat OR already-nested. A phase with
+      // NO corresponding initiative would leave the migrated plan.md pointing at a
+      // phantom phase: block. A slug MISMATCH (initiative exists by id but the plan
+      // declares a different slug) is pre-existing drift the migration preserves
+      // verbatim — warn, don't block (validate-state already tolerates it for
+      // non-done phases; crossValidate pairs by slug so it cannot verify it when done).
+      const covered = childIds.has(ph.id) || (ph.slug && (childSlugs.has(ph.slug) || alreadyNested.has(ph.slug)));
+      if (!covered) {
+        blockers.push(`plan '${plan.slug}' declares phase ${ph.id} (slug '${ph.slug || '?'}') but no initiative corresponds to it (neither flat nor already-nested) — incomplete phase set`);
+      } else if (ph.slug && childIds.has(ph.id) && !childSlugs.has(ph.slug)) {
+        warnings.push(`plan '${plan.slug}' phase ${ph.id} declares slug '${ph.slug}' but its initiative carries a different slug — pre-existing plan↔phase slug drift (migrated as-is; fix with a plan edit so crossValidate can pair them when the phase is done)`);
+      }
+    }
+  }
+
+  const dirFor = (slug) => `projects/${projectId}/${slug}`;
+  const seenTargets = new Set();
+  const claim = (relPath, who) => {
+    if (seenTargets.has(relPath)) {
+      throw new Error(`planLayoutMigration: target path collision at '${relPath}' (${who}). Two units would write the same file — resolve the slug clash before migrating.`);
+    }
+    seenTargets.add(relPath);
+  };
+
+  // Multi-phase plans (sorted for deterministic output).
+  for (const plan of [...planBySlug.values()].sort((a, b) => a.slug.localeCompare(b.slug))) {
+    const dir = dirFor(plan.slug);
+    const planRel = `${dir}/plan.md`;
+    claim(planRel, `plan ${plan.slug}`);
+    outputs.push({ relPath: planRel, kind: 'plan', slug: plan.slug, verbatim: true, sourceRel: plan.sourceRel });
+    deletes.push(plan.sourceRel);
+
+    const children = (phaseInitsByPlan.get(plan.slug) || []).sort((a, b) => a.slug.localeCompare(b.slug));
+    for (const init of children) {
+      const rel = `${dir}/phases/${phaseFileName(plan.slug, init.slug)}.md`;
+      claim(rel, `phase ${init.slug}`);
+      outputs.push({ relPath: rel, kind: 'initiative', slug: init.slug, verbatim: true, sourceRel: init.sourceRel });
+      deletes.push(init.sourceRel);
+    }
+  }
+
+  // Orphans → degenerate 1-phase plans (sorted for deterministic output).
+  for (const init of [...orphanInits].sort((a, b) => a.slug.localeCompare(b.slug))) {
+    const slug = init.slug;
+    assertSlugMigratable(slug, `orphan initiative '${init.sourceRel || slug}'`);
+    if (planBySlug.has(slug)) {
+      throw new Error(`planLayoutMigration: orphan initiative '${slug}' collides with a flat plan of the same slug — cannot wrap it into a 1-phase plan of that name.`);
+    }
+    const fm = init.frontmatter || {};
+    const dir = dirFor(slug);
+    const planRel = `${dir}/plan.md`;
+    const phaseRel = `${dir}/phases/${phaseFileName(slug, slug)}.md`;
+    claim(planRel, `synthesized plan ${slug}`);
+    claim(phaseRel, `orphan phase ${slug}`);
+
+    outputs.push({ relPath: planRel, kind: 'plan', slug, verbatim: false, frontmatter: synthesizeOrphanPlan(fm, slug, nowIso), body: synthesizeOrphanPlanBody(fm, slug) });
+    outputs.push({ relPath: phaseRel, kind: 'initiative', slug, verbatim: false, frontmatter: { ...fm, parentPlan: slug, phaseId: 'F0' }, body: init.body });
+    deletes.push(init.sourceRel);
+    orphans.push(slug);
+
+    // crossValidate fires only for 'done' phases: a done/archived orphan with
+    // unfinished tasks would make the synthesized 1-phase plan inconsistent — block.
+    if (fm.status === 'done' || fm.status === 'archived') {
+      const pending = (Array.isArray(fm.tasks) ? fm.tasks : []).filter((t) => t && t.status !== 'done');
+      if (pending.length) blockers.push(`orphan '${slug}' is '${fm.status}' but has ${pending.length} unfinished task(s); the synthesized 1-phase plan would fail cross-validation`);
+    }
+  }
+
+  return { outputs, deletes, orphans, warnings, blockers };
+}

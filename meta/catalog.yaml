@@ -284,7 +284,7 @@ core:
       - name: verify
         group: 'View'
         signature: '[--fix] [--slug <slug>]'
-        description: 'Reconcile .atomic-skills/ against the repo: schema, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)'
+        description: 'Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)'
         example: '/atomic-skills:project verify'
       - name: new
         group: 'Create'
@@ -358,9 +358,9 @@ core:
         example: '/atomic-skills:project switch my-feature'
       - name: migrate
         group: 'Lifecycle'
-        signature: '<slug>'
-        description: 'Convert a legacy (pre-0.1) initiative file to schemaVersion 0.1; reports the field-mapping diff and flags placeholder context'
-        example: '/atomic-skills:project migrate sample-legacy'
+        signature: '[<slug>]'
+        description: 'Two modes: `migrate <slug>` converts a legacy (pre-0.1) initiative to schemaVersion 0.1 (field-mapping diff + placeholder flags); bare `migrate` runs the flat→projects/<id>/<slug>/ layout cut-over (deterministic copy-verify-delete behind a tar snapshot)'
+        example: '/atomic-skills:project migrate'
       - name: re-bootstrap
         group: 'Lifecycle'
         signature: '<slug>'
