@@ -1,0 +1,99 @@
+schemaVersion: '0.1'
+id: atomic-skills
+mcpNamespace: atomic_skills
+title: 'Project Status'
+icon: 'mdi:clipboard-check'
+
+# Read the repo's git-tracked nested tree in place (root: project), no copy into
+# the consumer dir. captures inject the path-derived grouping onto every record.
+dataSources:
+  - id: plans
+    path: '.atomic-skills/projects/*/*/plan.md'
+    format: frontmatter
+    root: project
+    captures: [projectId, planSlug]
+  - id: initiatives
+    path: '.atomic-skills/projects/*/*/phases/*.md'
+    format: frontmatter
+    root: project
+    captures: [projectId, planSlug, phaseFile]
+  - id: initiatives_archive
+    path: '.atomic-skills/projects/*/*/phases/archive/*.md'
+    format: frontmatter
+    root: project
+    captures: [projectId, planSlug, phaseFile]
+  - id: discover
+    path: '.atomic-skills/bootstrap-drafts/discover-run.json'
+    format: json
+    root: project
+  - id: inbox
+    path: '.atomic-skills/bootstrap-drafts/inbox/*.jsonl'
+    format: jsonl
+    root: project
+
+nav:
+  style: tabs
+  showIcons: true
+
+pages:
+  - slug: overview
+    title: 'Overview'
+    icon: 'mdi:view-dashboard'
+    default: true
+    layout: sections
+    sections:
+      - title: 'At a glance'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: stat
+            colSpan: 3
+            source: { ref: plans }
+            config: { value: 'count(status=active)', label: 'Active Plans' }
+          - widget: stat
+            colSpan: 3
+            source: { ref: plans }
+            config: { value: 'count()', label: 'Total Plans' }
+          - widget: stat
+            colSpan: 3
+            source: { ref: initiatives }
+            config: { value: 'count(status=active)', label: 'Active Phases', color: 'var(--color-accent)' }
+          - widget: stat
+            colSpan: 3
+            source: { ref: initiatives }
+            config: { value: 'count(status=done)', label: 'Phases Done', color: 'var(--color-success)' }
+      - title: 'Plans'
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: plans }
+      - title: 'Phases by status'
+        widgets:
+          - widget: kanban-board
+            colSpan: 12
+            source: { ref: initiatives }
+            config: { columns: [pending, active, done, archived], statusField: status }
+
+  - slug: plans
+    title: 'Plans'
+    icon: 'mdi:format-list-checks'
+    layout: sections
+    sections:
+      - title: 'All plans'
+        widgets:
+          - widget: card
+            colSpan: 12
+            source: { ref: plans }
+            config: { titleField: title, subtitleField: projectId, fields: [status, currentPhase, branch] }
+
+  - slug: phases
+    title: 'Phases'
+    icon: 'mdi:view-column'
+    layout: sections
+    sections:
+      - title: 'Initiatives'
+        widgets:
+          - widget: list
+            colSpan: 12
+            source: { ref: initiatives }
+            config: { titleField: title, subtitleField: status }
