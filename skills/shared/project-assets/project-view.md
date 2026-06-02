@@ -9,26 +9,25 @@ Loaded by the `project` router for: `status`, `status --browser`, `status --term
 The aiDeck dashboard is the only external surface this skill talks to, and aiDeck is **under a full rewrite** (2026-05-31). To make the eventual re-connection touch exactly one block, every aiDeck-coupling parameter is declared ONCE here. Nothing else in this file (or in the router or the other lazy files) hardcodes the domain string or the endpoint shape.
 
 ```
-# === AIDECK CONTRACT (cross-repo; do NOT rename the domain string blind) ===
-AIDECK_STATE_DOMAIN="project-status"   # aiDeck state-domain key. This is the
-                                       # aiDeck-side parser/route name
-                                       # (aideck/dist/server/parsers/project-status.js),
-                                       # NOT the skill name. The skill renamed to
-                                       # `project`; the aiDeck domain stays
-                                       # `project-status` until a coordinated aiDeck PR
-                                       # renames the parser. Changing this string
-                                       # alone breaks the default view + STATE_ERROR
-                                       # auto-repair.
+# === AIDECK CONTRACT (cross-repo; aiDeck v2 Model-B consumer) ===
+# The skill plugs into aiDeck as a v2 CONSUMER installed at
+# ~/.aideck/consumers/atomic-skills/ (manifest + schema.json + handlers, shipped
+# by `atomic-skills install`). aiDeck reads the repo's nested .atomic-skills/
+# tree IN PLACE via the consumer's root:'project' dataSources — no copy. State
+# is read per-dataSource (no all-or-nothing /state validation anymore).
+AIDECK_CONSUMER="atomic-skills"        # consumer id = ~/.aideck/consumers/<id>/
 AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
 DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
-# State curl path: $AIDECK_URL/api/projects/$pid/state/$AIDECK_STATE_DOMAIN
+# Data path:  $AIDECK_URL/api/consumers/$AIDECK_CONSUMER/projects/$pid/data/<ds>
+#             (<ds> = plans | initiatives | discover | inbox; $pid from /api/projects/register)
+# Dashboard:  $AIDECK_URL/$AIDECK_CONSUMER?project=$pid
 # === END AIDECK CONTRACT ===
 ```
 
 **Two responsibilities, kept separate:**
 
 - **(a) Produce the data** — read/parse `.atomic-skills/` files, compute the compact summary, render terminal tables. STABLE; never changes with the aiDeck rewrite.
-- **(b) Deliver to aiDeck** — the ensure-aideck script, the `state/$AIDECK_STATE_DOMAIN` curl, the STATE_ERROR auto-repair, the browser open. PARAMETERIZED; this is the only part the aiDeck rewrite touches. If the new aiDeck moves from "REST `/state/project-status`" to "import aiDeck components and pass data+layout", you replace the AIDECK CONTRACT block above + the deliver-to-aiDeck steps; the produce-the-data half is untouched.
+- **(b) Deliver to aiDeck** — the ensure-aideck script, the `/api/projects/register` call, the data-load cross-check, the best-effort normalize, and the browser open at the consumer page. PARAMETERIZED via the AIDECK CONTRACT block; this is the only part an aiDeck change touches. The produce-the-data half is untouched.
 
 ---
 
@@ -46,7 +45,7 @@ Steps:
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_STATE_DOMAIN` / `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
    ```bash
-   AIDECK_STATE_DOMAIN="project-status"   # ← AIDECK CONTRACT (see top of file)
+   AIDECK_CONSUMER="atomic-skills"        # ← AIDECK CONTRACT (see top of file)
    AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
    DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
    AIDECK_URL=""
@@ -91,17 +90,15 @@ Steps:
      done
    fi
 
-   # 3. Validate THIS project's state before opening the browser.
-   #    aiDeck validates the whole project state all-or-nothing; one schema
-   #    error makes the dashboard card render only "⊘ <project> — failed to
-   #    load" with the real message hidden. Surface it here instead.
+   # 3. Cross-check THIS project's data loads before opening the browser.
+   #    Model-B reads are per-dataSource and do NOT schema-validate, so a load
+   #    failure here means an io/parse error (not a strict-schema reject). Empty
+   #    STATE_ERROR = data loaded fine.
    STATE_ERROR=""
    if [ -n "$AIDECK_URL" ]; then
      pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
-     # NOTE: -s only (NOT -sf): aiDeck returns HTTP 400 on schema errors, and
-     # curl -f would discard the body — i.e. swallow the very message we want.
-     STATE_ERROR=$(curl -s "$AIDECK_URL/api/projects/$pid/state/$AIDECK_STATE_DOMAIN" 2>/dev/null \
-       | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.error){const e=j.error,d=e.details||{};const loc=d.path?` | file: ${d.path}`:"";const n=d.totalErrors&&d.totalErrors>1?` (+${d.totalErrors-1} more)`:"";process.stdout.write(`${e.message}${n}${loc}`)}}catch(_){}})' 2>/dev/null)
+     STATE_ERROR=$(curl -s "$AIDECK_URL/api/consumers/$AIDECK_CONSUMER/projects/$pid/data/plans" 2>/dev/null \
+       | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.error){process.stdout.write(j.error.message||"data load error")}}catch(_){}})' 2>/dev/null)
    fi
 
    # 4. Output
@@ -115,7 +112,7 @@ Steps:
 
    Parse the output: if `AIDECK_URL` is non-empty, aiDeck is running.
 
-2. **Auto-repair on `STATE_ERROR`.** If the script printed a non-empty `STATE_ERROR=...` line, this project's state failed aiDeck's `.strict()` schema validation — the dashboard would otherwise show `⊘ <project> — failed to load` with the real reason hidden. Repair the data **automatically** (do not just report it), then continue:
+2. **Repair on `STATE_ERROR`.** A non-empty `STATE_ERROR=...` line means a dataSource failed to load — under Model-B aiDeck reads are per-dataSource and do **not** strict-validate, so this is an io/YAML-parse error (not a schema reject). Run the normalizer as a best-effort hygiene pass (it also keeps the data clean for `aideck validate` against the consumer `schema.json`), then continue:
 
    a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it in this order and run the first that exists:
       ```bash
@@ -134,8 +131,8 @@ Steps:
    e. Then continue to open the browser so the user sees the corrected card.
 
 3. If `AIDECK_URL` is non-empty:
-   - Open the browser: `open "$AIDECK_URL"` (macOS) or `xdg-open "$AIDECK_URL"` (Linux). On failure, print the URL for the user.
-   - Print: `Dashboard: <url>`
+   - Build the consumer URL: `DASH="$AIDECK_URL/$AIDECK_CONSUMER?project=$pid"` (the Model-B consumer page, project pre-selected). Open it: `open "$DASH"` (macOS) or `xdg-open "$DASH"` (Linux). On failure, print the URL for the user.
+   - Print: `Dashboard: <DASH>`
 
 4. If `AIDECK_URL` is empty (binary not found, spawn failure):
    - Fall back to the **terminal view** (`--terminal` behavior below)
@@ -241,9 +238,9 @@ Last 10 entries from the archive dirs — nested `.atomic-skills/projects/*/*/ph
 Opens the aiDeck dashboard in the browser, optionally deep-linking to a specific plan or initiative. This is the same mechanism used by the default view — the `--browser` flag is kept as an explicit alias for cases where the user invoked `--terminal` or a mutation command and now wants to jump to the dashboard.
 
 1. Run the ensure-aideck script from the default view (step 1) to get `AIDECK_URL`.
-2. If `AIDECK_URL` is non-empty:
-   - If `<slug>` is provided: determine if it matches a plan or initiative, and open its aiDeck route. (The nested-layout route is `<AIDECK_URL>/projects/<project-id>/<slug>`; the legacy `<AIDECK_URL>/plans/<slug>` ⁄ `<AIDECK_URL>/initiatives/<slug>` routes remain until the aiDeck consumer side is rewritten — see Inc7/R-MIG-14.)
-   - If no `<slug>`: open the root URL (HomePage).
+2. If `AIDECK_URL` is non-empty (`pid` = the registered project id from the contract block):
+   - If `<slug>` is provided: open the consumer page with the plan/phase deep-linked — `<AIDECK_URL>/$AIDECK_CONSUMER/plan/<slug>?project=<pid>` (or `/phase/<slug>`); the page resolves the slug against the project's dataSources.
+   - If no `<slug>`: open `<AIDECK_URL>/$AIDECK_CONSUMER?project=<pid>` (the consumer overview).
    - Open via `open` (macOS) or `xdg-open` (Linux); fall back to printing the URL.
 3. If `AIDECK_URL` is empty: print error and suggest `atomic-skills install`.
 
@@ -308,6 +305,6 @@ By choice:
 
 ## aiDeck integration notes
 
-When [aiDeck](https://github.com/henryavila/aideck) is running alongside this skill, it observes the canonical files in `.atomic-skills/` via a chokidar watcher and projects them onto the dashboard at the URL written to `~/.aideck/env` (default port 7777, auto-fallback to 7778–7787 if busy; use `aideck up` to ensure it is running and discover the actual URL). The skill always writes the files directly — aiDeck does NOT serve as an intermediary for mutations. Its MCP mutation tools (`aideck_mark_task_done`, etc.) record append-only intents and are intended for cross-tool consumers like other AI IDEs; the `project` skill itself does not call them, because the file-write path is faster and the intent log would just shadow the same change.
+When [aiDeck](https://github.com/henryavila/aideck) is running alongside this skill, the `atomic-skills` v2 consumer reads the repo's canonical `.atomic-skills/` tree IN PLACE (root:'project' dataSources) and projects it onto the dashboard at the URL written to `~/.aideck/env` (default port 7777, auto-fallback to 7778–7787 if busy; use `aideck up` to ensure it is running and discover the actual URL). The skill always writes the files directly — aiDeck does NOT serve as an intermediary for mutations. Its MCP mutation tools (`aideck_atomic_skills_mark_task_done`, etc.) record append-only intents to `.atomic-skills/bootstrap-drafts/inbox/` and are intended for cross-tool consumers like other AI IDEs; the `project` skill itself does not call them, because the file-write path is faster and the intent log would just shadow the same change.
 
-The dashboard surface (v0.1) is read-only: it renders plans, initiatives, exit gates, annotations, and highlights, and does not mutate state from the browser. Human input flows through `inbox/*.jsonl` JSONL files that this skill drains on demand (a future task). In short: files are canonical, the dashboard is a projection, and there is no "MCP-or-file" choice for this skill.
+The dashboard surface is read-only: it renders plans, initiatives, tasks, and exit gates, and does not mutate state from the browser. Human/agent input flows through `.atomic-skills/bootstrap-drafts/inbox/*.jsonl` intent records that this skill drains on demand. In short: files are canonical, the dashboard is a projection, and there is no "MCP-or-file" choice for this skill.

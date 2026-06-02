@@ -175,11 +175,11 @@ describe('project skill (unified router + lazy assets)', () => {
   it('project-view quarantines the aiDeck contract behind a single named constant', () => {
     install();
     const content = readAsset('project-view.md');
-    // The cross-repo domain string is preserved (NOT renamed) and parameterized.
-    assert.match(content, /AIDECK_STATE_DOMAIN="project-status"/);
+    // Model-B: the consumer id is the single parameterized contract constant.
+    assert.match(content, /AIDECK_CONSUMER="atomic-skills"/);
     assert.match(content, /AIDECK CONTRACT/);
-    // The curl uses the parameter, not a hardcoded inline domain.
-    assert.match(content, /state\/\$AIDECK_STATE_DOMAIN/);
+    // The data curl uses the parameter, not a hardcoded inline consumer/path.
+    assert.match(content, /consumers\/\$AIDECK_CONSUMER\/projects\/\$pid\/data/);
     // Separation of produce-data vs deliver-to-aiDeck is documented.
     assert.match(content, /[Pp]roduce the data/);
     assert.match(content, /[Dd]eliver to aiDeck/);
