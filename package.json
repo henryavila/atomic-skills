@@ -24,6 +24,7 @@
     "new-skill": "node scripts/new-skill.js",
     "validate-skills": "node scripts/validate-skills.js",
     "validate-state": "node scripts/validate-state.js",
+    "build:aideck-schema": "node scripts/build-aideck-consumer-schema.mjs",
     "detect-scope": "node scripts/detect-scope.js",
     "generate-readme": "node scripts/generate-readme.js",
     "generate-helpview-data": "node scripts/generate-helpview-data.js",

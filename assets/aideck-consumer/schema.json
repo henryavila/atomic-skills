@@ -1,0 +1,1090 @@
+{
+  "$id": "atomic-skills-schema",
+  "definitions": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": [
+        "0.1",
+        "0.2"
+      ],
+      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). 0.2 is additive-optional over 0.1 (mutation/manual/task.evidence fields); a one-shot src/migrate.js migrate01to02 stamps new files to '0.2'. A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
+    },
+    "isoTimestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})$",
+      "description": "ISO 8601 timestamp with explicit Z or ±HH:MM offset."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$",
+      "description": "kebab-case identifier. Lowercase, starts with letter, 2-64 chars."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surfacedAt"
+      ],
+      "description": "Records when and how an item (task or phase) was added AFTER the initial materialization of its container. Absent on items that shipped in the original plan/initiative; present on items added mid-execution via the agent-proposes / user-invokes flow described in skills/core/project-status.md. When present on a task/phase, `context` becomes mandatory.",
+      "properties": {
+        "surfacedAt": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "surfacedDuring": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Either `<initiative-slug>/<task-id>` (most common: emerged while working on a specific task) or `<initiative-slug>` (emerged during initiative-level work) or a short free-form note when no anchor is appropriate."
+        },
+        "surfacedBy": {
+          "type": "string",
+          "enum": [
+            "human",
+            "ai"
+          ],
+          "description": "Who surfaced the item — human in conversation, or AI that noticed it while working."
+        },
+        "originalPhaseId": {
+          "type": "string",
+          "description": "For tasks moved cross-phase via reanchor: the phase the task originally belonged to."
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "solves",
+        "trigger",
+        "ratifiedAt"
+      ],
+      "description": "Captures the WHY of an item that wasn't part of the original materialization. `solves` and `trigger` answer 'what problem does this address?' and 'what made it surface?'. `ratifiedAt` records that the human explicitly approved this articulation (vs. an agent-only draft). Mandatory on every `parked` and `emerged` entry, and on any task/phase that also carries `provenance`. The mandatory-ratify flow lives in skills/core/project-status.md under 'Emergent work — proposal / ratify / commit pattern'.",
+      "properties": {
+        "solves": {
+          "type": "string",
+          "minLength": 8,
+          "description": "One-sentence statement of the problem this item addresses. Read first when re-evaluating the backlog — if `solves` no longer applies, the item is stale."
+        },
+        "trigger": {
+          "type": "string",
+          "minLength": 8,
+          "description": "What caused the item to surface — an incident, a code-review finding, a test failure, an observation while implementing another task, a user request. Concrete, not generic."
+        },
+        "assumesStillValid": {
+          "type": "array",
+          "default": [],
+          "description": "Premises that, if invalidated, render the item moot. Used by re-evaluation prompts and `lastReviewedAt`-aging banners — when any item in this list is no longer true, the item should be re-ratified or archived.",
+          "items": {
+            "type": "string",
+            "minLength": 4
+          }
+        },
+        "ratifiedAt": {
+          "$ref": "#/definitions/isoTimestamp",
+          "description": "Timestamp of the explicit user confirmation (`ratify` command or equivalent paste-back). Distinct from `provenance.surfacedAt` — a thing can be surfaced by the agent at T1 and only ratified by the human at T2."
+        },
+        "ratifiedBy": {
+          "type": "string",
+          "enum": [
+            "human",
+            "ai-with-explicit-user-confirm"
+          ],
+          "default": "human",
+          "description": "Almost always `human`. `ai-with-explicit-user-confirm` covers the narrow case where the user authorized the agent (mid-conversation) to ratify on their behalf — recorded so audits can distinguish."
+        },
+        "lastReviewedAt": {
+          "$ref": "#/definitions/isoTimestamp",
+          "description": "Last time the item's `solves` and `assumesStillValid` were re-checked against current reality. Initialized to `ratifiedAt` on creation; updated by future `re-ratify` runs. Aging thresholds in `.atomic-skills/status/config.json`."
+        }
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "url",
+            "repo-path",
+            "section"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "inside_repo": {
+          "type": "boolean"
+        },
+        "gitignored": {
+          "type": "boolean"
+        }
+      }
+    },
+    "exitCriterionVerifier": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "command"
+          ],
+          "properties": {
+            "kind": {
+              "const": "shell"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "expectExitCode": {
+              "type": "integer"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "sql"
+          ],
+          "properties": {
+            "kind": {
+              "const": "query"
+            },
+            "sql": {
+              "type": "string",
+              "minLength": 1
+            },
+            "expectRowCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "runner",
+            "pattern"
+          ],
+          "properties": {
+            "kind": {
+              "const": "test"
+            },
+            "runner": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "description"
+          ],
+          "properties": {
+            "kind": {
+              "const": "manual"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "demoCommand": {
+              "type": "string",
+              "minLength": 1,
+              "description": "0.2 (manual gate): command that brings the change to a demoable state (run before generating the acceptance script). If absent, the criterion is only manually-checkable as-is."
+            },
+            "fallbackKind": {
+              "type": "string",
+              "enum": [
+                "ui",
+                "cli",
+                "library",
+                "api"
+              ],
+              "description": "0.2 (manual gate): the user-visible surface the manual check exercises, used to pick the acceptance-script template when no demoCommand applies."
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "0.2 (manual gate): generated imperative Given/When/Then acceptance steps (<10), concrete data."
+            },
+            "expected": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "0.2 (manual gate): the observable result(s) the user must confirm for each EXPECT step."
+            },
+            "data": {
+              "type": "string",
+              "description": "0.2 (manual gate): concrete input data the acceptance script uses (so the check is reproducible, not abstract)."
+            }
+          }
+        }
+      ]
+    },
+    "exitCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verifier": {
+          "$ref": "#/definitions/exitCriterionVerifier"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "met",
+            "deferred"
+          ]
+        },
+        "metAt": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "deferredReason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "verifierKind",
+            "verifiedAt"
+          ],
+          "description": "Captured result of running the criterion's verifier. Written by the project-status skill's phase-done workflow. Read by aiDeck (when present) to render gate evidence.",
+          "properties": {
+            "verifierKind": {
+              "type": "string",
+              "enum": [
+                "shell",
+                "query",
+                "test",
+                "manual"
+              ]
+            },
+            "verifiedAt": {
+              "$ref": "#/definitions/isoTimestamp"
+            },
+            "passed": {
+              "type": "boolean",
+              "description": "True iff the verifier produced the expected result. Stored even when status='met' to disambiguate user-overrides from verified passes."
+            },
+            "exitCode": {
+              "type": "integer",
+              "description": "Shell verifier: actual exit code observed."
+            },
+            "rowCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Query verifier: row count observed (kind:query is DEFERRED-BY-DESIGN in this line; never reaches met without a real rowCount)."
+            },
+            "testsCollected": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "0.2 (test verifier): number of tests the runner actually collected/ran, parsed from output. A pattern that matched 0 tests must NOT reach status:met (R-XAGENT-07 false-green guard)."
+            },
+            "outputSummary": {
+              "type": "string",
+              "description": "Brief excerpt of verifier output (truncated to ~500 chars). For manual verifier, the user's confirmation note."
+            },
+            "mutation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target",
+                "change",
+                "killedBy"
+              ],
+              "description": "0.2 (test verifier, G9 mutation-kill): records a behavioral mutation injected at a recorded file:line that a test must catch. A surviving behavioral mutant = tautological/mock-only test = HARD FAIL. Maps to a NAMED acceptance criterion + adversarial pick (fork-3).",
+              "properties": {
+                "target": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "file:line where the behavioral mutation was injected."
+                },
+                "change": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "the behavioral mutation applied (e.g. flipped a comparison, off-by-one)."
+                },
+                "killedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "the test(s) that went RED on the mutation (empty = surviving mutant = fail)."
+                },
+                "killTranscript": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "description": "≤500-char excerpt of the inject→RED→revert→GREEN transcript."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "phaseDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "slug",
+        "title",
+        "goal",
+        "dependsOn",
+        "subPhaseCount",
+        "exitGate",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slug": {
+          "$ref": "#/definitions/slug"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "parallelWith": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "track": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "subPhaseCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exitGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "summary",
+            "criteria"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "criteria": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/exitCriterion"
+              }
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "paused",
+            "done",
+            "archived"
+          ]
+        },
+        "externalImports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/artifactRef"
+          }
+        },
+        "exitGateType": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "ui-gate",
+            "custom"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        },
+        "context": {
+          "$ref": "#/definitions/context"
+        }
+      },
+      "allOf": [
+        {
+          "description": "Phases inserted mid-plan (with provenance) must articulate WHY via context. Original-materialization phases live without context — their narrative is the plan body.",
+          "if": {
+            "required": [
+              "provenance"
+            ]
+          },
+          "then": {
+            "required": [
+              "context"
+            ]
+          }
+        }
+      ]
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "status",
+        "lastUpdated"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "done",
+            "blocked"
+          ]
+        },
+        "lastUpdated": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "closedAt": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "blockedBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/taskOutput"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "resourceCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "scopeBoundary": {
+          "description": "Explicit exclusions — what this task must NOT do. Prevents scope creep at the task level.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "acceptance": {
+          "description": "Executable acceptance criteria in it()-style assertions. Max 5 items.",
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "verifier": {
+          "$ref": "#/definitions/exitCriterionVerifier"
+        },
+        "evidence": {
+          "$ref": "#/definitions/exitCriterion/properties/evidence",
+          "description": "0.2 (F-B4): captured result of running this task's `verifier` on `done <task-id>`, reusing the exact exitCriterion.evidence shape. Replaces the v0.1 description-note string-laundering workaround so per-task verifier results are machine-enforceable (GATE-R2)."
+        },
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        },
+        "context": {
+          "$ref": "#/definitions/context"
+        }
+      },
+      "allOf": [
+        {
+          "description": "Tasks added mid-execution (with provenance) must articulate WHY via context. Original-materialization tasks live without context — their narrative is the plan/initiative body.",
+          "if": {
+            "required": [
+              "provenance"
+            ]
+          },
+          "then": {
+            "required": [
+              "context"
+            ]
+          }
+        }
+      ]
+    },
+    "taskOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "command",
+            "file",
+            "migration",
+            "json",
+            "test"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "plan": {
+      "title": "atomic-skills Plan frontmatter (schemaVersion 0.1)",
+      "description": "Validates the YAML frontmatter of `.atomic-skills/plans/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "slug",
+        "title",
+        "version",
+        "status",
+        "started",
+        "lastUpdated",
+        "currentPhase",
+        "parallelismAllowed",
+        "phases"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "$ref": "#/definitions/schemaVersion"
+        },
+        "slug": {
+          "$ref": "#/definitions/slug"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "paused",
+            "done",
+            "archived"
+          ]
+        },
+        "started": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "lastUpdated": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "currentPhase": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parallelismAllowed": {
+          "type": "boolean"
+        },
+        "principles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "body"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "glossary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "term",
+              "definition"
+            ],
+            "properties": {
+              "term": {
+                "type": "string",
+                "minLength": 1
+              },
+              "definition": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "tracks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "domain": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/phaseDescriptor"
+          }
+        },
+        "interPhaseGates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "criteria"
+            ],
+            "properties": {
+              "from": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              },
+              "criteria": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "supersedes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "supersedeScope"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "supersedeScope": {
+              "type": "string",
+              "enum": [
+                "full",
+                "partial"
+              ]
+            },
+            "partialAreas": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "remainsValid": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/artifactRef"
+          }
+        },
+        "whatStaysValid": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "initiative": {
+      "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1)",
+      "description": "Validates the YAML frontmatter of `.atomic-skills/initiatives/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives omit `parentPlan` and `phaseId`.",
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "slug",
+        "title",
+        "goal",
+        "status",
+        "branch",
+        "started",
+        "lastUpdated",
+        "nextAction",
+        "exitGates",
+        "stack",
+        "tasks",
+        "parked",
+        "emerged"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "$ref": "#/definitions/schemaVersion"
+        },
+        "slug": {
+          "$ref": "#/definitions/slug"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "paused",
+            "done",
+            "archived"
+          ]
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "started": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "lastUpdated": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "nextAction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parentPlan": {
+          "$ref": "#/definitions/slug"
+        },
+        "phaseId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience": {
+          "type": "string"
+        },
+        "exitGates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/exitCriterion"
+          }
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paths"
+          ],
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "stack": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "type",
+              "openedAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "task",
+                  "research",
+                  "validation",
+                  "discussion"
+                ]
+              },
+              "openedAt": {
+                "$ref": "#/definitions/isoTimestamp"
+              }
+            }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/task"
+          }
+        },
+        "parked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "title",
+              "surfacedAt",
+              "fromFrame",
+              "context"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "surfacedAt": {
+                "$ref": "#/definitions/isoTimestamp"
+              },
+              "fromFrame": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "context": {
+                "$ref": "#/definitions/context"
+              }
+            }
+          }
+        },
+        "emerged": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "title",
+              "surfacedAt",
+              "promoted",
+              "context"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "surfacedAt": {
+                "$ref": "#/definitions/isoTimestamp"
+              },
+              "promoted": {
+                "type": "boolean"
+              },
+              "context": {
+                "$ref": "#/definitions/context"
+              }
+            }
+          }
+        },
+        "externalImports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/artifactRef"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/artifactRef"
+          }
+        },
+        "crossTaskRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fromTaskId",
+              "toInitiativeSlug",
+              "toTaskId",
+              "relation"
+            ],
+            "properties": {
+              "fromTaskId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "toInitiativeSlug": {
+                "$ref": "#/definitions/slug"
+              },
+              "toTaskId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "depends_on",
+                  "extends",
+                  "unblocks",
+                  "references"
+                ]
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

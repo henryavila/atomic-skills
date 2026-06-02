@@ -40,6 +40,17 @@ function installRuntimeArtifacts() {
     if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
     cpSync(dashboardSrc, dashboardDest, { recursive: true });
   }
+
+  // aiDeck v2 consumer (manifest + schema.json + script handlers) →
+  // ~/.aideck/consumers/atomic-skills/. aiDeck discovers consumers by scanning
+  // ~/.aideck/consumers/*/manifest.yaml; this is how the project skill plugs its
+  // nested .atomic-skills/ tree into the dashboard + MCP tools (R-MIG-14).
+  const consumerSrc = join(PACKAGE_ROOT, 'assets', 'aideck-consumer');
+  if (existsSync(join(consumerSrc, 'manifest.yaml'))) {
+    const consumerDest = join(homedir(), '.aideck', 'consumers', 'atomic-skills');
+    if (existsSync(consumerDest)) rmSync(consumerDest, { recursive: true, force: true });
+    cpSync(consumerSrc, consumerDest, { recursive: true });
+  }
 }
 
 function generateNamespaceRoot() {
