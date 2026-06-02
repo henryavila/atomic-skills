@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, collectTargets } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,13 +15,14 @@ const SCHEMA_DIR = join(REPO_ROOT, 'meta', 'schemas');
 
 function buildValidators() {
   const ajv = new Ajv({ allErrors: true, strict: false });
-  for (const name of ['common.schema.json', 'plan.schema.json', 'initiative.schema.json']) {
+  for (const name of ['common.schema.json', 'plan.schema.json', 'initiative.schema.json', 'routing.schema.json']) {
     const schema = JSON.parse(readFileSync(join(SCHEMA_DIR, name), 'utf8'));
     ajv.addSchema(schema);
   }
   return {
     validatePlan: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/plan.schema.json'),
     validateInitiative: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/initiative.schema.json'),
+    validateRouting: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/routing.schema.json'),
   };
 }
 
@@ -844,5 +845,140 @@ test('GATE-R2 wiring: validateFile REJECTS a schema-valid file whose met criteri
     assert.match(result.errors.join('\n'), /NO evidence block/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// R-XAGENT-10 / R-EXEC-41 — Mode 2 routing config (status/routing.json)
+// ---------------------------------------------------------------------------
+
+/** Write a routing.json under <root>/status/ and return the file path. */
+function writeRouting(root, config) {
+  const statusDir = join(root, 'status');
+  mkdirSync(statusDir, { recursive: true });
+  const p = join(statusDir, 'routing.json');
+  writeFileSync(p, typeof config === 'string' ? config : JSON.stringify(config, null, 2));
+  return p;
+}
+
+test('routing: empty object {} is valid (all defaults ⇒ Mode-1)', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, {});
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, true, result.errors.join('\n'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: a fully-specified enabled config validates', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, {
+      mode2Enabled: true,
+      tierMap: { cheap: 'claude-haiku-4-5', standard: 'claude-sonnet-4-6' },
+      codexLane: { enabled: true, model: 'gpt-5-codex', timeoutSeconds: 600, sandbox: 'workspace-write' },
+      thresholds: { minBatchTasks: 3, requireDeterministicVerifier: true },
+      ideOverrides: { gemini: { subagentExecutor: false } },
+    });
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, true, result.errors.join('\n'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: Opus is REJECTED as an executor tier target (R-EXEC-41)', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, { tierMap: { cheap: 'claude-opus-4-8' } });
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, false, 'a tierMap value naming an Opus model must be rejected');
+    assert.match(result.errors.join('\n'), /tierMap\/cheap/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: Opus rejected case-insensitively (Opus / OPUS)', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    for (const name of ['Opus-X', 'OPUS', 'claude-OPUS-4']) {
+      const p = writeRouting(dir, { tierMap: { standard: name } });
+      const result = validateRouting(p, validators);
+      assert.equal(result.ok, false, `'${name}' must be rejected as an executor target`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: codexLane.sandbox is locked to "workspace-write"', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, { codexLane: { sandbox: 'read-only' } });
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, false, 'sandbox other than workspace-write must be rejected');
+    assert.match(result.errors.join('\n'), /sandbox/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: unknown top-level keys are rejected (additionalProperties:false)', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, { costPerToken: 0.003 });
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, false, '$/token framing has no field by design; unknown keys rejected');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: wrong types are rejected', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, { mode2Enabled: 'yes', thresholds: { minBatchTasks: 0 } });
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: malformed JSON is a HARD failure, not a silent Mode-1 fallback', () => {
+  const validators = buildValidators();
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, '{ "mode2Enabled": true, ');
+    const result = validateRouting(p, validators);
+    assert.equal(result.ok, false);
+    assert.match(result.errors.join('\n'), /JSON parse error/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('routing: collectRoutingConfigs finds status/routing.json under a dir arg, ignores absent', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'routing-'));
+  const dirNoConfig = mkdtempSync(join(tmpdir(), 'routing-'));
+  try {
+    const p = writeRouting(dir, {});
+    const found = collectRoutingConfigs([dir, dirNoConfig]);
+    assert.deepEqual(found, [p], 'only the dir with a config yields a path; absent config is not an error');
+    // file args are not state roots
+    assert.deepEqual(collectRoutingConfigs([p]), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(dirNoConfig, { recursive: true, force: true });
   }
 });

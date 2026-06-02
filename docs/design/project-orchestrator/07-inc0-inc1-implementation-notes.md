@@ -1,6 +1,6 @@
 # Inc0–Inc5 — implementation notes & verified ground-truth corrections
 
-> **Status:** Inc0 + Inc1 + Inc2 + Inc3 + Inc4 + Inc5 (Mode 1) DONE (2026-06-01). Branch `dogfood/self-host-migration`. **Next = Inc6** (verify+migrate command + dogfood cut-over) — and WF-IMPL-2 (Mode 2, Codex-only) once merge-back (R-XAGENT-03) + `status/routing.json` (R-XAGENT-10) are specified. See the `## SESSION HANDOFF` block at the END of this file to resume. (Pressure-test records: Inc3 → `08-inc3-pressure-tests.md`, Inc5 → `09-inc5-pressure-tests.md`. Inc4/Inc5 detail: this file `## Inc4`/`## Inc5`.)
+> **Status:** Inc0–Inc6 (Mode 1) DONE + D7 layout cut-over LIVE-DONE (2026-06-02) + **WF-IMPL-2 PREREQ A (R-XAGENT-10 routing config) DONE** (2026-06-02, suite 703 green). Branch `dogfood/self-host-migration`. **Next = WF-IMPL-2 PREREQ B = R-XAGENT-03** (operator-prompted merge-back v1), THEN the Codex `workspace-write` lane (R-EXEC-35 + handoff + runtime gate + sidecar telemetry; pressure-test owed). See the `## SESSION HANDOFF` block at the END of this file to resume. (Pressure-test records: Inc3 → `08-inc3-pressure-tests.md`, Inc5 → `09-inc5-pressure-tests.md`. Inc4/Inc5 detail: this file `## Inc4`/`## Inc5`; Inc6 + PREREQ A: this file `## Inc6` / `## WF-IMPL-2 PREREQ A`.)
 > This file is the durable record of what was BUILT (vs. designed) and where the appendices' `file:line` claims drifted from the real code. A ground-truth verification sweep (6 parallel readers) ran before any code; its corrections are recorded here so future sessions trust the code, not the snapshot in 01/05.
 
 ## Ground-truth verification — 5 material corrections to the appendices
@@ -192,17 +192,32 @@ Inc6 closed the migration: the flat→nested layout move (`R-MIG-19/20/24`), the
 
 ---
 
-## SESSION HANDOFF — Inc6+D7 DONE; next = WF-IMPL-2 (Mode 2) or Inc7 (2026-06-02)
+## WF-IMPL-2 PREREQ A — routing config schema (R-XAGENT-10 / R-EXEC-41) BUILT (2026-06-02)
+
+The first of the two hard prerequisites that gate the Mode-2 Codex lane. Pure, deterministic, mechanical — no owned discipline block, so (like Inc4/Inc6) **no pressure-test owed**.
+
+**What shipped:**
+- **`meta/schemas/routing.schema.json`** — the 4th schema, validating the operator-supplied `.atomic-skills/status/routing.json`. Draft 2020-12, `$id …/routing.schema.json`. `additionalProperties:false`, **no required fields** (an empty `{}` is valid ⇒ all-defaults; an ABSENT file ⇒ Mode-1-only, never validated). Fields per §3.7: `mode2Enabled` (default false), `tierMap{cheap,standard}` (values are `#/$defs/nonOpusModel` — a `not: pattern [Oo][Pp][Uu][Ss]` so **Opus can never be an executor target**, R-EXEC-41 acceptance), `codexLane{enabled,model,timeoutSeconds:600,sandbox CONST 'workspace-write'}`, `thresholds{minBatchTasks:3,requireDeterministicVerifier:true}`, `ideOverrides{gemini{subagentExecutor:false}}`. `$/token` has no field **by design** (rejected via additionalProperties:false).
+- **`scripts/validate-state.js` wiring** — `SCHEMA_FILES.routing` added to the loader (the 3→4 schema bump the spec flagged at lines 23-48); `buildAjv` returns `validateRouting`; new exported `collectRoutingConfigs(args)` (dir args → `<root>/status/routing.json`, absent = silently skipped, file args ignored) + `validateRouting(path, validators)` (**malformed JSON / present-but-broken = HARD failure**, never a silent Mode-1 fallback that would mask an operator typo). `main()` folds routing failures into the exit code and prints `✓ …/routing.json [routing]` / a `routingNote` in the summary. `kindFromPath`/`validateFile` are untouched — routing.json is NOT a `.md` frontmatter doc.
+- **Tests:** +9 in `tests/validate-state.test.js` (empty-ok, full-config-ok, Opus-rejected, Opus-case-insensitive, sandbox-locked, additionalProperties, wrong-types, malformed-JSON-hard-fail, collectRoutingConfigs discovery). `buildValidators()` test helper now loads the 4th schema.
+
+**Verification:** `npm test` → **703 pass / 0 fail** (was 694; +9). Live `validate-state` still 22 valid / 6 plans GREEN (no live routing.json ⇒ no routing line, correct Mode-1 default). CLI smoke: valid config → `1 routing config(s) valid`; `tierMap.cheap=claude-opus-4-8` → `✖ /tierMap/cheap: must NOT be valid` + exit 1. No catalog/doc drift (validate-state is outside the husky INPUTS/COUPLED regex).
+
+**Still gating Mode 2 (PREREQ B):** R-XAGENT-03 — operator-prompted merge-back v1 (recommendation (c)): manual merge from the Codex worktree + MANDATORY verifier re-run on the MERGED tree before status=done; conflict ⇒ abort done, leave active. Authored in `worktree-isolation.md`/`implement.md` before the Mode-2 path. Owns discipline (cheap-executor-never-self-certify in dispatch + merge-back) ⇒ **owes a pressure-test when Mode 2 ships.**
+
+---
+
+## SESSION HANDOFF — R-XAGENT-10 DONE; next = R-XAGENT-03 (merge-back) then the Codex lane (2026-06-02)
 
 **Read order for the resuming session:** this block → `00-CANON.md` RESUME HERE → this file `## Inc6` → for **WF-IMPL-2**: `03-execution-mode2-spec.md` + `01-…§3` (WF-IMPL-2) + `R-XAGENT-03` merge-back + `R-XAGENT-10` `status/routing.json` (both must be specified+tested BEFORE Mode 2 ships) → for **Inc7**: `01-…§2.4` R-MIG-09..18/22/23 (aiDeck + prose/schema long tail, sequenced WITH the aiDeck rewrite).
 
 **State (verbatim):**
 - Branch `dogfood/self-host-migration` (base `main`). Inc6 source committed `cf56d10`. **The D7 cut-over mutated the live gitignored `.atomic-skills/` tree (not tracked) — already done, snapshot at `/tmp/atomic-skills-state-20260602T092810Z.tgz`.**
 - Commits (newest first): `cf56d10` Inc6 · `340992a` handoff(resume@Inc6) · `24d8e38` Inc5 · … (`main` tip before this work: `7500822`).
-- Suite: `npm test` → **694 pass / 0 fail** (Inc5 baseline 676; +18 migrate tests). Strip-test 80/80. Pre-write hooks 66/66. `validate-catalog` clean (14 skills).
+- Suite: `npm test` → **703 pass / 0 fail** (Inc6 694 + 9 routing-schema tests). Strip-test 80/80. Pre-write hooks 66/66. `validate-catalog` clean (14 skills).
 - **Live tree (post-D7): `validate-state` → 22 valid / 6 plans cross-validated GREEN, fully nested.** No flat `plans/`/`initiatives/`.
 - ⚠️ Pre-existing, OUT OF SCOPE: `tests/hooks/session-start.test.sh` still fails on clean HEAD (NOT in `npm test`; hangs at "Plan + matching Initiative"; unrelated). Separate hooks pass.
 
-**Next concrete step:** **WF-IMPL-2 (Mode 2, Codex-only)** is the remaining lifecycle track — gated on `R-XAGENT-03` (deterministic merge-back) + `R-XAGENT-10` (`status/routing.json` + schema) being specified+tested FIRST, and it OWES a pressure-test (≥3 combined-pressure scenarios) for its new owned blocks (cheap-executor-never-self-certify in the dispatch path, merge-back discipline). Codex write-mode stays FENCED OUT of any live tree. Alternatively, **Inc7** (aiDeck-side + prose/schema long tail) can proceed advisory alongside the aiDeck rewrite. Optional cleanup: fix the aideck F4/F5 slug drift (above).
+**Next concrete step:** **PREREQ B = R-XAGENT-03** (operator-prompted merge-back v1, recommendation (c)) is the remaining Mode-2 gate now that PREREQ A (R-XAGENT-10 routing config) is DONE (see the `## WF-IMPL-2 PREREQ A` section above). Author it in `worktree-isolation.md`/`implement.md`: manual merge from the Codex worktree → MANDATORY verifier re-run on the MERGED tree before status=done → conflict ⇒ abort done, leave active. THEN build the Codex `--sandbox workspace-write` lane (R-EXEC-35) + handoff contract (R-EXEC-40, executor RECEIVES intent) + runtime dispatch gate (R-EXEC-43) + 2-question gate (R-EXEC-33) + sidecar `dispatch-log.json` (R-EXEC-42). The lane build + R-XAGENT-03's owned blocks (cheap-executor-never-self-certify in dispatch, merge-back discipline) OWE a pressure-test (≥3 combined-pressure scenarios). Codex write-mode stays FENCED OUT of any live tree. Alternatively, **Inc7** (aiDeck-side + prose/schema long tail) can proceed advisory alongside the aiDeck rewrite. Optional cleanup: fix the aideck F4/F5 slug drift (above).
 
 **Constraints (do NOT violate):** strip-test R-XAGENT-01 live (template vars only; CC-only host tools in `{{#if ide.claude-code}}` block-form; never write the literal `ide.claude-code` or `{{#if` in prose); pressure-test before any NEW owned discipline block; catalog/doc drift blocks the commit (husky regenerates); dogfood-leak guardrail (no decompose materialize / codex write-mode against the live tree without a redirected `stateRoot`).

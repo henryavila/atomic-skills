@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/routing.schema.json",
+  "title": "atomic-skills Mode 2 routing config (R-XAGENT-10 / R-EXEC-41)",
+  "description": "Validates the operator-supplied `.atomic-skills/status/routing.json`. This config is the ONLY surface that enables Mode 2 (Opus-plans / other-model-executes); the implement skill reads it and declares per-task tier REQUIREMENTS + the dispatch CONTRACT only — never the provider economics or cost narrative (those live here, operator-owned). ABSENT FILE ⇒ Mode-1-only defaults (mode2Enabled=false): Mode 1 self-exec is the unconditional default. An empty object `{}` is valid and means all defaults. `$/token` framing is an explicit non-goal and has no field here by design.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode2Enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Master switch. Default (and absent-file behaviour) is false ⇒ Mode-1-only. Must be set true explicitly AND a per-invocation flag passed (R-EXEC-44: never implicit)."
+    },
+    "tierMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-task executor tier → model. Opus is NEVER an executor target (it PLANS/REVIEWS/judges only, R-EXEC-18/19/53); a value naming an Opus model is rejected. Codex is a cross-provider lane (see codexLane), not a tier rung.",
+      "properties": {
+        "cheap": {
+          "$ref": "#/$defs/nonOpusModel",
+          "description": "1-2 files + complete spec. Typically Haiku."
+        },
+        "standard": {
+          "$ref": "#/$defs/nonOpusModel",
+          "description": "Multi-file integration. Typically Sonnet."
+        }
+      }
+    },
+    "codexLane": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The cross-provider OpenAI/Codex workspace-write lane (R-EXEC-35) — the only lane that takes work entirely off the Claude account (lever 2) and the sole Mode-2 lane on Gemini.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "model": { "type": "string", "minLength": 1 },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 600,
+          "description": "Passed to the portable run_with_timeout wrapper (124+142 ⇒ timeout, perl-alarm macOS fallback)."
+        },
+        "sandbox": {
+          "const": "workspace-write",
+          "description": "Locked. The lane flips read-only→workspace-write and changes NOTHING else from invocation-canonical.txt; -a never / no --yolo / no --full-auto stay verbatim and are not configurable here."
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minBatchTasks": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3,
+          "description": "Firing floor K (R-EXEC-32): the Mode-2 gate does not even fire below this many dispatch-eligible tasks."
+        },
+        "requireDeterministicVerifier": {
+          "type": "boolean",
+          "default": true,
+          "description": "F2 hard disqualifier (R-EXEC-33): every task must carry a deterministic kind:test/kind:shell verifier. Default true; setting false is unsupported for v1 (the cascade economics depend on a near-free auto-running judge)."
+        }
+      }
+    },
+    "ideOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Host-specific lane availability (R-EXEC-36). On Gemini the investigator tool is likely read-only ⇒ the subagent executor lane collapses ⇒ Mode 2 = Codex-only.",
+      "properties": {
+        "gemini": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subagentExecutor": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether an in-tree subagent executor lane is dispatchable on Gemini. Default false (Codex-only on Gemini)."
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonOpusModel": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "pattern": "[Oo][Pp][Uu][Ss]",
+        "$comment": "Opus must never be an executor target (R-EXEC-41 acceptance). Reject any model name containing 'opus' in any case."
+      }
+    }
+  }
+}

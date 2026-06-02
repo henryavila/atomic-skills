@@ -26,12 +26,18 @@ const SCHEMA_FILES = {
   common: 'common.schema.json',
   plan: 'plan.schema.json',
   initiative: 'initiative.schema.json',
+  routing: 'routing.schema.json',
 };
 
 /**
- * Load the three schemas and register them with a fresh Ajv instance.
+ * Load the schemas and register them with a fresh Ajv instance.
  * The $ref strings inside the schemas use relative URIs (e.g.
  * "common.schema.json#/$defs/slug") that Ajv resolves against each schema's $id.
+ *
+ * `routing.schema.json` (R-XAGENT-10 / R-EXEC-41) is the 4th schema. It does NOT
+ * describe a `.md` frontmatter document — it validates the single operator-supplied
+ * `status/routing.json` config — so it is loaded here for `validateRouting` but is
+ * never selected by `kindFromPath` / `validateFile`.
  */
 function buildAjv() {
   const ajv = new Ajv({ allErrors: true, strict: false });
@@ -46,6 +52,7 @@ function buildAjv() {
   return {
     validatePlan: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/plan.schema.json'),
     validateInitiative: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/initiative.schema.json'),
+    validateRouting: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/routing.schema.json'),
   };
 }
 
@@ -187,6 +194,59 @@ export function collectTargets(args) {
     }
   }
   return targets;
+}
+
+/**
+ * Locate `status/routing.json` config files under the given args (R-XAGENT-10).
+ * A routing config lives at `<stateRoot>/status/routing.json`. Each directory arg
+ * is treated as a candidate state root; file args are ignored (a routing config is
+ * never a validation target file). Returns absolute paths to configs that EXIST —
+ * an ABSENT config is not an error (it means Mode-1-only defaults, R-EXEC-41), so
+ * it simply does not appear in the result.
+ */
+export function collectRoutingConfigs(args) {
+  const configs = [];
+  const seen = new Set();
+  for (const arg of args) {
+    const absPath = resolve(arg);
+    if (!existsSync(absPath) || !statSync(absPath).isDirectory()) continue;
+    const routingPath = join(absPath, 'status', 'routing.json');
+    if (existsSync(routingPath) && statSync(routingPath).isFile() && !seen.has(routingPath)) {
+      configs.push(routingPath);
+      seen.add(routingPath);
+    }
+  }
+  return configs;
+}
+
+/**
+ * Validate a single `status/routing.json` against routing.schema.json.
+ * Returns { ok, errors }. Malformed JSON is a hard error (a present-but-broken
+ * config must never silently fall back to Mode-1 defaults — that would mask an
+ * operator typo that disables the feature they think they enabled).
+ */
+export function validateRouting(routingPath, validators) {
+  let raw;
+  try {
+    raw = readFileSync(routingPath, 'utf8');
+  } catch (err) {
+    return { ok: false, errors: [`cannot read routing.json: ${err.message}`] };
+  }
+  let config;
+  try {
+    config = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, errors: [`JSON parse error: ${err.message}`] };
+  }
+  const ok = validators.validateRouting(config);
+  if (!ok) {
+    const errors = (validators.validateRouting.errors || []).map((e) => {
+      const where = e.instancePath || '(root)';
+      return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
+    });
+    return { ok: false, errors };
+  }
+  return { ok: true, errors: [] };
 }
 
 const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
@@ -419,8 +479,27 @@ function main() {
     }
   }
 
-  if (failed === 0 && crossErrors.length === 0) {
-    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated (schemaVersion 0.1/0.2)`);
+  // Mode 2 routing config (R-XAGENT-10). Absent ⇒ Mode-1 defaults, nothing to
+  // check. Present ⇒ must validate; a broken config is a hard failure.
+  let routingFailed = 0;
+  const routingConfigs = collectRoutingConfigs(args);
+  for (const routingPath of routingConfigs) {
+    const rel = routingPath.replace(`${process.cwd()}/`, '');
+    const result = validateRouting(routingPath, validators);
+    if (result.ok) {
+      console.log(`✓ ${rel}  [routing]`);
+    } else {
+      routingFailed += 1;
+      console.error(`\n✖ ${rel}  [routing]`);
+      for (const err of result.errors) {
+        console.error(`    - ${err}`);
+      }
+    }
+  }
+
+  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0) {
+    const routingNote = routingConfigs.length ? `, ${routingConfigs.length} routing config(s) valid` : '';
+    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote} (schemaVersion 0.1/0.2)`);
     process.exit(0);
   }
   if (failed > 0) {
@@ -428,6 +507,9 @@ function main() {
   }
   if (crossErrors.length > 0) {
     console.error(`✖ ${crossErrors.length} cross-validation error(s)`);
+  }
+  if (routingFailed > 0) {
+    console.error(`✖ ${routingFailed} routing config(s) failed validation`);
   }
   process.exit(1);
 }
