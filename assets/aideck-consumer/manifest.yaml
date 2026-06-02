@@ -97,3 +97,87 @@ pages:
             colSpan: 12
             source: { ref: initiatives }
             config: { titleField: title, subtitleField: status }
+
+# MCP tools — registered as aideck_atomic_skills_<name>. Script handlers read the
+# pre-loaded data map (project-scoped) and, for mutations, append an intent to the
+# repo's .atomic-skills/bootstrap-drafts/inbox/ which the atomic-skills skill applies.
+tools:
+  - name: mark_task_done
+    description: 'Record an intent to mark a task done; returns phaseCompleteHint when it was the last open task.'
+    input:
+      type: object
+      required: [initiativeSlug, taskId]
+      properties:
+        initiativeSlug: { type: string }
+        taskId: { type: string }
+        verifierResultId: { type: string }
+        by: { type: string, enum: [human, ai] }
+    handler: { type: script, source: handlers/mark-task-done.js }
+
+  - name: verify_exit_gate
+    description: 'Record an exit-gate criterion result (met|deferred|failed) on a plan phase or initiative; hints allGatesMet.'
+    input:
+      type: object
+      required: [criterionId, result]
+      properties:
+        initiativeSlug: { type: string }
+        planSlug: { type: string }
+        phaseId: { type: string }
+        criterionId: { type: string }
+        result: { type: string, enum: [met, deferred, failed] }
+        deferredReason: { type: string }
+        evidence: { type: object }
+        by: { type: string, enum: [human, ai] }
+    handler: { type: script, source: handlers/verify-exit-gate.js }
+
+  - name: get_next_action
+    description: 'Compute the next recommended action across plans and initiatives.'
+    input:
+      type: object
+      properties:
+        planSlug: { type: string }
+        initiativeSlug: { type: string }
+    handler: { type: script, source: handlers/get-next-action.js }
+
+  - name: get_dependencies
+    description: 'Resolve dependencies for a phase (plan) or task (initiative).'
+    input:
+      type: object
+      required: [scope]
+      properties:
+        scope: { type: string, enum: [phase, task] }
+        planSlug: { type: string }
+        phaseId: { type: string }
+        initiativeSlug: { type: string }
+        taskId: { type: string }
+    handler: { type: script, source: handlers/get-dependencies.js }
+
+  - name: health
+    description: 'Cross-entity health: stale initiatives, unmet gates, unconsumed inbox intents.'
+    input:
+      type: object
+      properties:
+        staleDays: { type: number }
+    handler: { type: script, source: handlers/health.js }
+
+  - name: pop_frame
+    description: 'Record an intent to pop the top stack frame from an initiative.'
+    input:
+      type: object
+      required: [initiativeSlug]
+      properties:
+        initiativeSlug: { type: string }
+        destination: { type: string }
+        by: { type: string, enum: [human, ai] }
+    handler: { type: script, source: handlers/pop-frame.js }
+
+  - name: promote_parked
+    description: 'Record an intent to promote a parked item (by title or index) to a task.'
+    input:
+      type: object
+      required: [initiativeSlug, parkedTitleOrIndex]
+      properties:
+        initiativeSlug: { type: string }
+        parkedTitleOrIndex: {}
+        by: { type: string, enum: [human, ai] }
+    handler: { type: script, source: handlers/promote-parked.js }

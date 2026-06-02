@@ -1,0 +1,25 @@
+import { appendIntent, findInitiative } from './_lib.js'
+
+// Record an intent to promote a parked item to a task. `parkedTitleOrIndex` is
+// either the parked item's title (string) or its index (number). Ported from
+// aideck mutate.ts.
+export default async function handler({ args, data, files }) {
+  const { initiativeSlug, parkedTitleOrIndex, by = 'ai' } = args
+  const initiative = findInitiative(data, initiativeSlug)
+  if (!initiative) throw new Error(`initiative not found: ${initiativeSlug}`)
+
+  const parked = initiative.parked ?? []
+  const found =
+    typeof parkedTitleOrIndex === 'number'
+      ? parked[parkedTitleOrIndex]
+      : parked.find((p) => p.title === parkedTitleOrIndex)
+  if (!found) throw new Error(`parked item not found: ${parkedTitleOrIndex}`)
+
+  const { intentId, recordedAt } = await appendIntent(files, {
+    operation: 'promote_parked',
+    target: { initiativeSlug },
+    args: { parkedTitle: found.title },
+    by,
+  })
+  return { accepted: true, intentId, recordedAt, note: 'Intent recorded; consumer skill applies.' }
+}
