@@ -3,6 +3,55 @@
 **Read this first to resume cold.** Companion docs: `12-*` (gap analysis), `13-*` (full plan).
 Memory breadcrumb: `project-aideck-v2-modelb-integration.md` (+ MEMORY.md line).
 
+---
+
+## ▶ START HERE — Phase C (validate end-to-end), then Phase D (npm publish)
+
+**Phases A + B + client are DONE, committed, and unit-validated** (aideck **590/590**, skills
+**705/705**; see the session-3 update lower in this doc). Trees are clean. The consumer is installed at
+`~/.aideck/consumers/atomic-skills/` (manifest + schema.json + 8 handler files). What's left is
+**live human-in-the-loop validation** then **publishing aiDeck**.
+
+**Branches:** aideck `feat/aideck-v2-generic-runtime` (HEAD `ca12075`) · atomic-skills
+`dogfood/self-host-migration` (HEAD `84ea19a`). Commit only on explicit request; stage files
+explicitly (aideck working tree has unrelated pre-existing `.atomic-skills/` changes — never bundle).
+
+### Phase C — validate end-to-end (browser + tools)
+1. **Build + serve** (changes are uncompiled TS in `../aideck`): `cd ../aideck && npx vite build` (client),
+   then start with the built client. Fastest faithful path is a throwaway `tsx` script that calls
+   `startServer({ rootDir: <repo>, port, staticDir: 'dist/client' })` (pattern: the `serve-check.ts`
+   used in session 2, already deleted — re-create it). Or `aideck up` once published.
+2. **Register + open**: `POST /api/projects/register {rootDir, projectId}` then open
+   `http://127.0.0.1:<port>/atomic-skills?project=<projectId>` in a browser (use the `verify` skill or
+   manual). Confirm the **project selector** shows, the **Overview** stats/plans-table/phases-kanban
+   render the live nested tree (this repo = 7 plans / 16 phases), and switching `?project=` works.
+3. **Exercise the 7 MCP tools** against a repo with rich task/stack/parked data (the session-3 handler
+   smoke used `/tmp/as-handler-fixture` — recreate it, or use a real initiative that has tasks). Verify
+   mutations land as intents in `<repo>/.atomic-skills/bootstrap-drafts/inbox/`.
+4. **Fix any drift** surfaced (schema ↔ live frontmatter; reuse `src/normalize.js`; see
+   `reference-aideck-card-failed-to-load`). Note: Model-B reads don't strict-validate, so most drift
+   only shows as odd widget rendering, not a hard error.
+
+### Phase D — publish aiDeck to npm
+1. Bump `@henryavila/aideck` (currently `0.0.1`) and `npm publish` from `../aideck`.
+2. Repoint `atomic-skills/src/serve.js:resolveAideckBin` at the published binary; refresh or drop
+   `atomic-skills/vendor/aideck-runtime`. Re-run `atomic-skills install` to land the consumer +
+   the new bin.
+
+### Deferred follow-ups (not blocking C/D)
+- `project-discover.md` discover-flow migration — needs a **discover page** in `manifest.yaml` +
+  a decision-write path (dashboard → inbox). The discover dataSource already exists.
+- aideck `cli/validate.ts:pathMatchesDataSource` is single-`*` — reuse the new glob so `aideck validate`
+  works on nested paths (gates the agent generate-validate-fix loop only).
+- fine-grained nested SSE `classifyFile` (live dashboard refresh on edits to `projects/<id>/<slug>/…`).
+
+### Consumer source of truth
+`atomic-skills/assets/aideck-consumer/` → `manifest.yaml` (dataSources `root:'project'` + `captures`,
+pages, `tools[]`), `schema.json` (regen: `npm run build:aideck-schema`), `handlers/*.js`. `install.js`
+copies it to `~/.aideck/consumers/atomic-skills/`.
+
+---
+
 ## Where things stand (2026-06-02)
 
 aiDeck was rebuilt into a generic v2 runtime. We are reconnecting the project skill via a **Model-B
