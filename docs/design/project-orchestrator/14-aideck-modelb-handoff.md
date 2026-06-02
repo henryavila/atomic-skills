@@ -138,6 +138,29 @@ the `validate` CLI → do it together with finding #2.
 **Revised next-step order:** handler-runtime model A (foundation) → 7 handlers → install.js →
 validate-CLI glob + schema.json → prompt migration → C → D.
 
+## UPDATE 2026-06-02 (session 3): Phase B DONE
+
+All of Phase B is implemented, committed, and validated.
+- aideck `ca12075` — handler-runtime **model A**: `executeScript` gains `writeBaseDir`;
+  `consumer-tools` resolves project data + intent writes against the `aideck mcp` launch repo
+  (`ctx.rootDir`). Handler/mcp tests 60; aideck suite **590/590**.
+- atomic-skills `7221ee9` — **7 script handlers** (`assets/aideck-consumer/handlers/*.js` + `_lib.js`)
+  + manifest `tools[]`. Handler smoke PASS: 7 tools registered, get_next_action/dependencies/health
+  correct, 4 mutations wrote intents to the **repo** `bootstrap-drafts/inbox/` (model A confirmed).
+- atomic-skills `ff3c341` — **schema.json** (`scripts/build-aideck-consumer-schema.mjs`, npm
+  `build:aideck-schema`; draft-07; AJV compiles + validates the live plan + 6 initiatives) +
+  `install.js` copies `assets/aideck-consumer/` → `~/.aideck/consumers/atomic-skills/`.
+- atomic-skills `67817cf` — **prompt migration**: `project-view.md` AIDECK CONTRACT block →
+  Model-B (`AIDECK_CONSUMER`, `/api/consumers/.../projects/$pid/data/<ds>`, page
+  `/$AIDECK_CONSUMER?project=$pid`; register unchanged). Skill uses HTTP not MCP → no tool-rename in
+  bodies. Skill suite **705/705**.
+
+**Remaining:** Phase C (validate end-to-end — register a real repo, open the consumer dashboard in a
+browser, exercise discover + the 7 MCP tools) → Phase D (npm publish + repoint `resolveAideckBin`).
+**Deferred follow-ups:** `project-discover.md` discover-flow migration (needs a discover *page* in the
+manifest + a decision-write path); aideck `cli/validate.ts` multi-`*` glob (so `aideck validate` works
+on nested paths); fine-grained nested SSE `classifyFile`.
+
 ## Gotchas
 - aideck working tree has **pre-existing unrelated** `.atomic-skills/` changes — do NOT bundle them
   into Model-B commits (stage files explicitly, as `7c88b1b` did).
