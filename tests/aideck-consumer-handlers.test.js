@@ -265,6 +265,17 @@ describe('aideck-consumer mutations append intents (never write entity files)', 
     await assert.rejects(() => verifyExitGate({ args: { initiativeSlug: 'init-1', criterionId: 'nope', result: 'met' }, data: makeData(), files: makeFiles() }), /criterion nope not found/);
   });
 
+  it('verify_exit_gate records a deferred result + reason and never hints allGatesMet', async () => {
+    // The valid non-met result (a failed verification leaves the criterion pending —
+    // it is never recorded as a 'failed' status). Mutation that breaks this:
+    // hinting allGatesMet for a non-'met' result, or dropping deferredReason.
+    const f = makeFiles();
+    const r = await verifyExitGate({ args: { initiativeSlug: 'init-1', criterionId: 'g2', result: 'deferred', deferredReason: 'out of band' }, data: makeData(), files: f });
+    assert.equal(f.appended[0].record.args.result, 'deferred');
+    assert.equal(f.appended[0].record.args.deferredReason, 'out of band');
+    assert.equal(r.allGatesMet, false);
+  });
+
   it('pop_frame records an intent and refuses an empty stack', async () => {
     const f = makeFiles();
     await popFrame({ args: { initiativeSlug: 'init-1' }, data: makeData(), files: f });

@@ -115,7 +115,7 @@ tools:
     handler: { type: script, source: handlers/mark-task-done.js }
 
   - name: verify_exit_gate
-    description: 'Record an exit-gate criterion result (met|deferred|failed) on a plan phase or initiative; hints allGatesMet.'
+    description: 'Record an exit-gate criterion result (met|deferred) on a plan phase or initiative; hints allGatesMet. A failed verification leaves the criterion pending — gate status is pending/met/deferred only.'
     input:
       type: object
       required: [criterionId, result]
@@ -124,7 +124,7 @@ tools:
         planSlug: { type: string }
         phaseId: { type: string }
         criterionId: { type: string }
-        result: { type: string, enum: [met, deferred, failed] }
+        result: { type: string, enum: [met, deferred] }
         deferredReason: { type: string }
         evidence: { type: object }
         by: { type: string, enum: [human, ai] }

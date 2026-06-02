@@ -1,10 +1,14 @@
 import { appendIntent, findInitiative, findPlan } from './_lib.js'
 
-// Record an intent to set the result of an exit-gate criterion (met | deferred |
-// failed) on a plan phase or an initiative. Computes an `allGatesMet` hint from
-// the current data + this result. Ported from aideck src/mcp/tools/gates.ts
-// (the shell-verifier run itself is performed by the skill's verifier workflow;
-// this handler records the accepted/manual result as an intent).
+// Record an intent to set the result of an exit-gate criterion (met | deferred)
+// on a plan phase or an initiative. Computes an `allGatesMet` hint from the
+// current data + this result. Ported from aideck src/mcp/tools/gates.ts (the
+// shell-verifier run itself is performed by the skill's verifier workflow; this
+// handler records the accepted/manual result as an intent).
+//
+// Gate status is pending/met/deferred ONLY (never 'failed'). A failed
+// verification leaves the criterion pending — it is recorded via the criterion's
+// `evidence` block by the skill workflow, not as a status here.
 export default async function handler({ args, data, files }) {
   const { criterionId, result, deferredReason, evidence, by = 'ai' } = args
   const planSlug = args.planSlug
