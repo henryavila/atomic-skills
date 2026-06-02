@@ -1,0 +1,105 @@
+# Canonical Codex Invocation — WORKSPACE-WRITE profile (Mode 2 executor, R-EXEC-35)
+
+This is the EXECUTOR profile of the Codex bridge. The read-only review profile
+is `invocation-canonical.txt`; this file is a guarded extension of it for the
+Mode 2 Codex execution lane (`skills/shared/mode2-codex-lane.md`). It mirrors
+the canonical command and **changes only what must change** — every other flag,
+the timeout wrapper, the exit-code handling, and the DO-NOT list are reused
+VERBATIM from `invocation-canonical.txt` (read that file first; this one only
+documents the deltas).
+
+⚠️ **FENCED OUT of the live tree.** This profile lets a foreign model WRITE.
+It runs ONLY inside a dedicated `git worktree` (never the primary working tree)
+and is FENCED OUT of the live `.atomic-skills/` state entirely — prove it on a
+throwaway git repo before pointing it at any real tree (canon Decision #11).
+
+## The three deltas from `invocation-canonical.txt` (and NOTHING else)
+
+1. **Sandbox flag flips** `--sandbox read-only` → `--sandbox workspace-write`.
+   This is the only flag that changes. The executor must be able to write; the
+   reviewer must never. Nothing else about the sandbox posture changes — no
+   `--yolo`, no `--full-auto`, no `--dangerously-bypass-approvals-and-sandbox`
+   (the DO-NOT list below is reused verbatim and is NOT relaxed for write-mode).
+
+2. **CWD is the isolated worktree.** Codex `exec` operates on its current
+   directory, so the command runs WITH cwd set to the dedicated worktree created
+   per `skills/shared/worktree-isolation.md` — never the primary tree. Read the
+   produced work back with `git -C <worktree> diff` (the `-o` output file holds
+   only Codex's final message/summary; the actual change is the worktree diff).
+
+3. **Preflight drops ONLY the clean-tree check FOR THE WORKTREE.** Reuse
+   preflight checks 1 (`which codex`) and 2 (`codex --version`) from
+   `preflight-checks.txt` unchanged. Check 3 (clean working tree, bug #8404)
+   is **dropped for the worktree** — a writing executor is EXPECTED to dirty it,
+   so a non-empty `git status` there is normal, not an abort condition. But keep
+   check 3 on the worktree's **PARENT** (the primary tree) BEFORE cutting the
+   worktree: you branch from a known-clean base ref so the diff is attributable.
+   Check 4 is moot (the `--skip-git-repo-check` flag is kept).
+
+## Variables to substitute
+
+- `<WORKTREE_PATH>`: the isolated `git worktree` dir (cwd for the run). Created
+  and torn down per `skills/shared/worktree-isolation.md`.
+- `<BRIEFING_PATH>`: path to the work-order briefing (the handoff contract,
+  R-EXEC-40 — executor RECEIVES intent). Input via stdin.
+- `<OUTPUT_PATH>`: path the final message is written to (the summary, not the work).
+- `<TIMEOUT_SECONDS>`: integer seconds (`codexLane.timeoutSeconds`, default 600).
+- `<MODEL_FLAG>`: empty by default; if `codexLane.model` is set, `--model <model>`.
+
+## Pre-step: portable timeout wrapper
+
+IDENTICAL to `invocation-canonical.txt` § "Pre-step: portable timeout wrapper" —
+define the `run_with_timeout` shell function (GNU `timeout` → `gtimeout` → perl
+`alarm` fallback). Do NOT store the wrapper in a plain string variable. Both
+timeout exit codes (124 AND 142) are handled as "timeout". Reused verbatim; not
+re-pasted here so the two profiles never drift.
+
+## Command
+
+```bash
+# cwd is the dedicated worktree — the writing executor never touches the primary tree.
+( cd <WORKTREE_PATH> && \
+  run_with_timeout <TIMEOUT_SECONDS> codex -a never exec \
+    <MODEL_FLAG> \
+    -c model_reasoning_effort=high \
+    --sandbox workspace-write \
+    --skip-git-repo-check \
+    --ephemeral \
+    -o <OUTPUT_PATH> \
+    - < <BRIEFING_PATH> \
+    2>/dev/null )
+```
+
+Only `--sandbox workspace-write` (was `read-only`) and the `cd <WORKTREE_PATH>`
+cwd differ from the canonical command. `- < <BRIEFING_PATH>` keeps the prompt on
+stdin (a prompt-as-argument may hang — DO-NOT below).
+
+## Read the work back
+
+```bash
+git -C <WORKTREE_PATH> diff            # the actual change set the executor produced
+git -C <WORKTREE_PATH> status --porcelain
+```
+
+Never assume the diff from the `-o` summary — read what actually changed. The
+executor self-**checks** (it may run the task verifier before returning) but
+never self-**certifies**: the only paths to done are the deterministic verifier
+passing on the MERGED primary tree, or a stronger model's approval
+(`verify-claim.md`; merge-back per `worktree-isolation.md` § Merge-back).
+
+## Exit codes
+
+IDENTICAL to `invocation-canonical.txt`: `0` ok; `124` timeout (coreutils);
+`142`/SIGALRM-killed timeout (perl fallback); other = Codex error, abort with
+message + capture stderr if debug wanted. Both 124 and 142 are "timeout".
+
+## DO NOT (reused VERBATIM from invocation-canonical.txt — NOT relaxed for write-mode)
+
+- Pass prompt as argument (`codex exec "prompt"`) — stdin may still hang.
+- Omit stdin redirection (`- < /path`) — `codex exec` may hang.
+- Use `--full-auto` — deprecated.
+- Use `--yolo` / `--dangerously-bypass-approvals-and-sandbox` — bypasses sandbox.
+  Write-mode is `--sandbox workspace-write`, NOT a sandbox bypass.
+- Hardcode `timeout` (fails on macOS without coreutils). Use the detector.
+- Run with cwd = the primary tree. The executor writes ONLY in the worktree.
+- Drop the clean-tree preflight on the PARENT tree — only the worktree is exempt.

@@ -36,7 +36,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 51); // 12 core skills (+ implement, + verify-claim) + 13 shared codex/debate assets (incl. critic.md) + 24 project assets (19 top-level + 5 hooks) + 2 (namespace root + auto-update hook)
+    assert.strictEqual(result.files.length, 52); // 12 core skills (+ implement, + verify-claim) + 14 shared codex/debate assets (incl. critic.md + invocation-workspace-write.txt) + 24 project assets (19 top-level + 5 hooks) + 2 (namespace root + auto-update hook)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -81,7 +81,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 52); // 12 core + 1 module skill + 13 shared assets (incl. critic.md) + 24 project assets (19 + 5 hooks) + 2 (namespace root + auto-update hook)
+    assert.strictEqual(result.files.length, 53); // 12 core + 1 module skill + 14 shared assets (incl. critic.md + invocation-workspace-write.txt) + 24 project assets (19 + 5 hooks) + 2 (namespace root + auto-update hook)
   });
 
   it('substitutes memory_path variable', () => {
@@ -142,7 +142,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 101); // (12 core + 13 shared assets [incl. critic.md] + 24 project assets [19 + 5 hooks]) * 2 IDEs (claude-code + gemini-commands) + auto-update hook (no namespace root for command/toml formats)
+    assert.strictEqual(result.files.length, 103); // (12 core + 14 shared assets [incl. critic.md + invocation-workspace-write.txt] + 24 project assets [19 + 5 hooks]) * 2 IDEs (claude-code + gemini-commands) + auto-update hook (no namespace root for command/toml formats)
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -224,7 +224,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
-    assert.strictEqual(result.files.length, 51);
+    assert.strictEqual(result.files.length, 52); // +1: invocation-workspace-write.txt added to codex-bridge-assets (14 shared)
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -327,9 +327,9 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/commands/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // 13 shared codex/debate assets (incl. critic.md) + 19 project top-level assets + 1 hooks/ subdir = 33 entries
-    assert.strictEqual(files.length, 33,
-      `expected 33 entries (13 shared + 19 project + hooks/ dir), got ${files.length}: ${files.join(', ')}`);
+    // 14 shared codex/debate assets (incl. critic.md + invocation-workspace-write.txt) + 19 project top-level assets + 1 hooks/ subdir = 34 entries
+    assert.strictEqual(files.length, 34,
+      `expected 34 entries (14 shared + 19 project + hooks/ dir), got ${files.length}: ${files.join(', ')}`);
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
