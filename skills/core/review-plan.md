@@ -157,15 +157,18 @@ Skip this step entirely if `--no-initiatives` was supplied.
    `initiative_map = {}` and skip the rest of Step 0c. This plan has no
    phase structure (standalone or flat plan).
 
-3. Derive the initiative directory: resolve `plan_path` to its parent
-   directory (should be `.atomic-skills/plans/`), then look for a sibling
-   `initiatives/` directory at the same level (i.e., `.atomic-skills/initiatives/`).
-   If the directory does not exist: set `initiative_map = {}`, record a
-   minor finding ("No initiatives/ directory found — plan phases have no
+3. Derive the initiative directory from `plan_path`, layout-aware:
+   - **Nested** (`plan_path` = `.atomic-skills/projects/<id>/<slug>/plan.md`):
+     the phase initiatives are in the sibling `phases/` dir
+     (`.atomic-skills/projects/<id>/<slug>/phases/`).
+   - **Legacy flat** (`plan_path` = `.atomic-skills/plans/<slug>.md`): look for the
+     sibling `.atomic-skills/initiatives/` directory.
+   If the resolved directory does not exist: set `initiative_map = {}`, record a
+   minor finding ("No phase-initiative directory found — plan phases have no
    materialized initiatives"), and skip the rest.
 
 4. For each phase in `phases:`, find its matching initiative file:
-   - {{GREP_TOOL}} the `initiatives/` directory for files containing
+   - {{GREP_TOOL}} the resolved phase-initiative directory for files containing
      `parentPlan: <slug>` (the plan's slug from frontmatter).
    - Among matches, filter for files that also contain `phaseId: <phase.id>`.
    - This is schema-driven (uses the actual linking fields set by

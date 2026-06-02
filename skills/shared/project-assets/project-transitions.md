@@ -2,6 +2,17 @@
 
 Loaded by the router for: `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, and the per-task / exit-gate **Verifier execution patterns**. The router holds the always-resident pre-mutation gates (migration check, reconciliation gate, gate-status invariant); this file holds the per-command procedures plus the migration-check detail.
 
+## Entity-file resolution (nested-first, flat-fallback)
+
+Every step below that "loads", "moves", or "archives" a plan/initiative file resolves its path against the **nested** layout first and the legacy **flat** layout only as a fallback (see the router's layout model):
+
+- **Plan** `<slug>` → `projects/<project-id>/<slug>/plan.md`; legacy `plans/<slug>.md`.
+- **Phase initiative** of plan `<plan-slug>` → `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`; legacy `initiatives/<slug>.md`. A **standalone** initiative is its own degenerate 1-phase plan (`projects/<project-id>/<slug>/{plan.md,phases/<slug>.md}`).
+- **Archive** → the layout's archive dir: nested `projects/<project-id>/<plan-slug>/phases/archive/<YYYY-MM>-<slug>.md` for a phase initiative (a whole plan is archived in place with `status: archived`); legacy flat `initiatives/archive/` + `plans/archive/`.
+- **Index** → that project's `projects/<project-id>/PROJECT-STATUS.md`; legacy top-level `.atomic-skills/PROJECT-STATUS.md`.
+
+Where a step writes `initiatives/…`, `plans/…`, or `PROJECT-STATUS.md` below, read it as "the resolved path for the active layout".
+
 ## Pre-mutation migration check (detail)
 
 Every time you load an existing initiative or plan for mutation:
@@ -86,7 +97,7 @@ If the closing task has a non-empty `verifier:`, see **Per-task verifiers** belo
 Invoked when the active initiative is the phase initiative of an active plan AND all its tasks are closed. Iterates the phase's exit gate criteria, archives the phase initiative, advances `currentPhase` per the dependency graph, and seeds the next phase's initiative.
 
 1. Load the active initiative. Verify it has `parentPlan` + `phaseId` set. Else abort.
-2. Load the parent plan from `.atomic-skills/plans/<parentPlan>.md`. Locate the phase by `phaseId`. Read `phase.exitGate.criteria` AND `initiative.exitGates` (combine; phase-level criteria are authoritative for the gate).
+2. Load the parent plan (resolve `<parentPlan>` nested-first: `projects/<project-id>/<parentPlan>/plan.md`, legacy `.atomic-skills/plans/<parentPlan>.md`). Locate the phase by `phaseId`. Read `phase.exitGate.criteria` AND `initiative.exitGates` (combine; phase-level criteria are authoritative for the gate).
 3. For each criterion (status === `pending`) → apply the **Verifier execution patterns** below.
 4. After iterating: report status summary. Continue to advance only when every criterion is `met` OR was explicitly `deferred` with a `deferredReason`.
 5. If any criterion is still `pending` after iteration: ask "Some gates remain pending. Mark phase done anyway? (y/N)". On `n`, leave initiative in `active` state and stop. On `y`, document the override (set `deferredReason` on the remaining criteria) and proceed to step 6.
@@ -108,7 +119,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
      d. Save the initiative file.
    - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>`. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
-   - Run `archive <slug>` on the just-closed initiative so its file moves to `initiatives/archive/`.
+   - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
    - For each newly-active phase id, propose `atomic-skills:project new initiative <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new initiative` flow already seeds the initiative's first stack frame from `initiative.template.md`.
    - Save the plan + PROJECT-STATUS.md.
 9. On user decline (or `plan-done` accept without `currentPhase` change):
@@ -221,10 +232,10 @@ When closing a task (`done <task-id>`) whose entry has a non-empty `verifier:`, 
 Reverse of `phase-done`. Used when a closed phase needs more work (regression, scope expansion).
 
 1. Identify the target phase (by `phaseId` arg or by reading the parent plan's last-done phase).
-2. Locate the initiative file. Check both `initiatives/<slug>.md` and `initiatives/archive/` for the file. Note whether it is archived (do NOT move yet).
+2. Locate the initiative file (resolved per the active layout). Check both the live path (nested `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`, legacy `initiatives/<slug>.md`) and its archive dir (nested `…/phases/archive/`, legacy `initiatives/archive/`). Note whether it is archived (do NOT move yet).
 3. Confirm with user: "Reopen phase `<id>`? This sets initiative status back to active, clears `metAt` on all criteria, and resets all tasks to pending."
 4. On accept:
-   - If the initiative file was in `initiatives/archive/`: move it back to `initiatives/<slug>.md`.
+   - If the initiative file was archived: move it back to its live resolved path (nested `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`, legacy `initiatives/<slug>.md`).
    - Set initiative `status: active`.
    - Set every `exitGate[].status` and `phases[<id>].exitGate.criteria[].status` to `pending`; clear `metAt`.
    - Set all `tasks[].status = 'pending'`; clear `tasks[].closedAt`; refresh `tasks[].lastUpdated = <now>`.
@@ -242,18 +253,18 @@ Wrap `scripts/detect-scope.js` to suggest a `scope.paths` value based on recent 
 
 ## `archive [<slug>]`
 
-Works on both plans and initiatives. If `<slug>` matches `.atomic-skills/plans/<slug>.md`, archive the plan **and propagate** to its child initiatives.
+Works on both plans and initiatives. If `<slug>` resolves to a plan (nested `projects/<project-id>/<slug>/plan.md`, legacy `.atomic-skills/plans/<slug>.md`), archive the plan **and propagate** to its child initiatives.
 
-1. Identify target (arg or active initiative). Detect kind by file location.
+1. Identify target (arg or active initiative). Detect kind by resolved file location.
 2. **Plan archival**:
    - Set the plan's `status: archived`.
-   - For every initiative with `parentPlan === <slug>` and `status` in {`active`, `paused`, `pending`}: set its `status: archived`, move file to `initiatives/archive/<YYYY-MM>-<slug>.md`.
-   - Move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
+   - For every initiative with `parentPlan === <slug>` and `status` in {`active`, `paused`, `pending`}: set its `status: archived`, move file to the resolved archive dir (nested `projects/<project-id>/<slug>/phases/archive/<YYYY-MM>-<phase-slug>.md`, legacy `initiatives/archive/<YYYY-MM>-<slug>.md`).
+   - **Nested:** the plan folder stays in place under `projects/<project-id>/` with `status: archived` (the `phases/archive/` subdir holds its closed phases). **Legacy flat:** move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
 3. **Initiative archival**:
    - **Resolve open exit gates first** (applies to BOTH standalone and plan-anchored initiatives — standalone has no `phase-done`, so this is the only place its gates get closed). For each `exitGates[]` entry whose `status` is not already `met` or `deferred`: run its `verifier` per the **Verifier execution patterns** (or ask the user when `kind: manual`), then set `status: met` (`metAt: <now>`, plus `evidence` when a verifier ran) on pass, or `status: deferred` (`deferredReason`) when the user skips it. **Never set `done`** — that is a Task status; gate status is `pending`/`met`/`deferred` only (see the *Gate status invariant* in the router). If the user wants to archive without verifying, mark the remaining gates `deferred` with a reason — do not leave them `pending` and do not coerce them to `done`.
    - If the initiative has `parentPlan` and the matching plan phase has `status: done`, verify that the initiative `status` is `done` (not `active`/`pending`). If not, apply the propagation steps from `phase-done` step 8a-d first (set all tasks `done`, exitGates `met`, initiative `status: done`), then continue.
    - Set the initiative's `status: archived`.
-   - Move file to `initiatives/archive/<YYYY-MM>-<slug>.md`.
+   - Move file to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/<YYYY-MM>-<slug>.md`, legacy `initiatives/archive/<YYYY-MM>-<slug>.md`).
 4. Update PROJECT-STATUS.md: remove archived rows from active tables; append to "Recently Archived" (keep last 10).
 5. Announce: "Archived `<slug>` (+<N> child initiatives if plan)".
 
@@ -261,7 +272,7 @@ Works on both plans and initiatives. If `<slug>` matches `.atomic-skills/plans/<
 
 Works at 2 levels: switching plans, OR switching initiatives within the active plan / among standalone.
 
-1. Detect kind: does `.atomic-skills/plans/<slug>.md` exist? OR `.atomic-skills/initiatives/<slug>.md`?
+1. Detect kind (resolve nested-first, then legacy flat): is there a plan at `projects/<project-id>/<slug>/plan.md` (legacy `.atomic-skills/plans/<slug>.md`)? OR a phase/standalone initiative at `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`)?
 2. **Plan switch**:
    - Find target plan; abort if `status` not in {`active`, `paused`}.
    - Set any other active plan to `status: paused`.

@@ -4,13 +4,13 @@
 <HARD-GATE>
 BEFORE any Write/Edit operation in source code:
 
-1. Read `.atomic-skills/PROJECT-STATUS.md`. Determine:
-   a. Is there an Active Plan? If yes, read it and note `currentPhase`.
+1. Read the project index — nested `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (enumerate `projects/*/`), or legacy top-level `.atomic-skills/PROJECT-STATUS.md`. Determine:
+   a. Is there an Active Plan? If yes, read it (`projects/<project-id>/<plan-slug>/plan.md`) and note `currentPhase`.
    b. Which Initiative anchors this work? (a phase initiative of the active plan,
       OR a standalone initiative, OR ad-hoc).
 2. Resolution rules:
    - Exact match with an active initiative (by branch, `scope.paths`, or active plan's `currentPhase`)
-     → read `.atomic-skills/initiatives/<slug>.md` and report current stack frame.
+     → read its phase file `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`) and report current stack frame.
    - Multiple candidate initiatives, or new/ambiguous context → ASK the user:
      "Is this (a) continuation of <X>, (b) lateral expansion of <X>, (c) new phase of <plan>,
       (d) new standalone initiative, or (e) ad-hoc work?"

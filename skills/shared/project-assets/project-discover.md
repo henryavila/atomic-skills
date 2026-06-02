@@ -12,7 +12,7 @@ Same Phase 1–4 pipeline (enumerate → extract → cluster → synthesize), ex
 
 - `discover` — full pipeline (scan + cluster + synthesize); writes drafts to `.atomic-skills/bootstrap-drafts/`; starts aiDeck if needed (`aideck up`), opens discover UI; HALTs for user review before commit
 - `discover --dry-run` — same scan, terminal summary only; no files written
-- `discover --commit` — materializes approved drafts into `.atomic-skills/plans/` + `initiatives/`; updates PROJECT-STATUS.md
+- `discover --commit` — materializes approved drafts into the nested tree `.atomic-skills/projects/<project-id>/<slug>/` (legacy flat `.atomic-skills/plans/` + `initiatives/`); updates PROJECT-STATUS.md
 - `discover --scope=<list>` — limits sources. Defaults: `git,github,docs,roadmap,memory-local,memory-claude,claude-mem`
 - `discover --scan=<path>[,<path>...]` — extra sources beyond defaults (e.g., `--scan=NOTES/,~/myteam/plans/`). Custom paths are walked recursively for `*.md` files. Useful for teams whose convention is not `.ai/memory/`.
 
@@ -243,17 +243,19 @@ Algorithm:
        - If slug has decision 'reject': delete the draft file, skip to next.
        - If slug has decision 'approve': proceed with materialization.
        - If slug has no decision: ask user "Approve <slug> — <title>? (y/N/skip)".
-   b. Validate: slug regex, unique vs plans/** + initiatives/**.
-   c. Branch on kind:
-      - kind=plan → run materializeDecomposition (from src/decompose.js) on the
-        source_markdown_path, then write the produced files to .atomic-skills/plans/
-        and .atomic-skills/initiatives/.
-      - kind=initiative (status=active) → call draftToInitiative(draft, new Date());
-        write to .atomic-skills/initiatives/<slug>.md
-      - kind=initiative (status=archived) → write to .atomic-skills/initiatives/archive/<YYYY-MM>-<slug>.md
+   b. Validate: slug regex, unique vs the resolved tree (nested `projects/<project-id>/*/`; legacy `plans/**` + `initiatives/**`).
+   c. Resolve `<project-id>` (the lone `projects/*/` folder, or ask, or `basename "$PWD"`), then branch on kind:
+      - kind=plan → run materializeDecomposition (from src/decompose.js) with `{ planSlug, projectId }` on the
+        source_markdown_path, then write the produced nested files under
+        `.atomic-skills/projects/<project-id>/<slug>/` (legacy flat `.atomic-skills/plans/` + `initiatives/`).
+      - kind=initiative (status=active, standalone) → materialize as a degenerate 1-phase plan under
+        `.atomic-skills/projects/<project-id>/<slug>/{plan.md,phases/<slug>.md}` (see `project-create-initiative.md`);
+        legacy fallback `draftToInitiative(draft, new Date())` → `.atomic-skills/initiatives/<slug>.md`.
+      - kind=initiative (status=archived) → write to the resolved archive dir
+        (`.atomic-skills/projects/<project-id>/<slug>/phases/archive/<YYYY-MM>-<slug>.md`; legacy `.atomic-skills/initiatives/archive/`).
    d. Delete the draft.
    e. On name conflict at destination: log, skip, continue.
-4. **Validate.** Run `npm run validate-state .atomic-skills/plans/ .atomic-skills/initiatives/`. On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
+4. **Validate.** Run `npm run validate-state .atomic-skills/projects/` (legacy fallback `.atomic-skills/plans/ .atomic-skills/initiatives/`). On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
 5. Update PROJECT-STATUS.md (Active Plans, Active Initiatives, Recently Archived).
 6. Write audit log to .atomic-skills/status/bootstrap.json:
    { timestamp, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.

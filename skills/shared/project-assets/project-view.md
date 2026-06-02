@@ -234,7 +234,7 @@ Only the STACK section of the active initiative. 3-8 lines. For quick mid-sessio
 
 ## `--archived`
 
-Last 10 entries from `.atomic-skills/plans/archive/` AND `.atomic-skills/initiatives/archive/`, tabular, sorted by archived date desc.
+Last 10 entries from the archive dirs — nested `.atomic-skills/projects/*/*/phases/archive/` (plus any legacy `.atomic-skills/plans/archive/` + `.atomic-skills/initiatives/archive/`), tabular, sorted by archived date desc.
 
 ## `--browser [<slug>]`
 
@@ -242,7 +242,7 @@ Opens the aiDeck dashboard in the browser, optionally deep-linking to a specific
 
 1. Run the ensure-aideck script from the default view (step 1) to get `AIDECK_URL`.
 2. If `AIDECK_URL` is non-empty:
-   - If `<slug>` is provided: determine if it matches a plan or initiative, and open `<AIDECK_URL>/plans/<slug>` or `<AIDECK_URL>/initiatives/<slug>`.
+   - If `<slug>` is provided: determine if it matches a plan or initiative, and open its aiDeck route. (The nested-layout route is `<AIDECK_URL>/projects/<project-id>/<slug>`; the legacy `<AIDECK_URL>/plans/<slug>` ⁄ `<AIDECK_URL>/initiatives/<slug>` routes remain until the aiDeck consumer side is rewritten — see Inc7/R-MIG-14.)
    - If no `<slug>`: open the root URL (HomePage).
    - Open via `open` (macOS) or `xdg-open` (Linux); fall back to printing the URL.
 3. If `AIDECK_URL` is empty: print error and suggest `atomic-skills install`.

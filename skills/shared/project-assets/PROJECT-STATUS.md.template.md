@@ -10,13 +10,13 @@ archivedCount: 0
 
 Canonical entry point. Auto-updated by `atomic-skills:project`. Read first every session.
 
-This repo follows a 3-level model:
+This repo follows a 3-level model under `projects/<project-id>/`:
 
-- **Plan** — multi-phase project with narrative, principles, phases, exit gates (`plans/<slug>.md`)
-- **Initiative** — one phase of a plan, OR a standalone unit of work (`initiatives/<slug>.md`)
-- **Task** — atomic action inside an initiative (lives in initiative frontmatter `tasks[]`)
+- **Plan** — multi-phase project with narrative, principles, phases, exit gates (`<plan-slug>/plan.md`)
+- **Initiative** — one phase of a plan (`<plan-slug>/phases/f<N>-<slug>.md`). A standalone unit of work is a degenerate 1-phase plan (same nested shape).
+- **Task** — atomic action inside a phase initiative (lives in its frontmatter `tasks[]`)
 
-Standalone initiatives (no `parentPlan`) coexist with plan-anchored initiatives.
+(Legacy/un-migrated trees may still carry flat `plans/<slug>.md` + `initiatives/<slug>.md`; `atomic-skills:project migrate` cuts them over.)
 
 ## Active Plans
 
@@ -38,7 +38,7 @@ _(initiatives not anchored to a plan — run `atomic-skills:project new initiati
 
 ## Recently Archived (last 10)
 
-_(empty — closed plans and initiatives move to `plans/archive/` and `initiatives/archive/`)_
+_(empty — closed phase initiatives move to `<plan-slug>/phases/archive/`; legacy flat `plans/archive/` + `initiatives/archive/`)_
 
 ## Ad-Hoc Sessions Log (last 5)
 

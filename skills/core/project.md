@@ -1,12 +1,12 @@
 Single entry-point for tracking Plan / Initiative / Task state in `.atomic-skills/`. Git-style subcommand grammar with **lazy detail**: this router holds only the dispatch table, the no-args summary, and the always-resident invariants. Each subcommand's full procedure lives in a detail file under `{{ASSETS_PATH}}/` and is read on demand.
 
-This skill implements a 3-level model that matches `@henryavila/aideck`:
+This skill implements a 3-level model that matches `@henryavila/aideck`. State lives under **`.atomic-skills/projects/<project-id>/`** — the **Project** is a real top level whose folder name IS the `<project-id>` (enumerate `projects/*/` to list them; a folder counts as a project only once it holds ≥1 `<plan-slug>/plan.md`):
 
-- **Plan** — multi-phase project with narrative, principles, glossary, phases, exit gates (`.atomic-skills/plans/<slug>.md`)
-- **Initiative** — one phase of a plan, OR a standalone unit of work (`.atomic-skills/initiatives/<slug>.md`)
-- **Task** — atomic action inside an initiative (frontmatter `tasks[]`)
+- **Plan** — multi-phase project with narrative, principles, glossary, phases, exit gates (`.atomic-skills/projects/<project-id>/<plan-slug>/plan.md`)
+- **Initiative** — one phase of a plan, materialized at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`. A **standalone** unit of work is a *degenerate 1-phase plan* (same nested shape — its lone phase carries the work), NOT a separate top-level file.
+- **Task** — atomic action inside a phase initiative (frontmatter `tasks[]`)
 
-Standalone initiatives (no `parentPlan`) coexist with plan-anchored initiatives. Plans are optional; a project may run with only initiatives. State files conform to JSON Schemas in `meta/schemas/` (`plan.schema.json`, `initiative.schema.json`, `common.schema.json`). Validate via `npm run validate-state`. Canonical `schemaVersion` is `'0.1'`.
+Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index (Active Plans, Recently Archived, Ad-Hoc Sessions Log). **Legacy / coexistence:** an un-migrated tree may still hold flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + a top-level `.atomic-skills/PROJECT-STATUS.md`; **readers and detection resolve the nested path first and fall back to the flat path**, and `atomic-skills:project migrate` cuts a flat tree over to nested. State files conform to JSON Schemas in `meta/schemas/` (`plan.schema.json`, `initiative.schema.json`, `common.schema.json`). Validate via `npm run validate-state`. Canonical `schemaVersion` is `'0.1'`.
 
 ## Grammar
 
@@ -47,9 +47,9 @@ Lazy-load is NOT optional. For any subcommand above: **STOP. `{{READ_TOOL}}` the
 
 Run with {{BASH_TOOL}}:
 - `test -d .atomic-skills/` — if absent, enter **setup mode** (read `{{ASSETS_PATH}}/project-setup.md`).
-- If present, read `.atomic-skills/PROJECT-STATUS.md`:
-  - Determine the **active Plan** (if any) and its `currentPhase`.
-  - Determine the **active Initiative** (phase initiative of the active plan, OR a standalone initiative).
+- If present, locate the project index. Prefer the **nested** layout — enumerate `.atomic-skills/projects/*/` and read each project's `PROJECT-STATUS.md` (a folder is a project once it holds ≥1 `<plan-slug>/plan.md`); fall back to a top-level `.atomic-skills/PROJECT-STATUS.md` on an un-migrated (flat) tree. Then:
+  - Determine the **active Plan** (if any) and its `currentPhase` — its file is `projects/<project-id>/<plan-slug>/plan.md` (nested) or `plans/<slug>.md` (legacy flat).
+  - Determine the **active Initiative** — a phase of the active plan at `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy fallback `initiatives/<slug>.md`.
   - If the current branch matches no active initiative → run the disambiguation flow (in `project-view.md`).
 
 ## No-args — compact summary (cheap; does NOT open the browser)
@@ -74,7 +74,7 @@ If `.atomic-skills/` is absent: print one line — `No .atomic-skills/ yet — r
 
 NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.
 
-Every code-modifying session must be anchored to an active initiative in `.atomic-skills/initiatives/<slug>.md` (standalone or under an active plan), or the user must explicitly declare "ad-hoc".
+Every code-modifying session must be anchored to an active initiative — a phase at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy flat fallback `.atomic-skills/initiatives/<slug>.md` — or the user must explicitly declare "ad-hoc".
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
@@ -125,12 +125,12 @@ and confirm with you at the ratify gate before writing anything.
 
 ## Schema quick-reference (authoritative files: `meta/schemas/`)
 
-**Plan** (`plans/<slug>.md` frontmatter) — required: `schemaVersion: '0.1'`, `slug`, `title`, `version`, `status`, `started`, `lastUpdated`, `currentPhase` (string|null), `parallelismAllowed` (bool), `phases[]`. Optional: `branch`, `principles[]`, `glossary[]`, `tracks[]`, `interPhaseGates[]`, `supersedes`, `references[]`, `whatStaysValid[]`. Body = `narrative`.
+**Plan** (`projects/<project-id>/<plan-slug>/plan.md` frontmatter; legacy flat `plans/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `version`, `status`, `started`, `lastUpdated`, `currentPhase` (string|null), `parallelismAllowed` (bool), `phases[]`. Optional: `branch`, `principles[]`, `glossary[]`, `tracks[]`, `interPhaseGates[]`, `supersedes`, `references[]`, `whatStaysValid[]`. Body = `narrative`.
 - `PhaseDescriptor`: `id`, `slug`, `title`, `goal`, `dependsOn[]`, `subPhaseCount`, `exitGate {summary, criteria[]}`, `status`. Optional: `parallelWith[]`, `track`, `audience`, `externalImports[]`, `exitGateType`.
 - `ExitCriterion`: `id`, `description`, `status` (`pending`/`met`/`deferred`). Optional: `verifier`, `metAt`, `deferredReason`, `evidence`.
 - `ExitCriterionVerifier` (oneOf): `{kind: shell, command, expectExitCode?}` · `{kind: query, sql, expectRowCount?}` · `{kind: test, runner, pattern}` · `{kind: manual, description}`.
 
-**Initiative** (`initiatives/<slug>.md` frontmatter) — required: `schemaVersion: '0.1'`, `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`. Body = `body`.
+**Initiative** (phase file `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`; legacy flat `initiatives/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`. Body = `body`.
 - `Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `scopeBoundary[]`, `acceptance[]` (max 5), `verifier`, `provenance`, `context`.
 - `StackFrame`: `id` (int ≥ 1), `title`, `type` (`task`/`research`/`validation`/`discussion`), `openedAt`.
 - `CrossTaskRef`: `fromTaskId`, `toInitiativeSlug`, `toTaskId`, `relation` (`depends_on`/`extends`/`unblocks`/`references`). Optional: `note`.

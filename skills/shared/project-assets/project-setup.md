@@ -38,7 +38,7 @@ For (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{
 For (b): copy `config.json` with `strict_mode: false`, `emergent_strict_mode: false`, and `dry_run_started: $(date -I)`.
 For (c): same `config.json` shape — both strict knobs default false during the 7-day dry-run window.
 
-The `pre-write.sh` gate intercepts direct Edits to `.atomic-skills/initiatives/*.md` and `plans/*.md` that add entries to `tasks[]` or `phases[]` without a `provenance:` field. Use the documented `new-task` / `new-phase` / `split-phase` / `emerge --target` commands (they set provenance automatically) instead. Bypass for 24h with `touch .atomic-skills/status/SKIP-EMERGENT`.
+The `pre-write.sh` gate intercepts direct Edits to the nested `.atomic-skills/projects/<id>/<slug>/{plan.md,phases/*.md}` (and legacy flat `.atomic-skills/initiatives/*.md` + `plans/*.md`) that add entries to `tasks[]` or `phases[]` without a `provenance:` field. Use the documented `new-task` / `new-phase` / `split-phase` / `emerge --target` commands (they set provenance automatically) instead. Bypass for 24h with `touch .atomic-skills/status/SKIP-EMERGENT`.
 
 When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level (b) or (c)), it enforces both rules mechanically: any `Edit` / `Write` / `MultiEdit` that adds a `tasks[]` or `phases[]` entry without `provenance:` — OR with `provenance:` but missing any of `context.solves` / `context.trigger` / `context.ratifiedAt` — is logged in dry-run mode or denied in strict mode (`emergent_strict_mode: true`). The hook exempts file creation (original materialization), updates to existing entries, deletions, archive subdirs, and `*.rendered.md` artifacts. See `.atomic-skills/status/hooks/README.md` for promotion + bypass instructions.
 
@@ -46,12 +46,11 @@ When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level
 
 Use {{BASH_TOOL}}:
 ```bash
-mkdir -p .atomic-skills/plans/archive
-mkdir -p .atomic-skills/initiatives/archive
+mkdir -p .atomic-skills/projects        # nested top level — per-project folders land here
 mkdir -p .atomic-skills/status/hooks
 ```
 
-Copy `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` to `.atomic-skills/PROJECT-STATUS.md`, replacing `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the `<slug>/phases/archive/` dirs) are created with the first plan (`new plan` / `discover --commit`). For coexistence with un-migrated tooling, also seed a top-level fallback index now: copy `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` to `.atomic-skills/PROJECT-STATUS.md`, replacing `REPLACE_ISO_TIMESTAMP` with the current timestamp.
 
 ## 7. Update .gitignore
 Append (if not present):
@@ -63,6 +62,7 @@ Append (if not present):
 .atomic-skills/status/SKIP-EMERGENT
 .atomic-skills/status/reconciliation.log
 .atomic-skills/status/last-session.json
+.atomic-skills/projects/**/*.rendered.md
 .atomic-skills/plans/*.rendered.md
 .atomic-skills/initiatives/*.rendered.md
 .atomic-skills/bootstrap-drafts/

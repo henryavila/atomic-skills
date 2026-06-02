@@ -140,7 +140,7 @@ Steps:
 4. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
 5. On ratify (or edited context):
    - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
-   - Create the initiative file `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md` from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
+   - Create the phase initiative file at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md` (legacy flat `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md`) from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
    - Save plan + initiative.
    - Validate both files via `npm run validate-state`.
 6. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
@@ -158,7 +158,7 @@ Steps:
 3. **Ratify gate** (per new sub-phase): print one `Proposed mutation:` block per new phase being materialized, each with its own drafted context. The user can `ratify` once per phase or `ratify-all` to accept all drafts. `cancel` on any one aborts the entire split (no partial materialization).
 4. Materialize the new phases (using `new-phase` semantics — provenance + plan body update + new initiative files), embedding each phase's ratified context.
 5. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks. Moved tasks keep their existing `context` (no re-ratify — the articulation was already done when each task was added).
-6. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to `initiatives/archive/`.
+6. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
 7. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
 8. Validate everything. Roll back on any failure.
 

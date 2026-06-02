@@ -18,8 +18,8 @@ If the user pushes back ("just create empty plan"), produce a `## TODO` skeleton
 Run with {{BASH_TOOL}}:
 
 - `test -d .atomic-skills/` — if absent, run first-time setup (`{{ASSETS_PATH}}/project-setup.md`). Plan creation assumes the canonical tree exists.
-- `test -d .atomic-skills/plans/` — if absent, create it (`mkdir -p .atomic-skills/plans/archive`).
-- If `<slug>` provided, pre-flight: `test -f .atomic-skills/plans/<slug>.md` — abort early on collision before any work.
+- **Resolve `<project-id>`** (the nested top level): if exactly one `.atomic-skills/projects/*/` folder exists, use it; if several, ask which project the plan belongs to; if none, default to the repo's basename (`basename "$PWD"`) and create `.atomic-skills/projects/<project-id>/`. The plan materializes under that folder.
+- Pre-flight collision: `test -f .atomic-skills/projects/<project-id>/<slug>/plan.md` (legacy fallback `test -f .atomic-skills/plans/<slug>.md`) — abort early on collision before any work.
 
 ## Default flow — 7 stages
 
@@ -28,7 +28,7 @@ Stages run in order. Each stage gates the next: do not advance past a stage with
 ### Stage 1 — Validate slug
 
 - Slug regex: `^[a-z][a-z0-9-]{1,63}$`. Reject with a clear message + suggested fix on mismatch.
-- Duplicate check: if `.atomic-skills/plans/<slug>.md` exists, abort with a suggested alt-slug (e.g., `<slug>-v2`).
+- Duplicate check: if `.atomic-skills/projects/<project-id>/<slug>/plan.md` exists (legacy fallback `.atomic-skills/plans/<slug>.md`), abort with a suggested alt-slug (e.g., `<slug>-v2`).
 - Reserved slugs (`archive`, `index`) are rejected.
 
 ### Stage 2 — DESIGN (brainstorm)
@@ -69,7 +69,7 @@ A non-zero exit — any `REPLACE_*`, `TODO`/`TBD`/`FIXME` sentinel, fuzzy `<path
 Sanity checks before decomposing:
 - File is well-formed markdown (has at least one H1 or H2 header).
 - File is < 5,000 lines (anything larger almost certainly contains noise that needs splitting first — surface a warning and ask the user to confirm).
-- The file is *outside* `.atomic-skills/plans/`. This skill never decomposes a previously-materialized plan.
+- The file is *outside* the materialized state tree (`.atomic-skills/projects/*/`; legacy `.atomic-skills/plans/`). This skill never decomposes a previously-materialized plan.
 
 If any check fails: surface the specific issue, do not proceed.
 
@@ -91,11 +91,23 @@ A non-zero exit means at least one `### Tn` task lacks one of its four HOW field
 
 ### Stage 6 — Create Plan + Initiatives
 
-Materialize the decomposed structure:
+Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
-- `.atomic-skills/plans/<slug>.md` from `{{ASSETS_PATH}}/plan.template.md`
-- `.atomic-skills/initiatives/<slug>-<phase-id>.md` per phase, from `{{ASSETS_PATH}}/initiative.template.md` with `parentPlan: <slug>` + `phaseId: <id>` filled and the plan-membership-block kept
-- Append rows to `.atomic-skills/PROJECT-STATUS.md` (the Plan in "Active Plans", each Initiative under it)
+```bash
+node -e "
+import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
+  const md = require('node:fs').readFileSync('<source.md>', 'utf8');
+  const result = decomposePlan(md, { planSlug: '<slug>' });
+  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>' });
+  console.log(JSON.stringify(files));
+});"
+```
+
+The returned `{relativePath, content}[]` resolves to:
+- `.atomic-skills/projects/<project-id>/<slug>/plan.md` (from `{{ASSETS_PATH}}/plan.template.md`)
+- `.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-<phase-slug>.md` per phase (from `{{ASSETS_PATH}}/initiative.template.md`, `parentPlan: <slug>` + `phaseId: <id>` filled, plan-membership block kept)
+
+For each entry, `mkdir -p` its parent dir and write it (plan first, so a failure never orphans phases). Then append rows to that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`) — the Plan in "Active Plans", each phase initiative under it.
 
 After writing every file, **normalize then validate**:
 
@@ -111,9 +123,9 @@ for c in "$PWD/src/normalize.js" \
 done
 [ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
 
-# 2. Validate.
-npm run validate-state .atomic-skills/plans/<slug>.md
-npm run validate-state .atomic-skills/initiatives/<slug>-<phase-id>.md   # per phase
+# 2. Validate (nested paths; legacy fallback shown in parens).
+npm run validate-state .atomic-skills/projects/<project-id>/<slug>/plan.md         # (legacy: .atomic-skills/plans/<slug>.md)
+npm run validate-state .atomic-skills/projects/<project-id>/<slug>/phases/         # per phase (legacy: .atomic-skills/initiatives/)
 ```
 
 If `NORM` is empty (script not resolvable in this repo), apply the normalization rules inline before validating — same rules as the `status` default view STATE_ERROR auto-repair: gate `status` synonyms → `met`/`pending` (never `done` on a gate), `references[]` get a `kind` and `label` (not `title`), missing required **initiative** arrays → `[]` and `branch`/`nextAction` → `null` (never touch plan files this way — they are `.strict()`).
@@ -297,11 +309,11 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
    - the file does not exist,
    - it is not a regular file (e.g., directory, symlink to nowhere),
    - it does not end in `.md`,
-   - it lives under `.atomic-skills/plans/` (refuse to re-decompose canonical state).
+   - it lives under the materialized state tree (`.atomic-skills/projects/*/`; legacy `.atomic-skills/plans/`) — refuse to re-decompose canonical state.
 
 2. **Derive the plan slug.** Default: kebab-case the source file's basename minus extension (e.g., `00-master.md` → `00-master`; ask the user to confirm or override). Apply the slug regex `^[a-z][a-z0-9-]{1,63}$`; reject leading digits by stripping them or prompting for a new slug.
 
-3. **Collision check.** Pre-flight `test -f .atomic-skills/plans/<slug>.md` and `test -d .atomic-skills/initiatives/`. Abort on any collision with the proposed plan slug or with any derived initiative slug. Point the user at `switch` or a fresh slug.
+3. **Collision check.** Resolve `<project-id>` (as in the default flow's Initial detection), then pre-flight `test -f .atomic-skills/projects/<project-id>/<slug>/plan.md` (legacy fallback `.atomic-skills/plans/<slug>.md`). Abort on any collision with the proposed plan slug or with any derived phase slug. Point the user at `switch` or a fresh slug.
 
 4. **Decompose.** Run the Stage 5 helper exactly as the default flow does:
 
@@ -325,16 +337,16 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
    import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
      const md = require('node:fs').readFileSync('<source-path>', 'utf8');
      const result = decomposePlan(md, { planSlug: '<slug>' });
-     const files = materializeDecomposition(result, { planSlug: '<slug>', branch: '<branch-or-null>' });
+     const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>' });
      console.log(JSON.stringify(files));
    });"
    ```
 
-   Then for each `{relativePath, content}` in the returned array, create the parent directory (`mkdir -p`) and write the file. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
+   Then for each `{relativePath, content}` in the returned array (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`) and write the file. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
-7. **Validate.** Run `npm run validate-state .atomic-skills/plans/<slug>.md` and `npm run validate-state .atomic-skills/initiatives/` (recursive). On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
+7. **Validate.** Run `npm run validate-state .atomic-skills/projects/<project-id>/<slug>/plan.md` and `npm run validate-state .atomic-skills/projects/<project-id>/<slug>/phases/` (legacy fallback `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/`). On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
 
-8. **Update PROJECT-STATUS.md.** Append rows in the canonical tables: the Plan to "Active Plans", each Initiative to its plan's group. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
+8. **Update PROJECT-STATUS.md.** Append rows in that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`): the Plan to "Active Plans", each phase initiative to its plan's group. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
 
 9. **Optional source archive.** Ask: "Archive the source markdown to `docs/archive/<YYYY-MM-DD>-<basename>`? (y/N)". If yes, `git mv` the file (preserves history). If no, leave it in place; the user can repeat `adopt` against an updated copy without conflict because the materialized state is the canonical source from this point forward.
 
