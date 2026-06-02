@@ -103,6 +103,8 @@ Every skill is built from the same enforcement primitives. This is the full voca
 | 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Verify each batch deliverable on disk; fix or escalate with evidence | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
 | 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Diverge, decide, then write a critic-gated design.md before any plan | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
+| ⚙️ | [`implement`](docs/skills/implement.md) | Drive decomposed tasks to done, one at a time, verifier-gated | `CODING STAYS SINGLE-THREADED.` |
+| ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 [SKILLS_TABLE_END]: #
 
@@ -260,6 +262,34 @@ Ask one model for "the architect''s view and the QA view" and both collapse towa
 ```
 
 [Full reference →](docs/skills/debate.md)
+
+---
+
+### ⚙️ `implement` — Mode 1 Execution Driver
+
+**Iron Law:** `CODING STAYS SINGLE-THREADED.`
+
+The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.
+
+```
+/atomic-skills:implement migration-self-host
+```
+
+[Full reference →](docs/skills/implement.md)
+
+---
+
+### ✅ `verify-claim` — Completion-Evidence Gate
+
+**Iron Law:** `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.`
+
+A self-graded "it works" is worthless precisely when it matters most — the producer is the party least able to see its own blind spot. `verify-claim` is the completion-evidence gate `implement` calls before any task closes: it reads the VCS diff (not the report), re-executes the task's deterministic verifier, and derives a BINARY verdict from the real result — exit 0 AND, for tests, a non-zero collected count, so a green run of zero tests is the false-green it catches. A cheap or cross-provider executor self-checks but never self-certifies.
+
+```
+/atomic-skills:verify-claim T-004
+```
+
+[Full reference →](docs/skills/verify-claim.md)
 
 ---
 

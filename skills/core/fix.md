@@ -44,11 +44,13 @@ Record the collected evidence:
 > **When:** [under what condition]
 > **Evidence:** [command output, line numbers]
 
+**Boundary instrumentation (conditional — when the symptom crosses modules).** If the bug spans ≥2 modules/components and you cannot yet say which side is wrong, instrument the seams BEFORE forming hypotheses — capture the value entering and leaving each boundary on the path from input to symptom (the technique is `skills/shared/debug-techniques.md` §2). The first boundary where input is correct but output is wrong owns the bug. This replaces a string of blind cross-module guesses with one evidence-localized target. Remove the instrumentation before committing — a left-in debug print is its own defect.
+
 Present the evidence to the user: "Phase 1 complete. Evidence collected above. Moving to diagnosis."
 
 ### Phase 2: Diagnose
 
-Form hypotheses and test each one.
+Form hypotheses and test each one. Trace the symptom backward to its origin — the cause is the FIRST hop where the value is wrong, not the site where it surfaced; when the chain is long or the regression is recent, bisect (`git bisect`, halving the input/code) instead of reading linearly (technique: `skills/shared/debug-techniques.md` §1).
 
 For each hypothesis:
 1. Declare: "Hypothesis: [root cause candidate] at [file:line]"
@@ -115,6 +117,17 @@ If any answer is "no": add a test that would catch it.
 **3f. Refactor (if needed):**
 - If the fix introduced duplication or ugly code: refactor
 - Run the tests again after refactoring
+- Closing the bug class: if the root cause is a *class* that can recur, add ONE guard at the cheapest-enforceable layer (boundary / construction / invariant) per `skills/shared/debug-techniques.md` §3 — bounded by G7 (the three-site abstraction floor; no speculative guard for cases you did not observe).
+
+### Phase 3g: Fix-attempt circuit-breaker (architectural escalation)
+
+Count **distinct fix attempts against the SAME root cause** — each time you change production code to make the symptom go away and it does not (the regression test still fails, or the bug recurs in a sibling case), that is one attempt. The counter is over **code changes against the same persisting symptom, NOT over diagnoses** — revising your theory of the root cause mid-stream does **not** reset it. "Attempts 1–3 had the wrong cause, so they don't count and this 4th is really my first real fix" is the reset-the-counter dodge: three patches that did not make the symptom go is the architectural signal, whatever you now believe the cause is.
+
+**After 3 failed fixes for the same root cause: STOP. Do not apply a 4th.** Three patches that did not hold is the signal that the problem is **architectural**, not local — the diagnosed root cause is a symptom of a deeper one, or the design itself is the defect (a wrong abstraction boundary, a contract two modules disagree on, state that should not exist). A 4th patch on the same spot deepens the workaround and hides the real cause further.
+
+On the circuit-break: escalate OUT of fix-mode — surface to the user that the bug is likely architectural, summarize the 3 attempts and why each failed, and propose a design-level review (`atomic-skills:brainstorm` for a one-way-door redesign, or `atomic-skills:review-plan`/architecture discussion) rather than a 4th code edit.
+
+This is **distinct** from the two other caps: the **5-hypothesis cap** (Phase 2) bounds *diagnosis* attempts; **Phase 3b's "go back twice"** bounds *re-diagnosis* when the regression test unexpectedly passes; this circuit-breaker bounds *fix* attempts against a confirmed-but-unyielding root cause. All three escalate; they count different things.
 
 ### Phase 4: Verify
 
@@ -137,6 +150,11 @@ If any answer is "no": add a test that would catch it.
 - "One test for the exact bug is enough"
 - "The boundary tests are overkill, the fix is simple"
 - "The test failed after my fix — I'll narrow the test"
+- "The last fix was almost right — one more patch will land it" (after 3 failed fixes for the same root cause)
+- "Attempts 1–3 had the wrong diagnosis, so they don't count — this 4th is the first real fix" (the reset-the-counter dodge — the breaker counts patches against the persisting symptom, not diagnoses)
+- "It's only 15 minutes and I might get lucky — either it fixes it or gives me data" (a 4th patch is not a probe; if you want data, instrument — don't gamble a patch)
+- "It's a cross-module bug, I'll just patch where it surfaced" (without instrumenting the boundaries first)
+- "The lead said it's obviously module X — I'll patch it to rule it out, instrument only if that fails" (a patch is not a hypothesis test; instrument the boundary first)
 
 If you thought any of the above: STOP. Go back to the phase you were skipping.
 
@@ -178,6 +196,11 @@ If you violated any gate, write `violated — <reason + remediation>`. Do not sk
 | "One regression test is enough" | One test catches one case. Bugs cluster — if you found one, there are more nearby |
 | "The boundary test failed, I'll adjust the test" | If the code doesn't match the spec at the boundary, that's a SECOND bug — fix the code, not the test |
 | "I'll skip the Test List, the bug is straightforward" | Straightforward bugs have straightforward siblings. List them or miss them |
+| "The 4th fix will surely land it this time" | Three fixes that didn't hold means the cause is deeper or the design is the defect. A 4th patch buries it — escalate to architecture (Phase 3g circuit-breaker) |
+| "The first three fixes had the wrong diagnosis, so the 4th is really attempt #1" | The breaker counts code changes against the same unresolved symptom, not your diagnosis revisions. Re-diagnosing mid-stream is the reset-the-counter dodge — 3 patches that didn't hold = escalate (Phase 3g) |
+| "One more patch is only 15 minutes, might get lucky or learn something" | A 4th patch as a cheap EV bet is the workaround-deepening the breaker exists to stop. If you want information, instrument the boundary; luck is not a root-cause fix |
+| "I can tell which module is broken without instrumenting" | Across a boundary, the surface site is rarely the owner. One boundary trace localizes it; N blind patches do not (Phase 1 / debug-techniques §2) |
+| "I'll patch the lead's guess first to rule it out, instrument only if it fails" | A patch is not a probe — a passing patch on the wrong module buries the bug; a failing one is a worse signal than one boundary trace. Instrument before patching; "obviously X" is a hypothesis, not a verdict |
 
 ## Closing
 

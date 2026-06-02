@@ -719,6 +719,103 @@ core:
     dependencies: []
     schema_version: '0.2'
 
+  implement:
+    name: implement
+    title: 'Implement — Mode 1 Execution Driver'
+    description: 'Drive the SPEC-admitted tasks of a decomposed plan to DONE — the single-threaded execution driver at the tail of the lifecycle. Use to implement a plan task-by-task, closing each only through verify-on-done, with event-driven session handoffs that make a fresh session resume cheaply.'
+    value_pitch: >
+      The lifecycle ends in execution, and execution is where state gets
+      lost — work marked done on a claim, context evicted mid-task, a resume
+      that cold-re-investigates. `implement` is a serial loop with durable
+      checkpoints: code one task, gate it through verify-on-done (never a
+      self-asserted pass), snapshot a self-sufficient `## Session handoff`
+      block on observable events (after each task / before each dispatch /
+      phase boundary) — never on a fabricated context-% gauge. Coding stays
+      single-threaded; only heavy reads fan out. The next session resumes from
+      the handoff, and `resume` refuses on a dirty tree or a placeholder.
+    purpose: >
+      Read the materialized Tasks a plan produced and drive them to done one
+      at a time, gating each completion on its deterministic verifier and
+      keeping durable state recoverable across sessions.
+    when_to_use:
+      - 'A plan has been decomposed and its tasks admitted by the SPEC gate'
+      - 'You are implementing a phase task-by-task and want verifier-gated completion'
+      - 'Resuming a prior implementation session from its handoff block'
+    when_not_to_use:
+      - 'There is no plan/design yet (use brainstorm, then project new plan)'
+      - 'A one-off bug fix with a known root cause (use fix)'
+      - 'You only need to verify a single claim, not drive a plan (use verify-claim)'
+    examples:
+      - command: '/atomic-skills:implement migration-self-host'
+        description: 'Drive the active phase of a plan to done, task-by-task'
+      - command: '/atomic-skills:implement'
+        description: 'Implement the active plan/initiative; resume from its handoff if present'
+    related: [project, verify-claim, fix]
+    tags: [execution, lifecycle, implement, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    one_liner: 'Drive decomposed tasks to done, one at a time, verifier-gated'
+    emoji: '⚙️'
+    version_added: '2.3.0'
+    argument_hint: '[plan-slug]'
+    args:
+      - name: plan-slug
+        kind: positional
+        required: false
+        description: 'The plan (or project-id/plan-slug) to implement. If omitted, uses the active plan/initiative.'
+    dependencies: [git]
+    schema_version: '0.2'
+
+  verify-claim:
+    name: verify-claim
+    title: 'Verify Claim — Completion-Evidence Gate'
+    description: 'Turn a claim of completion (done / passes / fixed) into a verified fact from a fresh run, or a binary FAIL. Use before marking a task done, when an agent or a cheap/foreign executor reports success, or to gate any "it works" claim on the observed result instead of the narrative.'
+    value_pitch: >
+      A self-graded "it works" is worthless precisely when it matters most —
+      the producer is the party least able to see its own blind spot.
+      `verify-claim` is the completion-evidence gate `implement` calls before
+      any task closes: it reads the VCS diff (not the report), re-executes the
+      task's deterministic verifier, and derives a BINARY verdict from the real
+      result — exit 0 AND, for tests, a non-zero collected count, so a green
+      run of zero tests is the false-green it catches. A cheap or cross-provider
+      executor self-checks but never self-certifies.
+    purpose: >
+      Verify a completion claim by executing its deterministic verifier and
+      citing the observed evidence, producing a binary pass/fail that no
+      producer can self-grant.
+    when_to_use:
+      - 'About to mark a task done and need its verifier run for real first'
+      - 'An agent, subagent, or Codex reported success and you must adjudicate it'
+      - 'Gating any "the tests pass / the bug is fixed" claim on captured evidence'
+    when_not_to_use:
+      - 'The claim is a human-judgement / UI observation (use the manual-acceptance gate)'
+      - 'There is no deterministic verifier (the task failed SPEC admission — surface it)'
+      - 'You are diagnosing a bug, not verifying a fix (use fix)'
+    examples:
+      - command: '/atomic-skills:verify-claim T-004'
+        description: 'Run the task''s verifier, derive a binary verdict, cite the evidence'
+      - command: '/atomic-skills:verify-claim "the parser handles empty input"'
+        description: 'Gate an "it works" claim on a fresh, captured run'
+    related: [implement, fix, project]
+    tags: [quality, verification, gate, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    one_liner: 'No success claim without fresh verification — run it, cite it'
+    emoji: '✅'
+    version_added: '2.3.0'
+    argument_hint: '[claim]'
+    args:
+      - name: claim
+        kind: positional
+        required: false
+        description: 'The claim or task id under verification. If omitted, the skill asks for the claim and its verifier.'
+    dependencies: [git]
+    schema_version: '0.2'
+
 modules:
   codex-bridge: {}
   auto-update: {}
