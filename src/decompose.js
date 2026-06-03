@@ -799,6 +799,13 @@ export function materializeDecomposition(decompose, opts = {}) {
       nextAction: tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null,
       parentPlan: planSlug,
       phaseId: init.phaseId,
+      // Rollups precomputed for the dashboard (aiDeck stays read-in-place). At
+      // materialization every task/gate is pending, so done/met start at 0;
+      // the project-status skill recomputes these on every task/gate mutation.
+      tasksDone: tasks.filter((t) => t.status === 'done').length,
+      tasksTotal: tasks.length,
+      gatesMet: exitGates.filter((g) => g.status === 'met').length,
+      gatesTotal: exitGates.length,
       exitGates,
       stack: [{
         id: 1,

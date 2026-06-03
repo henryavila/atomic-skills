@@ -911,6 +911,26 @@
         "audience": {
           "type": "string"
         },
+        "tasksDone": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rollup precomputed by the project-status skill: count of tasks with status 'done'. Powers dashboard progress meters (aiDeck stays read-in-place / no compute engine). Recompute on every task mutation; see scripts/compute-rollups.js."
+        },
+        "tasksTotal": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rollup: tasks.length."
+        },
+        "gatesMet": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rollup: count of exitGates with status 'met'."
+        },
+        "gatesTotal": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rollup: exitGates.length."
+        },
         "exitGates": {
           "type": "array",
           "items": {

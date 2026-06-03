@@ -130,7 +130,7 @@ and confirm with you at the ratify gate before writing anything.
 - `ExitCriterion`: `id`, `description`, `status` (`pending`/`met`/`deferred`). Optional: `verifier`, `metAt`, `deferredReason`, `evidence`.
 - `ExitCriterionVerifier` (oneOf): `{kind: shell, command, expectExitCode?}` · `{kind: query, sql, expectRowCount?}` · `{kind: test, runner, pattern}` · `{kind: manual, description}`.
 
-**Initiative** (phase file `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`; legacy flat `initiatives/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`. Body = `body`.
+**Initiative** (phase file `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`; legacy flat `initiatives/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`, `tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` (skill-precomputed dashboard rollups — keep fresh on every task/gate mutation; see below). Body = `body`.
 - `Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `scopeBoundary[]`, `acceptance[]` (max 5), `verifier`, `provenance`, `context`.
 - `StackFrame`: `id` (int ≥ 1), `title`, `type` (`task`/`research`/`validation`/`discussion`), `openedAt`.
 - `CrossTaskRef`: `fromTaskId`, `toInitiativeSlug`, `toTaskId`, `relation` (`depends_on`/`extends`/`unblocks`/`references`). Optional: `note`.
@@ -140,6 +140,8 @@ Provenance + context (co-located on every emergent item; schema makes them insep
 - `context: { solves, trigger, assumesStillValid?, ratifiedAt, ratifiedBy, lastReviewedAt }` — `common.schema.json#/$defs/context`.
 
 You (LLM) can parse frontmatter YAML directly. For edge cases (nested quotes, multi-line, complex lists), invoke the `yaml` npm package via `node -e "import('yaml').then(...)"`. Bump `lastUpdated:` to now (`date -u +%Y-%m-%dT%H:%M:%SZ`) on every mutation.
+
+**Dashboard rollups.** The generic aiDeck reads state in place and has no compute engine, so the dashboard's progress meters read precomputed scalars. On every task or exit-gate **status** change in an initiative, recompute and write its rollups onto the initiative frontmatter: `tasksTotal` = `tasks.length`, `tasksDone` = count(tasks with `status: done`), `gatesTotal` = `exitGates.length`, `gatesMet` = count(exitGates with `status: met`). The deterministic batch (re)compute + drift-fixer is `node scripts/compute-rollups.js` (idempotent; safe to run anytime to backfill or repair).
 
 ## Code-quality gates (state files this skill writes)
 
