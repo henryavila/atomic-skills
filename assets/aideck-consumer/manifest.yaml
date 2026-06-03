@@ -31,6 +31,35 @@ dataSources:
     format: jsonl
     root: project
 
+  # Derived/exploded sources (§2a array-explode): one record per nested-array
+  # element, carrying the parent's scalars (+ injected captures) down onto each
+  # child, plus _parentId/_index. These power the per-row detail-page widgets
+  # (task list, exit gates, stack, parked/emerged) and the dependency view.
+  - id: phases
+    derivesFrom: plans
+    explode: phases
+    carry: [projectId, planSlug, currentPhase, branch]
+  - id: tasks
+    derivesFrom: initiatives
+    explode: tasks
+    carry: [projectId, planSlug, slug, phaseId, parentPlan]
+  - id: exit_gates
+    derivesFrom: initiatives
+    explode: exitGates
+    carry: [projectId, planSlug, slug, phaseId]
+  - id: stack_frames
+    derivesFrom: initiatives
+    explode: stack
+    carry: [projectId, planSlug, slug, phaseId]
+  - id: parked_items
+    derivesFrom: initiatives
+    explode: parked
+    carry: [projectId, planSlug, slug, phaseId]
+  - id: emerged_items
+    derivesFrom: initiatives
+    explode: emerged
+    carry: [projectId, planSlug, slug, phaseId]
+
 nav:
   style: tabs
   showIcons: true
@@ -49,7 +78,7 @@ pages:
           - widget: stat
             colSpan: 3
             source: { ref: plans }
-            config: { value: 'count(status=active)', label: 'Active Plans' }
+            config: { value: 'count(status=active)', label: 'Active Plans', tone: info }
           - widget: stat
             colSpan: 3
             source: { ref: plans }
@@ -57,34 +86,73 @@ pages:
           - widget: stat
             colSpan: 3
             source: { ref: initiatives }
-            config: { value: 'count(status=active)', label: 'Active Phases', color: 'var(--color-accent)' }
+            config: { value: 'count(status=active)', label: 'Active Phases', tone: info }
           - widget: stat
             colSpan: 3
             source: { ref: initiatives }
-            config: { value: 'count(status=done)', label: 'Phases Done', color: 'var(--color-success)' }
+            config: { value: 'count(status=done)', label: 'Phases Done', tone: success }
       - title: 'Plans'
         widgets:
           - widget: table
             colSpan: 12
             source: { ref: plans }
+            config:
+              columns: [title, status, currentPhase, branch, projectId]
+              emptyNote: 'No plans tracked yet — run the project-status skill to start one.'
+              linkTo: 'plan/:projectId/:slug'   # §2c row-scoped drill-down → Plan detail
       - title: 'Phases by status'
         widgets:
           - widget: kanban-board
             colSpan: 12
             source: { ref: initiatives }
-            config: { columns: [pending, active, paused, done, archived], statusField: status }
+            config: { columns: [pending, active, paused, done, archived], statusField: status, idField: phaseId, titleField: title }
+            slots:                               # §2b composed card: task-progress overlay
+              card:
+                - widget: progress-bar
+                  config: { valueField: tasksDone, maxField: tasksTotal, pct: true }
 
   - slug: plans
     title: 'Plans'
     icon: 'mdi:format-list-checks'
     layout: sections
     sections:
+      - title: 'Portfolio'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: stat
+            colSpan: 3
+            source: { ref: plans }
+            config: { value: 'count(status=active)', label: 'Active', tone: info }
+          - widget: stat
+            colSpan: 3
+            source: { ref: plans }
+            config: { value: 'count(status=paused)', label: 'Paused', tone: warning }
+          - widget: stat
+            colSpan: 3
+            source: { ref: plans }
+            config: { value: 'count(status=done)', label: 'Done', tone: success }
+          - widget: stat
+            colSpan: 3
+            source: { ref: plans }
+            config: { value: 'count(status=archived)', label: 'Archived' }
       - title: 'All plans'
         widgets:
-          - widget: card
+          - widget: table
             colSpan: 12
             source: { ref: plans }
-            config: { titleField: title, subtitleField: projectId, fields: [status, currentPhase, branch] }
+            config:
+              columns: [title, status, currentPhase, branch, projectId]
+              emptyNote: 'No plans tracked yet.'
+              linkTo: 'plan/:projectId/:slug'
+      - title: 'By project'
+        widgets:
+          - widget: card-grid
+            colSpan: 12
+            source: { ref: plans }
+            repeat: projectId
+            repeatDirection: vertical
+            config: { titleField: title, subtitleField: currentPhase, fields: [status, branch], linkTo: 'plan/:projectId/:slug' }
 
   - slug: phases
     title: 'Phases'
@@ -93,10 +161,107 @@ pages:
     sections:
       - title: 'Initiatives'
         widgets:
-          - widget: list
+          - widget: card-grid
             colSpan: 12
             source: { ref: initiatives }
-            config: { titleField: title, subtitleField: status }
+            repeat: parentPlan
+            repeatDirection: vertical
+            config:
+              titleField: title
+              subtitleField: status
+              fields: [phaseId, nextAction]
+              linkTo: 'phase/:projectId/:slug'   # §2c drill-down → Initiative detail
+
+  # ── Drill-down detail pages (§2c). Reached via row-scoped linkTo above; the
+  # route /:consumerId/<plan|phase>/:projectId/:slug carries the project scope +
+  # the record slug, matched by each widget's composite source.param. ──────────
+  - slug: plan
+    title: 'Plan detail'
+    icon: 'mdi:file-tree-outline'
+    layout: sections
+    sections:
+      - title: 'Plan'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: callout
+            colSpan: 12
+            source: { ref: plans, param: { match: [projectId, slug] } }
+            config: { variant: attention, title: 'Active phase', bodyField: currentPhase }
+          - widget: key-value
+            colSpan: 12
+            source: { ref: plans, param: { match: [projectId, slug] } }
+            config: { fields: [status, currentPhase, branch, started, lastUpdated] }
+      - title: 'Phase timeline'
+        widgets:
+          - widget: phase-timeline
+            colSpan: 12
+            source: { ref: initiatives, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            config: { idField: phaseId, titleField: title, statusField: status, nextActionField: nextAction }
+      - title: 'Exit gates'
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: exit_gates, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            config: { columns: [phaseId, id, description, status], emptyNote: 'No exit gates.' }
+      - title: 'Narrative'
+        widgets:
+          - widget: markdown
+            colSpan: 12
+            source: { ref: plans, param: { match: [projectId, slug] } }
+
+  - slug: phase
+    title: 'Initiative detail'
+    icon: 'mdi:flag-checkered'
+    layout: sections
+    sections:
+      - title: 'Initiative'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: callout
+            colSpan: 12
+            source: { ref: initiatives, param: { match: [projectId, slug] } }
+            config: { variant: attention, title: 'Next action', bodyField: nextAction }
+          - widget: key-value
+            colSpan: 12
+            source: { ref: initiatives, param: { match: [projectId, slug] } }
+            config: { fields: [status, phaseId, parentPlan, branch, started, lastUpdated] }
+      - title: 'Tasks'
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: tasks, param: { match: [projectId, slug] } }
+            config: { columns: [id, title, status], emptyNote: 'No tasks.' }
+      - title: 'Exit gates'
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: exit_gates, param: { match: [projectId, slug] } }
+            config: { columns: [id, description, status], emptyNote: 'No exit gates.' }
+      - title: 'Stack'
+        widgets:
+          - widget: list
+            colSpan: 12
+            source: { ref: stack_frames, param: { match: [projectId, slug] } }
+            config: { titleField: title, leadField: type, subtitleField: openedAt, emptyNote: 'Stack empty.' }
+      - title: 'Parked & emerged'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: list
+            colSpan: 6
+            source: { ref: parked_items, param: { match: [projectId, slug] } }
+            config: { title: 'Parked', titleField: title, emptyNote: 'Nothing parked.' }
+          - widget: list
+            colSpan: 6
+            source: { ref: emerged_items, param: { match: [projectId, slug] } }
+            config: { title: 'Emerged', titleField: title, emptyNote: 'Nothing emerged.' }
+      - title: 'Narrative'
+        widgets:
+          - widget: markdown
+            colSpan: 12
+            source: { ref: initiatives, param: { match: [projectId, slug] } }
 
 # MCP tools — registered as aideck_atomic_skills_<name>. Script handlers read the
 # pre-loaded data map (project-scoped) and, for mutations, append an intent to the
