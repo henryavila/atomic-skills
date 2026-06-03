@@ -58,6 +58,22 @@ function makeData() {
   ];
   return new Map([['plans', plans], ['initiatives', initiatives], ['inbox', inbox]]);
 }
+// F-001 fixture: two projects sharing a plan slug ('shared') AND an initiative
+// slug ('dup'). aiDeck injects projectId onto every record, so the consumer must
+// scope by it; resolving by slug alone would hit the wrong project.
+function makeMultiProjectData() {
+  const plans = [
+    { slug: 'shared', projectId: 'projA', status: 'active', currentPhase: 'f1', phases: [{ id: 'f1', status: 'active' }] },
+    { slug: 'shared', projectId: 'projB', status: 'active', currentPhase: 'f1', phases: [{ id: 'f1', status: 'active' }] },
+  ];
+  const initiatives = [
+    { slug: 'dup', projectId: 'projA', status: 'active', lastUpdated: RECENT, parentPlan: 'shared', phaseId: 'f1',
+      tasks: [{ id: 'a1', title: 'A task', status: 'pending', blockedBy: [] }], exitGates: [], stack: [{ kind: 'd' }], parked: [{ title: 'pA' }] },
+    { slug: 'dup', projectId: 'projB', status: 'active', lastUpdated: RECENT, parentPlan: 'shared', phaseId: 'f1',
+      tasks: [{ id: 'b1', title: 'B task', status: 'pending', blockedBy: [] }], exitGates: [], stack: [{ kind: 'd' }], parked: [{ title: 'pB' }] },
+  ];
+  return new Map([['plans', plans], ['initiatives', initiatives], ['inbox', []]]);
+}
 function makeFiles() {
   const appended = [];
   return { appended, append: async (path, record) => { appended.push({ path, record }); } };
@@ -293,5 +309,115 @@ describe('aideck-consumer mutations append intents (never write entity files)', 
     assert.equal(byIndex.appended[0].record.args.parkedTitle, 'someday idea');
 
     await assert.rejects(() => promoteParked({ args: { initiativeSlug: 'init-1', parkedTitleOrIndex: 'nope' }, data: makeData(), files: makeFiles() }), /parked item not found/);
+  });
+});
+
+describe('aideck-consumer projectId scoping (F-001: slug collision across projects)', () => {
+  // (a) Ambiguous slug + no projectId → THROW, never silently pick a project.
+  // Mutation that breaks these: dropping the `candidates.length > 1` throw in
+  // _lib.js resolveBySlug — it would resolve the first match (wrong project).
+  it('THROWS ambiguous on a collided initiative slug with no projectId (read + mutate + deps)', async () => {
+    await assert.rejects(
+      () => getNextAction({ args: { initiativeSlug: 'dup' }, data: makeMultiProjectData() }),
+      /ambiguous slug 'dup' across projects: \[projA, projB\]/,
+    );
+    await assert.rejects(
+      () => markTaskDone({ args: { initiativeSlug: 'dup', taskId: 'a1' }, data: makeMultiProjectData(), files: makeFiles(), log }),
+      /ambiguous slug 'dup'/,
+    );
+    await assert.rejects(
+      () => getDependencies({ args: { scope: 'task', initiativeSlug: 'dup', taskId: 'a1' }, data: makeMultiProjectData() }),
+      /ambiguous slug 'dup'/,
+    );
+  });
+
+  it('THROWS ambiguous on a collided plan slug with no projectId', async () => {
+    await assert.rejects(
+      () => getNextAction({ args: { planSlug: 'shared' }, data: makeMultiProjectData() }),
+      /ambiguous slug 'shared' across projects: \[projA, projB\]/,
+    );
+    await assert.rejects(
+      () => getDependencies({ args: { scope: 'phase', planSlug: 'shared', phaseId: 'f1' }, data: makeMultiProjectData() }),
+      /ambiguous slug 'shared'/,
+    );
+  });
+
+  // (b) With projectId → resolves the CORRECT project (not the first match).
+  it('resolves the correct project when projectId is given (initiative + plan scope + global fallback)', async () => {
+    const a = await getNextAction({ args: { initiativeSlug: 'dup', projectId: 'projA' }, data: makeMultiProjectData() });
+    assert.equal(a.taskId, 'a1');
+    const b = await getNextAction({ args: { initiativeSlug: 'dup', projectId: 'projB' }, data: makeMultiProjectData() });
+    assert.equal(b.taskId, 'b1');
+
+    // plan-scoped currentPhase match must stay within the resolved plan's project
+    const pb = await getNextAction({ args: { planSlug: 'shared', projectId: 'projB' }, data: makeMultiProjectData() });
+    assert.equal(pb.initiativeSlug, 'dup');
+    assert.equal(pb.taskId, 'b1');
+
+    // global fallback (no slug) is also project-scoped. projB is asserted because
+    // projA's initiative is the FIRST active one — so the projA assertion alone is
+    // tautological (an unscoped scan also returns a1). projB pins the inProject
+    // filter: drop `&& inProject(i)` from the global scan and this returns a1 (leak).
+    const gfA = await getNextAction({ args: { projectId: 'projA' }, data: makeMultiProjectData() });
+    assert.equal(gfA.taskId, 'a1');
+    const gfB = await getNextAction({ args: { projectId: 'projB' }, data: makeMultiProjectData() });
+    assert.equal(gfB.taskId, 'b1');
+  });
+
+  it('THROWS not-found naming the project when the slug exists only in another project', async () => {
+    await assert.rejects(
+      () => getNextAction({ args: { initiativeSlug: 'dup', projectId: 'projC' }, data: makeMultiProjectData() }),
+      /initiative not found: dup in project 'projC'/,
+    );
+  });
+
+  // (c) Mutation intents carry the resolved projectId in target.
+  it('mark_task_done intent target carries the projectId (from the resolved record)', async () => {
+    const f = makeFiles();
+    await markTaskDone({ args: { initiativeSlug: 'dup', taskId: 'b1', projectId: 'projB' }, data: makeMultiProjectData(), files: f, log });
+    // Mutation that breaks this: target back to { initiativeSlug, taskId } without projectId
+    assert.equal(f.appended[0].record.target.projectId, 'projB');
+    assert.equal(f.appended[0].record.target.initiativeSlug, 'dup');
+    assert.equal(f.appended[0].record.target.taskId, 'b1');
+  });
+
+  it('verify_exit_gate / pop_frame / promote_parked intent targets carry projectId', async () => {
+    const init = { slug: 'dup', projectId: 'projB', status: 'active', lastUpdated: RECENT,
+      tasks: [], exitGates: [{ id: 'g1', status: 'pending' }], stack: [{ kind: 'd' }], parked: [{ title: 'pB' }] };
+    const data = () => new Map([['plans', []], ['initiatives', [init]]]);
+
+    const fv = makeFiles();
+    await verifyExitGate({ args: { initiativeSlug: 'dup', projectId: 'projB', criterionId: 'g1', result: 'met' }, data: data(), files: fv });
+    assert.equal(fv.appended[0].record.target.projectId, 'projB');
+
+    const fp = makeFiles();
+    await popFrame({ args: { initiativeSlug: 'dup', projectId: 'projB' }, data: data(), files: fp });
+    assert.equal(fp.appended[0].record.target.projectId, 'projB');
+
+    const fpr = makeFiles();
+    await promoteParked({ args: { initiativeSlug: 'dup', projectId: 'projB', parkedTitleOrIndex: 'pB' }, data: data(), files: fpr });
+    assert.equal(fpr.appended[0].record.target.projectId, 'projB');
+
+    // verify_exit_gate's plan+phase branch stamps target.projectId from the
+    // RESOLVED plan (not args) — distinct code path from the initiative branch.
+    const planData = new Map([
+      ['plans', [{ slug: 'shared', projectId: 'projB', status: 'active', currentPhase: 'f1',
+        phases: [{ id: 'f1', status: 'active', exitGate: { criteria: [{ id: 'c1', status: 'pending' }] } }] }]],
+      ['initiatives', []],
+    ]);
+    const fvp = makeFiles();
+    await verifyExitGate({ args: { planSlug: 'shared', phaseId: 'f1', projectId: 'projB', criterionId: 'c1', result: 'met' }, data: planData, files: fvp });
+    assert.equal(fvp.appended[0].record.target.projectId, 'projB');
+  });
+
+  // (d) Single-project repo: NO regression — works without passing projectId, and
+  // the intent target still carries the projectId derived from the record.
+  it('single-project: resolves with no projectId arg and still stamps target.projectId', async () => {
+    const f = makeFiles();
+    const r = await markTaskDone({ args: { initiativeSlug: 'init-1', taskId: 't2' }, data: makeData(), files: f, log });
+    assert.equal(r.accepted, true);
+    assert.equal(f.appended[0].record.target.projectId, 'projA'); // injected onto the record by aiDeck
+    const na = await getNextAction({ args: { initiativeSlug: 'init-1' }, data: makeData() });
+    assert.equal(na.taskId, 't2');
   });
 });

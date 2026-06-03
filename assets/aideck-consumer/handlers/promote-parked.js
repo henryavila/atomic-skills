@@ -4,9 +4,8 @@ import { appendIntent, findInitiative } from './_lib.js'
 // either the parked item's title (string) or its index (number). Ported from
 // aideck mutate.ts.
 export default async function handler({ args, data, files }) {
-  const { initiativeSlug, parkedTitleOrIndex, by = 'ai' } = args
-  const initiative = findInitiative(data, initiativeSlug)
-  if (!initiative) throw new Error(`initiative not found: ${initiativeSlug}`)
+  const { initiativeSlug, parkedTitleOrIndex, projectId, by = 'ai' } = args
+  const initiative = findInitiative(data, initiativeSlug, projectId)
 
   const parked = initiative.parked ?? []
   const found =
@@ -17,7 +16,7 @@ export default async function handler({ args, data, files }) {
 
   const { intentId, recordedAt } = await appendIntent(files, {
     operation: 'promote_parked',
-    target: { initiativeSlug },
+    target: { projectId: initiative.projectId, initiativeSlug },
     args: { parkedTitle: found.title },
     by,
   })

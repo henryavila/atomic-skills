@@ -1,17 +1,22 @@
-import { firstUnblockedPendingTask, getInitiatives, getPlans } from './_lib.js'
+import { findInitiative, findPlan, firstUnblockedPendingTask, getInitiatives } from './_lib.js'
 
 // Compute the next recommended action. Ported from aideck
 // src/server/projections/next-action.ts (reads the pre-loaded data map instead
 // of the filesystem). Read-only — writes nothing.
+//
+// `projectId` (F-001): every record carries an aiDeck-injected projectId. When
+// given, every resolution path is scoped to it — explicit slug lookups, the
+// currentPhase match, and the global active-initiative fallback — so a slug
+// that collides across projects can't leak a different project's task.
 export default async function handler({ args, data }) {
-  const { planSlug, initiativeSlug } = args
+  const { planSlug, initiativeSlug, projectId } = args
   const initiatives = getInitiatives(data)
+  const inProject = (r) => projectId == null || r.projectId === projectId
 
   if (initiativeSlug) {
-    const i = initiatives.find((x) => x.slug === initiativeSlug)
-    // Explicit scope: a missing slug is a caller error, NOT a cue to fall back to
-    // some other active initiative — that would silently answer for the wrong scope.
-    if (!i) throw new Error(`initiative not found: ${initiativeSlug}`)
+    // Explicit scope: findInitiative throws on missing (caller error, not a cue to
+    // fall back to another initiative) and on a projectId-ambiguous slug.
+    const i = findInitiative(data, initiativeSlug, projectId)
     const t = firstUnblockedPendingTask(i)
     if (t) {
       return {
@@ -29,10 +34,13 @@ export default async function handler({ args, data }) {
   }
 
   if (planSlug) {
-    const plan = getPlans(data).find((p) => p.slug === planSlug)
-    if (!plan) throw new Error(`plan not found: ${planSlug}`)
+    const plan = findPlan(data, planSlug, projectId)
     if (plan.currentPhase) {
-      const mi = initiatives.find((i) => i.parentPlan === plan.slug && i.phaseId === plan.currentPhase)
+      // Scope the current-phase initiative to the SAME project as the resolved
+      // plan — a same-named parentPlan in another project must not match.
+      const mi = initiatives.find(
+        (i) => i.projectId === plan.projectId && i.parentPlan === plan.slug && i.phaseId === plan.currentPhase,
+      )
       if (mi) {
         const t = firstUnblockedPendingTask(mi)
         if (t) {
@@ -57,10 +65,10 @@ export default async function handler({ args, data }) {
     }
   }
 
-  // Scan ALL active initiatives, not just the first: the first active one may have
-  // no actionable task while a later active one does. Stopping at the first would
-  // falsely report "no next action" and skip real work.
-  for (const active of initiatives.filter((i) => i.status === 'active')) {
+  // Scan ALL active initiatives (in scope), not just the first: the first active
+  // one may have no actionable task while a later active one does. Stopping at the
+  // first would falsely report "no next action" and skip real work.
+  for (const active of initiatives.filter((i) => i.status === 'active' && inProject(i))) {
     const t = firstUnblockedPendingTask(active)
     if (t) {
       return {

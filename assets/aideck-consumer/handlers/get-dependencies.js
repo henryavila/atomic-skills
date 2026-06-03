@@ -3,11 +3,10 @@ import { findInitiative, findPlan } from './_lib.js'
 // Resolve dependencies for a phase or a task. Ported from aideck
 // src/mcp/tools/dependencies.ts (reads the pre-loaded data map). Read-only.
 export default async function handler({ args, data }) {
-  const { scope } = args
+  const { scope, projectId } = args
 
   if (scope === 'phase') {
-    const plan = findPlan(data, args.planSlug)
-    if (!plan) throw new Error(`plan not found: ${args.planSlug}`)
+    const plan = findPlan(data, args.planSlug, projectId)
     const phases = plan.phases ?? []
     const phase = phases.find((p) => p.id === args.phaseId)
     if (!phase) throw new Error(`phase ${args.phaseId} not found in plan ${args.planSlug}`)
@@ -23,8 +22,7 @@ export default async function handler({ args, data }) {
   }
 
   if (scope === 'task') {
-    const initiative = findInitiative(data, args.initiativeSlug)
-    if (!initiative) throw new Error(`initiative not found: ${args.initiativeSlug}`)
+    const initiative = findInitiative(data, args.initiativeSlug, projectId)
     const tasks = initiative.tasks ?? []
     const task = tasks.find((t) => t.id === args.taskId)
     if (!task) throw new Error(`task ${args.taskId} not found in initiative ${args.initiativeSlug}`)

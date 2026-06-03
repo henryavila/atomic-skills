@@ -3,9 +3,8 @@ import { appendIntent, findInitiative } from './_lib.js'
 // Record an intent to mark a task done. Returns phaseCompleteHint when it was the
 // last open task in the initiative. Ported from aideck src/mcp/tools/mutate.ts.
 export default async function handler({ args, data, files, log }) {
-  const { initiativeSlug, taskId, verifierResultId, by = 'ai' } = args
-  const initiative = findInitiative(data, initiativeSlug)
-  if (!initiative) throw new Error(`initiative not found: ${initiativeSlug}`)
+  const { initiativeSlug, taskId, projectId, verifierResultId, by = 'ai' } = args
+  const initiative = findInitiative(data, initiativeSlug, projectId)
 
   const tasks = initiative.tasks ?? []
   const task = tasks.find((t) => t.id === taskId)
@@ -13,7 +12,7 @@ export default async function handler({ args, data, files, log }) {
 
   const { intentId, recordedAt } = await appendIntent(files, {
     operation: 'mark_task_done',
-    target: { initiativeSlug, taskId },
+    target: { projectId: initiative.projectId, initiativeSlug, taskId },
     args: verifierResultId ? { verifierResultId } : {},
     by,
   })

@@ -16,17 +16,20 @@ export default async function handler({ args, data, files }) {
   const initiativeSlug = args.initiativeSlug
 
   // Locate the criterion + collect the initiative's gate set for the hint.
+  // `projectId` (the resolved entity's) is carried into the intent target so the
+  // consumer applies it to the right `projects/<projectId>/…` subtree.
   let gates
+  let projectId
   if (initiativeSlug) {
-    const initiative = findInitiative(data, initiativeSlug)
-    if (!initiative) throw new Error(`initiative not found: ${initiativeSlug}`)
+    const initiative = findInitiative(data, initiativeSlug, args.projectId)
     gates = initiative.exitGates ?? []
+    projectId = initiative.projectId
   } else if (planSlug && phaseId) {
-    const plan = findPlan(data, planSlug)
-    if (!plan) throw new Error(`plan not found: ${planSlug}`)
+    const plan = findPlan(data, planSlug, args.projectId)
     const phase = (plan.phases ?? []).find((p) => p.id === phaseId)
     if (!phase) throw new Error(`phase ${phaseId} not found in plan ${planSlug}`)
     gates = phase.exitGate?.criteria ?? []
+    projectId = plan.projectId
   } else {
     throw new Error('provide either initiativeSlug, or planSlug + phaseId')
   }
@@ -36,7 +39,7 @@ export default async function handler({ args, data, files }) {
 
   const { intentId, recordedAt } = await appendIntent(files, {
     operation: 'verify_exit_gate',
-    target: { initiativeSlug, planSlug, phaseId, criterionId },
+    target: { projectId, initiativeSlug, planSlug, phaseId, criterionId },
     args: {
       result,
       ...(deferredReason ? { deferredReason } : {}),
