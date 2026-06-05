@@ -141,12 +141,11 @@ pages:
               # not a wide id/title/summary table that's hard to scan.
               columns: [id, title, status, blockedBy]
               subtitles: { title: summary }
-              # Click a task → its phase (initiative) detail, where the full task
-              # list + description live. A task has no page of its own (thin unique
-              # data + the detail route is 2-param max: projectId/slug). The task
-              # `title` renders as a VISIBLE link (linkField) — not just a row click.
-              linkTo: 'phase/:projectId/:slug'
-              linkField: title
+              # Tasks are intentionally NOT linked: there is no task detail page, and
+              # linking each task to its parent phase would be redundant (the phase is
+              # already reachable via the "Fase atual" panel + the timeline below) and
+              # misleading (all current-phase tasks would point at the same page).
+              # Scope = plan / initiative / phase, not task.
               emptyNote: 'Sem tarefas nesta fase.'
               # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
               # built-in map lacks archived/met/deferred; declared once here as a
