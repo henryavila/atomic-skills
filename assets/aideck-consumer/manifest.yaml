@@ -127,6 +127,38 @@ pages:
             repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
             repeatDirection: vertical
             config: { title: 'Tarefas', valueField: tasksDone, maxField: tasksTotal, pct: true }
+          # "Onde estou no plano": the full phase skeleton (the plan's phases[]
+          # descriptor, materialized lazily), scoped to active plans. The current
+          # phase highlights; each node title links to its phase detail. Placed
+          # directly ABOVE the task table so the block reads plan → phase →
+          # where-in-the-plan → the tasks here.
+          - widget: phase-timeline
+            colSpan: 12
+            source: { ref: phases, filter: { planActive: true } }
+            repeat: planSlug
+            repeatLabel: never   # the "Plano em foco" banner already names the plan
+            repeatDirection: vertical
+            config:
+              title: 'Onde estou no plano'
+              idField: id
+              titleField: title
+              statusField: status
+              nextActionField: summary
+              linkTo: 'phase/:projectId/:slug'   # each node → its initiative detail
+              # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
+              # built-in map lacks archived/met/deferred. DEFINED here (first status
+              # widget on the page) as a YAML anchor and aliased (*statusvocab) by the
+              # task table below + every status widget on later pages — so this anchor
+              # must stay above its first alias.
+              statuses: &statusvocab
+                active:   { tone: info,    glyph: "◉" }
+                pending:  { tone: neutral, glyph: "·" }
+                paused:   { tone: warning, glyph: "‖" }
+                blocked:  { tone: warning, glyph: "!" }
+                done:     { tone: success, glyph: "✓" }
+                archived: { tone: neutral, glyph: "▪", label: "archived" }
+                met:      { tone: success, glyph: "✓" }
+                deferred: { tone: warning, glyph: "⏸" }
           - widget: table
             colSpan: 12
             source: { ref: tasks, filter: { current: true } }
@@ -147,45 +179,12 @@ pages:
               # misleading (all current-phase tasks would point at the same page).
               # Scope = plan / initiative / phase, not task.
               emptyNote: 'Sem tarefas nesta fase.'
-              # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
-              # built-in map lacks archived/met/deferred; declared once here as a
-              # YAML anchor and aliased (*statusvocab) by every status widget below.
-              statuses: &statusvocab
-                active:   { tone: info,    glyph: "◉" }
-                pending:  { tone: neutral, glyph: "·" }
-                paused:   { tone: warning, glyph: "‖" }
-                blocked:  { tone: warning, glyph: "!" }
-                done:     { tone: success, glyph: "✓" }
-                archived: { tone: neutral, glyph: "▪", label: "archived" }
-                met:      { tone: success, glyph: "✓" }
-                deferred: { tone: warning, glyph: "⏸" }
+              # Status vocabulary defined once on the phase-timeline above (&statusvocab).
+              statuses: *statusvocab
             slots:
               "cell:blockedBy":
                 - widget: tag-chip
                   config: { field: blockedBy, hideCounts: true }
-      - title: 'Onde estou no plano'
-        widgets:
-          - widget: phase-timeline
-            colSpan: 12
-            # The full phase skeleton lives in the plan's phases[] descriptor
-            # (phases are materialized lazily), scoped to active plans via the
-            # carried planActive marker. The current phase highlights on status;
-            # each step shows its concise `summary`.
-            source: { ref: phases, filter: { planActive: true } }
-            repeat: planSlug
-            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
-            repeatDirection: vertical
-            config:
-              idField: id
-              titleField: title
-              statusField: status
-              nextActionField: summary
-              # Each step's title → its initiative (phase) detail. The exploded phase
-              # row carries projectId + the descriptor `slug` (== the materialized
-              # initiative slug), so the consumer route resolves per node.
-              linkTo: 'phase/:projectId/:slug'
-              statuses: *statusvocab
-
   - slug: overview
     title: 'Overview'
     icon: 'mdi:view-dashboard'
