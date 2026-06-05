@@ -105,7 +105,7 @@ export function removeRuntimeArtifacts() {
  * scope); both the settings path and the hook script path derive from it, which
  * is why a single basePath suffices for either scope.
  */
-export function removeAutoUpdateHook({ basePath }) {
+export function removeAutoUpdateHook({ basePath, settingsCreated = false }) {
   const destScript = join(basePath, '.atomic-skills', 'hooks', 'version-check.sh');
   const settingsPath = join(basePath, '.claude', 'settings.json');
   if (!existsSync(settingsPath)) return;
@@ -139,7 +139,15 @@ export function removeAutoUpdateHook({ basePath }) {
   if (settings.hooks.SessionStart.length === 0) delete settings.hooks.SessionStart;
   if (settings.hooks && Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  // Delete the file only if the installer created it AND removing our hook
+  // emptied it. Otherwise preserve the user's file (which may legitimately be {}).
+  if (Object.keys(settings).length === 0 && settingsCreated) {
+    unlinkSync(settingsPath);
+    const claudeDir = dirname(settingsPath);
+    try { if (readdirSync(claudeDir).length === 0) rmdirSync(claudeDir); } catch {}
+  } else {
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  }
 }
 
 function generateNamespaceRoot() {
@@ -293,6 +301,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
   }
 
   const createdFiles = [];
+  const manifestMeta = {};
 
   // Skill bodies receive the communication-language directive (renderTemplate prepends it
   // when COMMUNICATION_LANGUAGE is set). Shared assets (templates, snippets, config inputs)
@@ -405,7 +414,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
   // Install auto-update hook if module is registered
   if (meta.modules?.['auto-update']) {
-    installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles });
+    installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles, manifestMeta });
   }
 
   // Generate namespace root SKILL.md for markdown-format IDEs
@@ -448,6 +457,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
     ides,
     modules,
     files: filesMap,
+    settingsCreated: manifestMeta.settingsCreated ?? false,
   });
 
   return { files: createdFiles };
@@ -464,7 +474,7 @@ export function getPackageVersion() {
  * and merges hook config into ~/.claude/settings.json without destroying
  * existing entries.
  */
-export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles }) {
+export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles, manifestMeta }) {
   const sourceScript = join(skillsDir, 'shared', 'auto-update-hook', 'version-check.sh');
   if (!existsSync(sourceScript)) return;
 
@@ -483,6 +493,11 @@ export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWrit
   const settingsPath = scope === 'project'
     ? join(projectDir, '.claude', 'settings.json')
     : join(homedir(), '.claude', 'settings.json');
+
+  // Record whether the installer is creating settings.json from scratch, so a
+  // later uninstall deletes only installer-created files (never a user's own).
+  const settingsPreexisted = existsSync(settingsPath);
+  if (manifestMeta) manifestMeta.settingsCreated = !settingsPreexisted;
 
   mkdirSync(dirname(settingsPath), { recursive: true });
 

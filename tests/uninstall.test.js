@@ -193,6 +193,63 @@ describe('removeAutoUpdateHook', () => {
       rmSync(base, { recursive: true, force: true });
     }
   });
+
+  it('deletes an emptied settings.json the installer created (settingsCreated:true)', () => {
+    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
+    try {
+      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
+      const settingsPath = join(base, '.claude', 'settings.json');
+      mkdirSync(join(settingsPath, '..'), { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify({
+        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
+      }, null, 2));
+
+      removeAutoUpdateHook({ basePath: base, scope: 'user', settingsCreated: true });
+
+      assert.ok(!existsSync(settingsPath), 'installer-created orphan settings.json deleted');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves an emptied settings.json the user already had (settingsCreated:false)', () => {
+    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
+    try {
+      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
+      const settingsPath = join(base, '.claude', 'settings.json');
+      mkdirSync(join(settingsPath, '..'), { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify({
+        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
+      }, null, 2));
+
+      removeAutoUpdateHook({ basePath: base, scope: 'user', settingsCreated: false });
+
+      assert.ok(existsSync(settingsPath), 'pre-existing settings.json preserved');
+      assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')), {});
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves a settings.json that still holds other keys', () => {
+    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
+    try {
+      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
+      const settingsPath = join(base, '.claude', 'settings.json');
+      mkdirSync(join(settingsPath, '..'), { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify({
+        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
+        otherSetting: true,
+      }, null, 2));
+
+      removeAutoUpdateHook({ basePath: base, scope: 'user', settingsCreated: true });
+
+      assert.ok(existsSync(settingsPath), 'settings.json with other keys preserved');
+      assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).otherSetting, true);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('uninstall (integration)', () => {

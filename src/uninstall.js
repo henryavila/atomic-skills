@@ -117,7 +117,7 @@ export async function uninstall(projectDir, options = {}) {
   // Remove the SessionStart hook entry the installer merged into settings.json
   // (its script was just removed above as a manifest-tracked file, so this
   // clears the now-dead reference). Surgical: preserves all other hooks.
-  removeAutoUpdateHook({ basePath, scope });
+  removeAutoUpdateHook({ basePath, scope, settingsCreated: manifest.settingsCreated === true });
 
   // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) are shared
   // across all installs, so only a user-scope uninstall reclaims them; a
