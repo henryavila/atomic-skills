@@ -70,6 +70,29 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
+  it('user scope reverts EVERY item across ALL public IDEs (no residue)', async () => {
+    // Each IDE writes to a different path tree (.claude, .cursor, .gemini,
+    // .codex/.agents, .opencode, .github). Installing all of them at once is
+    // the strongest parity proof: ~300+ files, and every one must be reverted.
+    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ALL_IDES, lang: 'en' });
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `items left without a reversal: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `uninstall deleted pre-existing paths: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `uninstall modified pre-existing files: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
   it('user scope preserves a pre-existing settings.json', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
