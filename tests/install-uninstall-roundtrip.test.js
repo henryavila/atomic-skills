@@ -92,4 +92,32 @@ describe('install→uninstall round-trip', () => {
       rmSync(projectDir, { recursive: true, force: true });
     }
   });
+
+  it('project scope returns the repo to baseline except the appended .gitignore line', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      const gitignorePath = join(repo, '.gitignore');
+      const gitignoreBefore = 'node_modules/\ndist/\n';
+      writeFileSync(gitignorePath, gitignoreBefore);
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(repo);
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(repo, { scope: 'project', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(repo));
+        assert.deepEqual(added, [], `unexpected new files in repo: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `uninstall deleted pre-existing repo files: ${removed.join(', ')}`);
+        assert.deepEqual(modified, ['.gitignore'], `only .gitignore may change: ${modified.join(', ')}`);
+        assert.equal(
+          readFileSync(gitignorePath, 'utf8'),
+          gitignoreBefore + '.atomic-skills/\n',
+          '.gitignore must equal pre-install content plus only the .atomic-skills/ line',
+        );
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });
