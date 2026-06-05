@@ -69,4 +69,27 @@ describe('install→uninstall round-trip', () => {
       rmSync(projectDir, { recursive: true, force: true });
     }
   });
+
+  it('user scope preserves a pre-existing settings.json', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const settingsPath = join(fakeHome, '.claude', 'settings.json');
+        mkdirSync(join(settingsPath, '..'), { recursive: true });
+        writeFileSync(settingsPath, JSON.stringify({}, null, 2) + '\n'); // canonical {}
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(removed, [], `must not delete the user's pre-existing files: ${removed.join(', ')}`);
+        assert.deepEqual(added, [], `residue after uninstall: ${added.join(', ')}`);
+        assert.deepEqual(modified, [], `must restore settings.json byte-for-byte: ${modified.join(', ')}`);
+        assert.ok(existsSync(settingsPath), 'pre-existing settings.json survives');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
 });
