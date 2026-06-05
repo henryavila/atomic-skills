@@ -65,6 +65,83 @@ function installRuntimeArtifacts() {
   }
 }
 
+/**
+ * Reverse of installRuntimeArtifacts(): remove the global runtime artifacts
+ * staged under ~/.atomic-skills/ (bin/aideck.mjs, dashboard/, aideck-consumer/,
+ * src/provision-consumer.js). These are NOT manifest-tracked because they live
+ * at a fixed user path regardless of install scope.
+ *
+ * Caller is responsible for scope-gating: these artifacts are shared across all
+ * installs, so only a USER-scope uninstall should call this (a project uninstall
+ * must leave them so other repos / the user install keep working).
+ *
+ * Never touches ~/.aideck/ — that holds the user's own provisioned consumer data
+ * (plans, initiatives), which is data, not an install artifact.
+ */
+export function removeRuntimeArtifacts() {
+  const root = join(homedir(), '.atomic-skills');
+
+  for (const file of [join(root, 'bin', 'aideck.mjs'), join(root, 'src', 'provision-consumer.js')]) {
+    if (!existsSync(file)) continue;
+    try { unlinkSync(file); } catch {}
+    const parent = dirname(file);
+    try { if (readdirSync(parent).length === 0) rmdirSync(parent); } catch {}
+  }
+
+  for (const dir of [join(root, 'dashboard'), join(root, 'aideck-consumer')]) {
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Reverse of installAutoUpdateHook()'s settings.json merge: remove ONLY the
+ * SessionStart command entry pointing at our version-check.sh, preserving every
+ * other hook and setting. Prunes matcher entries / SessionStart / hooks that
+ * become empty as a result. Never deletes settings.json itself.
+ *
+ * No-op when settings.json is missing, unparseable, or the entry is absent.
+ *
+ * `basePath` is the install base (homedir for user scope, repo root for project
+ * scope); both the settings path and the hook script path derive from it, which
+ * is why a single basePath suffices for either scope.
+ */
+export function removeAutoUpdateHook({ basePath }) {
+  const destScript = join(basePath, '.atomic-skills', 'hooks', 'version-check.sh');
+  const settingsPath = join(basePath, '.claude', 'settings.json');
+  if (!existsSync(settingsPath)) return;
+
+  let settings;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return; // Don't clobber an unparseable user file.
+  }
+
+  const sessionStart = settings?.hooks?.SessionStart;
+  if (!Array.isArray(sessionStart)) return;
+
+  let changed = false;
+  for (const entry of sessionStart) {
+    if (!entry || !Array.isArray(entry.hooks)) continue;
+    const before = entry.hooks.length;
+    entry.hooks = entry.hooks.filter(
+      (h) => !(h && h.type === 'command' && h.command === destScript)
+    );
+    if (entry.hooks.length !== before) changed = true;
+  }
+  if (!changed) return;
+
+  // Prune matcher entries that no longer hold any hooks, then prune the
+  // SessionStart array and the hooks root if they end up empty.
+  settings.hooks.SessionStart = sessionStart.filter(
+    (e) => e && Array.isArray(e.hooks) && e.hooks.length > 0
+  );
+  if (settings.hooks.SessionStart.length === 0) delete settings.hooks.SessionStart;
+  if (settings.hooks && Object.keys(settings.hooks).length === 0) delete settings.hooks;
+
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+}
+
 function generateNamespaceRoot() {
   const desc = "Stop rewriting prompts. Install optimized developer skills in any AI IDE.";
   const escaped = desc.replace(/'/g, "''");

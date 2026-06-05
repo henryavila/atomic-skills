@@ -36,11 +36,12 @@ if (values.help || !command) {
     npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>]
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status     [--project]
-    npx @henryavila/atomic-skills uninstall  [--project]
+    npx @henryavila/atomic-skills uninstall  [--yes] [--project]
     npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--force-build] [--aideck-bin <path>]
 
   Options:
-    --yes, -y         Accept auto-detected defaults (non-interactive)
+    --yes, -y         Non-interactive: (install) accept auto-detected defaults;
+                      (uninstall) skip the confirmation prompt
     --project         Skip scope picker and install to the current repo's Git root
     --ide <ids>       Comma-separated: claude-code,cursor,gemini,codex,opencode,github-copilot
                       Use --ide detected or --all-detected to refresh from installed IDEs
@@ -94,7 +95,10 @@ if (values.help || !command) {
   }
 } else if (command === 'uninstall') {
   const { uninstall } = await import('../src/uninstall.js');
-  await uninstall(process.cwd(), values.project ? 'project' : null);
+  await uninstall(process.cwd(), {
+    scope: values.project ? 'project' : null,
+    yes: values.yes,
+  });
 } else if (command === 'status') {
   const { status } = await import('../src/status.js');
   status(process.cwd(), { forceProject: values.project });

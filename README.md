@@ -495,9 +495,25 @@ npx @henryavila/atomic-skills detect [--project] [--json]
 # Show installed skills, language, and per-IDE file status
 npx @henryavila/atomic-skills status [--project]
 
-# Remove everything (add --project to target ./ instead of ~/)
+# Remove everything (interactive: asks for confirmation first)
 npx @henryavila/atomic-skills uninstall [--project]
+
+# Non-interactive uninstall for scripts (skips the confirmation prompt)
+npx @henryavila/atomic-skills uninstall --yes [--project]
 ```
+
+**Uninstall removes everything the installer wrote:** the skill/command files,
+shared assets, the namespace root, the manifest, and the auto-update
+`SessionStart` entry in `settings.json` (surgically — other hooks are kept). A
+**user-scope** uninstall also reclaims the global runtime under `~/.atomic-skills/`
+(`bin/`, `dashboard/`, `aideck-consumer/`, `src/`); a **project-scope** uninstall
+leaves that global runtime in place, since other repos share it. Your own data in
+`~/.aideck/` (plans, initiatives) and the `.atomic-skills/` line in `.gitignore`
+are never touched.
+
+`uninstall` prompts for confirmation when run directly (defaults to *no*). Pass
+`--yes` (or `-y`) to skip the prompt in scripts. With both a user-scope and a
+project-scope install present, `--yes` without `--project` targets the user scope.
 
 **Scope trade-off:**
 - *user scope* (default): one install serves every project; not versioned in git.
