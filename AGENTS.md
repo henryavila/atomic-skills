@@ -28,6 +28,12 @@ Use Handlebars-style blocks for agent-specific logic:
 - General Knowledge: `docs/kb/`
 - Gemini Compatibility: `docs/kb/gemini-cli-compatibility.md`
 
+### 5. Install/Uninstall Parity
+Every persistent install mutation MUST have a matching uninstall reversal or sit
+in the documented allowlist. Enforced by
+`tests/install-uninstall-roundtrip.test.js`. See `CLAUDE.md` →
+"Install / Uninstall parity (HARD RULE)".
+
 ## Agent-Specific Roles
 
 - **Claude Code**: Focus on high-fidelity TDD and complex refactoring using its internal toolset.
