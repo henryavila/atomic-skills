@@ -171,6 +171,8 @@
         "status": { "type": "string", "enum": ["pending", "met", "deferred"] },
         "metAt": { "$ref": "#/$defs/isoTimestamp" },
         "deferredReason": { "type": "string" },
+        "verifierLabel": { "type": "string", "description": "Derived (scripts/compute-rollups.js): one-line human label of `verifier` (kind + key arg, truncated) for the dashboard. Never hand-authored; recomputed alongside rollups." },
+        "evidenceSummary": { "type": "string", "description": "Derived (scripts/compute-rollups.js): one-line summary of `evidence`/`deferredReason` for the dashboard; '' (omitted) while pending. Never hand-authored; recomputed alongside rollups." },
         "evidence": {
           "type": "object",
           "additionalProperties": false,

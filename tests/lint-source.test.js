@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { lintSource, lintSpec, parseTaskSections } from '../scripts/lint-source.js';
+import { lintSource, lintSpec, parseTaskSections, levelConfusedTaskTitle } from '../scripts/lint-source.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = resolve(__dirname, '../skills/shared/project-assets/minimal-source.template.md');
@@ -232,5 +232,26 @@ Goal: g.
 `;
     const v = lintSpec(md);
     assert.match(v.join('\n'), /F0.*bullet-mode|per-task ### Tn|### Tn/s);
+  });
+});
+
+describe('level hygiene — a task title must not masquerade as a phase', () => {
+  test('levelConfusedTaskTitle: flags "Phase X —"/"Fase N:" but not prose', () => {
+    for (const t of ['Phase A — aiDeck read-in-place', 'Phase D — npm publish', 'Fase 2: fazer algo', 'Phase 10 - rollout']) {
+      assert.equal(levelConfusedTaskTitle(t), true, t);
+    }
+    for (const t of ['Phase out the legacy parser', 'Phase 1 rollout is done', 'aiDeck read-in-place capability', 'Dashboard port — fix table', '', null]) {
+      assert.equal(levelConfusedTaskTitle(t), false, String(t));
+    }
+  });
+
+  test('lintSpec RED: a ### Tn title that masquerades as a phase fails admission', () => {
+    const md = CLEAN.replace('### T0.1 Add projectId option to materialize', '### T0.1 Phase A — Add projectId option to materialize');
+    const v = lintSpec(md);
+    assert.match(v.join('\n'), /T0\.1.*masquerades as a phase/s);
+  });
+
+  test('lintSpec GREEN: a normal task title is not flagged for level confusion', () => {
+    assert.equal(lintSpec(CLEAN).some((m) => /masquerades as a phase/.test(m)), false);
   });
 });

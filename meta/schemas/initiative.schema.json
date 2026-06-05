@@ -26,6 +26,7 @@
     "slug": { "$ref": "common.schema.json#/$defs/slug" },
     "title": { "type": "string", "minLength": 1 },
     "goal": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "description": "Concise one-line human summary of what this phase does (mirrors the plan phase descriptor's `summary`). Authored + user-validated at phase generation; shown on the dashboard Home (Agora callout)." },
     "status": {
       "type": "string",
       "enum": ["pending", "active", "paused", "done", "archived"]
@@ -56,6 +57,14 @@
       "type": "integer",
       "minimum": 0,
       "description": "Rollup: exitGates.length."
+    },
+    "planActive": {
+      "type": "boolean",
+      "description": "Derived focus marker (scripts/reconcile-focus.js): true iff this initiative's parent plan has status 'active'. Scopes the Home timeline to active plans (the dashboard can't join plan→initiative). Never hand-authored."
+    },
+    "current": {
+      "type": "boolean",
+      "description": "Derived focus marker (scripts/reconcile-focus.js): true iff planActive AND this is the plan's currentPhase — i.e. the single 'AGORA' phase. Powers the Home focus callout. Never hand-authored."
     },
     "exitGates": {
       "type": "array",
@@ -157,6 +166,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "description": "Concise one-line human summary of what this task does — distinct from the label `title` and the longer `description`. Authored + user-validated at decompose (and whenever a task is created mid-execution); shown on the dashboard Home (Agora task table) and the Initiative-detail tasks table. Generated in the install-configured language; backfill detector = scripts/find-missing-task-summaries.js. Never hand-authored as a one-off outside the skill loop (skills/core/project.md → Task summaries)." },
         "description": { "type": "string" },
         "status": {
           "type": "string",

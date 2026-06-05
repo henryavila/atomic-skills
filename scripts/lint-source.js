@@ -78,6 +78,18 @@ const VAGUE_REFS = [
   /\bas\s+(?:in\s+)?task\s*[#\d]/i,
 ];
 
+// Level-confusion: a TASK whose title masquerades as a PHASE ("Phase A — …",
+// "Fase 2: …"). The hierarchy is Plan → Phase → Task; a task titled like a phase
+// lies about its level and confuses the dashboard. Requires a phase word + a
+// SHORT id token (single letter or digits) + a separator (— – : -) so prose like
+// "Phase out the legacy parser" or "Phase 1 rollout is done" is NOT flagged.
+const LEVEL_PREFIX_RE = /^\s*(?:phase|fase)\s+(?:[a-z]|\d{1,3})\b\s*[—–:-]/i;
+
+/** True if a task title masquerades as a phase-level heading. Pure predicate. */
+export function levelConfusedTaskTitle(title) {
+  return typeof title === 'string' && LEVEL_PREFIX_RE.test(title.trim());
+}
+
 // --- markdown tokenizer (fence-aware) ----------------------------------------
 
 /**
@@ -312,6 +324,9 @@ export function lintSpec(markdown) {
   // Per-task: the four required interior fields.
   for (const s of taskSections) {
     const where = `task ${s.taskId} (phase ${s.phaseId})`;
+    if (levelConfusedTaskTitle(s.title)) {
+      violations.push(`${where}: task title "${s.title}" masquerades as a phase — a task is not a phase; drop the "Phase/Fase <X> —" prefix.`);
+    }
     const find = (name) => {
       for (const line of s.bodyLines) {
         const v = fieldValue(line, name);

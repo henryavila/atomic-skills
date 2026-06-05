@@ -83,7 +83,7 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 
 1. Locate task in `tasks:` (array). Find the entry where `id === <task-id>`.
 2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.
-3. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` — see project.md → Dashboard rollups; or `node scripts/compute-rollups.js`), then save the initiative file.
+3. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see project.md → Dashboard rollups; or `node scripts/compute-rollups.js`), then save the initiative file.
 4. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
    - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
    - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
@@ -117,7 +117,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      a. Set all `tasks[].status = 'done'`, `tasks[].closedAt = <now>`, `tasks[].lastUpdated = <now>` for any task not already `done`.
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
-     d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met), then save the initiative file.
+     d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary`, then save the initiative file.
    - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>`. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
    - For each newly-active phase id, propose `atomic-skills:project new initiative <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new initiative` flow already seeds the initiative's first stack frame from `initiative.template.md`.
@@ -275,9 +275,9 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
 1. Detect kind (resolve nested-first, then legacy flat): is there a plan at `projects/<project-id>/<slug>/plan.md` (legacy `.atomic-skills/plans/<slug>.md`)? OR a phase/standalone initiative at `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`)?
 2. **Plan switch**:
    - Find target plan; abort if `status` not in {`active`, `paused`}.
-   - Set any other active plan to `status: paused`.
+   - Set any other active plan to `status: paused` — **and cascade: pause its `active` phase** (in the plan's `phases[]` descriptor AND the matching initiative file). A paused plan must never leave an `active` phase behind.
    - Set target plan to `status: active`.
-   - Update PROJECT-STATUS.md.
+   - Update PROJECT-STATUS.md, then run `node scripts/reconcile-focus.js` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers).
 3. **Initiative switch**:
    - Find target initiative; abort if not active/paused.
    - If target has `parentPlan` ≠ currently-active plan's slug: warn and offer to also switch the plan.

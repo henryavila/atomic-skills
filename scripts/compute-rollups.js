@@ -1,7 +1,8 @@
 /**
  * compute-rollups.js — precompute the dashboard rollup fields
  * (`tasksDone` / `tasksTotal` / `gatesMet` / `gatesTotal`) onto every
- * initiative's frontmatter.
+ * initiative's frontmatter, AND the per-gate derived dashboard fields
+ * (`verifierLabel` / `evidenceSummary`) onto every `exitGates[]` element.
  *
  * The generic aiDeck reads project state in place and has NO compute engine, so
  * progress meters (e.g. the `phase-timeline` widget) need scalar rollups already
@@ -39,6 +40,98 @@ export function rollupsFor(fm) {
   };
 }
 
+// ── Per-gate derived dashboard fields ───────────────────────────────────────
+// aiDeck has no compute engine and generic widgets cannot read a gate's nested
+// `verifier {kind,…}` / `evidence {passed,…}` objects (TableWidget JSON-blobs
+// objects). So we FLATTEN them into two neutral scalars the dashboard binds as
+// plain columns. Pure projections of existing data — never hand-authored.
+const GATE_DERIVED_KEYS = ['verifierLabel', 'evidenceSummary'];
+
+function truncate(s, n) {
+  const str = String(s).trim();
+  return str.length > n ? `${str.slice(0, n - 1)}…` : str;
+}
+
+/** ISO/space timestamp → 'YYYY-MM-DD' (or the raw string if shorter). */
+function shortDate(ts) {
+  const s = String(ts || '');
+  return s.length >= 10 ? s.slice(0, 10) : s;
+}
+
+/** One-line human label of a gate's `verifier` (kind + key arg), '' if absent. */
+export function verifierLabelFor(gate) {
+  const v = gate && gate.verifier;
+  if (!v || typeof v !== 'object') return '';
+  const kind = String(v.kind || '').trim();
+  switch (kind) {
+    case 'shell':
+      return v.command ? `shell: ${truncate(v.command, 60)}` : 'shell';
+    case 'test': {
+      const parts = [v.runner, v.pattern].filter(Boolean).join(' ');
+      return parts ? `test: ${truncate(parts, 60)}` : 'test';
+    }
+    case 'query':
+      return v.sql ? `query: ${truncate(v.sql, 60)}` : 'query';
+    case 'manual':
+      return 'manual';
+    default:
+      return kind;
+  }
+}
+
+/** One-line summary of a gate's `evidence` / deferral, '' while pending. */
+export function evidenceSummaryFor(gate) {
+  if (!gate || typeof gate !== 'object') return '';
+  const status = String(gate.status || '');
+  if (status === 'deferred') {
+    const r = gate.deferredReason ? truncate(gate.deferredReason, 80) : '';
+    return r ? `deferred: ${r}` : 'deferred';
+  }
+  if (status === 'met') {
+    const e = gate.evidence;
+    if (e && typeof e === 'object') {
+      const bits = [];
+      if (e.passed === true) bits.push('passed');
+      else if (e.passed === false) bits.push('failed');
+      if (typeof e.testsCollected === 'number') bits.push(`${e.testsCollected} tests`);
+      if (typeof e.rowCount === 'number') bits.push(`${e.rowCount} rows`);
+      if (e.verifiedAt) bits.push(shortDate(e.verifiedAt));
+      if (!bits.length && e.outputSummary) bits.push(truncate(e.outputSummary, 80));
+      if (bits.length) return bits.join(' · ');
+    }
+    return gate.metAt ? `met · ${shortDate(gate.metAt)}` : 'met';
+  }
+  return ''; // pending → no summary
+}
+
+/**
+ * Refresh the derived dashboard fields on each `exitGates[]` element. Returns
+ * the (possibly new) array + whether anything changed. Idempotent: strips any
+ * prior derived keys and re-appends canonically, so the key order is stable
+ * across runs. `verifierLabel` is present whenever a verifier exists;
+ * `evidenceSummary` only when met/deferred (omitted while pending).
+ */
+function deriveGates(gates) {
+  if (!Array.isArray(gates)) return { gates, changed: false };
+  let changed = false;
+  const next = gates.map((g) => {
+    if (!g || typeof g !== 'object' || Array.isArray(g)) return g;
+    const rest = {};
+    for (const [k, v] of Object.entries(g)) {
+      if (!GATE_DERIVED_KEYS.includes(k)) rest[k] = v;
+    }
+    const label = verifierLabelFor(g);
+    const summary = evidenceSummaryFor(g);
+    if (label) rest.verifierLabel = label;
+    if (summary) rest.evidenceSummary = summary;
+    if ((g.verifierLabel || '') !== (label || '') || (g.evidenceSummary || '') !== (summary || '')) {
+      changed = true;
+    }
+    return rest;
+  });
+  return { gates: next, changed };
+}
+
 /** Rebuild fm with rollups stripped + re-inserted canonically before `exitGates`. */
 function withRollups(fm, roll) {
   const out = {};
@@ -71,9 +164,12 @@ export function computeRollupsFile(filePath) {
     return { filePath, changed: false };
   }
   const roll = rollupsFor(fm);
-  if (ROLLUP_KEYS.every((k) => fm[k] === roll[k])) return { filePath, changed: false };
+  const { gates: nextGates, changed: gatesChanged } = deriveGates(fm.exitGates);
+  const rollupsChanged = !ROLLUP_KEYS.every((k) => fm[k] === roll[k]);
+  if (!rollupsChanged && !gatesChanged) return { filePath, changed: false };
 
-  const next = withRollups(fm, roll);
+  const fmWithGates = Array.isArray(fm.exitGates) ? { ...fm, exitGates: nextGates } : fm;
+  const next = withRollups(fmWithGates, roll);
   const yamlBlock = stringifyYaml(next).replace(/\n$/, '');
   const body = parsed.body.length ? parsed.body.replace(/^\n/, '') : '';
   const rebuilt = `---\n${yamlBlock}\n---\n${body ? `\n${body}` : ''}`;

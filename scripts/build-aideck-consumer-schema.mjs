@@ -65,5 +65,22 @@ const bundle = {
 }
 
 const out = join(root, 'assets', 'aideck-consumer', 'schema.json')
-writeFileSync(out, JSON.stringify(bundle, null, 2) + '\n')
+const next = JSON.stringify(bundle, null, 2) + '\n'
+
+// `--check`: fail (exit 1) instead of writing when the committed asset has drifted
+// from meta/schemas/. Lets a test / CI catch a forgotten regen — the generated
+// schema.json must never lag the source, or `aideck validate-file` rejects live
+// state that carries newly-added fields (e.g. task.summary).
+if (process.argv.includes('--check')) {
+  let current = ''
+  try { current = readFileSync(out, 'utf8') } catch { /* missing == drift */ }
+  if (current !== next) {
+    console.error('build-aideck-consumer-schema: assets/aideck-consumer/schema.json is STALE — run `npm run build:aideck-schema` and commit the result.')
+    process.exit(1)
+  }
+  console.log('build-aideck-consumer-schema: schema.json up to date ✓')
+  process.exit(0)
+}
+
+writeFileSync(out, next)
 console.log(`wrote ${out} (definitions: ${Object.keys(bundle.definitions).length})`)

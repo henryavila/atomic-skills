@@ -19,11 +19,12 @@ In the unified nested layout there is no separate top-level `initiatives/` file.
    - Is this initiative **standalone** or part of an **active plan**? If active plans exist, list them.
    - If part of a plan: which `phaseId` does it represent? (suggest the plan's `currentPhase`).
    - Initial title and goal (one short imperative sentence each).
+   - A concise one-line **`summary`** (what this phase does — distinct from the longer `goal`), drafted by the agent in the **install-configured communication language** (`manifest.json` `language`) and confirmed by the user. This is the dashboard-visible string (Home "Agora"/timeline); see skills/core/project.md → "Phase summaries".
    - Associated branch (auto-fills with `git branch --show-current` if none provided).
    - Optional `audience` (e.g., "Developer", "Admin user").
-4. Materialize from `{{ASSETS_PATH}}/initiative.template.md`, substituting `REPLACE_*` markers:
-   - **Standalone → degenerate 1-phase plan.** Write the initiative as the lone phase at `projects/<project-id>/<slug>/phases/<slug>.md` (`parentPlan: <slug>`, `phaseId: F0`) AND synthesize a minimal `projects/<project-id>/<slug>/plan.md` whose single `phases[0].slug === <slug>` (same shape `src/migrate.js` produces for an orphan — see `project-migrate.md`), so `validate-state` cross-validates the pair.
-   - **In-plan → phase file.** Write at `projects/<project-id>/<parent-plan>/phases/f<N>-<slug>.md`; add/confirm the matching `phases[]` descriptor on the parent `plan.md`.
+4. Materialize from `{{ASSETS_PATH}}/initiative.template.md`, substituting `REPLACE_*` markers. Write the confirmed `summary` onto the initiative frontmatter in every case (and onto the descriptor, below):
+   - **Standalone → degenerate 1-phase plan.** Write the initiative as the lone phase at `projects/<project-id>/<slug>/phases/<slug>.md` (`parentPlan: <slug>`, `phaseId: F0`) AND synthesize a minimal `projects/<project-id>/<slug>/plan.md` whose single `phases[0].slug === <slug>` (same shape `src/migrate.js` produces for an orphan — see `project-migrate.md`) — set `phases[0].summary` to the same confirmed line — so `validate-state` cross-validates the pair.
+   - **In-plan → phase file.** Write at `projects/<project-id>/<parent-plan>/phases/f<N>-<slug>.md`; add/confirm the matching `phases[]` descriptor on the parent `plan.md`, setting that descriptor's `summary` to the confirmed line.
 5. Handle the **plan-membership-block** in the template:
    - Standalone: keep `parentPlan: <slug>` + `phaseId: F0` (it is its own 1-phase plan), delete the two `# === ... ===` sentinel lines.
    - In-plan: delete the two sentinel comment lines but fill `REPLACE_PARENT_PLAN_SLUG` and `REPLACE_PHASE_ID`.

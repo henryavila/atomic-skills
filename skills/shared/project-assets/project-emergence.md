@@ -25,7 +25,7 @@ A generic "ok" / "do it" / "yes" reply MUST be treated as the agent asking the u
 
 ## Proposed-mutation print format
 
-The agent's proposal block must follow this exact shape. The `Drafted context` block is mandatory for every magnitude (1-7); the user must `ratify` it before the agent applies anything.
+The agent's proposal block must follow this exact shape. The `Drafted context` block is mandatory for every magnitude (1-7); the user must `ratify` it before the agent applies anything. For the rungs that **create a task or a phase** (`promote`, `new-task`, `new-phase`, `split-phase`), the block ALSO carries a mandatory `Drafted summary` — the one-line "what this does" the dashboard shows; it is authored + ratified in the same gate (never deferred), in the **install-configured communication language** (the `manifest.json` `language`). See skills/core/project.md → "Phase summaries" / "Task summaries".
 
 ```
 Proposed mutation: <magnitude name, e.g. "new task in different phase">
@@ -34,6 +34,9 @@ Proposed mutation: <magnitude name, e.g. "new task in different phase">
     --title "Add canary smoke test for cross-landlord case" \
     --blocked-by T-002 \
     --tags critical
+
+  Drafted summary (✋ task/phase-creating rungs — shown on the dashboard; install-configured language):
+    summary: <one concise line: what this task/phase does — distinct from the title>
 
   Drafted context (✋ ratify or edit before applying):
     solves:  <one sentence: the concrete problem this addresses;
@@ -52,7 +55,7 @@ To apply: reply "ratify" (accept context as drafted), OR paste a corrected
 Drafted-context block, OR "cancel".
 ```
 
-Both `Reasoning` and `Drafted context` are mandatory. The first defends against magnitude inflation; the second defends against title-only stubs. A proposal block that omits either is malformed — the agent must re-print it correctly, not proceed.
+Both `Reasoning` and `Drafted context` are mandatory. The first defends against magnitude inflation; the second defends against title-only stubs. A proposal block that omits either is malformed — the agent must re-print it correctly, not proceed. For task/phase-creating rungs the `Drafted summary` is mandatory too — omitting it is the same malformation (the dashboard would render a bare id/title).
 
 ### How to draft a useful context (so the user doesn't reject the ratify)
 
@@ -86,9 +89,10 @@ Same ratify gate as base `emerge` — the `--target` flag only changes WHERE the
 1. Locate item in `parked:`. Confirm it carries a `context` block (it must — schema requires it for every parked entry).
 2. Generate next task ID (`T-<NNN+1>` based on the highest existing).
 3. **Re-ratify check** (only if `context.lastReviewedAt` is older than `parkedZombieDays` in config — default 30): print the existing context, ask "Premises still valid? `ratify` to keep, paste edits to update, `cancel` to abort." Fresh items skip this prompt — their context was just ratified.
-4. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, status: pending, lastUpdated: <now>, provenance: { surfacedAt: <parked surfacedAt>, surfacedDuring: "promote(<current-init>)", surfacedBy: human }, context: { …carried from parked, lastReviewedAt: now …}}`. The carried context's `ratifiedAt` is preserved (proof the human articulated this once); `lastReviewedAt` advances if step 3 ran.
-5. Remove item from `parked:`.
-6. Announce new task ID.
+4. **Draft + ratify the `summary`** — ALWAYS, fresh or stale (the parked entry never carried one, so it is authored here, NOT inherited). Show a one-line summary (install-configured communication language, derived from the parked title + `context.solves`) and have the user ratify it: fold it into the step-3 prompt when that runs, or show it on its own for fresh items. This step is unconditional — never skip it on the fresh-item path.
+5. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, summary: <ratified one-line>, status: pending, lastUpdated: <now>, provenance: { surfacedAt: <parked surfacedAt>, surfacedDuring: "promote(<current-init>)", surfacedBy: human }, context: { …carried from parked, lastReviewedAt: now …}}`. The carried context's `ratifiedAt` is preserved (proof the human articulated this once); `lastReviewedAt` advances if step 3 ran. **`summary` is mandatory** — a promoted task with no summary renders bare in the dashboard Agora.
+6. Remove item from `parked:`.
+7. Run `node scripts/find-missing-task-summaries.js` (zero-token backstop, same as `new-task`) — a non-zero exit means the summary slipped; author it before announcing. Then announce the new task ID.
 
 ## `new-task [--target <phaseId>] "<title>" [options]` (rungs 4-5)
 
@@ -113,13 +117,14 @@ Steps:
 5. Build the task object: `{id, title, status: pending, lastUpdated: now, …}`.
 6. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: <human|ai> }`. `surfacedBy: human` when the user typed the command directly; `surfacedBy: ai` when the agent surfaced it and the user only ratified.
 7. **MANDATORY**: set `context: { solves, trigger, assumesStillValid?, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }` — from the ratified block (verbatim if the user typed `ratify`, edited version if they pasted corrections).
-8. Append to `tasks[]`, bump initiative `lastUpdated`.
-9. **Cognitive load warnings** (non-blocking):
+8. **MANDATORY**: set `summary` — the one-line "what this task does" from the ratified `Drafted summary`, in the install-configured communication language. This is the dashboard-visible string (Agora + Initiative-detail); a task created with no summary contradicts the "skill always generates" guarantee (skills/core/project.md → "Task summaries").
+9. Append to `tasks[]`, bump initiative `lastUpdated`. Then run `node scripts/find-missing-task-summaries.js` (zero-token; it scans every initiative in both layouts) — a non-zero exit means a straggler slipped through; author it before declaring the task created. Running it here closes the `--target <non-current-phase>` gap that the view-time *gate* (project-view.md Step 0 only blocks on the active plan's current-phase rows) would not otherwise block on.
+10. **Cognitive load warnings** (non-blocking):
    - If `description` exceeds `maxTaskDescriptionLines` (default 15 from config.json): warn "Task description is N lines (limit: 15). Consider splitting into sub-tasks or moving detail to the initiative body."
    - If `acceptance[]` exceeds `maxTaskAcceptance` (default 5 from config.json): warn "Task has N acceptance criteria (limit: 5). Focus on the most critical assertions."
    - Warnings do NOT block task creation — the user can proceed after acknowledging.
-10. Validate against schema. Save file.
-11. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
+11. Validate against schema. Save file.
+12. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
 
 ## `new-phase <id> "<title>" --after <other-id> [options]` (rung 6)
 
@@ -137,10 +142,10 @@ Steps:
 1. Load the active plan. If no active plan, abort with: "new-phase requires an active plan. Run `atomic-skills:project new plan <slug>` to create one first."
 2. **Reconciliation gate**: run the pre-mutation reconciliation gate (router) on the active phase initiative.
 3. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
-4. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
+4. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, the drafted `summary` (one-line what-this-phase-does, install-configured language), AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
 5. On ratify (or edited context):
-   - Append phase descriptor to `phases[]` with `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
-   - Create the phase initiative file at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md` (legacy flat `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md`) from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`.
+   - Append phase descriptor to `phases[]` with `summary: <ratified one-line>`, `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
+   - Create the phase initiative file at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md` (legacy flat `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md`) from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`, and the same ratified `summary` (the Home "Agora"/timeline read it from both surfaces — see skills/core/project.md → "Phase summaries").
    - Save plan + initiative.
    - Validate both files via `npm run validate-state`.
 6. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
@@ -157,7 +162,7 @@ Steps:
 2. Ask the user: "Split `<id>` into how many sub-phases? Suggest names + which tasks go to each."
 3. **Ratify gate** (per new sub-phase): print one `Proposed mutation:` block per new phase being materialized, each with its own drafted context. The user can `ratify` once per phase or `ratify-all` to accept all drafts. `cancel` on any one aborts the entire split (no partial materialization).
 4. Materialize the new phases (using `new-phase` semantics — provenance + plan body update + new initiative files), embedding each phase's ratified context.
-5. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks. Moved tasks keep their existing `context` (no re-ratify — the articulation was already done when each task was added).
+5. Move tasks between the new initiatives per the user's split. Preserve `provenance` per task; add `originalPhaseId: <id>` to provenance for moved tasks. Moved tasks keep their existing `context` AND `summary` (no re-ratify, no re-author — both were done when each task was added). The new sub-phases get their phase `summary` via the new-phase semantics in step 4.
 6. Mark the original phase as `archived` (not `done` — splitting is not completion). Move its initiative to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
 7. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
 8. Validate everything. Roll back on any failure.

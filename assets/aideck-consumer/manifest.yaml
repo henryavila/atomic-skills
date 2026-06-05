@@ -38,11 +38,11 @@ dataSources:
   - id: phases
     derivesFrom: plans
     explode: phases
-    carry: [projectId, planSlug, currentPhase, branch]
+    carry: [projectId, planSlug, currentPhase, branch, planActive]
   - id: tasks
     derivesFrom: initiatives
     explode: tasks
-    carry: [projectId, planSlug, slug, phaseId, parentPlan]
+    carry: [projectId, planSlug, slug, phaseId, parentPlan, current]
   - id: exit_gates
     derivesFrom: initiatives
     explode: exitGates
@@ -65,10 +65,81 @@ nav:
   showIcons: true
 
 pages:
+  # ── Home = FOCUS (default). Answers: what am I implementing, what am I doing
+  # now, and how the current phase fits — scoped to the ACTIVE plan(s) via the
+  # reconcile-focus markers (current / planActive). The global portfolio view is
+  # the secondary "Overview" tab. ──────────────────────────────────────────────
+  - slug: home
+    title: 'Foco'
+    icon: 'mdi:target'
+    default: true
+    layout: sections
+    sections:
+      # Agora = the current phase, stated concisely (summary, not the nextAction
+      # status-dump) + its TASKS (the actual actionable work), not raw rollup
+      # numbers. Scoped to the active plan's currentPhase via the `current` marker.
+      - title: 'Agora'
+        widgets:
+          - widget: callout
+            colSpan: 12
+            source: { ref: initiatives, filter: { current: true } }
+            repeat: parentPlan
+            repeatDirection: vertical
+            config: { variant: attention, titleField: title, bodyField: summary }
+          - widget: progress-bar
+            colSpan: 12
+            source: { ref: initiatives, filter: { current: true } }
+            repeat: parentPlan
+            repeatDirection: vertical
+            config: { title: 'Tarefas', valueField: tasksDone, maxField: tasksTotal, pct: true }
+          - widget: table
+            colSpan: 12
+            source: { ref: tasks, filter: { current: true } }
+            repeat: parentPlan
+            repeatDirection: vertical
+            config:
+              # `summary` = the one-line "what does this task do" (skill-authored,
+              # user-validated; see find-missing-task-summaries.js). Sits next to
+              # the title so the focus panel reads as work, not bare ids.
+              columns: [id, title, summary, status, blockedBy]
+              emptyNote: 'Sem tarefas nesta fase.'
+              # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
+              # built-in map lacks archived/met/deferred; declared once here as a
+              # YAML anchor and aliased (*statusvocab) by every status widget below.
+              statuses: &statusvocab
+                active:   { tone: info,    glyph: "◉" }
+                pending:  { tone: neutral, glyph: "·" }
+                paused:   { tone: warning, glyph: "‖" }
+                blocked:  { tone: warning, glyph: "!" }
+                done:     { tone: success, glyph: "✓" }
+                archived: { tone: neutral, glyph: "▪", label: "archived" }
+                met:      { tone: success, glyph: "✓" }
+                deferred: { tone: warning, glyph: "⏸" }
+            slots:
+              "cell:blockedBy":
+                - widget: tag-chip
+                  config: { field: blockedBy, hideCounts: true }
+      - title: 'Onde estou no plano'
+        widgets:
+          - widget: phase-timeline
+            colSpan: 12
+            # The full phase skeleton lives in the plan's phases[] descriptor
+            # (phases are materialized lazily), scoped to active plans via the
+            # carried planActive marker. The current phase highlights on status;
+            # each step shows its concise `summary`.
+            source: { ref: phases, filter: { planActive: true } }
+            repeat: planSlug
+            repeatDirection: vertical
+            config:
+              idField: id
+              titleField: title
+              statusField: status
+              nextActionField: summary
+              statuses: *statusvocab
+
   - slug: overview
     title: 'Overview'
     icon: 'mdi:view-dashboard'
-    default: true
     layout: sections
     sections:
       - title: 'At a glance'
@@ -100,12 +171,18 @@ pages:
               columns: [title, status, currentPhase, branch, projectId]
               emptyNote: 'No plans tracked yet — run the project-status skill to start one.'
               linkTo: 'plan/:projectId/:slug'   # §2c row-scoped drill-down → Plan detail
+              statuses: *statusvocab            # vocabulary anchored on the Home page
       - title: 'Phases by status'
         widgets:
           - widget: kanban-board
             colSpan: 12
             source: { ref: initiatives }
-            config: { columns: [pending, active, paused, done, archived], statusField: status, idField: phaseId, titleField: title }
+            config:
+              columns: [pending, active, paused, done, archived]
+              statusField: status
+              idField: phaseId
+              titleField: title
+              statuses: *statusvocab
             slots:                               # §2b composed card: task-progress overlay
               card:
                 - widget: progress-bar
@@ -145,6 +222,7 @@ pages:
               columns: [title, status, currentPhase, branch, projectId]
               emptyNote: 'No plans tracked yet.'
               linkTo: 'plan/:projectId/:slug'
+              statuses: *statusvocab
       - title: 'By project'
         widgets:
           - widget: card-grid
@@ -152,7 +230,12 @@ pages:
             source: { ref: plans }
             repeat: projectId
             repeatDirection: vertical
-            config: { titleField: title, subtitleField: currentPhase, fields: [status, branch], linkTo: 'plan/:projectId/:slug' }
+            config:
+              titleField: title
+              subtitleField: currentPhase
+              fields: [status, branch]
+              linkTo: 'plan/:projectId/:slug'
+              statuses: *statusvocab
 
   - slug: phases
     title: 'Phases'
@@ -171,6 +254,7 @@ pages:
               subtitleField: status
               fields: [phaseId, nextAction]
               linkTo: 'phase/:projectId/:slug'   # §2c drill-down → Initiative detail
+              statuses: *statusvocab
 
   # ── Drill-down detail pages (§2c). Reached via row-scoped linkTo above; the
   # route /:consumerId/<plan|phase>/:projectId/:slug carries the project scope +
@@ -191,19 +275,34 @@ pages:
           - widget: key-value
             colSpan: 12
             source: { ref: plans, param: { match: [projectId, slug] } }
-            config: { fields: [status, currentPhase, branch, started, lastUpdated] }
+            config:
+              fields: [status, currentPhase, branch, started, lastUpdated]
+              statuses: *statusvocab
       - title: 'Phase timeline'
         widgets:
           - widget: phase-timeline
             colSpan: 12
             source: { ref: initiatives, param: { match: [projectId, { field: planSlug, param: slug }] } }
-            config: { idField: phaseId, titleField: title, statusField: status, nextActionField: nextAction }
+            config:
+              idField: phaseId
+              titleField: title
+              statusField: status
+              nextActionField: nextAction
+              statuses: *statusvocab
+              meters:                            # surface the precomputed rollups per phase
+                - { label: 'Tasks', valueField: tasksDone, maxField: tasksTotal, style: bar }
+                - { label: 'Gates', valueField: gatesMet, maxField: gatesTotal, style: pips }
       - title: 'Exit gates'
         widgets:
           - widget: table
             colSpan: 12
             source: { ref: exit_gates, param: { match: [projectId, { field: planSlug, param: slug }] } }
-            config: { columns: [phaseId, id, description, status], emptyNote: 'No exit gates.' }
+            config:
+              # verifierLabel/evidenceSummary are flat scalars derived by
+              # compute-rollups.js (aiDeck can't read the nested verifier/evidence).
+              columns: [phaseId, id, description, status, verifierLabel, evidenceSummary]
+              statuses: *statusvocab
+              emptyNote: 'No exit gates.'
       - title: 'Narrative'
         widgets:
           - widget: markdown
@@ -226,19 +325,31 @@ pages:
           - widget: key-value
             colSpan: 12
             source: { ref: initiatives, param: { match: [projectId, slug] } }
-            config: { fields: [status, phaseId, parentPlan, branch, started, lastUpdated] }
+            config:
+              fields: [status, phaseId, parentPlan, branch, started, lastUpdated]
+              statuses: *statusvocab
       - title: 'Tasks'
         widgets:
           - widget: table
             colSpan: 12
             source: { ref: tasks, param: { match: [projectId, slug] } }
-            config: { columns: [id, title, status], emptyNote: 'No tasks.' }
+            config:
+              columns: [id, title, summary, status, blockedBy]
+              statuses: *statusvocab
+              emptyNote: 'No tasks.'
+            slots:
+              "cell:blockedBy":                  # §2b detail slot: blockers as chips
+                - widget: tag-chip
+                  config: { field: blockedBy, hideCounts: true }
       - title: 'Exit gates'
         widgets:
           - widget: table
             colSpan: 12
             source: { ref: exit_gates, param: { match: [projectId, slug] } }
-            config: { columns: [id, description, status], emptyNote: 'No exit gates.' }
+            config:
+              columns: [id, description, status, verifierLabel, evidenceSummary]
+              statuses: *statusvocab
+              emptyNote: 'No exit gates.'
       - title: 'Stack'
         widgets:
           - widget: list

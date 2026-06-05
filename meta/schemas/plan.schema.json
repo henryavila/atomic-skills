@@ -27,6 +27,10 @@
     "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "branch": { "type": "string" },
     "currentPhase": { "type": ["string", "null"] },
+    "planActive": {
+      "type": "boolean",
+      "description": "Derived focus marker (scripts/reconcile-focus.js): true iff status:'active'. Carried by the `phases` dataSource onto each phase row so the Home timeline scopes to active plans (the dashboard can't join). Never hand-authored."
+    },
     "parallelismAllowed": { "type": "boolean" },
     "principles": {
       "type": "array",
@@ -117,6 +121,10 @@
         "slug": { "$ref": "common.schema.json#/$defs/slug" },
         "title": { "type": "string", "minLength": 1 },
         "goal": { "type": "string", "minLength": 1 },
+        "summary": {
+          "type": "string",
+          "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
+        },
         "dependsOn": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }

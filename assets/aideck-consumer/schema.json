@@ -285,6 +285,14 @@
         "deferredReason": {
           "type": "string"
         },
+        "verifierLabel": {
+          "type": "string",
+          "description": "Derived (scripts/compute-rollups.js): one-line human label of `verifier` (kind + key arg, truncated) for the dashboard. Never hand-authored; recomputed alongside rollups."
+        },
+        "evidenceSummary": {
+          "type": "string",
+          "description": "Derived (scripts/compute-rollups.js): one-line summary of `evidence`/`deferredReason` for the dashboard; '' (omitted) while pending. Never hand-authored; recomputed alongside rollups."
+        },
         "evidence": {
           "type": "object",
           "additionalProperties": false,
@@ -396,6 +404,10 @@
           "type": "string",
           "minLength": 1
         },
+        "summary": {
+          "type": "string",
+          "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
+        },
         "dependsOn": {
           "type": "array",
           "items": {
@@ -504,6 +516,10 @@
         "title": {
           "type": "string",
           "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "description": "Concise one-line human summary of what this task does — distinct from the label `title` and the longer `description`. Authored + user-validated at decompose (and whenever a task is created mid-execution); shown on the dashboard Home (Agora task table) and the Initiative-detail tasks table. Generated in the install-configured language; backfill detector = scripts/find-missing-task-summaries.js. Never hand-authored as a one-off outside the skill loop (skills/core/project.md → Task summaries)."
         },
         "description": {
           "type": "string"
@@ -679,6 +695,10 @@
             "string",
             "null"
           ]
+        },
+        "planActive": {
+          "type": "boolean",
+          "description": "Derived focus marker (scripts/reconcile-focus.js): true iff status:'active'. Carried by the `phases` dataSource onto each phase row so the Home timeline scopes to active plans (the dashboard can't join). Never hand-authored."
         },
         "parallelismAllowed": {
           "type": "boolean"
@@ -873,6 +893,10 @@
           "type": "string",
           "minLength": 1
         },
+        "summary": {
+          "type": "string",
+          "description": "Concise one-line human summary of what this phase does (mirrors the plan phase descriptor's `summary`). Authored + user-validated at phase generation; shown on the dashboard Home (Agora callout)."
+        },
         "status": {
           "type": "string",
           "enum": [
@@ -930,6 +954,14 @@
           "type": "integer",
           "minimum": 0,
           "description": "Rollup: exitGates.length."
+        },
+        "planActive": {
+          "type": "boolean",
+          "description": "Derived focus marker (scripts/reconcile-focus.js): true iff this initiative's parent plan has status 'active'. Scopes the Home timeline to active plans (the dashboard can't join plan→initiative). Never hand-authored."
+        },
+        "current": {
+          "type": "boolean",
+          "description": "Derived focus marker (scripts/reconcile-focus.js): true iff planActive AND this is the plan's currentPhase — i.e. the single 'AGORA' phase. Powers the Home focus callout. Never hand-authored."
         },
         "exitGates": {
           "type": "array",
