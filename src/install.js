@@ -41,15 +41,27 @@ function installRuntimeArtifacts() {
     cpSync(dashboardSrc, dashboardDest, { recursive: true });
   }
 
-  // aiDeck v2 consumer (manifest + schema.json + script handlers) →
-  // ~/.aideck/consumers/atomic-skills/. aiDeck discovers consumers by scanning
-  // ~/.aideck/consumers/*/manifest.yaml; this is how the project skill plugs its
-  // nested .atomic-skills/ tree into the dashboard + MCP tools (R-MIG-14).
+  // aiDeck v2 consumer is provisioned PER-PROJECT (consumer id + title = the
+  // consuming repo, NOT a fixed atomic-skills/Project Status) lazily by the
+  // project skill's `status` flow — see src/provision-consumer.js + project-view.md.
+  // aiDeck keys each consumer by its manifest.id, so running the skill in repo
+  // `foo` yields ~/.aideck/consumers/foo/ titled "Foo".
+  //
+  // Install does NOT drop a fixed ~/.aideck/consumers/atomic-skills/ anymore (that
+  // hardcoded identity was the bug). It only stages the TEMPLATE + the provisioner
+  // in a stable runtime location so the lazy flow can resolve them from any repo
+  // (the package's own assets/ + src/ also satisfy the global-npm resolver path).
   const consumerSrc = join(PACKAGE_ROOT, 'assets', 'aideck-consumer');
   if (existsSync(join(consumerSrc, 'manifest.yaml'))) {
-    const consumerDest = join(homedir(), '.aideck', 'consumers', 'atomic-skills');
-    if (existsSync(consumerDest)) rmSync(consumerDest, { recursive: true, force: true });
-    cpSync(consumerSrc, consumerDest, { recursive: true });
+    const tmplDest = join(homedir(), '.atomic-skills', 'aideck-consumer');
+    if (existsSync(tmplDest)) rmSync(tmplDest, { recursive: true, force: true });
+    cpSync(consumerSrc, tmplDest, { recursive: true });
+  }
+  const provSrc = join(PACKAGE_ROOT, 'src', 'provision-consumer.js');
+  if (existsSync(provSrc)) {
+    const srcDest = join(homedir(), '.atomic-skills', 'src');
+    mkdirSync(srcDest, { recursive: true });
+    copyFileSync(provSrc, join(srcDest, 'provision-consumer.js'));
   }
 }
 

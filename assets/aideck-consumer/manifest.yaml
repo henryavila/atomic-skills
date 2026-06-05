@@ -1,7 +1,11 @@
+# This file is a TEMPLATE. The project skill provisions a per-project copy under
+# ~/.aideck/consumers/<projectId>/ and STAMPS the top-level `id` + `title` to the
+# consuming repo (id = projectId, title = humanized name) — see src/provision-consumer.js.
+# The values below are only the sane default for the atomic-skills repo itself.
 schemaVersion: '0.1'
 id: atomic-skills
 mcpNamespace: atomic_skills
-title: 'Project Status'
+title: 'Atomic Skills'
 icon: 'mdi:clipboard-check'
 
 # Read the repo's git-tracked nested tree in place (root: project), no copy into

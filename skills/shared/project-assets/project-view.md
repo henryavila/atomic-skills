@@ -10,16 +10,24 @@ The aiDeck dashboard is the only external surface this skill talks to, and aiDec
 
 ```
 # === AIDECK CONTRACT (cross-repo; aiDeck v2 Model-B consumer) ===
-# The skill plugs into aiDeck as a v2 CONSUMER installed at
-# ~/.aideck/consumers/atomic-skills/ (manifest + schema.json + handlers, shipped
-# by `atomic-skills install`). aiDeck reads the repo's nested .atomic-skills/
-# tree IN PLACE via the consumer's root:'project' dataSources — no copy. State
-# is read per-dataSource (no all-or-nothing /state validation anymore).
-AIDECK_CONSUMER="atomic-skills"        # consumer id = ~/.aideck/consumers/<id>/
+# The skill plugs into aiDeck as a v2 CONSUMER provisioned PER-PROJECT: the
+# consumer id + title ARE the consuming repo (id = projectId, title = humanized
+# name), so running the skill in repo `foo` yields ~/.aideck/consumers/foo/
+# titled "Foo" — NOT a fixed atomic-skills/Project Status (that hardcoded
+# identity was a bug). aiDeck keys each consumer by its manifest.id, so the
+# consumer id == the projectId. The skill provisions it lazily from the shipped
+# template via src/provision-consumer.js. aiDeck reads the repo's nested
+# .atomic-skills/ tree IN PLACE via the consumer's root:'project' dataSources —
+# no copy. State is read per-dataSource.
+#
+# AIDECK_CONSUMER is therefore DYNAMIC and equals $pid (the normalized repo
+# basename, the same value aiDeck derives for /api/projects/register). The
+# ensure-aideck script below computes $pid, provisions the consumer, then sets
+# AIDECK_CONSUMER="$pid".
 AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
 DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
 # Data path:  $AIDECK_URL/api/consumers/$AIDECK_CONSUMER/projects/$pid/data/<ds>
-#             (<ds> = plans | initiatives | discover | inbox; $pid from /api/projects/register)
+#             ($AIDECK_CONSUMER == $pid; <ds> = plans | initiatives | discover | inbox)
 # Dashboard:  $AIDECK_URL/$AIDECK_CONSUMER?project=$pid
 # === END AIDECK CONTRACT ===
 ```
@@ -49,7 +57,22 @@ Steps:
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_STATE_DOMAIN` / `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
    ```bash
-   AIDECK_CONSUMER="atomic-skills"        # ← AIDECK CONTRACT (see top of file)
+   # projectId = normalized repo basename. The consumer is provisioned PER-PROJECT
+   # (id + title = THIS repo), so the consumer id IS the projectId (AIDECK CONTRACT).
+   pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+
+   # Provision (idempotent) ~/.aideck/consumers/$pid/ with id=$pid + a humanized
+   # title, from the shipped template. Resolve the provisioner the same way as
+   # normalize.js (PWD → global npm → installed runtime). Safe no-op if unresolved.
+   PROV=""
+   for c in "$PWD/src/provision-consumer.js" \
+            "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/provision-consumer.js" \
+            "$HOME/.atomic-skills/src/provision-consumer.js"; do
+     [ -f "$c" ] && PROV="$c" && break
+   done
+   [ -n "$PROV" ] && node "$PROV" "$pid" >/dev/null 2>&1
+
+   AIDECK_CONSUMER="$pid"                  # ← consumer id == projectId (AIDECK CONTRACT)
    AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
    DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
    AIDECK_URL=""
@@ -100,7 +123,7 @@ Steps:
    #    STATE_ERROR = data loaded fine.
    STATE_ERROR=""
    if [ -n "$AIDECK_URL" ]; then
-     pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+     # $pid + $AIDECK_CONSUMER already set above (consumer id == projectId).
      STATE_ERROR=$(curl -s "$AIDECK_URL/api/consumers/$AIDECK_CONSUMER/projects/$pid/data/plans" 2>/dev/null \
        | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.error){process.stdout.write(j.error.message||"data load error")}}catch(_){}})' 2>/dev/null)
    fi
