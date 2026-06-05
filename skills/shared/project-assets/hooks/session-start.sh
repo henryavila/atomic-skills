@@ -175,7 +175,7 @@ if [[ -d "$PROJECTS_DIR" || -d "$PLANS_DIR" ]]; then
     if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
       branch_matched="$f"
     fi
-    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+    mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
     if (( mtime > newest_mtime )); then
       newest_mtime=$mtime
       newest="$f"

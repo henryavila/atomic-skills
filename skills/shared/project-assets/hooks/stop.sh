@@ -80,7 +80,7 @@ detect_active_initiative() {
         branch_matched="$f"
       fi
       local mtime
-      mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
       if (( mtime > newest_mtime )); then
         newest_mtime=$mtime
         newest="$f"
