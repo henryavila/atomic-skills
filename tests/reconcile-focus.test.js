@@ -25,7 +25,7 @@ function buildTree() {
   mkdirSync(join(beta, 'phases'), { recursive: true });
 
   writeFm(join(alpha, 'plan.md'), {
-    schemaVersion: '0.1', slug: 'alpha', status: 'active', currentPhase: 'F1',
+    schemaVersion: '0.1', slug: 'alpha', title: 'Alpha Plan', status: 'active', currentPhase: 'F1',
     phases: [{ id: 'F0', status: 'done' }, { id: 'F1', status: 'active' }],
   });
   writeFm(join(alpha, 'phases', 'f0.md'), { slug: 'alpha-f0', status: 'done', phaseId: 'F0', parentPlan: 'alpha' });
@@ -33,7 +33,7 @@ function buildTree() {
 
   // beta is paused but its F0 is still active in BOTH the descriptor and the file.
   writeFm(join(beta, 'plan.md'), {
-    schemaVersion: '0.1', slug: 'beta', status: 'paused', currentPhase: 'F0',
+    schemaVersion: '0.1', slug: 'beta', title: 'Beta Plan', status: 'paused', currentPhase: 'F0',
     phases: [{ id: 'F0', status: 'active' }],
   });
   writeFm(join(beta, 'phases', 'f0.md'), { slug: 'beta-f0', status: 'active', phaseId: 'F0', parentPlan: 'beta' });
@@ -64,6 +64,41 @@ test('reconcileDir cascades a paused plan’s active phase and stamps focus mark
     const f0 = readFm(join(alpha, 'phases', 'f0.md'));
     assert.equal(f0.planActive, true, 'alpha F0 planActive (its plan is active)');
     assert.ok(!f0.current, 'alpha F0 not current (not currentPhase)');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('reconcileDir denormalizes planTitle onto the plan record + its initiatives', () => {
+  const { root, alpha, beta } = buildTree();
+  try {
+    reconcileDir(root);
+    // Plan record carries planTitle so the `phases` dataSource can carry it down
+    // to each exploded phase row (repeatLabelField: planTitle on the timeline).
+    assert.equal(readFm(join(alpha, 'plan.md')).planTitle, 'Alpha Plan', 'plan record planTitle');
+    // Each initiative carries its PARENT plan's title (the `initiatives` dataSource
+    // → repeatLabelField: planTitle on the Agora widgets, grouped by parentPlan).
+    assert.equal(readFm(join(alpha, 'phases', 'f1.md')).planTitle, 'Alpha Plan', 'active initiative planTitle');
+    assert.equal(readFm(join(alpha, 'phases', 'f0.md')).planTitle, 'Alpha Plan', 'non-current initiative planTitle');
+    // Denormalized regardless of active state — beta is paused but still labeled.
+    assert.equal(readFm(join(beta, 'plan.md')).planTitle, 'Beta Plan', 'paused plan record planTitle');
+    assert.equal(readFm(join(beta, 'phases', 'f0.md')).planTitle, 'Beta Plan', 'paused initiative planTitle');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('reconcileDir updates planTitle when the plan title changes (no stale label)', () => {
+  const { root, alpha } = buildTree();
+  try {
+    reconcileDir(root);
+    assert.equal(readFm(join(alpha, 'phases', 'f1.md')).planTitle, 'Alpha Plan');
+    const plan = readFm(join(alpha, 'plan.md'));
+    plan.title = 'Alpha Renamed';
+    writeFm(join(alpha, 'plan.md'), plan);
+    reconcileDir(root);
+    assert.equal(readFm(join(alpha, 'plan.md')).planTitle, 'Alpha Renamed', 'plan planTitle re-synced');
+    assert.equal(readFm(join(alpha, 'phases', 'f1.md')).planTitle, 'Alpha Renamed', 'initiative planTitle re-synced');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -42,7 +42,7 @@ dataSources:
   - id: phases
     derivesFrom: plans
     explode: phases
-    carry: [projectId, planSlug, currentPhase, branch, planActive]
+    carry: [projectId, planSlug, currentPhase, branch, planActive, planTitle]
   - id: tasks
     derivesFrom: initiatives
     explode: tasks
@@ -84,28 +84,67 @@ pages:
       # numbers. Scoped to the active plan's currentPhase via the `current` marker.
       - title: 'Agora'
         widgets:
+          # Plan banner (full-width): the active plan's human title as a header, once
+          # per plan (titleField: planTitle, precomputed by reconcile-focus.js). This
+          # is the single plan label for the block — the widgets below repeat by the
+          # same parentPlan but their auto group-headers stay hidden for a single
+          # active plan, so there's no duplication. (A header spanning ABOVE the
+          # 2-col row natively needs aiDeck §2d/section-repeat; until then this
+          # dedicated full-width banner is the clean stand-in.)
           - widget: callout
             colSpan: 12
             source: { ref: initiatives, filter: { current: true } }
             repeat: parentPlan
+            repeatLabel: never
             repeatDirection: vertical
-            config: { variant: attention, titleField: title, bodyField: summary }
-          - widget: progress-bar
-            colSpan: 12
+            # Labeled banner: "Plano em foco" (static label) + the plan's human name
+            # (bodyField: planTitle) — so the title reads as context, not loose text.
+            # Click → the plan detail. The plan slug = the `planSlug` capture on the
+            # current initiative; the route shape (plan/:projectId/:planSlug) is OURS
+            # (consumer domain) — aiDeck only interpolates the :tokens generically.
+            config: { variant: info, title: 'Plano em foco', bodyField: planTitle, linkTo: 'plan/:projectId/:planSlug', actionLabel: 'Abrir' }
+          # Header row: the current-phase PANEL + its task meter, side by side — each
+          # half of the 12-col grid, stacking full-width on phones. Both are framed
+          # widgets with a header label ("Fase atual" / "Tarefas") + a boxless body,
+          # so the row reads uniformly and the grid stretches them to equal height.
+          # `panel` = header-labeled single-record panel (title + muted body, no inner
+          # box) — aiDeck docs/component-spec-labeled-callout-panel.md.
+          - widget: panel
+            colSpan: 6
+            responsive: { sm: { colSpan: 12 } }
             source: { ref: initiatives, filter: { current: true } }
             repeat: parentPlan
+            repeatLabel: never
+            repeatDirection: vertical
+            # Click the phase title → its initiative (phase) detail. projectId + slug
+            # are on the current-initiative record; route shape owned by the consumer.
+            config: { title: 'Fase atual', titleField: title, bodyField: summary, linkTo: 'phase/:projectId/:slug' }
+          - widget: progress-bar
+            colSpan: 6
+            responsive: { sm: { colSpan: 12 } }
+            source: { ref: initiatives, filter: { current: true } }
+            repeat: parentPlan
+            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
             repeatDirection: vertical
             config: { title: 'Tarefas', valueField: tasksDone, maxField: tasksTotal, pct: true }
           - widget: table
             colSpan: 12
             source: { ref: tasks, filter: { current: true } }
             repeat: parentPlan
+            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
             repeatDirection: vertical
             config:
               # `summary` = the one-line "what does this task do" (skill-authored,
-              # user-validated; see find-missing-task-summaries.js). Sits next to
-              # the title so the focus panel reads as work, not bare ids.
-              columns: [id, title, summary, status, blockedBy]
+              # user-validated; see find-missing-task-summaries.js). Folded UNDER
+              # the title (config.subtitles) instead of its own column, so the
+              # focus panel reads as work — title in front, summary muted beneath —
+              # not a wide id/title/summary table that's hard to scan.
+              columns: [id, title, status, blockedBy]
+              subtitles: { title: summary }
+              # Click a task → its phase (initiative) detail, where the full task
+              # list + description live. A task has no page of its own (thin unique
+              # data + the detail route is 2-param max: projectId/slug).
+              linkTo: 'phase/:projectId/:slug'
               emptyNote: 'Sem tarefas nesta fase.'
               # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
               # built-in map lacks archived/met/deferred; declared once here as a
@@ -133,12 +172,17 @@ pages:
             # each step shows its concise `summary`.
             source: { ref: phases, filter: { planActive: true } }
             repeat: planSlug
+            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
             repeatDirection: vertical
             config:
               idField: id
               titleField: title
               statusField: status
               nextActionField: summary
+              # Each step's title → its initiative (phase) detail. The exploded phase
+              # row carries projectId + the descriptor `slug` (== the materialized
+              # initiative slug), so the consumer route resolves per node.
+              linkTo: 'phase/:projectId/:slug'
               statuses: *statusvocab
 
   - slug: overview
@@ -186,6 +230,7 @@ pages:
               statusField: status
               idField: phaseId
               titleField: title
+              linkTo: 'phase/:projectId/:slug'   # card title → initiative detail (slug on the record)
               statuses: *statusvocab
             slots:                               # §2b composed card: task-progress overlay
               card:
@@ -252,6 +297,7 @@ pages:
             colSpan: 12
             source: { ref: initiatives }
             repeat: parentPlan
+            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
             repeatDirection: vertical
             config:
               titleField: title
@@ -292,6 +338,7 @@ pages:
               titleField: title
               statusField: status
               nextActionField: nextAction
+              linkTo: 'phase/:projectId/:slug'   # each phase node → its initiative detail
               statuses: *statusvocab
               meters:                            # surface the precomputed rollups per phase
                 - { label: 'Tasks', valueField: tasksDone, maxField: tasksTotal, style: bar }

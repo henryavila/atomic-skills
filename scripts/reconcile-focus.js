@@ -24,9 +24,12 @@ import { join, resolve } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { parseFrontmatter } from './validate-state.js';
 
-// Derived dashboard markers — never hand-authored; stamped only when true so an
-// absent field reads as false (and stale `true`s are stripped on recompute).
-const FOCUS_KEYS = ['planActive', 'current'];
+// Derived dashboard fields — never hand-authored; stripped + re-appended
+// canonically on every recompute. The booleans (planActive/current) are stamped
+// only when true so an absent field reads as false; planTitle is a denormalized
+// label (the parent plan's title) so a repeat-grouped widget can show the human
+// title instead of the slug (the dashboard can't join plan→initiative).
+const FOCUS_KEYS = ['planActive', 'current', 'planTitle'];
 
 /** Serialize frontmatter + body back to disk, matching compute-rollups.js exactly
  *  so the two passes never fight over formatting. */
@@ -37,14 +40,15 @@ function writeFrontmatter(filePath, parsed, nextFm) {
   writeFileSync(filePath, rebuilt.endsWith('\n') ? rebuilt : `${rebuilt}\n`);
 }
 
-/** Rebuild an initiative fm: replace status, strip+re-append focus markers last. */
-function withFocus(fm, { status, planActive, current }) {
+/** Rebuild an initiative fm: replace status, strip+re-append derived fields last. */
+function withFocus(fm, { status, planActive, current, planTitle }) {
   const out = {};
   for (const [k, v] of Object.entries(fm)) {
     if (FOCUS_KEYS.includes(k)) continue; // re-appended canonically below
     if (k === 'status') { out.status = status; continue; }
     out[k] = v;
   }
+  if (planTitle != null && planTitle !== '') out.planTitle = planTitle;
   if (planActive) out.planActive = true;
   if (current) out.current = true;
   return out;
@@ -64,14 +68,18 @@ export function reconcileInitiativeFile(filePath, ctx) {
   const status = ctx.cascade && fm.status === 'active' ? 'paused' : fm.status;
   const planActive = ctx.planActive === true;
   const current = planActive && ctx.currentPhase != null && fm.phaseId === ctx.currentPhase;
+  const planTitle = ctx.planTitle ?? null;
 
   const statusChanged = status !== fm.status;
   const planActiveChanged = Boolean(fm.planActive) !== planActive;
   const currentChanged = Boolean(fm.current) !== current;
-  if (!statusChanged && !planActiveChanged && !currentChanged) return { filePath, changed: false };
+  const planTitleChanged = (fm.planTitle ?? null) !== (planTitle ?? null);
+  if (!statusChanged && !planActiveChanged && !currentChanged && !planTitleChanged) {
+    return { filePath, changed: false };
+  }
 
-  writeFrontmatter(filePath, parsed, withFocus(fm, { status, planActive, current }));
-  return { filePath, changed: true, status, planActive, current, cascaded: statusChanged };
+  writeFrontmatter(filePath, parsed, withFocus(fm, { status, planActive, current, planTitle }));
+  return { filePath, changed: true, status, planActive, current, planTitle, cascaded: statusChanged };
 }
 
 /** Reconcile one plan + its initiatives. Pushes change records into `out`. */
@@ -87,6 +95,7 @@ function reconcilePlan(planFile, planDir, out) {
   const planActive = plan.status === 'active';
   const currentPhase = plan.currentPhase ?? null;
   const cascade = plan.status === 'paused';
+  const planTitle = typeof plan.title === 'string' && plan.title ? plan.title : null;
 
   let planChanged = false;
   // 1. Cascade plan.phases[] descriptor active→paused under a paused plan.
@@ -103,6 +112,16 @@ function reconcilePlan(planFile, planDir, out) {
     else delete plan.planActive;
     planChanged = true;
   }
+  // 2b. Denormalize `planTitle` (= title) onto the plan record so the `phases`
+  //     dataSource carries it onto every phase row — lets the Home timeline label
+  //     each repeat group with the human title, not the slug.
+  if (planTitle != null && plan.planTitle !== planTitle) {
+    plan.planTitle = planTitle;
+    planChanged = true;
+  } else if (planTitle == null && 'planTitle' in plan) {
+    delete plan.planTitle;
+    planChanged = true;
+  }
   if (planChanged) {
     writeFrontmatter(planFile, planParsed, plan);
     out.push({ filePath: planFile, changed: true, note: `planActive=${planActive}${cascade ? ' + phases active→paused' : ''}` });
@@ -113,7 +132,7 @@ function reconcilePlan(planFile, planDir, out) {
   if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return;
   for (const entry of readdirSync(phasesDir)) {
     if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-    const r = reconcileInitiativeFile(join(phasesDir, entry), { planActive, currentPhase, cascade });
+    const r = reconcileInitiativeFile(join(phasesDir, entry), { planActive, currentPhase, cascade, planTitle });
     if (r.changed || r.error) out.push(r);
   }
 }

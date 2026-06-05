@@ -66,6 +66,10 @@
       "type": "boolean",
       "description": "Derived focus marker (scripts/reconcile-focus.js): true iff planActive AND this is the plan's currentPhase — i.e. the single 'AGORA' phase. Powers the Home focus callout. Never hand-authored."
     },
+    "planTitle": {
+      "type": "string",
+      "description": "Derived denormalization (scripts/reconcile-focus.js): the parent plan's `title`. Lets a repeat-grouped widget (grouped by the parentPlan slug) label the group with the human plan title instead of the slug (the dashboard can't join plan→initiative). Never hand-authored."
+    },
     "exitGates": {
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/exitCriterion" }
