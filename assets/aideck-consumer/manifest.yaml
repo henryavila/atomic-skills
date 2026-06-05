@@ -143,8 +143,10 @@ pages:
               subtitles: { title: summary }
               # Click a task → its phase (initiative) detail, where the full task
               # list + description live. A task has no page of its own (thin unique
-              # data + the detail route is 2-param max: projectId/slug).
+              # data + the detail route is 2-param max: projectId/slug). The task
+              # `title` renders as a VISIBLE link (linkField) — not just a row click.
               linkTo: 'phase/:projectId/:slug'
+              linkField: title
               emptyNote: 'Sem tarefas nesta fase.'
               # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
               # built-in map lacks archived/met/deferred; declared once here as a
@@ -219,6 +221,7 @@ pages:
               columns: [title, status, currentPhase, branch, projectId]
               emptyNote: 'No plans tracked yet — run the project-status skill to start one.'
               linkTo: 'plan/:projectId/:slug'   # §2c row-scoped drill-down → Plan detail
+              linkField: title                  # plan title renders as a visible link
               statuses: *statusvocab            # vocabulary anchored on the Home page
       - title: 'Phases by status'
         widgets:
@@ -271,6 +274,7 @@ pages:
               columns: [title, status, currentPhase, branch, projectId]
               emptyNote: 'No plans tracked yet.'
               linkTo: 'plan/:projectId/:slug'
+              linkField: title
               statuses: *statusvocab
       - title: 'By project'
         widgets:
