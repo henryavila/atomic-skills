@@ -33,12 +33,19 @@ deeper problems remain:
 | 8 | `~/.aideck/` consumer data | **none** | ⚠️ deliberate |
 | 9 | `manifest.json` | unlink + prune | ✅ |
 
-The two non-reversals (#7, #8) are deliberate, not omissions:
+The two non-reversals (#7, #8) are deliberate, not omissions — but they are NOT
+the same kind of thing:
 
-- **#7 `.gitignore`** — the `.atomic-skills/` line stays as a safety measure
+- **#7 `.gitignore`** — the installer *does* mutate it (appends the
+  `.atomic-skills/` line, project scope). The line stays as a safety measure
   against re-introducing residual `.atomic-skills/` into git on a reinstall.
-- **#8 `~/.aideck/`** — holds the user's own provisioned plans/initiatives
-  (data, not an install artifact). Never touched.
+  This is genuine install-parity residue, allowed **by content** (only the
+  appended line may differ), not by path.
+- **#8 `~/.aideck/`** — the installer **never creates this**. It is provisioned
+  lazily at runtime by the project skill, not by `src/install.js`. It is
+  therefore **outside install-parity scope entirely**, not an allowlist entry.
+  Documenting it as parity "allowed residue" is misleading (codex F-004): the
+  parity contract covers only what the installer writes.
 
 ## Goals
 
@@ -53,7 +60,18 @@ The two non-reversals (#7, #8) are deliberate, not omissions:
 - **Enforcer = round-trip test** (chosen over a declarative action registry or a
   static source-guard). It is behavioural and catches gaps we didn't think of,
   including emergent side-effects of two surgical operations.
-- **Opt-outs stay in the allowlist** (`#7`, `#8`). No reversal; no `--purge`.
+- **The round-trip is bidirectional and content-aware** (codex F-001). It
+  snapshots **path → type/content-hash**, and asserts no *added*, *removed*, or
+  *modified* path outside the allowlist. A path-set-only diff (additions only)
+  is rejected: it would let a round-trip silently delete a pre-existing file or
+  rewrite its contents and still pass.
+- **`.gitignore` (#7) is allowed by content, not path** (codex F-002). The
+  project round-trip permits `.gitignore` to differ from baseline only by the
+  appended `.atomic-skills/` line — an exact content assertion, not a wildcard
+  on the path.
+- **`~/.aideck/` (#8) is out of install-parity scope** (codex F-004), not an
+  allowlist entry, because the installer never creates it.
+- **No `--purge`.**
 - **`CLAUDE.md` = focused expansion** (preserve current content; add the parity
   rule + testing conventions + an install↔uninstall map).
 - **`AGENTS.md` already points at `CLAUDE.md`** and asks agents to follow it —
@@ -63,53 +81,74 @@ The two non-reversals (#7, #8) are deliberate, not omissions:
 
 ### Component A — Round-trip test (`tests/install-uninstall-roundtrip.test.js`)
 
-Strategy: snapshot the **set of paths** under a root before install and after
-uninstall; any difference outside the allowlist is a gap.
+Strategy: snapshot a **content-aware tree** under a root before install and
+after uninstall, then diff in three directions (added / removed / modified). Any
+difference outside the allowlist is a gap.
 
-A `snapshotPaths(root)` helper walks `root` recursively and returns a sorted
-`Set` of paths relative to `root` (files and dirs).
+`snapshotTree(root)` walks `root` recursively (skipping `.git`) and returns a
+`Map` of root-relative path → `'dir'` for directories or a **sha256 of the file
+contents** for files. `diffTree(before, after)` returns `{ added, removed,
+modified }`: `added` = in `after` not `before`; `removed` = in `before` not
+`after`; `modified` = in both but the hash changed.
 
-**Allowlist** declared as a constant at the top of the file:
-
-```js
-const ALLOWED_RESIDUE = { user: [], project: ['.gitignore'] };
-// ~/.aideck is never created by install (provisionConsumer is lazy, driven by
-// the project skill at runtime) — out of scope for the install round-trip.
-```
+This is the F-001 fix: a path-set diff sees only `added`. By hashing contents
+and also computing `removed`/`modified`, the round-trip catches a uninstall that
+deletes a pre-existing file or rewrites one — the failure modes that matter for
+"returns to pre-install state".
 
 **Scenario 1 — user scope (strong invariant: total cleanup).**
 
-1. `fakeHome` empty → `S0 = snapshotPaths(fakeHome)`.
+1. `fakeHome` empty → `before = snapshotTree(fakeHome)`.
 2. `install(projectDir, { yes:true, ide:['claude-code'], lang:'en' })` (user scope).
 3. `uninstall(projectDir, { scope:'user', yes:true })`.
-4. `S1 = snapshotPaths(fakeHome)`.
-5. Assert `S1` equals `S0` (allowlist for `user` is empty).
+4. `after = snapshotTree(fakeHome)`; `{added, removed, modified} = diffTree(before, after)`.
+5. Assert all three are empty (user allowlist is empty).
 
-**Scenario 2 — project scope.**
+**Scenario 1b — user scope preserves a pre-existing `settings.json`** (F-003).
+Seed `~/.claude/settings.json` = `{}` (canonical formatting) BEFORE the
+snapshot, then install + uninstall. Assert `removed` is empty (the user's file
+was not deleted) and the file still parses to `{}`.
 
-1. `git init -q` a tmp repo → `S0 = snapshotPaths(repo)`.
+**Scenario 2 — project scope (`.gitignore` allowed by content).**
+
+1. `git init -q` a tmp repo; seed a pre-existing `.gitignore` with known content
+   (e.g. `node_modules/\ndist/\n`). `before = snapshotTree(repo)`.
 2. `install(repo, { yes:true, project:true, ide:['claude-code'], lang:'en' })`.
 3. `uninstall(repo, { scope:'project', yes:true })`.
-4. `S1 = snapshotPaths(repo)`.
-5. Assert `S1` equals `S0 ∪ {'.gitignore'}` (the `.atomic-skills/` line stays).
+4. `after = snapshotTree(repo)`; diff.
+5. Assert `added` empty, `removed` empty, `modified == ['.gitignore']`, AND the
+   `.gitignore` content equals the pre-install content **plus exactly** the
+   appended `.atomic-skills/\n` line — nothing else changed (F-002).
 
 The global runtime under `fakeHome` is deliberately left by a project-scope
-uninstall; that behaviour is already covered by `tests/uninstall.test.js` and is
-not asserted here.
+uninstall (shared across installs); that behaviour is covered by
+`tests/uninstall.test.js` and is not asserted by the project repo snapshot here.
 
-### Component B — Close the residue the round-trip exposes: orphan `settings.json`
+### Component B — Orphan `settings.json`, tracked by provenance (F-003)
 
 When the installer **creates** `settings.json` from scratch (solely for the
 hook) and the uninstaller removes only the hook entry, an empty `{}\n` file is
-left behind — residue the round-trip will flag.
+left behind — residue the round-trip flags.
 
-Fix: extend `removeAutoUpdateHook` so that, after pruning the hook entry, if the
-resulting settings object is empty (`Object.keys(settings).length === 0`), the
-file is deleted.
+The naive fix ("delete if empty after pruning") is wrong (codex F-003): a user
+may have had a pre-existing `settings.json` containing `{}`, and "empty" is not
+proof the installer created it. Deleting it would destroy the user's file.
 
-Updated invariant: *never delete a `settings.json` that still holds content;
-delete it only if it became literally empty (an orphan created solely for our
-hook).* A unit test covers this.
+Correct fix — **track provenance in the manifest**:
+
+- `installAutoUpdateHook` records `settingsPreexisted = existsSync(settingsPath)`
+  **before** the merge, and surfaces `settingsCreated = !settingsPreexisted`
+  into the manifest (new top-level field written by `writeManifest`).
+- `uninstall` reads `manifest.settingsCreated` and passes it to
+  `removeAutoUpdateHook({ basePath, scope, settingsCreated })`.
+- `removeAutoUpdateHook` deletes the now-empty `settings.json` **only when
+  `settingsCreated === true`**. When the file pre-existed, it rewrites the
+  surviving settings (which may legitimately be `{}` — the user's original),
+  never deleting it.
+
+Invariant: *delete `settings.json` on uninstall only if the installer created
+it and removing our hook emptied it; otherwise preserve the user's file.* Unit
+tests cover both branches; Scenario 1b covers the pre-existing case end-to-end.
 
 ### Component C — Hook manifest path (user scope) — verify, fix only if needed
 
@@ -131,7 +170,9 @@ Add three sections, preserving existing content:
 1. **Install/Uninstall parity (HARD RULE)** — the invariant ("every persistent
    install mutation has a matching uninstall reversal, or sits in the documented
    allowlist"), a pointer to the round-trip test as the enforcer, and the
-   allowlist (#7, #8).
+   allowlist. The allowlist lists ONLY `.gitignore` (#7, allowed by content).
+   `~/.aideck/` (#8) is documented in a **separate note** as out-of-parity
+   (installer never creates it), NOT as an allowlist entry (F-004).
 2. **Testing & verification** — the commands (`npm test`,
    `npm run validate-skills`, `npm run test:hooks`) and TDD discipline.
 3. **`install.js` ↔ `uninstall.js` map** — where each mutation class lives and
@@ -144,9 +185,12 @@ No rewrite.
 
 ## Testing
 
-- `tests/install-uninstall-roundtrip.test.js` — Scenarios 1 and 2 above.
-- New unit case in `tests/uninstall.test.js` — `removeAutoUpdateHook` deletes a
-  `settings.json` that became empty; preserves one that still holds other keys.
+- `tests/install-uninstall-roundtrip.test.js` — Scenarios 1, 1b, and 2 above
+  (content-aware diff).
+- New unit cases in `tests/uninstall.test.js` — `removeAutoUpdateHook` deletes
+  an emptied `settings.json` **only when `settingsCreated: true`**; preserves a
+  pre-existing one (`settingsCreated: false`) even when it ends up `{}`;
+  preserves one that still holds other keys.
 - Existing suites stay green (`npm test`, `npm run test:hooks`,
   `npm run validate-skills`).
 
