@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "0.1",
+  "branch": "dogfood/self-host-migration",
+  "lastReviewedCommit": "de9f9e9c4398ba457fff997406ce131fab282b89",
+  "lastReviewedAt": "2026-06-02T16:57:35-03:00",
+  "reviewFile": ".atomic-skills/reviews/2026-06-02-1657-rmig14-fix-commits-revalidation.md",
+  "verdict": "needs_changes",
+  "counts": {
+    "blocker": 0,
+    "critical": 0,
+    "major": 1,
+    "minor": 0,
+    "nit": 0
+  }
+}
