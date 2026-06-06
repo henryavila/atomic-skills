@@ -41,7 +41,7 @@ Produce an Orchestrator Synthesis of the panel (or of your framed options, if no
 
 ### B3 — Write the design doc
 
-Write `projects/<project-id>/<plan-slug>/design.md` with the sections in **The design doc** below, then commit it (it is a tracked artifact, unlike the gitignored `source.md` draft). Run the section lint before going further:
+Write `projects/<project-id>/<plan-slug>/design.md` with the sections in **The design doc** below, then commit it (it is a canonical tracked artifact, unlike the throwaway `source.md` draft). Run the section lint before going further:
 
 ```bash
 node scripts/lint-design.js projects/<project-id>/<plan-slug>/design.md

@@ -183,7 +183,7 @@ Rules for each prompt:
 
 ### Phase 4 — Write the plan file
 
-Write to `.atomic-skills/dispatches/<slug>.md` using {{WRITE_TOOL}}. The `.atomic-skills/` directory is already gitignored by the installer, so the plan persists across reboots without polluting the repo.
+Write to `.atomic-skills/dispatches/<slug>.md` using {{WRITE_TOOL}}. The `.atomic-skills/` directory holds the project-tracking state, so the plan persists across reboots; commit it (or ignore it locally) per the repo's convention.
 
 Structure:
 

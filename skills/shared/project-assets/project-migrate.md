@@ -37,7 +37,7 @@ The move logic is the deterministic, idempotent transform `src/migrate.js`:`plan
 
 ### Why this is the highest blast-radius command
 
-`.atomic-skills/` is **gitignored** (`/.gitignore`), so `git checkout` cannot restore it. The cut-over is therefore **copy-verify-delete, never destructive-move**: the nested copies are written and validated GREEN *before* a single flat original is deleted, and a fresh tar snapshot is the only rollback. The danger here is STATE, not source — a worktree protects source, but only a snapshot protects the gitignored state.
+`.atomic-skills/` is **not reliably git-restorable**: the live state routinely carries uncommitted edits, and in many repos the tree is untracked entirely, so `git checkout` cannot be trusted to bring it back. The cut-over is therefore **copy-verify-delete, never destructive-move**: the nested copies are written and validated GREEN *before* a single flat original is deleted, and a fresh tar snapshot is the only rollback. The danger here is STATE, not source — a worktree protects source, but only a snapshot protects the live state.
 
 ### Procedure (intrusive-actions rule — HALT for explicit `y` before the apply step)
 

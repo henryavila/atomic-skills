@@ -278,7 +278,7 @@ Plan source?
 ```
 
 If `(a)`:
-- Translate the design's **Decisions** + **Chosen approach** into the decompose grammar (`## F0/F1` phases + `Goal:` + `### Tn` + fenced `exit_gate` YAML) in a draft source (the gitignored `source.md` / `.atomic-skills/_drafts/<slug>-source.md`). The design is the source of truth; the source markdown is its decompose-ready projection. Use this path for Stage 4.
+- Translate the design's **Decisions** + **Chosen approach** into the decompose grammar (`## F0/F1` phases + `Goal:` + `### Tn` + fenced `exit_gate` YAML) in a draft source (the throwaway `source.md` / `.atomic-skills/_drafts/<slug>-source.md`). The design is the source of truth; the source markdown is its decompose-ready projection. Use this path for Stage 4.
 
 If `(b)`:
 - Ask for the markdown file path. Validate it exists. Skip to Stage 4.
@@ -290,9 +290,9 @@ If `(c)` (the minimal-template subflow):
 3. Wait for the user to confirm they've finished editing. Re-read the file.
 4. Use this path as the source-plan path for Stage 4.
 
-`.atomic-skills/_drafts/` should be added to `.gitignore` if not already (the temp source is not canonical state). Append the entry idempotently.
+The temp source under `.atomic-skills/_drafts/` is not canonical state — delete it after decompose. The installer no longer gitignores `.atomic-skills/`, so if you want the draft kept out of git, idempotently append `.atomic-skills/_drafts/` to `.gitignore` yourself (optional).
 
-> **Nested-layout draft (R-XAGENT-05):** in the `projects/<id>/<slug>/` layout the per-plan source draft lives at `projects/<id>/<slug>/source.md`. The blanket `/.atomic-skills/` rule already ignores it for the live tree (verify with `git check-ignore`), so no extra entry is normally needed. Only when the state root is REDIRECTED (the F-D1 dogfood root, e.g. `.atomic-skills-dogfood/`) or kept under a git-tracked path (e.g. the demo-fixtures negation) must you idempotently append a `source.md` ignore for that location — append once, never duplicate.
+> **Nested-layout draft (R-XAGENT-05):** in the `projects/<id>/<slug>/` layout the per-plan source draft lives at `projects/<id>/<slug>/source.md`. `.atomic-skills/` is no longer gitignored by the installer, so this draft is visible to git (verify the actual state with `git check-ignore`) — delete it after decompose (it is a throwaway projection, not canonical state). If you'd rather keep it out of git, idempotently append a `source.md` ignore for its path — append once, never duplicate.
 
 ### Failure modes
 

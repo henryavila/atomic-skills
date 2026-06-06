@@ -23,7 +23,7 @@ Same Phase 1–4 pipeline (enumerate → extract → cluster → synthesize), ex
 
 ## .gitignore
 
-When `.atomic-skills/` was created via setup, the following are already gitignored. If not, append:
+The `.atomic-skills/` tree itself is **versioned** — neither the installer nor setup ignores it. First-time setup gitignores only the *transient* staging; if that step hasn't run, idempotently append:
 
 ```
 .atomic-skills/bootstrap-drafts/

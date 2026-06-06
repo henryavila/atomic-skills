@@ -45,7 +45,7 @@ Two independent legacy conditions, each recommending a different `migrate` mode.
 **2b. Legacy LAYOUT (R-MIG-19)** — detect the pre-unification FLAT tree: any `.atomic-skills/plans/*.md` or `.atomic-skills/initiatives/*.md` present (count `*.md` direct children; ignore `archive/`).
 - **WARN** (default — the flat and nested trees coexist during the migration window): `WARN legacy-layout: <N> file(s) still in the flat plans//initiatives/ layout. Run \`project migrate\` to move them under projects/<id>/<slug>/.` — then list the flat files.
 - A **pure nested tree** (only `projects/<id>/<slug>/...`, with no flat `plans/`/`initiatives/` `*.md`) → **no finding**.
-- `--fix` does NOT perform the layout move: that is the irreversible copy-verify-delete cut-over owned by `migrate` (it needs a tar snapshot of the gitignored state first). `verify` only flags it.
+- `--fix` does NOT perform the layout move: that is the irreversible copy-verify-delete cut-over owned by `migrate` (it needs a tar snapshot of the live state first — it is not reliably git-restorable). `verify` only flags it.
 
 ### 3. Branch match (read-only; wraps default-view branch logic)
 - `branch=$(git rev-parse --abbrev-ref HEAD)`.
