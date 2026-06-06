@@ -55,3 +55,29 @@
 - Mesmo projetos com estrutura customizada (ex: CRCMG com `98-Base-Conhecimento/agente/`)
   devem ser migrados para `.ai/memory/`
 - O init-memory detecta referências antigas e atualiza arquivos operacionais
+
+## Scripts de runtime DEVEM estar em package.json `files`
+- Skill bodies chamam helpers determinísticos via `node scripts/<x>.js` em runtime
+  (ex: `find-missing-summaries`, `compute-rollups`, `reconcile-focus`, `detect-completion`,
+  `find-signalless-tasks`, `lint-*`, `validate-state`).
+- **Gotcha (corrigido 2026-06-05):** `scripts/` NÃO estava no array `files` do package.json,
+  então NENHUM desses `node scripts/...` era publicado — todos faziam no-op silencioso para
+  consumidores instalados (só funcionavam no repo dogfood, onde `$PWD/scripts/` existe).
+- Resolução de path em runtime é 3-vias (mesmo padrão de `src/normalize.js`):
+  `$PWD/scripts/...` → `$(npm root -g)/@henryavila/atomic-skills/scripts/...` → `$HOME/.atomic-skills/scripts/...`.
+  Só a 1ª (dogfood) e a 2ª (npm global, traz `node_modules` com `yaml`/`ajv`) resolvem hoje;
+  `~/.atomic-skills/` (install runtime) só recebe `src/`, não `scripts/`.
+- Ao adicionar um script chamado por skill body: garantir que ele só importa de `./` ou `../src/`
+  (ambos publicados) e confirmar `npm pack --dry-run` lista o arquivo. `files` é manifest de
+  publicação — não toca `install.js`, então não afeta o contrato de paridade install/uninstall.
+
+## Completion reconciler: sinal de detecção ≠ autoridade de fechamento
+- Detector determinístico (`scripts/detect-completion.js`) classifica "feito no código, aberto no estado"
+  por evidência de DELIVERABLE MUDADO: `output-exists` (path em `outputs[].path` existe + commit/mtime
+  após o anchor) ou `commit-ref` (commit após anchor citando o id exato OU tocando um `outputs[].path`).
+- A presença de um `verifier:` NUNCA é sinal de detecção (ele é escrito ANTES do trabalho — é o
+  mecanismo de FECHAMENTO, usado no `reconcile`). Prosa `acceptance[]` nunca é parseada (falso-positivo).
+- Detecção é read-only + fail-open; só `reconcile` muta, e é verifier-aware (GATE-R2: entrada com
+  verifier `shell/test/query` só fecha com evidência de run real; sem verifier → ack manual).
+- Hooks (`session-start`/`stop`) delegam o candidate-finding ao detector compartilhado e permanecem
+  fail-open (sem detector/node/jq → emite nada, nunca bloqueia a sessão).
