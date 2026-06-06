@@ -36,10 +36,12 @@ modified contents. When you add an install action, this test fails until you add
 its reversal — that is the gate.
 
 **Allowlist (deliberate residue, allowed by content):**
-- `.gitignore` (project scope) — the installer appends one `.atomic-skills/`
-  line; the round-trip permits `.gitignore` to differ from baseline by exactly
-  that line and nothing else (safety against re-introducing `.atomic-skills/`
-  into git on a reinstall).
+- _(none)_ — the installer makes no mutation outside the manifest-tracked files,
+  so the round-trip requires the repo to return to baseline byte-for-byte.
+  It used to append a `.atomic-skills/` line to `.gitignore`; that was removed
+  (2026-06-05) because the `.atomic-skills/` project-tracking tree is now meant
+  to be versioned in git, not ignored. The installer leaves `.gitignore`
+  untouched. Do NOT re-introduce a `.gitignore` mutation.
 
 **Out of install-parity scope (NOT an allowlist entry):**
 - `~/.aideck/` — the user's provisioned plans/initiatives. The installer never
@@ -62,4 +64,6 @@ its reversal — that is the gate.
 | Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src}` | `removeRuntimeArtifacts` (user scope only) |
 | `SessionStart` entry in `settings.json` (merge) | `removeAutoUpdateHook` (surgical; deletes the file only if the installer created it and it emptied) |
 | `manifest.json` | unlink + prune |
-| `.gitignore` line | allowlist — not reversed (checked by content) |
+
+The installer no longer mutates `.gitignore` (the `.atomic-skills/` tree is
+tracked, not ignored), so there is no `.gitignore` row to reverse.

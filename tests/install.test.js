@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -98,7 +98,12 @@ describe('installSkills', () => {
     assert.ok(!content.includes('{{memory_path}}'));
   });
 
-  it('adds .atomic-skills/ to .gitignore', () => {
+  it('does not touch .gitignore (the .atomic-skills/ tree is tracked, not ignored)', () => {
+    // A pre-existing .gitignore must be left byte-for-byte unchanged: the
+    // installer no longer appends a .atomic-skills/ ignore line.
+    const before = 'node_modules/\ndist/\n';
+    writeFileSync(join(tempDir, '.gitignore'), before);
+
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
@@ -107,8 +112,11 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const gitignore = readFileSync(join(tempDir, '.gitignore'), 'utf8');
-    assert.ok(gitignore.includes('.atomic-skills/'));
+    assert.equal(
+      readFileSync(join(tempDir, '.gitignore'), 'utf8'),
+      before,
+      'installer must not modify .gitignore anymore',
+    );
   });
 
   it('writes manifest with correct structure', () => {
@@ -199,7 +207,7 @@ describe('installSkills', () => {
     assert.ok(!existsSync(join(tempDir, '.gitignore')));
   });
 
-  it('explicit project scope creates .gitignore', () => {
+  it('explicit project scope does not create .gitignore', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
@@ -209,8 +217,8 @@ describe('installSkills', () => {
       scope: 'project',
     });
 
-    const gitignore = readFileSync(join(tempDir, '.gitignore'), 'utf8');
-    assert.ok(gitignore.includes('.atomic-skills/'));
+    assert.ok(!existsSync(join(tempDir, '.gitignore')),
+      'project scope must not create .gitignore anymore');
   });
 
   it('keeps core-only install count when scope is user and no module is selected', () => {

@@ -435,15 +435,11 @@ export function installSkills(projectDir, options, callbacks = {}) {
     });
   }
 
-  // Add .atomic-skills/ to .gitignore (skip for user scope)
-  if (scope !== 'user') {
-    const gitignorePath = join(projectDir, '.gitignore');
-    let gitignore = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : '';
-    if (!gitignore.includes('.atomic-skills/')) {
-      gitignore += (gitignore.endsWith('\n') || gitignore === '' ? '' : '\n') + '.atomic-skills/\n';
-      writeFileSync(gitignorePath, gitignore, 'utf8');
-    }
-  }
+  // NOTE: the installer deliberately does NOT touch .gitignore. The
+  // .atomic-skills/ project-tracking tree (plans, phases, reviews, status) is
+  // meant to be versioned in git alongside the code it tracks, so adding an
+  // ignore line here would fight that. Consumers who prefer to keep it local
+  // can add their own ignore entry. (Reversed 2026-06-05.)
 
   // Write manifest
   const filesMap = {};

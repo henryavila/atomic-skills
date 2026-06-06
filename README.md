@@ -508,8 +508,9 @@ shared assets, the namespace root, the manifest, and the auto-update
 **user-scope** uninstall also reclaims the global runtime under `~/.atomic-skills/`
 (`bin/`, `dashboard/`, `aideck-consumer/`, `src/`); a **project-scope** uninstall
 leaves that global runtime in place, since other repos share it. Your own data in
-`~/.aideck/` (plans, initiatives) and the `.atomic-skills/` line in `.gitignore`
-are never touched.
+`~/.aideck/` (plans, initiatives) and the `.atomic-skills/` project-tracking tree
+are never touched. (The installer does not add `.atomic-skills/` to `.gitignore` —
+that tree is meant to be versioned alongside your code.)
 
 `uninstall` prompts for confirmation when run directly (defaults to *no*). Pass
 `--yes` (or `-y`) to skip the prompt in scripts. With both a user-scope and a

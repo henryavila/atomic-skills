@@ -34,7 +34,6 @@ const UNINSTALL_MESSAGES = {
     cancelled: 'Cancelado.',
     filesRemoved: (n) => `${n} arquivos removidos.`,
     manifestRemoved: `${MANIFEST_DIR}/manifest.json removido.`,
-    gitignoreKept: `Entrada .atomic-skills/ mantida no .gitignore (segurança).`,
     complete: 'Desinstalação completa.',
   },
   en: {
@@ -43,7 +42,6 @@ const UNINSTALL_MESSAGES = {
     cancelled: 'Cancelled.',
     filesRemoved: (n) => `${n} files removed.`,
     manifestRemoved: `${MANIFEST_DIR}/manifest.json removed.`,
-    gitignoreKept: `.atomic-skills/ entry kept in .gitignore (safety).`,
     complete: 'Uninstall complete.',
   },
 };
@@ -137,11 +135,6 @@ export async function uninstall(projectDir, options = {}) {
 
   console.log(`  ✓ ${msg.filesRemoved(removed)}`);
   console.log(`  ✓ ${msg.manifestRemoved}`);
-
-  // Suppress .gitignore message for user scope
-  if (scope !== 'user') {
-    console.log(`  ℹ ${msg.gitignoreKept}`);
-  }
 
   console.log(`\n  ⚛ ${msg.complete}\n`);
 }

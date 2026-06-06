@@ -116,7 +116,7 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
-  it('project scope returns the repo to baseline except the appended .gitignore line', async () => {
+  it('project scope returns the repo to baseline with .gitignore left untouched', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
     try {
@@ -131,11 +131,13 @@ describe('install→uninstall round-trip', () => {
         const { added, removed, modified } = diffTree(before, snapshotTree(repo));
         assert.deepEqual(added, [], `unexpected new files in repo: ${added.join(', ')}`);
         assert.deepEqual(removed, [], `uninstall deleted pre-existing repo files: ${removed.join(', ')}`);
-        assert.deepEqual(modified, ['.gitignore'], `only .gitignore may change: ${modified.join(', ')}`);
+        // The installer no longer appends a .atomic-skills/ ignore line, so the
+        // repo must return to baseline with NOTHING modified — not even .gitignore.
+        assert.deepEqual(modified, [], `nothing may change, incl. .gitignore: ${modified.join(', ')}`);
         assert.equal(
           readFileSync(gitignorePath, 'utf8'),
-          gitignoreBefore + '.atomic-skills/\n',
-          '.gitignore must equal pre-install content plus only the .atomic-skills/ line',
+          gitignoreBefore,
+          '.gitignore must be byte-identical to its pre-install content',
         );
       });
     } finally {
