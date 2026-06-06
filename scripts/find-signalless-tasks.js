@@ -40,6 +40,12 @@ function fmOf(filePath) {
 
 const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
 
+/** statSync().isDirectory() that never throws — a dangling symlink / unreadable
+ *  entry degrades to "not a dir" instead of crashing the scan. */
+function isDir(p) {
+  try { return statSync(p).isDirectory(); } catch { return false; }
+}
+
 /** A task carries a completion signal iff it has a non-empty `verifier` OR at
  *  least one `outputs[]` entry with a non-empty `path`. */
 function hasSignal(task) {
@@ -71,15 +77,15 @@ export function findSignallessTasks(dir) {
   const report = [];
 
   const projectsDir = join(root, 'projects');
-  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+  if (isDir(projectsDir)) {
     for (const projId of readdirSync(projectsDir)) {
       const projPath = join(projectsDir, projId);
-      if (!statSync(projPath).isDirectory()) continue;
+      if (!isDir(projPath)) continue;
       for (const planSlug of readdirSync(projPath)) {
         const planDir = join(projPath, planSlug);
-        if (!statSync(planDir).isDirectory()) continue;
+        if (!isDir(planDir)) continue;
         const phasesDir = join(planDir, 'phases');
-        if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) continue;
+        if (!isDir(phasesDir)) continue;
         for (const entry of readdirSync(phasesDir)) {
           if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
           collectTaskFile(join(phasesDir, entry), { projectId: projId, planSlug, phaseFile: entry }, report);
@@ -89,7 +95,7 @@ export function findSignallessTasks(dir) {
   }
 
   const flatDir = join(root, 'initiatives');
-  if (existsSync(flatDir) && statSync(flatDir).isDirectory()) {
+  if (isDir(flatDir)) {
     for (const entry of readdirSync(flatDir)) {
       if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
       collectTaskFile(join(flatDir, entry), { projectId: '(flat)', planSlug: 'initiatives', phaseFile: entry }, report);

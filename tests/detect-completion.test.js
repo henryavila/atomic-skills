@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, symlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -153,6 +153,154 @@ test('detect-completion exits 0 with no drift when open entries carry no signal'
     const result = detectCompletion(root, {});
     assert.equal(result.drift, false);
     assert.deepEqual(result.candidates, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('detect-completion compares timestamps by epoch, not lexically: non-UTC offset + equal-instant do not false-fire', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-tz-'));
+  try {
+    gitInit(root);
+    const ANCHOR = '2026-06-04T00:00:00Z';
+    // src/before.js committed at +09:00 05:00 == 2026-06-03T20:00Z — BEFORE the anchor in real
+    // time, but lexically '2026-06-04T05:00:00+09:00' > '2026-06-04T00:00:00Z'. Must NOT fire.
+    commit(root, 'src/before.js', 'b\n', 'add before module', '2026-06-04T05:00:00+09:00');
+    // src/after.js committed at +00:00 05:00 — genuinely after the anchor. Must fire.
+    commit(root, 'src/after.js', 'a\n', 'add after module', '2026-06-04T05:00:00+00:00');
+    // A commit naming T-EQ at the EXACT anchor instant — strict-after must exclude it (#3).
+    commit(root, 'src/eq.js', 'e\n', 'close T-EQ now', '2026-06-04T00:00:00+00:00');
+
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'plan.md'), {
+      schemaVersion: '0.1', slug: 'a', status: 'active', currentPhase: 'F1', lastUpdated: ANCHOR,
+      phases: [{ id: 'F1', status: 'active' }],
+    });
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'phases', 'f1.md'), {
+      schemaVersion: '0.1', slug: 'a-f1', status: 'active', parentPlan: 'a', phaseId: 'F1', started: ANCHOR, lastUpdated: ANCHOR,
+      tasks: [
+        { id: 'T-BEFORE', title: 'before', status: 'pending', lastUpdated: ANCHOR, outputs: [{ kind: 'file', path: 'src/before.js' }] },
+        { id: 'T-AFTER', title: 'after', status: 'pending', lastUpdated: ANCHOR, outputs: [{ kind: 'file', path: 'src/after.js' }] },
+        { id: 'T-EQ', title: 'equal instant', status: 'pending', lastUpdated: ANCHOR },
+      ],
+    });
+
+    const result = detectCompletion(root, {});
+    const ids = result.candidates.map((c) => c.id).sort();
+    assert.deepEqual(ids, ['T-AFTER'], 'only the genuinely-after task fires; offset-before and equal-instant excluded');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('detect-completion detects a pending exit-criterion via id-in-commit (gates have no outputs)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-crit-'));
+  try {
+    gitInit(root);
+    commit(root, 'src/g.js', 'g\n', 'satisfy C-1 criterion', NEW);
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'plan.md'), {
+      schemaVersion: '0.1', slug: 'a', status: 'active', currentPhase: 'F1', lastUpdated: OLD,
+      phases: [{ id: 'F1', status: 'active' }],
+    });
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'phases', 'f1.md'), {
+      schemaVersion: '0.1', slug: 'a-f1', status: 'active', parentPlan: 'a', phaseId: 'F1', started: OLD, lastUpdated: OLD,
+      tasks: [],
+      exitGates: [
+        { id: 'C-1', description: 'the gate', status: 'pending' },          // → commit-ref via id
+        { id: 'C-2', description: 'already met', status: 'met', metAt: NEW }, // resolved — never surfaced
+      ],
+    });
+    const result = detectCompletion(root, {});
+    assert.equal(result.candidates.length, 1);
+    const c = result.candidates[0];
+    assert.equal(c.kind, 'criterion');
+    assert.equal(c.id, 'C-1');
+    assert.equal(c.evidence, 'commit-ref');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('detect-completion is fail-open: a dangling symlink under projects/ does not throw', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-failopen-'));
+  try {
+    gitInit(root);
+    const projectsDir = join(root, '.atomic-skills', 'projects');
+    mkdirSync(projectsDir, { recursive: true });
+    symlinkSync('does-not-exist', join(projectsDir, 'broken')); // statSync would throw ENOENT
+
+    let result, threw = false;
+    try { result = detectCompletion(root, {}); } catch { threw = true; }
+    assert.equal(threw, false, 'unreadable entry must not crash the detector');
+    assert.equal(result.drift, false);
+    assert.deepEqual(result.candidates, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('detect-completion catches an existing output edited-but-not-committed (dirty); ignores a clean stale output', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-dirty-'));
+  try {
+    gitInit(root);
+    const EARLY = '2026-05-01T00:00:00Z'; // committed BEFORE the anchor
+    const ANCHOR = '2026-06-01T00:00:00Z';
+    commit(root, 'src/dirty.js', 'v1\n', 'add dirty target', EARLY);
+    commit(root, 'src/clean.js', 'v1\n', 'add clean target', EARLY);
+    // Edit the dirty output in the worktree (uncommitted) — the case the old
+    // Stop-hook files-written scan caught and a commit-date-only check misses.
+    writeFileSync(join(root, 'src', 'dirty.js'), 'v2-edited-this-turn\n');
+
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'plan.md'), {
+      schemaVersion: '0.1', slug: 'a', status: 'active', currentPhase: 'F1', lastUpdated: ANCHOR,
+      phases: [{ id: 'F1', status: 'active' }],
+    });
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'phases', 'f1.md'), {
+      schemaVersion: '0.1', slug: 'a-f1', status: 'active', parentPlan: 'a', phaseId: 'F1', started: ANCHOR, lastUpdated: ANCHOR,
+      tasks: [
+        { id: 'T-DIRTY', title: 'edited output', status: 'pending', lastUpdated: ANCHOR, outputs: [{ kind: 'file', path: 'src/dirty.js' }] },
+        { id: 'T-CLEAN', title: 'stale clean output', status: 'pending', lastUpdated: ANCHOR, outputs: [{ kind: 'file', path: 'src/clean.js' }] },
+      ],
+    });
+
+    const result = detectCompletion(root, {});
+    const ids = result.candidates.map((c) => c.id).sort();
+    assert.deepEqual(ids, ['T-DIRTY'], 'dirty output surfaces; clean output committed before the anchor does not');
+    assert.equal(result.candidates[0].evidence, 'output-exists');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('detect-completion default resolution is branch-aware: prefers the branch-matched active plan over the newest', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-branch-'));
+  try {
+    gitInit(root); // repo is on branch `main`
+    commit(root, 'src/x.js', 'x\n', 'add x', NEW);
+    commit(root, 'src/y.js', 'y\n', 'add y', NEW);
+
+    // alpha: branch `main` (matches the checked-out branch), OLDER lastUpdated.
+    writeFm(join(root, '.atomic-skills', 'projects', 'alpha', 'pa', 'plan.md'), {
+      schemaVersion: '0.1', slug: 'pa', status: 'active', branch: 'main', currentPhase: 'F1', lastUpdated: OLD,
+      phases: [{ id: 'F1', status: 'active' }],
+    });
+    writeFm(join(root, '.atomic-skills', 'projects', 'alpha', 'pa', 'phases', 'f1.md'), {
+      schemaVersion: '0.1', slug: 'pa-f1', status: 'active', parentPlan: 'pa', phaseId: 'F1', started: OLD, lastUpdated: OLD,
+      tasks: [{ id: 'T-1', title: 't', status: 'pending', lastUpdated: OLD, outputs: [{ kind: 'file', path: 'src/x.js' }] }],
+    });
+    // beta: branch `other`, NEWER lastUpdated (would win a most-recent tiebreak).
+    writeFm(join(root, '.atomic-skills', 'projects', 'beta', 'pb', 'plan.md'), {
+      schemaVersion: '0.1', slug: 'pb', status: 'active', branch: 'other', currentPhase: 'F1', lastUpdated: NEW,
+      phases: [{ id: 'F1', status: 'active' }],
+    });
+    writeFm(join(root, '.atomic-skills', 'projects', 'beta', 'pb', 'phases', 'f1.md'), {
+      schemaVersion: '0.1', slug: 'pb-f1', status: 'active', parentPlan: 'pb', phaseId: 'F1', started: OLD, lastUpdated: OLD,
+      tasks: [{ id: 'T-1', title: 't', status: 'pending', lastUpdated: OLD, outputs: [{ kind: 'file', path: 'src/y.js' }] }],
+    });
+
+    // Bare: the current branch `main` matches alpha, even though beta is newer.
+    assert.equal(detectCompletion(root, {}).projectId, 'alpha', 'branch-match wins over most-recent');
+    // Explicit branch override resolves the other project.
+    assert.equal(detectCompletion(root, { branch: 'other' }).projectId, 'beta');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

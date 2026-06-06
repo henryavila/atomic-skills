@@ -30,6 +30,15 @@
  *                                surfaced. A verifier's presence ALONE never
  *                                produces a candidate (F-001).
  *
+ * Scope note: a TASK can match either class (it has `outputs[]`). An EXIT-CRITERION
+ * has NO `outputs` field (common.schema.json exitCriterion is additionalProperties:
+ * false), so a gate is detectable ONLY by the id-in-commit half of commit-ref —
+ * output-exists never applies to gates.
+ *
+ * Timestamp comparison is by EPOCH (Date.parse), not lexical string order: git
+ * `%cI` emits a numeric zone offset (`+00:00`) while state anchors use `Z`, and
+ * `'…+09:00' > '…Z'` is lexically true but chronologically wrong.
+ *
  * The detector is PURE READ: it never mutates state and NEVER runs a verifier
  * (running one is intrusive and belongs to the `reconcile` closing path). It
  * exits non-zero when drift is found (composes into scripts/CI the way
@@ -66,6 +75,24 @@ function fmOf(filePath) {
 
 const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
 
+/** statSync().isDirectory() that never throws — a dangling symlink / unreadable
+ *  entry under `projects/` must degrade to "not a dir", not crash the detector
+ *  (keeps the FAIL-OPEN contract; a thrown ENOENT would otherwise propagate). */
+function isDir(p) {
+  try { return statSync(p).isDirectory(); } catch { return false; }
+}
+
+/** Strict "a is after b" for ISO timestamps with HETEROGENEOUS zone designators:
+ *  git `%cI` emits a numeric offset (`+00:00`, `+09:00`), state anchors use `Z`.
+ *  Lexical `>` mis-orders these (e.g. `…T05:00+09:00` (= prior-day 20:00Z) sorts
+ *  after `…T00:00Z`), so parse both to epoch. Returns false if either is
+ *  unparseable — an unreadable timestamp yields NO signal, never a false one. */
+function isAfter(aIso, bIso) {
+  const a = Date.parse(aIso);
+  const b = Date.parse(bIso);
+  return Number.isFinite(a) && Number.isFinite(b) && a > b;
+}
+
 /** Resolve the state root (`<dir>/.atomic-skills` if present, else `<dir>`). */
 function stateRootOf(dir) {
   return existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
@@ -98,38 +125,59 @@ function lastCommitDateForPath(repoRoot, path) {
   return v.length ? v : null;
 }
 
-/** Commits with committer-date strictly after `sinceIso`, capped. Returns
- *  [{ sha, subject }]. A unit separator (\x1f) splits sha|subject so a subject
- *  containing spaces is preserved intact. */
+/** Commits near `sinceIso` (git `--since` is a COARSE, inclusive, fuzzy bound —
+ *  the strict "after the anchor" cut is enforced by the caller via isAfter on
+ *  `dateIso`). Capped. Returns [{ sha, dateIso, subject }]. Unit separators
+ *  (\x1f) split the fields so a subject with spaces survives intact. */
 function commitsSince(repoRoot, sinceIso, limit = GIT_LOG_CAP) {
   if (!hasText(sinceIso)) return [];
-  const out = git(repoRoot, ['log', `-n`, String(limit), `--since=${sinceIso}`, '--format=%H%x1f%s']);
+  const out = git(repoRoot, ['log', `-n`, String(limit), `--since=${sinceIso}`, '--format=%H%x1f%cI%x1f%s']);
+  if (out == null) return [];
+  const commits = [];
+  for (const line of out.split('\n')) {
+    if (!line) continue;
+    const parts = line.split('\x1f');
+    if (parts.length < 3) continue;
+    commits.push({ sha: parts[0], dateIso: parts[1], subject: parts.slice(2).join('\x1f') });
+  }
+  return commits;
+}
+
+/** Commits near `sinceIso` that touched `path`, capped. Same coarse-bound +
+ *  caller-strict-filter contract as commitsSince. Returns [{ sha, dateIso }]. */
+function commitsTouchingPathSince(repoRoot, path, sinceIso, limit = GIT_LOG_CAP) {
+  if (!hasText(sinceIso)) return [];
+  const out = git(repoRoot, ['log', `-n`, String(limit), `--since=${sinceIso}`, '--format=%H%x1f%cI', '--', path]);
   if (out == null) return [];
   const commits = [];
   for (const line of out.split('\n')) {
     if (!line) continue;
     const sepIdx = line.indexOf('\x1f');
     if (sepIdx === -1) continue;
-    commits.push({ sha: line.slice(0, sepIdx), subject: line.slice(sepIdx + 1) });
+    commits.push({ sha: line.slice(0, sepIdx), dateIso: line.slice(sepIdx + 1) });
   }
   return commits;
 }
 
-/** SHAs of commits after `sinceIso` that touched `path`, capped. */
-function commitsTouchingPathSince(repoRoot, path, sinceIso, limit = GIT_LOG_CAP) {
-  if (!hasText(sinceIso)) return [];
-  const out = git(repoRoot, ['log', `-n`, String(limit), `--since=${sinceIso}`, '--format=%H', '--', path]);
-  if (out == null) return [];
-  return out.split('\n').filter(Boolean);
+/** True if `path` has uncommitted working-tree changes (modified / staged /
+ *  untracked) right now. Clone-safe — a freshly checked-out CLEAN file is not
+ *  dirty, unlike its filesystem mtime which git resets to checkout time (using
+ *  mtime would false-positive every output path on a fresh clone). Returns false
+ *  on git error (fail-open: an unreadable repo yields no signal, never a false
+ *  one). This is how an output edited THIS turn but not yet committed is still
+ *  caught at Stop time, matching the prior hook's files-written-this-turn scan. */
+function pathIsDirty(repoRoot, path) {
+  const out = git(repoRoot, ['status', '--porcelain', '--', path]);
+  return out != null && out.trim().length > 0;
 }
 
-/** Filesystem mtime of a repo path as ISO, or null if it does not exist. */
-function fsMtimeIso(repoRoot, path) {
-  try {
-    return statSync(join(repoRoot, path)).mtime.toISOString();
-  } catch {
-    return null;
-  }
+/** Current git branch of the repo, or null (detached HEAD / no repo / error).
+ *  Used to make the detector's default target resolution branch-aware, matching
+ *  the SessionStart/Stop hooks (which the detector is invoked by). */
+function currentBranch(repoRoot) {
+  const out = git(repoRoot, ['symbolic-ref', '--short', 'HEAD']);
+  const v = out == null ? '' : out.trim();
+  return v && v !== 'HEAD' ? v : null;
 }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -167,18 +215,27 @@ export function classifyEntry({ id, anchorTs, outputs, repoRoot }) {
   const changedPaths = [];
   for (const p of paths) {
     if (!existsSync(join(repoRoot, p))) continue;
-    const changedAt = lastCommitDateForPath(repoRoot, p) || fsMtimeIso(repoRoot, p);
-    if (changedAt && hasText(anchorTs) && changedAt > anchorTs) changedPaths.push(p);
+    // Counts as "changed after the anchor" if its last commit is after the anchor
+    // (epoch compare — NOT lexical; git %cI uses an offset, anchors use Z) OR it
+    // is dirty right now (an output edited this turn but not yet committed — the
+    // case the old Stop-hook files-written scan caught; dirtiness, not mtime, so a
+    // fresh clone does not false-positive every path).
+    if (isAfter(lastCommitDateForPath(repoRoot, p), anchorTs) || pathIsDirty(repoRoot, p)) {
+      changedPaths.push(p);
+    }
   }
   if (changedPaths.length) return { evidence: 'output-exists', paths: changedPaths };
 
-  // 2. commit-ref (heuristic): a commit after the anchor that names the exact id
-  //    OR touches an exact declared output path.
-  const idHit = commitsSince(repoRoot, anchorTs).find((c) => idInSubject(id, c.subject));
+  // 2. commit-ref (heuristic): a commit STRICTLY after the anchor (isAfter, not
+  //    git --since which is inclusive/fuzzy) that names the exact id OR touches
+  //    an exact declared output path.
+  const idHit = commitsSince(repoRoot, anchorTs)
+    .filter((c) => isAfter(c.dateIso, anchorTs))
+    .find((c) => idInSubject(id, c.subject));
   if (idHit) return { evidence: 'commit-ref', commit: idHit.sha };
   for (const p of paths) {
-    const shas = commitsTouchingPathSince(repoRoot, p, anchorTs);
-    if (shas.length) return { evidence: 'commit-ref', commit: shas[0], paths: [p] };
+    const hit = commitsTouchingPathSince(repoRoot, p, anchorTs).find((c) => isAfter(c.dateIso, anchorTs));
+    if (hit) return { evidence: 'commit-ref', commit: hit.sha, paths: [p] };
   }
 
   return { evidence: 'none' };
@@ -194,13 +251,13 @@ export function classifyEntry({ id, anchorTs, outputs, repoRoot }) {
 function listPlans(stateRoot) {
   const plans = [];
   const projectsDir = join(stateRoot, 'projects');
-  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+  if (isDir(projectsDir)) {
     for (const projId of readdirSync(projectsDir)) {
       const projPath = join(projectsDir, projId);
-      if (!statSync(projPath).isDirectory()) continue;
+      if (!isDir(projPath)) continue;
       for (const planSlug of readdirSync(projPath)) {
         const planDir = join(projPath, planSlug);
-        if (!statSync(planDir).isDirectory()) continue;
+        if (!isDir(planDir)) continue;
         const planFile = join(planDir, 'plan.md');
         if (!existsSync(planFile)) continue;
         const planFm = fmOf(planFile);
@@ -210,7 +267,7 @@ function listPlans(stateRoot) {
     }
   }
   const flatPlans = join(stateRoot, 'plans');
-  if (existsSync(flatPlans) && statSync(flatPlans).isDirectory()) {
+  if (isDir(flatPlans)) {
     for (const entry of readdirSync(flatPlans)) {
       if (!entry.endsWith('.md') || entry.startsWith('.') || entry.endsWith('.rendered.md')) continue;
       const planFile = join(flatPlans, entry);
@@ -226,7 +283,7 @@ function listPlans(stateRoot) {
 function listInitiativesForPlan(plan) {
   const inits = [];
   const dir = plan.phasesDir;
-  if (!existsSync(dir) || !statSync(dir).isDirectory()) return inits;
+  if (!isDir(dir)) return inits;
   for (const entry of readdirSync(dir)) {
     if (!entry.endsWith('.md') || entry.startsWith('.') || entry.endsWith('.rendered.md')) continue;
     const file = join(dir, entry);
@@ -274,14 +331,17 @@ export function resolveTargets(stateRoot, opts = {}) {
     return targets;
   }
 
-  // Default: the active initiative of the active plan. Among active plans pick the
-  // most-recently-updated (deterministic; mirrors the SessionStart hook), then its
-  // currentPhase initiative (status active), else the first active initiative.
+  // Default: the active initiative of the active plan. Among active plans prefer
+  // the one whose `branch` matches the current git branch (mirrors the hooks'
+  // branch-match resolution so a bare hook call surfaces drift for the SAME plan
+  // the hook loaded into context, not merely the most-recently-touched one); fall
+  // back to most-recently-updated (deterministic).
   const activePlans = plans.filter((p) => p.planFm.status === 'active');
   const pool = activePlans.length ? activePlans : plans;
   pool.sort((a, b) => String(b.planFm.lastUpdated || '').localeCompare(String(a.planFm.lastUpdated || ''))
     || a.planFile.localeCompare(b.planFile));
-  const primary = pool[0];
+  const branchMatch = opts.branch ? pool.find((p) => p.planFm.branch && p.planFm.branch === opts.branch) : null;
+  const primary = branchMatch || pool[0];
   const inits = listInitiativesForPlan(primary);
   const activeInits = inits.filter((i) => i.fm.status === 'active');
   const byCurrentPhase = activeInits.find((i) => primary.planFm.currentPhase && i.fm.phaseId === primary.planFm.currentPhase);
@@ -318,7 +378,10 @@ function scanInitiative(target, repoRoot) {
   for (const crit of Array.isArray(fm.exitGates) ? fm.exitGates : []) {
     if (!crit || typeof crit !== 'object') continue;
     if (crit.status !== 'pending') continue; // met / deferred are resolved
-    const sig = classifyEntry({ id: crit.id, anchorTs: initAnchor, outputs: crit.outputs, repoRoot });
+    // Exit-criteria carry NO `outputs` field (common.schema.json exitCriterion is
+    // additionalProperties:false), so a gate is detectable ONLY by its exact id
+    // appearing in a commit subject (commit-ref). No outputs ⇒ no output-exists.
+    const sig = classifyEntry({ id: crit.id, anchorTs: initAnchor, outputs: undefined, repoRoot });
     if (sig.evidence === 'none') continue;
     const c = { kind: 'criterion', id: String(crit.id ?? '?'), description: String(crit.description ?? ''),
       projectId, initiativePath, evidence: sig.evidence, hasVerifier: !!crit.verifier };
@@ -339,7 +402,10 @@ function scanInitiative(target, repoRoot) {
 export function detectCompletion(dir, opts = {}) {
   const stateRoot = stateRootOf(dir);
   const repoRoot = repoRootOf(stateRoot, dir);
-  const targets = resolveTargets(stateRoot, opts);
+  // Resolve the current branch once (unless the caller pinned one) so default
+  // target selection is branch-aware, matching the hooks (F-002).
+  const branch = opts.branch != null ? opts.branch : currentBranch(repoRoot);
+  const targets = resolveTargets(stateRoot, { ...opts, branch });
 
   const candidates = [];
   for (const t of targets) candidates.push(...scanInitiative(t, repoRoot));
@@ -383,7 +449,15 @@ function parseArgs(argv) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const opts = parseArgs(process.argv);
   const dir = resolve(opts.dir || process.cwd());
-  const result = detectCompletion(dir, { project: opts.project, slug: opts.slug, plan: opts.plan });
+  // FAIL-OPEN top net: any unexpected error degrades to "no drift" / exit 0, so a
+  // skill-body or hook caller running `--json` never reads a stack trace as exit-1
+  // drift. The internal walks are already guarded (isDir); this catches surprises.
+  let result;
+  try {
+    result = detectCompletion(dir, { project: opts.project, slug: opts.slug, plan: opts.plan });
+  } catch {
+    result = { projectId: null, initiative: null, initiativePath: null, candidates: [], drift: false };
+  }
 
   if (opts.json) {
     console.log(JSON.stringify(result, null, 2));
