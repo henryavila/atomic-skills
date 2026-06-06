@@ -1,0 +1,12 @@
+{
+  "mode2Enabled": true,
+  "codexLane": {
+    "enabled": true,
+    "timeoutSeconds": 600,
+    "sandbox": "workspace-write"
+  },
+  "thresholds": {
+    "minBatchTasks": 1,
+    "requireDeterministicVerifier": true
+  }
+}

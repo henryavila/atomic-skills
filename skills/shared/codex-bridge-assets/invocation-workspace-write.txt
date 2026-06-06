@@ -8,10 +8,13 @@ the timeout wrapper, the exit-code handling, and the DO-NOT list are reused
 VERBATIM from `invocation-canonical.txt` (read that file first; this one only
 documents the deltas).
 
-⚠️ **FENCED OUT of the live tree.** This profile lets a foreign model WRITE.
-It runs ONLY inside a dedicated `git worktree` (never the primary working tree)
-and is FENCED OUT of the live `.atomic-skills/` state entirely — prove it on a
-throwaway git repo before pointing it at any real tree (canon Decision #11).
+⚠️ **Writes only inside a worktree; never the live project state.** This profile
+lets a foreign model WRITE, so it runs ONLY inside a dedicated `git worktree`
+(never the primary working tree), and Codex writes only scoped source — **never**
+the durable `.atomic-skills/` project state, which the orchestrator (Opus) owns
+(canon Decision #11, **narrowed**: the old throwaway-repo-only framing was
+specific to the closed dogfood migration; the lane now does real code work, it
+just never touches project state).
 
 ## The three deltas from `invocation-canonical.txt` (and NOTHING else)
 

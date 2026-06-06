@@ -1,5 +1,7 @@
 # Plan-Execution Stage Spec — Mode 2 (Opus-Plans / Other-Model-Executes)
 
+> ⚠️ **SUPERSEDED for the DEFAULT (2026-06-06).** This spec built the Codex lane as **default-OFF, opt-in, gated `F1∧F2∧precondition∧T1`**. That decision was revised: Codex is now the **DEFAULT** executor for spec-ready, verifier-bearing tasks (opt-OUT per batch), F1 reframed from "cohesive loses" to **spec-readiness**, and **T1 dropped** (`F1∧F2∧precondition`). The research + decision are in `.atomic-skills/projects/atomic-skills/mode2-codex-default-enablement/`; the live mechanics are in `skills/shared/mode2-codex-lane.md` + `skills/core/implement.md`. The §1 PURPOSE (scarce-resource analysis, `$/token` non-goal) and the safety invariants (never-self-certify, serial merge-back, verifier-on-merged-tree, state-tree fence) below remain in force; only the routing default + the gate changed.
+
 > Status: PURPOSE codified for the first time. HOW pre-existed (R-EXEC-17..31); WHY was conversation-resident. This spec closes that gap and **re-scopes the build per adversarial critique** — the headline Opus-conservation lever does NOT survive for the Anthropic-subagent tier, so the recommended build is **Codex-lane-only, gated on a hard prerequisite**.
 
 ---

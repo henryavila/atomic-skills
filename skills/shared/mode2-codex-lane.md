@@ -10,55 +10,91 @@ dispatch path) lives in `skills/core/implement.md` and `skills/core/verify-claim
 which are pressure-tested. Not in `meta/catalog.yaml`. Full purpose + the
 worth-it verdict: `docs/design/project-orchestrator/03-execution-mode2-spec.md`.
 
-⚠️ **Default OFF and FENCED OUT of the live tree.** Mode 1 (self-exec, single
-strong model, serial, durable snapshots) is the unconditional default. Mode 2 is
-available only when the operator turns it on (below) AND is FENCED OUT of the
-live `.atomic-skills/` state entirely — Codex write-mode is proven on a throwaway
-git repo, never pointed at the real tree (canon Decision #11).
+⚠️ **Codex is the DEFAULT executor when the lane is on — and quality rests on two
+hard gates.** When `routing.json` enables the lane, a **spec-ready,
+verifier-bearing** task routes to Codex by default (§1); Mode 1 (self-exec, single
+strong model, serial, durable snapshots) is the **fallback** for not-spec-ready
+work, a missing deterministic verifier, or an undispatchable lane. The
+**state-tree fence holds as a principle**: Codex writes only scoped source inside
+an isolated `git worktree` and **never** the durable `.atomic-skills/` project
+state — the orchestrator (Opus) owns every state transition (canon Decision #11,
+**narrowed**: the old "throwaway-repo-only / never real work" framing was specific
+to the closed dogfood migration; Codex now does real code work, it just never
+touches project state).
 
 ---
 
-## 1. Enable surface (R-EXEC-44) — never implicit
+## 1. Enable surface (R-EXEC-44) — Codex is the DEFAULT executor when the lane is on
 
-Two gates, BOTH required, or it's Mode 1:
+ONE gate turns the lane on; once on, Codex is the **default** executor for every
+eligible task — the operator opts **OUT** per batch, not in:
 
 1. **Operator config:** `.atomic-skills/status/routing.json` (validated by
-   `meta/schemas/routing.schema.json`) with `mode2Enabled: true` and a
-   `codexLane.enabled: true`. **Absent file ⇒ Mode-1-only defaults** — there is
-   no implicit enablement.
-2. **Per-invocation opt-in:** an explicit flag on the run. A config that is
-   "on" does not silently route a batch; the operator opts in per batch.
+   `meta/schemas/routing.schema.json`) with `mode2Enabled: true` and
+   `codexLane.enabled: true`. **Absent file ⇒ Mode-1-only defaults** — the
+   shipped schema default stays `false`, so a fresh install with no Codex
+   configured is never silently routed anywhere; turning the lane on is a
+   deliberate, file-backed act, not implicit.
+2. **Per-batch opt-OUT (not opt-in):** with the lane on, a task that clears the
+   spec-readiness gate (§3 F1) **and** carries a deterministic verifier (§3 F2)
+   routes to Codex **by default** — no explicit per-run flag is needed. The
+   operator can send a batch back to Mode 1 at any time by opting it OUT; the
+   default direction is Codex, the exception is Mode 1. **Opt-out mechanism:** an
+   explicit operator instruction on the batch ("run these in Mode 1") — the skill
+   (the dispatcher) honors it and records the reason; there is no silent
+   auto-route the operator cannot countermand. (Mode 2 routing is LLM-driven by
+   this skill body, not a separate JS dispatcher; `routing.json` is config the
+   skill reads, validated by `validate-state`, not executed by code.)
+
+The quality this default rests on is carried by the **spec + the verifier**, not
+by the executor's identity (SDD: a complete spec removes the ambiguity that makes
+a handoff lossy). So the two §3 disqualifiers below are what keep the default
+safe and are never weakened by it.
 
 A failed precondition (Codex not authenticated, no dispatchable lane) ⇒ Mode 1
 for the affected work, with the reason **recorded** (R-EXEC-30) — never a silent
 collapse, never a failure. Any `$/token` justification is rejected outright; it
 has no field in `routing.json` by design.
 
-## 2. Firing threshold (R-EXEC-32) — the gate only ever ESCALATES
+## 2. Firing threshold (R-EXEC-32) — per-task by default; independence governs PARALLELISM only
 
-The chooser runs once per implementation **batch** and only above a
-magnitude+independence floor, so trivial work never sees the gate. It fires iff:
+The router runs **per task**. With `thresholds.minBatchTasks: 1` (the Codex-default
+config), every spec-ready, verifier-bearing task routes to Codex on its own —
+there is no magnitude floor below which eligible work is withheld from the lane.
 
-- `N ≥ K` dispatch-eligible tasks (`K` = `thresholds.minBatchTasks`, default 3); AND
-- ≥2 are pairwise scope-independent — **reuse `parallel-dispatch` §1.3 pairwise
-  {{GREP_TOOL}} disjointness**, do not re-derive it; AND
-- the batch is not classified cohesive/coupled.
+`minBatchTasks` and pairwise scope-independence are **no longer a routing fence**
+(they did the old "is this worth offloading?" job, now dropped with the
+scarce-resource trigger). They govern only **parallelism** — how many eligible
+worktrees may run concurrently:
 
-Below threshold → Mode 1, silently, no ceremony.
+- Pairwise scope-independent tasks (reuse `parallel-dispatch` §1.3 pairwise
+  {{GREP_TOOL}} disjointness) may have their Codex worktrees dispatched
+  concurrently; coupled tasks are still coded one at a time.
+- Merge-back is serial regardless (§8) — the single-threaded law holds at the
+  merge even when execution fanned out.
 
-## 3. Cost-justification gate (R-EXEC-33) — two hard fences + one trigger
+Raising `minBatchTasks` above 1 simply withholds the lane until that many
+eligible tasks accumulate — a pure worktree/merge-overhead amortization knob,
+never a quality gate.
+
+## 3. Routing gate (R-EXEC-33) — two hard disqualifiers; Codex is the default otherwise
+
+With the lane on, a task routes to Codex **by default**; it falls back to Mode 1
+only when a hard disqualifier fires or the lane is undispatchable:
 
 | # | Question | Role |
 |---|----------|------|
-| **F1** | Are the batch tasks **independent + mechanical** (disjoint exact file sets, no hard cross-task dependency)? | **HARD DISQUALIFIER** — cohesive ⇒ Mode 1, overrides everything. A **confirmed answer**, never inferred (misclassifying cohesive-as-independent is the highest-stakes failure — the split-author loss regime). |
-| **F2** | Does **every** task carry a deterministic `kind:test`/`kind:shell` verifier judgeable WITHOUT Opus re-reading the diff? | **HARD DISQUALIFIER** — `manual`/none ⇒ Mode 1. **Auto-checked** from `task.verifier.kind`; no human. |
-| **T1** | Is idle Codex quota available to offload (and/or is wall-clock a real deadline)? | **ENABLER** (levers 2+3). |
+| **F1 (spec-readiness)** | Is the task **SPEC-READY** — exact paths, non-empty `scopeBoundary[]`, `acceptance[]`, no placeholders, and a **settled design** (not one that only emerges *during* implementation)? | **HARD DISQUALIFIER** — not-spec-ready ⇒ Mode 1, and Opus either specifies it harder until it IS ready or implements it directly. This is a property of the **task**, never a verdict on Codex: a complete spec *carries* the quality (SDD removes the ambiguity that makes a handoff lossy); an incomplete spec forces the executor to guess. |
+| **F2 (verifier)** | Does **every** task carry a deterministic `kind:test`/`kind:shell` verifier judgeable WITHOUT Opus re-reading the diff? | **HARD DISQUALIFIER** — `manual`/none ⇒ Mode 1. **Auto-checked** from `task.verifier.kind`; no human. This verifier is what lets Opus stay off the diff; without it the quality safety net (and the saving) evaporates. |
 | (precond) | Is an executor lane actually dispatchable now? | NO ⇒ degrade to Mode 1 (preflight checks 1-2 of `{{ASSETS_PATH}}/codex-bridge-assets/preflight-checks.txt`). |
 
-**Decision rule:** enable Mode 2 iff `F1 ∧ F2 ∧ precondition ∧ T1`. Persist the
-decision + the satisfied lever + reason (telemetry §9). The "Opus headroom %"
-self-assessment is dropped from the firing logic — it is not programmatically
-readable, so it cannot gate automatically.
+**Decision rule:** route to Codex iff `F1 ∧ F2 ∧ precondition`. There is **no
+longer a scarce-resource "should we offload?" trigger** gating the firing — under
+the operator's chosen default, Codex executing spec-ready, verifier-bearing work
+*is* the baseline, not a contingent optimization (idle Codex quota or a deadline
+are still fine reasons, just no longer *required*). The "Opus headroom %"
+self-assessment stays out of the firing logic — not programmatically readable.
+Persist the routing decision + reason (telemetry §9).
 
 ## 4. Per-task routing + tier map + runtime gate (R-EXEC-18/19/43)
 
@@ -162,7 +198,9 @@ Shape:
 }
 ```
 
-Plus the persisted gate decision (the satisfied lever + reason). Success metric
+Plus the persisted routing decision + reason (no "satisfied lever" — the
+scarce-resource trigger was dropped in §3; record simply that the task cleared
+F1+F2 and the lane was on, or the reason it fell back to Mode 1). Success metric
 is a **counterfactual** vs a Mode-1 estimate (R-EXEC-45), never absolute tokens:
 PRIMARY = Opus tokens not spent on execution; SECONDARY = Codex-served fraction +
 wall-clock; GUARDRAIL = per-tier first-pass / escalation rate (FAILED if bounce

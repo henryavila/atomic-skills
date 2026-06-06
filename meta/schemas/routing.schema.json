@@ -9,7 +9,7 @@
     "mode2Enabled": {
       "type": "boolean",
       "default": false,
-      "description": "Master switch. Default (and absent-file behaviour) is false ⇒ Mode-1-only. Must be set true explicitly AND a per-invocation flag passed (R-EXEC-44: never implicit)."
+      "description": "Master switch. Default (and absent-file behaviour) is false ⇒ Mode-1-only (the shipped default, safe for a fresh install with no Codex configured). When set true the Codex lane is ON and is the DEFAULT executor for spec-ready, verifier-bearing tasks (R-EXEC-44: enabling is explicit + file-backed, never implicit; the operator opts a batch OUT to Mode 1, not in)."
     },
     "tierMap": {
       "type": "object",
