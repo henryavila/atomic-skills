@@ -296,9 +296,6 @@ branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
   || echo "")
 [[ "$branch" == "HEAD" ]] && branch=""
 
-active=$(detect_active_initiative "$branch")
-[[ -z "$active" ]] && exit 0
-
 # --- completion drift (delegate to the shared deterministic detector) -------
 #
 # Replaces the ad-hoc per-turn `outputs[].path` scan: candidate-finding is now
@@ -309,8 +306,14 @@ active=$(detect_active_initiative "$branch")
 # SURFACES the candidate list (non-blocking stderr) and logs it; it never mutates
 # and never runs a verifier (closing is the `reconcile` verb's job). Fail-open:
 # missing detector / node / jq, or any error → emit nothing, never block.
+#
+# This runs BEFORE the flat-only `detect_active_initiative` resolution below, and
+# does NOT depend on its `$active` result: `detect_active_initiative` scans only
+# the legacy flat plans//initiatives/ layout, so gating on it would skip the
+# NESTED `projects/<id>/<slug>/` layout entirely. The detector resolves its own
+# nested-first, branch-aware target — so completion drift fires for both layouts.
 reconciliation_enabled=$(jq -r '.reconciliationThresholdHours // 24' "$CONFIG" 2>/dev/null || echo 24)
-if [[ "$reconciliation_enabled" != "0" && -n "$active" ]]; then
+if [[ "$reconciliation_enabled" != "0" ]]; then
   detector=$(resolve_detector || true)
   if [[ -n "$detector" ]] && command -v node >/dev/null 2>&1; then
     drift_json=$(node "$detector" "$PROJ_DIR" --json 2>/dev/null || true)
@@ -336,7 +339,12 @@ if [[ "$reconciliation_enabled" != "0" && -n "$active" ]]; then
   fi
 fi
 
-# --- drift check ------------------------------------------------------------
+# --- scope drift check ------------------------------------------------------
+# The scope-drift check below needs the active initiative. Resolve it now (flat
+# layout) and no-op if there is none — completion drift above already ran for
+# both layouts independently of this.
+active=$(detect_active_initiative "$branch")
+[[ -z "$active" ]] && exit 0
 
 [[ -z "$transcript_path" || ! -f "$transcript_path" ]] && exit 0
 
