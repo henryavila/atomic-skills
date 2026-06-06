@@ -9,6 +9,7 @@
   "files": [
     "bin/",
     "src/",
+    "scripts/",
     "skills/",
     "meta/",
     "dist/dashboard/",
