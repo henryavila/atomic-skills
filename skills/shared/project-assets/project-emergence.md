@@ -92,7 +92,8 @@ Same ratify gate as base `emerge` — the `--target` flag only changes WHERE the
 4. **Draft + ratify the `summary`** — ALWAYS, fresh or stale (the parked entry never carried one, so it is authored here, NOT inherited). Show a one-line summary (install-configured communication language, derived from the parked title + `context.solves`) and have the user ratify it: fold it into the step-3 prompt when that runs, or show it on its own for fresh items. This step is unconditional — never skip it on the fresh-item path.
 5. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, summary: <ratified one-line>, status: pending, lastUpdated: <now>, provenance: { surfacedAt: <parked surfacedAt>, surfacedDuring: "promote(<current-init>)", surfacedBy: human }, context: { …carried from parked, lastReviewedAt: now …}}`. The carried context's `ratifiedAt` is preserved (proof the human articulated this once); `lastReviewedAt` advances if step 3 ran. **`summary` is mandatory** — a promoted task with no summary renders bare in the dashboard Agora.
 6. Remove item from `parked:`.
-7. Run `node scripts/find-missing-task-summaries.js` (zero-token backstop, same as `new-task`) — a non-zero exit means the summary slipped; author it before announcing. Then announce the new task ID.
+7. **Completion-signal nudge (Component E, soft):** if the promoted task carries neither a `verifier` nor an `outputs[].path`, ask whether to add one so it can be auto-detected as done (decline is allowed — the task just stays invisible to `detect-completion` and must be closed by hand). Same nudge as `new-task` step 10; `node scripts/find-signalless-tasks.js` audits the gap.
+8. Run `node scripts/find-missing-task-summaries.js` (zero-token backstop, same as `new-task`) — a non-zero exit means the summary slipped; author it before announcing. Then announce the new task ID.
 
 ## `new-task [--target <phaseId>] "<title>" [options]` (rungs 4-5)
 
@@ -122,6 +123,7 @@ Steps:
 10. **Cognitive load warnings** (non-blocking):
    - If `description` exceeds `maxTaskDescriptionLines` (default 15 from config.json): warn "Task description is N lines (limit: 15). Consider splitting into sub-tasks or moving detail to the initiative body."
    - If `acceptance[]` exceeds `maxTaskAcceptance` (default 5 from config.json): warn "Task has N acceptance criteria (limit: 5). Focus on the most critical assertions."
+   - **Completion-signal nudge (Component E, soft — never a hard gate):** if the task has **neither** a `verifier` **nor** at least one `outputs[].path`, surface "T-00x has no completion signal (verifier or outputs.path); add one so it can be auto-detected as done? (the alternative is it stays invisible to `detect-completion` and must be closed by hand)." The user MAY decline (some tasks are genuinely unverifiable). This is the mechanism that keeps the `none` blind spot rare; `node scripts/find-signalless-tasks.js` audits the gap for backfill.
    - Warnings do NOT block task creation — the user can proceed after acknowledging.
 11. Validate against schema. Save file.
 12. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".

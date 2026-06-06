@@ -170,6 +170,7 @@ Steps:
    - Active initiative slug + task progress (e.g. `3/7 done, 1 blocked`)
    - Next action
    - CODEX REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § Codex review tracking)
+   - Completion-drift offer (see "Completion-drift offer" below — read-only; `reconcile` is the only mutation path)
 
 ## `--terminal`
 
@@ -213,6 +214,17 @@ Thresholds (default, configurable per-repo via `.atomic-skills/status/config.jso
 - `parkedZombieDays`: 30
 
 The banner is informational — it does not block any command. The user can ignore it. But the next `phase-done` flow re-checks drift and surfaces a stronger prompt before archive.
+
+### Completion-drift offer (READ-ONLY — the view never mutates)
+
+Every status view (`status` / `--browser` / `--terminal`) ALSO surfaces *completion* drift — entries that look done in the repo but are still open — via the shared deterministic detector. This is distinct from the scope-drift banner above (that is about *where* writes landed; this is about *whether* open work is actually finished).
+
+1. Run `node scripts/detect-completion.js --json` from the repo root (add `--project <id>` when the active project is ambiguous). It is zero-token, pure-read, and fail-open — on any error treat it as "no drift" and render the view normally.
+2. If `drift` is true, append a single non-blocking line BELOW the rendered view (never above it; the view content is unchanged):
+   `⚠ <N> item(s) look done — reconcile now? (y/N)` — where `<N>` = `candidates.length`.
+3. The y/N is the intrusive-actions gate: on **`y`** route to the `reconcile` verb (`{{ASSETS_PATH}}/project-transitions.md`); on **`N`** / no answer, do nothing. **The view itself writes NOTHING** — rendering and the offer are read-only; only `reconcile` mutates. This preserves the read-only contract of every status view.
+
+The same line is what the no-args compact summary and the SessionStart hook surface (deterministically, from the same detector) — so "looks done but open" is caught on a forced cadence instead of by accident.
 
 ## `--list`
 

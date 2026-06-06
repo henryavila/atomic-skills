@@ -1,6 +1,6 @@
 # project — task / phase transitions (lazy detail)
 
-Loaded by the router for: `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, and the per-task / exit-gate **Verifier execution patterns**. The router holds the always-resident pre-mutation gates (migration check, reconciliation gate, gate-status invariant); this file holds the per-command procedures plus the migration-check detail.
+Loaded by the router for: `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, and the per-task / exit-gate **Verifier execution patterns**. The router holds the always-resident pre-mutation gates (migration check, reconciliation gate, gate-status invariant); this file holds the per-command procedures plus the migration-check detail.
 
 ## Entity-file resolution (nested-first, flat-fallback)
 
@@ -91,6 +91,21 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 5. Announce the task closure.
 
 If the closing task has a non-empty `verifier:`, see **Per-task verifiers** below first.
+
+## `reconcile`
+
+The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *detect & report* completion drift read-only; `reconcile` is where the user disposes of each candidate. Subject to the standard pre-mutation gates (migration check, reconciliation gate). It NEVER fabricates a close: the detection signal (a changed deliverable) and the close authority (a passing verifier *or* an explicit human ack) are kept separate.
+
+1. Run the deterministic detector: `node scripts/detect-completion.js --json` (add `--project <id>` when more than one project holds the resolved plan-slug; `--slug`/`--plan` to widen within the project). It returns `candidates[]`, each carrying `kind` (`task`|`criterion`), `id`, the resolved `initiativePath` (the **safe write target** — never a bare slug), `evidence` (`output-exists`|`commit-ref`), `paths`/`commit`, and `hasVerifier` + `verifier`.
+2. If `drift` is false → announce "No completion drift — open entries carry no done-signal." and stop.
+3. For each candidate (batch the **oldest 4 first**, mirroring the reconciliation gate), present a {{ASK_USER_QUESTION_TOOL}} whose options are **verifier-aware**:
+   - **`hasVerifier: true`** → options `Run verifier` / `Still open` / `Skip`. There is **no "mark done" shortcut** — the only close path is running the verifier (the **Verifier execution patterns** below), which writes GATE-R2 `evidence` and, on pass, sets the entry `done`/`met`. A failing verifier leaves it open. This is forced by GATE-R2: an entry with a `shell`/`test`/`query` verifier cannot reach `done`/`met` without `evidence.passed === true`.
+   - **`hasVerifier: false`** → options `Mark done` / `Still open` / `Skip`. `Mark done` is the manual-acknowledgement path — for a **task**, run the `done <id>` flow (incl. auto-transition + rollup recompute); for a **criterion**, the "No verifier present → manual ack" path → set `status: met`, `metAt: <now>`, write `evidence` (`verifierKind: manual`, `passed: true`). GATE-R2 does NOT gate verifier-absent entries, so manual ack is valid here.
+   - **`Still open`** → bump the entry's `lastUpdated` to now (acknowledges; resets the signal clock so the same candidate doesn't re-surface immediately). No status change.
+   - **`Skip`** → no change.
+4. After applying dispositions, recompute the initiative's dashboard rollups (or `node scripts/compute-rollups.js`) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
+
+This is the pause-point applied to completion, as an explicit verb — so `status`/`verify` keep their read-only semantics and the user is never trapped (every candidate has a valid action for its verifier state).
 
 ## `phase-done`
 

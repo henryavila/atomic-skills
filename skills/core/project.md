@@ -13,7 +13,8 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 ```
 /atomic-skills:project                              → compact summary (no-args, cheap; no browser)
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
-/atomic-skills:project verify                → reconcile state ⇄ code (NEW)
+/atomic-skills:project verify                → reconcile state ⇄ code (READ-ONLY: detects + reports completion drift)
+/atomic-skills:project reconcile             → close tasks/gates that look done in the repo (the ONLY completion-mutation path)
 /atomic-skills:project new                          → fixed menu (plan | initiative) + discoverability hint
 /atomic-skills:project new plan <slug>              → bootstrap a multi-phase Plan
 /atomic-skills:project new initiative <slug>        → initiative (standalone or anchored to a phase)
@@ -37,7 +38,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
 | `discover` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-discover.md` |
 | `park`, `emerge`, `emerge --target`, `promote`, `new-task`, `new-phase`, `split-phase` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-emergence.md` |
-| `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
+| `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
 | `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
 | `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
 
@@ -61,8 +62,11 @@ PLAN     <plan-slug> · phase <id> — <title>            (or "none — standalo
 INIT     <init-slug> · <N/M tasks done>, <B blocked>   (active initiative)
 NEXT     <nextAction>
 CODEX    <CODEX REVIEW line — see project-drift.md>
+DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; omit the line otherwise)
           → /atomic-skills:project status        (dashboard / full view)
 ```
+
+The `DRIFT` line is printed **only when** `node scripts/detect-completion.js --json` reports `drift: true` (zero-token, pure-read, fail-open — on any error omit the line and print the rest). It never mutates; `reconcile` is the only completion-mutation path.
 
 If `.atomic-skills/` is absent: print one line — `No .atomic-skills/ yet — run \`/atomic-skills:project\` and I'll set it up.` — then enter setup mode.
 
@@ -78,7 +82,7 @@ Every code-modifying session must be anchored to an active initiative — a phas
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
-Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `why`, `scope-creep`).
+Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `verify`, `why`, `scope-creep`).
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
@@ -150,6 +154,16 @@ You (LLM) can parse frontmatter YAML directly. For edge cases (nested quotes, mu
 **Level hygiene — a task is not a phase.** The hierarchy is Plan → Phase → Task. A task title must NOT masquerade as a phase-level heading (`Phase A — …`, `Fase 2: …`) — it lies about its level and confuses the dashboard. Enforced in two places off one shared predicate (`levelConfusedTaskTitle` in `scripts/lint-source.js`): the **SPEC gate** (`lintSpec`, run at decompose — project-create-plan.md Stage 5) HARD-BLOCKS a level-confused `### Tn` title in the source; for **materialized state**, `node scripts/lint-task-titles.js` (deterministic, zero-token, exits non-zero) lists offenders to rename — drop the `Phase/Fase <X> —` prefix, keep the descriptive part.
 
 **Dashboard focus markers + status hygiene.** The dashboard Home ("Foco") shows the active plan(s) and the current phase, but aiDeck cannot join plan→initiative, so two derived markers are precomputed by `node scripts/reconcile-focus.js`: `planActive` (on the plan record + carried to phase rows + on each initiative — true iff the parent plan is `active`) and `current` (on the initiative that is the active plan's `currentPhase`). The same pass enforces a hygiene invariant — **a paused plan must not leave an `active` phase behind**: any `active` phase under a `paused` plan (in the plan's `phases[]` descriptor AND the matching initiative) is demoted to `paused`. Run it on every **plan-status** change and whenever the project-status view opens (it is idempotent). This is the focus counterpart to the rollups: same read-in-place constraint, same precompute discipline.
+
+## Completion drift (detect-report-reconcile — RESIDENT so the cadence never depends on memory)
+
+In practice tasks/phases are **not** marked done when the work is done: code lands, tasks stay `pending`/`active`, and the drift is only found later by accident. The fix inverts the relationship — verifier-evidence-shaped *signals* actively TRIGGER detection on a forced cadence, while the close authority stays honest (GATE-R2 unchanged). Three rules, always resident:
+
+1. **Detection is deterministic + read-only.** `node scripts/detect-completion.js [--project <id>] [--json]` (zero-token, exits non-zero on drift) is the single source of "looks done in the repo, still open in state". It classifies each open task / pending criterion by a *changed-deliverable* signal — `output-exists` (a declared `outputs[].path` exists + changed after the entry's anchor) or `commit-ref` (a commit after the anchor naming the exact id or touching an exact declared output). **A `verifier:`'s mere presence is NEVER a signal** (it is written before work starts — it is the *closing* mechanism, not detection); free-text `acceptance[]` prose is never parsed. The detector NEVER mutates and NEVER runs a verifier.
+2. **`status` and `verify` DETECT & REPORT only (read-only contracts preserved).** The no-args summary, every `status` view, and `verify` check #7 surface the drift line / non-blocking offer; they write nothing. The SessionStart + Stop hooks delegate their candidate-finding to the same detector (fail-open).
+3. **`reconcile` is the ONLY completion-mutation path** (mutating; subject to the pre-mutation gates). It is verifier-aware: a candidate with a `shell`/`test`/`query` verifier offers **`Run verifier` only** (no "mark done" shortcut — GATE-R2 forbids closing it without passing evidence); a verifier-absent candidate offers **`Mark done`** (manual ack). The signal is the *reason to ask*, never the close itself. Detail: `project-transitions.md` → `reconcile`.
+
+**Signal-at-creation (Component E).** Detection can only see tasks that carry a signal, so every task-creating path nudges the author to give one. `node scripts/find-signalless-tasks.js` (zero-token, exits non-zero) lists open tasks with neither a `verifier` nor an `outputs[].path` for backfill — the same replicable-detector pattern as `find-missing-task-summaries.js`. The nudge is soft (some tasks are genuinely unverifiable), but it shrinks the undetectable blind spot toward zero over a project's life.
 
 ## Code-quality gates (state files this skill writes)
 

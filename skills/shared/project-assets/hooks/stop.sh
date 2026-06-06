@@ -256,6 +256,19 @@ for fmt in ('%Y-%m-%dT%H:%M:%S.%f','%Y-%m-%dT%H:%M:%S'):
   echo 0
 }
 
+# resolve_detector  → absolute path to scripts/detect-completion.js (PWD repo →
+# global npm → installed runtime), or returns 1 + prints nothing when
+# unresolvable. Mirrors session-start.sh; fail-open.
+resolve_detector() {
+  local c
+  for c in "$PROJ_DIR/scripts/detect-completion.js" \
+           "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/detect-completion.js" \
+           "$HOME/.atomic-skills/scripts/detect-completion.js"; do
+    [[ -f "$c" ]] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
 # --- pre-flight bypasses ----------------------------------------------------
 
 # Emergency bypass (24h grace).
@@ -286,125 +299,38 @@ branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
 active=$(detect_active_initiative "$branch")
 [[ -z "$active" ]] && exit 0
 
-# --- task reconciliation (suggest `done` for tasks whose outputs were touched) ---
-
+# --- completion drift (delegate to the shared deterministic detector) -------
+#
+# Replaces the ad-hoc per-turn `outputs[].path` scan: candidate-finding is now
+# delegated to scripts/detect-completion.js, the single source of "looks done in
+# the repo, still open in state". It classifies open tasks / pending gates by a
+# changed-deliverable signal (output-exists / commit-ref) — a verifier's presence
+# alone is NEVER a signal, acceptance[] prose is never parsed. The hook only
+# SURFACES the candidate list (non-blocking stderr) and logs it; it never mutates
+# and never runs a verifier (closing is the `reconcile` verb's job). Fail-open:
+# missing detector / node / jq, or any error → emit nothing, never block.
 reconciliation_enabled=$(jq -r '.reconciliationThresholdHours // 24' "$CONFIG" 2>/dev/null || echo 24)
 if [[ "$reconciliation_enabled" != "0" && -n "$active" ]]; then
-  # Extract tasks with outputs[].path from the active initiative frontmatter.
-  # Produces lines: T-NNN<TAB>status<TAB>path
-  task_output_map=$(awk '
-    BEGIN { fm = 0; in_tasks = 0; in_outputs = 0; cur_id = ""; cur_status = "" }
-    /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
-    fm != 1 { next }
-    /^tasks:[[:space:]]*$/ { in_tasks = 1; next }
-    in_tasks && /^[A-Za-z][A-Za-z0-9_]*:/ && !/^[[:space:]]/ { in_tasks = 0 }
-    in_tasks && /^[[:space:]]+-[[:space:]]*id:/ {
-      sub(/.*id:[[:space:]]*/, "", $0)
-      sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-      cur_id = $0
-    }
-    in_tasks && /^[[:space:]]+status:/ {
-      sub(/.*status:[[:space:]]*/, "", $0)
-      sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-      cur_status = $0
-    }
-    in_tasks && /^[[:space:]]+outputs:/ { in_outputs = 1; next }
-    in_tasks && in_outputs && /^[[:space:]]+-[[:space:]]*id:/ { in_outputs = 0 }
-    in_tasks && in_outputs && /^[[:space:]]+[A-Za-z][A-Za-z0-9_]*:/ && !/path:/ { next }
-    in_tasks && in_outputs && /path:/ {
-      sub(/.*path:[[:space:]]*/, "", $0)
-      sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-      if (cur_id != "" && cur_status != "done" && length($0) > 0) {
-        print cur_id "\t" cur_status "\t" $0
-      }
-    }
-  ' "$active")
+  detector=$(resolve_detector || true)
+  if [[ -n "$detector" ]] && command -v node >/dev/null 2>&1; then
+    drift_json=$(node "$detector" "$PROJ_DIR" --json 2>/dev/null || true)
+    if [[ -n "$drift_json" ]]; then
+      drift_n=$(printf '%s' "$drift_json" | jq -r '(.candidates // []) | length' 2>/dev/null || echo 0)
+      if [[ "$drift_n" =~ ^[0-9]+$ && "$drift_n" -gt 0 ]]; then
+        recon_msg="📋 Completion drift: ${drift_n} task(s)/gate(s) look done in the repo but are still open."
+        recon_msg+=$'\n'"$(printf '%s' "$drift_json" | jq -r '(.candidates // [])[] | "  \(.kind) \(.id) — \(.evidence)"' 2>/dev/null || true)"
+        recon_msg+=$'\n'"Run \`atomic-skills:project reconcile\` to dispose each (verifier-aware; never auto-closed)."
 
-  if [[ -n "$task_output_map" && -n "$transcript_path" && -f "$transcript_path" ]]; then
-    last_user_ts_recon=$(jq -r 'select(.type == "user") | .timestamp // empty' \
-      "$transcript_path" 2>/dev/null | tail -1)
-    if [[ -n "$last_user_ts_recon" ]]; then
-      files_written_recon=()
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && files_written_recon+=("$line")
-      done < <(list_files_written "$transcript_path" "$last_user_ts_recon")
+        # Best-effort log of the deterministic candidate list.
+        mkdir -p "$(dirname "$DRIFT_LOG")"
+        RECON_LOG="$ASKILLS_DIR/status/reconciliation.log"
+        ts_recon=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        jq -n --arg ts "$ts_recon" --argjson json "$drift_json" \
+          '{ts: $ts, projectId: ($json.projectId // null), initiative: ($json.initiative // null), candidates: ($json.candidates // [])}' \
+          >> "$RECON_LOG" 2>/dev/null || true
 
-      if (( ${#files_written_recon[@]} > 0 )); then
-        # Also check git diff for files changed since session start
-        git_changed=()
-        session_start_sha=$(jq -r 'select(.type == "user") | .timestamp // empty' \
-          "$transcript_path" 2>/dev/null | head -1)
-        if [[ -n "$session_start_sha" ]]; then
-          while IFS= read -r line; do
-            [[ -n "$line" ]] && git_changed+=("$line")
-          done < <(git -C "$PROJ_DIR" diff --name-only HEAD 2>/dev/null)
-        fi
-
-        # Merge both sources
-        all_changed=()
-        for f in "${files_written_recon[@]}"; do
-          # Normalize to repo-relative
-          rel="${f#$PROJ_DIR/}"
-          all_changed+=("$rel")
-        done
-        for f in "${git_changed[@]}"; do
-          all_changed+=("$f")
-        done
-        all_changed_sorted=$(printf '%s\n' "${all_changed[@]}" | sort -u)
-
-        likely_done=()
-        while IFS=$'\t' read -r tid tstatus tpath; do
-          [[ -z "$tid" ]] && continue
-          # Check if any changed file matches the output path (prefix match)
-          while IFS= read -r changed_file; do
-            [[ -z "$changed_file" ]] && continue
-            if [[ "$changed_file" == "$tpath"* || "$changed_file" == *"$tpath"* ]]; then
-              likely_done+=("$tid")
-              break
-            fi
-          done <<< "$all_changed_sorted"
-        done <<< "$task_output_map"
-
-        if (( ${#likely_done[@]} > 0 )); then
-          unique_done=$(printf '%s\n' "${likely_done[@]}" | sort -u)
-          recon_msg="📋 State Reconciliation: files matching task outputs were modified this session."
-          recon_msg+=$'\n'"Likely done:"
-          while IFS= read -r tid; do
-            [[ -z "$tid" ]] && continue
-            # Get task title
-            ttitle=$(awk -v id="$tid" '
-              BEGIN { fm = 0; in_tasks = 0; found = 0 }
-              /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
-              fm != 1 { next }
-              /^tasks:/ { in_tasks = 1; next }
-              in_tasks && /^[A-Za-z]/ && !/^[[:space:]]/ { exit }
-              in_tasks && /id:/ {
-                sub(/.*id:[[:space:]]*/, "", $0)
-                sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-                if ($0 == id) found = 1
-              }
-              found && /title:/ {
-                sub(/.*title:[[:space:]]*/, "", $0)
-                sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-                print $0; exit
-              }
-            ' "$active")
-            recon_msg+=$'\n'"  ${tid} \"${ttitle}\""
-          done <<< "$unique_done"
-          done_ids=$(echo "$unique_done" | tr '\n' ' ' | sed 's/ *$//')
-          recon_msg+=$'\n'"Run: $(for id in $done_ids; do printf "done %s && " "$id"; done | sed 's/ && $//')"
-
-          # Log to reconciliation log
-          mkdir -p "$(dirname "$DRIFT_LOG")"
-          RECON_LOG="$ASKILLS_DIR/status/reconciliation.log"
-          ts_recon=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          jq -n --arg ts "$ts_recon" --arg slug "$(basename "$active" .md)" \
-            --argjson tasks "$(printf '%s\n' ${likely_done[@]} | jq -R . | jq -s .)" \
-            '{ts: $ts, initiative: $slug, likely_done: $tasks}' >> "$RECON_LOG" 2>/dev/null
-
-          # Surface via additionalContext (non-blocking)
-          printf '%s\n' "$recon_msg" >&2
-        fi
+        # Surface via stderr (non-blocking additionalContext).
+        printf '%s\n' "$recon_msg" >&2
       fi
     fi
   fi

@@ -121,6 +121,20 @@ count_pending_tasks() {
   ' "$file"
 }
 
+# resolve_detector  → absolute path to scripts/detect-completion.js, resolved the
+# same 3-path way the skill resolves src/normalize.js (PWD repo → global npm →
+# installed runtime). Prints nothing + returns 1 when unresolvable (fail-open:
+# the session must never be blocked by a missing detector).
+resolve_detector() {
+  local c
+  for c in "$PROJ_DIR/scripts/detect-completion.js" \
+           "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/detect-completion.js" \
+           "$HOME/.atomic-skills/scripts/detect-completion.js"; do
+    [[ -f "$c" ]] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
 # emit_json <markdown-context>  → prints the additionalContext JSON envelope.
 emit_json() {
   local ctx=$1
@@ -265,72 +279,30 @@ if [[ -n "$active_initiative" ]]; then
   context+="$(head -40 "$active_initiative")"$'\n'
 fi
 
-# 6. Commit → Task reconciliation: detect task IDs referenced in recent commits.
-#    Requires at least one commit — guard on a verifiable HEAD so a fresh repo
-#    (no commits) never trips `set -e`/`pipefail` on the `git log | grep` chain.
+# 6. Completion drift: delegate candidate-finding to the shared deterministic
+#    detector (scripts/detect-completion.js) instead of the brittle `[T-NNN]`
+#    commit scan. The detector classifies open tasks / pending gates by a
+#    changed-deliverable signal (output-exists / commit-ref) — a verifier's
+#    presence alone is NEVER a signal, and acceptance[] prose is never parsed.
+#    Fail-open by construction: a missing detector, missing node, or any error
+#    emits nothing and never blocks the session. The hook never mutates and
+#    never runs a verifier (closing is the `reconcile` verb's job).
 LAST_SESSION_FILE="$ASKILLS_DIR/status/last-session.json"
 if [[ -n "$active_initiative" ]] && git -C "$PROJ_DIR" rev-parse --verify -q HEAD >/dev/null 2>&1; then
-  last_known_commit=""
-  if [[ -f "$LAST_SESSION_FILE" ]]; then
-    last_known_commit=$(jq -r '.lastKnownCommit // empty' "$LAST_SESSION_FILE" 2>/dev/null || echo "")
-  fi
-
-  # Default to 20 commits back if no last session marker
-  commit_range=""
-  if [[ -n "$last_known_commit" ]]; then
-    # Verify the commit still exists (could have been rebased away)
-    if git -C "$PROJ_DIR" cat-file -t "$last_known_commit" >/dev/null 2>&1; then
-      commit_range="${last_known_commit}..HEAD"
-    fi
-  fi
-  if [[ -z "$commit_range" ]]; then
-    commit_range="HEAD~20..HEAD"
-  fi
-
-  # Extract T-NNN patterns from commit messages. `|| true` keeps a no-match
-  # (grep exit 1) or an empty range from tripping `set -e`/`pipefail`.
-  referenced_tasks=$( { git -C "$PROJ_DIR" log --oneline "$commit_range" 2>/dev/null \
-    | grep -oE '\[T-[0-9]+\]|T-[0-9]+' | grep -oE 'T-[0-9]+' | sort -u; } || true )
-
-  if [[ -n "$referenced_tasks" ]]; then
-    # Cross-reference with active initiative's non-done tasks
-    suggestions=""
-    while IFS= read -r task_id; do
-      [[ -z "$task_id" ]] && continue
-      # Check if this task exists and is NOT done in the initiative
-      task_status=$(awk -v id="$task_id" '
-        BEGIN { fm = 0; in_tasks = 0; found = 0 }
-        /^---[[:space:]]*$/ { fm++; if (fm == 2) exit; next }
-        fm != 1 { next }
-        /^tasks:/ { in_tasks = 1; next }
-        in_tasks && /^[A-Za-z]/ && !/^[[:space:]]/ { exit }
-        in_tasks && /id:/ {
-          sub(/.*id:[[:space:]]*/, "", $0)
-          sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-          if ($0 == id) found = 1
-        }
-        found && /status:/ {
-          sub(/.*status:[[:space:]]*/, "", $0)
-          sub(/^['"'"'"]/, "", $0); sub(/['"'"'"][[:space:]]*$/, "", $0)
-          print $0; exit
-        }
-      ' "$active_initiative")
-
-      if [[ -n "$task_status" && "$task_status" != "done" ]]; then
-        commit_ref=$(git -C "$PROJ_DIR" log --oneline "$commit_range" 2>/dev/null \
-          | grep -m1 "$task_id" | head -1)
-        suggestions+="  ${task_id} (status: ${task_status}) — referenced in: ${commit_ref}"$'\n'
+  detector=$(resolve_detector || true)
+  if [[ -n "$detector" ]] && command -v node >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    drift_json=$(node "$detector" "$PROJ_DIR" --json 2>/dev/null || true)
+    if [[ -n "$drift_json" ]]; then
+      drift_n=$(printf '%s' "$drift_json" | jq -r '(.candidates // []) | length' 2>/dev/null || echo 0)
+      if [[ "$drift_n" =~ ^[0-9]+$ && "$drift_n" -gt 0 ]]; then
+        context+=$'\n'"## 📋 ${drift_n} task(s)/gate(s) look done in the repo but are still open"$'\n\n'
+        context+="$(printf '%s' "$drift_json" | jq -r '(.candidates // [])[] | "  \(.kind) \(.id) — \(.evidence)"' 2>/dev/null || true)"$'\n'
+        context+="Run \`atomic-skills:project reconcile\` to dispose each (verifier-aware; never auto-closed)."$'\n'
       fi
-    done <<< "$referenced_tasks"
-
-    if [[ -n "$suggestions" ]]; then
-      context+=$'\n'"## 📋 Tasks referenced in recent commits but not marked done"$'\n\n'
-      context+="${suggestions}"
-      context+="Run \`done <task-id>\` for each completed task."$'\n'
     fi
   fi
 
-  # Update last-session marker with current HEAD
+  # Update last-session marker with current HEAD (preserved from the prior hook).
   current_head=$(git -C "$PROJ_DIR" rev-parse HEAD 2>/dev/null || echo "")
   if [[ -n "$current_head" ]]; then
     mkdir -p "$(dirname "$LAST_SESSION_FILE")"

@@ -2,7 +2,7 @@
 
 Loaded by the router when the user runs `/atomic-skills:project verify`.
 
-`verify` reconciles `.atomic-skills/` state against the actual repository — schema validity, branch coherence, scope coverage, orphaned files, and (when aiDeck is reachable) the dashboard's view of the same state. It is the single coherence command that did not exist before the unification: previously schema-validation (`validate-state`), drift (`scope-creep`), branch-match (default view), and aiDeck STATE_ERROR each lived in different places and the user had to run them separately.
+`verify` reconciles `.atomic-skills/` state against the actual repository — schema validity, branch coherence, scope coverage, orphaned files, completion drift (open entries that look done in the repo), and (when aiDeck is reachable) the dashboard's view of the same state. It is the single coherence command that did not exist before the unification: previously schema-validation (`validate-state`), drift (`scope-creep`), branch-match (default view), and aiDeck STATE_ERROR each lived in different places and the user had to run them separately.
 
 ---
 
@@ -75,6 +75,12 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - **FAIL:** `STATE_ERROR` non-empty → `FAIL aideck: dashboard would render \`⊘ failed to load\` — <STATE_ERROR>. Run \`verify --fix\` (normalizes) or \`status --browser\` (auto-repairs + opens).`
 - When `--fix` is passed and aiDeck reports a STATE_ERROR, run the same normalization as check 1's fix path, then re-check.
 
+### 7. Completion drift (read-only; wraps `detect-completion`)
+- Run `node scripts/detect-completion.js --json` (the deterministic, zero-token detector — `--project <id>` to disambiguate same-slug plans). It classifies each open task / pending criterion by a *changed-deliverable* signal (`output-exists` / `commit-ref`); a `verifier:`'s presence alone is never a signal, and `acceptance[]` prose is never parsed.
+- **PASS:** `drift` is false — no open entry looks done in the repo.
+- **WARN** (report-only): `WARN completion: <N> task(s)/gate(s) look done in the repo but are still open — run \`reconcile\`.` — then list each candidate's `kind`, `id`, and `evidence`.
+- This check is **strictly report-only**, consistent with `verify`'s read-only contract. `verify --fix` is **NOT** extended to reconcile — closing tasks/gates is a judgement call (verifier-aware, GATE-R2-gated) owned by the `reconcile` verb. `--fix` stays schema-normalization only.
+
 ---
 
 ## Report shape
@@ -88,8 +94,9 @@ project verify — <repo-name> @ <branch>
 [4] scope       WARN   commits touch src/parser/ outside scope.paths
 [5] orphans     PASS
 [6] aideck      WARN   dashboard not running (cross-check skipped)
+[7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
 
-VERIFY: 2 warning(s), 0 failure(s)
+VERIFY: 3 warning(s), 0 failure(s)
 ```
 
 ## Red flags
