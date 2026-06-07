@@ -18,6 +18,5 @@ nexus.yaml
 
 # Build artifacts
 dist/*
-!dist/aideck.mjs
 node_modules/
 .DS_Store

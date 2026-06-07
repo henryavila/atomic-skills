@@ -8,7 +8,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { install, removeRuntimeArtifacts, removeAutoUpdateHook } from '../src/install.js';
+import { install, removeRuntimeArtifacts, removeAutoUpdateHook, installRuntimeArtifacts } from '../src/install.js';
 import { uninstall, pruneEmptyParents } from '../src/uninstall.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -20,6 +20,16 @@ function withHome(fakeHome, fn) {
     if (original === undefined) delete process.env.HOME;
     else process.env.HOME = original;
   });
+}
+
+/** A throwaway @henryavila/aideck-shaped package dir, so the runtime stage
+ *  (shim + client) can be exercised without the published dependency on disk. */
+function fakeAideckPkg() {
+  const dir = mkdtempSync(join(tmpdir(), 'as-fake-aideck-'));
+  mkdirSync(join(dir, 'dist', 'client'), { recursive: true });
+  writeFileSync(join(dir, 'dist', 'cli.js'), 'export {}\n');
+  writeFileSync(join(dir, 'dist', 'client', 'index.html'), '<!doctype html>\n');
+  return dir;
 }
 
 const RUNTIME_ARTIFACTS = [
@@ -275,9 +285,13 @@ describe('uninstall (integration)', () => {
   it('user-scope uninstall removes global runtime artifacts', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-uninst-proj-'));
+    const aideckDir = fakeAideckPkg();
     try {
       await withHome(fakeHome, async () => {
         await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
+        // Stage the aideck runtime from a fake package (the published dep is
+        // not on disk in CI) so the removal path is exercised.
+        installRuntimeArtifacts({ aideckDir });
         assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'precondition: runtime present');
 
         await uninstall(projectDir, { scope: 'user', yes: true });
@@ -288,16 +302,19 @@ describe('uninstall (integration)', () => {
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });
       rmSync(projectDir, { recursive: true, force: true });
+      rmSync(aideckDir, { recursive: true, force: true });
     }
   });
 
   it('project-scope uninstall leaves global runtime artifacts intact', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-uninst-repo-'));
+    const aideckDir = fakeAideckPkg();
     try {
       execFileSync('git', ['init', '-q'], { cwd: repo });
       await withHome(fakeHome, async () => {
         await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        installRuntimeArtifacts({ aideckDir });
         assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'precondition: runtime present');
         assert.ok(existsSync(join(repo, '.atomic-skills', 'manifest.json')), 'precondition: project manifest');
 
@@ -310,6 +327,7 @@ describe('uninstall (integration)', () => {
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });
       rmSync(repo, { recursive: true, force: true });
+      rmSync(aideckDir, { recursive: true, force: true });
     }
   });
 });

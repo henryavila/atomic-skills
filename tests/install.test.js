@@ -5,7 +5,18 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { install, installSkills, resolveProjectScopeTarget } from '../src/install.js';
+import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts } from '../src/install.js';
+
+/** Builds a throwaway @henryavila/aideck-shaped package dir (dist/cli.js +
+ *  dist/client/index.html) so installRuntimeArtifacts can be exercised without
+ *  the real published dependency on disk. */
+function fakeAideckPkg() {
+  const dir = mkdtempSync(join(tmpdir(), 'as-fake-aideck-'));
+  mkdirSync(join(dir, 'dist', 'client'), { recursive: true });
+  writeFileSync(join(dir, 'dist', 'cli.js'), 'export {}\n');
+  writeFileSync(join(dir, 'dist', 'client', 'index.html'), '<!doctype html><title>aideck</title>\n');
+  return dir;
+}
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
@@ -353,32 +364,53 @@ describe('installSkills', () => {
 });
 
 describe('install command artifacts', () => {
-  it('copies bundled aideck and dashboard during non-interactive install', async () => {
+  it('stages the aideck launcher shim + client from the resolved published package', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
-    const projectDir = mkdtempSync(join(tmpdir(), 'as-install-project-'));
+    const aideckDir = fakeAideckPkg();
     const originalHome = process.env.HOME;
 
     try {
       process.env.HOME = fakeHome;
-      await install(projectDir, {
-        yes: true,
-        ide: ['claude-code'],
-        lang: 'en',
-      });
+      installRuntimeArtifacts({ aideckDir });
 
-      const sourceBundle = join(__dirname, '..', 'dist', 'aideck.mjs');
-      const installedBundle = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
-      assert.ok(existsSync(installedBundle), 'non-interactive install must copy aideck.mjs');
-      assert.equal(readFileSync(installedBundle, 'utf8'), readFileSync(sourceBundle, 'utf8'));
+      const shim = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
+      assert.ok(existsSync(shim), 'must write the launcher shim');
+      // The shim rewrites argv[1] to the resolved published cli, then imports
+      // it — so the CLI's `import.meta.url===pathToFileURL(argv[1])` guard fires.
+      const cliLit = JSON.stringify(join(aideckDir, 'dist', 'cli.js'));
+      const shimBody = readFileSync(shim, 'utf8');
+      assert.ok(shimBody.includes(`process.argv[1] = ${cliLit}`), 'shim must rewrite argv[1] to the cli');
+      assert.ok(shimBody.includes(`await import(${cliLit})`), 'shim must import the resolved cli');
       assert.ok(
         existsSync(join(fakeHome, '.atomic-skills', 'dashboard', 'index.html')),
-        'non-interactive install must copy dashboard bundle'
+        'must copy the aideck client to the dashboard dir'
       );
     } finally {
       if (originalHome === undefined) delete process.env.HOME;
       else process.env.HOME = originalHome;
       rmSync(fakeHome, { recursive: true, force: true });
-      rmSync(projectDir, { recursive: true, force: true });
+      rmSync(aideckDir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips the aideck shim + client gracefully when the package is unresolved (pre-publish)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-install-home-'));
+    const originalHome = process.env.HOME;
+    try {
+      process.env.HOME = fakeHome;
+      // aideckDir: null mirrors the pre-publish / stripped-checkout reality.
+      assert.doesNotThrow(() => installRuntimeArtifacts({ aideckDir: null }));
+      assert.ok(!existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'no shim without the package');
+      assert.ok(!existsSync(join(fakeHome, '.atomic-skills', 'dashboard')), 'no dashboard without the package');
+      // The consumer template + provisioner are staged from this package regardless.
+      assert.ok(
+        existsSync(join(fakeHome, '.atomic-skills', 'aideck-consumer', 'manifest.yaml')),
+        'consumer template still staged'
+      );
+    } finally {
+      if (originalHome === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHome;
+      rmSync(fakeHome, { recursive: true, force: true });
     }
   });
 

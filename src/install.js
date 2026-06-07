@@ -26,19 +26,73 @@ export { resolveProjectScopeTarget } from './scope.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
 
-function installRuntimeArtifacts() {
-  const aideckBundle = join(PACKAGE_ROOT, 'dist', 'aideck.mjs');
-  if (existsSync(aideckBundle)) {
-    const binDir = join(homedir(), '.atomic-skills', 'bin');
-    mkdirSync(binDir, { recursive: true });
-    copyFileSync(aideckBundle, join(binDir, 'aideck.mjs'));
+/**
+ * Resolves the installed @henryavila/aideck package directory, or null when it
+ * is not installed (e.g. before the npm publish lands, or in a stripped
+ * checkout). Pure; never throws.
+ *
+ * Uses a node_modules filesystem walk rather than require.resolve: the
+ * published package is ESM-only and its `exports` map exposes neither
+ * `./package.json` nor `./dist/cli.js` (and offers no `require` condition), so
+ * CJS resolution throws ERR_PACKAGE_PATH_NOT_EXPORTED. Reading the dir off disk
+ * sidesteps `exports` entirely.
+ *
+ * @returns {string|null}
+ */
+export function resolveAideckPackageDir() {
+  let dir = PACKAGE_ROOT;
+  for (;;) {
+    const cand = join(dir, 'node_modules', '@henryavila', 'aideck');
+    if (existsSync(join(cand, 'package.json'))) return cand;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
   }
+}
 
-  const dashboardSrc = join(PACKAGE_ROOT, 'dist', 'dashboard');
-  const dashboardDest = join(homedir(), '.atomic-skills', 'dashboard');
-  if (existsSync(join(dashboardSrc, 'index.html'))) {
-    if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
-    cpSync(dashboardSrc, dashboardDest, { recursive: true });
+/**
+ * Stages the global runtime artifacts under ~/.atomic-skills/.
+ *
+ * The aiDeck bin + dashboard client come from the published @henryavila/aideck
+ * dependency (T-004 / doc 13 Phase D — the vendored single-file bundle was
+ * dropped once aiDeck shipped to npm). We write a one-line launcher SHIM at
+ * bin/aideck.mjs that re-execs the resolved dist/cli.js (an absolute import, so
+ * node resolves the package's hoisted deps regardless of cwd), and copy the
+ * package's dist/client to dashboard/. Both are skipped gracefully when the
+ * dependency is not yet installed — the skill's status flow falls back to a
+ * terminal view. The consumer template + provisioner are always staged from
+ * this package's own assets/ + src/.
+ *
+ * @param {object} [opts]
+ * @param {string|null} [opts.aideckDir] - override the resolved aiDeck package
+ *   dir (testing seam); defaults to resolveAideckPackageDir().
+ */
+export function installRuntimeArtifacts({ aideckDir = resolveAideckPackageDir() } = {}) {
+  if (aideckDir) {
+    const cli = join(aideckDir, 'dist', 'cli.js');
+    if (existsSync(cli)) {
+      const binDir = join(homedir(), '.atomic-skills', 'bin');
+      mkdirSync(binDir, { recursive: true });
+      // The published cli.js only runs its CLI when
+      // `import.meta.url === pathToFileURL(process.argv[1]).href` (cli.ts:392),
+      // so the shim rewrites argv[1] to the resolved cli before importing it —
+      // a bare `import` would load the module without firing the CLI.
+      const cliLit = JSON.stringify(cli);
+      const shim =
+        '// atomic-skills launcher for the published @henryavila/aideck CLI.\n' +
+        '// Rewrites argv[1] so the CLI entrypoint guard fires under\n' +
+        '// `node aideck.mjs <args>`. Regenerated on every install.\n' +
+        `process.argv[1] = ${cliLit}\n` +
+        `await import(${cliLit})\n`;
+      writeFileSync(join(binDir, 'aideck.mjs'), shim);
+    }
+
+    const clientSrc = join(aideckDir, 'dist', 'client');
+    const dashboardDest = join(homedir(), '.atomic-skills', 'dashboard');
+    if (existsSync(join(clientSrc, 'index.html'))) {
+      if (existsSync(dashboardDest)) rmSync(dashboardDest, { recursive: true, force: true });
+      cpSync(clientSrc, dashboardDest, { recursive: true });
+    }
   }
 
   // aiDeck v2 consumer is provisioned PER-PROJECT (consumer id + title = the

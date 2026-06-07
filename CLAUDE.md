@@ -62,6 +62,15 @@ its reversal — that is the gate.
 |---|---|
 | Skill/command `.md`, namespace root, `_assets/`, `version-check.sh` (manifest) | manifest loop + `pruneEmptyParents` |
 | Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src}` | `removeRuntimeArtifacts` (user scope only) |
+
+The aiDeck **bin** (`bin/aideck.mjs`, an argv[1]-rewrite launcher shim) and
+**dashboard** (the aiDeck client) are restaged by `installRuntimeArtifacts` from
+the published `@henryavila/aideck` npm dependency (T-004) — the vendored
+single-file bundle (`dist/aideck.mjs` + `vendor/aideck-runtime/`) was removed.
+When the dependency is not resolvable (pre-publish / stripped checkout) those two
+are skipped; the consumer template + provisioner always stage. The reversal is
+unchanged because the install *footprint paths* are identical — only the content
+source moved.
 | `SessionStart` entry in `settings.json` (merge) | `removeAutoUpdateHook` (surgical; deletes the file only if the installer created it and it emptied) |
 | `manifest.json` | unlink + prune |
 

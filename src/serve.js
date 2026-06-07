@@ -48,25 +48,61 @@ export function parsePort(input) {
 /**
  * Probes for the aideck CLI binary. Order:
  *   1. $AIDECK_BIN env override (full path).
- *   2. dist/aideck.mjs (vendored — shipped with the package).
- *   3. ../aideck/dist/cli.js (sibling repo, dev).
- *   4. "aideck" on PATH.
+ *   2. ~/.atomic-skills/bin/aideck.mjs (the launcher shim the installer writes,
+ *      pointing at the published @henryavila/aideck package — see install.js).
+ *   3. The published @henryavila/aideck package's bin, resolved from this
+ *      package's node_modules (works before a re-install has staged the shim).
+ *   4. ../aideck/dist/cli.js (sibling repo, dev only — may be a feature branch).
+ *   5. "aideck" on PATH.
+ *
+ * The vendored single-file bundle (dist/aideck.mjs) was dropped once aiDeck
+ * shipped to npm — atomic-skills now consumes @henryavila/aideck as a real
+ * dependency (T-004 / doc 13 Phase D).
  *
  * Returns the string passed to spawn(). The actual existence check for
- * cases 1 and 4 happens lazily when spawn() runs — case 4's PATH lookup
+ * cases 1 and 5 happens lazily when spawn() runs — case 5's PATH lookup
  * is handled by the OS exec loader.
  */
 export function resolveAideckBin() {
   if (process.env.AIDECK_BIN) return process.env.AIDECK_BIN
-  // Prefer vendored/installed bundles (stable, from last build:aideck).
-  // Sibling repo is last resort — it may be on a feature branch.
-  const vendored = join(PACKAGE_ROOT, 'dist', 'aideck.mjs')
-  if (existsSync(vendored)) return vendored
+  // Prefer the installed launcher shim (stable, points at the published pkg).
   const installed = join(homedir(), '.atomic-skills', 'bin', 'aideck.mjs')
   if (existsSync(installed)) return installed
+  // Resolve the published npm package directly (its deps are hoisted here).
+  const pkgDir = resolveAideckPackageDir()
+  if (pkgDir) {
+    const cli = join(pkgDir, 'dist', 'cli.js')
+    if (existsSync(cli)) return cli
+  }
+  // Sibling repo is last resort — it may be on a feature branch.
   const sibling = resolve(PACKAGE_ROOT, '..', 'aideck', 'dist', 'cli.js')
   if (existsSync(sibling)) return sibling
   return 'aideck'
+}
+
+/**
+ * Resolves the installed @henryavila/aideck package directory, or null when it
+ * is not installed (e.g. before the npm publish lands, or in a stripped
+ * checkout). Pure; never throws.
+ *
+ * Uses a node_modules filesystem walk rather than require.resolve: the
+ * published package is ESM-only and its `exports` map exposes neither
+ * `./package.json` nor `./dist/cli.js` (and offers no `require` condition), so
+ * CJS resolution throws ERR_PACKAGE_PATH_NOT_EXPORTED. Reading the dir off disk
+ * sidesteps `exports` entirely — and the launcher shim imports cli.js by
+ * absolute path, which `exports` does not gate.
+ *
+ * @returns {string|null}
+ */
+export function resolveAideckPackageDir() {
+  let dir = PACKAGE_ROOT
+  for (;;) {
+    const cand = join(dir, 'node_modules', '@henryavila', 'aideck')
+    if (existsSync(join(cand, 'package.json'))) return cand
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
 }
 
 /**

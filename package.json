@@ -13,11 +13,9 @@
     "skills/",
     "meta/",
     "dist/dashboard/",
-    "dist/aideck.mjs",
     "README.md",
     "LICENSE",
-    "assets/",
-    "vendor/aideck-runtime/"
+    "assets/"
   ],
   "scripts": {
     "test": "node --test tests/*.test.js",
@@ -37,8 +35,7 @@
     "build:dashboard": "vite build --config vite.config.ts && node -e \"import{cpSync as c,rmSync as r,existsSync as e}from'fs';import{join as j}from'path';import{homedir as h}from'os';const p=j(h(),'.atomic-skills','dashboard');if(e(p))r(p,{recursive:true});c('dist/dashboard',p,{recursive:true});\"",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
     "prepare": "husky && git config core.hooksPath .husky",
-    "build:aideck": "node scripts/vendor-aideck.js",
-    "prepublishOnly": "npm run build:dashboard && npm run build:aideck"
+    "prepublishOnly": "npm run build:dashboard"
   },
   "keywords": [
     "ai",
@@ -61,6 +58,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
+    "@henryavila/aideck": "^0.1.0",
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",
     "yaml": "^2.9.0"
