@@ -16,6 +16,14 @@ nexus.yaml
 .superpowers/
 *.annotations.yaml
 
+# Dogfooding artifacts: running `atomic-skills install` in this repo writes its
+# install footprint + caches in-tree. These are generated, not source (the skill
+# sources live in skills/), so keep them out of the published package. The rest
+# of .atomic-skills/ (plans, initiatives, reviews) IS tracked on purpose.
+.claude/skills/
+.atomic-skills/manifest.json
+.atomic-skills/version-cache.json
+
 # Build artifacts
 dist/*
 node_modules/
