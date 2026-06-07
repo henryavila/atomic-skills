@@ -48,6 +48,8 @@ DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
 
 The default view opens the **aiDeck dashboard** in the browser. aiDeck is the canonical visual surface for `.atomic-skills/` state — it renders plans, initiatives, tasks, exit gates, annotations, and highlights in real-time via a chokidar watcher + SSE push.
 
+> **Open it directly — do NOT ask "open in browser?" first.** Invoking `status` (or `--browser`) IS an explicit request to open the dashboard; opening it is executing the command, not an unsolicited side effect. A generic "confirm before launching a browser" guideline does NOT apply here — gating this behind a confirmation defeats the command's whole purpose. (No-args `/atomic-skills:project` is the deliberately-non-opening variant for anyone who wants the cheap summary.)
+
 Steps:
 
 0. **Sync derived dashboard state (idempotent).** Before opening the dashboard, refresh the precomputed fields aiDeck reads (it has no compute engine): rollups + flat gate-evidence, then the focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node scripts/compute-rollups.js && node scripts/reconcile-focus.js`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
@@ -158,8 +160,20 @@ Steps:
    e. Then continue to open the browser so the user sees the corrected card.
 
 3. If `AIDECK_URL` is non-empty:
-   - Build the consumer URL: `DASH="$AIDECK_URL/$AIDECK_CONSUMER?project=$pid"` (the Model-B consumer page, project pre-selected). Open it: `open "$DASH"` (macOS) or `xdg-open "$DASH"` (Linux). On failure, print the URL for the user.
-   - Print: `Dashboard: <DASH>`
+   - Build the consumer URL: `DASH="$AIDECK_URL/$AIDECK_CONSUMER?project=$pid"` (the Model-B consumer page, project pre-selected). Open it with the **WSL-aware opener** below — `open_url "$DASH"` — then print `Dashboard: <DASH>`.
+
+   > **NEVER call bare `xdg-open` — it HANGS on WSL2** (no native browser registered, the process blocks indefinitely and stalls the skill). Always use this helper, which prefers `wslview`, falls back to the Windows `start` shim, and only uses `xdg-open` on native Linux — detached (`setsid … &`) so it can never block the session:
+   > ```bash
+   > open_url() {
+   >   url="$1"
+   >   if command -v wslview >/dev/null 2>&1; then wslview "$url" >/dev/null 2>&1 && return 0; fi
+   >   if [ "$(uname)" = "Darwin" ] && command -v open >/dev/null 2>&1; then open "$url" && return 0; fi
+   >   if grep -qi microsoft /proc/version 2>/dev/null; then cmd.exe /c start "" "$url" >/dev/null 2>&1 && return 0; fi
+   >   if command -v xdg-open >/dev/null 2>&1; then setsid xdg-open "$url" >/dev/null 2>&1 & return 0; fi
+   >   echo "Open manually: $url"; return 1
+   > }
+   > ```
+   - On any failure, print the URL for the user (the helper already does this on its last branch).
 
 4. If `AIDECK_URL` is empty (binary not found, spawn failure):
    - Fall back to the **terminal view** (`--terminal` behavior below)
@@ -280,7 +294,7 @@ Opens the aiDeck dashboard in the browser, optionally deep-linking to a specific
 2. If `AIDECK_URL` is non-empty (`pid` = the registered project id from the contract block):
    - If `<slug>` is provided: open the consumer page with the plan/phase deep-linked — `<AIDECK_URL>/$AIDECK_CONSUMER/plan/<slug>?project=<pid>` (or `/phase/<slug>`); the page resolves the slug against the project's dataSources.
    - If no `<slug>`: open `<AIDECK_URL>/$AIDECK_CONSUMER?project=<pid>` (the consumer overview).
-   - Open via `open` (macOS) or `xdg-open` (Linux); fall back to printing the URL.
+   - Open via the **WSL-aware `open_url` helper** defined in the default-view step 3 (never bare `xdg-open` — it hangs on WSL2); fall back to printing the URL.
 3. If `AIDECK_URL` is empty: print error and suggest `atomic-skills install`.
 
 ## `--report`

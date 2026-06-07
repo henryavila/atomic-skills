@@ -7,9 +7,9 @@ goal: Flip the implement skill so a SPEC-READY task with a deterministic
   quality-carrying guardrail (spec gate, verifier, serial merge-back,
   never-self-certify, verifier-on-merged-tree).
 status: active
-branch: dogfood/self-host-migration
+branch: main
 started: 2026-06-06T20:28:44Z
-lastUpdated: 2026-06-06T22:15:28Z
+lastUpdated: 2026-06-07T10:48:36Z
 nextAction: "Mode2 work is functionally complete + reviewed. Gates: G-1
   (guardrails) + G-2 (default flipped, verified by reading) + G-4 (review) MET;
   G-3 deferred. Only T-005 remains, BLOCKED on the F5/Inc7 aiDeck rewrite (the

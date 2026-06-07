@@ -8,9 +8,9 @@ goal: Reconnect the project skill to the rebuilt generic aiDeck via a Model-B
   the real A/B/C/D progress trackable (the parent plan had carried F5 as a
   single prose criterion only).
 status: active
-branch: dogfood/self-host-migration
+branch: main
 started: 2026-06-02T00:00:00Z
-lastUpdated: 2026-06-07T08:56:55Z
+lastUpdated: 2026-06-07T10:01:44Z
 nextAction: "ALL F5 tasks DONE; F5-G1 MET. Verified e2e against PUBLISHED
   @henryavila/aideck 0.1.0: project-scoped data route serves plans=8,
   initiatives=18, phases=24; MCP 24 tools; through the real
@@ -24,8 +24,8 @@ nextAction: "ALL F5 tasks DONE; F5-G1 MET. Verified e2e against PUBLISHED
   pass opts.version)."
 parentPlan: project-orchestrator-redesign
 phaseId: F5
-tasksDone: 9
-tasksTotal: 9
+tasksDone: 10
+tasksTotal: 10
 gatesMet: 1
 gatesTotal: 1
 exitGates:
@@ -251,6 +251,84 @@ tasks:
           loads, 5 pages incl plan/phase, all exploded endpoints serve.
           exit-gate-list/stack-view/task-list use table+composition
           (insight-parity); dag-graph = mermaid interim."
+  - id: T-010
+    title: "aiDeck consumer 'Agora': make multi-plan-aware (N≥1 active plans)"
+    summary: Make the consumer manifest's Foco/Agora widgets group and label by plan
+      so each active plan's phase, progress and timeline are unambiguous —
+      correct for both 1 and N active plans.
+    description: "Home 'Agora' rendered duplicated, unlabeled widgets when ≥2 plans
+      were active: panel 'Fase atual' + phase-timeline used repeatLabel: never
+      (no plan label). Fix in the consumer template
+      assets/aideck-consumer/manifest.yaml — switch those widgets to
+      repeatLabelField: planTitle with the default repeatLabel: auto (aiDeck
+      hides the group header for 1 group, shows the plan name for ≥2).
+      progress-bar + table were already correct; the callout self-labels via
+      bodyField. No aiDeck core change (no section-repeat in schema v0.1)."
+    status: done
+    blockedBy: []
+    lastUpdated: 2026-06-07T10:01:44Z
+    closedAt: 2026-06-07T10:01:44Z
+    tags:
+      - dashboard
+      - aideck-consumer
+    scopeBoundary:
+      - do NOT add aiDeck section-level repeat (not in schema v0.1 — upstream
+        aiDeck concern)
+      - do NOT touch the legacy React dashboard in src/dashboard/
+    acceptance:
+      - every plan-repeated widget in home 'Agora' surfaces a plan label
+        (repeatLabelField, or the self-labeling callout)
+      - with 1 active plan the per-plan group headers are hidden (repeatLabel
+        auto)
+      - with ≥2 active plans each duplicated widget shows its plan name
+      - consumer manifest still validates — consumer registers and all
+        dataSources load
+    outputs:
+      - kind: file
+        path: assets/aideck-consumer/manifest.yaml
+        description: "Agora widgets panel + phase-timeline → repeatLabelField: planTitle
+          (auto); design comment rewritten for N≥1."
+      - kind: test
+        path: tests/aideck-consumer-manifest.test.js
+        description: "Regression guard: no plan-repeated Agora widget may be unlabeled;
+          proven to catch the original bug."
+      - kind: file
+        path: skills/shared/project-assets/project-view.md
+        description: WSL-aware open_url helper (xdg-open hangs on WSL2) +
+          status-opens-dashboard-directly note.
+    verifier:
+      kind: test
+      runner: node --test
+      pattern: tests/aideck-consumer-manifest.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-07T10:01:44Z
+      exitCode: 0
+      testsCollected: 3
+      passed: true
+      outputSummary: node --test tests/aideck-consumer-manifest.test.js → 3 tests, 3
+        pass, 0 fail (exit 0)
+    provenance:
+      surfacedAt: 2026-06-07T10:01:44Z
+      surfacedDuring: inc7-aideck-prose-long-tail
+      surfacedBy: human
+    context:
+      solves: Home 'Agora' rendered duplicated, unlabeled widgets (two 'Fase atual'
+        panels, two timelines) with ≥2 active plans, so plans could not be told
+        apart and one looked absent.
+      trigger: Dogfooding `status` with two active plans showed 2 of everything with
+        no plan labels; project-orchestrator-redesign appeared nowhere
+        recognizable.
+      assumesStillValid:
+        - aiDeck has no section-level repeat in manifest schema v0.1 (only
+          widget repeat + repeatLabel auto/always/never), so per-widget labels
+          are the fix.
+        - The project legitimately runs multiple active plans at once.
+        - planTitle stays precomputed onto plan/initiative/phase records by
+          reconcile-focus.js.
+      ratifiedAt: 2026-06-07T10:01:44Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-06-07T10:01:44Z
 parked: []
 emerged:
   - title: MVP dashboard insufficient → full component port (composition +

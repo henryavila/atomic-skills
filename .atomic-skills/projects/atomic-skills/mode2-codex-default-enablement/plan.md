@@ -5,8 +5,8 @@ title: Mode 2 — make Codex the default implementer (Opus plans, Codex executes
 version: "1.0"
 status: active
 started: 2026-06-06T20:28:44Z
-lastUpdated: 2026-06-06T20:28:44Z
-branch: dogfood/self-host-migration
+lastUpdated: 2026-06-07T10:48:36Z
+branch: main
 currentPhase: F0
 parallelismAllowed: false
 phases:

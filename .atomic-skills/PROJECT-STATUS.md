@@ -1,5 +1,5 @@
 ---
-lastUpdated: '2026-06-06T22:15:28Z'
+lastUpdated: '2026-06-07T10:48:36Z'
 schemaVersion: '0.1'
 activePlans: 2
 activeInitiatives: 0
@@ -14,8 +14,8 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 | Slug | Status | Current Phase | Branch | Started |
 |------|--------|---------------|--------|---------|
-| project-orchestrator-redesign | active | F5 | dogfood/self-host-migration | 2026-06-01 |
-| mode2-codex-default-enablement | active | F0 | dogfood/self-host-migration | 2026-06-06 |
+| project-orchestrator-redesign | active | F5 | main | 2026-06-01 |
+| mode2-codex-default-enablement | active | F0 | main | 2026-06-06 |
 
 ## Paused Plans
 

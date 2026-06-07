@@ -84,18 +84,28 @@ pages:
       # numbers. Scoped to the active plan's currentPhase via the `current` marker.
       - title: 'Agora'
         widgets:
-          # Plan banner (full-width): the active plan's human title as a header, once
-          # per plan (titleField: planTitle, precomputed by reconcile-focus.js). This
-          # is the single plan label for the block — the widgets below repeat by the
-          # same parentPlan but their auto group-headers stay hidden for a single
-          # active plan, so there's no duplication. (A header spanning ABOVE the
-          # 2-col row natively needs aiDeck §2d/section-repeat; until then this
-          # dedicated full-width banner is the clean stand-in.)
+          # MULTI-PLAN-AWARE design (works for N≥1 active plans). The "Agora" block
+          # repeats every widget per active plan (repeat: parentPlan / planSlug). The
+          # ONE lever that makes it correct for both "1 active plan" and "N active
+          # plans" is aiDeck's repeatLabel:auto (the DEFAULT, manifest-schema.d.ts
+          # WidgetBinding): a group header is HIDDEN when there's a single group and
+          # SHOWN (= the plan's name) when there are ≥2. So every plan-repeated widget
+          # below sets `repeatLabelField: planTitle` and leaves repeatLabel at auto —
+          # giving a clean single-plan view AND an unambiguous per-plan label when
+          # multiple plans are active. NEVER hardcode `repeatLabel: never` here: that
+          # was the original bug — it assumed exactly one active plan and left every
+          # duplicated widget unlabeled when two plans were active.
+          # The lone exception is the callout banner directly below: its BODY already
+          # renders planTitle, so a group header would just duplicate it — it alone
+          # keeps repeatLabel:never (self-labeling via body, not a missing label).
+          # (A single header spanning ABOVE the whole per-plan block would need
+          # aiDeck section-level repeat — not in the schema as of v0.1 — so each
+          # widget carries its own auto header instead.)
           - widget: callout
             colSpan: 12
             source: { ref: initiatives, filter: { current: true } }
             repeat: parentPlan
-            repeatLabel: never
+            repeatLabel: never   # EXCEPTION: body (bodyField: planTitle) self-labels; a header would duplicate it
             repeatDirection: vertical
             # Labeled banner: "Plano em foco" (static label) + the plan's human name
             # (bodyField: planTitle) — so the title reads as context, not loose text.
@@ -114,7 +124,7 @@ pages:
             responsive: { sm: { colSpan: 12 } }
             source: { ref: initiatives, filter: { current: true } }
             repeat: parentPlan
-            repeatLabel: never
+            repeatLabelField: planTitle   # plan-name group header; auto-hidden for 1 active plan, shown when ≥2
             repeatDirection: vertical
             # Click the phase title → its initiative (phase) detail. projectId + slug
             # are on the current-initiative record; route shape owned by the consumer.
@@ -136,7 +146,7 @@ pages:
             colSpan: 12
             source: { ref: phases, filter: { planActive: true } }
             repeat: planSlug
-            repeatLabel: never   # the "Plano em foco" banner already names the plan
+            repeatLabelField: planTitle   # plan-name group header; auto-hidden for 1 active plan, shown when ≥2
             repeatDirection: vertical
             config:
               title: 'Onde estou no plano'

@@ -5,8 +5,8 @@ title: Redesign project skill into a lifecycle orchestrator (dogfood)
 version: "1.0"
 status: active
 started: 2026-06-01T00:00:00Z
-lastUpdated: 2026-06-03T00:00:00Z
-branch: dogfood/self-host-migration
+lastUpdated: 2026-06-07T10:48:36Z
+branch: main
 currentPhase: F5
 parallelismAllowed: false
 phases:
