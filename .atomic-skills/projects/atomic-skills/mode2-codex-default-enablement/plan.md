@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: mode2-codex-default-enablement
 title: Mode 2 — make Codex the default implementer (Opus plans, Codex executes)
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-06T20:28:44Z
-lastUpdated: 2026-06-07T10:48:36Z
+lastUpdated: 2026-06-07T19:40:27Z
 branch: main
-currentPhase: F0
+currentPhase: null
 parallelismAllowed: false
 phases:
   - id: F0
@@ -21,10 +21,10 @@ phases:
       merged tree, and foreign-executor-never-self-certifies."
     dependsOn: []
     subPhaseCount: 4
-    status: active
+    status: done
     exitGate:
-      summary: 4 criteria to meet — default flipped, quality-carriers preserved,
-        suite green, adversarially reviewed.
+      summary: 4 criteria to meet — default flipped, quality-carriers preserved, suite
+        green, adversarially reviewed.
       criteria:
         - id: G-1
           description: "QUALITY-CARRIERS PRESERVED (the research finding): the
@@ -33,47 +33,101 @@ phases:
             never-self-certifies (R-EXEC-28), serial merge-back (R-XAGENT-03),
             and verifier-re-run on the MERGED tree (R-EXEC-29) all remain HARD
             and verbatim — none weakened by the default flip."
-          status: pending
+          status: met
           verifier:
             kind: shell
-            command: "grep -q 'never self-certif' skills/core/implement.md &&
-              grep -q 'MERGED' skills/core/implement.md && grep -q 'serial'
+            command: grep -q 'never self-certif' skills/core/implement.md && grep -q
+              'MERGED' skills/core/implement.md && grep -q 'serial'
               skills/shared/mode2-codex-lane.md && grep -q
-              'requireDeterministicVerifier' meta/schemas/routing.schema.json"
+              'requireDeterministicVerifier' meta/schemas/routing.schema.json
             expectExitCode: 0
+          metAt: 2026-06-06T20:36:46Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-06T20:36:46Z
+            passed: true
+            exitCode: 0
+            outputSummary: grep guardrails exit 0 — 'never self-certif' + 'MERGED' in
+              implement.md, 'serial' x8 in mode2-codex-lane.md,
+              'requireDeterministicVerifier' in routing.schema.json. All five
+              quality-carriers survived the default flip verbatim.
         - id: G-2
-          description: "DEFAULT FLIPPED: with routing.json enabled, a spec-ready task
-            with a deterministic verifier routes to Codex WITHOUT a
-            per-invocation opt-in; the F1 gate is reframed from 'cohesive loses
-            quality' to 'not spec-ready ⇒ Opus specs harder or self-implements';
-            an ineligible task still falls to Mode 1 with a recorded reason."
-          status: pending
+          description: "DEFAULT FLIPPED: with routing.json enabled, a spec-ready task with
+            a deterministic verifier routes to Codex WITHOUT a per-invocation
+            opt-in; the F1 gate is reframed from 'cohesive loses quality' to
+            'not spec-ready ⇒ Opus specs harder or self-implements'; an
+            ineligible task still falls to Mode 1 with a recorded reason."
+          status: met
           verifier:
             kind: manual
             description: Read implement.md §Mode 2 + mode2-codex-lane.md §1/§3 and confirm
               the default-flip + F1 reframe; confirm routing.json validates and
               enables the lane.
+          metAt: 2026-06-06T22:15:28Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-06T22:15:28Z
+            passed: true
+            outputSummary: "Verified by reading the three sources: routing.json has
+              mode2Enabled:true + codexLane.enabled:true +
+              thresholds.requireDeterministicVerifier:true (lane ON);
+              mode2-codex-lane.md §1 = 'Codex is the DEFAULT executor when the
+              lane is on' + 'Per-batch opt-OUT (not opt-in)'; §3 F1 reframed to
+              spec-readiness (HARD disqualifier: not-spec-ready ⇒ Mode 1), F2
+              deterministic-verifier stays HARD. Default-flip + F1 reframe +
+              lane-on all confirmed."
         - id: G-3
           description: "GREEN: npm test + npm run validate-skills + the compatibility
             strip-test all pass after the edits; no host-only term leaks outside
             a Claude-Code conditional."
-          status: pending
+          status: met
           verifier:
             kind: test
             runner: node --test
             pattern: tests/
+          metAt: 2026-06-07T19:40:27Z
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-07T19:40:27Z
+            exitCode: 0
+            testsCollected: 797
+            passed: true
+            outputSummary: "Full `npm test` (node --test tests/*.test.js) GREEN: 797/797, 0
+              fail. The F5/Inc7 aiDeck rewrite that gated the e2e-smoke +
+              aideck-contract surface is complete; the residual failures were a
+              running aideck singleton holding port 7777 (my own status-launched
+              instance), since stopped. validate-skills 14/14, compatibility
+              strip-test 82/82, validate-state 26 files + routing. Pressure-test
+              (3 scenarios) previously PASSED."
         - id: G-4
           description: Adversarial review (review-plan on this initiative, then
             review-code on the diff) run and its blocker/critical findings
             resolved before the change is considered done.
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Confirm a review-plan + review-code pass exists with zero
               unresolved blocker/critical findings.
+          metAt: 2026-06-06T20:36:46Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-06T20:36:46Z
+            passed: true
+            outputSummary: "Ran code-review (high) — 3 adversarial finder agents
+              (removed-behavior, cross-file contradiction, internal-logic).
+              Triaged: most HIGH/CRITICAL findings were re-litigation of the
+              deliberate decision (opt-in→opt-out, fence narrowing, T1 drop) =
+              feature not bug; the 'no-code-reads-routing.json' finding is a
+              category error (the lane is LLM-driven prose, always was). 5 REAL
+              inconsistencies fixed: (1) routing.schema.json:12 'per-invocation
+              flag' → opt-out; (2) §9 dangling 'satisfied lever' orphaned by T1
+              drop → routing decision; (3) §1 opt-out mechanism was undefined →
+              defined (operator instruction, LLM-honored); (4) 00-CANON status
+              line 'default-OFF' → revised banner; (5) 03-spec top → SUPERSEDED
+              banner. Re-verified: validate-skills/compatibility/validate-state
+              all GREEN, guardrails verbatim."
     summary: Torna o Codex o implementador padrão (task spec-ready + verificador →
       Codex automático), preservando todas as travas de qualidade.
-planActive: true
 planTitle: Mode 2 — make Codex the default implementer (Opus plans, Codex executes)
 references:
   - kind: repo-path
@@ -89,6 +143,7 @@ references:
     label: Original Codex-only Mode 2 spec + worth-it verdict this revises
     path: docs/design/project-orchestrator/03-execution-mode2-spec.md
 ---
+
 
 # Mode 2 — make Codex the default implementer (Opus plans, Codex executes)
 

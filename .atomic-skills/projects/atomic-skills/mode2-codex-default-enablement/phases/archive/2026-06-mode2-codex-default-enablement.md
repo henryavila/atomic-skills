@@ -6,17 +6,11 @@ goal: Flip the implement skill so a SPEC-READY task with a deterministic
   verifier routes to the Codex workspace-write lane BY DEFAULT, preserving every
   quality-carrying guardrail (spec gate, verifier, serial merge-back,
   never-self-certify, verifier-on-merged-tree).
-status: active
+status: done
 branch: main
 started: 2026-06-06T20:28:44Z
-lastUpdated: 2026-06-07T10:48:36Z
-nextAction: "Mode2 work is functionally complete + reviewed. Gates: G-1
-  (guardrails) + G-2 (default flipped, verified by reading) + G-4 (review) MET;
-  G-3 deferred. Only T-005 remains, BLOCKED on the F5/Inc7 aiDeck rewrite (the
-  full-suite criterion fails only on aiDeck-integration tests gated on user
-  go-ahead in project-orchestrator-redesign T-004) — mode2-scoped suites are all
-  green and the pressure-test passed. Optional follow-up: a first REAL
-  Codex-default batch on ordinary spec-ready feature work."
+lastUpdated: 2026-06-07T19:40:27Z
+nextAction: null
 scope:
   paths:
     - .atomic-skills/status/routing.json
@@ -26,9 +20,9 @@ references:
   - kind: repo-path
     label: Original Codex-only Mode 2 spec + worth-it verdict this revises
     path: docs/design/project-orchestrator/03-execution-mode2-spec.md
-tasksDone: 4
+tasksDone: 5
 tasksTotal: 5
-gatesMet: 3
+gatesMet: 4
 gatesTotal: 4
 exitGates:
   - id: G-1
@@ -81,22 +75,27 @@ exitGates:
   - id: G-3
     description: "GREEN: npm test + npm run validate-skills + compatibility
       strip-test pass after the edits."
-    status: deferred
+    status: met
     verifier:
       kind: test
       runner: node --test
       pattern: tests/
-    deferredReason: "validate-skills (14 ok), compatibility (82/0), and
-      validate-state (26 + routing) all GREEN. Full `npm test` is NOT 0-fail due
-      to PRE-EXISTING failures unrelated to this change — the dashboard/aiDeck
-      bundle is not built (dist/dashboard/index.html missing), install-artifact
-      + aideck contract tests depend on it. PROVEN unrelated by stash-and-rerun:
-      identical failures with my skill edits removed. This is F5 (Inc7 aiDeck)
-      territory in project-orchestrator-redesign, blocked on the external aiDeck
-      rewrite — out of scope here. Zero NEW failures introduced."
+    metAt: 2026-06-07T19:40:27Z
+    evidence: &a1
+      verifierKind: test
+      verifiedAt: 2026-06-07T19:40:27Z
+      exitCode: 0
+      testsCollected: 797
+      passed: true
+      outputSummary: "Full `npm test` (node --test tests/*.test.js) GREEN: 797/797, 0
+        fail. The F5/Inc7 aiDeck rewrite that gated the e2e-smoke +
+        aideck-contract surface is complete; the residual failures were a
+        running aideck singleton holding port 7777 (my own status-launched
+        instance), since stopped. validate-skills 14/14, compatibility
+        strip-test 82/82, validate-state 26 files + routing. Pressure-test (3
+        scenarios) previously PASSED."
     verifierLabel: "test: node --test tests/"
-    evidenceSummary: "deferred: validate-skills (14 ok), compatibility (82/0), and
-      validate-state (26 + routing…"
+    evidenceSummary: passed · 797 tests · 2026-06-07
   - id: G-4
     description: Adversarial review (review-plan then review-code) run; zero
       unresolved blocker/critical findings.
@@ -285,30 +284,10 @@ tasks:
   - id: T-005
     title: Run the full suite + validate-skills + compatibility; pressure-test the
       reframe
-    status: blocked
-    blockedBy:
-      - F5-inc7-aideck-rewrite
-    lastUpdated: 2026-06-06T22:15:28Z
-    evidence:
-      verifierKind: test
-      verifiedAt: 2026-06-06T22:15:28Z
-      exitCode: 1
-      passed: false
-      outputSummary: "Mode2-scoped coverage GREEN: validate-skills 14/14,
-        validate-state 26 files + routing, compatibility 82/82, validate-state
-        confirms routing.json valid. Pressure-test PASSED (3 scenarios, verified
-        against lane doc): (1) spec-ready + deterministic verifier ⇒ Codex by
-        default (routing.json on, F1+F2 pass); (2) not-spec-ready ⇒ Mode 1 (§3
-        F1 HARD disqualifier, recorded reason); (3) verifier-less ⇒ 'refused
-        dispatch' (§3 F2 HARD + lane line 111). FULL `npm test` is NOT 0-fail:
-        after `npm run build:dashboard` the bundle-group failures clear, leaving
-        5 failures ALL in the aiDeck integration surface (e2e-smoke Model-A
-        /api/state/project-status x2, aideck-contract parseInitiativeFile
-        context + parent suite, e2e full chain). These are F5/Inc7
-        aiDeck-rewrite territory (project-orchestrator-redesign T-004, gated on
-        user go-ahead), fail at HEAD independent of mode2 — the only mode2
-        working-tree footprint is this state file, which none of those tests
-        read. Blocked on the aiDeck rewrite, not on mode2 work."
+    status: done
+    blockedBy: []
+    lastUpdated: 2026-06-07T19:40:27Z
+    evidence: *a1
     summary: npm test + validate-skills + compatibility verdes após as edições;
       pressure-test do novo enquadramento (3+ cenários).
     description: Run npm test, npm run validate-skills, and the compatibility
@@ -328,6 +307,7 @@ tasks:
       kind: test
       runner: node --test
       pattern: tests/
+    closedAt: 2026-06-07T19:40:27Z
 parked: []
 emerged: []
 parentPlan: mode2-codex-default-enablement
@@ -338,6 +318,7 @@ planTitle: Mode 2 — make Codex the default implementer (Opus plans, Codex exec
 planActive: true
 current: true
 ---
+
 
 # Mode 2 — make Codex the default implementer
 
@@ -374,3 +355,10 @@ edits) — the edits change pressure-tested Iron Laws and carry no deterministic
 verifier beyond grep guards + the suite, so by its own reframed F1 they are not a
 Codex-default candidate. The first *real* Codex-default batch should be ordinary
 spec-ready feature work, after G-4's review lands.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: T-005 closure cites the real `npm test` run (797/797, exit 0); T-001–T-004 closed earlier with their own evidence.
+- **G2 soft-language**: nextAction + task/criterion descriptions scanned for the ban list; 0 violations.
+- **G6 reference-or-strike**: 4 exit criteria all met with evidence — G-1 (shell, exit 0), G-2 (manual), G-3 (test, 797/797), G-4 (manual).
+- **Codex review**: SKIPPED at phase-done — G-4 already ran review-plan + review-code (adversarial, zero unresolved) on this initiative; the codex CLI is usage-limited until 2026-07-07. No new code since G-4 beyond this state-file close.
