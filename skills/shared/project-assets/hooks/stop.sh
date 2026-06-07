@@ -257,13 +257,17 @@ for fmt in ('%Y-%m-%dT%H:%M:%S.%f','%Y-%m-%dT%H:%M:%S'):
 }
 
 # resolve_detector  → absolute path to scripts/detect-completion.js (PWD repo →
-# global npm → installed runtime), or returns 1 + prints nothing when
-# unresolvable. Mirrors session-start.sh; fail-open.
+# global npm → installed runtime → recorded package-root), or returns 1 + prints
+# nothing when unresolvable. The package-root candidate resolves the detector
+# WITH its node_modules for npx/local installs (F-002). Mirrors
+# session-start.sh; fail-open.
 resolve_detector() {
-  local c
+  local c pkg_root=""
+  [[ -f "$HOME/.atomic-skills/package-root" ]] && pkg_root="$(<"$HOME/.atomic-skills/package-root")"
   for c in "$PROJ_DIR/scripts/detect-completion.js" \
            "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/detect-completion.js" \
-           "$HOME/.atomic-skills/scripts/detect-completion.js"; do
+           "$HOME/.atomic-skills/scripts/detect-completion.js" \
+           ${pkg_root:+"$pkg_root/scripts/detect-completion.js"}; do
     [[ -f "$c" ]] && { printf '%s' "$c"; return 0; }
   done
   return 1

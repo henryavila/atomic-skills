@@ -27,3 +27,4 @@
 | 2026-05-31 20:59 | [refactor-doc-architect](2026-05-31-2059-refactor-doc-architect.md) | plan/codex | needs_changes | 0B/1C/4M/0m/0n | 0d/5=/0+ |
 | 2026-06-02 15:15 | [rmig14-aideck-modelb-consumer](2026-06-02-1515-rmig14-aideck-modelb-consumer.md) | code (both) | needs_changes | 0B/0C/3M/0m/0n (+local 1M/4m) | 1d/3=/0+ |
 | 2026-06-02 16:57 | [rmig14-fix-commits-revalidation](2026-06-02-1657-rmig14-fix-commits-revalidation.md) | code | needs_changes | 0B/0C/1M/0m/0n | 1d/0=/1+ |
+| 2026-06-07 17:42 | [f5-phasedone-codex-review](2026-06-07-1742-f5-phasedone-codex-review.md) | code (codex, Pass2 BLOCKED) | needs_changes | 0B/0C/4M/0m/0n | 0d/4=/0+ |

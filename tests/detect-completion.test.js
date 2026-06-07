@@ -344,3 +344,53 @@ test('detect-completion disambiguates same-slug projects via --project and resol
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('detect-completion: --plan widening disables id-in-commit matching (F-001 cross-phase)', () => {
+  // Task IDs are phase-local (every phase has a T-001). A commit naming `T-001`
+  // is ambiguous once the scan widens past a single initiative, so id-in-commit
+  // matching must be OFF for a widened (--plan) scan while still ON for the
+  // default single-initiative scan. Path-based evidence stays global.
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-f001-'));
+  try {
+    gitInit(root);
+    commit(root, 'README.md', 'x\n', 'finish T-001', NEW); // names T-001, no output path
+    commit(root, 'src/g.js', 'g\n', 'land the gizmo', NEW); // a real declared output, no id in subject
+
+    const base = join(root, '.atomic-skills', 'projects', 'proj', 'multi');
+    writeFm(join(base, 'plan.md'), {
+      schemaVersion: '0.1', slug: 'multi', status: 'active', currentPhase: 'F1', lastUpdated: OLD,
+      phases: [{ id: 'F1', status: 'active' }, { id: 'F2', status: 'active' }],
+    });
+    // Both phases carry an open T-001 with NO outputs (id-only signal).
+    writeFm(join(base, 'phases', 'f1.md'), {
+      schemaVersion: '0.1', slug: 'multi-f1', status: 'active', parentPlan: 'multi', phaseId: 'F1',
+      lastUpdated: OLD, started: OLD,
+      tasks: [{ id: 'T-001', title: 'phase-1 work', status: 'pending', lastUpdated: OLD }],
+    });
+    writeFm(join(base, 'phases', 'f2.md'), {
+      schemaVersion: '0.1', slug: 'multi-f2', status: 'active', parentPlan: 'multi', phaseId: 'F2',
+      lastUpdated: OLD, started: OLD,
+      tasks: [
+        { id: 'T-001', title: 'phase-2 work', status: 'pending', lastUpdated: OLD },
+        // path-based evidence MUST still survive the widened scan.
+        { id: 'T-002', title: 'gizmo', status: 'pending', lastUpdated: OLD, outputs: [{ kind: 'file', path: 'src/g.js' }] },
+      ],
+    });
+
+    // Default (single active initiative = current phase F1): id-in-commit ON →
+    // F1's T-001 surfaces via commit-ref.
+    const def = detectCompletion(root, {});
+    assert.equal(def.candidates.length, 1, 'default scan flags exactly the current-phase T-001');
+    assert.equal(def.candidates[0].id, 'T-001');
+    assert.equal(def.candidates[0].evidence, 'commit-ref');
+
+    // Widened (--plan): id-in-commit OFF → neither T-001 surfaces; only the
+    // path-based T-002 (output-exists) does.
+    const wide = detectCompletion(root, { plan: 'multi' });
+    const ids = wide.candidates.map((c) => c.id).sort();
+    assert.deepEqual(ids, ['T-002'], 'widened scan drops ambiguous id-only matches, keeps path-based');
+    assert.equal(wide.candidates[0].evidence, 'output-exists');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

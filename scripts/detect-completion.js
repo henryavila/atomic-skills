@@ -206,8 +206,14 @@ function outputPathsOf(entry) {
  *
  * Returns { evidence, paths?, commit? }. evidence is 'output-exists' (strong),
  * 'commit-ref' (heuristic) or 'none' (not surfaced).
+ *
+ * `idMatchSafe` (default true) gates the id-in-commit half of commit-ref. Task
+ * IDs are PHASE-LOCAL (every phase has a T-001), so once the scan widens past a
+ * single initiative (`--plan`) a commit naming `T-001` is ambiguous across
+ * phases and must NOT count as id evidence (F-001). Path-based evidence
+ * (output-exists + commit-touching-path) is global and stays on regardless.
  */
-export function classifyEntry({ id, anchorTs, outputs, repoRoot }) {
+export function classifyEntry({ id, anchorTs, outputs, repoRoot, idMatchSafe = true }) {
   const paths = outputPathsOf({ outputs });
 
   // 1. output-exists (strong): a declared output that exists on disk AND
@@ -228,11 +234,15 @@ export function classifyEntry({ id, anchorTs, outputs, repoRoot }) {
 
   // 2. commit-ref (heuristic): a commit STRICTLY after the anchor (isAfter, not
   //    git --since which is inclusive/fuzzy) that names the exact id OR touches
-  //    an exact declared output path.
-  const idHit = commitsSince(repoRoot, anchorTs)
-    .filter((c) => isAfter(c.dateIso, anchorTs))
-    .find((c) => idInSubject(id, c.subject));
-  if (idHit) return { evidence: 'commit-ref', commit: idHit.sha };
+  //    an exact declared output path. The id-in-commit half is suppressed for a
+  //    widened scan (idMatchSafe === false) — phase-local ids are ambiguous
+  //    across initiatives (F-001).
+  if (idMatchSafe) {
+    const idHit = commitsSince(repoRoot, anchorTs)
+      .filter((c) => isAfter(c.dateIso, anchorTs))
+      .find((c) => idInSubject(id, c.subject));
+    if (idHit) return { evidence: 'commit-ref', commit: idHit.sha };
+  }
   for (const p of paths) {
     const hit = commitsTouchingPathSince(repoRoot, p, anchorTs).find((c) => isAfter(c.dateIso, anchorTs));
     if (hit) return { evidence: 'commit-ref', commit: hit.sha, paths: [p] };
@@ -356,7 +366,7 @@ const OPEN_TASK = new Set(['pending', 'active', 'blocked']); // `blocked` is unf
  * Scan one resolved initiative and return its candidates (open tasks + pending
  * exit-criteria that carry a completion signal). Pure read + bounded git.
  */
-function scanInitiative(target, repoRoot) {
+function scanInitiative(target, repoRoot, idMatchSafe = true) {
   const { fm, projectId, initiativePath } = target;
   const candidates = [];
   const initAnchor = fm.lastUpdated || fm.started;
@@ -365,7 +375,7 @@ function scanInitiative(target, repoRoot) {
     if (!task || typeof task !== 'object') continue;
     if (!OPEN_TASK.has(task.status)) continue; // skip done (and any non-open)
     const anchorTs = task.lastUpdated || initAnchor;
-    const sig = classifyEntry({ id: task.id, anchorTs, outputs: task.outputs, repoRoot });
+    const sig = classifyEntry({ id: task.id, anchorTs, outputs: task.outputs, repoRoot, idMatchSafe });
     if (sig.evidence === 'none') continue;
     const c = { kind: 'task', id: String(task.id ?? '?'), title: String(task.title ?? ''),
       projectId, initiativePath, evidence: sig.evidence, hasVerifier: !!task.verifier };
@@ -381,7 +391,7 @@ function scanInitiative(target, repoRoot) {
     // Exit-criteria carry NO `outputs` field (common.schema.json exitCriterion is
     // additionalProperties:false), so a gate is detectable ONLY by its exact id
     // appearing in a commit subject (commit-ref). No outputs ⇒ no output-exists.
-    const sig = classifyEntry({ id: crit.id, anchorTs: initAnchor, outputs: undefined, repoRoot });
+    const sig = classifyEntry({ id: crit.id, anchorTs: initAnchor, outputs: undefined, repoRoot, idMatchSafe });
     if (sig.evidence === 'none') continue;
     const c = { kind: 'criterion', id: String(crit.id ?? '?'), description: String(crit.description ?? ''),
       projectId, initiativePath, evidence: sig.evidence, hasVerifier: !!crit.verifier };
@@ -407,8 +417,12 @@ export function detectCompletion(dir, opts = {}) {
   const branch = opts.branch != null ? opts.branch : currentBranch(repoRoot);
   const targets = resolveTargets(stateRoot, { ...opts, branch });
 
+  // id-in-commit evidence is only unambiguous within a SINGLE initiative — task
+  // ids are phase-local. A widened scan (multiple targets, e.g. --plan) must
+  // fall back to path-based evidence only (F-001).
+  const idMatchSafe = targets.length === 1;
   const candidates = [];
-  for (const t of targets) candidates.push(...scanInitiative(t, repoRoot));
+  for (const t of targets) candidates.push(...scanInitiative(t, repoRoot, idMatchSafe));
 
   const primary = targets[0] || null;
   return {

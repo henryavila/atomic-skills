@@ -117,6 +117,59 @@ export function installRuntimeArtifacts({ aideckDir = resolveAideckPackageDir() 
     mkdirSync(srcDest, { recursive: true });
     copyFileSync(provSrc, join(srcDest, 'provision-consumer.js'));
   }
+
+  // Record THIS package's root (the dir holding scripts/ AND its node_modules)
+  // so the project hooks can resolve the runtime detectors from where they
+  // actually run, WITH dependencies intact — instead of copying scripts/ here
+  // dep-less (which would crash with ERR_MODULE_NOT_FOUND on `yaml`/`ajv`) or
+  // silently never running for an `npx`/local install where neither the
+  // consuming repo nor global-npm resolves them (F-002).
+  if (existsSync(join(PACKAGE_ROOT, 'scripts', 'detect-completion.js'))) {
+    const root = join(homedir(), '.atomic-skills');
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, 'package-root'), PACKAGE_ROOT + '\n');
+  }
+}
+
+/** Absolute path of the cross-install runtime registry (refcount file). */
+function installsRegistryPath() {
+  return join(homedir(), '.atomic-skills', 'installs.json');
+}
+
+/**
+ * Record an install base path in the shared runtime registry (idempotent). The
+ * global runtime artifacts under ~/.atomic-skills/ are shared across every
+ * install (user + each project), so they must only be reclaimed once the LAST
+ * install is gone — this registry is the refcount that makes that decision
+ * honest (F-003). `basePath` is homedir() for a user install, the repo root for
+ * a project install.
+ */
+export function registerInstall(basePath) {
+  const p = installsRegistryPath();
+  let list = [];
+  try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
+  if (!list.includes(basePath)) list.push(basePath);
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, JSON.stringify(list, null, 2) + '\n');
+}
+
+/**
+ * Remove an install base path from the registry. Returns the number of installs
+ * still registered AFTER removal. When it drops to 0 the registry file itself is
+ * deleted (so $HOME returns to baseline). The caller reclaims the shared runtime
+ * artifacts only when this returns 0 (F-003).
+ */
+export function unregisterInstall(basePath) {
+  const p = installsRegistryPath();
+  let list = [];
+  try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
+  const next = list.filter((b) => b !== basePath);
+  if (next.length === 0) {
+    try { unlinkSync(p); } catch {}
+    return 0;
+  }
+  try { writeFileSync(p, JSON.stringify(next, null, 2) + '\n'); } catch {}
+  return next.length;
 }
 
 /**
@@ -135,7 +188,11 @@ export function installRuntimeArtifacts({ aideckDir = resolveAideckPackageDir() 
 export function removeRuntimeArtifacts() {
   const root = join(homedir(), '.atomic-skills');
 
-  for (const file of [join(root, 'bin', 'aideck.mjs'), join(root, 'src', 'provision-consumer.js')]) {
+  for (const file of [
+    join(root, 'bin', 'aideck.mjs'),
+    join(root, 'src', 'provision-consumer.js'),
+    join(root, 'package-root'),
+  ]) {
     if (!existsSync(file)) continue;
     try { unlinkSync(file); } catch {}
     const parent = dirname(file);
@@ -858,6 +915,7 @@ export async function install(projectDir, options = {}) {
     }
 
     installRuntimeArtifacts();
+    registerInstall(basePath);
     showNonInteractiveResult(result, ides, language);
     return;
   }
@@ -1064,6 +1122,7 @@ export async function install(projectDir, options = {}) {
 
   // Install aideck bundle + dashboard to ~/.atomic-skills/
   installRuntimeArtifacts();
+  registerInstall(basePath);
 
   // Restore files user chose to keep
   for (const [filePath, content] of savedContent) {

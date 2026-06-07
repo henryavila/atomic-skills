@@ -1,15 +1,9 @@
 {
   "schemaVersion": "0.1",
-  "branch": "dogfood/self-host-migration",
-  "lastReviewedCommit": "de9f9e9c4398ba457fff997406ce131fab282b89",
-  "lastReviewedAt": "2026-06-02T16:57:35-03:00",
-  "reviewFile": ".atomic-skills/reviews/2026-06-02-1657-rmig14-fix-commits-revalidation.md",
+  "branch": "main",
+  "lastReviewedCommit": "9e21b16eec9b7fb8d61c2d3d2ae4021c89300071",
+  "lastReviewedAt": "2026-06-07T17:42:28Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-07-1742-f5-phasedone-codex-review.md",
   "verdict": "needs_changes",
-  "counts": {
-    "blocker": 0,
-    "critical": 0,
-    "major": 1,
-    "minor": 0,
-    "nit": 0
-  }
+  "counts": { "blocker": 0, "critical": 0, "major": 4, "minor": 0, "nit": 0 }
 }

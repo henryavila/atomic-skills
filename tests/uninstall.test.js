@@ -306,23 +306,33 @@ describe('uninstall (integration)', () => {
     }
   });
 
-  it('project-scope uninstall leaves global runtime artifacts intact', async () => {
+  it('shared runtime survives while ANY install remains, reclaimed only when the LAST goes (F-003 refcount)', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-home-'));
     const repo = mkdtempSync(join(tmpdir(), 'as-uninst-repo-'));
     const aideckDir = fakeAideckPkg();
+    const bin = join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs');
     try {
       execFileSync('git', ['init', '-q'], { cwd: repo });
       await withHome(fakeHome, async () => {
-        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
-        installRuntimeArtifacts({ aideckDir });
-        assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')), 'precondition: runtime present');
+        // Two coexisting installs: a user install AND a project install. Each
+        // registers itself in ~/.atomic-skills/installs.json (the refcount).
+        await install(repo, { yes: true, ide: ['claude-code'], lang: 'en' });               // user scope
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' }); // project scope
+        installRuntimeArtifacts({ aideckDir }); // guarantee the shared bin is staged
+        assert.ok(existsSync(bin), 'precondition: shared runtime present');
         assert.ok(existsSync(join(repo, '.atomic-skills', 'manifest.json')), 'precondition: project manifest');
+        assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'manifest.json')), 'precondition: user manifest');
 
+        // Removing the project install: the user install still depends on the
+        // shared runtime, so it MUST survive (the exact bug F-003 fixes — a
+        // single uninstall used to strand the other install).
         await uninstall(repo, { scope: 'project', yes: true });
-
         assert.ok(!existsSync(join(repo, '.atomic-skills', 'manifest.json')), 'project manifest removed');
-        assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'bin', 'aideck.mjs')),
-          'global runtime must survive a project-scope uninstall');
+        assert.ok(existsSync(bin), 'shared runtime survives while the user install remains');
+
+        // Removing the LAST install reclaims the shared runtime (no residue).
+        await uninstall(repo, { scope: 'user', yes: true });
+        assert.ok(!existsSync(bin), 'shared runtime reclaimed once the last install is gone');
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });

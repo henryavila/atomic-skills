@@ -121,15 +121,20 @@ count_pending_tasks() {
   ' "$file"
 }
 
-# resolve_detector  → absolute path to scripts/detect-completion.js, resolved the
-# same 3-path way the skill resolves src/normalize.js (PWD repo → global npm →
-# installed runtime). Prints nothing + returns 1 when unresolvable (fail-open:
+# resolve_detector  → absolute path to scripts/detect-completion.js, resolved
+# PWD repo → global npm → installed runtime → recorded package-root. The
+# package-root candidate (written by install to ~/.atomic-skills/package-root)
+# points at the package dir that has scripts/ AND its node_modules, so the
+# detector resolves WITH its deps for an npx/local install where the first three
+# paths miss (F-002). Prints nothing + returns 1 when unresolvable (fail-open:
 # the session must never be blocked by a missing detector).
 resolve_detector() {
-  local c
+  local c pkg_root=""
+  [[ -f "$HOME/.atomic-skills/package-root" ]] && pkg_root="$(<"$HOME/.atomic-skills/package-root")"
   for c in "$PROJ_DIR/scripts/detect-completion.js" \
            "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/detect-completion.js" \
-           "$HOME/.atomic-skills/scripts/detect-completion.js"; do
+           "$HOME/.atomic-skills/scripts/detect-completion.js" \
+           ${pkg_root:+"$pkg_root/scripts/detect-completion.js"}; do
     [[ -f "$c" ]] && { printf '%s' "$c"; return 0; }
   done
   return 1

@@ -124,4 +124,17 @@ describe('humanizeProjectId / stampIdTitle units', () => {
       assert.match(sanitizeMcpNamespace(id), re, `ns for ${id} must match aideck regex`);
     }
   });
+
+  it('sanitizeMcpNamespace disambiguates long IDs sharing a 32-char prefix (F-004)', () => {
+    const re = /^[a-z][a-z0-9_]{0,31}$/;
+    const a = sanitizeMcpNamespace('a'.repeat(32) + '-x');
+    const b = sanitizeMcpNamespace('a'.repeat(32) + '-y');
+    assert.match(a, re, 'truncated ns must still match the aideck regex');
+    assert.match(b, re, 'truncated ns must still match the aideck regex');
+    assert.notEqual(a, b, 'distinct long ids sharing a 32-char prefix must not collide');
+    // Deterministic: same long id → same namespace (idempotent provisioning).
+    assert.equal(a, sanitizeMcpNamespace('a'.repeat(32) + '-x'));
+    // Short ids are never truncated, so they keep their exact legacy value.
+    assert.equal(sanitizeMcpNamespace('atomic-skills'), 'atomic_skills');
+  });
 });

@@ -26,6 +26,7 @@ import {
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +45,12 @@ export function humanizeProjectId(projectId) {
  * namespaces or their tools collide in the shared registry. Derived from the pid
  * (dashes→underscores), letter-prefixed if needed, capped at 32 chars.
  * "atomic-skills" → "atomic_skills" (unchanged from the legacy value).
+ *
+ * Two distinct ids that share the same first 32 sanitized chars would truncate
+ * to the SAME namespace and collide in the shared MCP registry (F-004). When —
+ * and only when — truncation is needed, the tail is replaced by a short
+ * deterministic hash of the FULL sanitized ns (25 prefix chars + '_' + 6 hex =
+ * 32), so long ids stay distinct while short ids keep their exact legacy value.
  */
 export function sanitizeMcpNamespace(projectId) {
   let ns = String(projectId)
@@ -51,7 +58,9 @@ export function sanitizeMcpNamespace(projectId) {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
   if (!/^[a-z]/.test(ns)) ns = `as_${ns}`;
-  return ns.slice(0, 32);
+  if (ns.length <= 32) return ns;
+  const hash = createHash('sha1').update(ns).digest('hex').slice(0, 6); // [0-9a-f] ⊂ [a-z0-9]
+  return `${ns.slice(0, 25)}_${hash}`;
 }
 
 /**

@@ -2,7 +2,7 @@ import { unlinkSync, rmdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
-import { removeRuntimeArtifacts, removeAutoUpdateHook } from './install.js';
+import { removeRuntimeArtifacts, removeAutoUpdateHook, unregisterInstall } from './install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
 
@@ -118,9 +118,13 @@ export async function uninstall(projectDir, options = {}) {
   removeAutoUpdateHook({ basePath, scope, settingsCreated: manifest.settingsCreated === true });
 
   // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) are shared
-  // across all installs, so only a user-scope uninstall reclaims them; a
-  // project uninstall leaves them for other repos / the user install.
-  if (scope === 'user') removeRuntimeArtifacts();
+  // across ALL installs (user + each project), so reclaim them only when the
+  // LAST install is gone — tracked by the cross-install registry, not by scope.
+  // Removing them on any single user-scope uninstall would break every project
+  // install that still depends on the shared dashboard/provisioner runtime
+  // (F-003). Deregister this install; reclaim only when the refcount hits 0.
+  const remainingInstalls = unregisterInstall(basePath);
+  if (remainingInstalls === 0) removeRuntimeArtifacts();
 
   // Remove manifest (last, so the .atomic-skills/ dir can be pruned once the
   // runtime artifacts that also lived there are gone).
