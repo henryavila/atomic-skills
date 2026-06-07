@@ -10,25 +10,23 @@ goal: Reconnect the project skill to the rebuilt generic aiDeck via a Model-B
 status: active
 branch: dogfood/self-host-migration
 started: 2026-06-02T00:00:00Z
-lastUpdated: 2026-06-03T00:00:00Z
-nextAction: "Dashboard port T-005..T-009 ALL DONE. aiDeck side: §2a
-  array-explode + §2b composition/slots + §2c drill-down (composite param incl
-  {field,param}) + §2d SSE nested-path + callout/sparkline/phase-timeline
-  widgets (aideck suite green, 617/618; 1 flaky chokidar watcher). Consumer
-  side: 6 exploded dataSources + Plan/Initiative detail pages + composed kanban
-  card (progress-bar) + drill-down linkTo; initiative rollups declared
-  (meta+consumer schema) + seeded (decompose) + backfilled
-  (scripts/compute-rollups.js) + prose recompute rule. Live-verified on aideck
-  feat/aideck-v2-generic-runtime (port 7799): consumer loads, 5 pages, all
-  exploded endpoints serve. ONLY F5 remnant = T-004 (npm publish + repoint
-  resolveAideckBin), GATED on explicit go-ahead. Deferred polish: aiDeck
-  demo-consumer fixture; bespoke exit-gate/stack/dag-graph widgets
-  (table+mermaid interim used). See docs/design/project-orchestrator/16."
+lastUpdated: 2026-06-07T08:56:55Z
+nextAction: "ALL F5 tasks DONE; F5-G1 MET. Verified e2e against PUBLISHED
+  @henryavila/aideck 0.1.0: project-scoped data route serves plans=8,
+  initiatives=18, phases=24; MCP 24 tools; through the real
+  installRuntimeArtifacts shim. The earlier 'v2 routes 404' was a FALSE ALARM
+  (live server had run the stale pre-cutover vendored bin; re-running install
+  restages the shim) — no aiDeck bug. Phase ready to close. Open decisions for
+  the user: (1) consolidate dogfood/self-host-migration → main; (2) commit the
+  cutover + state; (3) on end users' machines the dashboard needs one `install`
+  re-run to replace any stale ~/.atomic-skills/bin/aideck.mjs. Minor aiDeck
+  cosmetic (non-blocking): /api/health reports version 0.0.1 (cli serve doesn't
+  pass opts.version)."
 parentPlan: project-orchestrator-redesign
 phaseId: F5
-tasksDone: 8
+tasksDone: 9
 tasksTotal: 9
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F5-G1
@@ -38,7 +36,25 @@ exitGates:
       and live-validated (5 dataSources + 7 MCP tools, handoff session 4). The
       ONLY remaining sub-item is Phase D (npm publish + repoint), gated on
       explicit go-ahead."
-    status: pending
+    status: met
+    metAt: 2026-06-07T08:56:55Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-06-07T08:56:55Z
+      passed: true
+      outputSummary: "VERIFIED end-to-end against the PUBLISHED @henryavila/aideck
+        0.1.0. HTTP: project-scoped
+        /api/consumers/atomic-skills/projects/atomic-skills/data/plans = 8
+        records (initiatives=18, phases=24); /api/consumers lists the v2
+        registry (atomic-skills, dispatch-test). MCP: aideck mcp stdio
+        initialize + tools/list = 24 tools. Run through the REAL user flow: the
+        installRuntimeArtifacts shim (~/.atomic-skills/bin/aideck.mjs, 363B,
+        argv[1]-rewrite → published cli.js) spawns the published CLI and serves
+        the route. NOTE: an earlier 'v2 routes 404' reading was a FALSE ALARM —
+        the live server had run the STALE vendored bin from a pre-cutover
+        install; re-running install restages the shim and fixes it. No aiDeck
+        bug. (Minor aiDeck cosmetic: /api/health reports version 0.0.1 because
+        cli serve doesn't pass opts.version to startServer — non-blocking.)"
     verifier:
       kind: manual
       description: "Publish lands a non-0.0.1 @henryavila/aideck; resolveAideckBin
@@ -47,6 +63,7 @@ exitGates:
         and one MCP tool responds over `aideck mcp` stdio."
       fallbackKind: cli
     verifierLabel: manual
+    evidenceSummary: passed · 2026-06-07
 stack: []
 tasks:
   - id: T-001
@@ -100,10 +117,38 @@ tasks:
       bin and refresh/drop vendor/aideck-runtime + re-run install. GATED on
       explicit go-ahead. No aiDeck CODE changes are required for the integration
       itself.
-    status: pending
-    blockedBy:
-      - gated-user-go-ahead-publish
-    lastUpdated: 2026-06-03T00:00:00Z
+    status: done
+    closedAt: 2026-06-07T08:56:55Z
+    lastUpdated: 2026-06-07T08:56:55Z
+    outputs:
+      - kind: file
+        path: package.json
+      - kind: file
+        path: src/serve.js
+      - kind: file
+        path: src/install.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-07T08:56:55Z
+      exitCode: 0
+      testsCollected: 789
+      passed: true
+      outputSummary: "DONE + verified e2e against PUBLISHED @henryavila/aideck 0.1.0.
+        package.json: + dep ^0.1.0, drops dist/aideck.mjs +
+        vendor/aideck-runtime from files[], removes build:aideck +
+        prepublishOnly tail. serve.js + install.js resolveAideckPackageDir use a
+        node_modules FS WALK (NOT require.resolve — the pkg is ESM-only, exports
+        exposes neither ./package.json nor ./dist/cli.js, so CJS resolve throws
+        ERR_PACKAGE_PATH_NOT_EXPORTED; caught at npm-install time). install
+        restages an argv[1]-rewrite launcher shim (bin/aideck.mjs → published
+        cli.js) + dist/client → dashboard/. Deleted vendor/aideck-runtime +
+        dist/aideck.mjs + scripts/vendor-aideck.js + vendor-aideck-core.js + its
+        test; .gitignore drops the !dist/aideck.mjs force-track. Full suite
+        GREEN 789/789. SMOKE GREEN: published 0.1.0 serves project-scoped
+        plans=8, initiatives=18, phases=24; MCP 24 tools; verified through the
+        real shim flow. The transient 'v2 404' reading was a FALSE ALARM (live
+        server had run the stale pre-cutover vendored bin; re-running install
+        fixes it) — no aiDeck bug."
   - id: T-005
     title: Dashboard port — fix broken plans table (config.columns)
     summary: Conserta a tabela de planos do dashboard declarando config.columns

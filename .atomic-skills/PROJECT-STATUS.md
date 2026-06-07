@@ -1,8 +1,8 @@
 ---
-lastUpdated: '2026-05-27T18:00:00Z'
+lastUpdated: '2026-06-06T22:15:28Z'
 schemaVersion: '0.1'
 activePlans: 2
-activeInitiatives: 2
+activeInitiatives: 0
 archivedCount: 0
 ---
 
@@ -14,15 +14,23 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 | Slug | Status | Current Phase | Branch | Started |
 |------|--------|---------------|--------|---------|
-| aideck-multi-project | active | — | — | — |
-| refactor-doc-architect | active | F0 | main | 2026-05-31 |
+| project-orchestrator-redesign | active | F5 | dogfood/self-host-migration | 2026-06-01 |
+| mode2-codex-default-enablement | active | F0 | dogfood/self-host-migration | 2026-06-06 |
+
+## Paused Plans
+
+| Slug | Status | Current Phase |
+|------|--------|---------------|
+| aideck-multi-project | paused | F4 |
+| refactor-doc-architect | paused | F0 |
+| bmad-af-learnings | paused | F0 |
+| bmad-porting-research | paused | F0 |
+| fix-superpowers-integration | paused | F0 |
+| mode2-anthropic-subagent-tier | paused | F0 |
 
 ## Active Initiatives (standalone)
 
-| Slug | Status | Branch | Started | Next Action |
-|------|--------|--------|---------|-------------|
-| bmad-af-learnings | active | — | 2026-05-27 | _(all 7 tasks done — pending archive)_ |
-| bmad-porting-research | active | — | 2026-05-27 | Iniciar pesquisa T-001 (party-mode design) |
+_(none — all current work is plan-anchored)_
 
 ## Recently Archived (last 10)
 
