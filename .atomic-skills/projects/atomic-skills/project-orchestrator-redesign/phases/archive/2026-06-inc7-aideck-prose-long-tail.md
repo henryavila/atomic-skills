@@ -7,20 +7,11 @@ goal: Reconnect the project skill to the rebuilt generic aiDeck via a Model-B
   prose/schema long tail. R-MIG-09..18/22/23. Materialized 2026-06-03 to make
   the real A/B/C/D progress trackable (the parent plan had carried F5 as a
   single prose criterion only).
-status: active
+status: done
 branch: main
 started: 2026-06-02T00:00:00Z
-lastUpdated: 2026-06-07T11:00:00Z
-nextAction: "F5 COMPLETE: 10/10 tasks done, F5-G1 MET. Cutover verified e2e
-  against PUBLISHED @henryavila/aideck 0.1.0 (project-scoped route serves
-  plans/initiatives/phases; 24 MCP tools; through the real
-  installRuntimeArtifacts shim). DONE since: branch consolidated
-  dogfood/self-host-migration → main (deleted) and the cutover + multi-plan
-  dashboard fix committed (a37d2f9). ONLY remaining step: run `phase-done` to
-  verify the exit gate and advance the plan (F6 is DEFERRED, so the plan may go
-  plan-done). Notes (non-blocking): end-user dashboards need one `install`
-  re-run to restage ~/.atomic-skills/bin/aideck.mjs; /api/health reports version
-  0.0.1 (aiDeck cli serve doesn't pass opts.version)."
+lastUpdated: 2026-06-07T18:58:34Z
+nextAction: null
 parentPlan: project-orchestrator-redesign
 phaseId: F5
 tasksDone: 10
@@ -380,6 +371,7 @@ planTitle: Redesign project skill into a lifecycle orchestrator (dogfood)
 planActive: true
 current: true
 ---
+
 
 # Inc7 — aiDeck consumer-side (Model-B) + prose/schema long tail
 

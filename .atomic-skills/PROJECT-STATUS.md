@@ -1,9 +1,9 @@
 ---
-lastUpdated: '2026-06-07T10:48:36Z'
+lastUpdated: '2026-06-07T18:58:34Z'
 schemaVersion: '0.1'
-activePlans: 2
+activePlans: 1
 activeInitiatives: 0
-archivedCount: 0
+archivedCount: 1
 ---
 
 # Project Status Index
@@ -14,7 +14,6 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 | Slug | Status | Current Phase | Branch | Started |
 |------|--------|---------------|--------|---------|
-| project-orchestrator-redesign | active | F5 | main | 2026-06-01 |
 | mode2-codex-default-enablement | active | F0 | main | 2026-06-06 |
 
 ## Paused Plans
@@ -34,7 +33,9 @@ _(none — all current work is plan-anchored)_
 
 ## Recently Archived (last 10)
 
-_(empty)_
+| Slug | Archived | Final Phase | Note |
+|------|----------|-------------|------|
+| project-orchestrator-redesign | 2026-06-07 | F5 (done) | Plan complete; F6 deferred. F5-G1 met (aiDeck Model-B consumer e2e vs @henryavila/aideck 0.1.0). |
 
 ## Ad-Hoc Sessions Log (last 5)
 

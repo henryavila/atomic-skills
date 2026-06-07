@@ -3,11 +3,11 @@ schemaVersion: "0.2"
 slug: project-orchestrator-redesign
 title: Redesign project skill into a lifecycle orchestrator (dogfood)
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-01T00:00:00Z
-lastUpdated: 2026-06-07T10:48:36Z
+lastUpdated: 2026-06-07T18:58:34Z
 branch: main
-currentPhase: F5
+currentPhase: null
 parallelismAllowed: false
 phases:
   - id: F0
@@ -160,7 +160,7 @@ phases:
     dependsOn:
       - F2
     subPhaseCount: 0
-    status: active
+    status: done
     exitGate:
       summary: aiDeck reads the nested layout; the project-status skill body matches
         the live nested layout.
@@ -177,7 +177,7 @@ phases:
             hook suite 31/29/66/5 green, verified on the live tree (resolves
             project-orchestrator-redesign @ F5). Suite 705 green, check-docs
             clean."
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: "Verify the skill renders + mutates the live nested tree without
@@ -189,6 +189,26 @@ phases:
               top-level PROJECT-STATUS.md is stale post-D7/pause — per-project
               indexes are created on the next mutation."
             fallbackKind: cli
+          metAt: 2026-06-07T18:58:34Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-07T08:56:55Z
+            passed: true
+            outputSummary: "VERIFIED end-to-end against the PUBLISHED @henryavila/aideck
+              0.1.0. HTTP: project-scoped
+              /api/consumers/atomic-skills/projects/atomic-skills/data/plans = 8
+              records (initiatives=18, phases=24); /api/consumers lists the v2
+              registry (atomic-skills, dispatch-test). MCP: aideck mcp stdio
+              initialize + tools/list = 24 tools. Run through the REAL user
+              flow: the installRuntimeArtifacts shim
+              (~/.atomic-skills/bin/aideck.mjs, 363B, argv[1]-rewrite →
+              published cli.js) spawns the published CLI and serves the route.
+              NOTE: an earlier 'v2 routes 404' reading was a FALSE ALARM — the
+              live server had run the STALE vendored bin from a pre-cutover
+              install; re-running install restages the shim and fixes it. No
+              aiDeck bug. (Minor aiDeck cosmetic: /api/health reports version
+              0.0.1 because cli serve doesn't pass opts.version to startServer —
+              non-blocking.)"
     summary: Reconecta a skill ao aiDeck genérico reescrito via consumer Model-B
       (read-in-place); só falta o publish no npm (gated).
   - id: F6
@@ -215,9 +235,9 @@ phases:
             throughput is parallel-dispatch's job (spec §5).
     summary: Tier opcional de executor Sonnet/Haiku in-tree — adiado; recomendação é
       um hint de tier no parallel-dispatch.
-planActive: true
 planTitle: Redesign project skill into a lifecycle orchestrator (dogfood)
 ---
+
 
 # Redesign project skill into a lifecycle orchestrator (dogfood)
 
