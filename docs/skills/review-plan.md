@@ -4,11 +4,11 @@
 
 **Adversarial plan review with local/codex/both mode picker**
 
-Plans fail when the author reviews their own work. `review-plan` runs adversarial passes — locally, via a cross-model codex envelope, or both — to catch gaps, missing edge cases, and optimistic assumptions before execution begins.
+A plan reviewed by its own author inherits every blind spot that wrote it — the gaps read as completeness from the inside. `review-plan` runs adversarial passes that actively hunt for what's missing: a fast local self-loop, a cross-model codex envelope that can't see your intent, or both. It surfaces the unhandled edge case, the optimistic assumption, and the silent dependency *before* execution turns them into rework — and never approves without cited evidence.
 
 ## Purpose
 
-Adversarial review with mode picker: local (cheap, fast), codex (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local first, codex second on cleaned plan with sealed envelope). Optionally cross-references against source artifacts. Iterates up to 3 passes in local; two-pass envelope in codex.
+Adversarially review an implementation plan before it runs — locally (fast, cheap), via a cross-model codex envelope (~$1-2), or both (default: local first, then codex on the cleaned plan in a sealed envelope) — hunting for gaps, missing edge cases, and optimistic assumptions, and approving only on cited evidence. Optionally cross-references the plan against its source PRD/spec.
 
 ## Usage
 

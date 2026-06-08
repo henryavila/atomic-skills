@@ -4,11 +4,11 @@
 
 **Generate a self-contained prompt with exact paths and guardrails**
 
-Vague tasks produce vague results. `prompt` analyzes your codebase and generates a precise, self-contained prompt with exact file paths, guardrails, and acceptance criteria — ready to hand off to a parallel agent or a fresh session.
+Hand an agent a vague task and you get a vague result — it guesses paths, invents constraints, and drifts from what you meant. `prompt` reads your actual codebase first, then writes a precise, self-contained brief: exact file paths, explicit guardrails, and acceptance criteria the receiving agent can check itself against. Hand it to a parallel session or a fresh context and the work comes back on-target the first time.
 
 ## Purpose
 
-Turn a vague task description into an optimized, self-contained prompt with file paths, guardrails, and acceptance criteria. Use as input to another AI session.
+Turn a one-line task into a self-contained, codebase-grounded prompt — real file paths, explicit guardrails, and acceptance criteria — ready to drive a parallel agent or a fresh session without back-and-forth.
 
 ## Usage
 

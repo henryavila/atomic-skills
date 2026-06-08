@@ -4,11 +4,11 @@
 
 **Dispatch a task list to N parallel sessions with verified isolation**
 
-Parallel agents that touch the same files produce merge conflicts and wasted runs. `parallel-dispatch` proves scope disjointness via pairwise grep *before* launching — verified isolation, not hopeful isolation.
+Fire off parallel agents that happen to touch the same files and you get merge conflicts, clobbered work, and runs you throw away. `parallel-dispatch` refuses to launch until it has *proven* the task scopes are disjoint — pairwise grep across every pair, verified isolation rather than hopeful isolation — then dispatches the batch under one tracking id. You walk away; N agents work in true parallel and their results merge clean.
 
 ## Purpose
 
-Verify, isolate, and dispatch a user-provided task list to N parallel sessions. Mechanical scope isolation, batch id, and audit pass.
+Validate that a finalized task list is genuinely parallelizable, prove scope disjointness mechanically, and dispatch it to N isolated sessions under one batch id — so independent work runs concurrently without collisions. This skill dispatches your list; it does not invent tasks.
 
 ## Usage
 

@@ -8,7 +8,7 @@ Reviewing your own diff in the same context that wrote it inherits every blind s
 
 ## Purpose
 
-Review a git ref (branch, commit, or range) adversarially. Mode picker: local (cheap, fast), codex (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local first, codex second on the byte-identical captured diff with sealed envelope). Range-aware ref validation + shape-specific diff command.
+Adversarially review a git ref — branch, commit, or range — in clean context, with every finding tied to a file:line and no approval without evidence. Mode picker: local (fast, cheap), codex (cross-model via the OpenAI Codex CLI, ~$1-2), or both (default: local first, then codex on the byte-identical captured diff in a sealed envelope).
 
 ## Usage
 

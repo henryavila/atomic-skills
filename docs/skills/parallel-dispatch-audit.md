@@ -8,7 +8,7 @@ A green commit can sit on top of an empty file, and a still-running agent looks 
 
 ## Purpose
 
-Verify each dispatched agent's deliverables on disk against the original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
+Independently verify what a parallel-dispatch batch actually produced — reading each deliverable on disk against the original request, applying only cosmetic fixes, and flipping to read-only escalation with evidence the moment the work diverges (≥5 issues, scope drift, or a missing deliverable).
 
 ## Usage
 

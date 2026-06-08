@@ -4,11 +4,11 @@
 
 **Diagnose root cause → write test → fix → verify**
 
-AI agents love to jump to fixes. `fix` forces the detective path: reproduce first, understand the root cause, write a failing test, *then* fix. The test stays — so the bug never comes back.
+AI agents love to jump to fixes — patch the first plausible line, declare victory, ship the regression. `fix` forces the detective path instead: reproduce the failure, trace it to the exact root cause, write a test that fails for that reason, *then* fix. The reproducing test stays in the suite — so the bug it caught can never silently return.
 
 ## Purpose
 
-Identify the root cause of a bug, write a reproducing test, and only then apply the fix. Detective mindset, not firefighter.
+Find the true root cause of a bug, prove it with a failing test, then make the minimal fix — a detective's process, not a firefighter's. The reproducing test outlives the fix and guards against regression.
 
 ## Usage
 

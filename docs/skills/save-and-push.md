@@ -8,7 +8,7 @@ Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit
 
 ## Purpose
 
-End-of-session ritual: extract learnings to persistent memory, stage relevant files, commit with conventional message, push to remote.
+Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push — refusing to touch main/master without explicit confirmation.
 
 ## Usage
 

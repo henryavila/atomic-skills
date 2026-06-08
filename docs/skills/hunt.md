@@ -8,7 +8,7 @@ Asking an agent to "add tests" produces happy-path tests that mirror the code �
 
 ## Purpose
 
-Write adversarial tests to break code and find hidden bugs. Bounded to one class or function per run.
+Write tests that try to *break* one class or function — expected values drawn from the spec, never the implementation — to surface the edge cases, boundaries, and error paths the code never anticipated. Bounded to a single class or function per run so the hunt goes deep, not wide.
 
 ## Usage
 

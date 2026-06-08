@@ -8,43 +8,37 @@
   <a href="https://github.com/henryavila/atomic-skills/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/@henryavila/atomic-skills.svg?color=success" alt="license" /></a>
 </p>
 
-AI agents skip steps, cut corners, and ignore what they promised two messages ago. Atomic Skills are battle-tested prompts that make them follow through — via Iron Laws and HARD-GATEs that turn *"the agent should do X"* into *"the agent will not proceed without X."*
+AI agents skip steps, cut corners, and ignore what they promised two messages ago. **Atomic Skills** are battle-tested prompts that make them follow through — each one encodes a hard-won workflow behind Iron Laws and HARD-GATEs that turn *"the agent should do X"* into *"the agent will not proceed without X."*
 
-*Stop babysitting your agent.*
+*Stop babysitting your agent.* Not a prompt pack you copy-paste — install once, then invoke `/atomic-skills:<name>` natively in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, or GitHub Copilot.
 
-Not a prompt pack you copy-paste. Install once, then invoke `/atomic-skills:<name>` natively in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, or GitHub Copilot.
+### What you get
 
-> **[View on npm](https://www.npmjs.com/package/@henryavila/atomic-skills)**
+- **The agent follows through.** Iron Laws and HARD-GATEs make skipping steps *impossible*, not merely discouraged — no fix without a root cause, no "done" without a fresh verification, no push with a secret in the diff.
+- **One job per skill.** 14 small, composable skills — diagnose a bug, review a diff, drive a plan to done — with no coupling between them. Reach for the one that matches today's problem.
+- **Evidence over vibes.** Every claim cites `file:line` or real tool output; every gate closes against proof, not the agent's say-so.
+- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body runs correctly in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, and GitHub Copilot.
+- **60-second install, zero config.** No API keys for the core skills; the installer detects your IDE(s) and writes the command files in place.
+
+> **Where to next:** skim the [14 skills →](#the-skills) · understand the [approach →](#the-atomic-approach) · or just [install →](#quick-start).
+
+## Quick Start
 
 ```bash
 npx @henryavila/atomic-skills install
 ```
 
-## 60-Second Install
-
-Interactive (default — detects your IDE(s) and writes native command files):
-
-```bash
-npx @henryavila/atomic-skills install
-```
-
-Non-interactive, for CI or dotfiles — install for every IDE detected on this machine:
+Interactive by default — it detects your IDE(s) and writes native command files in place. For CI or dotfiles, install for every detected IDE non-interactively:
 
 ```bash
 npx @henryavila/atomic-skills install --yes --all-detected
-# equivalent:
-npx @henryavila/atomic-skills install --yes --ide detected
 ```
 
-Inspect supported and detected IDEs:
+No config files and no API keys for the core skills. Full update / uninstall / scope options are [at the bottom](#install-update-uninstall).
 
-```bash
-npx @henryavila/atomic-skills detect --json
-```
+> **[View on npm](https://www.npmjs.com/package/@henryavila/atomic-skills)** · [browse the skills](#the-skills)
 
-No config files, no API keys for the core skills — the installer detects your IDE(s) and writes the command files in place. Full update / uninstall / scope options are [at the bottom](#install-update-uninstall).
-
-## Why Atomic?
+## The Atomic Approach
 
 Vague instructions produce vague results, and a "good prompt" you keep in your head dies with the conversation. Each Atomic Skill encodes hard-won patterns that prevent agent drift:
 
@@ -80,7 +74,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 
 ## The Skills
 
-11 skills, each with one job and one non-negotiable Iron Law — pick the one that matches today's problem.
+14 skills, each with one job and one non-negotiable Iron Law — pick the one that matches today's problem.
 
 [VERSION_NOTE_START]: #
 > **Note (v2.0.0):** First major bump since 1.8.x. Review skills consolidated from 4 → 2 (`review-plan` + `review-code`) with a Step 0 mode picker (`local` | `codex` | `both`). `project-status` + `project-plan` unified into a single `project` skill — a thin router with lazy-loaded detail files (git-style subcommands, a `verify` reconciliation command, and the aiDeck contract quarantined behind one constant). Catalog moved to schema v0.2 and was renamed to `meta/catalog.yaml`. README + dashboard are now generated from five marker-bounded regions; husky pre-commit auto-regenerates on staged catalog changes.
@@ -115,7 +109,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 
 **Iron Law:** `NO FIX WITHOUT ROOT CAUSE.`
 
-AI agents love to jump to fixes. `fix` forces the detective path: reproduce first, understand the root cause, write a failing test, *then* fix. The test stays — so the bug never comes back.
+AI agents love to jump to fixes — patch the first plausible line, declare victory, ship the regression. `fix` forces the detective path instead: reproduce the failure, trace it to the exact root cause, write a test that fails for that reason, *then* fix. The reproducing test stays in the suite — so the bug it caught can never silently return.
 
 ```
 /atomic-skills:fix "duplicates in /musicas listing"
@@ -143,7 +137,7 @@ Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit
 
 **Iron Law:** `NO APPROVAL WITHOUT EVIDENCE.`
 
-Plans fail when the author reviews their own work. `review-plan` runs adversarial passes — locally, via a cross-model codex envelope, or both — to catch gaps, missing edge cases, and optimistic assumptions before execution begins.
+A plan reviewed by its own author inherits every blind spot that wrote it — the gaps read as completeness from the inside. `review-plan` runs adversarial passes that actively hunt for what's missing: a fast local self-loop, a cross-model codex envelope that can't see your intent, or both. It surfaces the unhandled edge case, the optimistic assumption, and the silent dependency *before* execution turns them into rework — and never approves without cited evidence.
 
 ```
 /atomic-skills:review-plan docs/plans/migration.md
@@ -185,7 +179,7 @@ Resume a multi-day project and the agent has forgotten which phase you're in, wh
 
 **Iron Law:** `NO PROMPT WITHOUT CODEBASE ANALYSIS.`
 
-Vague tasks produce vague results. `prompt` analyzes your codebase and generates a precise, self-contained prompt with exact file paths, guardrails, and acceptance criteria — ready to hand off to a parallel agent or a fresh session.
+Hand an agent a vague task and you get a vague result — it guesses paths, invents constraints, and drifts from what you meant. `prompt` reads your actual codebase first, then writes a precise, self-contained brief: exact file paths, explicit guardrails, and acceptance criteria the receiving agent can check itself against. Hand it to a parallel session or a fresh context and the work comes back on-target the first time.
 
 ```
 /atomic-skills:prompt "refactor auth middleware to use new session API"
@@ -213,7 +207,7 @@ Asking an agent to "add tests" produces happy-path tests that mirror the code �
 
 **Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.`
 
-Parallel agents that touch the same files produce merge conflicts and wasted runs. `parallel-dispatch` proves scope disjointness via pairwise grep *before* launching — verified isolation, not hopeful isolation.
+Fire off parallel agents that happen to touch the same files and you get merge conflicts, clobbered work, and runs you throw away. `parallel-dispatch` refuses to launch until it has *proven* the task scopes are disjoint — pairwise grep across every pair, verified isolation rather than hopeful isolation — then dispatches the batch under one tracking id. You walk away; N agents work in true parallel and their results merge clean.
 
 ```
 /atomic-skills:parallel-dispatch task-list.md

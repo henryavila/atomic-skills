@@ -8,7 +8,7 @@ The failure this prevents is premature convergence — locking onto the first wo
 
 ## Purpose
 
-Drive an idea to a committed, section-linted, critic-approved design document that `project new plan` decomposes — the head of the lifecycle chain.
+Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. The head of the lifecycle chain that `project new plan` decomposes.
 
 ## Usage
 

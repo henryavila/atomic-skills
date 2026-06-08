@@ -14,12 +14,15 @@ core:
     title: 'Fix — Root Cause + TDD'
     description: 'Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior.'
     value_pitch: >
-      AI agents love to jump to fixes. `fix` forces the detective path:
-      reproduce first, understand the root cause, write a failing test,
-      *then* fix. The test stays — so the bug never comes back.
+      AI agents love to jump to fixes — patch the first plausible line,
+      declare victory, ship the regression. `fix` forces the detective path
+      instead: reproduce the failure, trace it to the exact root cause, write
+      a test that fails for that reason, *then* fix. The reproducing test
+      stays in the suite — so the bug it caught can never silently return.
     purpose: >
-      Identify the root cause of a bug, write a reproducing test, and only
-      then apply the fix. Detective mindset, not firefighter.
+      Find the true root cause of a bug, prove it with a failing test, then
+      make the minimal fix — a detective's process, not a firefighter's. The
+      reproducing test outlives the fix and guards against regression.
     when_to_use:
       - 'You observed a bug or unexpected behavior'
       - 'A test is failing for unclear reasons'
@@ -64,8 +67,10 @@ core:
       confirmation. The next session resumes with clean history and context
       intact.
     purpose: >
-      End-of-session ritual: extract learnings to persistent memory, stage
-      relevant files, commit with conventional message, push to remote.
+      Close out a work session safely: extract durable learnings to memory,
+      scan the diff for secrets, group changes into logical commits with
+      conventional messages, and push — refusing to touch main/master
+      without explicit confirmation.
     when_to_use:
       - 'You finished a coherent piece of work'
       - 'About to switch context or end the session'
@@ -94,16 +99,20 @@ core:
     title: 'Review Plan — Adversarial (Local + Codex)'
     description: 'Adversarial review of an implementation plan. Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on cleaned plan). Optional cross-reference against external artifacts.'
     value_pitch: >
-      Plans fail when the author reviews their own work. `review-plan` runs
-      adversarial passes — locally, via a cross-model codex envelope, or
-      both — to catch gaps, missing edge cases, and optimistic assumptions
-      before execution begins.
+      A plan reviewed by its own author inherits every blind spot that wrote
+      it — the gaps read as completeness from the inside. `review-plan` runs
+      adversarial passes that actively hunt for what's missing: a fast local
+      self-loop, a cross-model codex envelope that can't see your intent, or
+      both. It surfaces the unhandled edge case, the optimistic assumption,
+      and the silent dependency *before* execution turns them into rework —
+      and never approves without cited evidence.
     purpose: >
-      Adversarial review with mode picker: local (cheap, fast), codex
-      (cross-model via OpenAI Codex CLI, ~$1-2), or both (default — local
-      first, codex second on cleaned plan with sealed envelope).
-      Optionally cross-references against source artifacts. Iterates up
-      to 3 passes in local; two-pass envelope in codex.
+      Adversarially review an implementation plan before it runs — locally
+      (fast, cheap), via a cross-model codex envelope (~$1-2), or both
+      (default: local first, then codex on the cleaned plan in a sealed
+      envelope) — hunting for gaps, missing edge cases, and optimistic
+      assumptions, and approving only on cited evidence. Optionally
+      cross-references the plan against its source PRD/spec.
     when_to_use:
       - 'You finished writing a plan and want a structural review'
       - 'Significant plan about to enter execution (both mode recommended)'
@@ -173,11 +182,11 @@ core:
       so framing can't suppress findings. Every finding cites file:line; no
       evidence, no approval.
     purpose: >
-      Review a git ref (branch, commit, or range) adversarially. Mode
-      picker: local (cheap, fast), codex (cross-model via OpenAI Codex
-      CLI, ~$1-2), or both (default — local first, codex second on the
-      byte-identical captured diff with sealed envelope). Range-aware
-      ref validation + shape-specific diff command.
+      Adversarially review a git ref — branch, commit, or range — in clean
+      context, with every finding tied to a file:line and no approval without
+      evidence. Mode picker: local (fast, cheap), codex (cross-model via the
+      OpenAI Codex CLI, ~$1-2), or both (default: local first, then codex on
+      the byte-identical captured diff in a sealed envelope).
     when_to_use:
       - 'You finished a coherent code change'
       - 'Significant change about to merge (both mode recommended)'
@@ -433,14 +442,17 @@ core:
     title: 'Prompt — Generate Optimized Prompt'
     description: 'Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails.'
     value_pitch: >
-      Vague tasks produce vague results. `prompt` analyzes your codebase and
-      generates a precise, self-contained prompt with exact file paths,
-      guardrails, and acceptance criteria — ready to hand off to a parallel
-      agent or a fresh session.
+      Hand an agent a vague task and you get a vague result — it guesses
+      paths, invents constraints, and drifts from what you meant. `prompt`
+      reads your actual codebase first, then writes a precise, self-contained
+      brief: exact file paths, explicit guardrails, and acceptance criteria
+      the receiving agent can check itself against. Hand it to a parallel
+      session or a fresh context and the work comes back on-target the first
+      time.
     purpose: >
-      Turn a vague task description into an optimized, self-contained prompt
-      with file paths, guardrails, and acceptance criteria. Use as input to
-      another AI session.
+      Turn a one-line task into a self-contained, codebase-grounded prompt —
+      real file paths, explicit guardrails, and acceptance criteria — ready
+      to drive a parallel agent or a fresh session without back-and-forth.
     when_to_use:
       - 'You have a vague task and want to make it actionable'
       - 'You need to brief a parallel agent precisely'
@@ -484,8 +496,10 @@ core:
       skimming. It maps every execution path, then tries to break the
       boundaries and error cases the code never anticipated.
     purpose: >
-      Write adversarial tests to break code and find hidden bugs.
-      Bounded to one class or function per run.
+      Write tests that try to *break* one class or function — expected values
+      drawn from the spec, never the implementation — to surface the edge
+      cases, boundaries, and error paths the code never anticipated. Bounded
+      to a single class or function per run so the hunt goes deep, not wide.
     when_to_use:
       - 'Code lacks tests'
       - 'You suspect untested edge cases'
@@ -522,12 +536,18 @@ core:
     title: 'Parallel Dispatch — Independent Tasks'
     description: "Dispatch a user-provided list of independent tasks to N parallel sessions with verified scope isolation and a batch id for tracking. Validates parallelism benefit (Q1-Q4 HARD-GATE) before exploring; proves scope disjointness via pairwise grep before generating prompts. Use when the user brings a consolidated task list — this skill does NOT invent tasks."
     value_pitch: >
-      Parallel agents that touch the same files produce merge conflicts and
-      wasted runs. `parallel-dispatch` proves scope disjointness via pairwise
-      grep *before* launching — verified isolation, not hopeful isolation.
+      Fire off parallel agents that happen to touch the same files and you
+      get merge conflicts, clobbered work, and runs you throw away.
+      `parallel-dispatch` refuses to launch until it has *proven* the task
+      scopes are disjoint — pairwise grep across every pair, verified
+      isolation rather than hopeful isolation — then dispatches the batch
+      under one tracking id. You walk away; N agents work in true parallel
+      and their results merge clean.
     purpose: >
-      Verify, isolate, and dispatch a user-provided task list to N parallel
-      sessions. Mechanical scope isolation, batch id, and audit pass.
+      Validate that a finalized task list is genuinely parallelizable, prove
+      scope disjointness mechanically, and dispatch it to N isolated sessions
+      under one batch id — so independent work runs concurrently without
+      collisions. This skill dispatches your list; it does not invent tasks.
     when_to_use:
       - 'You have a finalized list of independent tasks'
       - 'Tasks have concrete file-path scopes'
@@ -573,8 +593,11 @@ core:
       read-only and escalates with evidence, because piecemeal fixes would
       hide that the plan itself was wrong.
     purpose: >
-      Verify each dispatched agent's deliverables on disk against the
-      original plan. Cosmetic fixes only; ≥5 issues triggers read-only mode.
+      Independently verify what a parallel-dispatch batch actually produced —
+      reading each deliverable on disk against the original request, applying
+      only cosmetic fixes, and flipping to read-only escalation with evidence
+      the moment the work diverges (≥5 issues, scope drift, or a missing
+      deliverable).
     when_to_use:
       - 'A parallel-dispatch batch has completed'
       - 'You need objective verification of agent outputs'
@@ -617,9 +640,11 @@ core:
       fresh independent critic — never panel consensus. PLAN refuses to start
       without that approved, lint-clean design.
     purpose: >
-      Drive an idea to a committed, section-linted, critic-approved design
-      document that `project new plan` decomposes — the head of the lifecycle
-      chain.
+      Drive an open idea to a committed, section-linted, critic-approved
+      design.md — diverging across real alternatives before converging — so
+      the plan that follows is built on a deliberate decision, not the first
+      approach that happened to work. The head of the lifecycle chain that
+      `project new plan` decomposes.
     when_to_use:
       - 'Starting a multi-phase plan whose approach is not yet decided'
       - 'There are ≥2 viable approaches and the decision is expensive to reverse'
