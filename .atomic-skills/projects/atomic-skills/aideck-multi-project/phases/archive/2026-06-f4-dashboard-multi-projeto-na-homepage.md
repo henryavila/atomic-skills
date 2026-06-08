@@ -4,10 +4,10 @@ slug: aideck-multi-project-f4-dashboard-multi-projeto-na-homepage
 title: Dashboard multi-projeto na HomePage
 goal: Dashboard exibe projetos registrados como bands separadas na HomePage,
   cada um com seus planos e iniciativas.
-status: done
+status: archived
 branch: main
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-05-27T07:05:19Z
+lastUpdated: 2026-06-08T01:43:39Z
 nextAction: null
 parentPlan: aideck-multi-project
 phaseId: F4
@@ -81,6 +81,7 @@ summary: Nova Home = grid de ProjectCards (rollups + item ativo) no lugar das
   ConsumerBands.
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
+
 
 # Narrative / notes
 

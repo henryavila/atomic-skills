@@ -4,10 +4,10 @@ slug: aideck-multi-project-f1-multi-watcher-por-projeto
 title: Multi-watcher por projeto
 goal: Cada projeto registrado no ProjectRegistry ganha seu proprio watcher
   chokidar, com ciclo de vida gerenciado pelo registry.
-status: done
+status: archived
 branch: null
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-05-25T23:41:26Z
+lastUpdated: 2026-06-08T01:43:39Z
 nextAction: null
 parentPlan: aideck-multi-project
 phaseId: F1
@@ -137,6 +137,7 @@ summary: Watcher chokidar por projeto registrado, com ciclo de vida gerido pelo
   registry.
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
+
 
 # Narrative / notes
 

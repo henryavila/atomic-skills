@@ -4,10 +4,10 @@ slug: aideck-multi-project-f0-projectregistry-no-aideck
 title: ProjectRegistry no aiDeck
 goal: Criar a estrutura ProjectRegistry in-memory e a API de
   registro/desregistro/listagem de projetos no aiDeck server.
-status: done
+status: archived
 branch: null
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-05-25T23:41:26Z
+lastUpdated: 2026-06-08T01:43:39Z
 nextAction: null
 parentPlan: aideck-multi-project
 phaseId: F0
@@ -159,6 +159,7 @@ summary: ProjectRegistry in-memory + API de registro/desregistro/listagem de
   projetos no aiDeck server.
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
+
 
 # Narrative / notes
 

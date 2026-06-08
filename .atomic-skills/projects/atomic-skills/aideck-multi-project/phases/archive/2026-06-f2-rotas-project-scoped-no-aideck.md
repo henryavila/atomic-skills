@@ -4,10 +4,10 @@ slug: aideck-multi-project-f2-rotas-project-scoped-no-aideck
 title: Rotas project-scoped no aiDeck
 goal: Adicionar rotas prefixadas por projectId para acessar state, entities e
   inbox de projetos especificos.
-status: done
+status: archived
 branch: null
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-05-25T23:41:26Z
+lastUpdated: 2026-06-08T01:43:39Z
 nextAction: null
 parentPlan: aideck-multi-project
 phaseId: F2
@@ -94,6 +94,7 @@ emerged: []
 summary: Rotas prefixadas por projectId (state/entities/inbox de cada projeto).
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
+
 
 # Narrative / notes
 

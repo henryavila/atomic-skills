@@ -4,10 +4,10 @@ slug: aideck-multi-project-f5-navegacao-project-scoped-no-dashboard
 title: Navegacao project-scoped no Dashboard
 goal: Rotas, links e navigation do dashboard incluem contexto de projeto para
   que planos/iniciativas de projetos diferentes nao colidam.
-status: pending
+status: archived
 branch: null
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-05-25T17:06:39.511Z
+lastUpdated: 2026-06-08T01:43:39Z
 nextAction: "Start T-001: Rotas com prefixo /:projectId"
 parentPlan: aideck-multi-project
 phaseId: F5
@@ -73,6 +73,7 @@ summary: Project Detail = drill-in com Roadmap por lanes (in flight / blocked /
   up next / parked / shipped).
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
+
 
 # Narrative / notes
 

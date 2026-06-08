@@ -4,10 +4,10 @@ slug: aideck-multi-project-f3-ensureaideck-como-registro
 title: ensureAideck como registro
 goal: Modificar ensureAideck() no atomic-skills para registrar o projeto no
   aiDeck existente em vez de matar e reiniciar.
-status: done
+status: archived
 branch: null
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-05-25T23:41:26Z
+lastUpdated: 2026-06-08T01:43:39Z
 nextAction: null
 parentPlan: aideck-multi-project
 phaseId: F3
@@ -89,6 +89,7 @@ summary: ensureAideck passa a registrar o projeto no aiDeck existente em vez de
   matar e reiniciar.
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
+
 
 # Narrative / notes
 

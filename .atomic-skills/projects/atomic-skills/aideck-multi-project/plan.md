@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: aideck-multi-project
 title: Suporte Multi-Projeto no aiDeck
 version: "1.0"
-status: paused
+status: archived
 started: 2026-05-25T17:06:39.511Z
-lastUpdated: 2026-06-02T12:33:02Z
-currentPhase: F4
+lastUpdated: 2026-06-08T01:43:39Z
+currentPhase: null
 parallelismAllowed: false
 principles:
   - id: P1
@@ -439,6 +439,7 @@ references:
 planTitle: Suporte Multi-Projeto no aiDeck
 ---
 
+
 # Suporte Multi-Projeto no aiDeck
 
 ## 1. Context
@@ -525,3 +526,15 @@ curl -s http://127.0.0.1:7777/api/projects | jq '.projects | length'
 
 - [2026-05-25 Codex cross-model review](../reviews/2026-05-25-1416-aideck-multi-project.md) — verdict: needs_changes (0B/1C/4M). 5 findings maintained, 0 dropped, 0 emerged. All 5 findings addressed inline: F-001 (projectId derivation algorithm specified), F-002 (SSE backward-compat gate F1-G3 added), F-003 (default project lifecycle defined in glossary), F-004 (registration validation gates F0-G4/G5 added), F-005 (watcher isolation gate F1-G4 added).
 - [2026-05-25 F4/F5 rewrite review] — local + Codex (Sonnet). Local: 0 issues, 2 warns (Sources strip sem gate; F5 status active vs pending). Codex: needs_changes (0B/1C/4M). All 5 findings addressed inline: F-001 (F4-G3 errored card spec corrigido: chip agregado no index, detalhes no detail), F-002 (Sources strip adicionado a F5-G1), F-003 (F4-G4 fallback simulavel sem binario antigo), F-004 (collapse defaults adicionados a F5-G1 verifier), F-005 (footer do card adicionado a F4-G1).
+
+## Superseded (2026-06-08)
+
+Archived as **superseded by `project-orchestrator-redesign` (Inc7 — aiDeck Model-B rewrite)**, NOT completed by this plan.
+
+This plan targeted the OLD aiDeck server source (an external macOS checkout: in-memory ProjectRegistry, `/api/projects`, ConsumerBands Home). That server model was replaced by the Model-B per-project consumer (`/api/consumers/<id>/projects/<pid>/…`). The multi-project GOAL is fully delivered by the live dashboard via the NEW architecture:
+
+- F5 (project-scoped navigation): `App.tsx` has `/:projectId/plans/:slug` + legacy backward-compat routes; `PlanPage`/`InitiativePage` read `projectId` via `useParams`; `LayoutShell` derives the project selector from the URL. All four "pending" F5 tasks exist in code.
+- F4 (multi-project Home): `HomePage` renders a `ProjectCard` grid over all projects with a single-project fallback — the goal of F4-G1, via ProjectCard instead of the now-removed ConsumerBands.
+- F0–F3 (old aiDeck server): obsolete — the ProjectRegistry/`/api/projects` server model no longer exists. F0-G3's verifier even points at a non-existent macOS path.
+
+No code was written to close this plan; its internal task/gate state is preserved as the historical record of the original (old-aiDeck) approach.
