@@ -4,34 +4,62 @@ slug: bmad-af-learnings
 title: BMad AF Learnings — State Sync + Quality Gates
 goal: Resolver o gap de sincronização estado↔implementação e adicionar quality
   gates inspirados no BMad Atomic Flow
-status: paused
+status: done
 branch: null
 started: 2026-05-27T10:10:44Z
-lastUpdated: 2026-05-27T10:25:06Z
+lastUpdated: 2026-06-08T00:56:38Z
 nextAction: null
 tasksDone: 7
 tasksTotal: 7
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: "State sync: tasks marcadas done dentro da mesma sessão em que o
       trabalho é feito (≥80% das vezes)"
-    status: pending
+    status: deferred
     verifier:
       kind: manual
       description: Usar o sistema por 1 semana e verificar que os 3 mecanismos de sync
         reduzem state drift
+    deferredReason: 'The 3 sync mechanisms (M1 Session-End reconciliation/stop-hook,
+      M2 Pre-Task gate, M3 commit→task mapping/session-start) are implemented
+      and were demonstrated working live: detect-completion caught a
+      done-looking OPEN task via output-exists in a throwaway repo, and 15 tasks
+      were closed in-session this session (F5 + mode2), with the phase-done
+      review gate firing automatically. The literal "≥80% same-session / 1-week
+      drift-reduction" is a longitudinal OUTCOME metric the user chose to keep
+      observing before certifying met — deferred, not failed.'
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-06-08T00:56:38Z
+      passed: false
+      outputSummary: Mechanisms demonstrated functional (live detector catch +
+        same-session closes this session); longitudinal drift-reduction outcome
+        not yet formally certified — user opts to keep observing.
     verifierLabel: manual
+    evidenceSummary: "deferred: The 3 sync mechanisms (M1 Session-End
+      reconciliation/stop-hook, M2 Pre-Task gat…"
   - id: G-2
     description: "Quality gates: tasks criadas com scopeBoundary e acceptance quando
       aplicável"
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Criar 3+ tasks via new-task e verificar que os novos campos
         aparecem no template/prompt
+    metAt: 2026-06-08T00:56:38Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-06-08T00:56:38Z
+      passed: true
+      outputSummary: "6 real tasks created via new-task carry BOTH fields (mode2
+        T-001..T-005: scopeBoundary 1–3 paths + acceptance 3 items each) — gate
+        asks for 3+. Fields live in the Task schema (delivered by T-004) and
+        surface in the new-task flow. Verified by a repo-wide scan, shown to the
+        user."
     verifierLabel: manual
+    evidenceSummary: passed · 2026-06-08
 scope:
   paths:
     - skills/core/project-status.md
@@ -198,6 +226,7 @@ summary: Sincroniza estado↔implementação e adiciona quality gates inspirados
 planTitle: BMad AF Learnings — State Sync + Quality Gates
 ---
 
+
 # BMad AF Learnings — State Sync + Quality Gates
 
 ## Contexto
@@ -224,3 +253,10 @@ mas o humano confirma. Isto preserva o ratify gate que é diferencial do atomic-
 - [BMad Atomic Flow repo](/Volumes/External/code/bmad-dev-productivity/bmad-atomic-flow)
 - [Análise comparativa](http://localhost:3002/bmad-vs-atomic-skills-analysis.md)
 - [Diagnóstico state sync](http://localhost:3002/state-sync-gap-analysis.md)
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: all 7 tasks (the M1–M3 sync mechanisms + schema/review-code/phase-done-gate features) landed 2026-05-27 with their own closures.
+- **G2 soft-language**: gate descriptions + reasons scanned; no ban-list terms.
+- **G6 reference-or-strike**: G-2 met with evidence (6 tasks carry the fields); G-1 deferred with a documented reason (mechanisms demonstrated live; longitudinal outcome still under observation).
+- **Codex review**: SKIPPED at phase-done — the 7 feature tasks landed 2026-05-27 and have been in production use 11 days; no new code at this close (state-file only); codex CLI usage-limited until 2026-07-07.
