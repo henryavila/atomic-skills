@@ -4,10 +4,10 @@ slug: fix-superpowers-integration
 title: Consertar integração project-plan ↔ superpowers
 goal: Fazer project-plan detectar e usar superpowers:brainstorming +
   writing-plans para gerar planos mais robustos
-status: pending
+status: archived
 branch: null
 started: 2026-05-25T17:30:00.000Z
-lastUpdated: 2026-05-25T17:30:00.000Z
+lastUpdated: 2026-06-08T01:47:16Z
 nextAction: Fix detecção de superpowers em project-plan.md
   (installed_plugins.json em vez de path errado)
 tasksDone: 0
@@ -82,6 +82,7 @@ summary: Faz o project-plan detectar e usar superpowers:brainstorming +
   writing-plans para planos mais robustos.
 planTitle: Consertar integração project-plan ↔ superpowers
 ---
+
 
 # Consertar integração project-plan ↔ superpowers
 
