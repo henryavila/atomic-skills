@@ -5,8 +5,8 @@ title: Quick Idea Capture
 version: "1.0"
 status: active
 started: 2026-06-09T18:41:40.321Z
-lastUpdated: 2026-06-09T18:52:55Z
-currentPhase: F0
+lastUpdated: 2026-06-09T20:35:00Z
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -53,29 +53,50 @@ phases:
         - id: F0-G1
           description: Captura funciona end-to-end — idea-add.js cria e atualiza o
             ideas.md e a suíte do script passa.
-          status: pending
+          status: met
+          metAt: 2026-06-09T20:35:00Z
           verifier:
             kind: shell
             command: node --test tests/idea-add.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-09T20:35:00Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Final tree: tests 9, pass 9, fail 0."
         - id: F0-G2
           description: Validação de skills e compatibilidade cross-agent verdes para o
             novo detail file project-idea.md (sem nomes de ferramenta fixos).
-          status: pending
+          status: met
+          metAt: 2026-06-09T20:35:00Z
           verifier:
             kind: shell
             command: npm run validate-skills && node --test tests/compatibility.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-09T20:35:00Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Final tree: validate-skills ✓ 14 skills; compatibility 84/84."
         - id: F0-G3
           description: idea e idea list alcançáveis pela dispatch table do router e
             paridade de install/uninstall do novo asset garantida.
-          status: pending
+          status: met
+          metAt: 2026-06-09T20:35:00Z
           verifier:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js && grep -q
               'project-idea.md' skills/core/project.md
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-09T20:35:00Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Final tree: roundtrip 4/4; grep project-idea.md exit 0."
+    status: done
     summary: "O inbox barato: script de append, detail file com o fork Analisar/Só
       salvar, idea list, wiring e paridade de install."
   - id: F1
@@ -107,7 +128,7 @@ phases:
             kind: shell
             command: node --test tests/idea-promote.test.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
       com ratify, marcando-a como triaged."
 references: []

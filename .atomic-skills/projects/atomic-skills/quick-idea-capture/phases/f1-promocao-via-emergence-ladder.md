@@ -5,10 +5,10 @@ title: Promoção via emergence ladder
 goal: Adicionar o verbo idea promote que extrai uma ideia do inbox, roteia pela
   emergence ladder com ratify e marca a ideia como triaged, sem reinventar
   classificação.
-status: pending
+status: active
 branch: null
 started: 2026-06-09T18:41:40.321Z
-lastUpdated: 2026-06-09T18:52:55Z
+lastUpdated: 2026-06-09T20:35:00Z
 nextAction: "Start T-001: idea promote — procedimento mais wiring"
 parentPlan: quick-idea-capture
 phaseId: F1
@@ -58,6 +58,7 @@ summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
   com ratify, marcando-a como triaged."
 planTitle: Quick Idea Capture
 planActive: true
+current: true
 ---
 
 # Narrative / notes

@@ -1,5 +1,5 @@
 ---
-lastUpdated: '2026-06-09T17:30:00Z'
+lastUpdated: '2026-06-09T20:40:00Z'
 schemaVersion: '0.1'
 activePlans: 1
 activeInitiatives: 0
@@ -12,14 +12,14 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 ## Active Plans
 
-### quick-idea-capture — Quick Idea Capture (currentPhase: F0)
+### quick-idea-capture — Quick Idea Capture (currentPhase: F1)
 
 Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar) num único `ideas.md`, promoção sempre separada via emergence ladder. Dashboard fica para fase posterior.
 
 | Phase | Status | Summary |
 |-------|--------|---------|
-| F0 — Captura barata (MVP do inbox) | active | Script de append, detail file com o fork, `idea list`, wiring e paridade de install. |
-| F1 — Promoção via emergence ladder | pending | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. |
+| F0 — Captura barata (MVP do inbox) | done | Script de append, detail file com o fork, `idea list`, wiring e paridade de install. 3/3 tasks, 3/3 gates (codex lane). |
+| F1 — Promoção via emergence ladder | active | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. |
 
 ## Paused Plans
 
