@@ -18,6 +18,8 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project new                          → fixed menu (plan | initiative) + discoverability hint
 /atomic-skills:project new plan <slug>              → bootstrap a multi-phase Plan
 /atomic-skills:project new initiative <slug>        → initiative (standalone or anchored to a phase)
+/atomic-skills:project idea                         → capture an idea into the inbox (fork: Só salvar / Analisar)
+/atomic-skills:project idea list                    → zero-token view of the ideas.md inbox
 /atomic-skills:project done|push|pop|park|emerge|promote|switch|phase-done|phase-reopen|archive
 /atomic-skills:project why|re-ratify|scope-creep|review-due|detect-scope
 /atomic-skills:project adopt <file.md>|discover|migrate <slug>|re-bootstrap <slug>|split-phase <id>
@@ -38,6 +40,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
 | `discover` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-discover.md` |
 | `park`, `emerge`, `emerge --target`, `promote`, `new-task`, `new-phase`, `split-phase` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-emergence.md` |
+| `idea`, `idea list` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-idea.md` |
 | `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
 | `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
 | `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
@@ -62,10 +65,12 @@ PLAN     <plan-slug> · phase <id> — <title>            (or "none — standalo
 INIT     <init-slug> · <N/M tasks done>, <B blocked>   (active initiative)
 NEXT     <nextAction>
 CODEX    <CODEX REVIEW line — see project-drift.md>
+IDEAS    <N> pending — `idea list`   (ONLY when N>0; omit the line otherwise)
 DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; omit the line otherwise)
           → /atomic-skills:project status        (dashboard / full view)
 ```
 
+The `IDEAS` line is printed **only when** N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` where the resolved path is `.atomic-skills/projects/<project-id>/ideas.md` (single project dir → use it; otherwise sum across `projects/*/ideas.md`); file absent or any error omits the line and prints the rest (fail-open). It never mutates.
 The `DRIFT` line is printed **only when** `node scripts/detect-completion.js --json` reports `drift: true` (zero-token, pure-read, fail-open — on any error omit the line and print the rest). It never mutates; `reconcile` is the only completion-mutation path.
 
 If `.atomic-skills/` is absent: print one line — `No .atomic-skills/ yet — run \`/atomic-skills:project\` and I'll set it up.` — then enter setup mode.
