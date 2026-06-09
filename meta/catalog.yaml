@@ -138,7 +138,7 @@ core:
     one_liner: 'Adversarial plan review with local/codex/both mode picker'
     emoji: '🔍'
     version_added: '2.0.0'
-    argument_hint: '<plan.md> [--mode=local|codex|both] [--cross-ref=paths] [--allow-dirty]'
+    argument_hint: '<plan.md> [--mode=local|codex|both] [--cross-ref=paths|--no-cross-ref] [--no-initiatives] [--allow-dirty]'
     args:
       - name: plan-path
         kind: positional
@@ -212,7 +212,7 @@ core:
     one_liner: 'Adversarial code review with local/codex/both mode picker'
     emoji: '🔬'
     version_added: '2.0.0'
-    argument_hint: '<branch | commit | main..HEAD> [--mode=local|codex|both] [--allow-dirty]'
+    argument_hint: '<branch|commit|main..HEAD> [--mode=local|codex|both] [--allow-dirty] [--max-iterations=N]'
     args:
       - name: git-ref
         kind: positional
@@ -529,7 +529,7 @@ core:
     requires_args: true
     mutates_repo: true
     network_required: false
-    argument_hint: '<file|dir|function>'
+    argument_hint: '<file|dir|class|function>'
     one_liner: 'Adversarial tests from the spec, not the code — depth over breadth'
     emoji: '🎯'
     version_added: '1.0.0'
@@ -575,7 +575,7 @@ core:
     requires_args: true
     mutates_repo: true
     network_required: false
-    argument_hint: '<task-list.md>'
+    argument_hint: '<task-list.md|inline tasks>'
     one_liner: 'Dispatch a task list to N parallel sessions with verified isolation'
     emoji: '🚀'
     version_added: '1.6.0'
@@ -725,7 +725,7 @@ core:
     requires_args: false
     mutates_repo: false
     network_required: false
-    argument_hint: '[topic] [--solo] [--model <model>] [--roster <path>] [--gate]'
+    argument_hint: '[topic] [--solo] [--model <m>] [--roster <path>] [--context <file>] [--gate [agenda]]'
     one_liner: 'Roundtable of independent subagent personas for divergent thinking'
     emoji: '🎭'
     version_added: '2.1.0'
@@ -794,7 +794,7 @@ core:
     one_liner: 'Drive decomposed tasks to done, one at a time, verifier-gated'
     emoji: '⚙️'
     version_added: '2.3.0'
-    argument_hint: '[plan-slug]'
+    argument_hint: '[[project-id/]plan-slug]'
     args:
       - name: plan-slug
         kind: positional
