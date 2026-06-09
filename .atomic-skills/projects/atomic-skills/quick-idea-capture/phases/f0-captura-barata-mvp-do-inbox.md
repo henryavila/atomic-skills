@@ -12,7 +12,7 @@ lastUpdated: 2026-06-09T18:52:55Z
 nextAction: "Merge-back serial: T-003 (router wiring), depois T-001 quando o codex retornar"
 parentPlan: quick-idea-capture
 phaseId: F0
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
@@ -97,9 +97,19 @@ tasks:
       expectExitCode: 0
   - id: T-003
     title: Router wiring mais paridade de install
-    status: pending
-    lastUpdated: 2026-06-09T18:41:40.321Z
+    status: done
+    lastUpdated: 2026-06-09T20:05:00Z
+    closedAt: 2026-06-09T20:05:00Z
     summary: Liga os verbos no router e garante a paridade de install do novo asset.
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-09T20:05:00Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Re-run on MERGED primary: install-uninstall-roundtrip pass 4
+        fail 0; grep -q 'project-idea.md' skills/core/project.md exit 0. Codex
+        in-worktree self-check had failed only on sandbox EPERM (spawnSync git);
+        merged-tree run is the evidence. Worktree impl/qic-t-003."
     scopeBoundary:
       - skills/core/project.md
     acceptance:
