@@ -46,6 +46,17 @@ metadata:
 - Grouping renders ONLY in `docs/skills/<key>.md` (`renderDetailFull`), never in README.md — the
   SKILL_DETAILS region is `renderDetailCompact` (value_pitch + first example, no subcommands).
 
+## argument_hint (slash-command placeholder)
+- `meta/catalog.yaml` `argument_hint` é a fonte do placeholder que o usuário vê ao digitar
+  `/atomic-skills:<skill>` — propaga via `src/render.js` → frontmatter `argument-hint:` do
+  comando instalado (`~/.claude/commands/atomic-skills/<skill>.md`). Atualizar o catálogo NÃO
+  atualiza o comando instalado: rode `node bin/cli.js install --yes` para re-renderizar.
+- **Formato preferido (Henry, 2026-06-09): compacto `[a|b|c]`** — sem espaços em volta dos pipes,
+  colchetes em volta do conjunto. Não usar o formato espaçado `a | b | c` (ocupa espaço à toa).
+- **Fonte de verdade para validar a lista**: o bloco `## Grammar` do router
+  (`skills/core/project.md` no caso do project). Subcomandos deliberadamente ocultos
+  (`new-task`/`new-phase` — "valid but NOT listed in the menu") ficam FORA do hint.
+
 ## Hand-written conceptual docs (NOT generated)
 - `docs/concepts/project-tracking.md` is the canonical, hand-written explanation of the
   Plan/Initiative/Phase/Task model (entities, exit gates/verifiers, stack/parked/emerged, ratify
