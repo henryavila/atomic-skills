@@ -30,5 +30,37 @@
     "finishedAt": "2026-06-09T20:05:00Z",
     "codexWorktreeRef": "impl/qic-t-003",
     "routingReason": "lane on + F1 + F2; in-worktree self-check failed on sandbox EPERM (spawnSync git) — environmental; verifier PASSED on merged primary (roundtrip 4/4 + grep)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "quick-idea-capture",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-09T19:18:52Z",
+    "finishedAt": "2026-06-09T20:20:00Z",
+    "codexWorktreeRef": "impl/qic-t-001",
+    "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary (9/9)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "quick-idea-capture",
+    "phase": "F1",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-09T20:55:00Z",
+    "finishedAt": "2026-06-09T21:05:00Z",
+    "codexWorktreeRef": "impl/qic-f1-t-001",
+    "routingReason": "lane on + F1 spec-ready (design settled pre-dispatch) + F2 deterministic shell verifier; re-verified on merged primary (84/84 + greps)"
   }
 ]
