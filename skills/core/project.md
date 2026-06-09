@@ -20,6 +20,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project new initiative <slug>        → initiative (standalone or anchored to a phase)
 /atomic-skills:project idea                         → capture an idea into the inbox (fork: Só salvar / Analisar)
 /atomic-skills:project idea list                    → zero-token view of the ideas.md inbox
+/atomic-skills:project idea promote <n>             → promote idea #n via the emergence ladder (ratify-gated)
 /atomic-skills:project done|push|pop|park|emerge|promote|switch|phase-done|phase-reopen|archive
 /atomic-skills:project why|re-ratify|scope-creep|review-due|detect-scope
 /atomic-skills:project adopt <file.md>|discover|migrate <slug>|re-bootstrap <slug>|split-phase <id>
@@ -40,7 +41,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
 | `discover` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-discover.md` |
 | `park`, `emerge`, `emerge --target`, `promote`, `new-task`, `new-phase`, `split-phase` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-emergence.md` |
-| `idea`, `idea list` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-idea.md` |
+| `idea`, `idea list`, `idea promote <n>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-idea.md` |
 | `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
 | `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
 | `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |

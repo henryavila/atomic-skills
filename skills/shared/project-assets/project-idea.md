@@ -1,6 +1,6 @@
 # project — idea (captura + inbox) (lazy detail)
 
-Loaded by the router for: `idea` and `idea list`.
+Loaded by the router for: `idea`, `idea list`, and `idea promote <n>`.
 
 Ideas are an inbox, not project control state. Capture is intentionally cheap: raw ideas can enter without ratification, task shaping, plan edits, or initiative creation. Discipline happens later, at promotion time. Capture only mutates the resolved `ideas.md`; `idea list` never mutates anything.
 
@@ -84,6 +84,45 @@ id · título · status · data
 4. Parse each record from its `## #<N>` heading and the immediately following metadata line.
 5. If a section is missing its metadata line, tolerate it on read and show `status:?`. Do not guess.
 6. Never write, normalize, repair, sort, or renumber anything in `idea list`.
+
+## `idea promote <n>`
+
+Promotion turns a cheap inbox record into tracked work. It never classifies by hand or bypasses the existing emergence ladder: the idea is extracted deterministically, routed through the proposal/ratify flow in `{{ASSETS_PATH}}/project-emergence.md`, materialized only after ratify, then marked as triaged for audit.
+
+The sibling script owns extraction and marking:
+
+```sh
+node scripts/idea-mark.js --id <n> --extract            # prints JSON {id, title, date, branch, status, scope?, context?, desc}; no mutation; exit 1 if #n missing/malformed
+node scripts/idea-mark.js --id <n> --dest <target-id>   # flips ONLY #n's meta line status:pending → status:triaged→<target-id>; exit 1 if already triaged
+```
+
+Optional `[<root>]` positional and `[--project-id <id>]` exist with the same path resolution as `idea-add.js`; usually omit them.
+
+1. **Extract deterministically.** Run with {{BASH_TOOL}}:
+
+   ```sh
+   node scripts/idea-mark.js --id <n> --extract
+   ```
+
+   On exit 1, surface the script's error and stop. Missing id, malformed record, and already-triaged records are not recoverable by hand-parsing. Never parse the idea manually when the script is available.
+
+2. **Reject already-triaged records.** If the extracted JSON has `status:triaged→<target>`, stop and point the user at `<target>`. Promotion is single-use; the audit line already names the destination.
+
+3. **Route through the emergence ladder.** Read `{{ASSETS_PATH}}/project-emergence.md` and follow its proposal flow. Choose the smallest fitting magnitude from the idea content and the user's intent: `park`, `emerge`, `promote-to-task`, `new-task`, `new initiative`, or `new plan`. Present the standard `Proposed mutation:` block from the emergence file.
+
+   The `Drafted context` is mandatory. Seed `solves`, `trigger`, and `assumesStillValid` from the idea's `desc` and optional `scope` / `context` fields. For any task- or phase-creating rung, include the mandatory `Drafted summary` too. Capture had no ratify gate; promotion is where the discipline happens.
+
+4. **Wait for ratify.** The user must reply `ratify`, paste a corrected block, or `cancel` exactly as `project-emergence.md` specifies. No ratify means nothing is materialized and the idea remains `pending`.
+
+5. **Materialize, then mark.** Only after the ladder mutation is applied and the target exists — a task id, initiative slug, plan slug, or parked item — run with {{BASH_TOOL}}:
+
+   ```sh
+   node scripts/idea-mark.js --id <n> --dest <target-id>
+   ```
+
+   Echo the script's confirmation to the user.
+
+6. **Keep the audit trail.** The record is never deleted and is never rewritten beyond its metadata line. `idea list` keeps showing it as `triaged→<target>`. If marking fails because the idea is already triaged, surface the script's error and point the user at the existing target.
 
 ## `ideas.md` record grammar
 
