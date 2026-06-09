@@ -280,7 +280,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    argument_hint: 'status | new | done | push | pop | park | emerge | promote | switch | phase-done | phase-reopen | archive | why | scope-creep | review-due | re-ratify | detect-scope | discover | adopt | migrate | re-bootstrap | split-phase'
+    argument_hint: '[status|verify|reconcile|new|idea|done|push|pop|park|emerge|promote|switch|phase-done|phase-reopen|archive|why|re-ratify|scope-creep|review-due|detect-scope|adopt|discover|migrate|re-bootstrap|split-phase]'
     one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'
@@ -335,11 +335,21 @@ core:
         signature: '<title-or-idx>'
         description: 'Turn a parked item into a real task (assigns next T-NNN, carries its context forward)'
         example: '/atomic-skills:project promote 2'
+      - name: idea
+        group: 'Backlog'
+        signature: '[list | promote <n>]'
+        description: 'Capture a raw idea into the ideas.md inbox (fork: just save / analyze); `idea list` is a zero-token view; `idea promote <n>` routes idea #n through the emergence ladder (ratify-gated)'
+        example: '/atomic-skills:project idea list'
       - name: done
         group: 'Tasks & phases'
         signature: '<task-id>'
         description: 'Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive'
         example: '/atomic-skills:project done T-005'
+      - name: reconcile
+        group: 'Tasks & phases'
+        signature: ''
+        description: 'Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent)'
+        example: '/atomic-skills:project reconcile'
       - name: phase-done
         group: 'Tasks & phases'
         signature: ''

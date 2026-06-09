@@ -58,12 +58,14 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 | `park <description>` | File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger |
 | `emerge <description>` | File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase |
 | `promote <title-or-idx>` | Turn a parked item into a real task (assigns next T-NNN, carries its context forward) |
+| `idea [list \| promote <n>]` | Capture a raw idea into the ideas.md inbox (fork: just save / analyze); `idea list` is a zero-token view; `idea promote <n>` routes idea #n through the emergence ladder (ratify-gated) |
 
 *Tasks & phases*
 
 | Command | Description |
 |---------|-------------|
 | `done <task-id>` | Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive |
+| `reconcile` | Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent) |
 | `phase-done` | Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase |
 | `phase-reopen [<phase-id>]` | Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending |
 | `split-phase <id>` | Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done |
