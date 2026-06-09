@@ -4,7 +4,7 @@ slug: bmad-porting-research
 title: "Pesquisa: Porting de Módulos BMAD para Atomic Skills"
 goal: Pesquisa aprofundada sobre viabilidade, design e custo de portar
   party-mode e incorporar conceitos do doc-architect como skills atômicos
-status: paused
+status: archived
 branch: null
 started: 2026-05-27T18:00:00Z
 lastUpdated: 2026-05-27T18:00:00Z

@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: bmad-porting-research
 title: "Pesquisa: Porting de Módulos BMAD para Atomic Skills"
 version: "1.0"
-status: paused
+status: archived
 started: 2026-05-27T18:00:00Z
-lastUpdated: 2026-06-02T12:33:02Z
+lastUpdated: 2026-06-09T22:00:00Z
 currentPhase: F0
 parallelismAllowed: false
 phases:
@@ -49,3 +49,10 @@ planTitle: "Pesquisa: Porting de Módulos BMAD para Atomic Skills"
 > The phase initiative under `phases/` holds the real work; this plan is the layout wrapper.
 
 **Goal:** Pesquisa aprofundada sobre viabilidade, design e custo de portar party-mode e incorporar conceitos do doc-architect como skills atômicos
+
+> **Archived 2026-06-09 — migrated to the idea inbox.** Pure research intent with
+> no work started (0/2 tasks, paused since 2026-05-27); partially superseded by
+> the `atomic-skills:debate` skill (party-mode concept) and the dedicated
+> `refactor-doc-architect` plan. Superseded by idea **#2** in
+> `.atomic-skills/projects/atomic-skills/ideas.md`. Re-entry path:
+> `/atomic-skills:project idea promote 2`.

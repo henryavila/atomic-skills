@@ -6,7 +6,7 @@ goal: Add the deferred Anthropic-subagent execution tier (Sonnet/Haiku) to Mode
   2, on top of the v1 Codex-only lane — only once a justifying regime exists
   (metered/per-token billing, OR an explicit decision to add a per-task
   model-tier hint to parallel-dispatch).
-status: pending
+status: archived
 branch: null
 started: 2026-06-01T15:47:09Z
 lastUpdated: 2026-06-01T15:47:09Z

@@ -1,9 +1,9 @@
 ---
-lastUpdated: '2026-06-09T21:40:00Z'
+lastUpdated: '2026-06-09T22:00:00Z'
 schemaVersion: '0.1'
 activePlans: 1
 activeInitiatives: 0
-archivedCount: 5
+archivedCount: 7
 ---
 
 # Project Status Index
@@ -26,8 +26,6 @@ Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar
 | Slug | Status | Current Phase |
 |------|--------|---------------|
 | refactor-doc-architect | paused | F0 |
-| bmad-porting-research | paused | F0 |
-| mode2-anthropic-subagent-tier | paused | F0 |
 
 ## Active Initiatives (standalone)
 
@@ -37,6 +35,8 @@ _(none — all current work is plan-anchored)_
 
 | Slug | Archived | Final Phase | Note |
 |------|----------|-------------|------|
+| mode2-anthropic-subagent-tier | 2026-06-09 | F0 (0/3 tasks) | Migrado para o inbox: ideia **#1** em `ideas.md` (era tracker de deferimento; re-entrada via `idea promote 1`). |
+| bmad-porting-research | 2026-06-09 | F0 (0/2 tasks) | Migrado para o inbox: ideia **#2** em `ideas.md` (parcialmente superseded por `debate` + `refactor-doc-architect`; re-entrada via `idea promote 2`). |
 | project-orchestrator-redesign | 2026-06-07 | F5 (done) | Plan complete; F6 deferred. F5-G1 met (aiDeck Model-B consumer e2e vs @henryavila/aideck 0.1.0). |
 | mode2-codex-default-enablement | 2026-06-07 | F0 (done) | Plan complete; 4/4 gates met. T-005 unblocked once F5/Inc7 landed — full suite 797/797, validate-skills 14/14, compatibility 82/82. |
 | bmad-af-learnings | 2026-06-08 | F0 (done) | 7/7 tasks (M1–M3 sync mechanisms + quality-gate fields). G-2 met (6 tasks carry scopeBoundary+acceptance); G-1 deferred (drift-reduction outcome under continued observation). |
