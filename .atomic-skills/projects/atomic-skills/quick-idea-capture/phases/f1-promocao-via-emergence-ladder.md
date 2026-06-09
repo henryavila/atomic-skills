@@ -5,37 +5,55 @@ title: Promoção via emergence ladder
 goal: Adicionar o verbo idea promote que extrai uma ideia do inbox, roteia pela
   emergence ladder com ratify e marca a ideia como triaged, sem reinventar
   classificação.
-status: active
+status: done
 branch: null
 started: 2026-06-09T18:41:40.321Z
-lastUpdated: 2026-06-09T20:35:00Z
-nextAction: Dispatch T-001 + T-002 pela lane Codex (worktrees impl/qic-f1-t-00N)
+lastUpdated: 2026-06-09T21:35:00Z
+nextAction: F1 fechada (2/2 tasks, 2/2 gates met). Plano completo — arquivar via
+  `archive` quando o usuário decidir.
 parentPlan: quick-idea-capture
 phaseId: F1
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F1-G1
     description: Promoção converte uma ideia em task ou iniciativa via ladder e
       marca a ideia triaged; a suíte de idea-mark passa.
-    status: pending
+    status: met
+    metAt: 2026-06-09T21:35:00Z
     verifier:
       kind: shell
       command: node --test tests/idea-mark.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-09T21:35:00Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Final tree: tests 5, pass 5, fail 0."
     verifierLabel: "shell: node --test tests/idea-mark.test.js"
+    evidenceSummary: passed · 2026-06-09
   - id: F1-G2
     description: idea promote extrai a ideia do inbox, roteia pela emergence ladder
       com ratify e materializa/encaminha a task ou iniciativa; fixture prova
       extração e handoff.
-    status: pending
+    status: met
+    metAt: 2026-06-09T21:35:00Z
     verifier:
       kind: shell
       command: node --test tests/idea-promote.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-09T21:35:00Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Final tree: tests 3, pass 3, fail 0 (extração estruturada,
+        handoff confinado à meta line, CLI round-trip)."
     verifierLabel: "shell: node --test tests/idea-promote.test.js"
+    evidenceSummary: passed · 2026-06-09
 stack:
   - id: 1
     title: Promoção via emergence ladder
@@ -83,8 +101,17 @@ tasks:
       expectExitCode: 0
   - id: T-002
     title: idea-mark.js — transição de status para triaged
-    status: pending
-    lastUpdated: 2026-06-09T20:45:00Z
+    status: done
+    lastUpdated: 2026-06-09T21:30:00Z
+    closedAt: 2026-06-09T21:30:00Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-09T21:30:00Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Re-run on MERGED primary: idea-mark.test.js tests 5, pass 5,
+        fail 0; idea-promote.test.js tests 3, pass 3, fail 0. Executor: codex
+        lane, worktree impl/qic-f1-t-002 (self-check também verde)."
     summary: Script que marca a ideia como triaged sem mexer no resto do ideas.md.
     scopeBoundary:
       - scripts/idea-mark.js
@@ -130,11 +157,18 @@ Initiative for phase **F1 — Promoção via emergence ladder**.
 
 ## Session handoff
 
-- **Narrative:** F1 ativa, spec interior escrito nas 2 tasks (design settled: extração e marcação determinísticas em `scripts/idea-mark.js` com verbos `--extract`/`--dest`; o roteamento pela ladder é procedimento LLM em project-idea.md reusando project-emergence.md). Prestes a despachar T-001+T-002 pela lane Codex em worktrees disjuntas.
+- **Narrative:** F1 FECHADA — plano quick-idea-capture COMPLETO (F0+F1). As 2 tasks executadas pela lane Codex (worktrees `impl/qic-f1-t-001/002`, base `6802e1a`), mescladas serialmente com re-verify na primária. Gates F1-G1 (5/5) e F1-G2 (3/3) met na árvore final. Suíte completa: tests 816, pass 814, fail 0.
 - **Decision log:** ver `## Decisions` abaixo.
-- **Single nextAction:** Cortar worktrees `impl/qic-f1-t-001` (docs/wiring) e `impl/qic-f1-t-002` (script+testes) de HEAD limpo e despachar os briefings `/tmp/qic-dispatch/briefing-f1-t-00N.md`.
-- **Verbatim state:** verifiers: T-001 `npm run validate-skills && node --test tests/compatibility.test.js && grep -q 'idea promote' skills/core/project.md && grep -q 'idea promote' skills/shared/project-assets/project-idea.md` · T-002 `node --test tests/idea-mark.test.js && node --test tests/idea-promote.test.js` · gates F1-G1 `node --test tests/idea-mark.test.js`, F1-G2 `node --test tests/idea-promote.test.js`.
-- **Uncommitted changes:** este arquivo de fase (spec interior + handoff); commit imediatamente antes do corte das worktrees.
+- **Single nextAction:** Oferecer ao usuário o `archive` do plano completo (mutação user-opted) e/ou um `review-due` cross-model do diff F0+F1.
+- **Verbatim state:** gates met: `node --test tests/idea-mark.test.js` (5/5) · `node --test tests/idea-promote.test.js` (3/3). Suíte: `npm test` → tests 816, pass 814, fail 0. Dispatch-log: `.atomic-skills/status/dispatch-log.json` (5 registros codex, 0 escalações).
+- **Uncommitted changes:** estado `.atomic-skills/` deste fechamento (sendo commitado); código todo em main.
+
+## Self-review against code-quality gates
+
+- G1 read-before-claim: applied — T-001 e T-002 fechadas com o run do verifier na primária mesclada colado no evidence (84/84+greps · 5/5+3/3); idea-mark.js (255 linhas) e o diff completo de T-001 lidos integralmente no merge-back.
+- G2 soft-language: applied — claims de conclusão são `passed: true` com exitCode/outputSummary; handoff escaneado contra a ban list, 0 ocorrências.
+- G6 reference-or-strike: applied — literais verbatim (base `6802e1a`, worktrees impl/qic-f1-t-00N, contagens 5/5 · 3/3 · 814/816).
+- Codex review (phase-diff): NÃO rodado no phase-done — sessão autônoma; mesmo registro do F0 (plano teve review codex two-pass; código autorado pelo executor codex com verifiers re-rodados por Opus na árvore mesclada). `review-due` cross-model do diff da fase recomendado como follow-up; registrado em vez de silenciado.
 
 ## Decisions
 

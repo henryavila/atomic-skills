@@ -5,7 +5,7 @@ title: Quick Idea Capture
 version: "1.0"
 status: active
 started: 2026-06-09T18:41:40.321Z
-lastUpdated: 2026-06-09T20:35:00Z
+lastUpdated: 2026-06-09T21:35:00Z
 currentPhase: F1
 parallelismAllowed: false
 principles:
@@ -114,21 +114,35 @@ phases:
         - id: F1-G1
           description: Promoção converte uma ideia em task ou iniciativa via ladder e
             marca a ideia triaged; a suíte de idea-mark passa.
-          status: pending
+          status: met
+          metAt: 2026-06-09T21:35:00Z
           verifier:
             kind: shell
             command: node --test tests/idea-mark.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-09T21:35:00Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Final tree: tests 5, pass 5, fail 0."
         - id: F1-G2
           description: idea promote extrai a ideia do inbox, roteia pela emergence ladder
             com ratify e materializa/encaminha a task ou iniciativa; fixture
             prova extração e handoff.
-          status: pending
+          status: met
+          metAt: 2026-06-09T21:35:00Z
           verifier:
             kind: shell
             command: node --test tests/idea-promote.test.js
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-09T21:35:00Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Final tree: tests 3, pass 3, fail 0."
+    status: done
     summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
       com ratify, marcando-a como triaged."
 references: []

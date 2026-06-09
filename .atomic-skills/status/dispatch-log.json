@@ -62,5 +62,21 @@
     "finishedAt": "2026-06-09T21:05:00Z",
     "codexWorktreeRef": "impl/qic-f1-t-001",
     "routingReason": "lane on + F1 spec-ready (design settled pre-dispatch) + F2 deterministic shell verifier; re-verified on merged primary (84/84 + greps)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "quick-idea-capture",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-09T20:55:01Z",
+    "finishedAt": "2026-06-09T21:30:00Z",
+    "codexWorktreeRef": "impl/qic-f1-t-002",
+    "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary (idea-mark 5/5 + idea-promote 3/3)"
   }
 ]

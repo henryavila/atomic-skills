@@ -1,5 +1,5 @@
 ---
-lastUpdated: '2026-06-09T20:40:00Z'
+lastUpdated: '2026-06-09T21:40:00Z'
 schemaVersion: '0.1'
 activePlans: 1
 activeInitiatives: 0
@@ -19,7 +19,7 @@ Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar
 | Phase | Status | Summary |
 |-------|--------|---------|
 | F0 — Captura barata (MVP do inbox) | done | Script de append, detail file com o fork, `idea list`, wiring e paridade de install. 3/3 tasks, 3/3 gates (codex lane). |
-| F1 — Promoção via emergence ladder | active | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. |
+| F1 — Promoção via emergence ladder | done | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. 2/2 tasks, 2/2 gates (codex lane). Plano completo — pronto para `archive`. |
 
 ## Paused Plans
 
