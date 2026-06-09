@@ -9,10 +9,10 @@ status: active
 branch: null
 started: 2026-06-09T18:41:40.321Z
 lastUpdated: 2026-06-09T18:52:55Z
-nextAction: "Start T-001: idea-add.js — append determinístico ao ideas.md"
+nextAction: "Merge-back serial: T-003 (router wiring), depois T-001 quando o codex retornar"
 parentPlan: quick-idea-capture
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
@@ -71,9 +71,18 @@ tasks:
       expectExitCode: 0
   - id: T-002
     title: project-idea.md — fork de captura mais idea list
-    status: pending
-    lastUpdated: 2026-06-09T18:41:40.321Z
+    status: done
+    lastUpdated: 2026-06-09T19:55:00Z
+    closedAt: 2026-06-09T19:55:00Z
     summary: Detail file com o fork de captura de dois modos e o idea list.
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-09T19:55:00Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Re-run on MERGED primary (8c8198d): validate-skills ✓ All 14
+        skills valid (schema_version 0.2); compatibility.test.js tests 84, pass 84,
+        fail 0. Executor: codex lane, worktree impl/qic-t-002."
     scopeBoundary:
       - skills/shared/project-assets/project-idea.md
     acceptance:

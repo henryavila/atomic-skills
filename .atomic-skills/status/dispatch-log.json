@@ -1,0 +1,18 @@
+[
+  {
+    "taskId": "T-002",
+    "plan": "quick-idea-capture",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-09T19:18:53Z",
+    "finishedAt": "2026-06-09T19:55:00Z",
+    "codexWorktreeRef": "impl/qic-t-002",
+    "routingReason": "lane on (routing.json) + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary 8c8198d"
+  }
+]
