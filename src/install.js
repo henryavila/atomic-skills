@@ -428,7 +428,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
     const rawContent = readFileSync(sourceFile, 'utf8');
 
     for (const ideId of ides) {
-      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId);
+      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId, scope);
       const format = getSkillFormat(ideId);
       const renderOpts = skillMeta.argument_hint ? { argumentHint: skillMeta.argument_hint } : {};
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, renderOpts);
@@ -493,7 +493,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
         // Helper: render + write one asset file, tracking it in the manifest.
         const writeAsset = (srcPath, destPath, srcLabel) => {
           const raw = readFileSync(srcPath, 'utf8');
-          const rendered = renderTemplate(raw, vars, moduleFlags, ideId);
+          const rendered = renderTemplate(raw, vars, moduleFlags, ideId, scope);
           writeFileSync(destPath, rendered, 'utf8');
           const relPath = relative(projectDir, destPath);
           if (onFileWritten) onFileWritten(relPath);
@@ -650,7 +650,7 @@ export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWrit
  * Returns a Map of relPath → rendered content string.
  */
 function preRenderFiles(options) {
-  const { language, ides, modules, skillsDir, metaDir } = options;
+  const { language, ides, modules, skillsDir, metaDir, scope } = options;
 
   const metaRaw = readFileSync(join(metaDir, 'catalog.yaml'), 'utf8');
   const meta = parseYaml(metaRaw);
@@ -680,7 +680,7 @@ function preRenderFiles(options) {
     const rawContent = readFileSync(sourceFile, 'utf8');
 
     for (const ideId of ides) {
-      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId);
+      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId, scope);
       const format = getSkillFormat(ideId);
       const renderOpts = skillMeta.argument_hint ? { argumentHint: skillMeta.argument_hint } : {};
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, renderOpts);
@@ -723,7 +723,7 @@ function preRenderFiles(options) {
           if (!f.isFile()) continue;
           const sourceFile = join(assetsSourceDir, f.name);
           const raw = readFileSync(sourceFile, 'utf8');
-          const renderedContent = renderTemplate(raw, vars, moduleFlags, ideId);
+          const renderedContent = renderTemplate(raw, vars, moduleFlags, ideId, scope);
           rendered.set(`${destBase}/${f.name}`, renderedContent);
         }
       }
@@ -859,7 +859,7 @@ export async function install(projectDir, options = {}) {
 
     const keepFiles = new Set();
     if (existingManifest) {
-      const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir });
+      const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir, scope });
       for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
         const absPath = join(basePath, filePath);
         const newContent = newRendered.get(filePath);
@@ -939,7 +939,7 @@ export async function install(projectDir, options = {}) {
   // Pre-compute conflict count for dashboard display
   let conflictCount = 0;
   if (existingManifest) {
-    const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir });
+    const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir, scope });
     for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
       const absPath = join(basePath, filePath);
       const newContent = newRendered.get(filePath);
@@ -1027,7 +1027,7 @@ export async function install(projectDir, options = {}) {
       config.modules = await promptModuleConfig(config.lang, config.modules, moduleYaml);
       config.skillCount = countSkills(metaDir, config.modules);
     } else if (action === 'view-conflicts') {
-      const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir });
+      const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir, scope });
       for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
         const absPath = join(basePath, filePath);
         const newContent = newRendered.get(filePath);
@@ -1049,7 +1049,7 @@ export async function install(projectDir, options = {}) {
   // ─── 3-hash conflict detection ───
   const keepFiles = new Set();
   if (existingManifest) {
-    const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir });
+    const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir, scope });
 
     for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
       const absPath = join(basePath, filePath);

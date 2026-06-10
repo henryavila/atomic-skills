@@ -75,6 +75,21 @@ describe('renderTemplate', () => {
       `expected TOML flat pattern, got: ${result}`);
   });
 
+  it('prefixes ASSETS_PATH with ~/ for user-scope installs (cross-repo resolution)', () => {
+    // A user-scope install lives under $HOME; a relative path only resolves
+    // when CWD is $HOME itself, so the skill breaks in every other repo.
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'claude-code', 'user');
+    assert.ok(result.includes('asset at ~/.claude/commands/atomic-skills/_assets/foo.md'),
+      `expected ~/ prefix for user scope, got: ${result}`);
+  });
+
+  it('keeps ASSETS_PATH relative for project-scope installs', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'claude-code', 'project');
+    assert.ok(result.includes('asset at .claude/commands/atomic-skills/_assets/foo.md'),
+      `expected relative path for project scope, got: ${result}`);
+    assert.ok(!result.includes('~/'), 'project scope must not get the ~/ prefix');
+  });
+
   describe('ASK_USER_QUESTION_TOOL substitution', () => {
     const sample = 'Use {{ASK_USER_QUESTION_TOOL}} to ask the user.';
 

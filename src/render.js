@@ -6,9 +6,12 @@ import { IDE_CONFIG, SKILL_NAMESPACE } from './config.js';
  * @param {Record<string, string>} vars - Variable substitutions
  * @param {Record<string, boolean>} modules - Installed modules (for conditionals)
  * @param {string} ideId - The current IDE ID
+ * @param {''|'user'|'project'} scope - Install scope; 'user' prefixes ASSETS_PATH
+ *   with `~/` so the rendered path resolves from ANY repo (the files live under
+ *   $HOME, and a relative path only resolves when CWD is $HOME itself).
  * @returns {string}
  */
-export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
+export function renderTemplate(content, vars = {}, modules = {}, ideId = '', scope = '') {
   // Build full context for conditionals
   const context = {
     modules,
@@ -58,15 +61,19 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '') {
     allVars.ASK_USER_QUESTION_TOOL = isClaudeCode ? 'AskUserQuestion tool' : noNativeAskTool;
   }
 
-  // Add IDE-specific ASSETS_PATH (where shared assets live for this IDE)
+  // Add IDE-specific ASSETS_PATH (where shared assets live for this IDE).
+  // User scope: the install base is $HOME, so the path must be ~/-anchored —
+  // a relative `.claude/...` only resolves when the skill happens to run with
+  // CWD == $HOME, and these skills run from arbitrary repos.
   const ide = IDE_CONFIG[ideId];
+  const scopePrefix = scope === 'user' ? '~/' : '';
   if (ide) {
     const assetsDir = ide.format === 'toml'
       ? `${ide.dir}/${SKILL_NAMESPACE}-_assets`        // toml IDEs use flat name pattern
       : `${ide.dir}/${SKILL_NAMESPACE}/_assets`;       // markdown/command IDEs use directory pattern
-    allVars.ASSETS_PATH = assetsDir;
+    allVars.ASSETS_PATH = `${scopePrefix}${assetsDir}`;
   } else {
-    allVars.ASSETS_PATH = '_assets';
+    allVars.ASSETS_PATH = `${scopePrefix}_assets`;
   }
 
   for (const [key, value] of Object.entries(allVars)) {
