@@ -104,6 +104,30 @@ describe('validateSkill — v0.2 entries', () => {
     );
     assert.ok(tooLong.some((m) => m.includes('one_liner must be 10-80 chars')));
   });
+
+  it('rejects argument_hint over 120 chars (composer placeholder breaks on long hints)', () => {
+    const tooLong = validateSkill(
+      'demo',
+      baseV02({ argument_hint: `[${'subcmd|'.repeat(20)}end]` }),
+      known()
+    );
+    assert.ok(
+      tooLong.some((m) => m.includes('argument_hint must be at most 120 chars')),
+      JSON.stringify(tooLong)
+    );
+  });
+
+  it('accepts argument_hint at exactly 120 chars', () => {
+    const issues = validateSkill(
+      'demo',
+      baseV02({ argument_hint: `[${'x'.repeat(118)}]` }),
+      known()
+    );
+    assert.ok(
+      !issues.some((m) => m.includes('argument_hint must be at most')),
+      JSON.stringify(issues)
+    );
+  });
 });
 
 describe('validateSkill — subcommands', () => {

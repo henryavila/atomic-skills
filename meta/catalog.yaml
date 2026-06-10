@@ -280,7 +280,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    argument_hint: '[status|verify|reconcile|new|idea|done|push|pop|park|emerge|promote|switch|phase-done|phase-reopen|archive|why|re-ratify|scope-creep|review-due|detect-scope|adopt|discover|migrate|re-bootstrap|split-phase]'
+    argument_hint: '[status|verify|reconcile|new|idea|done|push|pop|park|emerge|promote|switch|…]'
     one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'

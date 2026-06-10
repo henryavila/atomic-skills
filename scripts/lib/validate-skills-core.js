@@ -154,6 +154,14 @@ function validateArgumentHint(entry, issues) {
   if (entry.argument_hint.trim().length === 0) {
     issues.push('argument_hint must be a non-empty string');
   }
+  // Composer placeholder: Claude Code renders the hint inline in the input box and
+  // long hints clip/truncate (anthropics/claude-code#59644), so a full subcommand
+  // dump is unusable. Curate (grammar-order prefix + ellipsis) instead of dumping.
+  if (entry.argument_hint.length > 120) {
+    issues.push(
+      `argument_hint must be at most 120 chars (got ${entry.argument_hint.length}) — curate to the leading subcommands in grammar order + ellipsis`
+    );
+  }
 }
 
 function validateSubcommands(entry, issues) {
