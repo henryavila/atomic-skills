@@ -130,6 +130,26 @@ Steps:
        | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.error){process.stdout.write(j.error.message||"data load error")}}catch(_){}})' 2>/dev/null)
    fi
 
+   # 3b. Layout detection (empty-dashboard guard). The consumer dataSources read
+   #     ONLY the nested projects/<id>/<slug>/ tree; a legacy flat tree "loads"
+   #     as ZERO records — success, not STATE_ERROR — so without this the
+   #     browser opens on an empty dashboard with no hint why. Detect both
+   #     layouts explicitly; the Legacy-layout gate (step 3) acts on the result.
+   #     find, NOT `ls <glob>`: this snippet may run under zsh (Claude Code's
+   #     shell snapshot sets nullglob, where an unmatched glob makes `ls` list
+   #     CWD and exit 0 → false positive) — find is glob-free and silent in both
+   #     shells.
+   LEGACY_FLAT=""
+   NESTED_TREE=""
+   if [ -n "$(find "$PWD/.atomic-skills/plans" "$PWD/.atomic-skills/initiatives" \
+        -maxdepth 1 -name '*.md' -print -quit 2>/dev/null)" ]; then
+     LEGACY_FLAT=1
+   fi
+   if [ -n "$(find "$PWD/.atomic-skills/projects" -mindepth 3 -maxdepth 3 \
+        -name plan.md -print -quit 2>/dev/null)" ]; then
+     NESTED_TREE=1
+   fi
+
    # 4. Output
    if [ -n "$AIDECK_URL" ]; then
      echo "AIDECK_URL=$AIDECK_URL"
@@ -137,6 +157,8 @@ Steps:
    else
      echo "AIDECK_URL="
    fi
+   echo "LEGACY_FLAT=$LEGACY_FLAT"
+   echo "NESTED_TREE=$NESTED_TREE"
    ```
 
    Parse the output: if `AIDECK_URL` is non-empty, aiDeck is running.
@@ -159,7 +181,15 @@ Steps:
    d. Print a one-line summary of what was repaired. The aiDeck watcher reloads the card via SSE once the data is valid — no rebuild or reinstall needed (the bundle is never the problem; the data is).
    e. Then continue to open the browser so the user sees the corrected card.
 
-3. If `AIDECK_URL` is non-empty:
+3. If `AIDECK_URL` is non-empty, apply the **Legacy-layout gate** first, then open:
+
+   **Legacy-layout gate (`LEGACY_FLAT=1`).** The dashboard renders only the nested `projects/<id>/<slug>/` tree, so flat units are invisible to it even though the terminal views fall back to them fine. (When `AIDECK_URL` is empty this gate is moot — step 4 already falls back to the terminal view, which reads flat trees fine.)
+
+   - **`LEGACY_FLAT=1` and `NESTED_TREE` empty** — the dashboard WILL be empty. Do NOT open the browser silently. Tell the user why ("your `.atomic-skills/` tree is on the legacy flat layout; the dashboard reads only the nested layout") and ask via {{ASK_USER_QUESTION_TOOL}}: **(a)** run the layout cut-over now — load `{{ASSETS_PATH}}/project-migrate.md` § `migrate` (layout cut-over) and follow it (snapshot → dry-run → HALT → apply), then re-run this view; **(b)** show the terminal view instead (`--terminal` behavior below); **(c)** open the dashboard anyway. Default recommendation is (a).
+   - **`LEGACY_FLAT=1` and `NESTED_TREE=1`** (coexistence window, mid-migration) — open normally, but print a warning line: `⚠ flat legacy units exist and will NOT appear on the dashboard until \`migrate\` completes.`
+   - **`LEGACY_FLAT` empty** — no gate; continue.
+
+   Then:
    - Build the consumer URL: `DASH="$AIDECK_URL/$AIDECK_CONSUMER?project=$pid"` (the Model-B consumer page, project pre-selected). Open it with the **WSL-aware opener** below — `open_url "$DASH"` — then print `Dashboard: <DASH>`.
 
    > **NEVER call bare `xdg-open` — it HANGS on WSL2** (no native browser registered, the process blocks indefinitely and stalls the skill). Always use this helper, which prefers `wslview`, falls back to the Windows `start` shim, and only uses `xdg-open` on native Linux — detached (`setsid … &`) so it can never block the session:
@@ -290,8 +320,8 @@ Last 10 entries from the archive dirs — nested `.atomic-skills/projects/*/*/ph
 
 Opens the aiDeck dashboard in the browser, optionally deep-linking to a specific plan or initiative. This is the same mechanism used by the default view — the `--browser` flag is kept as an explicit alias for cases where the user invoked `--terminal` or a mutation command and now wants to jump to the dashboard.
 
-1. Run the ensure-aideck script from the default view (step 1) to get `AIDECK_URL`.
-2. If `AIDECK_URL` is non-empty (`pid` = the registered project id from the contract block):
+1. Run the ensure-aideck script from the default view (step 1) to get `AIDECK_URL` (it also emits `LEGACY_FLAT`/`NESTED_TREE`).
+2. If `AIDECK_URL` is non-empty (`pid` = the registered project id from the contract block), apply the **Legacy-layout gate** from the default-view step 3 first (a flat-only tree renders an EMPTY dashboard — same gate, same options), then:
    - If `<slug>` is provided: open the consumer page with the plan/phase deep-linked — `<AIDECK_URL>/$AIDECK_CONSUMER/plan/<slug>?project=<pid>` (or `/phase/<slug>`); the page resolves the slug against the project's dataSources.
    - If no `<slug>`: open `<AIDECK_URL>/$AIDECK_CONSUMER?project=<pid>` (the consumer overview).
    - Open via the **WSL-aware `open_url` helper** defined in the default-view step 3 (never bare `xdg-open` — it hangs on WSL2); fall back to printing the URL.

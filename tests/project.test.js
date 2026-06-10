@@ -191,6 +191,25 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /[Dd]eliver to aiDeck/);
   });
 
+  it('project-view gates the dashboard open on a legacy flat tree (empty-dashboard guard)', () => {
+    install();
+    const content = readAsset('project-view.md');
+    // The ensure-aideck script must DETECT the layouts: the dashboard dataSources
+    // read only the nested projects/<id>/<slug>/ tree, and a flat legacy tree
+    // loads as zero records (no STATE_ERROR) — so detection must be explicit.
+    assert.match(content, /LEGACY_FLAT=/);
+    assert.match(content, /NESTED_TREE=/);
+    // Detection must be glob-free (`find ... -print -quit`): under zsh with
+    // nullglob (Claude Code shell snapshots set it) `ls <unmatched-glob>`
+    // becomes bare `ls` and exits 0 — a false positive that disarms the gate.
+    assert.match(content, /-print -quit/);
+    assert.doesNotMatch(content, /ls "\$PWD\/\.atomic-skills\/(?:plans|initiatives|projects)\/"\*/);
+    // The flow must route a flat-only tree to the layout cut-over instead of
+    // silently opening an empty dashboard.
+    assert.match(content, /[Ll]egacy[- ]layout gate/);
+    assert.match(content, /\bmigrate\b/);
+  });
+
   // ─── Lazy asset: verify (NEW) ───────────────────────────────────────────
 
   it('project-verify defines an explicit contract (NEW command)', () => {
