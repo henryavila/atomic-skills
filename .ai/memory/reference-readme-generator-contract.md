@@ -53,9 +53,19 @@ metadata:
   atualiza o comando instalado: rode `node bin/cli.js install --yes` para re-renderizar.
 - **Formato preferido (Henry, 2026-06-09): compacto `[a|b|c]`** — sem espaços em volta dos pipes,
   colchetes em volta do conjunto. Não usar o formato espaçado `a | b | c` (ocupa espaço à toa).
+- **Cap de tamanho: 120 chars, enforced** por `validateArgumentHint` (validate-skills-core.js)
+  desde 2026-06-09. Motivo: o composer do Claude Code renderiza o hint inline no input box e
+  hints longos clipam/truncam (anthropics/claude-code#59644) — o hint do project com a lista
+  completa da grammar (207 chars) chegava quebrado no composer ("placeholder não funciona").
+  NÃO despejar a grammar inteira no hint.
+- **Curadoria quando a lista não cabe**: prefixo da grammar em ordem + `…` no final. Regra
+  determinística: primeiros N subcomandos na ordem do bloco `## Grammar` até caber em ~80 chars
+  (project = `[status|verify|reconcile|new|idea|done|push|pop|park|emerge|promote|switch|…]`, 77).
 - **Fonte de verdade para validar a lista**: o bloco `## Grammar` do router
   (`skills/core/project.md` no caso do project). Subcomandos deliberadamente ocultos
   (`new-task`/`new-phase` — "valid but NOT listed in the menu") ficam FORA do hint.
+- **Hint atualizado só aparece em sessão NOVA**: além do re-render (`install --yes`), o composer
+  carrega a lista de comandos no start da sessão — valide o placeholder numa sessão fresca.
 
 ## Hand-written conceptual docs (NOT generated)
 - `docs/concepts/project-tracking.md` is the canonical, hand-written explanation of the
