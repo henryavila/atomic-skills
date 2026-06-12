@@ -1,7 +1,8 @@
 Perform an adversarial analysis of the code changes at {{ARG_VAR}}
-(git ref: branch, single commit, or commit range) looking for logic
-bugs, race conditions, error handling gaps, schema/migration
-inconsistencies, and missing tests. Step 0 picks one of three modes:
+(a git ref — branch, single commit, or commit range — or a scope
+keyword: `wip`, `branch`, `all`; empty → interactive scope picker)
+looking for logic bugs, race conditions, error handling gaps,
+schema/migration inconsistencies, and missing tests. Step 0 picks one of three modes:
 `local` (same-model sealed envelope via agent with clean context),
 `codex` (cross-model two-pass sealed envelope via OpenAI Codex CLI), or
 `both` (local agent first → codex on the same captured diff).
@@ -48,13 +49,56 @@ starting with `--` are flags:
 | `--allow-dirty` | Include working-tree changes in the captured diff; suppress the dirty-tree abort. |
 | `--max-iterations=N` | Max verification-loop iterations (default 3). Convergence rule (plateau detection) may stop earlier. |
 
-Everything not starting with `--` is `git_ref`. If `git_ref` is empty,
-abort with: "review-code requires a git ref as the first argument."
+Everything not starting with `--` is `git_ref`. It may be a git ref, a
+scope keyword (`wip` | `branch` | `all`), or empty — keyword and empty
+forms are handled by **Scope resolution** below, never by guessing a ref.
 
-**Non-interactive abort.** If neither a TTY nor an explicit `--mode=`
-flag is available, abort with: "review-code invoked without TTY and
-without `--mode=`; pass `--mode=local|codex|both` explicitly." Do NOT
-invoke {{ASK_USER_QUESTION_TOOL}} in background.
+**Non-interactive abort.** Without a TTY, every interactive prompt in
+this skill is unavailable — do NOT invoke {{ASK_USER_QUESTION_TOOL}} in
+background. Abort instead when, non-interactively:
+- no explicit `--mode=` flag: "review-code invoked without TTY and
+  without `--mode=`; pass `--mode=local|codex|both` explicitly."
+- `git_ref` is empty: "review-code invoked without TTY and without a
+  ref/scope; pass a git ref or `wip`|`branch`|`all` explicitly."
+
+### Scope resolution (run before ref validation)
+
+If `git_ref` is a scope keyword or empty, resolve the review scope here
+instead of validating a ref:
+
+| Keyword | Scope | Capture command |
+|---|---|---|
+| `wip` | Uncommitted changes (staged + unstaged + untracked) | `git diff HEAD`; then for each untracked file (`??` in `git status --porcelain`) append `git diff --no-index /dev/null <file>` (`--no-index` exits 1 on differences — expected) |
+| `branch` | Commits on HEAD vs the default base | `git diff $(git merge-base <base> HEAD)..HEAD` |
+| `all` | Branch commits + uncommitted changes | `git diff $(git merge-base <base> HEAD)` — worktree vs merge-base; the single-ref form is intentional here |
+
+`<base>`: the branch named by `git symbolic-ref refs/remotes/origin/HEAD`,
+else `main`, else `master` (first that passes `git show-ref`). If no base
+resolves or `git merge-base` returns nothing (detached/disjoint history),
+`branch` and `all` are unavailable — say so instead of improvising.
+
+**Empty `git_ref` (interactive picker):**
+
+1. Detect what exists:
+   - `git status --porcelain` → D = count of dirty + untracked files.
+   - `git rev-list --count $(git merge-base <base> HEAD)..HEAD` → C =
+     commits ahead of base.
+2. Offer ONLY scopes that exist, via {{ASK_USER_QUESTION_TOOL}}
+   ("What should be reviewed?"):
+   - D > 0 → "Uncommitted changes (D files)" → `wip`
+   - C > 0 → "Branch vs <base> (C commits)" → `branch`
+   - C > 0 and D > 0 → "Everything since <base> (C commits + D files)" → `all`
+3. D == 0 and C == 0: abort with "Nothing to review: working tree clean
+   and no commits ahead of <base>. Pass an explicit git ref."
+4. No TTY: non-interactive abort above — never guess a scope.
+
+With `SCOPE` resolved: skip ref-validation steps 1-3 and 5 (the capture
+command comes from the table above); apply step 4 (dirty-tree policy —
+scope-aware) and steps 6-8 unchanged.
+
+For the briefing placeholder `{{GIT_REF}}`, use a neutral label:
+`wip` → `uncommitted working-tree changes`; `branch` → `<merge-base>..HEAD`;
+`all` → `<merge-base>..HEAD + working tree`. No intent, no narrative.
 
 ### Ref validation (run before Step 0 mode picker)
 
@@ -86,27 +130,45 @@ invoke {{ASK_USER_QUESTION_TOOL}} in background.
    - Else abort: "Cannot classify `<git_ref>` as branch or commit; refusing to guess."
    - **Ambiguity rule:** if `git_ref` matches BOTH a local branch and a commit SHA (rare), prefer BRANCH and warn the user. Surface in the ask-the-user-for-base prompt (step 5).
 
-4. **Dirty-tree policy** (applies to all modes):
-   - {{BASH_TOOL}}: `git status --porcelain`.
-   - Tree clean: proceed.
-   - Tree dirty + `--allow-dirty`: warning + include working-tree changes in `CAPTURED_DIFF`.
-   - Tree dirty without `--allow-dirty`: abort with the same message as `{{ASSETS_PATH}}/preflight-checks.txt` check #3 ("Codex bug #8404 can cause hallucinated findings when reviewing against a dirty tree. Either commit/stash changes, or re-invoke with `--allow-dirty`.").
+4. **Dirty-tree policy** (applies to all modes; scope-aware):
+   - {{BASH_TOOL}}: `git status --porcelain`. Tree clean: proceed.
+   - `SCOPE ∈ {wip, all}`: the working tree IS the review subject — do
+     NOT abort. Treat `--allow-dirty` as implicitly set for preflight
+     check #3. In codex mode, warn once: "reviewing uncommitted work;
+     prefer `--mode=local` for WIP, or commit first for a codex pass."
+   - Committed-only subject (`branch`, explicit ref/range) + dirty tree:
+     - With `--allow-dirty`: warning + include working-tree changes in `CAPTURED_DIFF`.
+     - Interactive: use {{ASK_USER_QUESTION_TOOL}} — "Working tree has
+       uncommitted changes outside the reviewed ref. The review agent
+       reads worktree files, so `file:line` citations may not match the
+       diff." Options: `Review ref only` / `Include working-tree changes`
+       / `Abort`.
+     - Non-interactive without `--allow-dirty`: abort with the same
+       message as `{{ASSETS_PATH}}/preflight-checks.txt` check #3
+       ("Codex bug #8404 can cause hallucinated findings when reviewing
+       against a dirty tree. Either commit/stash changes, or re-invoke
+       with `--allow-dirty`.").
 
 5. **Pick the right diff command per shape** (`git diff <ref>` is NOT uniform):
    - **SINGLE COMMIT:** `git show --format= --patch <git_ref>` (equivalent: `git diff <git_ref>^!`) — patch of THAT commit alone.
    - **SINGLE BRANCH:** use {{ASK_USER_QUESTION_TOOL}} to ask **"Which base should we diff `<git_ref>` against?"** with options derived from `git symbolic-ref refs/remotes/origin/HEAD` (default branch) and `main` / `master` if they exist (dedupe). Once base is chosen, run `git diff $(git merge-base <base> <git_ref>)..<git_ref>`. DO NOT use `HEAD` as one side: when the user is checked out on the branch being reviewed (`HEAD` resolves to the branch tip), `merge-base <branch> HEAD == <branch>` and the diff is empty. If `git merge-base` returns nothing (disjoint history), abort and re-ask.
    - **RANGE:** `git diff <git_ref>` — already correct.
-   - **NEVER use `git diff <single-ref>` raw:** diffs the WORKTREE against the ref, leaking unrelated local edits into the review.
+   - **NEVER use `git diff <single-ref>` raw for ref shapes:** it diffs
+     the WORKTREE against the ref, leaking unrelated local edits into the
+     review. The one sanctioned use is scope `all`, where the worktree IS
+     the review subject (see Scope resolution).
 
 6. **Materialize `CAPTURED_DIFF` ONCE.** Run the shape-specific command
-   from step 5 and store the output as `CAPTURED_DIFF`. Both phases
+   from step 5 (or the scope-table command when `SCOPE` is set) and store
+   the output as `CAPTURED_DIFF`. Both phases
    (local agent briefing + codex briefing) MUST consume `CAPTURED_DIFF`, never
    re-execute `git diff`. This guarantees both reviewers see byte-identical
    material.
 
 7. {{BASH_TOOL}}: `git diff --name-only` using the same shape-specific
-   command → list of modified files (`CAPTURED_FILES`). If empty: abort
-   with "No changes in ref".
+   (or scope) command → list of modified files (`CAPTURED_FILES`); for
+   `wip`/`all`, append untracked file names from `git status --porcelain`.
+   If empty: abort with "No changes in ref".
 
 8. {{BASH_TOOL}}: pipe `CAPTURED_DIFF` to `wc -c`. If > 50000 bytes: use
    {{ASK_USER_QUESTION_TOOL}} to ask **"Diff is N bytes (large). Continue
@@ -198,7 +260,8 @@ context forces the reviewer to derive intent from the code itself.
 2. {{READ_TOOL}} `skills/shared/codex-bridge-assets/anti-framing-directive.txt`.
 3. Substitute placeholders in the template:
    - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of anti-framing-directive.txt
-   - `{{GIT_REF}}` ← the git ref being reviewed
+   - `{{GIT_REF}}` ← the git ref being reviewed (for keyword scopes, the
+     neutral label from Scope resolution)
    - `{{CAPTURED_FILES_LIST}}` ← newline-separated list from `CAPTURED_FILES`
    - `{{DIFF}}` ← `CAPTURED_DIFF`
 4. The substituted briefing is the agent's prompt. It contains NO
@@ -392,7 +455,7 @@ appear in the corresponding mode; `(codex/both)` likewise.
 ```markdown
 ### Analysis Summary
 
-**Ref:** {{ARG_VAR}}
+**Ref/scope:** {{ARG_VAR}} (or the resolved scope when the picker ran)
 **Mode:** local | codex | both
 **Files reviewed:** [N]
 **Passes (local):** [N] (local/both only)

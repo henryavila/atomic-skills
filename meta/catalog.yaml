@@ -173,7 +173,7 @@ core:
   review-code:
     name: review-code
     title: 'Review Code — Adversarial (Local + Codex)'
-    description: 'Adversarial review of code changes given a git ref (branch, commit, or range). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).'
+    description: 'Adversarial review of code changes given a git ref (branch, commit, or range), a scope keyword (wip | branch | all), or no argument (interactive scope picker over uncommitted work and branch commits). Step 0 picks mode: local self-loop, codex cross-model envelope, or both (local first → codex on the same captured diff).'
     value_pitch: >
       Reviewing your own diff in the same context that wrote it inherits
       every blind spot and rationalization. `review-code` captures the diff
@@ -182,23 +182,28 @@ core:
       so framing can't suppress findings. Every finding cites file:line; no
       evidence, no approval.
     purpose: >
-      Adversarially review a git ref — branch, commit, or range — in clean
+      Adversarially review code changes — a git ref (branch, commit, range),
+      a scope keyword (wip = uncommitted work, branch = merge-base..HEAD,
+      all = both), or no argument for an interactive scope picker — in clean
       context, with every finding tied to a file:line and no approval without
       evidence. Mode picker: local (fast, cheap), codex (cross-model via the
       OpenAI Codex CLI, ~$1-2), or both (default: local first, then codex on
       the byte-identical captured diff in a sealed envelope).
     when_to_use:
       - 'You finished a coherent code change'
+      - 'You just implemented something and it is still uncommitted (wip scope)'
       - 'Significant change about to merge (both mode recommended)'
       - 'Critical path (auth, payments, data integrity) — both mode'
       - 'Cheap pre-merge sanity check (local mode)'
     when_not_to_use:
-      - 'No git ref to review (and you don''t want to commit/stash first)'
+      - 'Nothing to review (clean tree, no commits ahead of base)'
       - 'Trivial change already heavily reviewed'
       - 'Codex CLI not installed and you need codex mode (use --mode=local)'
     examples:
-      - command: '/atomic-skills:review-code main..HEAD'
-        description: 'Interactive picker — chooses mode'
+      - command: '/atomic-skills:review-code'
+        description: 'No argument — picks scope (wip/branch/all) then mode'
+      - command: '/atomic-skills:review-code wip --mode=local'
+        description: 'Review uncommitted work, local-only self-loop'
       - command: '/atomic-skills:review-code feat/new-feature --mode=local'
         description: 'Force local-only self-loop'
       - command: '/atomic-skills:review-code main..HEAD --mode=both'
@@ -206,18 +211,18 @@ core:
     related: [review-plan, fix, hunt]
     tags: [review, code, adversarial, cross-model]
     ide_compatibility: [claude-code, gemini, cursor]
-    requires_args: true
+    requires_args: false
     mutates_repo: true
     network_required: true
     one_liner: 'Adversarial code review with local/codex/both mode picker'
     emoji: '🔬'
     version_added: '2.0.0'
-    argument_hint: '<branch|commit|main..HEAD> [--mode=local|codex|both] [--allow-dirty] [--max-iterations=N]'
+    argument_hint: '[ref|wip|branch|all] [--mode=local|codex|both] [--allow-dirty] [--max-iterations=N]'
     args:
       - name: git-ref
         kind: positional
-        required: true
-        description: 'Branch, single commit, or commit range (a..b / a...b).'
+        required: false
+        description: 'Git ref (branch, commit, a..b / a...b) or scope keyword: wip (uncommitted), branch (merge-base..HEAD), all (both). Empty → interactive scope picker.'
       - name: '--mode'
         kind: option
         required: false

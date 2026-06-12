@@ -154,7 +154,7 @@ A plan reviewed by its own author inherits every blind spot that wrote it — th
 Reviewing your own diff in the same context that wrote it inherits every blind spot and rationalization. `review-code` captures the diff once and hands it to a sealed reviewer with clean context — locally, cross-model via codex, or both — stripped of commit messages and intent so framing can't suppress findings. Every finding cites file:line; no evidence, no approval.
 
 ```
-/atomic-skills:review-code main..HEAD
+/atomic-skills:review-code
 ```
 
 [Full reference →](docs/skills/review-code.md)

@@ -30,6 +30,14 @@ Run: `git status --porcelain`
 If output is non-empty AND user did NOT pass `--allow-dirty`: ABORT with message:
 > "Working tree has uncommitted changes. Codex bug #8404 can cause hallucinated findings when reviewing against a dirty tree. Either commit/stash changes, or re-invoke with `--allow-dirty` to proceed anyway."
 
+Exception — worktree-scoped review: if the invoking skill resolved a
+review scope where the working tree IS the review subject (e.g.
+review-code scopes `wip` / `all`), treat `--allow-dirty` as implicitly
+set: emit the warning, do not abort. The captured diff already contains
+the working-tree changes, so the mitigation this check exists for
+(keeping the reviewed ref isolated from unrelated local edits) does not
+apply.
+
 ## 4. Inside git repo (or --skip-git-check)
 
 Run: `git rev-parse --is-inside-work-tree`
