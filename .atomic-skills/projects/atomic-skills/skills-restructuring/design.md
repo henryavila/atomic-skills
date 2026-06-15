@@ -6,7 +6,9 @@ consistência das skills `project`+`implement`, (2) economia de tokens da arquit
 faltava (auditar plano/iniciativa materializados), e (4) uma skill nova `design-brief`
 que gera os prompts (DS + telas) para o claude.ai/design sem contaminar a decisão
 visual. Fontes em disco: `docs/audits/project-implement-audit-2026-06-15.md` e
-`docs/audits/token-economy-all-skills-2026-06-15.md`.
+`docs/audits/token-economy-all-skills-2026-06-15.md`. Para a F5, a spec canônica da
+anti-contaminação é `docs/design/design-brief-three-layer-briefing.md` (post-mortem do
+dogfooding Lekto, vendorizado verbatim — modelo de 3 camadas + R1–R9 + exemplo-ouro).
 
 ## Contexto
 
@@ -28,14 +30,33 @@ não auditava planos materializados do `project` contra spec/estrutura/código.
 - **D3 — Dependência cross-fase F3 → F1.** O `verifier-exec.md` compartilhado nasce na
   F1/P4; a F3 (verify-claim aponta pra ele) depende disso (catch 2).
 - **D4 — `design-brief`:** saída = prompts markdown (casa com o handoff atual); fonte =
-  auto-detecta código existente + plano `project`; estratégia = **DS-first + telas
+  auto-detecta código existente + plano `project`, **minerando do código os parâmetros
+  comportamentais** (timers/debounces, contagens, comprimentos, modalidade, gatilhos,
+  o-que-fica-oculto — R2) e completando lacunas via **auditoria de omissão interativa** (R3)
+  com o operador; estratégia = **DS-first + telas
   consomem o DS herdado** (mecanismo confirmado: herança automática, export carrega cópia,
   consume-não-redeclara); **1 template no DS** (não um set — templates compostos pelo DS
   são inferiores aos do projeto consumidor); skill nasce enxuta (corpo fino + assets lazy,
   sem imposto Red Flags/Rationalization).
-- **D5 — Anti-contaminação é o coração da `design-brief`:** preâmbulo de vocabulário-banido
-  embutido no brief + tabela DEFINE/DECIDE + checklist de pré-envio; requisito visual vira
-  constraint verificável (WCAG 2.2 mensurável), nunca solução visual.
+- **D5 — Anti-contaminação = modelo de 3 camadas + R1–R9 (spec canônica).** Reformula o D5
+  anterior (que era só "vocabulário-banido + silêncio sobre o visual") à luz do post-mortem
+  Lekto (`docs/design/design-brief-three-layer-briefing.md`): a falha real **não** foi
+  prescrever visual demais — foi **estender o silêncio às camadas 2 e 3**. Três camadas, donos
+  distintos: (1) **forma visual** (cor, raio, sombra, qual widget, espaçamento, tipografia) →
+  designer → **silêncio**; (2) **modelo de interação** (ritmo/tempos, contagens, comprimentos,
+  modalidade, gatilhos, reversibilidade, paridade mobile/desktop) → produto → **especificar
+  concreto**; (3) **filosofia / quem decide** (humano × sistema, o que fica oculto) → produto →
+  **guardrail vinculante**. Consequência: o vocabulário-banido vem **emparelhado** com blocos
+  *obrigatórios* de **Modelo de interação** e **Filosofia/guardrails** por tela (R1), descritos
+  por atributos de comportamento e nunca por widget (R4); ao des-induzir um rótulo
+  **substitui-se pela essência, jamais se deleta** (R7 — a armadilha da sobre-correção).
+  Permanecem do D5 anterior: tabela DEFINE/DECIDE, checklist de pré-envio e "requisito visual →
+  constraint verificável (WCAG 2.2 mensurável), nunca solução visual". Acrescentam-se a
+  **auditoria de omissão por tela** (R3: *"se eu omitir este parâmetro, um agente razoável
+  preencheria com algo que contradiz o produto?"* — se sim, declare-o) e o **nomear o
+  anti-padrão proibido** nas telas de risco (R6). Spec integral (R1–R9, estrutura obrigatória
+  por tela, exemplo-ouro e checklist de aceitação) no briefing vendorizado citado acima — a
+  porta a evitar é **abstrair o detalhe load-bearing** ao portá-lo para os assets.
 - **D6 — Execução do plano via codex (Mode 2) + review Opus.** Opus planeja+revisa; Codex
   executa tasks spec-ready com verifier determinístico em worktree isolado.
 
@@ -63,6 +84,12 @@ elogiou (não inlinar de volta).
 - **Não otimizar `prompt` e `save-and-push`** — já enxutas; mexer só piora.
 - `design-brief` nunca hardcoda nomes de componentes de um projeto (TabBar/Sidebar do Lekto
   eram referência) — templates por papel/arquétipo, derivados da IA de cada projeto.
+- **Não regredir à subespecificação** (a falha do post-mortem): o silêncio vale **só** para a
+  camada 1 (forma visual); nunca apagar comportamento ou filosofia "para não induzir". Ao
+  des-induzir um widget/gesto, substituir pela essência comportamental (R7); abstrair o
+  parâmetro load-bearing ("uma escala curta" no lugar de "~3 níveis; ritmo de segundos; ~8s")
+  é a própria falha que a skill existe para evitar (R2). Lekto/FSRS é **só exemplo-ouro** — o
+  modelo de 3 camadas e R1–R9 ficam codificados de forma agnóstica.
 
 ## Blast radius
 

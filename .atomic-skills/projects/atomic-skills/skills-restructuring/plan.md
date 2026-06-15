@@ -23,8 +23,10 @@ principles:
     body: cada task fecha só com evidência de um verifier shell/test/query.
   - id: P5
     title: design-brief não contamina
-    body: o brief define problema, fluxo, estados, dados e constraints verificáveis; nunca a solução visual.
+    body: silêncio só na forma visual (camada 1); o modelo de interação (camada 2) e a filosofia/quem-decide (camada 3) são especificados com valores concretos, em blocos obrigatórios por tela. O brief define problema, fluxo, estados, dados, comportamento e filosofia; nunca a solução visual. Spec — docs/design/design-brief-three-layer-briefing.md.
 glossary:
+  - term: três camadas
+    definition: o modelo da anti-contaminação do design-brief — (1) forma visual = silêncio (designer); (2) modelo de interação e (3) filosofia/quem-decide = especificados com valores concretos (produto). Spec em docs/design/design-brief-three-layer-briefing.md.
   - term: resident
     definition: bloco do corpo de uma skill carregado em toda invocação (e a cada turno em contexto).
   - term: promptframe
@@ -131,7 +133,7 @@ phases:
   - id: F5
     slug: skills-restructuring-f5-nova-skill-design-brief
     title: "Nova skill: design-brief"
-    goal: criar a skill design-brief que gera prompts DS-first e telas-consomem-DS, nascida enxuta, com os quatro aprendizados do dogfooding.
+    goal: criar a skill design-brief que gera prompts DS-first e telas-consomem-DS, nascida enxuta, ancorada no modelo de 3 camadas + R1–R9 (silêncio só no visual; interação e filosofia especificadas com valores concretos).
     dependsOn:
       - F4
     subPhaseCount: 5
@@ -143,7 +145,7 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: test -f skills/core/design-brief.md && test -f skills/shared/design-brief-assets/ds-prompt.md && test -f skills/shared/design-brief-assets/screens-prompt.md && test -f skills/shared/design-brief-assets/fixtures-recipe.md && test -f skills/shared/design-brief-assets/anti-contamination.md && grep -q 'design-brief-assets' skills/core/design-brief.md && npm run validate-skills
+            command: test -f skills/core/design-brief.md && test -f skills/shared/design-brief-assets/ds-prompt.md && test -f skills/shared/design-brief-assets/screens-prompt.md && test -f skills/shared/design-brief-assets/fixtures-recipe.md && test -f skills/shared/design-brief-assets/anti-contamination.md && grep -q 'design-brief-assets' skills/core/design-brief.md && grep -qiE 'modelo de intera|filosofia|guardrail' skills/shared/design-brief-assets/screens-prompt.md && grep -qiE 'tr[eê]s camadas|3 camadas|substituir' skills/shared/design-brief-assets/anti-contamination.md && npm run validate-skills
             expectExitCode: 0
     status: pending
     summary: "Skill design-brief: gera prompts DS-first + telas-consomem-DS, sem contaminar o visual."
