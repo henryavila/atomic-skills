@@ -23,6 +23,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | quick-idea-capture | active | F1 | — | 2026-06-09 |
 | skills-restructuring | active | F0 | — | 2026-06-15 |
 | multiplan-focus-resolution | paused | F0 | — | 2026-06-15 |
+| design-brief-source-of-truth | active | F0 | plan/skills-restructuring | 2026-06-15 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |

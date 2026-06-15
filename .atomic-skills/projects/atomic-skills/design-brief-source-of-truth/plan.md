@@ -1,0 +1,129 @@
+---
+schemaVersion: "0.1"
+slug: design-brief-source-of-truth
+title: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
+version: "1.0"
+status: active
+started: 2026-06-15T19:46:08.157Z
+lastUpdated: 2026-06-15T17:00:00.000Z
+branch: plan/skills-restructuring
+currentPhase: F0
+parallelismAllowed: false
+principles:
+  - id: P1
+    title: Eixo de IA puro
+    body: o catálogo nunca descreve interação (camada 2) nem forma visual (camada
+      1); só público, acesso, propósito, status e proveniência.
+  - id: P2
+    title: Nunca escolher no silêncio
+    body: divergência entre artefato e código vai ao operador com proveniência;
+      resolução nunca é automática.
+  - id: P3
+    title: Read-only sobre artefatos humanos
+    body: a resolução grava no catálogo, jamais muta brainstorms ou plano.
+  - id: P4
+    title: Reconstrução primeiro
+    body: quando o catálogo está ausente ou stale, a reconstrução roda antes do Step
+      2 consumir; route-Glob ao vivo é legado opt-in, nunca o default.
+  - id: P5
+    title: Desenhado para extração
+    body: passo isolado e formato standalone, de modo que promover a skill `app-map`
+      seja mecânico.
+glossary: []
+phases:
+  - id: F0
+    slug: design-brief-source-of-truth-f0-schema-e-validacao-do-catalogo
+    title: Schema e validação do catálogo
+    goal: estabelecer o contrato persistido do catálogo — schema JSON, validação na
+      emissão e cobertura pelo validate-state — antes de qualquer reconstrução
+      consumi-lo.
+    dependsOn: []
+    subPhaseCount: 3
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: G-1
+          description: schema compila, o validador emit-time rejeita catálogo malformado,
+            e o validate-state cobre o catálogo durável.
+          status: pending
+          verifier:
+            kind: manual
+            description: Verify exit-gate prose with the user during phase-done.
+    status: active
+    summary: "Fecha o contrato do catálogo: schema, validação na emissão e cobertura
+      pelo validate-state."
+  - id: F1
+    slug: design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo
+    title: Reconstrução (artefato e código) e reconciliação
+    goal: gerar o catálogo cruzando artefatos e código, com regime por-página e
+      inputsHash de staleness, nunca resolvendo conflito no silêncio.
+    dependsOn:
+      - F0
+    subPhaseCount: 4
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: G-1
+          description: o catálogo sai com existence, conflicts, regime e inputsHash;
+            nenhum conflito é resolvido automaticamente.
+          status: pending
+          verifier:
+            kind: manual
+            description: Verify exit-gate prose with the user during phase-done.
+    status: pending
+    summary: Constrói o motor que cruza artefato e código e gera o catálogo com
+      regime e staleness.
+  - id: F2
+    slug: design-brief-source-of-truth-f2-integracao-no-design-brief
+    title: Integração no design-brief
+    goal: o design-brief consome o catálogo com reconstrução-primeiro, comuta o R2
+      por regime, e persiste o catálogo na árvore do app-alvo.
+    dependsOn:
+      - F1
+    subPhaseCount: 3
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: G-1
+          description: o design-brief consome o catálogo, o R2 comuta por regime, e o
+            catálogo persiste no app-alvo passando pela validação emit-time.
+          status: pending
+          verifier:
+            kind: manual
+            description: Verify exit-gate prose with the user during phase-done.
+    status: pending
+    summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistência
+      no app-alvo."
+references: []
+---
+
+# design-brief: reconstrução da fonte-de-verdade (catálogo app-map)
+
+## 1. Context
+
+Enriquece o `design-brief` com uma fase de reconstrução da superfície de páginas que cruza artefatos e código, emite um catálogo de IA persistido (`app-map.json`), e é desenhada para extração futura numa skill `app-map`. Fonte de verdade: o `design.md` aprovado deste plano.
+
+## 2. Inviolable principles
+
+- **P1 Eixo de IA puro** — o catálogo nunca descreve interação (camada 2) nem forma visual (camada 1); só público, acesso, propósito, status e proveniência.
+- **P2 Nunca escolher no silêncio** — divergência entre artefato e código vai ao operador com proveniência; resolução nunca é automática.
+- **P3 Read-only sobre artefatos humanos** — a resolução grava no catálogo, jamais muta brainstorms ou plano.
+- **P4 Reconstrução primeiro** — quando o catálogo está ausente ou stale, a reconstrução roda antes do Step 2 consumir; route-Glob ao vivo é legado opt-in, nunca o default.
+- **P5 Desenhado para extração** — passo isolado e formato standalone, de modo que promover a skill `app-map` seja mecânico.
+
+## 3. Phase tree
+
+_(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: N/A — o plano decompõe o `design.md` aprovado; claims sobre código existente vivem no design (com `verified_by:`). Nenhuma asserção nova sobre código existente.
+- **G2 soft-language**: ban-list scaneado no plano + iniciativas → 0 ocorrências.
+- **G6 reference-or-strike**: cada task carrega Files/acceptance/scopeBoundary/verifier determinístico; o WHY vive no design referenciado.
+- **Codex review (Stage 8b)**: needs_changes (0B/2C/3M) → todos os 5 endereçados (ver `## Reviews`).
+
+## Reviews
+
+- DESIGN rev1 (both): `.atomic-skills/reviews/2026-06-15-1543-design-brief-source-of-truth.md` — 1B/2C/3M, 6 fixes.
+- DESIGN rev2 (codex): `.atomic-skills/reviews/2026-06-15-1620-design-brief-source-of-truth-rev2.md` — 0B/0C/5M, revisão de contrato.
+- PLAN (codex, Stage 8b): `.atomic-skills/reviews/2026-06-15-1658-design-brief-source-of-truth-plan.md` — 0B/2C/3M, 5 fixes aplicados.
