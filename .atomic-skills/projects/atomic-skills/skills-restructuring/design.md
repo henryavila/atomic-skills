@@ -30,10 +30,12 @@ não auditava planos materializados do `project` contra spec/estrutura/código.
 - **D3 — Dependência cross-fase F3 → F1.** O `verifier-exec.md` compartilhado nasce na
   F1/P4; a F3 (verify-claim aponta pra ele) depende disso (catch 2).
 - **D4 — `design-brief`:** saída = prompts markdown (casa com o handoff atual); fonte =
-  auto-detecta código existente + plano `project`, **minerando do código os parâmetros
-  comportamentais** (timers/debounces, contagens, comprimentos, modalidade, gatilhos,
-  o-que-fica-oculto — R2) e completando lacunas via **auditoria de omissão interativa** (R3)
-  com o operador; estratégia = **DS-first + telas
+  **código existente + a intenção de produto** (entrada explícita, §1) + plano `project`,
+  **minerando do código os parâmetros comportamentais** (timers/debounces, contagens,
+  comprimentos, modalidade, gatilhos, o-que-fica-oculto — R2) e completando lacunas via
+  **auditoria de omissão interativa** (R3) com o operador, **parando para perguntar** quando
+  intenção de produto, fronteira humano×sistema, decisões ocultas do domínio ou anti-padrões
+  proibidos não forem deriváveis dos artefatos; estratégia = **DS-first + telas
   consomem o DS herdado** (mecanismo confirmado: herança automática, export carrega cópia,
   consume-não-redeclara); **1 template no DS** (não um set — templates compostos pelo DS
   são inferiores aos do projeto consumidor); skill nasce enxuta (corpo fino + assets lazy,

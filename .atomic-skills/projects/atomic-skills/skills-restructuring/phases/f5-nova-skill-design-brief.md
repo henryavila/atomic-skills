@@ -31,7 +31,13 @@ exitGates:
         intera|filosofia|guardrail'
         skills/shared/design-brief-assets/screens-prompt.md && grep -qiE 'tr[eê]s
         camadas|3 camadas|substituir'
-        skills/shared/design-brief-assets/anti-contamination.md && npm run
+        skills/shared/design-brief-assets/anti-contamination.md && grep -qiE 'sinaliz'
+        skills/shared/design-brief-assets/screens-prompt.md && grep -qiE
+        'reais|seeder|produ' skills/shared/design-brief-assets/fixtures-recipe.md && grep
+        -qiE 'aceita|checklist'
+        skills/shared/design-brief-assets/anti-contamination.md && ! grep -rqE '(Bash
+        tool|Read tool|Write tool|Grep tool|Glob tool|Edit tool)'
+        skills/core/design-brief.md skills/shared/design-brief-assets/ && npm run
         validate-skills
       expectExitCode: 0
     verifierLabel: "shell: test -f skills/core/design-brief.md && test -f skills/share…"
@@ -48,11 +54,15 @@ tasks:
     summary: Corpo enxuto da skill design-brief
     description: "Criar o corpo fino da skill com a Iron Law anti-contaminação (modelo
       de 3 camadas: silêncio só no visual; interação + filosofia especificadas), o fluxo
-      DS-first, auto-detecção de fonte + mineração dos parâmetros comportamentais do
-      código (R2: timers/contagens/comprimentos/modalidade/gatilhos/o-que-fica-oculto) e a
-      auditoria de omissão interativa por tela (R3), a fixação do idioma de saída (pt-BR ou
-      a língua configurada) e ponteiros para os assets lazy. Arquivos:
-      skills/core/design-brief.md"
+      DS-first, o contrato de entrada (código existente + a intenção de produto, §1, +
+      plano project), o inventário de telas (rotas/views) com coverage ledger, a mineração
+      dos parâmetros comportamentais do código (R2:
+      timers/contagens/comprimentos/modalidade/gatilhos/o-que-fica-oculto) e a auditoria de
+      omissão interativa por tela (R3) — com parada/pergunta ao operador quando uma tela
+      fica sem classificação ou quando intenção/filosofia/anti-padrão não são deriváveis —,
+      a fixação do idioma de saída (pt-BR ou a língua configurada), o uso das variáveis de
+      tool-abstraction (sem hardcodar nomes de ferramenta) e ponteiros para os assets lazy.
+      Arquivos: skills/core/design-brief.md"
     scopeBoundary:
       - não embutir os esqueletos de prompt nem a recipe de fixtures no corpo;
         eles vivem em assets.
@@ -62,13 +72,21 @@ tasks:
       - o corpo enumera a lista de mineração R2 (timers/contagens/comprimentos/
         modalidade/gatilhos/o-que-fica-oculto) e a pergunta da auditoria R3.
       - o corpo fixa o idioma de saída do prompt gerado: pt-BR ou a língua configurada.
+      - o contrato de entrada inclui a intenção de produto (§1) e para/pergunta quando
+        intenção, fronteira humano×sistema, decisões ocultas ou anti-padrões não derivam
+        dos artefatos.
+      - o corpo exige inventário de telas + coverage ledger e para/pergunta quando uma
+        tela fica sem classificação (§7 nenhuma tela de fora).
+      - os .md da skill usam variáveis de tool-abstraction ({{BASH_TOOL}} etc.) e não
+        hardcodam nomes de ferramenta.
     verifier:
       kind: shell
       command: test -f skills/core/design-brief.md && grep -qiE
         'anti-contamin|DS-first|herdado' skills/core/design-brief.md && grep -qiE
         'omiss|tr[eê]s camadas|3 camadas' skills/core/design-brief.md && grep -qiE
         'modalidade|gatilho' skills/core/design-brief.md && grep -qiE 'pt-BR|l[ií]ngua'
-        skills/core/design-brief.md
+        skills/core/design-brief.md && grep -qiE 'inten[çc]' skills/core/design-brief.md
+        && grep -qiE 'invent|coverage|cobertura' skills/core/design-brief.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -142,9 +160,10 @@ tasks:
     status: pending
     lastUpdated: 2026-06-15T13:53:44.618Z
     summary: Assets de fixtures state-aware e anti-contaminação
-    description: "Criar (a) a recipe de fixtures state-aware (cardinalidade,
-      comprimento, distribuição, edge-rows) que carrega a TEXTURA — a brevidade do
-      conteúdo no momento da decisão é parte do dado (R8); e (b) o asset
+    description: "Criar (a) a recipe de fixtures state-aware de DADOS REAIS do app
+      (seeders/testes/conteúdo de produção; cardinalidade, comprimento, distribuição,
+      edge-rows) que carrega a TEXTURA — a brevidade do conteúdo no momento da decisão é
+      parte do dado (R8); sintético só como fallback explícito; e (b) o asset
       anti-contamination com o modelo de 3 camadas (silêncio só no visual; interação +
       filosofia especificadas), a tabela DEFINE/DECIDE, a regra substituir-nunca-deletar
       (R7), a auditoria de omissão (R3) e o checklist de aceitação por tela (§6 — a
@@ -154,12 +173,15 @@ tasks:
       skills/shared/design-brief-assets/fixtures-recipe.md,
       skills/shared/design-brief-assets/anti-contamination.md"
     scopeBoundary:
-      - fixtures sintéticos sem PII; o checklist converte requisito visual em
-        constraint, nunca em solução.
+      - fixtures de dados REAIS (seeders/testes/conteúdo de produção), com PII
+        anonimizada/redigida; sintético só como fallback explícito aprovado pelo operador.
+        O checklist converte requisito visual em constraint, nunca em solução.
       - codificar 3 camadas + R1–R9 de forma agnóstica; Lekto/FSRS só como exemplo-ouro.
     acceptance:
       - ambos os assets existem
       - a recipe cita cardinalidade e edge-rows
+      - a recipe usa dados REAIS do app (não sintéticos por padrão), com a textura
+        preservada (R8).
       - o anti-contamination cita as 3 camadas e a regra substituir-nunca-deletar
       - o anti-contamination inclui o checklist de aceitação por tela (auto-verificação §6).
     verifier:
@@ -167,6 +189,8 @@ tasks:
       command: test -f skills/shared/design-brief-assets/fixtures-recipe.md && test -f
         skills/shared/design-brief-assets/anti-contamination.md && grep -qiE
         'cardinalidade|edge'
+        skills/shared/design-brief-assets/fixtures-recipe.md && grep -qiE
+        'reais|seeder|produ'
         skills/shared/design-brief-assets/fixtures-recipe.md && grep -qiE 'tr[eê]s
         camadas|3 camadas|substituir'
         skills/shared/design-brief-assets/anti-contamination.md && grep -qiE
@@ -225,6 +249,13 @@ Initiative for phase **F5 — Nova skill: design-brief**.
   (screens-prompt ganha os dois blocos obrigatórios + R3/R4/R5/R6), T5.4 (anti-contamination =
   3 camadas + DEFINE/DECIDE + R7; fixtures carregam a textura/R8). Verifiers reforçados para
   grepar os blocos novos (Modelo de interação / Filosofia / 3 camadas / substituir).
+- **2026-06-15 — review cross-model (codex gpt-5-codex, both) aplicada.** 5 majors absorvidos:
+  inventário de telas + coverage ledger (§7); fixtures de dados REAIS, não sintéticos (R8);
+  intenção de produto como input explícito + parada interativa (§1, D4/T5.1); tool-abstraction
+  obrigatória nos .md (grep negativo no gate); gate reforçado (stop-and-signal, fixtures reais,
+  checklist §6). Ver `.atomic-skills/reviews/2026-06-15-1251-skills-restructuring-design-brief-3layer.md`.
+  Limite reconhecido: os greps do gate são **necessários-não-suficientes** — a codificação fiel
+  de R1–R9/§4/§6 é selada pela **review Opus no phase-done**, não por grep.
 
 ## Links
 
