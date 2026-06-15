@@ -23,7 +23,7 @@ spec: `docs/design/design-brief-three-layer-briefing.md` (three-layer model + R1
 | Layer | Examples | Owner | In the prompt |
 |---|---|---|---|
 | **1. Visual form** | colour, radius, shadow, which widget, spacing, typography | design agent | **silence** |
-| **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, parity | **product** | **specify, concrete** |
+| **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, reversibility, parity | **product** | **specify, concrete** |
 | **3. Philosophy / who decides** | human × system; what stays hidden | **product** | **binding guardrail** |
 
 ## Process
@@ -67,9 +67,11 @@ Close the gaps with the **interactive omission audit (R3)**, per screen:
 
 ### 5. Emit the prompts (output language: pt-BR or the configured language)
 
-Compose the prompts from the lazy assets. **Every generated prompt ships in pt-BR (or the
-install-configured language)** — never an ad-hoc guess. Before delivering, run the per-screen
-acceptance checklist (§6) from the anti-contamination asset.
+Compose the prompts from the lazy assets and **emit each as a markdown file** in the existing
+handoff format (see `docs/design/claude-design-handoff/`), so the design agent can consume
+them. **Every generated prompt ships in pt-BR (or the install-configured language)** — never
+an ad-hoc guess. Before delivering, run the per-screen acceptance checklist (§6) from the
+anti-contamination asset.
 
 ## Assets (lazy — read on demand from `skills/shared/design-brief-assets/`)
 

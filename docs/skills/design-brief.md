@@ -36,8 +36,6 @@ Generate the two design prompts (Design System, then screens that consume the in
 
 ## Metadata
 
-**Dependencies:** `git`
-
 **Related:** `brainstorm`, `project`
 
 **Tags:** `design`, `prompts`, `anti-contamination`, `core`

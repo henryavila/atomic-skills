@@ -740,7 +740,6 @@ core:
         kind: positional
         required: false
         description: 'The target app/scope (repo path + product intent). If omitted, the skill asks interactively.'
-    dependencies: [git]
     schema_version: '0.2'
 
   debate:

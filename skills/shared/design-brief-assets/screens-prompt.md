@@ -31,6 +31,9 @@ interaction:
      *timings* (pace in seconds, default timers), *counts* (how many levels/items),
      *triggers* (only after X), *reversibility* (forgives an accidental touch),
      *parity* (mobile-gesture ↔ desktop-keyboard, equally fast).
+   - **Forbidden vocabulary (R4):** never name a button / list / tab / bar / card-UI /
+     heatmap / chip / modal, and never describe colour / border / shadow / spacing — those
+     are layer-1 form, the design agent's to choose. Naming any of them is contamination.
 5. **Philosophy / guardrails** *(mandatory)* — the **human × system** axis (which decision is
    human judgement, which is the system's technical/hidden call), **what stays hidden**, and
    the **forbidden anti-pattern named** for risky screens (R6). A system decision must never

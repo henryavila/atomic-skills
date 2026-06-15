@@ -273,7 +273,6 @@ export const SKILLS: Skill[] = [
     args: [
       { name: "scope", kind: "positional", required: false, description: "The target app/scope (repo path + product intent). If omitted, the skill asks interactively." },
     ],
-    dependencies: ["git"],
     related: ["brainstorm", "project"],
     tags: ["design", "prompts", "anti-contamination", "core"],
   },

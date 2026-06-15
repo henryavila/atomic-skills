@@ -318,3 +318,17 @@ Initiative for phase **F5 — Nova skill: design-brief**.
 - Spec canônica (vendorizada no repo): `docs/design/design-brief-three-layer-briefing.md`
 - Proveniência (origem externa): `~/lekto/docs/design/2026-06-15-instrucoes-skill-gerador-de-prompt-de-telas.md`
 - Formato-alvo de saída: `docs/design/claude-design-handoff/`
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: cada task fechada linka seu deliverable em `outputs[]`; a review
+  de phase-done leu cada arquivo modificado + a spec citada antes de cada finding.
+- **G2 soft-language**: claims de conclusão carregam `evidence.passed: true`; sem soft-language.
+- **G6 reference-or-strike**: F5-G1 carrega `evidence` de um run real do gate (exit 0).
+- **Review (gate de phase-done)**: `review-code --mode=local` em `36a6e16..HEAD` (escopo nos
+  arquivos-deliverable). Verdict `findings_exist`, **4 minor** (0 blocker/critical/major), todos
+  aplicados: (#1) "reversibility" restaurada na tabela de 3 camadas do corpo; (#2) lista
+  enumerada de widgets proibidos (R4) restaurada no screens-prompt — anti-abstração; (#3)
+  `dependencies:[git]` não-usada removida; (#4) corpo explicita a saída em markdown (justifica
+  `mutates_repo:true`). Gates re-verdes após os fixes.
+- **Codex review**: não executada (gate local-only por opção do operador).
