@@ -283,4 +283,4 @@ Etapas 1–2 entregam frescor "real" (write-through + hooks); 3 já mostra algo;
 | D3 | Default do chip no claudebar | `on` (no-op quando ausente) |
 | D4 | Largura máx do slug | 18 chars + `…` |
 | D5 | Mostrar `nextAction` no chip | **não** (longo demais; fica só no dashboard/no-arg `project`) |
-| D6 | Sinalizar `multipleActivePlans` visualmente | **não** no v1 (só no digest) |
+| D6 | Sinalizar `multipleActivePlans` visualmente | **sim** — glifo `⧉` (mostra 1 de vários; sinaliza violação do invariante "≤1 plano ativo por branch/worktree") |
