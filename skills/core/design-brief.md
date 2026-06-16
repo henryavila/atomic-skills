@@ -38,10 +38,23 @@ ask** the operator via {{ASK_USER_QUESTION_TOOL}} before generating anything.
 
 ### 2. Screen inventory + coverage ledger (§7 — no screen left out)
 
-Use {{GLOB_TOOL}}/{{GREP_TOOL}} to enumerate the app's routes/views/screens and build a
-**coverage ledger** (each screen → classified / pending). **Stop and ask** when a screen
-stays unclassified — no screen is left out; each ships with all its states, in mobile/desktop
-and light/dark.
+Run reconstruction first with {{BASH_TOOL}}: `node scripts/app-map-reconstruct.js <appRoot> --delta`.
+This happens before consuming the catalog and before any live route enumeration.
+
+Use the delta as the divergence list that needs operator arbitration. For each delta item,
+ask with {{ASK_USER_QUESTION_TOOL}}, then persist with {{BASH_TOOL}}:
+`node scripts/app-map-reconstruct.js <appRoot> --persist`.
+
+Consume the catalog's `pages` to build the **coverage ledger**: each page is recorded by
+`existence` (`confirmed`, `artefact-only`, `code-only`, `possible-alias`) and any remaining
+divergences/conflicts. A page whose `audience` or `accessTier` is `null` is a **stop and ask**
+signal, never a silent default. No screen is left out; each ships with all its states, in
+mobile/desktop and light/dark.
+
+Legacy fallback only: live route-Glob enumeration with {{GLOB_TOOL}}/{{GREP_TOOL}} is
+legacy opt-in and never the default. Reconstruction-first is the default in Revisão 2
+because the catalog juxtaposes code, artefacts, and operator arbitration; live code alone
+is one witness, not the source of truth.
 
 ### 3. DS-first — the DS is built separately, screens consume the inherited one
 
