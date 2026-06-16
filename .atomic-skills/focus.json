@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T16:55:12.163Z",
+  "generatedAt": "2026-06-16T17:55:07.668Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "design-brief-source-of-truth",
-    "title": "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
     "status": "active"
   },
   "phase": {
-    "id": "F2",
-    "slug": "design-brief-source-of-truth-f2-integracao-no-design-brief",
-    "title": "Integração no design-brief",
-    "index": 3,
-    "total": 3,
+    "id": "F0",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+    "index": 1,
+    "total": 1,
     "status": "active"
   },
   "tasks": {
-    "done": 3,
-    "total": 3,
+    "done": 4,
+    "total": 6,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "F2 implementação COMPLETA (3/3 tasks done, verificados). Rodar `atomic-skills:project phase-done` para exit-gate G-1 + review-code + lessons + advance (opt-in do operador — NÃO auto-rodado).",
+  "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md",
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/plan.md",
       "lastUpdated": "2026-06-16T12:00:18Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f2-integracao-no-design-brief.md",
-      "lastUpdated": "2026-06-16T16:48:03Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     }
   ]
 }

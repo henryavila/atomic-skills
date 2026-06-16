@@ -4,31 +4,43 @@ slug: design-brief-source-of-truth-f2-integracao-no-design-brief
 title: Integração no design-brief
 goal: o design-brief consome o catálogo com reconstrução-primeiro, comuta o R2
   por regime, e persiste o catálogo na árvore do app-alvo.
-status: active
+status: done
 branch: plan/design-brief
 started: 2026-06-16T15:34:48Z
-lastUpdated: 2026-06-16T16:48:03Z
-nextAction: "F2 implementação COMPLETA (3/3 tasks done, verificados). Rodar
-  `atomic-skills:project phase-done` para exit-gate G-1 + review-code + lessons
-  + advance (opt-in do operador — NÃO auto-rodado)."
+lastUpdated: 2026-06-16T17:51:24Z
+nextAction: null
 parentPlan: design-brief-source-of-truth
 phaseId: F2
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-1
     description: o design-brief consome o catálogo (reconstrução-primeiro), o R2
       comuta por regime, e o catálogo persiste no app-alvo passando pela
       validação emit-time.
-    status: pending
+    status: met
+    metAt: 2026-06-16T17:51:24Z
     verifier:
       kind: shell
       command: node --test test/app-map/reconstruct.test.js
         test/app-map/design-brief-step2.test.js
         test/app-map/design-brief-r2.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T17:51:24Z
+      exitCode: 0
+      passed: true
+      testsCollected: 16
+      outputSummary: "node --test reconstruct.test.js design-brief-step2.test.js
+        design-brief-r2.test.js (árvore primária, pós review-fixes f265aff) —
+        tests 16, pass 16, fail 0. Cobre: §2 reconstrução-primeiro, §4 R2 por
+        regime, persist+emit-time validation, e a proveniência honesta do
+        conflito (review #1 corrigido). Review gate local passed (0B/0C;
+        2maj+3min: 3 corrigidos, #2/#3 → idea #3)."
     verifierLabel: "shell: node --test test/app-map/reconstruct.test.js test/app-map/d…"
+    evidenceSummary: passed · 16 tests · 2026-06-16
 stack:
   - id: 1
     title: Integração no design-brief
@@ -246,3 +258,24 @@ Initiative for phase **F2 — Integração no design-brief**. Materializada no p
   são testes estruturais de âncoras (incl. ordenação + camada-1 verbatim) — provam
   a INTEGRAÇÃO, não a qualidade redacional. Esta fica para o `review-code` no
   `phase-done` (G2 da gate de fase). Pendente até o operador rodar `phase-done`.
+
+## Self-review against code-quality gates (phase-done — F2)
+
+- **G1 read-before-claim**: 3 tasks fechadas, cada uma com `evidence` ligando ao
+  run real na árvore primária merjada (T-001 6/6, T-002 4/4, T-003 3/3; exit-gate
+  combinado 16/16 pós review-fixes). Findings do review verificados lendo o
+  `file:line` citado antes de aplicar/deferir.
+- **G2 soft-language**: completion claims são `passed: true` (exit 0 + testsCollected>0);
+  `nextAction` e descrições escaneadas — 0 ocorrências da ban-list.
+- **G6 reference-or-strike**: exit-gate G-1 met com `evidence` populada; literais do
+  handoff são caminhos/comandos/shas verbatim.
+- **Review gate (G2)**: `reviewGate: { status: passed, at: f265aff…, mode: local }`
+  no descritor da fase F2 (plan.md). Modo `local` porque o diff é aditivo
+  (DESTRUCTIVE=false). Verdito: 0B/0C/2maj/3min → 3 corrigidos na fase (#1 major,
+  #4/#5 minor, commit `f265aff`, +3 testes), #2 (major) + #3 (minor) deferidos por
+  exigirem decisão de design → **idea #3** no inbox. Review file:
+  `.atomic-skills/reviews/2026-06-16-1702-design-brief-source-of-truth-f2.md`.
+- **Lessons (G1)**: 2 destiladas (L-001 proveniência-por-posição — corrigida +
+  testada; L-002 descritor binário descarta N — deferida) em
+  `lessons/design-brief-source-of-truth-f2-integracao-no-design-brief.md`, ambas
+  reusable, ratificadas pelo operador. Não é fase limpa — houve sinal de falha real.

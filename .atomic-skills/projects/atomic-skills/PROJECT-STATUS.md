@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-06-16T12:00:18Z
+lastUpdated: 2026-06-16T17:51:24Z
 schemaVersion: '0.1'
-activePlans: 4
-activeInitiatives: 4
-archivedCount: 0
+activePlans: 3
+activeInitiatives: 3
+archivedCount: 1
 ---
 
 # Project Status Index
@@ -23,7 +23,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | quick-idea-capture | archived | F1 | — | 2026-06-09 |
 | skills-restructuring | active | F0 | plan/skills-restructuring | 2026-06-15 |
 | multiplan-focus-resolution | active | F0 | plan/multiplan-focus | 2026-06-15 |
-| design-brief-source-of-truth | active | F2 | plan/design-brief | 2026-06-15 |
+| design-brief-source-of-truth | archived | F2 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
@@ -40,7 +40,9 @@ _(none)_
 
 ## Recently Archived (last 10)
 
-_(empty)_
+| Slug | Archived | Phases | Notes |
+|------|----------|--------|-------|
+| design-brief-source-of-truth | 2026-06-16 | F0·F1·F2 (3/3 done) | Catálogo app-map: schema 0.2, reconstrução justapor+confirmação, integração no design-brief (Step 2 reconstrução-primeiro + R2 por regime). Follow-up: idea #3 (descritor de conflito rico + canal CLI). |
 
 ## Ad-Hoc Sessions Log (last 5)
 

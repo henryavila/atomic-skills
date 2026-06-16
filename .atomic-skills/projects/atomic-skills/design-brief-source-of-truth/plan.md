@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: design-brief-source-of-truth
 title: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-16T12:00:18Z
+lastUpdated: 2026-06-16T17:51:24Z
 branch: plan/design-brief
 currentPhase: F2
 parallelismAllowed: false
@@ -70,8 +70,8 @@ phases:
     slug: design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo
     title: Reconstrução (justapor + confirmação-por-divergência)
     goal: gerar o catálogo coletando candidatos de código + artefatos, justapondo
-      sem reconciliar no silêncio; operador arbitra só o delta; persistência como
-      memória-de-decisão (evidenceHash por-página).
+      sem reconciliar no silêncio; operador arbitra só o delta; persistência
+      como memória-de-decisão (evidenceHash por-página).
     dependsOn:
       - F0
     subPhaseCount: 5
@@ -92,10 +92,11 @@ phases:
             verifiedAt: 2026-06-16T15:18:21Z
             passed: true
             outputSummary: Confirmado pelo operador no phase-done sobre a evidência
-              determinística (exit-gate shell 26/26, exit 0 em 6bfdc3c) — diverge
-              poisoned/multi-convenção, code-scan greenfield→[], persist evidenceHash
-              por-página + re-run zero-delta. Review local both-not-needed (diff aditivo);
-              1 critical + 4 major endereçados (review 2026-06-16-1518).
+              determinística (exit-gate shell 26/26, exit 0 em 6bfdc3c) —
+              diverge poisoned/multi-convenção, code-scan greenfield→[], persist
+              evidenceHash por-página + re-run zero-delta. Review local
+              both-not-needed (diff aditivo); 1 critical + 4 major endereçados
+              (review 2026-06-16-1518).
     reviewGate:
       status: passed
       at: 6bfdc3c1dfadb9a3e88d567bf710c721d9573301
@@ -119,15 +120,30 @@ phases:
         - id: G-1
           description: o design-brief consome o catálogo, o R2 comuta por regime, e o
             catálogo persiste no app-alvo passando pela validação emit-time.
-          status: pending
+          status: met
+          metAt: 2026-06-16T17:51:24Z
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-16T17:51:24Z
+            passed: true
+            outputSummary: Confirmado pelo operador no phase-done sobre a evidência
+              determinística da iniciativa (exit-gate shell 16/16, exit 0 em f265aff)
+              — §2 reconstrução-primeiro, §4 R2 por regime, persist+emit-time
+              validation. Review gate local passed (0B/0C/2maj/3min; 3 corrigidos,
+              #2/#3→idea #3). Review 2026-06-16-1702.
+    reviewGate:
+      status: passed
+      at: f265aff6f7ce2da37e3aabbbc41dc1e24d30a0d4
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1702-design-brief-source-of-truth-f2.md
+      verifiedAt: 2026-06-16T17:02:00Z
+    status: done
     summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistência
       no app-alvo."
 references: []
-planActive: true
 planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
 ---
 
