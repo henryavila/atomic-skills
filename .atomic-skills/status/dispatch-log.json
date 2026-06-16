@@ -94,5 +94,21 @@
     "finishedAt": "2026-06-16T01:08:41Z",
     "codexWorktreeRef": "codex/db-t001",
     "routingReason": "lane on (routing.json) + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary ac117c4 (node --test 4/4)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T01:09:00Z",
+    "finishedAt": "2026-06-16T01:16:11Z",
+    "codexWorktreeRef": "codex/db-t002",
+    "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; seeded off post-T-001 HEAD (schema present); re-verified on merged primary aeaa60a (node --test 2/2)"
   }
 ]
