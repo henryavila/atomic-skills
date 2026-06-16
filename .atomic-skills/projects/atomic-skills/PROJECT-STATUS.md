@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-06-16T12:00:18Z
+lastUpdated: 2026-06-16T13:08:36Z
 schemaVersion: '0.1'
-activePlans: 4
-activeInitiatives: 4
+activePlans: 3
+activeInitiatives: 3
 archivedCount: 0
 ---
 
@@ -22,7 +22,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 |------|--------|---------------|--------|---------|
 | quick-idea-capture | archived | F1 | — | 2026-06-09 |
 | skills-restructuring | active | F0 | plan/skills-restructuring | 2026-06-15 |
-| multiplan-focus-resolution | active | F0 | plan/multiplan-focus | 2026-06-15 |
+| multiplan-focus-resolution | archived | — | plan/multiplan-focus | 2026-06-15 |
 | design-brief-source-of-truth | active | F1 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
@@ -40,7 +40,7 @@ _(none)_
 
 ## Recently Archived (last 10)
 
-_(empty)_
+- **multiplan-focus-resolution** (2026-06-16) — foco determinístico multi-plano + enforcer worktree-por-plano. F0 done (6/6), gate met, reviewGate passed.
 
 ## Ad-Hoc Sessions Log (last 5)
 

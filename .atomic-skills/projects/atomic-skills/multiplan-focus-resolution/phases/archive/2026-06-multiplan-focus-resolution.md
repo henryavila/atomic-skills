@@ -4,7 +4,7 @@ slug: multiplan-focus-resolution
 title: Resolução de foco em camadas + enforcer worktree-por-plano
 goal: Tornar o foco da statusline determinístico com mais de um plano ativo, via
   resolução em camadas e um enforcer que isola planos concorrentes em worktrees.
-status: done
+status: archived
 branch: plan/multiplan-focus
 started: 2026-06-15T19:42:12Z
 lastUpdated: 2026-06-16T13:08:36Z

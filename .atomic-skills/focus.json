@@ -1,43 +1,16 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T13:06:33.303Z",
-  "projectId": "atomic-skills",
-  "plan": {
-    "slug": "multiplan-focus-resolution",
-    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
-    "status": "active"
-  },
-  "phase": {
-    "id": "F0",
-    "slug": "multiplan-focus-resolution",
-    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
-    "index": 1,
-    "total": 1,
-    "status": "active"
-  },
-  "tasks": {
-    "done": 6,
-    "total": 6,
-    "blocked": 0
-  },
-  "gates": {
-    "met": 0,
-    "total": 1
-  },
-  "nextAction": "Todas as 6 tasks done. Rodar `phase-done` para executar a exit gate F0-G1 (kind:manual — validar com o usuário foco determinístico com 2+ planos ativos + enforcer oferece/força worktree) e o review-code do diff da fase, depois avançar/arquivar o plano. Usuário opta in (intrusive-actions).",
+  "generatedAt": "2026-06-16T13:20:05.053Z",
+  "projectId": null,
+  "plan": null,
+  "phase": null,
+  "tasks": null,
+  "gates": null,
+  "nextAction": null,
   "flags": {
     "drift": false,
     "multipleActivePlans": false,
-    "unclaimedBranch": false
+    "unclaimedBranch": true
   },
-  "sources": [
-    {
-      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/plan.md",
-      "lastUpdated": "2026-06-16T12:00:18Z"
-    },
-    {
-      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
-      "lastUpdated": "2026-06-16T13:00:00Z"
-    }
-  ]
+  "sources": []
 }
