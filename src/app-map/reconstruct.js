@@ -95,13 +95,23 @@ function provenanceForPage(page) {
   return provenance;
 }
 
-function conflictForField(field, aggregate) {
-  const values = uniqueSorted((aggregate.sources ?? []).map((source) => source.value));
-  const evidence = uniqueSorted((aggregate.sources ?? []).map((source) => sourceLabel(source.source))).join(', ');
+// Atribui artefactValue/codeValue pela PROVENIÊNCIA real de cada testemunha, não
+// por posição alfabética: a testemunha de código é aquela cuja fonte casa o path
+// do codeEvidence da página; o resto é artefato. Como o code-scan (F1) não emite
+// audience/accessTier hoje, codeValue fica `null` (nenhuma testemunha de código) —
+// nunca um segundo valor de doc mascarado como código (review F2 #1, P2). Valores
+// de artefato além do primeiro só cabem no `evidence` agregado: o descritor de 2
+// slots do schema 0.2 não carrega N valores (review F2 #2 — emerge separado).
+function conflictForField(field, aggregate, codeEvidence) {
+  const sources = aggregate.sources ?? [];
+  const codePath = codeEvidence?.path ?? null;
+  const codeTuple = codePath ? sources.find((source) => source.source?.path === codePath) : null;
+  const artefactValues = uniqueSorted(sources.filter((source) => source !== codeTuple).map((source) => source.value));
+  const evidence = uniqueSorted(sources.map((source) => sourceLabel(source.source))).join(', ');
   return {
     field,
-    artefactValue: values[0] ?? null,
-    codeValue: values[1] ?? null,
+    artefactValue: artefactValues[0] ?? null,
+    codeValue: codeTuple ? codeTuple.value : null,
     evidence: evidence || `${field} unresolved`,
     resolution: 'pending',
   };
@@ -110,13 +120,23 @@ function conflictForField(field, aggregate) {
 function conflictsForPage(page) {
   const conflicts = [];
   for (const [field, aggregate] of Object.entries(page.fields ?? {})) {
-    if (aggregate.status === 'conflict') conflicts.push(conflictForField(field, aggregate));
+    if (aggregate.status === 'conflict') conflicts.push(conflictForField(field, aggregate, page.codeEvidence));
   }
   return conflicts;
 }
 
 function toPageFact(page) {
-  if ('purpose' in page && 'provenance' in page && 'status' in page) return { ...page };
+  if ('purpose' in page && 'provenance' in page && 'status' in page) {
+    // Página já resolvida injetada pelo agente: ela DEVE trazer o descritor
+    // `evidence` cru — sem ele, buildCatalog hasheia `undefined` (≡ null) e todas
+    // essas páginas colapsam no mesmo evidenceHash, matando o sinal de staleness
+    // do reRunDelta (review F2 #4). Falha clara em vez de catálogo silenciosamente
+    // corrompido.
+    if (!page.evidence) {
+      throw new Error(`resolved page '${page.id}' is missing the evidence descriptor required for evidenceHash`);
+    }
+    return { ...page };
+  }
 
   return {
     id: page.id,

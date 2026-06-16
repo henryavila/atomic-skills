@@ -214,3 +214,52 @@ test('CLI prints delta JSON and persist writes the target catalog', async () => 
   assert.equal(catalog.projectId, basename(appRoot));
   assert.deepEqual(catalog.pages.map((p) => p.id), ['dashboard']);
 }));
+
+// Review F2 #1 — a persisted field-conflict must NOT fabricate a code witness.
+// Two docs disagree on Dashboard's audience; the code page (Dashboard.tsx) never
+// asserts audience, so codeValue must be null — not the second doc value mislabeled
+// as code. Mutation that reverts to positional `values[1]` makes codeValue
+// 'visitor' and fails this assert.
+test('a doc/doc field-conflict records codeValue=null, never a fabricated code witness', () => withApp((appRoot) => {
+  addRoute(appRoot, 'Dashboard');
+  addDoc(appRoot, 'a.md', ['Page: Dashboard', 'Audience: registered', ''].join('\n'));
+  addDoc(appRoot, 'b.md', ['Page: Dashboard', 'Audience: visitor', ''].join('\n'));
+
+  const result = computeReconstruction({ appRoot, projectId: 'demo' });
+  const { jsonPath } = persistReconstruction({ appRoot, projectId: 'demo', pages: result.pages });
+
+  const catalog = JSON.parse(readFileSync(jsonPath, 'utf8'));
+  const dashboard = catalog.pages.find((p) => p.id === 'dashboard');
+  const audienceConflict = dashboard.conflicts.find((c) => c.field === 'audience');
+  assert.ok(audienceConflict, 'the doc/doc audience disagreement is recorded as a conflict');
+  assert.equal(audienceConflict.codeValue, null, 'no code witness for audience → codeValue is null, not a second doc value');
+  assert.equal(audienceConflict.artefactValue, 'registered', 'artefactValue carries a real doc value');
+  assert.equal(dashboard.audience, null, 'an unresolved conflict forces audience null');
+}));
+
+// Review F2 #4 — an agent-injected resolved page lacking the raw `evidence`
+// descriptor must throw, not collapse to computeEvidenceHash(undefined).
+test('persistReconstruction throws on a resolved page missing its evidence descriptor', () => withApp((appRoot) => {
+  const resolved = {
+    id: 'x', label: 'X', purpose: 'The X page.', audience: null, accessTier: 'public',
+    status: 'built', regime: 'brownfield', existence: 'confirmed', provenance: {}, conflicts: [],
+    // no `evidence`
+  };
+  assert.throws(
+    () => persistReconstruction({ appRoot, projectId: 'demo', pages: [resolved] }),
+    /missing the evidence descriptor/,
+  );
+  assert.equal(existsSync(join(appRoot, '.atomic-skills', 'app-map', 'app-map.json')), false, 'nothing written on the throw');
+}));
+
+// Review F2 #5 — `--project-id` with no trailing value is an error, not a silent
+// basename fallback.
+test('CLI rejects --project-id with no value instead of silently using basename', async () => withApp(async (appRoot) => {
+  addRoute(appRoot, 'Dashboard');
+  addDoc(appRoot, 'map.md', ['Page: Dashboard', 'Audience: registered', 'Access: public', ''].join('\n'));
+
+  const result = await runCli([appRoot, '--persist', '--project-id']);
+  assert.equal(result.status, 1, 'missing --project-id value is a non-zero exit');
+  assert.match(result.stderr, /--project-id requires a non-empty value/);
+  assert.equal(existsSync(join(appRoot, '.atomic-skills', 'app-map', 'app-map.json')), false, 'nothing persisted on the arg error');
+}));

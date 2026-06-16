@@ -20,7 +20,12 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === '--project-id') {
-      projectId = args[i + 1];
+      // `--project-id` como último arg → args[i+1] é undefined; rejeitar junto com
+      // a string vazia, senão o flag mal-digitado cai silenciosamente no basename
+      // (review F2 #5).
+      const value = args[i + 1];
+      if (value === undefined || value === '') throw new Error('--project-id requires a non-empty value');
+      projectId = value;
       i += 1;
       continue;
     }
@@ -28,7 +33,6 @@ function parseArgs(argv) {
   }
 
   if (!appRoot || !mode) throw new Error(usage());
-  if (projectId === '') throw new Error('--project-id requires a non-empty value');
   return { appRoot, mode, projectId };
 }
 
