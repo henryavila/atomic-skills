@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T12:02:20.083Z",
+  "generatedAt": "2026-06-16T12:12:45.108Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "skills-restructuring",
-    "title": "Reestruturação das skills atomic-skills",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
     "status": "active"
   },
   "phase": {
     "id": "F0",
-    "slug": "skills-restructuring-f0-pente-fino-de-consistencia",
-    "title": "Pente fino de consistência",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
     "index": 1,
-    "total": 6,
+    "total": 1,
     "status": "active"
   },
   "tasks": {
-    "done": 0,
-    "total": 7,
+    "done": 4,
+    "total": 6,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T0.1: Corrigir contagem de stages no create-plan",
+  "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-15T16:29:10Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/plan.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f0-pente-fino-de-consistencia.md",
-      "lastUpdated": "2026-06-15T13:54:20.262Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     }
   ]
 }
