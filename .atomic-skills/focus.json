@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T16:02:08.671Z",
+  "generatedAt": "2026-06-16T16:55:12.163Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-source-of-truth",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 3,
     "total": 3,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Orquestrador de reconstrução (reconstrução-primeiro) + CLI em src/app-map/reconstruct.js",
+  "nextAction": "F2 implementação COMPLETA (3/3 tasks done, verificados). Rodar `atomic-skills:project phase-done` para exit-gate G-1 + review-code + lessons + advance (opt-in do operador — NÃO auto-rodado).",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f2-integracao-no-design-brief.md",
-      "lastUpdated": "2026-06-16T15:34:48Z"
+      "lastUpdated": "2026-06-16T16:48:03Z"
     }
   ]
 }
