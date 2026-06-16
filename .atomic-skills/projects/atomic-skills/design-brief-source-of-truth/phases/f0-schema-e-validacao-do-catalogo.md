@@ -14,7 +14,7 @@ parentPlan: design-brief-source-of-truth
 phaseId: F0
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-1
@@ -22,12 +22,21 @@ exitGates:
       conflicts, regime, inputsHash, provenance, audience, accessTier, status,
       purpose, label, id); o validador emit-time rejeita catálogo malformado; o
       validate-state cobre o catálogo durável.
-    status: pending
+    status: met
+    metAt: 2026-06-16T10:51:14Z
     verifier:
       kind: shell
       command: node --test test/app-map/schema.test.js test/app-map/validate.test.js
         && npm run validate-state test/fixtures
     verifierLabel: "shell: node --test test/app-map/schema.test.js test/app-map/valida…"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T10:51:14Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Gate verifier on merged primary 009a95b: node --test schema+validate
+        → 8/8 pass; npm run validate-state test/fixtures → 1 app-map catalog valid, exit 0.
+        Post-review (2 codex majors fixed: schemaVersion enum + page-id uniqueness)."
 stack:
   - id: 1
     title: Schema e validação do catálogo
