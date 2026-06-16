@@ -95,23 +95,28 @@ function provenanceForPage(page) {
   return provenance;
 }
 
-// Atribui artefactValue/codeValue pela PROVENIÊNCIA real de cada testemunha, não
-// por posição alfabética: a testemunha de código é aquela cuja fonte casa o path
-// do codeEvidence da página; o resto é artefato. Como o code-scan (F1) não emite
-// audience/accessTier hoje, codeValue fica `null` (nenhuma testemunha de código) —
-// nunca um segundo valor de doc mascarado como código (review F2 #1, P2). Valores
-// de artefato além do primeiro só cabem no `evidence` agregado: o descritor de 2
-// slots do schema 0.2 não carrega N valores (review F2 #2 — emerge separado).
+// 0.3 (P1 — nunca escolher no silêncio): o conflito é um CONJUNTO de testemunhas,
+// não 2 slots posicionais. CADA fonte do agregado vira uma testemunha
+// {value, source, kind} — nenhuma é descartada (a truncagem do review F2 #2 deixa
+// de ser representável). `kind` é DERIVADO-NA-ORIGEM (P2/D2): a testemunha cuja
+// fonte casa o path do codeEvidence da página é `code`; o resto é `artefact`.
+// Como o code-scan (F1) não emite audience/accessTier hoje, nenhuma fonte casa o
+// codePath → todas as testemunhas saem `artefact`, nunca um valor de doc mascarado
+// como código (review F2 #1). Ordenado por source para emissão determinística.
 function conflictForField(field, aggregate, codeEvidence) {
   const sources = aggregate.sources ?? [];
   const codePath = codeEvidence?.path ?? null;
-  const codeTuple = codePath ? sources.find((source) => source.source?.path === codePath) : null;
-  const artefactValues = uniqueSorted(sources.filter((source) => source !== codeTuple).map((source) => source.value));
-  const evidence = uniqueSorted(sources.map((source) => sourceLabel(source.source))).join(', ');
+  const witnesses = sources
+    .map((entry) => ({
+      value: entry.value,
+      source: sourceLabel(entry.source),
+      kind: codePath && entry.source?.path === codePath ? 'code' : 'artefact',
+    }))
+    .sort((a, b) => String(a.source ?? '').localeCompare(String(b.source ?? '')));
+  const evidence = uniqueSorted(sources.map((entry) => sourceLabel(entry.source))).join(', ');
   return {
     field,
-    artefactValue: artefactValues[0] ?? null,
-    codeValue: codeTuple ? codeTuple.value : null,
+    witnesses,
     evidence: evidence || `${field} unresolved`,
     resolution: 'pending',
   };

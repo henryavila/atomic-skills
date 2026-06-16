@@ -19,10 +19,12 @@ const CATALOG_SUBDIR = ['.atomic-skills', 'app-map'];
 const CATALOG_JSON = 'app-map.json';
 const CATALOG_MD = 'app-map.md';
 
-// Monta um catálogo 0.2 a partir de fatos de página prontos-para-catálogo, cada
+// Monta um catálogo 0.3 a partir de fatos de página prontos-para-catálogo, cada
 // um carregando um descritor `evidence` cru. O hash do evidence vira o
 // evidenceHash por-página; o evidence cru NÃO é persistido. O inputsHash
-// top-level é o roll-up (hash dos evidenceHashes ordenados).
+// top-level é o roll-up (hash dos evidenceHashes ordenados). 0.3 reshapeou o
+// conflict para witnesses[] (o produtor emite via conflictForField); o
+// evidenceHash por-página segue requerido (porta de direção única, de 0.2 em diante).
 export function buildCatalog({ pages = [], projectId } = {}) {
   const catalogPages = pages.map((page) => {
     const { evidence, ...rest } = page;
@@ -32,7 +34,7 @@ export function buildCatalog({ pages = [], projectId } = {}) {
   const inputsHash = computeEvidenceHash(catalogPages.map((p) => p.evidenceHash).sort());
 
   const catalog = {
-    schemaVersion: '0.2',
+    schemaVersion: '0.3',
     inputsHash,
     pages: catalogPages,
   };

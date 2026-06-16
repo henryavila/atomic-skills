@@ -37,38 +37,49 @@ function buildPages() {
       conflicts: [
         {
           field: 'accessTier',
-          artefactValue: 'auth:admin',
-          codeValue: 'public',
+          // 0.3: a SET of witnesses, each with provenance + derived kind. The doc
+          // witness disagrees with the code witness.
+          witnesses: [
+            { value: 'auth:admin', source: 'docs/c.md:1', kind: 'artefact' },
+            { value: 'public', source: 'routes/settings.tsx:1', kind: 'code' },
+          ],
           evidence: 'docs/c.md disagrees with routes/settings.tsx',
-          // 0.2: resolution is an object recording the operator's arbitration.
-          resolution: { resolvedBy: 'henry', resolvedAt: NOW, choice: 'auth:admin' },
+          // 0.3: resolution.choice references the winning witness by value+source.
+          resolution: { resolvedBy: 'henry', resolvedAt: NOW, choice: { value: 'auth:admin', source: 'docs/c.md:1' } },
         },
       ],
     }),
   ];
 }
 
-// Acceptance #1 — bump schemaVersion 0.1 → 0.2: resolution becomes an object and
-// evidenceHash per-page is REQUIRED. The F0 validator (reused at emit-time) must
-// accept the 0.2 catalog and reject one missing its per-page evidenceHash.
-test('builds a schemaVersion 0.2 catalog: object resolution + required per-page evidenceHash', () => {
+// Acceptance — buildCatalog emits the 0.3 contract: witnesses[] conflicts, an
+// object resolution whose choice references a witness by value+source, and a
+// REQUIRED per-page evidenceHash (single-direction door from 0.2 onward). The F0
+// validator (reused at emit-time) must accept the 0.3 catalog and reject one
+// missing its per-page evidenceHash.
+test('builds a schemaVersion 0.3 catalog: witnesses + object resolution + required per-page evidenceHash', () => {
   const catalog = buildCatalog({ pages: buildPages(), projectId: 'demo' });
 
-  assert.equal(catalog.schemaVersion, '0.2');
+  assert.equal(catalog.schemaVersion, '0.3');
   for (const page of catalog.pages) {
     assert.ok(typeof page.evidenceHash === 'string' && page.evidenceHash.length > 0);
     assert.equal('evidence' in page, false, 'raw evidence is hashed away, not persisted');
   }
   assert.equal(validateAppMap(catalog).valid, true, JSON.stringify(validateAppMap(catalog).errors, null, 2));
 
-  // The object-form resolution survived into the persisted conflict.
+  // The witnesses[] descriptor and the value+source choice survived into the persisted conflict.
   const settings = catalog.pages.find((p) => p.id === 'settings');
-  assert.deepEqual(settings.conflicts[0].resolution, { resolvedBy: 'henry', resolvedAt: NOW, choice: 'auth:admin' });
+  assert.equal(settings.conflicts[0].witnesses.length, 2);
+  assert.deepEqual(settings.conflicts[0].resolution, {
+    resolvedBy: 'henry',
+    resolvedAt: NOW,
+    choice: { value: 'auth:admin', source: 'docs/c.md:1' },
+  });
 
-  // Drop a per-page evidenceHash → a 0.2 catalog must fail validation.
+  // Drop a per-page evidenceHash → a 0.3 catalog must fail validation.
   const broken = JSON.parse(JSON.stringify(catalog));
   delete broken.pages[0].evidenceHash;
-  assert.equal(validateAppMap(broken).valid, false, '0.2 requires evidenceHash on every page');
+  assert.equal(validateAppMap(broken).valid, false, '0.3 requires evidenceHash on every page');
 });
 
 // Acceptance #2 — evidenceHash = sha256 of the normalized evidence (code + doc),
@@ -131,7 +142,7 @@ test('emit creates the target dir on a fresh tree and writes a readable catalog'
     const { jsonPath } = emitCatalog(catalog, { dir }); // default writeFileSync + mkdirSync
 
     const written = JSON.parse(readFileSync(jsonPath, 'utf8'));
-    assert.equal(written.schemaVersion, '0.2');
+    assert.equal(written.schemaVersion, '0.3');
     assert.equal(validateAppMap(written).valid, true);
   } finally {
     rmSync(dir, { recursive: true, force: true });

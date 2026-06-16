@@ -10,10 +10,10 @@ status: active
 branch: plan/design-brief
 started: 2026-06-16T18:38:32.145Z
 lastUpdated: 2026-06-16T19:39:09Z
-nextAction: "Start T-001: Produtor — conflictForField emite witnesses[] e catálogo 0.3"
+nextAction: "Start T-002: Consumidores — mirror .md das N testemunhas + prosa §2"
 parentPlan: app-map-conflict-arbitration
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -36,8 +36,17 @@ stack:
 tasks:
   - id: T-001
     title: Produtor — conflictForField emite witnesses[] e catálogo 0.3
-    status: pending
-    lastUpdated: 2026-06-16T19:19:00Z
+    status: done
+    closedAt: 2026-06-16T19:54:19Z
+    lastUpdated: 2026-06-16T19:54:19Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T19:54:19Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/reconstruct.test.js
+        test/app-map/persist.test.js → tests 15, pass 15, fail 0 (suite app-map
+        completa 61/61)
     summary: conflictForField emite N witnesses com kind derivado-na-origem e
       catálogo 0.3.
     description: "Reescreve conflictForField/conflictsForPage para emitir
@@ -119,8 +128,19 @@ Initiative for phase **F1 — Produtor, consumidores e prosa**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **Re-scope T-001/T-002 (2026-06-16, aprovado pelo operador):** `buildCatalog`→0.3 (T-001) quebra `persist.test.js` (asseria 0.2 + slots legacy), que o SPEC pusera em T-002. Sem split disjunto (witnesses[] exige 0.3; 0.3 rejeita slots). T-001 passou a dono dos testes de SAÍDA do produtor (reconstruct.test.js + persist.test.js, verifier roda os dois); T-002 estreitou para mirrorMarkdown + prosa §2. source.md + phase file atualizados, SPEC gate re-rodado limpo.
+- **T-001 impl:** `conflictForField` mapeia TODAS as `aggregate.sources` para `witnesses[{value, source: sourceLabel, kind}]`, ordenadas por source (determinismo); `kind` derivado (source.path casa codeEvidence.path → code, senão artefact). `buildCatalog` emite `schemaVersion: '0.3'`. Sem slots artefactValue/codeValue. Teste doc/doc reescrito p/ witnesses preservando o intent de proveniência (L-001/f2: todas artefact, nenhuma code fabricada).
 
 ## Links
 
-_(plan doc, external refs)_
+- Source SPEC: `.atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/source.md`
+- DESIGN: `.atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/design.md`
+- Lessons aplicadas (F1 phase-start): L-002/f2 (conjunto de testemunhas, não 2 slots), L-001/f2 (testar proveniência honesta), L-001/f1 (teste de I/O real — reconstruct.test.js usa tmp dir).
+
+## Session handoff
+
+- **Narrative:** Fase F1 ativa, **1/2 tasks done**. T-001 (produtor) implementado RED→GREEN: `conflictForField`→witnesses[] + `buildCatalog`→0.3; verifier reconstruct+persist 15/15, suite app-map 61/61. Próximo: T-002 (mirror + prosa). Houve re-scope aprovado movendo a fronteira persist.test.js para T-001.
+- **Decision log:** ver bloco Decisions acima — re-scope T-001/T-002 + a impl de witnesses com kind derivado-na-origem ordenado por source.
+- **Single nextAction:** Implementar F1/T-002 — RED em `test/app-map/persist.test.js` (mirror de conflito 0.3 com 3 testemunhas cita as 3 com kind), depois ajustar `mirrorMarkdown` em `src/app-map/persist.js` p/ iterar witnesses; corrigir a prosa do §2 de `skills/core/design-brief.md` (linhas 44–46, D6 — `--persist` não persiste arbitragem); fechar via `node --test test/app-map/persist.test.js` → EXIT 0.
+- **Verbatim state:** T-001 verifier: `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` → `tests 15, pass 15, fail 0`. Suite: `node --test test/app-map/*.test.js` → `tests 61, pass 61, fail 0`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 53 file(s) valid`. T-002 verifier: `node --test test/app-map/persist.test.js` (expectExitCode 0).
+- **Uncommitted changes:** a confirmar — código de T-001 (reconstruct.js, persist.js, reconstruct.test.js, persist.test.js) + estado F1 a commitar neste passo.

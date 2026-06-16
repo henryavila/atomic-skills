@@ -10,6 +10,7 @@ import {
   persistReconstruction,
   resolveTarget,
 } from '../../src/app-map/reconstruct.js';
+import { validateAppMap } from '../../src/app-map/validate.js';
 
 function tempApp() {
   return mkdtempSync(join(tmpdir(), 'app-map-reconstruct-'));
@@ -215,12 +216,12 @@ test('CLI prints delta JSON and persist writes the target catalog', async () => 
   assert.deepEqual(catalog.pages.map((p) => p.id), ['dashboard']);
 }));
 
-// Review F2 #1 — a persisted field-conflict must NOT fabricate a code witness.
-// Two docs disagree on Dashboard's audience; the code page (Dashboard.tsx) never
-// asserts audience, so codeValue must be null — not the second doc value mislabeled
-// as code. Mutation that reverts to positional `values[1]` makes codeValue
-// 'visitor' and fails this assert.
-test('a doc/doc field-conflict records codeValue=null, never a fabricated code witness', () => withApp((appRoot) => {
+// Review F2 #1 (0.3 form) — a persisted field-conflict must NOT fabricate a code
+// witness. Two docs disagree on Dashboard's audience; the code page (Dashboard.tsx)
+// never asserts audience, so EVERY witness must be kind=artefact — none mislabeled
+// as code. Mutation that asserts kind=code for a doc source fails the `every`
+// assert below.
+test('a doc/doc field-conflict records witnesses all kind=artefact, never a fabricated code witness', () => withApp((appRoot) => {
   addRoute(appRoot, 'Dashboard');
   addDoc(appRoot, 'a.md', ['Page: Dashboard', 'Audience: registered', ''].join('\n'));
   addDoc(appRoot, 'b.md', ['Page: Dashboard', 'Audience: visitor', ''].join('\n'));
@@ -232,9 +233,52 @@ test('a doc/doc field-conflict records codeValue=null, never a fabricated code w
   const dashboard = catalog.pages.find((p) => p.id === 'dashboard');
   const audienceConflict = dashboard.conflicts.find((c) => c.field === 'audience');
   assert.ok(audienceConflict, 'the doc/doc audience disagreement is recorded as a conflict');
-  assert.equal(audienceConflict.codeValue, null, 'no code witness for audience → codeValue is null, not a second doc value');
-  assert.equal(audienceConflict.artefactValue, 'registered', 'artefactValue carries a real doc value');
+  assert.equal(audienceConflict.witnesses.length, 2, 'both doc witnesses preserved');
+  assert.deepEqual(audienceConflict.witnesses.map((w) => w.value).sort(), ['registered', 'visitor']);
+  assert.ok(
+    audienceConflict.witnesses.every((w) => w.kind === 'artefact'),
+    'no code witness for audience → every witness is artefact, not a fabricated code kind',
+  );
+  assert.equal('artefactValue' in audienceConflict, false, 'legacy slot removed');
+  assert.equal('codeValue' in audienceConflict, false, 'legacy slot removed');
   assert.equal(dashboard.audience, null, 'an unresolved conflict forces audience null');
+}));
+
+// P1 (never choose in silence) + L-002 — a conflict of N=3 discordant doc
+// witnesses must preserve ALL THREE (the F2 #2 truncation is gone), each with a
+// derived kind, in a schema-0.3 catalog that validates emit-time. Mutation that
+// caps witnesses at two positional slots drops one value and fails the length
+// assert; one that emits 0.2 fails the schemaVersion assert.
+test('a 3-doc field-conflict preserves all three witnesses with derived kind in a valid 0.3 catalog', () => withApp((appRoot) => {
+  addRoute(appRoot, 'Dashboard');
+  addDoc(appRoot, 'a.md', ['Page: Dashboard', 'Audience: admin', ''].join('\n'));
+  addDoc(appRoot, 'b.md', ['Page: Dashboard', 'Audience: registered', ''].join('\n'));
+  addDoc(appRoot, 'c.md', ['Page: Dashboard', 'Audience: guardian', ''].join('\n'));
+
+  const result = computeReconstruction({ appRoot, projectId: 'demo' });
+  const { jsonPath } = persistReconstruction({ appRoot, projectId: 'demo', pages: result.pages });
+  const catalog = JSON.parse(readFileSync(jsonPath, 'utf8'));
+
+  assert.equal(catalog.schemaVersion, '0.3', 'producer emits the 0.3 contract');
+  assert.equal(validateAppMap(catalog).valid, true, JSON.stringify(validateAppMap(catalog).errors, null, 2));
+
+  const dashboard = catalog.pages.find((p) => p.id === 'dashboard');
+  const audienceConflict = dashboard.conflicts.find((c) => c.field === 'audience');
+  assert.ok(audienceConflict, 'the 3-doc audience disagreement is recorded');
+  assert.equal(audienceConflict.witnesses.length, 3, 'all three witnesses preserved — none truncated');
+  assert.deepEqual(
+    audienceConflict.witnesses.map((w) => w.value).sort(),
+    ['admin', 'guardian', 'registered'],
+  );
+  assert.ok(
+    audienceConflict.witnesses.every((w) => w.kind === 'artefact'),
+    'no fabricated code witness — code-scan does not emit audience',
+  );
+  assert.ok(
+    audienceConflict.witnesses.every((w) => typeof w.source === 'string' && w.source.length > 0),
+    'every witness carries its provenance',
+  );
+  assert.equal(dashboard.audience, null, 'unresolved conflict forces audience null');
 }));
 
 // Review F2 #4 — an agent-injected resolved page lacking the raw `evidence`
