@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T12:02:20.083Z",
+  "generatedAt": "2026-06-16T13:37:05.615Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "skills-restructuring",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F0",
-    "slug": "skills-restructuring-f0-pente-fino-de-consistencia",
-    "title": "Pente fino de consistência",
-    "index": 1,
+    "id": "F1",
+    "slug": "skills-restructuring-f1-economia-de-tokens-project-e-implement",
+    "title": "Economia de tokens: project e implement",
+    "index": 2,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 0,
-    "total": 7,
+    "done": 5,
+    "total": 5,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T0.1: Corrigir contagem de stages no create-plan",
+  "nextAction": "All F1 tasks done — run phase-done to verify exit gate F1-G1 + the review-code gate, then advance to F2 (user opts in).",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-15T16:29:10Z"
+      "lastUpdated": "2026-06-16T12:22:09Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f0-pente-fino-de-consistencia.md",
-      "lastUpdated": "2026-06-15T13:54:20.262Z"
+      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f1-economia-de-tokens-project-e-implement.md",
+      "lastUpdated": "2026-06-16T13:27:29Z"
     }
   ]
 }
