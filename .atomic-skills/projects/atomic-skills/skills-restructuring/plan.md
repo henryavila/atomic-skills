@@ -5,8 +5,8 @@ title: Reestruturação das skills atomic-skills
 version: "1.0"
 status: active
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-15T16:29:10Z
-currentPhase: F0
+lastUpdated: 2026-06-16T12:22:09Z
+currentPhase: F1
 branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
@@ -68,7 +68,12 @@ phases:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
-    status: active
+    status: done
+    reviewGate:
+      status: passed
+      at: 8a35a179709de639a8e5fa5493805a548a3c2fde
+      mode: local
+      verifiedAt: 2026-06-16T12:22:09Z
     summary: "Quick-wins de consistência: contagem de stages, caminhos mortos,
       cheat-sheets e gates."
   - id: F1
@@ -94,7 +99,7 @@ phases:
               skills/shared/project-assets/project-transitions.md && npm run
               validate-skills
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Enxuga o router project e o driver implement movendo conteúdo
       não-ambiente para lazy.
   - id: F2

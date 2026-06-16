@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: skills-restructuring-f1-economia-de-tokens-project-e-implement
 title: "Economia de tokens: project e implement"
 goal: restaurar o router fino e o driver enxuto movendo conteúdo não-ambiente para detail/asset lazy, sem perder comportamento.
-status: pending
+status: active
 branch: null
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-15T14:21:04.364Z
+lastUpdated: 2026-06-16T12:22:09Z
 nextAction: "Start T1.1: Router fino — mover blocos de referência para detail lazy"
 parentPlan: skills-restructuring
 phaseId: F1
@@ -159,6 +159,7 @@ emerged: []
 summary: Enxuga o router project e o driver implement movendo conteúdo não-ambiente para lazy.
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
+current: true
 ---
 
 # Narrative / notes

@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: skills-restructuring-f0-pente-fino-de-consistencia
 title: Pente fino de consistência
 goal: corrigir resíduo e drift documental de baixo risco nas skills, sem mudar comportamento.
-status: active
+status: done
 branch: null
 started: 2026-06-15T13:37:12.477Z
 lastUpdated: 2026-06-16T12:22:09Z
-nextAction: "All 7 tasks done + F0-G1 met. Run phase-done (review-code phase-diff gate + advance to F1) on user opt-in."
+nextAction: null
 parentPlan: skills-restructuring
 phaseId: F0
 tasksDone: 7
@@ -212,7 +212,7 @@ emerged: []
 summary: "Quick-wins de consistência: contagem de stages, caminhos mortos, cheat-sheets e gates."
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -243,6 +243,10 @@ Initiative for phase **F0 — Pente fino de consistência**.
 - G1 read-before-claim: applied — each closed task links the source edit + the verifier run (exit 0) that closed it; verifier outputs captured verbatim.
 - G2 soft-language: applied — completion claims are `passed: true` evidence; handoff narrative scanned for the ban list (no should/probably/works/looks done).
 - G6 reference-or-strike: applied — handoff literals are verbatim paths/commands/exit codes.
+
+## Self-review against gates (at phase-done)
+- **Review gate:** `atomic-skills:review-code HEAD~1..HEAD --mode=local` (non-destructive diff per G5 signal — no file deletes, no drop tokens, additions dominate). Verdict `findings_exist`: 0 blocker / 0 critical / 0 major / 1 minor. The minor (G9 absent from rule×skill matrix without a footnote, unlike G8) was fixed in commit `8a35a17` — `docs/kb/code-quality-gates.md` footnote mirroring the G8 note. Loop converged clean (CRITICAL+MAJOR = 0). reviewGate stamped on `plan.md` phases[F0]: `{status: passed, at: 8a35a179709de639a8e5fa5493805a548a3c2fde, mode: local}`.
+- **Lessons:** 1 reusable lesson distilled from the review finding — pending user ratification (see closing). Failure signal = the matrix-footnote gap (a confirmed minor review finding).
 
 ## Links
 
