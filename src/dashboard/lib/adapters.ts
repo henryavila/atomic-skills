@@ -451,13 +451,17 @@ export interface UIInitRow {
   openHighlights: number
 }
 
-export function adaptStateForHome(state: ProjectStatusState): UIConsumer[] {
+// `consumerId` labels the card. Post-hard-cut the consumer id IS the projectId,
+// but aiDeck's state projection still hardcodes `state.consumer = 'project-status'`
+// on the wire, so callers that know the real projectId pass it explicitly; the
+// `state.consumer` default only applies to callers that don't.
+export function adaptStateForHome(state: ProjectStatusState, consumerId: string = state.consumer): UIConsumer[] {
   if (state.plans.length === 0 && state.initiatives.length === 0) return []
   return [
     {
-      id: 'project-status',
-      name: 'project-status',
-      path: '.atomic-skills/',
+      id: consumerId,
+      name: consumerId,
+      path: `.atomic-skills/${consumerId}/`,
       health: 'active',
       lastWrite: state.generatedAt.slice(0, 10),
       plans: state.plans.map((p) => adaptPlanRow(p, state.initiatives)),

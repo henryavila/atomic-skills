@@ -15,8 +15,6 @@ import type {
   ProjectStatusState,
 } from './types'
 
-const CONSUMER = 'project-status'
-
 // ── Multi-project API ─────────────────────────────────────────────────────
 
 export interface RegisteredProject {
@@ -35,13 +33,16 @@ export async function getProjects(): Promise<RegisteredProject[]> {
   return r.projects
 }
 
+// Post-hard-cut the consumer id IS the projectId: aiDeck's provision-consumer
+// registers one consumer per project keyed by projectId, so the project-scoped
+// routes resolve <rootDir>/.atomic-skills/<projectId>/.
 export async function getProjectState(projectId: string): Promise<ProjectStatusState> {
-  const r = await fetchJson<StateResponse>(`/api/projects/${projectId}/state/${CONSUMER}`)
+  const r = await fetchJson<StateResponse>(`/api/projects/${projectId}/state/${projectId}`)
   return r.state
 }
 
 export async function getProjectEntityBySlug(projectId: string, slug: string): Promise<Plan | Initiative> {
-  const r = await fetchJson<EntityResponse>(`/api/projects/${projectId}/state/${CONSUMER}/${slug}`)
+  const r = await fetchJson<EntityResponse>(`/api/projects/${projectId}/state/${projectId}/${slug}`)
   return r.entity
 }
 
@@ -97,8 +98,35 @@ export async function getHealth(): Promise<HealthResponse> {
   return fetchJson<HealthResponse>('/api/health')
 }
 
+// The legacy /api/state/:consumer routes operate on aiDeck's default (rootDir)
+// project. Post-hard-cut the consumer id IS the projectId, so we resolve the
+// default project's id from /api/projects (matched against the rootDir reported
+// by /api/health) and use it as the consumer. Cached per session — the
+// registered project set is stable per server process; a failed lookup clears
+// the cache so the next call retries.
+let defaultConsumerPromise: Promise<string> | null = null
+
+async function resolveDefaultConsumer(): Promise<string> {
+  if (!defaultConsumerPromise) {
+    defaultConsumerPromise = (async () => {
+      try {
+        const [health, projects] = await Promise.all([getHealth(), getProjects()])
+        const match = projects.find((p) => p.rootDir === health.rootDir)
+        const id = match?.projectId ?? projects[0]?.projectId
+        if (!id) throw new Error('No registered project to resolve the default consumer')
+        return id
+      } catch (err) {
+        defaultConsumerPromise = null
+        throw err
+      }
+    })()
+  }
+  return defaultConsumerPromise
+}
+
 export async function getState(): Promise<ProjectStatusState> {
-  const r = await fetchJson<StateResponse>(`/api/state/${CONSUMER}`)
+  const consumer = await resolveDefaultConsumer()
+  const r = await fetchJson<StateResponse>(`/api/state/${consumer}`)
   return r.state
 }
 
@@ -109,7 +137,8 @@ export async function getState(): Promise<ProjectStatusState> {
  * it is from context.
  */
 export async function getEntityBySlug(slug: string): Promise<Plan | Initiative> {
-  const r = await fetchJson<EntityResponse>(`/api/state/${CONSUMER}/${slug}`)
+  const consumer = await resolveDefaultConsumer()
+  const r = await fetchJson<EntityResponse>(`/api/state/${consumer}/${slug}`)
   return r.entity
 }
 
@@ -130,7 +159,8 @@ export async function getInitiative(slug: string): Promise<Initiative> {
 }
 
 export async function getInbox(): Promise<InboxResponse> {
-  return fetchJson<InboxResponse>(`/api/inbox?consumer=${CONSUMER}&limit=50`)
+  const consumer = await resolveDefaultConsumer()
+  return fetchJson<InboxResponse>(`/api/inbox?consumer=${consumer}&limit=50`)
 }
 
 // ── Discover-run API ──────────────────────────────────────────────────────
@@ -218,18 +248,26 @@ export async function getDiscoverDecisions(slugs: string[]): Promise<DiscoverDec
   return decisions
 }
 
+// Mirrors aiDeck's RuntimeEvent (src/server/events/types.ts) for the events the
+// dashboard consumes. Post-hard-cut `b3fad45` the `state-change`/`entityKind`
+// shape was replaced by `data_changed` carrying `{consumer, projectId?, payload}`;
+// the per-entity `slug`/`entityKind`/`changeType` fields no longer exist, so
+// consumers re-fetch by consumer/project rather than by individual slug.
 export interface RuntimeEvent {
-  kind: 'state-change' | 'error' | 'health-tick'
+  kind: 'data_changed' | 'error' | 'health-tick'
   id?: number
   consumer?: string
-  slug?: string
-  entityKind?: 'plan' | 'initiative' | 'discover-run' | 'annotations-jsonl' | 'highlights-jsonl' | 'inbox-jsonl'
-  changeType?: 'add' | 'change' | 'unlink'
+  projectId?: string
+  payload?: {
+    file: string
+    dataSourceHint?: string
+    dataSourceId?: string
+  }
 }
 
 /**
  * Opens an SSE connection to aideck's `/sse`. The server emits named events
- * (`event: state-change`, `event: error`, `event: health-tick`). We forward
+ * (`event: data_changed`, `event: error`, `event: health-tick`). We forward
  * the parsed payload to `onEvent`. Callers `.close()` on unmount.
  *
  * Reconnection: EventSource auto-reconnects with `Last-Event-ID`; aideck's
@@ -237,7 +275,7 @@ export interface RuntimeEvent {
  */
 export function subscribeToEvents(onEvent: (evt: RuntimeEvent) => void): EventSource {
   const es = new EventSource('/sse')
-  for (const name of ['state-change', 'error', 'health-tick'] as const) {
+  for (const name of ['data_changed', 'error', 'health-tick'] as const) {
     es.addEventListener(name, (ev) => {
       try {
         const data = JSON.parse((ev as MessageEvent).data) as RuntimeEvent

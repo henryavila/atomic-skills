@@ -73,7 +73,7 @@ export function ProjectDetailPage() {
     )
   }
 
-  const consumers = adaptStateForHome(data)
+  const consumers = adaptStateForHome(data, projectId)
 
   const onNav = (path: string) => {
     navigate(`/${projectId}${path}`)

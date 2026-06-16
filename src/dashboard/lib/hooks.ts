@@ -64,9 +64,15 @@ export function useInitiative(slug: string | undefined, projectId?: string) {
 
 /**
  * Mount ONCE at the App level. Opens the SSE connection and invalidates the
- * matching TanStack Query keys on every state-change event. aiDeck pushes the
+ * matching TanStack Query keys on every `data_changed` event. aiDeck pushes the
  * watcher event in <200ms of the file write, so the UI converges quickly with
  * no polling.
+ *
+ * Post-hard-cut the event no longer carries `entityKind`/`slug`, so we can't
+ * scope invalidation to a single plan/initiative. Instead we invalidate by key
+ * prefix (`state` / `plan` / `initiative` / `projects`) — TanStack only refetches
+ * the queries currently mounted, so the over-invalidation is cheap and the data
+ * set is small. The consumer id IS the projectId now.
  *
  * Errors and health-ticks are ignored at this layer — health is for liveness
  * probes (handled by EventSource auto-reconnect), errors should surface via
@@ -76,18 +82,11 @@ export function useStateChangeSubscription(): void {
   const queryClient = useQueryClient()
   useEffect(() => {
     const es = api.subscribeToEvents((evt) => {
-      if (evt.kind !== 'state-change') return
-      queryClient.invalidateQueries({ queryKey: ['state', 'project-status'] })
+      if (evt.kind !== 'data_changed') return
       queryClient.invalidateQueries({ queryKey: ['projects'] })
-      if (evt.consumer) {
-        queryClient.invalidateQueries({ queryKey: ['state', evt.consumer] })
-      }
-      if (evt.entityKind === 'plan' && evt.slug) {
-        queryClient.invalidateQueries({ queryKey: ['plan', evt.slug] })
-      }
-      if (evt.entityKind === 'initiative' && evt.slug) {
-        queryClient.invalidateQueries({ queryKey: ['initiative', evt.slug] })
-      }
+      queryClient.invalidateQueries({ queryKey: ['state'] })
+      queryClient.invalidateQueries({ queryKey: ['plan'] })
+      queryClient.invalidateQueries({ queryKey: ['initiative'] })
     })
     return () => es.close()
   }, [queryClient])

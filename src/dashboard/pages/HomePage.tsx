@@ -17,7 +17,7 @@ function ProjectCardWrapper({
   if (isLoading) return <CardSkeleton name={project.projectId} />
   if (error || !data) return <CardSkeleton name={project.projectId} errored />
 
-  const consumers = adaptStateForHome(data)
+  const consumers = adaptStateForHome(data, project.projectId)
   const cardData: ProjectCardData = {
     id: project.projectId,
     name: project.projectId,
@@ -65,11 +65,11 @@ function SingleProjectHome({
 }: {
   data: ProjectStatusState; onOpen: (path: string) => void; rootDir?: string
 }) {
-  const consumers = adaptStateForHome(data)
-  if (consumers.length === 0) return <EmptyState />
-
   const projectName = rootDir ? rootDir.split('/').pop() ?? 'project' : 'project'
   const projectId = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+
+  const consumers = adaptStateForHome(data, projectId)
+  if (consumers.length === 0) return <EmptyState />
 
   const cardData: ProjectCardData = {
     id: projectId,

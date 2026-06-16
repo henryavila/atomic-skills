@@ -187,6 +187,9 @@ export function RoadmapSources({ consumers }: { consumers: UIConsumer[] }) {
 
 export function Roadmap({ consumers, onNav }: { consumers: UIConsumer[]; onNav?: (to: string) => void }) {
   const { lanes, counts, total } = rollupRoadmap(consumers)
+  // Concluded plans (done → shipped, archived → parked) are hidden by default;
+  // an explicit toggle reveals them. Hook stays above the early return (G8).
+  const [showConcluded, setShowConcluded] = useState(false)
 
   if (total === 0) {
     return (
@@ -212,14 +215,52 @@ export function Roadmap({ consumers, onNav }: { consumers: UIConsumer[]; onNav?:
     )
   }
 
+  const concludedCount = counts.shipped + counts.parked
+
   return (
     <div>
       <RoadmapHeader counts={counts} onAdd={() => {}} />
       <RoadmapLane laneKey="inflight" items={lanes.inflight} onNav={onNav} defaultOpen={true} />
       <RoadmapLane laneKey="blocked"  items={lanes.blocked}  onNav={onNav} defaultOpen={true} />
       <RoadmapLane laneKey="upnext"   items={lanes.upnext}   onNav={onNav} defaultOpen={true} />
-      <RoadmapLane laneKey="parked"   items={lanes.parked}   onNav={onNav} defaultOpen={false} />
-      <RoadmapLane laneKey="shipped"  items={lanes.shipped}  onNav={onNav} defaultOpen={false} />
+      {showConcluded && (
+        <>
+          <RoadmapLane laneKey="parked"  items={lanes.parked}  onNav={onNav} defaultOpen={true} />
+          <RoadmapLane laneKey="shipped" items={lanes.shipped} onNav={onNav} defaultOpen={true} />
+        </>
+      )}
+      {concludedCount > 0 && (
+        <ConcludedToggle open={showConcluded} count={concludedCount} onToggle={() => setShowConcluded(o => !o)} />
+      )}
     </div>
+  )
+}
+
+// ── ConcludedToggle ─────────────────────────────────────────────────────────
+// Explicit control to reveal/hide concluded plans (done + archived), hidden by
+// default so the list foregrounds active work.
+
+function ConcludedToggle({ open, count, onToggle }: { open: boolean; count: number; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} style={{
+      all: 'unset', cursor: 'pointer',
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      marginTop: 18, padding: '6px 12px',
+      background: 'var(--bg-surface)',
+      border: '1px solid var(--border-default)',
+      borderRadius: 6,
+      fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500,
+      color: 'var(--fg-muted)',
+    }}>
+      <span style={{ color: 'var(--fg-faint)' }}>{open ? '▾' : '▸'}</span>
+      <span>{open ? 'Hide concluded' : 'Show concluded'}</span>
+      <span style={{
+        fontSize: 11, fontWeight: 600,
+        padding: '1px 7px', borderRadius: 999,
+        color: 'var(--fg-subtle)',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-subtle)',
+      }}>{count}</span>
+    </button>
   )
 }
