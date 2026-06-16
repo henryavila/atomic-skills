@@ -1,7 +1,14 @@
 /**
- * `atomic-skills serve` — build dashboard + spawn aideck pointed at the
- * built bundle. Writes ~/.atomic-skills/env (AS_DASHBOARD_URL) so the
- * SessionStart hook can surface the URL.
+ * `atomic-skills serve` — spawn aideck pointed at the aiDeck Vue client.
+ * Writes ~/.atomic-skills/env (AS_DASHBOARD_URL) so the SessionStart hook
+ * can surface the URL.
+ *
+ * The dashboard IS the aiDeck client: the installer stages it from the
+ * published @henryavila/aideck package into ~/.atomic-skills/dashboard
+ * (see install.js installRuntimeArtifacts). atomic-skills no longer ships
+ * its own client — the old React dashboard was removed. We point aideck at
+ * the staged client via --static-dir when present; otherwise aideck serves
+ * its own bundled client.
  *
  * The env file is only written AFTER aideck responds on /api/health. If
  * aideck cannot start (missing binary, port collision, crash on boot)
@@ -12,10 +19,6 @@
  * - aiDeck CLI must be installed somewhere resolvable (npx, npm-global,
  *   sibling repo via `node ../aideck/dist/cli.js`). We probe a few common
  *   locations; the user can override with `--aideck-bin <path>`.
- * - Vite build runs via `npm run build:dashboard`. When atomic-skills is
- *   consumed via `npm install`, the dist/dashboard/ bundle is already
- *   shipped by `prepublishOnly`, so the build is skipped unless
- *   --force-build.
  */
 
 import { spawn } from 'node:child_process'
@@ -26,7 +29,9 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = resolve(__dirname, '..')
-const DEFAULT_BUNDLE_DIR = join(PACKAGE_ROOT, 'dist', 'dashboard')
+// The aiDeck Vue client staged by the installer (install.js
+// installRuntimeArtifacts copies @henryavila/aideck's dist/client here).
+const DEFAULT_BUNDLE_DIR = join(homedir(), '.atomic-skills', 'dashboard')
 const DEMO_FIXTURES_DIR = join(PACKAGE_ROOT, 'assets', 'demo-fixtures')
 const ENV_FILE_PATH = join(homedir(), '.atomic-skills', 'env')
 
@@ -106,23 +111,14 @@ export function resolveAideckPackageDir() {
 }
 
 /**
- * Builds the dashboard bundle on demand. Returns the path to dist/dashboard/.
+ * Resolves the staged aiDeck client static dir, or null when it is not
+ * present (e.g. the @henryavila/aideck dependency was not resolvable at
+ * install time). When null, aideck serves its own bundled client.
  *
- * @param {object} [opts]
- * @param {boolean} [opts.forceBuild]
+ * @returns {string|null}
  */
-async function ensureBundle(opts = {}) {
-  const indexHtml = join(DEFAULT_BUNDLE_DIR, 'index.html')
-  if (!opts.forceBuild && existsSync(indexHtml)) return DEFAULT_BUNDLE_DIR
-
-  console.error('atomic-skills serve: building dashboard…')
-  await runStreaming('npm', ['run', 'build:dashboard'], { cwd: PACKAGE_ROOT })
-  if (!existsSync(indexHtml)) {
-    throw new Error(
-      `Build completed but ${indexHtml} not found. Check vite.config.ts outDir.`
-    )
-  }
-  return DEFAULT_BUNDLE_DIR
+function resolveStaticDir() {
+  return existsSync(join(DEFAULT_BUNDLE_DIR, 'index.html')) ? DEFAULT_BUNDLE_DIR : null
 }
 
 /**
@@ -152,7 +148,8 @@ function stageDemoFixtures() {
  */
 function spawnAideck(opts) {
   const bin = opts.aideckBin ?? resolveAideckBin()
-  const args = ['serve', '--static-dir', opts.bundleDir]
+  const args = ['serve']
+  if (opts.bundleDir) args.push('--static-dir', opts.bundleDir)
   if (opts.port) args.push('--port', opts.port)
   const cwd = opts.cwd ?? process.cwd()
 
@@ -333,14 +330,8 @@ export async function ensureAideck(opts = {}) {
   const bin = resolveAideckBin()
   const args = ['serve']
   if (port) args.push(`--port=${port}`)
-  if (existsSync(join(DEFAULT_BUNDLE_DIR, 'index.html'))) {
-    args.push('--static-dir', DEFAULT_BUNDLE_DIR)
-  } else {
-    const dashboardDir = join(homedir(), '.atomic-skills', 'dashboard')
-    if (existsSync(join(dashboardDir, 'index.html'))) {
-      args.push('--static-dir', dashboardDir)
-    }
-  }
+  const staticDir = resolveStaticDir()
+  if (staticDir) args.push('--static-dir', staticDir)
 
   const isPath = bin.includes('/') || bin.includes('\\')
   const cmd = isPath ? process.execPath : bin
@@ -380,17 +371,6 @@ export async function ensureAideck(opts = {}) {
   return null
 }
 
-function runStreaming(cmd, args, opts) {
-  return new Promise((resolveP, rejectP) => {
-    const child = spawn(cmd, args, { stdio: 'inherit', ...opts })
-    child.on('error', rejectP)
-    child.on('exit', (code) => {
-      if (code === 0) resolveP()
-      else rejectP(new Error(`${cmd} ${args.join(' ')} exited with code ${code}`))
-    })
-  })
-}
-
 /**
  * Polls GET <baseUrl>/api/health until 200 OK or timeout. Returns true on
  * first OK, false on timeout. Used to gate env-file write on actual
@@ -411,18 +391,17 @@ async function pollHealth(baseUrl, { timeoutMs = 5000, intervalMs = 100 } = {}) 
 }
 
 /**
- * Main entry: build (if needed) → spawn aideck → wait for /api/health →
- * write env file → wait for child exit.
+ * Main entry: spawn aideck → wait for /api/health → write env file →
+ * wait for child exit.
  *
  * @param {object} [opts]
  * @param {string|number} [opts.port]
- * @param {boolean} [opts.forceBuild]
  * @param {string} [opts.aideckBin]
  * @param {boolean} [opts.demo]  Stage demo fixtures and serve from that
  *   tmp dir instead of the current working directory.
  */
 export async function serve(opts = {}) {
-  const bundleDir = await ensureBundle({ forceBuild: opts.forceBuild })
+  const bundleDir = resolveStaticDir()
   const port = parsePort(opts.port ?? '7777')
   const url = `http://127.0.0.1:${port}`
 
