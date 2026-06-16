@@ -268,9 +268,32 @@ Initiative for phase **F1 — Validar e aplicar o manifesto project-status (noss
   serão reavaliados no re-plano (T-002 `data_changed` provavelmente sobrevive;
   T-001 resolução de consumer v1 provavelmente é substituída).
 
+- **D-5 (re-escopo ratificado pelo usuário — PIVÔ DE PLANO) — Descartar o
+  dashboard React v1; adotar o cliente Vue do aiDeck dirigido por manifest.**
+  Painel de design (Aria/Uma/Iris, gate-mode) + ratificação do usuário. Fato
+  load-bearing: o aiDeck JÁ entrega um cliente Vue que renderiza o manifest
+  declarativo (`/home/henry/aideck/src/client/`, build `dist/client/`, widgets
+  `PhaseTimelineWidget.vue`/`CalloutWidget.vue`/`TabsWidget.vue`/`AccordionWidget.vue`/
+  `DrawerWidget.vue`…). Decisões do usuário:
+  - **Q1 = B (forte):** DESCARTAR completamente o dashboard React v1 (`src/dashboard`).
+    Isso **reverte o P3 do plano** ("o dashboard é o nosso cliente React próprio")
+    e **reshape a F2** (o redesign deixa de ser "redesenhar o cliente React" e passa
+    a ser "configurar o manifest + tematizar/estender o DS do cliente Vue do aiDeck").
+  - **P1 ajustado:** posso **PROPOR** ajustes no aiDeck, **nunca IMPLEMENTAR** lá.
+  - **Objetivo do redesign:** o aiDeck já tem "Claude design", mas a tela atual está
+    confusa; o redesign deve **representar o uso correto dos componentes** (widgets/DS).
+  - **T-002 sobrevive em qualquer cenário** (o aiDeck emite `data_changed` via SSE
+    `/sse`; Aria errou ao dizer que v2 não tem SSE). T-001 (resolução de consumer v1)
+    e todo o `src/dashboard` viram descarte.
+  - **Próximo passo:** produzir, via `atomic-skills:design-brief`, a estrutura
+    hierárquica dos dados (modelo v2) + fixtures reais (~4 projetos: arch,
+    atomic-skills, dispatch-test, lekto) como brief para o design agent.
+  Síntese do painel + dissent preservados acima na narrativa desta sessão.
+
 ## Links
 
 - Plano: `.atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md`
+- Cliente Vue do aiDeck (renderer do manifest): `/home/henry/aideck/src/client/` (build `dist/client/`)
 - API v2 (dados reais): `GET /api/consumers/<id>/projects/<projectId>/data/<dataSourceId>` — aiDeck `src/server/routes/api-v2.ts`
 - API v1 (legacy, usada hoje pelo cliente): `GET /api/state/:consumer` — aiDeck `src/server/routes/api.ts:175` + `projections/state.ts:85` (`consumerRoot` flat)
 - Contrato aiDeck: hard-cut `b3fad45` + `/home/henry/aideck/docs/handoffs/atomic-skills-manifest.md`

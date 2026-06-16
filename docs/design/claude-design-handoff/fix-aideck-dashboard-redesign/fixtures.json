@@ -1,0 +1,3275 @@
+[
+ {
+  "project": "atomic-skills",
+  "plansCount": 13,
+  "plans": [
+   {
+    "slug": "aideck-multi-project",
+    "title": "Suporte Multi-Projeto no aiDeck",
+    "status": "archived",
+    "currentPhase": null,
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-08T01:43:39Z",
+    "phaseCount": 6,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "ProjectRegistry no aiDeck",
+      "status": "done",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Multi-watcher por projeto",
+      "status": "done",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F2",
+      "title": "Rotas project-scoped no aiDeck",
+      "status": "done",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "ensureAideck como registro",
+      "status": "done",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "ProjectsIndex — nova Home com grid de project cards",
+      "status": "paused",
+      "dependsOn": [
+       "F3"
+      ]
+     },
+     {
+      "id": "F5",
+      "title": "Project Detail — Roadmap drill-in + navegacao",
+      "status": "pending",
+      "dependsOn": [
+       "F4"
+      ]
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "bmad-af-learnings",
+    "title": "BMad AF Learnings — State Sync + Quality Gates",
+    "status": "archived",
+    "currentPhase": null,
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-08T00:56:38Z",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "BMad AF Learnings — State Sync + Quality Gates",
+      "status": "done",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "bmad-porting-research",
+    "title": "Pesquisa: Porting de Módulos BMAD para Atomic Skills",
+    "status": "archived",
+    "currentPhase": "F0",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-09T22:00:00Z",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Pesquisa: Porting de Módulos BMAD para Atomic Skills",
+      "status": "paused",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "design-brief-source-of-truth",
+    "title": "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)",
+    "status": "active",
+    "currentPhase": "F1",
+    "branch": "plan/design-brief",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-16T12:00:18Z",
+    "phaseCount": 3,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Schema e validação do catálogo",
+      "status": "done",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Reconstrução (artefato e código) e reconciliação",
+      "status": "pending",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F2",
+      "title": "Integração no design-brief",
+      "status": "pending",
+      "dependsOn": [
+       "F1"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo",
+      "title": "Reconstrução (artefato e código) e reconciliação",
+      "status": "pending",
+      "phaseId": "F1",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Discovery das fontes",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Discovery das fontes",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Cross-reference e reconciliação",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Regime por-página e inputsHash",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Resolução de conflito pelo operador",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: node --test test/app-map/sources.test.js test/app-map/recon…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "design-brief-source-of-truth-f2-integracao-no-design-brief",
+      "title": "Integração no design-brief",
+      "status": "pending",
+      "phaseId": "F2",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Step 2 consome o catálogo",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Step 2 consome o catálogo",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Switch do R2 por regime",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Persistência na árvore do app-alvo",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: node --test test/app-map/persist.test.js && grep -qi 'app-m…"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   },
+   {
+    "slug": "fix-aideck-dashboard",
+    "title": "fix-aideck-dashboard: corrigir a integração com aiDeck",
+    "status": "active",
+    "currentPhase": "F1",
+    "branch": "plan/fix-aideck-dashboard",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-16T11:57:08.891Z",
+    "phaseCount": 3,
+    "phases": [
+     {
+      "id": "F1",
+      "title": "Validar e aplicar o manifesto project-status (nosso lado)",
+      "status": "active",
+      "dependsOn": []
+     },
+     {
+      "id": "F2",
+      "title": "Lista de planos: filtrar os concluídos",
+      "status": "pending",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "Repensar o dashboard com o Claude design",
+      "status": "pending",
+      "dependsOn": [
+       "F2"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "fix-aideck-dashboard-f1-validar-e-aplicar-o-manifesto-project-s",
+      "title": "Validar e aplicar o manifesto project-status (nosso lado)",
+      "status": "active",
+      "phaseId": "F1",
+      "tasksDone": 0,
+      "tasksTotal": 1,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Ler /home/henry/aideck/docs/handoffs/atomic-skills-manifest.md, validar contra o repo e aplicar os ajustes do nosso lado (publicar ~/.aideck/consumers/project-status/manifest.yaml + migrar annotations/highlights/inbox para .atomic-skills/project-status/), sem tocar no aiDeck.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Ler, validar e aplicar o handoff atomic-skills-manifest",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "fix-aideck-dashboard-f2-lista-de-planos-filtrar-os-concluidos",
+      "title": "Lista de planos: filtrar os concluídos",
+      "status": "pending",
+      "phaseId": "F2",
+      "tasksDone": 0,
+      "tasksTotal": 2,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": null,
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Filtrar da lista os planos done e archived",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Live-refresh: dashboard não reflete alterações dos projetos",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "fix-aideck-dashboard-f3-repensar-o-dashboard-com-o-claude-desig",
+      "title": "Repensar o dashboard com o Claude design",
+      "status": "pending",
+      "phaseId": "F3",
+      "tasksDone": 0,
+      "tasksTotal": 0,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": null,
+      "tasks": [],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   },
+   {
+    "slug": "fix-superpowers-integration",
+    "title": "Consertar integração project-plan ↔ superpowers",
+    "status": "archived",
+    "currentPhase": null,
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-08T01:47:16Z",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Consertar integração project-plan ↔ superpowers",
+      "status": "pending",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "mode2-anthropic-subagent-tier",
+    "title": "Mode 2 — Anthropic subagent executor tier (Sonnet/Haiku)",
+    "status": "archived",
+    "currentPhase": "F0",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-09T22:00:00Z",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Mode 2 — Anthropic subagent executor tier (Sonnet/Haiku)",
+      "status": "pending",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "mode2-codex-default-enablement",
+    "title": "Mode 2 — make Codex the default implementer (Opus plans, Codex executes)",
+    "status": "archived",
+    "currentPhase": null,
+    "branch": "main",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-07T19:40:27Z",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Mode 2 — make Codex the default implementer",
+      "status": "done",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+    "status": "active",
+    "currentPhase": "F0",
+    "branch": "plan/multiplan-focus",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-16T12:00:18Z",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+      "status": "active",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "multiplan-focus-resolution",
+      "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+      "status": "active",
+      "phaseId": "F0",
+      "tasksDone": 4,
+      "tasksTotal": 6,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Desenhar invariante + ponto de enforcement",
+        "status": "done"
+       },
+       {
+        "id": "T-002",
+        "title": "Enforcer soft na ativação + carimbar branch",
+        "status": "done"
+       },
+       {
+        "id": "T-003",
+        "title": "Promover warn→fail no project-verify",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "claudebar: chip do focus.json + render do marcador de multi-plano",
+        "status": "done"
+       },
+       {
+        "id": "T-005",
+        "title": "Produtor: multipleActivePlans tree-relative",
+        "status": "done"
+       },
+       {
+        "id": "T-006",
+        "title": "implement: materializar/entrar na worktree-do-plano (+ Mode 1)",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F0-G1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   },
+   {
+    "slug": "project-orchestrator-redesign",
+    "title": "Redesign project skill into a lifecycle orchestrator (dogfood)",
+    "status": "archived",
+    "currentPhase": null,
+    "branch": "main",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-07T18:58:34Z",
+    "phaseCount": 7,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Inc0 — verify-on-done teeth (the linchpin)",
+      "status": "done",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Inc1–Inc5 — lifecycle cognition + execution skills",
+      "status": "done",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F2",
+      "title": "Inc6 + D7 — verify/migrate command + live layout cut-over",
+      "status": "done",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "WF-IMPL-2 — Mode 2 Codex-only execution lane",
+      "status": "done",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "Live proof-on-throwaway-repo for the Codex write-mode lane",
+      "status": "done",
+      "dependsOn": [
+       "F3"
+      ]
+     },
+     {
+      "id": "F5",
+      "title": "Inc7 — aiDeck consumer-side + prose/schema long tail",
+      "status": "done",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F6",
+      "title": "Anthropic subagent executor tier (DEFERRED)",
+      "status": "paused",
+      "dependsOn": [
+       "F3"
+      ]
+     }
+    ],
+    "initiatives": []
+   },
+   {
+    "slug": "quick-idea-capture",
+    "title": "Quick Idea Capture",
+    "status": "archived",
+    "currentPhase": "F1",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-09T21:35:00Z",
+    "phaseCount": 2,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Captura barata (MVP do inbox)",
+      "status": "done",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Promoção via emergence ladder",
+      "status": "done",
+      "dependsOn": [
+       "F0"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "quick-idea-capture-f0-captura-barata-mvp-do-inbox",
+      "title": "Captura barata (MVP do inbox)",
+      "status": "done",
+      "phaseId": "F0",
+      "tasksDone": 3,
+      "tasksTotal": 3,
+      "gatesMet": 3,
+      "gatesTotal": 3,
+      "nextAction": "F0 fechada (3/3 tasks, 3/3 gates met). Próximo: F1 — idea promote.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "idea-add.js — append determinístico ao ideas.md",
+        "status": "done"
+       },
+       {
+        "id": "T-002",
+        "title": "project-idea.md — fork de captura mais idea list",
+        "status": "done"
+       },
+       {
+        "id": "T-003",
+        "title": "Router wiring mais paridade de install",
+        "status": "done"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F0-G1",
+        "status": "met",
+        "verifierLabel": "shell: node --test tests/idea-add.test.js"
+       },
+       {
+        "id": "F0-G2",
+        "status": "met",
+        "verifierLabel": "shell: npm run validate-skills && node --test tests/compatibility.…"
+       },
+       {
+        "id": "F0-G3",
+        "status": "met",
+        "verifierLabel": "shell: node --test tests/install-uninstall-roundtrip.test.js && gr…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "quick-idea-capture-f1-promocao-via-emergence-ladder",
+      "title": "Promoção via emergence ladder",
+      "status": "done",
+      "phaseId": "F1",
+      "tasksDone": 2,
+      "tasksTotal": 2,
+      "gatesMet": 2,
+      "gatesTotal": 2,
+      "nextAction": "F1 fechada (2/2 tasks, 2/2 gates met). Plano completo — arquivar via `archive` quando o usuário decidir.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "idea promote — procedimento mais wiring",
+        "status": "done"
+       },
+       {
+        "id": "T-002",
+        "title": "idea-mark.js — transição de status para triaged",
+        "status": "done"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F1-G1",
+        "status": "met",
+        "verifierLabel": "shell: node --test tests/idea-mark.test.js"
+       },
+       {
+        "id": "F1-G2",
+        "status": "met",
+        "verifierLabel": "shell: node --test tests/idea-promote.test.js"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   },
+   {
+    "slug": "refactor-doc-architect",
+    "title": "Refactor doc-architect into an atomic-skill",
+    "status": "paused",
+    "currentPhase": "F0",
+    "branch": "main",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-02T12:33:02Z",
+    "phaseCount": 6,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Confirm conventions and decisions",
+      "status": "paused",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Mechanical move and tool abstraction",
+      "status": "pending",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F2",
+      "title": "Drop and replace BMAD coupling",
+      "status": "pending",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "Carve Laravel into a first-class adapter",
+      "status": "pending",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "Add claim-level citations",
+      "status": "pending",
+      "dependsOn": [
+       "F3"
+      ]
+     },
+     {
+      "id": "F5",
+      "title": "Regression gate and acceptance",
+      "status": "pending",
+      "dependsOn": [
+       "F4"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "refactor-doc-architect-f0-confirm-conventions-and-decisions",
+      "title": "Confirm conventions and decisions",
+      "status": "paused",
+      "phaseId": "F0",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Read an existing atomic-skill end to end",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Read an existing atomic-skill end to end",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Resolve decisions D1-D4 with the user",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Confirm target location and slug",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "refactor-doc-architect-f1-mechanical-move-and-tool-abstraction",
+      "title": "Mechanical move and tool abstraction",
+      "status": "pending",
+      "phaseId": "F1",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Copy the pipeline assets",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Copy the pipeline assets",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Run the tool-literal abstraction sweep",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Rewrite SKILL.md frontmatter",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Relocate output adapters",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "refactor-doc-architect-f2-drop-and-replace-bmad-coupling",
+      "title": "Drop and replace BMAD coupling",
+      "status": "pending",
+      "phaseId": "F2",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Delete BMAD scaffolding",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Delete BMAD scaffolding",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Replace language-config indirection",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Re-point memory and output paths",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Reconcile documentation standard into target repo's house standard",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "refactor-doc-architect-f3-carve-laravel-into-a-first-class-adap",
+      "title": "Carve Laravel into a first-class adapter",
+      "status": "pending",
+      "phaseId": "F3",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Consolidate extraction guides into the adapter",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Consolidate extraction guides into the adapter",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "De-inline framework assumptions from steps",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Document the adapter seam",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "refactor-doc-architect-f4-add-claim-level-citations",
+      "title": "Add claim-level citations",
+      "status": "pending",
+      "phaseId": "F4",
+      "tasksDone": 0,
+      "tasksTotal": 2,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Add citation discipline to extraction steps",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Add citation discipline to extraction steps",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Extend the verification pass to check provenance and diagram edges",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "refactor-doc-architect-f5-regression-gate-and-acceptance",
+      "title": "Regression gate and acceptance",
+      "status": "pending",
+      "phaseId": "F5",
+      "tasksDone": 0,
+      "tasksTotal": 2,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Re-run the refactored skill on the original module",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Re-run the refactored skill on the original module",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Verify acceptance criteria",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   },
+   {
+    "slug": "skills-restructuring",
+    "title": "Reestruturação das skills atomic-skills",
+    "status": "active",
+    "currentPhase": "F1",
+    "branch": "plan/skills-restructuring",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-16T14:10:57Z",
+    "phaseCount": 7,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Pente fino de consistência",
+      "status": "done",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Economia de tokens: project e implement",
+      "status": "active",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F2",
+      "title": "Economia de tokens: padrões transversais",
+      "status": "pending",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "Economia de tokens: per-skill",
+      "status": "pending",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "Feature: project review",
+      "status": "pending",
+      "dependsOn": [
+       "F3"
+      ]
+     },
+     {
+      "id": "F5",
+      "title": "Nova skill: design-brief",
+      "status": "done",
+      "dependsOn": [
+       "F4"
+      ]
+     },
+     {
+      "id": "F6",
+      "title": "focus.json não drifta silenciosamente",
+      "status": "pending",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "skills-restructuring-f0-pente-fino-de-consistencia",
+      "title": "Pente fino de consistência",
+      "status": "done",
+      "phaseId": "F0",
+      "tasksDone": 7,
+      "tasksTotal": 7,
+      "gatesMet": 1,
+      "gatesTotal": 1,
+      "nextAction": null,
+      "tasks": [
+       {
+        "id": "T0.1",
+        "title": "Corrigir contagem de stages no create-plan",
+        "status": "done"
+       },
+       {
+        "id": "T0.2",
+        "title": "Completar cheat-sheet de Task com summary e evidence",
+        "status": "done"
+       },
+       {
+        "id": "T0.3",
+        "title": "Completar cheat-sheet de PhaseDescriptor",
+        "status": "done"
+       },
+       {
+        "id": "T0.4",
+        "title": "Anotar campos 0.2 do verifier manual",
+        "status": "done"
+       },
+       {
+        "id": "T0.5",
+        "title": "Corrigir caminho morto do review-code no drift",
+        "status": "done"
+       },
+       {
+        "id": "T0.6",
+        "title": "Registrar o gate G9 no registry canônico",
+        "status": "done"
+       },
+       {
+        "id": "T0.7",
+        "title": "Remover referência dangling AIDECK_STATE_DOMAIN",
+        "status": "done"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F0-G1",
+        "status": "met",
+        "verifierLabel": "shell: npm run validate-skills"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "skills-restructuring-f1-economia-de-tokens-project-e-implement",
+      "title": "Economia de tokens: project e implement",
+      "status": "active",
+      "phaseId": "F1",
+      "tasksDone": 5,
+      "tasksTotal": 5,
+      "gatesMet": 1,
+      "gatesTotal": 1,
+      "nextAction": "All F1 tasks done — run phase-done to verify exit gate F1-G1 + the review-code gate, then advance to F2 (user opts in).",
+      "tasks": [
+       {
+        "id": "T1.1",
+        "title": "Router fino — mover blocos de referência para detail lazy",
+        "status": "done"
+       },
+       {
+        "id": "T1.2",
+        "title": "Colapsar Red Flags e Rationalization do implement",
+        "status": "done"
+       },
+       {
+        "id": "T1.3",
+        "title": "Contrato Mode-2 em fonte única",
+        "status": "done"
+       },
+       {
+        "id": "T1.4",
+        "title": "Partir transitions e extrair verifier-exec compartilhado",
+        "status": "done"
+       },
+       {
+        "id": "T1.5",
+        "title": "Corrigir decompose H3-mode para materializar o interior SPEC das tasks",
+        "status": "done"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F1-G1",
+        "status": "met",
+        "verifierLabel": "shell: test $(wc -c < skills/core/project.md) -lt 22000 && test $(…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "skills-restructuring-f2-economia-de-tokens-padroes-transversais",
+      "title": "Economia de tokens: padrões transversais",
+      "status": "pending",
+      "phaseId": "F2",
+      "tasksDone": 0,
+      "tasksTotal": 7,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T2.1: Convenção Red Flags e Rationalization em todas as skills",
+      "tasks": [
+       {
+        "id": "T2.1",
+        "title": "Convenção Red Flags e Rationalization em todas as skills",
+        "status": "pending"
+       },
+       {
+        "id": "T2.2",
+        "title": "Extrair o esqueleto do envelope codex",
+        "status": "pending"
+       },
+       {
+        "id": "T2.3",
+        "title": "Gates de qualidade por referência, não paráfrase",
+        "status": "pending"
+       },
+       {
+        "id": "T2.4",
+        "title": "Scaffolds emit-time para assets lazy",
+        "status": "pending"
+       },
+       {
+        "id": "T2.5",
+        "title": "Colapsar re-derivação de verifier-exec no verify-claim",
+        "status": "pending"
+       },
+       {
+        "id": "T2.6",
+        "title": "Reduzir debug-techniques inline no fix",
+        "status": "pending"
+       },
+       {
+        "id": "T2.7",
+        "title": "Adicionar ponteiro worktree no parallel-dispatch",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F2-G1",
+        "status": "pending",
+        "verifierLabel": "shell: test -f skills/shared/codex-bridge-assets/envelope-orchestr…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "skills-restructuring-f3-economia-de-tokens-per-skill",
+      "title": "Economia de tokens: per-skill",
+      "status": "pending",
+      "phaseId": "F3",
+      "tasksDone": 0,
+      "tasksTotal": 5,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T3.1: review-code — mover blocos mode-gated e diff-capture",
+      "tasks": [
+       {
+        "id": "T3.1",
+        "title": "review-code — mover blocos mode-gated e diff-capture",
+        "status": "pending"
+       },
+       {
+        "id": "T3.2",
+        "title": "review-plan — mover initiative-depth e closing para asset",
+        "status": "pending"
+       },
+       {
+        "id": "T3.3",
+        "title": "hunt — mover directory-triage para asset",
+        "status": "pending"
+       },
+       {
+        "id": "T3.4",
+        "title": "debate — mover gate-mode e remover redundância",
+        "status": "pending"
+       },
+       {
+        "id": "T3.5",
+        "title": "init-memory — mover Step 5 e Critical Context para asset",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F3-G1",
+        "status": "pending",
+        "verifierLabel": "shell: npm run validate-skills"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "skills-restructuring-f4-feature-project-review",
+      "title": "Feature: project review",
+      "status": "pending",
+      "phaseId": "F4",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T4.1: review-plan resolve slug e active-plan",
+      "tasks": [
+       {
+        "id": "T4.1",
+        "title": "review-plan resolve slug e active-plan",
+        "status": "pending"
+       },
+       {
+        "id": "T4.2",
+        "title": "review-plan auto cross-ref por provenance",
+        "status": "pending"
+       },
+       {
+        "id": "T4.3",
+        "title": "Subcomando project review (detail lazy)",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F4-G1",
+        "status": "pending",
+        "verifierLabel": "shell: test -f skills/shared/project-assets/project-review.md && g…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "skills-restructuring-f5-nova-skill-design-brief",
+      "title": "Nova skill: design-brief",
+      "status": "done",
+      "phaseId": "F5",
+      "tasksDone": 5,
+      "tasksTotal": 5,
+      "gatesMet": 1,
+      "gatesTotal": 1,
+      "nextAction": null,
+      "tasks": [
+       {
+        "id": "T5.1",
+        "title": "Corpo da skill design-brief",
+        "status": "done"
+       },
+       {
+        "id": "T5.2",
+        "title": "Asset do prompt de Design System",
+        "status": "done"
+       },
+       {
+        "id": "T5.3",
+        "title": "Asset do prompt de telas",
+        "status": "done"
+       },
+       {
+        "id": "T5.4",
+        "title": "Assets de fixtures e anti-contaminação",
+        "status": "done"
+       },
+       {
+        "id": "T5.5",
+        "title": "Registrar e validar a skill no catálogo",
+        "status": "done"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F5-G1",
+        "status": "met",
+        "verifierLabel": "shell: test -f skills/core/design-brief.md && test -f skills/share…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "skills-restructuring-f6-focus-json-auto-refresh",
+      "title": "focus.json não drifta silenciosamente",
+      "status": "pending",
+      "phaseId": "F6",
+      "tasksDone": 0,
+      "tasksTotal": 2,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T6.1: fluxo de transição usa refresh-state (regenera o focus.json a cada mutação)",
+      "tasks": [
+       {
+        "id": "T6.1",
+        "title": "Fluxo de transição regenera o focus.json (fix portável)",
+        "status": "pending"
+       },
+       {
+        "id": "T6.2",
+        "title": "install conecta os hooks de project-status, com paridade uninstall",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "F6-G1",
+        "status": "pending",
+        "verifierLabel": "shell: grep -q 'refresh-state' skills/shared/project-assets/projec…"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "project": "arch",
+  "plansCount": 5,
+  "plans": [
+   {
+    "slug": "arch-design-system-rollout",
+    "title": "Design System CRCMG (tokens + Flux) — fundacao e rollout em todas as telas Arch fora do painel admin",
+    "status": "paused",
+    "currentPhase": "F0",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-15T07:53:18-03:00",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Design System CRCMG (tokens + Flux) — fundacao e rollout em todas as telas Arch fora do painel admin",
+      "status": "pending",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "arch-design-system-rollout",
+      "title": "Design System CRCMG (tokens + Flux) — fundacao e rollout em todas as telas Arch fora do painel admin",
+      "status": "pending",
+      "phaseId": "F0",
+      "tasksDone": 0,
+      "tasksTotal": 55,
+      "gatesMet": 0,
+      "gatesTotal": 8,
+      "nextAction": "GATE DE ENTRADA (atualizado 2026-06-15, decisão Henry): o plano de redesign INTEIRO — incluindo a fundação de tokens (T-001) e a paleta Filament (MG-043) — só inicia APÓS a conclusão do upgrade Laravel 13 (laravel-13-upgrade), que por sua vez só roda após a migração v4. Ordem estrita v4 → L13 → redesign, SEM início antecipado (supersede o carve-out anterior em que T-001/MG-043 eram independentes do upgrade). Unblock técnico duro: F6/Onda F do L13 (Vite 8, TS6, Inertia v3 full-stack, eslint 10) — senão cada tela passa 2x pelos breaking changes do Inertia v3. Quando iniciar: criar branch (feat/design-system-rollout) e atacar a fundacao (T-001 tokens CRCMG sobre Flux) ANTES de qualquer tela; as telas piloto T-004/T-014/T-015 e funcionarios sao os primeiros consumidores. NOTA: T-026 (checklist patrimonial) teve escopo expandido para OFFLINE-FIRST (migracao Livewire->Vue + kernel offline reusavel) e ja tem ADR + briefing em docs/redesign/ — ver 'Nota de escopo T-026'; decidir se vira flagship antecipada.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Fundacao: definir tokens CRCMG sobre Flux UI",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Fundacao: auditar e inventariar o Design System antigo",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Fundacao: implementar camada base do novo DS",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "PILOTO: login principal do sistema (auth)",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "Vue/Inertia: manutencao",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Vue/Inertia: arquivos de suporte",
+        "status": "pending"
+       },
+       {
+        "id": "T-007",
+        "title": "Vue/Inertia: LGPD solicitacao inicial",
+        "status": "pending"
+       },
+       {
+        "id": "T-008",
+        "title": "Vue/Inertia: LGPD resposta",
+        "status": "pending"
+       },
+       {
+        "id": "T-009",
+        "title": "Vue/Inertia: LGPD criar solicitacao",
+        "status": "pending"
+       },
+       {
+        "id": "T-010",
+        "title": "Vue/Inertia: protocolo digital inicial",
+        "status": "pending"
+       },
+       {
+        "id": "T-011",
+        "title": "Vue/Inertia: finalizar protocolo digital",
+        "status": "pending"
+       },
+       {
+        "id": "T-012",
+        "title": "Vue/Inertia: acompanhamento de protocolo digital",
+        "status": "pending"
+       },
+       {
+        "id": "T-013",
+        "title": "Vue/Inertia: solicitacao de comissoes",
+        "status": "pending"
+       },
+       {
+        "id": "T-014",
+        "title": "PILOTO: Livewire menu de apps",
+        "status": "pending"
+       },
+       {
+        "id": "T-015",
+        "title": "PILOTO: Livewire app login e variantes",
+        "status": "pending"
+       },
+       {
+        "id": "T-016",
+        "title": "Livewire: aceitar termo de uso",
+        "status": "pending"
+       },
+       {
+        "id": "T-017",
+        "title": "Livewire: LGPD emails index",
+        "status": "pending"
+       },
+       {
+        "id": "T-018",
+        "title": "Livewire: LGPD cadastro email",
+        "status": "pending"
+       },
+       {
+        "id": "T-019",
+        "title": "Livewire: LGPD confirma cadastro",
+        "status": "pending"
+       },
+       {
+        "id": "T-020",
+        "title": "Livewire: LGPD solicitar alteracao",
+        "status": "pending"
+       },
+       {
+        "id": "T-021",
+        "title": "Livewire: LGPD confirma alteracao",
+        "status": "pending"
+       },
+       {
+        "id": "T-022",
+        "title": "Livewire: LGPD status mailing",
+        "status": "pending"
+       },
+       {
+        "id": "T-023",
+        "title": "Livewire: LGPD status detalhe mailing",
+        "status": "pending"
+       },
+       {
+        "id": "T-024",
+        "title": "Livewire: formulario SPW",
+        "status": "pending"
+       },
+       {
+        "id": "T-025",
+        "title": "Livewire: menu patrimonio",
+        "status": "pending"
+       },
+       {
+        "id": "T-026",
+        "title": "Livewire->Vue OFFLINE-FIRST: checklist patrimonio (flagship)",
+        "status": "pending"
+       },
+       {
+        "id": "T-027",
+        "title": "PILOTO: Livewire funcionarios novos",
+        "status": "pending"
+       },
+       {
+        "id": "T-028",
+        "title": "Livewire: funcionarios em licenca",
+        "status": "pending"
+       },
+       {
+        "id": "T-029",
+        "title": "Livewire: ex-funcionarios",
+        "status": "pending"
+       },
+       {
+        "id": "T-030",
+        "title": "Livewire: funcionarios em ferias",
+        "status": "pending"
+       },
+       {
+        "id": "T-031",
+        "title": "Livewire: troca obrigatoria de senha",
+        "status": "pending"
+       },
+       {
+        "id": "T-032",
+        "title": "Livewire Volt: sync apps",
+        "status": "pending"
+       },
+       {
+        "id": "T-033",
+        "title": "Blade/Livewire package surface: FilaForms publico",
+        "status": "pending"
+       },
+       {
+        "id": "T-034",
+        "title": "Blade: relatorio PDTI publico",
+        "status": "pending"
+       },
+       {
+        "id": "T-035",
+        "title": "Blade: notice automatic mail e divulgacao",
+        "status": "pending"
+       },
+       {
+        "id": "T-036",
+        "title": "Blade: ramais internos",
+        "status": "pending"
+       },
+       {
+        "id": "T-037",
+        "title": "Blade: sync users output",
+        "status": "pending"
+       },
+       {
+        "id": "T-038",
+        "title": "Blade: sync ad output",
+        "status": "pending"
+       },
+       {
+        "id": "T-039",
+        "title": "Blade: sync areas output",
+        "status": "pending"
+       },
+       {
+        "id": "T-040",
+        "title": "Blade: sync professionals output",
+        "status": "pending"
+       },
+       {
+        "id": "T-041",
+        "title": "Blade: sync organizations output",
+        "status": "pending"
+       },
+       {
+        "id": "T-042",
+        "title": "Blade: tw-smoke",
+        "status": "pending"
+       },
+       {
+        "id": "T-043",
+        "title": "Relatorio: share publico",
+        "status": "pending"
+       },
+       {
+        "id": "T-044",
+        "title": "Relatorio: Getin gerencial HTML",
+        "status": "pending"
+       },
+       {
+        "id": "T-045",
+        "title": "PDF: inventario de dados pessoais",
+        "status": "pending"
+       },
+       {
+        "id": "T-046",
+        "title": "PDF: analise de impacto completa",
+        "status": "pending"
+       },
+       {
+        "id": "T-047",
+        "title": "PDF: analise de impacto por servico",
+        "status": "pending"
+       },
+       {
+        "id": "T-048",
+        "title": "PDF: inventario por servico",
+        "status": "pending"
+       },
+       {
+        "id": "T-049",
+        "title": "PDF: estatistica de email",
+        "status": "pending"
+       },
+       {
+        "id": "T-050",
+        "title": "PDF: seguranca por usuario",
+        "status": "pending"
+       },
+       {
+        "id": "T-051",
+        "title": "PDF: seguranca por app",
+        "status": "pending"
+       },
+       {
+        "id": "T-052",
+        "title": "PDF: seguranca por area",
+        "status": "pending"
+       },
+       {
+        "id": "T-053",
+        "title": "PDF: solicitacoes pendentes de comissao",
+        "status": "pending"
+       },
+       {
+        "id": "T-054",
+        "title": "PDF: checklist bens patrimoniais",
+        "status": "pending"
+       },
+       {
+        "id": "T-055",
+        "title": "Remover DS antigo e revisao geral de consistencia",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-6",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-7",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-8",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 0
+     }
+    ]
+   },
+   {
+    "slug": "filaforms-crc-register-field-type",
+    "title": "FilaForms — Field Type \"Número de Registro CRC\"",
+    "status": "paused",
+    "currentPhase": "F0",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-09T10:10:00-03:00",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "FilaForms — Field Type \"Número de Registro CRC\"",
+      "status": "pending",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "filaforms-crc-register-field-type",
+      "title": "FilaForms — Field Type \"Número de Registro CRC\"",
+      "status": "pending",
+      "phaseId": "F0",
+      "tasksDone": 0,
+      "tasksTotal": 7,
+      "gatesMet": 0,
+      "gatesTotal": 5,
+      "nextAction": "ESCOPO RATIFICADO (Henry 2026-06-09): aceitar profissional (qualquer UF, {UF}-NNNNNN/{cat}) + organizações (PJ/PF/LG-NNNNNN/K). Restam definir: faixa de dígitos (4-7?), categorias válidas, dígito verificador, toggle de validação-de-existência. Iniciativa PARADA — Henry priorizou o release; retomar em T-002 (value object CrcRegister em TDD) quando reativada.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Fechar formato/validação canônica do Número de Registro CRC",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Criar value object App\\Support\\Crcmg\\CrcRegister (normalize/format/mask/isValidFormat) — TDD",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Criar CrcRegisterFieldType + CrcRegisterInputComponent (espelha CpfFieldType)",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Registrar o field type em ArchFilaFormsPlugin::registerFieldTypes",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "i18n pt_BR + en para o novo field type",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Tests — unit (CrcRegister) + feature (FilaForms) + arch (registro do plugin)",
+        "status": "pending"
+       },
+       {
+        "id": "T-007",
+        "title": "Smoke test no browser + ratificação do formato (Henry) — G-MANUAL",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending"
+       },
+       {
+        "id": "G-2",
+        "status": "pending"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "pending"
+       },
+       {
+        "id": "G-MANUAL",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 0
+     }
+    ]
+   },
+   {
+    "slug": "laravel-13-upgrade",
+    "title": "Upgrade Laravel 13 + Ecossistema Completo (estratégia agressiva)",
+    "status": "paused",
+    "currentPhase": "F0",
+    "branch": "upgrade/laravel-13",
+    "parallelismAllowed": true,
+    "lastUpdated": "2026-06-15T10:53:18Z",
+    "phaseCount": 8,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Gate 0: destravamentos paralelos (roda JÁ)",
+      "status": "paused",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Onda A: limpezas pré-L13 (rodam JÁ em L12)",
+      "status": "pending",
+      "dependsOn": []
+     },
+     {
+      "id": "F2",
+      "title": "Onda B: remoção TOTAL do Nova (decisão #6)",
+      "status": "pending",
+      "dependsOn": [
+       "F0",
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "Onda C: core Laravel 13",
+      "status": "pending",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "Onda D: activitylog 4→5 (a onda mais pesada de dados)",
+      "status": "pending",
+      "dependsOn": [
+       "F3"
+      ]
+     },
+     {
+      "id": "F5",
+      "title": "Onda E: ldaprecord 4 + qr-code 6",
+      "status": "pending",
+      "dependsOn": [
+       "F4"
+      ]
+     },
+     {
+      "id": "F6",
+      "title": "Onda F: frontend completo",
+      "status": "pending",
+      "dependsOn": [
+       "F5"
+      ]
+     },
+     {
+      "id": "F7",
+      "title": "Onda G: verificação final, CI e cutover",
+      "status": "pending",
+      "dependsOn": [
+       "F6"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "laravel-13-upgrade-f0-gate-0-destravamentos-paralelos-roda-ja",
+      "title": "Gate 0: destravamentos paralelos (roda JÁ)",
+      "status": "paused",
+      "phaseId": "F0",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 4,
+      "nextAction": "⛔ Gateado: aguarda conclusão da migração v4 (plano v4-migration-remaining, F0-F5+FA). Ao retomar: Start T-001 (Impersonation → lab404/filament-impersonate).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Impersonation → lab404/filament-impersonate",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Releases first-party",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Fork postare/blade-mdi",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Ambiente dedicado + baselines",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f1-onda-a-limpezas-pre-l13-rodam-ja-em-l12",
+      "title": "Onda A: limpezas pré-L13 (rodam JÁ em L12)",
+      "status": "pending",
+      "phaseId": "F1",
+      "tasksDone": 0,
+      "tasksTotal": 7,
+      "gatesMet": 0,
+      "gatesTotal": 4,
+      "nextAction": "Start T-001: Remover faisal50x/blade-ionicons",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Remover faisal50x/blade-ionicons",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Remover Scout + Meilisearch",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Excel → XlsxWriter (service próprio)",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "pt-br-validator → 4 Rule classes locais",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "Cache: objetos → arrays (3 callsites)",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Debugbar 3→4 (dev-only)",
+        "status": "pending"
+       },
+       {
+        "id": "T-007",
+        "title": "Limpeza mix residual + sass",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: ! grep -E '\"(laravel/scout|meilisearch/meilisearch-php|fais…"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c \"! rg -ln 'Maatwebsite.Excel' app/ --type php -g '!…"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: grep -q 'XlsxWriter' .claude/rules/helpers.md"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f2-onda-b-remocao-total-do-nova-decisao-6",
+      "title": "Onda B: remoção TOTAL do Nova (decisão #6)",
+      "status": "pending",
+      "phaseId": "F2",
+      "tasksDone": 0,
+      "tasksTotal": 7,
+      "gatesMet": 0,
+      "gatesTotal": 7,
+      "nextAction": "Start T-001: Gate de entrada B.0: paridade funcional",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Gate de entrada B.0: paridade funcional",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "3 tools Nova → Filament",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-003",
+        "title": "Desacoplar os 17 arquivos fora de app/Nova",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-004",
+        "title": "Sweep código + composer",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-005",
+        "title": "CI sem Nova",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-006",
+        "title": "BD: renames p/ prefixo legacy_nova + drops",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-007",
+        "title": "Branch histórica nova-legacy",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c \"! grep -rn 'Laravel\\\\\\\\Nova\\|Visanduma' app/ confi…"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: composer require laravel/framework:^13.10 --with-all-depend…"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "shell: php artisan list >/dev/null && composer test"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "test: pest tests/**/*ActionEvent*"
+       },
+       {
+        "id": "G-6",
+        "status": "pending",
+        "verifierLabel": "shell: grep -q 'legacy_nova_action_events' .claude/rules/scd2.md"
+       },
+       {
+        "id": "G-7",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c \"! grep -rnE 'laravel/nova|\\./nova|nova:publish|NOV…"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f3-onda-c-core-laravel-13",
+      "title": "Onda C: core Laravel 13",
+      "status": "pending",
+      "phaseId": "F3",
+      "tasksDone": 0,
+      "tasksTotal": 6,
+      "gatesMet": 0,
+      "gatesTotal": 5,
+      "nextAction": "Start T-001: tinker ^3.0",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "tinker ^3.0",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "framework ^13.10 + testbench ^11.3 + psalm/boost",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "schedule-monitor ^4.0",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "permission 6→8 direto",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "Bumps mecânicos, um commit cada",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Breaking changes L13 no código",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: php artisan about | grep -E 'Laravel Version.*13\\.'"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: ./vendor/bin/phpstan analyse --memory-limit=8G --no-progress"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "shell: ./vendor/bin/psalm --taint-analysis"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f4-onda-d-activitylog-4-5-a-onda-mais-pesad",
+      "title": "Onda D: activitylog 4→5 (a onda mais pesada de dados)",
+      "status": "pending",
+      "phaseId": "F4",
+      "tasksDone": 0,
+      "tasksTotal": 6,
+      "gatesMet": 0,
+      "gatesTotal": 4,
+      "nextAction": "Start T-001: 🔴 PRIMEIRO: dual-read SCD2",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "🔴 PRIMEIRO: dual-read SCD2",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "ActivityBatch helper + 4 callsites + timeline",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Schema migration + config traps",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Code sweep renames v5",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "Backfill PostDeploy + verifier",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "ralphjsmit/laravel-filament-activitylog ^3.0@beta",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "test: pest tests/Feature/Pdti/**/*Replay*"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: grep -q 'ActivityLogV5BackfillVerifier' config/upgrades.php"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f5-onda-e-ldaprecord-4-qr-code-6",
+      "title": "Onda E: ldaprecord 4 + qr-code 6",
+      "status": "pending",
+      "phaseId": "F5",
+      "tasksDone": 0,
+      "tasksTotal": 2,
+      "gatesMet": 0,
+      "gatesTotal": 3,
+      "nextAction": "Start T-001: qr-code: rewrite + teste diferencial + bump",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "qr-code: rewrite + teste diferencial + bump",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "ldaprecord ^4.0.3 + staging AD",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f6-onda-f-frontend-completo",
+      "title": "Onda F: frontend completo",
+      "status": "pending",
+      "phaseId": "F6",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 3,
+      "nextAction": "Start T-001: Node 22 + TS6",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Node 22 + TS6",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Quarteto Vite 8 (mesmo commit)",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "ESLint 10 + heroicons 2",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Inertia v3 full-stack",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: npm run test:ci && npm run build.all"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: npx eslint resources/js/ --max-warnings 0"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "laravel-13-upgrade-f7-onda-g-verificacao-final-ci-e-cutover",
+      "title": "Onda G: verificação final, CI e cutover",
+      "status": "pending",
+      "phaseId": "F7",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 4,
+      "nextAction": "Start T-001: Suites e gates finais",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Suites e gates finais",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "CI alinhado",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Smoke exaustivo (janela dedicada)",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Runbook DEPLOY.md + cutover",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c \"composer test && composer test-mongo && npm run te…"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "shell: grep -qi 'cutover' docs/DEPLOY.md"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   },
+   {
+    "slug": "phpstan-merge-regressions",
+    "title": "Hotfixes da auditoria 2026-06-10 + caça a regressões nos merges phpstan pré-#682",
+    "status": "paused",
+    "currentPhase": "F0",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-12T10:30:00-03:00",
+    "phaseCount": 1,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Hotfixes da auditoria 2026-06-10 + caça a regressões nos merges phpstan pré-#682",
+      "status": "pending",
+      "dependsOn": []
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "phpstan-merge-regressions",
+      "title": "Hotfixes da auditoria 2026-06-10 + caça a regressões nos merges phpstan pré-#682",
+      "status": "pending",
+      "phaseId": "F0",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 4,
+      "nextAction": "T-001 primeiro (bugs confirmados > caça a desconhecidos; 2 são SECURITY). Criar branch hotfix a partir de development. ATENÇÃO deploy: fixes tocam app/Exceptions/Api/ — lembrar dos 2 sites Forge (Arch + API).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Hotfixes: 11 bugs confirmados da auditoria 2026-06-10 (patch release)",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Auditar merge 4c217ce99 (313 arquivos): grep-triage + deep-read adversarial dos hits",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Triar merges menores (#655, #667, #677, #664) — escalar só nos hits",
+        "status": "pending",
+        "blockedBy": [
+         "T-002"
+        ]
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: ls .atomic-skills/reviews/*4c217ce99* 2>/dev/null || ls .at…"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 0
+     }
+    ]
+   },
+   {
+    "slug": "v4-migration-remaining",
+    "title": "Arch v4 Migration — Remaining Work (FONTE ÚNICA)",
+    "status": "active",
+    "currentPhase": "F0",
+    "parallelismAllowed": true,
+    "lastUpdated": "2026-06-12T12:00:00-03:00",
+    "phaseCount": 8,
+    "phases": [
+     {
+      "id": "F0",
+      "title": "Decommission: 5 módulos mortos",
+      "status": "pending",
+      "dependsOn": []
+     },
+     {
+      "id": "FA",
+      "title": "Auditoria Ondas 1-3 (paralela, não-bloqueante) — reconciliar 34 audits existentes + auditar ~33 sem-audit",
+      "status": "pending",
+      "dependsOn": []
+     },
+     {
+      "id": "F1",
+      "title": "Lookups + Medium: 4 resources Filament + 1 conversão enum",
+      "status": "pending",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F2",
+      "title": "Files & Frontend: Image elimination + Disclosure + SupportFile",
+      "status": "pending",
+      "dependsOn": [
+       "F0"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "Módulos Completos: Manutenção + CautionOfPatrimony",
+      "status": "pending",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "Commissions + ElectronicFilling",
+      "status": "pending",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F5",
+      "title": "PDTI: Subsistema completo (v4.0)",
+      "status": "pending",
+      "dependsOn": [
+       "F1",
+       "F4"
+      ]
+     },
+     {
+      "id": "F6",
+      "title": "(PÓS-v4.0) Handoff Onda B (L13): aceitação da remoção Nova + drop LGPD + drain baseline",
+      "status": "pending",
+      "dependsOn": [
+       "F1",
+       "F2",
+       "F3",
+       "F4",
+       "F5",
+       "FA"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "v4-migration-remaining-f0-decommission",
+      "title": "Decommission: 5 módulos mortos + Image legacy cleanup",
+      "status": "active",
+      "phaseId": "F0",
+      "tasksDone": 0,
+      "tasksTotal": 6,
+      "gatesMet": 0,
+      "gatesTotal": 4,
+      "nextAction": "Começar por T-001 (ContinuousActivity — menor blast radius, aquecimento)",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Remover ContinuousActivity",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Remover AutomaticMail",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Remover RecurringActivity + RecurringActivityAlert",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Remover cluster Projetos Func.",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "Remover InternalService + InternalServiceType",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Image legacy cleanup (User/App refs) — rota morre na F2, sem patch aqui",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending"
+       },
+       {
+        "id": "G-2",
+        "status": "pending"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "deferred"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-f1-lookups-medium",
+      "title": "Lookups + Medium: 4 resources Filament + 1 conversão enum",
+      "status": "pending",
+      "phaseId": "F1",
+      "tasksDone": 0,
+      "tasksTotal": 5,
+      "gatesMet": 0,
+      "gatesTotal": 5,
+      "nextAction": "Iniciar após F0 completar. StrategicObjectiveType primeiro (Type antes de Objective).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "UserAppPermissionChangeMode → BackedEnum (sem Resource)",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "StrategicObjectiveType Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "StrategicObjective Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-002"
+        ]
+       },
+       {
+        "id": "T-004",
+        "title": "Redirection Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "EmailFromApi Filament Resource",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending"
+       },
+       {
+        "id": "G-2",
+        "status": "pending"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "shell: ! grep -E 'path: .*(StrategicObjective|Redirection|EmailFro…"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-f2-files-frontend",
+      "title": "Files & Frontend: Image elimination + Disclosure + SupportFile",
+      "status": "pending",
+      "phaseId": "F2",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 8,
+      "nextAction": "Iniciar após F0 completar. T-001 segue a ordem 1-7 do manifesto reviews/2026-06-10-image-removal-manifest.md (backfill→rewrite→stub Nova→delete→drop), depois Disclosure (T-002), depois SupportFile (T-003). Decisão Henry 2026-06-10: backfill da Disclosure via coluna disclosures.image (opção a).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Eliminação Image model — ordem segura do manifesto (backfill → rewrite → stub Nova → delete → drop)",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Disclosure admin + refazer frontend",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-003",
+        "title": "SupportFile admin + refazer frontend /arquivos",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: ! rg -n 'App.Models.Image\\b' app/ config/ routes/ database/…"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c '[ $(find app/Filament -ipath \"*Disclosure*Resource…"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "pending"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-6",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-7",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-8",
+        "status": "pending",
+        "verifierLabel": "shell: ! grep -E 'path: .*(Disclosure|SupportFile|Models/Image)' p…"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-f3-modules",
+      "title": "Módulos Completos: Manutenção + CautionOfPatrimony",
+      "status": "pending",
+      "phaseId": "F3",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 6,
+      "nextAction": "Iniciar após F1. InfrastructureResource primeiro (precede Maintenance). Painel do Maintenance DECIDIDO (Henry 2026-06-10): Infrastructure — permission id 48 já registrada com panel=InfrastructurePanelProvider no BD.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "InfrastructureResource standalone Filament",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Módulo Maintenance completo",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-003",
+        "title": "Módulo CautionOfPatrimony completo",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending"
+       },
+       {
+        "id": "G-2",
+        "status": "pending"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "pending"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-6",
+        "status": "pending",
+        "verifierLabel": "shell: ! grep -E 'path: .*(Maintenance|CautionOfPatrimony|Infrastr…"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-f4-commissions-ef",
+      "title": "Commissions + ElectronicFilling",
+      "status": "pending",
+      "phaseId": "F4",
+      "tasksDone": 0,
+      "tasksTotal": 6,
+      "gatesMet": 0,
+      "gatesTotal": 5,
+      "nextAction": "Iniciar após F1. Commission primeiro (parent dos outros 2). File por último (após ElectronicFilling parent).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Commission Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "CommissionField Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-003",
+        "title": "CommissionRequest Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-004",
+        "title": "ElectronicFilling Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "File (ElectronicFilling) Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-004"
+        ]
+       },
+       {
+        "id": "T-006",
+        "title": "ConfigAssuntoProtocolo — elevar os 3 RelationManagers à paridade (decisão Henry 2026-06-10)",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c '[ \"$(find app/Filament/Panels \\( -name \"Commission…"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "shell: ! grep -E 'path: .*(Commission|ElectronicFilling|TipoImagem…"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-f5-pdti",
+      "title": "PDTI: Subsistema completo (v4.0 — decisão Henry 2026-06-05)",
+      "status": "pending",
+      "phaseId": "F5",
+      "tasksDone": 0,
+      "tasksTotal": 8,
+      "gatesMet": 0,
+      "gatesTotal": 9,
+      "nextAction": "Após F1+F4 completarem, iniciar pela NeedType (lookup, sem deps). PDTI é v4.0 (não diferível). ANTES de habilitar painéis PDTI em prod: PRÉ-CONDIÇÃO G-7 (backfill SCD2 PostDeploy/2026_05_29_064234 ran + upgrade:verify verde — ver .claude/rules/scd2.md).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "NeedType Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "NeedStatus Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "NeedTask Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-004",
+        "title": "PdtiGoal Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-005",
+        "title": "NeedObservation Filament Resource",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Pdti Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-001",
+         "T-002",
+         "T-004"
+        ]
+       },
+       {
+        "id": "T-007",
+        "title": "NeedResource + Attachment (RM)",
+        "status": "pending",
+        "blockedBy": [
+         "T-001",
+         "T-002",
+         "T-003",
+         "T-005",
+         "T-006"
+        ]
+       },
+       {
+        "id": "T-008",
+        "title": "ItRequestsPdti Filament Resource",
+        "status": "pending",
+        "blockedBy": [
+         "T-007"
+        ]
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: ! rg -n 'nova/resources|nova\\.pages' resources/views/filame…"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c 'files=$(rg -ln \"nova\\.pages\" app/Notifications/ ||…"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "pending"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-6",
+        "status": "pending",
+        "verifierLabel": "test: pest tests/Feature/Pdti/**/*Scd2*"
+       },
+       {
+        "id": "G-7",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-8",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-9",
+        "status": "pending",
+        "verifierLabel": "shell: ! grep -E 'path: .*(Pdti|Need|ItRequest|[Gg]etin)' phpstan-…"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-f6-stale-cleanup",
+      "title": "(PÓS-v4.0) Handoff Onda B (L13): aceitação da remoção Nova + drop LGPD + drain baseline",
+      "status": "pending",
+      "phaseId": "F6",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 7,
+      "nextAction": "PÓS-v4.0. O sweep do Nova executa na Onda B (F2) do plano laravel-13-upgrade (entrada gateada pelo F2.G-1 de lá = este plano F0-F5+FA done). Nesta fase: entregar o manifesto FA ao gate B.0, aceitar o resultado (G-1/G-2/G-5) e executar T-004 (drop LGPD, com pré-inventário ~28 tabelas) + drain do baseline (G-6).",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Deletar 67 Nova stale (incl. EmailEventLogResource na raiz) + Spotlight bridge",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Decommission UserType Nova resource (dead)",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Desligar Nova provider + cleanup final",
+        "status": "pending",
+        "blockedBy": [
+         "T-001",
+         "T-002"
+        ]
+       },
+       {
+        "id": "T-004",
+        "title": "Drop LGPD SQL legacy (DataSource/ServiceEvaluation)",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: test \"$(find app/Nova -name '*Resource.php' -not -name 'Res…"
+       },
+       {
+        "id": "G-2",
+        "status": "pending"
+       },
+       {
+        "id": "G-3",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-4",
+        "status": "pending"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c '[ \"$(php artisan route:list 2>/dev/null | grep -c …"
+       },
+       {
+        "id": "G-6",
+        "status": "pending",
+        "verifierLabel": "shell: bash -c '! test -f phpstan-baseline-v4-migration.neon && ! …"
+       },
+       {
+        "id": "G-MANUAL",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 0
+     },
+     {
+      "slug": "v4-migration-remaining-fa-audit-ondas-1-3",
+      "title": "Auditoria Ondas 1-3 (paralela, não-bloqueante) — reconciliar 34 audits + auditar ~33 sem-audit",
+      "status": "pending",
+      "phaseId": "FA",
+      "tasksDone": 0,
+      "tasksTotal": 4,
+      "gatesMet": 0,
+      "gatesTotal": 6,
+      "nextAction": "Gerar o manifesto .atomic-skills/_maps/audit-manifest.md (67 stale → audit doc → veredito → gaps) a partir dos 34 docs existentes; depois atacar o resíduo sem-audit começando pelo cluster LGPD/User/Area (risk-first). Perfil P-AUD + P-18 + prompt canônico docs/audits/post-migration-resource-audit.prompt.md.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Reconciliar os 34 audits formais existentes (manifesto + drift desde 2026-05-22)",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Auditar o resíduo SEM audit (~33) — cluster LGPD/User/Area PRIMEIRO (risk-first)",
+        "status": "pending",
+        "blockedBy": [
+         "T-001"
+        ]
+       },
+       {
+        "id": "T-003",
+        "title": "Auditar External de maior risco + oracle via git archaeology onde o Nova já morreu",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Consolidar gaps + triagem P0/P1-P3 (começando pelo backlog 2026-05-22)",
+        "status": "pending",
+        "blockedBy": [
+         "T-001",
+         "T-002",
+         "T-003"
+        ]
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "shell: test -f .atomic-skills/_maps/audit-manifest.md && [ \"$(grep…"
+       },
+       {
+        "id": "G-2",
+        "status": "pending"
+       },
+       {
+        "id": "G-3",
+        "status": "pending"
+       },
+       {
+        "id": "G-4",
+        "status": "pending",
+        "verifierLabel": "shell: composer test"
+       },
+       {
+        "id": "G-5",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-MANUAL",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "project": "lekto",
+  "plansCount": 1,
+  "plans": [
+   {
+    "slug": "reading-tracking-audio-capture",
+    "title": "Reading Tracking + Audio Capture",
+    "status": "active",
+    "currentPhase": "F2",
+    "parallelismAllowed": false,
+    "lastUpdated": "2026-06-15T18:11:07Z",
+    "phaseCount": 4,
+    "phases": [
+     {
+      "id": "F1",
+      "title": "Backend foundation",
+      "status": "done",
+      "dependsOn": []
+     },
+     {
+      "id": "F2",
+      "title": "CLI bridge",
+      "status": "active",
+      "dependsOn": [
+       "F1"
+      ]
+     },
+     {
+      "id": "F3",
+      "title": "PWA reading + recording UI",
+      "status": "pending",
+      "dependsOn": [
+       "F2"
+      ]
+     },
+     {
+      "id": "F4",
+      "title": "Server-side automático (FUTURE)",
+      "status": "pending",
+      "dependsOn": [
+       "F3"
+      ]
+     }
+    ],
+    "initiatives": [
+     {
+      "slug": "reading-tracking-audio-capture-f2-cli-bridge",
+      "title": "CLI bridge",
+      "status": "active",
+      "phaseId": "F2",
+      "tasksDone": 5,
+      "tasksTotal": 5,
+      "gatesMet": 2,
+      "gatesTotal": 2,
+      "nextAction": "Todas as 5 tasks done (5/5). Gates G-1/G-2 são manuais (e2e CLI) — pendentes. Rodar phase-done (review-code do diff + ack dos gates manuais com o usuário); não auto-avançar.",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "MCP `pull_audio_notes`",
+        "status": "done"
+       },
+       {
+        "id": "T-002",
+        "title": "MCP `upload_audio_note` (R3-10)",
+        "status": "done"
+       },
+       {
+        "id": "T-003",
+        "title": "MCP write de status/transcription",
+        "status": "done"
+       },
+       {
+        "id": "T-004",
+        "title": "Estender `push_cards`",
+        "status": "done"
+       },
+       {
+        "id": "T-005",
+        "title": "Atualizar skill `generate-flashcards`",
+        "status": "done"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "met",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-2",
+        "status": "met",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "reading-tracking-audio-capture-f3-pwa-reading-recording-ui",
+      "title": "PWA reading + recording UI",
+      "status": "pending",
+      "phaseId": "F3",
+      "tasksDone": 0,
+      "tasksTotal": 6,
+      "gatesMet": 0,
+      "gatesTotal": 2,
+      "nextAction": "Start T-001: Spike iOS Safari PWA (gate da fase)",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Spike iOS Safari PWA (gate da fase)",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Tela de leitura",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Sessions UI + posição",
+        "status": "pending"
+       },
+       {
+        "id": "T-004",
+        "title": "Captura MediaRecorder + upload",
+        "status": "pending"
+       },
+       {
+        "id": "T-005",
+        "title": "Fila offline (Dexie store v2)",
+        "status": "pending"
+       },
+       {
+        "id": "T-006",
+        "title": "Surfaces home/progress/deck",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       },
+       {
+        "id": "G-2",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     },
+     {
+      "slug": "reading-tracking-audio-capture-f4-server-side-automatico-future",
+      "title": "Server-side automático (FUTURE)",
+      "status": "pending",
+      "phaseId": "F4",
+      "tasksDone": 0,
+      "tasksTotal": 3,
+      "gatesMet": 0,
+      "gatesTotal": 1,
+      "nextAction": "Start T-001: Job `TranscribeAudioNote`",
+      "tasks": [
+       {
+        "id": "T-001",
+        "title": "Job `TranscribeAudioNote`",
+        "status": "pending"
+       },
+       {
+        "id": "T-002",
+        "title": "Job `GenerateCardsFromAudioNote`",
+        "status": "pending"
+       },
+       {
+        "id": "T-003",
+        "title": "Popular contexto e aposentar CLI",
+        "status": "pending"
+       }
+      ],
+      "exitGates": [
+       {
+        "id": "G-1",
+        "status": "pending",
+        "verifierLabel": "manual"
+       }
+      ],
+      "stackDepth": 1
+     }
+    ]
+   }
+  ]
+ }
+]
