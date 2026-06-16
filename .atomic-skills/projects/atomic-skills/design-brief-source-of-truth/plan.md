@@ -143,3 +143,4 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 - DESIGN rev1 (both): `.atomic-skills/reviews/2026-06-15-1543-design-brief-source-of-truth.md` — 1B/2C/3M, 6 fixes.
 - DESIGN rev2 (codex): `.atomic-skills/reviews/2026-06-15-1620-design-brief-source-of-truth-rev2.md` — 0B/0C/5M, revisão de contrato.
 - PLAN (codex, Stage 8b): `.atomic-skills/reviews/2026-06-15-1658-design-brief-source-of-truth-plan.md` — 0B/2C/3M, 5 fixes aplicados.
+- DESIGN rev3 / **Revisão 2** (claude, gate critic, 2 rounds): `.atomic-skills/reviews/2026-06-16-1341-design-brief-source-of-truth-rev3.md` — **Approved** (r1 needs_changes 1M/1m → r2 approve_with_nits 1m/1nit, todos endereçados). Re-design após defeito encontrado no IMPLEMENT + debate de 4 vozes. **F1 (T-001…T-004) invalidada; re-decompor no PLAN.**

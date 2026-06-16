@@ -122,10 +122,49 @@ current: true
 
 Initiative for phase **F1 — Reconstrução (artefato e código) e reconciliação**.
 
+> **PARADA NO IMPLEMENT (2026-06-16) — defeito de design encontrado; F1 volta ao DESIGN.**
+> Ao orientar a execução das tasks T-001…T-004, o gate F1 (spec-readiness) detectou que os
+> mecanismos diferidos "→ PLAN" (roots/precedência de fontes, discovery de código, fingerprint)
+> nunca foram fixados, e o operador trouxe 3 críticas que **falsificam premissas do design**.
+> Um debate de 4 vozes (`atomic-skills:debate`) confirmou um **defeito de design** na abordagem
+> "reconciliar fontes-artefato contra código automaticamente". As tasks T-001…T-004 estão
+> **INVALIDADAS** por este re-design (não execute nenhuma como está).
+
 ## Decisions
 
-_(record decisions here as they are made)_
+- **2026-06-16 — F1 re-aberta no DESIGN.** "Reconciliar automaticamente" auto-viola o P2 (colapsa
+  incerteza em fato na persistência) e troca fail-stop (vazio óbvio) por fail-silent-que-propaga
+  (catálogo confiantemente errado). Direção corrigida registrada em `../design.md` **Revisão 2**:
+  **justapor candidatos + confirmação-por-divergência** (operador arbitra só o DELTA), proveniência
+  tri-fonte, **persistência como memória-de-decisão** (justificada pela re-execução iterativa, que o
+  operador confirmou essencial), **precedência automática cortada**, anti-fadiga de primeira classe.
+- **Invariantes fixados pelo operador:** operador SEMPRE presente na reconstrução (nunca batch/CI);
+  re-execução iterativa sobre o mesmo app é essencial.
+- **`DESIGN.md` é reservado ao Design System do projeto** — o briefing/prompt do `design-brief` é
+  saída gerada em arquivos de handoff próprios; nada disso vai para `DESIGN.md` nem para o doc de
+  design da feature.
+- **T-001…T-004 invalidadas.** Após `../design.md` passar pelo critic, re-decompor a F1 no PLAN.
 
 ## Links
 
-_(plan doc, external refs)_
+- Doc de design da feature (re-design): `../design.md` (Revisão 2)
+- Memória do princípio de precedência: `~/.claude/projects/-home-henry-atomic-skills/memory/precedencia-artefato-humano-vs-ia.md`
+
+## Session handoff
+- **Narrative:** F1 estava prestes a executar via Codex (Mode 2), mas o gate de spec-readiness +
+  3 críticas do operador expuseram defeito de design na reconciliação automática. Um debate de 4
+  vozes convergiu numa direção corrigida (justapor + confirmação-por-divergência + persistência-como-
+  memória-de-decisão). `../design.md` foi reescrito (Revisão 2). Próximo: rodar o critic sobre ele.
+- **Decision log:** ver `## Decisions` acima e `../design.md` Revisão 2. Precedência automática
+  cortada; greenfield é caso-limite da máquina de divergência; `evidenceHash` por-página unifica
+  staleness + fingerprint. Operador sempre presente; re-execução essencial.
+- **Single nextAction:** re-decompor a F1 no PLAN a partir do `../design.md` Revisão 2 **aprovado**
+  (`atomic-skills:project new plan` / decompose), substituindo T-001…T-004 pelas tasks da nova direção
+  (justapor + confirmação-por-divergência; `evidenceHash` por-página; bump schema `0.1`→`0.2`).
+- **Verbatim state:** gate DESIGN **Approved** — `node scripts/lint-design.js .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/design.md` → `EXIT=0`; critic rev3 r1 `needs_changes`(1M/1m) → r2 `approve_with_nits`(1m/1nit), review em `.atomic-skills/reviews/2026-06-16-1341-design-brief-source-of-truth-rev3.md`. Tasks T-001…T-004 INVALIDADAS.
+- **Uncommitted changes (verbatim `git status --porcelain`):**
+  ` M .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/design.md`
+  ` M .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f1-reconstrucao-artefato-e-codigo.md`
+  ` M .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md`
+  ` ?? .atomic-skills/reviews/2026-06-16-1341-design-brief-source-of-truth-rev3.md`
+  (+ memória global fora do repo: `~/.claude/projects/-home-henry-atomic-skills/memory/{MEMORY.md,precedencia-artefato-humano-vs-ia.md}`). Não commitado — aguardando sua palavra.
