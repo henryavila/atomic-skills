@@ -142,5 +142,21 @@
     "finishedAt": "2026-06-16T16:33:04Z",
     "codexWorktreeRef": "impl/db-t001",
     "routingReason": "operator chose Mode 2 for the F2 batch; lane on (routing.json) + F1 spec-ready (F1 contracts + schema 0.2 settled) + F2 deterministic shell verifier; multi-file orchestrator bridge → standard tier; re-verified on merged primary ff0d51c (node --test reconstruct 6/6, discovered by npm test glob)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F2",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T16:37:00Z",
+    "finishedAt": "2026-06-16T16:41:30Z",
+    "codexWorktreeRef": "impl/db-t002",
+    "routingReason": "Mode 2 batch; lane on + F1 spec-ready (prose intent + anchors specified in work-order) + F2 deterministic shell verifier; single-section prose edit + structural test → cheap tier; serial after T-001 (both edit design-brief.md, not concurrent); re-verified on merged primary 59eb549 (node --test design-brief-step2 4/4, anchors incl. ordering)"
   }
 ]

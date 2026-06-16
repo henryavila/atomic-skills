@@ -7,12 +7,12 @@ goal: o design-brief consome o catálogo com reconstrução-primeiro, comuta o R
 status: active
 branch: plan/design-brief
 started: 2026-06-16T15:34:48Z
-lastUpdated: 2026-06-16T15:34:48Z
-nextAction: "Start T-001: Orquestrador de reconstrução (reconstrução-primeiro) +
-  CLI em src/app-map/reconstruct.js"
+lastUpdated: 2026-06-16T16:41:30Z
+nextAction: "Start T-003: switch do R2 por regime em skills/core/design-brief.md
+  §4 + nota no asset anti-contamination (último task da F2)"
 parentPlan: design-brief-source-of-truth
 phaseId: F2
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -77,8 +77,20 @@ tasks:
       command: node --test test/app-map/reconstruct.test.js
   - id: T-002
     title: Step 2 = reconstrução-primeiro; route-Glob vira legado opt-in
-    status: pending
-    lastUpdated: 2026-06-16T15:34:48Z
+    status: done
+    closedAt: 2026-06-16T16:41:30Z
+    lastUpdated: 2026-06-16T16:41:30Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T16:41:30Z
+      exitCode: 0
+      passed: true
+      testsCollected: 4
+      outputSummary: "node --test test/app-map/design-brief-step2.test.js (merged
+        primary tree) — tests 4, pass 4, fail 0. Asseram reconstrução-primeiro
+        (ordenação cliIndex<consume<glob), existence+delta,
+        null→parar-perguntar, glob legado opt-in nunca default. Executor: Codex
+        Mode 2 (impl/db-t002, ff em plan/design-brief @59eb549)."
     summary: Reescreve o §2 do design-brief para invocar a reconstrução antes de
       consumir e demover o route-Glob ao vivo a legado opt-in.
     description: "Edita o §2 (Screen inventory) para consumir o catálogo (existence/
@@ -176,32 +188,31 @@ Initiative for phase **F2 — Integração no design-brief**. Materializada no p
 
 ## Session handoff
 
-- **Narrative:** Fase **F2 — Integração no design-brief**, **1/3 tasks** (T-001
-  DONE). **T-001** (orquestrador `reconstruct.js` + CLI + teste) foi executado
-  pelo **Codex (Mode 2)** no worktree `impl/db-t001`, ff-merjado em
-  `plan/design-brief` @`ff0d51c`, e o verifier `node --test
-  test/app-map/reconstruct.test.js` **PASSOU na árvore primária merjada (6/6)** →
-  fechado com evidence. Worktree removido + branch deletada. Próximo: **T-002**.
+- **Narrative:** Fase **F2 — Integração no design-brief**, **2/3 tasks** (T-001 +
+  T-002 DONE). T-001 (orquestrador) e T-002 (§2 reconstrução-primeiro) executados
+  pelo **Codex (Mode 2)**, ff-merjados em `plan/design-brief` (@`ff0d51c`, @`59eb549`),
+  ambos verifiers **PASSARAM na árvore primária merjada** (6/6 e 4/4) → fechados com
+  evidence. Worktrees removidos. Próximo e ÚLTIMO: **T-003** (§4 R2 switch por regime).
+  Ao fechar T-003 → último task da F2 → **oferta de phase-done** (NÃO auto-rodar).
 - **Decision log:**
   - Operador optou **Mode 2 / Codex default** para as 3 tasks da F2 (cleared F1∧F2).
-  - T-001 fechado: bridge diverge→buildCatalog via `toPageFact` + `evidenceForPage`
-    (evidence cru = `{code, docs[]}` ordenado) → evidenceHash estável entre o
-    freshness-check e o persist (load-bearing pra AC 3/4). Verifier 6/6 na primária.
-  - **T-002 e T-003 editam ambos `skills/core/design-brief.md`** → NÃO pairwise-
-    disjoint → executados **um de cada vez** (serial), nunca worktrees concorrentes.
-    T-002 = §2 (Screen inventory); T-003 = §4 (R2) + nota no asset anti-contamination.
+  - T-002 fechado: §2 reescrito (reconstrução-primeiro com ordenação cli<consume<glob,
+    existence+delta, null→parar-perguntar, glob legado opt-in nunca default). Teste
+    estrutural com checagem de ORDENAÇÃO (não tautológico). Verifier 4/4 na primária.
+  - **T-003 edita `skills/core/design-brief.md` §4 (R2) + `skills/shared/design-brief-
+    assets/anti-contamination.md`** (nota de regime). NÃO toca §2 (T-002, já feito),
+    NÃO altera a regra de silêncio da camada 1 (Iron Law), não muta src/app-map.
+  - Husky pre-commit regenera docs ao editar skill `.md` (idempotente p/ T-002, sem
+    resíduo). Esperar isso de novo no commit de T-003.
   - Falhas pré-existentes no `npm test` (`countSkills`/`installSkills`/`serve
-    constants`) são ambientais (`dist/dashboard` não-buildado neste worktree),
-    NÃO regressão de T-001 (que só adicionou src/app-map + scripts + test/app-map).
-- **Single nextAction:** Despachar **T-002** ao Codex: criar worktree `impl/db-t002` off `ff0d51c` em `/home/henry/atomic-skills/.worktrees/db-t002`, escrever o briefing (§2 do design-brief consome o catálogo via reconstrução-primeiro; route-Glob vira legado opt-in; campos null → parar-e-perguntar) + criar `test/app-map/design-brief-step2.test.js`, dispatch `--sandbox workspace-write`.
+    constants`) são ambientais (`dist/dashboard` não-buildado), NÃO regressão.
+- **Single nextAction:** Despachar **T-003** ao Codex: criar worktree `impl/db-t003` off HEAD (`59eb549`) em `/home/henry/atomic-skills/.worktrees/db-t003`, briefing (§4 R2 comuta por regime do catálogo: brownfield minera código / greenfield pergunta operador semeado pelos artefatos / nunca silencia, R3 intacto, camada-1 intacta; nota de regime no asset anti-contamination) + criar `test/app-map/design-brief-r2.test.js`, dispatch `--sandbox workspace-write`.
 - **Verbatim state:**
-  - Verifier T-002: `node --test test/app-map/design-brief-step2.test.js`
-  - Files T-002: `skills/core/design-brief.md` (SÓ §2), `test/app-map/design-brief-step2.test.js`
   - Verifier T-003: `node --test test/app-map/design-brief-r2.test.js`
   - Files T-003: `skills/core/design-brief.md` (SÓ §4), `skills/shared/design-brief-assets/anti-contamination.md`, `test/app-map/design-brief-r2.test.js`
-  - Comando worktree T-002: `git worktree add -b impl/db-t002 /home/henry/atomic-skills/.worktrees/db-t002 ff0d51c`
+  - Comando worktree T-003: `git worktree add -b impl/db-t003 /home/henry/atomic-skills/.worktrees/db-t003 59eb549`
+  - Exit-gate G-1 da F2: `node --test test/app-map/reconstruct.test.js test/app-map/design-brief-step2.test.js test/app-map/design-brief-r2.test.js` (roda no phase-done)
   - Invocação Codex: `skills/shared/codex-bridge-assets/invocation-workspace-write.txt`
-  - Telemetria: append em `.atomic-skills/status/dispatch-log.json`
-- **Uncommitted changes:** prestes a commitar a transição de estado de T-001
-  (`f2-integracao-no-design-brief.md` done+rollup+handoff, `dispatch-log.json`).
-  Código-fonte já commitado em `ff0d51c`. Árvore limpa após o commit chore.
+- **Uncommitted changes:** prestes a commitar a transição de estado de T-002
+  (`f2-...md` done+rollup+handoff+nextAction, `dispatch-log.json`). Código já em
+  `59eb549`. Árvore limpa após o commit chore.
