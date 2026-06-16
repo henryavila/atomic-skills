@@ -15,6 +15,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
 /atomic-skills:project verify                → reconcile state ⇄ code (READ-ONLY: detects + reports completion drift)
 /atomic-skills:project reconcile             → close tasks/gates that look done in the repo (the ONLY completion-mutation path)
+/atomic-skills:project review [<slug>] [--with-code]  → audit a materialized plan/initiative (READ-ONLY: linters + verify + review-plan [+ review-code])
 /atomic-skills:project new                          → fixed menu (plan | initiative) + discoverability hint
 /atomic-skills:project new plan <slug>              → bootstrap a multi-phase Plan
 /atomic-skills:project new initiative <slug>        → initiative (standalone or anchored to a phase)
@@ -36,6 +37,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 |---|---|
 | `status`, `status --browser`, `--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, disambiguation | `{{READ_TOOL}} {{ASSETS_PATH}}/project-view.md` |
 | `verify` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
+| `review`, `review <slug>`, `review --with-code` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
 | first-time setup (`.atomic-skills/` absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
 | `new plan <slug>`, `adopt <file.md>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` |
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |

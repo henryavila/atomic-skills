@@ -58,10 +58,37 @@ start with `--` are flags:
 | `--no-initiatives` | Skip Step 0c; review plan structure only without task-level depth. |
 
 Everything that is NOT a `--` token is part of `plan_path`. Strip trailing
-whitespace. If `plan_path` is empty after parsing, abort with:
-"review-plan requires a plan file path as the first argument." Do NOT
-pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that would try to open
-the literal string "docs/plan.md --mode=local" as a file.
+whitespace. Do NOT pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that
+would try to open the literal string "docs/plan.md --mode=local" as a file.
+
+### Target resolution (plan_path → a real plan file)
+
+`plan_path` may be a filesystem path, a **plan slug**, or empty (meaning
+"review the active plan"). Resolve it to an actual `plan.md` BEFORE Step 0b,
+reusing the same detection `atomic-skills:project` runs (its router
+`## Initial detection`) — do NOT re-implement plan discovery here, mirror it.
+Apply the ladder in order and stop at the first match:
+
+1. **Readable file** — if `plan_path` resolves to a readable file, use it
+   directly. This is the common case; the ladder stops here.
+2. **Slug** — else if `plan_path` is non-empty but is not a readable file,
+   treat it as a plan **slug** and resolve the nested layout first:
+   `.atomic-skills/projects/<project-id>/<plan_path>/plan.md`, falling back to
+   the legacy flat `.atomic-skills/plans/<plan_path>.md`. If exactly one
+   resolves, that file becomes `plan_path`.
+3. **Active plan** — else if `plan_path` is empty, fall back to the **active
+   plan**: resolve it the way the router's detection does (the plan with
+   `planActive: true` / the one carrying `currentPhase`) and use its `plan.md`.
+4. **No resolution** — only when none of the above resolve, abort with:
+   "review-plan requires a readable plan file, a known plan slug, or an active
+   plan." (This replaces the former empty-arg abort.)
+
+Resolution is transparent to the rest of the flow: the resolved file is the
+`plan_path` every step below reads. Under the **Non-interactive abort**
+contract immediately below, an ambiguous slug (matches >1 project) or more
+than one active plan does NOT prompt — it aborts and asks the caller to pass
+an explicit `<project-id>/<plan-slug>` path; only an interactive (TTY) run may
+disambiguate by asking which plan was meant.
 
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
 is available (invocation from a hook, `parallel-dispatch`, or
@@ -102,9 +129,19 @@ Cross-reference selection is orthogonal to the mode picker. It runs for
 every mode (`local`, `codex`, `both`); the selected artifacts feed into
 the appropriate sub-flow.
 
-1. {{READ_TOOL}} the plan file at `plan_path`.
+1. {{READ_TOOL}} the plan file at `plan_path`. Parse its frontmatter and
+   **auto-seed `detected_artifacts` from provenance, BEFORE the prose scan**:
+   for each `references[]` entry, and for a `supersedes` link, resolve its
+   path — when it points to a readable local file, add it to
+   `detected_artifacts`; when it is a URL (or unresolvable), record it in
+   `links_seen` (same LOCAL PATH / URL rule as step 2). Rationale: a plan that
+   already declares what it `references` or `supersedes` should get those
+   artifacts cross-checked without the user re-listing them by hand — the
+   frontmatter IS the source-document manifest. This seed is an auto-resolution,
+   not an override: the manual `--cross-ref=` / `--no-cross-ref` flags still win
+   (step 3 short-circuit), and the prose scan below still augments it.
 
-2. Scan the plan for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From|Based On)` (regex case-insensitive). Under each, extract bullet/link tokens and CLASSIFY each one:
+2. **Then** scan the plan prose for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From|Based On)` (regex case-insensitive) and APPEND any new tokens to the already-seeded `detected_artifacts` (the prose scan is never dropped — provenance seeds, prose augments; de-dup by resolved path). Under each, extract bullet/link tokens and CLASSIFY each one:
    - **LOCAL PATH** (relative or absolute filesystem path that resolves to a readable file): keep in the `detected_artifacts` list.
    - **URL** (anything matching `^https?://` or `^//`): DO NOT include in `detected_artifacts`. Record in `links_seen` shown to the user as "URL artifacts not auto-fetched — provide local copies if you want cross-ref coverage."
    - **AMBIGUOUS** (e.g. bare repo identifier, ticket ref like `JIRA-123`): treat as URL — not auto-fetched.
