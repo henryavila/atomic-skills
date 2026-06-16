@@ -63,6 +63,10 @@
         "multipleActivePlans": {
           "type": "boolean",
           "description": "Tree-relative ambiguity: true iff more than one active plan claims the current branch/worktree. A plan with an explicit `branch:` claims only that branch's tree; an unbranched plan claims any tree; an unknown branch (detached HEAD) cannot disambiguate so any >1 active plans count. A properly-isolated worktree-per-plan setup is therefore never true. The consumer renders the `⧉` marker when true."
+        },
+        "unclaimedBranch": {
+          "type": "boolean",
+          "description": "True iff the current branch is known but NO active plan claims it (every active plan is bound to some other branch). When true, `plan` is null by design — the producer never shows a foreign-tree plan as the focus. The consumer offers to bind a plan to this branch (`scripts/bind-plan-branch.js <plan-slug>`). Optional/defaults false; absent in pre-0.1 digests."
         }
       }
     },

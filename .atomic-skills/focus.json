@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T12:26:24.701Z",
+  "generatedAt": "2026-06-16T13:06:33.303Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "multiplan-focus-resolution",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 5,
+    "done": 6,
     "total": 6,
     "blocked": 0
   },
@@ -24,10 +24,11 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "T-006 (única pendente, design colaborativo): fechar design de materializar/entrar na worktree-do-plano no implement + dar worktree ao Mode 1, produzir spec admissível (Files+scopeBoundary+acceptance+verifier), então implementar. T-003 done (WARN→FAIL, commit cdaa61e).",
+  "nextAction": "Todas as 6 tasks done. Rodar `phase-done` para executar a exit gate F0-G1 (kind:manual — validar com o usuário foco determinístico com 2+ planos ativos + enforcer oferece/força worktree) e o review-code do diff da fase, depois avançar/arquivar o plano. Usuário opta in (intrusive-actions).",
   "flags": {
     "drift": false,
-    "multipleActivePlans": false
+    "multipleActivePlans": false,
+    "unclaimedBranch": false
   },
   "sources": [
     {

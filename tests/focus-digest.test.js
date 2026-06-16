@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import Ajv from 'ajv/dist/2020.js';
 
 import { buildFocusDigest, emitFocus } from '../scripts/emit-focus.js';
+import { bindPlanBranch, stampBranch } from '../scripts/bind-plan-branch.js';
 
 const FIXED_NOW = '2026-06-15T12:00:00.000Z';
 
@@ -276,4 +277,63 @@ test('no branch context → cannot disambiguate, ambiguity falls back to active 
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
+});
+
+test('known branch that NO active plan claims → plan null + unclaimedBranch, never a foreign plan', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-unclaimed-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', 'feature/a', '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', 'feature/b', '2026-06-15T10:00:00Z');
+    // On feature/c: both plans are branched ELSEWHERE → none claims this tree.
+    const d = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/c' });
+    assert.equal(d.plan, null, 'must NOT surface a foreign-tree plan as focus');
+    assert.equal(d.flags.unclaimedBranch, true);
+    assert.equal(d.flags.multipleActivePlans, false, 'no plan competes for THIS tree');
+    assert.deepEqual(d.sources, []);
+    // and it still validates against the schema (unclaimedBranch is a known flag)
+    const validate = schemaValidator();
+    assert.ok(validate(d), JSON.stringify(validate.errors));
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('bind-plan-branch stamps branch onto plan.md → unclaimed branch resolves to that plan', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-bind-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', 'feature/a', '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', 'feature/b', '2026-06-15T10:00:00Z');
+    // Pre-condition: feature/c is unclaimed.
+    const before = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/c' });
+    assert.equal(before.flags.unclaimedBranch, true);
+
+    // Bind plan-b to feature/c (branch passed explicitly → no git needed).
+    const res = bindPlanBranch(repo, 'plan-b', 'feature/c', FIXED_NOW);
+    assert.equal(res.branch, 'feature/c');
+
+    // Post-condition: feature/c now resolves to plan-b, no longer unclaimed.
+    const after = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/c' });
+    assert.equal(after.plan.slug, 'plan-b');
+    assert.equal(after.flags.unclaimedBranch, false);
+    // plan-b's old tree (feature/b) now has no claimer.
+    const oldTree = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/b' });
+    assert.equal(oldTree.flags.unclaimedBranch, true);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('stampBranch replaces an existing branch line and inserts when absent', () => {
+  const withBranch = '---\nslug: x\nstatus: active\nbranch: old/b\nlastUpdated: 2020-01-01T00:00:00Z\n---\n\nbody\n';
+  const r1 = stampBranch(withBranch, 'new/b', '2026-06-16T00:00:00Z');
+  assert.match(r1, /^branch: new\/b$/m);
+  assert.doesNotMatch(r1, /old\/b/);
+  assert.match(r1, /^lastUpdated: 2026-06-16T00:00:00Z$/m);
+
+  const noBranch = '---\nslug: x\nstatus: active\n---\n\nbody\n';
+  const r2 = stampBranch(noBranch, 'feature/z', '2026-06-16T00:00:00Z');
+  assert.match(r2, /^branch: feature\/z$/m);
+  assert.match(r2, /^lastUpdated: 2026-06-16T00:00:00Z$/m);
+  // inserted inside the frontmatter block, before the closing ---
+  assert.ok(r2.indexOf('branch: feature/z') < r2.indexOf('\n---', 3));
 });
