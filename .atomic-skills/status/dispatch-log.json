@@ -142,5 +142,21 @@
     "finishedAt": "2026-06-16T16:34:00Z",
     "codexWorktreeRef": "impl/wlf-t001",
     "routingReason": "lane on (routing.json) + F1 spec-ready + F2 deterministic test verifier; coupled with T-002 (same 3 files) -> serial; Codex self-report said tests:1 (discarded, self-check != self-certify), re-verified on MERGED primary d66fbe2 (node --test 5/5, exit 0)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "worktree-lifecycle-finalization",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "test",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T16:40:00Z",
+    "finishedAt": "2026-06-16T16:47:49Z",
+    "codexWorktreeRef": "impl/wlf-t002",
+    "routingReason": "lane on + F1 spec-ready + F2 deterministic test verifier; coupled with T-001 -> serial, seeded off post-T-001 d66fbe2; Codex self-report tests:1 (discarded), re-verified on MERGED primary 145774b (node --test 9/9 incl. T-001 preserved, exit 0)"
   }
 ]
