@@ -8,11 +8,11 @@ goal: estabelecer o contrato persistido do catálogo — schema JSON, validaçã
 status: active
 branch: plan/skills-restructuring
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-16T01:16:11Z
-nextAction: "Start T-003: Registro no validate-state com fixture (scripts/validate-state.js)"
+lastUpdated: 2026-06-16T01:35:47Z
+nextAction: "Todas as 3 tasks fechadas — rodar phase-done (F0): exit gate verifier + review-code, depois advance do plano"
 parentPlan: design-brief-source-of-truth
 phaseId: F0
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -84,8 +84,9 @@ tasks:
       outputSummary: "node --test test/app-map/validate.test.js → tests 2, pass 2, fail 0 (re-verificado no primary merged aeaa60a)"
   - id: T-003
     title: Registro no validate-state com fixture
-    status: pending
-    lastUpdated: 2026-06-15T19:46:08.157Z
+    status: done
+    lastUpdated: 2026-06-16T01:35:47Z
+    closedAt: 2026-06-16T01:35:47Z
     summary: Registra o catálogo no validate-state, com fixture que prova a falha.
     description: "Faz o catálogo durável ser descoberto e validado pelo
       validate-state, com fixture que prova a falha. Files:
@@ -100,6 +101,15 @@ tasks:
     verifier:
       kind: shell
       command: npm run validate-state test/fixtures
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T01:35:47Z
+      passed: true
+      exitCode: 0
+      outputSummary: "npm run validate-state test/fixtures → '1 app-map catalog(s)
+        valid', exit 0 (re-verificado no primary merged 886da30). Acceptance-2:
+        node --test test/app-map/validate-state.test.js → 2/2 pass. Regressão:
+        validate-state .atomic-skills → 42 files valid, 12 plans, scopeBoundary ok."
 parked: []
 emerged: []
 summary: "Fecha o contrato do catálogo: schema, validação na emissão e cobertura
@@ -119,8 +129,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Implementando F0 do plano `design-brief-source-of-truth` via Mode 2 (Codex) no worktree de integração `impl/design-brief-source-of-truth` (`/home/henry/atomic-skills-db`); árvore principal `plan/skills-restructuring` congelada. **T-001 (schema) e T-002 (validador emit-time) DONE** — ambas verificadas no primary merged (T-001 ac117c4 4/4; T-002 aeaa60a 2/2). Falta só **T-003** (registrar o app-map no validate-state + fixture), última da fase F0.
-- **Decision log:** (1) Executor = Mode 2/Codex (operador escolheu via AskUserQuestion). (2) Topologia = 1 worktree de integração + worktrees Codex efêmeros por-task que mergeiam nele; checkout principal intocado. (3) Serial: verifiers acoplados ao schema da T-001. (4) Codex nunca escreve `.atomic-skills/`; Opus faz done/snapshot/telemetria. (5) `node_modules` symlinkado nos worktrees (gitignored, não mergeia) p/ rodar verifiers. (6) Commit externo `4ca8cdc` landou em `plan/skills-restructuring` em paralelo — sem overlap com app-map, isolamento do worktree provou-se útil.
-- **Single nextAction:** Criar worktree Codex `codex/db-t003` off `impl/design-brief-source-of-truth` (HEAD aeaa60a), despachar a T-003 (`scripts/validate-state.js` + `test/app-map/validate-state.test.js` + `test/fixtures/app-map-invalid.json`), verifier `npm run validate-state test/fixtures`. ATENÇÃO à tensão verifier↔acceptance: `npm run validate-state test/fixtures` deve sair 0, mas a fixture inválida deve falhar — a discovery do app-map precisa ser scoped a um path canônico que a fixture inválida NÃO ocupe, ou o test/fixtures conter um app-map VÁLIDO; a fixture inválida é exercida pelo `validate-state.test.js`.
-- **Verbatim state:** Integration worktree `/home/henry/atomic-skills-db` branch `impl/design-brief-source-of-truth` @ `aeaa60a`. T-001+T-002 fechadas (evidence shell passed). T-003 verifier: `npm run validate-state test/fixtures`. F0 exit gate: `node --test test/app-map/schema.test.js test/app-map/validate.test.js && npm run validate-state test/fixtures`. dispatch-log: 7 records. routing.json: mode2Enabled=true.
-- **Uncommitted changes:** integration worktree — state edits (T-002 done + rollups + dispatch-log + este handoff), a commitar agora. Main tree: clean. Worktree `codex/db-t002` a remover.
+- **Narrative:** F0 (Schema e validação do catálogo) do plano `design-brief-source-of-truth` **IMPLEMENTADA via Mode 2 (Codex)** no worktree de integração `impl/design-brief-source-of-truth` (`/home/henry/atomic-skills-db`); árvore principal `plan/skills-restructuring` congelada. **As 3 tasks DONE e re-verificadas no primary merged**: T-001 (schema, ac117c4, 4/4), T-002 (validador emit-time, aeaa60a, 2/2), T-003 (discovery no validate-state + fixtures, 886da30 — validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regressão 42 files). Falta a **fronteira de fase: phase-done** (exit gate F0-G1 + review-code), que NÃO rodei — opt-in do operador.
+- **Decision log:** (1) Executor = Mode 2/Codex (operador via AskUserQuestion). (2) Topologia = 1 worktree de integração + worktrees Codex efêmeros por-task. (3) Serial pela cadeia de verifiers acoplados ao schema. (4) Codex nunca escreve `.atomic-skills/`; Opus faz done/snapshot/telemetria. (5) `node_modules` symlinkado (gitignored). (6) Commit externo `4ca8cdc` em `plan/skills-restructuring` em paralelo — sem overlap (isolamento útil). (7) T-003: design settado por mim no work-order (discovery por nome canônico `app-map.json` + fixture válida em `test/fixtures/app-map/` + inválida não-descoberta) p/ resolver a tensão verifier↔acceptance. (8) Codex deu timeout (124) no self-check da T-003 APÓS completar as edições — ambiental; verifiquei independente no primary.
+- **Single nextAction:** Rodar `phase-done` para a F0: executar o exit gate `node --test test/app-map/schema.test.js test/app-map/validate.test.js && npm run validate-state test/fixtures`, depois `review-code` (phase-diff gate), gravar `reviewGate` no plano, distilar lessons, e advance do plano (currentPhase F0→F1). Tudo isso a partir do worktree `/home/henry/atomic-skills-db`.
+- **Verbatim state:** Integration worktree `/home/henry/atomic-skills-db` branch `impl/design-brief-source-of-truth` @ `886da30`. 3/3 tasks done (evidence shell passed). F0 exit gate F0-G1: `node --test test/app-map/schema.test.js test/app-map/validate.test.js && npm run validate-state test/fixtures` — pending (roda no phase-done). dispatch-log: 8 records. Arquivos novos: meta/schemas/app-map.schema.json, src/app-map/validate.js, scripts/validate-state.js (mod), test/app-map/{schema,validate,validate-state}.test.js, test/fixtures/app-map/app-map.json + app-map-invalid.json.
+- **Uncommitted changes:** integration worktree — state edits (T-003 done + rollups + dispatch-log + este handoff), a commitar agora. Main tree: clean. Worktree `codex/db-t003` a remover. Para merge final: `git -C /home/henry/atomic-skills merge impl/design-brief-source-of-truth` (sem conflito esperado vs 4ca8cdc).

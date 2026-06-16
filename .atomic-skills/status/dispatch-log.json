@@ -110,5 +110,21 @@
     "finishedAt": "2026-06-16T01:16:11Z",
     "codexWorktreeRef": "codex/db-t002",
     "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; seeded off post-T-001 HEAD (schema present); re-verified on merged primary aeaa60a (node --test 2/2)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T01:17:00Z",
+    "finishedAt": "2026-06-16T01:35:47Z",
+    "codexWorktreeRef": "codex/db-t003",
+    "routingReason": "lane on + F1 spec-ready (design settled in work-order: canonical app-map.json discovery + valid/invalid fixtures) + F2 shell verifier; in-worktree self-check hit wrapper timeout (exit 124) AFTER completing edits — environmental; both verifiers re-verified PASS on merged primary 886da30 (validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regression validate-state .atomic-skills 42 files)"
   }
 ]
