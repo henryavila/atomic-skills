@@ -23,6 +23,7 @@
     "validate-skills": "node scripts/validate-skills.js",
     "validate-state": "node scripts/validate-state.js",
     "emit-state": "node scripts/emit-consumer-state.js",
+    "validate-aideck-state": "node scripts/validate-aideck-state.js",
     "build:aideck-schema": "node scripts/build-aideck-consumer-schema.mjs",
     "detect-scope": "node scripts/detect-scope.js",
     "generate-readme": "node scripts/generate-readme.js",

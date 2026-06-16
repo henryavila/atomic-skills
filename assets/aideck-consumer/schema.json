@@ -1187,6 +1187,732 @@
           }
         }
       }
+    },
+    "plans": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "slug",
+        "title",
+        "status",
+        "branch",
+        "started",
+        "lastUpdated",
+        "currentPhase",
+        "liveFront",
+        "concluded",
+        "suspended",
+        "bucket",
+        "currentPhaseText",
+        "phasesText",
+        "phasesSummary",
+        "roteiroSub",
+        "switcherCaption",
+        "nextText",
+        "focusTasksText",
+        "focusTasksPct",
+        "focusMeta",
+        "updatedRel"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "started": {
+          "type": "string"
+        },
+        "lastUpdated": {
+          "type": "string"
+        },
+        "currentPhase": {
+          "type": "string"
+        },
+        "liveFront": {
+          "type": "boolean"
+        },
+        "concluded": {
+          "type": "boolean"
+        },
+        "suspended": {
+          "type": "boolean"
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "currentPhaseText": {
+          "type": "string"
+        },
+        "phasesText": {
+          "type": "string"
+        },
+        "phasesSummary": {
+          "type": "string"
+        },
+        "roteiroSub": {
+          "type": "string"
+        },
+        "switcherCaption": {
+          "type": "string"
+        },
+        "nextText": {
+          "type": "string"
+        },
+        "focusTasksText": {
+          "type": "string"
+        },
+        "focusTasksPct": {
+          "type": "number"
+        },
+        "focusMeta": {
+          "type": "string"
+        },
+        "updatedRel": {
+          "type": "string"
+        }
+      }
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "planTitle",
+        "id",
+        "slug",
+        "title",
+        "status",
+        "dependsOn",
+        "summary",
+        "index",
+        "isCurrent",
+        "tasksText"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "planTitle": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "isCurrent": {
+          "type": "boolean"
+        },
+        "tasksText": {
+          "type": "string"
+        }
+      }
+    },
+    "initiatives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "slug",
+        "title",
+        "status",
+        "phaseId",
+        "parentPlan",
+        "planTitle",
+        "planActive",
+        "current",
+        "lastUpdated",
+        "nextText",
+        "summary",
+        "tasksDone",
+        "tasksTotal",
+        "gatesMet",
+        "gatesTotal",
+        "tasksText",
+        "gatesText",
+        "stackText",
+        "selectedPhaseLabel"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "parentPlan": {
+          "type": "string"
+        },
+        "planTitle": {
+          "type": "string"
+        },
+        "planActive": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "boolean"
+        },
+        "lastUpdated": {
+          "type": "string"
+        },
+        "nextText": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tasksDone": {
+          "type": "integer"
+        },
+        "tasksTotal": {
+          "type": "integer"
+        },
+        "gatesMet": {
+          "type": "integer"
+        },
+        "gatesTotal": {
+          "type": "integer"
+        },
+        "tasksText": {
+          "type": "string"
+        },
+        "gatesText": {
+          "type": "string"
+        },
+        "stackText": {
+          "type": "string"
+        },
+        "selectedPhaseLabel": {
+          "type": "string"
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "id",
+        "title",
+        "summary",
+        "status",
+        "blocked",
+        "blockedBy",
+        "blockedByText"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "blockedBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blockedByText": {
+          "type": "string"
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "id",
+        "description",
+        "status",
+        "verifierLabel",
+        "evidenceSummary"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "verifierLabel": {
+          "type": "string"
+        },
+        "evidenceSummary": {
+          "type": "string"
+        }
+      }
+    },
+    "phaseGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "phaseId",
+        "id",
+        "description",
+        "status",
+        "verifierLabel",
+        "evidenceSummary"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "verifierLabel": {
+          "type": "string"
+        },
+        "evidenceSummary": {
+          "type": "string"
+        }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "index",
+        "id",
+        "title",
+        "type",
+        "openedAt"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "openedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "parked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "index",
+        "title",
+        "surfacedAt"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "surfacedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "emerged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "index",
+        "title",
+        "surfacedAt",
+        "promoted"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "surfacedAt": {
+          "type": "string"
+        },
+        "promoted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "projects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "totalPlans",
+        "activeCount",
+        "blockedCount",
+        "concludedCount",
+        "isParallel",
+        "hasActiveFront",
+        "mode",
+        "parallelTone",
+        "plansSummary",
+        "phasesActiveText",
+        "bannerTitle",
+        "bannerSub",
+        "moreFrontsText",
+        "updatedRel"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "totalPlans": {
+          "type": "integer"
+        },
+        "activeCount": {
+          "type": "integer"
+        },
+        "blockedCount": {
+          "type": "integer"
+        },
+        "concludedCount": {
+          "type": "integer"
+        },
+        "isParallel": {
+          "type": "boolean"
+        },
+        "hasActiveFront": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "parallelTone": {
+          "type": "string"
+        },
+        "plansSummary": {
+          "type": "string"
+        },
+        "phasesActiveText": {
+          "type": "string"
+        },
+        "bannerTitle": {
+          "type": "string"
+        },
+        "bannerSub": {
+          "type": "string"
+        },
+        "moreFrontsText": {
+          "type": "string"
+        },
+        "updatedRel": {
+          "type": "string"
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projetos",
+        "frentesAtivas",
+        "emParalelo",
+        "tasksTravadas"
+      ],
+      "properties": {
+        "projetos": {
+          "type": "integer"
+        },
+        "frentesAtivas": {
+          "type": "integer"
+        },
+        "emParalelo": {
+          "type": "integer"
+        },
+        "tasksTravadas": {
+          "type": "integer"
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "icon",
+        "oneLiner",
+        "facets",
+        "summary",
+        "pros",
+        "cons",
+        "examples"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "oneLiner": {
+          "type": "string"
+        },
+        "facets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "pros": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subItems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "description",
+              "group"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "kind",
+              "required",
+              "description"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "deps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }
