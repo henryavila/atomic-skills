@@ -68,25 +68,27 @@ phases:
       pelo validate-state."
   - id: F1
     slug: design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo
-    title: Reconstrução (artefato e código) e reconciliação
-    goal: gerar o catálogo cruzando artefatos e código, com regime por-página e
-      inputsHash de staleness, nunca resolvendo conflito no silêncio.
+    title: Reconstrução (justapor + confirmação-por-divergência)
+    goal: gerar o catálogo coletando candidatos de código + artefatos, justapondo
+      sem reconciliar no silêncio; operador arbitra só o delta; persistência como
+      memória-de-decisão (evidenceHash por-página).
     dependsOn:
       - F0
-    subPhaseCount: 4
+    subPhaseCount: 5
     exitGate:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: o catálogo sai com existence, conflicts, regime e inputsHash;
-            nenhum conflito é resolvido automaticamente.
+          description: o catálogo sai com existence, divergências e evidenceHash
+            por-página; nenhuma divergência é resolvida no silêncio; os fixtures
+            greenfield, envenenado e multi-convenção passam.
           status: pending
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
     status: pending
-    summary: Constrói o motor que cruza artefato e código e gera o catálogo com
-      regime e staleness.
+    summary: Coleta candidatos doc+código, justapõe sem reconciliar, operador
+      arbitra o delta, e persiste o catálogo (evidenceHash por-página).
   - id: F2
     slug: design-brief-source-of-truth-f2-integracao-no-design-brief
     title: Integração no design-brief
