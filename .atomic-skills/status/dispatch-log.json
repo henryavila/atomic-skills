@@ -126,5 +126,21 @@
     "finishedAt": "2026-06-16T01:35:47Z",
     "codexWorktreeRef": "codex/db-t003",
     "routingReason": "lane on + F1 spec-ready (design settled in work-order: canonical app-map.json discovery + valid/invalid fixtures) + F2 shell verifier; in-worktree self-check hit wrapper timeout (exit 124) AFTER completing edits — environmental; both verifiers re-verified PASS on merged primary 886da30 (validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regression validate-state .atomic-skills 42 files)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "worktree-lifecycle-finalization",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "test",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T16:28:00Z",
+    "finishedAt": "2026-06-16T16:34:00Z",
+    "codexWorktreeRef": "impl/wlf-t001",
+    "routingReason": "lane on (routing.json) + F1 spec-ready + F2 deterministic test verifier; coupled with T-002 (same 3 files) -> serial; Codex self-report said tests:1 (discarded, self-check != self-certify), re-verified on MERGED primary d66fbe2 (node --test 5/5, exit 0)"
   }
 ]

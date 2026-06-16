@@ -10,10 +10,10 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-16T15:05:46.324Z
 lastUpdated: 2026-06-16T15:38:51.971Z
-nextAction: "Start T-001: Política determinística de fork de branch"
+nextAction: "Start T-002: Worktree retroativa para o plano pré-existente"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
@@ -44,9 +44,19 @@ stack:
 tasks:
   - id: T-001
     title: Política determinística de fork de branch
-    status: pending
-    lastUpdated: 2026-06-16T15:38:51.971Z
+    status: done
+    closedAt: 2026-06-16T16:34:00.000Z
+    lastUpdated: 2026-06-16T16:34:00.000Z
     summary: "Helper que decide o fork: solo → sem branch, concorrência → plan/<slug>."
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-16T16:34:00.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 5
+      outputSummary: node --test tests/plan-branch-policy.test.js → tests 5 / pass 5 /
+        fail 0 (exit 0); re-run on MERGED primary tree (HEAD d66fbe2) após
+        ff-merge de impl/wlf-t001.
     outputs:
       - kind: file
         path: scripts/plan-branch-policy.js
@@ -115,6 +125,13 @@ current: true
 # Narrative / notes
 
 Initiative for phase **F0 — Nascimento da branch sob concorrência (Decisões 1+2)**.
+
+## Session handoff
+- **Narrative:** Fase F0, 1/2 tasks fechadas. **T-001 DONE**: executada por Codex (Mode 2) no worktree `impl/wlf-t001`, merge-back ff aprovado pelo operador, mergeada na primária (`d7d62d4 → d66fbe2`), verifier `node --test tests/plan-branch-policy.test.js` **re-rodado na primária merged: exit 0, 5/5 testes** (entry token a done); evidence GATE-R2 escrita; rollups `tasksDone:1/2`; `validate-state` verde; worktree+branch `impl/wlf-t001` removidos (`git branch -d` ok = integrada); telemetria em `dispatch-log.json`. Próximo: T-002 (couplada, mesmos 3 arquivos), dispatch serial a partir de `d66fbe2`.
+- **Decision log:** (1) Mode 2/Codex honrado por config file-backed; coupling força serial. (2) Worktree Codex sob checkout PRIMÁRIO. (3) Merge-back operator-prompted (v1). (4) Codex nunca toca `.atomic-skills/`; Opus dono de toda transição/commit. (5) Auto-report do Codex ("tests 1") descartado — só o re-run na primária merged conta. (6) Source veio no commit d66fbe2 (co-authored); o fechamento de estado é commit `chore(project):` separado (convenção do repo).
+- **Single nextAction:** Dispatchar T-002: criar worktree `/home/henry/atomic-skills/.worktrees/wlf-t002` (`git worktree add -b impl/wlf-t002 <path> d66fbe2`), briefing em `/tmp/wlf-t002-briefing.md` (a escrever) via bridge workspace-write; T-002 adiciona `retroactiveWorktreeAdd(...)` ao mesmo `scripts/plan-branch-policy.js` + testes + captura de source-ref no Stage 6.
+- **Verbatim state:** verifier T-002 = `node --test tests/plan-branch-policy.test.js`; verifier G-2 = `node --test tests/focus-digest.test.js`. HEAD `plan/worktree-lifecycle-finalization` = `d66fbe2` (após ff-merge T-001). Arquivos T-002 (acceptance): `retroactiveWorktreeAdd({slug,baseRef})` devolve comando `git worktree add -b plan/<slug> .worktrees/<slug> <baseRef>` SEM `--force`, BLOQUEIA (lança) se `baseRef` ausente/irresolúvel; Stage 6 captura source-ref do pré-existente ANTES de escrever o plano entrante.
+- **Uncommitted changes:** a commitar agora (chore): `.atomic-skills/.../f0-*.md` (T-001 done + evidence + rollups + nextAction + este snapshot) e `.atomic-skills/status/dispatch-log.json`. Source de T-001 já em `d66fbe2`.
 
 ## Decisions
 
