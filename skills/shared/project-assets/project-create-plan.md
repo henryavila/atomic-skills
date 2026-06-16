@@ -93,6 +93,14 @@ A non-zero exit means at least one `### Tn` task lacks one of its four HOW field
 
 ### Stage 6 — Create Plan + Initiatives
 
+**Single-focus pre-flight (R-FOCUS-01) — at most one active plan claims a working tree.** The plan you are about to create is `active`. Before materializing, detect other active plans with {{BASH_TOOL}} (`status: active` across `.atomic-skills/projects/*/*/plan.md`). If any already exist, this is a **concurrent front** and the focus becomes ambiguous — the statusline / `focus.json` cannot tell which plan is "current" because they share one working tree. Resolve it with {{ASK_USER_QUESTION_TOOL}} **before** choosing the `branch` value passed to `materializeDecomposition`:
+
+- **Own worktree (parallel — recommended for genuinely parallel work):** create an isolated home per `skills/shared/worktree-isolation.md` (`git worktree add -b plan/<slug> <path>`), pass `branch: 'plan/<slug>'`, and stamp a **distinct** `branch:` on any pre-existing active plan that still has `branch: null` (its own `plan/<other-slug>`). Each active plan then owns a tree → focus resolves per-worktree, no `⧉`.
+- **Pause the others (sequential — one front at a time):** set every other active plan to `status: paused` and cascade-pause its `active` phase, exactly as `switch` does (project-transitions.md → `switch`); pass `branch: '<current-branch-or-null>'`. One tree, one focus.
+- **Proceed anyway (accept the drift):** keep the others active; pass `branch: '<current-branch>'` (`git symbolic-ref --short HEAD`) so focus has at least a signal. The `⧉` multi-active marker shows until resolved, and `verify` reports it (§3 branch match).
+
+This is the **soft** form — detect + guided choice, never a silent multi-active; **record the chosen isolation verbatim, never default to "proceed".** The **hard** form (block a 2nd active plan that shares a tree with no distinct `branch:`) is `verify`'s `WARN → FAIL` promotion, the same dry-run→strict ladder as the other gates.
+
 Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
 ```bash
