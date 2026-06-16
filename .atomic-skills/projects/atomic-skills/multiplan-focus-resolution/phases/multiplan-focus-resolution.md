@@ -7,13 +7,14 @@ goal: Tornar o foco da statusline determinístico com mais de um plano ativo, vi
 status: active
 branch: plan/multiplan-focus
 started: 2026-06-15T19:42:12Z
-lastUpdated: 2026-06-16T12:00:18Z
-nextAction: "T-006: materializar/entrar na worktree-do-plano no implement (+ dar
-  worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run
-  estabilizar."
+lastUpdated: 2026-06-16T13:00:00Z
+nextAction: "T-006 (única pendente, design colaborativo): fechar design de
+  materializar/entrar na worktree-do-plano no implement + dar worktree ao Mode 1,
+  produzir spec admissível (Files+scopeBoundary+acceptance+verifier), então
+  implementar. T-003 done (WARN→FAIL, commit cdaa61e)."
 parentPlan: multiplan-focus-resolution
 phaseId: F0
-tasksDone: 4
+tasksDone: 5
 tasksTotal: 6
 gatesMet: 0
 gatesTotal: 1
@@ -52,12 +53,16 @@ tasks:
       alimentando branch. Soft. Feito (commit 4ca8cdc)."
   - id: T-003
     title: Promover warn→fail no project-verify
-    status: pending
-    lastUpdated: 2026-06-16T10:42:17Z
+    status: done
+    lastUpdated: 2026-06-16T13:00:00Z
+    closedAt: 2026-06-16T13:00:00Z
     summary: verify falha com ≥2 ativos reivindicando a mesma árvore.
-    description: O WARN já existe (verify §3 branch match — 'Only one should be
-      active per branch'). Falta promover a FAIL no fim do dry-run, consistente
-      com o enforcer.
+    description: "verify §3 branch-match: caso '>1 match' promovido WARN→FAIL,
+      remediação espelha o enforcer (worktree+branch / pause / stamp distinto);
+      zero-match continua WARN (unanchored ≠ multi-active). Ancorado no ladder
+      soft (create-plan Stage 6) → hard (verify). Feito (commit cdaa61e).
+      Verifier kind:shell — content assertion (>1-match é FAIL, sem WARN
+      residual) + `npm run validate-skills`, ambos exit 0."
   - id: T-004
     title: "claudebar: chip do focus.json + render do marcador de multi-plano"
     status: done
@@ -99,6 +104,7 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 
 ## Feito até aqui
 
+- **T-003** verify §3 branch-match >1-active promovido WARN→FAIL — commit `cdaa61e`.
 - **T-005** producer tree-relative `multipleActivePlans` — commit `4f05a79`.
 - **T-002 + T-001** enforcer soft no `project` (create-plan Stage 6 + create-initiative) — commit `4ca8cdc`.
 - **T-004** chip do claudebar — shipado pelo trabalho paralelo (`feat/atomic-skills-focus-chip`).
@@ -120,3 +126,15 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 
 - `docs/design/statusline-focus-integration.md` — spec do digest + camadas de frescor.
 - `~/claudebar/docs/atomic-skills-focus-integration.md` — handoff do consumidor.
+
+## Session handoff
+
+- **Narrative:** Fase F0 do `multiplan-focus-resolution`, 5/6 tasks done. Esta sessão fechou **T-003** (verify §3 branch-match `>1 match` promovido WARN→FAIL, padrão soft→strict). Resta só **T-006**, que é design colaborativo (muda o contrato inline do Mode 1) — ainda não spec-ready. Exit gate F0-G1 é `kind: manual` (pendente).
+- **Decision log:** (1) T-003 implementado em **Mode 1 degraded** porque nenhuma task pendente carregava verifier admitido — prose-only edit num asset (`project-verify.md`), sem backing executável. (2) Verifier escolhido = content-assertion (`>1-match` é FAIL, sem WARN residual) + `npm run validate-skills`, o cheapest real check para mudança de prose. (3) `focus.json` sujo no resume foi commitado (regeneração benigna, consistente com estado durável) antes de qualquer task — HARD-GATE. (4) Ordem T-006→T-003 do nextAction original foi invertida a pedido do usuário (T-003 primeiro).
+- **Single nextAction:** Fechar o design de **T-006** com o usuário (materializar/entrar na worktree-do-plano no `implement` + worktree pro Mode 1), produzir spec admissível (Files+scopeBoundary+acceptance+verifier), e só então implementar — T-006 NÃO é spec-ready hoje (sem Files/scopeBoundary/acceptance/verifier; listada em "A desenhar (colaborativo)").
+- **Verbatim state:**
+  - File editado: `skills/shared/project-assets/project-verify.md` §3, linha do caso `>1 match` agora `FAIL branch: <N> active initiatives claim ...`.
+  - Verifier (kind:shell, ambos exit 0): `grep -q 'FAIL branch: <N> active initiatives claim' skills/shared/project-assets/project-verify.md && ! grep -q 'WARN branch: <N> active initiatives claim' skills/shared/project-assets/project-verify.md` ; `npm run validate-skills` → `✓ All 15 skills valid (schema_version 0.2)`.
+  - `npm run validate-state .atomic-skills/` → exit 0, `✓ All 47 file(s) valid`.
+  - Commit do código: `cdaa61e` (`feat(project): promote verify §3 branch-match >1-active to FAIL (T-003)`).
+- **Uncommitted changes:** estado durável (esta phase file + `focus.json` regenerado) pendente de commit no momento do snapshot; código (`project-verify.md`) já em `cdaa61e`. Será commitado em seguida como `chore(project)`.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T12:12:45.108Z",
+  "generatedAt": "2026-06-16T12:26:24.701Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "multiplan-focus-resolution",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 4,
+    "done": 5,
     "total": 6,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
+  "nextAction": "T-006 (única pendente, design colaborativo): fechar design de materializar/entrar na worktree-do-plano no implement + dar worktree ao Mode 1, produzir spec admissível (Files+scopeBoundary+acceptance+verifier), então implementar. T-003 done (WARN→FAIL, commit cdaa61e).",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
-      "lastUpdated": "2026-06-16T12:00:18Z"
+      "lastUpdated": "2026-06-16T13:00:00Z"
     }
   ]
 }
