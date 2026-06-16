@@ -82,7 +82,7 @@ invoke skills). Build the prompt including:
   - Phase 3: Map every execution path as table (COVERED / NOT / PARTIAL)
   - Phase 4: Create test list by category (business rules, edge cases, errors, happy path)
   - Phase 5: Write one test at a time, run each, distinguish setup error vs real bug
-  - Phase 6: Return a Hunt Report with the table template from this skill
+  - Phase 6: Return a Hunt Report with the table template from the hunt skill (hunt.md → Phase 6 Hunt Report)
 
 **Subagent AUTONOMOUS mode — critical differences from interactive mode:**
 Subagents run without user interaction. They MUST follow these overrides:

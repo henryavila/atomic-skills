@@ -9,7 +9,8 @@ separately-spawned subagent) holds in full — gate-mode adds rigor, not shortcu
 
 Gate-mode is an **opt-in** variant for when a debate feeds a lifecycle stage gate
 (e.g. `atomic-skills:brainstorm`'s DESIGN gate). It is purely additive: without
-`--gate`, everything above is unchanged. In gate-mode `debate` is the **ACTOR** —
+`--gate`, the debate skill behaves exactly as its normal flow. In gate-mode
+`debate` is the **ACTOR** —
 it produces divergence and a structured record. **It does not decide.** A
 separate fresh critic (`skills/shared/debate-assets/critic.md`) emits the binary
 verdict; gate-pass is read from the critic, **never from panel agreement**. A
