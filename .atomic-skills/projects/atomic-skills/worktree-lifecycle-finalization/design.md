@@ -71,18 +71,31 @@ mínimo (Decisão 5); a cura estrutural é um plano separado.
    reversível) — duas máquinas de estado com modos de falha independentes. Tudo operator-prompted, nunca
    automático; o finalize mostra o diff `plan/<slug> ^<integrationRef>` e o PR proposto e pede confirmação.
 
-4. **Invariante de não-perda no teardown, contra o ref configurável e ROBUSTO A SQUASH-MERGE:
-   API = sinal de liveness, grafo-local = veto de safety.** Os dois modos de erro são assimétricos —
-   falso-negativo ("não integrado" quando está) é recuperável (re-roda); falso-positivo ("integrado"
-   quando não está) **deleta trabalho não-mergeado, irreversível**. A composição segura, portanto:
-   - **Liveness (gh):** `gh pr view <branch> --json state,mergedAt,baseRefName` confirma `state==MERGED`,
-     `mergedAt != null` E `baseRefName == <integrationRef>` (PR mergeado no ref CERTO). Falhou → BLOQUEIA.
-   - **Safety veto (local):** `git rev-list <branch> --not <integrationRef>` — sobrou QUALQUER commit fora
-     do ref → BLOQUEIA. `git merge-base --is-ancestor` é só fast-path barato (cobre ff/rebase-merge).
+4. **Invariante de não-perda no teardown, contra o ref configurável e SEGURO sob squash-merge:
+   API = sinal de liveness, grafo-local = veto de safety ANCORADO NO HEAD MERGEADO DO PR.** Os dois modos
+   de erro são assimétricos — falso-negativo ("não integrado" quando está) é recuperável (re-roda);
+   falso-positivo ("integrado" quando não está) **deleta trabalho não-mergeado, irreversível**. A
+   composição segura, portanto:
+   - **Liveness (gh):** `gh pr view <branch> --json state,mergedAt,baseRefName,headRefOid` confirma
+     `state==MERGED`, `mergedAt != null` E `baseRefName == <integrationRef>` (PR mergeado no ref CERTO), e
+     CAPTURA o `headRefOid` (SHA do head do PR no instante do merge). Falhou → BLOQUEIA.
+   - **Safety veto (local) contra o head mergeado, NÃO contra a ref:** o tip de `plan/<slug>` não pode
+     avançar além do que o PR mergeou. Concretamente: `git merge-base --is-ancestor <branch>
+     <integrationRef>` (fast-path; cobre merge-commit/rebase-merge) OU — no caso squash, em que os commits
+     da feature ganham SHAs novos em develop e o ancestor falha — `HEAD(<branch>) == headRefOid` (nada foi
+     commitado DEPOIS do head que o PR mergeou). QUALQUER commit além do `headRefOid` → BLOQUEIA (resíduo
+     não-integrado).
+   - **Por que NÃO `git rev-list <branch> --not <integrationRef>`:** sob squash esse rev-list é SEMPRE
+     não-vazio (os SHAs originais nunca viram ancestrais de develop) → bloquearia o caminho-feliz PARA
+     SEMPRE, repetindo a inutilidade do ancestor-only. Ancorar o veto no `headRefOid` (não na ref) é o que
+     torna o teardown de um squash LIMPO permitido (`HEAD == headRefOid`) e ainda bloqueia o resíduo
+     pós-merge. Isso também responde ao caminho operacional: após um squash legítimo sem commits novos, o
+     teardown PROSSEGUE.
    - O `OR` ingênuo (`ancestor OR pr-merged`) é **REJEITADO**: soma os falsos-positivos das duas pernas e
      não vê commits adicionados DEPOIS do merge do PR (a API ainda diz MERGED → deletaria o resíduo). O
-     veto `rev-list` fecha esse buraco. `patch-id` fica FORA da v1.
-   - Indeterminação (sem `gh` auth, ref ausente/irresolúvel, PR ambíguo/múltiplo) → **BLOQUEIA**. Falha
+     ancoramento no `headRefOid` fecha esse buraco. `patch-id` fica FORA da v1 (o `headRefOid` o substitui
+     com mais precisão).
+   - Indeterminação (sem `gh` auth, ref/`headRefOid` ausente, PR ambíguo/múltiplo) → **BLOQUEIA**. Falha
      segura over-bloqueia, nunca over-deleta. Sem `-D`/`--force`/`rm -rf`; `git branch -d` (minúsculo) é a
      2ª guarda nativa. `resolveBaseRef` muda de `origin/main→main` para o `integrationRef`.
      `verified_by: scripts/worktree-teardown.js` (isTeardownSafe/resolveBaseRef atuais),
@@ -105,11 +118,12 @@ mínimo (Decisão 5); a cura estrutural é um plano separado.
    merge-backs LOCAIS; sob PR→develop quem serializa os merges é o GitHub (branch protection / merge do
    PR), então o classificador não se justifica na v1 — vira backlog para quando develop→main precisar de
    ordenação ou houver paralelismo real com dor de conflito. R-XAGENT-03 (merge serial) permanece para
-   qualquer merge-back local fora do fluxo de PR. O **backstop** (check #9 read-only no `project verify`,
-   `verified_by: skills/shared/project-assets/project-verify.md`) é preservado, WARN-only, derivado live, e
-   re-mirado para os órfãos do modelo novo: worktree viva de feature já mergeada em develop (teardown
-   pendente); branch de plano arquivado nunca PR-ada, ou PR aberto e nunca mergeado. Sem flag em
-   `focus.json`, sem hook, sem campo de schema novo.
+   qualquer merge-back local fora do fluxo de PR. O **backstop** é um **9º check** a ADICIONAR no
+   `project verify` (hoje há 8, §1–8; o #5 já faz orphan-detection de escopo menor —
+   `verified_by: skills/shared/project-assets/project-verify.md` "Checks (in order)" §1–8), read-only,
+   WARN-only, derivado live, e re-mirado para os órfãos do modelo novo: worktree viva de feature já
+   mergeada em develop (teardown pendente); branch de plano arquivado nunca PR-ada, ou PR aberto e nunca
+   mergeado. Sem flag em `focus.json`, sem hook, sem campo de schema novo.
 
 ## Chosen approach
 
@@ -123,7 +137,7 @@ O modelo (Git Flow `worktree=feature→PR→develop→main`) é decisão do oper
   barata, mas deleta commits adicionados após o merge do PR (a API ainda reporta MERGED). Dissent
   preservado.
 - **(C) Híbrido — ESCOLHIDA.** Comando dedicado `project finalize` (separa publicar de encerrar, Decisão
-  3) + teardown com **liveness(gh) + veto(rev-list)** robusto a squash (Decisão 4) + ref configurável em
+  3) + teardown com **liveness(gh) + veto ancorado no `headRefOid`** seguro sob squash (Decisão 4) + ref configurável em
   `routing.json` (Decisão 2) + coupling contido com o mínimo (Decisão 5) + topology deferido (Decisão 6).
 
 **Por que (C) ganhou:** Tariq fixou o invariante inegociável — a API dá o SINAL, o grafo local dá o VETO;
@@ -164,8 +178,8 @@ One-way doors / migração — contenções explícitas:
   é plano separado; a v1 contém o coupling com `focus.json` gitignored + `merge=union`.
 - **NÃO** classificador topology-aware, merge-queue do GitHub, nem fila estilo Zuul na v1 — o GitHub
   serializa os merges; o classificador é backlog.
-- **NÃO** detecção patch-id de squash-merge na v1 — o liveness(gh)+veto(rev-list) cobre o caso; patch-id
-  colapsa N commits num diff agregado (falso-positivo de integração-parcial).
+- **NÃO** detecção patch-id de squash-merge na v1 — o liveness(gh)+veto-ancorado-no-`headRefOid` cobre o
+  caso; patch-id colapsa N commits num diff agregado (falso-positivo de integração-parcial).
 - **NÃO** automatizar push/PR/merge — tudo operator-prompted.
 - **NÃO** renomear `plan/<slug>` → `feat/<slug>` no push — preserva a identidade branch↔worktree↔PR de
   que o invariante (Decisão 4) depende e não quebra a já-pushada `origin/plan/skills-restructuring`.
@@ -183,8 +197,9 @@ One-way doors / migração — contenções explícitas:
   vs pontuais (union geraria JSON inválido). Confirmar a lista concreta no SPEC.
 - **Identidade branch↔PR no teardown:** como `gh pr view` resolve o PR de `plan/<slug>` (por head branch) e
   o desempate quando há múltiplos PRs na mesma branch (um fechado, um mergeado). Fechar no SPEC.
-- **Oráculo de CI (exigência do painel):** um teste "feature squash-merged + commit adicionado DEPOIS ⟹
-  teardown BLOQUEIA" precisa existir ANTES de a invariante ser confiável — sem ele, a Decisão 4 é narrativa.
+- **Oráculo de CI (GATE DE SPEC, não opcional):** dois testes precisam existir ANTES de a invariante ser
+  confiável — (a) "squash-merged + commit adicionado DEPOIS ⟹ teardown BLOQUEIA" e (b) "squash-merged
+  LIMPO (`HEAD == headRefOid`) ⟹ teardown PERMITE". Sem eles a Decisão 4 é narrativa, não invariante.
 
 ## Rejected alternatives
 
@@ -194,7 +209,10 @@ One-way doors / migração — contenções explícitas:
 - **Fork lazy sob-concorrência (F0-Decisão-1 original).** Superado pela Decisão 1: o lazy deixava um plano
   solo sem feature-branch para PR-ar e reintroduzia a interleaving que motivou o design original.
 - **`ancestor OR pr-merged` (híbrido ingênuo).** Rejeitado: soma falsos-positivos e some o resíduo
-  pós-merge. Substituído por liveness(gh) + veto(rev-list).
+  pós-merge. Substituído por liveness(gh) + veto ancorado no `headRefOid` do PR mergeado.
+- **Veto `git rev-list <branch> --not <integrationRef>` (1ª formulação do safety veto, do painel).**
+  Corrigido após o critic: sob squash o rev-list é sempre não-vazio (SHAs reescritos) → bloquearia todo
+  squash-merge para sempre. O veto certo ancora no `headRefOid` do PR, não na ref.
 - **`gh MERGED → remove` (Flynn, minimalista).** Não escolhido como invariante v1 — deleta commits
   adicionados após o merge. Dissent preservado (mais barato; aceitável só se o dev nunca commita pós-merge).
 - **`patch-id` como prova primária de integração.** Adiado: squash colapsa N commits → patch-id agregado
