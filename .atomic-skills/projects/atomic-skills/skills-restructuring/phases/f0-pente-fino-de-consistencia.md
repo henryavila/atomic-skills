@@ -2,7 +2,8 @@
 schemaVersion: "0.1"
 slug: skills-restructuring-f0-pente-fino-de-consistencia
 title: Pente fino de consistência
-goal: corrigir resíduo e drift documental de baixo risco nas skills, sem mudar comportamento.
+goal: corrigir resíduo e drift documental de baixo risco nas skills, sem mudar
+  comportamento.
 status: done
 branch: null
 started: 2026-06-15T13:37:12.477Z
@@ -23,13 +24,14 @@ exitGates:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
-    verifierLabel: "shell: npm run validate-skills"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "✓ All 15 skills valid (schema_version 0.2)"
+      outputSummary: ✓ All 15 skills valid (schema_version 0.2)
+    verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: Pente fino de consistência
@@ -46,9 +48,11 @@ tasks:
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "grep '9 stages' present + '7 stages' absent in project-create-plan.md"
+      outputSummary: grep '9 stages' present + '7 stages' absent in project-create-plan.md
     summary: "Heading do create-plan: 7→9 stages"
-    description: 'Trocar o heading "7 stages" por "9 stages" em project-create-plan.md, que roda Stage 1 a 9. Arquivos: skills/shared/project-assets/project-create-plan.md'
+    description: 'Trocar o heading "7 stages" por "9 stages" em
+      project-create-plan.md, que roda Stage 1 a 9. Arquivos:
+      skills/shared/project-assets/project-create-plan.md'
     scopeBoundary:
       - não alterar o corpo dos Stages 1-9, apenas o heading da contagem.
     acceptance:
@@ -56,7 +60,9 @@ tasks:
       - nenhuma ocorrência de "7 stages" resta no arquivo.
     verifier:
       kind: shell
-      command: grep -q '9 stages' skills/shared/project-assets/project-create-plan.md && ! grep -q '7 stages' skills/shared/project-assets/project-create-plan.md
+      command: grep -q '9 stages' skills/shared/project-assets/project-create-plan.md
+        && ! grep -q '7 stages'
+        skills/shared/project-assets/project-create-plan.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -71,11 +77,13 @@ tasks:
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "Task Optional line cites summary + evidence in skills/core/project.md"
+      outputSummary: Task Optional line cites summary + evidence in skills/core/project.md
     summary: Cheat-sheet de Task ganha summary e evidence
-    description: "Adicionar `summary` e `evidence` à lista de opcionais de Task no Schema quick-reference do router. Arquivos: skills/core/project.md"
+    description: "Adicionar `summary` e `evidence` à lista de opcionais de Task no
+      Schema quick-reference do router. Arquivos: skills/core/project.md"
     scopeBoundary:
-      - apenas a linha de opcionais de Task; não tocar PhaseDescriptor nem ExitCriterion.
+      - apenas a linha de opcionais de Task; não tocar PhaseDescriptor nem
+        ExitCriterion.
     acceptance:
       - a linha de opcionais de Task cita summary e evidence.
     verifier:
@@ -95,16 +103,18 @@ tasks:
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "PhaseDescriptor Optional line cites summary, provenance, context"
+      outputSummary: PhaseDescriptor Optional line cites summary, provenance, context
     summary: Cheat-sheet de PhaseDescriptor ganha summary/provenance/context
-    description: "Adicionar `summary`, `provenance`, `context` aos opcionais de PhaseDescriptor no router. Arquivos: skills/core/project.md"
+    description: "Adicionar `summary`, `provenance`, `context` aos opcionais de
+      PhaseDescriptor no router. Arquivos: skills/core/project.md"
     scopeBoundary:
       - apenas a linha de opcionais de PhaseDescriptor.
     acceptance:
       - a linha de PhaseDescriptor cita summary, provenance e context.
     verifier:
       kind: shell
-      command: grep -qE 'PhaseDescriptor.*Optional:.*summary.*provenance.*context' skills/core/project.md
+      command: grep -qE 'PhaseDescriptor.*Optional:.*summary.*provenance.*context'
+        skills/core/project.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -119,16 +129,19 @@ tasks:
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "manual verifier branch cites demoCommand + fallbackKind"
+      outputSummary: manual verifier branch cites demoCommand + fallbackKind
     summary: Verifier manual anotado com os campos 0.2
-    description: "Anotar o branch manual do ExitCriterionVerifier com os opcionais 0.2 (demoCommand, fallbackKind, steps, expected, data). Arquivos: skills/core/project.md"
+    description: "Anotar o branch manual do ExitCriterionVerifier com os opcionais
+      0.2 (demoCommand, fallbackKind, steps, expected, data). Arquivos:
+      skills/core/project.md"
     scopeBoundary:
       - apenas o branch manual do oneOf de ExitCriterionVerifier.
     acceptance:
       - o branch manual cita demoCommand e fallbackKind.
     verifier:
       kind: shell
-      command: grep -q 'demoCommand' skills/core/project.md && grep -q 'fallbackKind' skills/core/project.md
+      command: grep -q 'demoCommand' skills/core/project.md && grep -q 'fallbackKind'
+        skills/core/project.md
       expectExitCode: 0
     outputs:
       - kind: file
@@ -143,9 +156,11 @@ tasks:
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "no skills/en/ in project-drift.md; atomic-skills:review-code present"
+      outputSummary: no skills/en/ in project-drift.md; atomic-skills:review-code present
     summary: Caminho morto do review-code no drift vira slug
-    description: "Trocar o caminho morto skills/en/core/review-code.md pelo slug atomic-skills:review-code. Arquivos: skills/shared/project-assets/project-drift.md"
+    description: "Trocar o caminho morto skills/en/core/review-code.md pelo slug
+      atomic-skills:review-code. Arquivos:
+      skills/shared/project-assets/project-drift.md"
     scopeBoundary:
       - apenas a linha que cita o caminho do review-code.
     acceptance:
@@ -153,7 +168,9 @@ tasks:
       - o slug atomic-skills:review-code está presente.
     verifier:
       kind: shell
-      command: "! grep -q 'skills/en/' skills/shared/project-assets/project-drift.md && grep -q 'atomic-skills:review-code' skills/shared/project-assets/project-drift.md"
+      command: "! grep -q 'skills/en/' skills/shared/project-assets/project-drift.md
+        && grep -q 'atomic-skills:review-code'
+        skills/shared/project-assets/project-drift.md"
       expectExitCode: 0
     outputs:
       - kind: file
@@ -170,7 +187,9 @@ tasks:
       exitCode: 0
       outputSummary: "'## G9' heading present in docs/kb/code-quality-gates.md"
     summary: Gate G9 registrado no code-quality-gates
-    description: "Adicionar a entrada G9 mutation-kill em code-quality-gates.md, espelhando a definição inline de project-transitions.md. Arquivos: docs/kb/code-quality-gates.md"
+    description: "Adicionar a entrada G9 mutation-kill em code-quality-gates.md,
+      espelhando a definição inline de project-transitions.md. Arquivos:
+      docs/kb/code-quality-gates.md"
     scopeBoundary:
       - apenas adicionar a seção G9; não reescrever G1-G8.
     acceptance:
@@ -192,24 +211,30 @@ tasks:
       verifiedAt: 2026-06-16T12:22:09Z
       passed: true
       exitCode: 0
-      outputSummary: "AIDECK_STATE_DOMAIN absent in project-view.md; AIDECK_BIN present"
+      outputSummary: AIDECK_STATE_DOMAIN absent in project-view.md; AIDECK_BIN present
     summary: Referência dangling AIDECK_STATE_DOMAIN removida
-    description: "Remover AIDECK_STATE_DOMAIN da prosa do project-view.md, mantendo AIDECK_BIN e DASHBOARD_DIR. Arquivos: skills/shared/project-assets/project-view.md"
+    description: "Remover AIDECK_STATE_DOMAIN da prosa do project-view.md, mantendo
+      AIDECK_BIN e DASHBOARD_DIR. Arquivos:
+      skills/shared/project-assets/project-view.md"
     scopeBoundary:
-      - apenas a frase do step 1 que cita as variáveis; não tocar o bloco CONTRACT.
+      - apenas a frase do step 1 que cita as variáveis; não tocar o bloco
+        CONTRACT.
     acceptance:
       - nenhuma ocorrência de AIDECK_STATE_DOMAIN
       - AIDECK_BIN permanece.
     verifier:
       kind: shell
-      command: "! grep -q 'AIDECK_STATE_DOMAIN' skills/shared/project-assets/project-view.md && grep -q 'AIDECK_BIN' skills/shared/project-assets/project-view.md"
+      command: "! grep -q 'AIDECK_STATE_DOMAIN'
+        skills/shared/project-assets/project-view.md && grep -q 'AIDECK_BIN'
+        skills/shared/project-assets/project-view.md"
       expectExitCode: 0
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-view.md
 parked: []
 emerged: []
-summary: "Quick-wins de consistência: contagem de stages, caminhos mortos, cheat-sheets e gates."
+summary: "Quick-wins de consistência: contagem de stages, caminhos mortos,
+  cheat-sheets e gates."
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
 current: false

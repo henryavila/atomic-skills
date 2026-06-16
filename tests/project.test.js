@@ -129,9 +129,14 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /does NOT open the browser|cheap; does NOT/i);
   });
 
-  it('router documents schema quick-reference (Plan / Initiative / Task fields)', () => {
+  it('schema quick-reference lives in project-create-plan.md (moved from the router), router points to it', () => {
     install();
-    const content = readRouter();
+    // T1.1 moved the schema field-reference out of the resident router into the
+    // creation flow (lazy); the router keeps a one-line pointer (P2).
+    const router = readRouter();
+    assert.match(router, /schema field-reference/i);
+    assert.match(router, /project-create-plan\.md/);
+    const content = readAsset('project-create-plan.md');
     assert.match(content, /Schema quick-reference/i);
     for (const field of [
       'currentPhase', 'parallelismAllowed', 'phases[]',
@@ -400,9 +405,15 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /propagate/i);
   });
 
-  it('project-transitions documents the Verifier execution patterns workflow', () => {
+  it('verifier execution patterns live in verifier-exec.md (single source), project-transitions points to it', () => {
     install();
-    const content = readAsset('project-transitions.md');
+    // T1.4 extracted the Verifier execution patterns to verifier-exec.md as the
+    // single source; project-transitions.md keeps the section heading + a pointer.
+    const transitions = readAsset('project-transitions.md');
+    assert.match(transitions, /Verifier execution patterns/);
+    assert.match(transitions, /verifier-exec\.md/);
+    // The canonical executor (per-kind workflows + evidence shape) lives here.
+    const content = readAsset('verifier-exec.md');
     assert.match(content, /Verifier execution patterns/);
     assert.match(content, /verify_exit_gate/);
     for (const kind of ['shell', 'manual', 'query', 'test']) {
