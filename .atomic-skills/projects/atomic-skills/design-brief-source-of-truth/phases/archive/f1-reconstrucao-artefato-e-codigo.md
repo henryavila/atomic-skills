@@ -5,30 +5,42 @@ title: Reconstrução (justapor + confirmação-por-divergência)
 goal: gerar o catálogo coletando candidatos de código + artefatos, justapondo
   sem reconciliar no silêncio; operador arbitra só o delta; persistência como
   memória-de-decisão (evidenceHash por-página).
-status: active
+status: done
 branch: plan/design-brief
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-16T14:34:21Z
-nextAction: Todas as 5 tasks DONE. Rodar phase-done (exit-gate G-1 +
-  review-code) para fechar a F1 e avançar para F2.
+lastUpdated: 2026-06-16T15:18:21Z
+nextAction: null
 parentPlan: design-brief-source-of-truth
 phaseId: F1
 tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-1
     description: o catálogo sai com existence, divergências e evidenceHash
       por-página; nenhuma divergência é resolvida no silêncio; os fixtures
       greenfield, envenenado e multi-convenção passam.
-    status: pending
+    status: met
+    metAt: 2026-06-16T15:18:21Z
     verifier:
       kind: shell
       command: node --test test/app-map/sources.test.js test/app-map/code-scan.test.js
         test/app-map/diverge.test.js test/app-map/confirm.test.js
         test/app-map/persist.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T15:18:21Z
+      passed: true
+      exitCode: 0
+      testsCollected: 26
+      outputSummary: "node --test (5 suites) → tests 26, pass 26, fail 0, exit 0 (pós
+        review-code: 21 originais + 5 regressões). Greenfield (code-scan []),
+        envenenado (diverge accessTier conflict value:null) e multi-convenção
+        (audiences both preserved) passam; evidenceHash por-página e re-run
+        zero-delta verdes."
     verifierLabel: "shell: node --test test/app-map/sources.test.js test/app-map/code-…"
+    evidenceSummary: passed · 26 tests · 2026-06-16
 stack:
   - id: 1
     title: Reconstrução (artefato e código) e reconciliação
@@ -257,8 +269,19 @@ Initiative for phase **F1 — Reconstrução (artefato e código) e reconciliaç
 - Doc de design da feature (re-design): `../design.md` (Revisão 2)
 - Memória do princípio de precedência: `~/.claude/projects/-home-henry-atomic-skills/memory/precedencia-artefato-humano-vs-ia.md`
 
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 5 tasks closed, cada uma com `evidence` apontando o run do verifier (shell, `passed:true`) que a fechou; o review-code releu cada `file:line` antes de cada fix.
+- **G2 soft-language**: `nextAction` + descrições + outputSummaries + handoff scaneados para a ban-list → 0 ocorrências (claims são `passed:true`/contagens de teste).
+- **G6 reference-or-strike**: cada exit-criterion met com `evidence:` populada (G-1 shell 26/26 + manual confirmado); handoff carrega comandos/contagens/SHAs verbatim.
+- **Codex review**: rodado via `atomic-skills:review-code 5d8efe9 --mode=local` (envelope selado, contexto limpo) → 1 critical + 4 major + 2 minor runtime-confirmados; critical+majors endereçados, 2 minor corrigidos, 1 major reavaliado minor (noted). Review file `.atomic-skills/reviews/2026-06-16-1518-design-brief-source-of-truth-f1.md`. `--mode=local` (não both) porque o diff é aditivo/não-destrutivo.
+- **Review gate (G2)**: registrado em `plan.md` `phases[F1].reviewGate: { status: passed, at: 6bfdc3c…, mode: local, reviewFile, verifiedAt }`. A prosa acima é o audit humano; o descritor é o campo machine-checkable do GATE-R3 — concordam.
+- **Lessons (G1)**: distiladas 2 lessons reusable (L-001 stub-de-I/O-mascara-1º-run; L-002 double-emit-precisa-dedupe-por-fonte) em `lessons/design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo.md`, ratificadas pelo operador. A próxima fase as dispõe via `node scripts/list-lessons.js --phase F2`.
+
 ## Session handoff
-- **Narrative:** F1 `active`, **IMPLEMENT COMPLETO — 5/5 tasks DONE**, cada uma fechada por verifier
+- **Narrative:** F1 `done` — **phase-done completo**: 5/5 tasks DONE, exit-gate G-1 met (shell 26/26 + manual),
+  review-code local aplicado (1C+4M endereçados), 2 lessons ratificadas, currentPhase avançado F1→F2.
+  Antes (histórico): F1 `active`, **IMPLEMENT COMPLETO — 5/5 tasks DONE**, cada uma fechada por verifier
   determinístico com evidence `passed:true`. Mode 1 (Opus single-threaded TDD; Codex preterido porque as
   5 tasks são cadeia de dependência com contratos compartilhados + verifier é test autoral). Falta só o
   `phase-done` (exit-gate G-1 + review-code + lessons + advance), que é opt-in do operador.
@@ -272,16 +295,13 @@ Initiative for phase **F1 — Reconstrução (artefato e código) e reconciliaç
   bump schema `0.1`→`0.2` **condicional** (allOf if schemaVersion=0.2 ⇒ evidenceHash required; resolution
   oneOf string|objeto) — F0 0.1 segue válido; `evidenceHash`=sha256 canônico; `inputsHash` vira roll-up.
   `resolvedAt` inline (não cross-file $ref) porque validate.js da F0 compila só o app-map.schema.json.
-- **Single nextAction:** rodar **`phase-done`** (`~/.claude/commands/atomic-skills/_assets/project-transitions.md`):
-  re-verifica o exit-gate G-1, roda o review-code gate no diff da fase, distila lessons, e propõe avançar
-  `currentPhase` F1→F2. NÃO auto-avançar — opt-in do operador.
-- **Verbatim state:** exit-gate G-1 `node --test test/app-map/sources.test.js test/app-map/code-scan.test.js
-  test/app-map/diverge.test.js test/app-map/confirm.test.js test/app-map/persist.test.js` → `tests 21,
-  pass 21, fail 0, EXIT=0`. Suíte app-map+F0 (8 arquivos) → `tests 31, pass 31`. `compute-rollups` →
-  `{"tasksDone":5,"tasksTotal":5}`. `validate-state` da iniciativa → `✓ All 1 file(s) valid`. Falhas do
-  `npm test` global (10) são PRÉ-EXISTENTES (confirmado via `git stash` → install.test.js já 5/37 fail):
-  `dist/dashboard` não-buildado + frente de relocação `_assets` (39 vs 35) — nenhuma toca app-map.
-- **Uncommitted changes:** (nada commitado — regra global: commit só quando o operador pedir) —
-  `M .atomic-skills/.../phases/f1-reconstrucao-artefato-e-codigo.md` · `M meta/schemas/app-map.schema.json` ·
-  `?? src/app-map/{sources,code-scan,diverge,confirm,hash,persist}.js` ·
-  `?? test/app-map/{sources,code-scan,diverge,confirm,persist}.test.js` · `?? test/app-map/fixtures/`.
+- **Single nextAction:** F1 fechada e arquivada; o plano avançou para **F2 — Integração no design-brief**
+  (`currentPhase: F2`). Próximo: `atomic-skills:project new initiative design-brief-source-of-truth-f2-integracao-no-design-brief`
+  para materializar a F2 (consome `list-lessons --phase F2` → L-001/L-002), depois decompor+SPEC e implementar.
+- **Verbatim state:** exit-gate G-1 (pós review-code) `node --test test/app-map/{sources,code-scan,diverge,confirm,persist}.test.js`
+  → `tests 26, pass 26, fail 0, EXIT=0`. Suíte app-map+F0 (8 arquivos) → `tests 36, pass 36`. review-code local
+  sobre `5d8efe9`: 1C+4M+2m runtime-confirmados; fixes commitados em `6bfdc3c`. `reviewGate` em plan.md
+  `{status:passed, at:6bfdc3c…, mode:local}`. Falhas do `npm test` global (10) são PRÉ-EXISTENTES (via `git stash`
+  → install.test.js já 5/37): `dist/dashboard` não-buildado + frente `_assets` (39 vs 35) — nenhuma toca app-map.
+- **Uncommitted changes:** estado do phase-done (plan.md F1 done + currentPhase F2, este arquivo→archive, lessons,
+  PROJECT-STATUS) a commitar. Código F1 já commitado: `5d8efe9` (impl) + `6bfdc3c` (review fixes).

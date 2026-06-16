@@ -7,7 +7,7 @@ status: active
 started: 2026-06-15T19:46:08.157Z
 lastUpdated: 2026-06-16T12:00:18Z
 branch: plan/design-brief
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -82,11 +82,27 @@ phases:
           description: o catálogo sai com existence, divergências e evidenceHash
             por-página; nenhuma divergência é resolvida no silêncio; os fixtures
             greenfield, envenenado e multi-convenção passam.
-          status: pending
+          status: met
+          metAt: 2026-06-16T15:18:21Z
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: pending
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-16T15:18:21Z
+            passed: true
+            outputSummary: Confirmado pelo operador no phase-done sobre a evidência
+              determinística (exit-gate shell 26/26, exit 0 em 6bfdc3c) — diverge
+              poisoned/multi-convenção, code-scan greenfield→[], persist evidenceHash
+              por-página + re-run zero-delta. Review local both-not-needed (diff aditivo);
+              1 critical + 4 major endereçados (review 2026-06-16-1518).
+    reviewGate:
+      status: passed
+      at: 6bfdc3c1dfadb9a3e88d567bf710c721d9573301
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1518-design-brief-source-of-truth-f1.md
+      verifiedAt: 2026-06-16T15:18:21Z
+    status: done
     summary: Coleta candidatos doc+código, justapõe sem reconciliar, operador
       arbitra o delta, e persiste o catálogo (evidenceHash por-página).
   - id: F2

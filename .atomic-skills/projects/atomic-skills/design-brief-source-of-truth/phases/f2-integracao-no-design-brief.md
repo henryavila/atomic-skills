@@ -92,6 +92,7 @@ summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistênci
   no app-alvo."
 planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
 planActive: true
+current: true
 ---
 
 # Narrative / notes
