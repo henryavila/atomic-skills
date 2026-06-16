@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { validateAppMap } from '../../src/app-map/validate.js';
@@ -116,4 +119,21 @@ test('emit-time validation aborts a malformed catalog before writing', () => {
   const writesBroken = [];
   assert.throws(() => emitCatalog(broken, { dir: '/tmp/app', writeFile: (p, c) => writesBroken.push({ p, c }) }));
   assert.equal(writesBroken.length, 0, 'a malformed catalog writes nothing');
+});
+
+// Regression (review #1) — with the DEFAULT fs writers against a fresh target
+// tree (the real first-run case), emit must create the .atomic-skills/app-map/
+// directory and write a parseable catalog — not throw ENOENT.
+test('emit creates the target dir on a fresh tree and writes a readable catalog', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'app-map-'));
+  try {
+    const catalog = buildCatalog({ pages: buildPages(), projectId: 'demo' });
+    const { jsonPath } = emitCatalog(catalog, { dir }); // default writeFileSync + mkdirSync
+
+    const written = JSON.parse(readFileSync(jsonPath, 'utf8'));
+    assert.equal(written.schemaVersion, '0.2');
+    assert.equal(validateAppMap(written).valid, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -125,7 +125,9 @@ function candidateFromAttrs(pageValue, pageLine, attrLines, path, text) {
 function candidateFromInline({ text, line }, path) {
   const bold = text.match(INLINE_BOLD_PAGE);
   const named = text.match(INLINE_NAMED_PAGE);
-  const pageRaw = bold ? bold[1] : named ? named[1] : null;
+  // A bold name is explicit; a sentence-initial named match ("The Search page")
+  // would otherwise drag the leading article into the page name.
+  const pageRaw = bold ? bold[1] : named ? named[1].replace(/^(?:the|a|an)\s+/i, '') : null;
   if (!pageRaw) return null;
 
   const audience = detectAudience(text);
@@ -176,7 +178,34 @@ function extractCandidates(content, path) {
     }
   }
 
-  return candidates;
+  // Descarta candidatos cujo nome de página ficou vazio (ex: `Page: ***`) — uma
+  // página sem identidade polui o delta e falharia o schema (id minLength 1).
+  return candidates.filter((c) => c.page.value.length > 0);
+}
+
+function pageKey(name) {
+  return name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+}
+
+// Funde candidatos da MESMA página dentro de UM arquivo. O heading/atributo é
+// emitido antes da prosa inline, então a fusão é first-wins por campo: uma
+// segunda menção da mesma página no mesmo doc completa campos ausentes mas não
+// fabrica uma divergência (duas menções no MESMO doc não são testemunhas
+// independentes — divergência cross-source é preservada porque a fusão é
+// por-arquivo).
+function mergeFileCandidates(candidates) {
+  const byKey = new Map();
+  for (const candidate of candidates) {
+    const key = pageKey(candidate.page.value);
+    if (!byKey.has(key)) {
+      byKey.set(key, candidate);
+      continue;
+    }
+    const merged = byKey.get(key);
+    if (!merged.audience && candidate.audience) merged.audience = candidate.audience;
+    if (!merged.accessTier && candidate.accessTier) merged.accessTier = candidate.accessTier;
+  }
+  return [...byKey.values()];
 }
 
 function walkDocs(root, extensions, ignoreDirs) {
@@ -208,7 +237,7 @@ export function recallSources({
   for (const root of rootList) {
     for (const file of walkDocs(root, extensions, ignore)) {
       const path = relative(root, file).split(/[\\/]/).join('/');
-      candidates.push(...extractCandidates(readFileSync(file, 'utf8'), path));
+      candidates.push(...mergeFileCandidates(extractCandidates(readFileSync(file, 'utf8'), path)));
     }
   }
 

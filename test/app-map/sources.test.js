@@ -94,3 +94,33 @@ test('no precedence auto-resolves divergence between sources', () => {
   const sources = dashboards.map((c) => c.page.source.path).sort();
   assert.deepEqual(sources, ['atomic-skills/memory.md', 'bmad/prd.md']);
 });
+
+// Regression (review #3) — a heading candidate and a prose line naming the SAME
+// page within ONE doc must MERGE into a single candidate (first-wins per field),
+// not emit a second candidate that diverge then reports as a phantom conflict.
+test('a page named twice within one doc merges to a single candidate (no phantom conflict)', () => {
+  const billing = pagesNamed(recall(), 'Billing').filter((c) => c.page.source.path === 'bmad/overlap.md');
+
+  assert.equal(billing.length, 1, 'one doc, one page → one candidate (no double-emission)');
+  assert.equal(billing[0].audience.value, 'registered', 'heading/attribute wins over prose (intra-source)');
+  assert.equal(billing[0].accessTier.value, 'public', 'the prose-only access fills the missing field');
+});
+
+// Regression (review #6) — a marker whose name is empty after cleaning
+// (`Page: ***`) must NOT become a phantom nameless candidate; a real marker in
+// the same file still produces its candidate.
+test('an empty page name is dropped, not emitted as a nameless candidate', () => {
+  const candidates = recall();
+
+  assert.equal(candidates.every((c) => c.page.value.length > 0), true, 'no empty-name candidate');
+  assert.ok(candidates.some((c) => c.page.value === 'Wishlist'), 'the valid marker beside it survives');
+});
+
+// Regression (review #7) — a sentence-initial inline page must not drag its
+// leading article into the page name ("The Search page" → "Search").
+test('a leading article is stripped from an inline page name', () => {
+  const candidates = recall();
+
+  assert.ok(candidates.some((c) => c.page.value === 'Search'), 'page name is Search, not "The Search"');
+  assert.equal(candidates.some((c) => c.page.value === 'The Search'), false);
+});

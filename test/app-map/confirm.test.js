@@ -128,6 +128,18 @@ test('no page ends unconfirmed-and-unasked; pending only on explicit defer', () 
   }
 });
 
+// Regression (review #4) — a missing operator answer on a HIGH-risk item must
+// throw the same descriptive "resolution missing" error as the batch path, not
+// an opaque TypeError after some pages were already mutated.
+test('a missing high-risk answer throws a descriptive error, not a TypeError', () => {
+  const script = { ...FULL_RESOLVE };
+  delete script['settings:accessTier']; // operator tool returns undefined here
+  assert.throws(
+    () => confirmDivergences(buildDelta(), { ask: makeOperator(script).ask, now: NOW }),
+    /resolution missing for delta item 'settings:accessTier'/,
+  );
+});
+
 // Acceptance #4 — blind-confirmation rate instrumented as a governance metric.
 test('instruments the blind-confirmation rate', () => {
   const result = confirmDivergences(buildDelta(), { ask: makeOperator(FULL_RESOLVE).ask, now: NOW });

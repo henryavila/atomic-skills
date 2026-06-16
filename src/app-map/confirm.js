@@ -56,7 +56,12 @@ export function confirmDivergences({ pages, delta }, { ask, resolvedBy = 'operat
 
   const answers = new Map();
   for (const item of high) {
-    answers.set(item.key, ask({ type: 'item', risk: 'high', key: item.key, item }));
+    const answer = ask({ type: 'item', risk: 'high', key: item.key, item });
+    // Mesma invariante de saída (D9) do caminho em lote: uma resposta ausente
+    // do operador é uma página não-confirmada-e-não-perguntada — falha clara,
+    // não um TypeError opaco depois de já ter mutado páginas.
+    if (!answer) throw new Error(`resolution missing for delta item '${item.key}'`);
+    answers.set(item.key, answer);
   }
   if (low.length > 0) {
     const batch = ask({ type: 'batch', risk: 'low', items: low });

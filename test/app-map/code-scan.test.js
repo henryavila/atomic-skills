@@ -20,10 +20,13 @@ test('scanCode enumerates routes/views/screens across conventions, not utility m
   const pages = scanCode({ roots: [BROWNFIELD] });
   const ids = pages.map((p) => p.id).sort();
 
-  assert.deepEqual(ids, ['checkout', 'dashboard', 'profile', 'settings']);
+  assert.deepEqual(ids, ['checkout', 'dashboard', 'home', 'profile', 'settings']);
 
   // The app-router page resolves to its parent directory, not "page".
   assert.equal(byId(pages, 'checkout').codeEvidence.path, 'app/checkout/page.tsx');
+  // Regression (review #5): app/page.tsx is the root route, mapped to "home",
+  // never discarded (it was being rejected as parent === 'app').
+  assert.equal(byId(pages, 'home').codeEvidence.path, 'app/page.tsx');
   // A utility module under src/utils is not a route surface.
   assert.equal(pages.some((p) => p.codeEvidence.path.includes('helpers')), false);
 });

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { assertValidAppMap } from './validate.js';
@@ -56,13 +56,17 @@ function mirrorMarkdown(catalog) {
 // Grava o catálogo + espelho .md. A validação emit-time é o GATE universal
 // (funciona para app externo, fora do alcance do validate-state): malformado ⇒
 // aborta sem gravar nada.
-export function emitCatalog(catalog, { dir, writeFile = writeFileSync } = {}) {
+export function emitCatalog(catalog, { dir, writeFile = writeFileSync, mkdir = mkdirSync } = {}) {
+  // Valida ANTES de qualquer efeito colateral: malformado aborta sem criar dir.
   assertValidAppMap(catalog);
 
   const baseDir = join(dir, ...CATALOG_SUBDIR);
   const jsonPath = join(baseDir, CATALOG_JSON);
   const mdPath = join(baseDir, CATALOG_MD);
 
+  // O destino é a árvore do app-alvo: na 1ª execução o `.atomic-skills/app-map/`
+  // não existe ainda. Sem este mkdir, o writeFileSync lança ENOENT.
+  mkdir(baseDir, { recursive: true });
   writeFile(jsonPath, `${JSON.stringify(catalog, null, 2)}\n`);
   writeFile(mdPath, mirrorMarkdown(catalog));
   return { jsonPath, mdPath };

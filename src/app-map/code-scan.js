@@ -52,9 +52,12 @@ function classifyFile(relPath) {
   const base = file.slice(0, file.length - extname(file).length);
 
   // Next app-router: `page.<ext>` resolve para o diretório-pai (a rota real).
+  // `app/page.<ext>` é a rota raiz: o pai é o próprio `app`, então mapeia para
+  // `home` (não descartar — é a landing/home de todo app app-router).
   if (base === 'page' && dirs.includes('app')) {
-    const name = dirs[dirs.length - 1];
-    if (name && name !== 'app') return { name, kind: 'app-router' };
+    const parent = dirs[dirs.length - 1];
+    const name = parent === 'app' ? 'home' : parent;
+    if (name) return { name, kind: 'app-router' };
   }
 
   // Diretório de página/rota/view/screen → o nome do arquivo é a página.
