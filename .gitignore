@@ -23,6 +23,10 @@ nexus.yaml
 .claude/skills/
 .atomic-skills/manifest.json
 .atomic-skills/version-cache.json
+# Regenerable dashboard projection emitted by scripts/emit-consumer-state.js
+# (the aiDeck consumer reads these; the emitter rebuilds them from the tracked
+# plans/initiatives, so they are output, not source).
+.atomic-skills/.aideck/
 
 # Build artifacts
 dist/*
