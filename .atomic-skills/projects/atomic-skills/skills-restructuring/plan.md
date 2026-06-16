@@ -7,6 +7,7 @@ status: active
 started: 2026-06-15T13:37:12.477Z
 lastUpdated: 2026-06-15T16:29:10Z
 currentPhase: F0
+branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
   - id: P1

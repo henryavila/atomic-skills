@@ -16,7 +16,7 @@ phases:
       resolução em camadas e um enforcer que isola planos concorrentes em
       worktrees.
     dependsOn: []
-    subPhaseCount: 4
+    subPhaseCount: 6
     exitGate:
       summary: 1 criterion to meet
       criteria:
