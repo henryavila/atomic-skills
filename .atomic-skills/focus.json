@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T12:02:20.083Z",
+  "generatedAt": "2026-06-16T13:33:33.836Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "skills-restructuring",
-    "title": "Reestruturação das skills atomic-skills",
+    "slug": "fix-aideck-dashboard",
+    "title": "fix-aideck-dashboard: corrigir a integração com aiDeck",
     "status": "active"
   },
   "phase": {
-    "id": "F0",
-    "slug": "skills-restructuring-f0-pente-fino-de-consistencia",
-    "title": "Pente fino de consistência",
+    "id": "F1",
+    "slug": "fix-aideck-dashboard-f1-validar-e-aplicar-o-manifesto-project-s",
+    "title": "Consertar o cliente do dashboard (dados, live-refresh e filtro de lista)",
     "index": 1,
-    "total": 6,
+    "total": 2,
     "status": "active"
   },
   "tasks": {
     "done": 0,
-    "total": 7,
+    "total": 4,
     "blocked": 0
   },
   "gates": {
     "met": 0,
-    "total": 1
+    "total": 2
   },
-  "nextAction": "Start T0.1: Corrigir contagem de stages no create-plan",
+  "nextAction": "Tornar o consumer id dinâmico em src/dashboard/lib/api.ts (remover o literal `project-status`, resolver projectId) nos 5 call-sites; depois migrar a assinatura SSE para `data_changed`.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-15T16:29:10Z"
+      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md",
+      "lastUpdated": "2026-06-16T12:40:58Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f0-pente-fino-de-consistencia.md",
-      "lastUpdated": "2026-06-15T13:54:20.262Z"
+      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/phases/f1-validar-e-aplicar-o-manifesto-project-s.md",
+      "lastUpdated": "2026-06-16T12:40:58Z"
     }
   ]
 }

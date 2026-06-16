@@ -5,7 +5,7 @@ title: "fix-aideck-dashboard: corrigir a integração com aiDeck"
 version: "1.0"
 status: active
 started: 2026-06-16T11:57:08.891Z
-lastUpdated: 2026-06-16T11:57:08.891Z
+lastUpdated: 2026-06-16T12:40:58Z
 branch: plan/fix-aideck-dashboard
 currentPhase: F1
 parallelismAllowed: false
@@ -21,41 +21,53 @@ principles:
       define o contrato do consumer v2; os ajustes seguem esse contrato e são
       validados contra ele, nunca contra suposição.
   - id: P3
-    title: Redesenho consome os componentes do aiDeck
-    body: O redesenho do dashboard consome os componentes do aiDeck e o Claude
-      design; não reimplementa um cliente paralelo.
+    title: O dashboard é o nosso cliente React, servido pelo aiDeck
+    body: O dashboard é o cliente React próprio do atomic-skills (src/dashboard/),
+      buildado para dist/dashboard/ e servido pelo aiDeck via --static-dir. O
+      aiDeck é o backend (API + SSE); o redesenho evolui esse cliente com o
+      Claude design, sem forkar um cliente paralelo e preservando o contrato de
+      dados do consumer.
 glossary: []
 phases:
   - id: F1
     slug: fix-aideck-dashboard-f1-validar-e-aplicar-o-manifesto-project-s
-    title: Validar e aplicar o manifesto project-status (nosso lado)
-    goal: "Ler /home/henry/aideck/docs/handoffs/atomic-skills-manifest.md, validar
-      contra o estado atual do repo e aplicar os ajustes do lado do
-      atomic-skills: publicar o consumer manifest em
-      ~/.aideck/consumers/project-status/manifest.yaml e migrar
-      annotations/highlights/inbox para o layout explícito
-      `.atomic-skills/project-status/`, sem tocar no aiDeck."
+    title: "Consertar o cliente do dashboard (dados, live-refresh e filtro de lista)"
+    goal: "Consertar o cliente do dashboard (src/dashboard/) para falar com o
+      consumer por-projeto que o aiDeck registra (id = projectId) em vez do
+      consumer fixo `project-status`, assinar o evento SSE `data_changed`
+      (renomeado de `state-change` no hard-cut do aiDeck), reconciliar o layout
+      universal annotations/highlights/inbox sob `.atomic-skills/<projectId>/`, e
+      filtrar da lista os planos concluídos (done/archived) por padrão. Sem tocar
+      no aiDeck."
     dependsOn: []
     subPhaseCount: 0
     exitGate:
-      summary: 1 criterion to meet
+      summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: "`GET /api/consumers` lista o consumer `project-status` e editar um
-            plano dispara o evento de live-refresh no dashboard."
+          description: "`GET /api/consumers` lista o consumer do projeto (id = projectId)
+            e editar um plano dispara o evento `data_changed`, que faz o
+            dashboard re-buscar o estado (live-refresh end-to-end)."
+          status: pending
+          verifier:
+            kind: manual
+            description: Verify exit-gate prose with the user during phase-done.
+        - id: G-2
+          description: A lista de planos do dashboard oculta os planos done e archived por
+            padrão e os expõe via um filtro explícito.
           status: pending
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
     status: active
-    summary: Publica o consumer manifest e migra annotations/highlights/inbox para o
-      layout explícito, sem tocar no aiDeck.
+    summary: Faz o cliente do dashboard falar com o consumer por-projeto, assinar o
+      evento data_changed e ocultar planos concluídos da lista — sem tocar no aiDeck.
   - id: F2
-    slug: fix-aideck-dashboard-f2-lista-de-planos-filtrar-os-concluidos
-    title: "Lista de planos: filtrar os concluídos"
-    goal: Na lista de planos do dashboard, filtrar da visão padrão os planos já
-      concluídos (status done e archived), mantendo-os acessíveis sob um filtro
-      explícito.
+    slug: fix-aideck-dashboard-f2-repensar-o-dashboard-com-o-claude-desig
+    title: Repensar o dashboard com o Claude design
+    goal: Redesenhar o cliente React próprio do atomic-skills (src/dashboard/,
+      servido pelo aiDeck via --static-dir) com o Claude design, preservando o
+      contrato de dados do consumer por-projeto consertado em F1.
     dependsOn:
       - F1
     subPhaseCount: 0
@@ -63,37 +75,15 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: A lista de planos do dashboard oculta os planos done e archived por
-            padrão e os expõe via um filtro explícito.
+          description: Existe um design aprovado do cliente React próprio (src/dashboard)
+            redesenhado com o Claude design, validado com o usuário.
           status: pending
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
     status: pending
-    summary: Ajusta a lista de planos do dashboard — oculta concluídos por padrão e
-      corrige o live-refresh das mudanças de projeto (lado atomic-skills).
-  - id: F3
-    slug: fix-aideck-dashboard-f3-repensar-o-dashboard-com-o-claude-desig
-    title: Repensar o dashboard com o Claude design
-    goal: Redesenhar o dashboard inteiro com o Claude design, consumindo os
-      componentes do aiDeck, preservando o contrato de dados do consumer
-      project-status.
-    dependsOn:
-      - F2
-    subPhaseCount: 0
-    exitGate:
-      summary: 1 criterion to meet
-      criteria:
-        - id: G-1
-          description: Existe um design aprovado do dashboard redesenhado sobre os
-            componentes do aiDeck, validado com o usuário.
-          status: pending
-          verifier:
-            kind: manual
-            description: Verify exit-gate prose with the user during phase-done.
-    status: pending
-    summary: Redesenha o dashboard com o Claude design sobre os componentes do
-      aiDeck, preservando o contrato de dados.
+    summary: Redesenha o cliente React próprio (src/dashboard) com o Claude design,
+      preservando o contrato de dados do consumer.
 references:
   - kind: file
     path: /home/henry/aideck/docs/handoffs/atomic-skills-manifest.md
@@ -107,13 +97,15 @@ planTitle: "fix-aideck-dashboard: corrigir a integração com aiDeck"
 
 ## 1. Context
 
-O aiDeck aplicou o hard-cut que removeu do runtime genérico o conhecimento embutido de `project-status`. Sem o manifesto do consumer publicado, o dashboard de project-status fica sem live-refresh e `/api/state` não retorna o layout. Esta frente conserta a integração inteiramente do lado do atomic-skills, sem tocar no código do aiDeck, depois melhora a lista de planos e redesenha o dashboard com o Claude design sobre os componentes do aiDeck. Contrato-fonte: /home/henry/aideck/docs/handoffs/atomic-skills-manifest.md. Esqueleto criado com DESIGN deferido (R-ORCH-03): a decomposição em tasks acontece na sessão paralela que adotar esta frente, via brainstorm/implement.
+O aiDeck aplicou o hard-cut (`b3fad45 refactor(watcher): manifest-driven file classification`) que removeu do runtime genérico o conhecimento embutido de `project-status`: o consumer fixo `DEFAULT_CONSUMER` deixou de existir, o watcher passou a classificar arquivos pelos globs de cada consumer registrado e o evento SSE `state-change` foi renomeado para `data_changed` (payload `{consumer, projectId, dataSourceId}`). O `provision-consumer.js` já provisiona o consumer **por-projeto** (id = projectId) corretamente — mas o cliente do dashboard (`src/dashboard/lib/api.ts`) ainda fixa `CONSUMER = 'project-status'` e assina o evento removido `state-change`, então o dashboard busca um consumer inexistente (estado vazio) e nunca recebe live-refresh.
+
+Esta frente conserta a integração inteiramente do lado do atomic-skills, sem tocar no aiDeck: **F1** alinha o cliente ao consumer por-projeto + evento `data_changed`, reconcilia o layout universal annotations/highlights/inbox e filtra os planos concluídos da lista; **F2** redesenha o cliente React próprio com o Claude design. Contrato-fonte: o hard-cut do aiDeck (`b3fad45`) + `/home/henry/aideck/docs/handoffs/atomic-skills-manifest.md` (cuja referência literal a um consumer `project-status` está superada — o consumer é o projectId). O commit do hard-cut é local, ainda não publicado no npm.
 
 ## 2. Inviolable principles
 
 - **P1 Não tocar no aiDeck** — A correção vive inteiramente no lado do atomic-skills (manifesto do consumer, layout de annotations/highlights/inbox, scripts e skills). O código do aiDeck permanece intocado — ele é domain-agnostic por contrato.
 - **P2 O contrato do handoff é a fonte de verdade** — O handoff /home/henry/aideck/docs/handoffs/atomic-skills-manifest.md define o contrato do consumer v2; os ajustes seguem esse contrato e são validados contra ele, nunca contra suposição.
-- **P3 Redesenho consome os componentes do aiDeck** — O redesenho do dashboard consome os componentes do aiDeck e o Claude design; não reimplementa um cliente paralelo.
+- **P3 O dashboard é o nosso cliente React, servido pelo aiDeck** — O dashboard é o cliente React próprio do atomic-skills (`src/dashboard/`), buildado para `dist/dashboard/` e servido pelo aiDeck via `--static-dir`. O aiDeck é o backend (API + SSE); o redesenho evolui esse cliente com o Claude design, sem forkar um cliente paralelo e preservando o contrato de dados do consumer.
 
 ## 3. Phase tree
 
