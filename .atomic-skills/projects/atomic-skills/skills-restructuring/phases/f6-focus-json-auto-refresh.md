@@ -165,7 +165,6 @@ emerged: []
 summary: "Fecha o gap do focus.json stale: transição usa refresh-state + install
   conecta os hooks (com paridade uninstall)."
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
 ---
 
 # Narrative / notes

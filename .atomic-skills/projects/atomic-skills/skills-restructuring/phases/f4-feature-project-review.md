@@ -4,21 +4,21 @@ slug: skills-restructuring-f4-feature-project-review
 title: "Feature: project review"
 goal: dar ao project um subcomando de auditoria de plano/iniciativa
   materializados, compondo linters, verify, review-plan e review-code.
-status: pending
+status: done
 branch: null
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-15T14:21:04.364Z
-nextAction: "Start T4.1: review-plan resolve slug e active-plan"
+lastUpdated: 2026-06-16T20:51:13.900Z
+nextAction: null
 parentPlan: skills-restructuring
 phaseId: F4
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F4-G1
     description: O subcomando existe e a suite de validação passa.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -f skills/shared/project-assets/project-review.md && grep -q
@@ -27,7 +27,18 @@ exitGates:
         skills/shared/project-assets/project-review.md && npm run
         validate-skills
       expectExitCode: 0
+    metAt: 2026-06-16T20:51:13.900Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T20:51:13.900Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Compound gate exit 0: project-review.md exists, project.md cites
+        'project review', project-review.md cites
+        review-plan/review-code/verify, and npm run validate-skills → 'All 15
+        skills valid'. (Copied from plan criterion F4-G1.)"
     verifierLabel: "shell: test -f skills/shared/project-assets/project-review.md && g…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: "Feature: project review"
@@ -135,8 +146,6 @@ parked: []
 emerged: []
 summary: Subcomando project review que audita plano/iniciativa materializados.
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -209,6 +218,30 @@ Initiative for phase **F4 — Feature: project review**.
    M skills/core/review-plan.md
   ?? skills/shared/project-assets/project-review.md
   ```
+
+## Self-review against code-quality gates (phase-done)
+
+- **G1 read-before-claim**: 3 tasks closed, each linked to source in its `outputs[]`
+  + the verifier run that closed it; the 3 review fixes each read the cited
+  `file:line` before editing.
+- **G2 soft-language**: scanned `nextAction` (now `null`) + task/criterion
+  descriptions for the ban list; 0 violations.
+- **G6 reference-or-strike**: 1 exit criterion (F4-G1) `met` with `evidence`
+  populated (`passed: true`, `exitCode: 0`); 0 deferred.
+- **Codex review**: ran `atomic-skills:review-code --mode=local` on
+  `d5f8575..9406177` at reviewed HEAD = `ecaae5b`, verdict `needs_changes→all
+  fixed` (1 major + 2 minor, all fixed in-phase), file
+  `.atomic-skills/reviews/2026-06-16-2016-skills-restructuring-f4.md`. The codex
+  `review-due` offer was not taken: `last-review.json` `lastReviewedCommit` is on
+  a different branch (`impl/design-brief-source-of-truth`), not meaningful for
+  this phase's diff.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status:
+  passed, at: ecaae5b4abf87aa615c0d23418825cf7fbc9167a, mode: local, reviewFile:
+  .atomic-skills/reviews/2026-06-16-2016-skills-restructuring-f4.md }`.
+- **Lessons (G1)**: distilled 1 reusable lesson (L-001) into
+  `lessons/skills-restructuring-f4-feature-project-review.md`, ratified by the
+  user — the composition-skill non-interactive-guard lesson from the major
+  finding.
 
 ## Links
 

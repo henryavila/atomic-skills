@@ -312,7 +312,6 @@ emerged: []
 summary: Uma receita por padrão de bloat aplicada em todas as skills
   (RF/Rationalization, envelope, gates).
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
 ---
 
 # Narrative / notes

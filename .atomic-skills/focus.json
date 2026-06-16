@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T20:02:20.373Z",
+  "generatedAt": "2026-06-16T20:54:02.826Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "skills-restructuring",
-    "title": "Reestruturação das skills atomic-skills",
+    "slug": "design-brief-source-of-truth",
+    "title": "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)",
     "status": "active"
   },
   "phase": {
-    "id": "F4",
-    "slug": "skills-restructuring-f4-feature-project-review",
-    "title": "Feature: project review",
-    "index": 5,
-    "total": 7,
+    "id": "F1",
+    "slug": "design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo",
+    "title": "Reconstrução (artefato e código) e reconciliação",
+    "index": 2,
+    "total": 3,
     "status": "pending"
   },
   "tasks": {
-    "done": 3,
-    "total": 3,
+    "done": 0,
+    "total": 4,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T4.1: review-plan resolve slug e active-plan",
+  "nextAction": "Start T-001: Discovery das fontes",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-16T19:46:28Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f4-feature-project-review.md",
-      "lastUpdated": "2026-06-15T14:21:04.364Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f1-reconstrucao-artefato-e-codigo.md",
+      "lastUpdated": "2026-06-15T17:00:00.000Z"
     }
   ]
 }

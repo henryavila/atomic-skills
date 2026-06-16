@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: skills-restructuring
 title: Reestruturação das skills atomic-skills
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T19:46:28Z
+lastUpdated: 2026-06-16T20:51:13.900Z
 currentPhase: F4
 branch: plan/skills-restructuring
 parallelismAllowed: false
@@ -142,8 +142,8 @@ phases:
             verifiedAt: 2026-06-16T18:56:10Z
             passed: true
             exitCode: 0
-            outputSummary: "test -f envelope-orchestration.md && npm run
-              validate-skills → All 15 skills valid (schema_version 0.2); exit 0."
+            outputSummary: test -f envelope-orchestration.md && npm run validate-skills →
+              All 15 skills valid (schema_version 0.2); exit 0.
     reviewGate:
       status: passed
       at: 2e09b5962351baf9ce4831947cb8678312e6a5f1
@@ -177,7 +177,7 @@ phases:
             verifiedAt: 2026-06-16T19:32:13Z
             exitCode: 0
             passed: true
-            outputSummary: "All 15 skills valid (schema_version 0.2)"
+            outputSummary: All 15 skills valid (schema_version 0.2)
     reviewGate:
       status: passed
       at: aa1c16ca009b61efe3c7e356516f30330f7a4189
@@ -199,7 +199,8 @@ phases:
       criteria:
         - id: F4-G1
           description: O subcomando existe e a suite de validação passa.
-          status: pending
+          status: met
+          metAt: 2026-06-16T20:08:50.818Z
           verifier:
             kind: shell
             command: test -f skills/shared/project-assets/project-review.md && grep -q
@@ -208,7 +209,22 @@ phases:
               skills/shared/project-assets/project-review.md && npm run
               validate-skills
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T20:08:50.818Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Compound gate exit 0: project-review.md exists, project.md cites
+              'project review', project-review.md cites
+              review-plan/review-code/verify, and npm run validate-skills → 'All
+              15 skills valid'."
+    reviewGate:
+      status: passed
+      at: ecaae5b4abf87aa615c0d23418825cf7fbc9167a
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-2016-skills-restructuring-f4.md
+      verifiedAt: 2026-06-16T20:19:34.153Z
+    status: done
     summary: Subcomando project review que audita plano/iniciativa materializados.
   - id: F5
     slug: skills-restructuring-f5-nova-skill-design-brief
@@ -269,15 +285,16 @@ phases:
             kind: shell
             command: grep -q 'refresh-state'
               skills/shared/project-assets/project-transitions.md && node --test
-              tests/install-uninstall-roundtrip.test.js && npm run validate-skills
+              tests/install-uninstall-roundtrip.test.js && npm run
+              validate-skills
             expectExitCode: 0
           evidence:
             verifierKind: shell
             verifiedAt: 2026-06-16T16:50:35Z
             passed: true
             exitCode: 0
-            outputSummary: "grep refresh-state OK; round-trip test 8/8 pass (após
-              os 3 fixes do review gate); validate-skills 15 skills válidas; exit 0."
+            outputSummary: grep refresh-state OK; round-trip test 8/8 pass (após os 3 fixes
+              do review gate); validate-skills 15 skills válidas; exit 0.
     status: done
     reviewGate:
       status: passed
@@ -293,16 +310,20 @@ phases:
       surfacedBy: ai
     context:
       solves: Fecha o gap onde o auto-refresh do focus.json depende do passo
-        interativo opcional project-setup §5; quem roda só `atomic-skills install`
-        fica com o digest drifting silenciosamente (foi o que aconteceu neste repo).
+        interativo opcional project-setup §5; quem roda só `atomic-skills
+        install` fica com o digest drifting silenciosamente (foi o que aconteceu
+        neste repo).
       trigger: Ao investigar por que o focus.json estava stale (sessão 2026-06-16),
         confirmei via src/install.js que o instalador só registra o hook de
-        auto-update (version-check.sh), não os hooks de project-status que refrescam
-        o digest; o usuário pediu para tratar como uma fase neste plano.
+        auto-update (version-check.sh), não os hooks de project-status que
+        refrescam o digest; o usuário pediu para tratar como uma fase neste
+        plano.
       assumesStillValid:
-        - refresh-state.js segue sendo o agregador (rollups + focus markers + digest)
+        - refresh-state.js segue sendo o agregador (rollups + focus markers +
+          digest)
         - a HARD RULE de paridade install↔uninstall continua valendo
-        - os hooks de project-status seguem em skills/shared/project-assets/hooks/
+        - os hooks de project-status seguem em
+          skills/shared/project-assets/hooks/
       ratifiedAt: 2026-06-16T14:10:57Z
       ratifiedBy: human
       lastReviewedAt: 2026-06-16T14:10:57Z
@@ -314,7 +335,6 @@ references:
   - kind: file
     path: docs/audits/token-economy-all-skills-2026-06-15.md
     label: Economia de tokens — todas as skills
-planActive: true
 planTitle: Reestruturação das skills atomic-skills
 ---
 

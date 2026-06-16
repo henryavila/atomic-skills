@@ -201,7 +201,6 @@ parked: []
 emerged: []
 summary: Move blocos mode-gated de cada skill grande para assets lazy.
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
 ---
 
 # Narrative / notes

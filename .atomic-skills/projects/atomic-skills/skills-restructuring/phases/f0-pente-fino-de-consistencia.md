@@ -236,8 +236,6 @@ emerged: []
 summary: "Quick-wins de consistência: contagem de stages, caminhos mortos,
   cheat-sheets e gates."
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
-current: false
 ---
 
 # Narrative / notes

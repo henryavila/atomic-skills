@@ -261,7 +261,6 @@ emerged: []
 summary: Enxuga o router project e o driver implement movendo conteúdo
   não-ambiente para lazy.
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
 ---
 
 # Narrative / notes
