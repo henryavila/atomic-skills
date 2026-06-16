@@ -349,6 +349,8 @@ evidence.mutation.killedBy: [test_boundary]
 
 G8 (react-hook-safety) aplica-se ao dashboard deste repo — injetado via CLAUDE.md, não via skills genéricos.
 
+G9 (mutation-kill) é opcional e aplica-se a qualquer verifier `kind: test` (independente de skill) — registrada no `evidence.mutation` de uma exit-gate/task, não mapeia colunas do matrix.
+
 Skills inject only the rules they ✓. The Self-review checkpoint at the end of each task mentions those rules by id, forcing explicit application.
 
 ---
