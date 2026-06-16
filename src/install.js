@@ -626,14 +626,24 @@ export function installSkills(projectDir, options, callbacks = {}) {
     filesMap[f.path] = { installed_hash: f.hash, source: f.source };
   }
 
+  // Keep the installer-created flags STICKY across re-installs. On a 2nd install
+  // the settings files already exist (the 1st install made them), so the freshly
+  // computed `!settingsPreexisted` is false — but the installer DID create them,
+  // so uninstall must still delete them when emptied. OR-in the prior manifest's
+  // flag so a re-install never demotes true→false (which would leave an empty
+  // settings file as residue, breaking the round-trip parity contract). A flag
+  // that started false (a user's pre-existing file) stays false, so user files
+  // are still never deleted.
+  const priorManifest = readManifest(projectDir);
+
   writeManifest(projectDir, {
     version: getPackageVersion(),
     language,
     ides,
     modules,
     files: filesMap,
-    settingsCreated: manifestMeta.settingsCreated ?? false,
-    settingsLocalCreated: manifestMeta.settingsLocalCreated ?? false,
+    settingsCreated: (priorManifest?.settingsCreated === true) || (manifestMeta.settingsCreated ?? false),
+    settingsLocalCreated: (priorManifest?.settingsLocalCreated === true) || (manifestMeta.settingsLocalCreated ?? false),
   });
 
   return { files: createdFiles };

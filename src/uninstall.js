@@ -120,7 +120,12 @@ export async function uninstall(projectDir, options = {}) {
   // Reverse the project-status hooks' settings.local.json merge (their staged
   // scripts were just removed by the manifest loop above). Surgical: preserves
   // all other hooks; deletes settings.local.json only if installer-created + emptied.
-  removeProjectStatusHooks({ basePath, settingsLocalCreated: manifest.settingsLocalCreated === true });
+  // PROJECT SCOPE ONLY — installProjectStatusHooks is project-gated, so a
+  // user-scope uninstall must never reach into the user's own settings.local.json
+  // (a command-string collision would otherwise strip the user's own hook).
+  if (scope === 'project') {
+    removeProjectStatusHooks({ basePath, settingsLocalCreated: manifest.settingsLocalCreated === true });
+  }
 
   // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) are shared
   // across ALL installs (user + each project), so reclaim them only when the

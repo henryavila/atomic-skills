@@ -186,4 +186,90 @@ describe('install→uninstall round-trip', () => {
       rmSync(repo, { recursive: true, force: true });
     }
   });
+
+  it('project scope re-install then uninstall leaves no residue (update path)', async () => {
+    // The common real-world path: `atomic-skills install` is re-run (update),
+    // THEN uninstalled. An installer-created settings file must still be deleted
+    // on uninstall even though it "pre-existed" the 2nd install — the
+    // installer-created flag must be sticky across re-installs, not reset to false.
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(repo);
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(repo, { scope: 'project', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(repo));
+        assert.deepEqual(added, [], `residue after re-install + uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `re-install + uninstall deleted pre-existing files: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `re-install + uninstall modified files: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('user scope uninstall does not touch a user-owned settings.local.json (scope isolation)', async () => {
+    // The project-status hooks install in PROJECT scope only. A user-scope
+    // uninstall must not reach into the user's own settings.local.json — even one
+    // whose hook command string collides with the convention we register.
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      const localPath = join(fakeHome, '.claude', 'settings.local.json');
+      mkdirSync(join(localPath, '..'), { recursive: true });
+      const userOwn = {
+        hooks: {
+          Stop: [{ matcher: '*', hooks: [
+            { type: 'command', command: '"$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/stop.sh"' },
+          ] }],
+        },
+      };
+      writeFileSync(localPath, JSON.stringify(userOwn, null, 2) + '\n');
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(removed, [], `user-scope uninstall deleted user files: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `user-scope uninstall mutated the user's settings.local.json: ${modified.join(', ')}`);
+        assert.ok(existsSync(localPath), 'user-owned settings.local.json survives');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('project scope preserves a pre-existing settings.local.json (foreign hook survives)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      const localPath = join(repo, '.claude', 'settings.local.json');
+      mkdirSync(join(localPath, '..'), { recursive: true });
+      const foreign = {
+        hooks: { SessionStart: [{ matcher: '*', hooks: [
+          { type: 'command', command: 'echo user-own-hook' },
+        ] }] },
+      };
+      writeFileSync(localPath, JSON.stringify(foreign, null, 2) + '\n');
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(repo);
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(repo, { scope: 'project', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(repo));
+        assert.deepEqual(removed, [], `must not delete pre-existing files: ${removed.join(', ')}`);
+        assert.deepEqual(added, [], `residue after uninstall: ${added.join(', ')}`);
+        assert.deepEqual(modified, [], `must restore settings.local.json byte-for-byte: ${modified.join(', ')}`);
+        assert.ok(existsSync(localPath), 'pre-existing settings.local.json survives');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });

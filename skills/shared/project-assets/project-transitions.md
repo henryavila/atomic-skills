@@ -237,5 +237,5 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
    - If target has `parentPlan` ≠ currently-active plan's slug: warn and offer to also switch the plan.
    - Set any other active initiative to `status: paused`.
    - Set target initiative to `status: active`.
-   - Update PROJECT-STATUS.md.
+   - Update PROJECT-STATUS.md, then run `node scripts/refresh-state.js` (the active-initiative change flips the `current` focus marker, so refresh the markers + the `focus.json` digest in the same pass).
 4. Announce.
