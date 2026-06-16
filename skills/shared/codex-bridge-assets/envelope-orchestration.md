@@ -17,7 +17,7 @@ skeleton back into a caller — one definition, two callers.
 | `«INPUT»` | what the captured/validated input is, and how it is obtained (no re-capture) |
 | `«PASS1_TEMPLATE»` | the `{{ASSETS_PATH}}/pass1-briefing-template-*.txt` for this artifact |
 | `«CONSTRAINTS»` | how externally-verifiable factual constraints are gathered |
-| `«ARTIFACT»` | what fills the `{{ARTIFACT}}` placeholder of the Pass 1 template |
+| `«ARTIFACT»` | what fills the Pass-1 template's artifact placeholder(s): always `{{ARTIFACT}}`, plus `{{ARTIFACT_PATH}}` when the caller's template carries it |
 | `«SIZE_BUDGET»` | the briefing size ceiling (tokens), excluding the artifact portion |
 | `«TRIAGE_TARGET»` | what an `apply` edit operates on (the file(s) under review) |
 | `«TRIAGE_NOTES»` | artifact-specific triage pre/postamble (a summary line to show first, an early-exit condition, a post-fix suggestion) — empty if none |
@@ -43,6 +43,7 @@ skeleton back into a caller — one definition, two callers.
      - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
      - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
      - `{{ARTIFACT}}` ← `«ARTIFACT»`
+     - `{{ARTIFACT_PATH}}` ← the artifact's path — **only when the caller's Pass-1 template carries this placeholder** (review-plan binds it to `plan_path`; review-code's template has none, so skip it there)
      - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
    - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
    - Size check (compute excluding the artifact portion): must stay within
