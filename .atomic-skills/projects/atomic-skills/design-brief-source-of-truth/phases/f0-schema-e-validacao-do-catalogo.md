@@ -8,11 +8,11 @@ goal: estabelecer o contrato persistido do catálogo — schema JSON, validaçã
 status: active
 branch: plan/skills-restructuring
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-15T17:00:00.000Z
-nextAction: "Start T-001: Schema JSON do catálogo"
+lastUpdated: 2026-06-16T01:08:41Z
+nextAction: "Start T-002: Validador emit-time (src/app-map/validate.js)"
 parentPlan: design-brief-source-of-truth
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -27,6 +27,7 @@ exitGates:
       kind: shell
       command: node --test test/app-map/schema.test.js test/app-map/validate.test.js
         && npm run validate-state test/fixtures
+    verifierLabel: "shell: node --test test/app-map/schema.test.js test/app-map/valida…"
 stack:
   - id: 1
     title: Schema e validação do catálogo
@@ -35,8 +36,9 @@ stack:
 tasks:
   - id: T-001
     title: Schema JSON do catálogo
-    status: pending
-    lastUpdated: 2026-06-15T19:46:08.157Z
+    status: done
+    lastUpdated: 2026-06-16T01:08:41Z
+    closedAt: 2026-06-16T01:08:41Z
     summary: Schema JSON com os campos requeridos do contrato e os enums.
     description: "Define o schema do `app-map.json` com os campos requeridos do
       contrato e os enums. Files: meta/schemas/app-map.schema.json"
@@ -50,6 +52,13 @@ tasks:
     verifier:
       kind: shell
       command: node --test test/app-map/schema.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T01:08:41Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/schema.test.js → tests 4, pass 4, fail 0
+        (re-verificado no primary merged ac117c4)
   - id: T-002
     title: Validador emit-time
     status: pending
@@ -103,8 +112,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** Implementando F0 (Schema e validação do catálogo) do plano `design-brief-source-of-truth` via Mode 2 (Codex), num worktree de integração separado `impl/design-brief-source-of-truth` em `/home/henry/atomic-skills-db` (escolha do operador: Codex executa, N worktrees por-task). A árvore principal `plan/skills-restructuring` fica congelada. Cadeia dependente serial: T-001 (schema) → T-002 (validador) → T-003 (validate-state). Pré-dispatch da T-001.
-- **Decision log:** (1) Executor = Mode 2/Codex (operador escolheu via AskUserQuestion). (2) Topologia = 1 worktree de integração (o "worktree separado" pedido) + worktrees Codex efêmeros por-task que mergeiam nele; checkout principal intocado. (3) Serial, não paralelo: arquivos disjuntos mas verifiers acoplados (validador T-002 e validate-state T-003 carregam o schema da T-001), então T-002/T-003 seedam do HEAD pós-T-001. (4) Codex NUNCA escreve `.atomic-skills/`; eu (Opus) faço done/snapshot/telemetria.
-- **Single nextAction:** Criar worktree Codex `codex/db-t001` off `impl/design-brief-source-of-truth`, despachar a T-001 (schema JSON `meta/schemas/app-map.schema.json` + `test/app-map/schema.test.js`), verifier `node --test test/app-map/schema.test.js`.
-- **Verbatim state:** Integration worktree `/home/henry/atomic-skills-db` @ `4f05a79` branch `impl/design-brief-source-of-truth`. T-001 verifier: `node --test test/app-map/schema.test.js`. T-002 verifier: `node --test test/app-map/validate.test.js`. T-003 verifier: `npm run validate-state test/fixtures`. F0 exit gate: `node --test test/app-map/schema.test.js test/app-map/validate.test.js && npm run validate-state test/fixtures`. routing.json: mode2Enabled=true, codexLane.enabled=true. codex-cli 0.139.0.
-- **Uncommitted changes:** integration worktree — apenas este bloco de handoff (a ser commitado antes do dispatch). Main tree: clean.
+- **Narrative:** Implementando F0 do plano `design-brief-source-of-truth` via Mode 2 (Codex) no worktree de integração `impl/design-brief-source-of-truth` (`/home/henry/atomic-skills-db`); árvore principal `plan/skills-restructuring` congelada. **T-001 (schema) DONE** — verificada no primary merged (`ac117c4`, node --test 4/4). Próximo na cadeia serial: T-002 (validador emit-time), depois T-003 (validate-state).
+- **Decision log:** (1) Executor = Mode 2/Codex (operador escolheu via AskUserQuestion). (2) Topologia = 1 worktree de integração + worktrees Codex efêmeros por-task que mergeiam nele; checkout principal intocado. (3) Serial: verifiers acoplados ao schema da T-001, então T-002/T-003 seedam do HEAD pós-T-001. (4) Codex nunca escreve `.atomic-skills/`; Opus faz done/snapshot/telemetria. (5) `node_modules` symlinkado no worktree de integração (gitignored, não mergeia) para rodar os verifiers.
+- **Single nextAction:** Criar worktree Codex `codex/db-t002` off `impl/design-brief-source-of-truth` (HEAD ac117c4, já tem o schema), despachar a T-002 (`src/app-map/validate.js` + `test/app-map/validate.test.js`), verifier `node --test test/app-map/validate.test.js`.
+- **Verbatim state:** Integration worktree `/home/henry/atomic-skills-db` branch `impl/design-brief-source-of-truth` @ `ac117c4`. T-001 fechada (evidence shell passed, exitCode 0). T-002 verifier: `node --test test/app-map/validate.test.js`. T-003 verifier: `npm run validate-state test/fixtures`. F0 exit gate: `node --test test/app-map/schema.test.js test/app-map/validate.test.js && npm run validate-state test/fixtures`. dispatch-log: 6 records. routing.json: mode2Enabled=true.
+- **Uncommitted changes:** integration worktree — state edits (T-001 done + rollups + dispatch-log + este handoff), a serem commitados agora. Main tree: clean. Worktree `codex/db-t001` a remover.
