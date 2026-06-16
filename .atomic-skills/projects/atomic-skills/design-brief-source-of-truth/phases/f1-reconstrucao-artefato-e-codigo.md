@@ -5,14 +5,15 @@ title: Reconstrução (justapor + confirmação-por-divergência)
 goal: gerar o catálogo coletando candidatos de código + artefatos, justapondo
   sem reconciliar no silêncio; operador arbitra só o delta; persistência como
   memória-de-decisão (evidenceHash por-página).
-status: pending
+status: active
 branch: plan/design-brief
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-16T13:41:08Z
-nextAction: "Start T-001: Recall de fontes (open-world) em src/app-map/sources.js"
+lastUpdated: 2026-06-16T14:34:21Z
+nextAction: Todas as 5 tasks DONE. Rodar phase-done (exit-gate G-1 +
+  review-code) para fechar a F1 e avançar para F2.
 parentPlan: design-brief-source-of-truth
 phaseId: F1
-tasksDone: 0
+tasksDone: 5
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 1
@@ -36,8 +37,9 @@ stack:
 tasks:
   - id: T-001
     title: Recall de fontes (open-world)
-    status: pending
-    lastUpdated: 2026-06-16T13:41:08Z
+    status: done
+    closedAt: 2026-06-16T14:16:23Z
+    lastUpdated: 2026-06-16T14:16:23Z
     summary: Encontra docs heterogêneos (open-world) e extrai candidatos de
       página/público/acesso com proveniência por campo.
     description: "Encontra docs heterogêneos sem classificar framework e extrai
@@ -59,10 +61,20 @@ tasks:
     verifier:
       kind: shell
       command: node --test test/app-map/sources.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T14:16:23Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test test/app-map/sources.test.js → tests 4, pass 4, fail
+        0, exit 0. As 4 acceptance (recall multi-convenção, proveniência
+        por-campo, candidato=página/público/acesso, sem precedência) verdes.
   - id: T-002
     title: Code-scan framework-agnóstico
-    status: pending
-    lastUpdated: 2026-06-16T13:41:08Z
+    status: done
+    closedAt: 2026-06-16T14:20:04Z
+    lastUpdated: 2026-06-16T14:20:04Z
     summary: Enumera páginas do código de forma framework-agnóstica e deriva regime
       greenfield/brownfield por página.
     description: "Enumera páginas/rotas/views do código por globs
@@ -80,10 +92,20 @@ tasks:
     verifier:
       kind: shell
       command: node --test test/app-map/code-scan.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T14:20:04Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test test/app-map/code-scan.test.js → tests 4, pass 4,
+        fail 0, exit 0. Enumera Next pages/app-router + Vue view (exclui util),
+        codeEvidence+regime por-página, deriveRegime puro, greenfield → [].
   - id: T-003
     title: Justaposição e cômputo do delta
-    status: pending
-    lastUpdated: 2026-06-16T13:41:08Z
+    status: done
+    closedAt: 2026-06-16T14:23:46Z
+    lastUpdated: 2026-06-16T14:23:46Z
     summary: Justapõe candidatos doc+código e computa o delta de divergências sem
       escolher um lado.
     description: "Junta candidatos doc+código por chave-lógica normalizada exata,
@@ -107,10 +129,22 @@ tasks:
     verifier:
       kind: shell
       command: node --test test/app-map/diverge.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T14:23:46Z
+      passed: true
+      exitCode: 0
+      testsCollected: 5
+      outputSummary: node --test test/app-map/diverge.test.js → tests 5, pass 5, fail
+        0, exit 0. Join exato + near-miss→possible-alias; 4 classes de
+        existence; conflito→delta com ambas proveniências (value null);
+        agreement auto-aceito; envenenado e multi-convenção sem precedência
+        vencer.
   - id: T-004
     title: Confirmação-por-divergência (anti-fadiga)
-    status: pending
-    lastUpdated: 2026-06-16T13:41:08Z
+    status: done
+    closedAt: 2026-06-16T14:27:47Z
+    lastUpdated: 2026-06-16T14:27:47Z
     summary: Apresenta só o delta ao operador, com orçamento por risco, e grava a
       arbitragem (anti-fadiga).
     description: "Apresenta só o delta ao operador via prompt com orçamento por
@@ -129,10 +163,23 @@ tasks:
     verifier:
       kind: shell
       command: node --test test/app-map/confirm.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T14:27:47Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test test/app-map/confirm.test.js → tests 4, pass 4, fail
+        0, exit 0. Pergunta só o delta (nunca o auto-aceito); alto-risco
+        (accessTier/possible-alias) individual, baixo em lote; arbitragem grava
+        resolvedBy/resolvedAt/choice; pending só por defer explícito; taxa de
+        confirmação cega instrumentada (1/6). `ask` injetado (DI
+        determinística).
   - id: T-005
     title: Persistência (schema 0.2) e evidenceHash por-página
-    status: pending
-    lastUpdated: 2026-06-16T13:41:08Z
+    status: done
+    closedAt: 2026-06-16T14:34:21Z
+    lastUpdated: 2026-06-16T14:34:21Z
     summary: Persiste o app-map.json 0.2 com evidenceHash por-página; re-run
       pergunta só o delta.
     description: "Grava o catálogo (app-map.json 0.2 + espelho .md) na árvore do
@@ -154,6 +201,18 @@ tasks:
     verifier:
       kind: shell
       command: node --test test/app-map/persist.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T14:34:21Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test test/app-map/persist.test.js → tests 4, pass 4, fail
+        0, exit 0. Bump 0.1→0.2 condicional (evidenceHash por-página required +
+        resolution objeto) sem quebrar F0 (31/31 app-map); evidenceHash sha256
+        normalizado; re-run zero-delta com evidência inalterada / delta na
+        mudada; emit-time aborta malformado sem gravar (reusa validateAppMap da
+        F0).
 parked: []
 emerged: []
 summary: Coleta candidatos doc+código, justapõe sem reconciliar, operador
@@ -167,13 +226,16 @@ current: true
 
 Initiative for phase **F1 — Reconstrução (artefato e código) e reconciliação**.
 
-> **PARADA NO IMPLEMENT (2026-06-16) — defeito de design encontrado; F1 volta ao DESIGN.**
-> Ao orientar a execução das tasks T-001…T-004, o gate F1 (spec-readiness) detectou que os
-> mecanismos diferidos "→ PLAN" (roots/precedência de fontes, discovery de código, fingerprint)
-> nunca foram fixados, e o operador trouxe 3 críticas que **falsificam premissas do design**.
-> Um debate de 4 vozes (`atomic-skills:debate`) confirmou um **defeito de design** na abordagem
-> "reconciliar fontes-artefato contra código automaticamente". As tasks T-001…T-004 estão
-> **INVALIDADAS** por este re-design (não execute nenhuma como está).
+> **HISTÓRICO (2026-06-16) — F1 voltou ao DESIGN e foi re-decomposta.** As tasks T-001…T-004 da
+> v1 ("reconciliar fontes-artefato contra código automaticamente") foram **invalidadas** por um
+> debate de 4 vozes (`atomic-skills:debate`) que achou um defeito de design (auto-violação do P2).
+> A Revisão 2 do `../design.md` substituiu-as pelas **5 tasks atuais** (justapor + confirmação-por-
+> divergência), todas **re-decompostas, SPEC-admitidas e agora IMPLEMENTADAS** (ver `tasks:` +
+> evidence). Esta nota é histórica; a verdade operacional está no frontmatter e no Session handoff.
+
+> **IMPLEMENT COMPLETO (2026-06-16) — 5/5 tasks DONE, exit-gate G-1 verde.** `node --test` das 5
+> suites → `tests 21, pass 21, fail 0, exit 0`. Aguardando `phase-done` (review-code + advance) —
+> opt-in do operador.
 
 ## Decisions
 
@@ -196,17 +258,30 @@ Initiative for phase **F1 — Reconstrução (artefato e código) e reconciliaç
 - Memória do princípio de precedência: `~/.claude/projects/-home-henry-atomic-skills/memory/precedencia-artefato-humano-vs-ia.md`
 
 ## Session handoff
-- **Narrative:** F1 teve defeito de design corrigido (Revisão 2, critic **Approved**) e foi
-  **re-decomposta** no PLAN: T-001…T-004 antigas substituídas por **5 tasks novas** SPEC-admitidas
-  (No-Placeholders + SPEC gate `EXIT=0`), summaries validados pelo operador. A fase está `pending`
-  (não-ativada); pronta para o IMPLEMENT.
-- **Decision log:** direção = justapor + confirmação-por-divergência (operador arbitra só o delta),
-  precedência automática cortada, greenfield = caso-limite, `evidenceHash` por-página (unifica
-  staleness + fingerprint), bump schema `0.1`→`0.2`. Operador sempre presente; re-execução essencial.
-  Defaults load-bearing (roots/recall, code-scan globs, join-key exata, evidenceHash sha256) fixados
-  e aprovados.
-- **Single nextAction:** ativar a F1 e começar o IMPLEMENT por **T-001 — Recall de fontes** em
-  `src/app-map/sources.js` (Mode 2/Codex elegível: spec-ready + verifier determinístico). Ordem
-  natural: T-001 → T-002 → T-003 → T-004 → T-005.
-- **Verbatim state:** F1 re-decomposta — 5 tasks, exit-gate verifier `node --test test/app-map/sources.test.js test/app-map/code-scan.test.js test/app-map/diverge.test.js test/app-map/confirm.test.js test/app-map/persist.test.js`. `validate-state` da iniciativa → `✓ valid`. SPEC gate (`node scripts/lint-source.js … --spec`) → `EXIT=0`. Nenhum arquivo `src/app-map/{sources,code-scan,diverge,confirm,persist}.js` existe ainda (a implementar).
-- **Uncommitted changes:** re-decompose ainda **não commitado** — `plan.md` (descritor F1) + este arquivo de fase modificados. Ver `git status` da sessão.
+- **Narrative:** F1 `active`, **IMPLEMENT COMPLETO — 5/5 tasks DONE**, cada uma fechada por verifier
+  determinístico com evidence `passed:true`. Mode 1 (Opus single-threaded TDD; Codex preterido porque as
+  5 tasks são cadeia de dependência com contratos compartilhados + verifier é test autoral). Falta só o
+  `phase-done` (exit-gate G-1 + review-code + lessons + advance), que é opt-in do operador.
+- **Decision log:** justapor + confirmação-por-divergência (operador arbitra só o delta); precedência
+  automática cortada; greenfield = caso-limite. T-001 recall em 3 modos (marcador `Page:` · heading+atributo
+  · inline-prosa), só inline usa vocab-scan (evita título→página-fantasma), proveniência por-campo, sem
+  merge (P2). T-002 enumera por convenção de path/nome (pages/app-router/views/screens), `deriveRegime`
+  puro. T-003 join por chave normalizada exata; near-miss=plural-fold|lev≤1→possible-alias; conflito→delta
+  `value:null` com ambas proveniências; agreement(≥2 testemunhas)→auto-aceito. T-004 `ask` injetado (DI);
+  alto-risco (accessTier/possible-alias) individual, baixo em lote; métrica de confirmação-cega. T-005
+  bump schema `0.1`→`0.2` **condicional** (allOf if schemaVersion=0.2 ⇒ evidenceHash required; resolution
+  oneOf string|objeto) — F0 0.1 segue válido; `evidenceHash`=sha256 canônico; `inputsHash` vira roll-up.
+  `resolvedAt` inline (não cross-file $ref) porque validate.js da F0 compila só o app-map.schema.json.
+- **Single nextAction:** rodar **`phase-done`** (`~/.claude/commands/atomic-skills/_assets/project-transitions.md`):
+  re-verifica o exit-gate G-1, roda o review-code gate no diff da fase, distila lessons, e propõe avançar
+  `currentPhase` F1→F2. NÃO auto-avançar — opt-in do operador.
+- **Verbatim state:** exit-gate G-1 `node --test test/app-map/sources.test.js test/app-map/code-scan.test.js
+  test/app-map/diverge.test.js test/app-map/confirm.test.js test/app-map/persist.test.js` → `tests 21,
+  pass 21, fail 0, EXIT=0`. Suíte app-map+F0 (8 arquivos) → `tests 31, pass 31`. `compute-rollups` →
+  `{"tasksDone":5,"tasksTotal":5}`. `validate-state` da iniciativa → `✓ All 1 file(s) valid`. Falhas do
+  `npm test` global (10) são PRÉ-EXISTENTES (confirmado via `git stash` → install.test.js já 5/37 fail):
+  `dist/dashboard` não-buildado + frente de relocação `_assets` (39 vs 35) — nenhuma toca app-map.
+- **Uncommitted changes:** (nada commitado — regra global: commit só quando o operador pedir) —
+  `M .atomic-skills/.../phases/f1-reconstrucao-artefato-e-codigo.md` · `M meta/schemas/app-map.schema.json` ·
+  `?? src/app-map/{sources,code-scan,diverge,confirm,hash,persist}.js` ·
+  `?? test/app-map/{sources,code-scan,diverge,confirm,persist}.test.js` · `?? test/app-map/fixtures/`.

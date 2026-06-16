@@ -9,8 +9,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "enum": ["0.1"],
-      "description": "Version of the persisted app-map contract. Constrained to the supported set (currently only 0.1) so an unsupported version fails validation instead of false-greening; mirrors the enum convention of common.schema.json#/$defs/schemaVersion. Consumers branch on this before interpreting required fields."
+      "enum": ["0.1", "0.2"],
+      "description": "Version of the persisted app-map contract. Constrained to the supported set (0.1 from F0, 0.2 from F1) so an unsupported version fails validation instead of false-greening; mirrors the enum convention of common.schema.json#/$defs/schemaVersion. Consumers branch on this before interpreting required fields. 0.2 (F1, Revisão 2) makes the per-page evidenceHash required and reforms conflict.resolution into an object recording the operator's arbitration; the frozen single-direction door applies from 0.2 onward. inputsHash stays as a top-level aggregate (a roll-up of the per-page evidenceHashes); the per-page evidenceHash is the granular staleness + conflict-suppression signal."
     },
     "inputsHash": {
       "type": "string",
@@ -32,6 +32,20 @@
       "items": { "$ref": "#/$defs/page" }
     }
   },
+  "allOf": [
+    {
+      "description": "0.2 (F1): every page must carry a per-page evidenceHash. Applied conditionally so 0.1 catalogs (no per-page hash) stay valid; the base page.required is untouched.",
+      "if": {
+        "required": ["schemaVersion"],
+        "properties": { "schemaVersion": { "const": "0.2" } }
+      },
+      "then": {
+        "properties": {
+          "pages": { "items": { "required": ["evidenceHash"] } }
+        }
+      }
+    }
+  ],
   "$defs": {
     "aliases": {
       "type": "array",
@@ -105,6 +119,11 @@
           "description": "Per-field provenance keyed by extracted field name, with each value naming the source descriptor that fixed that field.",
           "additionalProperties": { "type": "string" }
         },
+        "evidenceHash": {
+          "type": "string",
+          "minLength": 1,
+          "description": "0.2 (F1): sha256 of this page's normalized founding evidence (code + doc), e.g. 'sha256:<64 hex>'. Optional in 0.1, REQUIRED in 0.2 (enforced by the top-level allOf). On re-execution the reconstruction compares this per page and re-asks the operator ONLY where it diverges — unifying the old top-level inputsHash staleness signal with the conflict-already-answered fingerprint."
+        },
         "conflicts": {
           "type": "array",
           "description": "Unresolved per-field artefact/code conflicts. A pending conflict may force nullable contract fields such as audience or accessTier to null.",
@@ -134,9 +153,20 @@
           "description": "Source descriptor or short explanation proving the unresolved conflict."
         },
         "resolution": {
-          "type": "string",
-          "enum": ["pending", "resolved"],
-          "description": "pending marks unresolved conflicts; resolved is retained for records that have been adjudicated."
+          "description": "0.1: a status string (pending|resolved). 0.2: an object recording the operator's arbitration so a confirmed conflict persists as a resolved decision, not a live state — { resolvedBy, resolvedAt, choice }. The oneOf keeps 0.1 catalogs valid while admitting the 0.2 decision-memory shape.",
+          "oneOf": [
+            { "type": "string", "enum": ["pending", "resolved"] },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["resolvedBy", "resolvedAt", "choice"],
+              "properties": {
+                "resolvedBy": { "type": "string", "minLength": 1, "description": "Who arbitrated the conflict (the operator)." },
+                "resolvedAt": { "type": "string", "minLength": 1, "description": "ISO-8601 timestamp of the arbitration. Inline (not a cross-file $ref) so the F0 single-file validator stays self-contained." },
+                "choice": { "description": "The value the operator chose. Permissive: strings, nulls, or structured fragments." }
+              }
+            }
+          ]
         }
       }
     }
