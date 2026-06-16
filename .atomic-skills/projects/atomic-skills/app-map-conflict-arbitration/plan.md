@@ -3,7 +3,7 @@ schemaVersion: "0.1"
 slug: app-map-conflict-arbitration
 title: "app-map: descritor de conflito rico + canal de arbitragem"
 version: "1.0"
-status: done
+status: archived
 started: 2026-06-16T18:38:32.145Z
 lastUpdated: 2026-06-16T20:14:47Z
 branch: plan/design-brief
