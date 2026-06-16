@@ -5,8 +5,8 @@ title: Reestruturação das skills atomic-skills
 version: "1.0"
 status: active
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T14:28:01Z
-currentPhase: F6
+lastUpdated: 2026-06-16T16:50:35Z
+currentPhase: F2
 branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
@@ -136,7 +136,7 @@ phases:
             command: test -f skills/shared/codex-bridge-assets/envelope-orchestration.md &&
               npm run validate-skills
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Uma receita por padrão de bloat aplicada em todas as skills
       (RF/Rationalization, envelope, gates).
   - id: F3
@@ -236,14 +236,28 @@ phases:
         - id: F6-G1
           description: O fluxo de transição regenera o focus.json e os verifiers de
             T6.1+T6.2 passam (desacoplado das 8 falhas de contagem delegadas).
-          status: pending
+          status: met
+          metAt: 2026-06-16T16:29:42Z
           verifier:
             kind: shell
             command: grep -q 'refresh-state'
               skills/shared/project-assets/project-transitions.md && node --test
               tests/install-uninstall-roundtrip.test.js && npm run validate-skills
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T16:50:35Z
+            passed: true
+            exitCode: 0
+            outputSummary: "grep refresh-state OK; round-trip test 8/8 pass (após
+              os 3 fixes do review gate); validate-skills 15 skills válidas; exit 0."
+    status: done
+    reviewGate:
+      status: passed
+      at: 3a4faf21b8d6bbca4886f4846aca5cb638447bb4
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1650-skills-restructuring-f6.md
+      verifiedAt: 2026-06-16T16:50:35Z
     summary: "Fecha o gap do focus.json stale: transição usa refresh-state + install
       conecta os hooks (com paridade uninstall)."
     provenance:

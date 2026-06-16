@@ -5,31 +5,40 @@ title: focus.json não drifta silenciosamente
 goal: garantir que o focus.json (digest da statusline) reflita o estado sem
   depender de um passo de setup interativo opcional — fechar o gap em que
   `atomic-skills install` sozinho deixa o digest stale.
-status: active
+status: done
 branch: null
 started: 2026-06-16T14:10:57Z
-lastUpdated: 2026-06-16T14:28:01Z
-nextAction: "F6 2/2 tasks done (T6.1+T6.2, PASS verificado). Run phase-done F6:
-  verifica F6-G1 + review-code do diff de F6, distila lessons, avança o plano.
-  Usuário opta."
+lastUpdated: 2026-06-16T16:50:35Z
+nextAction: null
 parentPlan: skills-restructuring
 phaseId: F6
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F6-G1
     description: O fluxo de transição regenera o focus.json e os verifiers de
       T6.1+T6.2 passam (desacoplado das 8 falhas de contagem delegadas).
-    status: pending
+    status: met
+    metAt: 2026-06-16T16:29:42Z
     verifier:
       kind: shell
       command: grep -q 'refresh-state'
         skills/shared/project-assets/project-transitions.md && node --test
         tests/install-uninstall-roundtrip.test.js && npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T16:50:35Z
+      passed: true
+      exitCode: 0
+      outputSummary: grep refresh-state (project-transitions.md) OK; node --test
+        tests/install-uninstall-roundtrip.test.js → tests 8, pass 8, fail 0
+        (após os 3 fixes do review gate); validate-skills → '✓ All 15 skills
+        valid (schema_version 0.2)'; exit 0.
     verifierLabel: "shell: grep -q 'refresh-state' skills/shared/project-assets/projec…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: focus.json não drifta silenciosamente
@@ -157,7 +166,6 @@ summary: "Fecha o gap do focus.json stale: transição usa refresh-state + insta
   conecta os hooks (com paridade uninstall)."
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -181,6 +189,15 @@ Fase emergente (rung 6, ratify-gated) surgida na sessão 2026-06-16 ao investiga
   ` M src/install.js`
   ` M src/uninstall.js`
   ` M tests/install-uninstall-roundtrip.test.js`
+
+## Self-review against code-quality gates (phase-done F6)
+
+- **G1 read-before-claim:** applied — T6.1+T6.2 fechadas com `evidence` linkada a runs reais (T6.1 shell exit 0; T6.2 test 5/5 → depois 8/8 após fixes); F6-G1 met por run real (exit 0, 8/8, 15 skills).
+- **G2 soft-language:** `nextAction` agora `null`; descrições e evidências afirmam fatos (PASS/exit 0/8 pass), sem should/probably.
+- **G6 reference-or-strike:** F6-G1 met com `evidence` populado; review-code citou file:line verbatim (install.js:479, uninstall.js:123, project-transitions.md:235-240).
+- **Codex review:** SKIPPED at phase-done — review em `--mode=local` (DESTRUCTIVE=false; diff aditivo 247/27). Override explícito registrado.
+- **Review gate (G2):** `reviewGate: { status: passed, at: 3a4faf2, mode: local, reviewFile: .atomic-skills/reviews/2026-06-16-1650-skills-restructuring-f6.md }` no descriptor (GATE-R3). 4 findings reais achados E corrigidos in-phase (1 major ex-critical + 1 major + 2 minor), TDD RED→GREEN; o fix sticky-flag também fechou o resíduo idêntico no precedente auto-update.
+- **Lessons (G1):** 1 lesson destilada (L-F6-1, reusable/open) em `lessons/skills-restructuring-f6-focus-json-auto-refresh.md`, ratificada — invariante de round-trip deve testar o re-apply path + simetria de escopo install↔reversal.
 
 ## Links
 

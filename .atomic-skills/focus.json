@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T16:07:37.089Z",
+  "generatedAt": "2026-06-16T17:23:58.281Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "skills-restructuring",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F6",
-    "slug": "skills-restructuring-f6-focus-json-auto-refresh",
-    "title": "focus.json não drifta silenciosamente",
-    "index": 7,
+    "id": "F2",
+    "slug": "skills-restructuring-f2-economia-de-tokens-padroes-transversais",
+    "title": "Economia de tokens: padrões transversais",
+    "index": 3,
     "total": 7,
     "status": "active"
   },
   "tasks": {
-    "done": 2,
-    "total": 2,
+    "done": 0,
+    "total": 7,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "T6.1 done (project-transitions.md usa refresh-state). Start T6.2: src/install.js conecta os hooks de project-status com paridade uninstall.",
+  "nextAction": "Start T2.1: Convenção Red Flags e Rationalization em todas as skills",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-16T14:28:01Z"
+      "lastUpdated": "2026-06-16T16:50:35Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f6-focus-json-auto-refresh.md",
-      "lastUpdated": "2026-06-16T14:28:01Z"
+      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f2-economia-de-tokens-padroes-transversais.md",
+      "lastUpdated": "2026-06-16T16:50:35Z"
     }
   ]
 }
