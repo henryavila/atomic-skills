@@ -146,7 +146,9 @@ Initiative for phase **F1 — Teardown seguro + oferta adjacente ao archive (Dec
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **F1 tasks 2/2 done** (T-001 invariante + T-002 oferta no archive), gates G-1 (8/8) e G-2 (shell exit 0) confirmados verdes na primária. Source em `3a07fb6` + `0a098bf`; state em `7e53a55`.
+- **review-code (local, phase-done) RODOU**: 1 major + 2 minors, 0 blocker/critical. F-001 major = `resolveBaseRef` aceita `origin/main` stale (sem fetch/frescor) — **aceito na v1** pela spec (P3 nomeia resolubilidade, não frescor; FAIL é gatilho futuro) e latente (função não fiada a remoção). F-002/F-003 minors (testes só com git fake; funções prose-mediated, não code-wired). `shellQuote` verificado injection-safe.
+- **PHASE-DONE F1 PAUSADO** (gates/reviewGate/advance NÃO carimbados) — o operador levantou uma pergunta de design potencialmente alteradora: *o teardown/integração da worktree deve ser SEMPRE via PR (rastreabilidade)?* Não auto-resolver (precedência artefato humano > IA). Resolver a pergunta ANTES de fechar F1 e de avançar a F2, pois pode mudar o design de integração (e o que F2 assume).
 
 ## Links
 
