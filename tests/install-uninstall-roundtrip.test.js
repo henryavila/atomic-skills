@@ -145,4 +145,45 @@ describe('install→uninstall round-trip', () => {
       rmSync(repo, { recursive: true, force: true });
     }
   });
+
+  it('project scope installs + registers the project-status hooks, and uninstall reverts them', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      await withHome(fakeHome, async () => {
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+
+        // (a) the three project-status scripts + config.json are staged into the
+        // project runtime dir `.atomic-skills/status/hooks/`.
+        const hooksDir = join(repo, '.atomic-skills', 'status', 'hooks');
+        for (const f of ['session-start.sh', 'stop.sh', 'pre-write.sh', 'config.json']) {
+          assert.ok(existsSync(join(hooksDir, f)), `project-status hook staged: ${f}`);
+        }
+
+        // (b) settings.local.json registers SessionStart + Stop pointing at the staged hooks.
+        const localPath = join(repo, '.claude', 'settings.local.json');
+        assert.ok(existsSync(localPath), 'settings.local.json created');
+        const local = JSON.parse(readFileSync(localPath, 'utf8'));
+        const cmds = (event) => (local.hooks?.[event] || [])
+          .flatMap((e) => (e.hooks || []).map((h) => h.command));
+        assert.ok(
+          cmds('SessionStart').some((c) => c.includes('.atomic-skills/status/hooks/session-start.sh')),
+          'SessionStart registers session-start.sh',
+        );
+        assert.ok(
+          cmds('Stop').some((c) => c.includes('.atomic-skills/status/hooks/stop.sh')),
+          'Stop registers stop.sh',
+        );
+
+        // (c) uninstall reverts the staged files AND the settings.local.json entries.
+        await uninstall(repo, { scope: 'project', yes: true });
+        assert.ok(!existsSync(hooksDir), 'staged hooks removed on uninstall');
+        assert.ok(!existsSync(localPath), 'installer-created settings.local.json removed on uninstall');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });

@@ -261,6 +261,70 @@ export function removeAutoUpdateHook({ basePath, settingsCreated = false }) {
   }
 }
 
+// --- project-status hooks (focus.json auto-refresh) --------------------------
+// The session-start/stop/pre-write hooks + config.json that keep the focus.json
+// digest fresh. Staged into the project runtime dir `.atomic-skills/status/hooks/`
+// and registered in `.claude/settings.local.json` (the project-setup §5
+// convention — project-local, not the user-scoped settings.json the auto-update
+// hook uses). Command paths use $CLAUDE_PROJECT_DIR so they stay portable across
+// clones and independent of the absolute project path.
+const PROJECT_STATUS_HOOK_FILES = ['session-start.sh', 'stop.sh', 'pre-write.sh', 'config.json'];
+const PROJECT_STATUS_HOOK_EVENTS = [
+  { event: 'SessionStart', script: 'session-start.sh' },
+  { event: 'Stop', script: 'stop.sh' },
+];
+function projectStatusHookCommand(script) {
+  return `"$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/${script}"`;
+}
+
+/**
+ * Reverse of installProjectStatusHooks()'s settings.local.json merge: remove ONLY
+ * the SessionStart + Stop command entries pointing at our project-status hooks,
+ * preserving every other hook and setting. The staged scripts themselves are
+ * removed by the manifest loop. Deletes settings.local.json only if the installer
+ * created it AND removing our entries emptied it.
+ *
+ * No-op when settings.local.json is missing, unparseable, or the entries absent.
+ */
+export function removeProjectStatusHooks({ basePath, settingsLocalCreated = false }) {
+  const settingsPath = join(basePath, '.claude', 'settings.local.json');
+  if (!existsSync(settingsPath)) return;
+
+  let settings;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return; // Don't clobber an unparseable user file.
+  }
+  if (!settings || !settings.hooks) return;
+
+  const ourCommands = new Set(PROJECT_STATUS_HOOK_EVENTS.map(({ script }) => projectStatusHookCommand(script)));
+  let changed = false;
+  for (const { event } of PROJECT_STATUS_HOOK_EVENTS) {
+    const arr = settings.hooks[event];
+    if (!Array.isArray(arr)) continue;
+    for (const entry of arr) {
+      if (!entry || !Array.isArray(entry.hooks)) continue;
+      const before = entry.hooks.length;
+      entry.hooks = entry.hooks.filter((h) => !(h && h.type === 'command' && ourCommands.has(h.command)));
+      if (entry.hooks.length !== before) changed = true;
+    }
+    settings.hooks[event] = arr.filter((e) => e && Array.isArray(e.hooks) && e.hooks.length > 0);
+    if (settings.hooks[event].length === 0) delete settings.hooks[event];
+  }
+  if (!changed) return;
+
+  if (settings.hooks && Object.keys(settings.hooks).length === 0) delete settings.hooks;
+
+  if (Object.keys(settings).length === 0 && settingsLocalCreated) {
+    unlinkSync(settingsPath);
+    const claudeDir = dirname(settingsPath);
+    try { if (readdirSync(claudeDir).length === 0) rmdirSync(claudeDir); } catch {}
+  } else {
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  }
+}
+
 function generateNamespaceRoot() {
   const desc = "Stop rewriting prompts. Install optimized developer skills in any AI IDE.";
   const escaped = desc.replace(/'/g, "''");
@@ -528,6 +592,10 @@ export function installSkills(projectDir, options, callbacks = {}) {
     installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWritten, createdFiles, manifestMeta });
   }
 
+  // Install + register the project-status hooks (project scope only) so the
+  // focus.json digest auto-refreshes without the optional project-setup step.
+  installProjectStatusHooks({ projectDir, scope, skillsDir, onFileWritten, createdFiles, manifestMeta });
+
   // Generate namespace root SKILL.md for markdown-format IDEs
   for (const ideId of ides) {
     const rootPath = getNamespaceRootPath(ideId);
@@ -565,6 +633,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
     modules,
     files: filesMap,
     settingsCreated: manifestMeta.settingsCreated ?? false,
+    settingsLocalCreated: manifestMeta.settingsLocalCreated ?? false,
   });
 
   return { files: createdFiles };
@@ -643,6 +712,78 @@ export function installAutoUpdateHook({ projectDir, scope, skillsDir, onFileWrit
     hash: hashContent(scriptContent),
     source: '_hooks/version-check.sh',
   });
+}
+
+/**
+ * Install + register the project-status hooks so the focus.json digest
+ * auto-refreshes after every state mutation, WITHOUT depending on the optional
+ * interactive project-setup step (the gap this closes: `atomic-skills install`
+ * alone left the digest drifting). Stages session-start/stop/pre-write.sh +
+ * config.json into `.atomic-skills/status/hooks/` and merges SessionStart + Stop
+ * entries into `.claude/settings.local.json`.
+ *
+ * PROJECT SCOPE ONLY: these hooks refresh a project's `.atomic-skills/` tree,
+ * which user/home scope does not have. Mirrors installAutoUpdateHook — the
+ * staged scripts go into createdFiles (manifest-tracked, removed by the manifest
+ * loop); settings.local.json is reversed surgically by removeProjectStatusHooks
+ * via the settingsLocalCreated flag. PreToolUse (pre-write.sh enforcement) is
+ * staged but NOT registered here — its enforcement level is owned by project-setup.
+ */
+export function installProjectStatusHooks({ projectDir, scope, skillsDir, onFileWritten, createdFiles, manifestMeta }) {
+  if (scope !== 'project') return;
+  const sourceDir = join(skillsDir, 'shared', 'project-assets', 'hooks');
+  if (!existsSync(sourceDir)) return;
+
+  const hooksDir = join(projectDir, '.atomic-skills', 'status', 'hooks');
+  mkdirSync(hooksDir, { recursive: true });
+
+  // Stage scripts + config.json (raw copy, like version-check.sh; config.json's
+  // REPLACE_DATE placeholder is inert until project-setup activates enforcement).
+  const staged = [];
+  for (const name of PROJECT_STATUS_HOOK_FILES) {
+    const src = join(sourceDir, name);
+    if (!existsSync(src)) continue;
+    const content = readFileSync(src, 'utf8');
+    const dest = join(hooksDir, name);
+    writeFileSync(dest, content, { mode: name.endsWith('.sh') ? 0o755 : 0o644 });
+    if (onFileWritten) onFileWritten(relative(projectDir, dest));
+    createdFiles.push({
+      path: relative(projectDir, dest),
+      hash: hashContent(content),
+      source: `_assets/project-assets/hooks/${name}`,
+    });
+    staged.push(name);
+  }
+
+  // Register SessionStart + Stop in settings.local.json (additive, non-destructive).
+  const settingsPath = join(projectDir, '.claude', 'settings.local.json');
+  const settingsPreexisted = existsSync(settingsPath);
+  if (manifestMeta) manifestMeta.settingsLocalCreated = !settingsPreexisted;
+  mkdirSync(dirname(settingsPath), { recursive: true });
+
+  let settings = {};
+  if (settingsPreexisted) {
+    try { settings = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch { settings = {}; }
+  }
+  settings.hooks = settings.hooks || {};
+
+  for (const { event, script } of PROJECT_STATUS_HOOK_EVENTS) {
+    if (!staged.includes(script)) continue;
+    const command = projectStatusHookCommand(script);
+    settings.hooks[event] = settings.hooks[event] || [];
+    let matcherEntry = settings.hooks[event].find((e) => e.matcher === '*' || e.matcher == null);
+    if (!matcherEntry) {
+      matcherEntry = { matcher: '*', hooks: [] };
+      settings.hooks[event].push(matcherEntry);
+    }
+    matcherEntry.hooks = matcherEntry.hooks || [];
+    if (!matcherEntry.hooks.some((h) => h && h.type === 'command' && h.command === command)) {
+      matcherEntry.hooks.push({ type: 'command', command });
+    }
+  }
+
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  if (onFileWritten) onFileWritten(relative(projectDir, settingsPath));
 }
 
 /**

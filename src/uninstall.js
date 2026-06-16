@@ -2,7 +2,7 @@ import { unlinkSync, rmdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
-import { removeRuntimeArtifacts, removeAutoUpdateHook, unregisterInstall } from './install.js';
+import { removeRuntimeArtifacts, removeAutoUpdateHook, removeProjectStatusHooks, unregisterInstall } from './install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
 
@@ -116,6 +116,11 @@ export async function uninstall(projectDir, options = {}) {
   // (its script was just removed above as a manifest-tracked file, so this
   // clears the now-dead reference). Surgical: preserves all other hooks.
   removeAutoUpdateHook({ basePath, scope, settingsCreated: manifest.settingsCreated === true });
+
+  // Reverse the project-status hooks' settings.local.json merge (their staged
+  // scripts were just removed by the manifest loop above). Surgical: preserves
+  // all other hooks; deletes settings.local.json only if installer-created + emptied.
+  removeProjectStatusHooks({ basePath, settingsLocalCreated: manifest.settingsLocalCreated === true });
 
   // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) are shared
   // across ALL installs (user + each project), so reclaim them only when the

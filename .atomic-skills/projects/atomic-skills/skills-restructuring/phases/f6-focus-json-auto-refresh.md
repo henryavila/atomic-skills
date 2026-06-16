@@ -9,11 +9,12 @@ status: active
 branch: null
 started: 2026-06-16T14:10:57Z
 lastUpdated: 2026-06-16T14:28:01Z
-nextAction: "T6.1 done (project-transitions.md usa refresh-state). Start T6.2:
-  src/install.js conecta os hooks de project-status com paridade uninstall."
+nextAction: "F6 2/2 tasks done (T6.1+T6.2, PASS verificado). Run phase-done F6:
+  verifica F6-G1 + review-code do diff de F6, distila lessons, avança o plano.
+  Usuário opta."
 parentPlan: skills-restructuring
 phaseId: F6
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -87,10 +88,33 @@ tasks:
       - state-hygiene
   - id: T6.2
     title: install conecta os hooks de project-status, com paridade uninstall
-    status: pending
-    lastUpdated: 2026-06-16T14:10:57Z
+    status: done
+    closedAt: 2026-06-16T16:07:15Z
+    lastUpdated: 2026-06-16T16:07:15Z
     summary: atomic-skills install instala+registra session-start/stop hooks;
       uninstall reverte
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-16T16:07:15Z
+      passed: true
+      exitCode: 0
+      testsCollected: 5
+      outputSummary: "node --test tests/install-uninstall-roundtrip.test.js → tests 5,
+        pass 5, fail 0. Novo teste positivo (hooks staged em
+        .atomic-skills/status/hooks/ + SessionStart/Stop em settings.local.json,
+        revertidos no uninstall) PASS; o teste #4 baseline-restoration (guard da
+        HARD RULE de paridade) continua verde. installProjectStatusHooks +
+        removeProjectStatusHooks + settingsLocalCreated no manifest. Baseline
+        com git stash: 5 falhas pré-existentes de installSkills idênticas
+        com/sem a mudança → 0 líquidas. validate-skills: 15 skills válidas."
+      mutation:
+        target: src/install.js:installProjectStatusHooks (staging dos hooks)
+        change: implementação ausente (estado pré-T6.2)
+        killedBy:
+          - project scope installs + registers the project-status hooks, and
+            uninstall reverts them
+        killTranscript: "RED antes da impl: ✖ 'project-status hook staged:
+          session-start.sh' (actual false) → impl → GREEN 5/5."
     description: "O `src/install.js` hoje só instala o hook de auto-update
       (version-check.sh → SessionStart em settings.json); os hooks de
       project-status (session-start.sh/stop.sh que rodam refresh-state →
@@ -147,14 +171,16 @@ Fase emergente (rung 6, ratify-gated) surgida na sessão 2026-06-16 ao investiga
 - **F6-G1 desacoplado de `npm test`.** O bloco ratificado usava `npm test`, mas as 8 falhas de contagem (`countSkills`/`installSkills`) estão delegadas à branch de finalização; usar `npm test` bloquearia o phase-done de F6 aqui. O gate usa `node --test tests/install-uninstall-roundtrip.test.js && npm run validate-skills` (cobre T6.1+T6.2 sem depender dos 8 erros alheios). Sinalizado ao usuário.
 
 ## Session handoff
-- **Narrative:** F6 em andamento (Mode 1, single-threaded). **T6.1 fechada com PASS verificado** (`project-transitions.md` agora roda `node scripts/refresh-state.js` no passo de recompute de done/reconcile/phase-done/switch + a seção canônica "Dashboard rollups & focus markers" nomeia refresh-state como o agregador; componentes compute-rollups/reconcile-focus preservados). Recompute do `done` flow dogfoodou a própria mudança (refresh-state, rollups 0→1). **T6.2 pendente** (1/2 tasks done). Reconciliação prévia confirmou: os status `pending` batem com a realidade — os 3 scripts de hook existem em `.atomic-skills/status/hooks/`, mas nem T6.1 (já feita agora) nem T6.2 (install.js) tinham landado o fix estrutural. F1 foi fechada+commitada antes (`d4414fc`).
-- **Decision log:** (1) T6.1 rodada em **Mode 1** (edição de 1 arquivo doc; Codex/Mode 2 seria cerimônia desproporcional — operador optou OUT, casando com F1). (2) Os 5 pontos editados em project-transitions.md: done L86, reconcile L106, phase-done L138 (step 8d), switch L234, + seção canônica L172. (3) refresh-state.js (scripts/refresh-state.js) agrega compute-rollups → reconcile-focus → emit-focus; não foi tocado (scopeBoundary). (4) **Pendente de F1:** o follow-up **FU-F1-1** (`atomic-skills:fix`) — gate `isDeterministicVerifier` (lint-source.js:275-276) admite `verifier: kind shell` sem command, mas `parseTaskVerifier` (decompose.js) materializa inválido → validate-state HARD-FALHA. Registrado em `.atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md`. Fora do escopo de F6.
-- **Single nextAction:** Iniciar **T6.2** — `src/install.js` instala `.atomic-skills/status/hooks/{session-start,stop,pre-write}.sh`+`config.json` e registra SessionStart+Stop, com a reversão correspondente em `src/uninstall.js` (HARD RULE de paridade) e cobertura no round-trip test. Hoje `install.js` só wira `version-check.sh` (L220); os hooks de project-status só são instalados pelo passo interativo opcional project-setup §5 — esse é o gap. Verifier de T6.2: `node --test tests/install-uninstall-roundtrip.test.js` (kind test).
-- **Verbatim state:** T6.1 verifier (PASS exit 0): `grep -q 'refresh-state' skills/shared/project-assets/project-transitions.md && npm run validate-skills` → `✓ All 15 skills valid (schema_version 0.2)`. F6-G1 exit gate (ainda FAIL até T6.2): `grep -q 'refresh-state' skills/shared/project-assets/project-transitions.md && node --test tests/install-uninstall-roundtrip.test.js && npm run validate-skills`. Round-trip test atual: `node --test tests/install-uninstall-roundtrip.test.js` → 4/4 pass (baseline ANTES do wiring — T6.2 deve adicionar o wiring mantendo verde). **8 falhas pré-existentes de `npm test`** (`countSkills`/`installSkills`) seguem delegadas à branch de finalização — NÃO tratar em F6 (F6-G1 desacoplado de `npm test` de propósito). CLAUDE.md "Install/Uninstall parity (HARD RULE)" + "install.js ↔ uninstall.js map" governam T6.2.
-- **Uncommitted changes:** T6.1 ainda NÃO commitada. `git status --porcelain`:
+- **Narrative:** F6 **2/2 tasks fechadas com PASS verificado** (Mode 1, single-threaded). T6.1: `project-transitions.md` roda `refresh-state` no recompute de done/reconcile/phase-done/switch + seção canônica nomeia o agregador (commitada `4f1fda3`). T6.2: `src/install.js` agora stageia os hooks de project-status em `.atomic-skills/status/hooks/` + registra SessionStart+Stop em `settings.local.json`, com reversão em `src/uninstall.js` (`removeProjectStatusHooks` + `settingsLocalCreated` no manifest) — round-trip test 5/5 (uncommitted). **Última task de F6 fechada → `done` flow oferece phase-done.** F1 fechada+commitada antes (`d4414fc`).
+- **Decision log:** (1) Ambas tasks em **Mode 1** (operador optou OUT do Codex; T6.1 doc-edit trivial, T6.2 paridade sutil melhor no contexto que já tem o install↔uninstall map). (2) T6.2 settled: convenção `settings.local.json` (não settings.json), **project-scope only** (hooks rodam sobre `.atomic-skills/` de um projeto), comando `"$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/<script>.sh"` (espelha o que F1 registrou neste repo). PreToolUse/pre-write staged mas NÃO registrado (enforcement é do project-setup). config.json copiado raw (REPLACE_DATE inerte até enforcement ativar). (3) **Paridade provada:** baseline com `git stash` → 5 falhas `installSkills` idênticas com/sem T6.2 = **0 líquidas**; round-trip teste #4 (baseline-restoration) verde = reversão completa. (4) **Follow-up de F1 pendente:** FU-F1-1 (`atomic-skills:fix`, gate↔materialize↔schema do verifier) em `.atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md`. Fora de F6.
+- **Single nextAction:** Rodar **phase-done F6** — verifica F6-G1 (`grep -q 'refresh-state' skills/shared/project-assets/project-transitions.md && node --test tests/install-uninstall-roundtrip.test.js && npm run validate-skills`, agora deve PASS) + o gate `review-code` sobre o diff de F6, distila lessons, avança o plano. **Usuário opta** (intrusive). Antes, commitar T6.2.
+- **Verbatim state:** T6.2 verifier (PASS): `node --test tests/install-uninstall-roundtrip.test.js` → `tests 5, pass 5, fail 0`. T6.1 verifier (PASS exit 0): `grep -q 'refresh-state' skills/shared/project-assets/project-transitions.md && npm run validate-skills`. F6-G1 deve passar agora (as 3 condições verdes). **8 falhas pré-existentes** (`countSkills`/`installSkills`, red desde F5) seguem delegadas à branch de finalização; baseline com `git stash` confirmou 0 líquidas em T6.2. Range de diff de F6 para o review-code: começa no fim de F1 (`d4414fc` é o phase-done de F1) — escopo provável `d4414fc..HEAD` após commitar T6.2 (verificar que captura só T6.1+T6.2, sem poluição).
+- **Uncommitted changes:** T6.2 NÃO commitada. `git status --porcelain`:
   ` M .atomic-skills/focus.json`
   ` M .atomic-skills/projects/atomic-skills/skills-restructuring/phases/f6-focus-json-auto-refresh.md`
-  ` M skills/shared/project-assets/project-transitions.md`
+  ` M src/install.js`
+  ` M src/uninstall.js`
+  ` M tests/install-uninstall-roundtrip.test.js`
 
 ## Links
 
