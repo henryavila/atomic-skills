@@ -13,7 +13,7 @@ lastUpdated: 2026-06-16T19:39:09Z
 nextAction: "Start T-002: Consumidores — mirror .md das N testemunhas + prosa §2"
 parentPlan: app-map-conflict-arbitration
 phaseId: F1
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -83,8 +83,17 @@ tasks:
       expectExitCode: 0
   - id: T-002
     title: Consumidores — mirror .md das N testemunhas + prosa §2
-    status: pending
-    lastUpdated: 2026-06-16T19:19:00Z
+    status: done
+    closedAt: 2026-06-16T19:56:38Z
+    lastUpdated: 2026-06-16T19:56:38Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T19:56:38Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/persist.test.js → tests 6, pass 6, fail
+        0 (gate F1-G1 16/16, suite app-map 62/62; prosa §2 D6 corrigida +
+        validate-skills 15/15)
     summary: Mirror .md lista as N testemunhas e a prosa §2 corrige a promessa do
       --persist.
     description: "mirrorMarkdown lista as N testemunhas (value+source+kind) por
@@ -139,8 +148,8 @@ Initiative for phase **F1 — Produtor, consumidores e prosa**.
 
 ## Session handoff
 
-- **Narrative:** Fase F1 ativa, **1/2 tasks done**. T-001 (produtor) implementado RED→GREEN: `conflictForField`→witnesses[] + `buildCatalog`→0.3; verifier reconstruct+persist 15/15, suite app-map 61/61. Próximo: T-002 (mirror + prosa). Houve re-scope aprovado movendo a fronteira persist.test.js para T-001.
-- **Decision log:** ver bloco Decisions acima — re-scope T-001/T-002 + a impl de witnesses com kind derivado-na-origem ordenado por source.
-- **Single nextAction:** Implementar F1/T-002 — RED em `test/app-map/persist.test.js` (mirror de conflito 0.3 com 3 testemunhas cita as 3 com kind), depois ajustar `mirrorMarkdown` em `src/app-map/persist.js` p/ iterar witnesses; corrigir a prosa do §2 de `skills/core/design-brief.md` (linhas 44–46, D6 — `--persist` não persiste arbitragem); fechar via `node --test test/app-map/persist.test.js` → EXIT 0.
-- **Verbatim state:** T-001 verifier: `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` → `tests 15, pass 15, fail 0`. Suite: `node --test test/app-map/*.test.js` → `tests 61, pass 61, fail 0`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 53 file(s) valid`. T-002 verifier: `node --test test/app-map/persist.test.js` (expectExitCode 0).
-- **Uncommitted changes:** a confirmar — código de T-001 (reconstruct.js, persist.js, reconstruct.test.js, persist.test.js) + estado F1 a commitar neste passo.
+- **Narrative:** Fase F1 **2/2 tasks done** — produtor (witnesses[]+0.3), mirror (lista N testemunhas) e prosa §2 (D6) entregues. T-001 e T-002 RED→GREEN, fechados com evidência. F1 é a ÚLTIMA fase → no limite, falta `phase-done` (gate F1-G1 + review-code + lessons + plan-done), opt-in do operador. Não auto-avancei.
+- **Decision log:** ver bloco Decisions — re-scope T-001/T-002 + witnesses com kind derivado-na-origem. T-002: mirrorMarkdown enumera `field: value (kind, source); …` por conflito; prosa §2 esclarece arbitragem programático-only (persistReconstruction grava as decisões; `--persist` é re-emissão não-interativa que NÃO grava arbitragem).
+- **Single nextAction:** Rodar `phase-done` F1 (gate F1-G1 `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` + review-code do diff F1 + lessons + plan-done) — aguardando opt-in do operador.
+- **Verbatim state:** F1-G1 gate: `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` → `tests 16, pass 16, fail 0`. Suite: `node --test test/app-map/*.test.js` → `tests 62, pass 62, fail 0`. Skills: `npm run validate-skills` → `15 skills valid`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 53 file(s) valid`.
+- **Uncommitted changes:** a confirmar — código de T-002 (persist.js, persist.test.js, design-brief.md) + estado F1 a commitar neste passo.

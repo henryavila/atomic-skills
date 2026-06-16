@@ -132,6 +132,43 @@ test('emit-time validation aborts a malformed catalog before writing', () => {
   assert.equal(writesBroken.length, 0, 'a malformed catalog writes nothing');
 });
 
+// T-002 / P1 — the .md mirror must LIST every witness of a conflict (value +
+// source + kind), not collapse N witnesses to a bare count. Mutation that keeps
+// the old `unresolved conflicts: N` line without enumerating witnesses drops the
+// guardian/registered witnesses from the operator's view and fails this assert.
+test('mirrorMarkdown lists every witness of a conflict (N=3), not just a count', () => {
+  const pages = [
+    {
+      ...pageFact('dashboard', { evidence: { code: 'routes/dashboard.tsx', docs: ['docs/a.md'] } }),
+      audience: null,
+      conflicts: [
+        {
+          field: 'audience',
+          witnesses: [
+            { value: 'admin', source: 'docs/a.md:1', kind: 'artefact' },
+            { value: 'registered', source: 'docs/b.md:1', kind: 'artefact' },
+            { value: 'guardian', source: 'docs/c.md:1', kind: 'artefact' },
+          ],
+          evidence: '3 docs disagree on audience',
+          resolution: 'pending',
+        },
+      ],
+    },
+  ];
+  const catalog = buildCatalog({ pages, projectId: 'demo' });
+  assert.equal(validateAppMap(catalog).valid, true, JSON.stringify(validateAppMap(catalog).errors, null, 2));
+
+  const writes = [];
+  emitCatalog(catalog, { dir: '/tmp/app', writeFile: (path, content) => writes.push({ path, content }) });
+  const mirror = writes.find((w) => w.path.endsWith('.md'))?.content ?? '';
+
+  for (const value of ['admin', 'registered', 'guardian']) {
+    assert.match(mirror, new RegExp(value), `mirror lists the ${value} witness — none truncated`);
+  }
+  assert.match(mirror, /artefact/, 'mirror shows the derived kind of each witness');
+  assert.match(mirror, /docs\/b\.md:1/, 'mirror shows each witness provenance (source)');
+});
+
 // Regression (review #1) — with the DEFAULT fs writers against a fresh target
 // tree (the real first-run case), emit must create the .atomic-skills/app-map/
 // directory and write a parseable catalog — not throw ENOENT.

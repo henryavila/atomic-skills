@@ -49,7 +49,16 @@ function mirrorMarkdown(catalog) {
     lines.push(`- existence: ${page.existence} · regime: ${page.regime} · status: ${page.status}`);
     lines.push(`- audience: ${page.audience ?? '—'} · accessTier: ${page.accessTier ?? '—'}`);
     lines.push(`- purpose: ${page.purpose}`);
-    if (page.conflicts && page.conflicts.length > 0) lines.push(`- unresolved conflicts: ${page.conflicts.length}`);
+    if (page.conflicts && page.conflicts.length > 0) {
+      lines.push(`- unresolved conflicts: ${page.conflicts.length}`);
+      // 0.3 (P1): enumerate every witness so the operator arbitrates over the
+      // FULL set — value, derived kind, and provenance — not a bare count.
+      for (const conflict of page.conflicts) {
+        const witnesses = Array.isArray(conflict.witnesses) ? conflict.witnesses : [];
+        const rendered = witnesses.map((w) => `${w.value} (${w.kind}, ${w.source})`).join('; ');
+        lines.push(`  - ${conflict.field}: ${rendered}`);
+      }
+    }
     lines.push('');
   }
   return `${lines.join('\n')}\n`;

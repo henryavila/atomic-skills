@@ -42,8 +42,12 @@ Run reconstruction first with {{BASH_TOOL}}: `node scripts/app-map-reconstruct.j
 This happens before consuming the catalog and before any live route enumeration.
 
 Use the delta as the divergence list that needs operator arbitration. For each delta item,
-ask with {{ASK_USER_QUESTION_TOOL}}, then persist with {{BASH_TOOL}}:
-`node scripts/app-map-reconstruct.js <appRoot> --persist`.
+ask with {{ASK_USER_QUESTION_TOOL}} over the conflict's full witness set (no value dropped — P1).
+The arbitration is applied **programmatically**: the agent passes the resolved pages to
+`persistReconstruction({ pages })`, which writes the catalog carrying the operator's decisions.
+The CLI flag `node scripts/app-map-reconstruct.js <appRoot> --persist` is non-interactive
+RE-emission of the catalog from the current sources — it does NOT record arbitration; the
+resolved-page channel does.
 
 Consume the catalog's `pages` to build the **coverage ledger**: each page is recorded by
 `existence` (`confirmed`, `artefact-only`, `code-only`, `possible-alias`) and any remaining
