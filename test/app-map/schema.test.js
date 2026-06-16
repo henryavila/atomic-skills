@@ -138,3 +138,108 @@ test('app-map schema rejects an unsupported schemaVersion', () => {
   assert.equal(validate(catalog), false);
   assert.ok(validate.errors.some((error) => error.instancePath === '/schemaVersion'));
 });
+
+// --- 0.3: conflict becomes a SET of witnesses (T-001) ------------------------
+
+// A 0.3 page carries the per-page evidenceHash (the single-direction door from
+// 0.2 onward) and conflicts shaped as witnesses[{value, source, kind}].
+function catalog0_3(conflicts) {
+  return {
+    schemaVersion: '0.3',
+    inputsHash: 'sha256:abcdef123456',
+    projectId: 'demo-project',
+    pages: [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        purpose: 'Shows the user their current work.',
+        audience: null,
+        accessTier: null,
+        status: 'built',
+        regime: 'brownfield',
+        existence: 'confirmed',
+        evidenceHash: 'sha256:0123456789abcdef',
+        provenance: { id: 'routes/dashboard.tsx' },
+        conflicts,
+      },
+    ],
+  };
+}
+
+// The truncation bug (review F2 #2): three discordant doc witnesses must all be
+// representable — N is not capped at two positional slots.
+const threeWitnesses = [
+  { value: 'admin', source: 'docs/roles-admin.md', kind: 'artefact' },
+  { value: 'registered', source: 'docs/roles-registered.md', kind: 'artefact' },
+  { value: 'guardian', source: 'docs/roles-guardian.md', kind: 'artefact' },
+];
+
+test('app-map schema 0.3 admits the new version and keeps 0.1/0.2 valid', () => {
+  const validate = buildValidator();
+
+  assert.ok(schema.properties.schemaVersion.enum.includes('0.3'), 'enum must admit 0.3');
+  assert.ok(schema.properties.schemaVersion.enum.includes('0.1'));
+  assert.ok(schema.properties.schemaVersion.enum.includes('0.2'));
+
+  // A 0.3 catalog with a 3-witness conflict validates (no truncation).
+  const catalog = catalog0_3([
+    { field: 'accessTier', witnesses: threeWitnesses, evidence: '3 docs disagree', resolution: 'pending' },
+  ]);
+  assert.equal(validate(catalog), true, JSON.stringify(validate.errors, null, 2));
+});
+
+test('app-map schema 0.3 rejects the removed artefactValue/codeValue slots', () => {
+  const validate = buildValidator();
+  const catalog = catalog0_3([
+    {
+      field: 'audience',
+      witnesses: [{ value: 'visitor', source: 'docs/personas.md', kind: 'artefact' }],
+      artefactValue: 'visitor',
+      codeValue: 'registered',
+      evidence: 'legacy slots must not survive in 0.3',
+      resolution: 'pending',
+    },
+  ]);
+
+  assert.equal(validate(catalog), false);
+  assert.ok(
+    validate.errors.some((error) => /artefactValue|codeValue|additionalProperties/.test(JSON.stringify(error))),
+    JSON.stringify(validate.errors, null, 2),
+  );
+});
+
+test('app-map schema 0.3 rejects a witness kind outside {code, artefact}', () => {
+  const validate = buildValidator();
+  const catalog = catalog0_3([
+    {
+      field: 'accessTier',
+      witnesses: [{ value: 'admin', source: 'docs/roles.md', kind: 'doc' }],
+      evidence: 'kind must be code or artefact',
+      resolution: 'pending',
+    },
+  ]);
+
+  assert.equal(validate(catalog), false);
+  assert.ok(
+    validate.errors.some((error) => error.instancePath.endsWith('/kind')),
+    JSON.stringify(validate.errors, null, 2),
+  );
+});
+
+test('app-map schema 0.3 requires each witness to carry value, source and kind', () => {
+  const validate = buildValidator();
+  const catalog = catalog0_3([
+    {
+      field: 'accessTier',
+      witnesses: [{ value: 'admin', source: 'docs/roles.md' }],
+      evidence: 'kind is mandatory on every witness',
+      resolution: 'pending',
+    },
+  ]);
+
+  assert.equal(validate(catalog), false);
+  assert.ok(
+    validate.errors.some((error) => error.params?.missingProperty === 'kind'),
+    JSON.stringify(validate.errors, null, 2),
+  );
+});

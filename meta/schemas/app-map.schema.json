@@ -9,8 +9,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "enum": ["0.1", "0.2"],
-      "description": "Version of the persisted app-map contract. Constrained to the supported set (0.1 from F0, 0.2 from F1) so an unsupported version fails validation instead of false-greening; mirrors the enum convention of common.schema.json#/$defs/schemaVersion. Consumers branch on this before interpreting required fields. 0.2 (F1, Revisão 2) makes the per-page evidenceHash required and reforms conflict.resolution into an object recording the operator's arbitration; the frozen single-direction door applies from 0.2 onward. inputsHash stays as a top-level aggregate (a roll-up of the per-page evidenceHashes); the per-page evidenceHash is the granular staleness + conflict-suppression signal."
+      "enum": ["0.1", "0.2", "0.3"],
+      "description": "Version of the persisted app-map contract. Constrained to the supported set (0.1 from F0, 0.2 from F1, 0.3 reshapes conflict into witnesses[]) so an unsupported version fails validation instead of false-greening; mirrors the enum convention of common.schema.json#/$defs/schemaVersion. Consumers branch on this before interpreting required fields. 0.2 (F1, Revisão 2) makes the per-page evidenceHash required and reforms conflict.resolution into an object recording the operator's arbitration; the frozen single-direction door applies from 0.2 onward. inputsHash stays as a top-level aggregate (a roll-up of the per-page evidenceHashes); the per-page evidenceHash is the granular staleness + conflict-suppression signal."
     },
     "inputsHash": {
       "type": "string",
@@ -34,14 +34,38 @@
   },
   "allOf": [
     {
-      "description": "0.2 (F1): every page must carry a per-page evidenceHash. Applied conditionally so 0.1 catalogs (no per-page hash) stay valid; the base page.required is untouched.",
+      "description": "0.2+ (single-direction door): every page must carry a per-page evidenceHash. Applied conditionally so 0.1 catalogs (no per-page hash) stay valid; the base page.required is untouched. The door applies from 0.2 onward, so 0.3 inherits it.",
       "if": {
         "required": ["schemaVersion"],
-        "properties": { "schemaVersion": { "const": "0.2" } }
+        "properties": { "schemaVersion": { "enum": ["0.2", "0.3"] } }
       },
       "then": {
         "properties": {
           "pages": { "items": { "required": ["evidenceHash"] } }
+        }
+      }
+    },
+    {
+      "description": "0.1/0.2: conflicts use the two-slot legacy descriptor (artefactValue/codeValue). Gated by version so the 0.3 witnesses[] shape is not admitted here. The base page.conflicts.items stays permissive (type object) so these version branches own the shape without an additionalProperties contradiction across allOf.",
+      "if": {
+        "required": ["schemaVersion"],
+        "properties": { "schemaVersion": { "enum": ["0.1", "0.2"] } }
+      },
+      "then": {
+        "properties": {
+          "pages": { "items": { "properties": { "conflicts": { "items": { "$ref": "#/$defs/conflict" } } } } }
+        }
+      }
+    },
+    {
+      "description": "0.3 (P1 — never choose in silence): a conflict is a SET of witnesses, not two positional slots. Each conflict carries witnesses[{value, source, kind}] with N>=1 (N=3 representable); the removed artefactValue/codeValue slots are rejected by conflict_0_3's additionalProperties:false.",
+      "if": {
+        "required": ["schemaVersion"],
+        "properties": { "schemaVersion": { "const": "0.3" } }
+      },
+      "then": {
+        "properties": {
+          "pages": { "items": { "properties": { "conflicts": { "items": { "$ref": "#/$defs/conflict_0_3" } } } } }
         }
       }
     }
@@ -126,8 +150,8 @@
         },
         "conflicts": {
           "type": "array",
-          "description": "Unresolved per-field artefact/code conflicts. A pending conflict may force nullable contract fields such as audience or accessTier to null.",
-          "items": { "$ref": "#/$defs/conflict" }
+          "description": "Unresolved per-field artefact/code conflicts. A pending conflict may force nullable contract fields such as audience or accessTier to null. The per-item shape is version-gated by the top-level allOf (legacy two-slot for 0.1/0.2, witnesses[] for 0.3); this base constraint stays permissive so those branches own the shape.",
+          "items": { "type": "object" }
         }
       }
     },
@@ -164,6 +188,63 @@
                 "resolvedBy": { "type": "string", "minLength": 1, "description": "Who arbitrated the conflict (the operator)." },
                 "resolvedAt": { "type": "string", "minLength": 1, "description": "ISO-8601 timestamp of the arbitration. Inline (not a cross-file $ref) so the F0 single-file validator stays self-contained." },
                 "choice": { "description": "The value the operator chose. Permissive: strings, nulls, or structured fragments." }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "conflict_0_3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "witnesses", "evidence", "resolution"],
+      "description": "0.3 conflict descriptor (P1 — never choose in silence). A field with two or more discordant witnesses, preserved as a SET so no witness is dropped by format. Replaces the 0.1/0.2 two-slot artefactValue/codeValue form; those slots are rejected here by additionalProperties:false.",
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Field whose witnesses disagree."
+        },
+        "witnesses": {
+          "type": "array",
+          "minItems": 1,
+          "description": "All value-claims for this field, each with its provenance and derived kind. N is uncapped: N=2, N=3, N=7 are all representable (the F2 #2 truncation is no longer expressible).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "source", "kind"],
+            "properties": {
+              "value": { "description": "The witnessed value. Permissive: strings, nulls, arrays, or structured fragments." },
+              "source": {
+                "type": ["string", "object"],
+                "minLength": 1,
+                "description": "Provenance of this witness — a source descriptor or path. The producer derives kind by matching this against the page's codeEvidence.path; the integrity of that derivation is enforced by the emit-time validator, not by this schema."
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["code", "artefact"],
+                "description": "Derived-at-source provenance class (P2): code when the witness source matches the page's codeEvidence.path, otherwise artefact. Computed by the producer, never asserted independently."
+              }
+            }
+          }
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source descriptor or short explanation proving the unresolved conflict."
+        },
+        "resolution": {
+          "description": "0.3 keeps the 0.2 decision-memory shape: a pending|resolved status string, or an object { resolvedBy, resolvedAt, choice } recording the operator's arbitration. choice references the winning witness by value+source (not by positional index); the value+source match is enforced by the emit-time validator.",
+          "oneOf": [
+            { "type": "string", "enum": ["pending", "resolved"] },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["resolvedBy", "resolvedAt", "choice"],
+              "properties": {
+                "resolvedBy": { "type": "string", "minLength": 1, "description": "Who arbitrated the conflict (the operator)." },
+                "resolvedAt": { "type": "string", "minLength": 1, "description": "ISO-8601 timestamp of the arbitration." },
+                "choice": { "description": "The winning witness, identified by value+source. Permissive shape so the validator owns the value+source integrity check." }
               }
             }
           ]

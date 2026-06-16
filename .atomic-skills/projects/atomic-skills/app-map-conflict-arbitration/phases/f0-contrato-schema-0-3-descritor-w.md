@@ -12,7 +12,7 @@ lastUpdated: 2026-06-16T18:38:32.145Z
 nextAction: "Start T-001: Schema 0.3 — conflict vira witnesses[]"
 parentPlan: app-map-conflict-arbitration
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -26,6 +26,7 @@ exitGates:
       kind: shell
       command: node --test test/app-map/schema.test.js test/app-map/validate.test.js
       expectExitCode: 0
+    verifierLabel: "shell: node --test test/app-map/schema.test.js test/app-map/valida…"
 stack:
   - id: 1
     title: "Contrato: schema 0.3 + descritor witnesses"
@@ -34,23 +35,37 @@ stack:
 tasks:
   - id: T-001
     title: Schema 0.3 — conflict vira witnesses[]
-    status: pending
-    lastUpdated: 2026-06-16T19:19:00Z
-    summary: Adiciona o ramo 0.3 ao schema — conflict vira witnesses[] e rejeita os slots antigos.
+    status: done
+    closedAt: 2026-06-16T19:28:43Z
+    lastUpdated: 2026-06-16T19:28:43Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T19:28:43Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/schema.test.js → tests 9, pass 9, fail 0
+        (5 legacy 0.1/0.2 + 4 novos 0.3)
+    summary: Adiciona o ramo 0.3 ao schema — conflict vira witnesses[] e rejeita os
+      slots antigos.
     description: "Bump schemaVersion 0.3 (aditivo por if/then) + descritor
       conflict.witnesses[{value,source,kind}] no ramo 0.3; slots
       artefactValue/codeValue removidos; 0.1/0.2 seguem válidos. Files:
       meta/schemas/app-map.schema.json, test/app-map/schema.test.js"
     scopeBoundary:
       - não tocar src/app-map/validate.js (a regra de integridade é T-002).
-      - não tocar src/app-map/reconstruct.js nem src/app-map/persist.js (produtor/consumidores são F1); não migrar dados.
-      - o ramo condicional 0.1/0.2 permanece intacto (porta de direção única — 0.1/0.2 leem válidos).
+      - não tocar src/app-map/reconstruct.js nem src/app-map/persist.js
+        (produtor/consumidores são F1); não migrar dados.
+      - o ramo condicional 0.1/0.2 permanece intacto (porta de direção única —
+        0.1/0.2 leem válidos).
     acceptance:
       - o enum de schemaVersion aceita "0.3" e mantém "0.1"/"0.2".
-      - um catálogo 0.3 com conflicts[].witnesses array de {value,source,kind} e N>=2 (inclui N=3) valida.
-      - um conflito 0.3 que ainda carrega artefactValue/codeValue é REJEITADO (slots removidos no ramo 0.3, additionalProperties false).
+      - um catálogo 0.3 com conflicts[].witnesses array de {value,source,kind} e
+        N>=2 (inclui N=3) valida.
+      - um conflito 0.3 que ainda carrega artefactValue/codeValue é REJEITADO
+        (slots removidos no ramo 0.3, additionalProperties false).
       - kind fora de {code, artefact} é REJEITADO pelo schema.
-      - catálogos 0.1 e 0.2 existentes seguem válidos sob o ramo condicional aditivo.
+      - catálogos 0.1 e 0.2 existentes seguem válidos sob o ramo condicional
+        aditivo.
     verifier:
       kind: shell
       command: node --test test/app-map/schema.test.js
@@ -59,20 +74,29 @@ tasks:
     title: Validador — integridade de witnesses + resolution.choice
     status: pending
     lastUpdated: 2026-06-16T19:19:00Z
-    summary: Regra pós-schema que exige resolution.choice apontar uma testemunha existente.
+    summary: Regra pós-schema que exige resolution.choice apontar uma testemunha
+      existente.
     description: "Função de erro pós-schema (estilo duplicatePageIdErrors) que
       reforça resolution.choice referenciando uma testemunha por value+source em
       conflitos 0.3; API validateAppMap/assertValidAppMap intacta. Files:
       src/app-map/validate.js, test/app-map/validate.test.js"
     scopeBoundary:
-      - não alterar o schema JSON (forma é T-001); não tocar produtor/consumidores (F1).
-      - manter duplicatePageIdErrors e a API pública validateAppMap/assertValidAppMap intactas — só adicionar uma regra pós-schema nova no mesmo estilo, sem novos campos de schema.
+      - não alterar o schema JSON (forma é T-001); não tocar
+        produtor/consumidores (F1).
+      - manter duplicatePageIdErrors e a API pública
+        validateAppMap/assertValidAppMap intactas — só adicionar uma regra
+        pós-schema nova no mesmo estilo, sem novos campos de schema.
     acceptance:
-      - uma função de erro pós-schema (estilo duplicatePageIdErrors) reforça que resolution.choice, quando resolution é objeto 0.3, referencia uma testemunha existente por value+source.
-      - um conflito 0.3 cujo resolution.choice NÃO casa nenhuma testemunha produz erro e valid vira false.
+      - uma função de erro pós-schema (estilo duplicatePageIdErrors) reforça que
+        resolution.choice, quando resolution é objeto 0.3, referencia uma
+        testemunha existente por value+source.
+      - um conflito 0.3 cujo resolution.choice NÃO casa nenhuma testemunha
+        produz erro e valid vira false.
       - um conflito 0.3 cujo choice casa uma testemunha (value+source) é aceito.
-      - a regra só se aplica a conflitos 0.3 com witnesses — catálogos 0.1/0.2 não regridem e os testes existentes seguem verdes.
-      - validateAppMap/assertValidAppMap mantêm assinatura e a mensagem de erro formatada legível.
+      - a regra só se aplica a conflitos 0.3 com witnesses — catálogos 0.1/0.2
+        não regridem e os testes existentes seguem verdes.
+      - validateAppMap/assertValidAppMap mantêm assinatura e a mensagem de erro
+        formatada legível.
     verifier:
       kind: shell
       command: node --test test/app-map/validate.test.js
@@ -100,8 +124,8 @@ Initiative for phase **F0 — Contrato: schema 0.3 + descritor witnesses**.
 
 ## Session handoff
 
-- **Narrative:** Fase F0 ativa, 0/2 tasks done. A etapa DECOMPOSE+SPEC (faltante) foi concluída nesta sessão: `source.md` autorado + SPEC gate EXIT 0 + interior materializado nos 4 tasks (F0 e F1) + `validate-state` 52/52. Nenhum código de produção foi tocado ainda; o próximo passo é começar a IMPLEMENTAR F0/T-001 (schema 0.3).
-- **Decision log:** (1) tasks eram stubs não-admitidos → autorei o SPEC em vez de improvisar (HARD-GATE). (2) Speccei AMBAS as fases (F0+F1) de uma vez para evitar uma segunda parada SPEC no limite F0→F1. (3) Mode 2 (Codex) é o executor DEFAULT pois `routing.json` tem `mode2Enabled:true`+`codexLane.enabled:true` e os tasks agora são spec-ready com verifier determinístico — a escolha de executor (Mode 2 Codex vs Mode 1 Opus direto) está pendente do operador.
-- **Single nextAction:** Decidir o executor de F0/T-001 (Mode 2 Codex em worktree vs Mode 1 Opus direto); então implementar T-001 (RED→GREEN em `test/app-map/schema.test.js` + ramo 0.3 em `meta/schemas/app-map.schema.json`) e fechar via `node --test test/app-map/schema.test.js` → EXIT 0.
-- **Verbatim state:** SPEC gate: `node scripts/lint-source.js .atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/source.md --spec` → `✓ … SPEC per-task gate clean` EXIT=0. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 52 file(s) valid` EXIT=0. F0/T-001 verifier: `node --test test/app-map/schema.test.js` (expectExitCode 0).
-- **Uncommitted changes:** a confirmar via `git status --porcelain` no momento do commit (source.md novo + 2 phase files editados + esta initiative).
+- **Narrative:** Fase F0 ativa, **1/2 tasks done**. DECOMPOSE+SPEC concluído nesta sessão (4 tasks admitidos). Executor: **Mode 1 (Opus direto)** escolhido pelo operador. T-001 (schema 0.3) implementado RED→GREEN e fechado com evidência passing; o próximo passo é T-002 (regra de integridade no validador).
+- **Decision log:** (1) tasks eram stubs não-admitidos → autorei o SPEC em vez de improvisar (HARD-GATE). (2) Speccei AMBAS as fases (F0+F1) de uma vez. (3) Mode 1 (Opus direto) escolhido para F0 — tarefas pequenas/mecânicas, sem overhead de worktree/merge-back. (4) Schema 0.3: `conflict` legacy intacto (0.1/0.2); novo `$def conflict_0_3` (witnesses) gated por `allOf` por-versão; base `page.conflicts.items` afrouxado para `{type:object}` para evitar contradição de `additionalProperties` entre branches; porta evidenceHash estendida a 0.3 (single-direction door "from 0.2 onward").
+- **Single nextAction:** Implementar F0/T-002 — RED em `test/app-map/validate.test.js` (conflito 0.3 com `resolution.choice` que não casa nenhuma testemunha → `valid:false`), depois `resolutionChoiceErrors(catalog)` em `src/app-map/validate.js` agregado em `validateAppMap`; fechar via `node --test test/app-map/validate.test.js` → EXIT 0.
+- **Verbatim state:** T-001 verifier: `node --test test/app-map/schema.test.js` → `tests 9, pass 9, fail 0` EXIT=0. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 52 file(s) valid` EXIT=0. T-002 verifier: `node --test test/app-map/validate.test.js` (expectExitCode 0).
+- **Uncommitted changes:** clean tree após o commit de T-001 (schema + schema.test.js + estado F0). T-002 ainda não iniciado.
