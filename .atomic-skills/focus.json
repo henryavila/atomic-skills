@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T19:42:26.359Z",
+  "generatedAt": "2026-06-16T20:16:47.959Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "app-map-conflict-arbitration",
-    "title": "app-map: descritor de conflito rico + canal de arbitragem",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "app-map-conflict-arbitration-f1-produtor-consumidores-e-prosa",
-    "title": "Produtor, consumidores e prosa",
-    "index": 2,
-    "total": 2,
+    "id": "F0",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+    "index": 1,
+    "total": 1,
     "status": "active"
   },
   "tasks": {
-    "done": 0,
-    "total": 2,
+    "done": 4,
+    "total": 6,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Produtor — conflictForField emite witnesses[] e catálogo 0.3",
+  "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/plan.md",
-      "lastUpdated": "2026-06-16T18:38:32.145Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/plan.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/phases/f1-produtor-consumidores-e-prosa.md",
-      "lastUpdated": "2026-06-16T19:39:09Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     }
   ]
 }

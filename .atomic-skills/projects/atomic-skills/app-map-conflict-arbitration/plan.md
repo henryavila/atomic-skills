@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: app-map-conflict-arbitration
 title: "app-map: descritor de conflito rico + canal de arbitragem"
 version: "1.0"
-status: active
+status: done
 started: 2026-06-16T18:38:32.145Z
-lastUpdated: 2026-06-16T18:38:32.145Z
+lastUpdated: 2026-06-16T20:14:47Z
 branch: plan/design-brief
 currentPhase: F1
 parallelismAllowed: false
@@ -66,7 +66,8 @@ phases:
             verifiedAt: 2026-06-16T19:39:09Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test test/app-map/schema.test.js test/app-map/validate.test.js → tests 16, pass 16, fail 0"
+            outputSummary: node --test test/app-map/schema.test.js
+              test/app-map/validate.test.js → tests 16, pass 16, fail 0
     reviewGate:
       status: passed
       at: 431165e8aefeb60620f0ad2d8ad24f825fc3f865
@@ -91,19 +92,33 @@ phases:
           description: A reconstrução end-to-end emite witnesses 0.3 com N≥3 preservado e
             validável; o mirror lista as testemunhas; a prosa do §2 reflete a
             arbitragem programático-only.
-          status: pending
+          status: met
+          metAt: 2026-06-16T20:14:47Z
           verifier:
             kind: shell
             command: node --test test/app-map/reconstruct.test.js
               test/app-map/persist.test.js
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T20:14:47Z
+            passed: true
+            exitCode: 0
+            outputSummary: node --test test/app-map/reconstruct.test.js
+              test/app-map/persist.test.js → tests 18, pass 18, fail 0
+    reviewGate:
+      status: passed
+      at: 5750d7dd177d9f4bebe90564845b37cdfd243c04
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-16-2014-app-map-conflict-arbitration-f1.md
+      verifiedAt: 2026-06-16T20:14:47Z
+    status: done
 references:
   - kind: repo-path
     path: .atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/design.md
-    label: "DESIGN — contrato (resolution.choice por value+source, kind derivado-na-origem, blast radius); F0/F1 leem antes de implementar"
+    label: DESIGN — contrato (resolution.choice por value+source, kind
+      derivado-na-origem, blast radius); F0/F1 leem antes de implementar
     inside_repo: true
-planActive: true
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
 ---
 

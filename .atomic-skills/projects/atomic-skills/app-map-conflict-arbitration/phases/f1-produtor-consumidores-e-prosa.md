@@ -6,28 +6,37 @@ goal: O produtor emite witnesses[] com kind derivado-na-origem e resolution por
   valor+source; o mirror .md lista as N testemunhas; a prosa do §2 do
   design-brief deixa de prometer um --persist que persiste arbitragem; cobertura
   inclui o caso N≥3.
-status: active
+status: done
 branch: plan/design-brief
 started: 2026-06-16T18:38:32.145Z
-lastUpdated: 2026-06-16T19:39:09Z
-nextAction: "Start T-002: Consumidores — mirror .md das N testemunhas + prosa §2"
+lastUpdated: 2026-06-16T20:14:47Z
+nextAction: null
 parentPlan: app-map-conflict-arbitration
 phaseId: F1
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F1-G1
     description: A reconstrução end-to-end emite witnesses 0.3 com N≥3 preservado e
       validável; o mirror lista as testemunhas; a prosa do §2 reflete a
       arbitragem programático-only.
-    status: pending
+    status: met
+    metAt: 2026-06-16T20:14:47Z
     verifier:
       kind: shell
       command: node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T20:14:47Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/reconstruct.test.js
+        test/app-map/persist.test.js → tests 18, pass 18, fail 0
     verifierLabel: "shell: node --test test/app-map/reconstruct.test.js test/app-map/p…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: Produtor, consumidores e prosa
@@ -127,8 +136,6 @@ tasks:
 parked: []
 emerged: []
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
-planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -146,10 +153,18 @@ Initiative for phase **F1 — Produtor, consumidores e prosa**.
 - DESIGN: `.atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/design.md`
 - Lessons aplicadas (F1 phase-start): L-002/f2 (conjunto de testemunhas, não 2 slots), L-001/f2 (testar proveniência honesta), L-001/f1 (teste de I/O real — reconstruct.test.js usa tmp dir).
 
+## Self-review against code-quality gates (phase-done F1)
+
+- **G1 read-before-claim:** cada task fechada cita a saída real do verifier (T-001 15/15, T-002 6/6, gate F1-G1 18/18); o review-code (local + codex) leu o diff/arquivos.
+- **G2 soft-language:** claims de conclusão são evidência `passed:true`; handoff escaneado.
+- **G6 reference-or-strike:** literais do handoff são comandos/paths/saídas verbatim.
+- **Review gate (both):** local clean (0 findings) + codex cross-model 2 major (F-001 mirror `[object Object]`, F-002 conflito resolvido contado como unresolved) **corrigidos + verificados** (suite 64/64). reviewGate `passed` @ `5750d7d` mode `both`. Review file `.atomic-skills/reviews/2026-06-16-2014-app-map-conflict-arbitration-f1.md`.
+- **Lessons:** candidatas distiladas dos findings cross-model — pendente de ratificação do operador.
+
 ## Session handoff
 
-- **Narrative:** Fase F1 **2/2 tasks done** — produtor (witnesses[]+0.3), mirror (lista N testemunhas) e prosa §2 (D6) entregues. T-001 e T-002 RED→GREEN, fechados com evidência. F1 é a ÚLTIMA fase → no limite, falta `phase-done` (gate F1-G1 + review-code + lessons + plan-done), opt-in do operador. Não auto-avancei.
+- **Narrative:** Fase F1 **DONE** e plano **plan-done** (status done). Produtor (witnesses[]+0.3), mirror (lista N testemunhas, render sem perda + conflito resolvido) e prosa §2 (D6) entregues. T-001/T-002 fechados por verifier; phase-done rodou (gate F1-G1 18/18 + review-code both com 2 major cross-model corrigidos + reviewGate). Resta: ratificar lessons + opção de arquivar o plano.
 - **Decision log:** ver bloco Decisions — re-scope T-001/T-002 + witnesses com kind derivado-na-origem. T-002: mirrorMarkdown enumera `field: value (kind, source); …` por conflito; prosa §2 esclarece arbitragem programático-only (persistReconstruction grava as decisões; `--persist` é re-emissão não-interativa que NÃO grava arbitragem).
-- **Single nextAction:** Rodar `phase-done` F1 (gate F1-G1 `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` + review-code do diff F1 + lessons + plan-done) — aguardando opt-in do operador.
-- **Verbatim state:** F1-G1 gate: `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` → `tests 16, pass 16, fail 0`. Suite: `node --test test/app-map/*.test.js` → `tests 62, pass 62, fail 0`. Skills: `npm run validate-skills` → `15 skills valid`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 53 file(s) valid`.
-- **Uncommitted changes:** a confirmar — código de T-002 (persist.js, persist.test.js, design-brief.md) + estado F1 a commitar neste passo.
+- **Single nextAction:** Ratificar as lessons da F1 (findings cross-model) e decidir arquivar o plano (`archive`) — o plano está `done`. Não há mais tarefas de implementação.
+- **Verbatim state:** F1-G1 gate (met): `node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js` → `tests 18, pass 18, fail 0`. Suite: `node --test test/app-map/*.test.js` → `tests 64, pass 64, fail 0`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 53 file(s) valid`. reviewGate F1: `passed` @ `5750d7d` mode `both`.
+- **Uncommitted changes:** a confirmar — estado da transição phase-done/plan-done (plan.md + F1 initiative) a commitar neste passo.

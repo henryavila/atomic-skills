@@ -121,8 +121,6 @@ tasks:
 parked: []
 emerged: []
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
-planActive: true
-current: false
 ---
 
 # Narrative / notes
