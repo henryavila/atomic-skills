@@ -36,11 +36,52 @@ tasks:
   - id: T-001
     title: Produtor — conflictForField emite witnesses[] e catálogo 0.3
     status: pending
-    lastUpdated: 2026-06-16T18:38:32.145Z
+    lastUpdated: 2026-06-16T19:19:00Z
+    summary: conflictForField emite N witnesses com kind derivado-na-origem e catálogo 0.3.
+    description: "Reescreve conflictForField/conflictsForPage para emitir
+      witnesses[{value,source,kind}] (kind derivado: source casa
+      codeEvidence.path → code, senão artefact), sem slots
+      artefactValue/codeValue; buildCatalog emite schemaVersion 0.3. Files:
+      src/app-map/reconstruct.js, src/app-map/persist.js,
+      test/app-map/reconstruct.test.js"
+    scopeBoundary:
+      - não alterar o schema (F0 fechou o contrato); não tocar src/app-map/validate.js.
+      - não mudar o motor de divergência (fieldSources/agregação já entrega todas as sources — o bug era só na gravação em conflictForField).
+      - buildCatalog passa a emitir schemaVersion 0.3 mas não muda os outros campos de página.
+    acceptance:
+      - conflictForField retorna {field, witnesses, evidence, resolution} com witnesses cobrindo TODAS as sources do agregado (N=3 admin/registered/guardian preservado, nenhuma descartada).
+      - kind de cada testemunha é derivado-na-origem (source.path casa page.codeEvidence.path → code; senão artefact), nunca afirmado independentemente.
+      - os slots artefactValue/codeValue deixam de ser emitidos.
+      - resolution permanece 'pending' na emissão; resolution.choice (quando resolvido) referencia uma testemunha por value+source, não por índice.
+      - buildCatalog emite schemaVersion "0.3" e o catálogo resultante passa assertValidAppMap.
+    verifier:
+      kind: shell
+      command: node --test test/app-map/reconstruct.test.js
+      expectExitCode: 0
   - id: T-002
     title: Consumidores — mirror .md das N testemunhas + prosa §2
     status: pending
-    lastUpdated: 2026-06-16T18:38:32.145Z
+    lastUpdated: 2026-06-16T19:19:00Z
+    summary: Mirror .md lista as N testemunhas e a prosa §2 corrige a promessa do --persist.
+    description: "mirrorMarkdown lista as N testemunhas (value+source+kind) por
+      conflito; a prosa do §2 de design-brief.md deixa de prometer que --persist
+      persiste arbitragem (D6 — arbitragem é programático-only). Files:
+      src/app-map/persist.js, test/app-map/persist.test.js,
+      skills/core/design-brief.md"
+    scopeBoundary:
+      - não alterar o produtor conflictForField (T-001) nem o schema/validador; o mirror é só leitura/formatação do catálogo.
+      - a edição da prosa limita-se ao §2 de design-brief.md (linhas 44–46) — não reabre §4/R2 nem a anti-contaminação.
+      - não adicionar canal CLI --resolved (fora de escopo, D6).
+    acceptance:
+      - mirrorMarkdown lista, por conflito, as N testemunhas (value + source + kind) em vez de só a contagem "unresolved conflicts N".
+      - um catálogo 0.3 com um conflito de 3 testemunhas produz um mirror que cita as 3.
+      - a prosa do §2 esclarece que a arbitragem é aplicada programaticamente (o agente passa páginas resolvidas a persistReconstruction) e que --persist é re-emissão não-interativa (D6).
+      - a string --persist não aparece mais como o passo que grava a decisão do operador no §2.
+      - os testes de persist 0.1/0.2 existentes seguem verdes.
+    verifier:
+      kind: shell
+      command: node --test test/app-map/persist.test.js
+      expectExitCode: 0
 parked: []
 emerged: []
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
