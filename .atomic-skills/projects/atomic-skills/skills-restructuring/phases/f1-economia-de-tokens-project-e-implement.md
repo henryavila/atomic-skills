@@ -2,27 +2,42 @@
 schemaVersion: "0.1"
 slug: skills-restructuring-f1-economia-de-tokens-project-e-implement
 title: "Economia de tokens: project e implement"
-goal: restaurar o router fino e o driver enxuto movendo conteúdo não-ambiente para detail/asset lazy, sem perder comportamento.
-status: active
+goal: restaurar o router fino e o driver enxuto movendo conteúdo não-ambiente
+  para detail/asset lazy, sem perder comportamento.
+status: done
 branch: null
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T13:27:29Z
-nextAction: "All F1 tasks done — run phase-done to verify exit gate F1-G1 + the review-code gate, then advance to F2 (user opts in)."
+lastUpdated: 2026-06-16T14:28:01Z
+nextAction: null
 parentPlan: skills-restructuring
 phaseId: F1
 tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F1-G1
     description: project.md e implement.md encolhem e a suite de validação continua verde.
-    status: pending
+    status: met
+    metAt: 2026-06-16T14:17:46Z
     verifier:
       kind: shell
-      command: test $(wc -c < skills/core/project.md) -lt 22000 && test $(wc -c < skills/core/implement.md) -lt 22000 && grep -q 'mode2-codex-lane' skills/core/implement.md && grep -q 'verifier-exec' skills/shared/project-assets/project-transitions.md && npm run validate-skills
+      command: test $(wc -c < skills/core/project.md) -lt 22000 && test $(wc -c <
+        skills/core/implement.md) -lt 22000 && grep -q 'mode2-codex-lane'
+        skills/core/implement.md && grep -q 'verifier-exec'
+        skills/shared/project-assets/project-transitions.md && npm run
+        validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T14:17:46Z
+      passed: true
+      exitCode: 0
+      outputSummary: "project.md=20396B implement.md=16107B (ambos <22000); grep
+        mode2-codex-lane (implement.md) + verifier-exec (project-transitions.md)
+        OK; validate-skills: All 15 skills valid (schema_version 0.2)"
     verifierLabel: "shell: test $(wc -c < skills/core/project.md) -lt 22000 && test $(…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: "Economia de tokens: project e implement"
@@ -35,23 +50,32 @@ tasks:
     closedAt: 2026-06-16T13:04:12Z
     lastUpdated: 2026-06-16T13:04:12Z
     summary: "Router fino: schema-ref/rollups/cq-gates saem do resident para detail"
-    description: "Mover schema quick-reference, mecânica de rollups/summaries e code-quality-gates do bloco resident de project.md para os detail files que os usam, deixando ponteiro de uma linha. Incorpora as correções T0.2/T0.3/T0.4 no novo local. Arquivos: skills/core/project.md, skills/shared/project-assets/project-transitions.md, skills/shared/project-assets/project-create-plan.md"
+    description: "Mover schema quick-reference, mecânica de rollups/summaries e
+      code-quality-gates do bloco resident de project.md para os detail files
+      que os usam, deixando ponteiro de uma linha. Incorpora as correções
+      T0.2/T0.3/T0.4 no novo local. Arquivos: skills/core/project.md,
+      skills/shared/project-assets/project-transitions.md,
+      skills/shared/project-assets/project-create-plan.md"
     scopeBoundary:
-      - não mover Iron Law, pre-mutation gates, gate-status invariant, ratify gate nem emergence ladder (ficam resident).
+      - não mover Iron Law, pre-mutation gates, gate-status invariant, ratify
+        gate nem emergence ladder (ficam resident).
     acceptance:
       - project.md não contém mais o heading Schema quick-reference
       - um detail file contém o conteúdo
       - project.md encolhe abaixo de 22000 bytes.
     verifier:
       kind: shell
-      command: "! grep -q 'Schema quick-reference' skills/core/project.md && test $(wc -c < skills/core/project.md) -lt 22000 && npm run validate-skills"
+      command: "! grep -q 'Schema quick-reference' skills/core/project.md && test $(wc
+        -c < skills/core/project.md) -lt 22000 && npm run validate-skills"
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-16T13:04:12Z
       exitCode: 0
       passed: true
-      outputSummary: "! grep 'Schema quick-reference' (absent) && project.md=20396B < 22000 && validate-skills → '✓ All 15 skills valid (schema_version 0.2)'; exit 0"
+      outputSummary: "! grep 'Schema quick-reference' (absent) && project.md=20396B <
+        22000 && validate-skills → '✓ All 15 skills valid (schema_version 0.2)';
+        exit 0"
     outputs:
       - kind: file
         path: skills/core/project.md
@@ -65,7 +89,10 @@ tasks:
     closedAt: 2026-06-16T13:11:49Z
     lastUpdated: 2026-06-16T13:11:49Z
     summary: "Red Flags/Rationalization do implement: gatilhos resident, refutação lazy"
-    description: "Manter os gatilhos one-liner de Red Flags resident e mover a tabela de refutação Temptation→Reality para um asset lazy lido sob demanda. Arquivos: skills/core/implement.md, skills/shared/implement-antipatterns.md"
+    description: "Manter os gatilhos one-liner de Red Flags resident e mover a
+      tabela de refutação Temptation→Reality para um asset lazy lido sob
+      demanda. Arquivos: skills/core/implement.md,
+      skills/shared/implement-antipatterns.md"
     scopeBoundary:
       - não remover os gatilhos one-liner; não tocar o Process nem a Iron Law.
     acceptance:
@@ -74,14 +101,18 @@ tasks:
       - o corpo aponta para ele.
     verifier:
       kind: shell
-      command: test -f skills/shared/implement-antipatterns.md && test $(wc -c < skills/core/implement.md) -lt 22000 && grep -q 'implement-antipatterns' skills/core/implement.md
+      command: test -f skills/shared/implement-antipatterns.md && test $(wc -c <
+        skills/core/implement.md) -lt 22000 && grep -q 'implement-antipatterns'
+        skills/core/implement.md
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-16T13:11:49Z
       exitCode: 0
       passed: true
-      outputSummary: "test -f implement-antipatterns.md (exists) && implement.md=17931B < 22000 && grep 'implement-antipatterns' (2 refs); exit 0. Red Flags trimmed to triggers + pointer; Rationalization table moved to asset."
+      outputSummary: test -f implement-antipatterns.md (exists) && implement.md=17931B
+        < 22000 && grep 'implement-antipatterns' (2 refs); exit 0. Red Flags
+        trimmed to triggers + pointer; Rationalization table moved to asset.
     outputs:
       - kind: file
         path: skills/core/implement.md
@@ -93,22 +124,29 @@ tasks:
     closedAt: 2026-06-16T13:13:43Z
     lastUpdated: 2026-06-16T13:13:43Z
     summary: Contrato Mode-2 vira stub no implement, fonte única no lane
-    description: "Reduzir o contrato Mode-2 em implement.md a um stub de quatro itens com ponteiro; manter a fonte única em mode2-codex-lane.md. Arquivos: skills/core/implement.md, skills/shared/mode2-codex-lane.md"
+    description: "Reduzir o contrato Mode-2 em implement.md a um stub de quatro
+      itens com ponteiro; manter a fonte única em mode2-codex-lane.md. Arquivos:
+      skills/core/implement.md, skills/shared/mode2-codex-lane.md"
     scopeBoundary:
-      - não duplicar F1/F2 nem o racional SDD no implement; o contrato completo vive só no lane.
+      - não duplicar F1/F2 nem o racional SDD no implement; o contrato completo
+        vive só no lane.
     acceptance:
       - implement.md referencia mode2-codex-lane.md
       - a re-derivação de F1/F2 sai do implement.
     verifier:
       kind: shell
-      command: grep -q 'mode2-codex-lane' skills/core/implement.md && test $(grep -c 'spec-readiness' skills/core/implement.md) -le 1
+      command: grep -q 'mode2-codex-lane' skills/core/implement.md && test $(grep -c
+        'spec-readiness' skills/core/implement.md) -le 1
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-16T13:13:43Z
       exitCode: 0
       passed: true
-      outputSummary: "grep 'mode2-codex-lane' (1 ref) && grep -c 'spec-readiness'=1 (<=1); exit 0. Mode-2 section reduced to 4-item stub + pointer; F1/F2 re-derivation removed from implement.md (16107B). validate-skills → All 15 skills valid."
+      outputSummary: grep 'mode2-codex-lane' (1 ref) && grep -c 'spec-readiness'=1
+        (<=1); exit 0. Mode-2 section reduced to 4-item stub + pointer; F1/F2
+        re-derivation removed from implement.md (16107B). validate-skills → All
+        15 skills valid.
     outputs:
       - kind: file
         path: skills/core/implement.md
@@ -120,23 +158,32 @@ tasks:
     closedAt: 2026-06-16T13:08:06Z
     lastUpdated: 2026-06-16T13:08:06Z
     summary: Transitions partido em core/rare + verifier-exec.md compartilhado
-    description: "Separar o hot-path (done/push/pop) do cold-path em project-transitions, e extrair os padrões de execução de verifier para verifier-exec.md como fonte única. Arquivos: skills/shared/project-assets/project-transitions.md, skills/shared/project-assets/verifier-exec.md"
+    description: "Separar o hot-path (done/push/pop) do cold-path em
+      project-transitions, e extrair os padrões de execução de verifier para
+      verifier-exec.md como fonte única. Arquivos:
+      skills/shared/project-assets/project-transitions.md,
+      skills/shared/project-assets/verifier-exec.md"
     scopeBoundary:
-      - não inlinar o executor de verifier nos callers; preservar a semântica de GATE-R2.
+      - não inlinar o executor de verifier nos callers; preservar a semântica de
+        GATE-R2.
     acceptance:
       - verifier-exec.md existe
       - project-transitions.md referencia verifier-exec
       - a suite de validação passa.
     verifier:
       kind: shell
-      command: test -f skills/shared/project-assets/verifier-exec.md && grep -q 'verifier-exec' skills/shared/project-assets/project-transitions.md && npm run validate-skills
+      command: test -f skills/shared/project-assets/verifier-exec.md && grep -q
+        'verifier-exec' skills/shared/project-assets/project-transitions.md &&
+        npm run validate-skills
       expectExitCode: 0
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-16T13:08:06Z
       exitCode: 0
       passed: true
-      outputSummary: "test -f verifier-exec.md (exists) && grep 'verifier-exec' project-transitions.md (2 refs) && validate-skills → '✓ All 15 skills valid'; exit 0. transitions.md 32762→28692B."
+      outputSummary: test -f verifier-exec.md (exists) && grep 'verifier-exec'
+        project-transitions.md (2 refs) && validate-skills → '✓ All 15 skills
+        valid'; exit 0. transitions.md 32762→28692B.
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-transitions.md
@@ -148,13 +195,23 @@ tasks:
     closedAt: 2026-06-16T13:27:29Z
     lastUpdated: 2026-06-16T13:27:29Z
     summary: decompose H3-mode passa a materializar o interior SPEC das tasks
-    description: "O decompose (src/decompose.js), no modo H3 (### Tn), extrai só id+título e descarta o corpo da task (description + Files/scopeBoundary/acceptance/verifier), embora o SPEC gate (lint-source.js --spec) exija a forma verbosa ### Tn. Resultado: todo `new plan` materializa tasks sem interior — sem sinal de conclusão e não-dispatcháveis pro codex. Corrigir o H3-mode para parsear os 4 campos SPEC + a lead-description e mapeá-los aos campos de schema. Arquivos: src/decompose.js, tests/decompose.test.js"
+    description: "O decompose (src/decompose.js), no modo H3 (### Tn), extrai só
+      id+título e descarta o corpo da task (description +
+      Files/scopeBoundary/acceptance/verifier), embora o SPEC gate
+      (lint-source.js --spec) exija a forma verbosa ### Tn. Resultado: todo `new
+      plan` materializa tasks sem interior — sem sinal de conclusão e
+      não-dispatcháveis pro codex. Corrigir o H3-mode para parsear os 4 campos
+      SPEC + a lead-description e mapeá-los aos campos de schema. Arquivos:
+      src/decompose.js, tests/decompose.test.js"
     scopeBoundary:
       - não alterar a grammar de fases (## F<N>) nem o exit_gate YAML
-      - não tocar o modo Sub-fases bullet; preservar R-ORCH-10 (heurísticas de fase intactas, exceto a extração de interior por task H3)
+      - não tocar o modo Sub-fases bullet; preservar R-ORCH-10 (heurísticas de
+        fase intactas, exceto a extração de interior por task H3)
     acceptance:
-      - "um source com ### Tn + os 4 campos materializa task.scopeBoundary/acceptance/verifier/description"
-      - find-signalless-tasks reporta 0 num plano recém-materializado cujos tasks têm verifier
+      - "um source com ### Tn + os 4 campos materializa
+        task.scopeBoundary/acceptance/verifier/description"
+      - find-signalless-tasks reporta 0 num plano recém-materializado cujos
+        tasks têm verifier
       - tests/decompose.test.js cobre o novo parsing de interior H3 (RED→GREEN)
       - validate-state passa nas tasks materializadas
     verifier:
@@ -166,7 +223,11 @@ tasks:
       verifiedAt: 2026-06-16T13:27:29Z
       exitCode: 0
       passed: true
-      outputSummary: "node --test tests/decompose.test.js → exit 0; tests 72, pass 72, fail 0 (5 new H3-interior tests RED→GREEN). decompose H3-mode now parses description+Files→outputs+scopeBoundary+acceptance+verifier; materialized SPEC tasks carry verifier (find-signalless=0) + validate-state end-to-end PASS."
+      outputSummary: node --test tests/decompose.test.js → exit 0; tests 72, pass 72,
+        fail 0 (5 new H3-interior tests RED→GREEN). decompose H3-mode now parses
+        description+Files→outputs+scopeBoundary+acceptance+verifier;
+        materialized SPEC tasks carry verifier (find-signalless=0) +
+        validate-state end-to-end PASS.
     outputs:
       - kind: file
         path: src/decompose.js
@@ -180,21 +241,27 @@ tasks:
       surfacedDuring: skills-restructuring-f0-pente-fino-de-consistencia (review-plan)
       surfacedBy: ai
     context:
-      solves: Todo `new plan` materializa tasks sem o interior SPEC, tornando-as não-implementáveis (implement recusa por R-ORCH-23) e não-roteáveis pro lane codex — sem corrigir, todo plano futuro precisa de remendo manual.
-      trigger: "O review-plan interno deste plano achou 31/31 tasks sem interior; a causa-raiz é o decompose H3-mode descartar o corpo da task enquanto o SPEC gate exige a forma ### Tn verbosa."
+      solves: Todo `new plan` materializa tasks sem o interior SPEC, tornando-as
+        não-implementáveis (implement recusa por R-ORCH-23) e não-roteáveis pro
+        lane codex — sem corrigir, todo plano futuro precisa de remendo manual.
+      trigger: "O review-plan interno deste plano achou 31/31 tasks sem interior; a
+        causa-raiz é o decompose H3-mode descartar o corpo da task enquanto o
+        SPEC gate exige a forma ### Tn verbosa."
       assumesStillValid:
-        - "o SPEC gate continua exigindo a forma ### Tn verbosa (lint-source.js --spec)"
+        - "o SPEC gate continua exigindo a forma ### Tn verbosa (lint-source.js
+          --spec)"
         - src/decompose.js continua sendo o transform canônico do decompose
-        - tasks precisam do interior estruturado no schema pra serem dispatcháveis
+        - tasks precisam do interior estruturado no schema pra serem
+          dispatcháveis
       ratifiedAt: 2026-06-15T14:05:45.977Z
       ratifiedBy: human
       lastReviewedAt: 2026-06-15T14:05:45.977Z
 parked: []
 emerged: []
-summary: Enxuga o router project e o driver implement movendo conteúdo não-ambiente para lazy.
+summary: Enxuga o router project e o driver implement movendo conteúdo
+  não-ambiente para lazy.
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -219,6 +286,15 @@ Initiative for phase **F1 — Economia de tokens: project e implement**.
 - **G1 read-before-claim:** applied — cada task fechada linka a source/o run do verifier na sua `evidence.outputSummary`; tamanhos (20396B/16107B) e contagens (72/72 testes, 8 pré-existentes) são de runs reais pastados, não inferidos.
 - **G2 soft-language:** applied — claims de conclusão são `passed: true` com exit code observado; handoff escaneado pela ban-list.
 - **G6 reference-or-strike:** applied — literais do handoff são paths/comandos/saídas verbatim (verifiers completos, `tests 876 pass 868 fail 8`).
+
+## Self-review against code-quality gates (phase-done F1)
+
+- **G1 read-before-claim:** applied — 5/5 tasks fechadas com `evidence` linkada à source/run; exit-gate F1-G1 fechado por um run real (`evidence.exitCode: 0`, project.md=20396B/implement.md=16107B observados).
+- **G2 soft-language:** scaneei `nextAction`, descrições de task e do critério pela ban-list; 0 violações (nextAction agora `null`).
+- **G6 reference-or-strike:** F1-G1 met com `evidence` populado; review-code citou `file:line` verbatim (lint-source.js:275-276, decompose.js:354/877).
+- **Codex review:** SKIPPED at phase-done — review rodado em `--mode=local` (DESTRUCTIVE=false; diff de move de conteúdo, 538 ins/195 del). Override explícito registrado.
+- **Review gate (G2):** `reviewGate: { status: passed, at: 390d447, mode: local, reviewFile: .atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md }` no descriptor da fase (GATE-R3). Concorda com esta prosa.
+- **Lessons (G1):** 1 lesson destilada (L-F1-1, reusable/open) em `lessons/skills-restructuring-f1-economia-de-tokens-project-e-implement.md`, ratificada pelo operador. 1 major (FU-F1-1) + 1 minor deferidos a uma task de `fix` dedicada; 1 minor dispensado by-design.
 
 ## Links
 

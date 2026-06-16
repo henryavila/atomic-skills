@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T14:12:07.464Z",
+  "generatedAt": "2026-06-16T15:13:56.928Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "skills-restructuring",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "skills-restructuring-f1-economia-de-tokens-project-e-implement",
-    "title": "Economia de tokens: project e implement",
-    "index": 2,
+    "id": "F6",
+    "slug": "skills-restructuring-f6-focus-json-auto-refresh",
+    "title": "focus.json não drifta silenciosamente",
+    "index": 7,
     "total": 7,
     "status": "active"
   },
   "tasks": {
-    "done": 5,
-    "total": 5,
+    "done": 0,
+    "total": 2,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "All F1 tasks done — run phase-done to verify exit gate F1-G1 + the review-code gate, then advance to F2 (user opts in).",
+  "nextAction": "Start T6.1: fluxo de transição usa refresh-state (regenera o focus.json a cada mutação)",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-16T14:10:57Z"
+      "lastUpdated": "2026-06-16T14:28:01Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f1-economia-de-tokens-project-e-implement.md",
-      "lastUpdated": "2026-06-16T13:27:29Z"
+      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f6-focus-json-auto-refresh.md",
+      "lastUpdated": "2026-06-16T14:28:01Z"
     }
   ]
 }

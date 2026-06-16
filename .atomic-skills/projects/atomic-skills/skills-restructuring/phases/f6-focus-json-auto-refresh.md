@@ -5,10 +5,10 @@ title: focus.json não drifta silenciosamente
 goal: garantir que o focus.json (digest da statusline) reflita o estado sem
   depender de um passo de setup interativo opcional — fechar o gap em que
   `atomic-skills install` sozinho deixa o digest stale.
-status: pending
+status: active
 branch: null
 started: 2026-06-16T14:10:57Z
-lastUpdated: 2026-06-16T14:10:57Z
+lastUpdated: 2026-06-16T14:28:01Z
 nextAction: "Start T6.1: fluxo de transição usa refresh-state (regenera o
   focus.json a cada mutação)"
 parentPlan: skills-restructuring
@@ -122,7 +122,7 @@ summary: "Fecha o gap do focus.json stale: transição usa refresh-state + insta
   conecta os hooks (com paridade uninstall)."
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
-current: false
+current: true
 ---
 
 # Narrative / notes
@@ -134,6 +134,22 @@ Fase emergente (rung 6, ratify-gated) surgida na sessão 2026-06-16 ao investiga
 ## Decisions
 
 - **F6-G1 desacoplado de `npm test`.** O bloco ratificado usava `npm test`, mas as 8 falhas de contagem (`countSkills`/`installSkills`) estão delegadas à branch de finalização; usar `npm test` bloquearia o phase-done de F6 aqui. O gate usa `node --test tests/install-uninstall-roundtrip.test.js && npm run validate-skills` (cobre T6.1+T6.2 sem depender dos 8 erros alheios). Sinalizado ao usuário.
+
+## Session handoff
+- **Narrative:** F1 fechada via `phase-done` nesta sessão (5/5 tasks done, F1-G1 met com evidência, `reviewGate: passed` no descriptor). `currentPhase` avançou F1→**F6** (decisão acordada: F6 independente vem antes de F2). F6 acabou de ser ativada; nenhuma das suas 2 tasks (T6.1, T6.2) foi iniciada como task formal. Estado do tree validado (`validate-state` 3/3 ✓), digest `skills-restructuring · F6`.
+- **Decision log:** (1) Review gate de F1 rodado em `--mode=local` sobre `2d6b618..390d447` (o commit de F1, NÃO o range determinístico poluído de ~40 commits — o `started` de F1 coincide com a criação do plano). (2) Review achou 1 major real (FU-F1-1): `isDeterministicVerifier` (lint-source.js:275-276) admite `verifier: kind shell` sem command, mas `parseTaskVerifier` (decompose.js:362 etc.) materializa `{kind:shell}` schema-inválido → `validate-state` HARD-FALHA. **Deferido a uma task de `fix` dedicada** (toca lint-source.js, fora do diff de F1); não bloqueia F1. (3) Fases done deste plano ficam em `phases/` com `status: done` (precedente F0/F5), NÃO movidas para `phases/archive/`. (4) **Atenção ao iniciar F6:** os hooks de project-status (`session-start.sh`/`stop.sh`/`pre-write.sh`) já foram commitados nesta sessão (parte do objetivo de F6 já landou de fato); ao dirigir F6, reconciliar estado-vs-realidade — T6.1/T6.2 podem estar parcialmente prontas no código mesmo com status `pending`.
+- **Single nextAction:** Iniciar **T6.1** (`skills/shared/project-assets/project-transitions.md` usa `refresh-state` no passo de recompute de done/reconcile/phase-done/switch). Antes de codar, verificar se o `refresh-state` já está referenciado lá (o verifier de T6.1 é `grep -q 'refresh-state' skills/shared/project-assets/project-transitions.md && npm run validate-skills`) — pode já estar parcialmente satisfeito.
+- **Verbatim state:** F1-G1 verifier (PASS exit 0): `test $(wc -c < skills/core/project.md) -lt 22000 && test $(wc -c < skills/core/implement.md) -lt 22000 && grep -q 'mode2-codex-lane' skills/core/implement.md && grep -q 'verifier-exec' skills/shared/project-assets/project-transitions.md && npm run validate-skills`. Review file: `.atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md`. Lesson: `lessons/skills-restructuring-f1-economia-de-tokens-project-e-implement.md` (L-F1-1, reusable/open). `node scripts/validate-state.js <plan> <f1> <f6>` → `All 3 file(s) valid`. F6-G1 verifier: `grep -q 'refresh-state' skills/shared/project-assets/project-transitions.md && node --test tests/install-uninstall-roundtrip.test.js && npm run validate-skills`. **8 falhas pré-existentes de `npm test`** (`countSkills`/`installSkills`) seguem delegadas à branch de finalização — NÃO tratar em F6 (F6-G1 desacoplado de `npm test` de propósito).
+- **Uncommitted changes:** o phase-done de F1 ainda NÃO foi commitado. `git status --porcelain`:
+  ` M .atomic-skills/focus.json`
+  ` M .atomic-skills/projects/atomic-skills/PROJECT-STATUS.md`
+  ` M .atomic-skills/projects/atomic-skills/skills-restructuring/phases/f1-economia-de-tokens-project-e-implement.md`
+  ` M .atomic-skills/projects/atomic-skills/skills-restructuring/phases/f6-focus-json-auto-refresh.md`
+  ` M .atomic-skills/projects/atomic-skills/skills-restructuring/plan.md`
+  ` M .atomic-skills/reviews/INDEX.md`
+  ` M .atomic-skills/status/last-session.json`
+  `?? .atomic-skills/projects/atomic-skills/skills-restructuring/lessons/skills-restructuring-f1-economia-de-tokens-project-e-implement.md`
+  `?? .atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md`
 
 ## Links
 

@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-06-16T12:00:18Z
+lastUpdated: 2026-06-16T14:28:01Z
 schemaVersion: '0.1'
 activePlans: 4
 activeInitiatives: 4
@@ -21,7 +21,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started |
 |------|--------|---------------|--------|---------|
 | quick-idea-capture | archived | F1 | — | 2026-06-09 |
-| skills-restructuring | active | F0 | plan/skills-restructuring | 2026-06-15 |
+| skills-restructuring | active | F6 | plan/skills-restructuring | 2026-06-15 |
 | multiplan-focus-resolution | active | F0 | plan/multiplan-focus | 2026-06-15 |
 | design-brief-source-of-truth | active | F1 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |

@@ -5,8 +5,8 @@ title: Reestruturação das skills atomic-skills
 version: "1.0"
 status: active
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T14:10:57Z
-currentPhase: F1
+lastUpdated: 2026-06-16T14:28:01Z
+currentPhase: F6
 branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
@@ -90,7 +90,8 @@ phases:
         - id: F1-G1
           description: project.md e implement.md encolhem e a suite de validação continua
             verde.
-          status: pending
+          status: met
+          metAt: 2026-06-16T14:17:46Z
           verifier:
             kind: shell
             command: test $(wc -c < skills/core/project.md) -lt 22000 && test $(wc -c <
@@ -99,7 +100,21 @@ phases:
               skills/shared/project-assets/project-transitions.md && npm run
               validate-skills
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T14:17:46Z
+            passed: true
+            exitCode: 0
+            outputSummary: "project.md=20396B implement.md=16107B (ambos <22000); grep
+              mode2-codex-lane (implement.md) + verifier-exec
+              (project-transitions.md) OK; validate-skills: All 15 skills valid"
+    status: done
+    reviewGate:
+      status: passed
+      at: 390d4477ffa0faf18cedb20756bae636cfc263c3
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md
+      verifiedAt: 2026-06-16T14:28:01Z
     summary: Enxuga o router project e o driver implement movendo conteúdo
       não-ambiente para lazy.
   - id: F2
@@ -228,7 +243,7 @@ phases:
               skills/shared/project-assets/project-transitions.md && node --test
               tests/install-uninstall-roundtrip.test.js && npm run validate-skills
             expectExitCode: 0
-    status: pending
+    status: active
     summary: "Fecha o gap do focus.json stale: transição usa refresh-state + install
       conecta os hooks (com paridade uninstall)."
     provenance:
