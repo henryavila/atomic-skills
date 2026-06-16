@@ -13,6 +13,11 @@ behaviour and philosophy specified with concrete values.** Canonical spec:
 | **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, reversibility, parity | **product** | **specify, concrete** |
 | **3. Philosophy / who decides** | human × system; what stays hidden | **product** | **binding guardrail** |
 
+R2 per-regime SOURCE note: layer-2 concrete values are always stated. For `brownfield`
+pages, mine/extract values from code. For `greenfield` pages, ask the operator, seeded by
+the catalog's artefacts. Regime switches the SOURCE only, not silence; layer-1 visual-form
+silence is unaffected.
+
 The rule "don't induce, let the agent decide" is layer-1 only. Extending the silence to
 layers 2 and 3 is the root failure (under-specification → the agent fills the gap with its
 conventional default → the product anti-pattern).

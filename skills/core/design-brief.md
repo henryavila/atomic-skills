@@ -65,13 +65,24 @@ needs something the DS lacks, the prompt orders it to **stop and signal**, not i
 
 ### 4. Mine the behavioural parameters from the code (R2) + omission audit (R3)
 
-Read the real app and extract, per screen, the values that govern the interaction — **R2**:
+Fill the Interaction-model block, per screen, with the values that govern the interaction —
+**R2**:
 - **timings/defaults** (timers, debounces, durations that set the pace),
 - **counts** (how many response levels, how many items),
 - **lengths** (how short the content is at the moment of decision),
 - **modality** (gesture/keyboard/touch),
 - **triggers** (what only becomes available after what),
 - **what the domain keeps hidden** (e.g. the scheduling algorithm).
+
+Choose R2's SOURCE from the page's `regime` field in the app-map catalog:
+- `brownfield`: mine/extract the concrete values from the live code.
+- `greenfield`: ask the operator with `{{ASK_USER_QUESTION_TOOL}}`, seeded by the
+  catalog's artefacts (the doc candidates that asserted the page), then state the
+  operator's concrete values.
+
+The parameter is **NEVER silenced** in either regime: only the SOURCE changes
+(code → operator), never whether the value is stated. This does not extend layer-1 silence;
+silence remains for visual form only.
 
 Close the gaps with the **interactive omission audit (R3)**, per screen:
 > *"If I omit this parameter (timing, count, length, modality, what-stays-hidden), would a
