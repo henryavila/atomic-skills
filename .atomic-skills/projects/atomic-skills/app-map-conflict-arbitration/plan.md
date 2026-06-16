@@ -85,7 +85,11 @@ phases:
               test/app-map/persist.test.js
             expectExitCode: 0
     status: pending
-references: []
+references:
+  - kind: repo-path
+    path: .atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/design.md
+    label: "DESIGN — contrato (resolution.choice por value+source, kind derivado-na-origem, blast radius); F0/F1 leem antes de implementar"
+    inside_repo: true
 planActive: true
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
 ---
@@ -118,3 +122,4 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - DESIGN (debate 4 vozes, 2026-06-16): abordagem C "derivada-na-origem" recomendada; A fallback; B rejeitada 3×1; D rejeitada 4×0. Origem: review-code da F2 `.atomic-skills/reviews/2026-06-16-1702-design-brief-source-of-truth-f2.md` (findings #2/#3).
+- PLAN (codex cross-model, Stage 8b, 2026-06-16): `needs_changes` cego (0B/0C/5maj) → `needs_changes` informado (0B/0C/1maj); framing Δ 5→1 (4 dropados por constraint). Único finding (references[] vazio) **corrigido**. Review file: `.atomic-skills/reviews/2026-06-16-1852-app-map-conflict-arbitration-plan.md`.
