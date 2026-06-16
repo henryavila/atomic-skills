@@ -4,11 +4,12 @@ slug: design-brief-source-of-truth-f2-integracao-no-design-brief
 title: Integração no design-brief
 goal: o design-brief consome o catálogo com reconstrução-primeiro, comuta o R2
   por regime, e persiste o catálogo na árvore do app-alvo.
-status: pending
-branch: plan/skills-restructuring
-started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-15T17:00:00.000Z
-nextAction: "Start T-001: Step 2 consome o catálogo"
+status: active
+branch: plan/design-brief
+started: 2026-06-16T15:34:48Z
+lastUpdated: 2026-06-16T15:34:48Z
+nextAction: "RE-DECOMPOR F2 antes do implement: as 3 tasks são anteriores à Revisão 2
+  e têm verifiers inadequados (grep-presença em T-001/T-002; persist.test.js já-passa em T-003)."
 parentPlan: design-brief-source-of-truth
 phaseId: F2
 tasksDone: 0
@@ -97,12 +98,37 @@ current: true
 
 # Narrative / notes
 
-Initiative for phase **F2 — Integração no design-brief**.
+Initiative for phase **F2 — Integração no design-brief**. Materializada no phase-done da F1
+(2026-06-16): metadados stale corrigidos (`branch` era `plan/skills-restructuring`; `started`/
+`lastUpdated` herdados do scaffold), ativada, e a phase-start lessons gate dispositada (abaixo).
+
+> **NÃO SPEC-READY — re-decompor antes do implement.** As 3 tasks T-001…T-003 abaixo foram
+> decompostas em 2026-06-15, **antes da Revisão 2 da F1** (justapor + confirmação-por-divergência,
+> persistência como memória-de-decisão, schema 0.2, confirmDivergences). O DESIGN (Revisão 2) já
+> cobre a F2 (D5' persistência, D6' switch R2, Step 2 reconstrução-primeiro, path `<app-alvo>/
+> .atomic-skills/app-map/`), então a F2 **não volta ao DESIGN — volta ao DECOMPOSE+SPEC**. Problemas:
+> - **T-001/T-002:** verifier `grep -qi 'app-map'/'greenfield'` é presença-de-string, não comportamento
+>   — false-green trivial (escrever a palavra passa). O alvo é prosa de skill (`skills/core/design-brief.md`),
+>   então o verifier precisa checar a *estrutura* da integração, não a menção.
+> - **T-003:** verifier `node --test test/app-map/persist.test.js` **já passa** (persist.js foi
+>   construído na F1/T-005) — não gateia o trabalho novo de T-003 (resolução do path do app-alvo +
+>   wiring no design-brief + marcar output gerado). Verifier tautológico.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **2026-06-16 — Lessons da phase-start gate (disposição):**
+  - **[F1 L-001] APLICAR** a T-003: persist grava arquivos reais na árvore do app-alvo — a nova task
+    deve ter ≥1 teste contra FS real (`mkdtempSync`), não só stub (a F1 já adicionou esse teste em
+    `persist.test.js`; T-003 deve reusá-lo/estendê-lo para o path do app-alvo).
+  - **[F0 L-003] APLICAR**: qualquer teste novo da F2 deve ser descoberto pelo `npm test` (glob
+    `test/**` já ampliado na F0); confirmar, não assumir.
+  - **[F0 L-001] MANTER**: a F2 consome o contrato porta-de-mão-única mas não produz schema novo;
+    rodar `review-code` no diff de integração (modo `local` salvo se mexer no schema → `both`).
+  - **[F1 L-002] / [F0 L-002, L-004] MANTER como referência** (específicas de extração/schema; não
+    diretamente acionáveis na integração de prosa).
 
 ## Links
 
-_(plan doc, external refs)_
+- Doc de design (Revisão 2, fonte da F2): `../design.md` (D5'/D6', Chosen approach pós-Revisão 2)
+- Alvo da integração: `skills/core/design-brief.md` (Step 2 / R2), `skills/shared/design-brief-assets/`
+- Contratos construídos na F1: `src/app-map/{sources,code-scan,diverge,confirm,persist,hash}.js`

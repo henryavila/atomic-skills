@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T15:26:07.716Z",
+  "generatedAt": "2026-06-16T15:35:56.955Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-source-of-truth",
@@ -13,7 +13,7 @@
     "title": "Integração no design-brief",
     "index": 3,
     "total": 3,
-    "status": "pending"
+    "status": "active"
   },
   "tasks": {
     "done": 0,
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Step 2 consome o catálogo",
+  "nextAction": "RE-DECOMPOR F2 antes do implement: as 3 tasks são anteriores à Revisão 2 e têm verifiers inadequados (grep-presença em T-001/T-002; persist.test.js já-passa em T-003).",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f2-integracao-no-design-brief.md",
-      "lastUpdated": "2026-06-15T17:00:00.000Z"
+      "lastUpdated": "2026-06-16T15:34:48Z"
     }
   ]
 }
