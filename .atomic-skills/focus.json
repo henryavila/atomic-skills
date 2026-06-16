@@ -1,16 +1,43 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T13:20:05.053Z",
-  "projectId": null,
-  "plan": null,
-  "phase": null,
-  "tasks": null,
-  "gates": null,
-  "nextAction": null,
+  "generatedAt": "2026-06-16T17:49:20.273Z",
+  "projectId": "atomic-skills",
+  "plan": {
+    "slug": "worktree-lifecycle-finalization",
+    "title": "Finalização do ciclo de vida da worktree-do-plano",
+    "status": "active"
+  },
+  "phase": {
+    "id": "F1",
+    "slug": "worktree-lifecycle-finalization-f1-teardown-seguro-oferta-adjac",
+    "title": "Teardown seguro + oferta adjacente ao archive (Decisões 3+4)",
+    "index": 2,
+    "total": 4,
+    "status": "active"
+  },
+  "tasks": {
+    "done": 0,
+    "total": 2,
+    "blocked": 0
+  },
+  "gates": {
+    "met": 0,
+    "total": 2
+  },
+  "nextAction": "Start T-001: Invariante de não-perda com base-ref ladder",
   "flags": {
     "drift": false,
     "multipleActivePlans": false,
-    "unclaimedBranch": true
+    "unclaimedBranch": false
   },
-  "sources": []
+  "sources": [
+    {
+      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/plan.md",
+      "lastUpdated": "2026-06-16T15:19:54.820Z"
+    },
+    {
+      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f1-teardown-seguro-oferta-adjac.md",
+      "lastUpdated": "2026-06-16T17:31:21.000Z"
+    }
+  ]
 }

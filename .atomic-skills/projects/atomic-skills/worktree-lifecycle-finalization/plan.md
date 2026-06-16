@@ -7,7 +7,7 @@ status: active
 started: 2026-06-16T15:05:46.324Z
 lastUpdated: 2026-06-16T15:19:54.820Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -83,19 +83,39 @@ phases:
           description: "Fork determinístico: solo retorna branch:null, concorrência
             retorna plan/<slug>; worktree retroativa do pré-existente composta
             sem --force; suite verde."
-          status: pending
+          status: met
+          metAt: 2026-06-16T17:31:21.000Z
           verifier:
             kind: test
             runner: node
             pattern: tests/plan-branch-policy.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-16T17:31:21.000Z
+            passed: true
+            exitCode: 0
+            testsCollected: 9
+            outputSummary: "node --test tests/plan-branch-policy.test.js → 9/9 pass (exit 0) @ 4b8e9dd."
         - id: G-2
           description: emit-focus permanece intacto — Decisão 1 não depende dele (testes
             de focus verdes).
-          status: pending
+          status: met
+          metAt: 2026-06-16T17:31:21.000Z
           verifier:
             kind: shell
             command: node --test tests/focus-digest.test.js
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T17:31:21.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test tests/focus-digest.test.js → 11/11 pass (exit 0) @ 4b8e9dd; emit-focus intacto."
+    reviewGate:
+      status: passed
+      at: 4b8e9ddd14af922bed66f84d5d2146ea1e93c578
+      mode: local
+      verifiedAt: 2026-06-16T17:31:21.000Z
+    status: done
     summary: Branch da worktree nasce só sob concorrência; plano solo fica sem branch.
   - id: F1
     slug: worktree-lifecycle-finalization-f1-teardown-seguro-oferta-adjac
@@ -124,7 +144,7 @@ phases:
           verifier:
             kind: shell
             command: npm run validate-skills
-    status: pending
+    status: active
     summary: Remover worktree só com integração provada; oferta de teardown no archive.
   - id: F2
     slug: worktree-lifecycle-finalization-f2-integracao-topology-aware-cl
