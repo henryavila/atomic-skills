@@ -4,27 +4,36 @@ slug: skills-restructuring-f2-economia-de-tokens-padroes-transversais
 title: "Economia de tokens: padrões transversais"
 goal: aplicar uma receita por padrão repetido em N skills de uma vez. Depende de
   F1 (verifier-exec.md nasce em T1.4).
-status: active
+status: done
 branch: null
 started: 2026-06-16T16:50:35Z
-lastUpdated: 2026-06-16T16:50:35Z
-nextAction: "Start T2.1: Convenção Red Flags e Rationalization em todas as skills"
+lastUpdated: 2026-06-16T19:00:49Z
+nextAction: null
 parentPlan: skills-restructuring
 phaseId: F2
 tasksDone: 7
 tasksTotal: 7
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F2-G1
     description: O asset de envelope existe e a suite de validação passa.
-    status: pending
+    status: met
+    metAt: 2026-06-16T18:56:10Z
     verifier:
       kind: shell
       command: test -f skills/shared/codex-bridge-assets/envelope-orchestration.md &&
         npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T18:56:10Z
+      passed: true
+      exitCode: 0
+      outputSummary: test -f envelope-orchestration.md && npm run validate-skills →
+        All 15 skills valid (schema_version 0.2); exit 0.
     verifierLabel: "shell: test -f skills/shared/codex-bridge-assets/envelope-orchestr…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: "Economia de tokens: padrões transversais"
@@ -304,7 +313,6 @@ summary: Uma receita por padrão de bloat aplicada em todas as skills
   (RF/Rationalization, envelope, gates).
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -371,6 +379,15 @@ Initiative for phase **F2 — Economia de tokens: padrões transversais**.
 - G1 read-before-claim: applied — cada task fechou citando o verifier-run real (exit code capturado) + as linhas-fonte lidas antes de cada edit; evidência em cada `tasks[].evidence.outputSummary`.
 - G2 soft-language: applied — claims de conclusão são `passed: true` com resultado observado; handoff sem `should`/`probably`/`works`/`looks done`.
 - G6 reference-or-strike: applied — os literais do handoff são caminhos/comandos verbatim (verifiers, paths de asset, diffstat), não paráfrases.
+
+## Self-review against code-quality gates (phase-done)
+
+- **G1 read-before-claim**: 7 tasks fechadas, cada uma com `evidence.outputSummary` citando o verifier-run real (exit code capturado); `outputs[]` lista os arquivos tocados.
+- **G2 soft-language**: scaneado `nextAction` + task descriptions + criterion descriptions pela ban list; 0 violações.
+- **G6 reference-or-strike**: 1 exit criterion (F2-G1) `met` com `evidence` populada; 0 deferred; 0 unverified.
+- **Codex review**: NÃO executado no phase-done — mode escolhido = `local` pelo sinal DESTRUCTIVE=false (+539/−423, 0 arquivos deletados), consistente com F0/F1/F6 (`mode: local`). O review-code local rodou em sealed-envelope (agente em contexto limpo) sobre `113d5e8..HEAD`, 2 findings (1 major + 1 minor), ambos corrigidos em `2e09b596` e re-verificados.
+- **Review gate (G2)**: `reviewGate` gravado no descritor da fase em plan.md: `{ status: passed, at: 2e09b5962351baf9ce4831947cb8678312e6a5f1, mode: local, reviewFile: .atomic-skills/reviews/2026-06-16-1856-skills-restructuring-f2.md }`. Prosa e campo concordam (GATE-R3).
+- **Lessons (G1)**: 1 lição reusável (L-001 — UNIÃO de placeholders ao extrair esqueleto compartilhado) destilada em `lessons/skills-restructuring-f2-economia-de-tokens-padroes-transversais.md`, ratificada pelo usuário. A fase-start gate da F3 a dispõe via `list-lessons.js --phase F3`.
 
 ## Links
 

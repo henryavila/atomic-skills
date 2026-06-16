@@ -5,8 +5,8 @@ title: Reestruturação das skills atomic-skills
 version: "1.0"
 status: active
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T16:50:35Z
-currentPhase: F2
+lastUpdated: 2026-06-16T19:00:49Z
+currentPhase: F3
 branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
@@ -130,13 +130,27 @@ phases:
       criteria:
         - id: F2-G1
           description: O asset de envelope existe e a suite de validação passa.
-          status: pending
+          status: met
+          metAt: 2026-06-16T18:56:10Z
           verifier:
             kind: shell
             command: test -f skills/shared/codex-bridge-assets/envelope-orchestration.md &&
               npm run validate-skills
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T18:56:10Z
+            passed: true
+            exitCode: 0
+            outputSummary: "test -f envelope-orchestration.md && npm run
+              validate-skills → All 15 skills valid (schema_version 0.2); exit 0."
+    reviewGate:
+      status: passed
+      at: 2e09b5962351baf9ce4831947cb8678312e6a5f1
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1856-skills-restructuring-f2.md
+      verifiedAt: 2026-06-16T18:56:10Z
+    status: done
     summary: Uma receita por padrão de bloat aplicada em todas as skills
       (RF/Rationalization, envelope, gates).
   - id: F3
