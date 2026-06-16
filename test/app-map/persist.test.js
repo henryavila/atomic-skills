@@ -169,6 +169,62 @@ test('mirrorMarkdown lists every witness of a conflict (N=3), not just a count',
   assert.match(mirror, /docs\/b\.md:1/, 'mirror shows each witness provenance (source)');
 });
 
+// Codex review F-001 — a witness value/source is PERMISSIVE in the 0.3 schema
+// (object/array allowed) and reaches the mirror via persistReconstruction. The
+// mirror must render structured fields losslessly, never collapse to
+// `[object Object]`. Mutation back to template-string coercion fails the
+// doesNotMatch assert.
+test('mirrorMarkdown renders structured witness value/source without [object Object]', () => {
+  const pages = [
+    {
+      ...pageFact('dashboard', { evidence: { code: 'routes/dashboard.tsx', docs: ['docs/a.md'] } }),
+      audience: null,
+      conflicts: [
+        {
+          field: 'audience',
+          witnesses: [
+            { value: { segment: 'admin', tier: 2 }, source: { path: 'docs/a.md', line: 3 }, kind: 'artefact' },
+            { value: ['registered', 'guardian'], source: 'docs/b.md:1', kind: 'artefact' },
+          ],
+          evidence: 'structured witnesses disagree',
+          resolution: 'pending',
+        },
+      ],
+    },
+  ];
+  const catalog = buildCatalog({ pages, projectId: 'demo' });
+  assert.equal(validateAppMap(catalog).valid, true, JSON.stringify(validateAppMap(catalog).errors, null, 2));
+
+  const writes = [];
+  emitCatalog(catalog, { dir: '/tmp/app', writeFile: (path, content) => writes.push({ path, content }) });
+  const mirror = writes.find((w) => w.path.endsWith('.md'))?.content ?? '';
+
+  assert.doesNotMatch(mirror, /\[object Object\]/, 'no structured field collapses to [object Object]');
+  assert.match(mirror, /"segment":"admin"/, 'structured value rendered as deterministic JSON');
+  assert.match(mirror, /"path":"docs\/a\.md"/, 'object source rendered as deterministic JSON');
+  assert.match(mirror, /\["registered","guardian"\]/, 'array value rendered as JSON');
+});
+
+// Codex review F-002 — a RESOLVED conflict (object resolution.choice) must not be
+// counted as unresolved nor hide the chosen witness; the mirror must not contradict
+// the JSON after arbitration. buildPages()'s settings page carries a resolved
+// accessTier conflict. Mutation that counts all conflicts as unresolved fails.
+test('mirrorMarkdown renders a resolved conflict with its choice, not as unresolved', () => {
+  const catalog = buildCatalog({ pages: buildPages(), projectId: 'demo' });
+  const writes = [];
+  emitCatalog(catalog, { dir: '/tmp/app', writeFile: (path, content) => writes.push({ path, content }) });
+  const mirror = writes.find((w) => w.path.endsWith('.md'))?.content ?? '';
+
+  const settingsSection = mirror.split('## ').find((s) => s.startsWith('settings'));
+  assert.ok(settingsSection, 'settings page rendered');
+  assert.doesNotMatch(settingsSection, /unresolved conflicts: [1-9]/, 'a resolved conflict is not counted as unresolved');
+  assert.match(
+    settingsSection,
+    /resolved conflict — accessTier: auth:admin \(from docs\/c\.md:1\)/,
+    'the chosen witness (value+source) is rendered',
+  );
+});
+
 // Regression (review #1) — with the DEFAULT fs writers against a fresh target
 // tree (the real first-run case), emit must create the .atomic-skills/app-map/
 // directory and write a parseable catalog — not throw ENOENT.

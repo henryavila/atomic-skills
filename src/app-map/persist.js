@@ -42,6 +42,22 @@ export function buildCatalog({ pages = [], projectId } = {}) {
   return catalog;
 }
 
+// Estável e sem perda: a witness.value e a witness.source são PERMISSIVAS no
+// schema 0.3 (string, null, array, objeto). Coerção por template-string
+// colapsaria um objeto em `[object Object]`, escondendo o valor/proveniência do
+// operador (viola P1). Strings saem como estão; não-strings via JSON determinístico.
+function renderField(value) {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+// Um conflito é RESOLVIDO quando resolution é o objeto de arbitragem (ou a string
+// 'resolved'); 'pending' (ou ausente) é não-resolvido. O mirror não pode rotular
+// um conflito resolvido como "unresolved" nem esconder a testemunha escolhida.
+function conflictResolved(resolution) {
+  if (resolution && typeof resolution === 'object') return true;
+  return resolution === 'resolved';
+}
+
 function mirrorMarkdown(catalog) {
   const lines = [`# app-map (${catalog.projectId ?? 'app'})`, '', `schemaVersion: ${catalog.schemaVersion}`, ''];
   for (const page of catalog.pages) {
@@ -49,15 +65,23 @@ function mirrorMarkdown(catalog) {
     lines.push(`- existence: ${page.existence} · regime: ${page.regime} · status: ${page.status}`);
     lines.push(`- audience: ${page.audience ?? '—'} · accessTier: ${page.accessTier ?? '—'}`);
     lines.push(`- purpose: ${page.purpose}`);
-    if (page.conflicts && page.conflicts.length > 0) {
-      lines.push(`- unresolved conflicts: ${page.conflicts.length}`);
+    const conflicts = Array.isArray(page.conflicts) ? page.conflicts : [];
+    const pending = conflicts.filter((c) => !conflictResolved(c.resolution));
+    const resolved = conflicts.filter((c) => conflictResolved(c.resolution));
+    if (pending.length > 0) {
+      lines.push(`- unresolved conflicts: ${pending.length}`);
       // 0.3 (P1): enumerate every witness so the operator arbitrates over the
       // FULL set — value, derived kind, and provenance — not a bare count.
-      for (const conflict of page.conflicts) {
+      for (const conflict of pending) {
         const witnesses = Array.isArray(conflict.witnesses) ? conflict.witnesses : [];
-        const rendered = witnesses.map((w) => `${w.value} (${w.kind}, ${w.source})`).join('; ');
+        const rendered = witnesses.map((w) => `${renderField(w.value)} (${w.kind}, ${renderField(w.source)})`).join('; ');
         lines.push(`  - ${conflict.field}: ${rendered}`);
       }
+    }
+    for (const conflict of resolved) {
+      const choice = conflict.resolution?.choice;
+      const decision = choice ? `${renderField(choice.value)} (from ${renderField(choice.source)})` : 'resolved';
+      lines.push(`- resolved conflict — ${conflict.field}: ${decision}`);
     }
     lines.push('');
   }
