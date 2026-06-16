@@ -8,13 +8,13 @@ status: active
 branch: plan/multiplan-focus
 started: 2026-06-15T19:42:12Z
 lastUpdated: 2026-06-16T13:00:00Z
-nextAction: "T-006 (única pendente, design colaborativo): fechar design de
-  materializar/entrar na worktree-do-plano no implement + dar worktree ao Mode 1,
-  produzir spec admissível (Files+scopeBoundary+acceptance+verifier), então
-  implementar. T-003 done (WARN→FAIL, commit cdaa61e)."
+nextAction: "Todas as 6 tasks done. Rodar `phase-done` para executar a exit gate
+  F0-G1 (kind:manual — validar com o usuário foco determinístico com 2+ planos
+  ativos + enforcer oferece/força worktree) e o review-code do diff da fase,
+  depois avançar/arquivar o plano. Usuário opta in (intrusive-actions)."
 parentPlan: multiplan-focus-resolution
 phaseId: F0
-tasksDone: 5
+tasksDone: 6
 tasksTotal: 6
 gatesMet: 0
 gatesTotal: 1
@@ -83,12 +83,52 @@ tasks:
       desambigua). 3 testes. Feito (commit 4f05a79)."
   - id: T-006
     title: "implement: materializar/entrar na worktree-do-plano (+ Mode 1)"
-    status: pending
-    lastUpdated: 2026-06-16T10:42:17Z
+    status: done
+    lastUpdated: 2026-06-16T12:31:31Z
+    closedAt: 2026-06-16T12:31:31Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:31:31Z
+      passed: true
+      exitCode: 0
+      outputSummary: validate-skills OK + 3 grep anchors presentes em
+        skills/core/implement.md (Step 0.5 heading, 'git worktree add
+        .worktrees/', 'Mode 1 (Step 2) codes here, in the plan-worktree');
+        EXIT=0
     summary: Casa física durável por plano no início do trabalho; isola o Mode 1.
-    description: implement materializa/entra na worktree-do-plano ao iniciar (lazy),
-      o que também dá worktree ao Mode 1 (hoje sem nenhuma). Decisão deliberada
-      — muda o contrato inline do Mode 1.
+    description: "implement materializa/entra na worktree-do-plano ao iniciar
+      (lazy), o que também dá worktree ao Mode 1 (antes na árvore primária, sem
+      worktree). Decisão deliberada — muda o contrato inline do Mode 1. Spec
+      travada nesta sessão (design colaborativo): novo 'Step 0.5 — Resolve the
+      plan-worktree (lazy)' em skills/core/implement.md, resolução por branch,
+      materialização operator-prompted + HALT-and-instruct, casa do Mode 1 =
+      worktree-do-plano."
+    scopeBoundary:
+      - Editar APENAS skills/core/implement.md — não tocar
+        worktree-isolation.md, project-create-plan.md, nem o estado
+        .atomic-skills/ de outros planos.
+      - Não materializar worktree silenciosamente nem escrever entre árvores;
+        materialização é operator-prompted e o passo HALTA instruindo
+        re-entrada.
+      - Não promover T-003 (verify warn→fail) nem regenerar docs/skills/.
+    acceptance:
+      - implement.md ganha um 'Step 0.5 — Resolve the plan-worktree (lazy)'
+        entre o resume gate (Step 0) e o load de tasks (Step 1).
+      - O passo resolve por branch e faz no-op quando a branch da árvore ==
+        branch do plano, e degraded quando branch é null.
+      - Mismatch materializa .worktrees/<slug> operator-prompted e HALTA
+        instruindo re-rodar implement de dentro da worktree (sem cwd-switch
+        silencioso).
+      - O contrato do Mode 1 declara a worktree-do-plano como sua casa (nível
+        2), não a árvore primária.
+      - npm run validate-skills continua passando após a edição.
+    verifier:
+      kind: shell
+      command: npm run validate-skills >/dev/null 2>&1 && grep -q "Resolve the
+        plan-worktree (lazy)" skills/core/implement.md && grep -q "git worktree
+        add .worktrees/" skills/core/implement.md && grep -q "Mode 1 (Step 2)
+        codes here, in the plan-worktree" skills/core/implement.md
+      expectExitCode: 0
 parked: []
 emerged: []
 summary: "Foco determinístico para multi-plano: resolução em camadas + enforcer
@@ -104,6 +144,7 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 
 ## Feito até aqui
 
+- **T-006** novo `Step 0.5 — Resolve the plan-worktree (lazy)` no `implement` (resolução por branch, materialização operator-prompted + HALT-and-instruct, casa do Mode 1 = worktree-do-plano) — design colaborativo desta sessão; verifier kind:shell exit 0.
 - **T-003** verify §3 branch-match >1-active promovido WARN→FAIL — commit `cdaa61e`.
 - **T-005** producer tree-relative `multipleActivePlans` — commit `4f05a79`.
 - **T-002 + T-001** enforcer soft no `project` (create-plan Stage 6 + create-initiative) — commit `4ca8cdc`.
@@ -120,7 +161,7 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 
 ## A desenhar (colaborativo)
 
-- **T-006** — materialização/entrada na worktree no `implement` + worktree para o Mode 1 (muda o contrato inline do Mode 1; decisão deliberada).
+- _(nada pendente)_ — **T-006** foi desenhado e implementado nesta sessão (design colaborativo travado via 2 decisões: materializar+instruir operator-prompted; casa do Mode 1 = worktree-do-plano).
 
 ## Links
 
@@ -129,12 +170,18 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 
 ## Session handoff
 
-- **Narrative:** Fase F0 do `multiplan-focus-resolution`, 5/6 tasks done. Esta sessão fechou **T-003** (verify §3 branch-match `>1 match` promovido WARN→FAIL, padrão soft→strict). Resta só **T-006**, que é design colaborativo (muda o contrato inline do Mode 1) — ainda não spec-ready. Exit gate F0-G1 é `kind: manual` (pendente).
-- **Decision log:** (1) T-003 implementado em **Mode 1 degraded** porque nenhuma task pendente carregava verifier admitido — prose-only edit num asset (`project-verify.md`), sem backing executável. (2) Verifier escolhido = content-assertion (`>1-match` é FAIL, sem WARN residual) + `npm run validate-skills`, o cheapest real check para mudança de prose. (3) `focus.json` sujo no resume foi commitado (regeneração benigna, consistente com estado durável) antes de qualquer task — HARD-GATE. (4) Ordem T-006→T-003 do nextAction original foi invertida a pedido do usuário (T-003 primeiro).
-- **Single nextAction:** Fechar o design de **T-006** com o usuário (materializar/entrar na worktree-do-plano no `implement` + worktree pro Mode 1), produzir spec admissível (Files+scopeBoundary+acceptance+verifier), e só então implementar — T-006 NÃO é spec-ready hoje (sem Files/scopeBoundary/acceptance/verifier; listada em "A desenhar (colaborativo)").
+- **Narrative:** Fase F0 do `multiplan-focus-resolution`, **6/6 tasks done** — fronteira de fase atingida. Esta sessão desenhou (design colaborativo) e fechou **T-006**: novo `Step 0.5 — Resolve the plan-worktree (lazy)` em `skills/core/implement.md`. T-003 já havia fechado em paralelo (`cdaa61e`/`0b6faa5`), entrou como commits abaixo das mudanças não-commitadas de T-006 — layering limpo, sem conflito. Exit gate F0-G1 é `kind: manual`, ainda **pending**.
+- **Decision log:** (1) Design de T-006 travado com 2 decisões do usuário: **(a)** no mismatch de branch, `implement` materializa `.worktrees/<slug>` operator-prompted e **HALTA instruindo re-entrada** (nunca cwd-switch silencioso / escrita entre árvores); **(b)** a casa do **Mode 1 passa a ser a worktree-do-plano** (nível 2 do aninhamento), não a árvore primária. (2) Resolução **por branch, não por path** (reusa worktree-isolation §Step 0); no-op quando branch da árvore == branch do plano (caso vivo desta sessão), degraded quando branch null. (3) Convenção `.worktrees/<slug>` (regra do projeto), **não** o sibling-dir do `worktree-isolation.md` — discrepância do asset deixada como follow-up, fora do `scopeBoundary[]` de T-006. (4) `docs/skills/implement.md` é gerado de `meta/catalog.yaml`, não do corpo — editar `implement.md` não o deixa stale; escopo ficou em 1 arquivo.
+- **Single nextAction:** Rodar `phase-done` (com opt-in do usuário) para executar a exit gate F0-G1 (`kind:manual`) + o review-code do diff da fase, depois avançar/arquivar o plano.
 - **Verbatim state:**
-  - File editado: `skills/shared/project-assets/project-verify.md` §3, linha do caso `>1 match` agora `FAIL branch: <N> active initiatives claim ...`.
-  - Verifier (kind:shell, ambos exit 0): `grep -q 'FAIL branch: <N> active initiatives claim' skills/shared/project-assets/project-verify.md && ! grep -q 'WARN branch: <N> active initiatives claim' skills/shared/project-assets/project-verify.md` ; `npm run validate-skills` → `✓ All 15 skills valid (schema_version 0.2)`.
-  - `npm run validate-state .atomic-skills/` → exit 0, `✓ All 47 file(s) valid`.
-  - Commit do código: `cdaa61e` (`feat(project): promote verify §3 branch-match >1-active to FAIL (T-003)`).
-- **Uncommitted changes:** estado durável (esta phase file + `focus.json` regenerado) pendente de commit no momento do snapshot; código (`project-verify.md`) já em `cdaa61e`. Será commitado em seguida como `chore(project)`.
+  - File editado: `skills/core/implement.md` — novo `### Step 0.5 — Resolve the plan-worktree (lazy)` entre Step 0 e Step 1; frase de contrato `Mode 1 (Step 2) codes here, in the plan-worktree — not the primary tree`.
+  - Verifier T-006 (kind:shell, exit 0): `npm run validate-skills >/dev/null 2>&1 && grep -q "Resolve the plan-worktree (lazy)" skills/core/implement.md && grep -q "git worktree add .worktrees/" skills/core/implement.md && grep -q "Mode 1 (Step 2) codes here, in the plan-worktree" skills/core/implement.md` → `EXIT=0`.
+  - `npm run validate-state` → `✓ All 47 file(s) valid, 13 plan(s) cross-validated`. `node scripts/compute-rollups.js` → `{"tasksDone":6,"tasksTotal":6,"gatesMet":0,"gatesTotal":1}`.
+  - HEAD no snapshot: `0b6faa5` (`chore(project): close T-003 (done) + rollups 5/6 + session handoff`).
+- **Uncommitted changes:** `M skills/core/implement.md` + `M .atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md` (changeset de T-006: Step 0.5 + spec/done/evidence/rollups 6/6 + narrativa/handoff). Será commitado em seguida.
+
+## Self-review against gates (F0 / implement)
+
+- G1 read-before-claim: applied — T-006 fechado pelo run real `EXIT=0` do verifier (não por inspeção); âncoras conferidas via grep.
+- G2 soft-language: applied — T-006 é `done` com `evidence.passed: true`; sem should/probably/works no handoff.
+- G6 reference-or-strike: applied — literais do handoff são paths/comandos/commits verbatim (`skills/core/implement.md`, o comando do verifier, `0b6faa5`).

@@ -30,6 +30,20 @@ Before touching any task, establish whether this is a fresh start or a resume, a
 2. Read the active initiative's `## Session handoff` block (if present). If it contains an unfilled `TODO`/`REPLACE_*`/`<…>` placeholder, the prior session did not finish writing it — **refuse** and surface which field is unfilled. A handoff with placeholders is not a handoff.
 3. On a clean resume: the handoff IS your re-orientation — read its narrative + decision log + `nextAction`; do NOT cold-re-investigate. Any residual heavy read goes to a read-only subagent (below), never the main coding context.
 
+### Step 0.5 — Resolve the plan-worktree (lazy)
+
+The plan's worktree is the durable **home** of the work — level 2 of the three-level nesting (plan-worktree → execution session → per-task Mode-2 worktree). **Mode 1 (Step 2) codes here, in the plan-worktree — not the primary tree**; Mode 2 seeds its per-task worktrees from this home. Binding the session to this home before loading tasks is what keeps two active plans from writing the same tree (the `multipleActivePlans` invariant resolved by `project`). Resolve by **branch, not by path**, reusing `skills/shared/worktree-isolation.md` § *Step 0 — detect existing isolation BEFORE creating one*; never nest.
+
+1. Read the active plan's `branch:` field (`.atomic-skills/projects/<id>/<slug>/plan.md`) and the current tree's branch via `git symbolic-ref --short HEAD`.
+2. **`branch:` null / unset (legacy plan)** — no worktree binding; run in the current tree (degraded). Record the reason; never invent a branch.
+3. **`branch:` equals the current tree's branch** — already home; **no-op**, proceed to Step 1. (The common resume case.)
+4. **`branch:` differs from the current tree** — the work belongs in the plan's home, not here:
+   a. Resolve an existing home by branch: `git worktree list --porcelain`; if a linked worktree already has `plan/<slug>` checked out, that IS the home — reuse it, do not create a second.
+   b. **Materialize if absent**, operator-prompted via {{ASK_USER_QUESTION_TOOL}}: `git worktree add .worktrees/<slug> -b <plan-branch> <base-ref>` — `.worktrees/<slug>` INSIDE the repo (project convention; the `.worktrees/` nest is git-ignored), branch `plan/<slug>`, seeded from the plan's base ref. Never the sibling-dir placement; never silently.
+   c. **HALT and instruct** the user to re-run `implement` from inside that worktree. A skill cannot change the session cwd, and editing files in a tree other than the one the Step 0 resume gate checked would split the dirty-tree check from the coding tree — so the session must re-enter there. Do not write across trees.
+
+The Step 0 resume gate's `git status --porcelain` is authoritative for the **resolved** tree: when Step 0.5 halts to a different worktree, the resume gate re-runs there on re-entry (a clean tree precedes any task).
+
 ### Step 1 — Load the admitted tasks
 
 Read the active phase's initiative from `.atomic-skills/` (or the nested `projects/<id>/<slug>/phases/f<N>-*.md`). Confirm each pending task carries the SPEC interior: exact `Files`, `scopeBoundary[]`, `acceptance[]`, and a deterministic `verifier:` (`kind shell|test|query`). A task missing any of these was not admitted (R-ORCH-23) — surface it and stop; do not improvise the missing spec.
