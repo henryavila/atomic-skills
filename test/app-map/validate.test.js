@@ -94,3 +94,87 @@ test('assertValidAppMap rejects duplicate canonical page ids', () => {
     },
   );
 });
+
+// --- 0.3: resolution.choice must reference an existing witness (T-002) -------
+
+// A schema-valid 0.3 catalog: per-page evidenceHash + conflicts shaped as
+// witnesses[{value, source, kind}]. `resolution` overridable per test.
+function build0_3Catalog(resolution) {
+  return {
+    schemaVersion: '0.3',
+    inputsHash: 'sha256:abcdef123456',
+    projectId: 'demo-project',
+    pages: [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        purpose: 'Shows the user their current work.',
+        audience: null,
+        accessTier: null,
+        status: 'built',
+        regime: 'brownfield',
+        existence: 'confirmed',
+        evidenceHash: 'sha256:0123456789abcdef',
+        provenance: { id: 'routes/dashboard.tsx' },
+        conflicts: [
+          {
+            field: 'accessTier',
+            witnesses: [
+              { value: 'admin', source: 'docs/roles-admin.md', kind: 'artefact' },
+              { value: 'registered', source: 'docs/roles-registered.md', kind: 'artefact' },
+              { value: 'guardian', source: 'docs/roles-guardian.md', kind: 'artefact' },
+            ],
+            evidence: '3 docs disagree on accessTier',
+            resolution,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+test('validateAppMap rejects a 0.3 resolution.choice that matches no witness', () => {
+  // choice value+source point at a witness that is not in the set — the silent
+  // arbitration-into-the-void the value+source contract (D4) must catch.
+  const catalog = build0_3Catalog({
+    resolvedBy: 'operator',
+    resolvedAt: '2026-06-16T19:00:00Z',
+    choice: { value: 'superuser', source: 'docs/roles-admin.md' },
+  });
+
+  const result = validateAppMap(catalog);
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.errors.some(
+      (error) => error.keyword === 'resolutionChoiceWitness' && error.instancePath === '/pages/0/conflicts/0/resolution/choice',
+    ),
+    JSON.stringify(result.errors, null, 2),
+  );
+
+  assert.throws(
+    () => assertValidAppMap(catalog),
+    (error) => {
+      assert.match(error.message, /app-map catalog is invalid/i);
+      assert.match(error.message, /choice/i);
+      return true;
+    },
+  );
+});
+
+test('validateAppMap accepts a 0.3 resolution.choice that matches a witness by value+source', () => {
+  const catalog = build0_3Catalog({
+    resolvedBy: 'operator',
+    resolvedAt: '2026-06-16T19:00:00Z',
+    choice: { value: 'registered', source: 'docs/roles-registered.md' },
+  });
+
+  assert.equal(validateAppMap(catalog).valid, true, JSON.stringify(validateAppMap(catalog).errors, null, 2));
+  assert.doesNotThrow(() => assertValidAppMap(catalog));
+});
+
+test('validateAppMap does not fire the witness-choice rule on a pending 0.3 conflict', () => {
+  // A still-pending conflict has a string resolution, not an arbitration object —
+  // the value+source integrity rule must not fire (and 0.1/0.2 never carry witnesses).
+  const catalog = build0_3Catalog('pending');
+  assert.equal(validateAppMap(catalog).valid, true, JSON.stringify(validateAppMap(catalog).errors, null, 2));
+});

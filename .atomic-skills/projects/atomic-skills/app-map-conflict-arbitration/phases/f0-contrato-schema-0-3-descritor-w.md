@@ -12,7 +12,7 @@ lastUpdated: 2026-06-16T18:38:32.145Z
 nextAction: "Start T-001: Schema 0.3 — conflict vira witnesses[]"
 parentPlan: app-map-conflict-arbitration
 phaseId: F0
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -72,8 +72,16 @@ tasks:
       expectExitCode: 0
   - id: T-002
     title: Validador — integridade de witnesses + resolution.choice
-    status: pending
-    lastUpdated: 2026-06-16T19:19:00Z
+    status: done
+    closedAt: 2026-06-16T19:31:08Z
+    lastUpdated: 2026-06-16T19:31:08Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T19:31:08Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/validate.test.js → tests 6, pass 6, fail
+        0 (suite app-map completa 59/59, sem regressão 0.1/0.2)
     summary: Regra pós-schema que exige resolution.choice apontar uma testemunha
       existente.
     description: "Função de erro pós-schema (estilo duplicatePageIdErrors) que
@@ -124,8 +132,8 @@ Initiative for phase **F0 — Contrato: schema 0.3 + descritor witnesses**.
 
 ## Session handoff
 
-- **Narrative:** Fase F0 ativa, **1/2 tasks done**. DECOMPOSE+SPEC concluído nesta sessão (4 tasks admitidos). Executor: **Mode 1 (Opus direto)** escolhido pelo operador. T-001 (schema 0.3) implementado RED→GREEN e fechado com evidência passing; o próximo passo é T-002 (regra de integridade no validador).
-- **Decision log:** (1) tasks eram stubs não-admitidos → autorei o SPEC em vez de improvisar (HARD-GATE). (2) Speccei AMBAS as fases (F0+F1) de uma vez. (3) Mode 1 (Opus direto) escolhido para F0 — tarefas pequenas/mecânicas, sem overhead de worktree/merge-back. (4) Schema 0.3: `conflict` legacy intacto (0.1/0.2); novo `$def conflict_0_3` (witnesses) gated por `allOf` por-versão; base `page.conflicts.items` afrouxado para `{type:object}` para evitar contradição de `additionalProperties` entre branches; porta evidenceHash estendida a 0.3 (single-direction door "from 0.2 onward").
-- **Single nextAction:** Implementar F0/T-002 — RED em `test/app-map/validate.test.js` (conflito 0.3 com `resolution.choice` que não casa nenhuma testemunha → `valid:false`), depois `resolutionChoiceErrors(catalog)` em `src/app-map/validate.js` agregado em `validateAppMap`; fechar via `node --test test/app-map/validate.test.js` → EXIT 0.
-- **Verbatim state:** T-001 verifier: `node --test test/app-map/schema.test.js` → `tests 9, pass 9, fail 0` EXIT=0. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 52 file(s) valid` EXIT=0. T-002 verifier: `node --test test/app-map/validate.test.js` (expectExitCode 0).
-- **Uncommitted changes:** clean tree após o commit de T-001 (schema + schema.test.js + estado F0). T-002 ainda não iniciado.
+- **Narrative:** Fase F0 **2/2 tasks done** — contrato 0.3 fechado (schema + validador). T-001 (schema witnesses[]) e T-002 (regra resolution.choice→testemunha) ambos RED→GREEN, fechados com evidência passing. F0 está no **limite de fase**: falta rodar `phase-done` (gate de saída F0-G1 + review-code obrigatório), que é opt-in do operador — não auto-avancei. F1 (produtor/consumidores/prosa) já está spec-admitido, pendente.
+- **Decision log:** (1) tasks eram stubs não-admitidos → autorei o SPEC (HARD-GATE). (2) Speccei F0+F1 de uma vez. (3) Mode 1 (Opus direto) para F0. (4) Schema 0.3: `conflict` legacy intacto; `$def conflict_0_3` (witnesses) gated por `allOf` por-versão; base `conflicts.items`→`{type:object}` p/ evitar contradição `additionalProperties`; porta evidenceHash estendida a 0.3. (5) Validador: `resolutionChoiceErrors` no estilo `duplicatePageIdErrors`, gated por shape (witnesses + resolution objeto + choice), usa `isDeepStrictEqual` p/ value+source.
+- **Single nextAction:** Rodar `phase-done` para F0 (verifica F0-G1 `node --test test/app-map/schema.test.js test/app-map/validate.test.js` + review-code do diff + distila lessons + avança currentPhase p/ F1) — aguardando opt-in do operador.
+- **Verbatim state:** F0-G1 verifier (gate de fase): `node --test test/app-map/schema.test.js test/app-map/validate.test.js` (expectExitCode 0). Suite app-map: `node --test test/app-map/*.test.js` → `tests 59, pass 59, fail 0`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 52 file(s) valid` EXIT=0.
+- **Uncommitted changes:** clean tree após o commit de T-002 (validate.js + validate.test.js + estado F0). Próximo passo é phase-done (sem código pendente).
