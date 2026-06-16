@@ -279,14 +279,19 @@ Works on both plans and initiatives. If `<slug>` resolves to a plan (nested `pro
 2. **Plan archival**:
    - Set the plan's `status: archived`.
    - For every initiative with `parentPlan === <slug>` and `status` in {`active`, `paused`, `pending`}: set its `status: archived`, move file to the resolved archive dir (nested `projects/<project-id>/<slug>/phases/archive/<YYYY-MM>-<phase-slug>.md`, legacy `initiatives/archive/<YYYY-MM>-<slug>.md`).
-   - **Nested:** the plan folder stays in place under `projects/<project-id>/` with `status: archived` (the `phases/archive/` subdir holds its closed phases). **Legacy flat:** move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
+   - **Nested:** the plan is archived in-place: the plan folder stays in place under `projects/<project-id>/` with `status: archived` (the `phases/archive/` subdir holds its closed phases) and zero git effect. The `status: archived` flip is logical-only: no worktree removal, no branch deletion, no integration. **Legacy flat:** move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
 3. **Initiative archival**:
    - **Resolve open exit gates first** (applies to BOTH standalone and plan-anchored initiatives — standalone has no `phase-done`, so this is the only place its gates get closed). For each `exitGates[]` entry whose `status` is not already `met` or `deferred`: run its `verifier` per the **Verifier execution patterns** (or ask the user when `kind: manual`), then set `status: met` (`metAt: <now>`, plus `evidence` when a verifier ran) on pass, or `status: deferred` (`deferredReason`) when the user skips it. **Never set `done`** — that is a Task status; gate status is `pending`/`met`/`deferred` only (see the *Gate status invariant* in the router). If the user wants to archive without verifying, mark the remaining gates `deferred` with a reason — do not leave them `pending` and do not coerce them to `done`.
    - If the initiative has `parentPlan` and the matching plan phase has `status: done`, verify that the initiative `status` is `done` (not `active`/`pending`). If not, apply the propagation steps from `phase-done` step 8a-d first (set all tasks `done`, exitGates `met`, initiative `status: done`), then continue.
    - Set the initiative's `status: archived`.
    - Move file to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/<YYYY-MM>-<slug>.md`, legacy `initiatives/archive/<YYYY-MM>-<slug>.md`).
 4. Update PROJECT-STATUS.md: remove archived rows from active tables; append to "Recently Archived" (keep last 10).
-5. Announce: "Archived `<slug>` (+<N> child initiatives if plan)".
+5. **Adjacent worktree teardown offer (`worktree-teardown`)** — operator-prompted, never automatic. Default is keep the worktree. This offer is separate from the logical archive flip above; archiving still has zero git effect even when teardown is skipped or blocked.
+   - Use `scripts/worktree-teardown.js` as the invariant source: resolve the base via `resolveBaseRef()`, then call `isTeardownSafe({ branch: 'plan/<slug>', baseRef })`.
+   - `outcome: 'nothing-to-remove'` — when the plan's branch is `null`/absent or no worktree was ever materialized, show no teardown prompt. The archive status flip remains zero-git and logical-only.
+   - `outcome: 'safe'` — integration is proven. Offer to remove the worktree with `git worktree remove <path>` followed by `git worktree prune`, and optionally delete the branch with `git branch -d plan/<slug>` (lowercase `-d`; native git is the second guard).
+   - `outcome: 'blocked'` — base is indeterminate OR `plan/<slug>` is not an ancestor of the resolved base. Do not remove anything; surface that the work is not proven integrated and block teardown. Safe failure over-blocks, never over-deletes.
+6. Announce: "Archived `<slug>` (+<N> child initiatives if plan)".
 
 ## `switch <slug>`
 
