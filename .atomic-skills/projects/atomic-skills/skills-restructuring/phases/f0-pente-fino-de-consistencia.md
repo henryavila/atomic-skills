@@ -246,7 +246,7 @@ Initiative for phase **F0 — Pente fino de consistência**.
 
 ## Self-review against gates (at phase-done)
 - **Review gate:** `atomic-skills:review-code HEAD~1..HEAD --mode=local` (non-destructive diff per G5 signal — no file deletes, no drop tokens, additions dominate). Verdict `findings_exist`: 0 blocker / 0 critical / 0 major / 1 minor. The minor (G9 absent from rule×skill matrix without a footnote, unlike G8) was fixed in commit `8a35a17` — `docs/kb/code-quality-gates.md` footnote mirroring the G8 note. Loop converged clean (CRITICAL+MAJOR = 0). reviewGate stamped on `plan.md` phases[F0]: `{status: passed, at: 8a35a179709de639a8e5fa5493805a548a3c2fde, mode: local}`.
-- **Lessons:** 1 reusable lesson distilled from the review finding — pending user ratification (see closing). Failure signal = the matrix-footnote gap (a confirmed minor review finding).
+- **Lessons:** 1 reusable lesson (L-001) distilled from the review finding, ratified by the operator, written to `lessons/skills-restructuring-f0-pente-fino-de-consistencia.md` (validate-state exit 0). Failure signal = the matrix-footnote gap (a confirmed minor review finding, fixed in 8a35a17).
 
 ## Links
 
