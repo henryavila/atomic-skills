@@ -90,6 +90,8 @@ parked: []
 emerged: []
 summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistência
   no app-alvo."
+planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
+planActive: true
 ---
 
 # Narrative / notes

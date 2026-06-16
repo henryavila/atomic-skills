@@ -5,11 +5,11 @@ title: Schema e validação do catálogo
 goal: estabelecer o contrato persistido do catálogo — schema JSON, validação na
   emissão e cobertura pelo validate-state — antes de qualquer reconstrução
   consumi-lo.
-status: active
+status: done
 branch: plan/skills-restructuring
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-16T01:35:47Z
-nextAction: "Todas as 3 tasks fechadas — rodar phase-done (F0): exit gate verifier + review-code, depois advance do plano"
+lastUpdated: 2026-06-16T10:51:14Z
+nextAction: null
 parentPlan: design-brief-source-of-truth
 phaseId: F0
 tasksDone: 3
@@ -28,15 +28,17 @@ exitGates:
       kind: shell
       command: node --test test/app-map/schema.test.js test/app-map/validate.test.js
         && npm run validate-state test/fixtures
-    verifierLabel: "shell: node --test test/app-map/schema.test.js test/app-map/valida…"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-16T10:51:14Z
       passed: true
       exitCode: 0
-      outputSummary: "Gate verifier on merged primary 009a95b: node --test schema+validate
-        → 8/8 pass; npm run validate-state test/fixtures → 1 app-map catalog valid, exit 0.
-        Post-review (2 codex majors fixed: schemaVersion enum + page-id uniqueness)."
+      outputSummary: "Gate verifier on merged primary 009a95b: node --test
+        schema+validate → 8/8 pass; npm run validate-state test/fixtures → 1
+        app-map catalog valid, exit 0. Post-review (2 codex majors fixed:
+        schemaVersion enum + page-id uniqueness)."
+    verifierLabel: "shell: node --test test/app-map/schema.test.js test/app-map/valida…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: Schema e validação do catálogo
@@ -90,7 +92,8 @@ tasks:
       verifiedAt: 2026-06-16T01:16:11Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test test/app-map/validate.test.js → tests 2, pass 2, fail 0 (re-verificado no primary merged aeaa60a)"
+      outputSummary: node --test test/app-map/validate.test.js → tests 2, pass 2, fail
+        0 (re-verificado no primary merged aeaa60a)
   - id: T-003
     title: Registro no validate-state com fixture
     status: done
@@ -118,7 +121,8 @@ tasks:
       outputSummary: "npm run validate-state test/fixtures → '1 app-map catalog(s)
         valid', exit 0 (re-verificado no primary merged 886da30). Acceptance-2:
         node --test test/app-map/validate-state.test.js → 2/2 pass. Regressão:
-        validate-state .atomic-skills → 42 files valid, 12 plans, scopeBoundary ok."
+        validate-state .atomic-skills → 42 files valid, 12 plans, scopeBoundary
+        ok."
 parked: []
 emerged: []
 summary: "Fecha o contrato do catálogo: schema, validação na emissão e cobertura
@@ -136,6 +140,15 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks fechadas, cada uma com `outputs[]`/verifier e evidência; cada fix de review colou as linhas-fonte antes de editar.
+- **G2 soft-language**: scaneado nextAction + descrições de task/criterion contra o ban list; 0 violações.
+- **G6 reference-or-strike**: 1 exit criterion, met com `evidence` populado (shell 8/8 + validate-state, exit 0 em 009a95b); 0 deferred, 0 unverified.
+- **Codex review**: `review-code 4f05a79..b739a81 --mode=both` em HEAD 009a95b, verdict needs_changes (codex 0B/0C/2M; local 1M/3m), os 3 majors corrigidos (08b844d, 009a95b), file `.atomic-skills/reviews/2026-06-16-0749-design-brief-source-of-truth-f0.md`.
+- **Review gate (G2)**: gravado em `plan.phases[F0].reviewGate = { status: passed, at: 009a95b, mode: both, reviewFile, verifiedAt }`.
+- **Lessons (G1)**: distiladas 4 lessons (todas reusable) em `lessons/design-brief-source-of-truth-f0-schema-e-validacao-do-catalogo.md`, ratificadas pelo operador. O gate de início da F1 as dispõe.
 
 ## Session handoff
 - **Narrative:** F0 (Schema e validação do catálogo) do plano `design-brief-source-of-truth` **IMPLEMENTADA via Mode 2 (Codex)** no worktree de integração `impl/design-brief-source-of-truth` (`/home/henry/atomic-skills-db`); árvore principal `plan/skills-restructuring` congelada. **As 3 tasks DONE e re-verificadas no primary merged**: T-001 (schema, ac117c4, 4/4), T-002 (validador emit-time, aeaa60a, 2/2), T-003 (discovery no validate-state + fixtures, 886da30 — validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regressão 42 files). Falta a **fronteira de fase: phase-done** (exit gate F0-G1 + review-code), que NÃO rodei — opt-in do operador.

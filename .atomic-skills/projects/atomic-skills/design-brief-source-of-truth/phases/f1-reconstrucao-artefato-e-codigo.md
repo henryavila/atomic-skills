@@ -113,6 +113,9 @@ parked: []
 emerged: []
 summary: Constrói o motor que cruza artefato e código e gera o catálogo com
   regime e staleness.
+planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
+planActive: true
+current: true
 ---
 
 # Narrative / notes

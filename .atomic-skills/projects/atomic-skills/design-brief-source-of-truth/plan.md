@@ -5,9 +5,9 @@ title: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
 version: "1.0"
 status: active
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-15T17:00:00.000Z
+lastUpdated: 2026-06-16T10:51:14Z
 branch: plan/skills-restructuring
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -54,10 +54,10 @@ phases:
             verifierKind: manual
             verifiedAt: 2026-06-16T10:51:14Z
             passed: true
-            outputSummary: "Confirmado pela evidência determinística da iniciativa
-              (shell 8/8 + validate-state, exit 0 em 009a95b) + review both (2 codex
-              majors corrigidos). Review file 2026-06-16-0749."
-    status: active
+            outputSummary: Confirmado pela evidência determinística da iniciativa (shell 8/8
+              + validate-state, exit 0 em 009a95b) + review both (2 codex majors
+              corrigidos). Review file 2026-06-16-0749.
+    status: done
     reviewGate:
       status: passed
       at: 009a95b99e7ed2b939453fcefd8734dc0554e7ec
@@ -109,6 +109,8 @@ phases:
     summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistência
       no app-alvo."
 references: []
+planActive: true
+planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
 ---
 
 # design-brief: reconstrução da fonte-de-verdade (catálogo app-map)
