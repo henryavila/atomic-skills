@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/app-map.schema.json",
+  "title": "atomic-skills app-map catalog (schemaVersion 0.1)",
+  "description": "Validates the persisted app-map.json information-architecture catalog emitted and consumed by the design-brief skill. The catalog records design-agnostic page facts, source provenance, and unresolved artefact/code conflicts so reconstruction can stop on ambiguity instead of guessing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "inputsHash", "pages"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": ["0.1"],
+      "description": "Version of the persisted app-map contract. Constrained to the supported set (currently only 0.1) so an unsupported version fails validation instead of false-greening; mirrors the enum convention of common.schema.json#/$defs/schemaVersion. Consumers branch on this before interpreting required fields."
+    },
+    "inputsHash": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Content hash of the reconstruction source set. This is the staleness signal for deciding whether the catalog still matches its inputs."
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional project identifier for catalogs generated from a multi-project source tree."
+    },
+    "aliases": {
+      "$ref": "#/$defs/aliases",
+      "description": "Optional advisory alternate catalog names or lookup keys. Aliases are advisory only and must not override canonical ids."
+    },
+    "pages": {
+      "type": "array",
+      "description": "Design-agnostic logical pages in the application information architecture.",
+      "items": { "$ref": "#/$defs/page" }
+    }
+  },
+  "$defs": {
+    "aliases": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "purpose",
+        "audience",
+        "accessTier",
+        "status",
+        "regime",
+        "existence",
+        "provenance",
+        "conflicts"
+      ],
+      "description": "One stable logical page entry. Required fields are the frozen contract consumed by design-brief Step 2.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable logical-page id."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable page label."
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-line statement of what the page is for."
+        },
+        "audience": {
+          "type": ["string", "null"],
+          "description": "User segment for the page. Open vocabulary; common values include visitor, registered, minor, and guardian. Null means an unresolved conflict that should stop reconstruction and ask the operator."
+        },
+        "accessTier": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "enum": ["public", "auth"] },
+            { "type": "string", "pattern": "^auth:.+$" }
+          ],
+          "description": "Visibility/gate axis, separate from audience. Base values are public and auth; role gates use auth:<role>. Null means an unresolved conflict."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["built", "planned", "drifted", "abandoned"],
+          "description": "Lifecycle state of the logical page."
+        },
+        "regime": {
+          "type": "string",
+          "enum": ["greenfield", "brownfield"],
+          "description": "Per-page implementation regime from the page's own code evidence: greenfield has no own code/route; brownfield has one."
+        },
+        "existence": {
+          "type": "string",
+          "enum": ["confirmed", "artefact-only", "code-only", "possible-alias"],
+          "description": "Evidence class for whether the logical page exists in artefacts, code, both, or may only be an alias."
+        },
+        "aliases": {
+          "$ref": "#/$defs/aliases",
+          "description": "Optional advisory alternate page names or route labels. Aliases are advisory only and must not override the canonical page id."
+        },
+        "provenance": {
+          "type": "object",
+          "description": "Per-field provenance keyed by extracted field name, with each value naming the source descriptor that fixed that field.",
+          "additionalProperties": { "type": "string" }
+        },
+        "conflicts": {
+          "type": "array",
+          "description": "Unresolved per-field artefact/code conflicts. A pending conflict may force nullable contract fields such as audience or accessTier to null.",
+          "items": { "$ref": "#/$defs/conflict" }
+        }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "evidence", "resolution"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Field whose artefact and code evidence disagree."
+        },
+        "artefactValue": {
+          "description": "Value found in the non-code artefact source. Deliberately permissive because extracted values can be strings, nulls, arrays, or structured fragments."
+        },
+        "codeValue": {
+          "description": "Value found in code evidence. Deliberately permissive because extracted values can be strings, nulls, arrays, or structured fragments."
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source descriptor or short explanation proving the unresolved conflict."
+        },
+        "resolution": {
+          "type": "string",
+          "enum": ["pending", "resolved"],
+          "description": "pending marks unresolved conflicts; resolved is retained for records that have been adjudicated."
+        }
+      }
+    }
+  }
+}

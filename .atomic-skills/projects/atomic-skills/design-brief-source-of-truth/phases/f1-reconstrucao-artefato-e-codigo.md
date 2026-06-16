@@ -25,6 +25,7 @@ exitGates:
       kind: shell
       command: node --test test/app-map/sources.test.js test/app-map/reconcile.test.js
         test/app-map/regime.test.js test/app-map/resolve.test.js
+    verifierLabel: "shell: node --test test/app-map/sources.test.js test/app-map/recon…"
 stack:
   - id: 1
     title: Reconstrução (artefato e código) e reconciliação
@@ -112,6 +113,9 @@ parked: []
 emerged: []
 summary: Constrói o motor que cruza artefato e código e gera o catálogo com
   regime e staleness.
+planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
+planActive: true
+current: true
 ---
 
 # Narrative / notes

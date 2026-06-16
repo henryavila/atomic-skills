@@ -1,9 +1,15 @@
 {
   "schemaVersion": "0.1",
-  "branch": "main",
-  "lastReviewedCommit": "9e21b16eec9b7fb8d61c2d3d2ae4021c89300071",
-  "lastReviewedAt": "2026-06-07T17:42:28Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-07-1742-f5-phasedone-codex-review.md",
+  "branch": "impl/design-brief-source-of-truth",
+  "lastReviewedCommit": "009a95b99e7ed2b939453fcefd8734dc0554e7ec",
+  "lastReviewedAt": "2026-06-16T10:51:14Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-16-0749-design-brief-source-of-truth-f0.md",
   "verdict": "needs_changes",
-  "counts": { "blocker": 0, "critical": 0, "major": 4, "minor": 0, "nit": 0 }
+  "counts": {
+    "blocker": 0,
+    "critical": 0,
+    "major": 3,
+    "minor": 3,
+    "nit": 0
+  }
 }

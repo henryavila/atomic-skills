@@ -33,3 +33,4 @@
 | 2026-06-15 15:43 | [design-brief-source-of-truth](2026-06-15-1543-design-brief-source-of-truth.md) | plan | needs_changes | 1B/2C/3M/0m/0n | 0d/5=/1+ |
 | 2026-06-15 16:20 | [design-brief-source-of-truth (rev2)](2026-06-15-1620-design-brief-source-of-truth-rev2.md) | plan | needs_changes | 0B/0C/5M/0m/0n | 0d/4=/1+ |
 | 2026-06-15 16:58 | [design-brief-source-of-truth (PLAN)](2026-06-15-1658-design-brief-source-of-truth-plan.md) | plan | needs_changes | 0B/2C/3M/0m/0n | 0d/5=/0+ |
+| 2026-06-16 07:49 | [design-brief-source-of-truth-f0](2026-06-16-0749-design-brief-source-of-truth-f0.md) | code (both) | needs_changes→all fixed | 0B/0C/3M/3m/0n (codex 2M + local 1M/3m) | 0d/2=/0+ |

@@ -24,6 +24,7 @@ exitGates:
       kind: shell
       command: node --test test/app-map/persist.test.js && grep -qi 'app-map'
         skills/core/design-brief.md
+    verifierLabel: "shell: node --test test/app-map/persist.test.js && grep -qi 'app-m…"
 stack:
   - id: 1
     title: Integração no design-brief
@@ -89,6 +90,8 @@ parked: []
 emerged: []
 summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistência
   no app-alvo."
+planTitle: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
+planActive: true
 ---
 
 # Narrative / notes
