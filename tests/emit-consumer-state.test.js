@@ -52,7 +52,13 @@ function fixtureTree() {
           currentPhase: 'F1',
           phases: [
             { id: 'F0', title: 'Foundation', status: 'done', dependsOn: [], summary: 'laid' },
-            { id: 'F1', title: 'Build', status: 'active', dependsOn: ['F0'], summary: 'building' },
+            {
+              id: 'F1', title: 'Build', status: 'active', dependsOn: ['F0'], summary: 'building',
+              exitGate: { criteria: [
+                { id: 'PG-1', description: 'phase gate met', status: 'met', verifier: { kind: 'manual' } },
+                { id: 'PG-2', description: 'phase gate pending', status: 'pending', verifier: { kind: 'manual' } },
+              ] },
+            },
             { id: 'F2', title: 'Ship', status: 'pending', dependsOn: ['F1'], summary: 'later' },
           ],
         },
@@ -78,7 +84,10 @@ function fixtureTree() {
           gatesMet: 0,
           gatesTotal: 2,
           nextAction: 'do the thing',
-          stack: [{ id: 1 }],
+          lastUpdated: '2026-06-16T18:00:00Z',
+          stack: [{ id: 1, title: 'detour', type: 'research', openedAt: '2026-06-16T10:00:00Z' }],
+          parked: [{ title: 'someday idea', surfacedAt: '2026-06-15T00:00:00Z' }],
+          emerged: [{ title: 'follow-up', surfacedAt: '2026-06-15T00:00:00Z', promoted: false }],
           tasks: [
             { id: 'T-1', title: 'a', status: 'done' },
             { id: 'T-2', title: 'b', status: 'blocked', blockedBy: ['D-1'] },
@@ -99,8 +108,29 @@ describe('buildState — derived fields', () => {
     assert.equal(s.initiatives.length, 1);
     assert.equal(s.tasks.length, 2);
     assert.equal(s.gates.length, 1);
+    assert.equal(s.phaseGates.length, 2); // F1 has 2 plan-phase criteria
+    assert.equal(s.stack.length, 1);
+    assert.equal(s.parked.length, 1);
+    assert.equal(s.emerged.length, 1);
     assert.equal(s.projects.length, 1);
     assert.equal(s.totals.length, 1);
+  });
+
+  it('flattens plan-phase gates, stack, parked, emerged with join keys', () => {
+    const pg = s.phaseGates.find((g) => g.id === 'PG-2');
+    assert.equal(pg.status, 'pending');
+    assert.equal(pg.phaseId, 'F1');
+    assert.equal(pg.planSlug, 'big');
+
+    assert.equal(s.stack[0].initiativeId, 'big-f1');
+    assert.equal(s.stack[0].title, 'detour');
+    assert.equal(s.parked[0].title, 'someday idea');
+    assert.equal(s.parked[0].initiativeId, 'big-f1');
+    assert.equal(s.emerged[0].promoted, false);
+  });
+
+  it('carries lastUpdated onto the initiative record (health staleness needs it)', () => {
+    assert.equal(s.initiatives[0].lastUpdated, '2026-06-16T18:00:00Z');
   });
 
   it('precomputes plan focus + phase rollup text from the current initiative', () => {
@@ -173,7 +203,7 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       );
 
       const { written } = emitConsumerState(dir, NOW);
-      assert.equal(written.length, 7);
+      assert.equal(written.length, 11);
 
       const plans = JSON.parse(readFileSync(join(dir, '.atomic-skills', '.aideck', 'state', 'plans.json'), 'utf8'));
       assert.ok(Array.isArray(plans), 'plans.json is a bare array');

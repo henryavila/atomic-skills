@@ -2,254 +2,175 @@
 # ~/.aideck/consumers/<projectId>/ and STAMPS the top-level `id` + `title` to the
 # consuming repo (id = projectId, title = humanized name) — see src/provision-consumer.js.
 # The values below are only the sane default for the atomic-skills repo itself.
+#
+# DASHBOARD v2 (DS v2.1 widgets, runtime schemaVersion 0.1). Every dataSource
+# binds to the DENORMALIZED projection emitted by scripts/emit-consumer-state.js
+# (run `npm run emit-state`; re-run on serve / on state mutation). The v0.1
+# runtime has NO aggregation/operator/reactive engine, so every count, ratio,
+# bucket and relative-time below is PRECOMPUTED into the emitted records; status
+# is mapped to a DS tone per-widget via the &statusvocab anchor; selection is
+# route navigation (no in-page reactive selection — the client router caps detail
+# routes at /:projectId/:slug). See docs/handoffs/atomic-skills-v2-answers.md.
 schemaVersion: '0.1'
 id: atomic-skills
 mcpNamespace: atomic_skills
 title: 'Atomic Skills'
 icon: 'mdi:clipboard-check'
 
-# Read the repo's git-tracked nested tree in place (root: project), no copy into
-# the consumer dir. captures inject the path-derived grouping onto every record.
+# Emitted flat state (root: project ⇒ git-tracked AND watched for SSE live-refresh;
+# a consumer-dir file is read but never watched). Each file is a bare JSON array.
 dataSources:
-  - id: plans
-    path: '.atomic-skills/projects/*/*/plan.md'
-    format: frontmatter
-    root: project
-    captures: [projectId, planSlug]
-  - id: initiatives
-    path: '.atomic-skills/projects/*/*/phases/*.md'
-    format: frontmatter
-    root: project
-    captures: [projectId, planSlug, phaseFile]
-  - id: initiatives_archive
-    path: '.atomic-skills/projects/*/*/phases/archive/*.md'
-    format: frontmatter
-    root: project
-    captures: [projectId, planSlug, phaseFile]
-  - id: discover
-    path: '.atomic-skills/bootstrap-drafts/discover-run.json'
-    format: json
-    root: project
-  - id: inbox
-    path: '.atomic-skills/bootstrap-drafts/inbox/*.jsonl'
-    format: jsonl
-    root: project
-
-  # Derived/exploded sources (§2a array-explode): one record per nested-array
-  # element, carrying the parent's scalars (+ injected captures) down onto each
-  # child, plus _parentId/_index. These power the per-row detail-page widgets
-  # (task list, exit gates, stack, parked/emerged) and the dependency view.
-  - id: phases
-    derivesFrom: plans
-    explode: phases
-    carry: [projectId, planSlug, currentPhase, branch, planActive, planTitle]
-  - id: tasks
-    derivesFrom: initiatives
-    explode: tasks
-    carry: [projectId, planSlug, slug, phaseId, parentPlan, current]
-  - id: exit_gates
-    derivesFrom: initiatives
-    explode: exitGates
-    carry: [projectId, planSlug, slug, phaseId]
-  - id: stack_frames
-    derivesFrom: initiatives
-    explode: stack
-    carry: [projectId, planSlug, slug, phaseId]
-  - id: parked_items
-    derivesFrom: initiatives
-    explode: parked
-    carry: [projectId, planSlug, slug, phaseId]
-  - id: emerged_items
-    derivesFrom: initiatives
-    explode: emerged
-    carry: [projectId, planSlug, slug, phaseId]
+  - { id: projects,    path: '.atomic-skills/.aideck/state/projects.json',    format: json, root: project }
+  - { id: plans,       path: '.atomic-skills/.aideck/state/plans.json',        format: json, root: project }
+  - { id: phases,      path: '.atomic-skills/.aideck/state/phases.json',       format: json, root: project }
+  - { id: initiatives, path: '.atomic-skills/.aideck/state/initiatives.json',  format: json, root: project }
+  - { id: tasks,       path: '.atomic-skills/.aideck/state/tasks.json',         format: json, root: project }
+  - { id: gates,       path: '.atomic-skills/.aideck/state/gates.json',         format: json, root: project }
+  - { id: phaseGates,  path: '.atomic-skills/.aideck/state/phaseGates.json',    format: json, root: project }
+  - { id: stack,       path: '.atomic-skills/.aideck/state/stack.json',         format: json, root: project }
+  - { id: parked,      path: '.atomic-skills/.aideck/state/parked.json',        format: json, root: project }
+  - { id: emerged,     path: '.atomic-skills/.aideck/state/emerged.json',       format: json, root: project }
+  - { id: totals,      path: '.atomic-skills/.aideck/state/totals.json',        format: json, root: project }
+  # Skill catalog projection (scripts/generate-catalog-json.js) → the Ajuda page.
+  - { id: catalog,     path: 'meta/catalog.json', format: json, root: project }
+  # Inbox: the MCP mutation handlers append intents here (jsonl ⇒ a writable dir).
+  - { id: inbox,       path: '.atomic-skills/bootstrap-drafts/inbox/*.jsonl', format: jsonl, root: project }
 
 nav:
   style: tabs
   showIcons: true
 
 pages:
-  # ── Home = FOCUS (default). Answers: what am I implementing, what am I doing
-  # now, and how the current phase fits — scoped to the ACTIVE plan(s) via the
-  # reconcile-focus markers (current / planActive). The global portfolio view is
-  # the secondary "Overview" tab. ──────────────────────────────────────────────
-  - slug: home
+  # ── FOCO (default) — "onde estou agora", uma frente-card por plano ATIVO. ─────
+  # A card per active plan (repeat: slug); its body composes the macro phase
+  # stepper (scoped to THIS plan's phases via $parent), the current-phase task
+  # meter, and the próxima-ação callout — all precomputed onto the plan record.
+  - slug: foco
     title: 'Foco'
     icon: 'mdi:target'
     default: true
     layout: sections
     sections:
-      # Agora = the current phase, stated concisely (summary, not the nextAction
-      # status-dump) + its TASKS (the actual actionable work), not raw rollup
-      # numbers. Scoped to the active plan's currentPhase via the `current` marker.
-      - title: 'Agora'
+      - title: 'Frentes em foco'
         widgets:
-          # MULTI-PLAN-AWARE design (works for N≥1 active plans). The "Agora" block
-          # repeats every widget per active plan (repeat: parentPlan / planSlug). The
-          # ONE lever that makes it correct for both "1 active plan" and "N active
-          # plans" is aiDeck's repeatLabel:auto (the DEFAULT, manifest-schema.d.ts
-          # WidgetBinding): a group header is HIDDEN when there's a single group and
-          # SHOWN (= the plan's name) when there are ≥2. So every plan-repeated widget
-          # below sets `repeatLabelField: planTitle` and leaves repeatLabel at auto —
-          # giving a clean single-plan view AND an unambiguous per-plan label when
-          # multiple plans are active. NEVER hardcode `repeatLabel: never` here: that
-          # was the original bug — it assumed exactly one active plan and left every
-          # duplicated widget unlabeled when two plans were active.
-          # The lone exception is the callout banner directly below: its BODY already
-          # renders planTitle, so a group header would just duplicate it — it alone
-          # keeps repeatLabel:never (self-labeling via body, not a missing label).
-          # (A single header spanning ABOVE the whole per-plan block would need
-          # aiDeck section-level repeat — not in the schema as of v0.1 — so each
-          # widget carries its own auto header instead.)
-          - widget: callout
+          - widget: card
             colSpan: 12
-            source: { ref: initiatives, filter: { current: true } }
-            repeat: parentPlan
-            repeatLabel: never   # EXCEPTION: body (bodyField: planTitle) self-labels; a header would duplicate it
-            repeatDirection: vertical
-            # Labeled banner: "Plano em foco" (static label) + the plan's human name
-            # (bodyField: planTitle) — so the title reads as context, not loose text.
-            # Click → the plan detail. The plan slug = the `planSlug` capture on the
-            # current initiative; the route shape (plan/:projectId/:planSlug) is OURS
-            # (consumer domain) — aiDeck only interpolates the :tokens generically.
-            config: { variant: info, title: 'Plano em foco', bodyField: planTitle, linkTo: 'plan/:projectId/:planSlug', actionLabel: 'Abrir' }
-          # Header row: the current-phase PANEL + its task meter, side by side — each
-          # half of the 12-col grid, stacking full-width on phones. Both are framed
-          # widgets with a header label ("Fase atual" / "Tarefas") + a boxless body,
-          # so the row reads uniformly and the grid stretches them to equal height.
-          # `panel` = header-labeled single-record panel (title + muted body, no inner
-          # box) — aiDeck docs/component-spec-labeled-callout-panel.md.
-          - widget: panel
-            colSpan: 6
-            responsive: { sm: { colSpan: 12 } }
-            source: { ref: initiatives, filter: { current: true } }
-            repeat: parentPlan
-            repeatLabelField: planTitle   # plan-name group header; auto-hidden for 1 active plan, shown when ≥2
-            repeatDirection: vertical
-            # Click the phase title → its initiative (phase) detail. projectId + slug
-            # are on the current-initiative record; route shape owned by the consumer.
-            config: { title: 'Fase atual', titleField: title, bodyField: summary, linkTo: 'phase/:projectId/:slug' }
-          - widget: progress-bar
-            colSpan: 6
-            responsive: { sm: { colSpan: 12 } }
-            source: { ref: initiatives, filter: { current: true } }
-            repeat: parentPlan
-            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
-            repeatDirection: vertical
-            config: { title: 'Tarefas', valueField: tasksDone, maxField: tasksTotal, pct: true }
-          # "Onde estou no plano": the full phase skeleton (the plan's phases[]
-          # descriptor, materialized lazily), scoped to active plans. The current
-          # phase highlights; each node title links to its phase detail. Placed
-          # directly ABOVE the task table so the block reads plan → phase →
-          # where-in-the-plan → the tasks here.
-          - widget: phase-timeline
-            colSpan: 12
-            source: { ref: phases, filter: { planActive: true } }
-            repeat: planSlug
-            repeatLabelField: planTitle   # plan-name group header; auto-hidden for 1 active plan, shown when ≥2
+            source: { ref: plans, filter: { status: active } }
+            repeat: slug
+            repeatLabelField: title   # group header = plan title; auto-hidden for 1 active plan, shown for ≥2
             repeatDirection: vertical
             config:
-              title: 'Onde estou no plano'
-              idField: id
               titleField: title
-              statusField: status
-              nextActionField: summary
-              linkTo: 'phase/:projectId/:slug'   # each node → its initiative detail
-              # Consumer status vocabulary (§2 obl.4 — "own your words"): aiDeck's
-              # built-in map lacks archived/met/deferred. DEFINED here (first status
-              # widget on the page) as a YAML anchor and aliased (*statusvocab) by the
-              # task table below + every status widget on later pages — so this anchor
-              # must stay above its first alias.
-              statuses: &statusvocab
-                active:   { tone: info,    glyph: "◉" }
-                pending:  { tone: neutral, glyph: "·" }
-                paused:   { tone: warning, glyph: "‖" }
-                blocked:  { tone: warning, glyph: "!" }
-                done:     { tone: success, glyph: "✓" }
-                archived: { tone: neutral, glyph: "▪", label: "archived" }
-                met:      { tone: success, glyph: "✓" }
-                deferred: { tone: warning, glyph: "⏸" }
+              subtitleField: currentPhaseText
+              linkTo: 'plan/:projectId/:slug'
+            slots:
+              body:
+                # Macro phase track for THIS plan. $parent = the plan record, so the
+                # filter scopes phases to it (the runtime can't join plan→phase).
+                - widget: stepper
+                  source: { ref: phases, filter: { projectId: '$parent.projectId', planSlug: '$parent.slug' } }
+                  config:
+                    orientation: horizontal
+                    idField: id
+                    labelField: title
+                    statusField: status
+                    dependsOnField: dependsOn
+                    metricField: tasksText
+                    currentField: isCurrent
+                    linkTo: 'phase/:projectId/:slug'   # each step → its initiative detail
+                    # Consumer status vocabulary (§2 "own your words"): defined here as a
+                    # YAML anchor and aliased (*statusvocab) by every later status widget,
+                    # so this anchor must stay above its first alias (document order).
+                    statuses: &statusvocab
+                      active:   { tone: info,    glyph: '◉' }
+                      pending:  { tone: neutral, glyph: '·' }
+                      paused:   { tone: warning, glyph: '‖' }
+                      blocked:  { tone: error,   glyph: '!' }
+                      done:     { tone: success, glyph: '✓' }
+                      archived: { tone: neutral, glyph: '▪', label: 'archived' }
+                      met:      { tone: success, glyph: '✓' }
+                      deferred: { tone: warning, glyph: '⏸' }
+                # Tasks of the current phase (precomputed onto the plan record).
+                - widget: progress-bar
+                  config:
+                    label: 'Tasks da fase atual'
+                    valueField: focusTasksPct
+                    max: 100
+                    valueTextField: focusTasksText   # "5/12"
+                    captionField: focusMeta          # "gates 1/1 · 1 frame"
+                # Próxima ação — the one actionable next step.
+                - widget: callout
+                  config: { eyebrow: 'PRÓXIMA AÇÃO', bodyField: nextText, tone: info }
+      - title: 'Suspenso & travado'
+        widgets:
           - widget: table
             colSpan: 12
-            source: { ref: tasks, filter: { current: true } }
-            repeat: parentPlan
-            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
-            repeatDirection: vertical
+            # `suspended` = precomputed bucket boolean (paused|blocked) — replaces
+            # the array-OR filter the v0.1 runtime silently zeros out.
+            source: { ref: plans, filter: { suspended: true } }
             config:
-              # `summary` = the one-line "what does this task do" (skill-authored,
-              # user-validated; see find-missing-task-summaries.js). Folded UNDER
-              # the title (config.subtitles) instead of its own column, so the
-              # focus panel reads as work — title in front, summary muted beneath —
-              # not a wide id/title/summary table that's hard to scan.
-              columns: [id, title, status, blockedBy]
-              subtitles: { title: summary }
-              # Tasks are intentionally NOT linked: there is no task detail page, and
-              # linking each task to its parent phase would be redundant (the phase is
-              # already reachable via the "Fase atual" panel + the timeline below) and
-              # misleading (all current-phase tasks would point at the same page).
-              # Scope = plan / initiative / phase, not task.
-              emptyNote: 'Sem tarefas nesta fase.'
-              # Status vocabulary defined once on the phase-timeline above (&statusvocab).
+              columns: [title, status, currentPhaseText, nextText]
+              linkTo: 'plan/:projectId/:slug'
+              linkField: title
               statuses: *statusvocab
-            slots:
-              "cell:blockedBy":
-                - widget: tag-chip
-                  config: { field: blockedBy, hideCounts: true }
-  - slug: overview
-    title: 'Overview'
+              emptyNote: 'Nada suspenso ou travado.'
+
+  # ── PANORAMA — landing cross-project: totais + grid de projetos. ─────────────
+  - slug: panorama
+    title: 'Panorama'
     icon: 'mdi:view-dashboard'
     layout: sections
     sections:
-      - title: 'At a glance'
+      - title: 'Panorama'
         columns: 12
         gap: 16
         widgets:
+          # Cross-cutting totals: precomputed single-record source, one stat per field
+          # (the runtime can't aggregate across sources or count boolean fields).
           - widget: stat
             colSpan: 3
-            source: { ref: plans }
-            config: { value: 'count(status=active)', label: 'Active Plans', tone: info }
+            source: { ref: totals }
+            config: { value: 'field(projetos)', label: 'PROJETOS' }
           - widget: stat
             colSpan: 3
-            source: { ref: plans }
-            config: { value: 'count()', label: 'Total Plans' }
+            source: { ref: totals }
+            config: { value: 'field(frentesAtivas)', label: 'FRENTES ATIVAS', tone: info }
           - widget: stat
             colSpan: 3
-            source: { ref: initiatives }
-            config: { value: 'count(status=active)', label: 'Active Phases', tone: info }
+            source: { ref: totals }
+            config: { value: 'field(emParalelo)', label: 'EM PARALELO', tone: info }
           - widget: stat
             colSpan: 3
-            source: { ref: initiatives }
-            config: { value: 'count(status=done)', label: 'Phases Done', tone: success }
-      - title: 'Plans'
+            source: { ref: totals }
+            config: { value: 'field(tasksTravadas)', label: 'TASKS TRAVADAS', tone: error }
+      - title: 'Projetos'
         widgets:
-          - widget: table
+          - widget: collection-grid
             colSpan: 12
-            source: { ref: plans }
+            source: { ref: projects }
             config:
-              columns: [title, status, currentPhase, branch, projectId]
-              emptyNote: 'No plans tracked yet — run the project-status skill to start one.'
-              linkTo: 'plan/:projectId/:slug'   # §2c row-scoped drill-down → Plan detail
-              linkField: title                  # plan title renders as a visible link
-              statuses: *statusvocab            # vocabulary anchored on the Home page
-      - title: 'Phases by status'
-        widgets:
-          - widget: kanban-board
-            colSpan: 12
-            source: { ref: initiatives }
-            config:
-              columns: [pending, active, paused, done, archived]
-              statusField: status
-              idField: phaseId
-              titleField: title
-              linkTo: 'phase/:projectId/:slug'   # card title → initiative detail (slug on the record)
+              minColWidth: 340
+              titleField: name
+              badgeField: mode                          # "paralelo N" | "isolado" | "ocioso"
+              badgeToneField: parallelTone
+              fields: [plansSummary, phasesActiveText]
+              live: { when: hasActiveFront }
+              attention: { when: blockedCount, gt: 0, tone: error }
               statuses: *statusvocab
-            slots:                               # §2b composed card: task-progress overlay
-              card:
-                - widget: progress-bar
-                  config: { valueField: tasksDone, maxField: tasksTotal, pct: true }
+            slots:
+              body:
+                # Frentes vivas do projeto (até o que houver) — $parent = o projeto.
+                - widget: status-list
+                  source: { ref: plans, filter: { projectId: '$parent.id', status: active } }
+                  config:
+                    idField: slug
+                    labelField: title
+                    statusField: status
+                    statuses: *statusvocab
 
-  - slug: plans
-    title: 'Plans'
+  # ── PLANOS — portfolio: stats + tabela + grid por projeto. ───────────────────
+  - slug: planos
+    title: 'Planos'
     icon: 'mdi:format-list-checks'
     layout: sections
     sections:
@@ -257,189 +178,194 @@ pages:
         columns: 12
         gap: 16
         widgets:
+          # `count(field=value)` is the StatWidget's own single-equality expression
+          # (string field only — booleans go through totals above).
           - widget: stat
             colSpan: 3
             source: { ref: plans }
-            config: { value: 'count(status=active)', label: 'Active', tone: info }
+            config: { value: 'count(status=active)', label: 'Ativas', tone: info }
           - widget: stat
             colSpan: 3
             source: { ref: plans }
-            config: { value: 'count(status=paused)', label: 'Paused', tone: warning }
+            config: { value: 'count(status=paused)', label: 'Pausadas', tone: warning }
           - widget: stat
             colSpan: 3
             source: { ref: plans }
-            config: { value: 'count(status=done)', label: 'Done', tone: success }
+            config: { value: 'count(status=done)', label: 'Concluídas', tone: success }
           - widget: stat
             colSpan: 3
             source: { ref: plans }
-            config: { value: 'count(status=archived)', label: 'Archived' }
-      - title: 'All plans'
+            config: { value: 'count(status=archived)', label: 'Arquivadas' }
+      - title: 'Todos os planos'
         widgets:
           - widget: table
             colSpan: 12
             source: { ref: plans }
             config:
-              columns: [title, status, currentPhase, branch, projectId]
-              emptyNote: 'No plans tracked yet.'
+              columns: [title, status, currentPhaseText, branch, projectId]
               linkTo: 'plan/:projectId/:slug'
               linkField: title
               statuses: *statusvocab
-      - title: 'By project'
+              emptyNote: 'Nenhum plano rastreado ainda — rode a skill project para começar.'
+      - title: 'Por projeto'
         widgets:
-          - widget: card-grid
+          - widget: collection-grid
             colSpan: 12
             source: { ref: plans }
             repeat: projectId
             repeatDirection: vertical
             config:
+              minColWidth: 300
               titleField: title
-              subtitleField: currentPhase
-              fields: [status, branch]
+              subtitleField: currentPhaseText
+              badgeField: status
+              badgeToneField: status
+              fields: [branch]
               linkTo: 'plan/:projectId/:slug'
               statuses: *statusvocab
 
-  - slug: phases
-    title: 'Phases'
-    icon: 'mdi:view-column'
-    layout: sections
-    sections:
-      - title: 'Initiatives'
-        widgets:
-          - widget: card-grid
-            colSpan: 12
-            source: { ref: initiatives }
-            repeat: parentPlan
-            repeatLabelField: planTitle   # group header = human plan title, not the slug (aiDeck §2a)
-            repeatDirection: vertical
-            config:
-              titleField: title
-              subtitleField: status
-              fields: [phaseId, nextAction]
-              linkTo: 'phase/:projectId/:slug'   # §2c drill-down → Initiative detail
-              statuses: *statusvocab
-
-  # ── Drill-down detail pages (§2c). Reached via row-scoped linkTo above; the
-  # route /:consumerId/<plan|phase>/:projectId/:slug carries the project scope +
-  # the record slug, matched by each widget's composite source.param. ──────────
+  # ── PLAN detail (drill-down, /plan/:projectId/:slug). ────────────────────────
   - slug: plan
-    title: 'Plan detail'
+    title: 'Detalhe do plano'
     icon: 'mdi:file-tree-outline'
     layout: sections
     sections:
-      - title: 'Plan'
-        columns: 12
-        gap: 16
+      - title: 'Plano'
         widgets:
-          - widget: callout
+          # Selector in place of tabs: selection = navigation (RouterLinks); current
+          # resolved from the route. Switches between the live plans.
+          - widget: record-switcher
             colSpan: 12
-            source: { ref: plans, param: { match: [projectId, slug] } }
-            config: { variant: attention, title: 'Active phase', bodyField: currentPhase }
+            source: { ref: plans, filter: { liveFront: true } }
+            config:
+              idField: slug
+              paramField: slug
+              titleField: title
+              captionField: switcherCaption
+              statusField: status
+              linkTo: 'plan/:projectId/:slug'
+              statuses: *statusvocab
           - widget: key-value
             colSpan: 12
             source: { ref: plans, param: { match: [projectId, slug] } }
             config:
-              fields: [status, currentPhase, branch, started, lastUpdated]
+              fields: [status, currentPhaseText, branch, started, lastUpdated]
               statuses: *statusvocab
-      - title: 'Phase timeline'
+      - title: 'Roteiro'
         widgets:
-          - widget: phase-timeline
+          # Vertical selectable roteiro: each step links to its initiative detail
+          # (route-driven selection — the v0.1-native equivalent of $selectedPhase).
+          - widget: stepper
             colSpan: 12
-            source: { ref: initiatives, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            source: { ref: phases, param: { match: [projectId, { field: planSlug, param: slug }] } }
             config:
-              idField: phaseId
-              titleField: title
+              orientation: vertical
+              selectable: true
+              idField: id
+              labelField: title
               statusField: status
-              nextActionField: nextAction
-              linkTo: 'phase/:projectId/:slug'   # each phase node → its initiative detail
+              dependsOnField: dependsOn
+              metricField: tasksText
+              currentField: isCurrent
+              linkTo: 'phase/:projectId/:slug'
               statuses: *statusvocab
-              meters:                            # surface the precomputed rollups per phase
-                - { label: 'Tasks', valueField: tasksDone, maxField: tasksTotal, style: bar }
-                - { label: 'Gates', valueField: gatesMet, maxField: gatesTotal, style: pips }
-      - title: 'Exit gates'
+      - title: 'Exit gates da fase'
         widgets:
           - widget: table
             colSpan: 12
-            source: { ref: exit_gates, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            source: { ref: phaseGates, param: { match: [projectId, { field: planSlug, param: slug }] } }
             config:
-              # verifierLabel/evidenceSummary are flat scalars derived by
-              # compute-rollups.js (aiDeck can't read the nested verifier/evidence).
               columns: [phaseId, id, description, status, verifierLabel, evidenceSummary]
               statuses: *statusvocab
-              emptyNote: 'No exit gates.'
-      - title: 'Narrative'
-        widgets:
-          - widget: markdown
-            colSpan: 12
-            source: { ref: plans, param: { match: [projectId, slug] } }
+              emptyNote: 'Sem exit gates de fase.'
 
+  # ── PHASE / Initiative detail (drill-down, /phase/:projectId/:slug). ─────────
   - slug: phase
-    title: 'Initiative detail'
+    title: 'Detalhe da iniciativa'
     icon: 'mdi:flag-checkered'
     layout: sections
     sections:
-      - title: 'Initiative'
-        columns: 12
-        gap: 16
+      - title: 'Iniciativa'
         widgets:
           - widget: callout
             colSpan: 12
             source: { ref: initiatives, param: { match: [projectId, slug] } }
-            config: { variant: attention, title: 'Next action', bodyField: nextAction }
+            config: { variant: attention, eyebrow: 'PRÓXIMA AÇÃO', bodyField: nextText }
           - widget: key-value
             colSpan: 12
             source: { ref: initiatives, param: { match: [projectId, slug] } }
             config:
-              fields: [status, phaseId, parentPlan, branch, started, lastUpdated]
+              fields: [status, phaseId, parentPlan, lastUpdated]
               statuses: *statusvocab
       - title: 'Tasks'
         widgets:
-          - widget: table
+          # Grouped by status (precomputed `blockedByText` as the annotation).
+          - widget: status-list
             colSpan: 12
-            source: { ref: tasks, param: { match: [projectId, slug] } }
+            source: { ref: tasks, param: { match: [projectId, { field: initiativeId, param: slug }] } }
             config:
-              columns: [id, title, summary, status, blockedBy]
+              idField: id
+              labelField: title
+              statusField: status
+              annotationField: blockedByText
+              groupBy: status
+              groupOrder: [active, blocked, pending, done]
               statuses: *statusvocab
-              emptyNote: 'No tasks.'
-            slots:
-              "cell:blockedBy":                  # §2b detail slot: blockers as chips
-                - widget: tag-chip
-                  config: { field: blockedBy, hideCounts: true }
       - title: 'Exit gates'
         widgets:
-          - widget: table
+          - widget: status-list
             colSpan: 12
-            source: { ref: exit_gates, param: { match: [projectId, slug] } }
+            source: { ref: gates, param: { match: [projectId, { field: initiativeId, param: slug }] } }
             config:
-              columns: [id, description, status, verifierLabel, evidenceSummary]
+              idField: id
+              labelField: description
+              statusField: status
+              annotationField: verifierLabel
               statuses: *statusvocab
-              emptyNote: 'No exit gates.'
-      - title: 'Stack'
-        widgets:
-          - widget: list
-            colSpan: 12
-            source: { ref: stack_frames, param: { match: [projectId, slug] } }
-            config: { titleField: title, leadField: type, subtitleField: openedAt, emptyNote: 'Stack empty.' }
-      - title: 'Parked & emerged'
+      - title: 'Stack, parked & emerged'
         columns: 12
         gap: 16
         widgets:
           - widget: list
-            colSpan: 6
-            source: { ref: parked_items, param: { match: [projectId, slug] } }
-            config: { title: 'Parked', titleField: title, emptyNote: 'Nothing parked.' }
+            colSpan: 4
+            source: { ref: stack, param: { match: [projectId, { field: initiativeId, param: slug }] } }
+            config: { title: 'Stack', titleField: title, subtitleField: type, emptyNote: 'Stack vazia.' }
           - widget: list
-            colSpan: 6
-            source: { ref: emerged_items, param: { match: [projectId, slug] } }
-            config: { title: 'Emerged', titleField: title, emptyNote: 'Nothing emerged.' }
-      - title: 'Narrative'
-        widgets:
-          - widget: markdown
-            colSpan: 12
-            source: { ref: initiatives, param: { match: [projectId, slug] } }
+            colSpan: 4
+            source: { ref: parked, param: { match: [projectId, { field: initiativeId, param: slug }] } }
+            config: { title: 'Parked', titleField: title, emptyNote: 'Nada parqueado.' }
+          - widget: list
+            colSpan: 4
+            source: { ref: emerged, param: { match: [projectId, { field: initiativeId, param: slug }] } }
+            config: { title: 'Emerged', titleField: title, emptyNote: 'Nada emergido.' }
+
+  # ── CONCLUÍDOS (layout: single) — tabela de planos done/archived. ────────────
+  - slug: concluidos
+    title: 'Concluídos'
+    icon: 'mdi:check-all'
+    layout: single
+    widget: table
+    source: { ref: plans, filter: { concluded: true } }
+    config:
+      columns: [title, status, phasesText, updatedRel]
+      linkTo: 'plan/:projectId/:slug'
+      linkField: title
+      statuses: *statusvocab
+      emptyNote: 'Nada concluído ainda.'
+
+  # ── AJUDA (layout: single) — catálogo de skills (master-detail interno). ─────
+  - slug: help
+    title: 'Ajuda'
+    icon: 'mdi:help-circle-outline'
+    layout: single
+    widget: catalog
+    source: { ref: catalog }
+    config: {}
 
 # MCP tools — registered as aideck_atomic_skills_<name>. Script handlers read the
-# pre-loaded data map (project-scoped) and, for mutations, append an intent to the
-# repo's .atomic-skills/bootstrap-drafts/inbox/ which the atomic-skills skill applies.
+# pre-loaded data map (the emitted flat state, project-scoped) and, for mutations,
+# append an intent to the repo's .atomic-skills/bootstrap-drafts/inbox/ which the
+# atomic-skills skill applies.
 tools:
   - name: mark_task_done
     description: 'Record an intent to mark a task done; returns phaseCompleteHint when it was the last open task.'
