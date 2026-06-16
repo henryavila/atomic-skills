@@ -243,3 +243,48 @@ test('app-map schema 0.3 requires each witness to carry value, source and kind',
     JSON.stringify(validate.errors, null, 2),
   );
 });
+
+// The reverse gating direction (P3 single-direction door): the legacy 0.1/0.2
+// conflict descriptor must REJECT the 0.3 witnesses[] field — otherwise the
+// version boundary leaks and a 0.1/0.2 catalog could smuggle the new shape past
+// the additionalProperties:false guard on the legacy conflict $def.
+test('app-map schema rejects the 0.3 witnesses field on a 0.1/0.2 conflict', () => {
+  const validate = buildValidator();
+  for (const version of ['0.1', '0.2']) {
+    const catalog = {
+      schemaVersion: version,
+      inputsHash: 'sha256:abcdef123456',
+      pages: [
+        {
+          id: 'dashboard',
+          label: 'Dashboard',
+          purpose: 'Shows the user their current work.',
+          audience: null,
+          accessTier: null,
+          status: 'built',
+          regime: 'brownfield',
+          existence: 'confirmed',
+          // 0.2 requires the per-page evidenceHash (single-direction door); harmless on 0.1.
+          evidenceHash: 'sha256:0123456789abcdef',
+          provenance: { id: 'routes/dashboard.tsx' },
+          conflicts: [
+            {
+              field: 'audience',
+              witnesses: [{ value: 'visitor', source: 'docs/personas.md', kind: 'artefact' }],
+              evidence: 'witnesses[] must not be admitted under a legacy version',
+              resolution: 'pending',
+            },
+          ],
+        },
+      ],
+    };
+
+    assert.equal(validate(catalog), false, `${version} catalog with witnesses must be rejected`);
+    assert.ok(
+      validate.errors.some(
+        (error) => error.instancePath.startsWith('/pages/0/conflicts/0') && /additionalProperties/.test(error.keyword ?? ''),
+      ),
+      `${version}: ${JSON.stringify(validate.errors, null, 2)}`,
+    );
+  }
+});
