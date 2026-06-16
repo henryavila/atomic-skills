@@ -5,7 +5,7 @@ title: Reestruturação das skills atomic-skills
 version: "1.0"
 status: active
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T12:22:09Z
+lastUpdated: 2026-06-16T14:10:57Z
 currentPhase: F1
 branch: plan/skills-restructuring
 parallelismAllowed: false
@@ -207,6 +207,49 @@ phases:
     status: done
     summary: "Skill design-brief: gera prompts DS-first + telas-consomem-DS, sem
       contaminar o visual."
+  - id: F6
+    slug: skills-restructuring-f6-focus-json-auto-refresh
+    title: focus.json não drifta silenciosamente
+    goal: garantir que o focus.json (digest da statusline) reflita o estado sem
+      depender de um passo de setup interativo opcional — fechar o gap em que
+      `atomic-skills install` sozinho deixa o digest stale.
+    dependsOn: []
+    subPhaseCount: 2
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F6-G1
+          description: O fluxo de transição regenera o focus.json e os verifiers de
+            T6.1+T6.2 passam (desacoplado das 8 falhas de contagem delegadas).
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -q 'refresh-state'
+              skills/shared/project-assets/project-transitions.md && node --test
+              tests/install-uninstall-roundtrip.test.js && npm run validate-skills
+            expectExitCode: 0
+    status: pending
+    summary: "Fecha o gap do focus.json stale: transição usa refresh-state + install
+      conecta os hooks (com paridade uninstall)."
+    provenance:
+      surfacedAt: 2026-06-16T14:10:57Z
+      surfacedDuring: skills-restructuring-f1-economia-de-tokens-project-e-implement/T1.5
+      surfacedBy: ai
+    context:
+      solves: Fecha o gap onde o auto-refresh do focus.json depende do passo
+        interativo opcional project-setup §5; quem roda só `atomic-skills install`
+        fica com o digest drifting silenciosamente (foi o que aconteceu neste repo).
+      trigger: Ao investigar por que o focus.json estava stale (sessão 2026-06-16),
+        confirmei via src/install.js que o instalador só registra o hook de
+        auto-update (version-check.sh), não os hooks de project-status que refrescam
+        o digest; o usuário pediu para tratar como uma fase neste plano.
+      assumesStillValid:
+        - refresh-state.js segue sendo o agregador (rollups + focus markers + digest)
+        - a HARD RULE de paridade install↔uninstall continua valendo
+        - os hooks de project-status seguem em skills/shared/project-assets/hooks/
+      ratifiedAt: 2026-06-16T14:10:57Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-06-16T14:10:57Z
 references:
   - kind: file
     path: docs/audits/project-implement-audit-2026-06-15.md

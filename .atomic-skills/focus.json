@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T13:54:41.536Z",
+  "generatedAt": "2026-06-16T14:12:07.464Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "skills-restructuring",
@@ -12,7 +12,7 @@
     "slug": "skills-restructuring-f1-economia-de-tokens-project-e-implement",
     "title": "Economia de tokens: project e implement",
     "index": 2,
-    "total": 6,
+    "total": 7,
     "status": "active"
   },
   "tasks": {
@@ -32,7 +32,7 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-16T12:22:09Z"
+      "lastUpdated": "2026-06-16T14:10:57Z"
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f1-economia-de-tokens-project-e-implement.md",
