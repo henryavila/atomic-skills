@@ -7,7 +7,7 @@ status: active
 started: 2026-06-16T18:38:32.145Z
 lastUpdated: 2026-06-16T18:38:32.145Z
 branch: plan/design-brief
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -55,12 +55,25 @@ phases:
           description: O schema 0.3 valida o descritor witnesses, rejeita slots proibidos
             e kind inválido, e mantém 0.1/0.2 válidos; o validador reforça a
             integridade resolution.choice em witnesses.
-          status: pending
+          status: met
+          metAt: 2026-06-16T19:39:09Z
           verifier:
             kind: shell
             command: node --test test/app-map/schema.test.js test/app-map/validate.test.js
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T19:39:09Z
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test test/app-map/schema.test.js test/app-map/validate.test.js → tests 16, pass 16, fail 0"
+    reviewGate:
+      status: passed
+      at: 431165e8aefeb60620f0ad2d8ad24f825fc3f865
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1939-app-map-conflict-arbitration-f0.md
+      verifiedAt: 2026-06-16T19:39:09Z
+    status: done
   - id: F1
     slug: app-map-conflict-arbitration-f1-produtor-consumidores-e-prosa
     title: Produtor, consumidores e prosa
@@ -84,7 +97,7 @@ phases:
             command: node --test test/app-map/reconstruct.test.js
               test/app-map/persist.test.js
             expectExitCode: 0
-    status: pending
+    status: active
 references:
   - kind: repo-path
     path: .atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/design.md

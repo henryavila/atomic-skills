@@ -6,10 +6,10 @@ goal: O produtor emite witnesses[] com kind derivado-na-origem e resolution por
   valor+source; o mirror .md lista as N testemunhas; a prosa do §2 do
   design-brief deixa de prometer um --persist que persiste arbitragem; cobertura
   inclui o caso N≥3.
-status: pending
+status: active
 branch: plan/design-brief
 started: 2026-06-16T18:38:32.145Z
-lastUpdated: 2026-06-16T18:38:32.145Z
+lastUpdated: 2026-06-16T19:39:09Z
 nextAction: "Start T-001: Produtor — conflictForField emite witnesses[] e catálogo 0.3"
 parentPlan: app-map-conflict-arbitration
 phaseId: F1
@@ -105,6 +105,7 @@ parked: []
 emerged: []
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
 planActive: true
+current: true
 ---
 
 # Narrative / notes

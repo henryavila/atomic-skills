@@ -5,28 +5,37 @@ title: "Contrato: schema 0.3 + descritor witnesses"
 goal: Estabelecer o contrato 0.3 do conflito — o descritor `witnesses[]` no
   schema + a regra de integridade no validador — validável emit-time, antes de
   qualquer produtor ou consumidor emitir a forma nova.
-status: active
+status: done
 branch: plan/design-brief
 started: 2026-06-16T18:38:32.145Z
-lastUpdated: 2026-06-16T18:38:32.145Z
-nextAction: "Start T-001: Schema 0.3 — conflict vira witnesses[]"
+lastUpdated: 2026-06-16T19:39:09Z
+nextAction: null
 parentPlan: app-map-conflict-arbitration
 phaseId: F0
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F0-G1
     description: O schema 0.3 valida o descritor witnesses, rejeita slots proibidos
       e kind inválido, e mantém 0.1/0.2 válidos; o validador reforça a
       integridade resolution.choice em witnesses.
-    status: pending
+    status: met
+    metAt: 2026-06-16T19:39:09Z
     verifier:
       kind: shell
       command: node --test test/app-map/schema.test.js test/app-map/validate.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T19:39:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test test/app-map/schema.test.js
+        test/app-map/validate.test.js → tests 16, pass 16, fail 0
     verifierLabel: "shell: node --test test/app-map/schema.test.js test/app-map/valida…"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: "Contrato: schema 0.3 + descritor witnesses"
@@ -113,7 +122,7 @@ parked: []
 emerged: []
 planTitle: "app-map: descritor de conflito rico + canal de arbitragem"
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -130,10 +139,18 @@ Initiative for phase **F0 — Contrato: schema 0.3 + descritor witnesses**.
 - Source SPEC: `.atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/source.md`
 - DESIGN (fonte de verdade): `.atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/design.md`
 
+## Self-review against code-quality gates (phase-done F0)
+
+- **G1 read-before-claim:** cada task fechada cita a saída real do verifier (T-001 9/9, T-002 6/6, gate F0-G1 16/16); o review-code leu os 4 arquivos em contexto limpo.
+- **G2 soft-language:** claims de conclusão são evidência `passed:true`; handoff escaneado, 0 ocorrências da ban-list.
+- **G6 reference-or-strike:** literais do handoff são comandos/paths/saídas verbatim.
+- **Review gate:** review-code modo `local` em HEAD `431165e`, 1 finding major (lacuna de teste de gating reverso) **corrigido + verificado**; reviewGate `passed` gravado no `plan.md`. Review file `.atomic-skills/reviews/2026-06-16-1939-app-map-conflict-arbitration-f0.md`.
+- **Lessons:** 1 candidata distilada do finding (gating por-versão precisa de teste nas DUAS direções) — pendente de ratificação do operador antes de gravar.
+
 ## Session handoff
 
-- **Narrative:** Fase F0 **2/2 tasks done** — contrato 0.3 fechado (schema + validador). T-001 (schema witnesses[]) e T-002 (regra resolution.choice→testemunha) ambos RED→GREEN, fechados com evidência passing. F0 está no **limite de fase**: falta rodar `phase-done` (gate de saída F0-G1 + review-code obrigatório), que é opt-in do operador — não auto-avancei. F1 (produtor/consumidores/prosa) já está spec-admitido, pendente.
+- **Narrative:** Fase F0 **DONE** — contrato 0.3 fechado e fase avançada. Os 2 tasks fecharam por verifier passing; `phase-done` rodou (gate F0-G1 16/16 + review-code local com 1 major corrigido + reviewGate gravado). `currentPhase` agora é **F1** (produtor/consumidores/prosa), já spec-admitida e ativa. Falta ratificar 1 lesson.
 - **Decision log:** (1) tasks eram stubs não-admitidos → autorei o SPEC (HARD-GATE). (2) Speccei F0+F1 de uma vez. (3) Mode 1 (Opus direto) para F0. (4) Schema 0.3: `conflict` legacy intacto; `$def conflict_0_3` (witnesses) gated por `allOf` por-versão; base `conflicts.items`→`{type:object}` p/ evitar contradição `additionalProperties`; porta evidenceHash estendida a 0.3. (5) Validador: `resolutionChoiceErrors` no estilo `duplicatePageIdErrors`, gated por shape (witnesses + resolution objeto + choice), usa `isDeepStrictEqual` p/ value+source.
-- **Single nextAction:** Rodar `phase-done` para F0 (verifica F0-G1 `node --test test/app-map/schema.test.js test/app-map/validate.test.js` + review-code do diff + distila lessons + avança currentPhase p/ F1) — aguardando opt-in do operador.
-- **Verbatim state:** F0-G1 verifier (gate de fase): `node --test test/app-map/schema.test.js test/app-map/validate.test.js` (expectExitCode 0). Suite app-map: `node --test test/app-map/*.test.js` → `tests 59, pass 59, fail 0`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 52 file(s) valid` EXIT=0.
-- **Uncommitted changes:** clean tree após o commit de T-002 (validate.js + validate.test.js + estado F0). Próximo passo é phase-done (sem código pendente).
+- **Single nextAction:** Implementar F1/T-001 (produtor) — RED em `test/app-map/reconstruct.test.js` (página com 3 testemunhas → 3 witnesses preservadas, kind derivado, catálogo 0.3 válido), depois reescrever `conflictForField`/`conflictsForPage` em `src/app-map/reconstruct.js` + `buildCatalog`→0.3 em `src/app-map/persist.js`; fechar via `node --test test/app-map/reconstruct.test.js` → EXIT 0.
+- **Verbatim state:** F0-G1 (met): `node --test test/app-map/schema.test.js test/app-map/validate.test.js` → `tests 16, pass 16, fail 0`. Suite app-map: `node --test test/app-map/*.test.js` → `tests 60, pass 60, fail 0`. State: `node scripts/validate-state.js .atomic-skills` → `✓ All 52 file(s) valid` EXIT=0. reviewGate em `plan.md`: `passed` @ `431165e`. F1/T-001 verifier: `node --test test/app-map/reconstruct.test.js` (expectExitCode 0).
+- **Uncommitted changes:** a confirmar — estado da transição phase-done (plan.md + F0/F1 initiatives + review file + focus.json) ainda não commitado neste passo.
