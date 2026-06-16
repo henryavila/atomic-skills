@@ -33,34 +33,48 @@ Suite: 863 tests, **8 pre-existing failures** (5 `install.test.js` + 3 `detect.t
 count-drift + 2 `pre-commit.test.sh` yaml-resolution — all fail identically on clean HEAD,
 NOT ours). My touched/added tests are green.
 
-## Next actions (in order)
+## Next actions — ALL FOUR DONE (2026-06-16, this branch)
 
-1. **Catalog** — `scripts/generate-catalog-json.js`: `meta/catalog.yaml` (via `collectSkills`
-   in `scripts/lib/validate-skills-core.js`) → a **bare-array** `meta/catalog.json` in the
-   `CatalogWidget`'s flat-key shape (Q11): `id` (bake `/atomic-skills:` prefix — `refs` match
-   against it), `icon`←emoji, `oneLiner`, `facets`←tags, `summary`←purpose, `examples` (command
-   strings), `pros`←when_to_use, `cons`←when_not_to_use, `subItems`←subcommands
-   `{name,description,group}`, `fields`←args `{name,kind,required,description}`, `deps`←dependencies,
-   `outputs`←output_artifacts, `refs`←related (prefixed). Wire into generate-docs/check-docs +
-   husky (it replaces the deleted `skills.generated.ts` regen step) + a test.
-2. **Evolve `assets/aideck-consumer/manifest.yaml`** (v0.1, stays live; adopt incrementally):
-   - dataSources → the emitted `state/*.json` (`format: json`, `root: project`,
-     `path: .atomic-skills/.aideck/state/<entity>.json`). Drop the in-place frontmatter/explode
-     sources that the emitter now denormalizes.
-   - New widgets per the v0.1 bindings in the answers doc Q9/Q11/Q12: `collection-grid`
-     (`header/body/footer` slots), `stepper` (route-linked rows + `slots["cell:<col>"]` dense in
-     a table), `record-switcher` (selection=navigation, `config.linkTo`), `status-list`,
-     `headline-banner`, `catalog` (`layout: single`).
-   - **Route-driven selection** (no reactive vars): selected phase = route param; container
-     filters via `source.param.match`. `$record.x` → `$parent.x` in slot filters.
-   - Per-widget `config.statuses` (tone set success|warning|error|info|neutral). Bucket
-     booleans for the old array-OR filters.
-   - Update `tests/aideck-consumer-manifest.test.js` (it asserts the OLD v0.1 structure).
-3. **`schemas/*.json`** (Ajv draft-07) per emitted entity + run `aideck validate` as a CI gate.
-   Do NOT put `schema:` in the manifest (not enforced at read time, path-string is invalid).
-4. **Collapse `provision-consumer.js`** (Q10): ONE consumer (`id`+`mcpNamespace`+`title`, all
-   required) + project registration — not one-consumer-per-projectId. Update its tests +
-   install/uninstall parity.
+Two forks were ratified by Henry before the manifest rewrite: **1B** (no tech debt —
+refactor the handlers to the flat sources, don't keep parallel frontmatter sources) and
+**2A** (build the v2 design's page set, not a minimal rebind).
+
+1. ✅ **Catalog** — `8cf7588`. `scripts/generate-catalog-json.js` (+ pure
+   `scripts/lib/build-catalog-json.js`, +11 tests) → bare-array `meta/catalog.json` in the
+   CatalogWidget flat-key shape. Wired into generate-docs/check-docs + husky (re-stage +
+   F-001 guard cover `meta/catalog.json`).
+2. ✅ **Manifest cutover + handler refactor (1B/2A)** — `1f5da9d`.
+   - Emitter also emits `phaseGates/stack/parked/emerged.json` + `lastUpdated` on initiatives
+     (the data the handlers need once off the nested frontmatter).
+   - Handlers read the FLAT sources via new `_lib.js` accessors (tasksFor/gatesFor/stackFor/
+     parkedFor/phasesFor/phaseGatesFor); frontmatter/explode sources dropped.
+   - Manifest = v2 pages (Foco default / Panorama / Planos / plan + phase detail / Concluídos /
+     Ajuda-catalog). Validated against the real aiDeck v0.1 zod schema (`loadManifest`).
+   - **Router cap discovered:** client routes stop at `/:projectId/:slug` (2 params) and
+     `source.param` reads only path params → in-page phase selection is impossible; selection
+     is navigation to the `phase` page (stepper `linkTo`). The design's `manifest.sample.yaml`
+     in-place `selectedPhase` container does NOT translate.
+3. ✅ **Schemas + validate gate** — `da5e58d`. `meta/schemas/aideck-state.schema.json`
+   (draft-07, strict, keyed by plural dataSource id so `#/definitions/<id>` resolves the flat
+   shape, not the singular plan/initiative fallback) → bundled into `schema.json` by
+   `build-aideck-consumer-schema.mjs` (schema-drift test keeps it synced).
+   `scripts/validate-aideck-state.js` (`npm run validate-aideck-state`) runs the same Ajv
+   validation aiDeck would, against the in-memory emitted projection. No `schema:` in the manifest.
+4. ✅ **One shared consumer** — `ccf9ee8`. `provision-consumer.js` rewritten identity-free
+   (fixed id `atomic-skills`); the AIDECK CONTRACT in `project-view.md` sets `AIDECK_CONSUMER`
+   fixed, `$pid` scopes the project (POST /api/projects/register). Install/uninstall parity
+   unchanged (same runtime footprint path; `~/.aideck/` is out of parity scope).
+
+**Suite after all four: 878 tests, 8 pre-existing failures unchanged** (install 5 + detect 3
+count-drift). Touched/added tests all green. `loadManifest` OK, `validate-aideck-state` clean
+on the real tree (13 plans / 38 phases / 131 tasks / 55 gates / 65 phaseGates / 31 stack).
+
+### Not yet verified (needs the running dashboard)
+The manifest is schema-valid but RENDER correctness is untested here (no browser). Open the
+dashboard (`/atomic-skills:project status --browser`) and eyeball: the Foco per-plan card's
+`$parent`-scoped stepper, the collection-grid body slots, record-switcher selection, and the
+external deep-link shape (`project-view.md` lines ~322 still use `?project=` + single slug;
+the in-dashboard `linkTo` uses the 2-param path which is correct).
 
 ## Open product calls (Henry to ratify — aiDeck offered to build)
 
