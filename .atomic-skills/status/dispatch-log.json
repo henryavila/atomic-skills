@@ -174,5 +174,21 @@
     "finishedAt": "2026-06-16T17:59:33Z",
     "codexWorktreeRef": "impl/wlf-f1-t001",
     "routingReason": "lane on + F1 spec-ready (interface pinned in work-order) + F2 deterministic test verifier; Codex self-report tests:1 (discarded per lesson L-001), re-verified on MERGED primary 3a07fb6 (node --test 8/8, exit 0)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "worktree-lifecycle-finalization",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T18:02:00Z",
+    "finishedAt": "2026-06-16T18:07:28Z",
+    "codexWorktreeRef": "impl/wlf-f1-t002",
+    "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier (anchor grep + validate-skills, WEAK → compensated by Opus diff review); re-verified on MERGED primary 0a098bf (exit 0, 15 skills valid)"
   }
 ]

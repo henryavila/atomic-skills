@@ -9,10 +9,10 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-16T15:05:46.324Z
 lastUpdated: 2026-06-16T17:31:21.000Z
-nextAction: "Dispatch T-002: oferta de teardown operator-prompted adjacente ao archive (project-transitions.md)"
+nextAction: "F1: todas as tasks done — rodar phase-done (gates G-1/G-2 + review-code) para verificar e avançar a F2."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F1
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
@@ -86,9 +86,21 @@ tasks:
       pattern: tests/worktree-teardown.test.js
   - id: T-002
     title: Oferta de teardown operator-prompted adjacente ao archive
-    status: pending
-    lastUpdated: 2026-06-16T15:38:51.971Z
+    status: done
+    closedAt: 2026-06-16T18:07:28.000Z
+    lastUpdated: 2026-06-16T18:07:28.000Z
     summary: archive passa a oferecer teardown da worktree, sem mexer no status.
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T18:07:28.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "grep -q 'worktree-teardown' ... && grep -qi 'nothing-to-remove'
+        ... && npm run validate-skills → exit 0 (15 skills válidos) na primária
+        MERGED (HEAD 0a098bf) após ff-merge de impl/wlf-f1-t002. Diff revisado
+        (verifier de âncora é fraco): oferta operator-prompted/never-automatic
+        gated por isTeardownSafe, flip zero-git preservado, nothing-to-remove
+        documentado, sem --force/-D."
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-transitions.md
@@ -126,11 +138,11 @@ current: true
 Initiative for phase **F1 — Teardown seguro + oferta adjacente ao archive (Decisões 3+4)**.
 
 ## Session handoff
-- **Narrative:** F1 em andamento, **1/2 tasks done**. **T-001 DONE**: invariante de teardown executado por Codex (Mode 2), merge-back auto-aprovado (modo serial consolidado), ff-merge na primária (`06009bb → 3a07fb6`), verifier `node --test tests/worktree-teardown.test.js` re-rodado na primária merged **8/8 exit 0** (auto-report Codex "tests 1" descartado por L-001), evidence escrita, rollups `tasksDone:1/2`, worktree+branch `impl/wlf-f1-t001` removidos. Próximo: T-002 (oferta de teardown no archive), auto-merge serial aprovado.
-- **Decision log:** (1) F1 herda L-001: re-verificar na primária, nunca confiar no auto-report do Codex (confirmado de novo em T-001). (2) Auto-merge serial F1 aprovado pelo operador — T-002 mergeia sem re-prompt, mas SEMPRE serial + re-verify na primária (nada de batch concorrente). (3) T-002 toca só `project-transitions.md` (markdown), verifier é shell (grep âncora + npm run validate-skills); referencia o invariante de T-001 sem importá-lo. (4) Invariante P3 preservado no módulo (sem `-D`/`--force`/`rm -rf`; `shellQuote` adicionado contra injeção).
-- **Single nextAction:** Dispatch F1 T-002 → editar `skills/shared/project-assets/project-transitions.md` seção `archive`: preservar a frase de flip zero-git + adicionar oferta de teardown operator-prompted ADJACENTE, gated por `scripts/worktree-teardown.js` (`isTeardownSafe`), documentando o desfecho `nothing-to-remove` para branch null. Verifier: `grep -q 'worktree-teardown' skills/shared/project-assets/project-transitions.md && grep -qi 'nothing-to-remove' skills/shared/project-assets/project-transitions.md && npm run validate-skills`.
-- **Verbatim state:** HEAD `plan/worktree-lifecycle-finalization` = `3a07fb6` (após ff-merge T-001) + state-close de T-001 a commitar. F1 G-1 verifier `node --test tests/worktree-teardown.test.js`; F1 G-2 verifier = o shell grep+validate-skills acima. scopeBoundary T-002: NÃO automatizar; NÃO disparar integração de código no archive; NÃO alterar o flip de status (continua zero-git). Lane: `routing.json` mode2Enabled+codexLane.enabled.
-- **Uncommitted changes:** a commitar agora (chore close T-001): F1 initiative (T-001 done + evidence + rollups + nextAction + este handoff) e `dispatch-log.json` (registro F1/T-001). Source de T-001 já em `3a07fb6`.
+- **Narrative:** **F1 com TODAS as tasks done (2/2) — fronteira de fase.** T-001 (invariante `scripts/worktree-teardown.js`) e T-002 (oferta de teardown no `archive` em `project-transitions.md`) executadas por Codex (Mode 2), auto-merge serial, cada uma ff-merge + re-verificada na primária merged (T-001 8/8 @ `3a07fb6`; T-002 shell exit 0 @ `0a098bf`). Gates G-1 (8/8) e G-2 (shell exit 0) confirmados verdes na primária. Falta apenas `phase-done` de F1 (carimbar gates + reviewGate review-code + avançar a F2) — operator-opt-in.
+- **Decision log:** (1) L-001 confirmada de novo (Codex "tests 1" ≠ realidade) nas 2 tasks. (2) Auto-merge serial F1 (operator-aprovado) — sempre serial + re-verify na primária, nunca batch. (3) T-002 verifier é grep de âncora (FRACO) → compensado por review do diff de Opus (oferta operator-prompted, gated por isTeardownSafe, flip zero-git intacto, sem `--force`/`-D`). (4) Source em commits `feat` (co-authored): T-001 `3a07fb6`, T-002 `0a098bf`.
+- **Single nextAction:** Rodar `phase-done` de F1: carimbar G-1 (test 8/8) e G-2 (shell exit 0) como met com evidence; rodar `review-code` (modo local) sobre o diff de fase de F1; gravar `reviewGate` no plan.md fase F1; destilar lessons; avançar `currentPhase` F1→F2. NÃO auto-avançar.
+- **Verbatim state:** HEAD `plan/worktree-lifecycle-finalization` = `0a098bf` (após ff-merge T-002) + state-close de T-002 a commitar. F1 G-1 verifier `node --test tests/worktree-teardown.test.js` (8/8, exit 0); F1 G-2 verifier `grep -q 'worktree-teardown' skills/shared/project-assets/project-transitions.md && grep -qi 'nothing-to-remove' skills/shared/project-assets/project-transitions.md && npm run validate-skills` (exit 0). Próxima fase: F2 (integração topology-aware: classificador de disjunção por footprint).
+- **Uncommitted changes:** a commitar agora (chore close T-002): F1 initiative (T-002 done + evidence + rollups 2/2 + nextAction + este handoff) e `dispatch-log.json` (registro F1/T-002). Source de T-002 já em `0a098bf`.
 
 ## Decisions
 
