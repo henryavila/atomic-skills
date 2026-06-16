@@ -12,7 +12,7 @@ nextAction: "Start T-001: Orquestrador de reconstrução (reconstrução-primeir
   CLI em src/app-map/reconstruct.js"
 parentPlan: design-brief-source-of-truth
 phaseId: F2
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -36,8 +36,18 @@ stack:
 tasks:
   - id: T-001
     title: Orquestrador de reconstrução (reconstrução-primeiro) + CLI
-    status: pending
-    lastUpdated: 2026-06-16T15:34:48Z
+    status: done
+    closedAt: 2026-06-16T16:33:04Z
+    lastUpdated: 2026-06-16T16:33:04Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T16:33:04Z
+      exitCode: 0
+      passed: true
+      testsCollected: 6
+      outputSummary: "node --test test/app-map/reconstruct.test.js (merged primary
+        tree) — tests 6, pass 6, fail 0, duration_ms 137. Executor: Codex Mode 2
+        (worktree impl/db-t001, merged ff into plan/design-brief @ff0d51c)."
     summary: Orquestra os módulos F1 em reconstrução-primeiro (delta por
       evidenceHash) e persiste no app-alvo; CLI não-interativo de dois modos
       (--delta / --persist).
@@ -163,3 +173,35 @@ Initiative for phase **F2 — Integração no design-brief**. Materializada no p
 - Doc de design (Revisão 2, fonte da F2): `../design.md` (D5'/D6', Chosen approach pós-Revisão 2)
 - Alvo da integração: `skills/core/design-brief.md` (Step 2 / R2), `skills/shared/design-brief-assets/`
 - Contratos construídos na F1: `src/app-map/{sources,code-scan,diverge,confirm,persist,hash}.js`
+
+## Session handoff
+
+- **Narrative:** Fase **F2 — Integração no design-brief**, **1/3 tasks** (T-001
+  DONE). **T-001** (orquestrador `reconstruct.js` + CLI + teste) foi executado
+  pelo **Codex (Mode 2)** no worktree `impl/db-t001`, ff-merjado em
+  `plan/design-brief` @`ff0d51c`, e o verifier `node --test
+  test/app-map/reconstruct.test.js` **PASSOU na árvore primária merjada (6/6)** →
+  fechado com evidence. Worktree removido + branch deletada. Próximo: **T-002**.
+- **Decision log:**
+  - Operador optou **Mode 2 / Codex default** para as 3 tasks da F2 (cleared F1∧F2).
+  - T-001 fechado: bridge diverge→buildCatalog via `toPageFact` + `evidenceForPage`
+    (evidence cru = `{code, docs[]}` ordenado) → evidenceHash estável entre o
+    freshness-check e o persist (load-bearing pra AC 3/4). Verifier 6/6 na primária.
+  - **T-002 e T-003 editam ambos `skills/core/design-brief.md`** → NÃO pairwise-
+    disjoint → executados **um de cada vez** (serial), nunca worktrees concorrentes.
+    T-002 = §2 (Screen inventory); T-003 = §4 (R2) + nota no asset anti-contamination.
+  - Falhas pré-existentes no `npm test` (`countSkills`/`installSkills`/`serve
+    constants`) são ambientais (`dist/dashboard` não-buildado neste worktree),
+    NÃO regressão de T-001 (que só adicionou src/app-map + scripts + test/app-map).
+- **Single nextAction:** Despachar **T-002** ao Codex: criar worktree `impl/db-t002` off `ff0d51c` em `/home/henry/atomic-skills/.worktrees/db-t002`, escrever o briefing (§2 do design-brief consome o catálogo via reconstrução-primeiro; route-Glob vira legado opt-in; campos null → parar-e-perguntar) + criar `test/app-map/design-brief-step2.test.js`, dispatch `--sandbox workspace-write`.
+- **Verbatim state:**
+  - Verifier T-002: `node --test test/app-map/design-brief-step2.test.js`
+  - Files T-002: `skills/core/design-brief.md` (SÓ §2), `test/app-map/design-brief-step2.test.js`
+  - Verifier T-003: `node --test test/app-map/design-brief-r2.test.js`
+  - Files T-003: `skills/core/design-brief.md` (SÓ §4), `skills/shared/design-brief-assets/anti-contamination.md`, `test/app-map/design-brief-r2.test.js`
+  - Comando worktree T-002: `git worktree add -b impl/db-t002 /home/henry/atomic-skills/.worktrees/db-t002 ff0d51c`
+  - Invocação Codex: `skills/shared/codex-bridge-assets/invocation-workspace-write.txt`
+  - Telemetria: append em `.atomic-skills/status/dispatch-log.json`
+- **Uncommitted changes:** prestes a commitar a transição de estado de T-001
+  (`f2-integracao-no-design-brief.md` done+rollup+handoff, `dispatch-log.json`).
+  Código-fonte já commitado em `ff0d51c`. Árvore limpa após o commit chore.
