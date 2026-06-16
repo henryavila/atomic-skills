@@ -83,7 +83,7 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 
 1. Locate task in `tasks:` (array). Find the entry where `id === <task-id>`.
 2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.
-3. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see § Dashboard rollups & focus markers below; or `node scripts/compute-rollups.js`), then save the initiative file.
+3. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see § Dashboard rollups & focus markers below) by running `node scripts/refresh-state.js` (the one-pass aggregator: rollups + focus markers + the `focus.json` digest), then save the initiative file. Running refresh-state here is what keeps the statusline digest from drifting after a close.
 4. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
    - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
    - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
@@ -103,7 +103,7 @@ The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *
    - **`hasVerifier: false`** → options `Mark done` / `Still open` / `Skip`. `Mark done` is the manual-acknowledgement path — for a **task**, run the `done <id>` flow (incl. auto-transition + rollup recompute); for a **criterion**, the "No verifier present → manual ack" path → set `status: met`, `metAt: <now>`, write `evidence` (`verifierKind: manual`, `passed: true`). GATE-R2 does NOT gate verifier-absent entries, so manual ack is valid here.
    - **`Still open`** → bump the entry's `lastUpdated` to now (acknowledges; resets the signal clock so the same candidate doesn't re-surface immediately). No status change.
    - **`Skip`** → no change.
-4. After applying dispositions, recompute the initiative's dashboard rollups (or `node scripts/compute-rollups.js`) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
+4. After applying dispositions, recompute the initiative's dashboard rollups by running `node scripts/refresh-state.js` (rollups + focus markers + the `focus.json` digest, one pass) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
 
 This is the pause-point applied to completion, as an explicit verb — so `status`/`verify` keep their read-only semantics and the user is never trapped (every candidate has a valid action for its verifier state).
 
@@ -135,7 +135,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      a. Set all `tasks[].status = 'done'`, `tasks[].closedAt = <now>`, `tasks[].lastUpdated = <now>` for any task not already `done`.
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
-     d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary`, then save the initiative file.
+     d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary` by running `node scripts/refresh-state.js` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
    - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
    - For each newly-active phase id, propose `atomic-skills:project new initiative <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new initiative` flow already seeds the initiative's first stack frame from `initiative.template.md`.
@@ -168,6 +168,8 @@ The block stays with the archived initiative so future spelunking can audit whet
 **Dashboard rollups.** The generic aiDeck reads state in place and has no compute engine, so the dashboard's progress meters read precomputed scalars. On every task or exit-gate **status** change in an initiative, recompute and write its rollups onto the initiative frontmatter: `tasksTotal` = `tasks.length`, `tasksDone` = count(tasks with `status: done`), `gatesTotal` = `exitGates.length`, `gatesMet` = count(exitGates with `status: met`). The same pass also derives, onto each `exitGates[]` element, the flat gate-evidence scalars the dashboard binds as columns — `verifierLabel` (the gate's `verifier` kind + key arg, truncated) and `evidenceSummary` (one-line digest of `evidence`/`deferredReason`, omitted while pending) — because generic widgets cannot read the nested `verifier`/`evidence` objects. The deterministic batch (re)compute + drift-fixer is `node scripts/compute-rollups.js` (idempotent; safe to run anytime to backfill or repair).
 
 **Dashboard focus markers + status hygiene.** The dashboard Home ("Foco") shows the active plan(s) and the current phase, but aiDeck cannot join plan→initiative, so two derived markers are precomputed by `node scripts/reconcile-focus.js`: `planActive` (on the plan record + carried to phase rows + on each initiative — true iff the parent plan is `active`) and `current` (on the initiative that is the active plan's `currentPhase`). The same pass enforces a hygiene invariant — **a paused plan must not leave an `active` phase behind**: any `active` phase under a `paused` plan (in the plan's `phases[]` descriptor AND the matching initiative) is demoted to `paused`. Run it on every **plan-status** change and whenever the project-status view opens (it is idempotent). This is the focus counterpart to the rollups: same read-in-place constraint, same precompute discipline.
+
+**The recompute aggregator (`refresh-state`).** The mutating transitions above (`done`, `reconcile`, `phase-done`, `switch`) do NOT call the two scripts separately — they run `node scripts/refresh-state.js`, the single idempotent chokepoint that funnels, in order, `compute-rollups` (rollups) → `reconcile-focus` (focus markers + the paused-plan hygiene invariant) → `emit-focus` (the flat `focus.json` digest the external statusline reads). `compute-rollups.js`/`reconcile-focus.js` remain the components above; `refresh-state.js` is how every state mutation invokes them in one pass. Routing the recompute through refresh-state is what keeps the `focus.json` digest from drifting between sessions — a raw edit that runs it leaves rollups, focus markers, AND the digest consistent, independent of any session hook.
 
 ## Verifier execution patterns (`verify_exit_gate` workflow) — moved to `verifier-exec.md`
 
@@ -229,7 +231,7 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
    - Find target plan; abort if `status` not in {`active`, `paused`}.
    - Set any other active plan to `status: paused` — **and cascade: pause its `active` phase** (in the plan's `phases[]` descriptor AND the matching initiative file). A paused plan must never leave an `active` phase behind.
    - Set target plan to `status: active`.
-   - Update PROJECT-STATUS.md, then run `node scripts/reconcile-focus.js` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers).
+   - Update PROJECT-STATUS.md, then run `node scripts/refresh-state.js` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers AND the `focus.json` digest in one pass).
 3. **Initiative switch**:
    - Find target initiative; abort if not active/paused.
    - If target has `parentPlan` ≠ currently-active plan's slug: warn and offer to also switch the plan.
