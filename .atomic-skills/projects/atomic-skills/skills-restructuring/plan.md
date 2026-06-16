@@ -5,8 +5,8 @@ title: Reestruturação das skills atomic-skills
 version: "1.0"
 status: active
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-16T19:00:49Z
-currentPhase: F3
+lastUpdated: 2026-06-16T19:46:28Z
+currentPhase: F4
 branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
@@ -166,12 +166,25 @@ phases:
       criteria:
         - id: F3-G1
           description: A suite de validação passa após os movimentos per-skill.
-          status: pending
+          status: met
+          metAt: 2026-06-16T19:32:13Z
           verifier:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T19:32:13Z
+            exitCode: 0
+            passed: true
+            outputSummary: "All 15 skills valid (schema_version 0.2)"
+    reviewGate:
+      status: passed
+      at: aa1c16ca009b61efe3c7e356516f30330f7a4189
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1941-skills-restructuring-f3.md
+      verifiedAt: 2026-06-16T19:41:57Z
+    status: done
     summary: Move blocos mode-gated de cada skill grande para assets lazy.
   - id: F4
     slug: skills-restructuring-f4-feature-project-review

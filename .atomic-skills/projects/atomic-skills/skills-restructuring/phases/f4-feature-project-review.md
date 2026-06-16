@@ -103,6 +103,7 @@ emerged: []
 summary: Subcomando project review que audita plano/iniciativa materializados.
 planTitle: Reestruturação das skills atomic-skills
 planActive: true
+current: true
 ---
 
 # Narrative / notes

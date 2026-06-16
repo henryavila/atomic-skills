@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T19:04:06.745Z",
+  "generatedAt": "2026-06-16T19:47:06.090Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "skills-restructuring",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F3",
-    "slug": "skills-restructuring-f3-economia-de-tokens-per-skill",
-    "title": "Economia de tokens: per-skill",
-    "index": 4,
+    "id": "F4",
+    "slug": "skills-restructuring-f4-feature-project-review",
+    "title": "Feature: project review",
+    "index": 5,
     "total": 7,
-    "status": "active"
+    "status": "pending"
   },
   "tasks": {
     "done": 0,
-    "total": 5,
+    "total": 3,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T3.1: review-code — mover blocos mode-gated e diff-capture",
+  "nextAction": "Start T4.1: review-plan resolve slug e active-plan",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
-      "lastUpdated": "2026-06-16T19:00:49Z"
+      "lastUpdated": "2026-06-16T19:46:28Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f3-economia-de-tokens-per-skill.md",
-      "lastUpdated": "2026-06-16T19:00:49Z"
+      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f4-feature-project-review.md",
+      "lastUpdated": "2026-06-15T14:21:04.364Z"
     }
   ]
 }
