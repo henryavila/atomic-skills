@@ -118,6 +118,16 @@ programático-only + prosa-fix. Duas fases:
 - **(b) Canal CLI `--resolved`** — fora de escopo (D6). Reabrir só se a arbitragem
   programático-only se mostrar insuficiente na prática. *(futuro.)*
 
+- **(c) Escape-hatch opt-in: operador escala UM conflito de juízo para `atomic-skills:debate`.**
+  Fora de escopo deste plano (que é sobre o descritor + mecânicas, não assistência IA à decisão).
+  Diferente do Rejected alternative acima (debate-no-loop-default): aqui debate NÃO é automático
+  nem default — é uma ferramenta que o operador **invoca manualmente** num conflito raro que é
+  genuinamente JULGAMENTO de produto (a direção do produto está em disputa, não um fato a
+  conferir), não um fact-lookup. Salvaguardas obrigatórias se um dia for construído: opt-in
+  por-conflito, **síntese desligada** (apresenta as vozes, o operador decide — P2 intacto), só
+  para conflitos de juízo. Evidência que fecharia: surgir, na prática, uma classe de conflitos
+  cuja resolução é decisão de produto e não de proveniência. *(feature separada e posterior.)*
+
 ## Rejected alternatives
 
 - **A — `candidates: [{value, source}]` sem `kind`.** Honesta e mínima, mas empurra a
@@ -131,6 +141,18 @@ programático-only + prosa-fix. Duas fases:
 - **D — Minimalista (candidatos só na string `evidence`).** Dado estruturado degradado a
   prosa não-arbitrável; o Step 2 teria que parsear texto livre; convite ao "yes-to-all". É o
   bug #2 com outro nome. Rejeitada **4×0**.
+
+- **`atomic-skills:debate` no loop de arbitragem default (resolver conflitos com painel de
+  vozes).** Rejeitada. (1) **Categoria errada:** arbitrar um conflito é resolver um FATO sobre
+  o app ("esta página é admin-only?"), não escolher entre opiniões defensáveis — `debate` é
+  para JULGAMENTO com ≥2 respostas viáveis. (2) **Sem evidência nova:** as personas teriam só
+  as mesmas testemunhas que o operador já vê; raciocinariam no vácuo, produzindo confiança sem
+  fundamento. O descritor `witnesses{value,source,kind}` já entrega a evidência (proveniência),
+  que é o que a decisão precisa — não opinião. (3) **Viola P2/D9:** a síntese do debate é a IA
+  ESCOLHENDO; mesmo advisory, reintroduz o valor IA-resolvido com verniz de rigor → o operador
+  rubber-stamp (fadiga D9 piorada). É exatamente o que este descritor existe para evitar
+  (`doc é semente de pergunta, nunca autoridade; nunca auto-resolver no silêncio`). (4) **Custo:**
+  4 subagentes por conflito × N conflitos é o oposto do D9 (minimizar carga, escalar por risco).
 
 ## Self-review against code-quality gates
 
