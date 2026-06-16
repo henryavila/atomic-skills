@@ -11,3 +11,8 @@ Adicionar o tier de subagent Anthropic (Sonnet/Haiku) ao Mode 2, por cima da lan
 `2026-06-09 · branch:main · status:pending · context:Premissas: debate cobre party-mode parcialmente; refactor-doc-architect segue pausado — se ambos morrerem, esta ideia volta a crescer`
 
 Pesquisa de viabilidade/design/custo de portar party-mode e absorver conceitos do doc-architect como skills atômicos. Plano original arquivado em .atomic-skills/projects/atomic-skills/bmad-porting-research/ (gates: design doc do party-mode skill; mapeamento doc-architect → review-code/hunt/review-plan). Migrado de plano para ideia em 2026-06-09: 0/2 tasks após 2 semanas, e o escopo foi parcialmente superseded — o skill atomic-skills:debate já cobre o conceito party-mode (multi-persona com subagents reais) e refactor-doc-architect é um plano dedicado. Resta avaliar se sobra algo do BMAD que ainda valha portar.
+
+## #3 · Documentação em HTML no GitHub Pages (README vira vitrine)
+`2026-06-16 · branch:plan/fix-aideck-dashboard · status:pending`
+
+Refazer a documentação do atomic-skills em HTML e publicar numa GitHub Page. O README passa a conter apenas os principais benefícios do atomic-skills, com link para a documentação completa.
