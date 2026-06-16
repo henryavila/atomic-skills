@@ -18,9 +18,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
+import { validateAppMap } from '../src/app-map/validate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
+const APP_MAP_FILENAME = 'app-map.json';
+const APP_MAP_MAX_DEPTH = 12;
+const APP_MAP_SKIP_DIRS = new Set(['.git', 'node_modules']);
 
 const SCHEMA_FILES = {
   common: 'common.schema.json',
@@ -203,6 +207,54 @@ export function collectTargets(args) {
 }
 
 /**
+ * Collect durable app-map catalogs from CLI argv without changing state
+ * markdown discovery. Direct file args must be named exactly `app-map.json`;
+ * directory args are walked recursively with bounded depth.
+ */
+export function collectAppMaps(args) {
+  const appMaps = [];
+  const seen = new Set();
+  const addAppMap = (filePath) => {
+    if (seen.has(filePath)) return;
+    appMaps.push(filePath);
+    seen.add(filePath);
+  };
+
+  const walk = (dirPath, depth) => {
+    if (depth > APP_MAP_MAX_DEPTH) return;
+    for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (APP_MAP_SKIP_DIRS.has(entry.name)) continue;
+        walk(join(dirPath, entry.name), depth + 1);
+        continue;
+      }
+      if (entry.isFile() && entry.name === APP_MAP_FILENAME) {
+        addAppMap(join(dirPath, entry.name));
+      }
+    }
+  };
+
+  for (const arg of args) {
+    const absPath = resolve(arg);
+    if (!existsSync(absPath)) {
+      throw new Error(`path not found: ${arg}`);
+    }
+    const stat = statSync(absPath);
+    if (stat.isFile()) {
+      if (basename(absPath) === APP_MAP_FILENAME) {
+        addAppMap(absPath);
+      }
+      continue;
+    }
+    if (stat.isDirectory()) {
+      walk(absPath, 0);
+    }
+  }
+
+  return appMaps;
+}
+
+/**
  * Locate `status/routing.json` config files under the given args (R-XAGENT-10).
  * A routing config lives at `<stateRoot>/status/routing.json`. Each directory arg
  * is treated as a candidate state root; file args are ignored (a routing config is
@@ -247,6 +299,33 @@ export function validateRouting(routingPath, validators) {
   const ok = validators.validateRouting(config);
   if (!ok) {
     const errors = (validators.validateRouting.errors || []).map((e) => {
+      const where = e.instancePath || '(root)';
+      return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
+    });
+    return { ok: false, errors };
+  }
+  return { ok: true, errors: [] };
+}
+
+/**
+ * Validate a single durable app-map catalog with the shared app-map validator.
+ */
+export function validateAppMapFile(appMapPath) {
+  let raw;
+  try {
+    raw = readFileSync(appMapPath, 'utf8');
+  } catch (err) {
+    return { ok: false, errors: [`cannot read app-map.json: ${err.message}`] };
+  }
+  let catalog;
+  try {
+    catalog = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, errors: [`JSON parse error: ${err.message}`] };
+  }
+  const result = validateAppMap(catalog);
+  if (!result.valid) {
+    const errors = result.errors.map((e) => {
       const where = e.instancePath || '(root)';
       return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
     });
@@ -494,14 +573,17 @@ function main() {
   }
 
   let targets;
+  let appMaps;
   try {
     targets = collectTargets(args);
+    appMaps = collectAppMaps(args);
+    targets = targets.filter((target) => basename(target) !== APP_MAP_FILENAME);
   } catch (err) {
     console.error(`ERROR: ${err.message}`);
     process.exit(2);
   }
 
-  if (targets.length === 0) {
+  if (targets.length === 0 && appMaps.length === 0) {
     console.error('ERROR: no plans/*.md or initiatives/*.md found in given path(s)');
     process.exit(2);
   }
@@ -515,6 +597,21 @@ function main() {
     } else {
       failed += 1;
       console.error(`\n✖ ${rel}  [${result.kind ?? 'unknown'}]`);
+      for (const err of result.errors) {
+        console.error(`    - ${err}`);
+      }
+    }
+  }
+
+  let appMapFailed = 0;
+  for (const appMapPath of appMaps) {
+    const rel = appMapPath.replace(`${process.cwd()}/`, '');
+    const result = validateAppMapFile(appMapPath);
+    if (result.ok) {
+      console.log(`✓ ${rel}  [app-map]`);
+    } else {
+      appMapFailed += 1;
+      console.error(`\n✖ ${rel}  [app-map]`);
       for (const err of result.errors) {
         console.error(`    - ${err}`);
       }
@@ -559,9 +656,10 @@ function main() {
     }
   }
 
-  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0) {
+  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0 && appMapFailed === 0) {
     const routingNote = routingConfigs.length ? `, ${routingConfigs.length} routing config(s) valid` : '';
-    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote} (schemaVersion 0.1/0.2)`);
+    const appMapNote = appMaps.length ? `, ${appMaps.length} app-map catalog(s) valid` : '';
+    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote}${appMapNote} (schemaVersion 0.1/0.2)`);
     process.exit(0);
   }
   if (failed > 0) {
@@ -572,6 +670,9 @@ function main() {
   }
   if (routingFailed > 0) {
     console.error(`✖ ${routingFailed} routing config(s) failed validation`);
+  }
+  if (appMapFailed > 0) {
+    console.error(`✖ ${appMapFailed} app-map catalog(s) failed validation`);
   }
   process.exit(1);
 }
