@@ -116,14 +116,55 @@ mínimo (Decisão 5); a cura estrutural é um plano separado.
 6. **Topology-aware DEFERIDO inteiro; backstop read-only re-mirado para o modelo PR→develop.** O
    classificador de footprint (serializar só dentro de componentes conexos) foi desenhado para ordenar
    merge-backs LOCAIS; sob PR→develop quem serializa os merges é o GitHub (branch protection / merge do
-   PR), então o classificador não se justifica na v1 — vira backlog para quando develop→main precisar de
-   ordenação ou houver paralelismo real com dor de conflito. R-XAGENT-03 (merge serial) permanece para
-   qualquer merge-back local fora do fluxo de PR. O **backstop** é um **9º check** a ADICIONAR no
+   PR), então o **classificador AUTO-ORDENADOR** não se justifica na v1 — vira backlog para quando
+   develop→main precisar de ordenação ou houver paralelismo real com dor de conflito. **Distinção precisa
+   (refinada pós-pesquisa):** o que fica deferido é a AUTO-ORDENAÇÃO dos merges; a *DETECÇÃO* de colisão
+   cross-WT NÃO é mais "confie no merge serial do GitHub" — passa a ser o check ativo de finalize
+   (Decisão 7). R-XAGENT-03 (merge serial) permanece para qualquer merge-back local fora do fluxo de PR. O
+   **backstop** é um **9º check** a ADICIONAR no
    `project verify` (hoje há 8, §1–8; o #5 já faz orphan-detection de escopo menor —
    `verified_by: skills/shared/project-assets/project-verify.md` "Checks (in order)" §1–8), read-only,
    WARN-only, derivado live, e re-mirado para os órfãos do modelo novo: worktree viva de feature já
    mergeada em develop (teardown pendente); branch de plano arquivado nunca PR-ada, ou PR aberto e nunca
    mergeado. Sem flag em `focus.json`, sem hook, sem campo de schema novo.
+
+7. **Check de colisão cross-WT no finalize: GATE determinístico (piso do projeto-alvo) + WORKFLOW advisory
+   de agentes LLM — GENÉRICO, escopado ao diff, operator-prompted.** A skill de finalize é **genérica** —
+   roda em QUALQUER projeto-alvo (Java/JS/Python/Go/monorepo grande), sem amarrar à stack ou ao estado
+   deste repo. Disparado só quando há **≥2 worktrees de plano vivas** (uma feature solo não tem com o que
+   colidir).
+   - **Por que existe (evidência):** a literatura define 4 classes de colisão cross-branch — textual /
+     build (static-semantic) / dinâmico-semântico / "higher-order" — e o `git merge` textual SÓ pega a 1ª;
+     mudanças textualmente disjuntas podem mergear limpo mas quebrar build ou comportamento
+     (`verified_by: Shen 2022 TOSEM https://dl.acm.org/doi/10.1145/3546944`;
+     `de Jesus/Borba 2024 ICSE https://arxiv.org/abs/2310.04269`). Conflitos comportamentais escapam de
+     merge E da suíte de testes do próprio projeto (`verified_by: BDCI 2017
+     https://arxiv.org/pdf/1708.01650` — 8 conflitos invisíveis a speculative-merge + testes existentes).
+   - **GATE determinístico (verify-claim-able — é o token de entrada):** merge especulativo das WTs vivas +
+     o **build/typecheck/test/lint DO PRÓPRIO PROJETO-ALVO** na árvore mergeada (comandos DETECTADOS do
+     projeto, nunca hardcoded). Exit code = gate. Pega build-conflicts e conflitos comportamentais cobertos
+     por teste de forma determinística — por isso build & testes NÃO viram agente (rodar o build/teste do
+     projeto já os pega; um "agente de build" duplicaria o piso).
+   - **WORKFLOW advisory (agentes LLM, NÃO-determinístico, NUNCA gate):** conjunto bounded (Pareto), cada
+     agente **escopado ao footprint dos diffs das WTs + vizinhança de dependência imediata** — lê o DIFF,
+     não a árvore inteira, então escala a repo grande (o nº de agentes é fixo; só a leitura escopada cresce,
+     e com o tamanho do diff, não do repo). Foca no que o piso é estruturalmente cego:
+     - **Agente A — interferência comportamental/semântica:** raciocina se a COMBINAÇÃO das mudanças altera
+       comportamento que passa isolado (o gap BDCI). É a única classe sem forma determinística barata
+       genérica (`verified_by: de Jesus 2024` — precisão 0.43 mesmo na análise estática Java-específica ⇒
+       advisory por obrigação, não por escolha).
+     - **Agente B — colisão de recurso-compartilhado/contrato:** ≥2 WTs mutando o mesmo recurso mutável
+       (config, lockfile, gerado, migration, estado global, flag) OU mudando o contrato de um símbolo
+       compartilhado (assinatura/API/tipo/schema) que outra referencia — valor maior quando o build/teste
+       do projeto é FRACO e o piso não pega (`verified_by: Shen 2021 https://arxiv.org/pdf/2102.11307` —
+       93% dos build-conflicts = uma branch referenciar entidade que a outra alterou/removeu).
+   - **Disciplina (inegociável):** os agentes **self-check, nunca self-certify** (verify-claim) — findings
+     roteiam para revisão humana; o GATE determinístico é a prova. Iron Law preservado: agentes são
+     READ-ONLY (leitura paraleliza; merge/código serial — R-XAGENT-03). É um acelerador Claude-Code (a tool
+     `Workflow`); fallback PORTÁVEL (agentes de leitura sequenciais, ou skip registrado) em outro IDE.
+   - **Calibração honesta (frequência ≠ severidade):** essas colisões higher-order são RARAS em frequência
+     (~0.1% vs ~13.5% textual no corpus de `verified_by: Shen 2022`) mas caras POR OCORRÊNCIA
+     (invisibilidade/custo) → justifica um check OPCIONAL/operator-prompted, não always-on.
 
 ## Chosen approach
 
@@ -138,14 +179,19 @@ O modelo (Git Flow `worktree=feature→PR→develop→main`) é decisão do oper
   preservado.
 - **(C) Híbrido — ESCOLHIDA.** Comando dedicado `project finalize` (separa publicar de encerrar, Decisão
   3) + teardown com **liveness(gh) + veto ancorado no `headRefOid`** seguro sob squash (Decisão 4) + ref configurável em
-  `routing.json` (Decisão 2) + coupling contido com o mínimo (Decisão 5) + topology deferido (Decisão 6).
+  `routing.json` (Decisão 2) + coupling contido com o mínimo (Decisão 5) + topology auto-ordenador deferido
+  (Decisão 6) + **check de colisão cross-WT no finalize: gate determinístico do projeto-alvo + workflow
+  advisory de agentes LLM escopados ao diff (Decisão 7)**.
 
 **Por que (C) ganhou:** Tariq fixou o invariante inegociável — a API dá o SINAL, o grafo local dá o VETO;
 um falso-positivo passa a exigir DOIS erros independentes (o `OR` ingênuo só exigia um). Flynn cravou o
 finalize magérrimo e o corte do over-engineering (patch-id, merge-queue, locks). Aria separou as máquinas
 de estado (publicar vs encerrar) e o ownership do ref (repo-global, não per-plano). O contrarian (Dr. Ravi)
 forçou o reconhecimento de que o coupling de `.atomic-skills/` é a causa-raiz, não um detalhe — o que o
-operador resolveu por escopo (conter agora, particionar depois).
+operador resolveu por escopo (conter agora, particionar depois). A Decisão 7 (check de colisão cross-WT)
+foi adicionada após uma pesquisa multi-fonte (deep-research, 21 claims verificados) que fixou a taxonomia
+de 4 classes e o split determinístico-vs-advisory: o piso (build+test do projeto) pega build+testes de
+forma determinística; os agentes LLM cobrem o gap semântico que merge E testes não veem.
 
 ## Blast radius
 
@@ -167,6 +213,11 @@ One-way doors / migração — contenções explícitas:
   confirmados no SPEC (Open question).
 - **Criação da branch `develop`.** Branch permanente nova no repo (deletável, mas load-bearing assim que
   features passam a mirá-la). Contenção: criada de `main`; develop→main fica fora de escopo (deferido).
+- **Decisão 7 introduz uma superfície de workflow multi-agente (a tool `Workflow`).** Risco: dependência de
+  acelerador Claude-Code; custo de tokens; agentes LLM não-determinísticos. Contenção: os agentes são
+  ADVISORY (nunca o gate — o gate é o piso determinístico verify-claim-able), READ-ONLY (Iron Law
+  preservado), disparados só com ≥2 WTs e operator-prompted; fallback PORTÁVEL (sequencial / skip
+  registrado) onde a `Workflow` não existe. Reversível: remover o passo opcional do finalize.
 - **Nenhuma decisão deleta dados.** O teardown bloqueia na dúvida. Reversão mais cara: re-permitir branch
   incondicional / re-trackear `focus.json` — patches pontuais.
 
@@ -176,8 +227,13 @@ One-way doors / migração — contenções explícitas:
   separado). Só feature→develop.
 - **NÃO** particionar estruturalmente `.atomic-skills/` (estado per-plano disjunto por slug) nesta v1 —
   é plano separado; a v1 contém o coupling com `focus.json` gitignored + `merge=union`.
-- **NÃO** classificador topology-aware, merge-queue do GitHub, nem fila estilo Zuul na v1 — o GitHub
-  serializa os merges; o classificador é backlog.
+- **NÃO** classificador topology-aware AUTO-ORDENADOR, merge-queue do GitHub, nem fila estilo Zuul na v1 —
+  o GitHub serializa os merges; o auto-ordenador é backlog. (A *detecção* de colisão cross-WT, distinta da
+  auto-ordenação, está IN via Decisão 7.)
+- **NÃO** deixar os agentes LLM (Decisão 7) BLOQUEAREM nada — são advisory; o único gate é o piso
+  determinístico (build+test do projeto na árvore mergeada). Self-check, nunca self-certify.
+- **NÃO** rodar o check de colisão em feature SOLO — só com ≥2 worktrees vivas (sem o que colidir).
+- **NÃO** AUTO-RESOLVER colisão — o check sinaliza/roteia para humano; nunca edita/mergeia para "consertar".
 - **NÃO** detecção patch-id de squash-merge na v1 — o liveness(gh)+veto-ancorado-no-`headRefOid` cobre o
   caso; patch-id colapsa N commits num diff agregado (falso-positivo de integração-parcial).
 - **NÃO** automatizar push/PR/merge — tudo operator-prompted.
@@ -200,6 +256,23 @@ One-way doors / migração — contenções explícitas:
 - **Oráculo de CI (GATE DE SPEC, não opcional):** dois testes precisam existir ANTES de a invariante ser
   confiável — (a) "squash-merged + commit adicionado DEPOIS ⟹ teardown BLOQUEIA" e (b) "squash-merged
   LIMPO (`HEAD == headRefOid`) ⟹ teardown PERMITE". Sem eles a Decisão 4 é narrativa, não invariante.
+- **Nº de agentes advisory (Decisão 7):** o default é 2 (semântico-comportamental + recurso/contrato). A
+  pesquisa NÃO confirmou que os dois são sempre suficientemente independentes para justificar ambos — a
+  aditividade BDCI↔speculative-merge foi **refutada (0-3)**. Confirmar no SPEC/uso se 1 (só semântico) basta
+  quando o gate do projeto é forte, ou se um 3º (deps/secrets) se paga. "1-3 é ideia, não limite duro."
+- **Detecção dos comandos build/test do projeto-alvo (o piso determinístico depende disso):** como
+  descobrir de forma robusta e genérica (package.json scripts / Makefile / pyproject / config de CI / etc.)
+  sem hardcode. Fechar no SPEC; é o que torna o gate determinístico portável entre projetos.
+- **Generalização Java→qualquer-linguagem do agente:** os números fortes da pesquisa (93%, precisão 0.43)
+  são Java; o detector genérico é LLM sobre diffs. Fixar no SPEC a forma do prompt/escopo agnóstica de
+  linguagem (assinatura/API + estado compartilhado) e os caps de leitura (com log do que ficou de fora —
+  no-silent-caps) para repos grandes.
+- **Conflito textual no merge especulativo (Decisão 7, do critic):** quando o próprio merge especulativo das
+  WTs vivas já conflita textualmente (classe 1 da taxonomia), o SPEC deve tratar isso como o PRIMEIRO gate
+  determinístico (exit≠0), não como caso indefinido — o piso falha antes do build.
+- **Projeto-alvo sem comando build/test detectável (Decisão 7, do critic):** se o gate determinístico não
+  tem comando para rodar, o SPEC define o desfecho — skip REGISTRADO (com WARN) ou bloqueio — nunca um
+  "passou" silencioso (no-silent-caps).
 
 ## Rejected alternatives
 
@@ -244,6 +317,23 @@ Prior-art (preservado da versão anterior — ainda fundamenta o teardown robust
 - **Máquina interna reusada (quando o classificador voltar):** prova de disjunção par-a-par em
   `skills/core/parallel-dispatch.md:76-77`.
 
+Colisão cross-WT (Decisão 7 — deep-research desta sessão, 21 claims verificados 3-0/2-1):
+
+- **Taxonomia de 4 classes (textual/build/dinâmico/higher-order):** Shen et al. 2022 TOSEM
+  `https://dl.acm.org/doi/10.1145/3546944`; Shen et al. 2021 `https://arxiv.org/pdf/2102.11307`.
+- **Build-conflict estático (93% = referência a entidade alterada; Bucond, 100% precisão):**
+  `https://arxiv.org/pdf/2102.11307`, `https://dl.acm.org/doi/fullHtml/10.1145/3551349.3556950`.
+- **Conflito dinâmico-semântico por interferência (precisão 0.43 ⇒ advisory):** de Jesus/Borba 2024 ICSE
+  `https://arxiv.org/abs/2310.04269`.
+- **Conflito comportamental invisível a merge E a testes (8 casos):** BDCI 2017
+  `https://arxiv.org/pdf/1708.01650`.
+- **Seleção de teste change-aware (super-aproximação do footprint estrutural):** Machalica et al. 2019
+  `https://arxiv.org/pdf/1810.05286`.
+- **Concentração Pareto nos construtos (>50% top-3, ~80% top-7):** Ghiotto et al. 2018 TSE
+  `https://leomurta.github.io/papers/ghiotto2018.pdf`.
+- **Refutado (transparência):** delta-impact CIA como detector semântico (0-3) e aditividade
+  BDCI↔speculative-merge (0-3) NÃO sobreviveram à verificação — não usados como base.
+
 ## Self-review against code-quality gates
 
 - **G1 read-before-claim:** applied — claims sobre código existente citam arquivo lido NESTA sessão:
@@ -256,7 +346,8 @@ Prior-art (preservado da versão anterior — ainda fundamenta o teardown robust
 - **G2 soft-language:** applied — Decisions e Chosen approach varridos para should/probably/may/typically/
   usually e PT deveria/provavelmente/talvez/geralmente em posição de asserção; 0 ocorrências (o único
   "pode" descreve modo de falha em Context/Blast radius, não asserção de design).
-- **G6 reference-or-strike:** applied — asserções sobre código carregam `verified_by:`; prior-art carrega
-  URL citável (§References); o que não é verificável agora está em Open questions como pergunta
-  (home/schema do ref, lista de merge=union, identidade branch↔PR, impacto no round-trip), não como
-  afirmação.
+- **G6 reference-or-strike:** applied — asserções sobre código carregam `verified_by:`; prior-art e os
+  claims empíricos da Decisão 7 carregam URL citável verificada por deep-research (§References, com os 2
+  claims refutados marcados); o que não é verificável agora está em Open questions como pergunta
+  (home/schema do ref, lista de merge=union, identidade branch↔PR, impacto no round-trip, nº de agentes
+  advisory, detecção de comandos build/test, generalização Java→genérico), não como afirmação.
