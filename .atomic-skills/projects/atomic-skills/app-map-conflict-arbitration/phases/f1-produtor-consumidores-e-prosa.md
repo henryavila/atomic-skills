@@ -45,7 +45,7 @@ tasks:
       codeEvidence.path → code, senão artefact), sem slots
       artefactValue/codeValue; buildCatalog emite schemaVersion 0.3. Files:
       src/app-map/reconstruct.js, src/app-map/persist.js,
-      test/app-map/reconstruct.test.js"
+      test/app-map/reconstruct.test.js, test/app-map/persist.test.js"
     scopeBoundary:
       - não alterar o schema (F0 fechou o contrato); não tocar
         src/app-map/validate.js.
@@ -53,6 +53,9 @@ tasks:
         todas as sources — o bug era só na gravação em conflictForField).
       - buildCatalog passa a emitir schemaVersion 0.3 mas não muda os outros
         campos de página.
+      - em persist.test.js só atualiza os fixtures/asserts de SAÍDA do produtor
+        (buildPages→witnesses, schemaVersion 0.3) — o teste novo do
+        mirrorMarkdown é T-002, não tocar mirrorMarkdown aqui.
     acceptance:
       - conflictForField retorna {field, witnesses, evidence, resolution} com
         witnesses cobrindo TODAS as sources do agregado (N=3
@@ -67,7 +70,7 @@ tasks:
         assertValidAppMap.
     verifier:
       kind: shell
-      command: node --test test/app-map/reconstruct.test.js
+      command: node --test test/app-map/reconstruct.test.js test/app-map/persist.test.js
       expectExitCode: 0
   - id: T-002
     title: Consumidores — mirror .md das N testemunhas + prosa §2
@@ -81,8 +84,10 @@ tasks:
       src/app-map/persist.js, test/app-map/persist.test.js,
       skills/core/design-brief.md"
     scopeBoundary:
-      - não alterar o produtor conflictForField (T-001) nem o schema/validador;
-        o mirror é só leitura/formatação do catálogo.
+      - não alterar o produtor conflictForField/buildCatalog (T-001 fechou a
+        saída 0.3) nem o schema/validador; só mirrorMarkdown em persist.js.
+      - em persist.test.js só adiciona o teste do mirror — não tocar os fixtures
+        de saída do produtor que T-001 migrou.
       - a edição da prosa limita-se ao §2 de design-brief.md (linhas 44–46) —
         não reabre §4/R2 nem a anti-contaminação.
       - não adicionar canal CLI --resolved (fora de escopo, D6).
@@ -96,7 +101,7 @@ tasks:
         é re-emissão não-interativa (D6).
       - a string --persist não aparece mais como o passo que grava a decisão do
         operador no §2.
-      - os testes de persist 0.1/0.2 existentes seguem verdes.
+      - os testes de produtor que T-001 migrou seguem verdes.
     verifier:
       kind: shell
       command: node --test test/app-map/persist.test.js
