@@ -5,8 +5,8 @@ title: "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)"
 version: "1.0"
 status: active
 started: 2026-06-15T19:46:08.157Z
-lastUpdated: 2026-06-16T10:51:14Z
-branch: plan/skills-restructuring
+lastUpdated: 2026-06-16T12:00:18Z
+branch: plan/design-brief
 currentPhase: F1
 parallelismAllowed: false
 principles:

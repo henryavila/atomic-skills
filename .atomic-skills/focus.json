@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T10:43:18.352Z",
+  "generatedAt": "2026-06-16T12:02:20.083Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "design-brief-source-of-truth",
-    "title": "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)",
+    "slug": "skills-restructuring",
+    "title": "Reestruturação das skills atomic-skills",
     "status": "active"
   },
   "phase": {
     "id": "F0",
-    "slug": "design-brief-source-of-truth-f0-schema-e-validacao-do-catalogo",
-    "title": "Schema e validação do catálogo",
+    "slug": "skills-restructuring-f0-pente-fino-de-consistencia",
+    "title": "Pente fino de consistência",
     "index": 1,
-    "total": 3,
+    "total": 6,
     "status": "active"
   },
   "tasks": {
     "done": 0,
-    "total": 3,
+    "total": 7,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Schema JSON do catálogo",
+  "nextAction": "Start T0.1: Corrigir contagem de stages no create-plan",
   "flags": {
     "drift": false,
-    "multipleActivePlans": true
+    "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md",
-      "lastUpdated": "2026-06-15T17:00:00.000Z"
+      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/plan.md",
+      "lastUpdated": "2026-06-15T16:29:10Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f0-schema-e-validacao-do-catalogo.md",
-      "lastUpdated": "2026-06-15T17:00:00.000Z"
+      "path": ".atomic-skills/projects/atomic-skills/skills-restructuring/phases/f0-pente-fino-de-consistencia.md",
+      "lastUpdated": "2026-06-15T13:54:20.262Z"
     }
   ]
 }

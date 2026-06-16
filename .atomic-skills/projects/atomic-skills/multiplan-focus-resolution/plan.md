@@ -3,10 +3,11 @@ schemaVersion: "0.1"
 slug: multiplan-focus-resolution
 title: Resolução de foco em camadas + enforcer worktree-por-plano
 version: "1.0"
-status: paused
+status: active
 started: 2026-06-15T19:42:12Z
-lastUpdated: 2026-06-15T19:42:12Z
+lastUpdated: 2026-06-16T12:00:18Z
 currentPhase: F0
+branch: plan/multiplan-focus
 parallelismAllowed: false
 phases:
   - id: F0
@@ -29,7 +30,7 @@ phases:
             kind: manual
             description: Validar com o usuário que o foco resolve corretamente com 2+ planos
               ativos e que o enforcer força/oferece worktree.
-    status: pending
+    status: active
     summary: "Foco determinístico para multi-plano: resolução em camadas + enforcer
       worktree."
 references:
@@ -37,6 +38,7 @@ references:
     path: docs/design/statusline-focus-integration.md
     label: Spec da integração statusline/focus (digest, 4 camadas de frescor, D1–D6)
 planTitle: Resolução de foco em camadas + enforcer worktree-por-plano
+planActive: true
 ---
 
 # Resolução de foco em camadas + enforcer worktree-por-plano

@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-06-16T10:42:17Z
+lastUpdated: 2026-06-16T12:00:18Z
 schemaVersion: '0.1'
-activePlans: 2
-activeInitiatives: 2
+activePlans: 4
+activeInitiatives: 4
 archivedCount: 0
 ---
 
@@ -22,8 +22,9 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 |------|--------|---------------|--------|---------|
 | quick-idea-capture | archived | F1 | — | 2026-06-09 |
 | skills-restructuring | active | F0 | plan/skills-restructuring | 2026-06-15 |
-| multiplan-focus-resolution | paused | F0 | — | 2026-06-15 |
-| design-brief-source-of-truth | active | F1 | plan/skills-restructuring | 2026-06-15 |
+| multiplan-focus-resolution | active | F0 | plan/multiplan-focus | 2026-06-15 |
+| design-brief-source-of-truth | active | F1 | plan/design-brief | 2026-06-15 |
+| fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |
