@@ -24,6 +24,7 @@ exitGates:
       kind: shell
       command: node --test test/app-map/persist.test.js && grep -qi 'app-map'
         skills/core/design-brief.md
+    verifierLabel: "shell: node --test test/app-map/persist.test.js && grep -qi 'app-m…"
 stack:
   - id: 1
     title: Integração no design-brief
