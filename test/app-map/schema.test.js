@@ -111,3 +111,30 @@ test('app-map schema rejects missing required fields and bad enum values', () =>
   assert.ok(validate.errors.some((error) => error.instancePath === '/pages/0' && error.params.missingProperty === 'status'));
   assert.ok(validate.errors.some((error) => error.instancePath === '/pages/0/accessTier'));
 });
+
+test('app-map schema rejects an unsupported schemaVersion', () => {
+  const validate = buildValidator();
+  const catalog = {
+    schemaVersion: '999',
+    inputsHash: 'sha256:abcdef123456',
+    pages: [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        purpose: 'Shows the user their current work.',
+        audience: 'registered',
+        accessTier: 'public',
+        status: 'built',
+        regime: 'brownfield',
+        existence: 'confirmed',
+        provenance: { id: 'routes/dashboard.tsx' },
+        conflicts: [],
+      },
+    ],
+  };
+
+  // Only schemaVersion is invalid; everything else satisfies the contract,
+  // so a passing result would mean the enum constraint is absent.
+  assert.equal(validate(catalog), false);
+  assert.ok(validate.errors.some((error) => error.instancePath === '/schemaVersion'));
+});

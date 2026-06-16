@@ -71,3 +71,26 @@ test('assertValidAppMap throws a readable error for malformed catalogs', () => {
   assert.ok(result.errors.some((error) => error.instancePath === '/pages/0' && error.params.missingProperty === 'status'));
   assert.ok(result.errors.some((error) => error.instancePath === '/pages/0/accessTier'));
 });
+
+test('assertValidAppMap rejects duplicate canonical page ids', () => {
+  const catalog = buildValidCatalog();
+  // A second, schema-valid page that reuses the first page's canonical id.
+  const dup = JSON.parse(JSON.stringify(catalog.pages[0]));
+  dup.label = 'Dashboard (duplicate)';
+  catalog.pages.push(dup);
+
+  // The catalog is schema-valid (both pages satisfy the schema); the ONLY
+  // defect is the duplicate id, so a passing result would mean the post-schema
+  // uniqueness check is absent.
+  const result = validateAppMap(catalog);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.keyword === 'duplicatePageId' && error.instancePath === '/pages/1/id'));
+
+  assert.throws(
+    () => assertValidAppMap(catalog),
+    (error) => {
+      assert.match(error.message, /duplicate page id 'dashboard'/);
+      return true;
+    },
+  );
+});

@@ -9,8 +9,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "minLength": 1,
-      "description": "Version of the persisted app-map contract, e.g. 0.1. Consumers must branch on this before interpreting required fields."
+      "enum": ["0.1"],
+      "description": "Version of the persisted app-map contract. Constrained to the supported set (currently only 0.1) so an unsupported version fails validation instead of false-greening; mirrors the enum convention of common.schema.json#/$defs/schemaVersion. Consumers branch on this before interpreting required fields."
     },
     "inputsHash": {
       "type": "string",

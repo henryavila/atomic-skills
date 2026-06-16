@@ -20,11 +20,42 @@ function formatValidationErrors(errors) {
   return errors.map((error) => `- ${formatValidationError(error)}`).join('\n');
 }
 
+/**
+ * Post-schema check: canonical page ids must be unique. JSON Schema draft
+ * 2020-12 cannot express sub-field uniqueness across array items, so this is
+ * enforced here in the single shared validator. Returns Ajv-shaped error
+ * objects so both consumers (assertValidAppMap, validateAppMapFile) format them.
+ */
+function duplicatePageIdErrors(catalog) {
+  const pages = catalog?.pages;
+  if (!Array.isArray(pages)) return [];
+  const firstSeenAt = new Map();
+  const errors = [];
+  pages.forEach((page, i) => {
+    const id = page?.id;
+    if (typeof id !== 'string') return;
+    if (firstSeenAt.has(id)) {
+      errors.push({
+        instancePath: `/pages/${i}/id`,
+        schemaPath: '#/duplicatePageId',
+        keyword: 'duplicatePageId',
+        params: { duplicateId: id, firstIndex: firstSeenAt.get(id) },
+        message: `duplicate page id '${id}' (first declared at /pages/${firstSeenAt.get(id)}/id)`,
+      });
+    } else {
+      firstSeenAt.set(id, i);
+    }
+  });
+  return errors;
+}
+
 export function validateAppMap(catalog) {
-  const valid = validate(catalog);
+  const schemaValid = validate(catalog);
+  const errors = schemaValid ? [] : [...(validate.errors ?? [])];
+  errors.push(...duplicatePageIdErrors(catalog));
   return {
-    valid,
-    errors: valid ? [] : [...(validate.errors ?? [])],
+    valid: errors.length === 0,
+    errors,
   };
 }
 
