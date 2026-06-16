@@ -78,9 +78,30 @@ de foco com commits interleaved**, NÃO uma feature branch cujo telos é mergear
    É da mesma FAMÍLIA do check #3 (branch ↔ initiative ativa) mas de ESCOPO MAIOR — varre todas as worktrees e
    planos arquivados, não só a árvore atual. Sem flag nova no `focus.json`, sem hook que deleta.
 
-6. **Integração, quando ocorre, é SERIAL e operator-prompted.** Não se mergeia plan-branch→main por plano
-   (arrastaria fronts inacabados). Reusa R-XAGENT-03 serial merge-back, um por vez, re-verificando na primária.
-   `verified_by: skills/shared/worktree-isolation.md:47-57` e `skills/core/implement.md:97`.
+6. **Integração é TOPOLOGY-AWARE e operator-prompted: serial só DENTRO de um componente que se toca,
+   qualquer-ordem entre componentes disjuntos.** A regra "sempre serial" (R-XAGENT-03 incondicional) é coarse —
+   força série mesmo entre worktrees de escopo comprovadamente disjunto, e nada cobre o caso "N worktrees, só
+   algumas precisam de merge entre si" nem "N worktrees totalmente independentes, merge ignorando as outras sem
+   risco de conflito". O lever novo é um **classificador de disjunção por footprint**: para cada plan-worktree
+   viva, footprint = `git diff --name-only <base>...plan/<slug>`; há aresta entre duas worktrees sse os
+   footprints se intersectam OU ambas tocam um **coupling file** (lockfiles, gerados, migrations — lista fixa).
+   Os componentes conexos do grafo são as unidades de série; componentes distintos integram em qualquer ordem.
+   **Mapa topologia → ação** (cobre a matriz dos 4 casos):
+   - **0 worktrees (solo, `branch: null`):** finalize é no-op — nada para integrar.
+   - **1 worktree:** merge-back único (guard `--is-ancestor`, depois teardown).
+   - **N worktrees, componente conexo (interdependentes):** série R-XAGENT-03 intacta DENTRO do componente,
+     re-verificando na primária; componentes não se esperam.
+   - **N worktrees, componentes disjuntos (independentes):** qualquer ordem, um ignorando o outro.
+   **Disjunção textual é sound, NÃO build-safe** (`verified_by: arxiv.org/pdf/1907.06274` Owhadi-Kareshk —
+   footprint disjunto exclui conflito textual, não o semântico), então CADA merge ainda passa pelo gate de
+   verify na primária; a disjunção autoriza paralelismo/ordem-livre, nunca pular o verify. Guard de idempotência
+   `git merge-base --is-ancestor plan/<slug> <base>` antes de cada merge (skip se já contido) e de cada remoção
+   (Decisão 4). Na falha de um merge serial dentro de um componente: drop-and-re-test-behind contra o tip novo
+   (não assumir culpa do de trás). Octopus-merge e validação-contra-trunk-projetado/bissecção ficam FORA da v1
+   (Open questions). Reusa o conceito de prova de disjunção par-a-par que já existe em
+   `parallel-dispatch.md:76-77` (elevado de task para plan-worktree); não automatiza merge→main.
+   `verified_by: skills/shared/worktree-isolation.md:47-57`, `skills/core/implement.md:97`,
+   `skills/core/parallel-dispatch.md:76-77`.
 
 ## Chosen approach
 
@@ -94,6 +115,10 @@ Três abordagens foram pesadas no painel:
 - **(C) Híbrido reenquadrado — ESCOLHIDA.** Ataca a raiz no ponto certo (branch nasce sob concorrência no
   Stage 6, Decisões 1+2), separa os dois lifecycles (Decisão 3), adiciona o MENOR mecanismo que faz o sistema
   "lembrar" (relatório WARN, Decisão 5) e fixa o invariante de segurança onde o teardown ocorre (Decisão 4).
+  **Refinamento topology-aware (Decisão 6, pós-painel + pesquisa de prior-art):** a integração deixa de ser
+  "sempre serial" e passa a serializar só dentro de componentes conexos do grafo de footprint, cobrindo a
+  matriz dos 4 casos (solo / 1 worktree / interdependentes / independentes) com um único mecanismo novo (o
+  classificador), reusando R-XAGENT-03 intacto dentro de cada componente. O octopus/merge-train fica deferido.
 
 **Por que (C) ganhou:** pragmatista mostrou que "1 check WARN + teardown operator-prompted no `archive`" mata o
 esquecimento sem comando/hook/schema novos; contrarian mostrou que a causa está na decisão de branch (movida
@@ -123,6 +148,12 @@ invariante inegociável (nunca remover trabalho não-provado-integrado), na Deci
 - **NÃO** detecção patch-id de squash-merge na v1 (falha segura: over-bloqueia) — adiada até um squash-merge
   real produzir falso "esquecido".
 - **NÃO** comando dedicado `project finalize` na v1 — o teardown vive adjacente ao `archive`.
+- **NÃO** octopus-merge (`git merge A B C`) na v1 — o classificador (Decisão 6) habilita ordem-livre entre
+  componentes disjuntos, mas a integração de cada um continua um-merge-por-vez; o octopus atômico fica como
+  promoção (Open questions), com fallback serial já provado.
+- **NÃO** validação-contra-trunk-projetado nem bissecção de batch na v1 — o re-verify por-merge na primária
+  (R-XAGENT-03) já localiza o culpado; a projeção estilo merge-train entra só se um componente grande tornar
+  o re-verify-a-cada-merge caro demais.
 
 ## Open questions
 
@@ -132,6 +163,15 @@ invariante inegociável (nunca remover trabalho não-provado-integrado), na Deci
   para o backstop (#9 WARN) e não um falso-FAIL.
 - **Severidade futura:** se o relatório WARN (#5) provar insuficiente na prática, promover a FAIL pela mesma
   ladder do single-focus — gatilho de evidência, não v1.
+- **Lista de coupling files:** a v1 trata lockfiles/gerados/migrations como aresta global fixa. Confirmar na
+  SPEC a lista concreta deste repo (`package-lock.json`, `meta/schemas/*` gerados?, etc.) e como mantê-la sem
+  virar config nova — provável: constante no script do classificador, não em `focus.json`.
+- **Rename como expansão de footprint:** um branch que renomeia `a→b` tem footprint = união {a,b}; preferir o
+  merge `ort` 3-way (melhor detecção de rename) a qualquer caminho octopus no componente afetado. Mecânica a
+  fixar na SPEC; é trilho de segurança, não decisão de produto. `verified_by: git-scm.com/docs/git-merge`.
+- **Promoção a octopus / projeção:** gatilho de evidência — um componente disjunto grande cujo re-verify
+  one-by-one fique caro promove para octopus atômico (refuse-clean, fallback serial) e/ou validação contra
+  trunk projetado. `verified_by: github.com/lesfurets/git-octopus`, `zuul-ci.org/docs/zuul/latest/gating.html`.
 
 ## Rejected alternatives
 
@@ -146,6 +186,25 @@ invariante inegociável (nunca remover trabalho não-provado-integrado), na Deci
   incoerente (worktree viva de plano arquivado) — registrado, não descartado.
 - **ancestor + patch-id desde a v1 (voz robustez, D2).** Adiado: ancestor-only tem falha segura; patch-id
   entra quando um squash-merge real gerar falso-esquecido.
+- **Integração SEMPRE serial e incondicional (R-XAGENT-03 puro, 1ª versão da Decisão 6).** Superada pelo
+  refinamento topology-aware: forçar série entre worktrees de escopo disjunto é over-serialização — o prior-art
+  (Zuul, merge queues, stacked diffs) serializa só dentro de componentes conexos. R-XAGENT-03 é **preservado
+  intacto DENTRO de cada componente**; o que muda é não esperar entre componentes disjuntos. Não confundir com
+  "merge paralelo dentro de um componente" — isso continua proibido (é o corruption R-XAGENT-03 previne).
+
+## References
+
+Prior-art que fundamenta o refinamento topology-aware da Decisão 6 (pesquisa desta sessão):
+
+- **Predição de conflito por disjunção de footprint:** Owhadi-Kareshk et al., *Predicting Merge Conflicts*
+  — `https://arxiv.org/pdf/1907.06274`; *Detecting Semantic Conflicts via Static Analysis* —
+  `https://arxiv.org/pdf/2310.04269`. (Footprint disjunto ⇒ sem conflito textual, NÃO build-safe.)
+- **Serializar só dentro de componentes conexos:** Zuul gating — `https://zuul-ci.org/docs/zuul/latest/gating.html`;
+  GitHub merge queue — `https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue`;
+  stacked diffs — `https://newsletter.pragmaticengineer.com/p/stacked-diffs`.
+- **Teste de "já integrado" + octopus (deferido):** `https://git-scm.com/docs/git-merge-base`,
+  `https://git-scm.com/docs/git-merge`, `https://github.com/lesfurets/git-octopus`.
+- **Máquina interna reusada:** prova de disjunção par-a-par em `skills/core/parallel-dispatch.md:76-77`.
 
 ## Self-review against code-quality gates
 
@@ -155,5 +214,6 @@ invariante inegociável (nunca remover trabalho não-provado-integrado), na Deci
 - G2 soft-language: applied — bloco de Decisions varrido para should/probably/may/typically/usually; 0
   ocorrências nas Decisions e no Chosen approach (a palavra "pode" aparece só descrevendo modos de falha em
   Context/Open questions, não em afirmações de design).
-- G6 reference-or-strike: applied — asserções sobre código carregam `verified_by:`; o que não é verificável
+- G6 reference-or-strike: applied — asserções sobre código carregam `verified_by:`; as afirmações de
+  prior-art na Decisão 6 / Open questions carregam URL citável (ver §References); o que não é verificável
   está em Open questions como pergunta, não afirmação.

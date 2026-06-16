@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-06-16T13:08:36Z
+lastUpdated: 2026-06-16T15:15:00Z
 schemaVersion: '0.1'
-activePlans: 3
-activeInitiatives: 3
+activePlans: 4
+activeInitiatives: 4
 archivedCount: 0
 ---
 
@@ -25,6 +25,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | multiplan-focus-resolution | archived | — | plan/multiplan-focus | 2026-06-15 |
 | design-brief-source-of-truth | active | F1 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
+| worktree-lifecycle-finalization | active | F0 | plan/worktree-lifecycle-finalization | 2026-06-16 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |
