@@ -18,18 +18,18 @@ set -e
 STAGED=$(git diff --cached --name-only)
 
 # Inputs: catalog, skill bodies, IDE registry, package version, generator code.
-INPUTS_REGEX='^(meta/catalog\.yaml|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law))'
+INPUTS_REGEX='^(meta/catalog\.yaml|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law|build-catalog-json))'
 
-# Coupled = inputs + outputs (README).
-COUPLED_REGEX='^(meta/catalog\.yaml|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law)|README\.md)'
+# Coupled = inputs + outputs (README + the catalog.json projection).
+COUPLED_REGEX='^(meta/catalog\.(yaml|json)|skills/(core|modules|shared)/|src/config\.js|package\.json|scripts/(validate-skills|generate-)|scripts/lib/(validate-skills-core|render-|extract-iron-law|build-catalog-json)|README\.md)'
 
 if echo "$STAGED" | grep -qE "$INPUTS_REGEX"; then
   # F-001 guard (codex review 2026-05-24): refuse to silently sweep
   # pre-existing unstaged edits to the generator outputs into the commit.
-  # If README.md has unstaged changes, the user must commit/stash them
-  # explicitly first — otherwise the `git add` below would absorb their
-  # unrelated work alongside the catalog change.
-  UNSTAGED_OUTPUTS=$(git diff --name-only -- README.md)
+  # If README.md or meta/catalog.json has unstaged changes, the user must
+  # commit/stash them explicitly first — otherwise the `git add` below would
+  # absorb their unrelated work alongside the catalog change.
+  UNSTAGED_OUTPUTS=$(git diff --name-only -- README.md meta/catalog.json)
   if [ -n "$UNSTAGED_OUTPUTS" ]; then
     echo "[husky] ✖ aborting: regenerator outputs have unstaged changes:" >&2
     echo "$UNSTAGED_OUTPUTS" | sed 's/^/  - /' >&2
@@ -40,7 +40,7 @@ if echo "$STAGED" | grep -qE "$INPUTS_REGEX"; then
 
   echo "[husky] catalog inputs changed — regenerating docs"
   npm run generate-docs
-  git add README.md
+  git add README.md meta/catalog.json
 fi
 
 if echo "$STAGED" | grep -qE "$COUPLED_REGEX"; then
