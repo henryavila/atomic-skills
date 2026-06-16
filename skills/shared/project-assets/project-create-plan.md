@@ -21,7 +21,7 @@ Run with {{BASH_TOOL}}:
 - **Resolve `<project-id>`** (the nested top level): if exactly one `.atomic-skills/projects/*/` folder exists, use it; if several, ask which project the plan belongs to; if none, default to the repo's basename (`basename "$PWD"`) and create `.atomic-skills/projects/<project-id>/`. The plan materializes under that folder.
 - Pre-flight collision: `test -f .atomic-skills/projects/<project-id>/<slug>/plan.md` (legacy fallback `test -f .atomic-skills/plans/<slug>.md`) — abort early on collision before any work.
 
-## Default flow — 7 stages
+## Default flow — 9 stages
 
 Stages run in order. Each stage gates the next: do not advance past a stage with an unresolved question.
 

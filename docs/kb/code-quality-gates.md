@@ -300,6 +300,41 @@ function Drawer({ items = EMPTY_ITEMS, onClose }: Props) {
 
 ---
 
+## G9 — Mutation-kill (test verifiers prove they bite)
+
+**Rule.** A `kind: test` verifier MAY carry an optional `mutation` block in its `evidence` that proves the test actually *kills* a behavioral mutation, not just that it passes. The proof is a single transcript: inject a behavioral mutation at the target, watch the named test go **RED**, revert, watch it go **GREEN**. A test that stays green under the mutation is tautological (G3) and provides no protection — the kill is the evidence that it bites.
+
+This is the canonical mirror of the inline definition in `skills/shared/project-assets/project-transitions.md` (the `evidence.mutation` shape). The fields:
+
+```yaml
+mutation:                    # test only, OPTIONAL
+  target: "<file:line>"
+  change: "<behavioral mutation applied at target>"
+  killedBy: ["<test(s) that went RED on the mutation>"]
+  killTranscript: "<≤500-char inject → RED → revert → GREEN excerpt>"
+```
+
+**Failure it catches.** A test asserted as a deterministic verifier that passes whether or not the code under test is correct — the test never exercised the behavior it claims to guard, so `done` rests on a green that a broken implementation would also produce.
+
+**Bad — green proves nothing:**
+
+```
+verifier passes ✓  →  marked done
+(but flipping the comparison operator at the target leaves the test green)
+```
+
+**Good — the kill is recorded:**
+
+```
+inject `>=` → `>` at parser.js:42  →  test_boundary RED ✓
+revert                              →  test_boundary GREEN ✓
+evidence.mutation.killedBy: [test_boundary]
+```
+
+**Applies to:** any `kind: test` exit-gate / task verifier where the test's protective value is load-bearing; recorded in the criterion's `evidence.mutation`. Optional (not GATE-R2-enforced), but when present it upgrades a green to a proven kill.
+
+---
+
 ## Index — rule × skill matrix
 
 | Rule | project-plan | project-status | hunt | fix | review-plan-internal | review-code-with-codex | simplify |

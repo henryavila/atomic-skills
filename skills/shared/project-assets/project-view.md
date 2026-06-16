@@ -56,7 +56,7 @@ Steps:
 
    **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node scripts/find-missing-summaries.js && node scripts/find-missing-task-summaries.js`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), author each summary in the install-configured language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
 
-1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_STATE_DOMAIN` / `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
+1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
    ```bash
    # projectId = normalized repo basename. The consumer is provisioned PER-PROJECT
