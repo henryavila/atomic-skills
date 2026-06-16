@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T17:49:20.273Z",
+  "generatedAt": "2026-06-16T23:48:44.383Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "worktree-lifecycle-finalization",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "worktree-lifecycle-finalization-f1-teardown-seguro-oferta-adjac",
-    "title": "Teardown seguro + oferta adjacente ao archive (Decisões 3+4)",
-    "index": 2,
-    "total": 4,
+    "id": "F0",
+    "slug": "worktree-lifecycle-finalization-f0-always-fork-na-criacao-decis",
+    "title": "Always-fork na criação (Decisão 1)",
+    "index": 1,
+    "total": 8,
     "status": "active"
   },
   "tasks": {
     "done": 0,
-    "total": 2,
+    "total": 1,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 2
   },
-  "nextAction": "Start T-001: Invariante de não-perda com base-ref ladder",
+  "nextAction": "Start T-001: Fork incondicional na criação",
   "flags": {
     "drift": false,
     "multipleActivePlans": false,
@@ -33,11 +33,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/plan.md",
-      "lastUpdated": "2026-06-16T15:19:54.820Z"
+      "lastUpdated": "2026-06-16T22:50:35.627Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f1-teardown-seguro-oferta-adjac.md",
-      "lastUpdated": "2026-06-16T17:31:21.000Z"
+      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f0-always-fork-na-criacao-decis.md",
+      "lastUpdated": "2026-06-16T22:50:35.627Z"
     }
   ]
 }

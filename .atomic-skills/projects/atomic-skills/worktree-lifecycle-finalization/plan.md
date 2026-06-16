@@ -4,125 +4,117 @@ slug: worktree-lifecycle-finalization
 title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
-started: 2026-06-16T15:05:46.324Z
-lastUpdated: 2026-06-16T15:19:54.820Z
+started: 2026-06-16T22:50:35.627Z
+lastUpdated: 2026-06-16T22:50:35.627Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F1
+currentPhase: F0
 parallelismAllowed: false
 principles:
   - id: P1
-    title: Branch nasce sob concorrência, não na criação incondicional
-    body: "O lever de decisão de branch é o Stage 6 single-focus pre-flight
-      (`verified_by: skills/shared/project-assets/project-create-plan.md`), NÃO
-      o Step 0.5 nem o `emit-focus` (cujo `multipleActivePlans` é pós-colisão e
-      read-only, `verified_by: scripts/emit-focus.js` pickFocus). Plano solo
-      permanece `branch: null` na árvore atual; forka `plan/<slug>` só quando a
-      criação já encontra ≥1 plano ativo."
+    title: Todo plano forka sua branch+worktree na CRIAÇÃO (feature desde o
+      nascimento)
+    body: 'Reverte o default lazy anterior ("solo = `branch: null`, forka só sob
+      concorrência"). O mecanismo de fork/stamp/worktree-retroativa é REUSADO
+      (`verified_by: scripts/plan-branch-policy.js`;
+      `scripts/bind-plan-branch.js` stampBranch; `scripts/emit-focus.js`
+      pickFocus intacto) — muda só o gatilho: de condicional-sob-concorrência
+      para incondicional-na-criação. Cada feature acumula commits na própria
+      branch desde o início, tornando "1 worktree = 1 feature = 1 PR limpo"
+      mecanicamente verdadeiro. `emit-focus` NÃO é tocado.'
   - id: P2
-    title: Arquivamento lógico e teardown da worktree são lifecycles separados
-    body: "O `archive` flipa `status: archived` com zero efeito git, como hoje
-      (`verified_by: skills/shared/project-assets/project-transitions.md`
-      archive). O teardown da worktree é uma oferta NOVA e adjacente, nunca
-      parte do flip de status. Arquivar-mas-não-mergear é o estado normal aqui.
-      Ambos operator-prompted."
+    title: Publicar e encerrar são máquinas de estado separadas, ambas
+      operator-prompted
+    body: "O `project finalize` PUBLICA (push `plan/<slug>` + abre PR
+      feature→develop; efeito de rede irreversível-social). O `archive` ENCERRA
+      (flipa `status: archived` com zero efeito git, como hoje — `verified_by:
+      skills/shared/project-assets/project-transitions.md` archive) e roda
+      DEPOIS do merge do PR. Nunca PR cego na `main`. Nada é automático: o
+      finalize mostra o diff e o PR proposto antes de agir."
   - id: P3
-    title: Nunca remover trabalho não-provado-integrado; em indeterminação, bloquear
-    body: O teardown só remove quando um check prova integração (`git merge-base
-      --is-ancestor plan/<slug> <base>`). Em indeterminação (origin
-      ausente/stale, base irresolúvel) o check trata como não-mergeado e
-      BLOQUEIA — a falha segura over-bloqueia, nunca over-deleta. Nunca `rm
-      -rf`; nunca `-D`/`--force` por default; `git branch -d` (minúsculo) é a 2ª
-      guarda nativa.
+    title: Nunca remover trabalho não-provado-integrado; squash-safe; em
+      indeterminação, BLOQUEIA
+    body: 'Os modos de erro são assimétricos: falso-negativo ("não integrado" quando
+      está) re-roda; falso-positivo ("integrado" quando não está) deleta
+      trabalho não-mergeado, irreversível. A composição segura: liveness via `gh
+      pr view` (state==MERGED, mergedAt, baseRefName == ref, captura
+      `headRefOid`) + veto local ancorado no `headRefOid` (`git merge-base
+      --is-ancestor` OU `HEAD == headRefOid` sob squash). Indeterminação
+      BLOQUEIA. Nunca `rm -rf`; nunca `-D`/`--force` por default; `git branch
+      -d` é a 2ª guarda nativa.'
   - id: P4
-    title: Backstop é relatório read-only, sem novo estado persistente
-    body: O check de backstop é read-only e sinaliza em WARN; deriva live de `git
-      worktree list --porcelain` + `merge-base` + status do plano. Sem flag nova
-      no `focus.json`, sem hook que deleta, sem campo de schema novo. Promoção a
-      FAIL fica como gatilho de evidência futura, não v1.
+    title: Skills genéricas; agentes advisory são read-only e nunca gateiam; dedup
+      falha-para-RE-revisar
+    body: "As skills de finalize/colisão rodam em QUALQUER projeto-alvo, sem amarrar
+      à stack deste repo. O único gate é determinístico (build+test do projeto
+      na árvore mergeada, verify-claim-able); os agentes LLM são ADVISORY,
+      READ-ONLY (Iron Law: leitura paraleliza, merge/código serial —
+      R-XAGENT-03), self-check nunca self-certify. O dedup de review pula
+      superfície só com prova POSITIVA de já-revisada; na dúvida, RE-revisa
+      (pular por engano = false-green)."
 glossary:
   - term: plan-branch
-    definition: branch `plan/<slug>`; bookkeeping de foco com commits interleaved,
-      NÃO feature branch cujo telos é mergear na trunk.
-  - term: teardown
-    definition: remoção da worktree (e opcionalmente da branch via `git branch -d`)
-      após arquivar, gated pelo invariante de não-perda.
-  - term: base-ref ladder
-    definition: "ordem de resolução da base de integração: `origin/main` fetchado →
-      `main` local → indeterminado (bloqueia)."
+    definition: branch `plan/<slug>` forkada na criação do plano; sob o pivô É a
+      feature-branch que vai a PR→develop.
+  - term: integrationRef
+    definition: ref de integração configurável (default `develop`), repo-global em
+      `routing.json`; nunca per-plano. Onde os PRs de feature entram.
+  - term: finalize
+    definition: "comando dedicado `project finalize` que PUBLICA: push `plan/<slug>`
+      + `gh pr create --base <integrationRef>` + grava a `pr-url` no estado."
+  - term: headRefOid
+    definition: SHA do head do PR no instante do merge (de `gh pr view`); âncora do
+      veto de teardown squash-safe.
+  - term: check cross-WT
+    definition: "detecção de colisão entre ≥2 worktrees vivas no finalize: gate
+      determinístico (build+test do projeto-alvo na árvore mergeada) + workflow
+      advisory de agentes LLM read-only escopados ao diff."
   - term: backstop
-    definition: check read-only no `project verify` que sinaliza órfãos (worktree
-      viva de plano arquivado, branch arquivada à frente da base) em WARN.
-  - term: concorrência
-    definition: "≥1 plano `status: active` já existente no momento da criação de um
-      novo plano; o gatilho que faz a branch nascer."
-  - term: footprint
-    definition: conjunto de arquivos que uma plan-worktree mudou, derivado de `git
-      diff --name-only <base>...plan/<slug>`; rename `a→b` entra como união
-      `{a,b}`.
-  - term: componente conexo
-    definition: grupo de worktrees ligadas por overlap de footprint (ou coupling
-      file); a unidade de serialização — integra em série dentro, qualquer ordem
-      entre componentes.
-  - term: coupling file
-    definition: arquivo que serializa mesmo com footprint disjunto (lockfiles,
-      gerados, migrations); vira aresta global no grafo de footprint.
+    definition: 9º check read-only no `project verify` que sinaliza em WARN órfãos
+      do modelo PR→develop (worktree viva de feature mergeada; branch de plano
+      arquivado nunca PR-ada ou PR aberto e nunca mergeado).
+  - term: ledger de review
+    definition: conjunto append-only em `last-review.json` de `{commitSha, patchId,
+      mode, reviewedAt, reviewFile}`; a memória que evita re-revisar superfície
+      já-revisada.
 phases:
   - id: F0
-    slug: worktree-lifecycle-finalization-f0-nascimento-da-branch-sob-con
-    title: Nascimento da branch sob concorrência (Decisões 1+2)
-    goal: "tornar `branch: null` na árvore atual o DEFAULT para um plano solo no
-      Stage 6, forkando `plan/<slug>` só sob concorrência; e materializar
-      retroativamente a worktree do plano pré-existente quando um 2º plano o
-      torna concorrente."
+    slug: worktree-lifecycle-finalization-f0-always-fork-na-criacao-decis
+    title: Always-fork na criação (Decisão 1)
+    goal: tornar o fork de `plan/<slug>` + worktree INCONDICIONAL na criação do
+      plano (Stage 6), revertendo o default lazy anterior — reusando o mecanismo
+      de stamp/worktree e invertendo só o gatilho, sem tocar `emit-focus` nem o
+      Step 0.5 do implement.
     dependsOn: []
-    subPhaseCount: 2
+    subPhaseCount: 1
     exitGate:
       summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: "Fork determinístico: solo retorna branch:null, concorrência
-            retorna plan/<slug>; worktree retroativa do pré-existente composta
-            sem --force; suite verde."
-          status: met
-          metAt: 2026-06-16T17:31:21.000Z
+          description: "Fork incondicional na criação: solo agora forka plan/<slug>;
+            planBranchName intacto; Stage 6 declara fork incondicional; suite
+            verde."
+          status: pending
           verifier:
             kind: test
             runner: node
             pattern: tests/plan-branch-policy.test.js
-          evidence:
-            verifierKind: test
-            verifiedAt: 2026-06-16T17:31:21.000Z
-            passed: true
-            exitCode: 0
-            testsCollected: 9
-            outputSummary: "node --test tests/plan-branch-policy.test.js → 9/9 pass (exit 0) @ 4b8e9dd."
         - id: G-2
-          description: emit-focus permanece intacto — Decisão 1 não depende dele (testes
-            de focus verdes).
-          status: met
-          metAt: 2026-06-16T17:31:21.000Z
+          description: emit-focus permanece intacto (Decisão 1 não o toca) e skills válidos.
+          status: pending
           verifier:
             kind: shell
-            command: node --test tests/focus-digest.test.js
-          evidence:
-            verifierKind: shell
-            verifiedAt: 2026-06-16T17:31:21.000Z
-            passed: true
-            exitCode: 0
-            outputSummary: "node --test tests/focus-digest.test.js → 11/11 pass (exit 0) @ 4b8e9dd; emit-focus intacto."
-    reviewGate:
-      status: passed
-      at: 4b8e9ddd14af922bed66f84d5d2146ea1e93c578
-      mode: local
-      verifiedAt: 2026-06-16T17:31:21.000Z
-    status: done
-    summary: Branch da worktree nasce só sob concorrência; plano solo fica sem branch.
+            command: node --test tests/focus-digest.test.js && npm run validate-skills
+    status: active
+    summary: Toda criação de plano forka branch+worktree (always-fork), revertendo o
+      default lazy.
   - id: F1
-    slug: worktree-lifecycle-finalization-f1-teardown-seguro-oferta-adjac
-    title: Teardown seguro + oferta adjacente ao archive (Decisões 3+4)
-    goal: fixar o invariante machine-enforced de não-perda-de-trabalho no teardown
-      (com base-ref ladder) e oferecer o teardown operator-prompted adjacente ao
-      `archive`, sem alterar o flip de status (que continua zero efeito git).
+    slug: worktree-lifecycle-finalization-f1-integrationref-configuravel
+    title: integrationRef configurável + branch develop (Decisão 2)
+    goal: 'introduzir um ref de integração configurável (default `develop`)
+      repo-global em `routing.json`, estendendo o schema (que hoje é
+      `additionalProperties: false` e descrito como "Mode 2 routing"), e um
+      resolvedor que lê o ref, aplica o default e sinaliza ausência para o
+      prompt lazy no ponto de consumo (o finalize, F3).'
     dependsOn:
       - F0
     subPhaseCount: 2
@@ -130,65 +122,65 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: Invariante prova integração antes de remover; indeterminação
-            bloqueia; sem -D/--force/rm -rf; suite verde.
+          description: Schema aceita integrationRef e rejeita chave desconhecida;
+            resolvedor aplica default develop e sinaliza ausência sem assumir;
+            suite verde.
+          status: pending
+          verifier:
+            kind: test
+            runner: node
+            pattern: tests/integration-ref.test.js
+        - id: G-2
+          description: routing.schema.json válido e skills válidos.
+          status: pending
+          verifier:
+            kind: shell
+            command: node --test tests/routing-schema.test.js && npm run validate-skills
+    status: pending
+    summary: Ref de integração configurável (default develop) em routing.json, com
+      resolvedor e prompt-quando-ausente.
+  - id: F2
+    slug: worktree-lifecycle-finalization-f2-teardown-seguro-squash-safe
+    title: Teardown seguro squash-safe contra integrationRef (Decisão 4)
+    goal: revisar o invariante de não-perda em `scripts/worktree-teardown.js` para
+      verificar contra o `integrationRef` configurável (não mais `main`),
+      compondo liveness via `gh pr view` (state==MERGED, baseRefName correto,
+      captura `headRefOid`) com um veto local ancorado no `headRefOid` que é
+      seguro sob squash-merge; em indeterminação, BLOQUEIA.
+    dependsOn:
+      - F1
+    subPhaseCount: 1
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: G-1
+          description: Teardown verifica contra integrationRef; liveness+veto headRefOid;
+            oráculos A (resíduo pós-squash bloqueia) e B (squash limpo permite);
+            indeterminação bloqueia; sem -D/--force/rm -rf; suite verde.
           status: pending
           verifier:
             kind: test
             runner: node
             pattern: tests/worktree-teardown.test.js
         - id: G-2
-          description: Oferta de teardown adjacente ao archive presente; flip de status
-            segue zero-git; skills válidos.
-          status: pending
-          verifier:
-            kind: shell
-            command: npm run validate-skills
-    status: active
-    summary: Remover worktree só com integração provada; oferta de teardown no archive.
-  - id: F2
-    slug: worktree-lifecycle-finalization-f2-integracao-topology-aware-cl
-    title: "Integração topology-aware: classificador de disjunção por footprint
-      (Decisão 6)"
-    goal: substituir a regra "sempre serial" por integração topology-aware — um
-      classificador de disjunção por footprint constrói o grafo de overlap das
-      worktrees vivas e serializa (R-XAGENT-03 intacto) só DENTRO de componentes
-      conexos, integrando componentes disjuntos em qualquer ordem; disjunção
-      textual é sound mas não build-safe, então cada merge ainda re-verifica na
-      primária. Octopus e projeção de trunk ficam fora da v1.
-    dependsOn:
-      - F1
-    subPhaseCount: 2
-    exitGate:
-      summary: 2 criteria to meet
-      criteria:
-        - id: G-1
-          description: "Classificador: footprints disjuntos caem em componentes separados,
-            coupling file compartilhado une, componentes conexos detectados,
-            rename expande footprint; suite verde."
-          status: pending
-          verifier:
-            kind: test
-            runner: node
-            pattern: tests/worktree-footprint.test.js
-        - id: G-2
-          description: worktree-isolation.md documenta série-dentro-do-componente +
-            ordem-livre-entre-componentes (R-XAGENT-03 intacto por componente);
-            skills válidos.
+          description: Skills válidos após a revisão do invariante.
           status: pending
           verifier:
             kind: shell
             command: npm run validate-skills
     status: pending
-    summary: Classificador de footprint decide o que serializa junto e o que integra
-      em qualquer ordem.
+    summary: Teardown só remove com integração provada vs integrationRef, seguro sob
+      squash.
   - id: F3
-    slug: worktree-lifecycle-finalization-f3-backstop-read-only-no-projec
-    title: Backstop read-only no project verify (Decisão 5)
-    goal: "adicionar um check read-only de backstop ao `project verify` (slot #9,
-      após os 8 atuais) que deriva live de `git worktree list --porcelain` +
-      `merge-base` + status do plano e sinaliza em WARN os estados órfãos, sem
-      flag no `focus.json`, sem hook e sem campo de schema novo."
+    slug: worktree-lifecycle-finalization-f3-project-finalize-dedicado-de
+    title: project finalize dedicado (Decisão 3)
+    goal: "introduzir o comando operator-prompted `project finalize` que PUBLICA a
+      feature: `git push -u origin plan/<slug>` (sem renomear), `gh pr create
+      --base <integrationRef> --head plan/<slug> --fill`, e grava a
+      `pr-url`/identidade no estado do plano; prompt-quando-ausente do
+      `integrationRef` (usar existente OU criar `develop` de `main`); mostra o
+      diff e o PR proposto antes de agir; o `archive` continua zero-git e roda
+      depois do merge."
     dependsOn:
       - F2
     subPhaseCount: 1
@@ -196,21 +188,169 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: Backstop sinaliza WARN para worktree órfã e branch arquivada à
-            frente; read-only, inputs não mutados; suite verde.
+          description: project finalize documentado (push+PR→integrationRef+grava pr-url,
+            prompt-quando-ausente), router lista o subcomando, archive intocado;
+            skills válidos.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -q 'project-finalize' skills/core/project.md && grep -qi 'gh pr
+              create' skills/shared/project-assets/project-finalize.md && npm
+              run validate-skills
+        - id: G-2
+          description: O finalize consome o resolvedor de integrationRef (F1) e o
+            invariante de teardown (F2) permanece a guarda de remoção.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -qi 'integration-ref'
+              skills/shared/project-assets/project-finalize.md && npm run
+              validate-skills
+    status: pending
+    summary: "Comando project finalize: publica a feature via push + PR para o develop."
+  - id: F4
+    slug: worktree-lifecycle-finalization-f4-check-de-colisao-cross-wt-no
+    title: Check de colisão cross-WT no finalize (Decisão 7)
+    goal: "adicionar ao finalize uma detecção de colisão entre ≥2 worktrees vivas,
+      GENÉRICA (qualquer projeto-alvo): um gate determinístico (detecção dos
+      comandos build/test do projeto-alvo + merge especulativo + exit code) como
+      token de entrada, e um workflow advisory de agentes LLM read-only (Agente
+      A semântico-comportamental + Agente B recurso/contrato) escopados ao diff,
+      que nunca gateiam."
+    dependsOn:
+      - F3
+    subPhaseCount: 2
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: G-1
+          description: "Gate determinístico: detecção genérica de comandos, ativa só com
+            ≥2 WTs, conflito textual é 1º gate, projeto sem comando é skip
+            registrado (não passe silencioso); suite verde."
+          status: pending
+          verifier:
+            kind: test
+            runner: node
+            pattern: tests/cross-wt-gate.test.js
+        - id: G-2
+          description: Workflow advisory (agentes A/B read-only ao diff, nunca gateiam,
+            fallback portátil) documentado no finalize; skills válidos.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -qi 'cross-wt-collision'
+              skills/shared/project-assets/project-finalize.md && grep -qi
+              'advisory' skills/shared/project-assets/project-finalize.md && npm
+              run validate-skills
+    status: pending
+    summary: "No finalize, detecta colisão entre worktrees: gate build/test +
+      agentes advisory ao diff."
+  - id: F5
+    slug: worktree-lifecycle-finalization-f5-coupling-interim-de-atomic-s
+    title: Coupling interim de .atomic-skills/ (Decisão 5)
+    goal: conter com o mínimo o coupling do tree `.atomic-skills/` entre feature-PRs
+      — `focus.json` (estado-de-sessão regenerável) vai para `.gitignore` como
+      carve-out explícito ao "tree versionado", e os JSON append-only de
+      `status/*` ganham `.gitattributes merge=union`; a partição estrutural fica
+      como plano separado.
+    dependsOn:
+      - F4
+    subPhaseCount: 1
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: G-1
+          description: focus.json ignorado + status/* merge=union; round-trip
+            install/uninstall verde com focus.json não-rastreado.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -q 'focus.json' .gitignore && grep -qi 'merge=union'
+              .gitattributes && node --test
+              tests/install-uninstall-roundtrip.test.js
+        - id: G-2
+          description: Suite e skills válidos após o carve-out.
+          status: pending
+          verifier:
+            kind: shell
+            command: npm run validate-skills
+    status: pending
+    summary: "Contém o coupling de .atomic-skills: focus.json ignorado + status/*
+      com merge=union."
+  - id: F6
+    slug: worktree-lifecycle-finalization-f6-backstop-read-only-no-projec
+    title: Backstop read-only no project verify (Decisão 6)
+    goal: adicionar um 9º check read-only ao `project verify` (após os 8 atuais) que
+      deriva live de `git worktree list --porcelain` + `merge-base` + status do
+      plano e sinaliza em WARN os órfãos do modelo PR→develop (worktree viva de
+      feature já mergeada; branch de plano arquivado nunca PR-ada ou PR aberto e
+      nunca mergeado); o classificador topology-aware auto-ordenador fica
+      DEFERIDO.
+    dependsOn:
+      - F5
+    subPhaseCount: 1
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: G-1
+          description: Backstop sinaliza WARN para worktree de feature mergeada e branch
+            arquivada não-integrada; read-only, inputs não mutados; suite verde.
           status: pending
           verifier:
             kind: test
             runner: node
             pattern: tests/detect-orphan-worktrees.test.js
         - id: G-2
-          description: "project verify lista o check #9 e validate-skills passa."
+          description: "project-verify.md lista o check #9 (âncora
+            detect-orphan-worktrees) e validate-skills passa."
           status: pending
           verifier:
             kind: shell
-            command: npm run validate-skills
+            command: grep -q 'detect-orphan-worktrees'
+              skills/shared/project-assets/project-verify.md && npm run
+              validate-skills
     status: pending
-    summary: project verify avisa (WARN) worktrees órfãs de planos arquivados.
+    summary: 9º check read-only no project verify avisa (WARN) órfãos do modelo
+      PR→develop.
+  - id: F7
+    slug: worktree-lifecycle-finalization-f7-dedup-de-review-em-duas-cama
+    title: Dedup de review em duas camadas (Decisão 8)
+    goal: "eliminar re-review redundante sob worktrees paralelas — Camada A: um
+      ledger de superfície unificado (`last-review.json` de ponteiro→conjunto,
+      chave SHA+patch-id) que `review-code` e `review-due` leem/gravam por modo;
+      Camada B: um run-record do composer `project review`, entregue como
+      work-order ao autor da skill (vive em outra branch). Ambos
+      falham-para-RE-revisar."
+    dependsOn:
+      - F6
+    subPhaseCount: 4
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: G-1
+          description: Ledger ponteiro→conjunto com migração fail-safe, append,
+            alreadyReviewed só com prova positiva, e oráculo de patch-id sob
+            squash; suite verde.
+          status: pending
+          verifier:
+            kind: test
+            runner: node
+            pattern: tests/review-ledger.test.js
+        - id: G-2
+          description: review-code e review-due documentam o dedup (âncora review-dedup,
+            fail-para-RE-revisar); work-order ao autor do project review
+            presente (Camada B); skills válidos.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -qi 'review-dedup' skills/core/review-code.md && grep -qi
+              'review-dedup' skills/shared/project-assets/project-drift.md &&
+              grep -qi 'project-review-dedup'
+              .atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/workorders/project-review-dedup.md
+              && npm run validate-skills
+    status: pending
+    summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +
+      run-record do composer."
 references: []
 planActive: true
 planTitle: Finalização do ciclo de vida da worktree-do-plano
@@ -220,27 +360,15 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 
 ## 1. Context
 
-Fecha o ciclo de vida da `plan/<slug>` worktree: hoje o nascimento da branch (criação do plano, Stage 6) e a materialização da worktree (`implement` Step 0.5) são pontos distintos, mas nada fecha o FIM — um plano arquivado deixa branch viva não-mergeada e worktree registrada (`verified_by: skills/shared/worktree-isolation.md:38` — "a `git worktree remove` of a tree with un-merged commits discards them silently"). O painel adversarial derrubou a premissa de "finalize simétrico estilo feature branch": uma `plan/<slug>` é bookkeeping de foco com commits interleaved, NÃO uma branch cujo telos é mergear na trunk. A abordagem escolhida (C, híbrido reenquadrado) ataca a raiz no Stage 6 (a branch só nasce sob concorrência), separa arquivamento lógico de teardown da worktree (ambos operator-prompted), fixa o invariante de não-perda onde o teardown ocorre, torna a integração topology-aware (série só dentro de componentes conexos do grafo de footprint, ordem-livre entre componentes disjuntos), e adiciona o menor mecanismo de memória (relatório WARN read-only). Design aprovado: `.atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/design.md`.
+Fecha o ciclo de vida da `plan/<slug>` worktree sob o **pivô Git Flow do operador** (precedência humano > IA): cada worktree-de-plano É uma feature → **PR → `develop`** (branch de integração configurável) → futuramente `main`; escopo v1 = só feature→develop. Sob o modelo novo **todo plano forka sua branch+worktree na criação** (elimina a interleaving na raiz), o "finalize" passa a **ativo** num comando dedicado (`project finalize`: push + abre o PR), o teardown verifica integração contra o **ref configurável** e é robusto a squash-merge (liveness `gh` + veto ancorado no `headRefOid`), uma **detecção de colisão cross-WT** roda no finalize (gate determinístico do projeto-alvo + workflow advisory de agentes LLM read-only), o coupling de `.atomic-skills/` é contido com o mínimo (`focus.json` git-ignore + `merge=union`), um **backstop read-only** (9º check no `project verify`) sinaliza órfãos do modelo PR→develop, e um **dedup de review em duas camadas** evita re-revisar superfície já-revisada. Design aprovado: `.atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/design.md` (Decisões 1–8, critic Approved).
 
 ## 2. Inviolable principles
 
-- **P1 Branch nasce sob concorrência, não na criação incondicional** — O lever de decisão de branch é o Stage 6 single-focus pre-flight (`verified_by: skills/shared/project-assets/project-create-plan.md`), NÃO o Step 0.5 nem o `emit-focus` (cujo `multipleActivePlans` é pós-colisão e read-only, `verified_by: scripts/emit-focus.js` pickFocus). Plano solo permanece `branch: null` na árvore atual; forka `plan/<slug>` só quando a criação já encontra ≥1 plano ativo.
-- **P2 Arquivamento lógico e teardown da worktree são lifecycles separados** — O `archive` flipa `status: archived` com zero efeito git, como hoje (`verified_by: skills/shared/project-assets/project-transitions.md` archive). O teardown da worktree é uma oferta NOVA e adjacente, nunca parte do flip de status. Arquivar-mas-não-mergear é o estado normal aqui. Ambos operator-prompted.
-- **P3 Nunca remover trabalho não-provado-integrado; em indeterminação, bloquear** — O teardown só remove quando um check prova integração (`git merge-base --is-ancestor plan/<slug> <base>`). Em indeterminação (origin ausente/stale, base irresolúvel) o check trata como não-mergeado e BLOQUEIA — a falha segura over-bloqueia, nunca over-deleta. Nunca `rm -rf`; nunca `-D`/`--force` por default; `git branch -d` (minúsculo) é a 2ª guarda nativa.
-- **P4 Backstop é relatório read-only, sem novo estado persistente** — O check de backstop é read-only e sinaliza em WARN; deriva live de `git worktree list --porcelain` + `merge-base` + status do plano. Sem flag nova no `focus.json`, sem hook que deleta, sem campo de schema novo. Promoção a FAIL fica como gatilho de evidência futura, não v1.
+- **P1 Todo plano forka sua branch+worktree na CRIAÇÃO (feature desde o nascimento)** — Reverte o default lazy anterior ("solo = `branch: null`, forka só sob concorrência"). O mecanismo de fork/stamp/worktree-retroativa é REUSADO (`verified_by: scripts/plan-branch-policy.js`; `scripts/bind-plan-branch.js` stampBranch; `scripts/emit-focus.js` pickFocus intacto) — muda só o gatilho: de condicional-sob-concorrência para incondicional-na-criação. Cada feature acumula commits na própria branch desde o início, tornando "1 worktree = 1 feature = 1 PR limpo" mecanicamente verdadeiro. `emit-focus` NÃO é tocado.
+- **P2 Publicar e encerrar são máquinas de estado separadas, ambas operator-prompted** — O `project finalize` PUBLICA (push `plan/<slug>` + abre PR feature→develop; efeito de rede irreversível-social). O `archive` ENCERRA (flipa `status: archived` com zero efeito git, como hoje — `verified_by: skills/shared/project-assets/project-transitions.md` archive) e roda DEPOIS do merge do PR. Nunca PR cego na `main`. Nada é automático: o finalize mostra o diff e o PR proposto antes de agir.
+- **P3 Nunca remover trabalho não-provado-integrado; squash-safe; em indeterminação, BLOQUEIA** — Os modos de erro são assimétricos: falso-negativo ("não integrado" quando está) re-roda; falso-positivo ("integrado" quando não está) deleta trabalho não-mergeado, irreversível. A composição segura: liveness via `gh pr view` (state==MERGED, mergedAt, baseRefName == ref, captura `headRefOid`) + veto local ancorado no `headRefOid` (`git merge-base --is-ancestor` OU `HEAD == headRefOid` sob squash). Indeterminação BLOQUEIA. Nunca `rm -rf`; nunca `-D`/`--force` por default; `git branch -d` é a 2ª guarda nativa.
+- **P4 Skills genéricas; agentes advisory são read-only e nunca gateiam; dedup falha-para-RE-revisar** — As skills de finalize/colisão rodam em QUALQUER projeto-alvo, sem amarrar à stack deste repo. O único gate é determinístico (build+test do projeto na árvore mergeada, verify-claim-able); os agentes LLM são ADVISORY, READ-ONLY (Iron Law: leitura paraleliza, merge/código serial — R-XAGENT-03), self-check nunca self-certify. O dedup de review pula superfície só com prova POSITIVA de já-revisada; na dúvida, RE-revisa (pular por engano = false-green).
 
 ## 3. Phase tree
 
 _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
-
-## Self-review against code-quality gates
-
-- **G1 read-before-claim**: claims sobre código existente citam arquivo lido nesta sessão (project-create-plan.md Stage 6, implement.md Step 0.5/:97, emit-focus.js pickFocus, bind-plan-branch.js stampBranch, worktree-isolation.md :38/:47-57, project-transitions.md archive, project-verify.md checks, parallel-dispatch.md:76-77). Verificadas por dois reviewers independentes (critic do design + review interna).
-- **G2 soft-language**: varrido o plano + iniciativas para should/probably/may/typically/usually e PT deveria/provavelmente/talvez em posição de asserção; 0 ocorrências (o único "should" é o identificador `shouldForkPlanBranch`).
-- **G6 reference-or-strike**: asserções de prosa carregam `verified_by:`; o prior-art topology-aware carrega URL (design §References). Findings sem evidência foram descartados (ex.: three-dot footprint — `git diff base...branch` é mudanças-desde-merge-base, não diferença simétrica).
-
-## Reviews
-
-- **Interna (review-plan --mode=internal)**: 2 majors + 3 minors na 1ª passada → todos resolvidos; re-review limpa (0 blockers/majors/minors).
-- **Critic do design (gate actor-critic)**: `approve`, 0 blockers/criticals (5 âncoras de evidência spot-checked).
-- **Cross-model Codex (review-plan --mode=codex)**: `needs_changes`, 1 critical + 4 majors (1 dropped, 4 maintained, 1 emerged) → **todos os 5 aplicados** ao plano. Detalhe + briefings: [`.atomic-skills/reviews/2026-06-16-1539-worktree-lifecycle-finalization.md`](../../../reviews/2026-06-16-1539-worktree-lifecycle-finalization.md).
