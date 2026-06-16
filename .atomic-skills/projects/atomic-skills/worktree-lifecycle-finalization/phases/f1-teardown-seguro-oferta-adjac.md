@@ -9,10 +9,10 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-16T15:05:46.324Z
 lastUpdated: 2026-06-16T17:31:21.000Z
-nextAction: "Start T-001: Invariante de não-perda com base-ref ladder"
+nextAction: "Dispatch T-002: oferta de teardown operator-prompted adjacente ao archive (project-transitions.md)"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
@@ -45,9 +45,22 @@ stack:
 tasks:
   - id: T-001
     title: Invariante de não-perda com base-ref ladder
-    status: pending
-    lastUpdated: 2026-06-16T15:38:51.971Z
+    status: done
+    closedAt: 2026-06-16T17:59:33.000Z
+    lastUpdated: 2026-06-16T17:59:33.000Z
     summary: Check que prova integração antes de remover; indeterminação bloqueia.
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-16T17:59:33.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 8
+      outputSummary: node --test tests/worktree-teardown.test.js → tests 8 / pass 8 /
+        fail 0 (exit 0); re-run na primária MERGED (HEAD 3a07fb6) após ff-merge
+        de impl/wlf-f1-t001. Cobre resolveBaseRef ladder
+        (origin/main→main→null), isTeardownSafe (block
+        indeterminate/not-integrated, safe só ancestral, nothing-to-remove sem
+        git call em branch null) + no-forbidden-tokens (-D/--force/rm -rf).
     outputs:
       - kind: file
         path: scripts/worktree-teardown.js
@@ -113,11 +126,11 @@ current: true
 Initiative for phase **F1 — Teardown seguro + oferta adjacente ao archive (Decisões 3+4)**.
 
 ## Session handoff
-- **Narrative:** **F0 DONE e fase avançada para F1 (fronteira de fase, F1 recém-ativada, 0/2 tasks iniciadas).** F0 fechou com 2/2 tasks done (evidence), 2/2 gates met, `reviewGate: passed` (local, @ 4b8e9dd), lição L-001 ratificada, focus.json → F1. Tree limpa. F1 ainda NÃO começou — nenhuma task tocada. Lane Codex (Mode 2) segue on: F1 T-001 e T-002 são spec-ready com verifier determinístico ⇒ candidatas a Codex serial.
-- **Decision log:** (1) F1 herda a lição L-001 (`list-lessons.js --phase F1`): nunca confiar no auto-report de contagem do Codex — re-verificar na primária merged. (2) F1 T-001 (`scripts/worktree-teardown.js` novo + teste) e T-002 (`project-transitions.md` archive offer) — T-002 depende do módulo de T-001, então serial T-001→T-002. (3) Invariante crítico de F1 (P3): teardown só remove com integração PROVADA (`git merge-base --is-ancestor`); indeterminação BLOQUEIA; nunca `-D`/`--force`/`rm -rf`.
-- **Single nextAction:** Iniciar F1 T-001 "Invariante de não-perda com base-ref ladder" → criar `scripts/worktree-teardown.js` (`resolveBaseRef` ladder origin/main→main→null; `isTeardownSafe` bloqueia em null/não-ancestral, libera só com ancestral+base resolvida; branch `null` → `nothing-to-remove`) + `tests/worktree-teardown.test.js`. Verifier: `node --test tests/worktree-teardown.test.js`. Roteamento: Mode 2/Codex (spec-ready + verifier determinístico), worktree sob checkout primário, merge-back operator-prompted.
-- **Verbatim state:** HEAD `plan/worktree-lifecycle-finalization` = (a commitar agora o phase-done de F0). F1 verifiers: T-001 `node --test tests/worktree-teardown.test.js`; T-002 `grep -q 'worktree-teardown' ... && grep -qi 'nothing-to-remove' ... && npm run validate-skills`. scopeBoundary T-001: NÃO git destrutivo no teste; NÃO tocar `archive` (T-002 faz a fiação); falha segura = BLOQUEAR. Lane: `routing.json` mode2Enabled+codexLane.enabled, minBatchTasks:1.
-- **Uncommitted changes:** a commitar agora (chore phase-done): F0 initiative (done + gates met + evidence + self-review + handoff), `plan.md` (F0 done + reviewGate + currentPhase F1 + F1 active), F1 initiative (active + current + este handoff), lessons/f0 (novo), `focus.json` (→F1). Source de F0 já em 145774b.
+- **Narrative:** F1 em andamento, **1/2 tasks done**. **T-001 DONE**: invariante de teardown executado por Codex (Mode 2), merge-back auto-aprovado (modo serial consolidado), ff-merge na primária (`06009bb → 3a07fb6`), verifier `node --test tests/worktree-teardown.test.js` re-rodado na primária merged **8/8 exit 0** (auto-report Codex "tests 1" descartado por L-001), evidence escrita, rollups `tasksDone:1/2`, worktree+branch `impl/wlf-f1-t001` removidos. Próximo: T-002 (oferta de teardown no archive), auto-merge serial aprovado.
+- **Decision log:** (1) F1 herda L-001: re-verificar na primária, nunca confiar no auto-report do Codex (confirmado de novo em T-001). (2) Auto-merge serial F1 aprovado pelo operador — T-002 mergeia sem re-prompt, mas SEMPRE serial + re-verify na primária (nada de batch concorrente). (3) T-002 toca só `project-transitions.md` (markdown), verifier é shell (grep âncora + npm run validate-skills); referencia o invariante de T-001 sem importá-lo. (4) Invariante P3 preservado no módulo (sem `-D`/`--force`/`rm -rf`; `shellQuote` adicionado contra injeção).
+- **Single nextAction:** Dispatch F1 T-002 → editar `skills/shared/project-assets/project-transitions.md` seção `archive`: preservar a frase de flip zero-git + adicionar oferta de teardown operator-prompted ADJACENTE, gated por `scripts/worktree-teardown.js` (`isTeardownSafe`), documentando o desfecho `nothing-to-remove` para branch null. Verifier: `grep -q 'worktree-teardown' skills/shared/project-assets/project-transitions.md && grep -qi 'nothing-to-remove' skills/shared/project-assets/project-transitions.md && npm run validate-skills`.
+- **Verbatim state:** HEAD `plan/worktree-lifecycle-finalization` = `3a07fb6` (após ff-merge T-001) + state-close de T-001 a commitar. F1 G-1 verifier `node --test tests/worktree-teardown.test.js`; F1 G-2 verifier = o shell grep+validate-skills acima. scopeBoundary T-002: NÃO automatizar; NÃO disparar integração de código no archive; NÃO alterar o flip de status (continua zero-git). Lane: `routing.json` mode2Enabled+codexLane.enabled.
+- **Uncommitted changes:** a commitar agora (chore close T-001): F1 initiative (T-001 done + evidence + rollups + nextAction + este handoff) e `dispatch-log.json` (registro F1/T-001). Source de T-001 já em `3a07fb6`.
 
 ## Decisions
 
