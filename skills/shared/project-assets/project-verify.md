@@ -52,7 +52,7 @@ Two independent legacy conditions, each recommending a different `migrate` mode.
 - Find active initiatives whose `branch:` equals the current branch.
 - **PASS:** exactly one active initiative matches (or the user is on the plan's expected branch).
 - **WARN:** zero matches → `WARN branch: no active initiative anchored to \`<branch>\`. You are working unanchored (Iron Law). Run \`status\` to disambiguate or open an initiative.`
-- **WARN:** more than one match → `WARN branch: <N> active initiatives claim \`<branch>\`: <slugs>. Only one should be active per branch.`
+- **FAIL:** more than one match → `FAIL branch: <N> active initiatives claim \`<branch>\`: <slugs>. At most one active plan may claim a tree (Iron Law). Give each its own tree (\`git worktree add -b plan/<slug>\`) + stamp a distinct \`branch:\`, \`pause\` all but one, or stamp distinct \`branch:\` values so they stop sharing \`<branch>\`.` This is the **hard** end of the soft→strict ladder whose **soft** form is `create-plan` Stage 6's single-focus pre-flight (R-FOCUS-01): create-plan warns + guides at materialization; `verify` is where a multi-active that already shares a tree fails the coherence pass.
 - Also flag: an active plan whose `currentPhase` initiative `branch:` does not match the current branch → `WARN phase-branch: active plan \`<plan>\` currentPhase \`<id>\` is on branch \`<x>\`, you are on \`<branch>\`.`
 
 ### 4. Scope coverage (read-only; wraps `detect-scope` data, no write)
