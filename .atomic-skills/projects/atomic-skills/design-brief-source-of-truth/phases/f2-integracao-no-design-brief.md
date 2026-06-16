@@ -7,12 +7,13 @@ goal: o design-brief consome o catálogo com reconstrução-primeiro, comuta o R
 status: active
 branch: plan/design-brief
 started: 2026-06-16T15:34:48Z
-lastUpdated: 2026-06-16T16:41:30Z
-nextAction: "Start T-003: switch do R2 por regime em skills/core/design-brief.md
-  §4 + nota no asset anti-contamination (último task da F2)"
+lastUpdated: 2026-06-16T16:48:03Z
+nextAction: "F2 implementação COMPLETA (3/3 tasks done, verificados). Rodar
+  `atomic-skills:project phase-done` para exit-gate G-1 + review-code + lessons
+  + advance (opt-in do operador — NÃO auto-rodado)."
 parentPlan: design-brief-source-of-truth
 phaseId: F2
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -115,8 +116,21 @@ tasks:
   - id: T-003
     title: Switch do R2 por regime (brownfield minera / greenfield pergunta / nunca
       silencia)
-    status: pending
-    lastUpdated: 2026-06-16T15:34:48Z
+    status: done
+    closedAt: 2026-06-16T16:48:03Z
+    lastUpdated: 2026-06-16T16:48:03Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T16:48:03Z
+      exitCode: 0
+      passed: true
+      testsCollected: 3
+      outputSummary: "node --test test/app-map/design-brief-r2.test.js (merged primary
+        tree) — tests 3, pass 3, fail 0. Asseram §4 brownfield-minera-código +
+        greenfield-pergunta-operador-semeado-artefatos + nunca-silencia + R3
+        intacto; camada-1 verbatim (Iron Law + linha layer-1) em ambos arquivos.
+        Executor: Codex Mode 2 (impl/db-t003, ff em plan/design-brief
+        @812aad5)."
     summary: Faz o R2 minerar do código em brownfield e perguntar ao operador
       (semeado pelos artefatos) em greenfield, nunca silenciando o parâmetro.
     description: "Edita o §4 (R2) para comutar por regime via o catálogo, semeando
@@ -188,31 +202,47 @@ Initiative for phase **F2 — Integração no design-brief**. Materializada no p
 
 ## Session handoff
 
-- **Narrative:** Fase **F2 — Integração no design-brief**, **2/3 tasks** (T-001 +
-  T-002 DONE). T-001 (orquestrador) e T-002 (§2 reconstrução-primeiro) executados
-  pelo **Codex (Mode 2)**, ff-merjados em `plan/design-brief` (@`ff0d51c`, @`59eb549`),
-  ambos verifiers **PASSARAM na árvore primária merjada** (6/6 e 4/4) → fechados com
-  evidence. Worktrees removidos. Próximo e ÚLTIMO: **T-003** (§4 R2 switch por regime).
-  Ao fechar T-003 → último task da F2 → **oferta de phase-done** (NÃO auto-rodar).
+- **Narrative:** Fase **F2 — Integração no design-brief**, **3/3 tasks DONE** —
+  implementação COMPLETA. T-001 (orquestrador `reconstruct.js`+CLI), T-002 (§2
+  reconstrução-primeiro), T-003 (§4 R2 switch por regime + nota asset) executados
+  pelo **Codex (Mode 2)**, ff-merjados em `plan/design-brief` (@`ff0d51c`, @`59eb549`,
+  @`812aad5`), os 3 verifiers **PASSARAM na árvore primária merjada** (6/6, 4/4, 3/3)
+  e o exit-gate combinado G-1 também (**13/13**). Worktrees removidos, branches deletadas.
+  **Próximo passo (opt-in do operador, NÃO auto-rodado): `phase-done` F2.**
 - **Decision log:**
   - Operador optou **Mode 2 / Codex default** para as 3 tasks da F2 (cleared F1∧F2).
-  - T-002 fechado: §2 reescrito (reconstrução-primeiro com ordenação cli<consume<glob,
-    existence+delta, null→parar-perguntar, glob legado opt-in nunca default). Teste
-    estrutural com checagem de ORDENAÇÃO (não tautológico). Verifier 4/4 na primária.
-  - **T-003 edita `skills/core/design-brief.md` §4 (R2) + `skills/shared/design-brief-
-    assets/anti-contamination.md`** (nota de regime). NÃO toca §2 (T-002, já feito),
-    NÃO altera a regra de silêncio da camada 1 (Iron Law), não muta src/app-map.
-  - Husky pre-commit regenera docs ao editar skill `.md` (idempotente p/ T-002, sem
-    resíduo). Esperar isso de novo no commit de T-003.
+  - As 3 tasks foram serializadas (T-001 indep.; T-002/T-003 editam ambas
+    `design-brief.md` → nunca worktrees concorrentes). Merge-back serial, re-verify
+    na primária merjada por task — todos os entry-tokens-to-done foram passes reais.
+  - Testes estruturais de prosa NÃO-tautológicos: T-002 assere ordenação
+    cli<consume<glob; T-003 assere o Iron Law + a linha layer-1 **verbatim** (prova
+    que a camada-1 não foi enfraquecida). Qualidade da prosa fica pro review-code no phase-done.
+  - Husky pre-commit regenera docs ao editar skill `.md` — idempotente, sem resíduo
+    (worktree limpo após cada commit; check-docs passou).
   - Falhas pré-existentes no `npm test` (`countSkills`/`installSkills`/`serve
-    constants`) são ambientais (`dist/dashboard` não-buildado), NÃO regressão.
-- **Single nextAction:** Despachar **T-003** ao Codex: criar worktree `impl/db-t003` off HEAD (`59eb549`) em `/home/henry/atomic-skills/.worktrees/db-t003`, briefing (§4 R2 comuta por regime do catálogo: brownfield minera código / greenfield pergunta operador semeado pelos artefatos / nunca silencia, R3 intacto, camada-1 intacta; nota de regime no asset anti-contamination) + criar `test/app-map/design-brief-r2.test.js`, dispatch `--sandbox workspace-write`.
+    constants`) são ambientais (`dist/dashboard` não-buildado), NÃO regressão da F2.
+- **Single nextAction:** Rodar `atomic-skills:project phase-done` para a F2 (exit-gate G-1 `node --test test/app-map/reconstruct.test.js test/app-map/design-brief-step2.test.js test/app-map/design-brief-r2.test.js` já passa 13/13 + review-code no diff da fase + distilação de lessons + advance currentPhase). NÃO auto-rodar — esperar opt-in do operador.
 - **Verbatim state:**
-  - Verifier T-003: `node --test test/app-map/design-brief-r2.test.js`
-  - Files T-003: `skills/core/design-brief.md` (SÓ §4), `skills/shared/design-brief-assets/anti-contamination.md`, `test/app-map/design-brief-r2.test.js`
-  - Comando worktree T-003: `git worktree add -b impl/db-t003 /home/henry/atomic-skills/.worktrees/db-t003 59eb549`
-  - Exit-gate G-1 da F2: `node --test test/app-map/reconstruct.test.js test/app-map/design-brief-step2.test.js test/app-map/design-brief-r2.test.js` (roda no phase-done)
-  - Invocação Codex: `skills/shared/codex-bridge-assets/invocation-workspace-write.txt`
-- **Uncommitted changes:** prestes a commitar a transição de estado de T-002
-  (`f2-...md` done+rollup+handoff+nextAction, `dispatch-log.json`). Código já em
-  `59eb549`. Árvore limpa após o commit chore.
+  - Exit-gate G-1 da F2 (passa 13/13 na primária): `node --test test/app-map/reconstruct.test.js test/app-map/design-brief-step2.test.js test/app-map/design-brief-r2.test.js`
+  - HEAD: `812aad5` (após o commit chore de fecho de T-003 será o próximo)
+  - Range do review-code da fase: de `git log --before=2026-06-16T15:34:48Z -1 --format=%H` até HEAD
+  - Plano: `.atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md` (phase F2, currentPhase a avançar)
+- **Uncommitted changes:** prestes a commitar a transição de estado de T-003
+  (`f2-...md` done+rollup+handoff+nextAction+self-review, `dispatch-log.json`).
+  Código já em `812aad5`. Árvore limpa após o commit chore.
+
+## Self-review against code-quality gates (implement — F2 implementation)
+
+- **G1 read-before-claim**: applied — cada task fechada linka source/run real no
+  seu `evidence.outputSummary` (T-001 `reconstruct.test.js` 6/6 @ff0d51c; T-002
+  `design-brief-step2.test.js` 4/4 @59eb549; T-003 `design-brief-r2.test.js` 3/3
+  @812aad5), todos re-rodados na **árvore primária merjada**, não na worktree.
+- **G2 soft-language**: applied — completion claims são `passed: true` com exit 0
+  + testsCollected>0 de runs observados; nenhum `should`/`works`/`looks done`. O
+  handoff narra fatos (13/13 combinado), não impressões.
+- **G6 reference-or-strike**: applied — os literais do handoff são caminhos/comandos/
+  shas verbatim (verifiers, exit-gate G-1, worktree refs, merge shas).
+- **Nota (escopo do verifier vs qualidade da prosa):** os verifiers de T-002/T-003
+  são testes estruturais de âncoras (incl. ordenação + camada-1 verbatim) — provam
+  a INTEGRAÇÃO, não a qualidade redacional. Esta fica para o `review-code` no
+  `phase-done` (G2 da gate de fase). Pendente até o operador rodar `phase-done`.

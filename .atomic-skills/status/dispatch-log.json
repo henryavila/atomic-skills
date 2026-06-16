@@ -158,5 +158,21 @@
     "finishedAt": "2026-06-16T16:41:30Z",
     "codexWorktreeRef": "impl/db-t002",
     "routingReason": "Mode 2 batch; lane on + F1 spec-ready (prose intent + anchors specified in work-order) + F2 deterministic shell verifier; single-section prose edit + structural test → cheap tier; serial after T-001 (both edit design-brief.md, not concurrent); re-verified on merged primary 59eb549 (node --test design-brief-step2 4/4, anchors incl. ordering)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F2",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T16:44:00Z",
+    "finishedAt": "2026-06-16T16:48:03Z",
+    "codexWorktreeRef": "impl/db-t003",
+    "routingReason": "Mode 2 batch; lane on + F1 spec-ready (regime-switch intent + layer-1-intact anchors in work-order) + F2 deterministic shell verifier; two-file prose edit (§4 + asset note) + structural test → cheap tier; serial after T-002 (both edit design-brief.md, not concurrent); re-verified on merged primary 812aad5 (node --test design-brief-r2 3/3, incl. verbatim Iron Law + layer-1 row)"
   }
 ]
