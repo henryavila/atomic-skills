@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T15:35:56.955Z",
+  "generatedAt": "2026-06-16T16:02:08.671Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-source-of-truth",
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "RE-DECOMPOR F2 antes do implement: as 3 tasks são anteriores à Revisão 2 e têm verifiers inadequados (grep-presença em T-001/T-002; persist.test.js já-passa em T-003).",
+  "nextAction": "Start T-001: Orquestrador de reconstrução (reconstrução-primeiro) + CLI em src/app-map/reconstruct.js",
   "flags": {
     "drift": false,
     "multipleActivePlans": false

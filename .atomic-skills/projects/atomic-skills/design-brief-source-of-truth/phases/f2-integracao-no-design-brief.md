@@ -8,8 +8,8 @@ status: active
 branch: plan/design-brief
 started: 2026-06-16T15:34:48Z
 lastUpdated: 2026-06-16T15:34:48Z
-nextAction: "RE-DECOMPOR F2 antes do implement: as 3 tasks são anteriores à Revisão 2
-  e têm verifiers inadequados (grep-presença em T-001/T-002; persist.test.js já-passa em T-003)."
+nextAction: "Start T-001: Orquestrador de reconstrução (reconstrução-primeiro) +
+  CLI em src/app-map/reconstruct.js"
 parentPlan: design-brief-source-of-truth
 phaseId: F2
 tasksDone: 0
@@ -18,14 +18,16 @@ gatesMet: 0
 gatesTotal: 1
 exitGates:
   - id: G-1
-    description: o design-brief consome o catálogo, o R2 comuta por regime, e o
-      catálogo persiste no app-alvo passando pela validação emit-time.
+    description: o design-brief consome o catálogo (reconstrução-primeiro), o R2
+      comuta por regime, e o catálogo persiste no app-alvo passando pela
+      validação emit-time.
     status: pending
     verifier:
       kind: shell
-      command: node --test test/app-map/persist.test.js && grep -qi 'app-map'
-        skills/core/design-brief.md
-    verifierLabel: "shell: node --test test/app-map/persist.test.js && grep -qi 'app-m…"
+      command: node --test test/app-map/reconstruct.test.js
+        test/app-map/design-brief-step2.test.js
+        test/app-map/design-brief-r2.test.js
+    verifierLabel: "shell: node --test test/app-map/reconstruct.test.js test/app-map/d…"
 stack:
   - id: 1
     title: Integração no design-brief
@@ -33,60 +35,87 @@ stack:
     openedAt: 2026-06-15T19:46:08.157Z
 tasks:
   - id: T-001
-    title: Step 2 consome o catálogo
+    title: Orquestrador de reconstrução (reconstrução-primeiro) + CLI
     status: pending
-    lastUpdated: 2026-06-15T19:46:08.157Z
-    summary: Step 2 lê o catálogo e reconstrói antes; route-Glob vira legado opt-in.
-    description: "Reescreve o Step 2 para ler o catálogo e rodar a reconstrução
-      antes de consumir. Files: skills/core/design-brief.md,
-      skills/shared/design-brief-assets/screens-prompt.md"
+    lastUpdated: 2026-06-16T15:34:48Z
+    summary: Orquestra os módulos F1 em reconstrução-primeiro (delta por
+      evidenceHash) e persiste no app-alvo; CLI não-interativo de dois modos
+      (--delta / --persist).
+    description: "Orquestrador que liga sources→code-scan→diverge (delta) + persist,
+      com freshness por evidenceHash e resolução de path+projectId do app-alvo;
+      a confirmação interativa fica no agente (JS recebe resoluções). Files:
+      src/app-map/reconstruct.js, scripts/app-map-reconstruct.js,
+      test/app-map/reconstruct.test.js"
     scopeBoundary:
-      - não tocar o coração anti-contaminação (camadas 2 e 3); só o Step 2 de
-        inventário.
+      - orquestra só os módulos F1
+        (sources/code-scan/diverge/confirm/persist/hash) e resolve
+        path+projectId do app-alvo; NÃO edita skills/core/design-brief.md nem o
+        coração anti-contaminação; NÃO muta artefatos humanos; a confirmação
+        interativa fica no agente (o JS recebe resoluções, não pergunta).
     acceptance:
-      - o Step 2 lê o catálogo
-      - ausente ou stale dispara reconstrução primeiro
-      - o route-Glob ao vivo aparece como legado opt-in, nunca o default.
+      - resolve `<appRoot>/.atomic-skills/app-map/` + projectId (basename do
+        appRoot ou fornecido)
+      - catálogo ausente → pipeline roda e marca delta=inventário; greenfield
+        (zero código) não emite catálogo vazio silencioso
+      - catálogo fresco (evidenceHash inalterado por-página) → zero delta sem
+        re-pergunta
+      - evidência mudada → delta só das páginas mudadas (reusa reRunDelta da F1)
+      - CLI `node scripts/app-map-reconstruct.js <appRoot> --delta|--persist` é
+        o ponto de entrada
     verifier:
       kind: shell
-      command: grep -qi 'app-map' skills/core/design-brief.md
+      command: node --test test/app-map/reconstruct.test.js
   - id: T-002
-    title: Switch do R2 por regime
+    title: Step 2 = reconstrução-primeiro; route-Glob vira legado opt-in
     status: pending
-    lastUpdated: 2026-06-15T19:46:08.157Z
-    summary: R2 minera em brownfield e pergunta em greenfield; nunca silencia.
-    description: "Faz o R2 minerar do código em brownfield e perguntar ao operador
-      em greenfield. Files: skills/core/design-brief.md,
-      skills/shared/design-brief-assets/anti-contamination.md"
+    lastUpdated: 2026-06-16T15:34:48Z
+    summary: Reescreve o §2 do design-brief para invocar a reconstrução antes de
+      consumir e demover o route-Glob ao vivo a legado opt-in.
+    description: "Edita o §2 (Screen inventory) para consumir o catálogo (existence/
+      divergências) via reconstrução-primeiro; route-Glob vira legado opt-in.
+      Files: skills/core/design-brief.md,
+      test/app-map/design-brief-step2.test.js"
     scopeBoundary:
-      - não alterar a regra de silêncio da camada 1; só a fonte dos parâmetros
-        do R2.
+      - edita SÓ o §2 (Screen inventory) do design-brief.md; NÃO toca o Iron Law
+        nem as camadas 2/3 (anti-contaminação); NÃO altera o §4 (isso é T-003);
+        não muta src/app-map.
     acceptance:
-      - brownfield minera valores do código
-      - greenfield pergunta ao operador semeado pelos artefatos
-      - nunca silencia o parâmetro.
+      - o §2 invoca a reconstrução (CLI `--delta`) ANTES de consumir
+      - consome existence/divergências do catálogo (não Glob-só-código)
+      - campos audience/accessTier null → parar-e-perguntar
+      - o route-Glob ao vivo aparece explicitamente como legado opt-in, nunca o
+        default
+      - o teste estrutural assere todos esses âncoras no arquivo da skill (não
+        só a palavra)
     verifier:
       kind: shell
-      command: grep -qi 'greenfield' skills/core/design-brief.md
+      command: node --test test/app-map/design-brief-step2.test.js
   - id: T-003
-    title: Persistência na árvore do app-alvo
+    title: Switch do R2 por regime (brownfield minera / greenfield pergunta / nunca
+      silencia)
     status: pending
-    lastUpdated: 2026-06-15T17:00:00.000Z
-    summary: Grava o catálogo na árvore do app-alvo, validando na emissão.
-    description: "Grava o catálogo no app-alvo, validando na emissão. Files:
-      src/app-map/persist.js, test/app-map/persist.test.js"
+    lastUpdated: 2026-06-16T15:34:48Z
+    summary: Faz o R2 minerar do código em brownfield e perguntar ao operador
+      (semeado pelos artefatos) em greenfield, nunca silenciando o parâmetro.
+    description: "Edita o §4 (R2) para comutar por regime via o catálogo, semeando
+      greenfield pelos artefatos; camada-1-silêncio intacta. Files:
+      skills/core/design-brief.md,
+      skills/shared/design-brief-assets/anti-contamination.md,
+      test/app-map/design-brief-r2.test.js"
     scopeBoundary:
-      - catálogo na árvore do app-alvo, não na do repo, salvo dogfooding do
-        próprio atomic-skills.
+      - edita SÓ o §4 (R2) do design-brief.md + a nota de regime no asset
+        anti-contamination; NÃO altera a regra de silêncio da camada 1; NÃO toca
+        o §2 (isso é T-002); não muta src/app-map.
     acceptance:
-      - grava o app-map.json e o espelho .md sob a árvore do app-alvo
-      - o project-id vem do basename do alvo ou é fornecido
-      - valida na emissão antes de gravar.
-      - path exato app-alvo/.atomic-skills/app-map/app-map.json + espelho .md,
-        marcados como output gerado (regenerado, nunca editado à mão).
+      - o §4 (R2) minera valores do código em brownfield
+      - em greenfield pergunta ao operador semeado pelos artefatos do catálogo
+      - nunca silencia o parâmetro (omissão = decisão, R3 intacto)
+      - a regra de silêncio da camada 1 fica inalterada
+      - o teste estrutural assere brownfield-minera + greenfield-pergunta +
+        nunca-silencia + camada-1-intacta
     verifier:
       kind: shell
-      command: node --test test/app-map/persist.test.js
+      command: node --test test/app-map/design-brief-r2.test.js
 parked: []
 emerged: []
 summary: "Pluga o catálogo no design-brief: Step 2, switch do R2 e persistência
@@ -102,17 +131,19 @@ Initiative for phase **F2 — Integração no design-brief**. Materializada no p
 (2026-06-16): metadados stale corrigidos (`branch` era `plan/skills-restructuring`; `started`/
 `lastUpdated` herdados do scaffold), ativada, e a phase-start lessons gate dispositada (abaixo).
 
-> **NÃO SPEC-READY — re-decompor antes do implement.** As 3 tasks T-001…T-003 abaixo foram
-> decompostas em 2026-06-15, **antes da Revisão 2 da F1** (justapor + confirmação-por-divergência,
-> persistência como memória-de-decisão, schema 0.2, confirmDivergences). O DESIGN (Revisão 2) já
-> cobre a F2 (D5' persistência, D6' switch R2, Step 2 reconstrução-primeiro, path `<app-alvo>/
-> .atomic-skills/app-map/`), então a F2 **não volta ao DESIGN — volta ao DECOMPOSE+SPEC**. Problemas:
-> - **T-001/T-002:** verifier `grep -qi 'app-map'/'greenfield'` é presença-de-string, não comportamento
->   — false-green trivial (escrever a palavra passa). O alvo é prosa de skill (`skills/core/design-brief.md`),
->   então o verifier precisa checar a *estrutura* da integração, não a menção.
-> - **T-003:** verifier `node --test test/app-map/persist.test.js` **já passa** (persist.js foi
->   construído na F1/T-005) — não gateia o trabalho novo de T-003 (resolução do path do app-alvo +
->   wiring no design-brief + marcar output gerado). Verifier tautológico.
+> **RE-DECOMPOSTA (2026-06-16) — agora SPEC-ready.** As 3 tasks T-001…T-003 antigas (decompostas
+> 2026-06-15, antes da Revisão 2; verifiers grep-presença + persist.test.js-já-passa) foram
+> **substituídas** por 3 tasks novas contra a Revisão 2 + os contratos F1 construídos, passando o
+> SPEC gate (`node scripts/lint-source.js …/.f2-source.md --spec` → `EXIT=0`). Verifiers agora são
+> `kind: test` determinísticos: T-001 comportamental (orquestrador), T-002/T-003 testes estruturais
+> de contrato sobre a prosa da skill (asseram os âncoras de integração — o mais forte para edição de
+> prosa; a *qualidade* da prosa é coberta pelo review-code no phase-done, não pelo verifier).
+>
+> **Decisão de arquitetura (DECOMPOSE):** a skill `design-brief` é um agente interativo com
+> `{{ASK_USER_QUESTION_TOOL}}` (operador sempre presente — D9), então a confirmação-por-divergência
+> fica NO AGENTE; o JS do app-map é não-interativo/testável. O orquestrador `reconstruct.js` expõe
+> `computeReconstruction` (→ delta) + `persistReconstruction`, com um CLI de dois modos
+> (`--delta` emite o delta; `--persist` grava). A skill: roda `--delta`, arbitra via o tool, roda `--persist`.
 
 ## Decisions
 
