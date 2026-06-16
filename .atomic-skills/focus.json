@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T18:39:15.571Z",
+  "generatedAt": "2026-06-16T19:42:26.359Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "app-map-conflict-arbitration",
@@ -8,10 +8,10 @@
     "status": "active"
   },
   "phase": {
-    "id": "F0",
-    "slug": "app-map-conflict-arbitration-f0-contrato-schema-0-3-descritor-w",
-    "title": "Contrato: schema 0.3 + descritor witnesses",
-    "index": 1,
+    "id": "F1",
+    "slug": "app-map-conflict-arbitration-f1-produtor-consumidores-e-prosa",
+    "title": "Produtor, consumidores e prosa",
+    "index": 2,
     "total": 2,
     "status": "active"
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Schema 0.3 — conflict vira witnesses[]",
+  "nextAction": "Start T-001: Produtor — conflictForField emite witnesses[] e catálogo 0.3",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -35,8 +35,8 @@
       "lastUpdated": "2026-06-16T18:38:32.145Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/phases/f0-contrato-schema-0-3-descritor-w.md",
-      "lastUpdated": "2026-06-16T18:38:32.145Z"
+      "path": ".atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/phases/f1-produtor-consumidores-e-prosa.md",
+      "lastUpdated": "2026-06-16T19:39:09Z"
     }
   ]
 }
