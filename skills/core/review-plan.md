@@ -330,114 +330,54 @@ document it as an "alignment note" in the plan itself.
 
 ## Codex sub-flow (modes: codex, both)
 
-The codex sub-flow uses the canonical assets in
-`skills/shared/codex-bridge-assets/` as the single source of truth. Do
-NOT inline-rewrite these; reference them and substitute placeholders.
+Run the canonical two-pass sealed envelope per
+`{{ASSETS_PATH}}/envelope-orchestration.md` (the byte-identical 12-step skeleton
+shared with `review-code`). It uses the canonical leaf assets in
+`skills/shared/codex-bridge-assets/` as the single source of truth; do NOT
+inline-rewrite them. Bind these plan-review artifact slots:
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`.
-   ABORT if any check fails. (`--allow-dirty` passes through from the
-   argument contract.)
+- **`«INPUT»`** — the input plan file is `plan_path` (already validated in Step
+  0b). Validate with {{READ_TOOL}} that the file exists and has ≥ 10 lines. In
+  `mode == both`, this is the CLEANED plan (post-local-fixes).
+- **`«PASS1_TEMPLATE»`** — `{{ASSETS_PATH}}/pass1-briefing-template-plan.txt`.
+- **`«CONSTRAINTS»`** —
+  - {{BASH_TOOL}}: `grep -E "engines|peerDependencies" package.json 2>/dev/null || true`
+  - {{BASH_TOOL}}: `head -20 CLAUDE.md README.md 2>/dev/null | grep -iE "must|required|forbidden" || true`
+  - Verifiable technical constraints (API contracts, forbidden deps, target runtime).
+  - Non-goals: from the plan if declared; from the project if relevant.
+- **`«ARTIFACT»`** — `{{ARTIFACT_PATH}}` ← `plan_path`. `{{ARTIFACT}}` ← the
+  **composite artifact**:
+  - When `initiative_map` is empty, `{{ARTIFACT}}` is the plan content only
+    (unchanged from current behavior).
+  - When `initiative_map` is non-empty, `{{ARTIFACT}}` is NOT just the plan file
+    content. Build:
+    1. Full plan content (read with {{READ_TOOL}}).
+    2. A separator: `\n\n---INITIATIVE DETAIL (context only)---\n\n`
+    3. For EACH phase in `initiative_map` (ordered by phaseId), append a compact
+       initiative summary (NOT the full file — token budget):
+       ```
+       ---INITIATIVE <phaseId>: <slug> (file: <relative-path>)---
+       Tasks: <T-001 title> | <T-002 title> | ...
+       Exit gates: <G1 description (truncated to 80 chars)> | <G2 ...> | ...
+       Scope: <scope.paths[] joined with ", "> (or "not declared")
+       ---END INITIATIVE <phaseId>---
+       ```
+    Initiative summaries are CONTEXT for codex — they help it identify
+    plan-level gaps (e.g., a gate with no plausible task). Codex MUST NOT cite
+    initiative summaries as `file:line` evidence; its findings reference only
+    the plan file. The detailed initiative-depth checks (items 14-20) are
+    executed by the LOCAL self-loop, which reads full initiative files with
+    line numbers.
+- **`«SIZE_BUDGET»`** — {{BASH_TOOL}} `wc -c` the briefing, compute
+  `(size_bytes / 4)` excluding the artifact portion; `> 800` tokens (plan-only)
+  or `> 1600` tokens (plan with initiatives) → WARNING, likely residual framing,
+  request extra approval.
+- **`«TRIAGE_TARGET»`** — the plan file.
+- **`«TRIAGE_NOTES»`** — pre-step: show the user 1 line
+  `Verdict: <V> | Counts (final): <C> | Framing Δ: <D> | Saved at <path>`, then
+  if `counts_final.blocker == 0 && counts_final.critical == 0`, end.
 
-2. **Collect input** — the input plan file is `plan_path` (already
-   validated in Step 0b). Validate with {{READ_TOOL}} that the file
-   exists and has ≥ 10 lines. In `mode == both`, this is the CLEANED
-   plan (post-local-fixes).
-
-3. **Curate Pass 1 briefing (factual minimal)**
-   - {{READ_TOOL}} `{{ASSETS_PATH}}/pass1-briefing-template-plan.txt`.
-   - Identify externally verifiable factual constraints:
-     - {{BASH_TOOL}}: `grep -E "engines|peerDependencies" package.json 2>/dev/null || true`
-     - {{BASH_TOOL}}: `head -20 CLAUDE.md README.md 2>/dev/null | grep -iE "must|required|forbidden" || true`
-     - Verifiable technical constraints (API contracts, forbidden deps, target runtime).
-   - Identify non-goals (from the plan if declared; from the project if relevant).
-   - **DO NOT** include intent narrative, curated memory, authorship, or (when `mode == both`) any reference to the prior local review or fix log.
-   - Substitute placeholders:
-     - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
-     - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
-     - `{{ARTIFACT_PATH}}` ← `plan_path`
-     - `{{ARTIFACT}}` ← composite artifact (see below)
-     - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
-   - **Composite artifact construction:** When `initiative_map` is
-     non-empty, `{{ARTIFACT}}` is NOT just the plan file content. Build:
-     1. Full plan content (read with {{READ_TOOL}}).
-     2. A separator: `\n\n---INITIATIVE DETAIL (context only)---\n\n`
-     3. For EACH phase in `initiative_map` (ordered by phaseId), append a
-        compact initiative summary (NOT the full file — token budget):
-        ```
-        ---INITIATIVE <phaseId>: <slug> (file: <relative-path>)---
-        Tasks: <T-001 title> | <T-002 title> | ...
-        Exit gates: <G1 description (truncated to 80 chars)> | <G2 ...> | ...
-        Scope: <scope.paths[] joined with ", "> (or "not declared")
-        ---END INITIATIVE <phaseId>---
-        ```
-     Initiative summaries are CONTEXT for codex — they help codex
-     identify plan-level gaps (e.g., a gate with no plausible task).
-     Codex MUST NOT cite initiative summaries as `file:line` evidence;
-     its findings reference only the plan file. The detailed
-     initiative-depth checks (items 14-20) are executed by the LOCAL
-     self-loop which reads full initiative files with line numbers.
-     When `initiative_map` is empty, `{{ARTIFACT}}` is the plan content
-     only (unchanged from current behavior).
-   - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
-   - {{BASH_TOOL}}: `wc -c /tmp/codex-briefing-pass1-<ts>.md`. Size
-     check: compute (size_bytes / 4) excluding the artifact portion. If
-     > 800 tokens (plan-only) or > 1600 tokens (plan with initiatives):
-     WARNING — likely residual framing; request extra approval.
-
-4. **Briefing confirmation** — show user in compact form (artifact path,
-   factual constraints, non-goals, estimated tokens). Ask
-   `approve / edit / cancel`. On cancel: abort.
-
-5. **Pass 1 invocation (blind)** — follow
-   `{{ASSETS_PATH}}/invocation-canonical.txt` substituting:
-   - `<BRIEFING_PATH>` = file from step 3
-   - `<OUTPUT_PATH>` = `/tmp/codex-output-pass1-<ts>.md`
-   - `<TIMEOUT_SECONDS>` = 600
-   - `<MODEL_FLAG>` = empty (codex resolves)
-
-   Capture exit code. 124 (GNU timeout) or 142 (perl alarm fallback) → timeout, abort with retry suggestion. Other non-zero → codex error, abort.
-
-6. **Pass 1 validation** — follow
-   `{{ASSETS_PATH}}/validation-checklist.txt` (universal checks 1-9).
-   Failure → 1 corrective retry. Failure again → escalate raw.
-
-7. **Build Pass 2 briefing (informed)** — Pass 1 briefing (without
-   `Begin review now.`) + content of `{{ASSETS_PATH}}/pass2-prompt-suffix.txt`
-   with substitutions:
-   - `{{CONSTRAINTS_LIST}}` ← factual constraints from step 3
-   - `{{PASS_1_OUTPUT}}` ← content of Pass 1 output
-   - `{{OUTPUT_TEMPLATE_PASS2}}` ← contents of `{{ASSETS_PATH}}/output-template-pass2.txt`
-
-   Save to `/tmp/codex-briefing-pass2-<ts>.md`.
-
-8. **Pass 2 invocation (informed)** — same command as step 5 with the
-   pass-2 briefing path and output path.
-
-9. **Pass 2 validation** — universal checks 1-9 + Pass-2-specific checks
-   10-13 from `{{ASSETS_PATH}}/validation-checklist.txt`. Failure → 1
-   corrective retry. Failure again → escalate raw.
-
-10. **Persistence**
-    - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`
-    - {{READ_TOOL}} `{{ASSETS_PATH}}/review-file-template.txt`.
-    - Substitute placeholders. When `mode == both`, the review file MUST
-      include both the local fix log (audit trail) AND codex findings.
-    - Save to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`.
-    - Update `.atomic-skills/reviews/INDEX.md` (create if missing) with a
-      row from `{{ASSETS_PATH}}/index-row-template.txt`.
-
-11. **Triage + fix proposals**
-    - Show user 1 line: `Verdict: <V> | Counts (final): <C> | Framing Δ: <D> | Saved at <path>`
-    - If `counts_final.blocker == 0 && counts_final.critical == 0`: end.
-    - Otherwise, for each finding with severity ∈ {blocker, critical}:
-      - Show: ID, severity, file:line, claim, recommendation
-      - {{READ_TOOL}} the plan file and formulate a concrete edit
-      - Ask: `apply / edit / skip`
-      - `apply`: use {{REPLACE_TOOL}} on the plan file
-      - `edit`: receive new proposal from user, validate and apply
-      - `skip`: record "skipped: <reason>" appended to the review file
-
-12. **Closing** — proceed to "Closing" section below.
+Then proceed to the "Closing" section below.
 
 ---
 

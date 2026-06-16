@@ -337,77 +337,24 @@ Parse the agent's output. For each finding:
 
 ## Codex sub-flow (modes: codex, both)
 
-The codex sub-flow uses canonical assets in
-`skills/shared/codex-bridge-assets/` as the single source of truth.
+Run the canonical two-pass sealed envelope per
+`{{ASSETS_PATH}}/envelope-orchestration.md` (the byte-identical 12-step skeleton
+shared with `review-plan`). It uses the canonical leaf assets in
+`skills/shared/codex-bridge-assets/` as the single source of truth. Bind these
+code-review artifact slots:
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`.
-   ABORT if any check fails. (`--allow-dirty` passes through from the
-   argument contract; the dirty-tree check in step 4 above has already
-   filtered this.)
-
-2. **Input** — `CAPTURED_DIFF` and `CAPTURED_FILES` from the
-   argument-capture step. Both phases use the same captured material; do
-   NOT re-run `git diff`.
-
-3. **Gather extra context (codex briefing)**
-   - For each file in `CAPTURED_FILES`: ensure {{READ_TOOL}} ran and the content is available.
-   - For each modified public symbol: {{GREP_TOOL}} for callers (limit 5).
-
-4. **Curate Pass 1 briefing (factual minimal)**
-   - {{READ_TOOL}} `{{ASSETS_PATH}}/pass1-briefing-template-code.txt`.
-   - Identify externally verifiable factual constraints:
-     - `package.json` engines, forbidden deps.
-     - Public API contracts (grep README/docs).
-     - Schema/migration constraints if any.
-   - Identify non-goals (short, no rationale).
-   - **DO NOT** include intent, memory, authorship, or (when `mode == both`) any reference to the prior local review or fix log.
-   - Substitute placeholders:
-     - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
-     - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
-     - `{{ARTIFACT}}` ← `CAPTURED_DIFF` (NOT a fresh `git diff`)
-     - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
-   - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
-   - Verify briefing size without diff: < 800 tokens.
-
-5. **Briefing confirmation** — show user: git ref, modified files,
-   callers included, estimated tokens. Ask `approve / edit / cancel`.
-
-6. **Pass 1 invocation (blind)** — follow
-   `{{ASSETS_PATH}}/invocation-canonical.txt`. `MODEL_FLAG` empty by
-   default (codex resolves via `~/.codex/config.toml` or bundled
-   default). User can override by passing `model:<id>`.
-
-7. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt`
-   (universal checks 1-9). Failure → 1 corrective retry. Failure again →
-   escalate raw.
-
-8. **Build Pass 2 briefing (informed)** — append
-   `{{ASSETS_PATH}}/pass2-prompt-suffix.txt` substituting
-   `{{CONSTRAINTS_LIST}}`, `{{PASS_1_OUTPUT}}`, `{{OUTPUT_TEMPLATE_PASS2}}`.
-
-9. **Pass 2 invocation** — same command as step 6 with the pass-2
-   briefing path and output path.
-
-10. **Pass 2 validation** — universal checks 1-9 + Pass-2-only checks
-    10-13.
-
-11. **Persistence**
-    - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`
-    - {{READ_TOOL}} `{{ASSETS_PATH}}/review-file-template.txt`.
-    - Substitute placeholders. When `mode == both`, include both the
-      local fix log AND codex findings in the review file.
-    - Save to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`.
-    - Update `.atomic-skills/reviews/INDEX.md` (create if missing) using
-      `{{ASSETS_PATH}}/index-row-template.txt`.
-
-12. **Triage + fix proposals**
-    - For each finding with severity ∈ {blocker, critical}:
-      - Show ID, severity, file:line, claim, recommendation.
-      - {{READ_TOOL}} the file, formulate edit.
-      - Ask: `apply / edit / skip`.
-      - `apply` uses {{REPLACE_TOOL}}.
-    - Major/minor/nit: record in review file, no required action.
-    - Suggest user run tests if fixes were applied.
+- **`«INPUT»`** — `CAPTURED_DIFF` and `CAPTURED_FILES` from the argument-capture
+  step. Do NOT re-run `git diff`.
+- **`«PASS1_TEMPLATE»`** — `{{ASSETS_PATH}}/pass1-briefing-template-code.txt`.
+- **`«CONSTRAINTS»`** — `package.json` engines / forbidden deps; public API
+  contracts (grep README/docs); schema/migration constraints if any. Gather
+  extra context: for each file in `CAPTURED_FILES` ensure {{READ_TOOL}} ran and
+  the content is available; for each modified public symbol {{GREP_TOOL}} for
+  callers (limit 5).
+- **`«ARTIFACT»`** — `CAPTURED_DIFF` (NOT a fresh `git diff`).
+- **`«SIZE_BUDGET»`** — < 800 tokens (briefing without the diff).
+- **`«TRIAGE_TARGET»`** — the changed source file(s).
+- **`«TRIAGE_NOTES»`** — after applying fixes, suggest the user run tests.
 
 ---
 
@@ -419,14 +366,7 @@ The codex sub-flow uses canonical assets in
 
 ## Code-quality gates (review lens)
 
-When triaging findings and applying fixes, the code you write must
-comply with `docs/kb/code-quality-gates.md`:
-
-- **G1 read-before-claim** — when applying a fix, paste the actual source lines being changed into the fix description before writing the edit. Inferring "the bug is on line 42" without reading line 42 is forbidden.
-- **G2 soft-language ban** — fix descriptions and commit messages MUST NOT contain `should`, `probably`, `may`, `typically`, `usually`. State what the fix does, not what it should do.
-- **G3 anti-tautology in tests** — if the fix adds a test that codifies the bug-then-fix, for each new assertion answer: "what mutation in the fix would make this test fail?" If the answer is "none", rewrite the assertion.
-- **G4 fixture realism** — if the bug involves external data (transcript, HTTP payload, config file), sample a real instance before constructing the test fixture. The 60-second sample rule applies.
-- **G7 premature-abstraction ban** — fixing one bug does not justify introducing a helper "for future similar bugs". Three identical sites = consider helper. Two or fewer = duplicate, document the pattern in a comment, move on.
+When triaging findings and applying fixes, the code you write is bound by `docs/kb/code-quality-gates.md` — apply **G1** (read-before-claim), **G2** (soft-language ban in fix descriptions/commit messages), **G3** (anti-tautology in tests), **G4** (fixture realism, 60-second sample rule), and **G7** (premature-abstraction ban; three-site floor). See the KB for the definitions + good/bad examples; the self-review block below is where they shape the review output.
 
 ## Self-review against gates
 

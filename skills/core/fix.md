@@ -44,7 +44,7 @@ Record the collected evidence:
 > **When:** [under what condition]
 > **Evidence:** [command output, line numbers]
 
-**Boundary instrumentation (conditional — when the symptom crosses modules).** If the bug spans ≥2 modules/components and you cannot yet say which side is wrong, instrument the seams BEFORE forming hypotheses — capture the value entering and leaving each boundary on the path from input to symptom (the technique is `skills/shared/debug-techniques.md` §2). The first boundary where input is correct but output is wrong owns the bug. This replaces a string of blind cross-module guesses with one evidence-localized target. Remove the instrumentation before committing — a left-in debug print is its own defect.
+**Boundary instrumentation (conditional — when the symptom crosses modules).** If the bug spans ≥2 modules/components and you cannot yet say which side is wrong, instrument the seams BEFORE forming hypotheses — the boundary-tracing technique (and why the first correct-in/wrong-out seam owns the bug) is `skills/shared/debug-techniques.md` §2. It replaces blind cross-module guesses with one evidence-localized target. Remove the instrumentation before committing — a left-in debug print is its own defect.
 
 Present the evidence to the user: "Phase 1 complete. Evidence collected above. Moving to diagnosis."
 
@@ -160,14 +160,7 @@ If you thought any of the above: STOP. Go back to the phase you were skipping.
 
 ## Code-quality gates
 
-This skill is bound by the gates defined in `docs/kb/code-quality-gates.md`. Apply the rules below for THIS skill; consult the KB for full rule definition + good/bad examples.
-
-- **G1 read-before-claim** — before stating what the broken code does, paste the relevant source lines (the buggy lines and the function signature). Inferring from the name is forbidden.
-- **G2 soft-language ban** — words like `should`, `probably`, `may`, `typically` are forbidden in the root-cause statement. The cause is what the code does, not what it might do. Convert to verified statement or mark explicitly `unverified: <why>`.
-- **G3 anti-tautology in tests** — for each regression/boundary/edge test, name the mutation in the implementation that would break the test. If "none" or "I'd change the test too" — the assertion is tautological. Rewrite.
-- **G4 fixture realism** — before writing test fixtures, sample a real example of the broken input. Synthesizing the shape from intuition is forbidden (Phase D's stop hook failed exactly this way — synthetic JSONL didn't match the real Claude Code transcript schema).
-- **G5 red phase mandatory** — paste the failing test output BEFORE writing the fix. The output of the test runner showing the failing assertion is the entry token to the green phase.
-- **G7 premature-abstraction ban** — three is the abstraction floor. The fix touches one function unless three independent sites have the same root cause. Adding a helper "for future use" is forbidden.
+This skill is bound by `docs/kb/code-quality-gates.md` — fix applies **G1** (read-before-claim), **G2** (soft-language ban in the root-cause statement), **G3** (anti-tautology in tests), **G4** (fixture realism), **G5** (red phase mandatory — paste the failing output before the fix), and **G7** (premature-abstraction ban; three-site floor). See the KB for the definitions + good/bad examples; the self-review block below is where they shape the report.
 
 ## Self-review against gates
 

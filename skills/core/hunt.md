@@ -297,11 +297,7 @@ For each deferred bug, offer: "Fix [bug description] with /as-fix? The reproduci
 
 ## Code-quality gates
 
-This skill is bound by the gates in `docs/kb/code-quality-gates.md`. For hunt specifically:
-
-- **G1 read-before-claim** — before asserting what the target function/class does, paste the relevant source lines into your investigation notes. Inferring from the method name is the #1 source of tautological tests.
-- **G3 anti-tautology in tests** — for every assertion you write, name the implementation mutation that would break it. If the answer is "none" or "I'd change the test too", rewrite the assertion to test behavior, not implementation. The HARD-GATE above already enforces this for expected values; G3 extends it to ALL assertions including mock interactions, side-effect spies, and snapshot tests.
-- **G4 fixture realism** — before constructing test inputs, sample a real example of the data shape (open a real file, run a real query, sample a real log line). Synthesizing the shape from intuition is forbidden. The 60-second sample rule applies: real-producer data takes under a minute to sample.
+This skill is bound by `docs/kb/code-quality-gates.md` — hunt applies **G1** (read-before-claim), **G3** (anti-tautology — extends the expected-value HARD-GATE above to ALL assertions: mocks, spies, snapshots), and **G4** (fixture realism, 60-second sample rule). See the KB for the definitions + good/bad examples; the self-review block below is where they shape the hunt report.
 
 ## Self-review against gates
 

@@ -310,14 +310,3 @@ room.
 - "Gate-mode panel reached consensus, so the gate passes." → Consensus is not
   the gate. The fresh critic decides; a conformed panel can agree on a wrong
   answer and commit it as PASS.
-
-## Rationalization Table
-
-| Temptation | Reality |
-|------------|---------|
-| "Role-playing all voices myself reads the same" | It converges to one voice — the exact failure this skill exists to prevent |
-| "Summarizing the agents is cleaner" | The user came to hear the agents debate, not your digest of them |
-| "2-4 agents is arbitrary; I'll spawn 8" | More voices dilute signal and blow context — pick the most relevant few and rotate |
-| "I need a `.claude/agents/` dir to start" | The roster provider falls back to a shipped default; the debate runs anywhere |
-| "Passing the whole transcript keeps agents informed" | It blows their context — a tight <400-word summary outperforms the raw log |
-| "The gate-mode panel was unanimous — that's a pass" | Unanimity measures conformity as much as correctness (the MAD false-pass trap). The pass comes only from the fresh critic's binary verdict, never from the panel |

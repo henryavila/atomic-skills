@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T17:23:58.281Z",
+  "generatedAt": "2026-06-16T18:41:14.912Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "skills-restructuring",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 7,
     "total": 7,
     "blocked": 0
   },
