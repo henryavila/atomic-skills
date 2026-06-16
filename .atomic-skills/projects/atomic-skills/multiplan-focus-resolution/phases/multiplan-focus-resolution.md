@@ -4,30 +4,37 @@ slug: multiplan-focus-resolution
 title: Resolução de foco em camadas + enforcer worktree-por-plano
 goal: Tornar o foco da statusline determinístico com mais de um plano ativo, via
   resolução em camadas e um enforcer que isola planos concorrentes em worktrees.
-status: active
+status: done
 branch: plan/multiplan-focus
 started: 2026-06-15T19:42:12Z
-lastUpdated: 2026-06-16T13:00:00Z
-nextAction: "Todas as 6 tasks done. Rodar `phase-done` para executar a exit gate
-  F0-G1 (kind:manual — validar com o usuário foco determinístico com 2+ planos
-  ativos + enforcer oferece/força worktree) e o review-code do diff da fase,
-  depois avançar/arquivar o plano. Usuário opta in (intrusive-actions)."
+lastUpdated: 2026-06-16T13:08:36Z
+nextAction: null
 parentPlan: multiplan-focus-resolution
 phaseId: F0
 tasksDone: 6
 tasksTotal: 6
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F0-G1
     description: Enforcer soft implementado e foco determinístico com multi-plano
       demonstrado.
-    status: pending
+    status: met
+    metAt: 2026-06-16T13:08:36Z
     verifier:
       kind: manual
       description: Validar com o usuário que o foco resolve corretamente com 2+ planos
         ativos e que o enforcer força/oferece worktree.
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-06-16T13:08:36Z
+      passed: true
+      outputSummary: Usuário confirmou met. 4 planos ativos isolados em worktrees por
+        branch; focus.json tree-relative resolve certo
+        (drift/multipleActivePlans false). Enforcer nos 3 pontos (create-plan
+        soft, verify hard, implement).
     verifierLabel: manual
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: Resolução de foco em camadas + enforcer worktree-por-plano
@@ -170,9 +177,9 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 
 ## Session handoff
 
-- **Narrative:** Fase F0 do `multiplan-focus-resolution`, **6/6 tasks done** — fronteira de fase atingida. Esta sessão desenhou (design colaborativo) e fechou **T-006**: novo `Step 0.5 — Resolve the plan-worktree (lazy)` em `skills/core/implement.md`. T-003 já havia fechado em paralelo (`cdaa61e`/`0b6faa5`), entrou como commits abaixo das mudanças não-commitadas de T-006 — layering limpo, sem conflito. Exit gate F0-G1 é `kind: manual`, ainda **pending**.
+- **Narrative:** Fase F0 do `multiplan-focus-resolution` **FECHADA** — 6/6 tasks done, exit gate F0-G1 (`kind:manual`) **met** (usuário confirmou), reviewGate `passed` (local). O `phase-done` rodou o review-code do diff da fase (8 arquivos, escopado fora de app-map/design-brief): 1 finding real (fallback foreign-tree no `emit-focus`) + 1 de acurácia de doc (`current:true`) — **ambos corrigidos** no commit `a194db1`, mais o novo `scripts/bind-plan-branch.js` (resolver de branch sem plano). Falta só a decisão de marcar o plano done + arquivar.
 - **Decision log:** (1) Design de T-006 travado com 2 decisões do usuário: **(a)** no mismatch de branch, `implement` materializa `.worktrees/<slug>` operator-prompted e **HALTA instruindo re-entrada** (nunca cwd-switch silencioso / escrita entre árvores); **(b)** a casa do **Mode 1 passa a ser a worktree-do-plano** (nível 2 do aninhamento), não a árvore primária. (2) Resolução **por branch, não por path** (reusa worktree-isolation §Step 0); no-op quando branch da árvore == branch do plano (caso vivo desta sessão), degraded quando branch null. (3) Convenção `.worktrees/<slug>` (regra do projeto), **não** o sibling-dir do `worktree-isolation.md` — discrepância do asset deixada como follow-up, fora do `scopeBoundary[]` de T-006. (4) `docs/skills/implement.md` é gerado de `meta/catalog.yaml`, não do corpo — editar `implement.md` não o deixa stale; escopo ficou em 1 arquivo.
-- **Single nextAction:** Rodar `phase-done` (com opt-in do usuário) para executar a exit gate F0-G1 (`kind:manual`) + o review-code do diff da fase, depois avançar/arquivar o plano.
+- **Single nextAction:** Plano de 1 fase com a fase done → `proposeAdvance` = plan-done. Marcar o plano `status: done` + `archive multiplan-focus-resolution` (opt-in do usuário).
 - **Verbatim state:**
   - File editado: `skills/core/implement.md` — novo `### Step 0.5 — Resolve the plan-worktree (lazy)` entre Step 0 e Step 1; frase de contrato `Mode 1 (Step 2) codes here, in the plan-worktree — not the primary tree`.
   - Verifier T-006 (kind:shell, exit 0): `npm run validate-skills >/dev/null 2>&1 && grep -q "Resolve the plan-worktree (lazy)" skills/core/implement.md && grep -q "git worktree add .worktrees/" skills/core/implement.md && grep -q "Mode 1 (Step 2) codes here, in the plan-worktree" skills/core/implement.md` → `EXIT=0`.
@@ -185,3 +192,21 @@ Initiative standalone (paused — queued) para a feature de foco multi-plano da 
 - G1 read-before-claim: applied — T-006 fechado pelo run real `EXIT=0` do verifier (não por inspeção); âncoras conferidas via grep.
 - G2 soft-language: applied — T-006 é `done` com `evidence.passed: true`; sem should/probably/works no handoff.
 - G6 reference-or-strike: applied — literais do handoff são paths/comandos/commits verbatim (`skills/core/implement.md`, o comando do verifier, `0b6faa5`).
+
+## Self-review against code-quality gates (phase-done)
+
+- G1 read-before-claim: 6 tasks fechadas com evidência; finding #2 do review tinha loci alucinados — verificados contra o arquivo antes de agir, só a substância real foi corrigida.
+- G2 soft-language: gate F0-G1 met com `evidence.passed: true`; sem soft-language nos summaries.
+- G6 reference-or-strike: reviewGate carrega `at: a194db1` + `reviewFile`; evidence cita o estado vivo verbatim.
+- Codex review: SKIPPED — diff não-destrutivo (sem deleções), `--mode=local` por G5; cross-model não requerido.
+- Review gate (G2): `reviewGate: { status: passed, at: a194db1, mode: local }` no descritor da fase (plan.md) — bate com esta prosa; GATE-R3 exige o `at`.
+- Lessons (G1): 2 lições destiladas (abaixo, "## Lições propostas") de sinais reais de falha — pendentes de ratificação.
+
+## Lições propostas (ratificar)
+
+1. **[reusable] Seleção tree-relative com fallback last-resort vaza entidade de outra árvore.**
+   - statement: `pickFocus` caía em `pool=activePlans` quando nenhum plano reivindicava a branch, mostrando um plano de outra worktree como foco — sinal falso que os testes de T-005 não pegaram.
+   - corrective: quando nenhum claimer casa, retornar vazio + flag (`unclaimedBranch`), nunca um candidato arbitrário. Locus: `scripts/emit-focus.js` `pickFocus`.
+2. **[reusable] Agente de review em contexto selado pode alucinar `file:line` mesmo com a substância real.**
+   - statement: finding #2 citou `§1.2 linha 90-92` / um `project_chip()` em `§3.1` que não existiam; a substância (`current:true` vs branch/recência) era verdadeira em outras linhas.
+   - corrective: G1 read-before-claim — verificar cada finding contra o arquivo real antes de agir; rejeitar o locus, manter só a substância confirmada. Evidência: `.atomic-skills/reviews/2026-06-16-1308-code-multiplan-focus-phasedone.md`.

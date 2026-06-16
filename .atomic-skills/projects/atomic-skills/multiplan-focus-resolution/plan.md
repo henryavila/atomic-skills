@@ -25,12 +25,29 @@ phases:
           description: Enforcer soft implementado e foco determinístico com multi-plano
             demonstrado (statusline mostra o plano certo + marcador de
             ambiguidade).
-          status: pending
+          status: met
+          metAt: 2026-06-16T13:08:36Z
           verifier:
             kind: manual
             description: Validar com o usuário que o foco resolve corretamente com 2+ planos
               ativos e que o enforcer força/oferece worktree.
-    status: active
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-16T13:08:36Z
+            passed: true
+            outputSummary: "Usuário confirmou met. Evidência viva: 4 planos ativos,
+              cada um com branch plan/<slug> distinto + worktree própria; focus.json
+              da árvore plan/multiplan-focus resolve para multiplan-focus-resolution
+              com drift:false e multipleActivePlans:false (tree-relative). Enforcer
+              nos 3 pontos: create-plan Stage 6 (soft), verify §3 WARN→FAIL (hard),
+              implement Step 0.5 (materializa/instrui)."
+    reviewGate:
+      status: passed
+      at: a194db1
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1308-code-multiplan-focus-phasedone.md
+      verifiedAt: 2026-06-16T13:08:36Z
+    status: done
     summary: "Foco determinístico para multi-plano: resolução em camadas + enforcer
       worktree."
 references:
