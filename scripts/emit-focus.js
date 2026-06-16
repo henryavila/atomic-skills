@@ -88,18 +88,50 @@ function findPhaseInitiative(planDir, phaseId) {
   return null;
 }
 
+/** A plan's explicit branch binding, or null when unset/empty. */
+function branchOf(p) {
+  return typeof p.fm.branch === 'string' && p.fm.branch ? p.fm.branch : null;
+}
+
+/** Active plans, most-recently-updated first. */
+function recentFirst(plans) {
+  return [...plans].sort(
+    (a, b) => String(b.fm.lastUpdated || '').localeCompare(String(a.fm.lastUpdated || '')),
+  );
+}
+
 /**
- * Pick the focus plan among active plans — mirrors session-start.sh exactly:
- * the active plan whose `branch:` field matches the current git branch wins;
- * otherwise the most recently updated active plan. (`current: true` is stamped
- * per-active-plan, so it can NOT disambiguate across plans — don't use it here.)
+ * Pick the focus plan AND decide tree-relative ambiguity.
+ *
+ * "Focus" is a property of the current worktree, not a global count. A plan with
+ * an explicit `branch:` claims ONLY that branch's tree; an unbranched plan claims
+ * any tree. So in a properly-isolated worktree (each active plan owns a distinct
+ * branch) exactly one plan claims the tree → no ambiguity. `ambiguous` (the `⧉`
+ * marker) means >1 active plan competes for THIS tree — the drift the worktree
+ * enforcer prevents. When the branch is unknown (detached HEAD / no git) branch
+ * cannot disambiguate, so any >1 active plans are reported ambiguous.
+ *
+ * Focus precedence: exact branch-match > unbranched > any active (last resort);
+ * ties broken by recency. Mirrors session-start.sh's branch-then-recency intent.
  */
 function pickFocus(activePlans, branch) {
-  const matched = branch ? activePlans.find((p) => p.fm.branch && p.fm.branch === branch) : null;
-  const plan = matched || [...activePlans].sort(
-    (a, b) => String(b.fm.lastUpdated || '').localeCompare(String(a.fm.lastUpdated || '')),
-  )[0];
-  return { plan, init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null) };
+  let claimers;
+  let pool;
+  if (branch) {
+    const exact = activePlans.filter((p) => branchOf(p) === branch);
+    const unbranched = activePlans.filter((p) => branchOf(p) === null);
+    claimers = [...exact, ...unbranched]; // a plan branched elsewhere does NOT claim this tree
+    pool = exact.length ? exact : unbranched.length ? unbranched : activePlans;
+  } else {
+    claimers = activePlans; // no branch context → cannot disambiguate by tree
+    pool = activePlans;
+  }
+  const plan = recentFirst(pool)[0];
+  return {
+    plan,
+    init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
+    ambiguous: claimers.length > 1,
+  };
 }
 
 function phaseInfo(plan, init) {
@@ -160,7 +192,7 @@ export function buildFocusDigest(dir, { now = new Date().toISOString(), drift = 
   const activePlans = plans.filter((p) => p.fm.status === 'active');
   if (activePlans.length === 0) return empty;
 
-  const { plan, init } = pickFocus(activePlans, branch);
+  const { plan, init, ambiguous } = pickFocus(activePlans, branch);
   const sources = [{ path: rel(plan.planFile), lastUpdated: plan.fm.lastUpdated ?? null }];
   if (init) sources.push({ path: rel(init.file), lastUpdated: init.fm.lastUpdated ?? null });
 
@@ -173,7 +205,7 @@ export function buildFocusDigest(dir, { now = new Date().toISOString(), drift = 
     tasks: taskCounts(init),
     gates: gateCounts(init),
     nextAction: (init?.fm.nextAction ?? null) || null,
-    flags: { drift: Boolean(drift), multipleActivePlans: activePlans.length > 1 },
+    flags: { drift: Boolean(drift), multipleActivePlans: ambiguous },
     sources,
   };
 }

@@ -210,3 +210,70 @@ test('emitFocus writes .atomic-skills/focus.json atomically; no-op without state
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+/** Active plan with an explicit `branch:` line (or none when branch is null). */
+function writeBranchedPlan(repo, slug, branch, last) {
+  const planDir = join(repo, '.atomic-skills', 'projects', 'p', slug);
+  mkdirSync(join(planDir, 'phases'), { recursive: true });
+  writeFm(join(planDir, 'plan.md'), [
+    'schemaVersion: "0.1"', `slug: ${slug}`, `title: ${slug}`, 'status: active',
+    'currentPhase: F0', `lastUpdated: ${last}`, ...(branch ? [`branch: ${branch}`] : []),
+    'phases:', '  - id: F0', `    slug: ${slug}-f0`, '    title: Zero', '    status: active',
+  ].join('\n'));
+  writeFm(join(planDir, 'phases', 'f0-zero.md'), [
+    'schemaVersion: "0.1"', `slug: ${slug}-f0`, 'title: Zero', 'status: active',
+    'phaseId: F0', `parentPlan: ${slug}`, 'tasksDone: 0', 'tasksTotal: 1', 'gatesMet: 0', 'gatesTotal: 0',
+    `lastUpdated: ${last}`, 'planActive: true',
+  ].join('\n'));
+}
+
+test('isolated worktrees (distinct branches) → multipleActivePlans is FALSE', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-iso-'));
+  try {
+    // Two genuinely-parallel plans, each owning its own branch/worktree.
+    writeBranchedPlan(repo, 'plan-a', 'feature/a', '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', 'feature/b', '2026-06-15T10:00:00Z');
+
+    // In the feature/a worktree: focus = plan-a, and NO ambiguity — exactly one
+    // active plan claims this tree (plan-b is branched elsewhere, doesn't compete).
+    const a = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/a' });
+    assert.equal(a.plan.slug, 'plan-a');
+    assert.equal(a.flags.multipleActivePlans, false);
+
+    const b = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/b' });
+    assert.equal(b.plan.slug, 'plan-b');
+    assert.equal(b.flags.multipleActivePlans, false);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('an unbranched active plan claims any tree → multipleActivePlans TRUE (drift)', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-claim-'));
+  try {
+    writeBranchedPlan(repo, 'plan-branched', 'feature/x', '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-loose', null, '2026-06-15T08:00:00Z'); // no branch → claims any tree
+
+    // On feature/x: exact branch-match wins the focus, but the unbranched plan also
+    // claims this tree → ambiguous (exactly the drift the worktree enforcer prevents).
+    const d = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/x' });
+    assert.equal(d.plan.slug, 'plan-branched');
+    assert.equal(d.flags.multipleActivePlans, true);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('no branch context → cannot disambiguate, ambiguity falls back to active count', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-nobranch-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', 'feature/a', '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', 'feature/b', '2026-06-15T10:00:00Z');
+    // Detached / unknown branch: branch can't disambiguate, so >1 active = ambiguous.
+    const d = buildFocusDigest(repo, { now: FIXED_NOW }); // no branch
+    assert.equal(d.flags.multipleActivePlans, true);
+    assert.equal(d.plan.slug, 'plan-b'); // recency fallback
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
