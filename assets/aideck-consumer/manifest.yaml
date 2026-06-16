@@ -1,7 +1,10 @@
-# This file is a TEMPLATE. The project skill provisions a per-project copy under
-# ~/.aideck/consumers/<projectId>/ and STAMPS the top-level `id` + `title` to the
-# consuming repo (id = projectId, title = humanized name) — see src/provision-consumer.js.
-# The values below are only the sane default for the atomic-skills repo itself.
+# This is THE atomic-skills consumer (one shared consumer, Q10). The project
+# skill provisions it verbatim into ~/.aideck/consumers/atomic-skills/ — id
+# `atomic-skills`, mcpNamespace `atomic_skills`, title `Atomic Skills` (no
+# per-project stamping; see src/provision-consumer.js). Every consuming repo is
+# registered as a *project* (POST /api/projects/register) and the dashboard
+# scopes by the `:projectId` route param; `root: project` dataSources resolve
+# per-project via /api/consumers/atomic-skills/projects/<projectId>/data/<ds>.
 #
 # DASHBOARD v2 (DS v2.1 widgets, runtime schemaVersion 0.1). Every dataSource
 # binds to the DENORMALIZED projection emitted by scripts/emit-consumer-state.js
