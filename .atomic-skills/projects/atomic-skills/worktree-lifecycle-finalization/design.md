@@ -166,6 +166,56 @@ mínimo (Decisão 5); a cura estrutural é um plano separado.
      (~0.1% vs ~13.5% textual no corpus de `verified_by: Shen 2022`) mas caras POR OCORRÊNCIA
      (invisibilidade/custo) → justifica um check OPCIONAL/operator-prompted, não always-on.
 
+8. **Dedup de review em DUAS camadas para eliminar re-review redundante sob WTs paralelas: ledger de
+   superfície nas PERNAS + run-record no COMPOSER — ambos fail-para-RE-revisar.** Sob o pivô (cada
+   feature-WT pode rodar review; a consolidação/finalize re-revisa), tanto as pernas de review quanto o
+   audit composto repetem trabalho. Hoje não há memória de dedup: `review-code` re-revisa toda a faixa
+   recebida (único escape grosseiro = modo "Codex only — Skip local", `verified_by:
+   skills/core/review-code.md:218`; mais o SHA per-fase `reviewGate.at`, `verified_by:
+   skills/shared/project-assets/project-transitions.md:126`); o `review-due`/`last-review.json` é ponteiro
+   ÚNICO linear `{lastReviewedCommit, lastReviewedAt, reviewFile}` (`verified_by:
+   skills/shared/project-assets/project-drift.md:78-92,121-139`), não-conjunto; o `project review` é
+   composer READ-ONLY que não re-implementa — só sequencia as pernas (`verified_by:
+   skills/shared/project-assets/project-review.md:7,25-26`).
+   - **Camada A — ledger de superfície unificado (nas PERNAS; edição direta nesta branch):** estender
+     `last-review.json` de ponteiro → **conjunto append-only** de `{commitSha, patchId, mode: local|codex,
+     reviewedAt, reviewFile}`. `review-code` (local) e `review-due` (codex) ambos LEEM antes (faixa a
+     revisar = pedido − superfície já-revisada NAQUELE modo) e GRAVAM depois; dedup **por modo** (uma
+     passada local não dispensa a codex). O `review-code` local hoje não registra superfície/data nenhuma
+     (`verified_by: skills/core/review-code.md` — sem caminho de escrita em `last-review.json`; só o
+     `review-due` grava, `verified_by: skills/shared/project-assets/project-drift.md:134`) — passa a registrar. **Chave dupla SHA + patch-id:** o SHA casa merge-commit/rebase; o `patchId`
+     (`git patch-id`, `verified_by: https://git-scm.com/docs/git-patch-id`) casa sob **squash**, que
+     reescreve SHAs — mesmo princípio do `headRefOid` da Decisão 4. Uso DISTINTO do patch-id rejeitado na
+     Decisão 4: lá como prova de integração (squash colapsa N commits num diff agregado ⇒ falso-positivo);
+     aqui como casamento de dedup com falha-segura para RE-revisar, então um patch-id que não casa apenas
+     causa um re-review seguro. Append-only torna o ledger compatível com o `merge=union` da Decisão 5 (o
+     `last-review.json` é um `status/*` que colide entre feature-PRs). **Eficácia é best-effort pré-merge:**
+     antes do merge, a leitura per-WT pode não enxergar entradas de outras WTs (o `merge=union` só reconcilia
+     no merge), então só a superfície PÓS-merge é deduplicada de forma confiável — a SEGURANÇA não depende
+     disso (uma leitura stale faz RE-revisar, nunca pular), só o ganho de custo é limitado pela janela de
+     union.
+   - **Camada B — run-record do `project review` (no COMPOSER; entregue ao autor da skill):** a Camada A só
+     deduplica a superfície de CÓDIGO; o `project review` roda o audit INTEIRO (linters + `verify` +
+     `review-plan` + `review-code`, `verified_by: skills/shared/project-assets/project-review.md:30-52`),
+     então rodá-lo no WT e de novo no pré-merge repete as pernas não-código. O composer ganha um
+     **run-record próprio** — por execução grava, por perna, `{auditedHead, auditedPlanSha, tree-clean,
+     verdito, fingerprint do input daquela perna}`. Na re-execução, **por perna**, reusa o verdito SÓ com
+     prova POSITIVA de input idêntico: `review-plan` reusa sse `plan.md`+fases byte-idênticos desde o run
+     gravado; `verify`/linters sse o estado relevante inalterado; a perna `review-code` DEFERE ao ledger da
+     Camada A. O run-record é gravado no MESMO `last-review.json` (uma fonte de verdade só) — o que é uma
+     **exceção append-only EXPLÍCITA à política READ-ONLY** do `project review` (`verified_by:
+     skills/shared/project-assets/project-review.md:25-26`): as pernas de audit seguem sem mutar estado, só
+     o run-record append-only é escrito. Esse carve-out (espelhando o git-ignore de `focus.json` da Decisão
+     5) é parte EXPLÍCITA do work-order ao autor da skill — não um efeito colateral oculto.
+   - **Regra de segurança (forçada, comum às duas camadas):** o dedup **falha-para-RE-revisar/RE-rodar** —
+     só pula com prova positiva de já-coberto; qualquer mudança ou incerteza re-executa. Os modos de erro
+     são assimétricos: re-revisar desperdiça custo (recuperável); pular superfície não-revisada embarca
+     código não-auditado = **false-green** irreversível-em-efeito — a mesma assimetria que a Decisão 4 fixa
+     no teardown.
+   - **Composição com D5/D7:** o ledger é o `status/*` que a Decisão 5 contém (`merge=union`/append-only);
+     os agentes advisory da Decisão 7 leem o ledger e escopam só à superfície NOVA (commits de merge +
+     interação de integração), nunca aos diffs per-WT já revisados.
+
 ## Chosen approach
 
 O modelo (Git Flow `worktree=feature→PR→develop→main`) é decisão do operador. O painel adversarial
@@ -181,7 +231,8 @@ O modelo (Git Flow `worktree=feature→PR→develop→main`) é decisão do oper
   3) + teardown com **liveness(gh) + veto ancorado no `headRefOid`** seguro sob squash (Decisão 4) + ref configurável em
   `routing.json` (Decisão 2) + coupling contido com o mínimo (Decisão 5) + topology auto-ordenador deferido
   (Decisão 6) + **check de colisão cross-WT no finalize: gate determinístico do projeto-alvo + workflow
-  advisory de agentes LLM escopados ao diff (Decisão 7)**.
+  advisory de agentes LLM escopados ao diff (Decisão 7)** + **dedup de review em duas camadas — ledger de
+  superfície nas pernas + run-record no composer (Decisão 8)**.
 
 **Por que (C) ganhou:** Tariq fixou o invariante inegociável — a API dá o SINAL, o grafo local dá o VETO;
 um falso-positivo passa a exigir DOIS erros independentes (o `OR` ingênuo só exigia um). Flynn cravou o
@@ -218,6 +269,21 @@ One-way doors / migração — contenções explícitas:
   ADVISORY (nunca o gate — o gate é o piso determinístico verify-claim-able), READ-ONLY (Iron Law
   preservado), disparados só com ≥2 WTs e operator-prompted; fallback PORTÁVEL (sequencial / skip
   registrado) onde a `Workflow` não existe. Reversível: remover o passo opcional do finalize.
+- **Decisão 8 muda o shape do `last-review.json` e toca as skills de review (duas camadas, donos
+  diferentes).** A Camada A (schema `last-review.json` ponteiro→conjunto + dedup em `review-code` e
+  `review-due`) é edição direta nesta branch. A Camada B (run-record + skip-por-prova no `project review`)
+  toca `project-review.md`, que NÃO está nesta branch nem na `main` (`b26d989`) — vive na branch da feature
+  F4-skills (commits `9406177`/`ecaae5b`, `verified_by: git log --all -- skills/shared/project-assets/project-review.md`)
+  — então é entregue como work-order gerado (`atomic-skills:prompt`) ao autor da skill, jamais editado desta
+  branch (disciplina de skill-authoring + ownership, `verified_by: CLAUDE.md`). Contenção: schema reversível
+  (encolher o conjunto de volta a ponteiro); o run-record do composer é uma exceção append-only EXPLÍCITA à
+  política READ-ONLY (não um efeito oculto), e o dedup falha-para-RE-rodar — então um bug nele faz re-auditar
+  (over-run), nunca pular um leg (over-skip → false-green). **Dependência cross-branch de ORDENAÇÃO:** como
+  ambas as camadas usam o mesmo `last-review.json`, o schema estendido (Camada A, esta branch) precisa landar
+  antes/junto da mudança do composer (Camada B, outra branch). A ordem é tornada MECÂNICA, não procedural: a
+  perna do composer GUARDA na ausência do shape-conjunto (lê um `last-review.json` ainda em ponteiro/sem
+  run-record como "nada auditado", fail-para-RE-rodar), então landar fora de ordem só causa re-auditoria
+  segura, nunca leitura de campo inexistente. Nenhuma camada deleta dado; ambas falham-para-RE-revisar.
 - **Nenhuma decisão deleta dados.** O teardown bloqueia na dúvida. Reversão mais cara: re-permitir branch
   incondicional / re-trackear `focus.json` — patches pontuais.
 
@@ -240,6 +306,11 @@ One-way doors / migração — contenções explícitas:
 - **NÃO** renomear `plan/<slug>` → `feat/<slug>` no push — preserva a identidade branch↔worktree↔PR de
   que o invariante (Decisão 4) depende e não quebra a já-pushada `origin/plan/skills-restructuring`.
 - **NÃO** colocar o `integrationRef` no frontmatter do plano — só repo-global (`routing.json`).
+- **NÃO** dedup de review por hunk/linha nem por content-hash de árvore inteira na v1 — a granularidade é
+  por-commit (SHA) + `patchId` para squash; hunk-level fica como refinamento futuro se a duplicação residual doer.
+- **NÃO** deixar o dedup PULAR review na dúvida — a falha é sempre RE-revisar/RE-rodar (a assimetria da
+  Decisão 4 aplicada ao review).
+- **NÃO** editar `project-review.md` desta branch — a Camada B (Decisão 8) vai por work-order ao autor da skill.
 
 ## Open questions
 
@@ -273,6 +344,27 @@ One-way doors / migração — contenções explícitas:
 - **Projeto-alvo sem comando build/test detectável (Decisão 7, do critic):** se o gate determinístico não
   tem comando para rodar, o SPEC define o desfecho — skip REGISTRADO (com WARN) ou bloqueio — nunca um
   "passou" silencioso (no-silent-caps).
+- **Fingerprint por-perna do run-record do composer (Decisão 8B):** o que conta como "input idêntico" por
+  perna — `review-plan` (hash de `plan.md`+fases), `verify`/linters (hash do subtree `.atomic-skills/`),
+  `review-code` (defere ao ledger A). Atenção: a perna `verify` também lê estado git/working-tree (branch,
+  scope, órfãos — `verified_by: skills/shared/project-assets/project-review.md:43`), FORA do subtree
+  `.atomic-skills/`, então um hash só do subtree pode sub-chavear a perna `verify` (risco de skip
+  falso-positivo — sufficiency, não segurança, pois a regra falha-para-RE-rodar). Fechar no SPEC + no
+  work-order ao autor da `project-review`.
+- **Armazenamento do run-record do composer (Decisão 8B):** seção nova dentro do `last-review.json`
+  (recomendado — fonte única) vs arquivo dedicado. Fechar no SPEC, respeitando a dependência cross-branch (o
+  schema mora na Camada A, esta branch).
+- **Estabilidade do patch-id sob rebase interativo/fixup (Decisão 8A):** confirmar que `git patch-id` casa
+  o dedup quando commits são reordenados/parcialmente esmagados (não só squash puro). Fechar no SPEC com um
+  teste-oráculo, como o oráculo de CI da Decisão 4.
+- **Migração do `last-review.json` legado ponteiro→conjunto (Decisão 8A, do critic):** não há validador de
+  schema para esse arquivo (é inline-documentado, `verified_by: skills/shared/project-assets/project-drift.md:78-92`),
+  então nada força a migração. Fechar no SPEC: bump de `schemaVersion`, e um adaptador de leitura que trata
+  um arquivo em ponteiro OU ausente como "nenhuma superfície revisada" (fail-safe → re-revisa).
+- **Cópia autoritativa do `last-review.json` na composição (Decisão 8, do critic):** quando a perna
+  `review-code` do composer defere ao ledger A e roda num WT cujo `last-review.json` (arquivo `merge=union`)
+  diverge da árvore pré-merge, qual cópia é autoritativa no instante da composição? Fechar no SPEC junto da
+  lista de `merge=union`.
 
 ## Rejected alternatives
 
@@ -334,6 +426,14 @@ Colisão cross-WT (Decisão 7 — deep-research desta sessão, 21 claims verific
 - **Refutado (transparência):** delta-impact CIA como detector semântico (0-3) e aditividade
   BDCI↔speculative-merge (0-3) NÃO sobreviveram à verificação — não usados como base.
 
+Dedup de review (Decisão 8):
+
+- **Casamento de conteúdo estável sob reescrita de SHA (patch-id):** `https://git-scm.com/docs/git-patch-id`
+  (id derivado do diff, não do SHA — base do dedup squash-robusto).
+- **Review incremental / faixa já-revisada:** o mecanismo `lastReviewedCommit..HEAD` do `last-review.json`
+  já existente (`verified_by: skills/shared/project-assets/project-drift.md:121-139`) é o ponto de partida
+  que a Decisão 8 generaliza de ponteiro para conjunto.
+
 ## Self-review against code-quality gates
 
 - **G1 read-before-claim:** applied — claims sobre código existente citam arquivo lido NESTA sessão:
@@ -343,6 +443,10 @@ Colisão cross-WT (Decisão 7 — deep-research desta sessão, 21 claims verific
   `skills/shared/project-assets/project-transitions.md` (archive zero-git, via evidência F1 T-002),
   `CLAUDE.md` (tree versionado + install-parity). Estado git verificado por comando nesta sessão
   (`git rev-parse develop` → ausente; `git branch -r` → `origin/plan/skills-restructuring` presente).
+  Decisão 8 (amendment): claims sobre `review-code.md:218`, `project-transitions.md:126`,
+  `project-drift.md:78-92/121-139`, `project-review.md:7/25-26/30-52` citam arquivos lidos nesta sessão; a
+  ausência de `project-review.md` nesta branch (`git ls-files` vazio; presente nos commits `9406177`/`ecaae5b`,
+  fora da `main` `b26d989`) foi verificada por comando.
 - **G2 soft-language:** applied — Decisions e Chosen approach varridos para should/probably/may/typically/
   usually e PT deveria/provavelmente/talvez/geralmente em posição de asserção; 0 ocorrências (o único
   "pode" descreve modo de falha em Context/Blast radius, não asserção de design).
