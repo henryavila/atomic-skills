@@ -15,7 +15,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
 /atomic-skills:project verify                → reconcile state ⇄ code (READ-ONLY: detects + reports completion drift)
 /atomic-skills:project reconcile             → close tasks/gates that look done in the repo (the ONLY completion-mutation path)
-/atomic-skills:project review [<slug>] [--with-code]  → audit a materialized plan/initiative (READ-ONLY: linters + verify + review-plan [+ review-code])
+/atomic-skills:project review [<slug>] [--with-code] [--mode=local|both]  → audit a materialized plan/initiative (READ-ONLY: linters + verify + review-plan [+ review-code])
 /atomic-skills:project new                          → fixed menu (plan | initiative) + discoverability hint
 /atomic-skills:project new plan <slug>              → bootstrap a multi-phase Plan
 /atomic-skills:project new initiative <slug>        → initiative (standalone or anchored to a phase)
@@ -37,7 +37,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 |---|---|
 | `status`, `status --browser`, `--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, disambiguation | `{{READ_TOOL}} {{ASSETS_PATH}}/project-view.md` |
 | `verify` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
-| `review`, `review <slug>`, `review --with-code` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
+| `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
 | first-time setup (`.atomic-skills/` absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
 | `new plan <slug>`, `adopt <file.md>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` |
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
@@ -90,7 +90,7 @@ Every code-modifying session must be anchored to an active initiative — a phas
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
-Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `verify`, `why`, `scope-creep`).
+Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `verify`, `review`, `why`, `scope-creep`).
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
