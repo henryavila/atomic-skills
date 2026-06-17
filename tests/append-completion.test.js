@@ -1,0 +1,121 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { appendCompletion, COMPLETION_EVENTS, WEIGHT_BASES } from '../scripts/append-completion.js';
+
+const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
+const base = (over = {}) => ({
+  event: 'task-done',
+  projectId: 'proj',
+  planSlug: 'plan',
+  phaseId: 'F0',
+  taskId: 'T-001',
+  ...over,
+});
+
+test('append-completion: enums are the three events + two bases', () => {
+  assert.deepEqual([...COMPLETION_EVENTS].sort(), ['phase-done', 'reconcile', 'task-done']);
+  assert.deepEqual([...WEIGHT_BASES].sort(), ['count', 'proxy']);
+});
+
+test('appendCompletion writes exactly one valid JSON line with defaults', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    appendCompletion(root, base());
+    assert.ok(existsSync(LOG(root)), 'log created');
+    const lines = readFileSync(LOG(root), 'utf8').trim().split('\n');
+    assert.equal(lines.length, 1, 'one call → one line');
+    const rec = JSON.parse(lines[0]);
+    assert.equal(rec.event, 'task-done');
+    assert.equal(rec.weight, 1, 'weight defaults to 1');
+    assert.equal(rec.weightBasis, 'count', 'weightBasis defaults to count');
+    assert.ok(typeof rec.ts === 'string' && rec.ts.length > 0, 'ts present');
+    assert.equal(rec.taskId, 'T-001');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('analytics/ created idempotently; appends never rewrite/reorder prior lines', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    appendCompletion(root, base({ taskId: 'T-001', ts: '2026-06-01T00:00:00Z' }));
+    const firstLine = readFileSync(LOG(root), 'utf8').trim();
+    appendCompletion(root, base({ taskId: 'T-002', ts: '2026-06-02T00:00:00Z' }));
+    appendCompletion(root, base({ taskId: 'T-003', ts: '2026-06-03T00:00:00Z' }));
+    const lines = readFileSync(LOG(root), 'utf8').trim().split('\n');
+    assert.equal(lines.length, 3, 'three appends → three lines');
+    assert.equal(lines[0], firstLine, 'first line byte-identical (never rewritten)');
+    assert.deepEqual(lines.map((l) => JSON.parse(l).taskId), ['T-001', 'T-002', 'T-003'], 'order preserved');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion carries an explicit proxy weight/basis', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    appendCompletion(root, base({ weight: 5, weightBasis: 'proxy' }));
+    const rec = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.equal(rec.weight, 5);
+    assert.equal(rec.weightBasis, 'proxy');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion allows a phase-done event with no taskId', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    appendCompletion(root, { event: 'phase-done', projectId: 'proj', planSlug: 'plan', phaseId: 'F0' });
+    const rec = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.equal(rec.event, 'phase-done');
+    assert.equal(rec.taskId, null, 'taskId defaults to null when absent');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects an event outside the enum and writes nothing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(() => appendCompletion(root, base({ event: 'bogus' })), /event/);
+    assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects a weightBasis outside the enum', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(() => appendCompletion(root, base({ weightBasis: 'guess' })), /weightBasis/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion requires projectId/planSlug/phaseId', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(() => appendCompletion(root, { event: 'task-done', planSlug: 'p', phaseId: 'F0' }), /projectId/);
+    assert.throws(() => appendCompletion(root, { event: 'task-done', projectId: 'p', phaseId: 'F0' }), /planSlug/);
+    assert.throws(() => appendCompletion(root, { event: 'task-done', projectId: 'p', planSlug: 'p' }), /phaseId/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion writes ONLY under .atomic-skills/analytics/ (never a .md)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    appendCompletion(root, base());
+    const asDir = join(root, '.atomic-skills');
+    assert.deepEqual(readdirSync(asDir), ['analytics'], 'only analytics/ created under .atomic-skills');
+    assert.deepEqual(readdirSync(join(asDir, 'analytics')), ['completions.jsonl']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

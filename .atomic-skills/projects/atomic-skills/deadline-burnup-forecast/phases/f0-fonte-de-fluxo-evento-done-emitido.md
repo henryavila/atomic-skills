@@ -12,7 +12,7 @@ lastUpdated: 2026-06-17T18:07:35Z
 nextAction: "Start T-001: — Helper append-completion + log JSONL"
 parentPlan: deadline-burnup-forecast
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
@@ -38,8 +38,19 @@ stack:
 tasks:
   - id: T-001
     title: — Helper append-completion + log JSONL
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-17T18:28:40Z
+    lastUpdated: 2026-06-17T18:28:40Z
+    verifier:
+      kind: shell
+      command: node --test tests/append-completion.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T18:28:40Z
+      passed: true
+      exitCode: 0
+      testsCollected: 9
+      outputSummary: "node --test tests/append-completion.test.js — 9 pass, 0 fail"
   - id: T-002
     title: — Schema do evento de conclusão + validação
     status: pending
@@ -64,6 +75,13 @@ current: true
 # Narrative / notes
 
 Initiative for phase **F0 — Fonte de fluxo: evento done emitido na transição**.
+
+## Session handoff
+- **Narrative:** F0 (RED do forecast) em implementação, Mode 1 (sem routing.json). O plano foi re-specado 3× via cross-model review antes de começar (commits cede1c3/926a044/02fcf55). **T-001 fechada** (helper `appendCompletion` + log JSONL); T-002/T-003/T-004 pending.
+- **Decision log:** (1) `event` é enum fechado 'task-done'|'phase-done'|'reconcile'; (2) `weight` default 1 + `weightBasis` 'count'|'proxy' congelado na captura (imutável, P2/D6); (3) `taskId` default null (phase-done não tem task); (4) validação ANTES de tocar o filesystem (rejeição não escreve nada); (5) o helper só escreve em `.atomic-skills/analytics/`, nunca `.md`.
+- **Single nextAction:** Start F0/T-002 — `meta/schemas/completion-event.schema.json` (event enum + weightBasis enum + sub-objeto `actuals` opcional pré-declarado, additionalProperties:false) + ligar ao `validate-aideck-state.js`; TDD via `tests/completion-event-schema.test.js`.
+- **Verbatim state:** verifier T-001 `node --test tests/append-completion.test.js` → 9 pass, 0 fail (evidence.passed:true, testsCollected:9). Arquivos: `scripts/append-completion.js`, `tests/append-completion.test.js`. `validate-state` 7/7, `validate-aideck-state` ok.
+- **Uncommitted changes:** committed (ver commit de T-001); tree clean após o commit.
 
 ## Decisions
 

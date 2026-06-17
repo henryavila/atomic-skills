@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+/**
+ * append-completion.js — the atomic side-effect that turns a `done` / `phase-done`
+ * / `reconcile` transition into one immutable, append-only completion event.
+ *
+ * This is the SOURCE of the earned-value curve (design.md D1/D2): the tracker
+ * records its own event at the instant state changes, into a SINGLE GLOBAL log
+ * `.atomic-skills/analytics/completions.jsonl` (one line per completion, never
+ * rewritten, never reordered). It is NOT a parallel hand-maintained file — it is
+ * the transition writing its own event. Per-plan series are the consumer's job
+ * (F3 filters by projectId+planSlug); this helper only appends.
+ *
+ * Event model (F0/T-003): `event` is one of:
+ *   - 'task-done'   one per task closed (a plain `done`, or one per task in a
+ *                   `phase-done` bulk-close, or one per reconciled task)
+ *   - 'phase-done'  one per phase closed, carrying the phase's aggregate actuals
+ *                   (F4/T-001) ONCE — never duplicated onto the per-task lines
+ *   - 'reconcile'   reserved for reconcile-specific bookkeeping
+ *
+ * Forward-only / immutable capture (P2/P3): the weight is FROZEN here at the
+ * completion instant with its `weightBasis` ('count' before proxy weights exist,
+ * 'proxy' after F2), never re-derived at render. A missing weight degrades to
+ * 1 / 'count' (count-based burn-up), never invented.
+ *
+ * Pure boundary: this writes ONLY under `.atomic-skills/analytics/` and NEVER
+ * mutates `.md` state. It does not compute series or aggregate.
+ *
+ * CLI:
+ *   node scripts/append-completion.js [<root>] --event <e> --project <id>
+ *        --plan <slug> --phase <id> [--task <id>] [--weight <n>] [--basis <b>]
+ */
+
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+/** The closed enum of completion event kinds (mirrors completion-event.schema.json). */
+export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
+/** The closed enum of weight bases: 'count' (pre-proxy) vs 'proxy' (post-F2). */
+export const WEIGHT_BASES = Object.freeze(['count', 'proxy']);
+
+const ANALYTICS_DIR = ['.atomic-skills', 'analytics'];
+const LOG_FILE = 'completions.jsonl';
+
+const hasText = (v) => typeof v === 'string' && v.length > 0;
+
+/**
+ * Validate + normalize one completion entry into the persisted record shape.
+ * Throws (writing nothing) on an invalid enum or a missing required scope field.
+ */
+function normalize(entry) {
+  if (entry == null || typeof entry !== 'object') {
+    throw new TypeError('appendCompletion: entry must be an object');
+  }
+  if (!COMPLETION_EVENTS.includes(entry.event)) {
+    throw new RangeError(`appendCompletion: event must be one of ${COMPLETION_EVENTS.join(', ')} (got ${JSON.stringify(entry.event)})`);
+  }
+  for (const field of ['projectId', 'planSlug', 'phaseId']) {
+    if (!hasText(entry[field])) throw new TypeError(`appendCompletion: ${field} is required`);
+  }
+  const weightBasis = entry.weightBasis ?? 'count';
+  if (!WEIGHT_BASES.includes(weightBasis)) {
+    throw new RangeError(`appendCompletion: weightBasis must be one of ${WEIGHT_BASES.join(', ')} (got ${JSON.stringify(entry.weightBasis)})`);
+  }
+  const weight = entry.weight ?? 1;
+  if (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0) {
+    throw new TypeError(`appendCompletion: weight must be a finite number >= 0 (got ${JSON.stringify(entry.weight)})`);
+  }
+  return {
+    ts: hasText(entry.ts) ? entry.ts : new Date().toISOString(),
+    event: entry.event,
+    projectId: entry.projectId,
+    planSlug: entry.planSlug,
+    phaseId: entry.phaseId,
+    taskId: hasText(entry.taskId) ? entry.taskId : null,
+    weight,
+    weightBasis,
+    ...(entry.actuals != null ? { actuals: entry.actuals } : {}),
+  };
+}
+
+/**
+ * Append exactly one completion event to `<root>/.atomic-skills/analytics/completions.jsonl`,
+ * creating the `analytics/` dir idempotently. Returns the written record.
+ * Append-only: existing lines are never read, rewritten, or reordered.
+ */
+export function appendCompletion(root, entry) {
+  const record = normalize(entry); // validate BEFORE touching the filesystem
+  const dir = join(resolve(root), ...ANALYTICS_DIR);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
+  return record;
+}
+
+// CLI
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = process.argv.slice(2);
+  const flag = (name) => {
+    const i = args.indexOf(`--${name}`);
+    return i >= 0 ? args[i + 1] : undefined;
+  };
+  const positional = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
+  const root = positional || process.cwd();
+  try {
+    const rec = appendCompletion(root, {
+      event: flag('event'),
+      projectId: flag('project'),
+      planSlug: flag('plan'),
+      phaseId: flag('phase'),
+      taskId: flag('task'),
+      weight: flag('weight') != null ? Number(flag('weight')) : undefined,
+      weightBasis: flag('basis'),
+    });
+    console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ✓`);
+  } catch (err) {
+    console.error(`append-completion: ${err.message}`);
+    process.exit(1);
+  }
+}
