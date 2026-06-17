@@ -9,10 +9,11 @@ status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
 lastUpdated: 2026-06-17T15:45:46.247Z
-nextAction: "Start T-002: Journal como extensão do manifesto (test/kernel/journal.test.js)"
+nextAction: "Start T-003: Efeito reconcileFileSet — porta 3-hash
+  (test/kernel/reconciler.test.js)"
 parentPlan: reversible-installer
 phaseId: F0
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -79,8 +80,21 @@ tasks:
       pattern: test/kernel/effect.test.js
   - id: T-002
     title: Journal como extensão do manifesto
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-17T16:15:50.000Z
+    closedAt: 2026-06-17T16:15:50.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:15:50.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: "Re-run on MERGED primary @83be588: node --test
+        test/kernel/journal.test.js — tests 4, pass 4, fail 0. Prova round-trip
+        via writeManifest/readManifest, replay reverso e3→e2→e1, manifesto
+        antigo sem effects lido como [], throw em tipo não-registrado. Imutável
+        (manifest original não mutado). Executor: codex lane, worktree
+        impl/ri-f0-t002."
     summary: "Journal estende o manifesto: before-state por efeito, revert em ordem
       inversa, lê manifesto antigo."
     description: Persiste por efeito aplicado o type + before-state mínimo; expõe
@@ -140,8 +154,8 @@ Initiative for phase **F0 — Effect Kernel + file reconciler**.
 - Lane: `skills/shared/mode2-codex-lane.md` · Worktree: `skills/shared/worktree-isolation.md`
 
 ## Session handoff
-- **Narrative:** F0 em 1/3. T-001 (contrato Effect + registry) DONE: executado via Codex Mode 2 na worktree `impl/ri-f0-t001`, mesclado fast-forward no primário em `37d0e24`, verifier re-rodado na árvore mesclada (4/4). Worktree do Codex já removida. Próximo: T-002 (journal).
-- **Decision log:** Codex auto-reportou `tests 1` mas o run real foi `tests 4` — re-execução na árvore mesclada é o adjudicador, não a narrativa do executor. As 2 falhas de `npm test` (dashboard bundle `dist/dashboard` ausente) são pré-existentes, provadas idênticas no pai `850746a` — não regressão de T-001. `package.json` test-glob ficou com aspas (`"tests/**/*.test.js" "test/**/*.test.js"`) para o node fazer o glob nativo (shell `**` não-portável); comportamento idêntico, robusto.
-- **Single nextAction:** Iniciar T-002 (Journal como extensão do manifesto) — Mode 2/Codex, base ref HEAD atual `37d0e24`, verifier `node --test test/kernel/journal.test.js`. Worktree nova `impl/ri-f0-t002` off HEAD.
-- **Verbatim state:** Verifier T-001 (passou): `node --test test/kernel/effect.test.js` → tests 4, pass 4, fail 0, exit 0. HEAD primário: `37d0e24`. Verifier T-002: `node --test test/kernel/journal.test.js`. Branch primário: `plan/reversible-installer`.
-- **Uncommitted changes:** state files desta sessão (f0 phase, dispatch-log.json) a serem commitados com este snapshot; código de T-001 já em `37d0e24`. Árvore limpa após o commit.
+- **Narrative:** F0 em 2/3. T-001 (contrato Effect + registry) e T-002 (journal/manifest extension) DONE, ambos via Codex Mode 2, mesclados fast-forward no primário (T-001 `37d0e24`, T-002 `83be588`), verifiers re-rodados na árvore mesclada (4/4 cada). Worktrees do Codex removidas. Falta só T-003 (efeito reconcileFileSet — porta 3-hash) para fechar a fase.
+- **Decision log:** O Codex auto-reportou `tests 1` nas DUAS tasks; o run real foi `tests 4` nas duas — re-execução na árvore mesclada é o adjudicador, não a narrativa. As 2 falhas de `npm test` (`dist/dashboard` ausente) são pré-existentes (provadas no pai `850746a`), não regressão. T-002 ficou imutável e sem tocar `manifest.js` (effects[] rides along via writeManifest).
+- **Single nextAction:** Iniciar T-003 (Efeito reconcileFileSet) — Mode 2/Codex, base ref HEAD atual `83be588`, verifier `node --test test/kernel/reconciler.test.js`. Porta a detecção 3-hash de `src/install.js:1049-1083` + remoção de órfão unmodified-only de `src/install.js:896-918`. Worktree nova `impl/ri-f0-t003` off HEAD.
+- **Verbatim state:** Verifiers que passaram: `node --test test/kernel/effect.test.js` (4/4), `node --test test/kernel/journal.test.js` (4/4). HEAD primário: `83be588`. Verifier T-003: `node --test test/kernel/reconciler.test.js`. Exit-gates da fase: G-1 (reconciler.test.js), G-2 (effect.test.js) — ambos pending até phase-done. Branch primário: `plan/reversible-installer`.
+- **Uncommitted changes:** state files (f0 phase, dispatch-log.json) a commitar com este snapshot; código de T-001/T-002 já em `37d0e24`/`83be588`. Árvore limpa após o commit.
