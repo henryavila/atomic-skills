@@ -11,16 +11,16 @@ goal: "adicionar ao finalize uma detecção de colisão entre ≥2 worktrees viv
 status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T18:52:47Z
-lastUpdated: 2026-06-17T18:52:47Z
-nextAction: "(1) Criar a new-task ratificada do follow-up F3 (archive → isTeardownSafe
-  passar integrationRef+prIdentity lendo o pr-url gravado) — ratify-gated. (2) Rodar o
-  phase-start lessons gate F4 (node scripts/list-lessons.js --phase F4; inclui as 3
-  lessons F3). (3) Start F4/T-001: gate determinístico de colisão cross-WT (build/test
-  + merge especulativo)."
+lastUpdated: 2026-06-17T19:35:52Z
+nextAction: "(1) Rodar o phase-start lessons gate F4 (node
+  scripts/list-lessons.js --phase F4; inclui as 3 lessons F3) e disposicionar.
+  (2) Start uma task: T-001 (gate determinístico de colisão build/test + merge
+  especulativo), T-002 (workflow advisory read-only escopado ao diff), ou T-003
+  (wire archive teardown — follow-up F3 ratificado)."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F4
 tasksDone: 0
-tasksTotal: 2
+tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
 exitGates:
@@ -118,6 +118,55 @@ tasks:
         skills/shared/project-assets/project-finalize.md && grep -qi 'advisory'
         skills/shared/project-assets/project-finalize.md && npm run
         validate-skills
+  - id: T-003
+    title: Wire archive teardown to read the recorded PR identity
+    status: pending
+    lastUpdated: 2026-06-17T19:35:52Z
+    summary: archive passa integrationRef+prIdentity (do pr-url gravado) ao
+      isTeardownSafe, fechando o handoff finalize→teardown.
+    outputs:
+      - kind: file
+        path: skills/shared/project-assets/project-transitions.md
+    scopeBoundary:
+      - só o wiring da chamada isTeardownSafe no fluxo archive (lê o pr-url do
+        references[] do plano + resolveBaseRef para {integrationRef, baseRef})
+      - NÃO mudar o contrato de isTeardownSafe (scripts/worktree-teardown.js)
+      - NÃO auto-remover worktrees — a guarda segue operator-prompted, fail-safe
+        BLOQUEIA na dúvida
+    acceptance:
+      - "`project-transitions.md` archive resolve `{integrationRef, baseRef}`
+        via `resolveBaseRef`, lê o `pr-url` do `references[]` do plano, e chama
+        `isTeardownSafe({ branch, baseRef, integrationRef, prIdentity })`"
+      - documenta que `indeterminate-base`/`pr-identity-missing` não disparam
+        mais para um plano mergeado cujo pr-url está gravado
+      - "`npm run validate-skills` passa."
+    verifier:
+      kind: shell
+      command: grep -q 'prIdentity'
+        skills/shared/project-assets/project-transitions.md && grep -q
+        'integrationRef' skills/shared/project-assets/project-transitions.md &&
+        npm run validate-skills
+    provenance:
+      surfacedAt: 2026-06-17T19:35:52Z
+      surfacedDuring: F3
+      surfacedBy: ai
+      originalPhaseId: F3
+    context:
+      solves: "Fecha o handoff produtor(finalize)→consumidor(teardown): o finalize
+        grava o pr-url, mas o archive chama isTeardownSafe({branch, baseRef})
+        sem integrationRef/prIdentity, retornando indeterminate-base e nunca
+        lendo a identidade — todo plano mergeado bloqueia o teardown."
+      trigger: Review de phase-done F3 (local L#1 + Codex blind F-003, concordantes
+        cross-model); o informed dropou o finding por transitions.md estar fora
+        do escopo da T-001, mas o gap subjacente é real.
+      assumesStillValid:
+        - O contrato isTeardownSafe({branch, baseRef, integrationRef, prIdentity})
+          de F2 (scripts/worktree-teardown.js) permanece o ponto de entrada da remoção.
+        - A gravação do pr-url no references[] do plano por F3 (finalize.md Step 4)
+          permanece a fonte da identidade do PR.
+      ratifiedAt: 2026-06-17T19:35:52Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-06-17T19:35:52Z
 parked: []
 emerged: []
 summary: "No finalize, detecta colisão entre worktrees: gate build/test +
@@ -134,7 +183,7 @@ Initiative for phase **F4 — Check de colisão cross-WT no finalize (Decisão 7
 ## Session handoff
 - **Narrative:** **F4 ATIVA** (phase-done F3 2026-06-17). F3 (project finalize + router wiring) DONE + arquivada: T-001 fechado por verify-on-done, exit-gates met, review `--mode=both` verdict needs_changes→all-fixed (4 major aplicados, fix `e7913a7`), 3 lessons F3 ratificadas, plano avançado F3→F4. **Nada codado em F4 ainda.**
 - **Decision log:** Executor default = Mode 1/Mode 2 conforme spec-readiness (lane on: `mode2Enabled+codexLane.enabled=true`). Em F3, doc-authoring auto-referencial ficou Mode 1; F4 tem código real (scripts de detecção de colisão) — candidato a Mode 2 se spec-ready + verifier determinístico. Adjudicador sempre = re-run do verifier na primária MERGED.
-- **Single nextAction:** Criar a **new-task ratificada do follow-up F3** (ratify-gated): `project-transitions.md` archive deve chamar `isTeardownSafe({ branch, baseRef, integrationRef, prIdentity })` lendo o `pr-url` gravado no `references[]` do plano — sem isso a teardown bloqueia em `indeterminate-base`. Depois: phase-start lessons gate F4 (`node scripts/list-lessons.js --phase F4`) e Start F4/T-001.
+- **Single nextAction:** Rodar o **phase-start lessons gate F4** (`node scripts/list-lessons.js --phase F4`; inclui as 3 lessons F3) e disposicionar; depois Start uma task. A new-task do follow-up F3 já foi criada e ratificada como **T-003** (wire archive teardown → `isTeardownSafe({ branch, baseRef, integrationRef, prIdentity })` lendo o `pr-url`).
 - **Verbatim state:** F4 exit-gates: G-1 verifier `kind: test` (gate determinístico de colisão), G-2 (a ler na ativação). F3 entregou `skills/shared/project-assets/project-finalize.md` (commits `d74a1f0` impl + `e7913a7` review-fixes). Lessons F3 abertas para disposição: L-001 (validar input no schema antes do resolver + `integrationRef` vs `baseRef`), L-002 (catalog.yaml subcommands é ripple site; recorre wlf-f0 L-001), L-003 (produtor não alega handoff fechado sem o consumidor ler). **Follow-ups herdados:** install/detect suite RED pré-existente (base 4fbfb12); PROJECT-STATUS.md stale.
 - **Uncommitted changes:** ao entrar nesta iniciativa via phase-done, a árvore terá sido commitada (commit 2 do phase-done). Em resume limpo: árvore LIMPA.
 
