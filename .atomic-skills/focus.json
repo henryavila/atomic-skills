@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T15:16:51.272Z",
+  "generatedAt": "2026-06-17T16:04:13.613Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "worktree-lifecycle-finalization",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 1,
     "total": 1,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "Start T-001: Liveness gh + veto ancorado no headRefOid, com 2 testes-oráculo de squash",
+  "nextAction": "T-001 DONE (verifier 17/17 na primária MERGED + mutation-kill G9). Próximo: rodar phase-done F2 (exit-gates G-1/G-2 + review-code gate) — opt-in do operador.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false,

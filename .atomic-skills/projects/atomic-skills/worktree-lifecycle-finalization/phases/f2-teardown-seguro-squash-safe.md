@@ -11,11 +11,12 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T15:15:13Z
 lastUpdated: 2026-06-17T15:15:13Z
-nextAction: "Start T-001: Liveness gh + veto ancorado no headRefOid, com 2
-  testes-oráculo de squash"
+nextAction: "T-001 DONE (verifier 17/17 na primária MERGED + mutation-kill G9).
+  Próximo: rodar phase-done F2 (exit-gates G-1/G-2 + review-code gate) — opt-in do
+  operador."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F2
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 1
 gatesMet: 0
 gatesTotal: 2
@@ -45,8 +46,9 @@ stack:
 tasks:
   - id: T-001
     title: Liveness gh + veto ancorado no headRefOid, com 2 testes-oráculo de squash
-    status: pending
-    lastUpdated: 2026-06-17T11:34:32Z
+    status: done
+    lastUpdated: 2026-06-17T16:01:56Z
+    closedAt: 2026-06-17T16:01:56Z
     summary: Liveness gh + veto headRefOid contra o integrationRef, com 2 oráculos
       de squash; consome a `pr-url`/identidade do finalize (F3) — contrato definido
       em F2, populado por F3.
@@ -83,6 +85,27 @@ tasks:
       kind: test
       runner: node
       pattern: tests/worktree-teardown.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:01:56Z
+      exitCode: 0
+      testsCollected: 17
+      passed: true
+      outputSummary: "node --test tests/worktree-teardown.test.js on merged primary
+        (a6c98d9): tests 17, pass 17, fail 0. Mode 2/Codex executed in worktree
+        impl/wlf-f2-t001, ff-merged + re-verified on primary (mode2 L-001: the
+        re-run is the adjudicator, not Codex -o). G-2 npm run validate-skills exit
+        0 (All 15 skills valid)."
+      mutation:
+        target: "scripts/worktree-teardown.js:93 (squash-head-match veto)"
+        change: "branchHead === headRefOid → branchHead !== headRefOid"
+        killedBy:
+          - "isTeardownSafe blocks squash residue beyond the PR head (Oracle A)"
+          - "isTeardownSafe permits clean squash when branch head matches PR head (Oracle B)"
+          - "isTeardownSafe permits non-squash ancestry when branch head differs from PR head"
+        killTranscript: "inject ===→!== ⟹ node --test: tests 17, pass 14, fail 3
+          (both squash oracles + ancestor RED); git checkout revert ⟹ tests 17,
+          pass 17, fail 0."
 parked: []
 emerged: []
 summary: Teardown só remove com integração provada vs integrationRef, seguro sob squash.
@@ -96,11 +119,11 @@ current: true
 Initiative for phase **F2 — Teardown seguro squash-safe contra integrationRef (Decisão 4)**.
 
 ## Session handoff
-- **Narrative:** F2 ATIVA (teardown seguro squash-safe, Decisão 4). T-001 é o ÚNICO task da fase. Contrato da API SETTLED por Opus (ver `## Decisions` → "Contrato settled de T-001") — F2 DEFINE a forma que F3 consome, logo settlei o design ANTES do dispatch. Roteado para **Mode 2 (Codex)**: lane on (`mode2Enabled+codexLane.enabled`, `minBatchTasks=1`), F1 spec-ready (contrato settled), F2 verifier determinístico, Codex autenticado ("Logged in using ChatGPT", codex-cli 0.139.0). Phase-start lessons gate F2 dispositionado (11 lessons; ver Decisions). Pré-dispatch snapshot.
-- **Decision log:** Executor = Codex Mode 2 (default do lane; precedente F0/F1). Opus PLANEJA+REVISA, NÃO executa. O contrato de API foi settled ANTES do dispatch (F1 gate: não deixar Codex inventar a forma que F3 consome — gap-filling é a perda do split-author). Padrão de merge-back: worktree isolada off HEAD → briefing com intent → `git -C <wt> diff` readback → ff-merge SERIAL → **re-verify na primária MERGED** (mode2 L-001: o auto-report `-o` do Codex é DESCARTADO; o re-run é o adjudicador). Worktree sob `.worktrees/` (regra global do usuário: dentro do repo, nunca sibling).
-- **Single nextAction:** Cortar worktree `git worktree add -b impl/wlf-f2-t001 /home/henry/atomic-skills/.worktrees/wlf-f2-t001 HEAD`, montar o briefing (work-order R-EXEC-40 com o contrato settled como intent), dispatch Codex workspace-write (cwd=worktree, stdin=briefing), ler `git -C <wt> diff`, ff-merge na primária, re-rodar `node --test tests/worktree-teardown.test.js` na MERGED, então `done T-001`.
-- **Verbatim state:** Primária `plan/worktree-lifecycle-finalization` HEAD=`4fbfb122a86b9ac9d41a9199a3b9b4e036debd79`. T-001/G-1 verifier: `node --test tests/worktree-teardown.test.js`; G-2: `npm run validate-skills`. Consome `resolveIntegrationRef` de `scripts/integration-ref.js` (F1: retorna `{ref,configured,source}`, own-prop `Object.hasOwn`, `DEFAULT_INTEGRATION_REF='develop'`). MODIFY `scripts/worktree-teardown.js` (hoje: `resolveBaseRef` origin/main→main→null; `isTeardownSafe` só `git merge-base --is-ancestor`). REWRITE `tests/worktree-teardown.test.js` (hoje: 8 testes pré-pivô origin/main). routing.json: `mode2Enabled+codexLane.enabled=true`, `timeoutSeconds=600`, `sandbox=workspace-write`, `minBatchTasks=1`. **Follow-ups abertos:** (F1→F3) `git check-ref-format` ATIVO deferido ao F3 (cria o ref); (F0) finding #2 `shouldForkPlanBranch` sem caller runtime + `project-create-plan.md` fluxo `adopt` branch-or-null stale. **PROJECT-STATUS.md stale** (09/06) — `focus.json` é a fonte viva.
-- **Uncommitted changes:** este snapshot pré-dispatch + a disposição de lessons + o contrato settled (edição de `phases/f2-teardown-seguro-squash-safe.md`), a commitar agora como checkpoint pré-dispatch. Após o commit a árvore primária fica LIMPA; o worktree Codex é cortado off HEAD=`4fbfb12`.
+- **Narrative:** **T-001 DONE** (Decisão 4 teardown squash-safe). Executado via **Mode 2 (Codex)** em worktree isolada `impl/wlf-f2-t001` off `e7fba0d`, ff-merged SERIAL na primária (`a6c98d9`), **re-verificado na primária MERGED** (`node --test tests/worktree-teardown.test.js` = 17 tests, 17 pass, 0 fail) + **mutation-kill G9** (===→!== no veto squash mata ambos oráculos). G-2 `npm run validate-skills` exit 0. Worktree removido + branch impl deletada (`-d`, fully-merged). T-001 é o ÚNICO task de F2 ⟹ **fronteira de fase**: phase-done F2 está pendente (não auto-avançado — opt-in do operador).
+- **Decision log:** Executor = Codex Mode 2 (codex-cli 0.139.0; lane on, `minBatchTasks=1`). Opus PLANEJOU+REVISOU, não executou; contrato de API settled ANTES do dispatch (F1 gate). O adjudicador foi a re-execução do verifier na primária MERGED, não o auto-report `-o` do Codex (mode2 L-001). Mutation-kill confirmou que os oráculos não são vacuosos (wlf-f0 L-002). **10 falhas em `tests/detect.test.js`+`tests/install.test.js` são PRÉ-EXISTENTES** — provado: na base `4fbfb12` (antes de qualquer trabalho desta sessão) esses 2 arquivos já dão `fail 2`; meus commits tocaram só 3 arquivos (o .md de estado + os 2 do teardown), nenhum de install/detect. É follow-up desacoplado, NÃO regressão nem bloqueador de T-001.
+- **Single nextAction:** Rodar **`phase-done F2`** (opt-in do operador): executa os exit-gates G-1 (`node --test tests/worktree-teardown.test.js`) e G-2 (`npm run validate-skills`) com evidence, roda o **review-code gate** sobre o diff da fase, distila lessons F2, e avança `currentPhase`→F3. F2 não é destrutivo (diff aditivo) ⟹ mode=local por default; mas o módulo é porta-de-mão-única (teardown), então considerar `--mode=both` (design-brief L-001 / wlf-f1 L-001).
+- **Verbatim state:** Primária `plan/worktree-lifecycle-finalization` HEAD=`a6c98d9794a9f74a46749983219253fe93e077b1` (ff-merge de `impl/wlf-f2-t001`). T-001 evidence: `verifierKind:test, exitCode:0, testsCollected:17, passed:true` @ a6c98d9. G-1 verifier: `node --test tests/worktree-teardown.test.js`; G-2: `npm run validate-skills`. Entregues por T-001: `scripts/worktree-teardown.js` (`resolveBaseRef({routingConfig,git})`→`{integrationRef,baseRef}|null` consome `resolveIntegrationRef`; `isTeardownSafe({branch,baseRef,integrationRef,prIdentity,git,gh})` liveness `gh.prView`+veto `headRefOid` squash-safe), `tests/worktree-teardown.test.js` (17 testes, 2 oráculos de squash). **Follow-ups abertos:** (F1→F3) `git check-ref-format` ATIVO deferido ao F3; (F0) finding #2 `shouldForkPlanBranch` sem caller runtime; **install/detect suite RED pré-existente** (10 falhas em countSkills/installSkills) — investigar fora deste plano. **PROJECT-STATUS.md stale** (09/06) — `focus.json` é a fonte viva.
+- **Uncommitted changes:** a transição `done T-001` (edição de `phases/f2-teardown-seguro-squash-safe.md`: status done + evidence + mutation + rollup tasksDone:1 + nextAction + este handoff) e `focus.json` regen, a commitar agora. A fonte (`scripts/worktree-teardown.js`+`tests/worktree-teardown.test.js`) já está em `a6c98d9`. Após o commit, árvore LIMPA.
 
 ## Decisions
 
