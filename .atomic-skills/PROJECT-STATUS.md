@@ -30,7 +30,7 @@ Extrai o instalador do atomic-skills num kernel genérico de sincronização rev
 | F0 — Effect Kernel + file reconciler | active | Funda o kernel: contrato de efeito reversível, journal e o reconciler de arquivos (porta do 3-hash). 0/3 tasks, 0/2 gates. |
 | F1 — Efeitos built-in não-arquivo | pending | Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com before-state + matriz adversária no round-trip. 0/4 tasks, 0/1 gate. |
 | F2 — Providers e config two-tier | pending | Config two-tier + SkillsProvider (IDE matrix/render, COMM_LANG opt-out) + API de registro de runtime layer. 0/3 tasks, 0/2 gates. |
-| F3 — Big-bang rewire e paridade | pending | Religa atomic-skills sobre o kernel (aiDeck/hooks/auto-update como runtime layers) e prova paridade. 0/4 tasks, 0/2 gates. |
+| F3 — Big-bang rewire e paridade | pending | Religa atomic-skills sobre o kernel (aiDeck/hooks/auto-update como runtime layers) e prova paridade. 0/5 tasks, 0/3 gates. |
 
 ## Paused Plans
 

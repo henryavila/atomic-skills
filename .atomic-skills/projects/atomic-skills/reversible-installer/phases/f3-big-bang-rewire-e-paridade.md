@@ -8,14 +8,14 @@ goal: religar o atomic-skills sobre o kernel (aiDeck, hooks, auto-update como
 status: pending
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T15:20:11.565Z
+lastUpdated: 2026-06-17T15:45:46.247Z
 nextAction: "Start T-001: — Driver (install / uninstall / update)"
 parentPlan: reversible-installer
 phaseId: F3
 tasksDone: 0
-tasksTotal: 4
+tasksTotal: 5
 gatesMet: 0
-gatesTotal: 2
+gatesTotal: 3
 exitGates:
   - id: G-1
     description: O round-trip parity test mais as três fixtures adversárias passam
@@ -35,6 +35,15 @@ exitGates:
       command: npm test
       expectExitCode: 0
     verifierLabel: "shell: npm test"
+  - id: G-3
+    description: "Inventário: cada mutação persistente emitida por cada runtime
+      layer (aiDeck/hooks/auto-update) está mapeada a um efeito registrado, uma
+      fixture de round-trip, ou uma entrada de allowlist documentada."
+    status: pending
+    verifier:
+      kind: manual
+      description: Auditar o inventário de mutações por runtime layer durante phase-done.
+    verifierLabel: manual
 stack:
   - id: 1
     title: Big-bang rewire e paridade
@@ -83,7 +92,7 @@ tasks:
   - id: T-003
     title: Religar a CLI e remover o install/uninstall legados
     status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    lastUpdated: 2026-06-17T15:45:46.247Z
     summary: CLI chama o driver via defineInstaller; remove install.js/uninstall.js
       legados, preserva flags.
     description: A CLI passa a chamar o driver via defineInstaller; remove os
@@ -99,6 +108,8 @@ tasks:
       kind: shell
       command: npm test
       expectExitCode: 0
+    blockedBy:
+      - T-005
   - id: T-004
     title: Paridade verde e doc atualizada
     status: pending
@@ -118,6 +129,44 @@ tasks:
       kind: shell
       command: npm test
       expectExitCode: 0
+  - id: T-005
+    title: Migração de installs legados para o journal
+    status: pending
+    summary: Adota o manifesto legado em registros de ownership do journal;
+      não-verificável vira unmanaged (não-removível), com fixtures de
+      pré-kernel.
+    description: Antes do rewire, converte o estado do manifesto legado (sem
+      journal/before-state) em registros de ownership do journal onde for
+      seguro; marca entradas não-verificáveis como unmanaged (nunca removidas
+      pelo uninstall). Prerequisito de T-003.
+    scopeBoundary:
+      - não remove nada do install legado; só adota/marca; preserva arquivos sem
+        prova de ownership
+    acceptance:
+      - manifesto legado é lido e adotado em registros de ownership do journal
+      - entradas sem before-state verificável são marcadas unmanaged e nunca
+        removidas no uninstall
+      - "fixture: install pré-kernel → migra → update → uninstall reverte só o
+        provado e preserva o resto"
+    verifier:
+      kind: test
+      runner: node --test
+      pattern: tests/migration-legacy-install.test.js
+    lastUpdated: 2026-06-17T15:45:46.247Z
+    provenance:
+      surfacedAt: 2026-06-17T15:45:46.247Z
+      surfacedDuring: review-plan codex (F-002)
+      surfacedBy: ai
+      originalPhaseId: F3
+    context:
+      solves: uninstall novo não consegue reverter installs pré-kernel (sem
+        journal/before-state)
+      trigger: codex review F-002 (crítico)
+      assumesStillValid:
+        - existe base instalada com o manifesto antigo a preservar
+      ratifiedAt: 2026-06-17T15:45:46.247Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-06-17T15:45:46.247Z
 parked: []
 emerged: []
 summary: Religa atomic-skills sobre o kernel (aiDeck/hooks/auto-update como

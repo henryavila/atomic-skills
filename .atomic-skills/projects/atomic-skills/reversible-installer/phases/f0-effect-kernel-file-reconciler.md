@@ -8,7 +8,7 @@ goal: estabelecer o contrato fechado de efeito (apply/revert/before-state) + o
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T15:20:11.565Z
+lastUpdated: 2026-06-17T15:45:46.247Z
 nextAction: "Start T-001: — Contrato e registry de efeitos"
 parentPlan: reversible-installer
 phaseId: F0
@@ -44,12 +44,13 @@ tasks:
   - id: T-001
     title: Contrato e registry de efeitos
     status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    lastUpdated: 2026-06-17T15:45:46.247Z
     summary: Interface Effect (apply/revert/before-state) + registry que rejeita
       tipo duplicado e efeito sem revert.
-    description: Define a interface Effect (type, apply(ctx), revert(ctx,
+    description: "Define a interface Effect (type, apply(ctx), revert(ctx,
       beforeState)) e registerEffectType com validação de unicidade e presença
-      de revert.
+      de revert. Primeiro passo: ampliar o glob do `npm test` para incluir os
+      testes do kernel (hoje a suíte é só tests/*.test.js)."
     scopeBoundary:
       - não edita src/install.js, src/uninstall.js nem src/providers; só o
         contrato e o registry
@@ -57,6 +58,9 @@ tasks:
       - registry rejeita tipo duplicado
       - efeito registrado sem função revert é rejeitado no registro
       - round-trip de um efeito de teste restaura o baseline
+      - package.json `test` é ampliado para `node --test tests/**/*.test.js
+        test/**/*.test.js` (1º passo da fase) para que os verifiers de kernel
+        sob test/ rodem no npm test
     verifier:
       kind: test
       runner: node --test

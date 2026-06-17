@@ -5,7 +5,7 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T15:20:11.565Z
+lastUpdated: 2026-06-17T15:45:46.247Z
 branch: plan/reversible-installer
 currentPhase: F0
 parallelismAllowed: false
@@ -24,14 +24,18 @@ principles:
       do outro.
   - id: P3
     title: Sem prova de propriedade, não apaga
-    body: Qualquer remoção (órfão, legado, entrada de settings) só ocorre sobre algo
-      que o efeito provou ter criado. Ausência de prova é um não-apague. É a
-      defesa central de segurança de dados.
+    body: "Qualquer remoção (órfão, legado, entrada de settings) só ocorre sobre
+      algo que o efeito provou ter criado. Ausência de prova é um não-apague.
+      Exceção-allowlist explícita e única: o legacy-prune usa a safelist de
+      assinatura de frontmatter como a ÚNICA evidência de propriedade aceita
+      para paths legados, com fixture adversária para arquivo do usuário que
+      imite a assinatura. É a defesa central de segurança de dados."
   - id: P4
     title: Catálogo de efeitos fechado mas extensível
-    body: O kernel traz 3 tipos built-in e expõe um contrato de registro; um runtime
-      layer adiciona um tipo novo com seu par apply/revert + fixtures, sem
-      reabrir o kernel.
+    body: O kernel traz 4 tipos de efeito built-in REGISTRADOS (reconcileFileSet
+      para o conjunto de arquivos + json-merge + refcount + legacy-prune) e
+      expõe um contrato de registro; um runtime layer adiciona um tipo novo com
+      seu par apply/revert + fixtures, sem reabrir o kernel.
 glossary:
   - term: Efeito
     definition: unidade tipada de mutação reversível (apply/revert/before-state).
@@ -138,7 +142,7 @@ phases:
       - F2
     subPhaseCount: 4
     exitGate:
-      summary: 2 criteria to meet
+      summary: 3 criteria to meet
       criteria:
         - id: G-1
           description: O round-trip parity test mais as três fixtures adversárias passam
@@ -156,6 +160,16 @@ phases:
             kind: shell
             command: npm test
             expectExitCode: 0
+        - id: G-3
+          description: "Inventário: cada mutação persistente emitida por cada runtime
+            layer (aiDeck/hooks/auto-update) está mapeada a um efeito
+            registrado, uma fixture de round-trip, ou uma entrada de allowlist
+            documentada."
+          status: pending
+          verifier:
+            kind: manual
+            description: Auditar o inventário de mutações por runtime layer durante
+              phase-done.
     status: pending
     summary: Religa atomic-skills sobre o kernel (aiDeck/hooks/auto-update como
       runtime layers) e prova paridade.
@@ -168,15 +182,26 @@ planTitle: Reversible Installer — motor de instalação reversível e reutiliz
 
 ## 1. Context
 
-Extrair o instalador do atomic-skills num kernel genérico de sincronização reversível de arquivos templados, consumível por qualquer projeto via dependência + config. Uninstall é propriedade estrutural do kernel (replay reverso do journal + reconcile do file set para vazio), não código que cada consumidor escreve. Fonte-de-verdade: `design.md` desta pasta (aprovado pelo critic).
+Extrair o instalador do atomic-skills num kernel genérico de sincronização reversível de arquivos templados, reutilizável **in-repo como kernel/API** nesta fase — o consumo cross-project via dependência + config é direção futura, fora do escopo (ver non-goals do design). Uninstall é propriedade estrutural do kernel (replay reverso do journal + reconcile do file set para vazio), não código que cada consumidor escreve. Fonte-de-verdade: `design.md` desta pasta (aprovado pelo critic).
 
 ## 2. Inviolable principles
 
 - **P1 Paridade por construção** — Toda mutação passa por um efeito tipado com `apply()` + `revert(beforeState)`. Uninstall reverte o journal; nenhum consumidor escreve lógica de reversão. O round-trip parity test é a verificação, não a garantia.
 - **P2 Mecanismo casa com a forma do risco** — Arquivos usam reconciliação declarativa (estado idempotente, derivável da config). Mutações não-arquivo usam efeito-com-before-state (o passado não é derivável do disco). Nenhum dos dois domínios é forçado para o mecanismo do outro.
-- **P3 Sem prova de propriedade, não apaga** — Qualquer remoção (órfão, legado, entrada de settings) só ocorre sobre algo que o efeito provou ter criado. Ausência de prova é um não-apague. É a defesa central de segurança de dados.
-- **P4 Catálogo de efeitos fechado mas extensível** — O kernel traz 3 tipos built-in e expõe um contrato de registro; um runtime layer adiciona um tipo novo com seu par apply/revert + fixtures, sem reabrir o kernel.
+- **P3 Sem prova de propriedade, não apaga** — Qualquer remoção (órfão, legado, entrada de settings) só ocorre sobre algo que o efeito provou ter criado. Ausência de prova é um não-apague. Exceção-allowlist explícita e única: o legacy-prune usa a safelist de assinatura de frontmatter como a ÚNICA evidência de propriedade aceita para paths legados, com fixture adversária para arquivo do usuário que imite a assinatura. É a defesa central de segurança de dados.
+- **P4 Catálogo de efeitos fechado mas extensível** — O kernel traz 4 tipos de efeito built-in REGISTRADOS (reconcileFileSet para o conjunto de arquivos + json-merge + refcount + legacy-prune) e expõe um contrato de registro; um runtime layer adiciona um tipo novo com seu par apply/revert + fixtures, sem reabrir o kernel.
 
 ## 3. Phase tree
 
 _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: alegações sobre o código atual carregam `verified_by:` (file:line) verificadas contra o worktree no design.md.
+- **G2 soft-language**: scan da ban-list no plano — 0 ocorrências.
+- **G6 reference-or-strike**: cada exit-criterion carrega `verifier:`; tarefas carregam verifier determinístico.
+
+## Reviews
+
+- **Codex (cross-model), 2026-06-17** — `needs_changes` → 2 critical + 4 major, todos aplicados. Detalhe + briefings em [`.atomic-skills/reviews/2026-06-17-1536-reversible-installer.md`](../../../reviews/2026-06-17-1536-reversible-installer.md). Correções: F-001 (glob de teste), F-002 (tarefa de migração F3-T-005), F-003 (catálogo de 4 efeitos), F-004 (safelist como exceção-allowlist em P3), F-005 (gate F3-G-3 de inventário), F-006 (escopo in-repo).
+- **Internal (self-loop), 2026-06-17** — G2/G6 limpos, títulos/summaries/sinais completos.
