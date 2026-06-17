@@ -1,7 +1,7 @@
 ---
-lastUpdated: '2026-06-09T22:00:00Z'
+lastUpdated: '2026-06-17T00:00:00Z'
 schemaVersion: '0.1'
-activePlans: 1
+activePlans: 2
 activeInitiatives: 0
 archivedCount: 7
 ---
@@ -20,6 +20,17 @@ Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar
 |-------|--------|---------|
 | F0 — Captura barata (MVP do inbox) | done | Script de append, detail file com o fork, `idea list`, wiring e paridade de install. 3/3 tasks, 3/3 gates (codex lane). |
 | F1 — Promoção via emergence ladder | done | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. 2/2 tasks, 2/2 gates (codex lane). Plano completo — pronto para `archive`. |
+
+### reversible-installer — Reversible Installer (currentPhase: F0)
+
+Extrai o instalador do atomic-skills num kernel genérico de sincronização reversível de arquivos templados, consumível por qualquer projeto via dependência + config; uninstall out-of-the-box.
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| F0 — Effect Kernel + file reconciler | active | Funda o kernel: contrato de efeito reversível, journal e o reconciler de arquivos (porta do 3-hash). 0/3 tasks, 0/2 gates. |
+| F1 — Efeitos built-in não-arquivo | pending | Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com before-state + matriz adversária no round-trip. 0/4 tasks, 0/1 gate. |
+| F2 — Providers e config two-tier | pending | Config two-tier + SkillsProvider (IDE matrix/render, COMM_LANG opt-out) + API de registro de runtime layer. 0/3 tasks, 0/2 gates. |
+| F3 — Big-bang rewire e paridade | pending | Religa atomic-skills sobre o kernel (aiDeck/hooks/auto-update como runtime layers) e prova paridade. 0/4 tasks, 0/2 gates. |
 
 ## Paused Plans
 
