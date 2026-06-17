@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T13:19:33.069Z",
+  "generatedAt": "2026-06-17T13:43:45.421Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "worktree-lifecycle-finalization",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 1,
     "total": 2,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "Start T-001: Estender o schema de routing com integrationRef",
+  "nextAction": "Start T-002: Resolvedor de integrationRef (scripts/integration-ref.js + tests/integration-ref.test.js)",
   "flags": {
     "drift": false,
     "multipleActivePlans": false,
@@ -37,7 +37,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f1-integrationref-configuravel.md",
-      "lastUpdated": "2026-06-17T12:26:23Z"
+      "lastUpdated": "2026-06-17T13:37:44Z"
     }
   ]
 }
