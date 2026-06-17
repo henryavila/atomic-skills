@@ -5,9 +5,9 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T15:45:46.247Z
+lastUpdated: 2026-06-17T16:41:21.000Z
 branch: plan/reversible-installer
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -62,20 +62,38 @@ phases:
         - id: G-1
           description: O efeito reconcileFileSet reproduz o comportamento de
             install/update/uninstall de arquivos dos testes atuais.
-          status: pending
+          status: met
+          metAt: 2026-06-17T16:41:21.000Z
           verifier:
             kind: test
             runner: node --test
             pattern: test/kernel/reconciler.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T16:41:21.000Z
+            passed: true
+            exitCode: 0
+            testsCollected: 4
+            outputSummary: "node --test test/kernel/reconciler.test.js — tests 4,
+              pass 4, fail 0 (inclui o teste de path-containment do review gate)."
         - id: G-2
           description: O contrato de efeito tem fixture de round-trip que prova apply
             seguido de revert restaurando o baseline.
-          status: pending
+          status: met
+          metAt: 2026-06-17T16:41:21.000Z
           verifier:
             kind: test
             runner: node --test
             pattern: test/kernel/effect.test.js
-    status: active
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T16:41:21.000Z
+            passed: true
+            exitCode: 0
+            testsCollected: 4
+            outputSummary: "node --test test/kernel/effect.test.js — tests 4, pass
+              4, fail 0 (round-trip apply→revert restaura baseline)."
+    status: done
     summary: "Funda o kernel: contrato de efeito reversível, journal e o reconciler
       de arquivos (porta do 3-hash)."
   - id: F1

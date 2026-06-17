@@ -5,38 +5,56 @@ title: Effect Kernel + file reconciler
 goal: estabelecer o contrato fechado de efeito (apply/revert/before-state) + o
   journal + o efeito de reconciliação de arquivos portado da lógica 3-hash
   atual, sem tocar no instalador legado.
-status: active
+status: done
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T15:45:46.247Z
-nextAction: All F0 tasks done (3/3). Run phase-done F0 — verify exit gates G-1
-  (reconciler.test.js) + G-2 (effect.test.js), review-code on phase diff,
-  advance to F1. User opt-in required.
+lastUpdated: 2026-06-17T16:41:21.000Z
+nextAction: null
 parentPlan: reversible-installer
 phaseId: F0
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: O efeito reconcileFileSet reproduz o comportamento de
       install/update/uninstall de arquivos dos testes atuais.
-    status: pending
+    status: met
+    metAt: 2026-06-17T16:41:21.000Z
     verifier:
       kind: test
       runner: node --test
       pattern: test/kernel/reconciler.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:41:21.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test test/kernel/reconciler.test.js — tests 4, pass 4,
+        fail 0 (inclui path-containment do review gate).
     verifierLabel: "test: node --test test/kernel/reconciler.test.js"
+    evidenceSummary: passed · 4 tests · 2026-06-17
   - id: G-2
     description: O contrato de efeito tem fixture de round-trip que prova apply
       seguido de revert restaurando o baseline.
-    status: pending
+    status: met
+    metAt: 2026-06-17T16:41:21.000Z
     verifier:
       kind: test
       runner: node --test
       pattern: test/kernel/effect.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:41:21.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test test/kernel/effect.test.js — tests 4, pass 4, fail 0
+        (round-trip apply→revert restaura baseline).
     verifierLabel: "test: node --test test/kernel/effect.test.js"
+    evidenceSummary: passed · 4 tests · 2026-06-17
 stack:
   - id: 1
     title: Effect Kernel + file reconciler
@@ -151,7 +169,7 @@ summary: "Funda o kernel: contrato de efeito reversível, journal e o reconciler
   de arquivos (porta do 3-hash)."
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -167,6 +185,15 @@ Initiative for phase **F0 — Effect Kernel + file reconciler**.
 
 - Plano: `../../plan.md` · Design (fonte de verdade): `../../design.md`
 - Lane: `skills/shared/mode2-codex-lane.md` · Worktree: `skills/shared/worktree-isolation.md`
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks fechadas, cada uma com `evidence` linkando o run do verifier que a fechou (re-run na árvore mesclada). Findings do review citaram `file:line` lidos antes do fix.
+- **G2 soft-language**: scan da ban-list em nextAction + descrições + claims de conclusão; 0 violações — toda conclusão é `passed:true` com contagem real.
+- **G6 reference-or-strike**: 2 exit-criteria, ambos `met` com `evidence` populada (testsCollected 4/4); literais do handoff são paths/comandos/shas verbatim.
+- **Review gate (G2)**: `review-code --mode=local` rodado no diff da fase `86c7278..f92c7c0` (DESTRUCTIVE=false → local). 2 major + 1 minor; os 2 majors corrigidos e verificados (incl. mutation-kill no fix de path-traversal), minor #3 registrado. Fixes em `8869e31`. Detalhe: `.atomic-skills/reviews/2026-06-17-1641-reversible-installer-f0.md`. **NB:** o campo estruturado `phases[].reviewGate` (GATE-R3) descrito no asset NÃO é suportado pelo `plan.schema.json`/`validate-state` desta versão (rejeitado como additional property) — o review gate fica registrado nesta prosa + no review file, não no descriptor.
+- **Lessons (G1)**: distiladas no ratify gate do phase-done (ver `lessons/`).
+- **Executor (Mode 2)**: T-001/T-002/T-003 via Codex lane; cada self-report sub-contou os testes (`tests 1` vs real 4/4/3) — re-run na árvore mesclada foi o adjudicador (R-EXEC-28).
 
 ## Session handoff
 - **Narrative:** F0 em 3/3 — TODAS as tasks DONE. T-001 (contrato Effect+registry), T-002 (journal/manifest extension), T-003 (reconcileFileSet/3-hash port) executadas via Codex Mode 2, mescladas fast-forward serial no primário, cada verifier re-rodado na árvore mesclada. HEAD primário `f92c7c0`. Worktrees do Codex todas removidas. **Fronteira de fase: pronto para `phase-done F0` (opt-in do usuário).**
