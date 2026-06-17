@@ -190,5 +190,21 @@
     "finishedAt": "2026-06-16T18:07:28Z",
     "codexWorktreeRef": "impl/wlf-f1-t002",
     "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier (anchor grep + validate-skills, WEAK → compensated by Opus diff review); re-verified on MERGED primary 0a098bf (exit 0, 15 skills valid)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "worktree-lifecycle-finalization",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "test",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T11:45:00Z",
+    "finishedAt": "2026-06-17T11:58:35Z",
+    "codexWorktreeRef": "impl/wlf-f0-t001",
+    "routingReason": "lane on (mode2Enabled+codexLane.enabled) + F1 spec-ready (exact paths/scopeBoundary/acceptance/settled design) + F2 deterministic test verifier (node --test tests/plan-branch-policy.test.js); operator opted IN to Mode 2 default for this small task. Codex exec workspace-write in isolated worktree; diff reviewed (no test weakening, 9=9 tests, meaningful flips); re-verified on MERGED primary 789ca16 (tests 9, pass 9, exit 0)."
   }
 ]

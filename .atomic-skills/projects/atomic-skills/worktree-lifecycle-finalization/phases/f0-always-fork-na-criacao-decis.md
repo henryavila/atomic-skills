@@ -9,11 +9,12 @@ goal: tornar o fork de `plan/<slug>` + worktree INCONDICIONAL na criação do
 status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-16T22:50:35.627Z
-nextAction: "Start T-001: Fork incondicional na criação"
+lastUpdated: 2026-06-17T11:58:35Z
+nextAction: T-001 done (verifier 9/9 na árvore mergeada 789ca16). Rodar
+  phase-done F0 (gates G-1/G-2 + review-code) para avançar à F1.
 parentPlan: worktree-lifecycle-finalization
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 1
 gatesMet: 0
 gatesTotal: 2
@@ -42,8 +43,9 @@ stack:
 tasks:
   - id: T-001
     title: Fork incondicional na criação
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T11:58:35Z
+    lastUpdated: 2026-06-17T11:58:35Z
     summary: Torna o fork de branch+worktree incondicional na criação do plano.
     outputs:
       - kind: file
@@ -70,6 +72,15 @@ tasks:
       kind: test
       runner: node
       pattern: tests/plan-branch-policy.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T11:58:35Z
+      exitCode: 0
+      testsCollected: 9
+      passed: true
+      outputSummary: "node --test tests/plan-branch-policy.test.js na árvore MERGEADA
+        (789ca16): tests 9, pass 9, fail 0, exit 0. Mode 2 Codex exec em
+        worktree isolada; re-verificado no primário pós-ff-merge."
 parked: []
 emerged: []
 summary: Toda criação de plano forka branch+worktree (always-fork), revertendo o
@@ -84,11 +95,11 @@ current: true
 Initiative for phase **F0 — Always-fork na criação (Decisão 1)**.
 
 ## Session handoff
-- **Narrative:** RE-DECOMPOSE COMPLETA (2026-06-16). O plano `worktree-lifecycle-finalization` foi re-decomposto do `design.md` aprovado (D1–D8, critic Approved 2 rounds) sob o pivô Git Flow. Plano velho (premissa base=main) movido para `_superseded-pre-pivot/`; novo **F0–F7** materializado, **F0 ativa**. 13 tasks SPEC-admitidas (Files/scopeBoundary/acceptance/verifier). `validate-state` 58 arquivos verde; `focus.json`→F0. **PENDENTE: Stage 8 (review-plan interno obrigatório + codex opcional) antes de implementar.**
-- **Decision log:** rota de slug = (c) mover+recriar mesmo slug (operador). Árvore F0–F7 = 1 decisão/fase. `review-due` reusado no finalize (F3). D8 em 2 camadas: A (ledger `last-review.json` ponteiro→conjunto + dedup em review-code/review-due, DIRETO nesta branch) + B (run-record do composer `project review` via work-order ao autor — skill vive na branch F4-skills, fora desta e da main). `decompose.js` (frozen) só emite id+title → o interior SPEC + resumos foram ANOTADOS pós-materialize (não auto-carregados). F2/T-001 acceptance consolidada 6→5 (limite do schema).
-- **Single nextAction:** Rodar `atomic-skills:review-plan --mode=internal` no `plan.md` (Stage 8a, obrigatório; aplicar findings major+ e re-rodar até zero), depois PERGUNTAR ao operador sobre o codex (Stage 8b, ~$0.50–1.50). Só então `atomic-skills:implement` da F0 (T-001: fork incondicional em `scripts/plan-branch-policy.js`).
-- **Verbatim state:** HEAD `plan/worktree-lifecycle-finalization` = `27f4786` (árvore limpa após este handoff). Plano: `.atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/plan.md` (currentPhase F0). F0 verifier T-001: `node --test tests/plan-branch-policy.test.js`. Design aprovado + commitado (`63e53b1`). Materialização commitada (`27f4786`, 16 arquivos). Velho em `_superseded-pre-pivot/` (recuperável via git). `develop` NÃO existe ainda (criado no finalize, F3); `gh` 2.45.0; `main`=`b26d989`; `project-review.md` ausente desta branch (commits `9406177`/`ecaae5b`).
-- **Uncommitted changes:** este handoff (a commitar agora); após o commit, árvore LIMPA.
+- **Narrative:** F0/T-001 **DONE** via Mode 2 (Codex) (2026-06-17). Stage 8 concluído antes (review interno + cross-ref `design.md`; S1 alinhado ao design no F2; commit `d104632`). T-001: Codex codou numa worktree isolada (`--sandbox workspace-write`), diff revisado (NENHUM teste enfraquecido — 9=9 testes, flips MEANINGFUL), capturado em `impl/wlf-f0-t001`=`789ca16`, **ff-merge** na plan branch, **re-verificado na árvore mergeada** (tests 9, pass 9, exit 0), fechado com evidence GATE-R2. Worktree removida+pruned, branch deletada. dispatch-log: 13 records (cheap tier, sem escalação). **F0 com 0 tasks abertas → phase-done PENDENTE.**
+- **Decision log:** (a) honrar o gate Stage 8a antes de implementar; (b) cross-ref contra `design.md`; (c) S1 → align-to-design com co-dependência F2/F3 (pr-url definido+consumido em F2, populado por F3; `F3 dependsOn F2` mantém-se, SEM reorder); M1 dobrado; M2/M3/M4/N1 minor no review record p/ F4/F7; (d) Stage 8b codex PULADO; (e) **Mode 2 (Codex) = executor default da sessão** (1º task fechou limpo, cheap tier, 0 escalação). Impl escolhida: `shouldForkPlanBranch` → `return Array.isArray(activePlans);` (solo []→true, non-array→false fail-safe preservado), NÃO `return true` (preserva o teste de fail-safe).
+- **Single nextAction:** Rodar **phase-done F0** — iterar gates G-1 (test `node --test tests/plan-branch-policy.test.js`, já 9/9) + G-2 (shell `node --test tests/focus-digest.test.js && npm run validate-skills`), depois o **review-code gate obrigatório** sobre o diff da fase (range = commit ≤ F0.started → HEAD `789ca16`; mode local salvo destrutivo), gravar `reviewGate` no `plan.md`, distilar lessons, avançar `currentPhase` F0→F1 e materializar a iniciativa F1.
+- **Verbatim state:** HEAD `plan/worktree-lifecycle-finalization` = `789ca16` (+ commit de estado pendente). T-001 `done` com evidence (`verifierKind: test`, `testsCollected: 9`, `passed: true`). Gates G-1/G-2 ainda `pending` (resolvidos no phase-done). G-2 verifier: `node --test tests/focus-digest.test.js && npm run validate-skills`. `scripts/plan-branch-policy.js:10` agora `return Array.isArray(activePlans);`. Review record: `.atomic-skills/reviews/2026-06-17-1055-worktree-lifecycle-finalization.md`. dispatch-log: `.atomic-skills/status/dispatch-log.json` (13 records). Worktree `wlf-f0-t001` removida.
+- **Uncommitted changes:** `phases/f0-always-fork-na-criacao-decis.md` (este handoff + T-001 done + evidence + rollups 1/1) e `.atomic-skills/status/dispatch-log.json` (record T-001) — a commitar como o commit de estado "T-001 done". O código já está em `789ca16` (ff-merge).
 
 ## Decisions
 
