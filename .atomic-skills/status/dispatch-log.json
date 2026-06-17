@@ -78,5 +78,21 @@
     "finishedAt": "2026-06-09T21:30:00Z",
     "codexWorktreeRef": "impl/qic-f1-t-002",
     "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary (idea-mark 5/5 + idea-promote 3/3)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "reversible-installer",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "test",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T16:05:00Z",
+    "finishedAt": "2026-06-17T16:10:22Z",
+    "codexWorktreeRef": "impl/ri-f0-t001",
+    "routingReason": "lane on (routing.json) + F1 spec-ready (design settled pre-dispatch) + F2 deterministic test verifier; codex self-report mis-stated tests=1, real run tests=4 — re-verified on merged primary 37d0e24 (effect.test.js 4/4)"
   }
 ]

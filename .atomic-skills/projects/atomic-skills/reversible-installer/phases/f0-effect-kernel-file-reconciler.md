@@ -9,10 +9,10 @@ status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
 lastUpdated: 2026-06-17T15:45:46.247Z
-nextAction: "Start T-001: — Contrato e registry de efeitos"
+nextAction: "Start T-002: Journal como extensão do manifesto (test/kernel/journal.test.js)"
 parentPlan: reversible-installer
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -43,8 +43,20 @@ stack:
 tasks:
   - id: T-001
     title: Contrato e registry de efeitos
-    status: pending
-    lastUpdated: 2026-06-17T15:45:46.247Z
+    status: done
+    lastUpdated: 2026-06-17T16:10:22.000Z
+    closedAt: 2026-06-17T16:10:22.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:10:22.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: "Re-run on MERGED primary @37d0e24: node --test
+        test/kernel/effect.test.js — tests 4, suites 1, pass 4, fail 0. Full npm
+        test 825 tests, 811 pass, 2 fail (pré-existentes: dashboard bundle
+        ausente — provadas no pai 850746a). Executor: codex lane, worktree
+        impl/ri-f0-t001."
     summary: Interface Effect (apply/revert/before-state) + registry que rejeita
       tipo duplicado e efeito sem revert.
     description: "Define a interface Effect (type, apply(ctx), revert(ctx,
@@ -128,8 +140,8 @@ Initiative for phase **F0 — Effect Kernel + file reconciler**.
 - Lane: `skills/shared/mode2-codex-lane.md` · Worktree: `skills/shared/worktree-isolation.md`
 
 ## Session handoff
-- **Narrative:** Fase F0 recém-materializada (0/3 tasks). Início fresco, árvore limpa em `86c7278`. Prestes a dispatchar T-001 (contrato Effect + registry) para Codex numa worktree isolada `impl/ri-f0-t001` off HEAD. Nada mid-flight no working tree.
-- **Decision log:** Mode 2/Codex é o executor default (lane ligada, tasks spec-ready, Codex autenticado). Merge-back serial pela cadeia de dependência. Kernel em `test/` singular vs suíte em `tests/` plural.
-- **Single nextAction:** Dispatchar Codex workspace-write para T-001 na worktree `/home/henry/atomic-skills/.worktrees/codex-ri-f0-t001`; ler diff de volta; merge serial no primário; re-rodar `node --test test/kernel/effect.test.js`; então `done T-001`.
-- **Verbatim state:** Verifier T-001: `node --test test/kernel/effect.test.js`. Base ref: `86c7278`. Branch primário: `plan/reversible-installer`. Worktree primário: `/home/henry/atomic-skills/.worktrees/reversible-installer`.
-- **Uncommitted changes:** clean tree (apenas este bloco de handoff, a ser commitado com o snapshot inicial).
+- **Narrative:** F0 em 1/3. T-001 (contrato Effect + registry) DONE: executado via Codex Mode 2 na worktree `impl/ri-f0-t001`, mesclado fast-forward no primário em `37d0e24`, verifier re-rodado na árvore mesclada (4/4). Worktree do Codex já removida. Próximo: T-002 (journal).
+- **Decision log:** Codex auto-reportou `tests 1` mas o run real foi `tests 4` — re-execução na árvore mesclada é o adjudicador, não a narrativa do executor. As 2 falhas de `npm test` (dashboard bundle `dist/dashboard` ausente) são pré-existentes, provadas idênticas no pai `850746a` — não regressão de T-001. `package.json` test-glob ficou com aspas (`"tests/**/*.test.js" "test/**/*.test.js"`) para o node fazer o glob nativo (shell `**` não-portável); comportamento idêntico, robusto.
+- **Single nextAction:** Iniciar T-002 (Journal como extensão do manifesto) — Mode 2/Codex, base ref HEAD atual `37d0e24`, verifier `node --test test/kernel/journal.test.js`. Worktree nova `impl/ri-f0-t002` off HEAD.
+- **Verbatim state:** Verifier T-001 (passou): `node --test test/kernel/effect.test.js` → tests 4, pass 4, fail 0, exit 0. HEAD primário: `37d0e24`. Verifier T-002: `node --test test/kernel/journal.test.js`. Branch primário: `plan/reversible-installer`.
+- **Uncommitted changes:** state files desta sessão (f0 phase, dispatch-log.json) a serem commitados com este snapshot; código de T-001 já em `37d0e24`. Árvore limpa após o commit.
