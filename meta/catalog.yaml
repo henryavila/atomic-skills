@@ -370,6 +370,11 @@ core:
         signature: '<id>'
         description: 'Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done'
         example: '/atomic-skills:project split-phase F2'
+      - name: finalize
+        group: 'Lifecycle'
+        signature: ''
+        description: 'Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive'
+        example: '/atomic-skills:project finalize'
       - name: archive
         group: 'Lifecycle'
         signature: '[<slug>]'

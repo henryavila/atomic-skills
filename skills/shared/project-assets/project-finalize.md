@@ -30,7 +30,14 @@ finalize never assumes a base in silence. Resolve it from
 `.atomic-skills/status/routing.json` via the F1 resolver `resolveIntegrationRef`
 (`scripts/integration-ref.js`):
 
-- Read `routing.json` if it exists (parse JSON); pass `null` when the file is absent.
+- Read `routing.json` if it exists, then **validate it against
+  `meta/schemas/routing.schema.json` first** (the same ajv gate `npm run
+  validate-state` uses) and ABORT on a parse/schema error. The resolver assumes
+  schema-valid input: its docstring notes the schema rejects a non-string/empty
+  `integrationRef` *before* the resolver runs, and a present-but-invalid value
+  (`""`, `123`, `{}`) falls through to the `develop` default — which would silently
+  publish against the wrong base. Pass the schema-valid parsed config to the
+  resolver, or `null` when the file is absent.
 - `resolveIntegrationRef(routingConfig)` returns `{ ref, configured, source }`:
   - `source: 'declared'` — a configured `integrationRef`; use `ref`.
   - `source: 'default'` — file present but the field is absent; use the documented
@@ -38,6 +45,15 @@ finalize never assumes a base in silence. Resolve it from
   - `source: 'not-configured'` — `routing.json` is absent; **prompt-when-absent**
     (below). The not-configured case is **never** silently assumed — it is the
     surface for the lazy prompt.
+
+**Two refs, not one (consume `scripts/worktree-teardown.js` `resolveBaseRef`).**
+`integrationRef` is the PR `--base` and the value persisted to `routing.json`;
+`baseRef` is the ref that exists LOCALLY for git commands (the preview diff).
+`resolveBaseRef({ routingConfig })` returns `{ integrationRef, baseRef }`,
+preferring `origin/<ref>` then `<ref>`. Use `integrationRef` for `gh pr create
+--base` + persistence, and `baseRef` for every local `git` invocation — a clone
+with only `origin/develop` (no local `develop`) makes a bare `<integrationRef>`
+diff fail.
 
 ### Prompt-when-absent (source: `not-configured`)
 
@@ -62,16 +78,22 @@ A non-zero exit aborts with the offending ref surfaced — never push or open a 
 against a malformed ref.
 
 Persist the resolved ref **once** into `routing.json` (`integrationRef: <ref>`) so
-the next finalize resolves `declared` instead of prompting again. Persist it to
-`routing.json` only — **never** to the plan frontmatter.
+the next finalize resolves `declared` instead of prompting again — **only after the
+ref is confirmed present on `origin`** (an existing ref already resolves; a freshly
+created `develop` only after its `git push -u origin develop` exits 0). On a
+base-push failure, do **not** persist: a persisted ref the remote lacks makes the
+next `gh pr create --base <ref>` fail with no re-prompt — surface the failure and
+re-run the prompt instead. Persist to `routing.json` only — **never** to the plan
+frontmatter.
 
 ## Step 2 — Show the diff + the proposed PR, then HALT (operator-prompted)
 
 Before any push or PR, present the change and wait for explicit confirmation
 (intrusive-actions rule). With {{BASH_TOOL}}:
 
-1. The branch diff against the integration ref:
-   `git --no-pager diff <integrationRef>...plan/<slug> --stat`
+1. The branch diff against the resolved local base (`baseRef`, not the bare
+   `integrationRef` — see Step 1):
+   `git --no-pager diff <baseRef>...plan/<slug> --stat`
    (offer the full diff on request).
 2. The proposed PR: base `<integrationRef>`, head `plan/<slug>`, the title and the
    `--fill` body preview.
@@ -92,15 +114,22 @@ On confirmation, with {{BASH_TOOL}}:
 
 Record the published PR so the rest of the lifecycle can find it:
 
-- Write the `pr-url` (and PR number) onto the plan state — add it to the plan's
-  `references[]` (labelled e.g. `pr: <url>`). Do **not** add a new `integrationRef`
-  frontmatter field.
-- The recorded identity is the input the F2 teardown consumes: `isTeardownSafe`
-  (`scripts/worktree-teardown.js`) takes a `prIdentity` and blocks with
-  `pr-identity-missing` without one. Recording it here is what later lets the
-  removal guard look the PR up.
+- Write the PR URL onto the plan state as a `references[]` entry
+  `{ kind: url, path: <pr-url>, label: "PR #<number>" }` (the `artifactRef` shape —
+  `meta/schemas/common.schema.json` `$defs/artifactRef`, `additionalProperties: false`,
+  so there is no separate slot for a bare PR number — fold it into `label`; the URL
+  in `path` is the identity). Do **not** add a new `integrationRef` frontmatter field.
+- The recorded URL is what the F2 teardown guard **requires** as its `prIdentity`:
+  `isTeardownSafe` (`scripts/worktree-teardown.js`) blocks with `pr-identity-missing`
+  when none is supplied. **Open follow-up — this doc does NOT close the handoff:** the
+  archive-flow call in `{{ASSETS_PATH}}/project-transitions.md` (`archive`) currently
+  invokes `isTeardownSafe({ branch, baseRef })` without `integrationRef`/`prIdentity`,
+  so it returns `blocked('indeterminate-base')` until that call is extended to read the
+  recorded `pr-url` and pass `{ integrationRef, prIdentity }`. Recording the identity
+  here is the producer half; wiring the consumer to read it is the open half.
 - The **authoritative** integration signal is NOT this local record — it is the
-  live PR state on GitHub. The teardown reads `gh pr view <prIdentity>` and gates
+  live PR state on GitHub. The teardown reads `gh pr view <prIdentity>`, where
+  `<prIdentity>` is the recorded URL (the `references[]` entry's `path`), and gates
   removal on `state == MERGED` **and** `baseRefName == <integrationRef>` **and** a
   matching `headRefOid`, with native `git branch -d` (lowercase, non-force) as the
   second guard. The recorded `pr-url` is a convenience pointer for humans and the
