@@ -15,6 +15,25 @@ O acoplamento específico do atomic-skills está concentrado em ~5 pontos: `SKIL
 
 O contrato de paridade install↔uninstall hoje é garantido por um teste de round-trip (instala em HOME tmp, desinstala, exige retorno byte-a-byte). `verified_by: CLAUDE.md "Install / Uninstall parity (HARD RULE)" + tests/install-uninstall-roundtrip.test.js`. Este design eleva essa paridade de "garantida por teste" para "propriedade da arquitetura, verificada por teste".
 
+## ⚠️ PIVOT — package-first (2026-06-17, redirecionado pelo usuário)
+
+O usuário redirecionou explicitamente a estratégia: **a engine NÃO é mais in-repo com split adiado** — ela vira um **pacote npm separado AGORA**, e o atomic-skills é o **primeiro consumidor**. Isso **inverte o non-goal "Não extrair para repo/pacote npm separado nesta fase"** (abaixo) e reescreve o escopo de F2/F3.
+
+Decisões travadas com o usuário:
+- **Nome:** `@henryavila/tooling-installer`. Essência precisa: *instalador reversível, em userland, de ferramentas de CLI e skills de IA — entrega arquivos + merge de config, com remoção limpa byte-a-byte.* **NÃO** é package manager, **NÃO** tem integração com SO (sem registro/serviços/daemon/PATH de sistema), **NÃO** é template engine, **NÃO** é específico de skills.
+- **Local:** repo git separado em `~/tooling-installer` (criado, commit inicial `22bfa99`).
+- **Consumo no dev:** link local primeiro; publicar no npm quando a API estabilizar.
+
+Já feito (sessão 2026-06-17, modo YOLO autorizado pelo usuário — "valido depois"):
+- Pacote standalone criado e verde: engine core migrada (effect kernel + journal + reconciler 3-hash + os 3 efeitos `json-merge`/`refcount`/`legacy-prune` + `hash` + `manifest`). `MANIFEST_DIR` generalizado para default package-neutro (`.tooling-installer`), override pelo consumidor. API pública em `src/index.js`. **38/38 testes passam** (`node --test`).
+- atomic-skills NÃO foi religado ao pacote (isso é F3 — precisa da API de provider/driver, ainda por desenhar). A cópia in-repo em `src/kernel/` permanece intacta até a migração do consumidor.
+
+Pendente (re-desenhar COM o usuário, não unilateral):
+- Reescrever F2 (Providers + config two-tier) e F3 (big-bang rewire) para **package-first**: F2 = API de Provider + Driver/CLI no pacote; F3 = atomic-skills depende de `@henryavila/tooling-installer` (link), remove a cópia in-repo, paridade round-trip atravessando a dependência.
+- Parameterizar config do consumidor (a forma exata da two-tier config, D2) — o `MANIFEST_DIR` é o primeiro caso.
+
+O restante deste design (D1–D9, mecanismo híbrido, matriz adversária) permanece válido — muda o EMPACOTAMENTO e a fronteira, não a arquitetura da engine.
+
 ## Decisions
 
 Decisões tomadas (ratificadas pelo usuário; as marcadas [painel] passaram pelo painel de design gate-mode com Aria/arquiteto, Tariq/risco e Flynn/contrarian):
@@ -69,7 +88,7 @@ Três decisões são one-way doors (caras de reverter):
 
 - **Não** virar gerenciador de pacotes genérico (sem resolução de dependências/versões entre consumidores).
 - **Não** suportar rollback parcial transacional multi-máquina; o escopo é uma instalação local reversível.
-- **Não** extrair para repo/pacote npm separado nesta fase (D3 é big-bang dentro do repo; o split é decisão posterior, quando a API estabilizar).
+- ~~**Não** extrair para repo/pacote npm separado nesta fase (D3 é big-bang dentro do repo; o split é decisão posterior, quando a API estabilizar).~~ **SUPERSEDED pelo PIVOT (2026-06-17):** o usuário redirecionou para package-first — a engine É extraída para `@henryavila/tooling-installer` agora, com o atomic-skills como primeiro consumidor. Ver a seção "⚠️ PIVOT" no topo.
 - **Não** mexer no aiDeck nem no formato do dashboard — eles viram um runtime layer consumidor do protocolo, sem mudança no seu próprio contrato.
 
 ## Open questions
