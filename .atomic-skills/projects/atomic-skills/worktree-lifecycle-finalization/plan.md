@@ -147,17 +147,36 @@ phases:
           description: Schema aceita integrationRef e rejeita chave desconhecida;
             resolvedor aplica default develop e sinaliza ausência sem assumir;
             suite verde.
-          status: pending
+          status: met
+          metAt: 2026-06-17T13:56:08Z
           verifier:
             kind: test
             runner: node
             pattern: tests/integration-ref.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T13:56:08Z
+            exitCode: 0
+            testsCollected: 6
+            passed: true
+            outputSummary: "node --test tests/integration-ref.test.js @ af6c934:
+              tests 6, pass 6, fail 0. Resolvedor (T-002) aplica default develop +
+              sinaliza not-configured sem assumir; schema (T-001) aceita
+              integrationRef e rejeita chave desconhecida."
         - id: G-2
           description: routing.schema.json válido e skills válidos.
-          status: pending
+          status: met
+          metAt: 2026-06-17T13:56:08Z
           verifier:
             kind: shell
             command: node --test tests/routing-schema.test.js && npm run validate-skills
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T13:56:08Z
+            exitCode: 0
+            passed: true
+            outputSummary: "node --test tests/routing-schema.test.js (tests 4, pass 4)
+              && npm run validate-skills (All 15 skills valid) @ af6c934, exit 0."
     status: pending
     summary: Ref de integração configurável (default develop) em routing.json, com
       resolvedor e prompt-quando-ausente.

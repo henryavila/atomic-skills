@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T13:50:35.263Z",
+  "generatedAt": "2026-06-17T13:57:37.504Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "worktree-lifecycle-finalization",
@@ -21,7 +21,7 @@
     "blocked": 0
   },
   "gates": {
-    "met": 0,
+    "met": 2,
     "total": 2
   },
   "nextAction": "All F1 tasks done (2/2) — run phase-done to verify exit gates G-1/G-2 + mandatory review gate, distill lessons, advance to F2",

@@ -16,26 +16,43 @@ parentPlan: worktree-lifecycle-finalization
 phaseId: F1
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: Schema aceita integrationRef e rejeita chave desconhecida;
       resolvedor aplica default develop e sinaliza ausência sem assumir; suite
       verde.
-    status: pending
+    status: met
+    metAt: 2026-06-17T13:56:08Z
     verifier:
       kind: test
       runner: node
       pattern: tests/integration-ref.test.js
     verifierLabel: "test: node tests/integration-ref.test.js"
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T13:56:08Z
+      exitCode: 0
+      testsCollected: 6
+      passed: true
+      outputSummary: "node --test tests/integration-ref.test.js @ af6c934:
+        tests 6, pass 6, fail 0."
   - id: G-2
     description: routing.schema.json válido e skills válidos.
-    status: pending
+    status: met
+    metAt: 2026-06-17T13:56:08Z
     verifier:
       kind: shell
       command: node --test tests/routing-schema.test.js && npm run validate-skills
     verifierLabel: "shell: node --test tests/routing-schema.test.js && npm run validat…"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T13:56:08Z
+      exitCode: 0
+      passed: true
+      outputSummary: "routing-schema 4/4 && validate-skills All 15 valid @ af6c934,
+        exit 0."
 stack:
   - id: 1
     title: integrationRef configurável + branch develop (Decisão 2)
