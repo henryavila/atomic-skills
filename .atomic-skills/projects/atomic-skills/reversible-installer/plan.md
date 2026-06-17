@@ -198,6 +198,18 @@ planTitle: Reversible Installer — motor de instalação reversível e reutiliz
 
 # Reversible Installer — motor de instalação reversível e reutilizável
 
+## ⚠️ PIVOT — package-first (2026-06-17, redirecionado pelo usuário)
+
+**Este plano mudou de estratégia.** O Context abaixo (e os goals/exit-gates de F2/F3 no frontmatter) foram escritos para "in-repo, split adiado" — isso está **SUPERSEDED**. O usuário redirecionou para **package-first**: a engine vira o pacote npm separado **`@henryavila/tooling-installer`** AGORA, e o atomic-skills é o **primeiro consumidor**. Detalhe completo na seção "⚠️ PIVOT" do `design.md`.
+
+Estado em 2026-06-17 (para quem retomar via `implement`):
+- **F0 ✅ / F1 ✅** — kernel + journal + reconciler + 3 efeitos + matriz adversária, construídos in-repo e verdes (ver handoff de F1).
+- **Pacote criado e verde** em `~/tooling-installer` (repo git SEPARADO, commit inicial `22bfa99`, 38/38 testes): engine core migrada, API pública em `src/index.js`. **NÃO** é rastreado por este `.atomic-skills/` (é outro repo).
+- **atomic-skills NÃO foi religado** ao pacote — a cópia in-repo em `src/kernel/` segue intacta; religar é a F3 reescrita.
+- **`phase-done` de F1 in-repo está SUPERSEDED** — não rodar.
+
+**Próximo passo (NÃO é tarefa de `implement` — é design/plano):** re-escopar **F2** (API de Provider + Driver/CLI, no pacote) e **F3** (atomic-skills depende de `@henryavila/tooling-installer` via link → remove a cópia in-repo → paridade round-trip atravessando a dependência) — fazer COM o usuário (fluxo `project`/`review-plan`), não unilateral. Só depois disso `implement` volta a ter tarefas executáveis. Os goals/exit-gates de F2/F3 no frontmatter abaixo serão reescritos nesse re-escopo.
+
 ## 1. Context
 
 Extrair o instalador do atomic-skills num kernel genérico de sincronização reversível de arquivos templados, reutilizável **in-repo como kernel/API** nesta fase — o consumo cross-project via dependência + config é direção futura, fora do escopo (ver non-goals do design). Uninstall é propriedade estrutural do kernel (replay reverso do journal + reconcile do file set para vazio), não código que cada consumidor escreve. Fonte-de-verdade: `design.md` desta pasta (aprovado pelo critic).
