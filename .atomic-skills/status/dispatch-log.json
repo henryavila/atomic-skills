@@ -142,5 +142,21 @@
     "finishedAt": "2026-06-17T19:14:53Z",
     "codexWorktreeRef": "impl/dbf-t-002",
     "routingReason": "lane on (routing.json mode2Enabled+codexLane) + operator confirmed Mode 2 + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary 657de01 (8 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T19:20:00Z",
+    "finishedAt": "2026-06-17T19:14:53Z",
+    "codexWorktreeRef": "impl/dbf-t-003",
+    "routingReason": "lane on + operator Mode 2 + F1 spec-ready + F2 deterministic shell verifier; self-authored verifier so Opus reviewed prose+detector+per-block negatives on diff; re-verified on merged primary 238f677 (5 pass, 0 fail)"
   }
 ]
