@@ -105,7 +105,7 @@ summary: Toda criação de plano forka branch+worktree (always-fork), revertendo
   default lazy.
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -126,3 +126,12 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 1 task closed (T-001); evidence links the verifier run (`node --test tests/plan-branch-policy.test.js`, 9/9 on merged tree `789ca16`) + the diff; review-code triage read each cited `file:line` before acting (finding #1 at project-create-plan.md:96/101/102/113).
+- **G2 soft-language**: scanned `nextAction` + task/criterion descriptions + the handoff narrative for the ban list; 0 violations — completion claims are `passed: true` evidence.
+- **G6 reference-or-strike**: gate evidence + handoff literals are verbatim paths/commands/SHAs (`789ca16`, `01c2455`, the verifier commands).
+- **Codex review (Mode 2 exec)**: T-001 executed by Codex (workspace-write, isolated worktree); diff reviewed (no test weakening, 9=9), re-verified on the MERGED primary as the entry token to done — a self-check, never a self-certify.
+- **Review gate (G2)**: `reviewGate { status: passed, at: 01c2455, mode: local }` on the F0 phase descriptor. review-code `--mode=local` on `d104632..789ca16`: finding #1 (major) + #3 (minor) applied; #2 + the `adopt`-flow branch-or-null (project-create-plan.md ~:358) recorded as out-of-Stage-6 follow-ups.
+- **Lessons (G1)**: distilled 2 reusable lessons (L-001 ripple-sites-on-default-flip, L-002 discriminating-doc-assertions), operator-ratified. The prior-F0 Codex-auto-report lesson recurred and was handled per its corrective (re-ran the verifier; did not trust the report).
