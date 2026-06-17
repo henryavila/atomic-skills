@@ -5,9 +5,9 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T18:07:35Z
+lastUpdated: 2026-06-17T19:14:53Z
 branch: plan/deadline-burnup-forecast
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -49,14 +49,27 @@ phases:
             validado por schema (event enum), emitido pelas três transições —
             wiring estrutural (T-003 lint-transition-emits) E contrato da API
             (T-004 emit-on-transition) verificados no gate.
-          status: pending
+          status: met
+          metAt: 2026-06-17T19:14:53Z
           verifier:
             kind: shell
             command: node --test tests/append-completion.test.js && node --test
               tests/completion-event-schema.test.js && node --test
               tests/emit-on-transition.test.js && node --test
               tests/transition-emits.test.js
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T19:14:53Z
+            passed: true
+            exitCode: 0
+            outputSummary: "G-1 4-test chain on post-review tree 7c593f7 — 32 pass (14+10+3+5), 0 fail, exit 0"
+    status: done
+    reviewGate:
+      status: passed
+      at: 7c593f7
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-17-1938-code-deadline-burnup-forecast-f0.md
+      verifiedAt: 2026-06-17T19:14:53Z
     summary: Cria o log append-only de conclusões e faz a transição done emitir o
       evento — o RED do forecast.
   - id: F1
@@ -81,7 +94,7 @@ phases:
             command: node --test tests/find-unclosed-done.test.js && node --test
               tests/emit-consumer-state.test.js && node --test
               tests/schema-drift.test.js
-    status: pending
+    status: active
     summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill
       cosmético.
   - id: F2

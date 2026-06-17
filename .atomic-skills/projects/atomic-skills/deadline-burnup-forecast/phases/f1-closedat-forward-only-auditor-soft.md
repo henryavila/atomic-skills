@@ -5,11 +5,11 @@ title: "closedAt forward-only: auditor soft + emissão"
 goal: tornar closedAt auditável (soft, mede a lacuna de instrumentação) e
   emiti-lo na projeção de task do dashboard, sem backfill cosmético e sem
   hard-gate ainda.
-status: pending
+status: active
 branch: plan/deadline-burnup-forecast
-started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T17:01:39Z
-nextAction: "Start T-001: — Auditor da lacuna de instrumentação"
+started: 2026-06-17T19:14:53Z
+lastUpdated: 2026-06-17T19:14:53Z
+nextAction: "Start F1/T-001: — Auditor da lacuna de instrumentação (find-unclosed-done.js)"
 parentPlan: deadline-burnup-forecast
 phaseId: F1
 tasksDone: 0
@@ -51,6 +51,7 @@ emerged: []
 summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill cosmético.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
+current: true
 ---
 
 # Narrative / notes
