@@ -10,11 +10,11 @@ goal: 'introduzir um ref de integração configurável (default `develop`)
 status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T12:26:23Z
-lastUpdated: 2026-06-17T13:37:44Z
-nextAction: "Start T-002: Resolvedor de integrationRef (scripts/integration-ref.js + tests/integration-ref.test.js)"
+lastUpdated: 2026-06-17T13:48:57Z
+nextAction: "All F1 tasks done (2/2) — run phase-done to verify exit gates G-1/G-2 + mandatory review gate, distill lessons, advance to F2"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F1
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
@@ -83,8 +83,9 @@ tasks:
         re-run is the adjudicator, not Codex -o)."
   - id: T-002
     title: Resolvedor de integrationRef com default e sinal-de-ausência
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    lastUpdated: 2026-06-17T13:48:57Z
+    closedAt: 2026-06-17T13:48:57Z
     summary: Resolvedor lê o ref, aplica default develop e sinaliza ausência para o
       prompt.
     outputs:
@@ -110,6 +111,17 @@ tasks:
       kind: test
       runner: node
       pattern: tests/integration-ref.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T13:48:57Z
+      exitCode: 0
+      testsCollected: 6
+      passed: true
+      outputSummary: "node --test tests/integration-ref.test.js on merged primary
+        (722bf50): tests 6, pass 6, fail 0. Mode 2/Codex executed in worktree
+        impl/wlf-t-002, ff-merged + re-verified on primary (mode2 L-001).
+        Pure resolver: declared/default/not-configured discriminated, no
+        fs/git/net, input not mutated."
 parked: []
 emerged: []
 summary: Ref de integração configurável (default develop) em routing.json, com
@@ -124,11 +136,11 @@ current: true
 Initiative for phase **F1 — integrationRef configurável + branch develop (Decisão 2)**.
 
 ## Session handoff
-- **Narrative:** F1 **ATIVA**. **T-001 DONE** (1/2 tasks) — `integrationRef` opcional adicionado a `routing.schema.json` + `tests/routing-schema.test.js` criado, via Mode 2/Codex. Diff revisado, ff-merged em `4555063`, verifier re-rodado na primária MERGED (tests 4, pass 4, exit 0), evidence GATE-R2 gravada, `validate-state` ✓. Worktree `impl/wlf-t-001` desmontada + branch deletada. **T-002 pending** (resolvedor). Gates da fase (G-1/G-2) seguem `pending` — resolvem no `phase-done`.
-- **Decision log:** Keep-all dos 9 lessons aceito. **T-001 APPLY confirmado:** design-brief `L-003` (`tests/` plural ✓); `wlf-f0 L-001` (ripple: `title` E `description` generalizados, substância Mode 2 preservada ✓); `wlf-f0 L-002` (test assere o que MUDOU: integrationRef aceito/opcional + chave-desconhecida/tipo-errado rejeitados, sem string pré-existente ✓); design-brief `L-002` não-disparou (string simples, sem schemaVersion); `mode2 L-001` (auto-report `-o` do Codex descartado — re-run na primária MERGED foi o adjudicador). **Decisão de design do schema:** `integrationRef` carrega `"default": "develop"` apenas como DOC (Ajv aqui sem useDefaults); a aplicação real do default + sinal-de-ausência é responsabilidade do RESOLVEDOR (T-002), não do schema — o schema só valida shape.
-- **Single nextAction:** Iniciar **T-002** via Mode 2/Codex (mesmo padrão: worktree off HEAD `4555063`, briefing, diff readback, ff-merge, re-verify na primária MERGED): CREATE `scripts/integration-ref.js` (função pura `resolveIntegrationRef` sobre o conteúdo de `routing.json` já lido — retorna o ref declarado; aplica default `develop` quando ausente-mas-arquivo-existe; retorna sinal explícito "ausente/não-configurado" quando `routing.json` não existe, sem lançar nem assumir; não muta o input; NÃO executa git/rede), CREATE `tests/integration-ref.test.js`. Verifier: `node --test tests/integration-ref.test.js`.
-- **Verbatim state:** HEAD primária `plan/worktree-lifecycle-finalization` = `4555063` (feat T-001) — o commit `done T-001` (state) vem a seguir. F1/T-002 verifier: `node --test tests/integration-ref.test.js`. F1 G-1 verifier: `node --test tests/integration-ref.test.js`; F1 G-2 verifier: `node --test tests/routing-schema.test.js && npm run validate-skills`. T-002 scopeBoundary: função pura sobre routing.json já lido (sem git/rede no teste); NÃO cria a branch develop (ação prompted no finalize F3); ausência NUNCA assumida em silêncio nem falha — sinalizada para o prompt. Codex cmd (cwd=worktree): `codex -a never exec -c model_reasoning_effort=high --sandbox workspace-write --skip-git-repo-check --ephemeral -o <out> - < <briefing>`. routing.json: `mode2Enabled+codexLane.enabled=true`, `minBatchTasks=1`. Follow-ups F0 abertos: finding #2 (`shouldForkPlanBranch` sem caller runtime) + linha ~358 `project-create-plan.md` (fluxo `adopt` branch-or-null stale).
-- **Uncommitted changes:** state da transição `done T-001`, a commitar como `chore(project)`: `phases/f1-integrationref-configuravel.md` (T-001 done+evidence+rollups+nextAction+este handoff), `status/dispatch-log.json` (registro Mode 2 T-001 apendado), `focus.json` (regen → tasksDone 1). Após o commit, árvore LIMPA.
+- **Narrative:** F1 com **AMBAS as tasks DONE (2/2)** — fronteira de fase atingida. **T-001 DONE** (`integrationRef` opcional + `tests/routing-schema.test.js`, verifier 4/4 @ `4555063`). **T-002 DONE** (`scripts/integration-ref.js` resolvedor puro + `tests/integration-ref.test.js`, verifier 6/6 @ `722bf50`). Ambas via Mode 2/Codex (worktree isolada → diff revisado → ff-merge → re-verify na primária MERGED → evidence GATE-R2 → `validate-state` ✓), worktrees desmontadas. Gates da fase G-1/G-2 ainda `pending` (a iniciativa segue `active` — `done` NÃO auto-roda `phase-done`, operador opta).
+- **Decision log:** Keep-all dos 9 lessons aceito e aplicado. **T-001:** design-brief `L-003` (`tests/` plural ✓), `wlf-f0 L-001` (ripple `title`+`description` ✓), `wlf-f0 L-002` (test assere o que MUDOU ✓), design-brief `L-002` não-disparou (string simples), `mode2 L-001` (auto-report `-o` descartado, re-run foi o adjudicador ✓). **T-002:** mesmo padrão Mode 2; design do schema confirmado — `"default": "develop"` no schema é só DOC, a aplicação do default + sinal-de-ausência mora no RESOLVEDOR (puro sobre conteúdo já lido: `null`/`undefined`=arquivo ausente→not-configured; objeto=presente→declared|default). `mode2 L-001` reconfirmado nas DUAS dispatches (Codex auto-reportou pass; o adjudicador foi o re-run na primária merged).
+- **Single nextAction:** Rodar **`phase-done`** para F1: executa os exit-gates G-1 (`node --test tests/integration-ref.test.js`) + G-2 (`node --test tests/routing-schema.test.js && npm run validate-skills`) com evidence; roda o **review-gate obrigatório** (`review-code` sobre o diff da fase `bb8e5ab..HEAD`; sinal destrutivo provavelmente falso → `--mode=local`, mas confirmar; design-brief `L-001` sugere `--mode=both` p/ contrato/schema porta-única); distila lessons; grava `reviewGate` no `plan.md`; avança `currentPhase`→F2. **NÃO auto-avançar — operador opta.**
+- **Verbatim state:** HEAD primária `plan/worktree-lifecycle-finalization` = `722bf50` (feat T-002) — o commit `done T-002` (state) vem a seguir. F1 exit-gates: G-1 verifier `node --test tests/integration-ref.test.js` (6/6 já verde @722bf50); G-2 verifier `node --test tests/routing-schema.test.js && npm run validate-skills` (routing-schema 4/4 verde; validate-skills a rodar). Range de review da fase: de `bb8e5ab` (commit ≤ `started` 2026-06-17T12:26:23Z, mas a fase só codou a partir daqui) a HEAD `722bf50` — commits da fase: `4555063` (T-001) + `722bf50` (T-002). Arquivos novos da fase: `meta/schemas/routing.schema.json` (mod), `tests/routing-schema.test.js`, `scripts/integration-ref.js`, `tests/integration-ref.test.js`. Follow-ups F0 abertos: finding #2 (`shouldForkPlanBranch` sem caller runtime) + linha ~358 `project-create-plan.md` (fluxo `adopt` branch-or-null stale).
+- **Uncommitted changes:** state da transição `done T-002`, a commitar como `chore(project)`: `phases/f1-integrationref-configuravel.md` (T-002 done+evidence+rollups 2/2+nextAction+este handoff), `status/dispatch-log.json` (registro Mode 2 T-002 apendado), `focus.json` (regen → tasksDone 2). Após o commit, árvore LIMPA.
 
 ## Decisions
 
