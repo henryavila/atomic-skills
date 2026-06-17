@@ -178,6 +178,12 @@ phases:
             outputSummary: "node --test tests/routing-schema.test.js (tests 4, pass 4)
               && npm run validate-skills (All 15 skills valid) @ af6c934, exit 0."
     status: pending
+    reviewGate:
+      status: passed
+      at: 357f49e
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-17-1414-wlf-f1-integrationref.md
+      verifiedAt: 2026-06-17T14:14:34Z
     summary: Ref de integração configurável (default develop) em routing.json, com
       resolvedor e prompt-quando-ausente.
   - id: F2

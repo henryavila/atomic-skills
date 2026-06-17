@@ -165,6 +165,15 @@ Initiative for phase **F1 — integrationRef configurável + branch develop (Dec
 - **G6 reference-or-strike:** applied — literais do handoff/evidence são paths/comandos/SHAs verbatim (`4555063`, `722bf50`, comandos exatos dos verifiers e contagens reais 4/4 e 6/6).
 - **Mode 2 (Codex) note:** ambas as tasks executadas pelo executor default Codex em worktree isolada; auto-report `-o` descartado nas duas (`mode2 L-001`); o adjudicador de cada `done` foi o re-run determinístico do verifier na primária MERGED, nunca a confiança do executor.
 
+## Self-review against code-quality gates
+- **G1 read-before-claim**: 2 tasks fechadas, cada uma com `outputs[]` + evidence do verifier; no review-gate, cada fix releu a fonte antes da edição (resolver lido fresh; test files lidos antes do append).
+- **G2 soft-language**: varridos `nextAction` + descrições de task/critério + handoff + fix descriptions; 0 violações da ban list.
+- **G6 reference-or-strike**: 2 exit criteria, ambos `met` com `evidence` populada; `reviewGate` carrega `at: 357f49e`; lessons carregam refs de evidence verbatim (review file + commit).
+- **Codex review**: rodou via `atomic-skills:review-code --mode=both` em HEAD `357f49e`; verdict final `approve` (informed); counts blind 1M/1m → final 0/0 (2 dropped sob constraints); file `.atomic-skills/reviews/2026-06-17-1414-wlf-f1-integrationref.md`. Sinal destrutivo = false (diff aditivo); `--mode=both` escolhido pelo operador p/ rigor de contrato/schema (design-brief L-001).
+- **Review gate (G2)**: gravado no descritor da fase como `reviewGate: { status: passed, at: 357f49e, mode: both, reviewFile: …, verifiedAt: 2026-06-17T14:14:34Z }` no `plan.md`. A prosa e o campo concordam (GATE-R3).
+- **Lessons (G1)**: distiladas 2 lessons reusable em `lessons/worktree-lifecycle-finalization-f1-integrationref-configuravel.md` (own-prop+contrato; schema=shape/consumer=format), ratificadas pelo operador. +2 confirmações (design-brief L-001, mode2 L-001) registradas no corpo, sem nova lição.
+- **Suite (contexto)**: full suite 900 testes, 10 falhas PRÉ-EXISTENTES (dashboard não-buildado + drift de detect/install), confirmadas no baseline com os fixes stashed → zero regressão F1. Verifiers da fase verdes (G-1 8/8 incl. hardening, G-2 routing-schema 5/5 + validate-skills 15).
+
 ## Decisions
 
 _(record decisions here as they are made)_
