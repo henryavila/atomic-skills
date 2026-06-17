@@ -77,4 +77,11 @@ describe('effect journal', () => {
       /unknown effect type "missing"/,
     );
   });
+
+  it('treats a null manifest (never installed) as an empty journal', () => {
+    // readManifest returns null when no manifest file exists; revert driven off
+    // that must be a no-op, not a crash.
+    assert.deepStrictEqual(readEffects(null), []);
+    assert.doesNotThrow(() => replayReverse(null, {}, createEffectRegistry()));
+  });
 });

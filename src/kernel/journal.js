@@ -1,5 +1,5 @@
 export const readEffects = (manifest) => {
-  if (!Object.hasOwn(manifest, 'effects')) {
+  if (manifest == null || !Object.hasOwn(manifest, 'effects')) {
     return [];
   }
 

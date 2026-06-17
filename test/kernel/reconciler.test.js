@@ -2,6 +2,7 @@ import { describe, it, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -83,6 +84,27 @@ describe('reconcileFileSet effect', () => {
     assert.equal(
       classifyFile({ installedHash, currentHash, newHash }),
       'conflict',
+    );
+  });
+
+  it('refuses paths that escape basePath on apply and revert', () => {
+    // basePath is a nested dir so the `..` escape target stays inside the
+    // afterEach-cleaned tempDir (hermetic) instead of polluting the shared tmpdir.
+    const root = createTempDir();
+    const basePath = join(root, 'install');
+    mkdirSync(basePath, { recursive: true });
+    const escapeTarget = join(root, 'escapee.txt');
+    const effect = createReconcileFileSetEffect();
+
+    assert.throws(
+      () => effect.apply({ basePath, desired: [{ path: '../escapee.txt', content: 'x' }] }),
+      /outside basePath/,
+    );
+    assert.equal(existsSync(escapeTarget), false);
+
+    assert.throws(
+      () => effect.revert({ basePath }, [{ path: '../escapee.txt', installedHash: hashContent('x') }]),
+      /outside basePath/,
     );
   });
 });
