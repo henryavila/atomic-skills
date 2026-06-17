@@ -24,3 +24,15 @@ test('keeps integrationRef optional', () => {
 test('rejects a non-string integrationRef', () => {
   assert.equal(validate({ integrationRef: 123 }), false);
 });
+
+test('integrationRef "default":"develop" is documentation-only (Ajv runs without useDefaults — not injected)', () => {
+  // The schema declares "default":"develop" for integrationRef, but this Ajv
+  // instance mirrors scripts/validate-state.js ({ strict:false }, NO useDefaults),
+  // so validation must NOT materialize the field. The resolver's
+  // declared/default/not-configured distinction depends on {} staying empty
+  // after validation — flipping useDefaults on would silently break it.
+  const cfg = {};
+  assert.equal(validate(cfg), true);
+  assert.equal('integrationRef' in cfg, false);
+  assert.deepEqual(cfg, {});
+});

@@ -53,3 +53,30 @@ test('empty string integrationRef falls back to develop default', () => {
     source: 'default',
   });
 });
+
+test('present-but-non-string integrationRef is tolerated as default, never promoted to declared', () => {
+  // The schema (routing.schema.json) is the validation gate and rejects a
+  // non-string integrationRef before this resolver runs; the resolver is called
+  // on schema-valid content. If a non-string value slips through, it must fall
+  // to the `default` branch (defensive) — NEVER be promoted to a `declared` ref.
+  for (const bad of [123, true, [], {}]) {
+    assert.deepEqual(resolveIntegrationRef({ integrationRef: bad }), {
+      ref: 'develop',
+      configured: true,
+      source: 'default',
+    });
+  }
+});
+
+test('an INHERITED integrationRef (prototype chain) is ignored — only own property counts', () => {
+  // Defensive: a polluted Object.prototype or a non-JSON.parse object must not
+  // leak an inherited ref in as `declared`. With no OWN integrationRef the config
+  // resolves to the default, not to the inherited value.
+  const inherited = Object.create({ integrationRef: 'main' });
+  assert.equal(Object.hasOwn(inherited, 'integrationRef'), false);
+  assert.deepEqual(resolveIntegrationRef(inherited), {
+    ref: 'develop',
+    configured: true,
+    source: 'default',
+  });
+});
