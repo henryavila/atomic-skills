@@ -1,14 +1,14 @@
 /**
  * plan-branch-policy.js — deterministic branch policy for plan creation.
  *
- * A plan branch is focus-bookkeeping, not a feature branch. Solo plan creation
- * keeps `branch: null` in the current tree; a new `plan/<slug>` branch is born
- * only when at least one other active plan already exists.
+ * A plan branch is focus-bookkeeping, not a feature branch. Every valid plan
+ * creation forks its own `plan/<slug>` branch and worktree from birth. Invalid
+ * active-plan input fails safe toward no fork.
  */
 
-/** Return true when a new plan is born into an already-active concurrent front. */
+/** Return true for every valid active-plan list so plans fork on creation. */
 export function shouldForkPlanBranch(activePlans) {
-  return Array.isArray(activePlans) && activePlans.length >= 1;
+  return Array.isArray(activePlans);
 }
 
 /** Return the canonical bookkeeping branch name for a plan slug. */
