@@ -5,9 +5,9 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T15:15:13Z
+lastUpdated: 2026-06-17T16:51:02Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -204,18 +204,45 @@ phases:
           description: Teardown verifica contra integrationRef; liveness+veto headRefOid;
             oráculos A (resíduo pós-squash bloqueia) e B (squash limpo permite);
             indeterminação bloqueia; sem -D/--force/rm -rf; suite verde.
-          status: pending
+          status: met
+          metAt: 2026-06-17T16:51:02Z
           verifier:
             kind: test
             runner: node
             pattern: tests/worktree-teardown.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T16:51:02Z
+            exitCode: 0
+            testsCollected: 21
+            passed: true
+            outputSummary: "node --test tests/worktree-teardown.test.js @ 2a69940:
+              tests 21, pass 21, fail 0. resolveBaseRef consome resolveIntegrationRef;
+              liveness gh (MERGED+baseRefName+headRefOid) + veto squash-safe (HEAD==headRefOid
+              OU ancestor; residue-beyond-head BLOQUEIA); indeterminação BLOQUEIA; sem
+              -D/--force/rm -rf. Inclui 2 oráculos de squash + G9 mutation-kill + 4 testes
+              de hardening do review-gate."
         - id: G-2
           description: Skills válidos após a revisão do invariante.
-          status: pending
+          status: met
+          metAt: 2026-06-17T16:51:02Z
           verifier:
             kind: shell
             command: npm run validate-skills
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T16:51:02Z
+            exitCode: 0
+            passed: true
+            outputSummary: "npm run validate-skills @ 2a69940: All 15 skills valid
+              (schema_version 0.2), exit 0."
+    status: done
+    reviewGate:
+      status: passed
+      at: 2a699402346d4884a625a14b02a5e9b109e85f44
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-17-1651-wlf-f2-teardown.md
+      verifiedAt: 2026-06-17T16:51:02Z
     summary: Teardown só remove com integração provada vs integrationRef, seguro sob
       squash.
   - id: F3

@@ -7,36 +7,50 @@ goal: revisar o invariante de não-perda em `scripts/worktree-teardown.js` para
   liveness via `gh pr view` (state==MERGED, baseRefName correto, captura
   `headRefOid`) com um veto local ancorado no `headRefOid` que é seguro sob
   squash-merge; em indeterminação, BLOQUEIA.
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T15:15:13Z
 lastUpdated: 2026-06-17T15:15:13Z
-nextAction: "T-001 DONE (verifier 17/17 na primária MERGED + mutation-kill G9).
-  Próximo: rodar phase-done F2 (exit-gates G-1/G-2 + review-code gate) — opt-in do
-  operador."
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F2
 tasksDone: 1
 tasksTotal: 1
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: Teardown verifica contra integrationRef; liveness+veto headRefOid;
       oráculos A (resíduo pós-squash bloqueia) e B (squash limpo permite);
       indeterminação bloqueia; sem -D/--force/rm -rf; suite verde.
-    status: pending
+    status: met
+    metAt: 2026-06-17T16:51:02Z
     verifier:
       kind: test
       runner: node
       pattern: tests/worktree-teardown.test.js
     verifierLabel: "test: node tests/worktree-teardown.test.js"
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:51:02Z
+      exitCode: 0
+      testsCollected: 21
+      passed: true
+      outputSummary: "node --test tests/worktree-teardown.test.js @ 2a69940: tests 21,
+        pass 21, fail 0 (2 oráculos de squash + G9 mutation-kill + 4 testes de hardening)."
   - id: G-2
     description: Skills válidos após a revisão do invariante.
-    status: pending
+    status: met
+    metAt: 2026-06-17T16:51:02Z
     verifier:
       kind: shell
       command: npm run validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T16:51:02Z
+      exitCode: 0
+      passed: true
+      outputSummary: "npm run validate-skills @ 2a69940: All 15 skills valid, exit 0."
     verifierLabel: "shell: npm run validate-skills"
 stack:
   - id: 1
@@ -111,7 +125,7 @@ emerged: []
 summary: Teardown só remove com integração provada vs integrationRef, seguro sob squash.
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
