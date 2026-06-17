@@ -26,41 +26,41 @@ O evento de conclusão é efeito colateral atômico do próprio comando done/pha
 Goal: criar o log append-only de conclusões (completions.jsonl) e fazer os passos done/phase-done/reconcile emitirem um evento imutável por conclusão, com schema validado, e provar a emissão por teste comportamental. Este é o RED da feature (sem isso não há curva earned).
 
 ### T-001 — Helper append-completion + log JSONL
-Cria o helper que faz append de uma linha JSON por conclusão em `.atomic-skills/analytics/completions.jsonl` (cria `analytics/` se ausente). Campos: ts, event, projectId, planSlug, phaseId, taskId, weight (default 1), weightBasis ('count'|'proxy'). Append-only.
+Cria o helper que faz append de uma linha JSON por conclusão em `.atomic-skills/analytics/completions.jsonl` (cria `analytics/` se ausente). Campos: ts, **event (enum: 'task-done' | 'phase-done' | 'reconcile')**, projectId, planSlug, phaseId, taskId, weight (default 1), weightBasis ('count'|'proxy'). Append-only. NOTA o log é GLOBAL (um só, compartilhado por todos os planos) — o filtro por projectId/planSlug é responsabilidade do consumidor (F3).
 Files: scripts/append-completion.js, tests/append-completion.test.js
-scopeBoundary: só escreve em .atomic-skills/analytics/; nunca muta state .md; não computa série nem agrega; weight ausente vira 1 com weightBasis 'count'.
-acceptance: appendCompletion anexa exatamente uma linha JSON válida com weight e weightBasis; analytics/ é criado idempotentemente; chamadas repetidas nunca reescrevem nem reordenam linhas já gravadas.
+scopeBoundary: só escreve em .atomic-skills/analytics/; nunca muta state .md; não computa série nem agrega; weight ausente vira 1 com weightBasis 'count'; event sempre um dos três do enum.
+acceptance: appendCompletion anexa exatamente uma linha JSON válida com event (do enum), weight e weightBasis; analytics/ é criado idempotentemente; chamadas repetidas nunca reescrevem nem reordenam linhas já gravadas.
 verifier: kind shell — node --test tests/append-completion.test.js
 
-### T-002 — Schema do evento de conclusão (+ weightBasis + actuals opcional) + validação
-Define o schema da linha do completions.jsonl e liga sua validação ao pipeline determinístico, sem quebrar o validate-state existente (que só varre .md). Inclui weightBasis (enum obrigatório) e pré-declara um sub-objeto OPCIONAL `actuals` (additionalProperties:false interno) para os campos que F4 vai preencher — assim F4 nunca precisa destravar este schema depois.
+### T-002 — Schema do evento de conclusão (+ event enum + weightBasis + actuals opcional) + validação
+Define o schema da linha do completions.jsonl e liga sua validação ao pipeline determinístico, sem quebrar o validate-state existente (que só varre .md). `event` é um enum obrigatório ('task-done' | 'phase-done' | 'reconcile') — nome de evento desconhecido é rejeitado (senão F3/F4 teriam que inventar filtragem). `weightBasis` é enum obrigatório. Pré-declara um sub-objeto OPCIONAL `actuals` (additionalProperties:false interno) para os campos que F4 vai preencher — assim F4 nunca precisa destravar este schema depois.
 Files: meta/schemas/completion-event.schema.json, scripts/validate-aideck-state.js, tests/completion-event-schema.test.js
-scopeBoundary: additionalProperties:false no nível do evento; campos-base = os de T-001 (ts/event/projectId/planSlug/phaseId/taskId/weight/weightBasis) + `actuals` opcional (filesChanged/locAdded/locRemoved/commits/attempts/durationMs/escalations, todos opcionais, additionalProperties:false interno); não altera as regras cross-field do validate-state.js (GATE-R2 intacto).
-acceptance: uma linha bem-formada valida; linha sem ts/weight/weightBasis ou com campo extra de topo é rejeitada; weightBasis fora do enum é rejeitado; uma linha com o sub-objeto actuals válido passa e com sub-chave desconhecida em actuals é rejeitada; o validador roda sobre o jsonl sem afetar a varredura .md do validate-state.
+scopeBoundary: additionalProperties:false no nível do evento; campos-base = os de T-001 (ts/event/projectId/planSlug/phaseId/taskId/weight/weightBasis) + `actuals` opcional (filesChanged/locAdded/locRemoved/commits/attempts/durationMs/escalations, todos opcionais, additionalProperties:false interno); event e weightBasis são enums fechados; não altera as regras cross-field do validate-state.js (GATE-R2 intacto).
+acceptance: uma linha bem-formada valida; linha sem ts/event/weight/weightBasis ou com campo extra de topo é rejeitada; event fora do enum ('foo') é rejeitado; weightBasis fora do enum é rejeitado; uma linha com o sub-objeto actuals válido passa e com sub-chave desconhecida em actuals é rejeitada; o validador roda sobre o jsonl sem afetar a varredura .md do validate-state.
 verifier: kind shell — node --test tests/completion-event-schema.test.js
 
-### T-003 — Emitir o evento nas transições done/phase-done/reconcile
-Liga o append-completion aos três pontos de mutação que já carimbam conclusão na skill (done, phase-done bulk-close, reconcile), no mesmo instante da transição.
-Files: skills/shared/project-assets/project-transitions.md
-scopeBoundary: edição de instrução de skill (prosa executada pelo modelo); não cria novo comando; um append por task fechada (phase-done em lote = N appends), nunca um <now> compartilhado.
-acceptance: project-transitions.md instrui append-completion no passo done; instrui um append por task no phase-done bulk-close; instrui append no reconcile.
-verifier: kind shell — grep -c "append-completion" skills/shared/project-assets/project-transitions.md | grep -qE "^[3-9]|[0-9]{2,}"
+### T-003 — Emitir o evento nas transições + detector estrutural (modelo de evento)
+Liga o append-completion aos três pontos de mutação que já carimbam conclusão (done, phase-done bulk-close, reconcile), no mesmo instante da transição. **Modelo de evento por transição:** **done** → 1 evento {event:'task-done'}; **phase-done bulk-close** → N eventos {event:'task-done'} (um por task fechada, nunca um <now> compartilhado) MAIS 1 evento {event:'phase-done'} que carrega os actuals AGREGADOS da fase (F4/T-001) UMA vez — assim o diff da fase nunca é duplicado nas N linhas de task; **reconcile** → 1 evento {event:'task-done'} por task reconciliada. Como a transição é PROSA executada pelo modelo (não há função a chamar), o verifier é um detector ESTRUTURAL (scripts/lint-transition-emits.js, zero-token, exit não-zero) que inspeciona cada um dos 3 blocos — NÃO um grep de contagem (que não prova que o bloco certo tem a instrução certa).
+Files: skills/shared/project-assets/project-transitions.md, scripts/lint-transition-emits.js, tests/transition-emits.test.js
+scopeBoundary: edição de instrução de skill (prosa) + um detector read-only; não cria comando novo; o detector inspeciona os 3 blocos, não conta ocorrências.
+acceptance: cada bloco done/phase-done/reconcile em project-transitions.md instrui o append com o event correto; phase-done instrui N task-done (um por task) + 1 phase-done; o detector lint-transition-emits sai não-zero se algum bloco não carrega a instrução de emit com os campos exigidos.
+verifier: kind shell — node --test tests/transition-emits.test.js
 
-### T-004 — Harness de integração: a transição emite o evento (prova comportamental do RED)
-Teste que exercita a emissão do jeito que project-transitions.md a documenta — invoca o appendCompletion como a transição invoca — e asserta o crescimento append-only do completions.jsonl. Troca a prova do RED de "grep de prosa" (T-003) por comportamento observado, fechando o gap do gate de F0 que antes só testava helper+schema e nunca uma transição.
+### T-004 — Contrato da API de emissão (appendCompletion) — não a prova da prosa
+Teste de CONTRATO da API appendCompletion no jeito que a transição a invoca: asserta o crescimento append-only e a CARDINALIDADE do modelo de evento (T-003). NÃO prova que a prosa de project-transitions.md está correta (isso é o detector estrutural de T-003) — prova que a API, chamada como documentado, grava exatamente o esperado. (Honesto sobre o limite: a prosa model-executed não é testável comportamentalmente; T-003 a cobre estruturalmente, T-004 cobre a API.)
 Files: tests/emit-on-transition.test.js
-scopeBoundary: read-only sobre state .md; escreve só num completions.jsonl de fixture/tmp; chama a API pública de appendCompletion (não reescreve a prosa da skill); não depende de rede nem de um modelo.
-acceptance: uma conclusão done simulada grava exatamente 1 linha; um phase-done de N tasks grava N linhas (nunca um <now> compartilhado); um reconcile grava 1 linha; cada linha gravada valida no completion-event.schema.
+scopeBoundary: escreve só num completions.jsonl de fixture/tmp; chama a API pública de appendCompletion (não reescreve a prosa da skill); é teste de contrato da API, não da prosa; sem rede nem modelo.
+acceptance: uma chamada done grava 1 linha {event:'task-done'}; uma sequência phase-done de N tasks grava N {event:'task-done'} + 1 {event:'phase-done'}; reconcile grava 1 {event:'task-done'}; cada linha valida no completion-event.schema.
 verifier: kind shell — node --test tests/emit-on-transition.test.js
 
 ```yaml
 exit_gate:
   - id: G-1
-    description: o completions.jsonl recebe um evento imutável por conclusão, validado por schema, emitido pelas três transições — wiring da prosa (T-003 grep) E emissão comportamental (T-004 emit-on-transition) ambos verificados no gate.
+    description: o completions.jsonl recebe um evento imutável por conclusão, validado por schema (event enum), emitido pelas três transições — wiring estrutural da prosa (T-003 lint-transition-emits) E contrato da API (T-004 emit-on-transition) ambos verificados no gate.
     status: pending
     verifier:
       kind: shell
-      command: 'node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js && grep -c "append-completion" skills/shared/project-assets/project-transitions.md | grep -qE "^[3-9]|[0-9]{2,}"'
+      command: node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js && node --test tests/transition-emits.test.js
 ```
 
 ## F1 — closedAt forward-only: auditor soft + emissão
@@ -100,7 +100,7 @@ exit_gate:
 
 ## F2 — Peso por task: proxy estrutural + rollups
 
-Goal: introduzir tasks[].weight (number, opcional, default=1) derivado por proxy estrutural no decompose, com rollups weightDone/weightTotal espelhando tasksDone/tasksTotal — admitidos no schema source E na projeção emitida.
+Goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo modelo no passo de decomposição (Stage 6 de project-create-plan.md — prosa, como os task summaries; NUNCA por src/decompose.js, que é congelado/R-ORCH-10), derivado de sinais estruturais (nº de acceptance, Files, scopeBoundary, tipo de verifier), e auditor-enforced; com rollups weightDone/weightTotal espelhando tasksDone/tasksTotal — admitidos no schema source E na projeção emitida.
 
 ### T-001 — Campo weight (task) + rollups weightDone/weightTotal nos schemas + rebuild do bundle
 Adiciona weight (number, minimum 0, opcional) ao $defs.task de initiative.schema.json E weightDone/weightTotal (number, opcionais) ao top-level da initiative (initiative.schema.json) E à projeção $defs.initiatives de aideck-state.schema.json; regenera o bundle. Sem os três, compute-rollups grava/emite campos que os schemas strict (additionalProperties:false) rejeitam.
@@ -146,9 +146,10 @@ verifier: kind shell — node --test tests/schema-drift.test.js
 
 ### T-002 — buildSeries: burnup.json + spi.json (earned-value, duas séries por basis)
 Adiciona buildSeries() ao emit-consumer-state.js que lê completions.jsonl, bucketiza earned-weight por dia e emite, como bare-arrays: (1) a **linha planejada (Planned Value)** = 0 no started → weightTotal no deadline (CRESCENTE — earned-value/burn-UP, NÃO weightTotal→0 que seria burn-down e inverteria o SPI); (2) **DUAS séries earned separadas por weightBasis** — earnedCount (eventos 'count', escala de contagem) e earnedProxy (eventos 'proxy', escala de peso) — porque o log append-only mistura os dois e somá-los confundiria escalas; (3) **SPI por basis**: spiProxy = earnedProxy / plannedValue(hoje) (comparável, mesma escala proxy do weightTotal) e spiCount (informativo, escala de contagem). Adiciona $defs.burnup e $defs.spi ao aideck-state.schema.json e regenera o bundle. Borda: planned-value zero, deadline ausente, ou data fora de [started, deadline] ⇒ SPI null (nunca divisão por zero nem extrapolação).
+**Escopo (o log é global):** buildSeries FILTRA completions.jsonl por projectId E planSlug do plano corrente — sem o filtro a série misturaria eventos de outros planos. **weightTotal é PLAN-WIDE** (soma dos weights de todas as tasks de todas as initiatives do plano), não o rollup por-initiative de F2/T-002; o denominador do SPI é plan-wide. **"hoje"** (data corrente do SPI) = relógio de parede no instante do emit.
 Files: scripts/emit-consumer-state.js, meta/schemas/aideck-state.schema.json, assets/aideck-consumer/schema.json, tests/emit-series.test.js
-scopeBoundary: toda agregação é pré-computada (aiDeck não agrega); saída são bare-arrays; a linha planejada é CRESCENTE (0→weightTotal); count e proxy são séries SEPARADAS, nunca somadas; sem deadline emite earned sem linha planejada e SPI null.
-acceptance: burnup.json traz, por bucket, plannedValue (0→weightTotal crescente), earnedCount e earnedProxy como séries distintas; spi.json traz spiProxy (earnedProxy/planned, e null nas bordas: planned zero / sem deadline / fora do intervalo) e spiCount; cada record emitido tem $def correspondente (validate-aideck-state verde).
+scopeBoundary: toda agregação é pré-computada (aiDeck não agrega); saída são bare-arrays; filtra por projectId+planSlug; weightTotal é plan-wide; a linha planejada é CRESCENTE (0→weightTotal); count e proxy são séries SEPARADAS, nunca somadas; sem deadline emite earned sem linha planejada e SPI null.
+acceptance: burnup.json traz, por bucket, plannedValue (0→weightTotal plan-wide crescente), earnedCount e earnedProxy como séries distintas; spi.json traz spiProxy (earnedProxy/planned, null nas bordas: planned zero / sem deadline / fora do intervalo) e spiCount; com DOIS planos no mesmo completions.jsonl, a série de um plano exclui os eventos do outro (filtro projectId+planSlug provado por teste); cada record emitido tem $def correspondente (validate-aideck-state verde).
 verifier: kind shell — node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js
 
 ### T-003 — Ligar emit ao refresh-state sem regredir emitFocus
@@ -172,11 +173,11 @@ exit_gate:
 
 Goal: gravar os actuals crus por conclusão (calibração: só geração, tratamento depois) no sub-objeto `actuals` já admitido pelo schema do evento (F0/T-002), e promover closedAt de soft para hard no GATE-R2 via um corte persistido (grandfatheredTaskIds), forward-only, quando a lacuna de instrumentação (F1/T-001) chegar perto de zero.
 
-### T-001 — Actuals de fase no evento phase-done
-Grava no evento de phase-done os stats do diff started→HEAD (arquivos, LOC, commits) no sub-objeto actuals (já admitido pelo completion-event.schema em F0/T-002), sem tratá-los.
+### T-001 — Actuals de fase no evento {event:'phase-done'} (uma vez, não por task)
+Grava os actuals agregados da fase (diff started→HEAD: arquivos, LOC, commits) no sub-objeto actuals do ÚNICO evento {event:'phase-done'} emitido por phase-done (modelo de evento de F0/T-003) — NUNCA nas N linhas {event:'task-done'}, senão o diff da fase seria duplicado N vezes (overcount). `started` = phase.started (o timestamp da fase, não plan/branch). Sem tratá-los (P2).
 Files: scripts/append-completion.js, skills/shared/project-assets/project-transitions.md, tests/append-completion-actuals.test.js
-scopeBoundary: só captura/anexa actuals crus no sub-objeto já admitido; nenhuma regressão/calibração; não destrava o completion-event.schema (já pré-declarado em F0).
-acceptance: o evento phase-done inclui actuals.filesChanged/locAdded/locRemoved/commits do range; ausência de git/diff degrada para actuals omitido, sem erro; a linha com actuals valida no completion-event.schema.
+scopeBoundary: actuals de fase SÓ no evento phase-done (cardinalidade 1 por fase, nunca por task); nenhuma regressão/calibração; não destrava o completion-event.schema (já pré-declarado em F0); started=phase.started.
+acceptance: o evento {event:'phase-done'} inclui actuals.filesChanged/locAdded/locRemoved/commits do range phase.started→HEAD; os N eventos {event:'task-done'} do mesmo phase-done NÃO carregam os actuals da fase (sem duplicação); ausência de git/diff degrada para actuals omitido, sem erro; a linha com actuals valida no completion-event.schema.
 verifier: kind shell — node --test tests/append-completion-actuals.test.js
 
 ### T-002 — Actuals de task via dispatch-log quando presente

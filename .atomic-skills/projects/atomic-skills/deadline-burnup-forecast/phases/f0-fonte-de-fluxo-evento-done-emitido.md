@@ -8,7 +8,7 @@ goal: criar o log append-only de conclusões (completions.jsonl) e fazer os
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T17:01:39Z
+lastUpdated: 2026-06-17T18:07:35Z
 nextAction: "Start T-001: — Helper append-completion + log JSONL"
 parentPlan: deadline-burnup-forecast
 phaseId: F0
@@ -19,17 +19,16 @@ gatesTotal: 1
 exitGates:
   - id: G-1
     description: o completions.jsonl recebe um evento imutável por conclusão,
-      validado por schema, emitido pelas três transições — wiring da prosa
-      (T-003 grep) E emissão comportamental (T-004 emit-on-transition) ambos
-      verificados no gate.
+      validado por schema (event enum), emitido pelas três transições — wiring
+      estrutural (T-003 lint-transition-emits) E contrato da API (T-004
+      emit-on-transition) verificados no gate.
     status: pending
     verifier:
       kind: shell
       command: node --test tests/append-completion.test.js && node --test
         tests/completion-event-schema.test.js && node --test
-        tests/emit-on-transition.test.js && grep -c "append-completion"
-        skills/shared/project-assets/project-transitions.md | grep -qE
-        "^[3-9]|[0-9]{2,}"
+        tests/emit-on-transition.test.js && node --test
+        tests/transition-emits.test.js
     verifierLabel: "shell: node --test tests/append-completion.test.js && node --test …"
 stack:
   - id: 1

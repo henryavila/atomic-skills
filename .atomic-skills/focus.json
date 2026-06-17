@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T17:02:38.192Z",
+  "generatedAt": "2026-06-17T18:07:35.684Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md",
-      "lastUpdated": "2026-06-17T17:01:39Z"
+      "lastUpdated": "2026-06-17T18:07:35Z"
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f0-fonte-de-fluxo-evento-done-emitido.md",
-      "lastUpdated": "2026-06-17T17:01:39Z"
+      "lastUpdated": "2026-06-17T18:07:35Z"
     }
   ]
 }

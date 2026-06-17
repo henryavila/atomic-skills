@@ -2,13 +2,14 @@
 schemaVersion: "0.1"
 slug: deadline-burnup-forecast-f2-peso-por-task-proxy-estrutural-roll
 title: "Peso por task: proxy estrutural + rollups"
-goal: introduzir tasks[].weight (number, opcional, default=1) derivado por proxy
-  estrutural no decompose, com rollups weightDone/weightTotal espelhando
-  tasksDone/tasksTotal.
+goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo modelo no
+  Stage 6 da decomposição (prosa, como os summaries; NUNCA por src/decompose.js
+  congelado) de sinais estruturais e auditor-enforced, com rollups
+  weightDone/weightTotal espelhando tasksDone/tasksTotal.
 status: pending
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T16:06:30Z
+lastUpdated: 2026-06-17T18:07:35Z
 nextAction: "Start T-001: — Campo weight no schema da task + rebuild do bundle"
 parentPlan: deadline-burnup-forecast
 phaseId: F2

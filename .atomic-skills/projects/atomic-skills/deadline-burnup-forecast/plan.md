@@ -5,7 +5,7 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T17:01:39Z
+lastUpdated: 2026-06-17T18:07:35Z
 branch: plan/deadline-burnup-forecast
 currentPhase: F0
 parallelismAllowed: false
@@ -46,13 +46,16 @@ phases:
       criteria:
         - id: G-1
           description: o completions.jsonl recebe um evento imutável por conclusão,
-            validado por schema, emitido pelas três transições — wiring da prosa
-            (T-003 grep) E emissão comportamental (T-004 emit-on-transition) ambos
-            verificados no gate.
+            validado por schema (event enum), emitido pelas três transições —
+            wiring estrutural (T-003 lint-transition-emits) E contrato da API
+            (T-004 emit-on-transition) verificados no gate.
           status: pending
           verifier:
             kind: shell
-            command: 'node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js && grep -c "append-completion" skills/shared/project-assets/project-transitions.md | grep -qE "^[3-9]|[0-9]{2,}"'
+            command: node --test tests/append-completion.test.js && node --test
+              tests/completion-event-schema.test.js && node --test
+              tests/emit-on-transition.test.js && node --test
+              tests/transition-emits.test.js
     status: active
     summary: Cria o log append-only de conclusões e faz a transição done emitir o
       evento — o RED do forecast.
@@ -84,9 +87,10 @@ phases:
   - id: F2
     slug: deadline-burnup-forecast-f2-peso-por-task-proxy-estrutural-roll
     title: "Peso por task: proxy estrutural + rollups"
-    goal: introduzir tasks[].weight (number, opcional, default=1) derivado por proxy
-      estrutural no decompose, com rollups weightDone/weightTotal espelhando
-      tasksDone/tasksTotal.
+    goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo modelo
+      no Stage 6 da decomposição (prosa, como os summaries; NUNCA por src/decompose.js
+      congelado) de sinais estruturais e auditor-enforced, com rollups
+      weightDone/weightTotal espelhando tasksDone/tasksTotal.
     dependsOn:
       - F1
     subPhaseCount: 3
