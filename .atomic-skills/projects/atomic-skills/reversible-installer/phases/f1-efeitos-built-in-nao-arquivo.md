@@ -7,11 +7,11 @@ goal: implementar os 3 efeitos não-arquivo com before-state preciso e revert se
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T16:41:21.000Z
-lastUpdated: 2026-06-17T16:41:21.000Z
-nextAction: "Start T-001: — Efeito json-merge (subtração de delta)"
+lastUpdated: 2026-06-17T18:19:31.000Z
+nextAction: "Start T-002: — Efeito refcount (marcadores por-dono)"
 parentPlan: reversible-installer
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
@@ -33,8 +33,24 @@ stack:
 tasks:
   - id: T-001
     title: Efeito json-merge (subtração de delta)
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-17T18:19:31.000Z
+    closedAt: 2026-06-17T18:19:31.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T18:19:31.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 9
+      outputSummary: "Re-run on MERGED primary @5e0261b: node --test
+        test/kernel/effects/json-merge.test.js — tests 9, pass 9, fail 0.
+        Deep-merge aditivo com before-state {fileCreated,inserts,createdContainers};
+        revert subtrai exatamente o delta (preserva hook de terceiro), recusa
+        overwrite de escalar, union-append idempotente, path-safety em
+        apply+revert, JSON inválido → throw sem clobber. Cobre os 3 acceptance +
+        contrato de input completo (L-001) + herméticos (L-002). Executor: codex
+        lane, worktree impl/ri-f1-t001 (self-report sub-contou tests=1; re-run na
+        primária = 9, L-003)."
     summary: json-merge reverte por subtração do delta, preserva hooks de terceiros.
     description: before-state = conjunto exato de chaves inseridas + flag
       fileCreated; generaliza settingsCreated/removeAutoUpdateHook
@@ -137,8 +153,8 @@ Ratificadas em `lessons/reversible-installer-f0-effect-kernel-file-reconciler.md
 - Plano: `../../plan.md` · Design: `../../design.md` · Lessons F0: `../lessons/reversible-installer-f0-effect-kernel-file-reconciler.md`
 
 ## Session handoff
-- **Narrative:** F0 fechada e arquivada-em-lugar (status done, 3/3 tasks, 2/2 gates, review local 2-major-fixed). Plano avançou para F1 (currentPhase F1, esta iniciativa agora active). F1 ainda em 0/4 — nada começado. HEAD primário `8869e31`, árvore limpa após o commit do phase-done.
-- **Decision log:** Mode 2/Codex segue como executor default (lane on); as 4 tasks de F1 são spec-ready com verifier determinístico (3 `kind:test` + T-004 `kind:shell` no round-trip). Aplicar as lessons L-001/L-002/L-003 de F0 nos work-orders. `reviewGate`/GATE-R3 e a infra de `lessons/` (schema + list-lessons.js) NÃO existem nesta versão — registrar review em prosa + review file; lessons file é durável mas ainda não consumido por gate.
-- **Single nextAction:** Iniciar F1 T-001 (Efeito json-merge, subtração de delta) — Mode 2/Codex, base ref HEAD `8869e31`, verifier `node --test test/kernel/effects/json-merge.test.js`. Porta `src/install.js:219-262` (removeAutoUpdateHook cirúrgico) + `584-637` (merge aditivo). Reverte por subtração do delta, NUNCA por snapshot.
-- **Verbatim state:** HEAD primário `8869e31`. Verifiers F1: T-001 `test/kernel/effects/json-merge.test.js`, T-002 `test/kernel/effects/refcount.test.js`, T-003 `test/kernel/effects/legacy-prune.test.js`, T-004 `node --test tests/install-uninstall-roundtrip.test.js`. Exit-gate F1 G-1: `node --test tests/install-uninstall-roundtrip.test.js`. Falhas pré-existentes (NÃO bloqueiam): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`. Branch: `plan/reversible-installer`.
-- **Uncommitted changes:** clean tree após o commit do phase-done (este snapshot incluso).
+- **Narrative:** F1 em 1/4. **T-001 (json-merge) DONE** via Codex (worktree `impl/ri-f1-t001`, merge-back FF → primária `5e0261b`); re-run na árvore mesclada `node --test test/kernel/effects/json-merge.test.js` = tests 9, pass 9, fail 0 (self-report do Codex sub-contou tests=1, L-003). GATE-R2 verde no arquivo da fase, telemetria gravada (dispatch-log 9 records). Próxima: T-002 refcount. Prestes a commitar o estado `.atomic-skills` (a impl de T-001 já está em `5e0261b`).
+- **Decision log:** (1) Mode 2/Codex para as 4 tasks F1 — disqualificador F1 (design não-assentado, design.md:77) resolvido como em F0: Opus assenta o design no briefing → spec-ready; Codex executa; Opus re-verifica na árvore mesclada. (2) **json-merge LANDED** (`src/kernel/effects/json-merge.js`, type id `jsonMerge` camelCase como `reconcileFileSet`): deep-merge aditivo, recusa overwrite de escalar, union-append idempotente, before-state `{fileCreated,inserts,createdContainers}`, revert subtrai delta + poda created containers + apaga arquivo se fileCreated&&vazio; "achar matcher '*'" é problema do consumidor F3. (3) **T-002 refcount — direção de design (assentar no briefing):** efeito `refcount` com marcadores por-dono `owners/<hash(ownerId)>` (D8, NÃO o array mutável installs.json); marker guarda o caminho do manifesto do dono. apply cria o marker do dono (before-state inclui `markerExisted` p/ idempotência — revert remove SÓ o marker que este apply criou). revert: remove o marker do dono, valida markers restantes contra o manifesto de cada dono (poda órfãos cujo manifesto sumiu), e se `owners/` ficar vazio reclama o artefato compartilhado + remove `owners/`. Sem passo de decremento → crash-safe/self-healing. Interface exata (artifactDir/ownerId/ownerManifestPath) a fixar no briefing. (4) `reviewGate`/GATE-R3 e infra `lessons/` NÃO existem nesta versão — review em prosa + review file.
+- **Single nextAction:** Despachar T-002 (refcount) a um novo worktree `/home/henry/atomic-skills/.worktrees/wt-ri-f1-t002` (branch `impl/ri-f1-t002`, base = HEAD da primária após o commit do estado de T-001), verifier `node --test test/kernel/effects/refcount.test.js`. Criar `src/kernel/effects/refcount.js` + `test/kernel/effects/refcount.test.js`. Porta/substitui `src/install.js:135-173` (installsRegistryPath + register/unregisterInstall).
+- **Verbatim state:** HEAD impl T-001 = `5e0261b` (commit do estado `.atomic-skills` segue logo após). Verifiers F1: T-001 `test/kernel/effects/json-merge.test.js` (DONE 9/9), T-002 `test/kernel/effects/refcount.test.js`, T-003 `test/kernel/effects/legacy-prune.test.js`, T-004 `node --test tests/install-uninstall-roundtrip.test.js`. Exit-gate F1 G-1: `node --test tests/install-uninstall-roundtrip.test.js`. Falhas pré-existentes (NÃO bloqueiam): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`. Branch: `plan/reversible-installer`.
+- **Uncommitted changes:** arquivo da fase F1 (status/evidence/rollups de T-001 + este handoff) + `.atomic-skills/status/dispatch-log.json` — prestes a commitar.
