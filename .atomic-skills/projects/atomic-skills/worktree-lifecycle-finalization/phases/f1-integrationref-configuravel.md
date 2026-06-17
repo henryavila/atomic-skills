@@ -142,6 +142,12 @@ Initiative for phase **F1 — integrationRef configurável + branch develop (Dec
 - **Verbatim state:** HEAD primária `plan/worktree-lifecycle-finalization` = `722bf50` (feat T-002) — o commit `done T-002` (state) vem a seguir. F1 exit-gates: G-1 verifier `node --test tests/integration-ref.test.js` (6/6 já verde @722bf50); G-2 verifier `node --test tests/routing-schema.test.js && npm run validate-skills` (routing-schema 4/4 verde; validate-skills a rodar). Range de review da fase: de `bb8e5ab` (commit ≤ `started` 2026-06-17T12:26:23Z, mas a fase só codou a partir daqui) a HEAD `722bf50` — commits da fase: `4555063` (T-001) + `722bf50` (T-002). Arquivos novos da fase: `meta/schemas/routing.schema.json` (mod), `tests/routing-schema.test.js`, `scripts/integration-ref.js`, `tests/integration-ref.test.js`. Follow-ups F0 abertos: finding #2 (`shouldForkPlanBranch` sem caller runtime) + linha ~358 `project-create-plan.md` (fluxo `adopt` branch-or-null stale).
 - **Uncommitted changes:** state da transição `done T-002`, a commitar como `chore(project)`: `phases/f1-integrationref-configuravel.md` (T-002 done+evidence+rollups 2/2+nextAction+este handoff), `status/dispatch-log.json` (registro Mode 2 T-002 apendado), `focus.json` (regen → tasksDone 2). Após o commit, árvore LIMPA.
 
+## Self-review (implement) against code-quality gates
+- **G1 read-before-claim:** applied — cada task fechada linka o run do seu verifier (T-001 `node --test tests/routing-schema.test.js` 4/4 @ `4555063`; T-002 `node --test tests/integration-ref.test.js` 6/6 @ `722bf50`) e o diff de cada worktree foi LIDO de volta (`git -C … diff`) antes do merge, não assertado.
+- **G2 soft-language:** applied — fechamento de cada task carrega `evidence.passed: true` + `testsCollected>0`, não "should/works/looks done"; narrativa do handoff varrida pela ban list (0 violações).
+- **G6 reference-or-strike:** applied — literais do handoff/evidence são paths/comandos/SHAs verbatim (`4555063`, `722bf50`, comandos exatos dos verifiers e contagens reais 4/4 e 6/6).
+- **Mode 2 (Codex) note:** ambas as tasks executadas pelo executor default Codex em worktree isolada; auto-report `-o` descartado nas duas (`mode2 L-001`); o adjudicador de cada `done` foi o re-run determinístico do verifier na primária MERGED, nunca a confiança do executor.
+
 ## Decisions
 
 _(record decisions here as they are made)_
