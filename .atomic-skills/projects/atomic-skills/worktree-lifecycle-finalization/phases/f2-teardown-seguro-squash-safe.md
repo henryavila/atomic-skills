@@ -10,7 +10,7 @@ goal: revisar o invariante de não-perda em `scripts/worktree-teardown.js` para
 status: pending
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-16T22:50:35.627Z
+lastUpdated: 2026-06-17T11:34:32Z
 nextAction: "Start T-001: Liveness gh + veto ancorado no headRefOid, com 2
   testes-oráculo de squash"
 parentPlan: worktree-lifecycle-finalization
@@ -46,9 +46,10 @@ tasks:
   - id: T-001
     title: Liveness gh + veto ancorado no headRefOid, com 2 testes-oráculo de squash
     status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    lastUpdated: 2026-06-17T11:34:32Z
     summary: Liveness gh + veto headRefOid contra o integrationRef, com 2 oráculos
-      de squash.
+      de squash; consome a `pr-url`/identidade do finalize (F3) — contrato definido
+      em F2, populado por F3.
     outputs:
       - kind: file
         path: scripts/worktree-teardown.js
@@ -62,8 +63,9 @@ tasks:
       - a falha segura é BLOQUEAR, nunca over-deletar
       - o módulo nunca contém `-D`, `--force` nem `rm -rf`.
     acceptance:
-      - "`resolveBaseRef` passa a resolver o `integrationRef` configurável em
-        vez de `origin/main→main`"
+      - "`resolveBaseRef` passa a resolver o `integrationRef` configurável
+        (consumindo `resolveIntegrationRef` de `scripts/integration-ref.js`,
+        F1) em vez de `origin/main→main`"
       - a liveness exige `state==MERGED`, `mergedAt` não-nulo E `baseRefName ==
         integrationRef`, e captura o `headRefOid`
       - o veto libera só quando `git merge-base --is-ancestor` é verdadeiro OU
@@ -72,8 +74,11 @@ tasks:
       - ORÁCULO de squash — com um commit adicionado DEPOIS do head ⟹ teardown
         BLOQUEIA, e squash-merged LIMPO (`HEAD == headRefOid`) ⟹ teardown
         PERMITE
-      - indeterminação (`gh` ausente, `headRefOid`/ref ausente, PR ambíguo)
-        BLOQUEIA.
+      - o teardown resolve a identidade do PR a partir da `pr-url`/identidade
+        gravada no estado do plano (que o finalize/F3 popula) para
+        desambiguar, e BLOQUEIA só quando `gh` está não-autenticado,
+        `headRefOid`/ref ausente, OU a identidade gravada está
+        ausente/ambígua.
     verifier:
       kind: test
       runner: node
