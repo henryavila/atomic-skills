@@ -119,3 +119,61 @@ test('appendCompletion writes ONLY under .atomic-skills/analytics/ (never a .md)
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('appendCompletion rejects a task-done event with no taskId and writes nothing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    // valid scope fields so the throw is the taskId guard, not a scope check
+    assert.throws(() => appendCompletion(root, { event: 'task-done', projectId: 'p', planSlug: 'p', phaseId: 'F0' }), /taskId/);
+    assert.throws(() => appendCompletion(root, base({ taskId: '' })), /taskId/);
+    assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects actuals with an unknown key and writes nothing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(
+      () => appendCompletion(root, { event: 'phase-done', projectId: 'p', planSlug: 'p', phaseId: 'F0', actuals: { filesChanged: 2, reviewer: 1 } }),
+      /unknown actuals field/,
+    );
+    assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects actuals with a non-number value', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(
+      () => appendCompletion(root, { event: 'phase-done', projectId: 'p', planSlug: 'p', phaseId: 'F0', actuals: { filesChanged: 'lots' } }),
+      /finite number/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion writes a valid actuals sub-object verbatim', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    appendCompletion(root, { event: 'phase-done', projectId: 'p', planSlug: 'p', phaseId: 'F0', actuals: { filesChanged: 3, locAdded: 40, commits: 1 } });
+    const rec = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.deepEqual(rec.actuals, { filesChanged: 3, locAdded: 40, commits: 1 });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects an unparseable ts and writes nothing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(() => appendCompletion(root, base({ ts: 'not-a-date' })), /parseable date-time/);
+    assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

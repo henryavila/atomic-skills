@@ -38,11 +38,38 @@ import { pathToFileURL } from 'node:url';
 export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
 /** The closed enum of weight bases: 'count' (pre-proxy) vs 'proxy' (post-F2). */
 export const WEIGHT_BASES = Object.freeze(['count', 'proxy']);
+/** The closed set of optional `actuals` numeric fields (mirrors completion-event.schema.json). */
+export const ACTUALS_KEYS = Object.freeze([
+  'filesChanged', 'locAdded', 'locRemoved', 'commits', 'attempts', 'durationMs', 'escalations',
+]);
 
 const ANALYTICS_DIR = ['.atomic-skills', 'analytics'];
 const LOG_FILE = 'completions.jsonl';
 
 const hasText = (v) => typeof v === 'string' && v.length > 0;
+
+/**
+ * Validate an optional `actuals` sub-object against the same closed numeric shape
+ * the schema enforces, BEFORE it is frozen into the append-only log. Returns the
+ * object unchanged when valid, undefined when absent; throws (writing nothing) on
+ * an unknown key or a non-finite value — so the writer can never emit a line that
+ * its own schema (completion-event.schema.json) would later reject.
+ */
+function normalizeActuals(actuals) {
+  if (actuals == null) return undefined;
+  if (typeof actuals !== 'object' || Array.isArray(actuals)) {
+    throw new TypeError('appendCompletion: actuals must be an object');
+  }
+  for (const [key, value] of Object.entries(actuals)) {
+    if (!ACTUALS_KEYS.includes(key)) {
+      throw new RangeError(`appendCompletion: unknown actuals field ${JSON.stringify(key)} (allowed: ${ACTUALS_KEYS.join(', ')})`);
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new TypeError(`appendCompletion: actuals.${key} must be a finite number (got ${JSON.stringify(value)})`);
+    }
+  }
+  return actuals;
+}
 
 /**
  * Validate + normalize one completion entry into the persisted record shape.
@@ -66,6 +93,16 @@ function normalize(entry) {
   if (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0) {
     throw new TypeError(`appendCompletion: weight must be a finite number >= 0 (got ${JSON.stringify(entry.weight)})`);
   }
+  // A 'task-done' event must attribute to a task; only 'phase-done'/'reconcile'
+  // bookkeeping may carry a null taskId (P4: the event is the task's own effect).
+  if (entry.event === 'task-done' && !hasText(entry.taskId)) {
+    throw new TypeError("appendCompletion: a 'task-done' event requires a non-empty taskId");
+  }
+  // A caller-supplied ts is frozen immutably (P2); reject one a date parser cannot read.
+  if (hasText(entry.ts) && Number.isNaN(Date.parse(entry.ts))) {
+    throw new RangeError(`appendCompletion: ts must be a parseable date-time (got ${JSON.stringify(entry.ts)})`);
+  }
+  const actuals = normalizeActuals(entry.actuals);
   return {
     ts: hasText(entry.ts) ? entry.ts : new Date().toISOString(),
     event: entry.event,
@@ -75,7 +112,7 @@ function normalize(entry) {
     taskId: hasText(entry.taskId) ? entry.taskId : null,
     weight,
     weightBasis,
-    ...(entry.actuals != null ? { actuals: entry.actuals } : {}),
+    ...(actuals !== undefined ? { actuals } : {}),
   };
 }
 

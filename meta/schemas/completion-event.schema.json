@@ -44,5 +44,10 @@
         "escalations": { "type": "number" }
       }
     }
+  },
+  "if": { "properties": { "event": { "const": "task-done" } } },
+  "then": {
+    "properties": { "taskId": { "type": "string" } },
+    "required": ["taskId"]
   }
 }

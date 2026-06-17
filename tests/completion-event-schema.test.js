@@ -70,6 +70,16 @@ test('completion event schema rejects unknown actuals fields', () => {
   assert.equal(result.ok, false);
 });
 
+test('completion event schema rejects a task-done event with null taskId', () => {
+  const result = validateCompletionEvent(validEvent({ event: 'task-done', taskId: null }));
+  assert.equal(result.ok, false, 'task-done must carry a non-null taskId (if/then)');
+});
+
+test('completion event schema accepts a phase-done event with null taskId', () => {
+  const result = validateCompletionEvent(validEvent({ event: 'phase-done', taskId: null }));
+  assert.equal(result.ok, true, 'phase-done may carry a null taskId');
+});
+
 test('completion event validator export is additive to validateAideckState', () => {
   assert.equal(typeof validateAideckState, 'function');
 });
