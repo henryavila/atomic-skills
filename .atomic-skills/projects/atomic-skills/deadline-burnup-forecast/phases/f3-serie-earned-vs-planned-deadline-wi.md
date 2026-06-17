@@ -25,6 +25,7 @@ exitGates:
       kind: shell
       command: node --test tests/emit-series.test.js && node --test
         tests/refresh-state.test.js
+    verifierLabel: "shell: node --test tests/emit-series.test.js && node --test tests/…"
 stack:
   - id: 1
     title: Série earned-vs-planned + deadline + wiring de recompute
@@ -47,6 +48,8 @@ parked: []
 emerged: []
 summary: Computa a série earned-vs-planejada e o SPI contra o deadline,
   recomputada no refresh-state.
+planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
+planActive: true
 ---
 
 # Narrative / notes

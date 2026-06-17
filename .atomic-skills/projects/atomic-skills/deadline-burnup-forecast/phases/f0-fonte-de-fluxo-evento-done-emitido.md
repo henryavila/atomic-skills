@@ -8,23 +8,25 @@ goal: criar o log append-only de conclusões (completions.jsonl) e fazer os
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+lastUpdated: 2026-06-17T16:06:30Z
 nextAction: "Start T-001: — Helper append-completion + log JSONL"
 parentPlan: deadline-burnup-forecast
 phaseId: F0
 tasksDone: 0
-tasksTotal: 3
+tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
 exitGates:
   - id: G-1
     description: o completions.jsonl recebe um evento imutável por conclusão,
-      validado por schema, emitido pelas três transições.
+      validado por schema, emitido pelas três transições — com a emissão provada
+      por teste comportamental (emit-on-transition), não por grep de prosa.
     status: pending
     verifier:
       kind: shell
       command: node --test tests/append-completion.test.js && node --test
-        tests/completion-event-schema.test.js
+        tests/completion-event-schema.test.js && node --test
+        tests/emit-on-transition.test.js
 stack:
   - id: 1
     title: "Fonte de fluxo: evento done emitido na transição"
@@ -41,6 +43,10 @@ tasks:
     lastUpdated: 2026-06-17T12:06:57.781Z
   - id: T-003
     title: — Emitir o evento nas transições done/phase-done/reconcile
+    status: pending
+    lastUpdated: 2026-06-17T12:06:57.781Z
+  - id: T-004
+    title: "— Harness de integração: a transição emite o evento (prova do RED)"
     status: pending
     lastUpdated: 2026-06-17T12:06:57.781Z
 parked: []

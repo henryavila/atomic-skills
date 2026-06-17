@@ -11,7 +11,7 @@ goal: "registrar os dataSources burnup/spi no manifest e uma página com
 status: pending
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+lastUpdated: 2026-06-17T16:06:30Z
 nextAction: "Start T-001: — dataSources + página burn-up no manifest"
 parentPlan: deadline-burnup-forecast
 phaseId: F5
@@ -27,6 +27,14 @@ exitGates:
     verifier:
       kind: shell
       command: node --test tests/aideck-consumer-manifest.test.js
+    verifierLabel: "shell: node --test tests/aideck-consumer-manifest.test.js"
+externalImports:
+  - kind: repo-path
+    path: .atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md
+    label: "BLOQUEANTE: o redesign do dashboard (fix-aideck-dashboard, F2) deve
+      aterrissar antes do render — F5 não inicia sem o manifest refeito
+      presente."
+    inside_repo: true
 stack:
   - id: 1
     title: Render no aiDeck (depende do redesign do dashboard)
@@ -41,6 +49,8 @@ parked: []
 emerged: []
 summary: Renderiza o burn-up/SPI no dashboard — bloqueada até o redesign do
   dashboard aterrissar.
+planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
+planActive: true
 ---
 
 # Narrative / notes

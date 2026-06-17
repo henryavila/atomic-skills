@@ -5,7 +5,7 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+lastUpdated: 2026-06-17T16:06:30Z
 branch: plan/deadline-burnup-forecast
 currentPhase: F0
 parallelismAllowed: false
@@ -40,18 +40,21 @@ phases:
       conclusão, com schema validado. Este é o RED da feature (sem isso não há
       curva earned).
     dependsOn: []
-    subPhaseCount: 3
+    subPhaseCount: 4
     exitGate:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
           description: o completions.jsonl recebe um evento imutável por conclusão,
-            validado por schema, emitido pelas três transições.
+            validado por schema, emitido pelas três transições — com a emissão
+            provada por teste comportamental (emit-on-transition), não por grep
+            de prosa.
           status: pending
           verifier:
             kind: shell
             command: node --test tests/append-completion.test.js && node --test
-              tests/completion-event-schema.test.js
+              tests/completion-event-schema.test.js && node --test
+              tests/emit-on-transition.test.js
     status: active
     summary: Cria o log append-only de conclusões e faz a transição done emitir o
       evento — o RED do forecast.
@@ -68,7 +71,8 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: closedAt é auditável (soft) e emitido na projeção; nenhum closedAt
+          description: closedAt é auditável (soft) e closedAt+lastUpdated são emitidos na
+            projeção e admitidos no schema (sem drift); nenhum closedAt
             retroativo é inventado.
           status: pending
           verifier:
@@ -91,13 +95,15 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: weight existe no schema, é somado em rollups
-            weightDone/weightTotal, e tem auditor de backfill.
+          description: weight existe no schema (task) e weightDone/weightTotal são
+            admitidos (source + projeção), somados em rollups e emitidos sem
+            drift, com auditor de backfill.
           status: pending
           verifier:
             kind: shell
             command: node --test tests/schema-drift.test.js && node --test
-              tests/compute-rollups.test.js
+              tests/compute-rollups.test.js && node --test
+              tests/emit-consumer-state.test.js
     status: pending
     summary: Dá peso de complexidade a cada task (proxy automático) e soma em
       rollups weightDone/Total.
@@ -137,13 +143,15 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: actuals crus são gravados por conclusão e closedAt é hard-gated
-            forward-only sem rejeitar legado.
+          description: actuals crus são gravados por conclusão (no sub-objeto já admitido)
+            e closedAt é hard-gated forward-only via corte persistido
+            (grandfatheredTaskIds), sem rejeitar legado.
           status: pending
           verifier:
             kind: shell
             command: node --test tests/append-completion-actuals.test.js && node --test
-              tests/validate-state.test.js
+              tests/validate-state.test.js && node --test
+              tests/schema-drift.test.js
     status: pending
     summary: Grava os actuals crus por conclusão (calibração futura) e endurece
       closedAt forward-only.
@@ -158,6 +166,13 @@ phases:
       (instrumentação de tracking) são independentes e implementáveis já."
     dependsOn:
       - F4
+    externalImports:
+      - kind: repo-path
+        path: .atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md
+        label: "BLOQUEANTE: o redesign do dashboard (fix-aideck-dashboard, F2) deve
+          aterrissar antes do render — F5 não inicia sem o manifest refeito
+          presente."
+        inside_repo: true
     subPhaseCount: 1
     exitGate:
       summary: 1 criterion to meet
@@ -173,6 +188,8 @@ phases:
     summary: Renderiza o burn-up/SPI no dashboard — bloqueada até o redesign do
       dashboard aterrissar.
 references: []
+planActive: true
+planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 ---
 
 # Deadline Burn-up Forecast (Earned Value / SPI)

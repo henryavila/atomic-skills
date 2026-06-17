@@ -8,7 +8,7 @@ goal: introduzir tasks[].weight (number, opcional, default=1) derivado por proxy
 status: pending
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+lastUpdated: 2026-06-17T16:06:30Z
 nextAction: "Start T-001: — Campo weight no schema da task + rebuild do bundle"
 parentPlan: deadline-burnup-forecast
 phaseId: F2
@@ -18,13 +18,16 @@ gatesMet: 0
 gatesTotal: 1
 exitGates:
   - id: G-1
-    description: weight existe no schema, é somado em rollups
-      weightDone/weightTotal, e tem auditor de backfill.
+    description: weight existe no schema (task) e weightDone/weightTotal são
+      admitidos (source + projeção), somados em rollups e emitidos sem drift,
+      com auditor de backfill.
     status: pending
     verifier:
       kind: shell
       command: node --test tests/schema-drift.test.js && node --test
-        tests/compute-rollups.test.js
+        tests/compute-rollups.test.js && node --test
+        tests/emit-consumer-state.test.js
+    verifierLabel: "shell: node --test tests/schema-drift.test.js && node --test tests…"
 stack:
   - id: 1
     title: "Peso por task: proxy estrutural + rollups"
@@ -47,6 +50,8 @@ parked: []
 emerged: []
 summary: Dá peso de complexidade a cada task (proxy automático) e soma em
   rollups weightDone/Total.
+planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
+planActive: true
 ---
 
 # Narrative / notes

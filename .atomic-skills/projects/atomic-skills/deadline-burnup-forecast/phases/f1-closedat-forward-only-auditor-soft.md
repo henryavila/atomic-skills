@@ -8,7 +8,7 @@ goal: tornar closedAt auditável (soft, mede a lacuna de instrumentação) e
 status: pending
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+lastUpdated: 2026-06-17T16:06:30Z
 nextAction: "Start T-001: — Auditor da lacuna de instrumentação"
 parentPlan: deadline-burnup-forecast
 phaseId: F1
@@ -18,13 +18,15 @@ gatesMet: 0
 gatesTotal: 1
 exitGates:
   - id: G-1
-    description: closedAt é auditável (soft) e emitido na projeção; nenhum closedAt
-      retroativo é inventado.
+    description: closedAt é auditável (soft) e closedAt+lastUpdated são emitidos na
+      projeção e admitidos no schema (sem drift); nenhum closedAt retroativo é
+      inventado.
     status: pending
     verifier:
       kind: shell
       command: node --test tests/find-unclosed-done.test.js && node --test
         tests/emit-consumer-state.test.js
+    verifierLabel: "shell: node --test tests/find-unclosed-done.test.js && node --test…"
 stack:
   - id: 1
     title: "closedAt forward-only: auditor soft + emissão"
@@ -46,6 +48,8 @@ tasks:
 parked: []
 emerged: []
 summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill cosmético.
+planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
+planActive: true
 ---
 
 # Narrative / notes

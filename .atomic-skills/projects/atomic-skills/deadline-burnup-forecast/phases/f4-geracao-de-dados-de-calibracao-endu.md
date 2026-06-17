@@ -8,7 +8,7 @@ goal: "gravar os actuals crus por conclusão (calibração: só geração, trata
 status: pending
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+lastUpdated: 2026-06-17T16:06:30Z
 nextAction: "Start T-001: — Actuals de fase no evento phase-done"
 parentPlan: deadline-burnup-forecast
 phaseId: F4
@@ -18,13 +18,15 @@ gatesMet: 0
 gatesTotal: 1
 exitGates:
   - id: G-1
-    description: actuals crus são gravados por conclusão e closedAt é hard-gated
-      forward-only sem rejeitar legado.
+    description: actuals crus são gravados por conclusão (no sub-objeto já admitido)
+      e closedAt é hard-gated forward-only via corte persistido
+      (grandfatheredTaskIds), sem rejeitar legado.
     status: pending
     verifier:
       kind: shell
       command: node --test tests/append-completion-actuals.test.js && node --test
-        tests/validate-state.test.js
+        tests/validate-state.test.js && node --test tests/schema-drift.test.js
+    verifierLabel: "shell: node --test tests/append-completion-actuals.test.js && node…"
 stack:
   - id: 1
     title: Geração de dados de calibração + endurecer closedAt
@@ -47,6 +49,8 @@ parked: []
 emerged: []
 summary: Grava os actuals crus por conclusão (calibração futura) e endurece
   closedAt forward-only.
+planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
+planActive: true
 ---
 
 # Narrative / notes
