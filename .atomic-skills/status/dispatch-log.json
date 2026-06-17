@@ -126,5 +126,21 @@
     "finishedAt": "2026-06-16T01:35:47Z",
     "codexWorktreeRef": "codex/db-t003",
     "routingReason": "lane on + F1 spec-ready (design settled in work-order: canonical app-map.json discovery + valid/invalid fixtures) + F2 shell verifier; in-worktree self-check hit wrapper timeout (exit 124) AFTER completing edits — environmental; both verifiers re-verified PASS on merged primary 886da30 (validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regression validate-state .atomic-skills 42 files)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T19:00:00Z",
+    "finishedAt": "2026-06-17T19:14:53Z",
+    "codexWorktreeRef": "impl/dbf-t-002",
+    "routingReason": "lane on (routing.json mode2Enabled+codexLane) + operator confirmed Mode 2 + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary 657de01 (8 pass, 0 fail)"
   }
 ]
