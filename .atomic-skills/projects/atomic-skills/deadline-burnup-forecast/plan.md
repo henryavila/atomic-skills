@@ -5,7 +5,7 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T16:06:30Z
+lastUpdated: 2026-06-17T17:01:39Z
 branch: plan/deadline-burnup-forecast
 currentPhase: F0
 parallelismAllowed: false
@@ -46,15 +46,13 @@ phases:
       criteria:
         - id: G-1
           description: o completions.jsonl recebe um evento imutável por conclusão,
-            validado por schema, emitido pelas três transições — com a emissão
-            provada por teste comportamental (emit-on-transition), não por grep
-            de prosa.
+            validado por schema, emitido pelas três transições — wiring da prosa
+            (T-003 grep) E emissão comportamental (T-004 emit-on-transition) ambos
+            verificados no gate.
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/append-completion.test.js && node --test
-              tests/completion-event-schema.test.js && node --test
-              tests/emit-on-transition.test.js
+            command: 'node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js && grep -c "append-completion" skills/shared/project-assets/project-transitions.md | grep -qE "^[3-9]|[0-9]{2,}"'
     status: active
     summary: Cria o log append-only de conclusões e faz a transição done emitir o
       evento — o RED do forecast.
@@ -78,7 +76,8 @@ phases:
           verifier:
             kind: shell
             command: node --test tests/find-unclosed-done.test.js && node --test
-              tests/emit-consumer-state.test.js
+              tests/emit-consumer-state.test.js && node --test
+              tests/schema-drift.test.js
     status: pending
     summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill
       cosmético.
@@ -111,8 +110,9 @@ phases:
     slug: deadline-burnup-forecast-f3-serie-earned-vs-planned-deadline-wi
     title: Série earned-vs-planned + deadline + wiring de recompute
     goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs
-      linha planejada linear) e o SPI no emit, e ligar o recompute ao
-      refresh-state (fechando o gap em que ele só chama emitFocus).
+      linha planejada CRESCENTE 0→weightTotal — earned-value, não burn-down) e o
+      SPI por basis no emit, e ligar o recompute ao refresh-state (que hoje roda
+      rollups+reconcile+emitFocus mas NÃO invoca emit-consumer-state).
     dependsOn:
       - F2
     subPhaseCount: 3
@@ -149,9 +149,7 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/append-completion-actuals.test.js && node --test
-              tests/validate-state.test.js && node --test
-              tests/schema-drift.test.js
+            command: 'node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js'
     status: pending
     summary: Grava os actuals crus por conclusão (calibração futura) e endurece
       closedAt forward-only.
@@ -159,7 +157,7 @@ phases:
     slug: deadline-burnup-forecast-f5-render-no-aideck-depende-do-redesig
     title: Render no aiDeck (depende do redesign do dashboard)
     goal: "registrar os dataSources burnup/spi no manifest e uma página com
-      line-chart (2 séries) + stat SPI, usando só widgets publicados.
+      line-chart (planejada + earnedCount + earnedProxy) + stat SPI, usando só widgets publicados.
       DEPENDÊNCIA EXTERNA: bloqueada até o redesign do dashboard (plano
       fix-aideck-dashboard, F2) aterrissar — o forecast só renderiza sobre o
       dashboard refeito; por isso é a última fase. As fases F0–F4

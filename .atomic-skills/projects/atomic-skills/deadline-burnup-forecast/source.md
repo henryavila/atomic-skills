@@ -2,7 +2,10 @@
 
 Burn-up ponderado por complexidade contra um deadline por-plano: mostra se um plano está acima/abaixo do ritmo esperado para a data-alvo, em vez de uma data fixa de conclusão. Implementa a fonte de fluxo (evento done emitido na transição), o peso por task, a série earned-vs-planned e o render no aiDeck. Fonte-de-verdade: design.md deste plano.
 
-> **Nota de divergência (review 2026-06-17):** `design.md:122` lista as mudanças de schema como "initiative.schema.json (weight, closedAt na projeção)". Na verdade a projeção de `closedAt` vive em `aideck-state.schema.json`, e a lista omite as admissões de `weightDone`/`weightTotal`/`lastUpdated`. Este source.md é a especificação corrigida; o design.md não foi editado (artefato-fonte). Resolver no design quando ele for revisado.
+> **Notas de divergência do design (reviews cross-model 2026-06-17):** Este source.md é a especificação CORRIGIDA; o `design.md` (artefato-fonte) NÃO foi editado (HARD-GATE). Resolver no design quando ele for revisado:
+> 1. `design.md:122` lista as mudanças de schema como "initiative.schema.json (weight, closedAt na projeção)". A projeção de `closedAt` vive em `aideck-state.schema.json`, e a lista omite `weightDone`/`weightTotal`/`lastUpdated`.
+> 2. `design.md:75` (D5) define a linha planejada como "weightTotal em plan.started a 0 em plan.deadline" — isso é uma curva **burn-DOWN** (trabalho restante), mas a feature é um **burn-UP / earned-value** com SPI = earned/expected. A Planned Value correta é **0 no started → weightTotal no deadline** (CRESCENTE). O plano (F3/T-002) usa a direção corrigida.
+> 3. O `weightBasis` ('count' antes de F2, 'proxy' depois) cria um log de basis misto; F3/T-002 emite **séries earned separadas** por basis e SPI por basis (o design não especificou a reconciliação).
 
 ## Principles
 
@@ -53,11 +56,11 @@ verifier: kind shell — node --test tests/emit-on-transition.test.js
 ```yaml
 exit_gate:
   - id: G-1
-    description: o completions.jsonl recebe um evento imutável por conclusão, validado por schema, emitido pelas três transições — com a emissão provada por teste comportamental (emit-on-transition), não por grep de prosa.
+    description: o completions.jsonl recebe um evento imutável por conclusão, validado por schema, emitido pelas três transições — wiring da prosa (T-003 grep) E emissão comportamental (T-004 emit-on-transition) ambos verificados no gate.
     status: pending
     verifier:
       kind: shell
-      command: node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js
+      command: 'node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js && grep -c "append-completion" skills/shared/project-assets/project-transitions.md | grep -qE "^[3-9]|[0-9]{2,}"'
 ```
 
 ## F1 — closedAt forward-only: auditor soft + emissão
@@ -88,11 +91,11 @@ verifier: kind shell — node --test tests/schema-drift.test.js
 ```yaml
 exit_gate:
   - id: G-1
-    description: closedAt é auditável (soft) e closedAt+lastUpdated são emitidos na projeção e admitidos no schema (sem drift); nenhum closedAt retroativo é inventado.
+    description: closedAt é auditável (soft) e closedAt+lastUpdated são emitidos na projeção e admitidos no schema (sem drift, schema-drift no gate); nenhum closedAt retroativo é inventado.
     status: pending
     verifier:
       kind: shell
-      command: node --test tests/find-unclosed-done.test.js && node --test tests/emit-consumer-state.test.js
+      command: node --test tests/find-unclosed-done.test.js && node --test tests/emit-consumer-state.test.js && node --test tests/schema-drift.test.js
 ```
 
 ## F2 — Peso por task: proxy estrutural + rollups
@@ -132,7 +135,7 @@ exit_gate:
 
 ## F3 — Série earned-vs-planned + deadline + wiring de recompute
 
-Goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs linha planejada linear) e o SPI no emit, e ligar o recompute ao refresh-state (que hoje roda rollups+reconcile+emitFocus mas NÃO invoca emit-consumer-state).
+Goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs linha planejada linear CRESCENTE 0→weightTotal — earned-value, não burn-down) e o SPI por basis no emit, e ligar o recompute ao refresh-state (que hoje roda rollups+reconcile+emitFocus mas NÃO invoca emit-consumer-state).
 
 ### T-001 — Campo deadline no plano + rebuild do bundle
 Adiciona deadline (isoTimestamp, opcional) ao plan.schema.json e regenera o bundle.
@@ -141,11 +144,11 @@ scopeBoundary: campo opcional; plan.schema.json é .strict(), edição explícit
 acceptance: plano com deadline ISO valida; plano sem deadline continua válido; schema-drift.test.js passa.
 verifier: kind shell — node --test tests/schema-drift.test.js
 
-### T-002 — buildSeries: burnup.json + spi.json
-Adiciona buildSeries() ao emit-consumer-state.js que lê completions.jsonl, bucketiza earned-weight por dia (respeitando weightBasis: o trecho count-based e o proxy-weighted são distinguíveis), computa a linha planejada (weightTotal no started → 0 no deadline) e o SPI, emitindo burnup.json e spi.json como bare-arrays; adiciona $defs.burnup e $defs.spi ao aideck-state.schema.json e regenera o bundle. Define o comportamento de borda do SPI: planned-value zero, deadline ausente, ou data corrente fora de [started, deadline] emitem SPI null (nunca divisão por zero nem extrapolação).
+### T-002 — buildSeries: burnup.json + spi.json (earned-value, duas séries por basis)
+Adiciona buildSeries() ao emit-consumer-state.js que lê completions.jsonl, bucketiza earned-weight por dia e emite, como bare-arrays: (1) a **linha planejada (Planned Value)** = 0 no started → weightTotal no deadline (CRESCENTE — earned-value/burn-UP, NÃO weightTotal→0 que seria burn-down e inverteria o SPI); (2) **DUAS séries earned separadas por weightBasis** — earnedCount (eventos 'count', escala de contagem) e earnedProxy (eventos 'proxy', escala de peso) — porque o log append-only mistura os dois e somá-los confundiria escalas; (3) **SPI por basis**: spiProxy = earnedProxy / plannedValue(hoje) (comparável, mesma escala proxy do weightTotal) e spiCount (informativo, escala de contagem). Adiciona $defs.burnup e $defs.spi ao aideck-state.schema.json e regenera o bundle. Borda: planned-value zero, deadline ausente, ou data fora de [started, deadline] ⇒ SPI null (nunca divisão por zero nem extrapolação).
 Files: scripts/emit-consumer-state.js, meta/schemas/aideck-state.schema.json, assets/aideck-consumer/schema.json, tests/emit-series.test.js
-scopeBoundary: toda agregação é pré-computada (aiDeck não agrega); saída são bare-arrays; sem deadline emite earned sem linha planejada e SPI null.
-acceptance: burnup.json traz earned acumulado e a linha planejada por bucket; spi.json traz o SPI corrente (e null nos casos de borda: planned zero / sem deadline / fora do intervalo); cada record emitido tem $def correspondente (validate-aideck-state verde).
+scopeBoundary: toda agregação é pré-computada (aiDeck não agrega); saída são bare-arrays; a linha planejada é CRESCENTE (0→weightTotal); count e proxy são séries SEPARADAS, nunca somadas; sem deadline emite earned sem linha planejada e SPI null.
+acceptance: burnup.json traz, por bucket, plannedValue (0→weightTotal crescente), earnedCount e earnedProxy como séries distintas; spi.json traz spiProxy (earnedProxy/planned, e null nas bordas: planned zero / sem deadline / fora do intervalo) e spiCount; cada record emitido tem $def correspondente (validate-aideck-state verde).
 verifier: kind shell — node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js
 
 ### T-003 — Ligar emit ao refresh-state sem regredir emitFocus
@@ -183,21 +186,21 @@ scopeBoundary: só lê dispatch-log existente; ausência não é erro (Mode-1 se
 acceptance: com dispatch-log presente, o evento task-done inclui actuals.attempts/durationMs/escalations; sem dispatch-log, o evento é emitido sem esses campos.
 verifier: kind shell — node --test tests/append-completion-dispatchlog.test.js
 
-### T-003 — Promover closedAt a hard-gate forward-only com corte persistido
-Adiciona um campo persistido `closedAtHardening { enforcedFrom: isoTimestamp, grandfatheredTaskIds: [string] }` ao plan.schema.json (opcional). Quando um plano o declara, checkMetInvariant (validate-state.js:364-399) exige closedAt para toda task done cujo id NÃO esteja em grandfatheredTaskIds; as ids grandfathered (as done sem closedAt no instante do flip) e os planos sem closedAtHardening continuam válidos. O flip é uma operação única que computa grandfatheredTaskIds = done vivas sem closedAt e grava enforcedFrom=now — nunca inventa closedAt (P3).
-Files: scripts/validate-state.js, meta/schemas/plan.schema.json, assets/aideck-consumer/schema.json, tests/validate-state.test.js
-scopeBoundary: forward-only via grandfatheredTaskIds persistido; legado/grandfathered nunca rejeitado; não inventa closedAt; não altera a regra evidence.passed do GATE-R2; bundle regenerado pelo gerador.
-acceptance: com closedAtHardening declarado, task done nova (id fora de grandfatheredTaskIds) sem closedAt é rejeitada pelo validate-state; task done grandfathered (id na lista) sem closedAt continua válida; plano sem closedAtHardening declarado não muda de comportamento (soft); schema-drift.test.js passa após o rebuild.
-verifier: kind shell — node --test tests/validate-state.test.js && node --test tests/schema-drift.test.js
+### T-003 — Promover closedAt a hard-gate forward-only com corte persistido (validator + script de flip)
+Adiciona um campo persistido `closedAtHardening { enforcedFrom: isoTimestamp, grandfatheredTaskIds: [string] }` ao plan.schema.json (opcional). Quando um plano o declara, checkMetInvariant (validate-state.js:364-399) exige closedAt para toda task done cujo id NÃO esteja em grandfatheredTaskIds; as ids grandfathered e os planos sem closedAtHardening continuam válidos. O flip NÃO é hand-edit: é implementado pelo script `scripts/harden-closedat.js` (operação única, idempotente) que computa grandfatheredTaskIds = done vivas sem closedAt no instante do flip, grava enforcedFrom=now no plano, e NUNCA inventa closedAt (P3). Sem o script, não há jeito reproduzível de criar o corte (o validator sozinho deixaria o operador hand-editar e grandfatherar ids errados).
+Files: scripts/validate-state.js, scripts/harden-closedat.js, meta/schemas/plan.schema.json, assets/aideck-consumer/schema.json, tests/validate-state.test.js, tests/harden-closedat.test.js
+scopeBoundary: forward-only via grandfatheredTaskIds persistido; legado/grandfathered nunca rejeitado; o script nunca inventa closedAt; não altera a regra evidence.passed do GATE-R2; bundle regenerado pelo gerador.
+acceptance: o script harden-closedat computa grandfatheredTaskIds (= done vivas sem closedAt) e grava enforcedFrom idempotentemente (rerun não muda o conjunto nem reescreve enforcedFrom já gravado); com closedAtHardening declarado, task done nova (id fora de grandfatheredTaskIds) sem closedAt é rejeitada pelo validate-state; task done grandfathered (id na lista) sem closedAt continua válida; plano sem closedAtHardening não muda de comportamento (soft); schema-drift.test.js passa após o rebuild.
+verifier: kind shell — node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js
 
 ```yaml
 exit_gate:
   - id: G-1
-    description: actuals crus são gravados por conclusão (no sub-objeto já admitido) e closedAt é hard-gated forward-only via corte persistido (grandfatheredTaskIds), sem rejeitar legado.
+    description: actuals crus (fase E task/dispatch-log) são gravados por conclusão no sub-objeto admitido e closedAt é hard-gated forward-only via corte persistido (grandfatheredTaskIds) gravado pelo script de flip, sem rejeitar legado.
     status: pending
     verifier:
       kind: shell
-      command: node --test tests/append-completion-actuals.test.js && node --test tests/validate-state.test.js && node --test tests/schema-drift.test.js
+      command: node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js
 ```
 
 ## F5 — Render no aiDeck (depende do redesign do dashboard)
@@ -205,10 +208,10 @@ exit_gate:
 Goal: registrar os dataSources burnup/spi no manifest e uma página com line-chart (2 séries) + stat SPI, usando só widgets publicados. DEPENDÊNCIA EXTERNA BLOQUEANTE: esta fase está bloqueada até o redesign do dashboard (plano fix-aideck-dashboard, F2) aterrissar — o forecast só renderiza sobre o dashboard refeito; por isso é a última fase. A dependência é declarada em `externalImports` na fase materializada (não só em prosa), e o verifier checa a presença do manifest refeito antes de a página ser admitida. As fases F0–F4 (instrumentação de tracking) são independentes e implementáveis já.
 
 ### T-001 — dataSources + página burn-up no manifest
-Adiciona dataSources burnup e spi e uma página "Ritmo" com line-chart (planejada vs earned) + stat SPI ao manifest do consumer refeito, validando contra widgets reais.
+Adiciona dataSources burnup e spi e uma página "Ritmo" ao manifest do consumer refeito: um line-chart com TRÊS trilhas (planejada 0→weightTotal, earnedCount, earnedProxy — as duas séries earned separadas por basis de F3/T-002) + stat para spiProxy (e stat informativo spiCount), validando contra widgets reais.
 Files: assets/aideck-consumer/manifest.yaml, tests/aideck-consumer-manifest.test.js
 scopeBoundary: usa só widgets publicados (line-chart, stat); não introduz widget inexistente; não altera as páginas/dataSources existentes além do necessário ao burn-up; PRÉ-REQUISITO BLOQUEANTE: não inicia antes do redesign do dashboard (fix-aideck-dashboard, F2) estar estável e o manifest refeito presente.
-acceptance: manifest registra dataSources burnup e spi e a página com line-chart + stat; todo widget usado na página existe no registry publicado do aiDeck.
+acceptance: manifest registra dataSources burnup e spi e a página com line-chart (planejada + earnedCount + earnedProxy) + stat spiProxy; todo widget usado na página existe no registry publicado do aiDeck.
 verifier: kind shell — node --test tests/aideck-consumer-manifest.test.js
 
 ```yaml
