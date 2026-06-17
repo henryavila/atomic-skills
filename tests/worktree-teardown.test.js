@@ -302,6 +302,90 @@ test('isTeardownSafe permits non-squash ancestry when branch head differs from P
   );
 });
 
+test('isTeardownSafe blocks (never throws) when the gh lookup throws', () => {
+  const gh = {
+    prView() {
+      throw new Error('gh: not authenticated / network failure');
+    },
+  };
+  const git = {
+    revParse: () => assert.fail('revParse should not be called after a gh throw'),
+    isAncestor: () => assert.fail('isAncestor should not be called after a gh throw'),
+  };
+
+  assert.deepEqual(
+    isTeardownSafe({
+      branch: 'plan/x',
+      baseRef: 'origin/develop',
+      integrationRef: 'develop',
+      prIdentity: '123',
+      git,
+      gh,
+    }),
+    {
+      safe: false,
+      outcome: 'blocked',
+      reason: 'gh-lookup-failed',
+    },
+  );
+});
+
+test('isTeardownSafe blocks when PR is MERGED but mergedAt is missing', () => {
+  assert.deepEqual(
+    isTeardownSafe({
+      branch: 'plan/x',
+      baseRef: 'origin/develop',
+      integrationRef: 'develop',
+      prIdentity: '123',
+      gh: ghReturning(mergedPr({ mergedAt: null })),
+    }),
+    {
+      safe: false,
+      outcome: 'blocked',
+      reason: 'not-merged',
+    },
+  );
+});
+
+test('isTeardownSafe blocks when integrationRef is absent even with baseRef present', () => {
+  assert.deepEqual(
+    isTeardownSafe({
+      branch: 'plan/x',
+      baseRef: 'origin/develop',
+      integrationRef: undefined,
+      prIdentity: '123',
+      gh: ghReturning(mergedPr()),
+    }),
+    {
+      safe: false,
+      outcome: 'blocked',
+      reason: 'indeterminate-base',
+    },
+  );
+});
+
+test('isTeardownSafe default gh adapter fails closed (gh-unauthenticated) before any git call', () => {
+  const git = {
+    revParse: () => assert.fail('revParse should not be called on the fail-closed default gh path'),
+    isAncestor: () => assert.fail('isAncestor should not be called on the fail-closed default gh path'),
+  };
+
+  assert.deepEqual(
+    isTeardownSafe({
+      branch: 'plan/x',
+      baseRef: 'origin/develop',
+      integrationRef: 'develop',
+      prIdentity: '123',
+      git,
+    }),
+    {
+      safe: false,
+      outcome: 'blocked',
+      reason: 'gh-unauthenticated',
+    },
+  );
+});
+
 test('worktree-teardown module contains no forbidden removal tokens', () => {
   const source = readFileSync(join(import.meta.dirname, '..', 'scripts', 'worktree-teardown.js'), 'utf8');
 

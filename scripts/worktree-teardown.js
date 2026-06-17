@@ -47,6 +47,10 @@ const defaultGit = {
   },
 };
 
+// A read-only gh adapter. The production wiring (resolving the recorded PR
+// identity and calling `gh pr view`) is completed by `project finalize` (F3);
+// the default here is a deliberate fail-CLOSED stub — with no real adapter
+// injected every decision blocks as `gh-unauthenticated`, never `safe`.
 const defaultGh = {
   prView() {
     return { authenticated: false };
@@ -79,7 +83,15 @@ export function isTeardownSafe({
   if (!baseRef || !integrationRef) return blocked('indeterminate-base');
   if (!prIdentity) return blocked('pr-identity-missing');
 
-  const live = gh.prView(prIdentity);
+  // The gh lookup is the one external call in this decision layer; a throw
+  // (CLI absent, auth expired, network, malformed identity) must fail SAFE as a
+  // block — never crash a function contracted to always return a decision object.
+  let live;
+  try {
+    live = gh.prView(prIdentity);
+  } catch {
+    return blocked('gh-lookup-failed');
+  }
   if (!live) return blocked('pr-identity-ambiguous');
   if (live.authenticated === false) return blocked('gh-unauthenticated');
   if (live.ambiguous === true) return blocked('pr-identity-ambiguous');
