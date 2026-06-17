@@ -83,12 +83,13 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 
 1. Locate task in `tasks:` (array). Find the entry where `id === <task-id>`.
 2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.
-3. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see project.md → Dashboard rollups; or `node scripts/compute-rollups.js`), then save the initiative file.
-4. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
+3. Emit exactly one completion event for the closed task via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })` (or `node scripts/append-completion.js --event task-done --project <projectId> --plan <planSlug> --phase <phaseId> --task <taskId>`). Carry the task's `projectId`, `planSlug`, `phaseId`, and `taskId`; leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
+4. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see project.md → Dashboard rollups; or `node scripts/compute-rollups.js`), then save the initiative file.
+5. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
    - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
    - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
    - Do NOT automatically run `phase-done` or `archive` — the user opts in (intrusive-actions rule).
-5. Announce the task closure.
+6. Announce the task closure.
 
 If the closing task has a non-empty `verifier:`, see **Per-task verifiers** below first.
 
@@ -101,6 +102,7 @@ The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *
 3. For each candidate (batch the **oldest 4 first**, mirroring the reconciliation gate), present a {{ASK_USER_QUESTION_TOOL}} whose options are **verifier-aware**:
    - **`hasVerifier: true`** → options `Run verifier` / `Still open` / `Skip`. There is **no "mark done" shortcut** — the only close path is running the verifier (the **Verifier execution patterns** below), which writes GATE-R2 `evidence` and, on pass, sets the entry `done`/`met`. A failing verifier leaves it open. This is forced by GATE-R2: an entry with a `shell`/`test`/`query` verifier cannot reach `done`/`met` without `evidence.passed === true`.
    - **`hasVerifier: false`** → options `Mark done` / `Still open` / `Skip`. `Mark done` is the manual-acknowledgement path — for a **task**, run the `done <id>` flow (incl. auto-transition + rollup recompute); for a **criterion**, the "No verifier present → manual ack" path → set `status: met`, `metAt: <now>`, write `evidence` (`verifierKind: manual`, `passed: true`). GATE-R2 does NOT gate verifier-absent entries, so manual ack is valid here.
+   - For every reconciled **task** that reaches `done` (verifier-backed or manual `Mark done`), emit exactly one `task-done` completion event through the `done <id>` flow's `appendCompletion` / `append-completion` instruction, carrying `projectId`, `planSlug`, `phaseId`, and `taskId` for that task. Criterion-only acknowledgements do not emit task completion events.
    - **`Still open`** → bump the entry's `lastUpdated` to now (acknowledges; resets the signal clock so the same candidate doesn't re-surface immediately). No status change.
    - **`Skip`** → no change.
 4. After applying dispositions, recompute the initiative's dashboard rollups (or `node scripts/compute-rollups.js`) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
@@ -133,6 +135,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
 8. On the user's accept of an advance:
    - **Propagate completion to the initiative** (BEFORE archiving):
      a. Set all `tasks[].status = 'done'`, `tasks[].closedAt = <now>`, `tasks[].lastUpdated = <now>` for any task not already `done`.
+        Emit one separate `task-done` completion event via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })` (or `node scripts/append-completion.js --event task-done --project <projectId> --plan <planSlug> --phase <phaseId> --task <taskId>`) for each task closed by this bulk-close. This is N task events, one per task, never one shared timestamp. Then emit exactly one `phase-done` completion event via `appendCompletion(root, { event: 'phase-done', projectId, planSlug, phaseId, taskId: null, actuals: <phase aggregate actuals> })` (or the CLI with `--event phase-done` and no `--task`) carrying the phase's aggregate actuals once; do NOT duplicate those aggregate actuals onto the per-task `task-done` lines. Leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
      d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary`, then save the initiative file.
