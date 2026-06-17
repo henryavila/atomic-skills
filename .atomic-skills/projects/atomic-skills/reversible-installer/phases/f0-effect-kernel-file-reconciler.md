@@ -119,8 +119,17 @@ Initiative for phase **F0 — Effect Kernel + file reconciler**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **2026-06-17 — Roteamento Mode 2 (Codex) ligado.** `routing.json` tem `mode2Enabled:true` + `codexLane.enabled:true`; Codex 0.139.0 autenticado (ChatGPT). T-001/T-002/T-003 são spec-ready com verifier `kind:test` → executor default = Codex. Cadeia de dependência (T-001 contrato → T-002 journal → T-003 reconciler) ⇒ dispatch/merge SERIAL, uma worktree por vez.
+- **2026-06-17 — Layout de teste do kernel.** Suíte existente em `tests/` (plural); kernel novo em `test/` (singular) conforme verifier patterns do plano (`test/kernel/*.test.js`). T-001 amplia `package.json` `test` para `node --test tests/**/*.test.js test/**/*.test.js`.
 
 ## Links
 
-_(plan doc, external refs)_
+- Plano: `../../plan.md` · Design (fonte de verdade): `../../design.md`
+- Lane: `skills/shared/mode2-codex-lane.md` · Worktree: `skills/shared/worktree-isolation.md`
+
+## Session handoff
+- **Narrative:** Fase F0 recém-materializada (0/3 tasks). Início fresco, árvore limpa em `86c7278`. Prestes a dispatchar T-001 (contrato Effect + registry) para Codex numa worktree isolada `impl/ri-f0-t001` off HEAD. Nada mid-flight no working tree.
+- **Decision log:** Mode 2/Codex é o executor default (lane ligada, tasks spec-ready, Codex autenticado). Merge-back serial pela cadeia de dependência. Kernel em `test/` singular vs suíte em `tests/` plural.
+- **Single nextAction:** Dispatchar Codex workspace-write para T-001 na worktree `/home/henry/atomic-skills/.worktrees/codex-ri-f0-t001`; ler diff de volta; merge serial no primário; re-rodar `node --test test/kernel/effect.test.js`; então `done T-001`.
+- **Verbatim state:** Verifier T-001: `node --test test/kernel/effect.test.js`. Base ref: `86c7278`. Branch primário: `plan/reversible-installer`. Worktree primário: `/home/henry/atomic-skills/.worktrees/reversible-installer`.
+- **Uncommitted changes:** clean tree (apenas este bloco de handoff, a ser commitado com o snapshot inicial).
