@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://atomic-skills.henryavila.com/schemas/completion-event.schema.json",
+  "title": "Completion event",
+  "description": "One append-only completion-event line from .atomic-skills/analytics/completions.jsonl, persisted by scripts/append-completion.js. This is the source record for deadline burn-up forecasting.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "event", "projectId", "planSlug", "phaseId", "taskId", "weight", "weightBasis"],
+  "properties": {
+    "ts": { "type": "string", "description": "Timestamp captured when the completion event was appended." },
+    "event": {
+      "type": "string",
+      "enum": ["task-done", "phase-done", "reconcile"],
+      "description": "Closed completion event kind; downstream series code must never infer unknown event names."
+    },
+    "projectId": { "type": "string" },
+    "planSlug": { "type": "string" },
+    "phaseId": { "type": "string" },
+    "taskId": {
+      "type": ["string", "null"],
+      "description": "Task id for task-level events; null for phase-done records."
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Frozen completion weight captured at append time."
+    },
+    "weightBasis": {
+      "type": "string",
+      "enum": ["count", "proxy"],
+      "description": "Closed basis for interpreting weight."
+    },
+    "actuals": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional measured work actuals reserved for calibration.",
+      "properties": {
+        "filesChanged": { "type": "number" },
+        "locAdded": { "type": "number" },
+        "locRemoved": { "type": "number" },
+        "commits": { "type": "number" },
+        "attempts": { "type": "number" },
+        "durationMs": { "type": "number" },
+        "escalations": { "type": "number" }
+      }
+    }
+  }
+}
