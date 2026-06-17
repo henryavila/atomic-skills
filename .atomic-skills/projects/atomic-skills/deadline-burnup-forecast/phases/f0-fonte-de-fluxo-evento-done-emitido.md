@@ -9,10 +9,10 @@ status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
 lastUpdated: 2026-06-17T19:14:53Z
-nextAction: "Start F0/T-004: — Harness de integração: a transição emite o evento (contrato da API appendCompletion)"
+nextAction: "All F0 tasks done — run phase-done (exit-gate G-1 + review-code gate) to advance the plan to F1"
 parentPlan: deadline-burnup-forecast
 phaseId: F0
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
@@ -83,8 +83,19 @@ tasks:
       outputSummary: "node --test tests/transition-emits.test.js — 5 pass, 0 fail (re-run on MERGED primary 238f677); prose+detector reviewed by Opus (event model correct, per-block negatives)"
   - id: T-004
     title: "— Harness de integração: a transição emite o evento (prova do RED)"
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-17T19:14:53Z
+    lastUpdated: 2026-06-17T19:14:53Z
+    verifier:
+      kind: shell
+      command: node --test tests/emit-on-transition.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T19:14:53Z
+      passed: true
+      exitCode: 0
+      testsCollected: 3
+      outputSummary: "node --test tests/emit-on-transition.test.js — 3 pass, 0 fail (re-run on MERGED primary 8741d48); real appendCompletion+validateCompletionEvent, cardinality N task-done+1 phase-done asserted"
 parked: []
 emerged: []
 summary: Cria o log append-only de conclusões e faz a transição done emitir o
@@ -99,11 +110,11 @@ current: true
 Initiative for phase **F0 — Fonte de fluxo: evento done emitido na transição**.
 
 ## Session handoff
-- **Narrative:** F0 (RED do forecast), **Mode 2 (Codex lane)** ativo e confirmado. **T-001** (Mode 1), **T-002** e **T-003** (Mode 2/Codex) fechadas com verifier no primary merged. tasksDone 3/4. Só falta **T-004** (contrato da API appendCompletion) — depois exit-gate G-1 + phase-done. Worktrees `dbf-t-002`/`dbf-t-003` mergeados e removidos. primary HEAD = 238f677.
+- **Narrative:** F0 (RED do forecast) — **TODAS as 4 tasks fechadas** (T-001 Mode 1; T-002/T-003/T-004 Mode 2/Codex), cada uma com verifier re-run no primary merged. tasksDone 4/4. **Exit-gate G-1 verde** (25 testes nos 4 files, exit 0). **No phase boundary**: aguardando opt-in do operador para `phase-done` (que dispara o review-code gate obrigatório + lessons + advance para F1). primary HEAD = 8741d48 (+ commit de state pendente).
 - **Decision log:** (1) `event` é enum fechado 'task-done'|'phase-done'|'reconcile'; (2) `weight` default 1 + `weightBasis` 'count'|'proxy' congelado na captura (imutável, P2/D6); (3) `taskId` nullable+required no schema (phase-done não tem task); (4) validação ANTES de tocar o filesystem; (5) helper só escreve em `.atomic-skills/analytics/`; (6) **Mode 2:** Codex escreve só source no worktree, Opus dona toda transição de state, merge-back serial + re-verify no primary; (7) **completion-event.schema.json usa draft-07** (`ajv/dist/2020` NÃO instalado — Ajv default só carrega draft-07); (8) `validateCompletionEvent` é ADITIVO em validate-aideck-state.js — `validateAideckState` intocado.
-- **Single nextAction:** Start F0/T-004 — criar `tests/emit-on-transition.test.js` (contrato da API `appendCompletion`: 1 done→1 task-done; phase-done de N→N task-done + 1 phase-done; reconcile→1 task-done; cada linha valida no completion-event.schema via `validateCompletionEvent`). Roteamento: spec-ready + verifier determinístico ⇒ Mode 2/Codex. É teste de contrato da API (NÃO da prosa), escreve só em jsonl de tmp.
-- **Verbatim state:** primary HEAD = 238f677 (T-003 fechada). verifier T-004 = `node --test tests/emit-on-transition.test.js`. Files T-004: `tests/emit-on-transition.test.js` (create only). API: `appendCompletion(root, {event, projectId, planSlug, phaseId, taskId, weight?, weightBasis?})` em `scripts/append-completion.js`; schema em `validateCompletionEvent` de `scripts/validate-aideck-state.js`. Exit-gate G-1 verifier roda os 4 test files.
-- **Uncommitted changes:** state transition T-003 (este phase file + dispatch-log.json) — a commitar agora.
+- **Single nextAction:** Aguardar decisão do operador sobre `phase-done` de F0. Se sim: rodar phase-done (exit gate G-1 já verde; review-code no range `started→HEAD`; distill lessons; advance currentPhase→F1; materializar a initiative de F1). Se não: parar com F0 100% pronta para o gate.
+- **Verbatim state:** primary HEAD = 8741d48 (T-004 mergeada). Exit-gate G-1 verifier = `node --test tests/append-completion.test.js && node --test tests/completion-event-schema.test.js && node --test tests/emit-on-transition.test.js && node --test tests/transition-emits.test.js` → 25 pass (9+8+3+5), exit 0. F0 diff range para review-code: closest commit before phase.started (2026-06-17T12:06:57Z) .. HEAD.
+- **Uncommitted changes:** state transition T-004 (este phase file + dispatch-log.json) — a commitar agora.
 
 ## Decisions
 
