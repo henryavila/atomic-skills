@@ -148,6 +148,11 @@ Initiative for phase **F2 — Teardown seguro squash-safe contra integrationRef 
 - Oráculos (G-1): A — commit após o head ⟹ `revParse≠headRefOid` ∧ ¬ancestor ⟹ `residue-beyond-head` (BLOQUEIA); B — `HEAD===headRefOid` ⟹ PERMITE.
 - scopeBoundary honrada: testes injetam `gh.prView`/`git.revParse`/`git.isAncestor` (sem git/gh destrutivo); sem `git rev-list --not`; falha-segura = BLOQUEIA; módulo sem `-D`/`--force`/`rm -rf`.
 
+## Self-review against gates (implement, F2)
+- **G1 read-before-claim:** applied — T-001 fechado pela re-execução REAL do verifier na primária MERGED (`a6c98d9`: `node --test tests/worktree-teardown.test.js` = 17 tests, 17 pass, 0 fail); o diff foi LIDO (`scripts/worktree-teardown.js` + os 17 testes), não o auto-report `-o` do Codex; o mutation-kill G9 (`===`→`!==`) prova os oráculos não-vacuosos (3 RED → revert GREEN).
+- **G2 soft-language:** applied — o close é evidence `passed:true` / `testsCollected:17`, sem `should`/`works`/`looks-done`; handoff escaneado pela ban-list.
+- **G6 reference-or-strike:** applied — literais do handoff são paths/commands/SHAs verbatim (`node --test tests/worktree-teardown.test.js`, HEAD=`a6c98d9`, base=`4fbfb12`); a afirmação "10 falhas pré-existentes" carrega a prova (`fail 2` em detect/install rodados na base 4fbfb12).
+
 ## Links
 
 _(plan doc, external refs)_
