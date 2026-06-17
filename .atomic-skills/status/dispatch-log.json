@@ -110,5 +110,21 @@
     "finishedAt": "2026-06-17T16:15:50Z",
     "codexWorktreeRef": "impl/ri-f0-t002",
     "routingReason": "lane on + F1 spec-ready + F2 deterministic test verifier; codex self-report again mis-stated tests=1, real run tests=4 — re-verified on merged primary 83be588 (journal.test.js 4/4)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "reversible-installer",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "test",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T16:17:00Z",
+    "finishedAt": "2026-06-17T16:21:35Z",
+    "codexWorktreeRef": "impl/ri-f0-t003",
+    "routingReason": "lane on + F1 spec-ready (3-hash + orphan source ported into briefing) + F2 deterministic test verifier; codex self-report mis-stated tests=1, real run tests=3 — re-verified on merged primary f92c7c0 (reconciler.test.js 3/3); full suite 832 832 818/2 (2 pre-existing dashboard fails, zero kernel regression)"
   }
 ]

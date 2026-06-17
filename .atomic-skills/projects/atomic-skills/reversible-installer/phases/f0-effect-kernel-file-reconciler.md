@@ -9,11 +9,12 @@ status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
 lastUpdated: 2026-06-17T15:45:46.247Z
-nextAction: "Start T-003: Efeito reconcileFileSet — porta 3-hash
-  (test/kernel/reconciler.test.js)"
+nextAction: All F0 tasks done (3/3). Run phase-done F0 — verify exit gates G-1
+  (reconciler.test.js) + G-2 (effect.test.js), review-code on phase diff,
+  advance to F1. User opt-in required.
 parentPlan: reversible-installer
 phaseId: F0
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -112,8 +113,22 @@ tasks:
       pattern: test/kernel/journal.test.js
   - id: T-003
     title: Efeito reconcileFileSet (porta da lógica 3-hash)
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-17T16:21:35.000Z
+    closedAt: 2026-06-17T16:21:35.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T16:21:35.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 3
+      outputSummary: "Re-run on MERGED primary @f92c7c0: node --test
+        test/kernel/reconciler.test.js — tests 3, pass 3, fail 0. classifyFile
+        porta 3-hash (unchanged/keep-local/conflict); revert remove só
+        não-modificado + prune dirs, preserva modificado. Full npm test 832
+        tests, 818 pass, 2 fail (pré-existentes dashboard, idênticas ao pai —
+        zero regressão dos kernels). Executor: codex lane, worktree
+        impl/ri-f0-t003."
     summary: Efeito reconcileFileSet portando 3-hash + remoção de órfão unmodified-only.
     description: Porta a detecção 3-hash de src/install.js:1049-1083 e a remoção de
       órfão unmodified-only de src/install.js:896-918 para um efeito
@@ -154,8 +169,8 @@ Initiative for phase **F0 — Effect Kernel + file reconciler**.
 - Lane: `skills/shared/mode2-codex-lane.md` · Worktree: `skills/shared/worktree-isolation.md`
 
 ## Session handoff
-- **Narrative:** F0 em 2/3. T-001 (contrato Effect + registry) e T-002 (journal/manifest extension) DONE, ambos via Codex Mode 2, mesclados fast-forward no primário (T-001 `37d0e24`, T-002 `83be588`), verifiers re-rodados na árvore mesclada (4/4 cada). Worktrees do Codex removidas. Falta só T-003 (efeito reconcileFileSet — porta 3-hash) para fechar a fase.
-- **Decision log:** O Codex auto-reportou `tests 1` nas DUAS tasks; o run real foi `tests 4` nas duas — re-execução na árvore mesclada é o adjudicador, não a narrativa. As 2 falhas de `npm test` (`dist/dashboard` ausente) são pré-existentes (provadas no pai `850746a`), não regressão. T-002 ficou imutável e sem tocar `manifest.js` (effects[] rides along via writeManifest).
-- **Single nextAction:** Iniciar T-003 (Efeito reconcileFileSet) — Mode 2/Codex, base ref HEAD atual `83be588`, verifier `node --test test/kernel/reconciler.test.js`. Porta a detecção 3-hash de `src/install.js:1049-1083` + remoção de órfão unmodified-only de `src/install.js:896-918`. Worktree nova `impl/ri-f0-t003` off HEAD.
-- **Verbatim state:** Verifiers que passaram: `node --test test/kernel/effect.test.js` (4/4), `node --test test/kernel/journal.test.js` (4/4). HEAD primário: `83be588`. Verifier T-003: `node --test test/kernel/reconciler.test.js`. Exit-gates da fase: G-1 (reconciler.test.js), G-2 (effect.test.js) — ambos pending até phase-done. Branch primário: `plan/reversible-installer`.
-- **Uncommitted changes:** state files (f0 phase, dispatch-log.json) a commitar com este snapshot; código de T-001/T-002 já em `37d0e24`/`83be588`. Árvore limpa após o commit.
+- **Narrative:** F0 em 3/3 — TODAS as tasks DONE. T-001 (contrato Effect+registry), T-002 (journal/manifest extension), T-003 (reconcileFileSet/3-hash port) executadas via Codex Mode 2, mescladas fast-forward serial no primário, cada verifier re-rodado na árvore mesclada. HEAD primário `f92c7c0`. Worktrees do Codex todas removidas. **Fronteira de fase: pronto para `phase-done F0` (opt-in do usuário).**
+- **Decision log:** O Codex auto-reportou `tests 1` nas TRÊS tasks; runs reais foram 4/4/3 — re-execução na árvore mesclada é o adjudicador, não a narrativa do executor (padrão consistente de mis-report). As 2 falhas de `npm test` (`dist/dashboard` ausente) são pré-existentes (provadas idênticas no pai `850746a`), não regressão — suíte foi de 825→832 (+7 kernels), pass 818, mesmas 2 fails. `package.json` test-glob com aspas. T-002 imutável sem tocar `manifest.js`; T-003 porta fiel de install.js:1049-1083 (3-hash) + 896-918 (órfão/prune).
+- **Single nextAction:** Rodar `phase-done F0` (com opt-in do usuário): executa os exit-gates G-1 (`node --test test/kernel/reconciler.test.js`) e G-2 (`node --test test/kernel/effect.test.js`), roda `review-code` no diff da fase (`850746a..f92c7c0`, ~3 commits de feat + state), grava `reviewGate` no plan.md, distila lessons, e avança currentPhase F0→F1.
+- **Verbatim state:** Verifiers que passaram na árvore mesclada: `node --test test/kernel/effect.test.js` (4/4), `node --test test/kernel/journal.test.js` (4/4), `node --test test/kernel/reconciler.test.js` (3/3). HEAD primário `f92c7c0`. Exit-gates F0: G-1 reconciler.test.js, G-2 effect.test.js — ambos `pending`, a verificar no phase-done. Diff da fase: `850746a..f92c7c0`. Branch: `plan/reversible-installer`. Falhas pré-existentes (NÃO bloqueiam F0): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`.
+- **Uncommitted changes:** state files (f0 phase, dispatch-log.json) a commitar com este snapshot; código de T-001/T-002/T-003 já em `37d0e24`/`83be588`/`f92c7c0`. Árvore limpa após o commit.
