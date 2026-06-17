@@ -1,6 +1,6 @@
 # Reversible Installer — motor de instalação reversível e reutilizável
 
-Extrair o instalador do atomic-skills (`src/install.js`, ~1333 linhas, + `src/uninstall.js` + `render/manifest/config/detect/hash`) num **kernel genérico de sincronização reversível de arquivos templados**, consumível por qualquer projeto via dependência + config, sem reescrever lógica de install/uninstall. O uninstall é propriedade estrutural do motor — não código que cada consumidor escreve.
+Extrair o instalador do atomic-skills (`src/install.js`, ~1182 linhas, + `src/uninstall.js` + `render/manifest/config/detect/hash`) num **kernel genérico de sincronização reversível de arquivos templados**, consumível por qualquer projeto via dependência + config, sem reescrever lógica de install/uninstall. O uninstall é propriedade estrutural do motor — não código que cada consumidor escreve.
 
 ## Context
 
