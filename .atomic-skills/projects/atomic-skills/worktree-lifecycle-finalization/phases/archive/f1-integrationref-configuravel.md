@@ -29,15 +29,16 @@ exitGates:
       kind: test
       runner: node
       pattern: tests/integration-ref.test.js
-    verifierLabel: "test: node tests/integration-ref.test.js"
     evidence:
       verifierKind: test
       verifiedAt: 2026-06-17T13:56:08Z
       exitCode: 0
       testsCollected: 6
       passed: true
-      outputSummary: "node --test tests/integration-ref.test.js @ af6c934:
-        tests 6, pass 6, fail 0."
+      outputSummary: "node --test tests/integration-ref.test.js @ af6c934: tests 6,
+        pass 6, fail 0."
+    verifierLabel: "test: node tests/integration-ref.test.js"
+    evidenceSummary: passed · 6 tests · 2026-06-17
   - id: G-2
     description: routing.schema.json válido e skills válidos.
     status: met
@@ -45,14 +46,14 @@ exitGates:
     verifier:
       kind: shell
       command: node --test tests/routing-schema.test.js && npm run validate-skills
-    verifierLabel: "shell: node --test tests/routing-schema.test.js && npm run validat…"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-17T13:56:08Z
       exitCode: 0
       passed: true
-      outputSummary: "routing-schema 4/4 && validate-skills All 15 valid @ af6c934,
-        exit 0."
+      outputSummary: routing-schema 4/4 && validate-skills All 15 valid @ af6c934, exit 0.
+    verifierLabel: "shell: node --test tests/routing-schema.test.js && npm run validat…"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: integrationRef configurável + branch develop (Decisão 2)
@@ -96,8 +97,8 @@ tasks:
       passed: true
       outputSummary: "node --test tests/routing-schema.test.js on merged primary
         (4555063): tests 4, pass 4, fail 0. Mode 2/Codex executed in worktree
-        impl/wlf-t-001, ff-merged + re-verified on primary (mode2 L-001:
-        re-run is the adjudicator, not Codex -o)."
+        impl/wlf-t-001, ff-merged + re-verified on primary (mode2 L-001: re-run
+        is the adjudicator, not Codex -o)."
   - id: T-002
     title: Resolvedor de integrationRef com default e sinal-de-ausência
     status: done
@@ -136,9 +137,9 @@ tasks:
       passed: true
       outputSummary: "node --test tests/integration-ref.test.js on merged primary
         (722bf50): tests 6, pass 6, fail 0. Mode 2/Codex executed in worktree
-        impl/wlf-t-002, ff-merged + re-verified on primary (mode2 L-001).
-        Pure resolver: declared/default/not-configured discriminated, no
-        fs/git/net, input not mutated."
+        impl/wlf-t-002, ff-merged + re-verified on primary (mode2 L-001). Pure
+        resolver: declared/default/not-configured discriminated, no fs/git/net,
+        input not mutated."
 parked: []
 emerged: []
 summary: Ref de integração configurável (default develop) em routing.json, com

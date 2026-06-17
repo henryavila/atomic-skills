@@ -29,7 +29,6 @@ exitGates:
       kind: test
       runner: node
       pattern: tests/worktree-teardown.test.js
-    verifierLabel: "test: node tests/worktree-teardown.test.js"
     evidence:
       verifierKind: test
       verifiedAt: 2026-06-17T16:51:02Z
@@ -37,7 +36,10 @@ exitGates:
       testsCollected: 21
       passed: true
       outputSummary: "node --test tests/worktree-teardown.test.js @ 2a69940: tests 21,
-        pass 21, fail 0 (2 oráculos de squash + G9 mutation-kill + 4 testes de hardening)."
+        pass 21, fail 0 (2 oráculos de squash + G9 mutation-kill + 4 testes de
+        hardening)."
+    verifierLabel: "test: node tests/worktree-teardown.test.js"
+    evidenceSummary: passed · 21 tests · 2026-06-17
   - id: G-2
     description: Skills válidos após a revisão do invariante.
     status: met
@@ -52,6 +54,7 @@ exitGates:
       passed: true
       outputSummary: "npm run validate-skills @ 2a69940: All 15 skills valid, exit 0."
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: Teardown seguro squash-safe contra integrationRef (Decisão 4)
@@ -64,8 +67,8 @@ tasks:
     lastUpdated: 2026-06-17T16:01:56Z
     closedAt: 2026-06-17T16:01:56Z
     summary: Liveness gh + veto headRefOid contra o integrationRef, com 2 oráculos
-      de squash; consome a `pr-url`/identidade do finalize (F3) — contrato definido
-      em F2, populado por F3.
+      de squash; consome a `pr-url`/identidade do finalize (F3) — contrato
+      definido em F2, populado por F3.
     outputs:
       - kind: file
         path: scripts/worktree-teardown.js
@@ -80,8 +83,8 @@ tasks:
       - o módulo nunca contém `-D`, `--force` nem `rm -rf`.
     acceptance:
       - "`resolveBaseRef` passa a resolver o `integrationRef` configurável
-        (consumindo `resolveIntegrationRef` de `scripts/integration-ref.js`,
-        F1) em vez de `origin/main→main`"
+        (consumindo `resolveIntegrationRef` de `scripts/integration-ref.js`, F1)
+        em vez de `origin/main→main`"
       - a liveness exige `state==MERGED`, `mergedAt` não-nulo E `baseRefName ==
         integrationRef`, e captura o `headRefOid`
       - o veto libera só quando `git merge-base --is-ancestor` é verdadeiro OU
@@ -91,10 +94,9 @@ tasks:
         BLOQUEIA, e squash-merged LIMPO (`HEAD == headRefOid`) ⟹ teardown
         PERMITE
       - o teardown resolve a identidade do PR a partir da `pr-url`/identidade
-        gravada no estado do plano (que o finalize/F3 popula) para
-        desambiguar, e BLOQUEIA só quando `gh` está não-autenticado,
-        `headRefOid`/ref ausente, OU a identidade gravada está
-        ausente/ambígua.
+        gravada no estado do plano (que o finalize/F3 popula) para desambiguar,
+        e BLOQUEIA só quando `gh` está não-autenticado, `headRefOid`/ref
+        ausente, OU a identidade gravada está ausente/ambígua.
     verifier:
       kind: test
       runner: node
@@ -108,18 +110,20 @@ tasks:
       outputSummary: "node --test tests/worktree-teardown.test.js on merged primary
         (a6c98d9): tests 17, pass 17, fail 0. Mode 2/Codex executed in worktree
         impl/wlf-f2-t001, ff-merged + re-verified on primary (mode2 L-001: the
-        re-run is the adjudicator, not Codex -o). G-2 npm run validate-skills exit
-        0 (All 15 skills valid)."
+        re-run is the adjudicator, not Codex -o). G-2 npm run validate-skills
+        exit 0 (All 15 skills valid)."
       mutation:
-        target: "scripts/worktree-teardown.js:93 (squash-head-match veto)"
-        change: "branchHead === headRefOid → branchHead !== headRefOid"
+        target: scripts/worktree-teardown.js:93 (squash-head-match veto)
+        change: branchHead === headRefOid → branchHead !== headRefOid
         killedBy:
-          - "isTeardownSafe blocks squash residue beyond the PR head (Oracle A)"
-          - "isTeardownSafe permits clean squash when branch head matches PR head (Oracle B)"
-          - "isTeardownSafe permits non-squash ancestry when branch head differs from PR head"
-        killTranscript: "inject ===→!== ⟹ node --test: tests 17, pass 14, fail 3
-          (both squash oracles + ancestor RED); git checkout revert ⟹ tests 17,
-          pass 17, fail 0."
+          - isTeardownSafe blocks squash residue beyond the PR head (Oracle A)
+          - isTeardownSafe permits clean squash when branch head matches PR head
+            (Oracle B)
+          - isTeardownSafe permits non-squash ancestry when branch head differs
+            from PR head
+        killTranscript: "inject ===→!== ⟹ node --test: tests 17, pass 14, fail 3 (both
+          squash oracles + ancestor RED); git checkout revert ⟹ tests 17, pass
+          17, fail 0."
 parked: []
 emerged: []
 summary: Teardown só remove com integração provada vs integrationRef, seguro sob squash.
