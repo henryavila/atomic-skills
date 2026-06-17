@@ -11,15 +11,17 @@ goal: "adicionar ao finalize uma detecção de colisão entre ≥2 worktrees viv
 status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T18:52:47Z
-lastUpdated: 2026-06-17T20:05:00Z
-nextAction: "T-001 DONE (Mode 2/Codex; verifier 16/16 na primária MERGED
-  5e1328d). Próximo: Start T-002 (workflow advisory cross-WT em
-  project-finalize.md) em Mode 1 inline — doc auto-referencial; verifier grep
-  'cross-wt-collision'+'advisory' + npm run validate-skills. Depois T-003 (Mode
-  1)."
+lastUpdated: 2026-06-17T20:12:00Z
+nextAction: "T-001 + T-002 DONE (2/3). Próximo: Start T-003 (Mode 1 inline) —
+  wire archive em skills/shared/project-assets/project-transitions.md para
+  resolver {integrationRef, baseRef} via resolveBaseRef, ler o pr-url do
+  references[] do plano, e chamar isTeardownSafe({ branch, baseRef,
+  integrationRef, prIdentity }). Verifier: grep 'prIdentity' && grep
+  'integrationRef' em project-transitions.md && npm run validate-skills. Depois:
+  phase-done F4 (exit-gates G-1/G-2 + review-code --mode=both + lessons)."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F4
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -99,8 +101,9 @@ tasks:
         16)."
   - id: T-002
     title: Workflow advisory de agentes read-only escopados ao diff
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T20:12:00Z
+    lastUpdated: 2026-06-17T20:12:00Z
     summary: Workflow advisory de agentes A/B read-only escopados ao diff (nunca
       gateiam).
     outputs:
@@ -130,6 +133,17 @@ tasks:
         skills/shared/project-assets/project-finalize.md && grep -qi 'advisory'
         skills/shared/project-assets/project-finalize.md && npm run
         validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T20:12:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Full chain exit 0: grep -qi 'cross-wt-collision' (2 hits) &&
+        grep -qi 'advisory' (7 hits) em project-finalize.md && npm run
+        validate-skills → ✓ All 15 skills valid (schema_version 0.2). Step 1.5
+        documenta gate determinístico (scripts/cross-wt-gate.js, a prova) +
+        agentes advisory A/B read-only escopados ao diff, ≥2 WTs,
+        operator-prompted, self-check≠self-certify, fallback portátil."
   - id: T-003
     title: Wire archive teardown to read the recorded PR identity
     status: pending
@@ -194,11 +208,11 @@ current: true
 Initiative for phase **F4 — Check de colisão cross-WT no finalize (Decisão 7)**.
 
 ## Session handoff
-- **Narrative:** **F4 ATIVA**, `implement` em curso. **T-001 DONE** (1/3 tasks; gates 0/2 ainda — resolvem no phase-done). Gate determinístico cross-WT (`scripts/cross-wt-gate.js` + `tests/cross-wt-gate.test.js`) executado em **Mode 2 (Codex)**, merged FF na primária (`5e1328d`) e re-verificado na MERGED: `node --test tests/cross-wt-gate.test.js` → tests 16, pass 16, exit 0. Worktree `impl/wlf-t-001` removida pós-merge. Lessons F4 aplicadas (wlf-f2 L-002 OR-guard+mutation, wlf-f2 L-003 adapter `try/catch→block`, wlf-f1 L-001 `Object.hasOwn`).
-- **Decision log:** (1) T-001 → Mode 2 por escolha do operador (AskUserQuestion); adjudicador = re-run na primária MERGED; auto-report `-o` do Codex (disse "tests 1") DESCARTADO — contagem real 16 (wlf-f0-nascimento L-001 RECONFIRMADA). (2) Contrato da API foi FIXADO por Opus no work-order (papel PLANS), espelhando `isTeardownSafe`/`resolveIntegrationRef`. (3) T-002+T-003 ficam **Mode 1 inline** (doc auto-referencial das próprias skills; verifier grep não captura qualidade de prosa).
-- **Single nextAction:** Start **T-002** (Mode 1 inline): documentar em `skills/shared/project-assets/project-finalize.md` o workflow advisory cross-WT (Agente A comportamental/semântico + Agente B recurso/contrato, ambos read-only escopados ao diff, ≥2 WTs, operator-prompted, self-check≠self-certify, fallback portátil, âncora `cross-wt-collision`). Verifier: `grep -qi 'cross-wt-collision' … && grep -qi 'advisory' … && npm run validate-skills`.
-- **Verbatim state:** T-001 verifier (re-run MERGED): `node --test tests/cross-wt-gate.test.js` → exit 0, tests 16, pass 16, fail 0. Commit source: `5e1328d feat(cross-wt-gate)`. Dispatch telemetry: `.atomic-skills/status/dispatch-log.json` (entry T-001, executor codex, verifierPassed true). T-002 verifier verbatim: `grep -qi 'cross-wt-collision' skills/shared/project-assets/project-finalize.md && grep -qi 'advisory' skills/shared/project-assets/project-finalize.md && npm run validate-skills`. **Follow-ups herdados:** install/detect suite RED pré-existente (base 4fbfb12); PROJECT-STATUS.md stale.
-- **Uncommitted changes:** após o commit de state (`chore(project): done F4/T-001`) → árvore LIMPA. Source de T-001 já em `5e1328d`.
+- **Narrative:** **F4 ATIVA**, `implement` em curso. **T-001 + T-002 DONE** (2/3; gates 0/2 — resolvem no phase-done). T-001 (gate determinístico `scripts/cross-wt-gate.js` + teste) em **Mode 2/Codex**, merged FF `5e1328d`, re-verificado MERGED 16/16. T-002 (Step 1.5 cross-WT advisory em `project-finalize.md`) em **Mode 1 inline**: âncora `cross-wt-collision` + agentes A/B read-only ao diff + fallback portátil; verifier shell exit 0 (`All 15 skills valid`). Falta só **T-003**.
+- **Decision log:** (1) T-001 → Mode 2 (operador); auto-report `-o` do Codex "tests 1" DESCARTADO — real 16 (wlf-f0-nascimento L-001 RECONFIRMADA). (2) T-002/T-003 → Mode 1 inline (doc auto-referencial). (3) T-002: o gate determinístico (T-001) é documentado como A PROVA; os agentes LLM são advisory/read-only e NUNCA gateiam (self-check≠self-certify). Ripple sites (wlf-f0 L-001) atualizados: "What finalize does" + "Scope".
+- **Single nextAction:** Start **T-003** (Mode 1 inline) em `skills/shared/project-assets/project-transitions.md` (fluxo `archive`): resolver `{integrationRef, baseRef}` via `resolveBaseRef`, ler o `pr-url` do `references[]` do plano, e chamar `isTeardownSafe({ branch, baseRef, integrationRef, prIdentity })` (fecha o handoff produtor finalize→consumidor teardown — wlf-f3 L-003). NÃO mudar o contrato de `isTeardownSafe`; NÃO auto-remover worktrees.
+- **Verbatim state:** T-003 verifier verbatim: `grep -q 'prIdentity' skills/shared/project-assets/project-transitions.md && grep -q 'integrationRef' skills/shared/project-assets/project-transitions.md && npm run validate-skills`. Commits desta sessão: `5e1328d` (T-001 source), `13d35a1` (chore done T-001), próximo: chore done T-002. **Follow-ups herdados:** install/detect suite RED pré-existente (base 4fbfb12); PROJECT-STATUS.md stale.
+- **Uncommitted changes:** após o commit `chore(project): done F4/T-002` → árvore LIMPA.
 
 ## Decisions
 

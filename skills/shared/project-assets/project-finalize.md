@@ -13,6 +13,10 @@ Loaded by the router for `/atomic-skills:project finalize`.
 - **Does:** push `plan/<slug>` to `origin` (no rename), open a PR
   `--base <integrationRef> --head plan/<slug>`, and record the PR identity
   (`pr-url` + number) in the plan state.
+- **Also (only when ≥2 plan worktrees are live):** runs a pre-publish cross-WT
+  collision check (Step 1.5) — a deterministic gate (`scripts/cross-wt-gate.js`)
+  as the proof, plus advisory read-only agents; operator-prompted, never
+  auto-resolving.
 - **Does NOT:** merge the PR, rename the branch to `feat/<slug>`, archive the plan,
   or write `integrationRef` into the plan frontmatter. The integration ref is
   persisted in `routing.json` only; the merge + teardown + archive run afterward.
@@ -85,6 +89,76 @@ base-push failure, do **not** persist: a persisted ref the remote lacks makes th
 next `gh pr create --base <ref>` fail with no re-prompt — surface the failure and
 re-run the prompt instead. Persist to `routing.json` only — **never** to the plan
 frontmatter.
+
+## Step 1.5 — Cross-WT collision check (`cross-wt-collision`, only with ≥2 live worktrees)
+
+When **≥2 plan worktrees are live** (`git worktree list --porcelain`), the feature
+being published can collide with another in-flight feature in ways a clean
+`git merge` cannot see (the literature splits cross-branch collisions into textual /
+build / dynamic-semantic / higher-order, and plain `git merge` only catches the
+first). With **<2 live worktrees this step is a no-op** — a solo feature has nothing
+to collide with — and finalize proceeds straight to Step 2. This check is
+**operator-prompted** (never automatic) and **never auto-resolves** a collision: it
+surfaces findings and routes them to a human.
+
+### The deterministic GATE is the proof (entry token) — `scripts/cross-wt-gate.js`
+
+The floor is deterministic and verify-claim-able: a speculative merge of the live
+worktrees **+ the TARGET PROJECT's own build/typecheck/test/lint on the merged
+tree**, with the commands DETECTED generically — `detectProjectCommands` reads
+`package.json` scripts / `Makefile` / `pyproject.toml`, **never hardcoded to any
+stack** — so the skill stays generic across Java/JS/Python/Go/monorepo targets.
+`crossWtGate(...)` decides, in this fixed order:
+
+- `<2` live worktrees → `no-op` (nothing to collide with; no merge, no build).
+- the speculative merge conflicts textually → `conflict` (exit≠0) — this is the
+  **FIRST gate**, before any build/test runs.
+- no detectable project command → a **REGISTERED `skip` (WARN)**, never a silent
+  pass.
+- otherwise the detected commands run on the merged tree; a non-zero exit is the
+  gate failing.
+
+This gate is the **proof**; build & tests are NOT agents (running the project's own
+build/test already catches build-conflicts and test-covered behavioural conflicts
+deterministically — an "agent" there would duplicate the floor).
+
+### The WORKFLOW is advisory (LLM agents) — never the gate, always read-only
+
+A bounded set of LLM agents, each **scoped to the footprint of the live worktrees'
+diffs + immediate dependency neighbourhood** — they read the **DIFF, not the whole
+tree**, so cost scales with diff size, not repo size. Fired only with ≥2 live
+worktrees, operator-prompted. They focus on what the deterministic floor is
+structurally blind to:
+
+- **Agent A — behavioural / semantic interference:** reasons about whether the
+  COMBINATION of the changes alters behaviour that each change passes in isolation
+  (the merge-and-test-invisible class). The one class with no cheap, generic,
+  deterministic form — so it is **advisory by necessity, not by choice**.
+- **Agent B — shared-resource / contract collision:** ≥2 worktrees mutating the
+  same mutable resource (config, lockfile, generated file, migration, global state,
+  feature flag) OR changing the contract of a shared symbol
+  (signature/API/type/schema) another worktree references. Highest value when the
+  target project's build/test is WEAK and the floor misses it.
+
+**Discipline (non-negotiable):** the advisory agents **self-check but NEVER
+self-certify** (`verify-claim`) — the deterministic gate above is the only proof;
+agent findings **ROUTE to human review**, never auto-resolve and never gate. Iron
+Law preserved: the agents are **READ-ONLY** (reading parallelizes; merge/code stays
+serial — R-XAGENT-03).
+
+{{#if ide.claude-code}}
+**Accelerator (Claude Code):** dispatch Agent A and Agent B as parallel read-only
+investigation agents (native Agent / `Workflow` fan-out). Parallelism is for READS
+only — nothing the agents do writes any tree.
+{{/if}}
+
+**Portable fallback:** where a parallel workflow tool is unavailable (e.g. a
+read-only `{{INVESTIGATOR_TOOL}}` on another IDE), run Agent A then Agent B
+**sequentially**, or record a **registered skip** (WARN) — never a silent pass. The
+deterministic gate runs identically everywhere; only the advisory layer degrades.
+Calibrated honest: higher-order collisions are RARE in frequency but expensive per
+occurrence, which is exactly why this `cross-wt-collision` check is OPTIONAL and
+operator-prompted at finalize — not an always-on gate.
 
 ## Step 2 — Show the diff + the proposed PR, then HALT (operator-prompted)
 
@@ -160,3 +234,6 @@ merges and never archives.
 - **Never renames `plan/<slug>`** to `feat/<slug>` — the branch is published as-is.
 - **Never writes `integrationRef` into the plan frontmatter** — the integration ref
   is persisted in `routing.json` only.
+- **Cross-WT collision check (Step 1.5) is advisory + operator-prompted** — fires
+  only with ≥2 live worktrees; the deterministic gate is the proof, the advisory
+  LLM agents are read-only, never gate, and never auto-resolve.
