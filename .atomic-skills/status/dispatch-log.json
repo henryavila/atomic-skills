@@ -142,5 +142,21 @@
     "finishedAt": "2026-06-17T18:19:31Z",
     "codexWorktreeRef": "impl/ri-f1-t001",
     "routingReason": "lane on (routing.json) + F1 spec-ready (json-merge before-state design settled in briefing pre-dispatch) + F2 deterministic test verifier; codex self-report sub-counted tests=1 (file-level), real re-run on merged primary 5e0261b = tests 9 pass 9 (L-003)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "reversible-installer",
+    "phase": "F1",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "test",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T18:22:00Z",
+    "finishedAt": "2026-06-17T18:27:36Z",
+    "codexWorktreeRef": "impl/ri-f1-t002",
+    "routingReason": "lane on + F1 spec-ready (refcount D8 per-owner-marker design settled in briefing) + F2 deterministic test verifier; codex self-report sub-counted tests=1 (file-level), real re-run on merged primary ade1120 = tests 8 pass 8 (L-003)"
   }
 ]
