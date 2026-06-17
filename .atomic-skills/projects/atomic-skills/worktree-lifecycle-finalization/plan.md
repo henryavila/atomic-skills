@@ -7,7 +7,7 @@ status: active
 started: 2026-06-16T22:50:35.627Z
 lastUpdated: 2026-06-17T16:51:02Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -265,22 +265,46 @@ phases:
           description: project finalize documentado (push+PR→integrationRef+grava pr-url,
             prompt-quando-ausente), router lista o subcomando, archive intocado;
             skills válidos.
-          status: pending
+          status: met
+          metAt: 2026-06-17T18:26:30Z
           verifier:
             kind: shell
             command: grep -q 'project-finalize' skills/core/project.md && grep -qi 'gh pr
               create' skills/shared/project-assets/project-finalize.md && npm
               run validate-skills
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T18:26:30Z
+            exitCode: 0
+            passed: true
+            outputSummary: "grep -q 'project-finalize' project.md + grep -qi 'gh pr
+              create' project-finalize.md matched; npm run validate-skills → ✓ All
+              15 skills valid (schema_version 0.2), exit 0."
         - id: G-2
           description: O finalize consome o resolvedor de integrationRef (F1) e o
             invariante de teardown (F2) permanece a guarda de remoção.
-          status: pending
+          status: met
+          metAt: 2026-06-17T18:26:30Z
           verifier:
             kind: shell
             command: grep -qi 'integration-ref'
               skills/shared/project-assets/project-finalize.md && npm run
               validate-skills
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T18:26:30Z
+            exitCode: 0
+            passed: true
+            outputSummary: "grep -qi 'integration-ref' matched in project-finalize.md
+              (scripts/integration-ref.js ref); npm run validate-skills → ✓ All 15
+              skills valid, exit 0."
+    status: done
+    reviewGate:
+      status: passed
+      at: e7913a7
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-17-1850-wlf-f3-project-finalize.md
+      verifiedAt: 2026-06-17T18:52:47Z
     summary: "Comando project finalize: publica a feature via push + PR para o develop."
   - id: F4
     slug: worktree-lifecycle-finalization-f4-check-de-colisao-cross-wt-no
@@ -316,7 +340,7 @@ phases:
               skills/shared/project-assets/project-finalize.md && grep -qi
               'advisory' skills/shared/project-assets/project-finalize.md && npm
               run validate-skills
-    status: pending
+    status: active
     summary: "No finalize, detecta colisão entre worktrees: gate build/test +
       agentes advisory ao diff."
   - id: F5
