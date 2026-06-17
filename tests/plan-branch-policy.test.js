@@ -34,8 +34,10 @@ test('Stage 6 documents unconditional plan branch creation', () => {
   const stage6 = doc.slice(stage6Start, stage7Start === -1 ? undefined : stage7Start);
 
   assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
-  assert.match(stage6, /plan\/<slug>/);
-  assert.match(stage6.toLowerCase(), /(incondicional|na cria[çc][aã]o|todo plano|sempre)/);
+  // discriminating: the unconditional-fork declaration absent from the old lazy doc
+  // (the old Stage 6 said "só cria plan/<slug> sob concorrência" — no "forka incondicional").
+  assert.match(stage6.toLowerCase(), /todo plano[^\n]*forka incondicional/,
+    'Stage 6 must declare every plan forks unconditionally on creation');
 });
 
 test('retroactiveWorktreeAdd composes a non-forced worktree add from captured baseRef', () => {
