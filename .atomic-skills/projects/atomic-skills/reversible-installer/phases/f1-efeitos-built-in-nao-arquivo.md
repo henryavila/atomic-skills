@@ -7,11 +7,11 @@ goal: implementar os 3 efeitos não-arquivo com before-state preciso e revert se
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T16:41:21.000Z
-lastUpdated: 2026-06-17T18:38:53.000Z
-nextAction: "Start T-004: — Matriz adversária no round-trip parity test"
+lastUpdated: 2026-06-17T18:45:33.000Z
+nextAction: "All F1 tasks done — run phase-done to verify exit gate G-1 + review gate, then advance to F2"
 parentPlan: reversible-installer
 phaseId: F1
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
@@ -146,8 +146,27 @@ tasks:
       pattern: test/kernel/effects/legacy-prune.test.js
   - id: T-004
     title: Matriz adversária no round-trip parity test
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-17T18:45:33.000Z
+    closedAt: 2026-06-17T18:45:33.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T18:45:33.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "Primary @77cd386: node --test
+        tests/install-uninstall-roundtrip.test.js — tests 7, pass 7, fail 0
+        (4 existentes + as 3 fixtures adversárias novas). (1) hook de terceiro
+        pré-existente sobrevive ao round-trip + settings.json byte-a-byte
+        (removeAutoUpdateHook cirúrgico, settingsCreated=false preserva). (2)
+        refcount 2 donos (user $HOME + project repo) no mesmo installs.json:
+        uninstall de 1 mantém o registry; crash-retry duplicado curado pelo
+        filter de unregisterInstall; uninstall do 2º → count 0 → registry +
+        runtime removidos → baseline. (3) arquivo do usuário não-assinado em
+        .claude/skills/atomic-skills/ preservado (P3, findLegacyOrphans →
+        unsafe). Mode 1 self-exec (Opus): design da simulação de crash emergiu
+        na implementação (disqualificador F1) + exit-gate verifier + acoplado à
+        infra de install/uninstall legada."
     summary: round-trip ganha as 3 fixtures adversárias (hook de terceiro,
       refcount+crash, arquivo do usuário em path legado).
     description: Estende tests/install-uninstall-roundtrip.test.js com as três
@@ -191,8 +210,9 @@ Ratificadas em `lessons/reversible-installer-f0-effect-kernel-file-reconciler.md
 - Plano: `../../plan.md` · Design: `../../design.md` · Lessons F0: `../lessons/reversible-installer-f0-effect-kernel-file-reconciler.md`
 
 ## Session handoff
-- **Narrative:** F1 em 3/4. **T-001 (json-merge) DONE** (impl `5e0261b`, estado `69a4865`, 9/9). **T-002 (refcount) DONE** (impl `ade1120`, estado `e1b0596`, 8/8). **T-003 (legacy-prune) DONE** via Codex (worktree `impl/ri-f1-t003`, merge-back FF → primária `75428bd`); re-run na árvore mesclada = tests 8, pass 8, fail 0 + full `npm test` 859/845/2 (as 2 fails são pré-existentes do dashboard, zero regressão do kernel). GATE-R2 verde, telemetria gravada. Próxima e última de F1: T-004 (matriz adversária no round-trip). Prestes a commitar o estado de T-003 (a impl já está em `75428bd`).
+- **Narrative:** **F1 em 4/4 — todas as tasks DONE.** T-001 json-merge (impl `5e0261b`, 9/9), T-002 refcount (impl `ade1120`, 8/8), T-003 legacy-prune (impl `75428bd`, 8/8) — as 3 via Codex/Mode 2, merge-back serial + re-verify na primária. T-004 matriz adversária no round-trip (impl `77cd386`, Mode 1 self-exec) — `node --test tests/install-uninstall-roundtrip.test.js` = 7/7 (4 existentes + 3 fixtures adversárias novas). Falta apenas rodar **phase-done** (exit-gate G-1 + review gate) — NÃO auto-avancei (intrusive-actions; usuário opta). Prestes a commitar o estado de T-004.
 - **Decision log:** (1) Mode 2/Codex para as 4 tasks F1 — disqualificador F1 (design não-assentado, design.md:77) resolvido como em F0: Opus assenta o design no briefing → spec-ready; Codex executa; Opus re-verifica na árvore mesclada. (2) **json-merge LANDED** (`src/kernel/effects/json-merge.js`, type id `jsonMerge` camelCase como `reconcileFileSet`): deep-merge aditivo, recusa overwrite de escalar, union-append idempotente, before-state `{fileCreated,inserts,createdContainers}`, revert subtrai delta + poda created containers + apaga arquivo se fileCreated&&vazio; "achar matcher '*'" é problema do consumidor F3. (3) **T-002 refcount — direção de design (assentar no briefing):** efeito `refcount` com marcadores por-dono `owners/<hash(ownerId)>` (D8, NÃO o array mutável installs.json); marker guarda o caminho do manifesto do dono. apply cria o marker do dono (before-state inclui `markerExisted` p/ idempotência — revert remove SÓ o marker que este apply criou). revert: remove o marker do dono, valida markers restantes contra o manifesto de cada dono (poda órfãos cujo manifesto sumiu), e se `owners/` ficar vazio reclama o artefato compartilhado + remove `owners/`. Sem passo de decremento → crash-safe/self-healing. Interface exata (artifactDir/ownerId/ownerManifestPath) a fixar no briefing. (4) `reviewGate`/GATE-R3 e infra `lessons/` NÃO existem nesta versão — review em prosa + review file.
-- **Single nextAction:** Iniciar T-004 (matriz adversária no round-trip) — verifier/exit-gate `node --test tests/install-uninstall-roundtrip.test.js`. SÓ edita `tests/install-uninstall-roundtrip.test.js` (scopeBoundary: não altera kernel nem efeitos). Roteamento (Mode 1 vs Codex) a decidir APÓS ler a estrutura do teste existente — é test-only mas acoplado à infra de install/uninstall LEGADA (não usa os efeitos novos; F3 é que religará). As 3 fixtures testam a segurança de dados do INSTALADOR ATUAL: (1) hook de terceiro pré-existente sobrevive; (2) refcount installs.json com 2 installs + crash-no-meio; (3) arquivo do usuário em path legado fora do safelist sobrevive.
-- **Verbatim state:** HEAD impl T-003 = `75428bd` (commit do estado `.atomic-skills` segue logo após). Verifiers F1: T-001 `test/kernel/effects/json-merge.test.js` (DONE 9/9), T-002 `test/kernel/effects/refcount.test.js` (DONE 8/8), T-003 `test/kernel/effects/legacy-prune.test.js` (DONE 8/8 + full suite 859/845/2), T-004 `node --test tests/install-uninstall-roundtrip.test.js`. Exit-gate F1 G-1: `node --test tests/install-uninstall-roundtrip.test.js`. Falhas pré-existentes (NÃO bloqueiam): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`. Branch: `plan/reversible-installer`.
-- **Uncommitted changes:** arquivo da fase F1 (status/evidence/rollups de T-003 + este handoff) + `.atomic-skills/status/dispatch-log.json` — prestes a commitar.
+- **Single nextAction:** Rodar `atomic-skills:project phase-done` para F1 — executa o exit-gate G-1 (`node --test tests/install-uninstall-roundtrip.test.js`, já verde 7/7 @`77cd386`), o review gate obrigatório (`review-code` sobre o diff da fase `c26afe1..HEAD`; diff é additive-only → `--mode=local`), distila lessons, e avança o plano para F2. Aguardando opt-in do usuário (NÃO auto-avancei).
+- **Decision log (T-004):** Mode 1 self-exec (Opus) — disqualificador F1: o design da simulação de crash contra o instalador real emergiu na implementação (não estava assentado pré-dispatch); ademais é o exit-gate verifier e acopla na infra de install/uninstall legada que eu havia internalizado. Crash modelado como entrada DUPLICADA em installs.json (artefato de retry-crashed) curada pelo `filter` de `unregisterInstall` — cenário recuperável que o instalador atual SOBREVIVE (a janela decrement→remove não-recuperável é o risco residual que o efeito refcount de T-002 fecha em F3). Fixture de legado testa só o arquivo NÃO-assinado (P3): um arquivo assinado seria apagado irreversivelmente pelo instalador atual (gap que o efeito legacy-prune fecha em F3).
+- **Verbatim state:** HEAD impl T-004 = `77cd386` (commit do estado `.atomic-skills` segue logo após). Verifiers F1 (todos DONE): T-001 `test/kernel/effects/json-merge.test.js` 9/9, T-002 `test/kernel/effects/refcount.test.js` 8/8, T-003 `test/kernel/effects/legacy-prune.test.js` 8/8, T-004 `node --test tests/install-uninstall-roundtrip.test.js` 7/7. Exit-gate F1 G-1: `node --test tests/install-uninstall-roundtrip.test.js` (verde 7/7). Diff range da fase p/ review gate: `c26afe1..HEAD`. Falhas pré-existentes (NÃO bloqueiam): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`. Branch: `plan/reversible-installer`.
+- **Uncommitted changes:** arquivo da fase F1 (status/evidence/rollups de T-004 + este handoff) + `.atomic-skills/status/dispatch-log.json` — prestes a commitar.
