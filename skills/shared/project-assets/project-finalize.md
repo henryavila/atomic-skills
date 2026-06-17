@@ -106,13 +106,21 @@ surfaces findings and routes them to a human.
 The floor is deterministic and verify-claim-able: a speculative merge of the live
 worktrees **+ the TARGET PROJECT's own build/typecheck/test/lint on the merged
 tree**, with the commands DETECTED generically — `detectProjectCommands` reads
-`package.json` scripts / `Makefile` / `pyproject.toml`, **never hardcoded to any
-stack** — so the skill stays generic across Java/JS/Python/Go/monorepo targets.
-`crossWtGate(...)` decides, in this fixed order:
+`package.json` scripts / `Makefile` / `pyproject.toml`, **never hardcoded to this
+repo's stack**. Detection covers exactly those three sources; a target whose build
+tooling is none of them (e.g. a Gradle/Go project with no `Makefile`) yields a
+**registered WARN skip**, never a silent pass — the floor degrades safely, it does
+not pretend to recognize every stack. `crossWtGate(...)` decides, in this fixed
+order:
 
 - `<2` live worktrees → `no-op` (nothing to collide with; no merge, no build).
-- the speculative merge conflicts textually → `conflict` (exit≠0) — this is the
-  **FIRST gate**, before any build/test runs.
+- a missing / throwing / indeterminate adapter → **`gate: 'block'`** (one of
+  `merge-probe-missing`, `probe-threw`, `merge-indeterminate`, `runner-missing`,
+  `runner-threw`, `runner-malformed-result`) — fail-closed: an unproven state
+  (e.g. a merge probe that does not return an explicit `conflict: false`, or a
+  runner result with no numeric exit code) never passes.
+- the speculative merge conflicts textually → `conflict` (exit≠0) — the **FIRST
+  gate** among non-block outcomes, before any build/test runs.
 - no detectable project command → a **REGISTERED `skip` (WARN)**, never a silent
   pass.
 - otherwise the detected commands run on the merged tree; a non-zero exit is the
@@ -195,12 +203,13 @@ Record the published PR so the rest of the lifecycle can find it:
   in `path` is the identity). Do **not** add a new `integrationRef` frontmatter field.
 - The recorded URL is what the F2 teardown guard **requires** as its `prIdentity`:
   `isTeardownSafe` (`scripts/worktree-teardown.js`) blocks with `pr-identity-missing`
-  when none is supplied. **Open follow-up — this doc does NOT close the handoff:** the
-  archive-flow call in `{{ASSETS_PATH}}/project-transitions.md` (`archive`) currently
-  invokes `isTeardownSafe({ branch, baseRef })` without `integrationRef`/`prIdentity`,
-  so it returns `blocked('indeterminate-base')` until that call is extended to read the
-  recorded `pr-url` and pass `{ integrationRef, prIdentity }`. Recording the identity
-  here is the producer half; wiring the consumer to read it is the open half.
+  when none is supplied. **The handoff is wired (both halves):** this Step 4 is the
+  producer (it records the `pr-url`); the consumer is the archive flow in
+  `{{ASSETS_PATH}}/project-transitions.md` (`archive` Step 5), which reads the recorded
+  `pr-url` from `references[]` and calls
+  `isTeardownSafe({ branch, baseRef, integrationRef, prIdentity })`. So a merged plan
+  whose `pr-url` is recorded no longer blocks at `indeterminate-base`/`pr-identity-missing`
+  — it resolves via the live `gh pr view`.
 - The **authoritative** integration signal is NOT this local record — it is the
   live PR state on GitHub. The teardown reads `gh pr view <prIdentity>`, where
   `<prIdentity>` is the recorded URL (the `references[]` entry's `path`), and gates

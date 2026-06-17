@@ -325,3 +325,74 @@ test('crossWtGate blocks when runner is missing and commands must run', () => {
     },
   );
 });
+
+// --- skip-guard OR halves, isolated (each test fails if its half is dropped) ---
+
+test('crossWtGate skips when detected:false even with a populated command map (flag half / precedence)', () => {
+  const result = crossWtGate({
+    liveWorktrees: ['plan/a', 'plan/b'],
+    mergeProbe: () => ({ conflict: false }),
+    runner: () => assert.fail('runner must not run when detection reports detected:false'),
+    detectedCommands: { commands: { test: 'npm test' }, detected: false },
+  });
+  assert.deepEqual(result, { outcome: 'skip', gate: 'warn', warn: true, reason: 'no-project-command' });
+  assert.notEqual(result.gate, 'pass');
+});
+
+test('crossWtGate skips when no command is detectable and no detected flag is present (length half)', () => {
+  const result = crossWtGate({
+    liveWorktrees: ['plan/a', 'plan/b'],
+    mergeProbe: () => ({ conflict: false }),
+    runner: () => assert.fail('runner must not run without a detectable command'),
+    detectedCommands: { commands: {} },
+  });
+  assert.deepEqual(result, { outcome: 'skip', gate: 'warn', warn: true, reason: 'no-project-command' });
+});
+
+// --- fail-closed: indeterminate adapter states BLOCK, never pass / never throw ---
+
+test('crossWtGate blocks on an indeterminate merge result (only an explicit clean merge proceeds)', () => {
+  for (const probe of [() => undefined, () => null, () => ({}), () => ({ conflict: 'maybe' })]) {
+    const result = crossWtGate({
+      liveWorktrees: ['plan/a', 'plan/b'],
+      mergeProbe: probe,
+      runner: () => assert.fail('runner must not run when the merge is indeterminate'),
+      detectedCommands: { commands: { test: 'npm test' }, detected: true },
+    });
+    assert.deepEqual(result, { outcome: 'error', gate: 'block', reason: 'merge-indeterminate' });
+    assert.notEqual(result.gate, 'pass');
+  }
+});
+
+test('crossWtGate never throws on null / non-object options', () => {
+  assert.doesNotThrow(() => crossWtGate(null));
+  assert.deepEqual(crossWtGate(null), { outcome: 'no-op', gate: 'pass', reason: 'single-worktree' });
+  assert.doesNotThrow(() => crossWtGate(42));
+  assert.doesNotThrow(() => crossWtGate('nope'));
+});
+
+test('crossWtGate blocks on a malformed runner result instead of reporting a command failure', () => {
+  for (const bad of [() => undefined, () => null, () => ({}), () => ({ exitCode: 'x' })]) {
+    const result = crossWtGate({
+      liveWorktrees: ['plan/a', 'plan/b'],
+      mergeProbe: () => ({ conflict: false }),
+      runner: bad,
+      detectedCommands: { commands: { test: 'npm test' }, detected: true },
+    });
+    assert.deepEqual(result, {
+      outcome: 'error',
+      gate: 'block',
+      reason: 'runner-malformed-result',
+      failedCommand: 'npm test',
+    });
+  }
+});
+
+// --- pyproject detection is anchored, not a bare substring (no false BLOCK) ---
+
+test('detectProjectCommands detects pytest only from an anchored signal, not a bare mention', () => {
+  assert.equal(detectProjectCommands({ pyproject: '[tool.pytest.ini_options]\naddopts = "-q"\n' }).commands.test, 'pytest');
+  assert.equal(detectProjectCommands({ pyproject: 'dependencies = ["pytest>=7.0"]\n' }).commands.test, 'pytest');
+  assert.deepEqual(detectProjectCommands({ pyproject: '# we used to run pytest here\n' }), { commands: {}, detected: false, sources: [] });
+  assert.deepEqual(detectProjectCommands({ pyproject: 'dependencies = ["pytest-cov"]\n' }), { commands: {}, detected: false, sources: [] });
+});

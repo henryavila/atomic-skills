@@ -38,3 +38,4 @@
 | 2026-06-17 14:14 | [wlf-f1-integrationref](2026-06-17-1414-wlf-f1-integrationref.md) | code (both) | approve | 0B/0C/0M/0m/0n (codex final; blind 1M/1m + local 1M/3m, fixes applied) | 2d/0=/0+ |
 | 2026-06-17 16:51 | [wlf-f2-teardown-squash-safe](2026-06-17-1651-wlf-f2-teardown.md) | code (both) | approve | 0B/0C/0M/0m/0n (codex final; blind 1M/1m + local 3m, fixes applied as hardening) | 2d/0=/0+ |
 | 2026-06-17 18:50 | [wlf-f3-project-finalize](2026-06-17-1850-wlf-f3-project-finalize.md) | code (both) | needs_changes→all fixed | 0B/0C/4M/0m/0n (codex final, all applied; local 1C/1M/1m) | 2d/3=/1+ |
+| 2026-06-17 20:30 | [wlf-f4-cross-wt-collision](2026-06-17-2030-wlf-f4-cross-wt-collision.md) | code (both) | needs_changes→all fixed | 0B/0C/2M/2m/0n (codex final, all applied; local 2M/4m) | 0d/3=/1+ |

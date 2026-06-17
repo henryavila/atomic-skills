@@ -73,9 +73,13 @@ function detectMakefile(commands, detectedSources, makefile) {
 function detectPyproject(commands, detectedSources, pyproject) {
   if (Object.hasOwn(commands, 'test') || typeof pyproject !== 'string') return;
 
-  // Simple heuristic by contract: recognize pytest configuration sections or
-  // pytest named in common dependency text, without parsing TOML.
-  if (/\[tool\.pytest(?:[.\]\s]|$)/.test(pyproject) || /pytest/.test(pyproject)) {
+  // Anchored heuristic (no TOML parse): a [tool.pytest...] config section, OR a
+  // quoted `pytest` dependency token NOT followed by a word char or hyphen. A
+  // bare substring would false-match a comment, a URL, or `pytest-cov` →
+  // spuriously detecting a non-existent suite and BLOCKING finalize.
+  const hasConfigSection = /\[tool\.pytest(?:[.\]\s]|$)/.test(pyproject);
+  const hasQuotedDependency = /["']pytest(?![\w-])/.test(pyproject);
+  if (hasConfigSection || hasQuotedDependency) {
     addCommand(commands, detectedSources, 'test', 'pytest', 'pyproject.toml');
   }
 }
@@ -130,12 +134,17 @@ export function detectProjectCommands(sources = {}) {
  * @param {object} options
  * @returns {object}
  */
-export function crossWtGate({
-  liveWorktrees = [],
-  mergeProbe,
-  runner,
-  detectedCommands,
-} = {}) {
+export function crossWtGate(options = {}) {
+  // Normalize INSIDE the function: a `= {}` default param only covers
+  // `undefined`, so `crossWtGate(null)` (or any non-object) would throw on
+  // destructure — violating the never-throws contract. Coerce first.
+  const {
+    liveWorktrees = [],
+    mergeProbe,
+    runner,
+    detectedCommands,
+  } = options == null || typeof options !== 'object' ? {} : options;
+
   const liveWorktreeCount = Array.isArray(liveWorktrees) ? liveWorktrees.length : 0;
   if (liveWorktreeCount < 2) {
     return { outcome: 'no-op', gate: 'pass', reason: 'single-worktree' };
@@ -162,6 +171,14 @@ export function crossWtGate({
     };
   }
 
+  // Fail closed on an indeterminate merge: ONLY an explicit clean merge
+  // (`conflict === false`) may proceed past the gate. An `undefined`/`null`/`{}`/
+  // malformed probe result is NOT proven-clean — treating it as clean would let
+  // finalize publish after an unproven merge state (P3: indeterminação BLOQUEIA).
+  if (!mergeResult || mergeResult.conflict !== false) {
+    return { outcome: 'error', gate: 'block', reason: 'merge-indeterminate' };
+  }
+
   const commandMap = commandMapFrom(detectedCommands);
   const commandsToRun = orderedCommands(commandMap);
   if (hasDetectedFlag(detectedCommands) || commandsToRun.length === 0) {
@@ -182,11 +199,23 @@ export function crossWtGate({
     }
 
     ranCommands.push(command);
-    if (!result || result.exitCode !== 0) {
+    // A malformed runner result (no numeric exitCode) is an INDETERMINATE adapter
+    // state, not a genuine command failure — classify it as `block`, not `fail`
+    // (same fail-closed asymmetry as the merge probe; never report a build failure
+    // we did not actually observe).
+    if (!result || typeof result.exitCode !== 'number') {
+      return {
+        outcome: 'error',
+        gate: 'block',
+        reason: 'runner-malformed-result',
+        failedCommand: command,
+      };
+    }
+    if (result.exitCode !== 0) {
       return {
         outcome: 'fail',
         gate: 'fail',
-        exitCode: result?.exitCode,
+        exitCode: result.exitCode,
         failedCommand: command,
         reason: 'project-command-failed',
       };
