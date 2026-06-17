@@ -7,11 +7,11 @@ goal: 'introduzir um ref de integração configurável (default `develop`)
   `additionalProperties: false` e descrito como "Mode 2 routing"), e um
   resolvedor que lê o ref, aplica o default e sinaliza ausência para o prompt
   lazy no ponto de consumo (o finalize, F3).'
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T12:26:23Z
-lastUpdated: 2026-06-17T13:48:57Z
-nextAction: "All F1 tasks done (2/2) — run phase-done to verify exit gates G-1/G-2 + mandatory review gate, distill lessons, advance to F2"
+lastUpdated: 2026-06-17T15:15:13Z
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F1
 tasksDone: 2
@@ -145,7 +145,7 @@ summary: Ref de integração configurável (default develop) em routing.json, co
   resolvedor e prompt-quando-ausente.
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T13:57:37.504Z",
+  "generatedAt": "2026-06-17T15:16:51.272Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "worktree-lifecycle-finalization",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "worktree-lifecycle-finalization-f1-integrationref-configuravel",
-    "title": "integrationRef configurável + branch develop (Decisão 2)",
-    "index": 2,
+    "id": "F2",
+    "slug": "worktree-lifecycle-finalization-f2-teardown-seguro-squash-safe",
+    "title": "Teardown seguro squash-safe contra integrationRef (Decisão 4)",
+    "index": 3,
     "total": 8,
     "status": "active"
   },
   "tasks": {
-    "done": 2,
-    "total": 2,
+    "done": 0,
+    "total": 1,
     "blocked": 0
   },
   "gates": {
-    "met": 2,
+    "met": 0,
     "total": 2
   },
-  "nextAction": "All F1 tasks done (2/2) — run phase-done to verify exit gates G-1/G-2 + mandatory review gate, distill lessons, advance to F2",
+  "nextAction": "Start T-001: Liveness gh + veto ancorado no headRefOid, com 2 testes-oráculo de squash",
   "flags": {
     "drift": false,
     "multipleActivePlans": false,
@@ -33,11 +33,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/plan.md",
-      "lastUpdated": "2026-06-17T12:26:23Z"
+      "lastUpdated": "2026-06-17T15:15:13Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f1-integrationref-configuravel.md",
-      "lastUpdated": "2026-06-17T13:48:57Z"
+      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f2-teardown-seguro-squash-safe.md",
+      "lastUpdated": "2026-06-17T15:15:13Z"
     }
   ]
 }

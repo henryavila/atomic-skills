@@ -5,9 +5,9 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T12:26:23Z
+lastUpdated: 2026-06-17T15:15:13Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -177,7 +177,7 @@ phases:
             passed: true
             outputSummary: "node --test tests/routing-schema.test.js (tests 4, pass 4)
               && npm run validate-skills (All 15 skills valid) @ af6c934, exit 0."
-    status: pending
+    status: done
     reviewGate:
       status: passed
       at: 357f49e
