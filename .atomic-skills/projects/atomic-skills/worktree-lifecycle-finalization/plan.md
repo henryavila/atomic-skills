@@ -5,9 +5,9 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-16T22:50:35.627Z
+lastUpdated: 2026-06-17T12:26:23Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -93,18 +93,40 @@ phases:
           description: "Fork incondicional na criação: solo agora forka plan/<slug>;
             planBranchName intacto; Stage 6 declara fork incondicional; suite
             verde."
-          status: pending
+          status: met
+          metAt: 2026-06-17T12:26:23Z
           verifier:
             kind: test
             runner: node
             pattern: tests/plan-branch-policy.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T12:26:23Z
+            exitCode: 0
+            testsCollected: 9
+            passed: true
+            outputSummary: "node --test tests/plan-branch-policy.test.js @ 01c2455:
+              tests 9, pass 9, fail 0 (incl. tightened Stage-6 doc-test)."
         - id: G-2
           description: emit-focus permanece intacto (Decisão 1 não o toca) e skills válidos.
-          status: pending
+          status: met
+          metAt: 2026-06-17T12:26:23Z
           verifier:
             kind: shell
             command: node --test tests/focus-digest.test.js && npm run validate-skills
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T12:26:23Z
+            exitCode: 0
+            passed: true
+            outputSummary: "focus-digest 11/11 (emit-focus intact) && validate-skills:
+              All 15 skills valid @ 01c2455."
+    status: done
+    reviewGate:
+      status: passed
+      at: 01c2455
+      mode: local
+      verifiedAt: 2026-06-17T12:26:23Z
     summary: Toda criação de plano forka branch+worktree (always-fork), revertendo o
       default lazy.
   - id: F1

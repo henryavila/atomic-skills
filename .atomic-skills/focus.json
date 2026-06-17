@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T12:20:15.726Z",
+  "generatedAt": "2026-06-17T13:19:33.069Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "worktree-lifecycle-finalization",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F0",
-    "slug": "worktree-lifecycle-finalization-f0-always-fork-na-criacao-decis",
-    "title": "Always-fork na criação (Decisão 1)",
-    "index": 1,
+    "id": "F1",
+    "slug": "worktree-lifecycle-finalization-f1-integrationref-configuravel",
+    "title": "integrationRef configurável + branch develop (Decisão 2)",
+    "index": 2,
     "total": 8,
     "status": "active"
   },
   "tasks": {
-    "done": 1,
-    "total": 1,
+    "done": 0,
+    "total": 2,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 2
   },
-  "nextAction": "T-001 done (verifier 9/9 na árvore mergeada 789ca16). Rodar phase-done F0 (gates G-1/G-2 + review-code) para avançar à F1.",
+  "nextAction": "Start T-001: Estender o schema de routing com integrationRef",
   "flags": {
     "drift": false,
     "multipleActivePlans": false,
@@ -33,11 +33,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/plan.md",
-      "lastUpdated": "2026-06-16T22:50:35.627Z"
+      "lastUpdated": "2026-06-17T12:26:23Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f0-always-fork-na-criacao-decis.md",
-      "lastUpdated": "2026-06-17T11:58:35Z"
+      "path": ".atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/phases/f1-integrationref-configuravel.md",
+      "lastUpdated": "2026-06-17T12:26:23Z"
     }
   ]
 }

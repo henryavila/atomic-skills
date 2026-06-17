@@ -6,35 +6,53 @@ goal: tornar o fork de `plan/<slug>` + worktree INCONDICIONAL na criação do
   plano (Stage 6), revertendo o default lazy anterior — reusando o mecanismo de
   stamp/worktree e invertendo só o gatilho, sem tocar `emit-focus` nem o Step
   0.5 do implement.
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T11:58:35Z
-nextAction: T-001 done (verifier 9/9 na árvore mergeada 789ca16). Rodar
-  phase-done F0 (gates G-1/G-2 + review-code) para avançar à F1.
+lastUpdated: 2026-06-17T12:26:23Z
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F0
 tasksDone: 1
 tasksTotal: 1
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: "Fork incondicional na criação: solo agora forka plan/<slug>;
       planBranchName intacto; Stage 6 declara fork incondicional; suite verde."
-    status: pending
+    status: met
+    metAt: 2026-06-17T12:26:23Z
     verifier:
       kind: test
       runner: node
       pattern: tests/plan-branch-policy.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T12:26:23Z
+      exitCode: 0
+      testsCollected: 9
+      passed: true
+      outputSummary: "node --test tests/plan-branch-policy.test.js @ 01c2455: tests 9,
+        pass 9, fail 0."
     verifierLabel: "test: node tests/plan-branch-policy.test.js"
+    evidenceSummary: passed · 9 tests · 2026-06-17
   - id: G-2
     description: emit-focus permanece intacto (Decisão 1 não o toca) e skills válidos.
-    status: pending
+    status: met
+    metAt: 2026-06-17T12:26:23Z
     verifier:
       kind: shell
       command: node --test tests/focus-digest.test.js && npm run validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T12:26:23Z
+      exitCode: 0
+      passed: true
+      outputSummary: focus-digest 11/11 (emit-focus intact) && validate-skills 15/15 @
+        01c2455.
     verifierLabel: "shell: node --test tests/focus-digest.test.js && npm run validate-…"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: Always-fork na criação (Decisão 1)
