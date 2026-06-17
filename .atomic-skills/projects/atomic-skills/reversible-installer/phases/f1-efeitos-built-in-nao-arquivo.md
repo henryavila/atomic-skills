@@ -7,11 +7,11 @@ goal: implementar os 3 efeitos não-arquivo com before-state preciso e revert se
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T16:41:21.000Z
-lastUpdated: 2026-06-17T18:27:36.000Z
-nextAction: "Start T-003: — Efeito legacy-prune (safelist por frontmatter)"
+lastUpdated: 2026-06-17T18:38:53.000Z
+nextAction: "Start T-004: — Matriz adversária no round-trip parity test"
 parentPlan: reversible-installer
 phaseId: F1
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
@@ -106,8 +106,29 @@ tasks:
       pattern: test/kernel/effects/refcount.test.js
   - id: T-003
     title: Efeito legacy-prune (safelist por frontmatter)
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-17T18:38:53.000Z
+    closedAt: 2026-06-17T18:38:53.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T18:38:53.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 8
+      outputSummary: "Re-run on MERGED primary @75428bd: node --test
+        test/kernel/effects/legacy-prune.test.js — tests 8, pass 8, fail 0.
+        Porta isAtomicSkillsArtifact (regex de frontmatter name idêntica) +
+        safelist + findLegacyOrphans + removeLegacyOrphans num efeito genérico
+        (safelist/legacyDirs são parâmetros do consumidor, kernel não importa
+        install.js). apply apaga só arquivo com name: em knownNames (preserva
+        sem assinatura — P3, knownNames.has(undefined)=false), grava
+        {path,content}; revert restaura byte-a-byte (round-trip exato). Walkback
+        path-aware até o namespace root, path-safety em apply+revert. Cobre os 3
+        acceptance + path-safety + restore + prune + roots ausentes (L-001/L-002).
+        Full npm test: tests 859, pass 845, fail 2 (as 2 pré-existentes do
+        dashboard: DEFAULT_BUNDLE_DIR + dashboard bundle built — zero regressão
+        do kernel). Executor: codex lane, worktree impl/ri-f1-t003 (self-report
+        sub-contou tests=1; re-run na primária = 8, L-003)."
     summary: "legacy-prune com safelist de frontmatter: sem prova de propriedade,
       não apaga."
     description: Porta isAtomicSkillsArtifact (src/install.js:298-314), a safelist
@@ -170,9 +191,8 @@ Ratificadas em `lessons/reversible-installer-f0-effect-kernel-file-reconciler.md
 - Plano: `../../plan.md` · Design: `../../design.md` · Lessons F0: `../lessons/reversible-installer-f0-effect-kernel-file-reconciler.md`
 
 ## Session handoff
-- **Narrative:** F1 em 2/4. **T-001 (json-merge) DONE** (impl `5e0261b`, estado `69a4865`, 9/9). **T-002 (refcount) DONE** via Codex (worktree `impl/ri-f1-t002`, merge-back FF → primária `ade1120`); re-run na árvore mesclada `node --test test/kernel/effects/refcount.test.js` = tests 8, pass 8, fail 0 (self-report sub-contou tests=1, L-003). GATE-R2 verde, telemetria gravada. Próxima: T-003 legacy-prune. Prestes a commitar o estado `.atomic-skills` de T-002 (a impl já está em `ade1120`).
+- **Narrative:** F1 em 3/4. **T-001 (json-merge) DONE** (impl `5e0261b`, estado `69a4865`, 9/9). **T-002 (refcount) DONE** (impl `ade1120`, estado `e1b0596`, 8/8). **T-003 (legacy-prune) DONE** via Codex (worktree `impl/ri-f1-t003`, merge-back FF → primária `75428bd`); re-run na árvore mesclada = tests 8, pass 8, fail 0 + full `npm test` 859/845/2 (as 2 fails são pré-existentes do dashboard, zero regressão do kernel). GATE-R2 verde, telemetria gravada. Próxima e última de F1: T-004 (matriz adversária no round-trip). Prestes a commitar o estado de T-003 (a impl já está em `75428bd`).
 - **Decision log:** (1) Mode 2/Codex para as 4 tasks F1 — disqualificador F1 (design não-assentado, design.md:77) resolvido como em F0: Opus assenta o design no briefing → spec-ready; Codex executa; Opus re-verifica na árvore mesclada. (2) **json-merge LANDED** (`src/kernel/effects/json-merge.js`, type id `jsonMerge` camelCase como `reconcileFileSet`): deep-merge aditivo, recusa overwrite de escalar, union-append idempotente, before-state `{fileCreated,inserts,createdContainers}`, revert subtrai delta + poda created containers + apaga arquivo se fileCreated&&vazio; "achar matcher '*'" é problema do consumidor F3. (3) **T-002 refcount — direção de design (assentar no briefing):** efeito `refcount` com marcadores por-dono `owners/<hash(ownerId)>` (D8, NÃO o array mutável installs.json); marker guarda o caminho do manifesto do dono. apply cria o marker do dono (before-state inclui `markerExisted` p/ idempotência — revert remove SÓ o marker que este apply criou). revert: remove o marker do dono, valida markers restantes contra o manifesto de cada dono (poda órfãos cujo manifesto sumiu), e se `owners/` ficar vazio reclama o artefato compartilhado + remove `owners/`. Sem passo de decremento → crash-safe/self-healing. Interface exata (artifactDir/ownerId/ownerManifestPath) a fixar no briefing. (4) `reviewGate`/GATE-R3 e infra `lessons/` NÃO existem nesta versão — review em prosa + review file.
-- **Single nextAction:** Despachar T-003 (legacy-prune) a um novo worktree `/home/henry/atomic-skills/.worktrees/wt-ri-f1-t003` (branch `impl/ri-f1-t003`, base = HEAD da primária após o commit do estado de T-002), verifier `node --test test/kernel/effects/legacy-prune.test.js`. Criar `src/kernel/effects/legacy-prune.js` + `test/kernel/effects/legacy-prune.test.js`. Porta `src/install.js:280-290` (safelist HISTORICAL_ATOMIC_SKILLS_NAMES), `:298-314` (isAtomicSkillsArtifact), `:327-351` (findLegacyOrphans), `:353+` (removeLegacyOrphans).
-- **Decision log (T-003 design a assentar no briefing):** efeito `legacy-prune` REVERSÍVEL. `apply({basePath, legacyPaths, knownCurrentNames})`: varre os paths legados sob o namespace; um arquivo só é APAGADO se `isAtomicSkillsArtifact` (assinatura de frontmatter `name:` na safelist histórica OU nos nomes atuais) — caso contrário PRESERVA (P3: sem prova de propriedade não apaga); before-state = `{ pruned: [{path, content}] }` (conteúdo dos apagados p/ reversibilidade). poda parents vazios até o namespace root. `revert`: restaura cada `{path, content}` de `pruned` (recria dirs) — exigido p/ round-trip byte-exato (um arquivo legado pré-existente apagado no install é restaurado no uninstall). Path-safety `resolveWithinBase`. Design totalmente assentado pelo código existente — candidato Codex limpo.
-- **Verbatim state:** HEAD impl T-002 = `ade1120` (commit do estado `.atomic-skills` segue logo após). Verifiers F1: T-001 `test/kernel/effects/json-merge.test.js` (DONE 9/9), T-002 `test/kernel/effects/refcount.test.js` (DONE 8/8), T-003 `test/kernel/effects/legacy-prune.test.js`, T-004 `node --test tests/install-uninstall-roundtrip.test.js`. Exit-gate F1 G-1: `node --test tests/install-uninstall-roundtrip.test.js`. Falhas pré-existentes (NÃO bloqueiam): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`. Branch: `plan/reversible-installer`.
-- **Uncommitted changes:** arquivo da fase F1 (status/evidence/rollups de T-002 + este handoff) + `.atomic-skills/status/dispatch-log.json` — prestes a commitar.
+- **Single nextAction:** Iniciar T-004 (matriz adversária no round-trip) — verifier/exit-gate `node --test tests/install-uninstall-roundtrip.test.js`. SÓ edita `tests/install-uninstall-roundtrip.test.js` (scopeBoundary: não altera kernel nem efeitos). Roteamento (Mode 1 vs Codex) a decidir APÓS ler a estrutura do teste existente — é test-only mas acoplado à infra de install/uninstall LEGADA (não usa os efeitos novos; F3 é que religará). As 3 fixtures testam a segurança de dados do INSTALADOR ATUAL: (1) hook de terceiro pré-existente sobrevive; (2) refcount installs.json com 2 installs + crash-no-meio; (3) arquivo do usuário em path legado fora do safelist sobrevive.
+- **Verbatim state:** HEAD impl T-003 = `75428bd` (commit do estado `.atomic-skills` segue logo após). Verifiers F1: T-001 `test/kernel/effects/json-merge.test.js` (DONE 9/9), T-002 `test/kernel/effects/refcount.test.js` (DONE 8/8), T-003 `test/kernel/effects/legacy-prune.test.js` (DONE 8/8 + full suite 859/845/2), T-004 `node --test tests/install-uninstall-roundtrip.test.js`. Exit-gate F1 G-1: `node --test tests/install-uninstall-roundtrip.test.js`. Falhas pré-existentes (NÃO bloqueiam): `serve constants > DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been built (E.T-005 prerequisite)`. Branch: `plan/reversible-installer`.
+- **Uncommitted changes:** arquivo da fase F1 (status/evidence/rollups de T-003 + este handoff) + `.atomic-skills/status/dispatch-log.json` — prestes a commitar.
