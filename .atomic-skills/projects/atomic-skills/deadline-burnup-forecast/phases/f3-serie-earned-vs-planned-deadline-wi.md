@@ -8,19 +8,20 @@ goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T12:50:33Z
-lastUpdated: 2026-06-19T15:32:42Z
-nextAction: "Dispatch Codex (Mode 2) para T-002 (buildSeries: burnup.json + spi.json)
-  em novo worktree; work-order DEVE carregar L-001 (Number.isFinite nos escalares
-  emit: plannedValue/earnedCount/earnedProxy/spiProxy/spiCount) + L-003 (teste em
-  tests/ plural); merge-back serial; re-verificar no primary: node --test
-  tests/emit-series.test.js && node --test tests/schema-drift.test.js"
+lastUpdated: 2026-06-19T16:31:18Z
+nextAction: "Dispatch Codex (Mode 2) para T-003 (ligar emit-consumer-state ao
+  refresh-state, ADITIVO, sem regredir rollups/reconcile/emitFocus) em novo
+  worktree; merge-back serial; re-verificar no primary: node --test
+  tests/refresh-state.test.js. É o ÚLTIMO task de F3 → ao fechar, oferecer
+  phase-done (review gate; considerar --mode=both por L-001 design-brief, F3 add
+  $defs de schema)."
 parentPlan: deadline-burnup-forecast
 phaseId: F3
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -58,8 +59,26 @@ tasks:
         (spawnSync), adjudicado no primary.
   - id: T-002
     title: "— buildSeries: burnup.json + spi.json"
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T16:31:18Z
+    lastUpdated: 2026-06-19T16:31:18Z
+    verifier:
+      kind: shell
+      command: node --test tests/emit-series.test.js && node --test
+        tests/schema-drift.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T16:31:18Z
+      passed: true
+      exitCode: 0
+      testsCollected: 3
+      outputSummary: "node --test emit-series (2 pass: buildSeries unit + round-trip)
+        && schema-drift (1 pass), 0 fail, exit 0, MERGED primary 90b4366. Suíte
+        completa 911 pass / 8 fail PRÉ-EXISTENTES (install/countSkills), 0
+        regressão nova (emit-consumer-state round-trip ajustado 11→13 @90b4366).
+        Executor Codex Mode2 worktree codex/f3-t002; revisão Opus: impl fiel ao
+        spec, teste assere valores concretos re-derivados (não circular), guards
+        Number.isFinite presentes (L-001)."
   - id: T-003
     title: — Ligar emit ao refresh-state sem regredir emitFocus
     status: pending
@@ -86,11 +105,11 @@ Initiative for phase **F3 — Série earned-vs-planned + deadline + wiring de re
 - **T-002 design (settled, ratificado pelo usuário):** O emitter é whole-tree (sem filtro de plano hoje) → `buildSeries()` **agrupa por (projectId, planSlug)**, registros taggeados por plano (como `plans.json`). Por plano: `weightTotal` **plan-wide** = Σ `weightOf(task)` sobre todas as tasks de todas as fases (live+archive), `weightOf = Number.isFinite(w)&&w>=0 ? w : 1` (**L-001**); `tasksTotal` plan-wide = contagem de tasks. buckets = dias UTC distintos com ≥1 evento (esparso). `earnedCount`/`earnedProxy` = soma ACUMULADA de `weight` por `weightBasis` 'count'/'proxy' (séries SEPARADAS). `plannedValue(dia) = deadline ? weightTotal*clamp((dia−started)/(deadline−started),0,1) : null` (CRESCENTE). **burnup.json** = `{projectId,planSlug,date,plannedValue|null,earnedCount,earnedProxy}`. **spi.json** (1/plano) = `{projectId,planSlug,asOf,spiProxy|null,spiCount|null}`; `spiProxy = earnedProxyNow/plannedNow`; **`spiCount = earnedCountNow/plannedCountNow`** com `plannedCountNow = tasksTotal_planwide × fração-de-tempo` (count-scale, ratificado); bordas null = sem deadline / planned zero / now fora de [started,deadline]. Todo escalar emitido guardado com `Number.isFinite` (**L-001**). `$defs.burnup`/`$defs.spi` (additionalProperties:false) + regen bundle. Teste `tests/emit-series.test.js` (**L-003**, plural). Output em `.aideck/state/`.
 
 ## Session handoff
-- **Narrative:** F3 ativa, **1/3 tasks done** (T-001 fechada @228acbe). Design de T-002 (buildSeries) **totalmente settled + ratificado** (ver Decisions: contradição burn-up resolvida @e1fdd8a; shapes de burnup.json/spi.json; spiCount count-scale). Prestes a **dispatchar Codex (Mode 2)** para T-002 no worktree `codex/f3-t002` — este snapshot é o checkpoint pré-dispatch (HARD-GATE R-EXEC-15).
-- **Decision log:** ver `## Decisions` acima. Nota de execução T-001: verifier in-worktree do Codex deu falso-fail por `spawnSync node EPERM` (sandbox bloqueia spawn do test-runner) → adjudicado no primary merged. Telemetria em `dispatch-log.json`.
-- **Single nextAction:** Criar worktree `.worktrees/codex-f3-t002` (branch `codex/f3-t002` de HEAD `e1fdd8a`+snapshot), dispatchar `codex exec --sandbox workspace-write` com o work-order de T-002 (contrato settled nas Decisions); ler `git -C <wt> diff`; REVISAR impl + adequação do teste (risco de teste circular auto-escrito); merge-back serial; re-verificar no primary: `node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js`; `done T-002`.
-- **Verbatim state:** HEAD primary `e1fdd8a` (design.md fix) + commit de estado pendente deste snapshot. branch `plan/deadline-burnup-forecast`. currentPhase=F3, **tasksDone 1/3, weightDone 1/3**. T-002 files: `scripts/emit-consumer-state.js`, `meta/schemas/aideck-state.schema.json`, `assets/aideck-consumer/schema.json`, `tests/emit-series.test.js`. T-002 verifier: `node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js`. Fontes-chave (orientação): completions em `.atomic-skills/analytics/completions.jsonl` (campos ts/event/projectId/planSlug/phaseId/taskId/weight/weightBasis; event enum task-done|phase-done|reconcile; weightBasis count|proxy); append via `scripts/append-completion.js`; weightOf canônico em `scripts/compute-rollups.js:37`; emitter escreve bare-arrays em `<root>/.aideck/state/<key>.json` (writeState itera Object.entries → nova key auto-emite); validação via `scripts/validate-aideck-state.js` (#/definitions/<id>); $defs em `meta/schemas/aideck-state.schema.json` (plural keys). Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suite: 8 falhas PRÉ-EXISTENTES (install/countSkills, fora de escopo).
-- **Uncommitted changes:** este snapshot (f3-*.md) está prestes a ser committado; resto do tree limpo. Worktree do Codex para T-002 ainda não criado.
+- **Narrative:** F3 ativa, **2/3 tasks done** (T-001 @228acbe, T-002 @90b4366). T-002 (buildSeries → burnup.json+spi.json) executada por Codex (Mode2, worktree `codex/f3-t002`), revisada (impl fiel, teste não-circular, guards L-001), merge-back FF, verifier PASS no primary merged, +1 fix de regressão Mode1 (emit-consumer-state round-trip 11→13). Worktree removido. Resta **T-003** (último de F3).
+- **Decision log:** ver `## Decisions` acima. Padrão de execução confirmado nos 2 tasks: verifier in-worktree do Codex dá falso-fail por `spawnSync EPERM` (sandbox) → adjudicação real no primary merged (fora do sandbox). Telemetria T-001+T-002 em `dispatch-log.json`. Atenção T-002: `emit-consumer-state.js` é "binário" pro git (box-drawing) → merge-back via commit-no-worktree + `git merge --ff-only`, NÃO patch.
+- **Single nextAction:** Criar worktree `.worktrees/codex-f3-t003` (branch `codex/f3-t003` de HEAD), dispatchar Codex p/ T-003 (ADITIVO: refresh-state.js dispara emit-consumer-state além de rollups/reconcile/emitFocus; NÃO remover/alterar os 3 passos existentes; idempotente, fail-open); merge-back serial; re-verificar no primary: `node --test tests/refresh-state.test.js`; `done T-003`. T-003 é o ÚLTIMO de F3 → ao fechar, `done` oferece **phase-done** (review gate; por L-001 design-brief considerar `--mode=both` pois F3 adicionou $defs de schema = porta de mão única).
+- **Verbatim state:** HEAD primary `90b4366` + commit de estado pendente deste snapshot. branch `plan/deadline-burnup-forecast`. currentPhase=F3, **tasksDone 2/3, weightDone 2/3**. T-003 files: `scripts/refresh-state.js`, `tests/refresh-state.test.js`. T-003 verifier: `node --test tests/refresh-state.test.js`. Gap a fechar (T-003): refresh-state.js hoje roda computeRollupsDir+reconcileDir+emitFocus mas NÃO invoca emit-consumer-state (`emitConsumerState`). Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 925 tests, 911 pass, 8 fail PRÉ-EXISTENTES (install/countSkills/installSkills — drift do plano skills-restructuring, fora de escopo).
+- **Uncommitted changes:** este snapshot (f3-*.md + focus.json regen + dispatch-log.json) está prestes a ser committado; resto do tree limpo. Sem worktree Codex ativo.
 
 ## Links
 

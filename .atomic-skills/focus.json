@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T15:31:50.572Z",
+  "generatedAt": "2026-06-19T16:31:38.210Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 1,
+    "done": 2,
     "total": 3,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Dispatch Codex (Mode 2) para T-001 no worktree .worktrees/codex-f3-t001; ler diff, verificar no primary merged (node --test tests/schema-drift.test.js), done T-001",
+  "nextAction": "Dispatch Codex (Mode 2) para T-002 (buildSeries: burnup.json + spi.json) em novo worktree; work-order DEVE carregar L-001 (Number.isFinite nos escalares emit: plannedValue/earnedCount/earnedProxy/spiProxy/spiCount) + L-003 (teste em tests/ plural); merge-back serial; re-verificar no primary: node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f3-serie-earned-vs-planned-deadline-wi.md",
-      "lastUpdated": "2026-06-19T12:50:33Z"
+      "lastUpdated": "2026-06-19T15:32:42Z"
     }
   ]
 }

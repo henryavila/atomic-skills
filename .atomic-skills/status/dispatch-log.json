@@ -286,5 +286,21 @@
     "finishedAt": "2026-06-19T15:31:04Z",
     "codexWorktreeRef": "codex/f3-t001",
     "routingReason": "lane on + F1 spec-ready (settled: deadline optional $ref isoTimestamp) + F2 shell verifier (schema-drift); user-confirmed Codex routing for F3 batch (serial, coupled by bundle). In-worktree verifier hit sandbox spawnSync node EPERM (false-fail on the test-runner child spawn); adjudicated PASS on MERGED primary 228acbe (node --test tests/schema-drift.test.js — 1 test, 1 pass, 0 fail, no drift). Opus read diff: one optional $ref property in plan.schema + regenerated bundle, no required[] addition, no .atomic-skills/ touch."
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F3",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T16:20:00Z",
+    "finishedAt": "2026-06-19T16:31:18Z",
+    "codexWorktreeRef": "codex/f3-t002",
+    "routingReason": "lane on + F1 spec-ready APÓS hardening Opus (contradição burn-up design.md vs SPEC surfaçada+resolvida @e1fdd8a; contrato burnup/spi + spiCount count-scale ratificados pelo usuário) + F2 shell verifier. PASS no MERGED primary 90b4366 (emit-series 2 + schema-drift 1, 0 fail). 1 follow-up Opus Mode1: regressão de contagem 11→13 em emit-consumer-state.test.js (consequência direta dos 2 arquivos emitidos novos). Revisão Opus: impl fiel ao spec; teste assere valores concretos re-derivados (não circular); guards Number.isFinite em todo escalar emitido (L-001); teste em tests/ plural (L-003). Suíte: 911 pass / 8 fail pré-existentes, 0 regressão nova."
   }
 ]
