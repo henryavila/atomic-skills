@@ -365,6 +365,33 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   reconcileFileSet), `revert` lê de lá (fallback `ctx.path` p/ chamadas diretas) +
   teste de integração `test/driver/json-merge-roundtrip.test.js` (suíte do pacote
   58→60). **Pendência de publish:** o `^0.1.x` publicado precisa incluir 02dbba3.
+- **2026-06-19 — T-F3-4 = FLIP COMPLETO (Opção B), escolhido pelo usuário após a
+  investigação revelar que "fino sobre o Driver" colide com o contrato de testes.**
+  Achados que guiam a execução: (a) `src/kernel/` não é importado por nada em `src/`
+  (só `test/kernel/*`) — o install.js sempre teve lógica bespoke; (b) tornar fino troca
+  o manifesto `{files:{}}` → journal `{effects:[]}`, com ripple nos leitores
+  `uninstall.js`/`status.js`/`normalize.js`/`ui.js`; (c) 8 arquivos de teste prendem
+  `install`/`installSkills`/`installRuntimeArtifacts`/`registerInstall`/
+  `removeAutoUpdateHook` + comportamento exato → serão migrados; (d) **refcount + runtime
+  global ficam ORQUESTRADOS FORA do journal** (o `replayReverse` descarta o
+  `lastOwnerReleased` do `refcount.revert`; parte explícita da Opção B escolhida) —
+  `installRuntimeArtifacts`/`removeRuntimeArtifacts`/`registerInstall`/`unregisterInstall`
+  permanecem como helpers orquestrados (G-3: allowlist documentada). Plano: (1)
+  `src/installer.js` (defineInstaller do install-base: skills+autoUpdate providers +
+  stageRuntimeArtifacts effect); (2) manifesto→journal + migrar leitores; (3)
+  install/uninstall finos + migrar 8 testes; (4) remover `src/kernel/`+`test/kernel/`,
+  podar bespoke morto, atualizar mapa CLAUDE.md; (5) suíte verde + round-trip + matriz.
+  ONE-WAY: a suíte fica vermelha durante; só fecha com `npm test` verde.
+- **2026-06-19 — 🚧 GATE DE MERGE DIFERIDO por decisão do usuário ("faça tudo na branch
+  atual, o merge será feito depois").** T-F3-4 (flip) e T-F3-5 (paridade) serão feitos
+  AGORA sobre o `install.js`/`uninstall.js` ATUAIS desta branch (`plan/reversible-installer`),
+  NÃO sobre o já-mergeado. Consequência aceita pelo usuário: o merge posterior de
+  `plan/skills-restructuring` (==`plan/plan-fork`, `5e54974`, +153 linhas aditivas em
+  `install.js`: `installSkills`/`installAutoUpdateHook`/`removeAutoUpdateHook`) NÃO será
+  auto-mergeável — o flip reescreve/remove a estrutura do `install.js`, então o merge
+  exigirá resolução manual (mapear as adições daquela branch para o provider/runtime-layers
+  novos). O `install.js` atual JÁ contém `installAutoUpdateHook`/`installSkills`; conferir
+  na investigação se skills-restructuring adiciona algo além disso.
 - **2026-06-19 — T-F3-6 (migração legada) DONE em Mode 1.** Roteamento: Mode 1 (Opus
   single-threaded), NÃO Codex — F1 spec-readiness não cumprida ao dispatch (path do
   módulo + mecanismo de adoção legado→journal não fechados) e é trabalho crítico de
