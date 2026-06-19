@@ -88,12 +88,19 @@ phases:
           description: closedAt é auditável (soft) e closedAt+lastUpdated são emitidos na
             projeção e admitidos no schema (sem drift); nenhum closedAt
             retroativo é inventado.
-          status: pending
+          status: met
+          metAt: 2026-06-19T09:15:51Z
           verifier:
             kind: shell
             command: node --test tests/find-unclosed-done.test.js && node --test
               tests/emit-consumer-state.test.js && node --test
               tests/schema-drift.test.js
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T09:15:51Z
+            passed: true
+            exitCode: 0
+            outputSummary: "G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0; auditor also green on live tree (every done task has closedAt)"
     status: active
     summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill
       cosmético.

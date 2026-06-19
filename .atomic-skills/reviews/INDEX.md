@@ -38,3 +38,4 @@
 | 2026-06-17 14:02 | [deadline-burnup-forecast (rev2)](2026-06-17-1402-plan-deadline-burnup-forecast-rev2.md) | plan | needs_changes→all fixed | 0B/0C/6M/0m/0n | 1d/5=/1+ |
 | 2026-06-17 15:08 | [deadline-burnup-forecast (rev3)](2026-06-17-1508-plan-deadline-burnup-forecast-rev3.md) | plan | needs_changes→all fixed | 0B/0C/4M/0m/0n | 1d/4=/0+ |
 | 2026-06-17 19:38 | [deadline-burnup-forecast-f0](2026-06-17-1938-code-deadline-burnup-forecast-f0.md) | code (local) | needs_changes→all fixed | 0B/1C/1M/1m/0n | — |
+| 2026-06-19 09:20 | [deadline-burnup-forecast-f1](2026-06-19-0920-code-deadline-burnup-forecast-f1.md) | code (local) | approved | 0B/0C/0M/3m/0n (all advisory; m2→F4 lesson) | — |
