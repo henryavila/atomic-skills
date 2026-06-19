@@ -124,3 +124,42 @@ test('ledger helpers are pure and never throw on frozen inputs or null content',
   assert.deepEqual(frozenRecord, recordBefore);
   assert.deepEqual(frozenRange, rangeBefore);
 });
+
+// F7/T-003 — patch-id squash ORACLE: dedup must survive a squash (commit SHA rewritten,
+// patch-id stable) and must RE-review whenever the patch-id cannot positively prove a match.
+const preSquash = {
+  commitSha: 'pre-squash-sha',
+  patchId: 'stable-pid',
+  mode: 'codex',
+  reviewedAt: '2026-06-19T10:00:00.000Z',
+  reviewFile: 'reviews/pre.md',
+};
+
+test('oracle: a squash-merged surface (SHA rewritten, patch-id stable) is recognized as reviewed', () => {
+  const content = `${JSON.stringify(preSquash)}\n`;
+  // post-squash the commit SHA differs, but the stable patch-id still matches the record
+  assert.equal(
+    alreadyReviewed(content, { commitSha: 'post-squash-sha', patchId: 'stable-pid' }, 'codex'),
+    true,
+  );
+});
+
+test('oracle: a non-matching patch-id re-reviews (fail-safe)', () => {
+  const content = `${JSON.stringify(preSquash)}\n`;
+  assert.equal(
+    alreadyReviewed(content, { commitSha: 'post-squash-sha', patchId: 'different-pid' }, 'codex'),
+    false,
+  );
+});
+
+test('oracle: a rewritten SHA with no usable patch-id re-reviews (fail-safe)', () => {
+  const content = `${JSON.stringify(preSquash)}\n`;
+  // query carries only a rewritten SHA, no patch-id to fall back on → must re-review
+  assert.equal(alreadyReviewed(content, { commitSha: 'post-squash-sha' }, 'codex'), false);
+  // and when the LEDGER record itself carries no patch-id, a rewritten-SHA query can't match
+  const noPid = { commitSha: 'pre-squash-sha', mode: 'codex', reviewedAt: 'x', reviewFile: 'y' };
+  assert.equal(
+    alreadyReviewed(`${JSON.stringify(noPid)}\n`, { commitSha: 'post-squash-sha', patchId: 'stable-pid' }, 'codex'),
+    false,
+  );
+});

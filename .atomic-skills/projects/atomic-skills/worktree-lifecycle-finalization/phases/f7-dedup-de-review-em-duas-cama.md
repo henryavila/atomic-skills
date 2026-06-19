@@ -11,11 +11,11 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:45:00Z
 lastUpdated: 2026-06-17T21:45:00Z
-nextAction: "Start T-003: Teste-oráculo de patch-id sob squash (+= em
-  tests/review-ledger.test.js) — usa diffs/patch-ids injetados, miss → RE-revisar"
+nextAction: "Start T-004: Work-order ao autor do project review (Camada B) — arquivo
+  em workorders/project-review-dedup.md (Opus-owned), âncora project-review-dedup"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F7
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
@@ -139,8 +139,9 @@ tasks:
         Mode 1 inline (doc auto-referencial), defere ao ledger da T-001. validate-state 0."
   - id: T-003
     title: Teste-oráculo de patch-id sob squash
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T22:30:00Z
+    lastUpdated: 2026-06-17T22:30:00Z
     summary: "Teste-oráculo: patch-id casa o dedup sob squash; miss re-revisa."
     outputs:
       - kind: test
@@ -160,6 +161,18 @@ tasks:
       kind: test
       runner: node
       pattern: tests/review-ledger.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T22:30:00Z
+      exitCode: 0
+      testsCollected: 13
+      passed: true
+      outputSummary: "node --test tests/review-ledger.test.js @ HEAD: tests 13, pass 13,
+        fail 0 (10 da T-001 + 3 do oráculo T-003). Oráculo patch-id sob squash: superfície
+        squash-merged com patchId casando → reconhecida (apesar do SHA reescrito); patchId
+        não-casa → RE-revisa; SHA reescrito SEM patch-id usável (query sem patchId, ou
+        record sem patchId) → RE-revisa (fail-safe). Diffs/patch-ids injetados, não roda
+        git real. Mode 1 inline (+= no arquivo de teste da T-001)."
   - id: T-004
     title: Work-order ao autor do project review (Camada B)
     status: pending
@@ -205,7 +218,7 @@ current: true
 Initiative for phase **F7 — Dedup de review em duas camadas (Decisão 8)**.
 
 ## Session handoff
-- **Narrative:** **F7 — tasks 2/4 DONE** (T-001 ledger + T-002 wiring). Em andamento
+- **Narrative:** **F7 — tasks 3/4 DONE** (T-001 ledger + T-002 wiring + T-003 patch-id oráculo, só falta T-004 work-order). Em andamento
   (última fase do plano). T-001 em **Mode 2/Codex**: módulo puro `scripts/review-ledger.js`
   (`readLedger`/`recordReview`/`alreadyReviewed`, NDJSON, fail-safe) + teste (10 casos),
   ff-merged `2c4ca99`, re-verificado na primária 10/10. T-002 em **Mode 1 inline** (doc
