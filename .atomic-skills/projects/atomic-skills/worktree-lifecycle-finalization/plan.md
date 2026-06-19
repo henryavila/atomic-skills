@@ -5,7 +5,7 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T22:00:00Z
+lastUpdated: 2026-06-17T23:00:00Z
 branch: plan/worktree-lifecycle-finalization
 currentPhase: F7
 parallelismAllowed: false
@@ -510,16 +510,30 @@ phases:
           description: Ledger ponteiro→conjunto com migração fail-safe, append,
             alreadyReviewed só com prova positiva, e oráculo de patch-id sob
             squash; suite verde.
-          status: pending
+          status: met
+          metAt: 2026-06-17T23:00:00Z
           verifier:
             kind: test
             runner: node
             pattern: tests/review-ledger.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T23:00:00Z
+            exitCode: 0
+            testsCollected: 20
+            passed: true
+            outputSummary: "node --test tests/review-ledger.test.js @ 83d2ee1 (post
+              review-gate fixes): tests 20, pass 20, fail 0. readLedger (NDJSON,
+              migração fail-safe de pointer/ausente/malformado), recordReview
+              (append byte-preservante, union-safe), alreadyReviewed (prova positiva
+              só com record completo isValidRecord, never-throws), oráculo patch-id
+              sob squash + os fixes adversariais C1-C4."
         - id: G-2
           description: review-code e review-due documentam o dedup (âncora review-dedup,
             fail-para-RE-revisar); work-order ao autor do project review
             presente (Camada B); skills válidos.
-          status: pending
+          status: met
+          metAt: 2026-06-17T23:00:00Z
           verifier:
             kind: shell
             command: grep -qi 'review-dedup' skills/core/review-code.md && grep -qi
@@ -527,7 +541,22 @@ phases:
               grep -qi 'project-review-dedup'
               .atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/workorders/project-review-dedup.md
               && npm run validate-skills
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T23:00:00Z
+            exitCode: 0
+            passed: true
+            outputSummary: "grep review-dedup (review-code.md Step 0.5 + project-drift.md)
+              + project-review-dedup (workorder Camada B) && validate-skills → All 15
+              skills valid, exit 0 @ 83d2ee1. Dedup documentado fail-para-RE-revisar com o
+              flip de formato como follow-up coordenado deferido."
+    status: done
+    reviewGate:
+      status: passed
+      at: 83d2ee1ef7501fdd08c6577db7716a3cd22cfe18
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-17-2300-wlf-f7-dedup-review-ledger.md
+      verifiedAt: 2026-06-17T23:00:00Z
     summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +
       run-record do composer."
 references: []

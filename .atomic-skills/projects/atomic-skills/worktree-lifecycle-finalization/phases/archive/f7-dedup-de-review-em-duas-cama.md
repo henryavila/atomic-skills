@@ -7,37 +7,49 @@ goal: "eliminar re-review redundante sob worktrees paralelas — Camada A: um
   SHA+patch-id) que `review-code` e `review-due` leem/gravam por modo; Camada B:
   um run-record do composer `project review`, entregue como work-order ao autor
   da skill (vive em outra branch). Ambos falham-para-RE-revisar."
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:45:00Z
-lastUpdated: 2026-06-17T21:45:00Z
-nextAction: "PHASE BOUNDARY — F7 tasks 4/4 DONE (gates 0/2 pending). Próximo
-  (operator-prompted): phase-done F7 — exit-gates G-1 (node --test review-ledger) +
-  G-2 (grep review-dedup ×2 + project-review-dedup + validate-skills), review-code
-  --mode=both no diff da fase, distila lessons, grava reviewGate. F7 é a ÚLTIMA fase
-  → o phase-done fecha o PLANO inteiro (F0–F7); depois: finalize/archive do plano."
+lastUpdated: 2026-06-17T23:00:00Z
+nextAction: "PLANO IMPLEMENTADO — F0–F7 todas done. Próximo (operator-prompted, P2,
+  NÃO auto-rodar): project finalize (push plan/<slug> + abre PR feature→develop) e,
+  após merge do PR, archive. O dedup de review tem follow-up coordenado: flipar o
+  last-review.json pointer→NDJSON migrando os 4 leitores jq em lockstep."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F7
 tasksDone: 4
 tasksTotal: 4
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: Ledger ponteiro→conjunto com migração fail-safe, append,
       alreadyReviewed só com prova positiva, e oráculo de patch-id sob squash;
       suite verde.
-    status: pending
+    status: met
+    metAt: 2026-06-17T23:00:00Z
     verifier:
       kind: test
       runner: node
       pattern: tests/review-ledger.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T23:00:00Z
+      exitCode: 0
+      testsCollected: 20
+      passed: true
+      outputSummary: "node --test tests/review-ledger.test.js @ 83d2ee1: tests 20, pass
+        20, fail 0. readLedger/recordReview/alreadyReviewed NDJSON fail-safe + oráculo
+        patch-id sob squash + fixes adversariais C1-C4 (byte-preserve, pointer-misclassify,
+        partial-proof, never-throws)."
     verifierLabel: "test: node tests/review-ledger.test.js"
+    evidenceSummary: passed · 2026-06-17
   - id: G-2
     description: review-code e review-due documentam o dedup (âncora review-dedup,
       fail-para-RE-revisar); work-order ao autor do project review presente
       (Camada B); skills válidos.
-    status: pending
+    status: met
+    metAt: 2026-06-17T23:00:00Z
     verifier:
       kind: shell
       command: grep -qi 'review-dedup' skills/core/review-code.md && grep -qi
@@ -45,7 +57,15 @@ exitGates:
         'project-review-dedup'
         .atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/workorders/project-review-dedup.md
         && npm run validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T23:00:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "grep review-dedup (review-code.md + project-drift.md) +
+        project-review-dedup (workorder) && validate-skills 15/15 exit 0 @ 83d2ee1."
     verifierLabel: "shell: grep -qi 'review-dedup' skills/core/review-code.md && grep …"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: Dedup de review em duas camadas (Decisão 8)
@@ -228,7 +248,7 @@ summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +
   run-record do composer."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes

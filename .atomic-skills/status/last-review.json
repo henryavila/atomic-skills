@@ -1,15 +1,15 @@
 {
   "schemaVersion": "0.1",
   "branch": "plan/worktree-lifecycle-finalization",
-  "lastReviewedCommit": "bb3183beb80726cf9791cb020270a2657e5cd90f",
-  "lastReviewedAt": "2026-06-17T21:30:00Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-17-2130-wlf-f6-orphan-worktrees.md",
+  "lastReviewedCommit": "83d2ee1",
+  "lastReviewedAt": "2026-06-17T23:00:00Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-17-2300-wlf-f7-dedup-review-ledger.md",
   "verdict": "needs_changes",
   "counts": {
     "blocker": 0,
     "critical": 0,
-    "major": 2,
-    "minor": 4,
+    "major": 5,
+    "minor": 2,
     "nit": 2
   }
 }

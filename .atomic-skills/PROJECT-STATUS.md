@@ -1,5 +1,5 @@
 ---
-lastUpdated: '2026-06-17T21:45:00Z'
+lastUpdated: '2026-06-17T23:00:00Z'
 schemaVersion: '0.1'
 activePlans: 2
 activeInitiatives: 0
@@ -12,7 +12,7 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 ## Active Plans
 
-### worktree-lifecycle-finalization — Finalização do ciclo de vida da worktree-do-plano (currentPhase: F7)
+### worktree-lifecycle-finalization — Finalização do ciclo de vida da worktree-do-plano (F0–F7 implementadas · pronto para finalize/archive)
 
 Cada plano forka branch+worktree na criação; publicar (`finalize` → push + PR feature→develop) e encerrar (`archive`, zero-git pós-merge) são máquinas de estado separadas, operator-prompted; nunca remover trabalho não-provado-integrado (fail-closed: em indeterminação, BLOQUEIA).
 
@@ -25,7 +25,9 @@ Cada plano forka branch+worktree na criação; publicar (`finalize` → push + P
 | F4 — Check de colisão cross-WT no finalize (Decisão 7) | done | Gate determinístico `cross-wt-gate.js` (≥2 WTs, merge especulativo, fail-closed) + advisory A/B read-only no finalize; archive→teardown wired. 3/3 tasks, 2/2 gates. |
 | F5 — Coupling interim de .atomic-skills/ (Decisão 5) | done | `focus.json` git-ignored (pré-existente) + `dispatch-log.json`→NDJSON com `merge=union` provado (union lossless só line-oriented); round-trip preservado. 1/1 tasks, 2/2 gates (Mode 2/Codex). |
 | F6 — Backstop read-only no project verify (Decisão 6) | done | 9º check `findOrphanWorktrees` (puro, read-only): WARN para órfãos PR→develop (worktree de feature mergeada; branch arquivada não-integrada). 1/1 tasks, 2/2 gates (Mode 2/Codex). |
-| F7 — Dedup de review em duas camadas (Decisão 8) | active | Ledger de superfície unificado (`last-review.json` ponteiro→conjunto) + run-record do composer; ambos falham-para-RE-revisar. 4 tasks. |
+| F7 — Dedup de review em duas camadas (Decisão 8) | done | Ledger NDJSON `scripts/review-ledger.js` (fail-safe, prova-positiva) + `review-dedup` em review-code/review-due + work-order Camada B. 4/4 tasks, 2/2 gates (T-001 Mode 2; T-002–004 Mode 1). Flip de formato do `last-review.json` = follow-up coordenado deferido. |
+
+**Plano implementado (F0–F7 done).** Próximos passos operator-prompted (P2, não auto-rodados): `project finalize` (push `plan/worktree-lifecycle-finalization` + abre PR feature→develop) e, após merge, `archive`. Sessão Mode-2/Codex dogfood: F4/T-001, F5/T-001, F6/T-001, F7/T-001 via Codex; demais Mode 1. `review-code --mode=both` pegou logic/contract bugs que o mesmo-modelo perdeu em todas as 7 fases.
 
 ### quick-idea-capture — Quick Idea Capture (currentPhase: F1)
 
