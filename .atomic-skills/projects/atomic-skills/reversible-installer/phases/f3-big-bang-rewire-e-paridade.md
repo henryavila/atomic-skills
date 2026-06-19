@@ -10,15 +10,15 @@ goal: religar o atomic-skills sobre o kernel do pacote
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T17:35:34.000Z
-nextAction: "T-F3-1/2/3 (aditivos) + T-F3-6 (migração legada) DONE — 4/6. PRÓXIMO =
-  🚧 GATE DE MERGE (coordenação, AÇÃO HUMANA, não-código): mergear
-  plan/skills-restructuring (==plan/plan-fork, commit 5e54974, +153 linhas aditivas no
-  install.js) PRIMEIRO → rebasear este branch → só então T-F3-4 (flip:
-  install.js/uninstall.js finos sobre defineInstaller/Driver + remove src/kernel/,
-  reescrito sobre o já-mergeado). T-F3-6 (blocker de T-F3-4) já está limpo, então só o
-  gate de merge bloqueia o flip. T-F3-5 (paridade final) é blockedBy T-F3-4. NB: T-F3-4/5
-  não são executáveis até o gate de merge (ação humana — não auto-mergear)."
+lastUpdated: 2026-06-19T18:05:00.000Z
+nextAction: "T-F3-4 (FLIP COMPLETO, Opção B) EM ANDAMENTO — Stage 1/5 DONE+commitado
+  (5b7b859: src/installer.js buildInstaller + test verde, suíte 872/858/2). Gate de merge
+  DIFERIDO pelo usuário (faça tudo na branch atual). PRÓXIMO = Stage 2 (corte ONE-WAY,
+  manifesto→journal híbrido): reescrever installSkills p/ delegar a buildInstaller +
+  gravar manifesto híbrido {effects}+files+metadata e retornar {files:[{path,hash}]}
+  derivado de journal.effects; rodar node --test tests/install.test.js e iterar. Plano
+  completo Stage 2-5 + gotchas no bloco ## Session handoff. T-F3-5 (paridade final) =
+  blockedBy T-F3-4."
 parentPlan: reversible-installer
 phaseId: F3
 current: true
@@ -419,44 +419,64 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   `../lessons/reversible-installer-f0-effect-kernel-file-reconciler.md`
 
 ## Session handoff
-- **Narrative:** F3 em **4/6** — os três aditivos + a migração legada estão DONE.
-  **T-F3-6 fechado** (Mode 1, Opus single-threaded — verificado por
-  `node --test tests/migration-legacy-install.test.js`, 2/2). Recap: T-F3-1 (`file:`
-  link + smoke), T-F3-2 (SkillsProvider paridade byte-a-byte vs installSkills), T-F3-3
-  (runtime layers aiDeck/auto-update via efeito custom `stageRuntimeArtifacts` +
-  `jsonMerge`), T-F3-6 (migra manifesto legado `{files:{path:{installed_hash}}}` →
-  efeito reconcileFileSet no journal; hashless → unmanaged; round-trip atravessa a
-  dependência). Nenhum tocou `install.js`. **Restam T-F3-4 (flip) e T-F3-5 (paridade
-  final)**, AMBOS bloqueados pelo 🚧 GATE DE MERGE (ação humana, não auto-mergear).
-- **Decision log:** (1) **T-F3-6 em Mode 1, NÃO Codex** — F1 não cumprida (path do
-  módulo + mecanismo legado→journal não fechados ao dispatch) + trabalho crítico de
-  segurança de dados (P3 / codex F-002), então Opus inline. (2) **Migração = transform
-  puro + entry operacional:** `migrateLegacyManifest(manifest)` (legacy→journal,
-  idempotente em manifest já-journal) + `migrateLegacyInstall(projectDir, manifestDir)`
-  (read→transform→write via `readManifest`/`writeManifest` do pacote). (3) **Prova de
-  ownership = installed_hash:** parity sha256/hex/utf8 entre `src/hash.js` in-repo e o
-  `hashContent` do pacote (conferido), então o hash legado serve direto de `installedHash`
-  no beforeState do reconcileFileSet; revert só apaga se `disco==installedHash` (user-edit
-  sobrevive). (4) **Sem before-state verificável → unmanaged** (P3): entry de `files`
-  sem `installed_hash` string vai p/ `unmanaged[]` e NUNCA entra num efeito — uninstall
-  não toca; o settings.json/SessionStart merge legado (só `settingsCreated:bool`, sem
-  before-state do merge) cai na mesma regra conservadora. (5) Carryover anterior: fix
-  cross-repo do pacote @02dbba3 (jsonMerge revertível via Driver) — **publish pendente**.
-- **Single nextAction:** Commitar T-F3-6 (`feat(reversible-installer): T-F3-6 — migração
-  legada`), depois PARAR para o 🚧 GATE DE MERGE: mergear `plan/skills-restructuring`
-  (==plan/plan-fork, commit `5e54974`) + rebasear `plan/reversible-installer` ANTES do
-  T-F3-4. Decisão de coordenação humana — não auto-mergear.
-- **Verbatim state:** T-F3-6 verifier: `node --test tests/migration-legacy-install.test.js`
-  → tests 2, pass 2, fail 0, exit 0 (run 2026-06-19T17:35:34Z). Full suite: `npm test`
-  → tests 871, pass 857, fail 2 (as 2 pré-existentes do dashboard-bundle:
+- **Narrative:** F3 em **4/6 done** (T-F3-1/2/3/6). **T-F3-4 (flip completo) EM ANDAMENTO
+  — Stage 1 de 5 DONE e commitado (`5b7b859`).** O usuário escolheu o FLIP COMPLETO
+  (Opção B) e DIFERIU o gate de merge ("faça tudo na branch atual, o merge será feito
+  depois"). Stage 1 = `src/installer.js` (`buildInstaller()` monta o journal do
+  install-base via `defineInstaller`: SkillsProvider+autoUpdate providers +
+  stageRuntimeArtifacts effect) + `test/installer.test.js` (round-trip real verde).
+  Suíte 872/858/2 (baseline; 2 falhas dashboard-bundle pré-existentes). **Stages 2-5 são
+  um rewrite ONE-WAY** — não começados (corte manifesto→journal deixa a suíte vermelha
+  até toda a migração).
+- **Decision log (T-F3-4):** (1) **Manifesto HÍBRIDO journal-autoritativo** (decisão de
+  execução, mais segura que pure-journal): manifesto = `{effects[]}` (journal,
+  AUTORITATIVO p/ uninstall via `Driver.uninstall`) **+ `files{}` derivado + metadata
+  `{version,language,ides,modules}`** p/ os leitores de compat (`status.js`, install.test,
+  skills-provider oracle, cli.test ficam VERDES). `result.files` preservado (counts exatos
+  de install.test incluem hook+namespace root). (2) **DROP da UI de conflito/órfão
+  interativa** — o `reconcileFileSet` faz no-clobber (mantém edição do usuário, P3) +
+  remove órfão não-modificado, NÃO-interativo; o flip remove `preRenderFiles` + 3-hash
+  bespoke + prompts. (3) **Runtime global + refcount + legacy-prune ORQUESTRADOS FORA do
+  journal** (replayReverse descarta `lastOwnerReleased`): manter
+  `installRuntimeArtifacts`/`removeRuntimeArtifacts`/`registerInstall`/`unregisterInstall`/
+  `findLegacyOrphans`/`removeLegacyOrphans`/`isAtomicSkillsArtifact` como helpers (G-3
+  allowlist). (4) `src/kernel/` é importado SÓ por `test/kernel/*` (nada em src/) → o flip
+  remove ambos; engine = pacote.
+- **Single nextAction:** Stage 2 — reescrever `installSkills(projectDir,options)` p/
+  delegar a `buildInstaller(options).install({projectDir})` e então gravar o manifesto
+  híbrido (patch `{version,language,ides,modules,files}` por cima do journal) + retornar
+  `{files:[{path,hash}]}` derivado de `journal.effects` (reconcileFileSet.beforeState +
+  stageRuntimeArtifacts.created p/ o hook). Rodar `node --test tests/install.test.js`
+  (esperar quebra nos counts/paths) e iterar.
+- **Plano Stage 2-5 (validado por leitura do código):** S2 = reescrever `installSkills`
+  (Driver+manifesto híbrido+return), reescrever `install()` thin (remover
+  preRenderFiles/3-hash/conflict/orphan prompts; MANTER CLI flags/scope/detect/UI
+  intro/legacy-prune/SIGINT + `installRuntimeArtifacts()`+`registerInstall()`), reescrever
+  `uninstall()` (`buildInstaller({}).uninstall({projectDir:base})` p/ replayReverse +
+  `unregisterInstall`+`removeRuntimeArtifacts` se último; jsonMerge.revert cuida do
+  settings → REMOVER `installAutoUpdateHook`/`removeAutoUpdateHook`). S3 = migrar testes:
+  `uninstall.test.js` (remover bloco `describe('removeAutoUpdateHook')` + import),
+  `install.test.js` (linha 150 `.source`; checar conflito), `update.test.js` (reconstrói
+  lógica 3-hash via `installSkills` return — checar), `status.test.js` (híbrido mantém
+  `manifest.files` → provável verde), `skills-provider.test.js` (vira tautológico, manter).
+  S4 = remover `src/kernel/` + `test/kernel/`, podar morto, atualizar mapa CLAUDE.md. S5 =
+  `npm test` verde + round-trip + matriz adversária → fecha T-F3-4; T-F3-5 = paridade final.
+- **GOTCHAS achados:** (a) `scope=undefined` (status.test/install.test chamam installSkills
+  SEM scope) — o auto-update LAYER usa basePath=projectDir p/ o hook, mas o legado usava
+  homedir quando scope!=='project'; conferir counts/paths de install.test após o rewrite.
+  (b) counts EXATOS em install.test (53/54/105/53) incluem namespace root + auto-update
+  hook — o return DEVE incluir o hook (de stageRuntimeArtifacts.created). (c) metadata
+  (version/language/ides) NÃO vem no manifesto do Driver → patch obrigatório.
+- **Verbatim state:** HEAD `5b7b859` (Stage 1). Árvore limpa antes deste edit (só este
+  phase file muda agora). Suíte: `npm test` → 872/858/2 (as 2 dashboard-bundle:
   `DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been
-  built (E.T-005 prerequisite)` — zero regressão; +2 do novo teste). Módulo:
-  `src/migrate-legacy-install.js` (exports `migrateLegacyManifest`, `migrateLegacyInstall`).
-  Pacote: `~/tooling-installer` HEAD **`02dbba3`** (main; 60/60). `package.json`:
-  `"@henryavila/tooling-installer": "file:../../../tooling-installer"`. Exit-gates F3:
-  G-1 `node --test tests/install-uninstall-roundtrip.test.js`, G-2 `npm test`, G-3 manual.
-  Branch: `plan/reversible-installer`.
-- **Uncommitted changes:** a commitar (atomic-skills): `src/migrate-legacy-install.js`,
-  `tests/migration-legacy-install.test.js`, e este phase file (T-F3-6 done + evidence +
-  rollups tasksDone 3→4 + nextAction/handoff). T-F3-1/2/3 já commitados (T-F3-3 =
-  `5ecef27`). O fix do pacote (`02dbba3`) já está no repo separado.
+  built (E.T-005 prerequisite)`). Stage-1 test: `node --test test/installer.test.js` → 1/1.
+  Pacote `~/tooling-installer` HEAD `02dbba3` (60/60), `package.json`:
+  `"@henryavila/tooling-installer":"file:../../../tooling-installer"`. Arquivos-chave:
+  `src/installer.js` (novo, buildInstaller), `src/providers/skills-{provider,file-set}.js`,
+  `src/runtime-layers/{aideck,auto-update}.js` + `effects/stage-runtime-artifacts.js`.
+  Engine: `~/tooling-installer/src/{driver,define-installer,kernel/journal,kernel/reconciler,
+  kernel/effects/*}.js`. Exit-gates F3: G-1 `node --test tests/install-uninstall-roundtrip.test.js`,
+  G-2 `npm test`, G-3 manual. Branch `plan/reversible-installer`.
+- **Uncommitted changes:** só este phase file (handoff/nextAction p/ T-F3-4 Stage 1 done).
+  Stage 1 (`src/installer.js`+`test/installer.test.js`) já commitado em `5b7b859`.
