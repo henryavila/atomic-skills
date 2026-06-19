@@ -37,3 +37,6 @@
 | 2026-06-16 14:28 | [skills-restructuring-f1](2026-06-16-1428-skills-restructuring-f1.md) | code (local) | approved_with_followup | 0B/0C/1M/1m/0n (+1 dismissed by-design) | FU-F1-1 |
 | 2026-06-16 16:50 | [skills-restructuring-f6](2026-06-16-1650-skills-restructuring-f6.md) | code (local) | needs_changes→all fixed | 0B/0C/2M/2m/0n (4 fixed, incl. precedent residue) | 4 fixed in-phase |
 | 2026-06-16 20:16 | [skills-restructuring-f4](2026-06-16-2016-skills-restructuring-f4.md) | code (local) | needs_changes→all fixed | 0B/0C/1M/2m/0n (3 fixed in-phase) | 3 fixed in-phase |
+| 2026-06-19 13:52 | [plan-fork](2026-06-19-1352-plan-fork.md) | plan | reject | 0B/3C/3M/0m/0n | 1d/4=/2+ |
+| 2026-06-19 14:15 | [plan-fork r2](2026-06-19-1415-plan-fork-r2.md) | plan | reject | 0B/2C/3M/0m/0n | 1d/4=/1+ |
+| 2026-06-19 13:24 | [plan-fork-r3](2026-06-19-1324-plan-fork-r3.md) | plan | needs_changes | 0B/0C/5M/0m/0n | 0d/5=/0+ |

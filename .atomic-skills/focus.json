@@ -1,19 +1,19 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T20:54:02.826Z",
+  "generatedAt": "2026-06-19T15:33:18.565Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "design-brief-source-of-truth",
-    "title": "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)",
+    "slug": "plan-fork",
+    "title": "plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada",
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo",
-    "title": "Reconstrução (artefato e código) e reconciliação",
-    "index": 2,
-    "total": 3,
-    "status": "pending"
+    "id": "F0",
+    "slug": "plan-fork-f0-sidecar-do-elo-schema-e-validacao",
+    "title": "Sidecar do elo, schema e validação",
+    "index": 1,
+    "total": 6,
+    "status": "active"
   },
   "tasks": {
     "done": 0,
@@ -24,19 +24,19 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Discovery das fontes",
+  "nextAction": "Start T-001: Sidecar links.json: reader e writer do elo",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md",
-      "lastUpdated": "2026-06-16T12:00:18Z"
+      "path": ".atomic-skills/projects/atomic-skills/plan-fork/plan.md",
+      "lastUpdated": "2026-06-19T15:32:29.603Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f1-reconstrucao-artefato-e-codigo.md",
-      "lastUpdated": "2026-06-15T17:00:00.000Z"
+      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f0-sidecar-do-elo-schema-e-validacao.md",
+      "lastUpdated": "2026-06-19T15:32:29.603Z"
     }
   ]
 }

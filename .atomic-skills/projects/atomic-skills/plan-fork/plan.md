@@ -1,0 +1,224 @@
+---
+schemaVersion: "0.1"
+slug: plan-fork
+title: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
+version: "1.0"
+status: active
+started: 2026-06-19T15:32:29.603Z
+lastUpdated: 2026-06-19T15:32:29.603Z
+branch: plan/plan-fork
+currentPhase: F0
+parallelismAllowed: false
+principles:
+  - id: P1
+    title: Aditivo, nunca substitutivo. fork-plan adiciona um elo pai/filho; o campo
+      supersedes e a ladder existente ficam intactos.
+    body: Aditivo, nunca substitutivo. fork-plan adiciona um elo pai/filho; o campo
+      supersedes e a ladder existente ficam intactos.
+  - id: P2
+    title: O filho é um plano de verdade. Passa pelo DESIGN gate (R-ORCH-09) como
+      qualquer plano; o fork-plan só ratifica o elo e delega ao fluxo new plan.
+    body: O filho é um plano de verdade. Passa pelo DESIGN gate (R-ORCH-09) como
+      qualquer plano; o fork-plan só ratifica o elo e delega ao fluxo new plan.
+  - id: P3
+    title: Sidecar como ponte, inline como destino. Os campos vivem num sidecar
+      (links.json) não-aiDeck-facing enquanto o aiDeck publicado não declara os
+      dois (spawnedFrom é .strict e derruba o card; spawnedPlans é stripado em
+      silêncio); migram pra inline no plan.md em aiDeck maior ou igual a 0.1.2.
+    body: Sidecar como ponte, inline como destino. Os campos vivem num sidecar
+      (links.json) não-aiDeck-facing enquanto o aiDeck publicado não declara os
+      dois (spawnedFrom é .strict e derruba o card; spawnedPlans é stripado em
+      silêncio); migram pra inline no plan.md em aiDeck maior ou igual a 0.1.2.
+  - id: P4
+    title: Elo bidirecional ratificado. O pai referencia o filho na fase-âncora
+      (spawnedPlans), o filho referencia o pai (spawnedFrom); o porquê do fork
+      passa pelo ratify gate. Fork é intra-project; mode mora só no filho.
+    body: Elo bidirecional ratificado. O pai referencia o filho na fase-âncora
+      (spawnedPlans), o filho referencia o pai (spawnedFrom); o porquê do fork
+      passa pelo ratify gate. Fork é intra-project; mode mora só no filho.
+  - id: P5
+    title: Reuso da maquinaria existente. Pausa/retomada via switch/cascade-pause +
+      archive-propagation; paralelo via parallelismAllowed + worktree-por-plano.
+    body: Reuso da maquinaria existente. Pausa/retomada via switch/cascade-pause +
+      archive-propagation; paralelo via parallelismAllowed + worktree-por-plano.
+glossary: []
+phases:
+  - id: F0
+    slug: plan-fork-f0-sidecar-do-elo-schema-e-validacao
+    title: Sidecar do elo, schema e validação
+    goal: Gravar o elo num sidecar não-aiDeck-facing compatível com aiDeck 0.1.0,
+      validar o sidecar, e cobrir detecção de ciclo com testes; a adição dos
+      campos inline ao plan.schema.json fica deferida para a migração na F5.
+    dependsOn: []
+    subPhaseCount: 4
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F0-G1
+          description: O elo vive no sidecar; plan.md e frontmatters de fase ficam sem
+            spawnedFrom/spawnedPlans sob aiDeck 0.1.0; ciclo é rejeitado; os
+            testes passam. O caminho canônico do sidecar (links.json no diretório
+            do plano), o schema e o reader/writer (src/links-sidecar.js) ficam
+            definidos aqui na F0, antes de qualquer escrita da F1; a concorrência
+            cross-worktree é deferida à F2 (pause-only não escreve concorrente).
+          status: pending
+          verifier:
+            kind: shell
+            command: npm run validate-state tests/fixtures/plan-fork/parent.plan.md
+              tests/fixtures/plan-fork/child.plan.md && npm test
+    status: active
+    summary: Sidecar (links.json) do elo + schema do sidecar + detecção de ciclo;
+      inline deferido.
+  - id: F1
+    slug: plan-fork-f1-verbo-fork-plan-degrau-7-5-pause-only-at
+    title: Verbo fork-plan + degrau 7.5 (pause-only até a F2)
+    goal: Implementar o verbo fork-plan (ratify do elo + handoff ao fluxo new plan),
+      inserir o degrau 7.5 residente na ladder, rodar o cycle-check antes de
+      qualquer escrita, e entregar pause-only rejeitando o modo parallel até a
+      F2 existir.
+    dependsOn:
+      - F0
+    subPhaseCount: 4
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F1-G1
+          description: fork-plan grava o elo no sidecar só após ratify; roda o cycle-check
+            antes de qualquer escrita e aborta atômico em ciclo; o modo pause
+            funciona e o parallel é rejeitado até a F2; o degrau 7.5 é roteado.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -q fork-plan skills/shared/project-assets/project-emergence.md
+              && grep -q fork-plan skills/core/project.md && grep -q ciclo
+              skills/shared/project-assets/project-emergence.md && grep -q parallel
+              skills/shared/project-assets/project-emergence.md && npm test
+    status: pending
+    summary: Verbo fork-plan, degrau 7.5, cycle-check pré-ratify; pause-only até a F2.
+  - id: F2
+    slug: plan-fork-f2-protocolo-de-estado-parallel-cross-workt
+    title: Protocolo de estado parallel cross-worktree
+    goal: "Definir e implementar o protocolo de estado do modo parallel com
+      semântica de concorrência explícita: caminho canônico, escrita atômica com
+      token de revisão, predicado de conflito, abort e recuperação, e
+      verificação a partir do pai e do filho."
+    dependsOn:
+      - F1
+    subPhaseCount: 2
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F2-G1
+          description: "O protocolo de concorrência otimista está definido e testado: a
+            escrita atinge o estado canônico do pai e edições concorrentes
+            pai/filho são detectadas e abortadas sem lost update."
+          status: pending
+          verifier:
+            kind: shell
+            command: npm test
+    status: pending
+    summary: Protocolo de estado parallel com concorrência otimista (revisão,
+      conflito, abort).
+  - id: F3
+    slug: plan-fork-f3-loop-de-retomada-pause-e-parallel
+    title: Loop de retomada (pause e parallel)
+    goal: Na conclusão/archive do filho, oferecer retomar o pai na fase-âncora em
+      ambos os modos, com semântica determinística para aceitar, recusar, sem
+      TTY e writeback falho.
+    dependsOn:
+      - F2
+    subPhaseCount: 2
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F3-G1
+          description: Aceitar, recusar, sem-TTY e writeback-falho têm semântica
+            determinística em pause E parallel; nenhum caso deixa o filho
+            arquivado com o pai num estado inconsistente. Ordem de transação — o
+            writeback do pai precede a finalização do archive; em writeback falho
+            o archive persiste um pending-resume durável e o filho não finaliza
+            até a recuperação.
+          status: pending
+          verifier:
+            kind: shell
+            command: npm test
+    status: pending
+    summary: Retomada determinística do pai (aceitar/recusar/sem-TTY/writeback falho).
+  - id: F4
+    slug: plan-fork-f4-focus-resolver-pai-filho-pause-e-paralle
+    title: Focus-resolver pai/filho (pause e parallel)
+    goal: Fazer o resolver de foco tratar pai(paused)+filho(active) e
+      pai(active)+filho(active) parallel como hierarquia, com precedência por
+      worktree e aresta pai/filho.
+    dependsOn:
+      - F3
+    subPhaseCount: 2
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F4-G1
+          description: Os casos pause(paused+active) e parallel(active+active) resolvem
+            para o filho sem ambiguidade; os casos de foco existentes não
+            regridem.
+          status: pending
+          verifier:
+            kind: shell
+            command: npm test
+    status: pending
+    summary: Resolver de foco trata pai/filho como hierarquia em pause e parallel.
+  - id: F5
+    slug: plan-fork-f5-handoff-aideck-docs-e-migracao-inline
+    title: Handoff aiDeck, docs e migração inline
+    goal: Documentar a estrutura de estado para o aiDeck, atualizar a KB, e migrar o
+      elo do sidecar para inline quando o aiDeck publicado tolerar os campos
+      (maior ou igual a 0.1.2).
+    dependsOn:
+      - F4
+    subPhaseCount: 3
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F5-G1
+          description: O handoff documenta os campos, a semântica intra-project e os dois
+            modos de falha; a KB cobre o degrau 7.5; o caminho de migração
+            sidecar-para-inline (gated em aiDeck maior ou igual a 0.1.2) está
+            documentado e a migração é coberta por teste.
+          status: pending
+          verifier:
+            kind: shell
+            command: test -f /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
+              grep -q spawnedPlans
+              /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
+              grep -q strict
+              /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
+              grep -q fork-plan docs/kb/skill-authoring.md && npm test
+    status: pending
+    summary: Handoff aiDeck + KB + migração sidecar→inline (gated em aiDeck ≥0.1.2).
+references: []
+planActive: true
+planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
+---
+
+# plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
+
+## 1. Context
+
+Um degrau novo na emergence ladder (7.5): quando uma fase de um plano em execução
+vira grande demais para `new-phase`/`split-phase`, mas o plano-pai continua válido,
+ela é forkada num plano-filho ligado por um elo bidirecional. O pai pausa (modo
+pause) ou roda em paralelo numa worktree própria (modo parallel) e retoma na
+fase-âncora quando o filho conclui. Distinto de `supersedes` (substituição); aditivo
+e reversível. O elo vive num sidecar enquanto o aiDeck publicado não tolera os
+campos; depois migra pra inline (decisão fechada com o agente do dashboard).
+
+## 2. Inviolable principles
+
+- **P1 Aditivo, nunca substitutivo. fork-plan adiciona um elo pai/filho; o campo supersedes e a ladder existente ficam intactos.** — Aditivo, nunca substitutivo. fork-plan adiciona um elo pai/filho; o campo supersedes e a ladder existente ficam intactos.
+- **P2 O filho é um plano de verdade. Passa pelo DESIGN gate (R-ORCH-09) como qualquer plano; o fork-plan só ratifica o elo e delega ao fluxo new plan.** — O filho é um plano de verdade. Passa pelo DESIGN gate (R-ORCH-09) como qualquer plano; o fork-plan só ratifica o elo e delega ao fluxo new plan.
+- **P3 Sidecar como ponte, inline como destino. Os campos vivem num sidecar (links.json) não-aiDeck-facing enquanto o aiDeck publicado não declara os dois (spawnedFrom é .strict e derruba o card; spawnedPlans é stripado em silêncio); migram pra inline no plan.md em aiDeck maior ou igual a 0.1.2.** — Sidecar como ponte, inline como destino. Os campos vivem num sidecar (links.json) não-aiDeck-facing enquanto o aiDeck publicado não declara os dois (spawnedFrom é .strict e derruba o card; spawnedPlans é stripado em silêncio); migram pra inline no plan.md em aiDeck maior ou igual a 0.1.2.
+- **P4 Elo bidirecional ratificado. O pai referencia o filho na fase-âncora (spawnedPlans), o filho referencia o pai (spawnedFrom); o porquê do fork passa pelo ratify gate. Fork é intra-project; mode mora só no filho.** — Elo bidirecional ratificado. O pai referencia o filho na fase-âncora (spawnedPlans), o filho referencia o pai (spawnedFrom); o porquê do fork passa pelo ratify gate. Fork é intra-project; mode mora só no filho.
+- **P5 Reuso da maquinaria existente. Pausa/retomada via switch/cascade-pause + archive-propagation; paralelo via parallelismAllowed + worktree-por-plano.** — Reuso da maquinaria existente. Pausa/retomada via switch/cascade-pause + archive-propagation; paralelo via parallelismAllowed + worktree-por-plano.
+
+## 3. Phase tree
+
+_(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when running.)_
