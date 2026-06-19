@@ -72,6 +72,8 @@ Quando se pede "não nomeie o gesto (swipe)", a reação errada é **deletar** a
 
   **Filtro de mineração — essência, nunca mecânica.** O que entra no prompt é a **essência comportamental** (ritmo, contagem, comprimento, modalidade, gatilho), expressa como essência **com a calibração atual**. A **mecânica de implementação fica fora do escopo de R2**: medidas de layout em `px`, `axis-lock` de gesto, `debounce`/durações em ms cru e a **copy literal** (texto de botão/label) são incidentais da implementação, não requisito de produto, e contaminam o prompt se entrarem como valor. *Des-induzir uma constante:* um handler de swipe com `axis-lock: 'x'`, limiar de `80px` e `debounce` de 16ms **não** vira "axis-lock X, 80px, 16ms" no prompt — vira a essência: "um único gesto rápido, horizontal, alcançável com o polegar, que perdoa toque acidental". Minere a essência; descarte o `axis-lock`, o `80px`, o `debounce` e a copy literal.
 
+  **Proveniência — código não vincula por si só (camada 2).** A presença de um valor no código o marca como **atual / de referência** (a calibração de hoje), **não** como invariante. Um valor de camada-2 só vira **invariante vinculante** quando há **corroboração da intenção de produto** (a intenção declarada, o porquê do domínio) — existir no código **não basta**. Sem corroboração, todo valor minerado entra como calibração-com-banda (R9), aberto a melhoria; com corroboração da intenção, o valor sobe para guardrail (R6).
+
 - **R3 — Auditoria de omissão (obrigatória, por tela).** Antes de fechar cada tela, perguntar: *"se eu não disser este parâmetro (tempo, contagem, comprimento, modalidade, o-que-fica-oculto), um agente razoável preencheria com algo que contradiz o produto?"* Se sim, **diga o parâmetro**. Omissão é decisão.
 
 - **R4 — Descrever interação por atributos de comportamento, não por widget.** Vocabulário permitido: *classe do gesto* (rápido/deliberado/digitação), *latência* (instantâneo/sub-segundo/deliberado), *esforço* (uma mão/polegar), *densidade de texto* (curtíssimo/verboso), *gatilho* (só após X), *reversibilidade* (perdoa toque acidental), *paridade* (mobile-gesto ↔ desktop-teclado, igualmente rápido). Proibido: nomear botão/lista/aba/barra/card-de-UI/heatmap/chip/modal ou descrever cor/borda/sombra/espaçamento.
@@ -79,6 +81,8 @@ Quando se pede "não nomeie o gesto (swipe)", a reação errada é **deletar** a
 - **R5 — Eixo "humano × sistema" em todo ponto de ação.** Dizer qual decisão é **humana** (julgamento significativo) e qual é do **sistema** (técnica, oculta). Proibir expor decisão do sistema como escolha do usuário.
 
 - **R6 — Citar o anti-padrão proibido nas telas de risco.** Cercar a direção-errada por nome (ex.: "avaliar NÃO pode virar N opções técnicas, cada uma mostrando dias até a próxima revisão") **é guardrail, não é ditar forma**. Faça isso onde o default convencional do agente colide com o produto.
+
+  **Roteamento de invariantes de camada-2 → R6.** Quando um valor de camada-2 é de fato um **invariante** (corroborado pela intenção de produto, não só a calibração atual), ele é expresso aqui como **guardrail R6** — nomeando o anti-padrão proibido — e **não** como número cru de referência. Ex.: as **~3 expressões de resposta** não são apenas "um número de calibração"; são guardrail R6 — *é proibido um 4º nível que vire seletor de intervalos ou exponha "+N dias"*. O valor sobe para R6 porque a intenção do produto o corrobora; um valor sem essa corroboração fica como calibração (R9/R2).
 
 - **R7 — Substituir, nunca deletar, ao "des-induzir".** Trocar nome de widget/gesto pela essência comportamental; jamais apagar a essência junto com o rótulo.
 
@@ -129,6 +133,7 @@ A geração só está pronta quando, para **cada** tela com interação:
 - [ ] **Fixtures reais** presentes, com a **textura** (brevidade) visível.
 - [ ] Cobre **mobile e desktop**, **claro e escuro**, e **todos os estados**.
 - [ ] **Consome o DS** por nome, sem redefinir; manda **parar e sinalizar** se faltar algo no DS.
+- [ ] **Proveniência aplicada:** todo valor de camada-2 entra como **calibração-com-banda** (R9) — exceto os **invariantes corroborados pela intenção**, que aparecem como **guardrail R6**, nunca como número cru de referência.
 
 ---
 
