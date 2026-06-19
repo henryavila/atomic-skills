@@ -1,15 +1,15 @@
 {
   "schemaVersion": "0.1",
-  "branch": "impl/design-brief-source-of-truth",
-  "lastReviewedCommit": "009a95b99e7ed2b939453fcefd8734dc0554e7ec",
-  "lastReviewedAt": "2026-06-16T10:51:14Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-16-0749-design-brief-source-of-truth-f0.md",
-  "verdict": "needs_changes",
+  "branch": "plan/deadline-burnup-forecast",
+  "lastReviewedCommit": "8a088d4ffc6e922ff788e139d59097f30f841a66",
+  "lastReviewedAt": "2026-06-19T19:53:26Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md",
+  "verdict": "approved_with_remediations",
   "counts": {
     "blocker": 0,
-    "critical": 0,
-    "major": 3,
-    "minor": 3,
+    "critical": 1,
+    "major": 2,
+    "minor": 2,
     "nit": 0
   }
 }

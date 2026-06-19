@@ -24,7 +24,8 @@ exitGates:
       no sub-objeto admitido e closedAt é hard-gated forward-only via corte
       persistido (grandfatheredTaskIds) gravado pelo script de flip, sem
       rejeitar legado.
-    status: pending
+    status: met
+    metAt: 2026-06-19T19:53:26Z
     verifier:
       kind: shell
       command: node --test tests/append-completion-actuals.test.js && node --test
@@ -32,6 +33,16 @@ exitGates:
         tests/validate-state.test.js && node --test
         tests/harden-closedat.test.js && node --test tests/schema-drift.test.js
     verifierLabel: "shell: node --test tests/append-completion-actuals.test.js && node…"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T19:53:26Z
+      passed: true
+      exitCode: 0
+      testsCollected: 94
+      outputSummary: "G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94 pass
+        (actuals 4 + dispatchlog 8 + validate-state 75 + harden 6 + schema-drift
+        1), 0 fail, exit 0. Review --mode=both APROVADO (local 2 minor + codex 1
+        critical/2 major, todos remediados). Suíte 953/939/8 PRÉ-EXISTENTES."
 stack:
   - id: 1
     title: Geração de dados de calibração + endurecer closedAt
@@ -145,10 +156,18 @@ Initiative for phase **F4 — Geração de dados de calibração + endurecer clo
 - **F1/L-001: INCLUIR em T-003** (decisão do usuário via AskUserQuestion). T-003 também endurece a projeção emitida: adicionar `closedAt`+`lastUpdated` ao `required` de `/$defs/tasks` em `meta/schemas/aideck-state.schema.json` + regen bundle. Premissa confirmada: hoje estão em `properties` mas fora de `required` (additionalProperties:false). +1 arquivo além dos Files declarados de T-003; coberto pelo `schema-drift.test.js` do verifier. Seguro (campo já é sempre emitido via `?? null`).
 - **Routing T-003 = MODE 1 (self-exec), NÃO Codex** (R-EXEC-30/44, F1 hard disqualifier): a SPEC nomeia `checkMetInvariant` (validate-state.js:364-403) como ponto de integração, mas essa função é PURA e recebe UMA frontmatter — não vê o `closedAtHardening` do plano ao checar tasks da iniciativa. A correlação plano↔iniciativas só existe em `crossValidate` (validate-state.js:507). Design real (settled por mim): novo predicado puro `checkClosedAtHardening(initFm, closedAtHardening)` chamado de `crossValidate` p/ iniciativas com `parentPlan===plan.slug`. Esse design EMERGIU da leitura do código (SPEC arquiteturalmente imprecisa) + alto blast-radius (validador-core, todo plano depende) + risco de teste circular no harden-closedat.js (I/O de path) ⇒ F1 não limpo ⇒ Opus implementa direto (TDD). Distinto de T-001/T-002 (SPEC correta, só latitude mecânica → Codex).
 
+## Self-review against gates (phase-done F4)
+
+- **G1 read-before-claim:** applied — T-001/T-002/T-003 each closed with `passed:true` evidence linking the verifier run on the merged/committed primary; every review finding verified at its `file:line` before its fix.
+- **G2 soft-language:** applied — closure claims are `passed:true` evidence; no should/probably/works in the completion claims.
+- **G6 reference-or-strike:** applied — handoff + evidence carry verbatim commits/paths/commands.
+- **Codex review:** ran `review-code --mode=both` at HEAD `8a088d4` — verdict approved-with-remediations (local 2 minor + codex 1 critical / 2 major, all fixed + regression-tested), file `.atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md`. Informed Pass-2 skipped (zero false positives — all blind findings confirmed real + remediated; cross-checked by targeted tests + green full suite).
+- **Lessons:** 3 distilled + ratified (L-001 verifier-scope, L-002 phase-scoped-id, L-003 cover-every-path) → `lessons/deadline-burnup-forecast-f4-geracao-de-dados-de-calibracao-endu.md`.
+
 ## Session handoff
 - **Narrative:** F4 **3/3 tasks DONE** — pronta para `phase-done`. T-001 (actuals de fase, Codex `003b526`) + T-002 (actuals de task via dispatch-log, Codex `5f0ce6f`, dogfood E2E) + T-003 (closedAt hard-gate forward-only, Mode 1 `a43ad78`). Gate F4/G-1 ainda `pending` (resolvido no phase-done). Suíte completa no baseline: 948 tests / 934 pass / 8 fail PRÉ-EXISTENTES (install/detect drift skills-restructuring). Tree limpo após o commit deste snapshot.
 - **Decision log:** (1) T-003 em Mode 1 (SPEC nomeava checkMetInvariant, mas o design real — predicado checkClosedAtHardening em crossValidate — emergiu da leitura; ver bloco Decisions acima). (2) F1/L-001 incluída em T-003 por decisão do usuário (hardening da projeção emitida). (3) **Regressão de T-001 achada e corrigida** (`d2d3cf0`): a reescrita da prosa do phase-done virou "Do NOT duplicate" (maiúsc.), quebrando o guard case-sensitive `tests/transition-emits.test.js` — não pego pelo verifier estreito de T-001. **LIÇÃO p/ phase-done:** quando uma task edita um arquivo guardado por teste estrutural existente, o verifier da task deve INCLUIR esse teste (T-001 só tinha append-completion-actuals).
-- **Single nextAction:** Rodar `phase-done F4` (com opt-in do usuário, intrusive-actions): resolve exit-gate G-1 (verifier de 5 testes), roda review `--mode=both` (design-brief-SoT/L-001 — F4 mexe em schemas, porta-de-mão-única), distila lessons (incl. a do verifier-estreito acima), e propõe avançar F4→F5. **NB F5 está BLOQUEADA** (dep externa: redesign do dashboard fix-aideck-dashboard F2 precisa aterrissar).
+- **Single nextAction:** phase-done GATE completo (G-1 met @8a088d4, review `--mode=both` APROVADO, 3 lessons ratificadas, self-review gravado). FALTA só o passo de AVANÇO (intrusive-actions, opt-in): setar F4 phase `status: done`, propagar a iniciativa p/ done, arquivar a iniciativa, e decidir o próximo. **F5 está BLOQUEADA** (dep externa: redesign do dashboard `fix-aideck-dashboard` F2 — handoff escrito em `docs/handoffs/forecast-render-requirements.md`). Opções de avanço: (a) marcar F4 done + arquivar + deixar currentPhase em F4/F5-pending até o dashboard; (b) deixar F4 active até o usuário decidir. NÃO auto-avançar.
 - **Verbatim state:** HEAD primary `a43ad78` (T-003 source) — será atualizado pelo commit deste snapshot (fechamento T-003). currentPhase=F4, tasksDone 3/3, gatesMet 0/1. Gate F4/G-1 verifier: `node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Commits F4: T-001 `003b526`/`5202143`, T-002 `5f0ce6f`/`ac77616`, regressão `d2d3cf0`, T-003 `a43ad78`. Suíte: 948/934/8 (8 pré-existentes install/detect).
 - **Uncommitted changes:** F4 initiative (T-003 done + rollups 3/3 + nextAction + handoff) + `.atomic-skills/analytics/completions.jsonl` (evento task-done T-003, Mode-1 sem actuals) — serão commitados neste snapshot. T-003 source (7 files) já em `a43ad78`; regressão em `d2d3cf0`.
 

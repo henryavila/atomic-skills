@@ -204,10 +204,27 @@ phases:
           description: actuals crus são gravados por conclusão (no sub-objeto já admitido)
             e closedAt é hard-gated forward-only via corte persistido
             (grandfatheredTaskIds), sem rejeitar legado.
-          status: pending
+          status: met
+          metAt: 2026-06-19T19:53:26Z
           verifier:
             kind: shell
             command: 'node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js'
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T19:53:26Z
+            passed: true
+            exitCode: 0
+            testsCollected: 94
+            outputSummary: "G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94
+              pass (actuals 4 + dispatchlog 8 + validate-state 75 + harden 6 +
+              schema-drift 1), 0 fail, exit 0. Suíte completa 953/939/8
+              PRÉ-EXISTENTES (install/detect drift skills-restructuring)."
+    reviewGate:
+      status: passed
+      at: 8a088d4
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md
+      verifiedAt: 2026-06-19T19:53:26Z
     status: active
     summary: Grava os actuals crus por conclusão (calibração futura) e endurece
       closedAt forward-only.
