@@ -87,3 +87,70 @@ test('findOrphanWorktrees is pure and never throws on frozen or null input', () 
   );
   assert.deepEqual(findOrphanWorktrees(null), []);
 });
+
+// F6 review F-001: an archived branch that REACHED the integration ref via ancestry
+// (isMerged true) is healthy — must NOT be flagged "never reached", even with pr:null.
+test('findOrphanWorktrees does not flag an archived branch merged via isMerged (no PR record)', () => {
+  const findings = findOrphanWorktrees({
+    plans: [{ slug: 'm', branch: 'plan/m', status: 'archived', pr: null }],
+    isMerged: (branch) => branch === 'plan/m',
+  });
+  assert.deepEqual(findings, []);
+});
+
+// F6 review F-002: the MERGED signal may live on a non-first duplicate plan for one
+// branch — condition A must still flag the live worktree (not first-match-wins suppress).
+test('findOrphanWorktrees flags via a non-first duplicate plan carrying pr MERGED', () => {
+  const findings = findOrphanWorktrees({
+    worktrees: [{ path: '/repo/.worktrees/d', branch: 'plan/d', head: 'aaa111' }],
+    plans: [
+      { slug: 'd-old', branch: 'plan/d', status: 'archived', pr: null },
+      { slug: 'd-new', branch: 'plan/d', status: 'active', pr: { state: 'MERGED' } },
+    ],
+  });
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, 'merged-feature-worktree');
+  assert.equal(findings[0].branch, 'plan/d');
+});
+
+// F6 review L2: a live worktree whose branch matches NO plan but is merged via ancestry
+// must still flag (slug undefined), exercising the no-matching-plan path.
+test('findOrphanWorktrees flags a merged worktree with no matching plan', () => {
+  const findings = findOrphanWorktrees({
+    worktrees: [{ path: '/repo/.worktrees/np', branch: 'plan/np', head: 'bbb222' }],
+    plans: [],
+    isMerged: (branch) => branch === 'plan/np',
+  });
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].kind, 'merged-feature-worktree');
+  assert.equal(findings[0].slug, undefined);
+});
+
+// F6 review L1 (major): the never-throws contract must survive a THROWING isMerged —
+// without the try/catch this test fails (mutation-killing for safelyIsMerged).
+test('findOrphanWorktrees swallows a throwing isMerged predicate', () => {
+  const throwingMerged = () => {
+    throw new Error('boom');
+  };
+  let findings;
+  assert.doesNotThrow(() => {
+    findings = findOrphanWorktrees({
+      worktrees: [{ path: '/repo/.worktrees/t', branch: 'plan/t', head: 'ccc333' }],
+      plans: [{ slug: 't', branch: 'plan/t', status: 'active', pr: null }],
+      isMerged: throwingMerged,
+    });
+  });
+  assert.deepEqual(findings, []);
+});
+
+// F6 review L3: malformed (null / non-object) array entries must not throw → [].
+test('findOrphanWorktrees tolerates malformed worktree/plan entries', () => {
+  let findings;
+  assert.doesNotThrow(() => {
+    findings = findOrphanWorktrees({
+      worktrees: [null, 42, { path: '/x', branch: null, head: 'd' }],
+      plans: [null, 'nope', { slug: 's' }],
+    });
+  });
+  assert.deepEqual(findings, []);
+});

@@ -37,8 +37,15 @@ function safelyIsMerged(isMerged, branch) {
   }
 }
 
-function isFeatureMerged(plan, branch, isMerged) {
-  return ownPrState(plan) === 'MERGED' || safelyIsMerged(isMerged, branch);
+// "Merged" is a BRANCH-level property (does this branch's work reach the integration
+// ref?), not a per-plan one: any plan on the branch with a MERGED PR, or the injected
+// ancestry predicate. Used symmetrically by condition A (flag live worktree) and
+// condition B (suppress an archived branch that actually reached the ref).
+function isBranchMerged(branch, plans, isMerged) {
+  const mergedViaPr = plans.some(
+    (candidate) => ownBranch(candidate) === branch && ownPrState(candidate) === 'MERGED',
+  );
+  return mergedViaPr || safelyIsMerged(isMerged, branch);
 }
 
 /**
@@ -79,11 +86,13 @@ export function findOrphanWorktrees(input = {}) {
     const branch = ownBranch(worktree);
     if (typeof branch !== 'string') continue;
 
-    const plan = plans.find((candidate) => ownBranch(candidate) === branch);
-    if (!isFeatureMerged(plan, branch, isMerged)) continue;
+    // Branch-level merge signal (not first-match-wins): the MERGED PR may live on
+    // any plan for this branch, and the ancestry predicate is branch-level.
+    if (!isBranchMerged(branch, plans, isMerged)) continue;
 
     const path = ownString(worktree, 'path');
-    const slug = ownString(plan, 'slug');
+    const matchingPlans = plans.filter((candidate) => ownBranch(candidate) === branch);
+    const slug = ownString(matchingPlans[0], 'slug');
     findings.push({
       severity: 'warn',
       kind: 'merged-feature-worktree',
@@ -98,6 +107,12 @@ export function findOrphanWorktrees(input = {}) {
     const status = ownString(plan, 'status');
     const branch = ownBranch(plan);
     if (status !== 'archived' || typeof branch !== 'string') continue;
+
+    // A branch that actually REACHED the integration ref (a MERGED PR on ANY plan
+    // for it, OR merge-base ancestry) is the healthy terminal state — never an
+    // orphan, even when no PR identity was recorded (e.g. a fast-forward merge).
+    // Branch-level + symmetric with condition A.
+    if (isBranchMerged(branch, plans, isMerged)) continue;
 
     const prState = ownPrState(plan);
     let kind;

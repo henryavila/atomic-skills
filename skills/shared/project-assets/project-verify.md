@@ -89,8 +89,8 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 ### 9. Orphan worktrees (read-only; PR→develop lifecycle backstop)
 Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. WARN-only in v1; the topology-aware auto-ordering classifier is DEFERRED.
 - **WARN merged-feature-worktree:** a live worktree whose feature branch is already merged into the integration ref (PR `state: MERGED` or `merge-base` ancestry) → `WARN worktrees: feature \`<branch>\` is merged but its worktree \`<path>\` is still live — teardown pending (run \`archive\` after the PR merge, or \`git worktree remove\`).`
-- **WARN archived-unintegrated-branch:** a plan whose \`status: archived\` branch never opened a PR, or has a PR still OPEN and never merged → `WARN worktrees: archived plan \`<slug>\` branch \`<branch>\` never reached \`<integrationRef>\` (no PR, or PR open and never merged).`
-- A clean/active state (no merged-but-live worktree, no archived-unintegrated branch) → no finding.
+- **WARN archived-never-pr / archived-pr-open-unmerged:** an archived plan whose branch never reached the integration ref — no PR was opened (`kind: archived-never-pr`), or a PR is still OPEN and never merged (`kind: archived-pr-open-unmerged`). A branch that DID reach it (PR `state: MERGED` **or** `merge-base` ancestry) is the healthy terminal state and is NOT flagged, even when no PR identity was recorded. → `WARN worktrees: archived plan \`<slug>\` branch \`<branch>\` never reached \`<integrationRef>\`.`
+- A clean/active state (no merged-but-live worktree, no archived-unreached branch) → no finding.
 - `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
 
 ---
@@ -110,7 +110,7 @@ project verify — <repo-name> @ <branch>
 [8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
 [9] worktrees   WARN   feature merged but worktree live (plan/x) — teardown pending
 
-VERIFY: 5 warning(s), 0 failure(s)
+VERIFY: 6 warning(s), 0 failure(s)
 ```
 
 ## Red flags
