@@ -9,6 +9,7 @@ import {
   buildState,
   emitConsumerState,
 } from '../scripts/emit-consumer-state.js';
+import { validateAideckState } from '../scripts/validate-aideck-state.js';
 
 const NOW = Date.parse('2026-06-16T20:00:00Z');
 
@@ -89,7 +90,13 @@ function fixtureTree() {
           parked: [{ title: 'someday idea', surfacedAt: '2026-06-15T00:00:00Z' }],
           emerged: [{ title: 'follow-up', surfacedAt: '2026-06-15T00:00:00Z', promoted: false }],
           tasks: [
-            { id: 'T-1', title: 'a', status: 'done' },
+            {
+              id: 'T-1',
+              title: 'a',
+              status: 'done',
+              closedAt: '2026-06-16T17:45:00Z',
+              lastUpdated: '2026-06-16T17:45:00Z',
+            },
             { id: 'T-2', title: 'b', status: 'blocked', blockedBy: ['D-1'] },
           ],
           exitGates: [{ id: 'G-1', description: 'gate', status: 'pending', verifier: { kind: 'manual' } }],
@@ -161,6 +168,18 @@ describe('buildState — derived fields', () => {
     assert.equal(t2.initiativeId, 'big-f1');
   });
 
+  it('projects task closedAt and lastUpdated, using null for legacy missing timestamps', () => {
+    const t1 = s.tasks.find((t) => t.id === 'T-1');
+    assert.equal(t1.closedAt, '2026-06-16T17:45:00Z');
+    assert.equal(t1.lastUpdated, '2026-06-16T17:45:00Z');
+
+    const t2 = s.tasks.find((t) => t.id === 'T-2');
+    assert.equal(Object.hasOwn(t2, 'closedAt'), true);
+    assert.equal(t2.closedAt, null);
+    assert.equal(Object.hasOwn(t2, 'lastUpdated'), true);
+    assert.equal(t2.lastUpdated, null);
+  });
+
   it('rolls up the project (mode/parallel/summary) and totals', () => {
     const proj = s.projects[0];
     assert.equal(proj.id, 'demo');
@@ -199,7 +218,7 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       );
       writeFileSync(
         join(planDir, 'phases', 'f0.md'),
-        '---\nslug: big-f0\ntitle: F0 init\nstatus: active\nphaseId: F0\nparentPlan: big\ntasksDone: 1\ntasksTotal: 2\ntasks:\n  - id: T-1\n    title: a\n    status: done\n---\n',
+        '---\nslug: big-f0\ntitle: F0 init\nstatus: active\nphaseId: F0\nparentPlan: big\ntasksDone: 1\ntasksTotal: 2\ntasks:\n  - id: T-1\n    title: a\n    status: done\n    closedAt: "2026-06-16T17:45:00Z"\n    lastUpdated: "2026-06-16T17:45:00Z"\n---\n',
       );
 
       const { written } = emitConsumerState(dir, NOW);
@@ -209,6 +228,10 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       assert.ok(Array.isArray(plans), 'plans.json is a bare array');
       assert.equal(plans.length, 1);
       assert.equal(plans[0].focusTasksText, '1/2');
+
+      const validation = validateAideckState(dir, { nowMs: NOW });
+      assert.equal(validation.ok, true);
+      assert.deepEqual(validation.errors, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
