@@ -1476,6 +1476,18 @@
         "status": {
           "type": "string"
         },
+        "closedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastUpdated": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "blocked": {
           "type": "boolean"
         },

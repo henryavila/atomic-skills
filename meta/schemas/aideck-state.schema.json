@@ -109,6 +109,8 @@
         "title": { "type": "string" },
         "summary": { "type": "string" },
         "status": { "type": "string" },
+        "closedAt": { "type": ["string", "null"] },
+        "lastUpdated": { "type": ["string", "null"] },
         "blocked": { "type": "boolean" },
         "blockedBy": { "type": "array", "items": { "type": "string" } },
         "blockedByText": { "type": "string" }
