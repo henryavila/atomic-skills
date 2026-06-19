@@ -5,16 +5,16 @@ title: Geração de dados de calibração + endurecer closedAt
 goal: "gravar os actuals crus por conclusão (calibração: só geração, tratamento
   depois) e promover closedAt de soft para hard no GATE-R2 quando a lacuna de
   instrumentação chegar perto de zero."
-status: active
+status: done
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T17:29:17Z
-lastUpdated: 2026-06-19T17:29:17Z
-nextAction: "Todas as 3 tasks done — rodar phase-done F4 (exit-gate G-1 + review --mode=both + lessons), com opt-in do usuário"
+lastUpdated: 2026-06-19T20:00:51Z
+nextAction: null
 parentPlan: deadline-burnup-forecast
 phaseId: F4
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -32,17 +32,18 @@ exitGates:
         tests/append-completion-dispatchlog.test.js && node --test
         tests/validate-state.test.js && node --test
         tests/harden-closedat.test.js && node --test tests/schema-drift.test.js
-    verifierLabel: "shell: node --test tests/append-completion-actuals.test.js && node…"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T19:53:26Z
       passed: true
       exitCode: 0
       testsCollected: 94
-      outputSummary: "G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94 pass
+      outputSummary: G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94 pass
         (actuals 4 + dispatchlog 8 + validate-state 75 + harden 6 + schema-drift
         1), 0 fail, exit 0. Review --mode=both APROVADO (local 2 minor + codex 1
-        critical/2 major, todos remediados). Suíte 953/939/8 PRÉ-EXISTENTES."
+        critical/2 major, todos remediados). Suíte 953/939/8 PRÉ-EXISTENTES.
+    verifierLabel: "shell: node --test tests/append-completion-actuals.test.js && node…"
+    evidenceSummary: passed · 94 tests · 2026-06-19
 stack:
   - id: 1
     title: Geração de dados de calibração + endurecer closedAt
@@ -130,7 +131,7 @@ summary: Grava os actuals crus por conclusão (calibração futura) e endurece
   closedAt forward-only.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes

@@ -5,9 +5,9 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-19T17:29:17Z
+lastUpdated: 2026-06-19T20:00:51Z
 branch: plan/deadline-burnup-forecast
-currentPhase: F4
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -225,7 +225,7 @@ phases:
       mode: both
       reviewFile: .atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md
       verifiedAt: 2026-06-19T19:53:26Z
-    status: active
+    status: done
     summary: Grava os actuals crus por conclusão (calibração futura) e endurece
       closedAt forward-only.
   - id: F5

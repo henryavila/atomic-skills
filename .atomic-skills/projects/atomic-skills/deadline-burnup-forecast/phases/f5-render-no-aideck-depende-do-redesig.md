@@ -12,7 +12,7 @@ status: pending
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T12:06:57.781Z
 lastUpdated: 2026-06-17T16:06:30Z
-nextAction: "Start T-001: — dataSources + página burn-up no manifest"
+nextAction: "BLOQUEADA — aguarda o redesign do dashboard (fix-aideck-dashboard F2); handoff em docs/handoffs/forecast-render-requirements.md. Não iniciar T-001 até o manifest refeito aterrissar."
 parentPlan: deadline-burnup-forecast
 phaseId: F5
 tasksDone: 0
@@ -53,6 +53,7 @@ summary: Renderiza o burn-up/SPI no dashboard — bloqueada até o redesign do
   dashboard aterrissar.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
+current: true
 ---
 
 # Narrative / notes
