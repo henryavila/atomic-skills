@@ -5,9 +5,9 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T23:00:00Z
+lastUpdated: 2026-06-19T16:20:35Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F7
+currentPhase: F8
 parallelismAllowed: false
 principles:
   - id: P1
@@ -559,6 +559,51 @@ phases:
       verifiedAt: 2026-06-17T23:00:00Z
     summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +
       run-record do composer."
+  - id: F8
+    slug: worktree-lifecycle-finalization-f8-finalize-plan-aware-branch
+    title: Finalize plan-aware — branch ≠ plano (Decisão 9)
+    goal: >-
+      tornar o `project finalize` correto quando uma branch/worktree carrega MAIS
+      DE UM plano em estágios diferentes: resolver um plano-alvo EXPLÍCITO (nunca
+      o default-silencioso do ponteiro focus), exigir o alvo terminal, emitir WARN
+      dos planos-irmãos não-arquivados que o merge arrastaria, detectar (advisory)
+      regressão de status de plano no merge, e verificar a existência do
+      integrationRef antes de publicar (fecha o "develop silencioso"). Skill
+      genérica; esta WT é a fonte de verdade do finalize.
+    dependsOn:
+      - F7
+    subPhaseCount: 1
+    exitGate:
+      summary: 2 criteria to meet
+      criteria:
+        - id: G-1
+          description: >-
+            Resolvedor de escopo de plano determinístico
+            (scripts/finalize-plan-scope.js): enumera os plan.md da branch,
+            classifica alvo/outro-ativo/arquivado-não-mergeado, exige alvo
+            terminal, BLOQUEIA alvo≠focus-sem-confirmação, WARN nos irmãos
+            não-arquivados; detector de regressão de status advisory;
+            puro/never-throws (fail-closed na dúvida); suite verde.
+          status: pending
+          verifier:
+            kind: test
+            runner: node
+            pattern: tests/finalize-plan-scope.test.js
+        - id: G-2
+          description: >-
+            project-finalize.md documenta o guard plan-aware (passo pré-publish:
+            seleção EXPLÍCITA do plano-alvo, terminalidade, WARN de irmãos), a
+            verificação de existência do integrationRef (inclui source:default),
+            e o detect+WARN advisory de regressão de status no merge (reusa a lane
+            do F4); skills válidos.
+          status: pending
+          verifier:
+            kind: shell
+            command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills
+    status: active
+    summary: >-
+      Finalize correto sob branch multi-plano: alvo explícito + terminal, WARN de
+      irmãos e de regressão de status, e integrationRef verificado antes do PR.
 references: []
 planActive: true
 planTitle: Finalização do ciclo de vida da worktree-do-plano

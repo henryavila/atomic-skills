@@ -216,6 +216,44 @@ mínimo (Decisão 5); a cura estrutural é um plano separado.
      os agentes advisory da Decisão 7 leem o ledger e escopam só à superfície NOVA (commits de merge +
      interação de integração), nunca aos diffs per-WT já revisados.
 
+9. **`project finalize` é PLAN-AWARE: branch ≠ plano — resolve um plano-alvo EXPLÍCITO, exige-o terminal, e
+   nunca confia no ponteiro `focus` por default.** O always-fork da Decisão 1 torna "1 worktree = 1 feature"
+   verdadeiro na CRIAÇÃO, mas uma worktree SOBREVIVE a um plano e hospeda o próximo — então uma branch
+   acumula N planos em estágios diferentes (encontrado no dogfood deste plano: `multiplan` carrega
+   `multiplan-focus-resolution` ARCHIVED + `worktree-lifecycle-finalization` ativo; `design-brief` carrega
+   `design-brief-source-of-truth` ARCHIVED + `design-brief-briefing-rework` ativo; o tip ARCHIVED de
+   `skills-restructuring` hospeda o `plan-fork` novo). O `focus.json` aponta sempre para o plano MAIS NOVO
+   (`verified_by: scripts/emit-focus.js` pickFocus), nunca o terminado — um finalize que resolve "o plano
+   ativo" via focus mira o plano ERRADO numa branch multi-plano. O modelo "1 branch = `plan/<slug>` = 1
+   plano" da Decisão 3 quebra aqui.
+   - **GUARD plan-aware (determinístico, verify-claim-able — é a prova):** o finalize resolve um plano-alvo
+     EXPLÍCITO (nunca o default-silencioso do focus); enumera todos os `projects/<project-id>/*/plan.md`
+     presentes na branch e os classifica {alvo / outro-ativo / arquivado-não-mergeado}; BLOQUEIA se o alvo
+     não está pronto-para-publicar (todas as fases `done` — `status` ainda `active` pré-archive per P2 — ou
+     `archived`) OU se o alvo ≠ o que o focus apontaria sem confirmação explícita; emite WARN listando os
+     planos-irmãos NÃO-arquivados que o merge da branch arrastaria junto. Função PURA sobre o estado lido
+     (`verified_by: scripts/finalize-plan-scope.js` a criar), never-throws, nunca auto-resolve. Que
+     branch-name ≠ plan-slug é tornado EXPLÍCITO ao operador (o push continua `plan/<branch>`; o ALVO é o
+     slug do plano).
+   - **DETECT+WARN de regressão de status no merge (advisory, read-only — reusa a lane da Decisão 7):** com
+     ≥2 worktrees vivas, detecta `plan.md` cujo `status` na branch está ATRÁS do `integrationRef` (ex.: a
+     branch tem `skills-restructuring: active/F0` enquanto o ref já o tem ARCHIVED) — um merge cego
+     REGREDIRIA o ciclo de vida desse plano. Sinaliza para o humano; NUNCA gateia, NUNCA auto-resolve (mesma
+     disciplina dos agentes A/B). A CURA estrutural (partição por ownership do tree `.atomic-skills/projects/`
+     — estado per-plano disjunto viaja na branch, agregados saem da feature-branch) permanece o PLANO
+     SEPARADO que a Decisão 5 nomeou; esta Decisão só DETECTA e AVISA.
+   - **Verificação de existência do `integrationRef` no consumo (fecha o gap "develop silencioso"):** mesmo
+     no caso `source: default` do resolvedor da Decisão 2 (`verified_by: scripts/integration-ref.js`), o
+     finalize confirma que o ref resolvido existe em `origin` (`git show-ref` / `git ls-remote`) ANTES do
+     `gh pr create`; ausente ⇒ cai no prompt-quando-ausente (usar existente OU criar), nunca publica contra
+     um ref inexistente. Hoje só `source: not-configured` dispara o prompt (`verified_by:
+     skills/shared/project-assets/project-finalize.md` Step 1) — esta Decisão estende a guarda ao `default`.
+   - **Disciplina:** o GUARD + o ref-check são DETERMINÍSTICOS (a prova); o detector de regressão é
+     ADVISORY/READ-ONLY (rota a humano). Skill genérica (qualquer projeto-alvo). Esta worktree
+     (`plan/worktree-lifecycle-finalization`) é a ÚNICA fonte de verdade da skill finalize; as cópias mais
+     antigas em outras WTs convergem no merge (drift entre versões da skill = FORA de escopo, decisão do
+     operador). A mesma regra vale para qualquer feature: sua WT específica é a fonte de verdade.
+
 ## Chosen approach
 
 O modelo (Git Flow `worktree=feature→PR→develop→main`) é decisão do operador. O painel adversarial
