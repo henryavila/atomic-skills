@@ -44,6 +44,10 @@ interaction:
    - **Forbidden vocabulary (R4):** never name a button / list / tab / bar / card-UI /
      heatmap / chip / modal, and never describe colour / border / shadow / spacing — those
      are layer-1 form, the design agent's to choose. Naming any of them is contamination.
+     **Literal copy too:** do not prescribe the exact button/label words — substitute the
+     **literal copy** with its **speech-act (ato-de-fala)** (what the words make the person do
+     or understand) and treat the exact words as **texture, a mutable content lane** (see the
+     fixtures recipe's copy lane), never a binding requirement.
 5. **Philosophy / guardrails** *(mandatory)* — the **human × system** axis (which decision is
    human judgement, which is the system's technical/hidden call), **what stays hidden**, and
    the **forbidden anti-pattern named** for risky screens (R6). A system decision must never

@@ -44,6 +44,17 @@ populated), capture:
 - **Edge rows** — the longest title, the truncation case, the missing-optional-field row, the
   one with an unusual value. These are where layout breaks; include them on purpose.
 
+## Copy lane — literal copy is real texture, but mutable (not a requirement)
+
+Mine the app's **literal copy** (button labels, microcopy, empty-state lines, error messages)
+as **real content** — its brevity, tone and voice are texture the design agent must see, so it
+belongs with the fixtures. But literal copy is its **own mutable lane**: the exact words are
+**content the design agent may rewrite**, never a binding layer-2 value. What binds is the
+**speech-act** behind the copy (what the words make the person do or understand) — that lives
+in the screen's Interaction-model / Philosophy blocks (R4), not in the string itself. Hand
+literal copy as a flagged **`copy (mutable)`** set alongside the fixtures, explicitly marked
+editable, so its texture informs the design without freezing the words as a requirement.
+
 ## What to hand the design agent
 
 A compact fixture set per screen-state that the agent can drop into the design **as-is**,
