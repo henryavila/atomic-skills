@@ -5,7 +5,7 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T08:59:28.000Z
+lastUpdated: 2026-06-19T12:02:57.000Z
 branch: plan/reversible-installer
 currentPhase: F1
 parallelismAllowed: false
@@ -219,7 +219,11 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 
 **Re-escopo APLICADO (2026-06-19).** O usuário respondeu as 4 decisões abertas e os goals/exit-gates de F2/F3 no frontmatter abaixo **já foram reescritos para package-first**. Fronteira travada: **pacote** = genérico (contrato de Provider + Driver + config two-tier); **consumidor (atomic-skills)** = SkillsProvider + render + flag de idioma + runtime layers. Lib-only; dependência por `file:`. Decisões e racional em [`PROPOSAL-f2-f3-package-first.md`](PROPOSAL-f2-f3-package-first.md) + reframes de D1/D7 no `design.md` §PIVOT.
 
-**Próximo passo (ainda NÃO é `implement`):** o usuário valida o pacote (`cd ~/tooling-installer && npm test` → 38/38; revisar `src/index.js`+README). Depois `implement` retoma — **F2 roda no repo do pacote** (`~/tooling-installer`, verifiers lá), **F3 no atomic-skills** (verifiers aqui). F1 in-repo segue done/superseded (não rodar `phase-done`).
+**Decisão estrutural (2026-06-19):** **F2 é tracejado/executado no próprio repo do pacote** `~/tooling-installer` (é 100% trabalho lá; um repo standalone para múltiplos consumidores). Este plano retém só **F3** (o consumo). F2 se auto-documenta em `~/tooling-installer/docs/design/provider-driver.md`. A entrada F2 no frontmatter abaixo vira ponteiro (gates verificam no pacote).
+
+**Progresso F2 (pacote, commit `f83a1f7`):** MVP do Provider/Driver LANDED — contrato de Provider (`plan(config,planCtx)→[{type,args}]`) + `createFileSetProvider` de referência + `createDriver` (install aplica/journaliza efeitos; uninstall = `replayReverse` + `removeManifest`, round-trip byte-a-byte). TDD 5 casos; suíte do pacote **43/43** (era 38). Falta no F2: semântica de update/re-install (3-hash + órfãos), config two-tier, exemplo de runtime-layer.
+
+**Próximo passo:** continuar F2 no pacote (update semantics → config two-tier → runtime-layer) **ou** começar F3 no atomic-skills (consome via `file:`, move SkillsProvider+render+runtime layers sobre o Driver, remove `src/kernel/` in-repo). F1 in-repo segue done/superseded (não rodar `phase-done`).
 
 ## 1. Context
 
