@@ -105,8 +105,8 @@ describe('provisionConsumer — ONE shared atomic-skills consumer (Q10)', () => 
   it('does NOT rewrite nested (indented) title: keys — only the top-level one', () => {
     provisionConsumer({ templateDir: TEMPLATE_DIR, consumersDir });
     const raw = readFileSync(join(consumersDir, 'atomic-skills', 'manifest.yaml'), 'utf8');
-    // page titles (indented) must survive untouched
-    assert.match(raw, /^\s+title: 'Foco'/m);
+    // page titles (indented) must survive untouched (only the column-0 title: is stamped)
+    assert.match(raw, /^\s+title: 'Foco agora'/m);
   });
 });
 

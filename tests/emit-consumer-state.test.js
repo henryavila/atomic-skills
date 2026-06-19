@@ -113,7 +113,6 @@ describe('buildState — derived fields', () => {
     assert.equal(s.parked.length, 1);
     assert.equal(s.emerged.length, 1);
     assert.equal(s.projects.length, 1);
-    assert.equal(s.totals.length, 1);
   });
 
   it('flattens plan-phase gates, stack, parked, emerged with join keys', () => {
@@ -144,14 +143,15 @@ describe('buildState — derived fields', () => {
     assert.equal(big.updatedRel, '2h');
   });
 
-  it('sets bucket booleans (no array-OR filters needed at render)', () => {
+  // aiDeck v0.1 now does array-membership filters (status: [paused, blocked])
+  // and read-time aggregation, so the emitter no longer precomputes the
+  // liveFront/concluded/suspended/bucket helper flags — the manifest filters on
+  // `status` directly. Guard that the dropped fields stay dropped (no drift back).
+  it('does NOT emit the retired bucket booleans (manifest filters status directly)', () => {
     const big = s.plans.find((p) => p.slug === 'big');
-    const old = s.plans.find((p) => p.slug === 'old');
-    assert.equal(big.liveFront, true);
-    assert.equal(big.concluded, false);
-    assert.equal(big.bucket, 'live');
-    assert.equal(old.concluded, true);
-    assert.equal(old.bucket, 'concluded');
+    for (const dead of ['liveFront', 'concluded', 'suspended', 'bucket']) {
+      assert.ok(!(dead in big), `retired bucket field ${dead} must not be emitted`);
+    }
   });
 
   it('flags blocked tasks + precomputes blockedByText', () => {
@@ -161,22 +161,24 @@ describe('buildState — derived fields', () => {
     assert.equal(t2.initiativeId, 'big-f1');
   });
 
-  it('rolls up the project (mode/parallel/summary) and totals', () => {
+  // The 4 Panorama totals are now `source.agg` over projects/plans/tasks at read
+  // time (count, count+where:{status:active}, count+where:{activeCount:{gt:1}},
+  // count+where:{blocked:true}) — so the emitter keeps the per-record fields the
+  // aggregate scopes on (activeCount, blocked) but no longer writes a totals file.
+  it('rolls up the project (mode/parallel/summary), keeping the agg-scope fields', () => {
     const proj = s.projects[0];
     assert.equal(proj.id, 'demo');
     assert.equal(proj.name, 'Demo');
     assert.equal(proj.totalPlans, 2);
-    assert.equal(proj.activeCount, 1);
+    assert.equal(proj.activeCount, 1); // EM PARALELO aggregates where activeCount > 1
     assert.equal(proj.mode, 'isolado');
     assert.equal(proj.isParallel, false);
     assert.equal(proj.plansSummary, '2 · 1 ✓');
     assert.equal(proj.blockedCount, 1);
+  });
 
-    const tot = s.totals[0];
-    assert.equal(tot.projetos, 1);
-    assert.equal(tot.frentesAtivas, 1);
-    assert.equal(tot.emParalelo, 0);
-    assert.equal(tot.tasksTravadas, 1);
+  it('does NOT emit the retired precomputed totals projection', () => {
+    assert.ok(!('totals' in s), 'totals is now a read-time source.agg, not an emitted file');
   });
 
   it('marks the current phase and carries dependsOn', () => {
@@ -203,7 +205,7 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       );
 
       const { written } = emitConsumerState(dir, NOW);
-      assert.equal(written.length, 11);
+      assert.equal(written.length, 10); // totals.json dropped (now a read-time agg)
 
       const plans = JSON.parse(readFileSync(join(dir, '.atomic-skills', '.aideck', 'state', 'plans.json'), 'utf8'));
       assert.ok(Array.isArray(plans), 'plans.json is a bare array');

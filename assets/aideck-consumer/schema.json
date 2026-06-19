@@ -1200,10 +1200,6 @@
         "started",
         "lastUpdated",
         "currentPhase",
-        "liveFront",
-        "concluded",
-        "suspended",
-        "bucket",
         "currentPhaseText",
         "phasesText",
         "phasesSummary",
@@ -1238,18 +1234,6 @@
           "type": "string"
         },
         "currentPhase": {
-          "type": "string"
-        },
-        "liveFront": {
-          "type": "boolean"
-        },
-        "concluded": {
-          "type": "boolean"
-        },
-        "suspended": {
-          "type": "boolean"
-        },
-        "bucket": {
           "type": "string"
         },
         "currentPhaseText": {
@@ -1767,30 +1751,6 @@
         },
         "updatedRel": {
           "type": "string"
-        }
-      }
-    },
-    "totals": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "projetos",
-        "frentesAtivas",
-        "emParalelo",
-        "tasksTravadas"
-      ],
-      "properties": {
-        "projetos": {
-          "type": "integer"
-        },
-        "frentesAtivas": {
-          "type": "integer"
-        },
-        "emParalelo": {
-          "type": "integer"
-        },
-        "tasksTravadas": {
-          "type": "integer"
         }
       }
     },
