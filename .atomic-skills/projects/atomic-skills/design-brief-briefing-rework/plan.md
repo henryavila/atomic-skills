@@ -171,8 +171,10 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## 6. Status / sequenciamento
 
-**PAUSADO em 2026-06-19** (operador). Sequenciado **atrás** de `app-map-conflict-arbitration`, que
-segue como foco único do branch `plan/design-brief`. **Condição de desbloqueio:** retomar este plano
-(`status: active`, reativar F0) quando `app-map-conflict-arbitration` for concluído/arquivado. Foi a
-resolução sequencial da frente concorrente R-FOCUS-01 (não há `dependsOn` de schema entre planos; o
-sequenciamento é operacional, registrado aqui e na memória do agente).
+**PAUSADO em 2026-06-19** (operador). **Correção (mesma data):** `app-map-conflict-arbitration` já
+estava **arquivado/concluído** (`plan.md` `status: archived`, plan-done F1 com reviewGate(both)); o
+índice `PROJECT-STATUS.md` o mostrava "active" por estar **stale**. Logo a condição de desbloqueio
+originalmente declarada (esperar o app-map) **já estava satisfeita** — não havia frente concorrente real.
+O operador optou por **manter o plano pausado** mesmo assim; o **critério real de retomada está pendente
+de confirmação**. Retomar = `status: active` no plano + reativar F0 + atualizar o índice + `refresh-state`.
+Não há `dependsOn` de schema entre planos; o sequenciamento é operacional.
