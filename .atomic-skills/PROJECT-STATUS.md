@@ -1,5 +1,5 @@
 ---
-lastUpdated: '2026-06-17T21:15:00Z'
+lastUpdated: '2026-06-17T21:45:00Z'
 schemaVersion: '0.1'
 activePlans: 2
 activeInitiatives: 0
@@ -12,7 +12,7 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 ## Active Plans
 
-### worktree-lifecycle-finalization — Finalização do ciclo de vida da worktree-do-plano (currentPhase: F6)
+### worktree-lifecycle-finalization — Finalização do ciclo de vida da worktree-do-plano (currentPhase: F7)
 
 Cada plano forka branch+worktree na criação; publicar (`finalize` → push + PR feature→develop) e encerrar (`archive`, zero-git pós-merge) são máquinas de estado separadas, operator-prompted; nunca remover trabalho não-provado-integrado (fail-closed: em indeterminação, BLOQUEIA).
 
@@ -24,8 +24,8 @@ Cada plano forka branch+worktree na criação; publicar (`finalize` → push + P
 | F3 — project finalize dedicado (Decisão 3) | done | Comando `finalize`: push + `gh pr create --base <integrationRef>`, grava pr-url; archive intocado. 1/1 tasks, 2/2 gates. |
 | F4 — Check de colisão cross-WT no finalize (Decisão 7) | done | Gate determinístico `cross-wt-gate.js` (≥2 WTs, merge especulativo, fail-closed) + advisory A/B read-only no finalize; archive→teardown wired. 3/3 tasks, 2/2 gates. |
 | F5 — Coupling interim de .atomic-skills/ (Decisão 5) | done | `focus.json` git-ignored (pré-existente) + `dispatch-log.json`→NDJSON com `merge=union` provado (union lossless só line-oriented); round-trip preservado. 1/1 tasks, 2/2 gates (Mode 2/Codex). |
-| F6 — Backstop read-only no project verify (Decisão 6) | active | 9º check read-only: WARN para órfãos do modelo PR→develop (worktree de feature mergeada; branch arquivada não-integrada). |
-| F7 — Dedup de review em duas camadas (Decisão 8) | pending | Ledger de superfície unificado (`last-review.json` ponteiro→conjunto) + run-record do composer; ambos falham-para-RE-revisar. |
+| F6 — Backstop read-only no project verify (Decisão 6) | done | 9º check `findOrphanWorktrees` (puro, read-only): WARN para órfãos PR→develop (worktree de feature mergeada; branch arquivada não-integrada). 1/1 tasks, 2/2 gates (Mode 2/Codex). |
+| F7 — Dedup de review em duas camadas (Decisão 8) | active | Ledger de superfície unificado (`last-review.json` ponteiro→conjunto) + run-record do composer; ambos falham-para-RE-revisar. 4 tasks. |
 
 ### quick-idea-capture — Quick Idea Capture (currentPhase: F1)
 

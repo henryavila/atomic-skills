@@ -5,9 +5,9 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T21:30:00Z
+lastUpdated: 2026-06-17T21:45:00Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F6
+currentPhase: F7
 parallelismAllowed: false
 principles:
   - id: P1
@@ -446,21 +446,49 @@ phases:
         - id: G-1
           description: Backstop sinaliza WARN para worktree de feature mergeada e branch
             arquivada não-integrada; read-only, inputs não mutados; suite verde.
-          status: pending
+          status: met
+          metAt: 2026-06-17T21:30:00Z
           verifier:
             kind: test
             runner: node
             pattern: tests/detect-orphan-worktrees.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-17T21:30:00Z
+            exitCode: 0
+            testsCollected: 11
+            passed: true
+            outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ bb3183b
+              (merged primary, post review-gate fixes): tests 11, pass 11, fail 0. Função
+              pura findOrphanWorktrees (isBranchMerged simétrico A/B) — ambos sinais de
+              merge, ambas formas archived, healthy→[], pureza+never-throws
+              (frozen/null/throwing-isMerged/malformed), no-matching-plan, duplo-plano
+              slug. read-only, inputs não mutados."
         - id: G-2
           description: "project-verify.md lista o check #9 (âncora
             detect-orphan-worktrees) e validate-skills passa."
-          status: pending
+          status: met
+          metAt: 2026-06-17T21:30:00Z
           verifier:
             kind: shell
             command: grep -q 'detect-orphan-worktrees'
               skills/shared/project-assets/project-verify.md && npm run
               validate-skills
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T21:30:00Z
+            exitCode: 0
+            passed: true
+            outputSummary: "grep -q 'detect-orphan-worktrees' project-verify.md (check #9
+              documentado, kinds reais nomeados) && npm run validate-skills → All 15 skills
+              valid, exit 0 @ bb3183b."
+    status: done
+    reviewGate:
+      status: passed
+      at: bb3183beb80726cf9791cb020270a2657e5cd90f
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-17-2130-wlf-f6-orphan-worktrees.md
+      verifiedAt: 2026-06-17T21:30:00Z
     summary: 9º check read-only no project verify avisa (WARN) órfãos do modelo
       PR→develop.
   - id: F7

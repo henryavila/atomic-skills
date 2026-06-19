@@ -7,10 +7,10 @@ goal: "eliminar re-review redundante sob worktrees paralelas — Camada A: um
   SHA+patch-id) que `review-code` e `review-due` leem/gravam por modo; Camada B:
   um run-record do composer `project review`, entregue como work-order ao autor
   da skill (vive em outra branch). Ambos falham-para-RE-revisar."
-status: pending
+status: active
 branch: plan/worktree-lifecycle-finalization
-started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-16T22:50:35.627Z
+started: 2026-06-17T21:45:00Z
+lastUpdated: 2026-06-17T21:45:00Z
 nextAction: "Start T-001: Ledger de superfície em last-review.json
   (ponteiro→conjunto) + adaptador de migração"
 parentPlan: worktree-lifecycle-finalization
@@ -170,6 +170,7 @@ summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +
   run-record do composer."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
+current: true
 ---
 
 # Narrative / notes

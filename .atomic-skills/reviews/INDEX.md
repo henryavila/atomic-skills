@@ -40,3 +40,4 @@
 | 2026-06-17 18:50 | [wlf-f3-project-finalize](2026-06-17-1850-wlf-f3-project-finalize.md) | code (both) | needs_changes→all fixed | 0B/0C/4M/0m/0n (codex final, all applied; local 1C/1M/1m) | 2d/3=/1+ |
 | 2026-06-17 20:30 | [wlf-f4-cross-wt-collision](2026-06-17-2030-wlf-f4-cross-wt-collision.md) | code (both) | needs_changes→all fixed | 0B/0C/2M/2m/0n (codex final, all applied; local 2M/4m) | 0d/3=/1+ |
 | 2026-06-17 21:00 | [wlf-f5-coupling-ndjson-union](2026-06-17-2100-wlf-f5-coupling-ndjson-union.md) | code (both) | needs_changes→all fixed | 0B/0C/1M/1m/2n (codex blind 1M caught local-missed; local 1m/2n) | 2d/1=/0+ |
+| 2026-06-17 21:30 | [wlf-f6-orphan-worktrees](2026-06-17-2130-wlf-f6-orphan-worktrees.md) | code (both) | needs_changes→all fixed | 0B/0C/2M/4m/2n (codex blind 2M caught local-missed-logic; emerged 1m pass-2) | 3d/1=/1+ |

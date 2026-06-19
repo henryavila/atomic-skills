@@ -7,41 +7,58 @@ goal: adicionar um 9º check read-only ao `project verify` (após os 8 atuais) q
   plano e sinaliza em WARN os órfãos do modelo PR→develop (worktree viva de
   feature já mergeada; branch de plano arquivado nunca PR-ada ou PR aberto e
   nunca mergeado); o classificador topology-aware auto-ordenador fica DEFERIDO.
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:15:00Z
-lastUpdated: 2026-06-17T21:15:00Z
-nextAction: "PHASE BOUNDARY — F6 task 1/1 DONE (gates 0/2 pending, resolvem no
-  phase-done). Próximo (operator-prompted, NÃO auto-rodar): phase-done F6 — roda
-  exit-gates G-1 (node --test tests/detect-orphan-worktrees.test.js) + G-2 (grep
-  detect-orphan-worktrees + validate-skills), review-code --mode=both no diff da
-  fase, distila lessons, grava reviewGate no plan.md e avança currentPhase F6→F7."
+lastUpdated: 2026-06-17T21:45:00Z
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F6
 tasksDone: 1
 tasksTotal: 1
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: Backstop sinaliza WARN para worktree de feature mergeada e branch
       arquivada não-integrada; read-only, inputs não mutados; suite verde.
-    status: pending
+    status: met
+    metAt: 2026-06-17T21:30:00Z
     verifier:
       kind: test
       runner: node
       pattern: tests/detect-orphan-worktrees.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T21:30:00Z
+      exitCode: 0
+      testsCollected: 11
+      passed: true
+      outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ bb3183b: tests
+        11, pass 11, fail 0. findOrphanWorktrees puro (isBranchMerged simétrico A/B);
+        read-only, inputs não mutados; cobre ambos sinais merge, ambas formas archived,
+        healthy→[], never-throws (frozen/null/throwing-isMerged/malformed), no-plan, dup-slug."
     verifierLabel: "test: node tests/detect-orphan-worktrees.test.js"
+    evidenceSummary: passed · 2026-06-17
   - id: G-2
     description: "project-verify.md lista o check #9 (âncora
       detect-orphan-worktrees) e validate-skills passa."
-    status: pending
+    status: met
+    metAt: 2026-06-17T21:30:00Z
     verifier:
       kind: shell
       command: grep -q 'detect-orphan-worktrees'
         skills/shared/project-assets/project-verify.md && npm run
         validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T21:30:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "grep detect-orphan-worktrees project-verify.md (check #9, kinds
+        reais) && validate-skills → All 15 skills valid, exit 0 @ bb3183b."
     verifierLabel: "shell: grep -q 'detect-orphan-worktrees' skills/shared/project-ass…"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: Backstop read-only no project verify (Decisão 6)
@@ -102,7 +119,7 @@ emerged: []
 summary: 9º check read-only no project verify avisa (WARN) órfãos do modelo PR→develop.
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
