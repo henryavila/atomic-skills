@@ -67,6 +67,13 @@ Initiative for phase **F4 — Geração de dados de calibração + endurecer clo
 
 _(record decisions here as they are made)_
 
+## Session handoff
+- **Narrative:** F4 recém-ativada no phase-done de F3 (commit `a3a8d8c`). Nenhuma task de F4 iniciada. F3 (deadline + buildSeries burnup/spi + wiring refresh-state) done+arquivada; gate F3/G-1 met (4 pass @12edc01), review `--mode=both` APROVADO (local 1C+2M + codex 1M, todos remediados), 2 lições ratificadas. Tree limpo.
+- **Decision log:** (nenhuma decisão de F4 ainda). Herdado do feature já implementado: `appendCompletion` já admite o sub-objeto `actuals` (F0/T-002, pré-declarado p/ F4); `completions.jsonl` em `.atomic-skills/analytics/`; closedAt é soft-auditável (F1); `validateAideckState` valida cada linha de completions (parse + schema) e cobre burnup/spi.
+- **Single nextAction:** Antes de iniciar F4: (1) ler a SPEC das tasks de F4 em `source.md` (seção F4, ~linha 172); (2) dispositionar as 9 lições de `node scripts/list-lessons.js --phase F4` — inclui **F3/L-001** (filtrar log multi-tipo por `event==='task-done'`; actuals de F4 leem o mesmo log) e **F2/L-001** (Number.isFinite em todo escalar emitido). Depois: Start F4/T-001 (Actuals de fase no evento phase-done). Routing: Codex (Mode 2) lane ON — mesmo fluxo serial de F3.
+- **Verbatim state:** HEAD primary `a3a8d8c`. currentPhase=F4 (plan.md), F4 status active/current, tasksDone 0/3. Gate F4/G-1 verifier: `node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 927 tests, 913 pass, 8 fail PRÉ-EXISTENTES (install/countSkills — drift do plano skills-restructuring, fora de escopo). Padrões de execução Mode 2 (de F3): verifier in-worktree dá falso-fail `spawnSync EPERM` quando o teste spawna node → adjudicar no primary merged; `emit-consumer-state.js` é "binário" pro git (box-drawing) → merge-back via commit-no-worktree + `git merge --ff-only`, não patch.
+- **Uncommitted changes:** clean tree (este snapshot é a única edição pendente).
+
 ## Links
 
 _(plan doc, external refs)_
