@@ -11,9 +11,9 @@ status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T17:31:45.000Z
-nextAction: "Regen v2 VALIDO gerado na copia cega (binding prompt limpo: 80px/axis/
-  STEP_MS mortos no D3, A4 band-pinned 'poucos passos calibracao:3'; Vai!/3passos so
-  no lane de textura). Consolidado no canonico (678l). Re-rodando critico v2 -> D10."
+nextAction: "Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente; D10
+  nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar F1-D10-RESOLVED no
+  design.md = 'modelo leve basta, sem tag R10') + phase-done — DECISAO do operador."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
 tasksDone: 5
@@ -159,19 +159,18 @@ tasks:
     summary: Crítico adversarial contrasta o briefing regenerado contra o feedback.
     status: done
     closedAt: 2026-06-19T17:17:07.000Z
-    lastUpdated: 2026-06-19T17:17:07.000Z
+    lastUpdated: 2026-06-19T19:55:15.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-06-19T17:17:07.000Z
+      verifiedAt: 2026-06-19T19:55:15.000Z
       passed: true
       exitCode: 0
       outputSummary: EXIT=0 — f1/recurrence-verdict.md existe (critico adversarial
-        fresco rodou, veredito persistido). Resultado NAO-LIMPO — A1/A2 morreram
-        no filtro D3, A3 ('Vai!') ok como textura mutavel; 1 recaida flagrada =
-        A4 (onboarding '3 passos' cravado sem band-pin D5/credencial D6). P1-P12
-        ok, invariantes C ok. Marcador de nao-reincidencia OMITIDO (ha recaida),
-        logo gate F1-G1 grep falha (EXIT=1, esperado). Dispara D10; correcao em
-        T-005.
+        fresco). Re-rodado p/ v2 apos o fix T-006 — v1 achou 1 recaida (A4), T-006
+        corrigiu o band-pin de contagens, regen cego VALIDO (copia limpa) deu v2
+        LIMPO. Veredito v2 = NAO-REINCIDENTE — A1/A2 mortos no D3, A3 ('Vai!') e A4
+        ('3 passos') band-pinned/textura mutavel, P1-P12 ok, invariantes C ok. Gate
+        F1-G1 grep EXIT=0. v1 (NAO-LIMPO) preservado em recurrence-verdict-v1.md.
     description: Roda um crítico fresco com o feedback (f1/lekto-feedback.md), a
       rubrica e o briefing regenerado, persiste o veredito e grava o marcador
       NAO-REINCIDENTE quando nenhum contaminante reaparece. Correções viram

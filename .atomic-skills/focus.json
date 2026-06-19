@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T19:34:12.996Z",
+  "generatedAt": "2026-06-19T19:57:35.189Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "Copia limpa do app criada em /home/henry/lekto-blind-regen (cegueira ESTRUTURAL: 239 arquivos, so codigo, 0 memoria/design/prompts, 0 .env). OPERADOR roda o agente cego LA -> briefing v2 valido; depois copio p/ canonico + critico + D10.",
+  "nextAction": "Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente; D10 nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar F1-D10-RESOLVED no design.md = 'modelo leve basta, sem tag R10') + phase-done — DECISAO do operador.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
