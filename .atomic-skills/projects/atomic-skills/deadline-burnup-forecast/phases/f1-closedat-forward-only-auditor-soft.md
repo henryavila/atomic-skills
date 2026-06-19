@@ -8,11 +8,11 @@ goal: tornar closedAt auditável (soft, mede a lacuna de instrumentação) e
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T19:14:53Z
-lastUpdated: 2026-06-17T19:14:53Z
-nextAction: "Start F1/T-001: — Auditor da lacuna de instrumentação (find-unclosed-done.js)"
+lastUpdated: 2026-06-19T09:02:11Z
+nextAction: "Merge F1/T-003 (schema + bundle), then F1/T-002 (emit closedAt+lastUpdated na projeção)"
 parentPlan: deadline-burnup-forecast
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -36,8 +36,19 @@ stack:
 tasks:
   - id: T-001
     title: — Auditor da lacuna de instrumentação
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T09:02:11Z
+    lastUpdated: 2026-06-19T09:02:11Z
+    verifier:
+      kind: shell
+      command: node --test tests/find-unclosed-done.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T09:02:11Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: node --test tests/find-unclosed-done.test.js — 4 pass, 0 fail (re-run on MERGED primary beec974)
   - id: T-002
     title: — Emitir closedAt e lastUpdated na projeção de task
     status: pending
