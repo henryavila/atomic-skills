@@ -168,8 +168,6 @@ emerged: []
 summary: "Funda o kernel: contrato de efeito reversível, journal e o reconciler
   de arquivos (porta do 3-hash)."
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
-planActive: true
-current: false
 ---
 
 # Narrative / notes

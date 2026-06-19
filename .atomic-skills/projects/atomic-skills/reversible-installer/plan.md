@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: reversible-installer
 title: Reversible Installer — motor de instalação reversível e reutilizável
 version: "1.0"
-status: active
+status: done
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T15:31:48.000Z
+lastUpdated: 2026-06-19T20:05:00.000Z
 branch: plan/reversible-installer
 currentPhase: F3
 parallelismAllowed: false
@@ -116,9 +116,12 @@ phases:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
-    status: pending
-    summary: Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com
-      before-state + matriz adversária no round-trip.
+    status: done
+    summary: "Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com
+      before-state + matriz adversária no round-trip. [Reconciliado em F3 phase-done
+      2026-06-19 — construído in-repo e verde (matriz adversária no round-trip), depois
+      SUPERSEDED pelo pivot package-first; os efeitos migraram p/ o pacote
+      @henryavila/tooling-installer e a paridade vive no round-trip 9/9.]"
   - id: F2
     slug: reversible-installer-f2-providers-e-config-two-tier
     title: "Provider API + Driver no pacote (package-first)"
@@ -151,9 +154,11 @@ phases:
             kind: shell
             command: cd ~/tooling-installer && node --test test/kernel/runtime-layer.test.js
             expectExitCode: 0
-    status: pending
+    status: done
     summary: "Package-first: contrato de Provider + Driver + config two-tier no
-      pacote. SkillsProvider/render/idioma = consumidor (F3)."
+      pacote. SkillsProvider/render/idioma = consumidor (F3). [Reconciliado em F3
+      phase-done 2026-06-19: fase-ponteiro — 100% do trabalho no repo do pacote
+      ~/tooling-installer (62/62), auto-documentada lá; os gates verificam no pacote.]"
   - id: F3
     slug: reversible-installer-f3-big-bang-rewire-e-paridade
     title: "Consumo do pacote via file: link + paridade (package-first)"
@@ -173,35 +178,64 @@ phases:
           description: "O round-trip parity test mais as três fixtures adversárias
             passam com retorno byte-a-byte ao baseline, com a engine vinda do
             pacote (file: link) e a cópia in-repo src/kernel/ já removida."
-          status: pending
+          status: met
+          metAt: 2026-06-19T20:05:00.000Z
           verifier:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T20:05:00.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "round-trip 9/9 (exit 0) no HEAD pós-fix 0a414e3 — 7 originais +
+              os casos update→uninstall e legacy→uninstall que o review gate exigiu; engine
+              do pacote (file: link), src/kernel/ removido."
         - id: G-2
           description: A suíte completa passa via o Driver do pacote, com src/kernel/
             in-repo removido e install.js/uninstall.js legados substituídos.
-          status: pending
+          status: deferred
+          deferredReason: "npm test 830/816/2 (exit 1) — as 2 falhas são ambientais e
+            pré-existentes do dashboard-bundle (regex de path com nome do dir do worktree
+            'reversible-installer' + bundle não-buildado), un-greenable neste worktree;
+            ficam verdes na main com o bundle buildado. Zero regressão. Deferral
+            pré-autorizado pelo usuário."
           verifier:
             kind: shell
             command: npm test
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T20:05:00.000Z
+            passed: false
+            exitCode: 1
+            outputSummary: "npm test 830 tests, 816 pass, 2 fail — só as 2 ambientais do
+              dashboard-bundle (DEFAULT_BUNDLE_DIR worktree-path + bundle não-buildado)."
         - id: G-3
           description: "Inventário: cada mutação persistente emitida por cada runtime
             layer (aiDeck/hooks/auto-update) está mapeada a um efeito
             registrado, uma fixture de round-trip, ou uma entrada de allowlist
             documentada."
-          status: pending
+          status: met
+          metAt: 2026-06-19T20:05:00.000Z
           verifier:
             kind: manual
             description: Auditar o inventário de mutações por runtime layer durante
               phase-done.
-    status: active
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-19T20:05:00.000Z
+            passed: true
+            outputSummary: "Inventário auditado — toda mutação persistente mapeada a efeito
+              registrado / fixture round-trip / allowlist documentada (mapa CLAUDE.md);
+              nenhuma órfã."
+    status: done
     summary: "Package-first: atomic-skills consome o pacote (file: link), move
       SkillsProvider + runtime layers sobre o Driver, remove src/kernel/ in-repo,
       prova paridade."
 references: []
-planActive: true
+planActive: false
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
 ---
 

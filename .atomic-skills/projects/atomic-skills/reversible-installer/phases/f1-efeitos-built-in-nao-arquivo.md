@@ -4,27 +4,44 @@ slug: reversible-installer-f1-efeitos-built-in-nao-arquivo
 title: Efeitos built-in não-arquivo
 goal: implementar os 3 efeitos não-arquivo com before-state preciso e revert sem
   hack, e provar a segurança de dados com a matriz adversária no round-trip.
-status: active
+status: done
 branch: plan/reversible-installer
 started: 2026-06-17T16:41:21.000Z
-lastUpdated: 2026-06-19T15:18:58.000Z
-nextAction: "✅ F2 COMPLETO no pacote ~/tooling-installer (5/5 slices, suíte 58/58, validado por mim): MVP Provider/Driver (f83a1f7) + update 3-hash (0ee4f6d) + data-safety lado seguro (7703eac) + config two-tier defineInstaller (e99cc09) + runtime-layer example symlink (439fe9a). F3 EM ANDAMENTO, sequência REORDENADA (strangler-fig + gate de merge; baseline pré-F3: 848 pass/2 falhas dashboard, round-trip 7/7). ⚠️ Blast radius medido: única colisão séria = install.js/uninstall.js/roundtrip vs plan/skills-restructuring (==plan/plan-fork, commit 5e54974, +153 linhas aditivas no install.js); render/config/manifest/src/kernel seguros; resto é ruído trivial. T-F3-1 ✅ (20cf7c7). Reordem: T-F3-2 (ADITIVO, módulo novo src/providers, NÃO toca install.js) → T-F3-3 (ADITIVO, runtime layers via defineInstaller effects) → 🚧 GATE: mergear skills-restructuring + rebasear → T-F3-4 (BLOQUEADO: flip install.js fino + remove src/kernel/, rewrite sobre o já-mergeado) → T-F3-5 paridade. PRÓXIMO EXECUTÁVEL = T-F3-2. Ambiente: worktree com node_modules. NÃO rodar phase-done F1 (done/superseded)."
+lastUpdated: 2026-06-19T20:05:00.000Z
+nextAction: "FECHADA (reconciliada no phase-done de F3, 2026-06-19). Os 3
+  efeitos não-arquivo foram construídos in-repo e verdes (matriz adversária no
+  round-trip), depois SUPERSEDED pelo pivot package-first — migraram p/ o pacote
+  @henryavila/tooling-installer. A paridade da matriz adversária vive no
+  round-trip (G-1 met: 9/9). Plano marcado done."
 parentPlan: reversible-installer
 phaseId: F1
 tasksDone: 4
 tasksTotal: 4
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-1
     description: As três fixtures adversárias (hook de terceiro, refcount 2-install
       com crash, arquivo do usuário em path legado) estão presentes e passam.
-    status: pending
+    status: met
+    metAt: 2026-06-19T20:05:00.000Z
     verifier:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T20:05:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/install-uninstall-roundtrip.test.js → 9/9
+        (exit 0) no HEAD 0a414e3. As 3 fixtures adversárias (third-party
+        SessionStart hook via jsonMerge; refcount 2-owners + crash-retry heal;
+        arquivo legado não-assinado preservado P3) passam, atravessando a engine
+        do pacote @henryavila/tooling-installer (file: link). Reconciliado no
+        phase-done de F3 — os efeitos vivem no pacote, a paridade no
+        round-trip."
 stack:
   - id: 1
     title: Efeitos built-in não-arquivo
@@ -44,13 +61,14 @@ tasks:
       testsCollected: 9
       outputSummary: "Re-run on MERGED primary @5e0261b: node --test
         test/kernel/effects/json-merge.test.js — tests 9, pass 9, fail 0.
-        Deep-merge aditivo com before-state {fileCreated,inserts,createdContainers};
-        revert subtrai exatamente o delta (preserva hook de terceiro), recusa
-        overwrite de escalar, union-append idempotente, path-safety em
-        apply+revert, JSON inválido → throw sem clobber. Cobre os 3 acceptance +
-        contrato de input completo (L-001) + herméticos (L-002). Executor: codex
-        lane, worktree impl/ri-f1-t001 (self-report sub-contou tests=1; re-run na
-        primária = 9, L-003)."
+        Deep-merge aditivo com before-state
+        {fileCreated,inserts,createdContainers}; revert subtrai exatamente o
+        delta (preserva hook de terceiro), recusa overwrite de escalar,
+        union-append idempotente, path-safety em apply+revert, JSON inválido →
+        throw sem clobber. Cobre os 3 acceptance + contrato de input completo
+        (L-001) + herméticos (L-002). Executor: codex lane, worktree
+        impl/ri-f1-t001 (self-report sub-contou tests=1; re-run na primária = 9,
+        L-003)."
     summary: json-merge reverte por subtração do delta, preserva hooks de terceiros.
     description: before-state = conjunto exato de chaves inseridas + flag
       fileCreated; generaliza settingsCreated/removeAutoUpdateHook
@@ -78,15 +96,16 @@ tasks:
       exitCode: 0
       testsCollected: 8
       outputSummary: "Re-run on MERGED primary @ade1120: node --test
-        test/kernel/effects/refcount.test.js — tests 8, pass 8, fail 0. Marcadores
-        independentes owners/<sha256(ownerId)> (D8, sem array mutável installs.json);
-        marker guarda o manifesto do dono p/ validação de órfão. apply com guard
-        markerExisted (idempotente); revert remove só o marker que este apply criou,
-        poda órfãos, reclama owners/ vazio + pruneEmptyParents (lastOwnerReleased).
-        Sem passo de decremento → crash-safe (cura owners/ vazio e marker órfão).
-        Cobre os 4 acceptance + path-safety + idempotência (L-001/L-002). Executor:
-        codex lane, worktree impl/ri-f1-t002 (self-report sub-contou tests=1; re-run
-        na primária = 8, L-003)."
+        test/kernel/effects/refcount.test.js — tests 8, pass 8, fail 0.
+        Marcadores independentes owners/<sha256(ownerId)> (D8, sem array mutável
+        installs.json); marker guarda o manifesto do dono p/ validação de órfão.
+        apply com guard markerExisted (idempotente); revert remove só o marker
+        que este apply criou, poda órfãos, reclama owners/ vazio +
+        pruneEmptyParents (lastOwnerReleased). Sem passo de decremento →
+        crash-safe (cura owners/ vazio e marker órfão). Cobre os 4 acceptance +
+        path-safety + idempotência (L-001/L-002). Executor: codex lane, worktree
+        impl/ri-f1-t002 (self-report sub-contou tests=1; re-run na primária = 8,
+        L-003)."
     summary: refcount por marcadores owners/ validados contra manifesto, crash-safe,
       sem installs.json mutável.
     description: Substitui o refcount de src/install.js:135-173 por marcadores
@@ -124,11 +143,12 @@ tasks:
         sem assinatura — P3, knownNames.has(undefined)=false), grava
         {path,content}; revert restaura byte-a-byte (round-trip exato). Walkback
         path-aware até o namespace root, path-safety em apply+revert. Cobre os 3
-        acceptance + path-safety + restore + prune + roots ausentes (L-001/L-002).
-        Full npm test: tests 859, pass 845, fail 2 (as 2 pré-existentes do
-        dashboard: DEFAULT_BUNDLE_DIR + dashboard bundle built — zero regressão
-        do kernel). Executor: codex lane, worktree impl/ri-f1-t003 (self-report
-        sub-contou tests=1; re-run na primária = 8, L-003)."
+        acceptance + path-safety + restore + prune + roots ausentes
+        (L-001/L-002). Full npm test: tests 859, pass 845, fail 2 (as 2
+        pré-existentes do dashboard: DEFAULT_BUNDLE_DIR + dashboard bundle built
+        — zero regressão do kernel). Executor: codex lane, worktree
+        impl/ri-f1-t003 (self-report sub-contou tests=1; re-run na primária = 8,
+        L-003)."
     summary: "legacy-prune com safelist de frontmatter: sem prova de propriedade,
       não apaga."
     description: Porta isAtomicSkillsArtifact (src/install.js:298-314), a safelist
@@ -155,8 +175,8 @@ tasks:
       passed: true
       exitCode: 0
       outputSummary: "Primary @77cd386: node --test
-        tests/install-uninstall-roundtrip.test.js — tests 7, pass 7, fail 0
-        (4 existentes + as 3 fixtures adversárias novas). (1) hook de terceiro
+        tests/install-uninstall-roundtrip.test.js — tests 7, pass 7, fail 0 (4
+        existentes + as 3 fixtures adversárias novas). (1) hook de terceiro
         pré-existente sobrevive ao round-trip + settings.json byte-a-byte
         (removeAutoUpdateHook cirúrgico, settingsCreated=false preserva). (2)
         refcount 2 donos (user $HOME + project repo) no mesmo installs.json:
@@ -186,8 +206,6 @@ emerged: []
 summary: Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com
   before-state + matriz adversária no round-trip.
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
-planActive: true
-current: false
 ---
 
 # Narrative / notes

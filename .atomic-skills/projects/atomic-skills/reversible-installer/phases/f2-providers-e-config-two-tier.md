@@ -5,31 +5,56 @@ title: Providers e config two-tier
 goal: expor a config declarativa two-tier e portar a instalação de skills para
   um provider sobre o kernel, mantendo o render multi-IDE e o
   COMMUNICATION_LANGUAGE opt-out.
-status: pending
+status: done
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T15:20:11.565Z
-nextAction: "Start T-001: — defineInstaller (config two-tier)"
+lastUpdated: 2026-06-19T20:05:00.000Z
+nextAction: "FECHADA (reconciliada no phase-done de F3, 2026-06-19).
+  Fase-ponteiro: o contrato de Provider + Driver + config two-tier foi 100%
+  feito no repo do pacote @henryavila/tooling-installer (suíte 62/62),
+  auto-documentado lá. G-1 (SkillsProvider reproduz a instalação via
+  reconcileFileSet) met no consumidor; G-2 deferred — seu verifier
+  test/kernel/runtime-layer.test.js foi removido no flip de F3, e a extensão de
+  runtime-layer está provada no pacote + test/runtime-layers/."
 parentPlan: reversible-installer
 phaseId: F2
 tasksDone: 0
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: O SkillsProvider reproduz a instalação de skills atual (paths e
       conteúdo) via reconcileFileSet.
-    status: pending
+    status: met
+    metAt: 2026-06-19T20:05:00.000Z
     verifier:
       kind: test
       runner: node --test
       pattern: test/providers/skills-provider.test.js
     verifierLabel: "test: node --test test/providers/skills-provider.test.js"
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-19T20:05:00.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 3
+      outputSummary: node --test test/providers/skills-provider.test.js → 3/3 (exit
+        0). O SkillsProvider planeja o file set de skills (reconcileFileSet)
+        reproduzindo paths/conteúdo de installSkills byte-a-byte. Reconciliado
+        no phase-done de F3.
   - id: G-2
     description: Um runtime layer registra e reverte um tipo de efeito novo sem
       reabrir o kernel.
-    status: pending
+    status: deferred
+    deferredReason: Verifier test/kernel/runtime-layer.test.js foi REMOVIDO no flip
+      de F3 (src/kernel/ + test/kernel/ deletados — a engine virou o pacote). A
+      capacidade de um runtime layer registrar+reverter um efeito novo sem
+      reabrir o kernel está provada no pacote @henryavila/tooling-installer (cd
+      ~/tooling-installer && node --test test/kernel/runtime-layer.test.js,
+      suíte 62/62) e no consumidor via test/runtime-layers/atomic-skills.test.js
+      (stageRuntimeArtifacts custom effect 3/3). Reconciliado no phase-done de
+      F3.
     verifier:
       kind: test
       runner: node --test
@@ -103,7 +128,6 @@ emerged: []
 summary: Config two-tier + SkillsProvider (IDE matrix/render, COMM_LANG opt-out)
   + API de registro de runtime layer.
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
-planActive: true
 ---
 
 # Narrative / notes
