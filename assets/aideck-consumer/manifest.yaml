@@ -174,26 +174,33 @@ pages:
               laneStatusField: status
               laneTitleField: title
       - title: 'Frentes em foco'
+        subtitle: 'onde estou — fase atual e próxima ação de cada frente viva'
         widgets:
-          - widget: card
+          # One record-card per active plan, laid out in the DS .cgrid (auto-fit
+          # grid — cards sit side by side). The card BODY is composed from inline
+          # (frame:false) slot widgets so the phase track + tasks + próxima-ação
+          # flow inside a single rcard, matching the design (not nested boxes).
+          - widget: collection-grid
             colSpan: 12
-            repeat: { ref: plans, filter: { status: active } }
-            repeatLabelField: title   # group header = plan title; auto-hidden for 1 active plan, shown for ≥2
-            repeatDirection: vertical
+            source: { ref: plans, filter: { status: active } }
             config:
+              minColWidth: 360
               titleField: title
-              subtitleField: currentPhaseText
-              linkTo: 'plan/:projectId/:slug'
+              subField: currentPhaseText        # rc-sub (current phase)
+              linkTo: 'plan/:projectId/:slug'   # title-link → plan detail
+              footerField: updatedRel           # rc-foot timestamp ("3d")
+              live: { when: status }            # active cards carry the live pill
             slots:
               body:
-                # Macro phase track for THIS plan. $parent = the repeat (plan)
-                # record, so the filter scopes phases to it.
+                # roteiro de fases — macro phase track (inline hstep). $parent = the
+                # card (plan) record, so the filter scopes phases to it.
                 - widget: stepper
                   source: { ref: phases, filter: { projectId: '$parent.projectId', planSlug: '$parent.slug' } }
-                  # Display-only here (no linkTo) — the card header links to the plan;
-                  # drilling a phase happens on the plan page's roteiro (folded detail).
                   config:
+                    frame: false                # inline, no widget box
                     orientation: horizontal
+                    label: 'roteiro de fases'
+                    summaryLabel: 'concluídas'
                     idField: id
                     labelField: title
                     statusField: status
@@ -203,15 +210,17 @@ pages:
                 # Tasks of the current phase (precomputed onto the plan record).
                 - widget: progress-bar
                   config:
+                    frame: false                # inline pblock
                     label: 'Tasks da fase atual'
                     valueField: focusTasksPct
                     max: 100
                     valueTextField: focusTasksText   # "5/12"
                     captionField: focusMeta          # "gates 1/1 · 1 frame"
-                # Próxima ação — the one actionable next step.
+                # Próxima ação — the one actionable next step (callout is already inline).
                 - widget: callout
                   config: { eyebrow: 'PRÓXIMA AÇÃO', bodyField: nextText, tone: info }
       - title: 'Suspenso & travado'
+        subtitle: 'o que não está andando — e por quê'
         widgets:
           - widget: table
             colSpan: 12

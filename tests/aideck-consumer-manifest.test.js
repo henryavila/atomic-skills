@@ -145,11 +145,15 @@ describe('aiDeck consumer manifest — Panorama is the cross-project landing', (
 
   it('groups/filters cross-project data by the registered projectId, not the internal id', () => {
     const grid = allWidgets(page('panorama').sections).find((w) => w.widget === 'collection-grid');
-    const nested = grid.slots.body.find((w) => w.widget === 'status-list');
-    // The all-projects merge injects projectId = registered id on every record,
-    // so the per-project nested list keys on $parent.projectId (robust across
-    // internal-vs-registered project divergence), never $parent.id.
-    assert.equal(nested.source.filter.projectId, '$parent.projectId');
+    // The all-projects merge injects projectId = registered id on every record. The
+    // per-project nested fronts (denormalized via nestedField) link through :projectId
+    // — robust across internal-vs-registered project divergence — never the record's
+    // internal :id.
+    assert.ok(grid.config.nestedField, 'the project card nests its live fronts');
+    assert.ok(
+      grid.config.nestedLinkTo && grid.config.nestedLinkTo.includes(':projectId'),
+      'nested fronts key on the registered projectId',
+    );
   });
 });
 
@@ -170,29 +174,30 @@ describe('aiDeck consumer manifest — Foco agora fans out per active plan (N≥
     assert.ok(banner.config?.laneStatusField, 'one lane per front, tone-coded by status');
   });
 
-  // Regression guard for the "2 of everything, can't tell which plan" bug: the
-  // per-active-plan card repeats by plan and MUST surface the plan name, else two
-  // active plans render as ambiguous duplicates. repeatLabel defaults to `auto`
-  // (hidden for one group, shown for ≥2), so a `repeatLabelField` is required.
-  it('the Frentes em foco card fans out one instance per active plan (repeat object form)', () => {
+  // The per-active-plan front renders as a DS record-card (collection-grid over the
+  // active plans), matching the design's `.cgrid` of `.rcard`. One card per active
+  // plan, each titled by the plan (so two active plans aren't ambiguous duplicates),
+  // its title linking to the plan detail.
+  it('the Frentes em foco section renders one record-card per active plan (collection-grid)', () => {
     const frentes = section('foco-agora', 'Frentes em foco');
-    const card = frentes.widgets.find((w) => w.widget === 'card');
-    assert.ok(card, 'expected a card host in Frentes em foco');
-    // §A8: object-form repeat = one widget instance per record of `ref`.
-    assert.equal(card.repeat.ref, 'plans', 'card fans out over plans');
-    assert.deepEqual(card.repeat.filter, { status: 'active' }, 'one card per ACTIVE plan');
-    assert.equal(card.repeatLabelField, 'title', 'group header = the plan title');
-    assert.notEqual(card.repeatLabel, 'never', 'a never-labeled per-plan card is the bug this forbids');
+    const grid = frentes.widgets.find((w) => w.widget === 'collection-grid');
+    assert.ok(grid, 'expected a collection-grid host in Frentes em foco');
+    assert.equal(grid.source.ref, 'plans', 'one card per plan');
+    assert.deepEqual(grid.source.filter, { status: 'active' }, 'one card per ACTIVE plan');
+    assert.equal(grid.config.titleField, 'title', 'card title = the plan title');
+    assert.ok(grid.config.linkTo, 'the card title links to the plan detail');
   });
 
   it('scopes the macro stepper to its parent plan via the $parent token (no plan→phase join)', () => {
-    const card = section('foco-agora', 'Frentes em foco').widgets.find((w) => w.widget === 'card');
-    const stepper = card.slots.body.find((w) => w.widget === 'stepper');
-    assert.ok(stepper, 'card body composes a phase stepper');
+    const grid = section('foco-agora', 'Frentes em foco').widgets.find((w) => w.widget === 'collection-grid');
+    const stepper = grid.slots.body.find((w) => w.widget === 'stepper');
+    assert.ok(stepper, 'the card body composes a phase stepper');
+    // Composed inline (no nested widget frame) — matches the design's flush card body.
+    assert.equal(stepper.config.frame, false, 'the body stepper renders inline (frameless)');
     assert.equal(stepper.source.filter.planSlug, '$parent.slug');
     assert.equal(stepper.source.filter.projectId, '$parent.projectId');
     // The foco stepper is display-only — its steps must NOT linkTo a /phase route
-    // (that page is folded into the plan detail). The card header links to the plan.
+    // (that page is folded into the plan detail). The card title links to the plan.
     assert.equal(stepper.config.linkTo, undefined, 'foco stepper steps do not navigate to a removed phase page');
   });
 });
