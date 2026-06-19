@@ -41,12 +41,27 @@ export function linksPath(planDir) {
 /**
  * Read the link sidecar for a plan.
  * @param {string} planDir
- * @returns {object} the parsed links.json, or {} when absent
+ * @returns {object} the parsed links.json object, or {} when the file is absent
+ * @throws {Error} when the file is present but not valid JSON, or parses to a
+ *   non-object (null / array / primitive). A corrupt or truncated sidecar
+ *   surfaces with its path instead of an opaque SyntaxError, and a wrong-shaped
+ *   file is rejected rather than handed to the setters, which would mutate a
+ *   primitive (`5.spawnedFrom = …`) under ESM strict mode.
  */
 export function readLinks(planDir) {
   const filePath = linksPath(planDir);
   if (!existsSync(filePath)) return {};
-  return JSON.parse(readFileSync(filePath, 'utf8'));
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+  } catch (err) {
+    throw new Error(`links sidecar at ${filePath} is not valid JSON: ${err.message}`);
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const got = Array.isArray(parsed) ? 'array' : parsed === null ? 'null' : typeof parsed;
+    throw new Error(`links sidecar at ${filePath} must be a JSON object, got ${got}`);
+  }
+  return parsed;
 }
 
 /**

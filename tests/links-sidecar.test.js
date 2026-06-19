@@ -120,6 +120,49 @@ describe('links-sidecar reader/writer', () => {
   });
 });
 
+describe('links-sidecar read hardening (corrupt/empty/non-object sidecar)', () => {
+  it('readLinks throws a path-bearing error on an empty file', () => {
+    withTmp((root) => {
+      const dir = planDir(root, 'plan-a');
+      writeFileSync(linksPath(dir), '', 'utf8');
+      assert.throws(
+        () => readLinks(dir),
+        (err) => /not valid JSON/.test(err.message) && err.message.includes(linksPath(dir)),
+      );
+    });
+  });
+
+  it('readLinks throws a path-bearing error on malformed JSON', () => {
+    withTmp((root) => {
+      const dir = planDir(root, 'plan-a');
+      writeFileSync(linksPath(dir), '{ "spawnedFrom": ', 'utf8');
+      assert.throws(
+        () => readLinks(dir),
+        (err) => /not valid JSON/.test(err.message) && err.message.includes(linksPath(dir)),
+      );
+    });
+  });
+
+  it('readLinks rejects a present-but-non-object sidecar (null / array / primitive)', () => {
+    withTmp((root) => {
+      for (const [content, label] of [
+        ['null', 'null'],
+        ['[]', 'array'],
+        ['5', 'number'],
+        ['"x"', 'string'],
+      ]) {
+        const dir = planDir(root, `plan-${label}`);
+        writeFileSync(linksPath(dir), content, 'utf8');
+        assert.throws(
+          () => readLinks(dir),
+          (err) => /must be a JSON object/.test(err.message) && err.message.includes(linksPath(dir)),
+          `expected ${label} content to be rejected`,
+        );
+      }
+    });
+  });
+});
+
 describe('links-sidecar keeps aiDeck-facing frontmatter clean (T-001 acceptance)', () => {
   it('forking writes only the sidecar — plan.md and phase frontmatter are byte-identical', () => {
     withTmp((root) => {
