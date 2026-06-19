@@ -11,9 +11,9 @@ status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T17:31:45.000Z
-nextAction: "Regen v2 FALHOU a cegueira (agente fez copy-update do prompt
-  contaminado de 16/jun em lekto/docs/design; v2 invalido). v1 canonico intocado.
-  DECISAO DO OPERADOR: como refazer o regen com cegueira ESTRUTURAL (remover priors)."
+nextAction: "Copia limpa do app criada em /home/henry/lekto-blind-regen (cegueira
+  ESTRUTURAL: 239 arquivos, so codigo, 0 memoria/design/prompts, 0 .env). OPERADOR
+  roda o agente cego LA -> briefing v2 valido; depois copio p/ canonico + critico + D10."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
 tasksDone: 5
@@ -284,3 +284,9 @@ _(plan doc, external refs)_
 - **Contraste:** o **v1 canônico** (`f1/lekto-briefing-regenerated.md`, 495l, intocado) NÃO tem nenhuma citação de constante (`grep SWIPE_THRESHOLD|AXIS_LOCK|STEP_MS|GO_MS|Origem:` = 0) — foi uma geração genuinamente cega, só com a recaída A4 limítrofe. Ou seja: a skill reescrita funciona quando roda DE FATO cega; o que falhou foi a cegueira do v2, não a skill.
 - **Decisão:** v2 é INVÁLIDO para o gate (copy contaminado) → NÃO consolidar no canônico, NÃO rodar o crítico nele (não diria nada sobre a skill). **A cegueira precisa ser estrutural** — remover/isolar os prompts contaminados antes de gerar. Aguardando escolha do operador (A: regenerar com os priors removidos+restaurados; B: gerar de uma cópia só-código isolada; C: aceitar v1+fix e resolver D10 sem novo regen).
 - **nextAction pós-decisão:** redo do regen cego VÁLIDO → crítico v2 → T-005 (D10).
+
+## Protocolo de cegueira ESTRUTURAL (decisão do operador — opção B reforçada, 2026-06-19)
+- **Razão:** "só remover os prompts não basta — a memória do Claude (`.claude/memory`, `CLAUDE.md`) recarrega o contexto. Repo novo = sem memória = verdadeiramente limpo. Copie toda a estrutura do app." Resolve os 2 problemas (cegueira + a skill precisa do app inteiro p/ inventário fiel).
+- **Cópia limpa criada:** `/home/henry/lekto-blind-regen/` — `rsync` do app EXCLUINDO `.git`, `node_modules`/`.nuxt`/`.output`/`dist`, `.claude` (memória!), `.atomic-skills`, `_bmad`, `.github`, `docs/` (todos os prompts+BRAND+research), `CLAUDE.md`/`README.md`/`AGENTS.md`. Depois prunado `backend/vendor` (12450 libs), `storage/logs|framework`, e **todos os `.env` reais** (segredos; mantido só `.example`). **Final: 239 arquivos.**
+- **Verificado limpo:** 0 `.md`, 0 framing de prompt (`Origem:`/`vinculante`/`3 → 2 → 1`), 0 CLAUDE.md/.claude/docs-design, 0 `.env`. Código relevante preservado: `web/app/{pages,components}` (ReviewCard.vue tem `SWIPE_THRESHOLD=80` cru — legítimo p/ o filtro D3 derrubar) + `backend/{routes,app/Enums,Models}` (taxonomia do catálogo).
+- **Protocolo do regen v2:** operador roda agente cego com cwd = `/home/henry/lekto-blind-regen`, `/atomic-skills:design-brief` contra `web/app` (+ backend como contexto), ESCREVE em `/home/henry/lekto-blind-regen/lekto-briefing-regenerated.md` (caminho NEUTRO — agente NÃO toca o tree atomic-skills, que tem contaminantes). Se faltar `scripts/app-map-reconstruct.js`, usar fallback Glob/Grep — NÃO procurar em outros repos. Depois: ESTA sessão copia o output p/ o canônico `f1/lekto-briefing-regenerated.md` (preservando v1 como `recurrence-verdict-v1`/git), re-roda crítico v2, T-005.
