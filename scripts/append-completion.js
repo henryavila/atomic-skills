@@ -30,7 +30,7 @@
  *        --plan <slug> --phase <id> [--task <id>] [--weight <n>] [--basis <b>]
  */
 
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -77,6 +77,41 @@ export function computePhaseActuals(since, { cwd = process.cwd() } = {}) {
     const locRemoved = Number((shortstat.match(/(\d+)\s+deletions?\(-\)/) || [])[1] || 0);
     const out = { filesChanged, locAdded, locRemoved, commits };
     return Object.values(out).every((value) => Number.isFinite(value)) ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Read the Mode-2 dispatch telemetry sidecar and derive this task's execution
+ * actuals { attempts, durationMs, escalations }. Reads
+ * <root>/.atomic-skills/status/dispatch-log.json (a flat JSON array).
+ * Returns the actuals object built from ONLY the finite fields it can derive, or
+ * `undefined` when the file is absent/unparseable or no record matches
+ * (plan+phase+taskId). NEVER throws (graceful — Mode-1 runs have no
+ * dispatch-log and that is not an error).
+ */
+export function readDispatchActuals(root, { planSlug, phaseId, taskId } = {}) {
+  if (!hasText(taskId)) return undefined;
+  try {
+    const path = join(resolve(root), '.atomic-skills', 'status', 'dispatch-log.json');
+    if (!existsSync(path)) return undefined;
+    const log = JSON.parse(readFileSync(path, 'utf8'));
+    if (!Array.isArray(log)) return undefined;
+    const matching = log.filter((r) => (
+      r && r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
+    ));
+    if (matching.length === 0) return undefined;
+    const rec = matching[matching.length - 1];
+    const out = {};
+    if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
+    if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
+    const a = Date.parse(rec.startedAt);
+    const b = Date.parse(rec.finishedAt);
+    if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
+      out.durationMs = b - a;
+    }
+    return Object.keys(out).length === 0 ? undefined : out;
   } catch {
     return undefined;
   }
@@ -173,8 +208,16 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const positional = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
   const root = positional || process.cwd();
   try {
-    const hasActualsSince = args.includes('--actuals-since');
-    const actuals = hasActualsSince ? computePhaseActuals(flag('actuals-since'), { cwd: root }) : undefined;
+    let actuals;
+    if (args.includes('--actuals-since')) {
+      actuals = computePhaseActuals(flag('actuals-since'), { cwd: root });
+    } else if (flag('event') === 'task-done') {
+      actuals = readDispatchActuals(root, {
+        planSlug: flag('plan'),
+        phaseId: flag('phase'),
+        taskId: flag('task'),
+      });
+    }
     const rec = appendCompletion(root, {
       event: flag('event'),
       projectId: flag('project'),
@@ -183,7 +226,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       taskId: flag('task'),
       weight: flag('weight') != null ? Number(flag('weight')) : undefined,
       weightBasis: flag('basis'),
-      ...(hasActualsSince ? { actuals } : {}),
+      ...(actuals !== undefined ? { actuals } : {}),
     });
     console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ✓`);
   } catch (err) {
