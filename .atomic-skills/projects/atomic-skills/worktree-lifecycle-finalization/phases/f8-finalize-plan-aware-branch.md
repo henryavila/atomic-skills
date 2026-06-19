@@ -227,3 +227,9 @@ integrationRef (fecha o "develop silencioso").
   - G-2 verifier: `grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills` → exit 0 (plan-aware×2, finalize-plan-scope×4, All 15 skills valid).
   - Commits desta fase: T-001 = `1a502e7`; T-002+T-003 = este commit.
 - **Uncommitted changes:** este commit fecha T-002+T-003 (`project-finalize.md` + estado F8: T-002/T-003 `done` com evidência + `tasksDone:3` + este handoff). Após o commit, árvore `multiplan` limpa.
+
+## Self-review (implement gates) — F8 implementation done
+
+- **G1 read-before-claim:** applied — cada task fechada cita a fonte/o run que a fechou: T-001 com `node --test` (exit 0, tests 16/16) na primária MERGEADA + leitura das 209+280 linhas do diff do Codex antes de aceitar; T-002/T-003 com o verifier shell capturado (exit 0, anchors contados: plan-aware×2, finalize-plan-scope×4).
+- **G2 soft-language:** applied — nenhuma claim de conclusão usa should/probably/works/looks-done; cada `done` carrega `evidence.passed: true` + `exitCode: 0` (e `testsCollected: 16` no T-001), validado por `validate-state` GATE-R2.
+- **G6 reference-or-strike:** applied — os literais do handoff são caminhos/comandos/SHAs verbatim (`1a502e7`, `c7d7f03`, os 3 comandos de verifier, `scripts/finalize-plan-scope.js`); o falso-alarme "tests 1" foi registrado como artefato do reporter, não apagado.
