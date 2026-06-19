@@ -4,7 +4,7 @@ slug: design-brief-briefing-rework
 title: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
 version: "1.0"
-status: active
+status: paused
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T09:32:41.374Z
 branch: plan/design-brief
@@ -58,7 +58,8 @@ phases:
   - id: F0
     slug: design-brief-briefing-rework-f0-refazer-reescrever-o-modelo-de
     title: Refazer (reescrever o modelo de autoridade)
-    summary: Reescreve a skill, os assets e o spec para o modelo camada-é-autoridade (filtro de mineração + band-pin).
+    summary: Reescreve a skill, os assets e o spec para o modelo camada-é-autoridade
+      (filtro de mineração + band-pin).
     goal: aplicar D3–D9 em design-brief.md, nos quatro assets de design-brief-assets
       e no spec canônico three-layer-briefing.md, sem regredir os invariantes
       legítimos.
@@ -85,12 +86,13 @@ phases:
               grep -qi 'calibra'
               skills/shared/design-brief-assets/screens-prompt.md
             expectExitCode: 0
-    status: active
+    status: paused
   - id: F1
     slug: design-brief-briefing-rework-f1-validar-regenerar-o-briefing-le
     title: Validar (regenerar o briefing Lekto + contrastar = gate de
       não-reincidência)
-    summary: Regenera o briefing Lekto em sessão nova e contrasta com o feedback (gate de não-reincidência).
+    summary: Regenera o briefing Lekto em sessão nova e contrasta com o feedback
+      (gate de não-reincidência).
     goal: em sessão nova, regenerar o briefing do Lekto com a skill reescrita,
       destilar a rubrica dos padrões transversais do feedback, contrastar via
       crítico adversarial e resolver o fork diferido D10.
@@ -122,10 +124,14 @@ phases:
 references:
   - kind: file
     path: .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md
-    label: Catálogo app-map (fonte-de-verdade) — origem do Step 2/regime que o design-brief consome (sem dependência)
+    label: Catálogo app-map (fonte-de-verdade) — origem do Step 2/regime que o
+      design-brief consome (sem dependência)
   - kind: file
     path: .atomic-skills/projects/atomic-skills/app-map-conflict-arbitration/plan.md
-    label: Plano coordenado no mesmo branch plan/design-brief — nota de coordenação, sem dependsOn
+    label: Plano coordenado no mesmo branch plan/design-brief — nota de coordenação,
+      sem dependsOn
+planTitle: design-brief — repensar o modelo de autoridade do briefing
+  (anti-congelamento de legado)
 ---
 
 # design-brief — repensar o modelo de autoridade do briefing (anti-congelamento de legado)
@@ -162,3 +168,11 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 - **Internal review (Stage 8a)**: 1 finding MAJOR encontrado e corrigido inline — F1 não tinha tarefa de aquisição do feedback original (arquivo-fonte ausente do disco); adicionada F1 T-001 (obter/persistir o feedback), demais tarefas renumeradas, `subPhaseCount` F1 4→5. Reread limpo; todos os 3 arquivos válidos no schema.
 - **Codex review (Stage 8b)**: SKIPPED — opção do operador (o `design.md` já passou por crítico fresco independente Aprovado; o plano passou na revisão interna).
+
+## 6. Status / sequenciamento
+
+**PAUSADO em 2026-06-19** (operador). Sequenciado **atrás** de `app-map-conflict-arbitration`, que
+segue como foco único do branch `plan/design-brief`. **Condição de desbloqueio:** retomar este plano
+(`status: active`, reativar F0) quando `app-map-conflict-arbitration` for concluído/arquivado. Foi a
+resolução sequencial da frente concorrente R-FOCUS-01 (não há `dependsOn` de schema entre planos; o
+sequenciamento é operacional, registrado aqui e na memória do agente).

@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-06-19T09:35:00Z
+lastUpdated: 2026-06-19T09:45:00Z
 schemaVersion: '0.1'
-activePlans: 5
-activeInitiatives: 5
+activePlans: 4
+activeInitiatives: 4
 archivedCount: 1
 ---
 
@@ -26,7 +26,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | design-brief-source-of-truth | archived | F2 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
 | app-map-conflict-arbitration | active | F0 | plan/design-brief | 2026-06-16 |
-| design-brief-briefing-rework | active | F0 | plan/design-brief | 2026-06-19 |
+| design-brief-briefing-rework | paused | F0 | plan/design-brief | 2026-06-19 | (atrás de app-map-conflict-arbitration) |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |
