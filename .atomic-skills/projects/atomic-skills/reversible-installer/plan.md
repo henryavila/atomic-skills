@@ -5,7 +5,7 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T12:15:44.000Z
+lastUpdated: 2026-06-19T12:54:55.000Z
 branch: plan/reversible-installer
 currentPhase: F1
 parallelismAllowed: false
@@ -221,7 +221,7 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 
 **Decisão estrutural (2026-06-19):** **F2 é tracejado/executado no próprio repo do pacote** `~/tooling-installer` (é 100% trabalho lá; um repo standalone para múltiplos consumidores). Este plano retém só **F3** (o consumo). F2 se auto-documenta em `~/tooling-installer/docs/design/provider-driver.md`. A entrada F2 no frontmatter abaixo vira ponteiro (gates verificam no pacote).
 
-**Progresso F2 (pacote):** (1) MVP Provider/Driver LANDED (`f83a1f7`) — contrato de Provider (`plan(config,planCtx)→[{type,args}]`) + `createFileSetProvider` + `createDriver` (install journaliza efeitos; uninstall = `replayReverse` + `removeManifest`, round-trip byte-a-byte). (2) **Update/re-install semantics LANDED** (`0ee4f6d`) — `reconcileFileSet` 3-hash (port da política `--yes` legada): disk inalterado→sobrescreve; usuário editou→mantém (no-clobber); órfão→remove só se não-modificado. Driver passa o before-state anterior por (tipo, ordem). Suíte do pacote **50/50** (era 38). **⚠️ Decisão pendente p/ o usuário (flagged em `docs/design/provider-driver.md`):** assimetria de data-safety — arquivo do usuário mantido que ainda está no desired set é REMOVIDO no uninstall (parity legada); órfão mantido SOBREVIVE. Falta no F2: config two-tier, exemplo de runtime-layer.
+**Progresso F2 (pacote), suíte 55/55:** (1) MVP Provider/Driver (`f83a1f7`) — contrato `plan(config,planCtx)→[{type,args}]` + `createFileSetProvider` + `createDriver` (uninstall = `replayReverse` + `removeManifest`, round-trip byte-a-byte). (2) Update/re-install 3-hash (`0ee4f6d`) — port da política `--yes` legada: no-clobber + remoção de órfão só não-modificado; Driver passa before-state anterior por (tipo, ordem). (3) **Data-safety RESOLVIDO** (`7703eac`, usuário escolheu lado seguro): arquivo editado pelo usuário SOBREVIVE ao uninstall (track do hash original), simétrico com órfão; diverge do legado num caso que o gate de round-trip não cobre (P3 vence). (4) **Config two-tier** (`e99cc09`) — `defineInstaller({config, providers, effects})`: tier declarativo = `config` (engine só dona de `manifestDir`, resto é pass-through), tier código = providers/effects (escape-hatch de runtime-layer; 4 built-ins auto-registrados). **Reinterpretação deliberada de D2:** config rica (IDEs/catálogo/idioma) é do CONSUMIDOR, não do engine genérico. **Falta no F2:** só o exemplo worked de runtime-layer (T-F2-4). Depois → F3.
 
 **Próximo passo:** continuar F2 no pacote (update semantics → config two-tier → runtime-layer) **ou** começar F3 no atomic-skills (consome via `file:`, move SkillsProvider+render+runtime layers sobre o Driver, remove `src/kernel/` in-repo). F1 in-repo segue done/superseded (não rodar `phase-done`).
 
