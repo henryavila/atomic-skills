@@ -10,19 +10,19 @@ goal: religar o atomic-skills sobre o kernel do pacote
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T18:05:00.000Z
-nextAction: "T-F3-4 (FLIP COMPLETO, Opção B) EM ANDAMENTO — Stage 1/5 DONE+commitado
-  (5b7b859: src/installer.js buildInstaller + test verde, suíte 872/858/2). Gate de merge
-  DIFERIDO pelo usuário (faça tudo na branch atual). PRÓXIMO = Stage 2 (corte ONE-WAY,
-  manifesto→journal híbrido): reescrever installSkills p/ delegar a buildInstaller +
-  gravar manifesto híbrido {effects}+files+metadata e retornar {files:[{path,hash}]}
-  derivado de journal.effects; rodar node --test tests/install.test.js e iterar. Plano
-  completo Stage 2-5 + gotchas no bloco ## Session handoff. T-F3-5 (paridade final) =
-  blockedBy T-F3-4."
+lastUpdated: 2026-06-19T19:08:25.000Z
+nextAction: "F3 COMPLETA — 6/6 tasks done (T-F3-4 flip + T-F3-5 paridade fechados).
+  install/uninstall rodam via Driver/journal do pacote, src/kernel/ removido, round-trip
+  G-1 7/7, validate-skills 14/14, suíte 828/814/2 (as 2 falhas são ambientais/worktree:
+  dashboard-bundle path + bundle não-buildado, pré-autorizadas). PRÓXIMO = decisão do
+  usuário: rodar `phase-done` (roda exit-gates G-1/G-2/G-3 + review-code do diff da fase
+  + distila lições) para fechar F3 e avançar o plano. NB: G-2 (`npm test` exit 0) só fica
+  100% limpo na main com o bundle buildado — no worktree o teste de path do dashboard
+  sempre falha. Gate de merge de plan/skills-restructuring segue DIFERIDO (ação humana)."
 parentPlan: reversible-installer
 phaseId: F3
 current: true
-tasksDone: 4
+tasksDone: 6
 tasksTotal: 6
 gatesMet: 0
 gatesTotal: 3
@@ -193,8 +193,41 @@ tasks:
       pattern: test/runtime-layers/atomic-skills.test.js
   - id: T-F3-4
     title: Flip big-bang — install/uninstall finos + remove src/kernel/
-    status: pending
-    lastUpdated: 2026-06-19T15:31:48.000Z
+    status: done
+    lastUpdated: 2026-06-19T19:08:25.000Z
+    closedAt: 2026-06-19T19:08:25.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T19:08:25.000Z
+      passed: true
+      exitCode: 1
+      outputSummary: "FLIP COMPLETO em 5 stages (commits 5b7b859 stage1 · 56a0758
+        stage2-3 · f1be5d7 stage4). install.js (1183→~660 linhas): installSkills
+        delega a buildInstaller().install() (SkillsProvider reconcileFileSet +
+        auto-update layer stageRuntimeArtifacts+jsonMerge), grava manifesto
+        HÍBRIDO {effects}(journal autoritativo)+files+metadata; install() perde
+        preRenderFiles/3-hash/conflict/orphan (reconcileFileSet faz
+        no-clobber+orphan); auto-migra manifesto legado (T-F3-6) antes do
+        Driver. uninstall.js reverte pelo journal
+        (buildInstaller({}).uninstall() = replayReverse) + refcount/runtime
+        global orquestrados fora do journal. src/kernel/ + test/kernel/
+        REMOVIDOS (nada em src/ os importava; engine = pacote). Flags CLI
+        (--yes/--project/--ide/--lang) preservados. VERIFICAÇÃO: `npm test` →
+        828 tests, 814 pass, 2 fail (exit 1). As 2 falhas são PRÉ-EXISTENTES e
+        AMBIENTAIS, NÃO regressões do flip: (1) 'DEFAULT_BUNDLE_DIR resolves to
+        <pkg>/dist/dashboard' — regex espera o path terminar em
+        atomic-skills/dist/dashboard mas no worktree termina em
+        reversible-installer/dist/dashboard (nome do dir do worktree; passa na
+        main); (2) 'the dashboard bundle has been built' — exige `npm run
+        build:dashboard` (prerequisito de release; dev tree não builda). Ambas
+        já falhavam no baseline de F3 (871/857/2) e o flip não toca
+        serve.js/dashboard. Verificação do flip LIMPA: G-1 round-trip + matriz
+        adversária 7/7 (`node --test tests/install-uninstall-roundtrip.test.js`,
+        exit 0); validate-skills 14/14; zero regressão nos 814 testes que
+        passam. passed:true reflete a correção do flip (parидade + zero
+        regressão); exitCode:1 é só o baseline ambiental do worktree
+        (pré-autorizado pelo usuário). G-2 (`npm test` exit 0) fica 100% limpo
+        na main com o bundle buildado."
     summary: install.js/uninstall.js viram finos (montam config → defineInstaller/
       Driver) e src/kernel/ in-repo é removido; reescrito sobre o install.js
       já-mergeado.
@@ -226,8 +259,29 @@ tasks:
       - T-F3-6
   - id: T-F3-5
     title: Paridade final atravessando a dependência
-    status: pending
-    lastUpdated: 2026-06-19T15:31:48.000Z
+    status: done
+    lastUpdated: 2026-06-19T19:08:25.000Z
+    closedAt: 2026-06-19T19:08:25.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T19:08:25.000Z
+      passed: true
+      exitCode: 1
+      outputSummary: "Paridade final atravessando a dependência
+        @henryavila/tooling-installer (file: link), src/kernel/ removido. (a)
+        round-trip parity + as 3 fixtures adversárias voltam BYTE-A-BYTE ao
+        baseline com a engine do pacote: `node --test
+        tests/install-uninstall-roundtrip.test.js` → 7 tests, 7 pass, 0 fail
+        (exit 0) — user/project scope sem resíduo, settings.json preservado,
+        third-party SessionStart hook sobrevive (jsonMerge), refcount 2-owners +
+        crash-retry heal, arquivo legado não-assinado preservado (P3). (b) `npm
+        test` → 828/814/2 (exit 1): as 2 falhas são as pré-existentes/ambientais
+        do dashboard-bundle (DEFAULT_BUNDLE_DIR worktree-path + bundle
+        não-buildado), zero regressão do flip. (c) mapa install↔uninstall no
+        CLAUDE.md reescrito p/ o modelo journal (efeitos + Driver.uninstall) +
+        runtime/refcount/legacy-prune orquestrados + migração legada.
+        passed:true = paridade provada (round-trip 7/7); exitCode:1 = baseline
+        ambiental do worktree (pré-autorizado)."
     summary: round-trip + 3 fixtures adversárias + full suite verdes via a engine do
       pacote, com src/kernel/ removido; mapa install↔uninstall do CLAUDE.md
       atualizado.
@@ -329,6 +383,19 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
 
 ## Decisions
 
+- **2026-06-19 — T-F3-4/T-F3-5 EXECUTADOS (flip completo concluído).** O flip rodou em 5
+  stages (commits `5b7b859`/`56a0758`/`f1be5d7`): install/uninstall sobre o Driver/journal,
+  manifesto híbrido, `src/kernel/`+`test/kernel/` removidos, mapa CLAUDE.md reescrito.
+  Verificação: G-1 round-trip + matriz adversária 7/7, validate-skills 14/14, `npm test`
+  828/814/2. **As 2 falhas restantes são AMBIENTAIS e pré-existentes do dashboard-bundle**
+  (teste de path sensível ao nome do dir do worktree `reversible-installer` ≠ `atomic-skills`
+  + bundle não-buildado no dev tree) — NÃO regressões do flip (o baseline de F3 já era N/M/2;
+  o flip não toca serve.js/dashboard). T-F3-4/5 fechados com `passed:true` (correção do flip
+  provada) + `exitCode:1` documentado (baseline ambiental do worktree, pré-autorizado pelo
+  usuário "se atrapalhar só aqui... sem problema"). **G-2 (`npm test` exit 0) fica 100% limpo
+  na main com o dashboard buildado.** O 🚧 gate de merge de `plan/skills-restructuring` segue
+  DIFERIDO (ação humana) — o flip foi feito sobre o `install.js` ATUAL, então o merge posterior
+  exigirá resolução manual (mapear as adições daquela branch p/ o provider/runtime-layers).
 - **2026-06-19 — F3 formalmente decomposta (T-F3-1..6).** A sequência reordenada
   (strangler-fig + gate de merge) que vivia só como prosa no banner do `plan.md`
   foi materializada neste phase file com SPEC completa (Files/scopeBoundary/
@@ -412,6 +479,20 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   fixture atravessa a dependência `@henryavila/tooling-installer` via `defineInstaller`/
   Driver. Blocker de T-F3-4 limpo — só o 🚧 gate de merge bloqueia o flip agora.
 
+## Self-review against gates (F3 implementation)
+
+- **G1 read-before-claim:** applied — cada task fechada linka a saída do verifier que a
+  fechou (T-F3-4/5 evidence cita `npm test` 828/814/2 + G-1 7/7 + validate-skills 14/14,
+  e nomeia as 2 falhas ambientais verbatim); o flip foi feito após ler install.js inteiro,
+  os providers/layers, o contrato de journal do pacote e os 8 testes vinculantes.
+- **G2 soft-language:** applied — completion claims são `passed:true` com evidência de run;
+  o `exitCode:1` é declarado explicitamente (não escondido sob "works"/"should").
+- **G6 reference-or-strike:** applied — handoff/evidence carregam paths/commands/commits
+  verbatim (`5b7b859`/`56a0758`/`f1be5d7`, os 2 nomes de teste que falham, os arquivos do flip).
+- **Nota:** G-2 (`npm test` exit 0) NÃO está literalmente verde no worktree (2 falhas
+  ambientais do dashboard-bundle); fica limpo na main com o bundle buildado. O `phase-done`
+  re-roda os exit-gates e o review-code — é onde essa nuance é formalmente adjudicada.
+
 ## Links
 
 - Plano: `../../plan.md` · Design: `../../design.md` · Proposta package-first:
@@ -419,64 +500,37 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   `../lessons/reversible-installer-f0-effect-kernel-file-reconciler.md`
 
 ## Session handoff
-- **Narrative:** F3 em **4/6 done** (T-F3-1/2/3/6). **T-F3-4 (flip completo) EM ANDAMENTO
-  — Stage 1 de 5 DONE e commitado (`5b7b859`).** O usuário escolheu o FLIP COMPLETO
-  (Opção B) e DIFERIU o gate de merge ("faça tudo na branch atual, o merge será feito
-  depois"). Stage 1 = `src/installer.js` (`buildInstaller()` monta o journal do
-  install-base via `defineInstaller`: SkillsProvider+autoUpdate providers +
-  stageRuntimeArtifacts effect) + `test/installer.test.js` (round-trip real verde).
-  Suíte 872/858/2 (baseline; 2 falhas dashboard-bundle pré-existentes). **Stages 2-5 são
-  um rewrite ONE-WAY** — não começados (corte manifesto→journal deixa a suíte vermelha
-  até toda a migração).
-- **Decision log (T-F3-4):** (1) **Manifesto HÍBRIDO journal-autoritativo** (decisão de
-  execução, mais segura que pure-journal): manifesto = `{effects[]}` (journal,
-  AUTORITATIVO p/ uninstall via `Driver.uninstall`) **+ `files{}` derivado + metadata
-  `{version,language,ides,modules}`** p/ os leitores de compat (`status.js`, install.test,
-  skills-provider oracle, cli.test ficam VERDES). `result.files` preservado (counts exatos
-  de install.test incluem hook+namespace root). (2) **DROP da UI de conflito/órfão
-  interativa** — o `reconcileFileSet` faz no-clobber (mantém edição do usuário, P3) +
-  remove órfão não-modificado, NÃO-interativo; o flip remove `preRenderFiles` + 3-hash
-  bespoke + prompts. (3) **Runtime global + refcount + legacy-prune ORQUESTRADOS FORA do
-  journal** (replayReverse descarta `lastOwnerReleased`): manter
-  `installRuntimeArtifacts`/`removeRuntimeArtifacts`/`registerInstall`/`unregisterInstall`/
-  `findLegacyOrphans`/`removeLegacyOrphans`/`isAtomicSkillsArtifact` como helpers (G-3
-  allowlist). (4) `src/kernel/` é importado SÓ por `test/kernel/*` (nada em src/) → o flip
-  remove ambos; engine = pacote.
-- **Single nextAction:** Stage 2 — reescrever `installSkills(projectDir,options)` p/
-  delegar a `buildInstaller(options).install({projectDir})` e então gravar o manifesto
-  híbrido (patch `{version,language,ides,modules,files}` por cima do journal) + retornar
-  `{files:[{path,hash}]}` derivado de `journal.effects` (reconcileFileSet.beforeState +
-  stageRuntimeArtifacts.created p/ o hook). Rodar `node --test tests/install.test.js`
-  (esperar quebra nos counts/paths) e iterar.
-- **Plano Stage 2-5 (validado por leitura do código):** S2 = reescrever `installSkills`
-  (Driver+manifesto híbrido+return), reescrever `install()` thin (remover
-  preRenderFiles/3-hash/conflict/orphan prompts; MANTER CLI flags/scope/detect/UI
-  intro/legacy-prune/SIGINT + `installRuntimeArtifacts()`+`registerInstall()`), reescrever
-  `uninstall()` (`buildInstaller({}).uninstall({projectDir:base})` p/ replayReverse +
-  `unregisterInstall`+`removeRuntimeArtifacts` se último; jsonMerge.revert cuida do
-  settings → REMOVER `installAutoUpdateHook`/`removeAutoUpdateHook`). S3 = migrar testes:
-  `uninstall.test.js` (remover bloco `describe('removeAutoUpdateHook')` + import),
-  `install.test.js` (linha 150 `.source`; checar conflito), `update.test.js` (reconstrói
-  lógica 3-hash via `installSkills` return — checar), `status.test.js` (híbrido mantém
-  `manifest.files` → provável verde), `skills-provider.test.js` (vira tautológico, manter).
-  S4 = remover `src/kernel/` + `test/kernel/`, podar morto, atualizar mapa CLAUDE.md. S5 =
-  `npm test` verde + round-trip + matriz adversária → fecha T-F3-4; T-F3-5 = paridade final.
-- **GOTCHAS achados:** (a) `scope=undefined` (status.test/install.test chamam installSkills
-  SEM scope) — o auto-update LAYER usa basePath=projectDir p/ o hook, mas o legado usava
-  homedir quando scope!=='project'; conferir counts/paths de install.test após o rewrite.
-  (b) counts EXATOS em install.test (53/54/105/53) incluem namespace root + auto-update
-  hook — o return DEVE incluir o hook (de stageRuntimeArtifacts.created). (c) metadata
-  (version/language/ides) NÃO vem no manifesto do Driver → patch obrigatório.
-- **Verbatim state:** HEAD `5b7b859` (Stage 1). Árvore limpa antes deste edit (só este
-  phase file muda agora). Suíte: `npm test` → 872/858/2 (as 2 dashboard-bundle:
-  `DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` + `the dashboard bundle has been
-  built (E.T-005 prerequisite)`). Stage-1 test: `node --test test/installer.test.js` → 1/1.
-  Pacote `~/tooling-installer` HEAD `02dbba3` (60/60), `package.json`:
-  `"@henryavila/tooling-installer":"file:../../../tooling-installer"`. Arquivos-chave:
-  `src/installer.js` (novo, buildInstaller), `src/providers/skills-{provider,file-set}.js`,
-  `src/runtime-layers/{aideck,auto-update}.js` + `effects/stage-runtime-artifacts.js`.
-  Engine: `~/tooling-installer/src/{driver,define-installer,kernel/journal,kernel/reconciler,
-  kernel/effects/*}.js`. Exit-gates F3: G-1 `node --test tests/install-uninstall-roundtrip.test.js`,
-  G-2 `npm test`, G-3 manual. Branch `plan/reversible-installer`.
-- **Uncommitted changes:** só este phase file (handoff/nextAction p/ T-F3-4 Stage 1 done).
-  Stage 1 (`src/installer.js`+`test/installer.test.js`) já commitado em `5b7b859`.
+- **Narrative:** **F3 COMPLETA — 6/6 tasks done.** O FLIP COMPLETO (T-F3-4, Opção B) foi
+  executado em 5 stages e T-F3-5 (paridade) fechado. install/uninstall agora rodam sobre o
+  Driver/journal do pacote `@henryavila/tooling-installer` (file: link): `installSkills` →
+  `buildInstaller().install()`, `uninstall` → `buildInstaller({}).uninstall()` (replayReverse);
+  manifesto HÍBRIDO `{effects}`(autoritativo)+`files`+metadata; `src/kernel/`+`test/kernel/`
+  removidos (engine = pacote); flags CLI preservados; runtime global+refcount+legacy-prune
+  orquestrados fora do journal. **PRÓXIMO = `phase-done`** (decisão do usuário — não
+  auto-rodar): exit-gates G-1/G-2/G-3 + review-code do diff da fase + lições.
+- **Decision log (T-F3-4):** (1) Manifesto HÍBRIDO journal-autoritativo (mais seguro que
+  pure-journal; mantém `status.js`/dashboards/compat verdes). (2) DROP da UI de conflito/órfão
+  (reconcileFileSet faz no-clobber P3 + orphan removal). (3) runtime global+refcount+
+  legacy-prune orquestrados FORA do journal (replayReverse descarta `lastOwnerReleased`). (4)
+  `src/kernel/` só era importado por `test/kernel/*` → removidos os dois. (5) `source` re-exposto
+  via `computeSkillsFileSet` (ui.js classifica skill vs asset por source). (6) install() chama
+  `migrateLegacyInstall` antes do Driver (adota manifesto legado p/ não clobberar edição do user).
+- **Single nextAction:** Rodar `phase-done` para F3 (verifica G-1/G-2/G-3, review-code do diff
+  da fase, distila lições, avança o plano) — OU, se preferir, mergear `plan/skills-restructuring`
+  + rebasear ANTES (o gate de merge segue diferido). NB: G-2 (`npm test` exit 0) só fica 100%
+  limpo na main com o dashboard buildado.
+- **Verbatim state:** F3 commits do flip: `5b7b859` (stage1 installer.js) · `56a0758`
+  (stage2-3 install/uninstall finos) · `f1be5d7` (stage4 remove src/kernel + CLAUDE.md). HEAD
+  após o phase-file = este commit. Verificação: G-1 `node --test
+  tests/install-uninstall-roundtrip.test.js` → 7/7 (exit 0); `npm run validate-skills` → 14/14;
+  `npm test` → 828 tests, 814 pass, 2 fail (exit 1). As 2 falhas são AMBIENTAIS/pré-existentes
+  do dashboard-bundle: `DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard` (regex espera
+  …/atomic-skills/dist/dashboard mas o worktree é …/reversible-installer/dist/dashboard — passa
+  na main) + `the dashboard bundle has been built` (precisa `npm run build:dashboard`). Zero
+  regressão do flip (baseline de F3 já era N/M/2). Pacote `~/tooling-installer` HEAD `02dbba3`
+  (60/60), `package.json`: `"@henryavila/tooling-installer":"file:../../../tooling-installer"`
+  (trocar por ^0.1.x no publish, que precisa incluir 02dbba3). Arquivos do flip: `src/installer.js`,
+  `src/install.js` (~660 linhas), `src/uninstall.js`, `src/providers/skills-file-set.js` (carrega
+  source), `tests/uninstall.test.js` (migrado), `CLAUDE.md` (mapa). Branch `plan/reversible-installer`.
+- **Uncommitted changes:** só este phase file (T-F3-4/5 done + evidence + rollups 4→6 +
+  nextAction/handoff/decisions). Todo o código do flip já commitado (5b7b859/56a0758/f1be5d7).
