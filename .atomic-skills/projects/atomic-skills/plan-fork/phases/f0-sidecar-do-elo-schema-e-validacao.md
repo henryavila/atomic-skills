@@ -171,6 +171,13 @@ _(record decisions here as they are made)_
 
 _(plan doc, external refs)_
 
+## Self-review against code-quality gates (implement)
+
+- **G1 read-before-claim:** applied — cada uma das 4 tasks fechou com `evidence` ligando o run real do verifier (`node --test … → N pass / 0 fail, exit 0`) e os `outputs[]` apontando os arquivos-fonte (src/links-sidecar.js, meta/schemas/links.schema.json, src/spawn-graph.js, fixtures). Nenhum close por asserção.
+- **G2 soft-language:** applied — claims de conclusão são `passed: true` + exitCode 0 (sem "should/works/looks done"); narrativa do handoff varrida pela ban-list.
+- **G6 reference-or-strike:** applied — literais verbatim (comandos `node --test …`, exit codes, paths, hashes `6e5a4f2`/`638fbc9`/`42fd02b`) na evidência e no handoff.
+- **Nota de processo:** o review-code gate da fase + a distilação de lessons NÃO foram feitos aqui — eles pertencem ao `phase-done` (próxima sessão). Este bloco é o checkpoint do `implement`, não o self-review do `phase-done`.
+
 ## Session handoff
 
 - **Narrative:** F0 COMPLETA — 4/4 tasks fechadas via verified PASS (T-001 reader/writer do sidecar; T-002 schema Ajv + validação no write-boundary; T-003 detecção de ciclo pura; T-004 fixtures par pai/filho + RED→GREEN). Cada uma com evidence GATE-R2 (exitCode 0). Gate F0-G1 dry-run VERDE: `validate-state` nas fixtures + `node --test` → 37/37. No phase boundary; `phase-done` ainda NÃO rodado (opt-in do usuário).
