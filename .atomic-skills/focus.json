@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T17:20:23.508Z",
+  "generatedAt": "2026-06-19T19:10:44.856Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "plan-fork",
@@ -8,15 +8,15 @@
     "status": "active"
   },
   "phase": {
-    "id": "F0",
-    "slug": "plan-fork-f0-sidecar-do-elo-schema-e-validacao",
-    "title": "Sidecar do elo, schema e validação",
-    "index": 1,
+    "id": "F1",
+    "slug": "plan-fork-f1-verbo-fork-plan-degrau-7-5-pause-only-at",
+    "title": "Verbo fork-plan + degrau 7.5 (pause-only até a F2)",
+    "index": 2,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 4,
+    "done": 0,
     "total": 4,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Sidecar links.json: reader e writer do elo",
+  "nextAction": "Start T-001: Procedure fork-plan no project-emergence.md",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/plan-fork/plan.md",
-      "lastUpdated": "2026-06-19T15:32:29.603Z"
+      "lastUpdated": "2026-06-19T18:53:49Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f0-sidecar-do-elo-schema-e-validacao.md",
-      "lastUpdated": "2026-06-19T15:32:29.603Z"
+      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f1-verbo-fork-plan-degrau-7-5-pause-only-at.md",
+      "lastUpdated": "2026-06-19T18:53:49Z"
     }
   ]
 }

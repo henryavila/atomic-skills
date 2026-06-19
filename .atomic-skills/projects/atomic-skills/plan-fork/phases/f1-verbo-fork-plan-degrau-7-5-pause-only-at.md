@@ -6,10 +6,10 @@ goal: Implementar o verbo fork-plan (ratify do elo + handoff ao fluxo new plan),
   inserir o degrau 7.5 residente na ladder, rodar o cycle-check antes de
   qualquer escrita, e entregar pause-only rejeitando o modo parallel até a F2
   existir.
-status: pending
+status: active
 branch: plan/plan-fork
 started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T15:32:29.603Z
+lastUpdated: 2026-06-19T18:53:49Z
 nextAction: "Start T-001: Procedure fork-plan no project-emergence.md"
 parentPlan: plan-fork
 phaseId: F1
@@ -114,6 +114,7 @@ emerged: []
 summary: Verbo fork-plan, degrau 7.5, cycle-check pré-ratify; pause-only até a F2.
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
+current: true
 ---
 
 # Narrative / notes
@@ -127,3 +128,11 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+
+- **Narrative:** F1 recém-ativada pelo phase-done da F0 (2026-06-19). Fresh start — 0/4 tasks. A F0 entregou o sidecar (`src/links-sidecar.js`, endurecido em `52ea43f`), o schema (`meta/schemas/links.schema.json`) e a detecção de ciclo pura (`src/spawn-graph.js`: `wouldCreateCycle` + `reachable` iterativo). A F1 implementa o verbo `fork-plan` (ratify do elo + handoff ao fluxo `new plan`), o degrau 7.5 na ladder, o cycle-check pré-ratify (reusa o helper da F0) e pause-only (parallel REJEITADO até a F2).
+- **Decision log (herdado da F0):** o elo vive no sidecar `links.json`, NÃO inline no plan.md/frontmatter, enquanto o aiDeck for 0.1.0 (spawnedFrom derruba o card; spawnedPlans é stripado em silêncio). Migração inline deferida à F5 (aiDeck ≥ 0.1.2). Testes ficam em `tests/` (não `src/*.test.js`, que o glob ignora).
+- **Single nextAction:** Antes de codar, rodar `node scripts/list-lessons.js --phase F1` e dispor as lessons reusable+open (inclui L-001 readLinks-hardening e L-002 hasCycle-iterativo desta fase). Depois iniciar T-001 (procedure `fork-plan` em `skills/shared/project-assets/project-emergence.md`).
+- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. ⚠ F1-G1 termina em `&& npm test` — o `npm test` completo está RED no baseline por causas ambientais (dashboard não-buildado + install, comprovado por stash na F0). Antes de fechar a F1, ou o baseline precisa estar verde, ou escopar o verifier como na F0. Verifier: `grep -q fork-plan skills/shared/project-assets/project-emergence.md && grep -q fork-plan skills/core/project.md && grep -q ciclo skills/shared/project-assets/project-emergence.md && grep -q parallel skills/shared/project-assets/project-emergence.md && npm test`.
+- **Uncommitted changes:** nenhuma após o commit do phase-done F0 (`chore(project): phase-done F0`); árvore limpa no início da F1.

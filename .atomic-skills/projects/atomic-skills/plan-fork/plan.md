@@ -5,9 +5,9 @@ title: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 version: "1.0"
 status: active
 started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T15:32:29.603Z
+lastUpdated: 2026-06-19T18:53:49Z
 branch: plan/plan-fork
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -61,14 +61,29 @@ phases:
             do plano), o schema e o reader/writer (src/links-sidecar.js) ficam
             definidos aqui na F0, antes de qualquer escrita da F1; a concorrência
             cross-worktree é deferida à F2 (pause-only não escreve concorrente).
-          status: pending
+          status: met
+          metAt: 2026-06-19T18:53:49Z
           verifier:
             kind: shell
             command: npm run validate-state
               tests/fixtures/plan-fork/plans/fixture-parent.md
               tests/fixtures/plan-fork/plans/fixture-child.md && node --test
               tests/links-sidecar.test.js tests/spawn-graph.test.js
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T18:53:49Z
+            exitCode: 0
+            passed: true
+            outputSummary: validate-state 2 plans cross-validated; node --test
+              links-sidecar + spawn-graph → tests 40, pass 40, fail 0, exit 0 (after
+              review fix 52ea43f)
+    status: done
+    reviewGate:
+      status: passed
+      at: 52ea43f536ee842d3c4b41926dd3842c07b6a15d
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-19-1553-plan-fork-f0.md
+      verifiedAt: 2026-06-19T18:53:49Z
     summary: Sidecar (links.json) do elo + schema do sidecar + detecção de ciclo;
       inline deferido.
   - id: F1
@@ -95,7 +110,7 @@ phases:
               && grep -q fork-plan skills/core/project.md && grep -q ciclo
               skills/shared/project-assets/project-emergence.md && grep -q parallel
               skills/shared/project-assets/project-emergence.md && npm test
-    status: pending
+    status: active
     summary: Verbo fork-plan, degrau 7.5, cycle-check pré-ratify; pause-only até a F2.
   - id: F2
     slug: plan-fork-f2-protocolo-de-estado-parallel-cross-workt
