@@ -1,15 +1,15 @@
 {
   "schemaVersion": "0.1",
   "branch": "plan/worktree-lifecycle-finalization",
-  "lastReviewedCommit": "e7913a73c670386a80547199b9ae27a5e7eabd8a",
-  "lastReviewedAt": "2026-06-17T18:52:47Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-17-1850-wlf-f3-project-finalize.md",
+  "lastReviewedCommit": "cf07d120ad612274defe1e68e0e80f99b59a5257",
+  "lastReviewedAt": "2026-06-17T20:30:00Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-17-2030-wlf-f4-cross-wt-collision.md",
   "verdict": "needs_changes",
   "counts": {
     "blocker": 0,
     "critical": 0,
-    "major": 4,
-    "minor": 0,
+    "major": 2,
+    "minor": 2,
     "nit": 0
   }
 }

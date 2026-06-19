@@ -7,10 +7,10 @@ goal: conter com o mínimo o coupling do tree `.atomic-skills/` entre feature-PR
   carve-out explícito ao "tree versionado", e os JSON append-only de `status/*`
   ganham `.gitattributes merge=union`; a partição estrutural fica como plano
   separado.
-status: pending
+status: active
 branch: plan/worktree-lifecycle-finalization
-started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-16T22:50:35.627Z
+started: 2026-06-17T20:30:00Z
+lastUpdated: 2026-06-17T20:30:00Z
 nextAction: "Start T-001: focus.json git-ignore + status/* merge=union, com
   round-trip preservado"
 parentPlan: worktree-lifecycle-finalization
@@ -77,6 +77,7 @@ summary: "Contém o coupling de .atomic-skills: focus.json ignorado + status/*
   com merge=union."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
+current: true
 ---
 
 # Narrative / notes

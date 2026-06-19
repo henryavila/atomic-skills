@@ -1,7 +1,7 @@
 ---
-lastUpdated: '2026-06-09T22:00:00Z'
+lastUpdated: '2026-06-17T20:30:00Z'
 schemaVersion: '0.1'
-activePlans: 1
+activePlans: 2
 activeInitiatives: 0
 archivedCount: 7
 ---
@@ -11,6 +11,21 @@ archivedCount: 7
 Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read first every session.
 
 ## Active Plans
+
+### worktree-lifecycle-finalization — Finalização do ciclo de vida da worktree-do-plano (currentPhase: F5)
+
+Cada plano forka branch+worktree na criação; publicar (`finalize` → push + PR feature→develop) e encerrar (`archive`, zero-git pós-merge) são máquinas de estado separadas, operator-prompted; nunca remover trabalho não-provado-integrado (fail-closed: em indeterminação, BLOQUEIA).
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| F0 — Always-fork na criação (Decisão 1) | done | Fork incondicional branch+worktree no nascimento do plano; "1 worktree = 1 feature = 1 PR limpo" mecânico. |
+| F1 — integrationRef configurável | done | Resolver puro de `integrationRef`/`baseRef` (routing.json + schema), base do PR e dos git ops separadas. |
+| F2 — Teardown seguro squash-safe (Decisão 2) | done | `isTeardownSafe` — liveness via `gh pr view` (MERGED+headRefOid) + veto local; squash-safe; fail-closed. |
+| F3 — project finalize dedicado (Decisão 3) | done | Comando `finalize`: push + `gh pr create --base <integrationRef>`, grava pr-url; archive intocado. 1/1 tasks, 2/2 gates. |
+| F4 — Check de colisão cross-WT no finalize (Decisão 7) | done | Gate determinístico `cross-wt-gate.js` (≥2 WTs, merge especulativo, fail-closed) + advisory A/B read-only no finalize; archive→teardown wired. 3/3 tasks, 2/2 gates. |
+| F5 — Coupling interim de .atomic-skills/ (Decisão 5) | active | `focus.json` git-ignored (carve-out ao tree versionado) + `status/*` merge=union; round-trip install/uninstall preservado. |
+| F6 — Backstop read-only no project verify (Decisão 6) | pending | 9º check read-only: WARN para órfãos do modelo PR→develop (worktree de feature mergeada; branch arquivada não-integrada). |
+| F7 — Dedup de review em duas camadas (Decisão 8) | pending | Ledger de superfície unificado (`last-review.json` ponteiro→conjunto) + run-record do composer; ambos falham-para-RE-revisar. |
 
 ### quick-idea-capture — Quick Idea Capture (currentPhase: F1)
 

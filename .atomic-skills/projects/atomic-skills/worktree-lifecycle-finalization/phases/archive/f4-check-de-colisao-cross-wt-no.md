@@ -8,43 +8,62 @@ goal: "adicionar ao finalize uma detecção de colisão entre ≥2 worktrees viv
   token de entrada, e um workflow advisory de agentes LLM read-only (Agente A
   semântico-comportamental + Agente B recurso/contrato) escopados ao diff, que
   nunca gateiam."
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T18:52:47Z
-lastUpdated: 2026-06-17T20:18:00Z
-nextAction: "PHASE BOUNDARY — F4 tasks 3/3 DONE (gates 0/2 ainda pending). Próximo
-  (operator-prompted, NÃO auto-rodar): phase-done F4 — roda os exit-gate verifiers
-  G-1 (node --test tests/cross-wt-gate.test.js) + G-2 (grep cross-wt-collision +
-  advisory + validate-skills), o review-code --mode=both no diff da fase, distila
-  lessons, grava reviewGate no plan.md e avança currentPhase F4→F5."
+lastUpdated: 2026-06-17T20:30:00Z
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F4
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: "Gate determinístico: detecção genérica de comandos, ativa só com
       ≥2 WTs, conflito textual é 1º gate, projeto sem comando é skip registrado
       (não passe silencioso); suite verde."
-    status: pending
+    status: met
+    metAt: 2026-06-17T20:30:00Z
     verifier:
       kind: test
       runner: node
       pattern: tests/cross-wt-gate.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T20:30:00Z
+      exitCode: 0
+      testsCollected: 22
+      passed: true
+      outputSummary: "node --test tests/cross-wt-gate.test.js @ cf07d12 (post
+        review-gate fixes, merged primary): tests 22, pass 22, fail 0, exit 0.
+        Inclui fail-closed (merge-indeterminate / runner-malformed-result) +
+        never-throws (crossWtGate(null)) + OR-guard halves isoladas."
     verifierLabel: "test: node tests/cross-wt-gate.test.js"
+    evidenceSummary: passed · 2026-06-17
   - id: G-2
     description: Workflow advisory (agentes A/B read-only ao diff, nunca gateiam,
       fallback portátil) documentado no finalize; skills válidos.
-    status: pending
+    status: met
+    metAt: 2026-06-17T20:30:00Z
     verifier:
       kind: shell
       command: grep -qi 'cross-wt-collision'
         skills/shared/project-assets/project-finalize.md && grep -qi 'advisory'
         skills/shared/project-assets/project-finalize.md && npm run
         validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T20:30:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Full chain exit 0 @ cf07d12: grep -qi 'cross-wt-collision'
+        (2) && grep -qi 'advisory' (7) em project-finalize.md && npm run
+        validate-skills → All 15 skills valid. Step 1.5 documenta o gate
+        determinístico (a prova) + agentes advisory A/B."
     verifierLabel: "shell: grep -qi 'cross-wt-collision' skills/shared/project-assets/…"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: Check de colisão cross-WT no finalize (Decisão 7)
@@ -212,7 +231,7 @@ summary: "No finalize, detecta colisão entre worktrees: gate build/test +
   agentes advisory ao diff."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
