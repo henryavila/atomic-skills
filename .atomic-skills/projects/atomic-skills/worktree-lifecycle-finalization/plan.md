@@ -5,7 +5,7 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T20:30:00Z
+lastUpdated: 2026-06-17T20:45:00Z
 branch: plan/worktree-lifecycle-finalization
 currentPhase: F5
 parallelismAllowed: false
@@ -385,14 +385,15 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: focus.json ignorado + status/* merge=union; round-trip
-            install/uninstall verde com focus.json não-rastreado.
+          description: focus.json ignorado (já satisfeito) + dispatch-log.json em
+            NDJSON com merge=union PROVADO (check-attr + union lossless); pontuais
+            não-unidos; round-trip install/uninstall verde com focus.json não-rastreado.
           status: pending
           verifier:
             kind: shell
             command: grep -q 'focus.json' .gitignore && grep -qi 'merge=union'
-              .gitattributes && node --test
-              tests/install-uninstall-roundtrip.test.js
+              .gitattributes && node --test tests/dispatch-log-merge-union.test.js
+              && node --test tests/install-uninstall-roundtrip.test.js
         - id: G-2
           description: Suite e skills válidos após o carve-out.
           status: pending
