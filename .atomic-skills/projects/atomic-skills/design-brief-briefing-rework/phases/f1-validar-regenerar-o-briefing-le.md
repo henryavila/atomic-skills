@@ -11,10 +11,10 @@ status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T15:17:51.103Z
-nextAction: "Start T-001: Obter e persistir o feedback original do Lekto"
+nextAction: "T-001 done. T-002 (regenerar briefing) exige SESSAO NOVA + caminho do codigo Lekto — handoff p/ gerador cego."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
@@ -50,8 +50,18 @@ tasks:
     title: Obter e persistir o feedback original do Lekto
     summary: Persiste o feedback original do Lekto (o operador re-fornece) como
       entrada durável da F1.
-    status: pending
-    lastUpdated: 2026-06-19T09:40:00.000Z
+    status: done
+    closedAt: 2026-06-19T15:53:43.000Z
+    lastUpdated: 2026-06-19T15:53:43.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T15:53:43.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — f1/lekto-feedback.md existe (291 linhas), feedback
+        original re-fornecido pelo operador e persistido verbatim; cobre os 12
+        padroes transversais + os 4 contaminantes (SWIPE_THRESHOLD=80,
+        AXIS_LOCK_DISTANCE=10, 'Vai!', onboarding 3 passos).
     description: O operador re-fornece o feedback original do agente de design sobre
       o Lekto (era um download transitório, hoje ausente do disco); persiste em
       f1/lekto-feedback.md como entrada durável que a rubrica (T-003) e o
@@ -184,3 +194,10 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+- **Narrative:** F0 fechada/commitada (`acc3141`). F1 em curso (1/5). **T-001 DONE** — o operador re-forneceu o feedback original do Lekto (versão com itens novos: 12 padrões transversais), persistido verbatim em `f1/lekto-feedback.md` (291 linhas); verifier `test -f` EXIT=0, evidence gravada, `validate-state` ✓ (GATE-R2). Parado **antes de T-002** num limite metodológico de sessão (ver decisão 2).
+- **Decision log:** (1) Tree "sujo" no resume = só bump de `generatedAt` em `focus.json` → não bloqueia. (2) **T-002 NÃO pode rodar nesta sessão.** A task é "regenerar o briefing Lekto com a skill reescrita **(sessão nova)**" e é o gate de não-reincidência (D9): o gerador tem de estar **CEGO ao feedback** — se ele já viu os 4 contaminantes (como esta sessão viu inteira), evita-os por memória, não pelo filtro D3 da skill, e o gate false-greens. Logo T-002 exige um contexto fresco/cego. (3) T-002 também precisa do **código real do app Lekto** (a skill minera `web/app/`); esse código não está neste repo (atomic-skills) — o operador tem de apontar o caminho. (4) Ordem restante: T-002 (regenerar, cego) → T-003 (rubrica, a partir do feedback) → T-004 (crítico/veredito NAO-REINCIDENTE) → T-005 (resolver D10, marcador F1-D10-RESOLVED).
+- **Single nextAction:** Iniciar T-002 num **gerador cego ao feedback** (sessão nova OU subagente sem o feedback no contexto), rodando a skill `atomic-skills:design-brief` contra o código do app Lekto (caminho a fornecer pelo operador), output → `f1/lekto-briefing-regenerated.md`. Decisão de modo pendente com o operador.
+- **Verbatim state:** verifier T-002 = `test -f .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/lekto-briefing-regenerated.md` (expectExitCode 0); acceptance: cobre Revisão/Login/Waitlist/Deck público/Explorar, em pt-BR. Os 4 contaminantes que o gate vigia: `SWIPE_THRESHOLD=80px`, `AXIS_LOCK_DISTANCE=10px`, copy `"Vai!"`, onboarding 3 passos. T-001 evidence: EXIT=0, `verifiedAt: 2026-06-19T15:53:43.000Z`.
+- **Uncommitted changes:** ` M .atomic-skills/focus.json` (timestamp) + `f1/lekto-feedback.md` (novo) + `phases/f1-validar-regenerar-o-briefing-le.md` (T-001 done + handoff). T-001 ainda não commitada.

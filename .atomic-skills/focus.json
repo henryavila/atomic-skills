@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T15:22:41.660Z",
+  "generatedAt": "2026-06-19T15:53:58.576Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 1,
     "total": 5,
     "blocked": 0
   },
