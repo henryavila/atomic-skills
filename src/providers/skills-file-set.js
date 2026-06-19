@@ -60,13 +60,17 @@ export function computeSkillsFileSet(config) {
 
   const files = [];
   const seen = new Set();
-  const add = (path, content) => {
+  // `source` tags each file's origin (e.g. `core/fix`, `modules/x/y`, `_assets/...`,
+  // `_namespace`) — the same taxonomy the legacy installSkills recorded. It is
+  // carried so the install return can classify skills vs assets for the post-install
+  // summary; reconcileFileSet ignores it (it consumes only { path, content }).
+  const add = (path, content, source) => {
     if (seen.has(path)) return;
     seen.add(path);
-    files.push({ path, content });
+    files.push({ path, content, source });
   };
 
-  const renderSkill = (skillId, skillMeta, langDir) => {
+  const renderSkill = (skillId, skillMeta, langDir, sourceTag) => {
     const sourceFile = join(skillsDir, langDir, `${skillId}.md`);
     if (!existsSync(sourceFile)) return;
     const rawContent = readFileSync(sourceFile, 'utf8');
@@ -75,13 +79,13 @@ export function computeSkillsFileSet(config) {
       const format = getSkillFormat(ideId);
       const renderOpts = skillMeta.argument_hint ? { argumentHint: skillMeta.argument_hint } : {};
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, renderOpts);
-      add(getSkillPath(ideId, skillMeta.name), content);
+      add(getSkillPath(ideId, skillMeta.name), content, sourceTag);
     }
   };
 
   // Core skills.
   for (const [skillId, skillMeta] of Object.entries(meta.core || {})) {
-    renderSkill(skillId, skillMeta, 'core');
+    renderSkill(skillId, skillMeta, 'core', `core/${skillId}`);
   }
 
   // Module skills (only installed modules).
@@ -90,7 +94,7 @@ export function computeSkillsFileSet(config) {
     const modMeta = meta.modules?.[modName];
     if (!modMeta) continue;
     for (const [skillId, skillMeta] of Object.entries(modMeta)) {
-      renderSkill(skillId, skillMeta, `modules/${modName}`);
+      renderSkill(skillId, skillMeta, `modules/${modName}`, `modules/${modName}/${skillId}`);
     }
   }
 
@@ -121,13 +125,21 @@ export function computeSkillsFileSet(config) {
             for (const sf of readdirSync(subSrc, { withFileTypes: true })) {
               if (!sf.isFile()) continue;
               const raw = readFileSync(join(subSrc, sf.name), 'utf8');
-              add(`${destBase}/${f.name}/${sf.name}`, renderTemplate(raw, vars, moduleFlags, ideId, scope));
+              add(
+                `${destBase}/${f.name}/${sf.name}`,
+                renderTemplate(raw, vars, moduleFlags, ideId, scope),
+                `_assets/${entry.name}/${f.name}/${sf.name}`,
+              );
             }
             continue;
           }
           if (!f.isFile()) continue;
           const raw = readFileSync(join(assetsSourceDir, f.name), 'utf8');
-          add(`${destBase}/${f.name}`, renderTemplate(raw, vars, moduleFlags, ideId, scope));
+          add(
+            `${destBase}/${f.name}`,
+            renderTemplate(raw, vars, moduleFlags, ideId, scope),
+            `_assets/${entry.name}/${f.name}`,
+          );
         }
       }
     }
@@ -137,7 +149,7 @@ export function computeSkillsFileSet(config) {
   for (const ideId of ides) {
     const rootPath = getNamespaceRootPath(ideId);
     if (!rootPath) continue;
-    add(rootPath, generateNamespaceRoot());
+    add(rootPath, generateNamespaceRoot(), '_namespace');
   }
 
   return files;

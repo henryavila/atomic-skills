@@ -1,8 +1,9 @@
-import { unlinkSync, rmdirSync, existsSync, readdirSync } from 'node:fs';
+import { rmdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
-import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
-import { removeRuntimeArtifacts, removeAutoUpdateHook, unregisterInstall } from './install.js';
+import { readManifest, MANIFEST_DIR } from './manifest.js';
+import { removeRuntimeArtifacts, unregisterInstall } from './install.js';
+import { buildInstaller } from './installer.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
 
@@ -102,39 +103,33 @@ export async function uninstall(projectDir, options = {}) {
     }
   }
 
-  let removed = 0;
-  for (const relPath of Object.keys(manifest.files)) {
-    const absPath = join(basePath, relPath);
-    if (existsSync(absPath)) {
-      unlinkSync(absPath);
-      removed++;
-      pruneEmptyParents(absPath, basePath);
-    }
-  }
+  const removed = Object.keys(manifest.files || {}).length;
 
-  // Remove the SessionStart hook entry the installer merged into settings.json
-  // (its script was just removed above as a manifest-tracked file, so this
-  // clears the now-dead reference). Surgical: preserves all other hooks.
-  removeAutoUpdateHook({ basePath, scope, settingsCreated: manifest.settingsCreated === true });
+  // Revert the install-base journal — the skill file set (reconcileFileSet), the
+  // auto-update hook (stageRuntimeArtifacts) and the settings.json SessionStart
+  // entry (jsonMerge) — via the Driver: replayReverse runs each effect's revert in
+  // reverse, then removeManifest reclaims the manifest. No bespoke unlink loop and
+  // no removeAutoUpdateHook: reversibility is a property of the journal's effects
+  // (the surgical settings revert is jsonMerge's, the no-proof-no-delete of skill
+  // files is reconcileFileSet's — a third-party SessionStart hook + a user-modified
+  // skill survive exactly as before).
+  buildInstaller({}).uninstall({ projectDir: basePath });
 
-  // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) are shared
-  // across ALL installs (user + each project), so reclaim them only when the
-  // LAST install is gone — tracked by the cross-install registry, not by scope.
-  // Removing them on any single user-scope uninstall would break every project
-  // install that still depends on the shared dashboard/provisioner runtime
-  // (F-003). Deregister this install; reclaim only when the refcount hits 0.
+  // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) and the
+  // cross-install registry are shared across ALL installs (user + each project),
+  // so reclaim them only when the LAST install is gone — orchestrated OUTSIDE the
+  // journal (replayReverse cannot express a conditional, refcounted reclaim, F-003).
+  // Removing them on any single uninstall would strand every other install that
+  // still depends on the shared dashboard/provisioner runtime.
   const remainingInstalls = unregisterInstall(basePath);
   if (remainingInstalls === 0) removeRuntimeArtifacts();
 
-  // Remove manifest (last, so the .atomic-skills/ dir can be pruned once the
-  // runtime artifacts that also lived there are gone).
-  const manifestPath = join(basePath, MANIFEST_DIR, MANIFEST_FILE);
-  if (existsSync(manifestPath)) unlinkSync(manifestPath);
-  const manifestDir = join(basePath, MANIFEST_DIR);
+  // The Driver removed the manifest; for a user-scope uninstall the .atomic-skills/
+  // dir also held the shared runtime (reclaimed just above), so prune it if the
+  // reclaim emptied it (removeManifest ran while the runtime was still present).
+  const stateDir = join(basePath, MANIFEST_DIR);
   try {
-    if (existsSync(manifestDir) && readdirSync(manifestDir).length === 0) {
-      rmdirSync(manifestDir);
-    }
+    if (existsSync(stateDir) && readdirSync(stateDir).length === 0) rmdirSync(stateDir);
   } catch {}
 
   console.log(`  ✓ ${msg.filesRemoved(removed)}`);
