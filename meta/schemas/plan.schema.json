@@ -106,6 +106,18 @@
         "remainsValid": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "spawnedFrom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "phaseId", "mode"],
+      "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+      "properties": {
+        "plan": { "$ref": "common.schema.json#/$defs/slug" },
+        "phaseId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+      }
+    },
     "references": {
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
@@ -166,6 +178,11 @@
         },
         "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
         "context": { "$ref": "common.schema.json#/$defs/context" },
+        "spawnedPlans": {
+          "type": "array",
+          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
+          "items": { "$ref": "common.schema.json#/$defs/slug" }
+        },
         "reviewGate": {
           "type": "object",
           "additionalProperties": false,
