@@ -31,6 +31,7 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -45,8 +46,41 @@ export const ACTUALS_KEYS = Object.freeze([
 
 const ANALYTICS_DIR = ['.atomic-skills', 'analytics'];
 const LOG_FILE = 'completions.jsonl';
+const GIT_EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 const hasText = (v) => typeof v === 'string' && v.length > 0;
+
+/**
+ * Compute the phase's aggregate actuals from git history since `since`
+ * (an ISO timestamp = the phase's `started` field). Returns
+ * { filesChanged, locAdded, locRemoved, commits } (all finite numbers) on
+ * success, or `undefined` on ANY failure (git absent, not a repo, bad/empty
+ * `since`, unparseable output). NEVER throws — graceful degradation so a
+ * phase-done transition is never blocked by missing git (principle P2).
+ */
+export function computePhaseActuals(since, { cwd = process.cwd() } = {}) {
+  if (!hasText(since)) return undefined;
+  try {
+    const git = (a) => execFileSync('git', a, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const base = git(['rev-list', '-1', `--before=${since}`, 'HEAD']);
+    const commits = Number(base
+      ? git(['rev-list', '--count', `${base}..HEAD`])
+      : git(['rev-list', '--count', 'HEAD']));
+    const diffBase = base || GIT_EMPTY_TREE;
+    const shortstat = git(['diff', '--shortstat', diffBase, 'HEAD']);
+    const filesChanged = Number((shortstat.match(/(\d+)\s+files?\s+changed/) || [])[1] || 0);
+    const locAdded = Number((shortstat.match(/(\d+)\s+insertions?\(\+\)/) || [])[1] || 0);
+    const locRemoved = Number((shortstat.match(/(\d+)\s+deletions?\(-\)/) || [])[1] || 0);
+    const out = { filesChanged, locAdded, locRemoved, commits };
+    return Object.values(out).every((value) => Number.isFinite(value)) ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Validate an optional `actuals` sub-object against the same closed numeric shape
@@ -139,6 +173,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const positional = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
   const root = positional || process.cwd();
   try {
+    const hasActualsSince = args.includes('--actuals-since');
+    const actuals = hasActualsSince ? computePhaseActuals(flag('actuals-since'), { cwd: root }) : undefined;
     const rec = appendCompletion(root, {
       event: flag('event'),
       projectId: flag('project'),
@@ -147,6 +183,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       taskId: flag('task'),
       weight: flag('weight') != null ? Number(flag('weight')) : undefined,
       weightBasis: flag('basis'),
+      ...(hasActualsSince ? { actuals } : {}),
     });
     console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ✓`);
   } catch (err) {
