@@ -222,5 +222,53 @@
     "finishedAt": "2026-06-19T09:09:57Z",
     "codexWorktreeRef": "dbf/f1-t-002",
     "routingReason": "lane on + F1 spec-ready + F2 shell verifier; seeded off post-T-003 HEAD 8454d16 (schema admits fields — dependency satisfied); re-verified on merged primary 2cd4f06 (emit-consumer-state 14 pass, 0 fail incl. validateAideckState ok + null-legacy assertions); Opus read diff (closedAt/lastUpdated ?? null) + test (no false-green)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F2",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T12:02:30Z",
+    "finishedAt": "2026-06-19T12:06:02Z",
+    "codexWorktreeRef": "dbf/f2-t-001",
+    "routingReason": "lane on (routing.json mode2Enabled+codexLane, standing default) + F1 spec-ready (schema field additions, settled D-F2-1) + F2 deterministic shell verifier; dispatched concurrently with T-003 (scope-disjoint, overlap empty); in-worktree self-check hit spawnSync EPERM (sandbox blocks child_process for schema-drift execFileSync) — environmental; re-verified PASS on MERGED primary f844dde (schema-drift 1 pass) + Opus read schema diffs (3 fields, none in required) + bundle regenerated"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F2",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T12:02:30Z",
+    "finishedAt": "2026-06-19T12:05:57Z",
+    "codexWorktreeRef": "dbf/f2-t-003",
+    "routingReason": "lane on + F1 spec-ready (mirror of find-missing-task-summaries, settled D-F2-5) + F2 shell verifier; dispatched concurrently with T-001 (scope-disjoint); re-verified PASS on MERGED primary df3ca7f (find-unweighted-tasks 3 pass incl. weight:0 valid + non-number flagged) + Opus read script/test/Stage6 diff (read-only auditor, decompose.js untouched)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F2",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T12:14:00Z",
+    "finishedAt": "2026-06-19T12:16:23Z",
+    "codexWorktreeRef": "dbf/f2-t-002",
+    "routingReason": "lane on + F1 spec-ready (settled D-F2-2/3) + F2 shell verifier; seeded off post-T-001/T-003 HEAD 545de0e (schema admits fields + bundle regenerated — dependency D-F2-4 satisfied); re-verified PASS on MERGED primary 8569c76 (compute-rollups 3 + emit-consumer-state 15 incl. validateAideckState round-trip carrying weightDone/weightTotal, no drift) + Opus read diffs (weightOf default-1, weight:0 honored; ?? count fallback) + confirmed emit-consumer-state.js binary flag is pre-existing (box-drawing density), not corruption"
   }
 ]
