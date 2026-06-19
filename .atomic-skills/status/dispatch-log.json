@@ -174,5 +174,53 @@
     "finishedAt": "2026-06-17T19:14:53Z",
     "codexWorktreeRef": "impl/dbf-t-004",
     "routingReason": "lane on + operator Mode 2 + F1 spec-ready + F2 deterministic shell verifier; test-only contract file, Opus verified it exercises the REAL API (no stub); re-verified on merged primary 8741d48 (3 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T08:58:00Z",
+    "finishedAt": "2026-06-19T09:02:11Z",
+    "codexWorktreeRef": "dbf/f1-t-001",
+    "routingReason": "lane on (routing.json mode2Enabled+codexLane, standing default) + F1 spec-ready (Opus resolved scopeBoundary _archive-legacy→archive/ via non-recursive scan, D2) + F2 deterministic shell verifier; dispatched concurrently with T-003 (scope-disjoint); re-verified on merged primary beec974 (find-unclosed-done 4 pass, 0 fail) + Opus read script+test (genuine archive-exclusion coverage)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T08:58:00Z",
+    "finishedAt": "2026-06-19T09:03:39Z",
+    "codexWorktreeRef": "dbf/f1-t-003",
+    "routingReason": "lane on + F1 spec-ready + F2 shell verifier; dispatched concurrently with T-001 (scope-disjoint); in-worktree self-check hit spawnSync EPERM (schema-drift.test.js uses execFileSync, sandbox blocks child_process) — environmental, Codex confirmed build --check exit 0 manually; verifier re-verified PASS on merged primary d55f540 (schema-drift 1 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T09:06:00Z",
+    "finishedAt": "2026-06-19T09:09:57Z",
+    "codexWorktreeRef": "dbf/f1-t-002",
+    "routingReason": "lane on + F1 spec-ready + F2 shell verifier; seeded off post-T-003 HEAD 8454d16 (schema admits fields — dependency satisfied); re-verified on merged primary 2cd4f06 (emit-consumer-state 14 pass, 0 fail incl. validateAideckState ok + null-legacy assertions); Opus read diff (closedAt/lastUpdated ?? null) + test (no false-green)"
   }
 ]
