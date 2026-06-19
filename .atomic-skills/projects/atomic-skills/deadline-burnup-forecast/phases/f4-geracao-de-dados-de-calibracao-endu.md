@@ -9,14 +9,14 @@ status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T17:29:17Z
 lastUpdated: 2026-06-19T17:29:17Z
-nextAction: "Start T-001: — Actuals de fase no evento phase-done"
+nextAction: "Start T-002: — Actuals de task via dispatch-log quando presente"
 parentPlan: deadline-burnup-forecast
 phaseId: F4
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -40,8 +40,26 @@ stack:
 tasks:
   - id: T-001
     title: — Actuals de fase no evento phase-done
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T18:47:13Z
+    lastUpdated: 2026-06-19T18:47:13Z
+    verifier:
+      kind: shell
+      command: node --test tests/append-completion-actuals.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T18:47:13Z
+      passed: true
+      exitCode: 0
+      testsCollected: 4
+      outputSummary: "node --test tests/append-completion-actuals.test.js — 4 pass, 0
+        fail, exit 0, re-run on MERGED primary 003b526. computePhaseActuals (git
+        range + graceful undefined) + appendCompletion phase-done actuals
+        validam no completion-event.schema; task-done sem actuals (sem
+        duplicação). Executor Codex Mode2 worktree codex/f4-t001; verifier verde
+        já in-worktree, adjudicado no primary. Revisão Opus: impl fiel ao design
+        settled, teste assere valores concretos re-derivados (não circular),
+        graceful-degradation coberta."
   - id: T-002
     title: — Actuals de task via dispatch-log quando presente
     status: pending
@@ -78,11 +96,11 @@ Initiative for phase **F4 — Geração de dados de calibração + endurecer clo
 - **design-brief-SoT/L-004** (unicidade de sub-campo de array via checagem pós-schema) → **N/A**. `grandfatheredTaskIds` é computado pelo script como conjunto (Set) → unicidade garantida na origem; sem sub-campo de array no schema.
 
 ## Session handoff
-- **Narrative:** F4 ativa, 0/3 tasks. Phase-start hygiene FEITA: 9 lições dispositionadas no bloco `## Decisions` acima (F0/L-001+F2/L-001 já-aplicadas no writer; F1/L-001 com FLAG DE ESCOPO p/ T-003; F3/L-001 aplicada por design; design-brief-SoT/L-001 → review `--mode=both` no boundary). Prestes a despachar **T-001 ao Codex (Mode 2)** num worktree `codex/f4-t001` off HEAD limpo.
-- **Decision log:** (1) **Design settled de T-001** (Opus, p/ work-order): adicionar helper puro `computePhaseActuals(since, {cwd})` em scripts/append-completion.js que computa via git `commits`/`filesChanged`/`locAdded`/`locRemoved` do range phase.started→HEAD e retorna `undefined` em QUALQUER falha de git (sem throw, P2); CLI ganha `--actuals-since <iso>`; prosa (project-transitions.md:138) troca o placeholder `<phase aggregate actuals>` por invocação concreta; teste `tests/append-completion-actuals.test.js` controla datas via GIT_*_DATE. (2) Herdado: `normalizeActuals` (append-completion.js:58-72) já valida o sub-objeto actuals inteiro (chaves fechadas + Number.isFinite) → actuals roteiam POR este writer, nunca bypass. (3) Routing: Codex é o DEFAULT (lane ON, T-001 clear F1 spec-ready + F2 verifier determinístico); operador não optou OUT.
-- **Single nextAction:** Cortar worktree `codex/f4-t001` off HEAD; escrever briefing work-order de T-001; despachar Codex `--sandbox workspace-write` (cwd=worktree); ler diff de volta (`git -C <wt> diff`); merge `--ff-only` ao primary; re-rodar `node --test tests/append-completion-actuals.test.js` no MERGED primary; em PASS → `done T-001`.
-- **Verbatim state:** HEAD primary `<será o commit deste snapshot>` (era `1418058` antes da disposição de lições). currentPhase=F4, tasksDone 0/3. Verifier de T-001: `node --test tests/append-completion-actuals.test.js`. Gate F4/G-1: `node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 913 pass / 8 fail PRÉ-EXISTENTES (install/countSkills — drift skills-restructuring, fora de escopo). Padrões Mode 2 (de F3): verifier in-worktree dá falso-fail `spawnSync EPERM` quando o teste spawna node → adjudicar no primary merged; merge-back via commit-no-worktree + `git merge --ff-only`.
-- **Uncommitted changes:** clean tree (após o commit deste snapshot + disposição de lições).
+- **Narrative:** F4 ativa, **1/3 tasks** (T-001 DONE via Codex Mode 2). T-001 (actuals de fase no evento phase-done) implementada por Codex no worktree `codex/f4-t001`, merge `--ff-only` ao primary (`8c396bf→003b526`), verifier re-rodado e VERDE no MERGED primary (4 pass, exit 0), worktree desmontado. Restam T-002 + T-003. 9 lições já dispositionadas (bloco `## Decisions`).
+- **Decision log:** (1) T-001 entregue conforme design settled (helper `computePhaseActuals` + flag `--actuals-since` + prosa concreta + teste GIT_*_DATE); revisão Opus do diff: fiel, escopo limpo (3 files), teste não-circular, graceful-degradation coberta. (2) **F1/L-001 PENDENTE de decisão em T-003**: adicionar `closedAt`+`lastUpdated` ao `tasks.required` de `meta/schemas/aideck-state.schema.json` está FORA dos Files declarados de T-003 → surfaçar ao usuário antes de tocar (não alargar escopo). (3) Routing: Codex DEFAULT (lane ON); seguir mesmo fluxo serial para T-002 (mas T-002 toca o MESMO append-completion.js que T-001 já tocou — base ref do worktree de T-002 = HEAD atual `003b526`).
+- **Single nextAction:** Start T-002 (Actuals de task via dispatch-log quando presente; Files: scripts/append-completion.js + tests/append-completion-dispatchlog.test.js; verifier `node --test tests/append-completion-dispatchlog.test.js`). Settlar design (ler dispatch-log existente p/ extrair attempts/durationMs/escalations no evento task-done; ausência não é erro) → cortar worktree `codex/f4-t002` off `003b526` → despachar Codex.
+- **Verbatim state:** HEAD primary `003b526` (T-001) — será atualizado pelo commit deste snapshot. currentPhase=F4, tasksDone 1/3. Verifier T-002: `node --test tests/append-completion-dispatchlog.test.js`. Gate F4/G-1: `node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 913 pass / 8 fail PRÉ-EXISTENTES (install/countSkills — drift skills-restructuring, fora de escopo). Padrões Mode 2 (de F3): verifier in-worktree pode dar falso-fail `spawnSync EPERM` se o teste spawna node/git → adjudicar no MERGED primary; merge-back via commit-no-worktree + `git merge --ff-only`.
+- **Uncommitted changes:** F4 initiative (T-001 done + rollups + nextAction + handoff) + `.atomic-skills/analytics/completions.jsonl` (evento task-done T-001) + `.atomic-skills/status/dispatch-log.json` (telemetria T-001) — serão commitados neste snapshot. T-001 source (3 files) já em `003b526`.
 
 ## Links
 

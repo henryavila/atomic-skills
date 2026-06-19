@@ -318,5 +318,21 @@
     "finishedAt": "2026-06-19T16:37:53Z",
     "codexWorktreeRef": "codex/f3-t003",
     "routingReason": "lane on + F1 spec-ready (aditivo, design settled pela SPEC) + F2 shell verifier. PASS no MERGED primary 6844e95 (refresh-state.test.js 2/2). Sem escalação, sem follow-up. Revisão Opus: 4º passo aditivo+fail-open, 3 passos existentes intactos, teste prova gap fechado (burnup ausente→presente) + path sem eventos, não circular. Suíte: 927 tests / 913 pass / 8 fail pré-existentes, 0 regressão nova. In-worktree verifier passou (refresh-state não spawna child → sem EPERM)."
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F4",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T18:42:00Z",
+    "finishedAt": "2026-06-19T18:47:13Z",
+    "codexWorktreeRef": "codex/f4-t001",
+    "routingReason": "lane on + F1 spec-ready (design settled pelo Opus no work-order: helper computePhaseActuals + flag CLI + prosa) + F2 shell verifier. PASS no MERGED primary 003b526 (append-completion-actuals.test.js 4/4, exit 0). Sem escalacao. Revisao Opus: impl fiel ao design, teste re-deriva valores concretos (nao circular), graceful-degradation coberta, escopo limpo (3 files, nenhum .atomic-skills/ tocado). In-worktree verifier passou (sem EPERM). Timestamps aproximados da sessao."
   }
 ]
