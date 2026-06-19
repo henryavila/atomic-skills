@@ -91,6 +91,18 @@ The original `ratifiedAt` is replaced — that's intentional. The audit trail of
 
 If the file is absent, treat as "never reviewed".
 
+**Generalized to a surface-review ledger (`review-dedup`).** The single-pointer shape
+above is the LEGACY form. `last-review.json` is generalized to an append-only **NDJSON
+set-ledger** (one record `{commitSha, patchId, mode, reviewedAt, reviewFile}` per line)
+via the pure module `scripts/review-ledger.js` (F7/T-001). The module's `readLedger`
+migrates a legacy pointer (or an absent/malformed file) **fail-safe to "nothing
+reviewed"** — so the pointer above is still read, just as zero reviewed surfaces. NDJSON
+is line-oriented so the ledger is `merge=union`-safe across parallel worktrees (per F5);
+records are appended with `recordReview`, never overwritten. The default-view CODEX
+REVIEW line below still reads `lastReviewedCommit` from a legacy pointer for back-compat;
+once a record has been appended the ledger is the source of truth, queried by mode via
+`alreadyReviewed(content, { commitSha, patchId }, mode)`.
+
 ### Default view — CODEX REVIEW line
 
 Run with {{BASH_TOOL}}:
@@ -131,18 +143,20 @@ Steps:
    > Run cross-model adversarial review on `<range>` (`<N>` commits, `<L>` lines)? Cost: ~$0.50–$1.50, ~5–10 minutes. (y/N)
 
 4. On `y`: invoke `atomic-skills:review-code` with args = `<range> --mode=codex` (skips the Step 0 picker and runs only the codex sub-flow). The skill produces a review file in `.atomic-skills/reviews/`.
-5. On completion (review skill returned a verdict): update `last-review.json`:
-   ```json
-   {
-     "schemaVersion": "0.1",
-     "branch": "<current branch>",
-     "lastReviewedCommit": "<HEAD sha at start of review>",
-     "lastReviewedAt": "<ISO timestamp>",
-     "reviewFile": ".atomic-skills/reviews/<filename>.md",
-     "verdict": "<from review frontmatter>",
-     "counts": <from review frontmatter>
-   }
-   ```
+   - **Dedup (`review-dedup`, fail-para-RE-revisar):** the surface fingerprint is
+     `commitSha` = HEAD of `<range>` + `patchId` = `git diff <range> | git patch-id
+     --stable`. `review-code`'s Step 0.5 already skips the **codex** pass when
+     `alreadyReviewed(content, { commitSha, patchId }, 'codex')` is true; `review-due`
+     may short-circuit the cost prompt of step 3 on the same positive proof and report
+     "already reviewed (codex)". Skip ONLY on positive proof — a pointer/absent/malformed
+     ledger reads as "nothing reviewed", so review RUNS (re-review on doubt). The dedup is
+     per mode: a `local` review never discharges the `codex` leg.
+5. On completion (review skill returned a verdict): **append** to the ledger with
+   `recordReview(content, { commitSha, patchId, mode: 'codex', reviewedAt, reviewFile })`
+   (`scripts/review-ledger.js`) and write the returned NDJSON content back to
+   `last-review.json` — append-only, prior records preserved (do NOT overwrite the set
+   with a single pointer). The legacy single-pointer fields may still be mirrored for the
+   CODEX REVIEW line's back-compat read, but the ledger record is the durable dedup proof.
 6. Apply fixes for blocker/critical (`review-code` codex sub-flow already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
 
 ### `phase-done` integration

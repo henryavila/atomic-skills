@@ -232,6 +232,45 @@ plain text. Hardcoding any specific tool name would break the other IDEs.
 
 ---
 
+## Step 0.5 — Surface-review dedup (`review-dedup`, fail-para-RE-revisar)
+
+Before running a pass, consult the **surface-review ledger** so the same surface is
+not re-reviewed in the same mode under parallel worktrees. The ledger is the pure
+module `scripts/review-ledger.js` (F7/T-001) over
+`.atomic-skills/status/last-review.json`; this skill NEVER re-implements the
+match logic, it defers to that module.
+
+1. **Fingerprint the surface** from the captured range (deterministic, from Step 6):
+   - `commitSha` = the tip SHA of the reviewed range (e.g. `git rev-parse <git_ref>`
+     for a ref/range; for `wip`/`all` the working tree has no commit → leave empty,
+     which forces RE-review, never a skip).
+   - `patchId` = `git diff <range> | git patch-id --stable | awk '{print $1}'`
+     (stable under squash/rebase — the SHA may be rewritten, the patch-id holds).
+2. **Per-mode skip with POSITIVE proof only.** For EACH mode about to run
+   (`local` and/or `codex`), read the ledger content from
+   `.atomic-skills/status/last-review.json` and call
+   `alreadyReviewed(content, { commitSha, patchId }, mode)`. If it returns **true**,
+   SKIP that mode's pass and announce: `review-dedup: <mode> pass skipped — surface
+   already reviewed (<commitSha|patchId>).` The dedup is **per mode**: a `local`
+   hit does NOT skip the `codex` pass and vice-versa (one model's pass never
+   discharges the other's). In `mode == both`, evaluate the two modes independently;
+   if both are already-reviewed, report up-to-date and END.
+3. **Fail-para-RE-revisar.** Skip ONLY on a positive `alreadyReviewed`. A pointer /
+   absent / malformed `last-review.json` is read by the module as "nothing reviewed"
+   (it returns false), so the pass RUNS — indeterminacy never skips a review.
+4. **Record after a pass completes** (a verdict was produced): append a ledger record
+   with `recordReview(content, { commitSha, patchId, mode, reviewedAt, reviewFile })`
+   and write the returned NDJSON content back to `last-review.json`. This is
+   append-only (prior lines preserved → `merge=union`-safe per F5), one record per
+   mode per surface; it does NOT overwrite earlier entries. The persisted review file
+   (Step "Persist") supplies `reviewFile`.
+
+This dedup is the code legs only (`review-code` local + codex, and `review-due` →
+`project-drift.md`); the `project review` composer (Layer B) carries its own
+append-only run-record via a separate work-order, never written from here.
+
+---
+
 ## Flow per mode
 
 ### Flow A — `mode == local`

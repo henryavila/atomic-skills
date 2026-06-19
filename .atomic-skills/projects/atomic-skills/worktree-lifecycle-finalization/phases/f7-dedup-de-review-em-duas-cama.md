@@ -11,11 +11,11 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:45:00Z
 lastUpdated: 2026-06-17T21:45:00Z
-nextAction: "Start T-002: Dedup em review-code e review-due (por modo,
-  fail-para-RE-revisar) — doc-edits que deferem ao ledger da T-001"
+nextAction: "Start T-003: Teste-oráculo de patch-id sob squash (+= em
+  tests/review-ledger.test.js) — usa diffs/patch-ids injetados, miss → RE-revisar"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F7
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
@@ -97,8 +97,9 @@ tasks:
         source-only; last-review.json vivo + merge=union deferidos ao wiring (T-002+)."
   - id: T-002
     title: Dedup em review-code e review-due (por modo, fail-para-RE-revisar)
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T22:15:00Z
+    lastUpdated: 2026-06-17T22:15:00Z
     summary: Dedup por modo em review-code e review-due, fail-para-RE-revisar.
     outputs:
       - kind: file
@@ -124,6 +125,18 @@ tasks:
       command: grep -qi 'review-dedup' skills/core/review-code.md && grep -qi
         'review-dedup' skills/shared/project-assets/project-drift.md && npm run
         validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T22:15:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "grep -ci 'review-dedup' → review-code.md 2, project-drift.md 2;
+        npm run validate-skills → All 15 skills valid, exit 0. review-code.md Step 0.5
+        (review-dedup): fingerprint commitSha+patch-id, skip per-mode só com prova
+        positiva (alreadyReviewed), record após via recordReview; project-drift.md
+        generaliza last-review.json pointer→NDJSON set-ledger (readLedger migra o pointer
+        legado fail-safe) e wira o review-due ao dedup codex + recordReview append.
+        Mode 1 inline (doc auto-referencial), defere ao ledger da T-001. validate-state 0."
   - id: T-003
     title: Teste-oráculo de patch-id sob squash
     status: pending
@@ -192,10 +205,13 @@ current: true
 Initiative for phase **F7 — Dedup de review em duas camadas (Decisão 8)**.
 
 ## Session handoff
-- **Narrative:** **F7 — task 1/4 DONE** (T-001 ledger). Em andamento (última fase do plano).
-  T-001 em **Mode 2/Codex**: módulo puro `scripts/review-ledger.js`
+- **Narrative:** **F7 — tasks 2/4 DONE** (T-001 ledger + T-002 wiring). Em andamento
+  (última fase do plano). T-001 em **Mode 2/Codex**: módulo puro `scripts/review-ledger.js`
   (`readLedger`/`recordReview`/`alreadyReviewed`, NDJSON, fail-safe) + teste (10 casos),
-  ff-merged `2c4ca99`, re-verificado na primária 10/10.
+  ff-merged `2c4ca99`, re-verificado na primária 10/10. T-002 em **Mode 1 inline** (doc
+  auto-referencial): `review-code.md` Step 0.5 `review-dedup` (skip per-mode só com prova
+  positiva, record após) + `project-drift.md` generaliza `last-review.json` pointer→NDJSON
+  set-ledger e wira o `review-due`; verifier shell exit 0 (grep ×2/×2 + validate-skills).
 - **Decision log:** (1) Formato do ledger = **NDJSON** (não array/objeto) — grounding L-002
   + lição F5 (union lossless só line-oriented). (2) `recordReview` preserva prior bytes
   (union-safe); pointer-legado/ausente → fresh ledger (fail-safe re-review). (3) Auto-report
