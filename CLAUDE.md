@@ -58,21 +58,43 @@ its reversal — that is the gate.
 
 ## install.js ↔ uninstall.js map
 
+**The flip (T-F3-4) made install/uninstall thin over the
+`@henryavila/tooling-installer` engine (consumed via `file:` link).** The
+install-base file domain is now a JOURNAL of reversible effects — `installSkills`
+delegates to `buildInstaller().install()` (`src/installer.js`), and `uninstall`
+calls `buildInstaller({}).uninstall()` which **replays the journal in reverse**
+(`Driver.uninstall` → `replayReverse` + `removeManifest`). No consumer writes
+revert logic; reversibility is a property of each effect. The manifest is
+**hybrid**: the journal (`effects[]`) is authoritative for uninstall, and a
+derived legacy `files{}` map + metadata (`version/language/ides/modules`) are
+patched on for the status/compat readers.
+
+| Install action | Effect (journal) → reversal |
+|---|---|
+| Skill/command `.md`, namespace root, `_assets/` | `reconcileFileSet` → `revert` (deletes only files whose disk hash matches the installed hash — P3) |
+| `version-check.sh` (auto-update hook, executable) | `stageRuntimeArtifacts` → `revert` (removes only paths it created) |
+| `SessionStart` entry in `settings.json` (merge) | `jsonMerge` → `revert` (surgical: subtracts only the delta; deletes the file only if it created it and it emptied) |
+| `manifest.json` (the journal) | `removeManifest` (unlink + prune) |
+
+**Orchestrated OUTSIDE the journal** (the journal's blind `replayReverse` cannot
+express a conditional, refcounted, or cross-version-format reclaim):
+
 | Install action | Reversal |
 |---|---|
-| Skill/command `.md`, namespace root, `_assets/`, `version-check.sh` (manifest) | manifest loop + `pruneEmptyParents` |
-| Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src}` | `removeRuntimeArtifacts` (user scope only) |
+| Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src,package-root}` | `removeRuntimeArtifacts` — reclaimed only when the LAST install leaves |
+| Cross-install refcount `~/.atomic-skills/installs.json` | `registerInstall` ↔ `unregisterInstall` (returns remaining count; 0 → reclaim runtime) |
+| Legacy-namespace orphans at obsolete paths | `findLegacyOrphans`/`removeLegacyOrphans` (frontmatter safelist = the only ownership proof, P3) |
 
 The aiDeck **bin** (`bin/aideck.mjs`, an argv[1]-rewrite launcher shim) and
 **dashboard** (the aiDeck client) are restaged by `installRuntimeArtifacts` from
-the published `@henryavila/aideck` npm dependency (T-004) — the vendored
-single-file bundle (`dist/aideck.mjs` + `vendor/aideck-runtime/`) was removed.
-When the dependency is not resolvable (pre-publish / stripped checkout) those two
-are skipped; the consumer template + provisioner always stage. The reversal is
-unchanged because the install *footprint paths* are identical — only the content
-source moved.
-| `SessionStart` entry in `settings.json` (merge) | `removeAutoUpdateHook` (surgical; deletes the file only if the installer created it and it emptied) |
-| `manifest.json` | unlink + prune |
+the published `@henryavila/aideck` npm dependency (T-004). When the dependency is
+not resolvable (pre-publish / stripped checkout) those two are skipped; the
+consumer template + provisioner always stage.
+
+A **pre-kernel (legacy) install** (manifest with `files{}` but no `effects`) is
+adopted into journal ownership records by `migrateLegacyInstall` (T-F3-6) at the
+start of `install()` — so the Driver's update/uninstall reverse it without
+clobbering files the user modified since the legacy install.
 
 The installer no longer mutates `.gitignore` (the `.atomic-skills/` tree is
 tracked, not ignored), so there is no `.gitignore` row to reverse.
