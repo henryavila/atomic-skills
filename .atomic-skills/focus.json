@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T17:32:11.812Z",
+  "generatedAt": "2026-06-19T17:35:13.907Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "T-004 done (veredito NAO-LIMPO, 1 recaida = A4). Proximo: T-005 resolve D10 — DECISAO DO OPERADOR (escalar p/ tag R10 vs modelo leve basta).",
+  "nextAction": "Path C escolhido. T-006 done (skill corrigida) + skill re-instalada (user-scope agora 12k, com o fix). Proximo = OPERADOR regenera o briefing em SESSAO NOVA E CEGA; depois re-rodar o critico e resolver D10 (T-005).",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f1-validar-regenerar-o-briefing-le.md",
-      "lastUpdated": "2026-06-19T17:17:07.000Z"
+      "lastUpdated": "2026-06-19T17:31:45.000Z"
     }
   ]
 }
