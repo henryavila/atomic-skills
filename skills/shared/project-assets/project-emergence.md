@@ -194,15 +194,35 @@ A missing required argument is a malformed invocation: print the usage line and 
 
 1. **Resolve the parent.** Load the active plan. If there is no active plan, abort: "fork-plan requires an active plan." Validate `--from <phaseId>` against `phases[]`; validate `--task <T>` (when given) against that phase initiative's `tasks[]`.
 2. **Pre-mutation gates.** Run the resident pre-mutation gates (migration check + reconciliation) on the anchor-phase initiative, exactly as the other emergent rungs do.
-3. **Ratify gate.** Print the `Proposed mutation:` block for a fork — magnitude `fork-plan (phase → child plan)` — with the drafted `context` (`solves`/`trigger`/`assumesStillValid`) that justifies the fork, the resolved `--from`/`--mode`/`--task`, and a `Reasoning` line (why rung 7.5, not `split-phase` below or `supersedes` above). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. A generic "ok"/"yes" is **not** ratify.
-4. **Ratify-then-write — the edge lands ONLY after ratify.** On `ratify` (or edited context), and **only then**, write the bidirectional edge to the sidecars:
+3. **Cycle-check — BEFORE the ratify gate, before any write to either sidecar.** This is the design's *detecção de ciclo* guard (D5): a child must never fork one of its own ancestors, and a plan cannot fork itself. Build the parent→child adjacency from the project's existing edges and test the proposed `parent → child` edge with the F0 helpers in `src/spawn-graph.js` — **do not reimplement the detection here**:
+   - Collect every plan in the project that carries a `spawnedPlans` map (read each via `getSpawnedPlans` from `src/links-sidecar.js`), shaped as `{ slug, spawnedPlans }`, and pass the list to `buildAdjacency(plans)` (`src/spawn-graph.js`).
+   - Call `wouldCreateCycle(adjacency, <parent-slug>, <child-slug>)`. It returns `true` when `<child-slug> === <parent-slug>` (self-fork) or when `<child-slug>` can already reach `<parent-slug>` along ≥1 spawn edges (forking an ancestor).
+   - **On `true`: abort atomically.** Print the offending edge (e.g. "fork rejected — `<child>` is an ancestor of `<parent>`; this would close a cycle (`detecção de ciclo`, D5)") and **write nothing to either sidecar** — the ratify gate is never reached, so no `context` lands and neither `setSpawnedFrom` nor `addSpawnedPlan` runs. The check precedes ratify precisely so a cycle is refused before the human is asked to ratify a fork that cannot exist.
+   - On `false`: proceed to the ratify gate.
+4. **Ratify gate.** Print the `Proposed mutation:` block for a fork — magnitude `fork-plan (phase → child plan)` — with the drafted `context` (`solves`/`trigger`/`assumesStillValid`) that justifies the fork, the resolved `--from`/`--mode`/`--task`, and a `Reasoning` line (why rung 7.5, not `split-phase` below or `supersedes` above). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. A generic "ok"/"yes" is **not** ratify.
+5. **Ratify-then-write — the edge lands ONLY after ratify.** On `ratify` (or edited context), and **only then**, write the bidirectional edge to the sidecars:
    - Child: `setSpawnedFrom(<childPlanDir>, { plan: <parent-slug>, phaseId: <from>, taskId?: <T>, mode: <mode> })`.
    - Parent: `addSpawnedPlan(<parentPlanDir>, <from>, <child-slug>)` — idempotent; `spawnedPlans[<from>]` is an array (a phase may fork several children).
    The ratified `context`/`provenance` is recorded with the edge. On `cancel`, nothing is written to either sidecar.
-5. **Hand off to `new plan`.** Delegate to the `new plan` flow (`{{ASSETS_PATH}}/project-create-plan.md`) for `<child-slug>`: the child is a real plan and passes the DESIGN gate. The child's `spawnedFrom` edge (written in step 4) is its back-link to the parent.
-6. **Mode side-effects.** Apply the parent-state transition for the chosen `--mode` (see "Mode semantics").
+6. **Hand off to `new plan`.** Delegate to the `new plan` flow (`{{ASSETS_PATH}}/project-create-plan.md`) for `<child-slug>`: the child is a real plan and passes the DESIGN gate. The child's `spawnedFrom` edge (written in step 5) is its back-link to the parent.
+7. **Mode side-effects.** Apply the parent-state transition for the chosen `--mode` (see "Mode semantics").
 
+### Mode semantics
 
+`--mode` decides what happens to the **parent** while the child plan runs. The value lives on the child's `spawnedFrom.mode` (set in step 5).
+
+- **`--mode pause` (fully implemented in F1).** The parent suspends and waits for the child at the anchor phase:
+  - Parent plan `P` → `status: paused`.
+  - The anchor phase (`--from <phaseId>`) → `status: paused`. This **reuses the existing cascade-pause** machinery (`{{ASSETS_PATH}}/project-transitions.md` — the `switch`/cascade-pause path that already demotes an `active` phase under a paused plan); `fork-plan` does not introduce a new pause mechanism.
+  - The child plan is born `active` (via the `new plan` handoff in step 6).
+  - The resume — un-pausing `P` and reactivating the anchor phase when the child completes/archives — is **not** part of this rung; it is the archive-propagation loop delivered in a later phase. `fork-plan --mode pause` only establishes the paused parent + active child here.
+- **`--mode parallel` (REJECTED until F2).** The parallel mode keeps the parent `active` in its own worktree alongside an `active` child in a separate worktree — which requires a cross-worktree **state protocol** (atomic, concurrency-safe writes to the shared project state from two live worktrees). That protocol does not exist yet; it is **F2** (`plan-fork-f2-protocolo-de-estado-parallel-cross-workt`). So in F1, `--mode parallel` is **rejected with a clear message and writes nothing**:
+
+  > `fork-plan --mode parallel` is not available yet — the cross-worktree state protocol it depends on lands in phase F2 (protocolo de estado parallel cross-worktree). Re-run with `--mode pause`, or wait for F2.
+
+  The rejection happens **before any sidecar write** (alongside the argument parse / pre-mutation gates), so no `spawnedFrom`/`spawnedPlans` edge and no cross-worktree state is ever written under `parallel` before the protocol exists. This is deliberate: writing a `parallel` edge now would strand the project in a concurrency mode nothing can safely service.
+
+## Why provenance + context live on the item itself (not a separate log)
 
 Every emergent item carries two co-located blocks in its frontmatter:
 

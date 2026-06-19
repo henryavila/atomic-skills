@@ -42,7 +42,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `new plan <slug>`, `adopt <file.md>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` |
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
 | `discover` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-discover.md` |
-| `park`, `emerge`, `emerge --target`, `promote`, `new-task`, `new-phase`, `split-phase` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-emergence.md` |
+| `park`, `emerge`, `emerge --target`, `promote`, `new-task`, `new-phase`, `split-phase`, `fork-plan` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-emergence.md` |
 | `idea`, `idea list`, `idea promote <n>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-idea.md` |
 | `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
 | `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
@@ -116,6 +116,7 @@ This table is resident because the intent surfaces *outside* a command — in co
 | **5.** New task in DIFFERENT phase | "F2 needs an extra task before it can finish" | `new-task --target F2 "<title>"` |
 | **6.** New phase inserted into the plan | "Need a validation phase F0.5 between F0 and F1" | `new-phase <id> "<title>" --after <other-id> [--parallel-with ...]` |
 | **7.** Phase grew too big — split | "F2 is now 18 tasks, split into F2a + F2b" | `split-phase <id>` |
+| **7.5.** Phase deserves its own plan — fork (parent survives, resumes at the anchor) | "F2 grew into its own multi-phase project, but the plan still stands and must resume after" | `fork-plan <child-slug> --from <phaseId> --mode pause\|parallel [--task <T>]` |
 | **8.** Strategic shift — half the plan is wrong | "rethink everything, this is a different project" | `adopt <new-source.md>` with `supersedes` link |
 
 The ladder doubles in cost per step. Pick the lowest rung that fits; promote up only when explicitly justified. **Never default an "add a section to the plan" request to a *phase*** — a principle / glossary / reference edit is a body edit, not the heavy `new-phase` ritual.
