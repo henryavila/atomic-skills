@@ -11,11 +11,14 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T20:30:00Z
 lastUpdated: 2026-06-17T20:30:00Z
-nextAction: "Start T-001: focus.json git-ignore + status/* merge=union, com
-  round-trip preservado"
+nextAction: "PHASE BOUNDARY — F5 task 1/1 DONE (gates 0/2 pending, resolvem no
+  phase-done). Próximo (operator-prompted, NÃO auto-rodar): phase-done F5 — roda
+  exit-gates G-1 (grep merge=union + node --test dispatch-log-merge-union +
+  round-trip) + G-2 (validate-skills), review-code --mode=both no diff da fase,
+  distila lessons, grava reviewGate no plan.md e avança currentPhase F5→F6."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F5
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 1
 gatesMet: 0
 gatesTotal: 2
@@ -47,8 +50,9 @@ tasks:
   - id: T-001
     title: dispatch-log.json → NDJSON + merge=union provado (focus.json já ignorado),
       round-trip preservado
-    status: pending
-    lastUpdated: 2026-06-17T20:45:00Z
+    status: done
+    closedAt: 2026-06-17T21:00:00Z
+    lastUpdated: 2026-06-17T21:00:00Z
     summary: Converte dispatch-log.json (único append-only) para NDJSON e aplica
       merge=union union-safe; focus.json já estava no .gitignore.
     outputs:
@@ -88,6 +92,21 @@ tasks:
       command: grep -q 'focus.json' .gitignore && grep -qi 'merge=union'
         .gitattributes && node --test tests/dispatch-log-merge-union.test.js &&
         node --test tests/install-uninstall-roundtrip.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T21:00:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Verifier completo exit 0 na primária MERGED @ 59ee587 + conversão
+        Opus: grep focus.json (.gitignore, pré-existente) + grep merge=union
+        (.gitattributes) + node --test dispatch-log-merge-union (3/3 pass: wired,
+        pointwise-not-union, NDJSON union lossless) + round-trip 4/4. git check-attr
+        prova dispatch-log.json→union e last-review.json→unspecified. validate-skills
+        15/15, validate-state exit 0. dispatch-log.json migrado array→NDJSON (16
+        records, round-trip parse lossless). Mode 2 Codex (impl/wlf-f5-t-001, ff
+        59ee587); auto-report -o 'pass 1' DESCARTADO per wlf-f0-nascimento L-001
+        (real 3/3); Codex adaptou require→import (repo ESM) corretamente; fence:
+        conversão do dispatch-log Opus-owned, Codex só source."
 parked: []
 emerged: []
 summary: "Contém o coupling de .atomic-skills: focus.json ignorado + status/*
@@ -100,6 +119,29 @@ current: true
 # Narrative / notes
 
 Initiative for phase **F5 — Coupling interim de .atomic-skills/ (Decisão 5)**.
+
+## Session handoff
+- **Narrative:** **F5 — task 1/1 DONE** (gates 0/2 pending, resolvem no `phase-done`).
+  PHASE BOUNDARY. T-001 em **Mode 2/Codex** (escolha do operador, reconfirmada após
+  re-escopo): Codex fez o source (`.gitattributes`, `mode2-codex-lane.md` §9 NDJSON,
+  `tests/dispatch-log-merge-union.test.js`) em `impl/wlf-f5-t-001`, ff-merged `59ee587`;
+  a conversão `dispatch-log.json` array→NDJSON (state-tree) foi **Opus-owned** (fence).
+  Re-verificado na primária MERGED: verifier exit 0, merge-union 3/3, round-trip 4/4,
+  validate-skills/state verdes.
+- **Decision log:** (1) Grounding achou `focus.json` já no `.gitignore` (1º critério
+  pré-satisfeito) + a Decisão 5 literal (union em array pretty-printed) corromperia JSON
+  → **refinada (ratify human) para NDJSON+union**. (2) Verifier reforçado para PROVAR o
+  merge (`check-attr` + `merge-file --union`), não só grep (per L-001 deste plano).
+  (3) Auto-report `-o` do Codex "pass 1" DESCARTADO — real 3/3 (wlf-f0 L-001 RE-confirmada
+  uma 2ª vez no plano). (4) Codex adaptou `require`→`import` (repo ESM) — desvio correto.
+- **Single nextAction:** **(operator-prompted)** Rodar `phase-done F5`: exit-gates G-1
+  (grep merge=union + node --test dispatch-log-merge-union + round-trip) + G-2
+  (validate-skills), `review-code --mode=both` no diff da fase, distila lessons, grava
+  `reviewGate` no `plan.md` e avança `currentPhase` F5→F6.
+- **Verbatim state:** Commits desta sessão (F5): `bbeb0f3` (amend SPEC NDJSON),
+  `59ee587` (feat Codex source, ff), próximo: `chore(project): done F5/T-001` (conversão
+  NDJSON + estado). Worktree `impl/wlf-f5-t-001` a remover pós-commit. **Follow-up
+  herdado:** PROJECT-STATUS.md ainda precisa de regen completo via `project-status`.
 
 ## Decisions
 
