@@ -187,7 +187,7 @@ summary: Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com
   before-state + matriz adversária no round-trip.
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes

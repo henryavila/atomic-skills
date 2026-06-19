@@ -5,9 +5,9 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T15:18:58.000Z
+lastUpdated: 2026-06-19T15:31:48.000Z
 branch: plan/reversible-installer
-currentPhase: F1
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -196,7 +196,7 @@ phases:
             kind: manual
             description: Auditar o inventário de mutações por runtime layer durante
               phase-done.
-    status: pending
+    status: active
     summary: "Package-first: atomic-skills consome o pacote (file: link), move
       SkillsProvider + runtime layers sobre o Driver, remove src/kernel/ in-repo,
       prova paridade."
@@ -235,6 +235,8 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 - **T-F3-4 (BLOQUEADO pelo gate)** — flip big-bang: `install.js`/`uninstall.js` finos (montam config → Driver) + **remove `src/kernel/`**. Feito SOBRE o `install.js` já-mergeado (absorve as adições do skills-restructuring → vira rewrite limpo, sem 3-way). NB: adições do skills-restructuring (`installAutoUpdateHook` etc.) viram runtime-layers/provider.
 - **T-F3-5** — paridade final: round-trip + matriz adversária + full suite verdes atravessando a dependência.
 - **Próximo executável: T-F3-2** (T-F3-4 fica bloqueado até o gate de merge).
+
+**F3 FORMALMENTE DECOMPOSTA (2026-06-19).** A sequência acima foi materializada no phase file `phases/f3-big-bang-rewire-e-paridade.md` com SPEC completa (Files/scopeBoundary/acceptance/verifier) por task: **T-F3-1** (done) · **T-F3-2** SkillsProvider aditivo · **T-F3-3** runtime layers aditivos · **T-F3-4** flip (bloqueado pelo gate de merge, blockedBy T-F3-6) · **T-F3-5** paridade final · **T-F3-6** migração legada (prereq do flip, preserva o T-005 ratificado). As antigas T-001..T-005 do phase file foram aposentadas. `currentPhase` do plano = **F3**.
 
 **Próximo passo:** continuar F2 no pacote (update semantics → config two-tier → runtime-layer) **ou** começar F3 no atomic-skills (consome via `file:`, move SkillsProvider+render+runtime layers sobre o Driver, remove `src/kernel/` in-repo). F1 in-repo segue done/superseded (não rodar `phase-done`).
 
