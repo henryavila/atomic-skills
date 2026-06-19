@@ -13,7 +13,7 @@ lastUpdated: 2026-06-19T11:20:50Z
 nextAction: "Start T-001: — Campo weight no schema da task + rebuild do bundle"
 parentPlan: deadline-burnup-forecast
 phaseId: F2
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -57,8 +57,21 @@ tasks:
     lastUpdated: 2026-06-17T12:06:57.781Z
   - id: T-003
     title: — Auditor de tasks sem weight (backfill replicável)
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T12:12:55Z
+    lastUpdated: 2026-06-19T12:12:55Z
+    verifier:
+      kind: shell
+      command: node --test tests/find-unweighted-tasks.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T12:12:55Z
+      passed: true
+      exitCode: 0
+      testsCollected: 3
+      outputSummary: node --test tests/find-unweighted-tasks.test.js — 3 pass, 0 fail
+        (re-run on MERGED primary df3ca7f; flags absent/non-number weight,
+        weight:0 valid)
 parked: []
 emerged: []
 summary: Dá peso de complexidade a cada task (proxy automático) e soma em
@@ -81,11 +94,11 @@ Initiative for phase **F2 — Peso por task: proxy estrutural + rollups**.
 - **D-F2-5 — T-003 espelha find-missing-task-summaries (read-only).** `find-unweighted-tasks.js` = cópia de `find-missing-task-summaries.js` com predicado `typeof t.weight === 'number'` (ausente/não-número ⇒ unweighted, exit 1). NÃO importa `configuredLanguage` (weight é número, não prosa). NÃO toca `src/decompose.js` (congelado, R-ORCH-10). Ponto de atribuição ancorado em Stage 6 de `project-create-plan.md` (irmão do parágrafo "Task summaries", linha ~124).
 
 ## Session handoff
-- **Narrative:** F2 (índice 3/6) recém-iniciada após F1 done (commit `997568c`). Mode 2 / Codex lane é o executor padrão deste plano (`routing.json` mode2Enabled+codexLane.enabled; F0/F1 todas executadas via Codex worktree). T-001 (schema+bundle, cheap) e T-003 (auditor+doc, cheap) são scope-disjuntas (overlap vazio provado) → despachadas em worktrees Codex concorrentes; T-002 (rollups+emit+2 tests, standard) é seeded do HEAD pós-merge de T-001 (dependência D-F2-4). Nada dispatched ainda neste snapshot.
-- **Decision log:** ver D-F2-1..5 acima (decisões load-bearing settladas por Opus pré-dispatch — F1 spec-readiness; Codex recebe-as como intent no work-order, não re-litiga).
-- **Single nextAction:** Despachar Codex para T-001 (worktree `~/atomic-skills/.worktrees/dbf-f2-t-001`, branch `dbf/f2-t-001`) e T-003 (worktree `~/atomic-skills/.worktrees/dbf-f2-t-003`, branch `dbf/f2-t-003`), ambos seeded de `997568c`, sandbox workspace-write; depois merge-back serial + re-verify no primary.
-- **Verbatim state:** base ref `997568caff0636163dea9ccbd17ce668a0087d52`. Verifiers — T-001: `node --test tests/schema-drift.test.js`; T-002: `node --test tests/compute-rollups.test.js && node --test tests/emit-consumer-state.test.js`; T-003: `node --test tests/find-unweighted-tasks.test.js`. Gate G-1: `node --test tests/schema-drift.test.js && node --test tests/compute-rollups.test.js && node --test tests/emit-consumer-state.test.js`. Bundle regen: `npm run build:aideck-schema`. `tests/compute-rollups.test.js` NÃO existe (T-002 cria).
-- **Uncommitted changes:** clean tree (meu worktree `deadline-burnup-forecast`); este edit do handoff é a única mudança pendente no momento do snapshot.
+- **Narrative:** F2 (índice 3/6), via Mode 2 / Codex lane. T-001 (schema+bundle) e T-003 (auditor+doc) despachadas em worktrees Codex concorrentes (scope-disjuntas), AMBAS já fechadas: merge serial (cherry-pick), re-verify no MERGED primary, `done`. **tasksDone 2/3.** Falta só T-002 (rollups weightDone/weightTotal + emit + 2 tests, standard) — seeded do HEAD pós-T-001 (dependência D-F2-4: validateAideckState carrega o bundle).
+- **Decision log:** ver D-F2-1..5 acima (settladas por Opus pré-dispatch; Codex recebe-as como intent). Merge-back via commit-no-worktree + `git cherry-pick <branch>` (histórico linear, estilo F1). Verifier in-worktree do Codex bate `spawnSync EPERM` (sandbox bloqueia child_process) — ambiental; o único check suficiente é o re-run no MERGED primary (T-001 1 pass @f844dde, T-003 3 pass @df3ca7f).
+- **Single nextAction:** Despachar Codex para T-002 em worktree `~/atomic-skills/.worktrees/dbf-f2-t-002` (branch `dbf/f2-t-002`) seeded do HEAD ATUAL (`df3ca7f`, já tem schema+bundle de T-001); briefing pré-autorado em `/tmp/dbf-f2-t-002-briefing.md`; depois merge serial + re-verify + `done` + telemetria + `phase-done`.
+- **Verbatim state:** HEAD primary `df3ca7f` (= T-001 feat `f844dde` + close `c1442db` + T-003 feat `df3ca7f`). T-002 verifier: `node --test tests/compute-rollups.test.js && node --test tests/emit-consumer-state.test.js` (`tests/compute-rollups.test.js` NÃO existe — T-002 cria). Gate G-1 (phase-done): `node --test tests/schema-drift.test.js && node --test tests/compute-rollups.test.js && node --test tests/emit-consumer-state.test.js`. Worktrees Codex de T-001/T-003 ainda registrados — remover (`git worktree remove` + `prune`) no cleanup. Telemetria dispatch-log.json AINDA não escrita (batch ao final, estilo F1).
+- **Uncommitted changes:** ao fazer este snapshot, pendente = este edit + o `done` de T-003 (focus.json + phase file), prestes a commitar como `chore(forecast): close F2/T-003`.
 
 ## Links
 
