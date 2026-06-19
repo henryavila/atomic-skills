@@ -10,12 +10,12 @@ goal: em sessão nova, regenerar o briefing do Lekto com a skill reescrita,
 status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T17:12:42.000Z
-nextAction: "T-003 done (rubrica). Proximo: T-004 — despachar critico adversarial
-  fresco (feedback+rubrica+briefing) -> f1/recurrence-verdict.md."
+lastUpdated: 2026-06-19T17:17:07.000Z
+nextAction: "T-004 done (veredito NAO-LIMPO, 1 recaida = A4). Proximo: T-005
+  resolve D10 — DECISAO DO OPERADOR (escalar p/ tag R10 vs modelo leve basta)."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
@@ -156,8 +156,21 @@ tasks:
   - id: T-004
     title: "Crítico adversarial: contrastar briefing regenerado vs feedback (gate)"
     summary: Crítico adversarial contrasta o briefing regenerado contra o feedback.
-    status: pending
-    lastUpdated: 2026-06-19T09:40:00.000Z
+    status: done
+    closedAt: 2026-06-19T17:17:07.000Z
+    lastUpdated: 2026-06-19T17:17:07.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T17:17:07.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — f1/recurrence-verdict.md existe (critico adversarial
+        fresco rodou, veredito persistido). Resultado NAO-LIMPO — A1/A2 morreram
+        no filtro D3, A3 ('Vai!') ok como textura mutavel; 1 recaida flagrada =
+        A4 (onboarding '3 passos' cravado sem band-pin D5/credencial D6). P1-P12
+        ok, invariantes C ok. Marcador de nao-reincidencia OMITIDO (ha recaida),
+        logo gate F1-G1 grep falha (EXIT=1, esperado). Dispara D10; correcao em
+        T-005.
     description: Roda um crítico fresco com o feedback (f1/lekto-feedback.md), a
       rubrica e o briefing regenerado, persiste o veredito e grava o marcador
       NAO-REINCIDENTE quando nenhum contaminante reaparece. Correções viram
@@ -218,8 +231,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F0 fechada/commitada (`acc3141`). F1 em curso (**3/5**). **T-002 DONE** (briefing regenerado em sessão cega, `f1/lekto-briefing-regenerated.md`, 495 linhas, commit `17abc36`) + **T-003 DONE** (rubrica de não-reincidência, `f1/recurrence-rubric.md`: A1-A4 contaminantes + P1-P12 padrões + seção C invariantes + protocolo de veredito). Próximo: **T-004** — despachar o crítico adversarial.
-- **Decision log:** (1) Resume gate resolvido: o operador confirmou que `f1/lekto-briefing-regenerated.md` É o output cego de T-002 → consumido ao fechar T-002. (2) **Achado a adjudicar em T-004 (NÃO pré-julgado):** dos 4 contaminantes, `SWIPE_THRESHOLD/80px` e `AXIS_LOCK/10px` AUSENTES (✓ morreram no filtro D3); copy `"Vai!"` (briefing L236) e onboarding `3 passos` (L237/253/258) reaparecem TEXTUALMENTE, mas com enquadramento "hoje …" (estado-atual). Frame da rubrica: **citação ≠ recaída — julga-se o ENQUADRAMENTO** (vinculado-como-requisito vs. calibração-mutável/contexto). (3) Regra D10 pré-registrada: se o crítico flagrar QUALQUER sobre-vínculo → dispara D10 (escalar para a tag R10); se limpo → modelo leve basta, sem tag. (4) Ordem restante: T-004 (crítico → `f1/recurrence-verdict.md`, marcador `NAO-REINCIDENTE` ⟺ limpo) → T-005 (resolver D10 em design.md, marcador `F1-D10-RESOLVED`). **Decisão D10/phase-done é do operador** — pausar e apresentar o veredito antes de T-005.
-- **Single nextAction:** Despachar T-004 — crítico adversarial fresco (subagente read-only) alimentado com `f1/lekto-feedback.md` + `f1/recurrence-rubric.md` + `f1/lekto-briefing-regenerated.md`; ele RETORNA o veredito estruturado (cada item A/B/C ausente|presente + afirmação explícita sobre os 4 contaminantes + se é NAO-REINCIDENTE); eu (thread principal) escrevo `f1/recurrence-verdict.md`. Verifier T-004 = `test -f …/f1/recurrence-verdict.md`; gate F1-G1 = `grep -q 'NAO-REINCIDENTE' …/f1/recurrence-verdict.md`.
-- **Verbatim state:** Inputs do crítico = `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/{lekto-feedback.md (291l), recurrence-rubric.md, lekto-briefing-regenerated.md (495l)}`. Contaminantes: `SWIPE_THRESHOLD=80px`, `AXIS_LOCK_DISTANCE=10px`, copy `"Vai!"`, onboarding 3 passos. Critérios canônicos: design.md:147-156. D10: design.md:103-110 + open-question (a) design.md:190-192. F1-G1 verifier = `grep -q 'NAO-REINCIDENTE' f1/recurrence-verdict.md`; F1-G2 verifier = `grep -q 'F1-D10-RESOLVED' design.md`. T-003 evidence: EXIT=0, `verifiedAt: 2026-06-19T17:12:42.000Z`.
-- **Uncommitted changes:** (snapshot pré-commit/pré-dispatch) ` M phases/f1-validar-regenerar-o-briefing-le.md` (T-003 done + evidence + handoff + rollup `tasksDone:3`) + `?? f1/recurrence-rubric.md` (output de T-003). A commitar como "T-003 done", depois despachar o crítico T-004.
+- **Narrative:** F0 fechada/commitada (`acc3141`). F1 em curso (**4/5**). T-002 (briefing cego, `17abc36`), T-003 (rubrica) e **T-004 DONE** (crítico adversarial fresco rodou; veredito persistido em `f1/recurrence-verdict.md`). **Veredito NÃO-LIMPO: 1 recaída flagrada (A4 — onboarding "3 passos" cravado sem band-pin D5 / credencial D6).** A1/A2 morreram no filtro D3; A3 ("Vai!") ok como textura mutável; P1-P12 ok; invariantes C ok. Só falta **T-005** (resolver D10) — **bloqueado em decisão do operador**.
+- **Decision log:** (1) Resume gate resolvido (operador confirmou o briefing cego). (2) Crítico: a única recaída é **A4** — o número "3" aparece 3× no briefing (L237-238/253/258) cravado, enquanto os vizinhos (~8s, 10 cartões) receberam band-pin e ele não. Falha D5 (sem banda) + D6 (sem credencial). (3) **Fork D10 (pré-registrado: qualquer sobre-vínculo ⇒ escalar p/ tag R10), MAS o crítico recomenda NÃO escalar** — A4 é band-pin faltante isolado, corrigível localmente; tag seria peso desproporcional p/ 1 item. Tensão real → **decisão do operador**, não auto-resolver (precedência humano > IA). (4) Independente do path, há um **fix de skill** a abrir como follow-up emergido (aplicar band-pin à contagem de onboarding) p/ a próxima regeneração não cravar. (5) **F1-G1 (`grep NAO-REINCIDENTE`) FALHA hoje** (EXIT=1) — correto, há recaída; só passa após re-gerar limpo OU defer explícito no phase-done.
+- **Single nextAction:** Apresentar ao operador o fork D10 (3 opções: (A) modelo leve basta / não-tag + fix A4 como follow-up; (B) escalar p/ tag R10 conforme gatilho literal; (C) corrigir skill + regenerar cego + re-rodar crítico antes de decidir) e, com a escolha, executar T-005 — gravar `F1-D10-RESOLVED` no `design.md` citando o veredito F1, e abrir follow-up emergido se preciso.
+- **Verbatim state:** Veredito = `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/recurrence-verdict.md` (recaída A4). Critérios canônicos design.md:147-156; D10 design.md:103-110 + open-question (a) design.md:190-192. T-004 evidence EXIT=0 `verifiedAt: 2026-06-19T17:17:07.000Z`. F1-G1 verifier = `grep -q 'NAO-REINCIDENTE' f1/recurrence-verdict.md` (FALHA, EXIT=1); F1-G2 verifier = `grep -q 'F1-D10-RESOLVED' design.md` (ainda ausente). Marcador a gravar em T-005 = `F1-D10-RESOLVED` no design.md.
+- **Uncommitted changes:** (snapshot pré-commit) ` M phases/f1-…le.md` (T-004 done + evidence + handoff + rollup `tasksDone:4`) + `?? f1/recurrence-verdict.md` (output de T-004). A commitar como "T-004 done". T-005 NÃO inicia sem a decisão do operador.
