@@ -608,6 +608,11 @@
             "minimum": 0
           }
         },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Complexity proxy for the earned-value burn-up (F2). Optional; absent ⇒ treated as 1 (count-burnup degradation). AI-authored at decompose (Stage 6 of project-create-plan.md) from structural signals (# of acceptance, Files, scopeBoundary, verifier kind); decompose.js stays frozen (R-ORCH-10). Backfill detector = scripts/find-unweighted-tasks.js. Summed into the weightDone/weightTotal rollups."
+        },
         "scopeBoundary": {
           "description": "Explicit exclusions — what this task must NOT do. Prevents scope creep at the task level.",
           "type": "array",
@@ -990,6 +995,16 @@
           "type": "integer",
           "minimum": 0,
           "description": "Rollup: tasks.length."
+        },
+        "weightDone": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rollup precomputed by scripts/compute-rollups.js: sum of weight (default 1 per weightless task) over tasks with status 'done'. Weighted mirror of tasksDone for the earned-value burn-up (F2)."
+        },
+        "weightTotal": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rollup: sum of weight (default 1 per weightless task) over all tasks. Weighted mirror of tasksTotal."
         },
         "gatesMet": {
           "type": "integer",
@@ -1414,6 +1429,12 @@
         },
         "tasksTotal": {
           "type": "integer"
+        },
+        "weightDone": {
+          "type": "number"
+        },
+        "weightTotal": {
+          "type": "number"
         },
         "gatesMet": {
           "type": "integer"

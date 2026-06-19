@@ -85,6 +85,8 @@
         "summary": { "type": "string" },
         "tasksDone": { "type": "integer" },
         "tasksTotal": { "type": "integer" },
+        "weightDone": { "type": "number" },
+        "weightTotal": { "type": "number" },
         "gatesMet": { "type": "integer" },
         "gatesTotal": { "type": "integer" },
         "tasksText": { "type": "string" },
