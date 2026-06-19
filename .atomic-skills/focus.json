@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-17T20:03:06.392Z",
+  "generatedAt": "2026-06-19T11:21:35.022Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -8,10 +8,10 @@
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "deadline-burnup-forecast-f1-closedat-forward-only-auditor-soft",
-    "title": "closedAt forward-only: auditor soft + emissão",
-    "index": 2,
+    "id": "F2",
+    "slug": "deadline-burnup-forecast-f2-peso-por-task-proxy-estrutural-roll",
+    "title": "Peso por task: proxy estrutural + rollups",
+    "index": 3,
     "total": 6,
     "status": "active"
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start F1/T-001: — Auditor da lacuna de instrumentação (find-unclosed-done.js)",
+  "nextAction": "Start T-001: — Campo weight no schema da task + rebuild do bundle",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md",
-      "lastUpdated": "2026-06-17T19:14:53Z"
+      "lastUpdated": "2026-06-19T09:20:00Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f1-closedat-forward-only-auditor-soft.md",
-      "lastUpdated": "2026-06-17T19:14:53Z"
+      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f2-peso-por-task-proxy-estrutural-roll.md",
+      "lastUpdated": "2026-06-19T11:20:50Z"
     }
   ]
 }

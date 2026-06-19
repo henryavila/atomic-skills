@@ -5,9 +5,9 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T19:14:53Z
+lastUpdated: 2026-06-19T09:20:00Z
 branch: plan/deadline-burnup-forecast
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -101,7 +101,13 @@ phases:
             passed: true
             exitCode: 0
             outputSummary: "G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0; auditor also green on live tree (every done task has closedAt)"
-    status: active
+    status: done
+    reviewGate:
+      status: passed
+      at: 5a735b9
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-19-0920-code-deadline-burnup-forecast-f1.md
+      verifiedAt: 2026-06-19T09:20:00Z
     summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill
       cosmético.
   - id: F2

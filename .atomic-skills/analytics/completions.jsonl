@@ -1,3 +1,4 @@
 {"ts":"2026-06-19T09:02:11.334Z","event":"task-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F1","taskId":"T-001","weight":1,"weightBasis":"count"}
 {"ts":"2026-06-19T09:03:39.537Z","event":"task-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F1","taskId":"T-003","weight":1,"weightBasis":"count"}
 {"ts":"2026-06-19T09:09:57.893Z","event":"task-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F1","taskId":"T-002","weight":1,"weightBasis":"count"}
+{"ts":"2026-06-19T11:17:05.003Z","event":"phase-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F1","taskId":null,"weight":1,"weightBasis":"count"}

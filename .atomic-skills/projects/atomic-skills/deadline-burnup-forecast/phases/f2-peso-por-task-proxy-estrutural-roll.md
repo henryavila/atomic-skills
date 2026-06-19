@@ -6,10 +6,10 @@ goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo mode
   Stage 6 da decomposição (prosa, como os summaries; NUNCA por src/decompose.js
   congelado) de sinais estruturais e auditor-enforced, com rollups
   weightDone/weightTotal espelhando tasksDone/tasksTotal.
-status: pending
+status: active
 branch: plan/deadline-burnup-forecast
-started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T18:07:35Z
+started: 2026-06-19T11:20:50Z
+lastUpdated: 2026-06-19T11:20:50Z
 nextAction: "Start T-001: — Campo weight no schema da task + rebuild do bundle"
 parentPlan: deadline-burnup-forecast
 phaseId: F2
@@ -53,6 +53,7 @@ summary: Dá peso de complexidade a cada task (proxy automático) e soma em
   rollups weightDone/Total.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
+current: true
 ---
 
 # Narrative / notes

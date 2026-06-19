@@ -5,29 +5,36 @@ title: "closedAt forward-only: auditor soft + emissão"
 goal: tornar closedAt auditável (soft, mede a lacuna de instrumentação) e
   emiti-lo na projeção de task do dashboard, sem backfill cosmético e sem
   hard-gate ainda.
-status: active
+status: done
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T19:14:53Z
-lastUpdated: 2026-06-19T09:09:57Z
-nextAction: "All F1 tasks done (3/3). Run phase-done to verify exit gate G-1 + review gate + advance to F2 (user opts in)."
+lastUpdated: 2026-06-19T09:20:00Z
+nextAction: null
 parentPlan: deadline-burnup-forecast
 phaseId: F1
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: G-1
     description: closedAt é auditável (soft) e closedAt+lastUpdated são emitidos na
       projeção e admitidos no schema (sem drift, schema-drift no gate); nenhum
       closedAt retroativo é inventado.
-    status: pending
+    status: met
+    metAt: 2026-06-19T09:15:51Z
     verifier:
       kind: shell
       command: node --test tests/find-unclosed-done.test.js && node --test
         tests/emit-consumer-state.test.js && node --test
         tests/schema-drift.test.js
     verifierLabel: "shell: node --test tests/find-unclosed-done.test.js && node --test…"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T09:15:51Z
+      passed: true
+      exitCode: 0
+      outputSummary: "G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0"
 stack:
   - id: 1
     title: "closedAt forward-only: auditor soft + emissão"
@@ -84,7 +91,7 @@ emerged: []
 summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill cosmético.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -103,6 +110,15 @@ Initiative for phase **F1 — closedAt forward-only: auditor soft + emissão**.
 - **Single nextAction:** Rodar `phase-done` para F1: exit-gate G-1 (`node --test tests/find-unclosed-done.test.js && node --test tests/emit-consumer-state.test.js && node --test tests/schema-drift.test.js`), depois review gate (`review-code` no diff `555c15e`-ish..HEAD), distill lessons, advance para F2. NÃO auto-executar — usuário opta.
 - **Verbatim state:** exit-gate G-1 verifier — `node --test tests/find-unclosed-done.test.js && node --test tests/emit-consumer-state.test.js && node --test tests/schema-drift.test.js`. F1 commits: T-001 `beec974`+`8704c2f`, T-003 `d55f540`+`8454d16`, snapshot `555c15e`, T-002 `2cd4f06`. Próxima fase candidata: F2 (peso por task).
 - **Uncommitted changes:** T-002 state closure (este arquivo) — prestes a commitar.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks fechadas, cada uma com `verifier` + `evidence` linkando a run que a fechou (re-run no primary mergeado: T-001 `beec974` 4 pass, T-003 `d55f540` 1 pass, T-002 `2cd4f06` 14 pass). Cada diff do Codex foi lido por mim antes do merge (auditor + teste de exclusão de `archive/`, projeção `?? null`, asserção `validateAideckState`).
+- **G2 soft-language**: `nextAction`, descrições de task e critério escaneados — completion é evidence `passed:true`, sem `should`/`works`/`probably`.
+- **G6 reference-or-strike**: K=1 critério de saída (G-1), met com `evidence` populado (3-test chain 19 pass); literais do handoff são paths/commands/SHAs verbatim.
+- **Codex review**: review-code local (sealed-envelope, anti-framing) em `0c64ed5..5a735b9`, verdict **APPROVED**, counts 0B/0C/0M/3m (todos advisory), file `.atomic-skills/reviews/2026-06-19-0920-code-deadline-burnup-forecast-f1.md`. DESTRUCTIVE=false ⇒ local (aditivo +291/-2).
+- **Review gate (G2)**: gravado no descriptor da fase como `reviewGate: { status: passed, at: 5a735b9, mode: local, reviewFile: ... }` — concorda com esta prosa; GATE-R3 satisfeito.
+- **Lessons (G1)**: 1 lesson destilada → `lessons/deadline-burnup-forecast-f1-...md` (L-001 reusable, appliesTo F4: required-strictness do campo de projeção sempre-emitido), ratificada pelo operador. O gate de início de F4 a dispõe via `list-lessons --phase F4`.
 
 ## Links
 
