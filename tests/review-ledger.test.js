@@ -163,3 +163,62 @@ test('oracle: a rewritten SHA with no usable patch-id re-reviews (fail-safe)', (
     false,
   );
 });
+
+// F7 phase-done review fixes (C1–C4 / L4):
+
+// C1 — recordReview preserves the existing bytes EXACTLY (incl. trailing whitespace on the
+// last line), independently of the trimEnd oracle, so concurrent appends stay union-lossless.
+test('recordReview preserves prior bytes exactly, even a last line with trailing spaces', () => {
+  const original = `${JSON.stringify(firstRecord)}\n${JSON.stringify(secondRecord)}   \n`;
+  const result = recordReview(original, newRecord);
+  assert.equal(result.startsWith(original), true);
+  assert.equal(result, `${original}${JSON.stringify(newRecord)}\n`);
+});
+
+// C2 — a complete one-line record carrying a lastReviewedCommit field is read as a record,
+// NOT misclassified as a legacy pointer.
+test('readLedger does not misclassify a complete one-line record carrying lastReviewedCommit', () => {
+  const rec = { commitSha: 'a', patchId: 'p', mode: 'local', reviewedAt: 't', reviewFile: 'f', lastReviewedCommit: 'x' };
+  const content = `${JSON.stringify(rec)}\n`;
+  assert.equal(readLedger(content).length, 1);
+  assert.equal(alreadyReviewed(content, { commitSha: 'a' }, 'local'), true);
+});
+
+// C3 — a partial/corrupt record (missing patchId) is NOT positive proof → re-review.
+test('alreadyReviewed does not treat a partial record (missing patchId) as proof', () => {
+  const partial = `${JSON.stringify({ mode: 'local', commitSha: 'abc' })}\n`;
+  assert.equal(alreadyReviewed(partial, { commitSha: 'abc' }, 'local'), false);
+});
+
+// C4 — never-throws even when the range exposes a throwing getter.
+test('alreadyReviewed never throws on a range with a throwing getter', () => {
+  const hostile = {};
+  Object.defineProperty(hostile, 'commitSha', {
+    get() { throw new Error('boom'); },
+    enumerable: true,
+  });
+  let result;
+  assert.doesNotThrow(() => {
+    result = alreadyReviewed(`${JSON.stringify(firstRecord)}\n`, hostile, 'local');
+  });
+  assert.equal(result, false);
+});
+
+// L4 — non-object record → safe {} line; whitespace-only content → []; a single malformed
+// line collapses the ledger fail-safe; empty/non-string mode never matches.
+test('recordReview tolerates a non-object record and readLedger ignores whitespace-only content', () => {
+  assert.equal(recordReview(null, 42), '{}\n');
+  assert.deepEqual(readLedger('   \n  \n'), []);
+});
+
+test('a single malformed line collapses the ledger to empty (fail-safe)', () => {
+  const content = `${JSON.stringify(firstRecord)}\nnot-json\n`;
+  assert.deepEqual(readLedger(content), []);
+  assert.equal(alreadyReviewed(content, { commitSha: 'abc123' }, 'local'), false);
+});
+
+test('alreadyReviewed returns false for empty or non-string mode', () => {
+  const content = `${JSON.stringify(firstRecord)}\n`;
+  assert.equal(alreadyReviewed(content, { commitSha: 'abc123' }, ''), false);
+  assert.equal(alreadyReviewed(content, { commitSha: 'abc123' }, null), false);
+});

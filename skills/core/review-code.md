@@ -259,11 +259,16 @@ match logic, it defers to that module.
    absent / malformed `last-review.json` is read by the module as "nothing reviewed"
    (it returns false), so the pass RUNS — indeterminacy never skips a review.
 4. **Record after a pass completes** (a verdict was produced): append a ledger record
-   with `recordReview(content, { commitSha, patchId, mode, reviewedAt, reviewFile })`
-   and write the returned NDJSON content back to `last-review.json`. This is
-   append-only (prior lines preserved → `merge=union`-safe per F5), one record per
-   mode per surface; it does NOT overwrite earlier entries. The persisted review file
-   (Step "Persist") supplies `reviewFile`.
+   with `recordReview(content, { commitSha, patchId, mode, reviewedAt, reviewFile })` —
+   append-only (prior lines preserved → `merge=union`-safe per F5), one record per mode
+   per surface, never overwriting earlier entries. The persisted review file (Step
+   "Persist") supplies `reviewFile`. **Do NOT unilaterally flip a project's
+   `last-review.json` format:** where a project still keeps the legacy single-pointer
+   shape with pointer-readers not yet migrated (e.g. this repo — see `project-drift.md`'s
+   "State file" ⚠️ note), the record-back-write is deferred to that project's coordinated
+   lockstep flip; until then the skip-read above is the only active dedup effect (safe,
+   since a pointer reads as "nothing reviewed"). `recordReview` on a legacy pointer starts
+   a fresh ledger, so the flip happens the first time the write-back is enabled.
 
 This dedup is the code legs only (`review-code` local + codex, and `review-due` →
 `project-drift.md`); the `project review` composer (Layer B) carries its own

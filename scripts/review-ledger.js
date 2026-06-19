@@ -15,6 +15,19 @@ function isPlainRecord(value) {
   return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
+// A record only counts as POSITIVE review proof when it carries the full dedup
+// shape: a mode + BOTH fingerprint fields. A partial/corrupt line (e.g. a pointer
+// with `lastReviewedCommit` but no `mode`, or a record missing `patchId`) is never
+// trusted as proof — fail-safe → re-review.
+function isValidRecord(value) {
+  return (
+    isPlainRecord(value)
+    && nonEmptyString(ownValue(value, 'mode'))
+    && nonEmptyString(ownValue(value, 'commitSha'))
+    && nonEmptyString(ownValue(value, 'patchId'))
+  );
+}
+
 function parseSingleObject(content) {
   try {
     const parsed = JSON.parse(content);
@@ -29,7 +42,10 @@ function isLegacyPointer(content) {
   const trimmed = content.trim();
   if (trimmed === '') return false;
   const parsed = parseSingleObject(trimmed);
-  return parsed != null && Object.hasOwn(parsed, 'lastReviewedCommit');
+  // A legacy pointer is a single whole-object with `lastReviewedCommit` that is NOT
+  // itself a complete NDJSON record — so a valid one-line record that happens to carry
+  // a `lastReviewedCommit` field is read as a record, not misclassified as a pointer.
+  return parsed != null && Object.hasOwn(parsed, 'lastReviewedCommit') && !isValidRecord(parsed);
 }
 
 function parseLedger(content) {
@@ -58,8 +74,9 @@ function parseLedger(content) {
 
 function safeRecordLine(record) {
   try {
-    const serialized = JSON.stringify(isPlainRecord(record) ? record : {});
-    return typeof serialized === 'string' ? `${serialized}\n` : '{}\n';
+    // input is always a plain object → JSON.stringify yields a string (or throws on a
+    // circular ref, caught below); no unreachable non-string branch.
+    return `${JSON.stringify(isPlainRecord(record) ? record : {})}\n`;
   } catch {
     return '{}\n';
   }
@@ -93,7 +110,12 @@ export function recordReview(content, record) {
   const nextLine = safeRecordLine(record);
   if (!parsed.valid || parsed.legacy || typeof content !== 'string') return nextLine;
 
-  return `${content.trimEnd()}\n${nextLine}`;
+  // Byte-preserve the existing valid NDJSON (do NOT trim its bytes — that would alter a
+  // last line carrying trailing whitespace) so two concurrent appends keep prior lines
+  // identical → git union-merge stays lossless. Add a separating newline only when the
+  // content does not already end with one.
+  const separator = content.endsWith('\n') ? '' : '\n';
+  return `${content}${separator}${nextLine}`;
 }
 
 /**
@@ -104,18 +126,25 @@ export function recordReview(content, record) {
  * @returns {boolean}
  */
 export function alreadyReviewed(content, range, mode) {
-  if (!nonEmptyString(mode)) return false;
+  try {
+    if (!nonEmptyString(mode)) return false;
 
-  const commitSha = nonEmptyString(ownValue(range, 'commitSha')) ? range.commitSha : undefined;
-  const patchId = nonEmptyString(ownValue(range, 'patchId')) ? range.patchId : undefined;
-  if (commitSha === undefined && patchId === undefined) return false;
+    const commitSha = nonEmptyString(ownValue(range, 'commitSha')) ? ownValue(range, 'commitSha') : undefined;
+    const patchId = nonEmptyString(ownValue(range, 'patchId')) ? ownValue(range, 'patchId') : undefined;
+    if (commitSha === undefined && patchId === undefined) return false;
 
-  for (const record of readLedger(content)) {
-    if (ownValue(record, 'mode') !== mode) continue;
-
-    if (commitSha !== undefined && ownValue(record, 'commitSha') === commitSha) return true;
-    if (patchId !== undefined && ownValue(record, 'patchId') === patchId) return true;
+    for (const record of readLedger(content)) {
+      // Only a COMPLETE record (mode + both fingerprint fields) is positive proof; a
+      // partial/corrupt line never skips a review (fail-safe).
+      if (!isValidRecord(record)) continue;
+      if (ownValue(record, 'mode') !== mode) continue;
+      if (commitSha !== undefined && ownValue(record, 'commitSha') === commitSha) return true;
+      if (patchId !== undefined && ownValue(record, 'patchId') === patchId) return true;
+    }
+    return false;
+  } catch {
+    // never-throws contract: any unexpected throw (e.g. a throwing getter on `range`) is
+    // fail-safe → re-review.
+    return false;
   }
-
-  return false;
 }
