@@ -169,6 +169,7 @@ parked: []
 emerged: []
 planTitle: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
+planActive: true
 ---
 
 # Narrative / notes

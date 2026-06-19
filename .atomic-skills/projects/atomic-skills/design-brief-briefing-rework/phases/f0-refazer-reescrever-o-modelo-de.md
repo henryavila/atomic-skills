@@ -7,7 +7,7 @@ summary: Reescreve a skill, os assets e o spec para o modelo camada-é-autoridad
 goal: aplicar D3–D9 em design-brief.md, nos quatro assets de design-brief-assets
   e no spec canônico three-layer-briefing.md, sem regredir os invariantes
   legítimos.
-status: paused
+status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T09:32:41.374Z
@@ -166,6 +166,8 @@ parked: []
 emerged: []
 planTitle: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
+planActive: true
+current: true
 ---
 
 # Narrative / notes

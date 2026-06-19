@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T13:11:54.158Z",
+  "generatedAt": "2026-06-19T13:48:19.379Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "multiplan-focus-resolution",
-    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+    "slug": "design-brief-briefing-rework",
+    "title": "design-brief — repensar o modelo de autoridade do briefing (anti-congelamento de legado)",
     "status": "active"
   },
   "phase": {
     "id": "F0",
-    "slug": "multiplan-focus-resolution",
-    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+    "slug": "design-brief-briefing-rework-f0-refazer-reescrever-o-modelo-de",
+    "title": "Refazer (reescrever o modelo de autoridade)",
     "index": 1,
-    "total": 1,
+    "total": 2,
     "status": "active"
   },
   "tasks": {
-    "done": 4,
-    "total": 6,
+    "done": 0,
+    "total": 5,
     "blocked": 0
   },
   "gates": {
     "met": 0,
-    "total": 1
+    "total": 2
   },
-  "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
+  "nextAction": "Start T-001: Filtro de mineração em R2: minerar essência, nunca mecânica (D3)",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/plan.md",
-      "lastUpdated": "2026-06-16T12:00:18Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/plan.md",
+      "lastUpdated": "2026-06-19T09:32:41.374Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
-      "lastUpdated": "2026-06-16T12:00:18Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f0-refazer-reescrever-o-modelo-de.md",
+      "lastUpdated": "2026-06-19T09:32:41.374Z"
     }
   ]
 }

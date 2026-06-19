@@ -4,7 +4,7 @@ slug: design-brief-briefing-rework
 title: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
 version: "1.0"
-status: paused
+status: active
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T09:32:41.374Z
 branch: plan/design-brief
@@ -86,7 +86,7 @@ phases:
               grep -qi 'calibra'
               skills/shared/design-brief-assets/screens-prompt.md
             expectExitCode: 0
-    status: paused
+    status: active
   - id: F1
     slug: design-brief-briefing-rework-f1-validar-regenerar-o-briefing-le
     title: Validar (regenerar o briefing Lekto + contrastar = gate de
@@ -132,6 +132,7 @@ references:
       sem dependsOn
 planTitle: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
+planActive: true
 ---
 
 # design-brief — repensar o modelo de autoridade do briefing (anti-congelamento de legado)
@@ -171,10 +172,10 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 
 ## 6. Status / sequenciamento
 
-**PAUSADO em 2026-06-19** (operador). **Correção (mesma data):** `app-map-conflict-arbitration` já
-estava **arquivado/concluído** (`plan.md` `status: archived`, plan-done F1 com reviewGate(both)); o
-índice `PROJECT-STATUS.md` o mostrava "active" por estar **stale**. Logo a condição de desbloqueio
-originalmente declarada (esperar o app-map) **já estava satisfeita** — não havia frente concorrente real.
-O operador optou por **manter o plano pausado** mesmo assim; o **critério real de retomada está pendente
-de confirmação**. Retomar = `status: active` no plano + reativar F0 + atualizar o índice + `refresh-state`.
-Não há `dependsOn` de schema entre planos; o sequenciamento é operacional.
+**ATIVO** (único plano de `plan/design-brief`). Breve histórico de 2026-06-19: este plano chegou a ser
+pausado por **engano do agente** — eu li o índice `PROJECT-STATUS.md` (stale, mostrava
+`app-map-conflict-arbitration` como `active`) e relatei uma **frente concorrente R-FOCUS-01 (`⧉`) que não
+existia** — o app-map já estava `archived` (plan-done F1, reviewGate(both)). A pausa foi reação a essa
+informação errada. Conferido o `status` real no `plan.md` do app-map: **nunca houve concorrência**; este é
+o único plano do worktree. Reativado no mesmo dia. **Lição:** conferir `status` no `plan.md`, nunca confiar
+só na tabela do `PROJECT-STATUS.md`.
