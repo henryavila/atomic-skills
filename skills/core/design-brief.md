@@ -78,6 +78,18 @@ Fill the Interaction-model block, per screen, with the values that govern the in
 - **triggers** (what only becomes available after what),
 - **what the domain keeps hidden** (e.g. the scheduling algorithm).
 
+**Mining filter — essence, never mechanics.** What enters the prompt is the **behavioural
+essence** that governs the interaction (pace, count, length, modality, trigger), expressed as
+essence **plus the current calibration** (e.g. "pace on the order of seconds, ~8s in the
+current app"). Implementation **mechanics stay out of R2**: layout `px`/measurements, gesture
+`axis-lock`, raw `debounce`/durations in ms, and **literal copy** (button/label text) are
+incidental to the implementation, not product requirements, and contaminate the prompt if
+shipped as values. *De-inducing a constant:* a swipe handler with `axis-lock: 'x'`, an `80px`
+threshold and a 16ms `debounce` does **not** become "axis-lock X, 80px, 16ms" in the prompt —
+it becomes the essence: "a single fast horizontal gesture, reachable with the thumb, that
+forgives accidental touch". Mine the essence; drop the `axis-lock`, the `80px`, the `debounce`
+and the literal copy.
+
 Choose R2's SOURCE from the page's `regime` field in the app-map catalog:
 - `brownfield`: mine/extract the concrete values from the live code.
 - `greenfield`: ask the operator with `{{ASK_USER_QUESTION_TOOL}}`, seeded by the

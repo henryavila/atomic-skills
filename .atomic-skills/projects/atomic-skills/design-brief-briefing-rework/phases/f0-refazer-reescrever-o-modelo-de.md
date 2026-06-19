@@ -10,11 +10,11 @@ goal: aplicar D3–D9 em design-brief.md, nos quatro assets de design-brief-asse
 status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T09:32:41.374Z
-nextAction: "Start T-001: Filtro de mineração em R2: minerar essência, nunca mecânica (D3)"
+lastUpdated: 2026-06-19T14:32:43.384Z
+nextAction: "Start T-002: Preâmbulo R9 reescrito para duas autoridades + band-pin (D4, D5)"
 parentPlan: design-brief-briefing-rework
 phaseId: F0
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
@@ -48,8 +48,9 @@ tasks:
     title: "Filtro de mineração em R2: minerar essência, nunca mecânica (D3)"
     summary: "Filtra a mineração de R2: essência comportamental, nunca constantes de
       mecânica."
-    status: pending
-    lastUpdated: 2026-06-19T09:32:41.374Z
+    status: done
+    closedAt: 2026-06-19T14:32:43.384Z
+    lastUpdated: 2026-06-19T14:32:43.384Z
     description: Edita o passo R2 no spec canônico three-layer-briefing.md e em
       design-brief.md para minerar a essência comportamental e nunca a mecânica
       de implementação (px, axis-lock, debounce-ms, copy literal), com um
@@ -68,6 +69,14 @@ tasks:
       command: grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md &&
         grep -qi 'debounce' skills/core/design-brief.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T14:32:43.384Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — grep 'axis-lock' three-layer-briefing.md && grep -i
+        'debounce' design-brief.md both matched (filtro de mineração D3
+        adicionado a R2 nos dois arquivos)
   - id: T-002
     title: Preâmbulo R9 reescrito para duas autoridades + band-pin (D4, D5)
     summary: Reescreve o preâmbulo R9 em duas autoridades e fixa a banda comportamental.
@@ -176,8 +185,17 @@ Initiative for phase **F0 — Refazer (reescrever o modelo de autoridade)**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **T-001 (D3):** filtro de mineração adicionado a R2 em `docs/design/design-brief-three-layer-briefing.md` e `skills/core/design-brief.md` — minera-se a essência comportamental (ritmo/contagem/comprimento/modalidade) como essência + calibração atual; a mecânica (`px`, `axis-lock`, `debounce`-ms, copy literal) fica fora de R2, com exemplo de des-indução de constante (swipe `axis-lock:'x'`/`80px`/16ms → "um único gesto rápido, horizontal, com o polegar"). Verifier PASS (exit 0).
+
+## Session handoff
+
+- **Narrative:** Fase F0 (Refazer o modelo de autoridade), fresh start após commitar o trabalho R8 órfão do estado (`b32ada5`). T-001 fechado com verifier PASS; 1/5 tasks. Mid-flight: nenhum — próximo é T-002 (preâmbulo R9 → duas autoridades + band-pin).
+- **Decision log:** (1) o trabalho R8 não-commitado e órfão do estado foi commitado em separado (`b32ada5`) antes de iniciar a F0, pois não pertencia a nenhuma das 5 tasks da F0; (2) cadência de commit por-task, para manter pontos de resume limpos (tree limpo entre tasks).
+- **Single nextAction:** Start T-002 — reescrever o preâmbulo R9 + o §4 Modelo de interação do `screens-prompt.md` + o texto de R9 no spec para camada-3 vinculante / camada-2 como calibração atual com band-pin.
+- **Verbatim state:** verifier T-001 `grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md && grep -qi 'debounce' skills/core/design-brief.md` → EXIT=0. `node scripts/validate-state.js .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f0-refazer-reescrever-o-modelo-de.md` → ✓ All 1 file(s) valid.
+- **Uncommitted changes:** clean tree (T-001 commitado).
 
 ## Links
 
-_(plan doc, external refs)_
+- Plan: `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/plan.md`
+- Spec canônico: `docs/design/design-brief-three-layer-briefing.md`
