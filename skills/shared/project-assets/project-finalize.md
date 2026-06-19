@@ -50,6 +50,27 @@ finalize never assumes a base in silence. Resolve it from
     (below). The not-configured case is **never** silently assumed — it is the
     surface for the lazy prompt.
 
+**Existence check on `origin` (declared + default — closes the "develop silencioso"
+gap).** A `declared` or `default` ref RESOLVES without prompting, but the ref it
+names may not exist on `origin` — and `default` silently yields `develop`, which a
+fresh repo often lacks. So `source: not-configured` is **not** the only way to reach
+a base the remote does not have. Before trusting a `declared`/`default` resolution,
+confirm the resolved ref exists on `origin`, with {{BASH_TOOL}}:
+
+```
+git ls-remote --exit-code --heads origin <ref>   # non-zero exit ⇒ ref absent on origin
+```
+
+(or `git show-ref --verify --quiet refs/remotes/origin/<ref>` against a fetched
+remote-tracking ref). A non-zero exit means the resolved ref is **absent on
+`origin`** — do NOT proceed to `gh pr create --base <ref>` against a ref the remote
+lacks (the publish would fail half-way). Instead fall into **prompt-when-absent**
+below (use an existing ref OR create `develop`), exactly as `not-configured` does.
+This guard covers **`source: default`** explicitly — today only `not-configured`
+prompts, so a `default`-resolved `develop` missing on `origin` is the silent gap
+this closes. The check lives HERE at the **consumer**; the F1 resolver
+(`scripts/integration-ref.js`) and its contract are unchanged.
+
 **Two refs, not one (consume `scripts/worktree-teardown.js` `resolveBaseRef`).**
 `integrationRef` is the PR `--base` and the value persisted to `routing.json`;
 `baseRef` is the ref that exists LOCALLY for git commands (the preview diff).
@@ -59,7 +80,7 @@ preferring `origin/<ref>` then `<ref>`. Use `integrationRef` for `gh pr create
 with only `origin/develop` (no local `develop`) makes a bare `<integrationRef>`
 diff fail.
 
-### Prompt-when-absent (source: `not-configured`)
+### Prompt-when-absent (source: `not-configured`, or a resolved `declared`/`default` ref absent on `origin`)
 
 Ask the user via {{ASK_USER_QUESTION_TOOL}} — never auto-pick the base:
 
@@ -168,6 +189,58 @@ Calibrated honest: higher-order collisions are RARE in frequency but expensive p
 occurrence, which is exactly why this `cross-wt-collision` check is OPTIONAL and
 operator-prompted at finalize — not an always-on gate.
 
+## Step 1.6 — Plan-aware target resolution (`plan-aware`, deterministic — `scripts/finalize-plan-scope.js`)
+
+A worktree **SURVIVES one plan and hosts the next**, so a single branch can carry
+MORE THAN ONE plan in different lifecycle stages (the dogfood: `multiplan` carried an
+ARCHIVED plan + an active one). `focus.json` always points at the NEWEST plan
+(`scripts/emit-focus.js` pickFocus), never the finished one — so resolving "the
+active plan" via the focus pointer would finalize the **WRONG** plan on a multi-plan
+branch. **`branch ≠ plan`:** the push stays `plan/<branch>`, but the **target is a
+plan SLUG**, resolved EXPLICITLY here — never silently from the focus pointer.
+
+### The deterministic guard is the proof — `scripts/finalize-plan-scope.js`
+
+Enumerate every `projects/<project-id>/*/plan.md` present on the branch, parse them,
+and call `resolveFinalizePlanScope({ plans, focusSlug, targetSlug, confirmed })`
+(pure, never-throws, **fail-closed**). It returns `{ decision, target,
+classifications, warnings, blockReason }`:
+
+- **`classifications`** — each branch plan as `target` / `other-active` /
+  `archived-unmerged`.
+- **`decision: 'block'`** (do NOT publish) when ANY holds:
+  - the explicit `targetSlug` is missing, not found among the branch plans, or the
+    input is malformed — **fail-closed**: an indeterminate target never publishes;
+  - the target is **not terminal** — ready-to-publish means every phase `done`
+    (status still `active` pre-archive per P2) OR already `archived`; an `active`
+    target with an un-done phase BLOCKS, with `blockReason` naming the phase(s);
+  - the target **≠ the slug `focus` would pick** AND the operator has not
+    `confirmed` the mismatch — `blockReason` surfaces `branch ≠ plan` explicitly.
+- **`warnings`** — one per non-archived **sibling** (`other-active`) plan a branch
+  merge would drag along; surfaced as WARN, **never** auto-resolved.
+
+A `block` HALTS finalize with the `blockReason`; the operator then picks the right
+explicit target, **confirms** an intentional `branch ≠ plan` finalize, or brings the
+target to terminal first — never a silent focus default. This guard is
+DETERMINISTIC and verify-claim-able (`verified_by: scripts/finalize-plan-scope.js`)
+— it is the **proof**, not advice.
+
+### Status-regression detection is ADVISORY — reuses the F4 (Step 1.5) agent lane
+
+With **≥2 live worktrees**, also call `detectPlanStatusRegression({ branchPlans,
+refPlans })`: it returns the plans whose status on THIS branch is **BEHIND** the same
+plan on the `integrationRef` (e.g. the branch has a plan `active` while the ref
+already has it `archived`) — a blind merge would **regress** that plan's lifecycle.
+This is **advisory / read-only**, reusing the exact discipline of the Step 1.5
+agents (A/B): it **routes to a human, NEVER gates, NEVER auto-resolves** (Iron Law —
+reading parallelizes, merge/code stays serial, R-XAGENT-03). The structural cure
+(partitioning the `.atomic-skills/projects/` tree by ownership) stays the SEPARATE
+plan Decision 5 named; this step only DETECTS and WARNs.
+
+This worktree's copy of finalize is the single source of truth for the skill; older
+copies on other worktrees converge on merge (skill-version drift across worktrees is
+out of scope — the operator's call).
+
 ## Step 2 — Show the diff + the proposed PR, then HALT (operator-prompted)
 
 Before any push or PR, present the change and wait for explicit confirmation
@@ -246,3 +319,8 @@ merges and never archives.
 - **Cross-WT collision check (Step 1.5) is advisory + operator-prompted** — fires
   only with ≥2 live worktrees; the deterministic gate is the proof, the advisory
   LLM agents are read-only, never gate, and never auto-resolve.
+- **Plan-aware target resolution (Step 1.6) resolves an EXPLICIT plan slug** — never
+  the silent `focus` default. The deterministic guard
+  (`scripts/finalize-plan-scope.js`) BLOCKS a non-terminal or
+  `branch ≠ plan`-unconfirmed target; the status-regression detector is
+  advisory/read-only (reuses the F4 lane, never gates, never auto-resolves).
