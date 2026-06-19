@@ -1,4 +1,3 @@
-'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
@@ -20,14 +19,26 @@ const git = (args) => {
   return result.stdout;
 };
 
+// `git check-attr merge <path>` prints `<path>: merge: <value>`. Extract the
+// EXACT value — an unanchored substring match (/merge:\s*union/) would wrongly
+// accept `merge=unionized`/`merge=union-custom`, which git resolves to a DIFFERENT
+// (custom/absent) driver, so concurrent appends could conflict while CI stays green.
+const mergeAttr = (relPath) => git(['check-attr', 'merge', relPath]).trim().split(/:\s+/).pop();
+
 test('dispatch-log.json is wired to merge=union via .gitattributes', () => {
-  const out = git(['check-attr', 'merge', '.atomic-skills/status/dispatch-log.json']);
-  assert.match(out, /merge:\s*union/, `expected merge=union, got: ${out.trim()}`);
+  assert.strictEqual(
+    mergeAttr('.atomic-skills/status/dispatch-log.json'),
+    'union',
+    'dispatch-log.json must resolve to the built-in union merge driver',
+  );
 });
 
 test('pointwise status JSON is NOT union-merged (default merge)', () => {
-  const out = git(['check-attr', 'merge', '.atomic-skills/status/last-review.json']);
-  assert.doesNotMatch(out, /merge:\s*union/, `pointwise file must not be union: ${out.trim()}`);
+  assert.notStrictEqual(
+    mergeAttr('.atomic-skills/status/last-review.json'),
+    'union',
+    'pointwise (overwritten) status files must not be union-merged',
+  );
 });
 
 test('git merge=union on NDJSON is lossless for two concurrent appends', () => {
