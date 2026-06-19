@@ -230,7 +230,7 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       );
 
       const { written } = emitConsumerState(dir, NOW);
-      assert.equal(written.length, 11);
+      assert.equal(written.length, 13); // 11 base + burnup.json + spi.json (F3/T-002)
 
       const plans = JSON.parse(readFileSync(join(dir, '.atomic-skills', '.aideck', 'state', 'plans.json'), 'utf8'));
       assert.ok(Array.isArray(plans), 'plans.json is a bare array');
