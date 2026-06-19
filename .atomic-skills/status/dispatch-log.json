@@ -302,5 +302,21 @@
     "finishedAt": "2026-06-19T16:31:18Z",
     "codexWorktreeRef": "codex/f3-t002",
     "routingReason": "lane on + F1 spec-ready APÓS hardening Opus (contradição burn-up design.md vs SPEC surfaçada+resolvida @e1fdd8a; contrato burnup/spi + spiCount count-scale ratificados pelo usuário) + F2 shell verifier. PASS no MERGED primary 90b4366 (emit-series 2 + schema-drift 1, 0 fail). 1 follow-up Opus Mode1: regressão de contagem 11→13 em emit-consumer-state.test.js (consequência direta dos 2 arquivos emitidos novos). Revisão Opus: impl fiel ao spec; teste assere valores concretos re-derivados (não circular); guards Number.isFinite em todo escalar emitido (L-001); teste em tests/ plural (L-003). Suíte: 911 pass / 8 fail pré-existentes, 0 regressão nova."
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F3",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T16:33:00Z",
+    "finishedAt": "2026-06-19T16:37:53Z",
+    "codexWorktreeRef": "codex/f3-t003",
+    "routingReason": "lane on + F1 spec-ready (aditivo, design settled pela SPEC) + F2 shell verifier. PASS no MERGED primary 6844e95 (refresh-state.test.js 2/2). Sem escalação, sem follow-up. Revisão Opus: 4º passo aditivo+fail-open, 3 passos existentes intactos, teste prova gap fechado (burnup ausente→presente) + path sem eventos, não circular. Suíte: 927 tests / 913 pass / 8 fail pré-existentes, 0 regressão nova. In-worktree verifier passou (refresh-state não spawna child → sem EPERM)."
   }
 ]

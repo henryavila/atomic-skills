@@ -8,20 +8,18 @@ goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T12:50:33Z
-lastUpdated: 2026-06-19T16:31:18Z
-nextAction: "Dispatch Codex (Mode 2) para T-003 (ligar emit-consumer-state ao
-  refresh-state, ADITIVO, sem regredir rollups/reconcile/emitFocus) em novo
-  worktree; merge-back serial; re-verificar no primary: node --test
-  tests/refresh-state.test.js. É o ÚLTIMO task de F3 → ao fechar, oferecer
-  phase-done (review gate; considerar --mode=both por L-001 design-brief, F3 add
-  $defs de schema)."
+lastUpdated: 2026-06-19T16:37:53Z
+nextAction: "F3 3/3 tasks done — rodar phase-done (opt-in): gate G-1 verifier
+  (emit-series + refresh-state) → met+evidence; review-code no diff da fase
+  (considerar --mode=both por L-001 design-brief, F3 add $defs de schema);
+  distilar lições; gravar reviewGate no plan.md; advance F3→F4."
 parentPlan: deadline-burnup-forecast
 phaseId: F3
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -81,8 +79,25 @@ tasks:
         Number.isFinite presentes (L-001)."
   - id: T-003
     title: — Ligar emit ao refresh-state sem regredir emitFocus
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T16:37:53Z
+    lastUpdated: 2026-06-19T16:37:53Z
+    verifier:
+      kind: shell
+      command: node --test tests/refresh-state.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T16:37:53Z
+      passed: true
+      exitCode: 0
+      testsCollected: 2
+      outputSummary: "node --test tests/refresh-state.test.js — 2 pass (regenera
+        burnup/spi preservando os 3 passos; path sem eventos), 0 fail, exit 0,
+        MERGED primary 6844e95. Suíte completa 927 tests / 913 pass / 8 fail
+        PRÉ-EXISTENTES (install/countSkills), 0 regressão nova. Executor Codex
+        Mode2 worktree codex/f3-t003; revisão Opus: aditivo+fail-open, 3 passos
+        intactos, teste prova gap fechado (burnup ausente→presente), não
+        circular."
 parked: []
 emerged: []
 summary: Computa a série earned-vs-planejada e o SPI contra o deadline,
@@ -105,10 +120,10 @@ Initiative for phase **F3 — Série earned-vs-planned + deadline + wiring de re
 - **T-002 design (settled, ratificado pelo usuário):** O emitter é whole-tree (sem filtro de plano hoje) → `buildSeries()` **agrupa por (projectId, planSlug)**, registros taggeados por plano (como `plans.json`). Por plano: `weightTotal` **plan-wide** = Σ `weightOf(task)` sobre todas as tasks de todas as fases (live+archive), `weightOf = Number.isFinite(w)&&w>=0 ? w : 1` (**L-001**); `tasksTotal` plan-wide = contagem de tasks. buckets = dias UTC distintos com ≥1 evento (esparso). `earnedCount`/`earnedProxy` = soma ACUMULADA de `weight` por `weightBasis` 'count'/'proxy' (séries SEPARADAS). `plannedValue(dia) = deadline ? weightTotal*clamp((dia−started)/(deadline−started),0,1) : null` (CRESCENTE). **burnup.json** = `{projectId,planSlug,date,plannedValue|null,earnedCount,earnedProxy}`. **spi.json** (1/plano) = `{projectId,planSlug,asOf,spiProxy|null,spiCount|null}`; `spiProxy = earnedProxyNow/plannedNow`; **`spiCount = earnedCountNow/plannedCountNow`** com `plannedCountNow = tasksTotal_planwide × fração-de-tempo` (count-scale, ratificado); bordas null = sem deadline / planned zero / now fora de [started,deadline]. Todo escalar emitido guardado com `Number.isFinite` (**L-001**). `$defs.burnup`/`$defs.spi` (additionalProperties:false) + regen bundle. Teste `tests/emit-series.test.js` (**L-003**, plural). Output em `.aideck/state/`.
 
 ## Session handoff
-- **Narrative:** F3 ativa, **2/3 tasks done** (T-001 @228acbe, T-002 @90b4366). T-002 (buildSeries → burnup.json+spi.json) executada por Codex (Mode2, worktree `codex/f3-t002`), revisada (impl fiel, teste não-circular, guards L-001), merge-back FF, verifier PASS no primary merged, +1 fix de regressão Mode1 (emit-consumer-state round-trip 11→13). Worktree removido. Resta **T-003** (último de F3).
-- **Decision log:** ver `## Decisions` acima. Padrão de execução confirmado nos 2 tasks: verifier in-worktree do Codex dá falso-fail por `spawnSync EPERM` (sandbox) → adjudicação real no primary merged (fora do sandbox). Telemetria T-001+T-002 em `dispatch-log.json`. Atenção T-002: `emit-consumer-state.js` é "binário" pro git (box-drawing) → merge-back via commit-no-worktree + `git merge --ff-only`, NÃO patch.
-- **Single nextAction:** Criar worktree `.worktrees/codex-f3-t003` (branch `codex/f3-t003` de HEAD), dispatchar Codex p/ T-003 (ADITIVO: refresh-state.js dispara emit-consumer-state além de rollups/reconcile/emitFocus; NÃO remover/alterar os 3 passos existentes; idempotente, fail-open); merge-back serial; re-verificar no primary: `node --test tests/refresh-state.test.js`; `done T-003`. T-003 é o ÚLTIMO de F3 → ao fechar, `done` oferece **phase-done** (review gate; por L-001 design-brief considerar `--mode=both` pois F3 adicionou $defs de schema = porta de mão única).
-- **Verbatim state:** HEAD primary `90b4366` + commit de estado pendente deste snapshot. branch `plan/deadline-burnup-forecast`. currentPhase=F3, **tasksDone 2/3, weightDone 2/3**. T-003 files: `scripts/refresh-state.js`, `tests/refresh-state.test.js`. T-003 verifier: `node --test tests/refresh-state.test.js`. Gap a fechar (T-003): refresh-state.js hoje roda computeRollupsDir+reconcileDir+emitFocus mas NÃO invoca emit-consumer-state (`emitConsumerState`). Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 925 tests, 911 pass, 8 fail PRÉ-EXISTENTES (install/countSkills/installSkills — drift do plano skills-restructuring, fora de escopo).
+- **Narrative:** F3 **3/3 tasks done** (T-001 @228acbe, T-002 @90b4366, T-003 @6844e95) — todos via Codex (Mode2), revisados, merge-back FF serial, verifier PASS no primary merged. Fase NÃO avançada: aguardando **phase-done** (gate G-1 + review-code + lições) com opt-in do usuário. Nenhum worktree Codex ativo.
+- **Decision log:** ver `## Decisions` acima. Padrões confirmados nos 3 tasks: (a) verifier in-worktree do Codex dá falso-fail `spawnSync EPERM` quando o teste spawna `node` (T-001/T-002 schema-drift) → adjudicação real no primary merged; T-003 (refresh-state, sem spawn) passou in-worktree também. (b) `emit-consumer-state.js` é "binário" pro git (box-drawing) → merge-back via commit-no-worktree + `git merge --ff-only`, NÃO patch. (c) T-002 exigiu 1 follow-up Mode1 (regressão de contagem 11→13). Telemetria T-001/T-002/T-003 em `dispatch-log.json` (20 registros).
+- **Single nextAction:** Rodar **phase-done** para F3 (opt-in): (1) gate G-1 verifier `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js` → met+evidence; (2) **review-code** no diff da fase — por **L-001 design-brief** considerar `--mode=both` (F3 adicionou `$defs.burnup`/`$defs.spi` + campo `deadline` = contrato de schema, porta de mão única); (3) distilar lições; (4) gravar `reviewGate` no plan.md; (5) advance F3→F4 (proposeAdvance). NÃO auto-avançar.
+- **Verbatim state:** HEAD primary `6844e95` + commit de estado pendente deste snapshot. branch `plan/deadline-burnup-forecast`. currentPhase=F3, **tasksDone 3/3, weightDone 3/3, gatesMet 0/1**. Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js` (ambos verdes no primary: emit-series 2 + refresh-state 2). Entregue em F3: campo `deadline` (plan.schema), `buildSeries()` em emit-consumer-state.js (burnup.json/spi.json earned-value/SPI), `$defs.burnup`/`$defs.spi`, wiring no refresh-state. design.md D5 corrigido (@e1fdd8a). Suíte: 927 tests, 913 pass, 8 fail PRÉ-EXISTENTES (install/countSkills/installSkills — drift do plano skills-restructuring, fora de escopo). routing.json mode2 ON; codex-cli 0.141.0.
 - **Uncommitted changes:** este snapshot (f3-*.md + focus.json regen + dispatch-log.json) está prestes a ser committado; resto do tree limpo. Sem worktree Codex ativo.
 
 ## Links
