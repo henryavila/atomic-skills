@@ -111,6 +111,8 @@ test('findOrphanWorktrees flags via a non-first duplicate plan carrying pr MERGE
   assert.equal(findings.length, 1);
   assert.equal(findings[0].kind, 'merged-feature-worktree');
   assert.equal(findings[0].branch, 'plan/d');
+  // the WARN must name the plan carrying the merged signal, not the stale archived dup
+  assert.equal(findings[0].slug, 'd-new');
 });
 
 // F6 review L2: a live worktree whose branch matches NO plan but is merged via ancestry

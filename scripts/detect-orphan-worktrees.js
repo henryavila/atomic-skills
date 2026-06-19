@@ -92,7 +92,13 @@ export function findOrphanWorktrees(input = {}) {
 
     const path = ownString(worktree, 'path');
     const matchingPlans = plans.filter((candidate) => ownBranch(candidate) === branch);
-    const slug = ownString(matchingPlans[0], 'slug');
+    // Name the plan that actually carries the merged signal (or an active one) over a
+    // stale archived duplicate, so the WARN points the operator at the right plan.
+    const reportedPlan =
+      matchingPlans.find((candidate) => ownPrState(candidate) === 'MERGED') ??
+      matchingPlans.find((candidate) => ownString(candidate, 'status') === 'active') ??
+      matchingPlans[0];
+    const slug = ownString(reportedPlan, 'slug');
     findings.push({
       severity: 'warn',
       kind: 'merged-feature-worktree',
