@@ -11,12 +11,13 @@ status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T17:31:45.000Z
-nextAction: "Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente; D10
-  nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar F1-D10-RESOLVED no
-  design.md = 'modelo leve basta, sem tag R10') + phase-done — DECISAO do operador."
+nextAction: Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente;
+  D10 nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar
+  F1-D10-RESOLVED no design.md = 'modelo leve basta, sem tag R10') + phase-done
+  — DECISAO do operador.
 parentPlan: design-brief-briefing-rework
 phaseId: F1
-tasksDone: 5
+tasksDone: 6
 tasksTotal: 6
 gatesMet: 0
 gatesTotal: 2
@@ -166,11 +167,12 @@ tasks:
       passed: true
       exitCode: 0
       outputSummary: EXIT=0 — f1/recurrence-verdict.md existe (critico adversarial
-        fresco). Re-rodado p/ v2 apos o fix T-006 — v1 achou 1 recaida (A4), T-006
-        corrigiu o band-pin de contagens, regen cego VALIDO (copia limpa) deu v2
-        LIMPO. Veredito v2 = NAO-REINCIDENTE — A1/A2 mortos no D3, A3 ('Vai!') e A4
-        ('3 passos') band-pinned/textura mutavel, P1-P12 ok, invariantes C ok. Gate
-        F1-G1 grep EXIT=0. v1 (NAO-LIMPO) preservado em recurrence-verdict-v1.md.
+        fresco). Re-rodado p/ v2 apos o fix T-006 — v1 achou 1 recaida (A4),
+        T-006 corrigiu o band-pin de contagens, regen cego VALIDO (copia limpa)
+        deu v2 LIMPO. Veredito v2 = NAO-REINCIDENTE — A1/A2 mortos no D3, A3
+        ('Vai!') e A4 ('3 passos') band-pinned/textura mutavel, P1-P12 ok,
+        invariantes C ok. Gate F1-G1 grep EXIT=0. v1 (NAO-LIMPO) preservado em
+        recurrence-verdict-v1.md.
     description: Roda um crítico fresco com o feedback (f1/lekto-feedback.md), a
       rubrica e o briefing regenerado, persiste o veredito e grava o marcador
       NAO-REINCIDENTE quando nenhum contaminante reaparece. Correções viram
@@ -233,8 +235,18 @@ tasks:
   - id: T-005
     title: Resolver o fork diferido D10 (escalar para a tag se houver sobre-vínculo)
     summary: "Resolve o fork D10: escala para a tag explícita se houver sobre-vínculo."
-    status: pending
-    lastUpdated: 2026-06-19T09:40:00.000Z
+    status: done
+    closedAt: 2026-06-19T20:00:44.000Z
+    lastUpdated: 2026-06-19T20:00:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T20:00:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — grep 'F1-D10-RESOLVED' em design.md. D10 RESOLVIDO na
+        open-question (a) = modelo leve D3-D8 basta, tag R10 NAO adicionada,
+        citando o veredito v2 NAO-REINCIDENTE (nenhum sobre-vinculo). Resolucao
+        = nao-tag, logo sem follow-up emergido. Gate F1-G2 grep EXIT=0.
     description: Registra a resolução de D10 no design.md (questão aberta a) com
       base no veredito da F1, gravando o marcador F1-D10-RESOLVED; se a
       resolução for tag necessária, abre um follow-up emergido.

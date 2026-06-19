@@ -187,9 +187,17 @@ não aqui.)
 
 ## Open questions
 
-- **(a) [A questão de escalonamento — D10]** O modelo leve (D3–D8) basta, ou é preciso a tag explícita por
-  valor (R10)? **Evidência que resolve:** a regeneração Lekto + crítico adversarial na F1. Decisão
-  pré-registrada em D10 (escalar se houver qualquer sobre-vínculo flagrado).
+- **(a) [A questão de escalonamento — D10] — RESOLVIDA `F1-D10-RESOLVED` (2026-06-19).** O modelo leve
+  (D3–D8) basta, ou é preciso a tag explícita por valor (R10)? **Resolução: o modelo leve BASTA — a tag
+  R10 NÃO é adicionada.** Evidência (F1): a regeneração CEGA do briefing Lekto — de uma cópia limpa do app
+  (`/home/henry/lekto-blind-regen`, sem os prompts/memória contaminados, depois que a 1ª tentativa
+  re-ingeriu os priors co-localizados) — submetida a um crítico adversarial deu veredito **NAO-REINCIDENTE**
+  (`f1/recurrence-verdict.md`): nenhum sobre-vínculo flagrado, logo a cláusula pré-registrada D10 (escalar
+  só se houver sobre-vínculo) **não dispara**. O filtro D3 matou as duas mecânicas em px, o band-pin D5
+  absorveu cadência/aquecimento/contagens, e o lane de textura D8 absorveu a copy literal — o modelo de
+  três camadas se sustentou de ponta a ponta. (v1 havia flagrado a recaída A4 — onboarding "3 passos"
+  cravado; o fix tornou geral o band-pin de contagens nos emissores da skill, e o regen v2 confirmou a
+  correção. v1 preservado em `f1/recurrence-verdict-v1.md`.)
 - **(b) Coordenação de ownership** com `skills-restructuring` (owner do spec canônico via F5/D5): este
   rework edita `three-layer-briefing.md`. Confirmar com o operador o modo de coordenação (rework vira owner
   das R-rules tocadas vs. reabrir F5). *(coordenação, não dependência)*
