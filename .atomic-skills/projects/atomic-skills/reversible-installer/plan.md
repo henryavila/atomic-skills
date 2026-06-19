@@ -5,7 +5,7 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-17T16:41:21.000Z
+lastUpdated: 2026-06-19T08:59:28.000Z
 branch: plan/reversible-installer
 currentPhase: F1
 parallelismAllowed: false
@@ -121,41 +121,48 @@ phases:
       before-state + matriz adversária no round-trip.
   - id: F2
     slug: reversible-installer-f2-providers-e-config-two-tier
-    title: Providers e config two-tier
-    goal: expor a config declarativa two-tier e portar a instalação de skills para
-      um provider sobre o kernel, mantendo o render multi-IDE e o
-      COMMUNICATION_LANGUAGE opt-out.
+    title: "Provider API + Driver no pacote (package-first)"
+    goal: "No pacote @henryavila/tooling-installer (repo separado, em
+      ~/tooling-installer): expor o contrato de Provider (planejador puro
+      plan(config) -> Effect[]), o Driver (install/uninstall/update/detect/status
+      sobre kernel + journal + reconciler) e o schema da config two-tier.
+      SkillsProvider, render e idioma NÃO ficam no pacote — são do consumidor
+      (F3). O idioma é flag de config opaca; o pacote é lib-only (sem CLI).
+      Decisões em PROPOSAL-f2-f3-package-first.md."
     dependsOn:
       - F1
     subPhaseCount: 3
     exitGate:
-      summary: 2 criteria to meet
+      summary: "2 criteria to meet (verificados no repo do pacote ~/tooling-installer)"
       criteria:
         - id: G-1
-          description: O SkillsProvider reproduz a instalação de skills atual (paths e
-            conteúdo) via reconcileFileSet.
+          description: Um Provider de referência (genérico, não-skills) instala e
+            desinstala via o Driver com round-trip byte-a-byte ao baseline.
           status: pending
           verifier:
-            kind: test
-            runner: node --test
-            pattern: test/providers/skills-provider.test.js
+            kind: shell
+            command: cd ~/tooling-installer && npm test
+            expectExitCode: 0
         - id: G-2
           description: Um runtime layer registra e reverte um tipo de efeito novo sem
-            reabrir o kernel.
+            reabrir o kernel via a API de registro do pacote.
           status: pending
           verifier:
-            kind: test
-            runner: node --test
-            pattern: test/kernel/runtime-layer.test.js
+            kind: shell
+            command: cd ~/tooling-installer && node --test test/kernel/runtime-layer.test.js
+            expectExitCode: 0
     status: pending
-    summary: Config two-tier + SkillsProvider (IDE matrix/render, COMM_LANG opt-out)
-      + API de registro de runtime layer.
+    summary: "Package-first: contrato de Provider + Driver + config two-tier no
+      pacote. SkillsProvider/render/idioma = consumidor (F3)."
   - id: F3
     slug: reversible-installer-f3-big-bang-rewire-e-paridade
-    title: Big-bang rewire e paridade
-    goal: religar o atomic-skills sobre o kernel (aiDeck, hooks, auto-update como
-      runtime layers), substituir o install/uninstall legados pelo driver, e
-      provar a paridade com o round-trip e a suíte completa.
+    title: "Consumo do pacote via file: link + paridade (package-first)"
+    goal: "atomic-skills depende de @henryavila/tooling-installer via file: link
+      ([DECIDIDO #4]); o SkillsProvider (IDE matrix + catálogo + render + flag de
+      idioma) e os runtime layers (aiDeck/hooks/auto-update) passam a rodar sobre
+      o Driver do pacote; remove a cópia in-repo src/kernel/; install/uninstall
+      legados viram finos (montam config -> chamam o Driver). Prova paridade com o
+      round-trip + matriz adversária ATRAVESSANDO a dependência."
     dependsOn:
       - F2
     subPhaseCount: 4
@@ -163,16 +170,17 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: G-1
-          description: O round-trip parity test mais as três fixtures adversárias passam
-            com retorno byte-a-byte ao baseline.
+          description: "O round-trip parity test mais as três fixtures adversárias
+            passam com retorno byte-a-byte ao baseline, com a engine vinda do
+            pacote (file: link) e a cópia in-repo src/kernel/ já removida."
           status: pending
           verifier:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
         - id: G-2
-          description: A suíte completa passa via driver, com install.js e uninstall.js
-            legados removidos.
+          description: A suíte completa passa via o Driver do pacote, com src/kernel/
+            in-repo removido e install.js/uninstall.js legados substituídos.
           status: pending
           verifier:
             kind: shell
@@ -189,8 +197,9 @@ phases:
             description: Auditar o inventário de mutações por runtime layer durante
               phase-done.
     status: pending
-    summary: Religa atomic-skills sobre o kernel (aiDeck/hooks/auto-update como
-      runtime layers) e prova paridade.
+    summary: "Package-first: atomic-skills consome o pacote (file: link), move
+      SkillsProvider + runtime layers sobre o Driver, remove src/kernel/ in-repo,
+      prova paridade."
 references: []
 planActive: true
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
@@ -208,7 +217,9 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 - **atomic-skills NÃO foi religado** ao pacote — a cópia in-repo em `src/kernel/` segue intacta; religar é a F3 reescrita.
 - **`phase-done` de F1 in-repo está SUPERSEDED** — não rodar.
 
-**Próximo passo (NÃO é tarefa de `implement` — é design/plano):** re-escopar **F2** (API de Provider + Driver/CLI, no pacote) e **F3** (atomic-skills depende de `@henryavila/tooling-installer` via link → remove a cópia in-repo → paridade round-trip atravessando a dependência) — fazer COM o usuário (fluxo `project`/`review-plan`), não unilateral. Só depois disso `implement` volta a ter tarefas executáveis. Os goals/exit-gates de F2/F3 no frontmatter abaixo serão reescritos nesse re-escopo. **Rascunho de partida para esse re-escopo (decisões abertas marcadas, para crítica do usuário):** [`PROPOSAL-f2-f3-package-first.md`](PROPOSAL-f2-f3-package-first.md).
+**Re-escopo APLICADO (2026-06-19).** O usuário respondeu as 4 decisões abertas e os goals/exit-gates de F2/F3 no frontmatter abaixo **já foram reescritos para package-first**. Fronteira travada: **pacote** = genérico (contrato de Provider + Driver + config two-tier); **consumidor (atomic-skills)** = SkillsProvider + render + flag de idioma + runtime layers. Lib-only; dependência por `file:`. Decisões e racional em [`PROPOSAL-f2-f3-package-first.md`](PROPOSAL-f2-f3-package-first.md) + reframes de D1/D7 no `design.md` §PIVOT.
+
+**Próximo passo (ainda NÃO é `implement`):** o usuário valida o pacote (`cd ~/tooling-installer && npm test` → 38/38; revisar `src/index.js`+README). Depois `implement` retoma — **F2 roda no repo do pacote** (`~/tooling-installer`, verifiers lá), **F3 no atomic-skills** (verifiers aqui). F1 in-repo segue done/superseded (não rodar `phase-done`).
 
 ## 1. Context
 

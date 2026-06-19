@@ -32,7 +32,7 @@ Pendente (re-desenhar COM o usuário, não unilateral):
 - Reescrever F2 (Providers + config two-tier) e F3 (big-bang rewire) para **package-first**: F2 = API de Provider + Driver/CLI no pacote; F3 = atomic-skills depende de `@henryavila/tooling-installer` (link), remove a cópia in-repo, paridade round-trip atravessando a dependência.
 - Parameterizar config do consumidor (a forma exata da two-tier config, D2) — o `MANIFEST_DIR` é o primeiro caso.
 
-O restante deste design (D1–D9, mecanismo híbrido, matriz adversária) permanece válido — muda o EMPACOTAMENTO e a fronteira, não a arquitetura da engine.
+O restante deste design (D1–D9, mecanismo híbrido, matriz adversária) permanece válido — muda o EMPACOTAMENTO e a fronteira, não a arquitetura da engine. **Dois reframes pela fronteira (decididos com o usuário 2026-06-19):** (1) **D1** — o SkillsProvider mora no **consumidor** (atomic-skills), não bundled no pacote genérico (o pacote não carrega nada específico de skills). (2) **D7** — `COMMUNICATION_LANGUAGE` deixa de ser "feature de render do core" e vira **flag de config opt-out**: o pacote carrega o valor opaco, o **installer do consumidor** pergunta/confirma (o pacote é lib-only, sem CLI), e o **Provider do consumidor** renderiza (o pacote não é template engine). Detalhe em `PROPOSAL-f2-f3-package-first.md` §2.
 
 ## Decisions
 

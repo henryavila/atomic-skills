@@ -1,12 +1,11 @@
 # PROPOSTA — re-escopo F2/F3 package-first (DRAFT para crítica)
 
-> **STATUS: RASCUNHO. Nada aqui está travado.** Este documento NÃO muta o
-> `plan.md` (frontmatter de F2/F3 segue como estava). É a "semente de pergunta"
-> para o re-escopo que deve ser feito COM o usuário. As decisões abaixo estão
-> marcadas **[PROPOSTO]** (ponto de partida meu, sujeito a veto) ou
-> **[DECIDIR]** (genuinamente aberto — preciso da sua escolha antes de virar
-> plano). Quando você validar, isto vira o novo `plan.md` (frontmatter F2/F3
-> reescrito) e aí `implement` ganha tarefas executáveis.
+> **STATUS: DECISÕES TOMADAS pelo usuário (2026-06-19).** As quatro escolhas
+> abertas estão resolvidas (ver **[DECIDIDO]** abaixo) e **já aplicadas ao
+> frontmatter F2/F3 do `plan.md`** (goals/exit-gates/verifiers reescritos
+> package-first). Este doc agora é o registro da fronteira pacote×consumidor.
+> Pendente: validação do pacote pelo usuário; depois `implement` retoma em
+> **F2** (no repo do pacote) e **F3** (no atomic-skills).
 
 Criado: 2026-06-17 (sessão YOLO). Contexto: `plan.md` §PIVOT + `design.md` §PIVOT.
 
@@ -41,20 +40,26 @@ proponho que o pacote **não** carregue nada específico de skills:
 | **SkillsProvider** (IDE matrix + catálogo + render) | **consumidor (atomic-skills)** | é específico de skills → fora do pacote genérico |
 | **Runtime layers** (aiDeck, hooks project-status, auto-update) | **consumidor**, registrados via API do pacote | acoplamento atomic-skills |
 
-> **[DECIDIR #1] — SkillsProvider: pacote ou consumidor?** D1 dizia "bundled".
-> Eu proponho **mover para o consumidor** (coerente com "NÃO específico de
-> skills"). Alternativa: o pacote ganha um sub-export opcional
-> `@henryavila/tooling-installer/skills` (bundled mas separável). Sua escolha
-> muda onde ficam os testes de provider em F2.
+> **[DECIDIDO #1] — SkillsProvider mora no CONSUMIDOR (atomic-skills).**
+> (Usuário 2026-06-19: "skillProvider por consumer".) O pacote fica genérico,
+> sem nada específico de skills. D1 ("bundled") é reinterpretado: o
+> provider-de-skills é do consumidor, não do pacote. Os testes de SkillsProvider
+> vão para **F3**, no atomic-skills.
 
-> **[DECIDIR #2] — `render` (templates multi-IDE + COMMUNICATION_LANGUAGE):
-> pacote ou consumidor?** Tensão real: **D7** diz que COMM_LANG é feature do
-> core (opt-out); o nome travado diz "NÃO é template engine".
-> - (a) **render no consumidor:** o pacote recebe conteúdo de arquivo já
->   renderizado; o Provider do consumidor renderiza. Mantém o pacote "não é
->   template engine". *(meu palpite de preferência sua, dado o nome.)*
-> - (b) **render como utilitário core fino no pacote** (honra D7 literalmente).
-> Precisa da sua decisão — afeta a fronteira da API pública.
+> **[DECIDIDO #2] — `render` no CONSUMIDOR; idioma é só uma flag de config.**
+> (Usuário 2026-06-19: "a ideia é passar a config de qual idioma o usuário
+> escolher; como será usado depende do consumer; é mais uma flag que o installer
+> pede ao usuário para confirmar.") Concretamente:
+> - O **idioma** (ex-`COMMUNICATION_LANGUAGE`) é um **campo declarativo da config
+>   two-tier** — valor opaco que o pacote carrega, não interpreta.
+> - **Coletar/confirmar** a flag no install é do **installer do consumidor** (o
+>   pacote é lib-only — [DECIDIDO #3] — sem TTY/CLI próprio para perguntar).
+> - **Renderizar** com o idioma (templates multi-IDE) é do **Provider do
+>   consumidor**. O pacote **não é template engine**: recebe conteúdo já
+>   renderizado.
+> - **Reframe de D7:** COMM_LANG deixa de ser "feature de render do core" e passa
+>   a ser "flag de config opt-out, renderizada pelo consumidor" (anotado no
+>   `design.md` §PIVOT).
 
 ## 3. F2 [PROPOSTO] — Provider API + Driver/CLI no pacote
 
@@ -85,11 +90,9 @@ Driver com round-trip byte-a-byte; (G-2) runtime layer registra+reverte tipo
 novo sem reabrir o kernel. Ambos verificados **no pacote** (`cd ~/tooling-installer
 && npm test`).
 
-> **[DECIDIR #3] — O pacote expõe um binário CLI próprio, ou só biblioteca?**
-> O nome inclui "installer". Opções: (a) só lib — o consumidor tem seu próprio
-> `bin/cli.js` chamando o Driver (atomic-skills já tem `bin/cli.js`); (b) o
-> pacote publica um CLI genérico parametrizado por config. **[PROPOSTO]** (a) —
-> mantém o pacote como motor, CLI é política do consumidor.
+> **[DECIDIDO #3] — Só biblioteca (lib-only).** (Usuário 2026-06-19: "lib".) O
+> pacote não publica binário CLI. O consumidor usa seu próprio `bin/cli.js`
+> (atomic-skills já tem) chamando o Driver. CLI/prompt é política do consumidor.
 
 ## 4. F3 [PROPOSTO] — atomic-skills consome via link + paridade
 
@@ -101,10 +104,9 @@ local).
 
 Tarefas candidatas:
 - **T-F3-1 — Dependência por link.** `@henryavila/tooling-installer` via
-  `file:`/`npm link` no `package.json` do atomic-skills; imports trocam de
-  `./src/kernel/...` para o pacote. **[DECIDIR #4]** mecânica do link:
-  `file:../tooling-installer` (determinístico, versionável no lockfile) vs
-  `npm link` (global, mais frágil em CI). **[PROPOSTO]** `file:`.
+  **`file:`** no `package.json` do atomic-skills ([DECIDIDO #4], usuário
+  2026-06-19: "file" — determinístico, versionável no lockfile, não `npm link`);
+  imports trocam de `./src/kernel/...` para o pacote.
 - **T-F3-2 — SkillsProvider sobre o Driver.** Porta IDE matrix + catálogo +
   render (conforme [DECIDIR #2]) para um Provider que emite efeitos. Verifier:
   `tests/providers/skills-provider.test.js` (**no atomic-skills**).
@@ -132,12 +134,16 @@ Do `design.md` §"Open questions", agora no contexto do pacote:
 - **Migração do `installs.json`** existente → marcadores por-dono, para
   instalações já no campo (passo idempotente em F3).
 
-## 6. O que falta para isto virar plano executável
+## 6. Estado / o que falta
 
-1. Você responde **[DECIDIR #1–#4]** (e veta o que discordar nos **[PROPOSTO]**).
-2. Validar o pacote (`cd ~/tooling-installer && npm test` → 38/38; revisar
-   `src/index.js` + README + a decisão `MANIFEST_DIR`).
-3. Rodar o fluxo de plano (`review-plan`/`project`) para reescrever o frontmatter
-   F2/F3 do `plan.md` com estes goals/tarefas/exit-gates (verifiers apontando
-   para os paths corretos: pacote vs consumidor).
-4. Só então `implement` retoma com tarefas reais.
+1. ✅ **[DECIDIDO #1–#4]** respondidos pelo usuário (2026-06-19) e **aplicados ao
+   frontmatter F2/F3 do `plan.md`** (goals/exit-gates/verifiers reescritos
+   package-first; F2 verifica no repo do pacote, F3 no atomic-skills).
+2. ⏳ **Validar o pacote** (`cd ~/tooling-installer && npm test` → 38/38; revisar
+   `src/index.js` + README + a decisão `MANIFEST_DIR`) — usuário.
+3. ⏳ **Decisão de estrutura ainda aberta (não bloqueante):** F2 é trabalho que
+   roda no repo do pacote `~/tooling-installer`, não no atomic-skills. Por ora F2
+   segue como fase deste plano com verifiers apontando para o pacote; opção
+   futura = dar ao pacote seu próprio plano e este plano reter só F3. Confirmar
+   ao iniciar F2.
+4. Depois disso `implement` retoma: **F2 no pacote, F3 no atomic-skills.**
