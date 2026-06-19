@@ -6,30 +6,40 @@ goal: Implementar o verbo fork-plan (ratify do elo + handoff ao fluxo new plan),
   inserir o degrau 7.5 residente na ladder, rodar o cycle-check antes de
   qualquer escrita, e entregar pause-only rejeitando o modo parallel até a F2
   existir.
-status: active
+status: done
 branch: plan/plan-fork
 started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T18:53:49Z
-nextAction: "Start T-001: Procedure fork-plan no project-emergence.md"
+lastUpdated: 2026-06-19T19:56:59Z
+nextAction: null
 parentPlan: plan-fork
 phaseId: F1
 tasksDone: 4
 tasksTotal: 4
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F1-G1
     description: fork-plan grava o elo no sidecar só após ratify; roda o cycle-check
       antes de qualquer escrita e aborta atômico em ciclo; o modo pause funciona
       e o parallel é rejeitado até a F2; o degrau 7.5 é roteado.
-    status: pending
+    status: met
+    metAt: 2026-06-19T19:56:59Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T19:56:59Z
+      exitCode: 0
+      passed: true
+      outputSummary: 4 greps (fork-plan + ciclo + parallel) → exit 0; gate escopado
+        (sem && npm test, RED ambiental, precedente F0); review local
+        achou+corrigiu 5 findings (4e23baf) antes do met.
     verifier:
       kind: shell
       command: grep -q fork-plan skills/shared/project-assets/project-emergence.md &&
         grep -q fork-plan skills/core/project.md && grep -q ciclo
         skills/shared/project-assets/project-emergence.md && grep -q parallel
-        skills/shared/project-assets/project-emergence.md && npm test
+        skills/shared/project-assets/project-emergence.md
     verifierLabel: "shell: grep -q fork-plan skills/shared/project-assets/project-emer…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Verbo fork-plan + degrau 7.5 (pause-only até a F2)
@@ -157,7 +167,6 @@ emerged: []
 summary: Verbo fork-plan, degrau 7.5, cycle-check pré-ratify; pause-only até a F2.
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -177,12 +186,23 @@ _(plan doc, external refs)_
 - G1 read-before-claim: applied — cada task fechada carrega o run real do seu verifier (`grep … → exit 0`) no `evidence.outputSummary`, e o procedure cita os helpers da F0 por nome lido do source (`buildAdjacency`/`wouldCreateCycle` em `src/spawn-graph.js`, `setSpawnedFrom`/`addSpawnedPlan` em `src/links-sidecar.js`).
 - G2 soft-language: applied — nenhuma das claims de conclusão usa should/probably/works; cada task é `done` com `evidence.passed: true`; handoff varrido pela ban list.
 - G6 reference-or-strike: applied — literais do handoff são paths/commands/erros verbatim (verifier de fase colado, regressão do heading nomeada com o commit que a causou).
-- Nota (regressão own-goal): o commit T-001 droppou o heading `## Why provenance + context live on the item itself`; corrigido na árvore antes do commit de T-004. Candidato a lesson no phase-done (um Edit que substitui um heading-anchor precisa re-anexar o anchor).
+- Nota (regressão own-goal): o commit T-001 droppou o heading `## Why provenance + context live on the item itself`; corrigido na árvore antes do commit de T-004. Virou a lesson L-004 da F1.
+
+## Self-review against code-quality gates (phase-done F1)
+
+- **G1 read-before-claim**: 4 tasks fechadas, cada uma com o run real do verifier no `evidence.outputSummary`; o procedure cita helpers F0 lidos do source.
+- **G2 soft-language**: scaneado `nextAction` + task/criterion descriptions; 0 violações.
+- **G6 reference-or-strike**: 1 critério (F1-G1) met com `evidence` populado; reviewGate com `at` sha verbatim.
+- **Codex review**: NÃO rodado; review local `--mode=local` sobre `d11705c..HEAD` (DESTRUCTIVE=false: diff aditivo, nenhum arquivo deletado), HEAD=`4e23baf`, achou 5 findings (2C/2M/1m), todos corrigidos, convergiu. File `.atomic-skills/reviews/2026-06-19-1956-plan-fork-f1.md`.
+- **Review gate (G2)**: `reviewGate: { status: passed, at: 4e23baf, mode: local, reviewFile: …2026-06-19-1956-plan-fork-f1.md }` no descritor da fase F1. A prosa e o campo concordam.
+- **Lessons (G1)**: 5 lessons (todas reusable) destiladas em `lessons/plan-fork-f1-*.md`, ratificadas pelo usuário. Dispostas no phase-start da F2.
 
 ## Session handoff
 
-- **Narrative:** F1 com as 4 tasks FECHADAS (4/4), cada uma via seu verifier real (exit 0) com `evidence.passed: true`; `validate-state` ✓. O degrau 7.5 está implementado: a seção `## \`fork-plan …\` (rung 7.5)` em `skills/shared/project-assets/project-emergence.md` (arg-parse --from/--mode/--task; step 3 cycle-check via `buildAdjacency`+`wouldCreateCycle` de `src/spawn-graph.js` ANTES do ratify; step 4 ratify gate; step 5 write no sidecar via `setSpawnedFrom`/`addSpawnedPlan` só após ratify; subseção `Mode semantics` com pause completo + parallel REJEITADO até F2), e a ladder 7.5 + dispatch `fork-plan` em `skills/core/project.md`. A fase está `active` aguardando `phase-done` (NÃO auto-rodado — intrusive-actions rule).
+- **Narrative:** F1 FECHADA via phase-done. 4/4 tasks done (verifiers reais, `evidence.passed: true`); gate F1-G1 `met` (escopado sem `&& npm test` — decisão do usuário, precedente F0; 4 greps exit 0); review local `--mode=local` achou+corrigiu 5 findings procedurais (`4e23baf`); reviewGate `passed`; 5 lessons ratificadas; plano avançado `currentPhase=F2`. Implementação: degrau 7.5 (`fork-plan`) em `skills/shared/project-assets/project-emergence.md` (steps 1-8: validate/reject-parallel/gates/cycle-check/ratify/pause/handoff/write) + ladder 7.5 + dispatch em `skills/core/project.md`.
 - **Decision log (herdado da F0 + desta sessão):** (1) o elo vive no sidecar `links.json`, NÃO inline no plan.md/frontmatter, enquanto o aiDeck for 0.1.0 (spawnedFrom derruba o card; spawnedPlans é stripado em silêncio). Migração inline deferida à F5 (aiDeck ≥ 0.1.2). Testes ficam em `tests/`. (2) Roteamento Mode-1 (Opus self-implement) escolhido apesar de `routing.json` ter Mode 2 (Codex) habilitado: as 4 tasks editam prose de skill com verifiers `grep` fracos (presença de token ≠ qualidade editorial) e 3 delas tocam o MESMO arquivo — a premissa Mode-2 "qualidade carregada pelo verifier" não se sustenta. (3) Verifier T-003 admitido como `grep -q ciclo` (PT) num arquivo em inglês: satisfeito citando o termo do design `detecção de ciclo` (D5) — referência cruzada fiel, não filler. (4) REGRESSÃO corrigida: o commit de T-001 droppou o heading `## Why provenance + context live on the item itself` (meu Edit substituiu o anchor sem re-anexá-lo); restaurado na árvore antes do commit de T-004. Candidato a lesson no phase-done.
 - **Single nextAction:** Rodar `phase-done` para F1 — iterar o exit-gate F1-G1, rodar o review gate (review-code sobre o diff da fase) e avançar o plano para F2. NÃO auto-avançar; o usuário opta.
-- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. ⚠ F1-G1 termina em `&& npm test` — o `npm test` completo está RED no baseline por causas ambientais (dashboard não-buildado + install, comprovado por stash na F0). Os 4 greps do gate passam (exit 0 cada); o `&& npm test` final NÃO foi rodado-para-verde. Antes/durante o `phase-done`: ou tornar o baseline verde, ou escopar o gate F1-G1 removendo o `&& npm test` como foi feito na F0 (decisão do usuário). Verifier de fase: `grep -q fork-plan skills/shared/project-assets/project-emergence.md && grep -q fork-plan skills/core/project.md && grep -q ciclo skills/shared/project-assets/project-emergence.md && grep -q parallel skills/shared/project-assets/project-emergence.md && npm test`.
-- **Uncommitted changes:** só T-001 está commitado (`6ce35a6`). Por commitar agora (T-002+T-003+T-004 juntos): `skills/core/project.md` (ladder 7.5 + dispatch — T-002), `skills/shared/project-assets/project-emergence.md` (cycle-check step 3 — T-003; `Mode semantics` + heading `## Why provenance` restaurado — T-004), o estado da fase (T-002/T-003/T-004 done + este handoff) e `.atomic-skills/focus.json` (refresh-state).
+- **Decision log:** F1-G1 escopado removendo o `&& npm test` (RED ambiental: dashboard não-buildado + install — comprovado por stash na F0), seguindo o precedente da F0 — decisão do usuário neste phase-done. O gate met carrega só os 4 greps. A F2 (gate `npm test`) precisará da mesma decisão se o baseline seguir RED.
+- **Single nextAction:** Semear a iniciativa da F2 — rodar `atomic-skills:project new initiative plan-fork-f2-protocolo-de-estado-parallel-cross-workt` (anexada à fase F2). O phase-start dispõe as 13+ lessons (inclui L-001..L-005 desta F1) via `node scripts/list-lessons.js --phase F2`. A F2 implementa o protocolo de estado cross-worktree do modo parallel (o que a F1 rejeitou).
+- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. F1 arquivada em `phases/archive/2026-06-plan-fork-f1-verbo-fork-plan-degrau-7-5-pause-only-at.md`. Review file `.atomic-skills/reviews/2026-06-19-1956-plan-fork-f1.md`. Fixes do review em `4e23baf`.
+- **Uncommitted changes:** será commitado no commit de phase-done F1 (gate scoping + gate met + reviewGate no plan.md, currentPhase=F2, F2 active, propagação da iniciativa F1, lessons file, review file, archive move, focus.json).

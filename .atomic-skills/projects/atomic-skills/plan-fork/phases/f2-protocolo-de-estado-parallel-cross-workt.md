@@ -6,12 +6,14 @@ goal: "Definir e implementar o protocolo de estado do modo parallel com
   semântica de concorrência explícita: caminho canônico, escrita atômica com
   token de revisão, predicado de conflito, abort e recuperação, e verificação a
   partir do pai e do filho."
-status: pending
+status: active
 branch: plan/plan-fork
-started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T15:32:29.603Z
-nextAction: "Start T-001: Especificar o protocolo de estado parallel
-  (concorrência otimista)"
+started: 2026-06-19T19:56:59Z
+lastUpdated: 2026-06-19T19:56:59Z
+nextAction: "Phase-start gate F2: rodar `node scripts/list-lessons.js --phase F2`
+  e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-005
+  da F1 — ANTES de codar. Depois T-001: especificar o protocolo de estado parallel
+  (concorrência otimista)."
 parentPlan: plan-fork
 phaseId: F2
 tasksDone: 0
@@ -83,6 +85,7 @@ summary: Protocolo de estado parallel com concorrência otimista (revisão,
   conflito, abort).
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
+current: true
 ---
 
 # Narrative / notes

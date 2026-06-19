@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T19:40:44.136Z",
+  "generatedAt": "2026-06-19T23:58:17.287Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "plan-fork",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "plan-fork-f1-verbo-fork-plan-degrau-7-5-pause-only-at",
-    "title": "Verbo fork-plan + degrau 7.5 (pause-only até a F2)",
-    "index": 2,
+    "id": "F2",
+    "slug": "plan-fork-f2-protocolo-de-estado-parallel-cross-workt",
+    "title": "Protocolo de estado parallel cross-worktree",
+    "index": 3,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 4,
-    "total": 4,
+    "done": 0,
+    "total": 2,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: Procedure fork-plan no project-emergence.md",
+  "nextAction": "Phase-start gate F2: rodar `node scripts/list-lessons.js --phase F2` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-005 da F1 — ANTES de codar. Depois T-001: especificar o protocolo de estado parallel (concorrência otimista).",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/plan-fork/plan.md",
-      "lastUpdated": "2026-06-19T18:53:49Z"
+      "lastUpdated": "2026-06-19T19:56:59Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f1-verbo-fork-plan-degrau-7-5-pause-only-at.md",
-      "lastUpdated": "2026-06-19T18:53:49Z"
+      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f2-protocolo-de-estado-parallel-cross-workt.md",
+      "lastUpdated": "2026-06-19T19:56:59Z"
     }
   ]
 }

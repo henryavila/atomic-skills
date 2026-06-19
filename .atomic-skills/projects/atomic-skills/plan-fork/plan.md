@@ -5,9 +5,9 @@ title: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 version: "1.0"
 status: active
 started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T18:53:49Z
+lastUpdated: 2026-06-19T19:56:59Z
 branch: plan/plan-fork
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -103,14 +103,30 @@ phases:
           description: fork-plan grava o elo no sidecar só após ratify; roda o cycle-check
             antes de qualquer escrita e aborta atômico em ciclo; o modo pause
             funciona e o parallel é rejeitado até a F2; o degrau 7.5 é roteado.
-          status: pending
+          status: met
+          metAt: 2026-06-19T19:56:59Z
           verifier:
             kind: shell
             command: grep -q fork-plan skills/shared/project-assets/project-emergence.md
               && grep -q fork-plan skills/core/project.md && grep -q ciclo
               skills/shared/project-assets/project-emergence.md && grep -q parallel
-              skills/shared/project-assets/project-emergence.md && npm test
-    status: active
+              skills/shared/project-assets/project-emergence.md
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T19:56:59Z
+            exitCode: 0
+            passed: true
+            outputSummary: "4 greps (fork-plan em project-emergence.md + project.md;
+              ciclo + parallel em project-emergence.md) → exit 0. Gate escopado removendo
+              o && npm test (RED ambiental, decisão do usuário, precedente F0). Review
+              gate local achou+corrigiu 5 findings (4e23baf) antes do met."
+    status: done
+    reviewGate:
+      status: passed
+      at: 4e23baf0f398697ea51264b742af8e582057927e
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-19-1956-plan-fork-f1.md
+      verifiedAt: 2026-06-19T19:56:59Z
     summary: Verbo fork-plan, degrau 7.5, cycle-check pré-ratify; pause-only até a F2.
   - id: F2
     slug: plan-fork-f2-protocolo-de-estado-parallel-cross-workt
@@ -133,7 +149,7 @@ phases:
           verifier:
             kind: shell
             command: npm test
-    status: pending
+    status: active
     summary: Protocolo de estado parallel com concorrência otimista (revisão,
       conflito, abort).
   - id: F3
