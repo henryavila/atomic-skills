@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T15:33:18.565Z",
+  "generatedAt": "2026-06-19T17:07:28.458Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "plan-fork",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 1,
     "total": 4,
     "blocked": 0
   },

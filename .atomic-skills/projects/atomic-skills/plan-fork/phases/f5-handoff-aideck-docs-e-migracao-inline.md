@@ -30,7 +30,7 @@ exitGates:
         /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md && grep -q
         strict /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
         grep -q fork-plan docs/kb/skill-authoring.md && npm test
-    verifierLabel: "shell: handoff(spawnedPlans/strict) + KB fork-plan + npm test"
+    verifierLabel: "shell: test -f /home/henry/aideck/docs/handoffs/atomic-skills-plan…"
 stack:
   - id: 1
     title: Handoff aiDeck, docs e migração inline

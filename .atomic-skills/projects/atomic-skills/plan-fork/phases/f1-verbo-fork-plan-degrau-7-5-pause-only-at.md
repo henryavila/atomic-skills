@@ -25,11 +25,11 @@ exitGates:
     status: pending
     verifier:
       kind: shell
-      command: grep -q fork-plan skills/shared/project-assets/project-emergence.md
-        && grep -q fork-plan skills/core/project.md && grep -q ciclo
+      command: grep -q fork-plan skills/shared/project-assets/project-emergence.md &&
+        grep -q fork-plan skills/core/project.md && grep -q ciclo
         skills/shared/project-assets/project-emergence.md && grep -q parallel
         skills/shared/project-assets/project-emergence.md && npm test
-    verifierLabel: "shell: grep fork-plan/ciclo/parallel + npm test"
+    verifierLabel: "shell: grep -q fork-plan skills/shared/project-assets/project-emer…"
 stack:
   - id: 1
     title: Verbo fork-plan + degrau 7.5 (pause-only até a F2)
