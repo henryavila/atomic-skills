@@ -7,13 +7,16 @@ left out**.
 
 ---
 
-## R9 preamble (emit verbatim at the top of the screens prompt)
+## R9 preamble (emit verbatim at the top — in the output language; pt-BR shown, translate if the install language differs)
 
-> We do **not** prescribe visual form (widget, colour, shape, spacing) — that is yours to
-> decide. We **do** prescribe the **interaction behaviour** and **what stays hidden** — these
-> are product requirements and are **binding**. We **consume the existing Design System** by
-> semantic name and never redefine it. If a screen needs something the DS does not have,
-> **stop and signal** — do not improvise it.
+There are **two distinct authorities**, not one all-binding bucket — the preamble keeps them
+apart so layer-2 is never frozen as if it were layer-3:
+
+> Há **duas autoridades distintas** neste briefing — não um carimbo único de "tudo vinculante":
+> — **Forma visual** (widget, cor, formato, espaçamento): é **sua** para decidir — não prescrevemos.
+> — **Filosofia / o que fica oculto / quem decide** (camada 3): **requisito de produto vinculante**, não negociável.
+> — **Comportamento de interação** (camada 2): é a **calibração atual** do app — a **banda comportamental vincula** (ex.: "a cadência é da ordem de segundos"), mas o **valor exato é o que o app faz hoje (~8s), melhorável por você dentro da banda**, nunca um número congelado.
+> Consumimos o **Design System existente** pelo nome semântico e nunca o redefinimos. Se uma tela precisa de algo que o DS não tem, **pare e sinalize** — não improvise.
 
 ## Per-screen block — the 8 mandatory sections (§4)
 
@@ -28,7 +31,11 @@ interaction:
    decision.
 3. **What the person needs to do** — intents, not widgets.
 4. **Interaction model** *(mandatory when interactive)* — describe by behavioural attributes,
-   never by widget, with the **concrete values mined from the code (R2)**:
+   never by widget, with the **concrete values mined from the code (R2)**, expressed as
+   **current calibration, not a frozen requirement**: state the **behavioural band that binds**
+   (e.g. "pace on the order of seconds") **and** the **exact mined value as the current app's
+   calibration** (e.g. ~8s), improvable by the design agent within that band — never the bare
+   value as a hard requirement:
    - *gesture class* (fast / deliberate / typing), *latency* (instant / sub-second /
      deliberate), *effort* (one hand / thumb), *text density* (very short / verbose),
      *timings* (pace in seconds, default timers), *counts* (how many levels/items),

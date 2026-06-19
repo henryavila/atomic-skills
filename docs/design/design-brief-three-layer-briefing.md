@@ -84,7 +84,7 @@ Quando se pede "não nomeie o gesto (swipe)", a reação errada é **deletar** a
 
 - **R8 — Fixtures carregam textura, não só valores.** Usar dados reais do app (extraídos de seeders/testes/conteúdo de produção) **e** mostrar a **textura**: quão pouco texto há na tela no momento da decisão, quão curto é cada item. A brevidade é parte do dado.
 
-- **R9 — Preâmbulo explícito no prompt gerado.** O prompt deve abrir declarando a regra: *"Não prescrevemos forma visual (widget, cor, formato). Prescrevemos comportamento de interação e o que fica oculto — isso é requisito de produto, é vinculante. Consumimos o DS existente, sem redefinir."*
+- **R9 — Preâmbulo explícito no prompt gerado (duas autoridades).** O prompt deve abrir declarando **duas autoridades distintas**, não um carimbo único: a **forma visual** (widget, cor, formato, espaçamento) é do **agente de design** — não prescrevemos; a **filosofia / o que fica oculto / quem decide** (camada 3) é **requisito de produto vinculante**; o **comportamento de interação** (camada 2) é a **calibração atual** — a **banda comportamental vincula** (ex.: "cadência da ordem de segundos") mas o **valor exato (~8s) é o que o app faz hoje, melhorável dentro da banda**, nunca um número congelado. Consumimos o DS existente, sem redefinir.
 
 ---
 
