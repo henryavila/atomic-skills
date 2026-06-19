@@ -185,6 +185,8 @@ Shape:
 ```json
 {
   "taskId": "T-101",
+  "plan": "<plan-slug>",
+  "phase": "<phaseId>",
   "executorTier": "cheap | standard",
   "executor": "codex | subagent",
   "attempt": 1,
@@ -194,9 +196,18 @@ Shape:
   "escalationCount": 0,
   "startedAt": "<isoTimestamp>",
   "finishedAt": "<isoTimestamp>",
-  "codexWorktreeRef": "<branch-or-path>"
+  "codexWorktreeRef": "<branch-or-path>",
+  "routingReason": "<why this task routed here>"
 }
 ```
+
+`plan` + `phase` are REQUIRED match keys, not optional: the task-actuals
+consumer (`scripts/append-completion.js` `readDispatchActuals`, F4/T-002) keys
+on `plan`+`phase`+`taskId` to attach `attempts`/`durationMs`/`escalations` to the
+`task-done` completion event. A record that omits them never matches and silently
+degrades that task to actuals-omitted — so a writer that follows this contract
+MUST emit `plan` and `phase` (taskIds repeat across phases; `taskId` alone is
+ambiguous).
 
 Plus the persisted routing decision + reason (no "satisfied lever" — the
 scarce-resource trigger was dropped in §3; record simply that the task cleared

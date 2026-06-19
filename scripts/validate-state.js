@@ -602,6 +602,10 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
   for (const [, plan] of planFrontmatters) {
     const hardening = plan?.closedAtHardening;
     if (!hardening || typeof hardening.enforcedFrom !== 'string' || hardening.enforcedFrom.length === 0) continue;
+    // A slug-less (malformed) plan owns no initiatives — without this guard a
+    // `parentPlan`-less standalone initiative would match plan.slug via
+    // `undefined !== undefined` (false) and be gated against the wrong plan.
+    if (typeof plan.slug !== 'string' || plan.slug.length === 0) continue;
     const grandfathered = new Set(Array.isArray(hardening.grandfatheredTaskIds) ? hardening.grandfatheredTaskIds : []);
     for (const [slug, init] of initiativeFrontmatters) {
       if (init?.parentPlan !== plan.slug) continue;
