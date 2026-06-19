@@ -5,7 +5,13 @@
  * already-parsed plan slices and integration-ref snapshots.
  */
 
-const ORDER = ['active', 'archived'];
+// Plan lifecycle advancement rank (plan.schema.json status enum:
+// active|paused|done|archived). `active` and `paused` are both in-progress (tie —
+// paused is a lateral hold, not lifecycle progress); `done` is past completion;
+// `archived` is terminal. An unknown/unlisted status ranks -1 (below all known) so
+// an advisory regression fails LOUD — surfacing weird data to the human rather than
+// silently passing it as "not behind".
+const STATUS_RANK = { paused: 0, active: 0, done: 1, archived: 2 };
 
 function ownValue(value, key) {
   if (value == null || typeof value !== 'object') return undefined;
@@ -35,8 +41,7 @@ function ownBranch(value) {
 }
 
 function rankStatus(status) {
-  const rank = ORDER.indexOf(status);
-  return rank === -1 ? -1 : rank;
+  return Object.hasOwn(STATUS_RANK, status) ? STATUS_RANK[status] : -1;
 }
 
 function normalizedInput(input) {
@@ -71,7 +76,10 @@ function undonePhases(plan) {
 
 function isTerminalPlan(plan) {
   const status = ownString(plan, 'status');
-  if (status === 'archived') return true;
+  // `archived` and a top-level `done` plan are both terminal/ready-to-publish
+  // (plan.schema.json permits status: done). An `active` plan is terminal only once
+  // every phase is `done` (the plan status flips to archived AFTER merge, per P2).
+  if (status === 'archived' || status === 'done') return true;
   if (status !== 'active') return false;
   return undonePhases(plan).length === 0;
 }
@@ -128,7 +136,11 @@ export function resolveFinalizePlanScope(input = {}) {
 
   const result = initialResult(targetSlug, classifications, warnings);
 
+  // `target` is non-null ONLY when the named target plan is actually found below.
+  // On every fail-closed path where it was never resolved, null it so a `block`
+  // result never advertises a target it did not validate.
   if (!Array.isArray(plansValue)) {
+    result.target = null;
     result.blockReason = 'plans must be an array of parsed plan states';
     return result;
   }
@@ -140,6 +152,7 @@ export function resolveFinalizePlanScope(input = {}) {
 
   const targetPlan = plans.find((plan) => ownString(plan, 'slug') === targetSlug);
   if (targetPlan === undefined) {
+    result.target = null;
     result.blockReason = `target plan ${targetSlug} was not found among branch plans`;
     return result;
   }

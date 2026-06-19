@@ -198,6 +198,35 @@ test('resolveFinalizePlanScope is pure and never throws on frozen input', () => 
   assert.deepEqual(input, before);
 });
 
+test('resolveFinalizePlanScope treats a top-level status:done target as terminal and proceeds', () => {
+  const result = resolveFinalizePlanScope({
+    plans: [{ slug: 'target', status: 'done', phases: [{ id: 'ship', status: 'active' }] }],
+    focusSlug: 'target',
+    targetSlug: 'target',
+  });
+
+  assert.equal(result.decision, 'proceed');
+  assert.equal(result.blockReason, null);
+});
+
+test('resolveFinalizePlanScope nulls the target on fail-closed block paths (malformed plans, not found)', () => {
+  const malformed = resolveFinalizePlanScope({
+    plans: 'not-an-array',
+    focusSlug: 'target',
+    targetSlug: 'target',
+  });
+  const missing = resolveFinalizePlanScope({
+    plans: [{ slug: 'other', status: 'archived', phases: [] }],
+    focusSlug: 'target',
+    targetSlug: 'target',
+  });
+
+  assert.equal(malformed.decision, 'block');
+  assert.equal(malformed.target, null);
+  assert.equal(missing.decision, 'block');
+  assert.equal(missing.target, null);
+});
+
 test('detectPlanStatusRegression returns the slug regressed from archived on ref to active on branch', () => {
   const regressions = detectPlanStatusRegression({
     branchPlans: [{ slug: 'plan-a', status: 'active' }],
@@ -248,20 +277,75 @@ test('detectPlanStatusRegression ignores slugs present on only one side', () => 
   );
 });
 
-test('detectPlanStatusRegression returns empty for unknown branch status against active ref', () => {
-  const regressions = detectPlanStatusRegression({
-    branchPlans: [{ slug: 'unknown', status: 'paused' }],
-    refPlans: [{ slug: 'unknown', status: 'active' }],
-  });
+test('detectPlanStatusRegression treats paused and active as lateral (no regression either way)', () => {
+  assert.deepEqual(
+    detectPlanStatusRegression({
+      branchPlans: [{ slug: 'p', status: 'paused' }],
+      refPlans: [{ slug: 'p', status: 'active' }],
+    }),
+    [],
+  );
+});
 
-  assert.deepEqual(regressions, [
-    {
-      slug: 'unknown',
-      branchStatus: 'paused',
-      refStatus: 'active',
-      reason: 'plan unknown is paused on the branch but active on the integration ref; merge would regress it',
-    },
-  ]);
+test('detectPlanStatusRegression does NOT flag a done branch plan against an active ref (done is ahead)', () => {
+  assert.deepEqual(
+    detectPlanStatusRegression({
+      branchPlans: [{ slug: 'p', status: 'done' }],
+      refPlans: [{ slug: 'p', status: 'active' }],
+    }),
+    [],
+  );
+});
+
+test('detectPlanStatusRegression flags an active branch plan against a done ref (active is behind done)', () => {
+  assert.deepEqual(
+    detectPlanStatusRegression({
+      branchPlans: [{ slug: 'p', status: 'active' }],
+      refPlans: [{ slug: 'p', status: 'done' }],
+    }),
+    [
+      {
+        slug: 'p',
+        branchStatus: 'active',
+        refStatus: 'done',
+        reason: 'plan p is active on the branch but done on the integration ref; merge would regress it',
+      },
+    ],
+  );
+});
+
+test('detectPlanStatusRegression flags a done branch plan against an archived ref (done is behind archived)', () => {
+  assert.deepEqual(
+    detectPlanStatusRegression({
+      branchPlans: [{ slug: 'p', status: 'done' }],
+      refPlans: [{ slug: 'p', status: 'archived' }],
+    }),
+    [
+      {
+        slug: 'p',
+        branchStatus: 'done',
+        refStatus: 'archived',
+        reason: 'plan p is done on the branch but archived on the integration ref; merge would regress it',
+      },
+    ],
+  );
+});
+
+test('detectPlanStatusRegression fails LOUD on a genuinely unknown branch status against a known ref', () => {
+  assert.deepEqual(
+    detectPlanStatusRegression({
+      branchPlans: [{ slug: 'p', status: 'bogus-status' }],
+      refPlans: [{ slug: 'p', status: 'active' }],
+    }),
+    [
+      {
+        slug: 'p',
+        branchStatus: 'bogus-status',
+        refStatus: 'active',
+        reason: 'plan p is bogus-status on the branch but active on the integration ref; merge would regress it',
+      },
+    ],
+  );
 });
 
 test('detectPlanStatusRegression never throws on null or malformed input and returns empty results', () => {
