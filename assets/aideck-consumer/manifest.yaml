@@ -119,27 +119,35 @@ pages:
         widgets:
           - widget: collection-grid
             colSpan: 12
-            # One card per registered project (cross-repo overview).
+            # One card per registered project (cross-repo overview). Renders the DS
+            # record-card preset (rc-head/body/foot) exactly — incl. per-row hover.
             source: { ref: projects, scope: all-projects }
             config:
               minColWidth: 340
               titleField: name
+              linkTo: 'foco-agora/:id'                  # title-link → enter the project's Foco
+              dotToneField: dotTone                     # leading status dot (error/info/neutral)
               badgeField: mode                          # "paralelo N" | "isolado" | "ocioso"
               badgeToneField: parallelTone
-              fields: [plansSummary, phasesActiveText]
+              # Metric strip (value-on-top + label): plans summary · active phases · blocked (red).
+              fields: [plansSummary, phasesActiveText, blockedCount]
+              fieldLabels: ['planos', 'fases ativas', 'travadas']
+              alertField: blockedCount
+              # Nested "frentes vivas" mini-list — denormalized onto the project record
+              # by emit-consumer-state.js (the dashboard can't join). 2-line rows:
+              # dot · (title / next-action) · phase code. Each row links to the plan.
+              nestedField: fronts
+              nestedTitleField: title
+              nestedSubField: nextAction
+              nestedCodeField: phaseId
+              nestedDotToneField: dotTone
+              nestedLinkTo: 'plan/:projectId/:slug'
+              nestedLabel: 'frentes vivas'
+              moreField: moreText                       # "+N frente(s)" overflow
+              idleField: idleText                       # "sem planos ainda" / "sem frente ativa"
+              footerField: updatedRel                   # "3d" + LIVE pill (when hasActiveFront)
               live: { when: hasActiveFront }
               attention: { when: blockedCount, gt: 0, tone: error }
-            slots:
-              body:
-                # Frentes vivas do projeto — $parent = o projeto. The all-projects
-                # merge tags every record with the registered projectId, so we
-                # filter the (also all-projects) plans by $parent.projectId.
-                - widget: status-list
-                  source: { ref: plans, scope: all-projects, filter: { projectId: '$parent.projectId', status: active } }
-                  config:
-                    idField: slug
-                    labelField: title
-                    statusField: status
 
   # ── FOCO AGORA — "onde estou agora", uma frente-card por plano ATIVO (do projeto).
   # Project-scoped (no scope: all-projects ⇒ the selected project). Leads with the
