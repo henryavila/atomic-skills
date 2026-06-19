@@ -28,13 +28,14 @@ exitGates:
       command: node --test tests/find-unclosed-done.test.js && node --test
         tests/emit-consumer-state.test.js && node --test
         tests/schema-drift.test.js
-    verifierLabel: "shell: node --test tests/find-unclosed-done.test.js && node --test…"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T09:15:51Z
       passed: true
       exitCode: 0
-      outputSummary: "G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0"
+      outputSummary: G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0
+    verifierLabel: "shell: node --test tests/find-unclosed-done.test.js && node --test…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: "closedAt forward-only: auditor soft + emissão"
@@ -55,7 +56,8 @@ tasks:
       passed: true
       exitCode: 0
       testsCollected: 4
-      outputSummary: node --test tests/find-unclosed-done.test.js — 4 pass, 0 fail (re-run on MERGED primary beec974)
+      outputSummary: node --test tests/find-unclosed-done.test.js — 4 pass, 0 fail
+        (re-run on MERGED primary beec974)
   - id: T-002
     title: — Emitir closedAt e lastUpdated na projeção de task
     status: done
@@ -70,7 +72,9 @@ tasks:
       passed: true
       exitCode: 0
       testsCollected: 14
-      outputSummary: node --test tests/emit-consumer-state.test.js — 14 pass, 0 fail (re-run on MERGED primary 2cd4f06; inclui validateAideckState ok + null legado)
+      outputSummary: node --test tests/emit-consumer-state.test.js — 14 pass, 0 fail
+        (re-run on MERGED primary 2cd4f06; inclui validateAideckState ok + null
+        legado)
   - id: T-003
     title: — Admitir closedAt na projeção do schema emitido + rebuild do bundle
     status: done
@@ -85,7 +89,8 @@ tasks:
       passed: true
       exitCode: 0
       testsCollected: 1
-      outputSummary: node --test tests/schema-drift.test.js — 1 pass, 0 fail (re-run on MERGED primary d55f540)
+      outputSummary: node --test tests/schema-drift.test.js — 1 pass, 0 fail (re-run
+        on MERGED primary d55f540)
 parked: []
 emerged: []
 summary: Torna closedAt auditável (soft) e o emite na projeção, sem backfill cosmético.
