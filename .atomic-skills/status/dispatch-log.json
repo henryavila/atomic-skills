@@ -334,5 +334,21 @@
     "finishedAt": "2026-06-19T18:47:13Z",
     "codexWorktreeRef": "codex/f4-t001",
     "routingReason": "lane on + F1 spec-ready (design settled pelo Opus no work-order: helper computePhaseActuals + flag CLI + prosa) + F2 shell verifier. PASS no MERGED primary 003b526 (append-completion-actuals.test.js 4/4, exit 0). Sem escalacao. Revisao Opus: impl fiel ao design, teste re-deriva valores concretos (nao circular), graceful-degradation coberta, escopo limpo (3 files, nenhum .atomic-skills/ tocado). In-worktree verifier passou (sem EPERM). Timestamps aproximados da sessao."
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F4",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T18:53:00Z",
+    "finishedAt": "2026-06-19T18:57:30Z",
+    "codexWorktreeRef": "codex/f4-t002",
+    "routingReason": "lane on + F1 spec-ready (design settled pelo Opus: readDispatchActuals + CLI auto-enrich, prosa intocada) + F2 shell verifier. PASS no MERGED primary 5f0ce6f (append-completion-dispatchlog.test.js 6/6) + 0 regressao (34/34 no conjunto append-completion). Revisao Opus: fiel ao design, match plan+phase+taskId (nao taskId so), guards Number.isFinite, graceful, sem spawn no teste. Timestamps aproximados da sessao."
   }
 ]

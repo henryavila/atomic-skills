@@ -9,14 +9,14 @@ status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T17:29:17Z
 lastUpdated: 2026-06-19T17:29:17Z
-nextAction: "Start T-002: — Actuals de task via dispatch-log quando presente"
+nextAction: "Decidir escopo F1/L-001 c/ usuário, depois Start T-003 (promover closedAt a hard-gate)"
 parentPlan: deadline-burnup-forecast
 phaseId: F4
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -62,8 +62,28 @@ tasks:
         graceful-degradation coberta."
   - id: T-002
     title: — Actuals de task via dispatch-log quando presente
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T18:58:42Z
+    lastUpdated: 2026-06-19T18:58:42Z
+    verifier:
+      kind: shell
+      command: node --test tests/append-completion-dispatchlog.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T18:58:42Z
+      passed: true
+      exitCode: 0
+      testsCollected: 6
+      outputSummary: "node --test tests/append-completion-dispatchlog.test.js — 6
+        pass, 0 fail, exit 0, re-run on MERGED primary 5f0ce6f.
+        readDispatchActuals casa plan+phase+taskId (não taskId só), deriva
+        attempts/durationMs/ escalations do último record, graceful undefined
+        sem arquivo/match. 0 regressão: 34/34 no conjunto append-completion
+        (actuals+dispatchlog+ schema+F0). Executor Codex Mode2 worktree
+        codex/f4-t002 (sem EPERM, teste não spawna). Dogfood E2E: o evento
+        task-done de T-002 auto-carregou actuals
+        {attempts:1,escalations:0,durationMs:270000} do dispatch-log. Revisão
+        Opus: impl fiel ao design, prosa intocada (auto na CLI)."
   - id: T-003
     title: — Promover closedAt para hard-gate no GATE-R2
     status: pending
@@ -96,12 +116,12 @@ Initiative for phase **F4 — Geração de dados de calibração + endurecer clo
 - **design-brief-SoT/L-004** (unicidade de sub-campo de array via checagem pós-schema) → **N/A**. `grandfatheredTaskIds` é computado pelo script como conjunto (Set) → unicidade garantida na origem; sem sub-campo de array no schema.
 
 ## Session handoff
-- **Narrative:** F4 ativa, **1/3 tasks** (T-001 DONE via Codex Mode 2). T-001 (actuals de fase no evento phase-done) implementada por Codex no worktree `codex/f4-t001`, merge `--ff-only` ao primary (`8c396bf→003b526`), verifier re-rodado e VERDE no MERGED primary (4 pass, exit 0), worktree desmontado. Restam T-002 + T-003. 9 lições já dispositionadas (bloco `## Decisions`).
-- **Decision log:** (1) T-001 entregue conforme design settled (helper `computePhaseActuals` + flag `--actuals-since` + prosa concreta + teste GIT_*_DATE); revisão Opus do diff: fiel, escopo limpo (3 files), teste não-circular, graceful-degradation coberta. (2) **F1/L-001 PENDENTE de decisão em T-003**: adicionar `closedAt`+`lastUpdated` ao `tasks.required` de `meta/schemas/aideck-state.schema.json` está FORA dos Files declarados de T-003 → surfaçar ao usuário antes de tocar (não alargar escopo). (3) Routing: Codex DEFAULT (lane ON); seguir mesmo fluxo serial para T-002 (mas T-002 toca o MESMO append-completion.js que T-001 já tocou — base ref do worktree de T-002 = HEAD atual `003b526`).
-- **T-002 design SETTLED (Opus, p/ work-order):** helper puro `readDispatchActuals(root, {planSlug,phaseId,taskId})` lê `.atomic-skills/status/dispatch-log.json` (array flat; keys do record: `plan`/`phase`/`taskId`/`attempt`/`escalationCount`/`startedAt`/`finishedAt`), casa por plan+phase+taskId (taskId sozinho é errado — repete entre fases), usa o ÚLTIMO record casando: `attempts=rec.attempt`, `escalations=rec.escalationCount`, `durationMs=Date.parse(finishedAt)-Date.parse(startedAt)` (só se finito e >=0). Constrói actuals só com campos finitos; undefined se arquivo ausente/unparseable/sem match (graceful, nunca throw). CLI: `task-done` SEM `--actuals-since` auto-chama readDispatchActuals → **prosa NÃO muda** (por isso project-transitions.md fora dos Files). Teste NÃO spawna node/git (assere via funções exportadas → sem EPERM).
-- **Single nextAction:** Cortar worktree `codex/f4-t002` off HEAD (`5202143`, contém append-completion.js de T-001) → despachar Codex `/tmp/f4-t002-briefing.txt` → ler diff → merge `--ff-only` → re-rodar `node --test tests/append-completion-dispatchlog.test.js` no MERGED primary → em PASS `done T-002`.
-- **Verbatim state:** HEAD primary `003b526` (T-001) — será atualizado pelo commit deste snapshot. currentPhase=F4, tasksDone 1/3. Verifier T-002: `node --test tests/append-completion-dispatchlog.test.js`. Gate F4/G-1: `node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 913 pass / 8 fail PRÉ-EXISTENTES (install/countSkills — drift skills-restructuring, fora de escopo). Padrões Mode 2 (de F3): verifier in-worktree pode dar falso-fail `spawnSync EPERM` se o teste spawna node/git → adjudicar no MERGED primary; merge-back via commit-no-worktree + `git merge --ff-only`.
-- **Uncommitted changes:** F4 initiative (T-001 done + rollups + nextAction + handoff) + `.atomic-skills/analytics/completions.jsonl` (evento task-done T-001) + `.atomic-skills/status/dispatch-log.json` (telemetria T-001) — serão commitados neste snapshot. T-001 source (3 files) já em `003b526`.
+- **Narrative:** F4 ativa, **2/3 tasks** (T-001 + T-002 DONE via Codex Mode 2). T-002 (actuals de task via dispatch-log) implementada por Codex no worktree `codex/f4-t002`, merge `--ff-only` (`e7dc3ab→5f0ce6f`), verifier VERDE no MERGED primary (6 pass, exit 0), 0 regressão (34/34 conjunto append-completion), worktree desmontado. Dogfood E2E: o task-done de T-002 auto-carregou actuals do dispatch-log. Resta SÓ T-003. 9 lições dispositionadas (bloco `## Decisions`).
+- **Decision log:** T-001 + T-002 entregues conforme design settled, revisados (diff fiel, escopo limpo, testes não-circulares, graceful coberta). **DECISÃO ABERTA antes de T-003 — F1/L-001 (escopo):** adicionar `closedAt`+`lastUpdated` ao `tasks.required` de `meta/schemas/aideck-state.schema.json` está FORA dos Files declarados de T-003 (que lista plan.schema.json + assets/aideck-consumer/schema.json + validate-state). É um hardening da PROJEÇÃO emitida, distinto do hard-gate do GATE-R2 sobre o tracker `.md` que T-003 faz. Surfaçar ao usuário (incluir em T-003 / task emergente separada / pular) ANTES de despachar — não alargar em silêncio.
+- **T-003 SPEC (source.md:190-195):** campo persistido `closedAtHardening { enforcedFrom: isoTimestamp, grandfatheredTaskIds: [string] }` opcional no plan.schema.json; checkMetInvariant (validate-state.js:364-399) exige closedAt p/ toda task done cujo id NÃO esteja em grandfatheredTaskIds; flip via script `scripts/harden-closedat.js` (idempotente, computa grandfatheredTaskIds = done vivas sem closedAt no instante do flip, grava enforcedFrom=now, NUNCA inventa closedAt — P3). Files: scripts/validate-state.js, scripts/harden-closedat.js, meta/schemas/plan.schema.json, assets/aideck-consumer/schema.json, tests/validate-state.test.js, tests/harden-closedat.test.js. Verifier: `node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`.
+- **Single nextAction:** Surfaçar a decisão F1/L-001 ao usuário (AskUserQuestion). Depois settlar o design de T-003 e despachar (Codex DEFAULT se spec-ready; é multi-file mas design settled pela SPEC). Após T-003 → phase-done F4 com review `--mode=both` (design-brief-SoT/L-001) + distill lessons.
+- **Verbatim state:** HEAD primary `5f0ce6f` (T-002) — será atualizado pelo commit deste snapshot. currentPhase=F4, tasksDone 2/3. T-003 verifier acima. Gate F4/G-1: `node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js`. routing.json mode2 ON; codex-cli 0.141.0. Suíte: 913 pass / 8 fail PRÉ-EXISTENTES (install/countSkills — drift skills-restructuring, fora de escopo). Padrões Mode 2: merge-back via commit-no-worktree + `git merge --ff-only`; re-verificar no MERGED primary; tests que spawnam node/git podem dar EPERM no sandbox → adjudicar no primary.
+- **Uncommitted changes:** F4 initiative (T-002 done + rollups 2/3 + nextAction + handoff) + `.atomic-skills/analytics/completions.jsonl` (evento task-done T-002 c/ actuals) + `.atomic-skills/status/dispatch-log.json` (telemetria T-002) — serão commitados neste snapshot. T-002 source (2 files) já em `5f0ce6f`.
 
 ## Links
 
