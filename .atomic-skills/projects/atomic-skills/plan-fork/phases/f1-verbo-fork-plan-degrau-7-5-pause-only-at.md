@@ -172,6 +172,13 @@ _(record decisions here as they are made)_
 
 _(plan doc, external refs)_
 
+## Self-review against gates (implement — F1 implementation)
+
+- G1 read-before-claim: applied — cada task fechada carrega o run real do seu verifier (`grep … → exit 0`) no `evidence.outputSummary`, e o procedure cita os helpers da F0 por nome lido do source (`buildAdjacency`/`wouldCreateCycle` em `src/spawn-graph.js`, `setSpawnedFrom`/`addSpawnedPlan` em `src/links-sidecar.js`).
+- G2 soft-language: applied — nenhuma das claims de conclusão usa should/probably/works; cada task é `done` com `evidence.passed: true`; handoff varrido pela ban list.
+- G6 reference-or-strike: applied — literais do handoff são paths/commands/erros verbatim (verifier de fase colado, regressão do heading nomeada com o commit que a causou).
+- Nota (regressão own-goal): o commit T-001 droppou o heading `## Why provenance + context live on the item itself`; corrigido na árvore antes do commit de T-004. Candidato a lesson no phase-done (um Edit que substitui um heading-anchor precisa re-anexar o anchor).
+
 ## Session handoff
 
 - **Narrative:** F1 com as 4 tasks FECHADAS (4/4), cada uma via seu verifier real (exit 0) com `evidence.passed: true`; `validate-state` ✓. O degrau 7.5 está implementado: a seção `## \`fork-plan …\` (rung 7.5)` em `skills/shared/project-assets/project-emergence.md` (arg-parse --from/--mode/--task; step 3 cycle-check via `buildAdjacency`+`wouldCreateCycle` de `src/spawn-graph.js` ANTES do ratify; step 4 ratify gate; step 5 write no sidecar via `setSpawnedFrom`/`addSpawnedPlan` só após ratify; subseção `Mode semantics` com pause completo + parallel REJEITADO até F2), e a ladder 7.5 + dispatch `fork-plan` em `skills/core/project.md`. A fase está `active` aguardando `phase-done` (NÃO auto-rodado — intrusive-actions rule).
