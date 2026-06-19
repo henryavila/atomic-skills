@@ -24,13 +24,13 @@ conventional default → the product anti-pattern).
 
 ## DEFINE / DECIDE table (what the prompt fixes vs what the agent chooses)
 
-| The prompt DEFINEs (binding) | The agent DECIDEs (form) |
+| The prompt DEFINEs (binding) | The agent DECIDEs / may improve |
 |---|---|
-| Interaction behaviour with concrete values (R2) | Which widget, layout, control |
-| Human × system ownership; what stays hidden | Colour, radius, shadow, spacing, typography |
-| Forbidden anti-patterns on risky screens (R6) | Visual hierarchy and styling |
-| Measurable visual constraints (e.g. WCAG 2.2) | The visual solution that satisfies them |
-| Which screens/states exist, in mobile/desktop + light/dark | The visual treatment of each |
+| The interaction **band** (R2) — pace/count/length/modality as behavioural essence | The **exact layer-2 value within the band** — current calibration, improvable |
+| Intent-corroborated invariants as **R6 guardrails** (forbidden anti-patterns) | The **literal copy** — a mutable texture lane (the speech-act binds, the words don't) |
+| Human × system ownership; what stays hidden | Which widget, layout, control |
+| Measurable visual constraints (e.g. WCAG 2.2) | Colour, radius, shadow, spacing, typography |
+| Which screens/states exist, in mobile/desktop + light/dark | Visual hierarchy, styling, and the visual solution/treatment |
 
 A visual **requirement** becomes a **measurable constraint** (e.g. "contrast ≥ 4.5:1"), never
 a visual **solution** ("use a grey #767676 label").
@@ -59,6 +59,11 @@ Generation is done only when, for **each** interactive screen:
 - [ ] **Names the forbidden anti-pattern** where the agent's default would collide with the product.
 - [ ] Passed the **omission audit** (R3): no load-bearing parameter left out.
 - [ ] Does **not** name a widget or describe visual form (colour/border/shadow/spacing).
+- [ ] **No mechanics constant** (px, axis-lock, debounce-ms) **or literal copy is emitted as a
+      requirement** — mechanics stay out of R2 (mining filter); literal copy is a mutable
+      texture lane, not a binding value.
+- [ ] **Every layer-2 value is calibration-with-band** (R9) **or traces product intent** (an R6
+      guardrail when corroborated) — never a frozen raw number.
 - [ ] **Real fixtures pulled from a real source** (in-repo / local DB / read-only API / operator
       export), generated **state-aware** (cardinality + edge rows), texture preserved. A few
       inline examples ≠ fixtures; synthetic only if every real source genuinely failed **and**

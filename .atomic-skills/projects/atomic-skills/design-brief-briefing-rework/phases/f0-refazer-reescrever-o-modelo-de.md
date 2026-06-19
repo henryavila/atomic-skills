@@ -10,12 +10,12 @@ goal: aplicar D3–D9 em design-brief.md, nos quatro assets de design-brief-asse
 status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T14:43:32.082Z
-nextAction: "Start T-005: Alinhar o §6 checklist e a tabela DEFINE/DECIDE ao
-  novo modelo; validate-skills verde"
+lastUpdated: 2026-06-19T14:46:17.079Z
+nextAction: Última task da F0 fechada (5/5). Rodar phase-done para verificar os
+  exit gates F0-G1/F0-G2 + review gate e avançar para F1.
 parentPlan: design-brief-briefing-rework
 phaseId: F0
-tasksDone: 4
+tasksDone: 5
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
@@ -182,8 +182,9 @@ tasks:
       validate-skills verde
     summary: Alinha o checklist §6 e a tabela DEFINE/DECIDE ao novo modelo; valida o
       schema da skill.
-    status: pending
-    lastUpdated: 2026-06-19T09:32:41.374Z
+    status: done
+    closedAt: 2026-06-19T14:46:17.079Z
+    lastUpdated: 2026-06-19T14:46:17.079Z
     description: Edita o §6 checklist e a tabela DEFINE/DECIDE do anti-contamination
       e design-brief.md para refletir D3–D8, e confirma que o schema da skill
       segue válido.
@@ -200,6 +201,15 @@ tasks:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T14:46:17.079Z
+      passed: true
+      exitCode: 0
+      outputSummary: VALIDATE_EXIT=0 — '✓ All 15 skills valid (schema_version 0.2)';
+        §6 ganhou os itens de mecânica/copy-nunca-requisito + camada-2
+        calibração-com-banda/intenção, tabela DEFINE/DECIDE alinhada (banda
+        binds; valor exato e copy literal do lado do agente)
 parked: []
 emerged: []
 planTitle: design-brief — repensar o modelo de autoridade do briefing
@@ -218,14 +228,15 @@ Initiative for phase **F0 — Refazer (reescrever o modelo de autoridade)**.
 - **T-002 (D4, D5):** preâmbulo R9 do `screens-prompt.md` + texto R9 do spec divididos em **duas autoridades** (camada-3 vinculante; camada-2 = calibração atual com band-pin: banda vincula, valor exato ~8s melhorável); §4 Modelo de interação manda declarar banda + valor-como-calibração. Carimbo único de "tudo vinculante" removido. Verifier PASS (exit 0); de quebra o gate F0-G2 já passa.
 - **T-003 (D6, D7):** spec `three-layer-briefing.md` ganhou em R2 a **cláusula de proveniência** (presença no código = atual/referência; invariante exige **corroboração da intenção de produto**) e em R6 a regra de **roteamento de invariantes de camada-2 → guardrail R6** (as ~3 expressões viram guardrail "proibido 4º nível com +N dias", não número cru), com item de eco no §6. Verifier PASS (exit 0).
 - **T-004 (D8 + Q-D8):** `fixtures-recipe.md` ganhou a seção **Copy lane** (copy literal = textura real porém **mutável**, set `copy (mutable)`, palavras editáveis; o que vincula é o ato-de-fala em R4); R4 do `screens-prompt.md` manda **substituir copy literal pelo ato-de-fala** e tratá-la como textura. Verifier PASS (exit 0).
+- **T-005 (D3–D8):** `anti-contamination.md` — tabela DEFINE/DECIDE realinhada (DEFINE = banda R2 + invariantes corroborados como guardrail R6 + ownership humano×sistema; DECIDE/may-improve = valor exato dentro da banda + copy literal mutável + forma) e §6 checklist ganhou os dois itens (nenhuma constante de mecânica/copy literal como requisito; todo valor de camada-2 é calibração-com-banda ou rastreia intenção). Tabela de três camadas intocada. Verifier PASS (`npm run validate-skills` exit 0, 15 skills válidas).
 
 ## Session handoff
 
-- **Narrative:** Fase F0 (Refazer o modelo de autoridade). T-001…T-004 fechados com verifier PASS; 4/5 tasks. O gate F0-G2 já passa de fato (axis-lock no spec + calibra no screens-prompt). Mid-flight: nenhum — falta só T-005 (alinhar §6 checklist + tabela DEFINE/DECIDE; rodar validate-skills) que é o último da F0 e fecha a fase.
-- **Decision log:** (1) trabalho R8 órfão commitado em separado (`b32ada5`) antes da F0; (2) commit por-task; (3) preâmbulo R9 escrito como bloco emit-verbatim em pt-BR (idioma de saída canônico, espelha o R9 pt-BR do spec) — instrução do esqueleto segue em inglês.
-- **Single nextAction:** Start T-005 — editar o §6 checklist + a tabela DEFINE/DECIDE do `anti-contamination.md` e `design-brief.md` para refletir D3–D8 (constante de mecânica/copy literal nunca como requisito; todo valor de camada-2 é calibração-com-banda ou rastreia intenção) e confirmar `npm run validate-skills` verde.
-- **Verbatim state:** verifier T-004 `grep -qi 'copy' skills/shared/design-brief-assets/fixtures-recipe.md && grep -q 'ato-de-fala' skills/shared/design-brief-assets/screens-prompt.md` → EXIT=0. `node scripts/validate-state.js .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f0-refazer-reescrever-o-modelo-de.md` → ✓ All 1 file(s) valid.
-- **Uncommitted changes:** clean tree (T-004 prestes a ser commitado).
+- **Narrative:** Fase F0 (Refazer o modelo de autoridade) com **as 5 tasks fechadas (5/5)**, cada uma com verifier PASS e evidence GATE-R2. Última task (T-005) fechou agora → fronteira de fase: falta rodar **phase-done** (verificar exit gates F0-G1 `validate-skills` + F0-G2 `axis-lock`/`calibra`, rodar o review gate `review-code` do diff da fase, e avançar para F1). Não rodei phase-done — é opt-in do operador.
+- **Decision log:** (1) trabalho R8 órfão commitado em separado (`b32ada5`) antes da F0; (2) commit por-task; (3) preâmbulo R9 como bloco emit-verbatim em pt-BR (idioma de saída canônico, espelha o R9 pt-BR do spec) — instrução do esqueleto em inglês; (4) T-005 ficou só em `anti-contamination.md` (design-brief.md não tem §6 nem tabela DEFINE/DECIDE; o scopeBoundary limita às duas estruturas).
+- **Single nextAction:** Rodar `phase-done` da F0 (verificar F0-G1/F0-G2 + review gate do diff `<commit-antes-do-started>..HEAD`, distilar lessons, gravar `reviewGate` no plan.md, avançar `currentPhase` para F1) — após o operador confirmar.
+- **Verbatim state:** verifier T-005 `npm run validate-skills` → `VALIDATE_EXIT=0` / `✓ All 15 skills valid (schema_version 0.2)`. Gates da F0: F0-G1 `npm run validate-skills` (exit 0 ✓ de fato), F0-G2 `grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md && grep -qi 'calibra' skills/shared/design-brief-assets/screens-prompt.md` (exit 0 ✓ de fato) — ambos a carimbar formalmente no phase-done.
+- **Uncommitted changes:** clean tree (T-005 prestes a ser commitado).
 
 ## Links
 
