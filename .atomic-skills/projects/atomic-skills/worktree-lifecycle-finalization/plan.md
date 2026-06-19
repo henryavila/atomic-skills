@@ -584,11 +584,23 @@ phases:
             terminal, BLOQUEIA alvo≠focus-sem-confirmação, WARN nos irmãos
             não-arquivados; detector de regressão de status advisory;
             puro/never-throws (fail-closed na dúvida); suite verde.
-          status: pending
+          status: met
+          metAt: 2026-06-19T17:40:43Z
           verifier:
             kind: test
             runner: node
             pattern: tests/finalize-plan-scope.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-06-19T17:40:43Z
+            exitCode: 0
+            testsCollected: 16
+            passed: true
+            outputSummary: "node --test tests/finalize-plan-scope.test.js @ b0ccbf5
+              (phase-done): tests 16, pass 16, fail 0, exit 0. resolveFinalizePlanScope
+              (classifica target/other-active/archived-unmerged, BLOCK não-terminal +
+              alvo≠focus-sem-confirm, WARN de irmãos) + detectPlanStatusRegression
+              (advisory) puros/never-throws/fail-closed."
         - id: G-2
           description: >-
             project-finalize.md documenta o guard plan-aware (passo pré-publish:
@@ -596,10 +608,21 @@ phases:
             verificação de existência do integrationRef (inclui source:default),
             e o detect+WARN advisory de regressão de status no merge (reusa a lane
             do F4); skills válidos.
-          status: pending
+          status: met
+          metAt: 2026-06-19T17:40:43Z
           verifier:
             kind: shell
             command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T17:40:43Z
+            exitCode: 0
+            passed: true
+            outputSummary: "grep -qi 'plan-aware' (2) && grep -qi 'finalize-plan-scope'
+              (4) em project-finalize.md && npm run validate-skills → All 15 skills valid,
+              exit 0 @ b0ccbf5. Step 1.6 documenta o guard determinístico + Step 1 a
+              existence-check do integrationRef (source:default) + o detect+WARN advisory
+              de regressão (reusa a lane do F4)."
     status: active
     summary: >-
       Finalize correto sob branch multi-plano: alvo explícito + terminal, WARN de
