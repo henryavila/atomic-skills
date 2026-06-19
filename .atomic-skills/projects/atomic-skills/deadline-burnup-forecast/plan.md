@@ -7,7 +7,7 @@ status: active
 started: 2026-06-17T12:06:57.781Z
 lastUpdated: 2026-06-19T09:20:00Z
 branch: plan/deadline-burnup-forecast
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -140,7 +140,7 @@ phases:
             passed: true
             exitCode: 0
             outputSummary: "G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0 fail, exit 0"
-    status: pending
+    status: done
     reviewGate:
       status: passed
       at: ee960c9
@@ -170,7 +170,7 @@ phases:
             kind: shell
             command: node --test tests/emit-series.test.js && node --test
               tests/refresh-state.test.js
-    status: pending
+    status: active
     summary: Computa a série earned-vs-planejada e o SPI contra o deadline,
       recomputada no refresh-state.
   - id: F4

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T12:35:18.490Z",
+  "generatedAt": "2026-06-19T12:53:38.766Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F2",
-    "slug": "deadline-burnup-forecast-f2-peso-por-task-proxy-estrutural-roll",
-    "title": "Peso por task: proxy estrutural + rollups",
-    "index": 3,
+    "id": "F3",
+    "slug": "deadline-burnup-forecast-f3-serie-earned-vs-planned-deadline-wi",
+    "title": "Série earned-vs-planned + deadline + wiring de recompute",
+    "index": 4,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 3,
+    "done": 0,
     "total": 3,
     "blocked": 0
   },
   "gates": {
-    "met": 1,
+    "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: — Campo weight no schema da task + rebuild do bundle",
+  "nextAction": "Start T-001: — Campo deadline no plano + rebuild do bundle",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -35,8 +35,8 @@
       "lastUpdated": "2026-06-19T09:20:00Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f2-peso-por-task-proxy-estrutural-roll.md",
-      "lastUpdated": "2026-06-19T11:20:50Z"
+      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f3-serie-earned-vs-planned-deadline-wi.md",
+      "lastUpdated": "2026-06-19T12:50:33Z"
     }
   ]
 }

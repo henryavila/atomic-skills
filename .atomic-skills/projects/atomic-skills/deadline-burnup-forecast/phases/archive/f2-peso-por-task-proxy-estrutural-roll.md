@@ -6,11 +6,11 @@ goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo
   modelo no Stage 6 da decomposição (prosa, como os summaries; NUNCA por
   src/decompose.js congelado) de sinais estruturais e auditor-enforced, com
   rollups weightDone/weightTotal espelhando tasksDone/tasksTotal.
-status: active
+status: done
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T11:20:50Z
-lastUpdated: 2026-06-19T11:20:50Z
-nextAction: "Start T-001: — Campo weight no schema da task + rebuild do bundle"
+lastUpdated: 2026-06-19T12:50:33Z
+nextAction: null
 parentPlan: deadline-burnup-forecast
 phaseId: F2
 tasksDone: 3

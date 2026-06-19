@@ -5,10 +5,10 @@ title: Série earned-vs-planned + deadline + wiring de recompute
 goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs
   linha planejada linear) e o SPI no emit, e ligar o recompute ao refresh-state
   (fechando o gap em que ele só chama emitFocus).
-status: pending
+status: active
 branch: plan/deadline-burnup-forecast
-started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T12:06:57.781Z
+started: 2026-06-19T12:50:33Z
+lastUpdated: 2026-06-19T12:50:33Z
 nextAction: "Start T-001: — Campo deadline no plano + rebuild do bundle"
 parentPlan: deadline-burnup-forecast
 phaseId: F3
@@ -52,6 +52,7 @@ summary: Computa a série earned-vs-planejada e o SPI contra o deadline,
   recomputada no refresh-state.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
+current: true
 ---
 
 # Narrative / notes
