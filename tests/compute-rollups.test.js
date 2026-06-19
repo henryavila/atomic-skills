@@ -38,6 +38,22 @@ describe('rollupsFor', () => {
     assert.equal(rollups.weightDone, rollups.tasksDone);
     assert.equal(rollups.weightTotal, rollups.tasksTotal);
   });
+
+  it('defaults non-finite and negative weights to 1 (rejects NaN, Infinity, negatives)', () => {
+    const rollups = rollupsFor({
+      tasks: [
+        { id: 'T-1', status: 'done', weight: NaN },        // → 1
+        { id: 'T-2', status: 'done', weight: Infinity },   // → 1 (Infinity would serialize as null and break the schema)
+        { id: 'T-3', status: 'done', weight: -5 },         // → 1
+        { id: 'T-4', status: 'pending', weight: 2 },       // → 2
+      ],
+      exitGates: [],
+    });
+
+    assert.equal(rollups.weightDone, 3, 'three done tasks each clamp to 1');
+    assert.equal(rollups.weightTotal, 5, '1 + 1 + 1 + 2');
+    assert.ok(Number.isFinite(rollups.weightTotal), 'weightTotal stays finite');
+  });
 });
 
 describe('computeRollupsFile', () => {

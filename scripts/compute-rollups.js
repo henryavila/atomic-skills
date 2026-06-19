@@ -32,7 +32,9 @@ const ROLLUP_KEYS = ['tasksDone', 'tasksTotal', 'gatesMet', 'gatesTotal', 'weigh
 export function rollupsFor(fm) {
   const tasks = Array.isArray(fm.tasks) ? fm.tasks : [];
   const gates = Array.isArray(fm.exitGates) ? fm.exitGates : [];
-  const weightOf = (t) => (typeof t?.weight === 'number' && t.weight >= 0 ? t.weight : 1);
+  // Finite + non-negative: rejects NaN/±Infinity (Infinity would serialize as null
+  // via JSON.stringify and break the consumer schema's `type: number`) and negatives.
+  const weightOf = (t) => (Number.isFinite(t?.weight) && t.weight >= 0 ? t.weight : 1);
   return {
     tasksDone: tasks.filter((t) => t && t.status === 'done').length,
     tasksTotal: tasks.length,
