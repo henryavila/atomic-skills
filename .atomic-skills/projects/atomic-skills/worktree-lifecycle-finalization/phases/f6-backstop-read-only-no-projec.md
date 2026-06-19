@@ -7,10 +7,10 @@ goal: adicionar um 9º check read-only ao `project verify` (após os 8 atuais) q
   plano e sinaliza em WARN os órfãos do modelo PR→develop (worktree viva de
   feature já mergeada; branch de plano arquivado nunca PR-ada ou PR aberto e
   nunca mergeado); o classificador topology-aware auto-ordenador fica DEFERIDO.
-status: pending
+status: active
 branch: plan/worktree-lifecycle-finalization
-started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-16T22:50:35.627Z
+started: 2026-06-17T21:15:00Z
+lastUpdated: 2026-06-17T21:15:00Z
 nextAction: "Start T-001: Check #9 de backstop de órfãos PR→develop"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F6
@@ -83,6 +83,7 @@ emerged: []
 summary: 9º check read-only no project verify avisa (WARN) órfãos do modelo PR→develop.
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
+current: true
 ---
 
 # Narrative / notes

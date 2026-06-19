@@ -7,40 +7,56 @@ goal: conter com o mínimo o coupling do tree `.atomic-skills/` entre feature-PR
   carve-out explícito ao "tree versionado", e os JSON append-only de `status/*`
   ganham `.gitattributes merge=union`; a partição estrutural fica como plano
   separado.
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T20:30:00Z
-lastUpdated: 2026-06-17T20:30:00Z
-nextAction: "PHASE BOUNDARY — F5 task 1/1 DONE (gates 0/2 pending, resolvem no
-  phase-done). Próximo (operator-prompted, NÃO auto-rodar): phase-done F5 — roda
-  exit-gates G-1 (grep merge=union + node --test dispatch-log-merge-union +
-  round-trip) + G-2 (validate-skills), review-code --mode=both no diff da fase,
-  distila lessons, grava reviewGate no plan.md e avança currentPhase F5→F6."
+lastUpdated: 2026-06-17T21:15:00Z
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F5
 tasksDone: 1
 tasksTotal: 1
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
     description: focus.json ignorado (já satisfeito) + dispatch-log.json em NDJSON com
       merge=union PROVADO (check-attr + union-merge lossless), pontuais não-unidos;
       round-trip install/uninstall verde com focus.json não-rastreado.
-    status: pending
+    status: met
+    metAt: 2026-06-17T21:00:00Z
     verifier:
       kind: shell
       command: grep -q 'focus.json' .gitignore && grep -qi 'merge=union'
         .gitattributes && node --test tests/dispatch-log-merge-union.test.js &&
         node --test tests/install-uninstall-roundtrip.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T21:00:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Full chain exit 0 @ 9bde0c9: grep focus.json + grep merge=union +
+        node --test dispatch-log-merge-union (3/3: wired strictEqual('union'),
+        pointwise-not-union, NDJSON union lossless) + round-trip 4/4; check-attr prova
+        dispatch-log→union, last-review→unspecified."
     verifierLabel: "shell: grep merge=union .gitattributes && node --test …merge-union + roundtrip"
+    evidenceSummary: passed · 2026-06-17
   - id: G-2
     description: Suite e skills válidos após o carve-out.
-    status: pending
+    status: met
+    metAt: 2026-06-17T21:00:00Z
     verifier:
       kind: shell
       command: npm run validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T21:00:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "npm run validate-skills → All 15 skills valid (0.2), exit 0 @
+        9bde0c9 (§9 NDJSON edit válido)."
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-06-17
 stack:
   - id: 1
     title: Coupling interim de .atomic-skills/ (Decisão 5)
@@ -113,7 +129,7 @@ summary: "Contém o coupling de .atomic-skills: focus.json ignorado + status/*
   com merge=union."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes

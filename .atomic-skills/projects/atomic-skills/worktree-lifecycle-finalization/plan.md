@@ -5,9 +5,9 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T21:00:00Z
+lastUpdated: 2026-06-17T21:15:00Z
 branch: plan/worktree-lifecycle-finalization
-currentPhase: F5
+currentPhase: F6
 parallelismAllowed: false
 principles:
   - id: P1
@@ -388,19 +388,44 @@ phases:
           description: focus.json ignorado (já satisfeito) + dispatch-log.json em
             NDJSON com merge=union PROVADO (check-attr + union lossless); pontuais
             não-unidos; round-trip install/uninstall verde com focus.json não-rastreado.
-          status: pending
+          status: met
+          metAt: 2026-06-17T21:00:00Z
           verifier:
             kind: shell
             command: grep -q 'focus.json' .gitignore && grep -qi 'merge=union'
               .gitattributes && node --test tests/dispatch-log-merge-union.test.js
               && node --test tests/install-uninstall-roundtrip.test.js
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T21:00:00Z
+            exitCode: 0
+            passed: true
+            outputSummary: "Full chain exit 0 @ 9bde0c9: grep focus.json (.gitignore) +
+              grep merge=union (.gitattributes) + node --test dispatch-log-merge-union
+              (3/3: wired/strictEqual('union'), pointwise-not-union, NDJSON union
+              lossless) + round-trip 4/4. git check-attr prova dispatch-log→union,
+              last-review→unspecified."
         - id: G-2
           description: Suite e skills válidos após o carve-out.
-          status: pending
+          status: met
+          metAt: 2026-06-17T21:00:00Z
           verifier:
             kind: shell
             command: npm run validate-skills
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-17T21:00:00Z
+            exitCode: 0
+            passed: true
+            outputSummary: "npm run validate-skills → All 15 skills valid (schema_version
+              0.2), exit 0 @ 9bde0c9 (mode2-codex-lane.md §9 NDJSON edit válido)."
+    status: done
+    reviewGate:
+      status: passed
+      at: 9bde0c93b72f990a41bf7d1948d3b7916faea4e9
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-17-2100-wlf-f5-coupling-ndjson-union.md
+      verifiedAt: 2026-06-17T21:00:00Z
     summary: "Contém o coupling de .atomic-skills: focus.json ignorado + status/*
       com merge=union."
   - id: F6
