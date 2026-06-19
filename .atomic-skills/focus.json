@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T16:38:15.075Z",
+  "generatedAt": "2026-06-19T17:44:52.483Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -8,15 +8,15 @@
     "status": "active"
   },
   "phase": {
-    "id": "F3",
-    "slug": "deadline-burnup-forecast-f3-serie-earned-vs-planned-deadline-wi",
-    "title": "Série earned-vs-planned + deadline + wiring de recompute",
-    "index": 4,
+    "id": "F4",
+    "slug": "deadline-burnup-forecast-f4-geracao-de-dados-de-calibracao-endu",
+    "title": "Geração de dados de calibração + endurecer closedAt",
+    "index": 5,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 3,
+    "done": 0,
     "total": 3,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Dispatch Codex (Mode 2) para T-003 (ligar emit-consumer-state ao refresh-state, ADITIVO, sem regredir rollups/reconcile/emitFocus) em novo worktree; merge-back serial; re-verificar no primary: node --test tests/refresh-state.test.js. É o ÚLTIMO task de F3 → ao fechar, oferecer phase-done (review gate; considerar --mode=both por L-001 design-brief, F3 add $defs de schema).",
+  "nextAction": "Start T-001: — Actuals de fase no evento phase-done",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md",
-      "lastUpdated": "2026-06-19T09:20:00Z"
+      "lastUpdated": "2026-06-19T17:29:17Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f3-serie-earned-vs-planned-deadline-wi.md",
-      "lastUpdated": "2026-06-19T16:31:18Z"
+      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f4-geracao-de-dados-de-calibracao-endu.md",
+      "lastUpdated": "2026-06-19T17:29:17Z"
     }
   ]
 }

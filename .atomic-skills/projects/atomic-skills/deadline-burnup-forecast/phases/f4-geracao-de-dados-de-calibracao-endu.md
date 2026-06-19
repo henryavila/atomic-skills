@@ -5,10 +5,10 @@ title: Geração de dados de calibração + endurecer closedAt
 goal: "gravar os actuals crus por conclusão (calibração: só geração, tratamento
   depois) e promover closedAt de soft para hard no GATE-R2 quando a lacuna de
   instrumentação chegar perto de zero."
-status: pending
+status: active
 branch: plan/deadline-burnup-forecast
-started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-17T17:01:39Z
+started: 2026-06-19T17:29:17Z
+lastUpdated: 2026-06-19T17:29:17Z
 nextAction: "Start T-001: — Actuals de fase no evento phase-done"
 parentPlan: deadline-burnup-forecast
 phaseId: F4
@@ -56,6 +56,7 @@ summary: Grava os actuals crus por conclusão (calibração futura) e endurece
   closedAt forward-only.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
+current: true
 ---
 
 # Narrative / notes

@@ -5,19 +5,16 @@ title: Série earned-vs-planned + deadline + wiring de recompute
 goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs
   linha planejada linear) e o SPI no emit, e ligar o recompute ao refresh-state
   (fechando o gap em que ele só chama emitFocus).
-status: active
+status: done
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T12:50:33Z
-lastUpdated: 2026-06-19T16:37:53Z
-nextAction: "F3 3/3 tasks done — rodar phase-done (opt-in): gate G-1 verifier
-  (emit-series + refresh-state) → met+evidence; review-code no diff da fase
-  (considerar --mode=both por L-001 design-brief, F3 add $defs de schema);
-  distilar lições; gravar reviewGate no plan.md; advance F3→F4."
+lastUpdated: 2026-06-19T17:29:17Z
+nextAction: null
 parentPlan: deadline-burnup-forecast
 phaseId: F3
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -25,12 +22,21 @@ exitGates:
   - id: G-1
     description: a série earned-vs-planned + SPI é emitida e recomputada
       automaticamente pelo refresh-state, com deadline no schema.
-    status: pending
+    status: met
+    metAt: 2026-06-19T17:29:17Z
     verifier:
       kind: shell
       command: node --test tests/emit-series.test.js && node --test
         tests/refresh-state.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T17:29:17Z
+      passed: true
+      exitCode: 0
+      outputSummary: G-1 2-test chain on reviewed+remediated HEAD 12edc01 —
+        emit-series 2 + refresh-state 2 = 4 pass, 0 fail, exit 0.
     verifierLabel: "shell: node --test tests/emit-series.test.js && node --test tests/…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Série earned-vs-planned + deadline + wiring de recompute
@@ -131,3 +137,16 @@ Initiative for phase **F3 — Série earned-vs-planned + deadline + wiring de re
 - plan: `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md`
 - source (SPEC F3): `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/source.md` (seção F3, ~linha 136)
 - lições aplicáveis: `node scripts/list-lessons.js --phase F3`
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks closed, each with `evidence` linking the verifier run on the MERGED primary (T-001 @228acbe, T-002 @90b4366, T-003 @6844e95); review fixes verified against pasted source lines + test runs.
+- **G2 soft-language**: completion claims are `passed: true` evidence (verifier exit 0 + testsCollected), not should/probably/works; handoff narrative scanned.
+- **G6 reference-or-strike**: gate G-1 `met` with `evidence` (HEAD 12edc01); reviewGate recorded `{status: passed, at: 12edc01, mode: both}`.
+- **Codex review**: ran via review-code `--mode=both` at HEAD 12edc01, verdict needs_changes→all blocker/critical resolved; local 0B/1C/2M/2m + codex final 0B/0C/1M/2m; file `.atomic-skills/reviews/2026-06-19-1721-code-deadline-burnup-forecast-f3.md`. The cross-model pass caught a disjoint major (F-003) the local missed.
+- **Review gate (G2)**: `reviewGate: {status: passed, at: 12edc01, mode: both, reviewFile}` on the F3 descriptor (GATE-R3); prose ↔ field agree.
+- **Lessons (G1)**: distilled 2 reusable lessons into `lessons/deadline-burnup-forecast-f3-…md` (L-001 filter-by-event-kind → F4; L-002 self-sufficient data source → F5), ratified by the operator.
+
+## Execution mode note (Mode 2 — Codex lane)
+
+All 3 tasks executed by OpenAI Codex (Mode 2, workspace-write worktrees `codex/f3-t00{1,2,3}`), Opus planned + reviewed + adjudicated on the merged primary (R-EXEC-28). One CRITICAL (a spec bug in the work-order: phase-done double-count) + 2 majors found by the local review and 1 major by the codex cross-model pass — all remediated by Opus (Mode 1) before the gate closed. Telemetry: `dispatch-log.json` (3 F3 records).

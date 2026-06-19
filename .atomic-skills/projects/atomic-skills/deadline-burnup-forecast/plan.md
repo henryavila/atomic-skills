@@ -5,9 +5,9 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-19T09:20:00Z
+lastUpdated: 2026-06-19T17:29:17Z
 branch: plan/deadline-burnup-forecast
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -165,12 +165,27 @@ phases:
         - id: G-1
           description: a série earned-vs-planned + SPI é emitida e recomputada
             automaticamente pelo refresh-state, com deadline no schema.
-          status: pending
+          status: met
+          metAt: 2026-06-19T17:29:17Z
           verifier:
             kind: shell
             command: node --test tests/emit-series.test.js && node --test
               tests/refresh-state.test.js
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T17:29:17Z
+            passed: true
+            exitCode: 0
+            outputSummary: "G-1 2-test chain on reviewed+remediated HEAD 12edc01 —
+              emit-series 2 + refresh-state 2 = 4 pass, 0 fail, exit 0; suíte 913
+              pass / 8 fail PRÉ-EXISTENTES."
+    reviewGate:
+      status: passed
+      at: 12edc01
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-19-1721-code-deadline-burnup-forecast-f3.md
+      verifiedAt: 2026-06-19T17:29:17Z
+    status: done
     summary: Computa a série earned-vs-planejada e o SPI contra o deadline,
       recomputada no refresh-state.
   - id: F4
@@ -193,7 +208,7 @@ phases:
           verifier:
             kind: shell
             command: 'node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js'
-    status: pending
+    status: active
     summary: Grava os actuals crus por conclusão (calibração futura) e endurece
       closedAt forward-only.
   - id: F5
