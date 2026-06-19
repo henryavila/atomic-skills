@@ -87,11 +87,11 @@ Initiative for phase **F1 — closedAt forward-only: auditor soft + emissão**.
 - **D3 — Ordem:** T-001 e T-003 são scope-disjuntos (T-001: `scripts/find-unclosed-done.js`+test; T-003: `meta/schemas/aideck-state.schema.json`+bundle) ⇒ worktrees concorrentes permitidos (§2 da lane). T-002 depende de T-003 (`validateAideckState` precisa do bundle já admitindo os campos) ⇒ despachada só após T-003 mergeada. Merge-back sempre serial.
 
 ## Session handoff
-- **Narrative:** F0 fechada/arquivada (gate G-1 met + reviewGate passed em `0c64ed5`). Plano em **F1** (closedAt forward-only). Nenhuma task F1 iniciada ainda; tree limpa em `0c64ed5`. Prestes a despachar Codex para T-001 e T-003.
+- **Narrative:** F1 em andamento, **2/3 tasks done**. T-001 (`find-unclosed-done.js` auditor, via Codex) fechada — verificada no primary `beec974` (4 pass). T-003 (schema `$defs.tasks` admite `closedAt`+`lastUpdated` + bundle rebuild, via Codex) fechada — schema-drift verificado no primary `d55f540` (1 pass). HEAD `8454d16`, tree limpa. Falta só **T-002** (emitir os dois campos na projeção), que dependia de T-003 (agora mergeada). Primeiros 2 eventos `task-done` reais gravados em `completions.jsonl`.
 - **Decision log:** D1 (Mode 2 para as 3), D2 (T-001 ignora `archive/` via scan não-recursivo de `phases/*.md`), D3 (T-001‖T-003 concorrentes → merge serial → T-002). Ver acima.
-- **Single nextAction:** Criar worktrees `/home/henry/atomic-skills/.worktrees/dbf-f1-t-001` (branch `dbf/f1-t-001`) e `dbf-f1-t-003` off `0c64ed5`, despachar Codex em ambos, depois merge serial (T-001 → re-verify → done; T-003 → re-verify → done), depois T-002.
-- **Verbatim state:** verifiers — `node --test tests/find-unclosed-done.test.js` (T-001); `node --test tests/emit-consumer-state.test.js` (T-002); `node --test tests/schema-drift.test.js` (T-003). Bundle regen: `npm run build:aideck-schema` (= `node scripts/build-aideck-consumer-schema.mjs`). Projeção de task: `scripts/emit-consumer-state.js` push em ~L253-268. Schema projeção: `meta/schemas/aideck-state.schema.json` `$defs.tasks` (additionalProperties:false, 12 required, sem closedAt/lastUpdated).
-- **Uncommitted changes:** clean tree (este edit no handoff F1 é a única mudança pendente).
+- **Single nextAction:** Despachar Codex para F1/T-002 em worktree `/home/henry/atomic-skills/.worktrees/dbf-f1-t-002` (branch `dbf/f1-t-002`) off `8454d16`; adicionar `closedAt: t.closedAt ?? null` e `lastUpdated: t.lastUpdated ?? null` ao push de task em `scripts/emit-consumer-state.js`; verify `node --test tests/emit-consumer-state.test.js`; merge → re-verify no primary → `done T-002`.
+- **Verbatim state:** verifier T-002 — `node --test tests/emit-consumer-state.test.js`. Push de task em `scripts/emit-consumer-state.js` (~L253-268), hoje emite id/title/summary/status/blocked/blockedBy/blockedByText. Schema `$defs.tasks` já admite `closedAt`/`lastUpdated` como `["string","null"]` (T-003, commit `d55f540`). Bundle `assets/aideck-consumer/schema.json` regenerado.
+- **Uncommitted changes:** clean tree (este edit no handoff é a única mudança pendente).
 
 ## Links
 
