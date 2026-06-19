@@ -254,11 +254,15 @@
     "spi": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["projectId", "planSlug", "asOf", "spiProxy", "spiCount"],
+      "required": ["projectId", "planSlug", "asOf", "started", "deadline", "weightTotal", "tasksTotal", "spiProxy", "spiCount"],
       "properties": {
         "projectId": { "type": "string" },
         "planSlug": { "type": "string" },
         "asOf": { "type": "string" },
+        "started": { "type": ["string", "null"] },
+        "deadline": { "type": ["string", "null"] },
+        "weightTotal": { "type": "number" },
+        "tasksTotal": { "type": "number" },
         "spiProxy": { "type": ["number", "null"] },
         "spiCount": { "type": ["number", "null"] }
       }

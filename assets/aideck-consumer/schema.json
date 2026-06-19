@@ -1872,6 +1872,10 @@
         "projectId",
         "planSlug",
         "asOf",
+        "started",
+        "deadline",
+        "weightTotal",
+        "tasksTotal",
         "spiProxy",
         "spiCount"
       ],
@@ -1884,6 +1888,24 @@
         },
         "asOf": {
           "type": "string"
+        },
+        "started": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "weightTotal": {
+          "type": "number"
+        },
+        "tasksTotal": {
+          "type": "number"
         },
         "spiProxy": {
           "type": [

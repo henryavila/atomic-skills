@@ -93,11 +93,20 @@ describe('buildSeries', () => {
     const planASpi = spi.find((r) => r.planSlug === 'plan-a');
     assert.equal(planASpi.spiProxy, 1);
     assert.ok(Math.abs(planASpi.spiCount - (1 / 1.5)) < 1e-9);
+    // planned-line params carried on spi.json so the render can draw the planned
+    // baseline (0 → weightTotal over started→deadline) without re-reading frontmatter.
+    assert.equal(planASpi.started, '2026-01-01T00:00:00Z');
+    assert.equal(planASpi.deadline, '2026-01-11T00:00:00Z');
+    assert.equal(planASpi.weightTotal, 10);
+    assert.equal(planASpi.tasksTotal, 3);
 
     assert.ok(planC.every((r) => r.plannedValue === null));
     const planCSpi = spi.find((r) => r.planSlug === 'plan-c');
     assert.equal(planCSpi.spiProxy, null);
     assert.equal(planCSpi.spiCount, null);
+    // plan-c has no deadline → null, but still carries weightTotal for the render.
+    assert.equal(planCSpi.deadline, null);
+    assert.equal(planCSpi.weightTotal, 1);
 
     for (const row of burnup) {
       for (const field of ['plannedValue', 'earnedCount', 'earnedProxy']) {
