@@ -15,8 +15,8 @@ nextAction: "T-004 done (veredito NAO-LIMPO, 1 recaida = A4). Proximo: T-005
   resolve D10 — DECISAO DO OPERADOR (escalar p/ tag R10 vs modelo leve basta)."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
-tasksDone: 4
-tasksTotal: 5
+tasksDone: 5
+tasksTotal: 6
 gatesMet: 0
 gatesTotal: 2
 exitGates:
@@ -189,6 +189,46 @@ tasks:
       kind: shell
       command: test -f
         .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/recurrence-verdict.md
+      expectExitCode: 0
+  - id: T-006
+    title: Corrigir o band-pin de contagens na skill (causa-raiz do A4)
+    summary: Estende a guidance de band-pin (D5) para cobrir contagens/enumeracoes,
+      nao so tempos. Emergente da recaida A4 (T-004), ratificada pelo operador
+      (path C).
+    status: done
+    closedAt: 2026-06-19T17:31:45.000Z
+    lastUpdated: 2026-06-19T17:31:45.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T17:31:45.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — grep 'every quantitative value alike' em
+        design-brief.md. Guidance geral de band-pin para contagens adicionada ao
+        source (design-brief.md) e ao emissor (screens-prompt.md); cobre
+        'timings, counts, lengths' + caveat de roteamento a invariante R6. Sem
+        injetar '3 passos' (sem teaching-to-the-test). validate-skills OK
+        (15/15).
+    description: A skill ja listava counts no escopo de band-pin, mas o unico
+      exemplo de calibracao era tempo (~8s); o gerador cego nao generalizou para
+      a contagem de passos do onboarding (recaida A4). Fix GERAL nos dois
+      emissores que este rework possui, mostrando que toda grandeza (tempo,
+      contagem, comprimento) recebe band-pin, com roteamento a R6 quando ha
+      invariante.
+    scopeBoundary:
+      - Edita skills/core/design-brief.md e
+        skills/shared/design-brief-assets/screens-prompt.md.
+      - Nao edita o spec canonico three-layer-briefing.md (owned por
+        skills-restructuring; coordenacao, nao reescrita).
+      - Nao nomeia '3 passos' como exemplo (evita teaching-to-the-test).
+    outputs:
+      - kind: file
+        path: skills/core/design-brief.md
+      - kind: file
+        path: skills/shared/design-brief-assets/screens-prompt.md
+    verifier:
+      kind: shell
+      command: grep -q 'every quantitative value alike' skills/core/design-brief.md
       expectExitCode: 0
   - id: T-005
     title: Resolver o fork diferido D10 (escalar para a tag se houver sobre-vínculo)

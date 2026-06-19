@@ -80,8 +80,14 @@ Fill the Interaction-model block, per screen, with the values that govern the in
 
 **Mining filter — essence, never mechanics.** What enters the prompt is the **behavioural
 essence** that governs the interaction (pace, count, length, modality, trigger), expressed as
-essence **plus the current calibration** (e.g. "pace on the order of seconds, ~8s in the
-current app"). Implementation **mechanics stay out of R2**: layout `px`/measurements, gesture
+essence **plus the current calibration** — and this covers **every quantitative value alike:
+timings, counts, lengths** (e.g. "pace on the order of seconds, ~8s in the current app";
+**a count is calibration too** — "a starting list of about a dozen items today, improvable" —
+the *current shape*, never a frozen number). A count is band-pinned exactly like a timing
+**unless a product invariant corroborates it** — then it routes to an R6 guardrail (e.g. the
+~3 response levels, where a 4th would break the philosophy), never a bare number. A bare count
+with no corroborating intent (a first-run explainer's step-count, a list's size) is the
+**current shape, improvable**, never a requirement. Implementation **mechanics stay out of R2**: layout `px`/measurements, gesture
 `axis-lock`, raw `debounce`/durations in ms, and **literal copy** (button/label text) are
 incidental to the implementation, not product requirements, and contaminate the prompt if
 shipped as values. *De-inducing a constant:* a swipe handler with `axis-lock: 'x'`, an `80px`

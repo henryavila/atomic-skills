@@ -35,10 +35,14 @@ interaction:
    **current calibration, not a frozen requirement**: state the **behavioural band that binds**
    (e.g. "pace on the order of seconds") **and** the **exact mined value as the current app's
    calibration** (e.g. ~8s), improvable by the design agent within that band — never the bare
-   value as a hard requirement:
+   value as a hard requirement. This holds for **every quantitative value alike — timings,
+   counts, lengths**: a count (steps in a flow, items in a list) is the **current shape,
+   improvable** ("a first-run explainer of a few steps today"), never a frozen number —
+   **unless** a product invariant corroborates it, which routes it to a §5 R6 guardrail, not a
+   bare count:
    - *gesture class* (fast / deliberate / typing), *latency* (instant / sub-second /
      deliberate), *effort* (one hand / thumb), *text density* (very short / verbose),
-     *timings* (pace in seconds, default timers — as cadence, not raw ms), *counts* (how many levels/items),
+     *timings* (pace in seconds, default timers — as cadence, not raw ms), *counts* (how many levels/items/steps — band-pinned as current calibration, not a frozen number, unless a product invariant corroborates → §5),
      *triggers* (only after X), *reversibility* (forgives an accidental touch),
      *parity* (mobile-gesture ↔ desktop-keyboard, equally fast).
    - **Forbidden vocabulary (R4):** never name a button / list / tab / bar / card-UI /
