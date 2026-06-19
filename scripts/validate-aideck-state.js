@@ -71,20 +71,36 @@ export function validateAideckState(dir, { nowMs = FIXED_NOW } = {}) {
   ajv.addSchema(schema);
   const validatorFor = (id) => ajv.getSchema(`${schema.$id}#/definitions/${id}`);
 
+  const errors = [];
   const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
   const tree = readTree(root);
   const state = buildState(tree, nowMs);
 
   // Burn-up/SPI series are emitted by emitConsumerState (not buildState), so add
   // them here too — otherwise the gate would never validate burnup/spi records
-  // against #/definitions/burnup|spi. Mirror the emitter's completions read.
+  // against #/definitions/burnup|spi. Validate each completions line as it is read
+  // (JSON parse + completion-event schema) so a corrupted append-only log FAILS the
+  // gate instead of silently shrinking earned value into a still-green result.
   const logPath = join(root, 'analytics', 'completions.jsonl');
-  let completionLines = [];
+  const completionLines = [];
   if (existsSync(logPath)) {
-    completionLines = readFileSync(logPath, 'utf8').split('\n')
-      .map((s) => s.trim()).filter(Boolean)
-      .map((s) => { try { return JSON.parse(s); } catch { return null; } })
-      .filter(Boolean);
+    readFileSync(logPath, 'utf8').split('\n').forEach((line, i) => {
+      const s = line.trim();
+      if (!s) return;
+      let obj;
+      try {
+        obj = JSON.parse(s);
+      } catch {
+        errors.push({ entity: 'completions', index: i, message: `line ${i + 1}: invalid JSON` });
+        return;
+      }
+      const v = validateCompletionEvent(obj);
+      if (!v.ok) {
+        errors.push({ entity: 'completions', index: i, message: `line ${i + 1}: ${v.errors[0]?.message ?? 'schema-invalid'}` });
+        return;
+      }
+      completionLines.push(obj);
+    });
   }
   Object.assign(state, buildSeries(tree, completionLines, nowMs));
 
@@ -94,7 +110,6 @@ export function validateAideckState(dir, { nowMs = FIXED_NOW } = {}) {
     state.catalog = JSON.parse(readFileSync(CATALOG_JSON, 'utf8'));
   }
 
-  const errors = [];
   for (const [entity, records] of Object.entries(state)) {
     const validate = validatorFor(entity);
     if (!validate) {
