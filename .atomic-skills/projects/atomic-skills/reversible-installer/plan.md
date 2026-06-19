@@ -208,7 +208,7 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 - **atomic-skills NÃO foi religado** ao pacote — a cópia in-repo em `src/kernel/` segue intacta; religar é a F3 reescrita.
 - **`phase-done` de F1 in-repo está SUPERSEDED** — não rodar.
 
-**Próximo passo (NÃO é tarefa de `implement` — é design/plano):** re-escopar **F2** (API de Provider + Driver/CLI, no pacote) e **F3** (atomic-skills depende de `@henryavila/tooling-installer` via link → remove a cópia in-repo → paridade round-trip atravessando a dependência) — fazer COM o usuário (fluxo `project`/`review-plan`), não unilateral. Só depois disso `implement` volta a ter tarefas executáveis. Os goals/exit-gates de F2/F3 no frontmatter abaixo serão reescritos nesse re-escopo.
+**Próximo passo (NÃO é tarefa de `implement` — é design/plano):** re-escopar **F2** (API de Provider + Driver/CLI, no pacote) e **F3** (atomic-skills depende de `@henryavila/tooling-installer` via link → remove a cópia in-repo → paridade round-trip atravessando a dependência) — fazer COM o usuário (fluxo `project`/`review-plan`), não unilateral. Só depois disso `implement` volta a ter tarefas executáveis. Os goals/exit-gates de F2/F3 no frontmatter abaixo serão reescritos nesse re-escopo. **Rascunho de partida para esse re-escopo (decisões abertas marcadas, para crítica do usuário):** [`PROPOSAL-f2-f3-package-first.md`](PROPOSAL-f2-f3-package-first.md).
 
 ## 1. Context
 
