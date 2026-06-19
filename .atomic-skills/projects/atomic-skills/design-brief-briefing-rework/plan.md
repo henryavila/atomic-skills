@@ -125,20 +125,39 @@ phases:
           description: Briefing Lekto regenerado e contrastado; o veredito de
             nao-reincidencia existe e nenhum dos quatro contaminantes
             documentados reaparece como requisito.
-          status: pending
+          status: met
+          metAt: 2026-06-19T20:06:21.000Z
           verifier:
             kind: shell
             command: grep -q 'NAO-REINCIDENTE'
               .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/recurrence-verdict.md
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T20:06:21.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "EXIT=0 — veredito v2 NAO-REINCIDENTE; nenhum dos 4 contaminantes reaparece como requisito vinculante"
         - id: F1-G2
           description: Fork D10 resolvido e registrado no design.md.
-          status: pending
+          status: met
+          metAt: 2026-06-19T20:06:21.000Z
           verifier:
             kind: shell
             command: grep -q 'F1-D10-RESOLVED'
               .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/design.md
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T20:06:21.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "EXIT=0 — F1-D10-RESOLVED no design.md; D10 resolvido = modelo leve D3-D8 basta, sem tag R10"
+    reviewGate:
+      status: passed
+      at: 3718274b025e743cd5b995194dc2b830810e7c02
+      mode: local
+      verifiedAt: 2026-06-19T20:06:21.000Z
     status: active
 references:
   - kind: file

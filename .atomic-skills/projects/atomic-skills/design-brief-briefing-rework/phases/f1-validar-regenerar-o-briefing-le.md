@@ -19,29 +19,48 @@ parentPlan: design-brief-briefing-rework
 phaseId: F1
 tasksDone: 6
 tasksTotal: 6
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F1-G1
     description: Briefing Lekto regenerado e contrastado; o veredito de
       nao-reincidencia existe e nenhum dos quatro contaminantes documentados
       reaparece como requisito.
-    status: pending
+    status: met
+    metAt: 2026-06-19T20:06:21.000Z
     verifier:
       kind: shell
       command: grep -q 'NAO-REINCIDENTE'
         .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/recurrence-verdict.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T20:06:21.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — veredito v2 NAO-REINCIDENTE em f1/recurrence-verdict.md;
+        nenhum dos 4 contaminantes reaparece como requisito vinculante (regen
+        cego valido + critico adversarial).
     verifierLabel: "shell: grep -q 'NAO-REINCIDENTE' .atomic-skills/projects/atomic-sk…"
+    evidenceSummary: passed · 2026-06-19
   - id: F1-G2
     description: Fork D10 resolvido e registrado no design.md.
-    status: pending
+    status: met
+    metAt: 2026-06-19T20:06:21.000Z
     verifier:
       kind: shell
       command: grep -q 'F1-D10-RESOLVED'
         .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/design.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T20:06:21.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — F1-D10-RESOLVED presente no design.md (open-question a);
+        D10 resolvido = modelo leve D3-D8 basta, sem tag R10.
     verifierLabel: "shell: grep -q 'F1-D10-RESOLVED' .atomic-skills/projects/atomic-sk…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Validar (regenerar o briefing Lekto + contrastar = gate de

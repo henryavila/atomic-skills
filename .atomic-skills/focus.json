@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T20:01:25.728Z",
+  "generatedAt": "2026-06-19T20:08:54.956Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -21,7 +21,7 @@
     "blocked": 0
   },
   "gates": {
-    "met": 0,
+    "met": 2,
     "total": 2
   },
   "nextAction": "Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente; D10 nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar F1-D10-RESOLVED no design.md = 'modelo leve basta, sem tag R10') + phase-done — DECISAO do operador.",
