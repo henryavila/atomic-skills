@@ -592,15 +592,18 @@ phases:
             pattern: tests/finalize-plan-scope.test.js
           evidence:
             verifierKind: test
-            verifiedAt: 2026-06-19T17:40:43Z
+            verifiedAt: 2026-06-19T18:05:06Z
             exitCode: 0
-            testsCollected: 16
+            testsCollected: 24
             passed: true
-            outputSummary: "node --test tests/finalize-plan-scope.test.js @ b0ccbf5
-              (phase-done): tests 16, pass 16, fail 0, exit 0. resolveFinalizePlanScope
-              (classifica target/other-active/archived-unmerged, BLOCK não-terminal +
-              alvo≠focus-sem-confirm, WARN de irmãos) + detectPlanStatusRegression
-              (advisory) puros/never-throws/fail-closed."
+            outputSummary: "node --test tests/finalize-plan-scope.test.js @ 00dd0cd
+              (phase-done, pós-review both): tests 24, pass 24, fail 0, exit 0.
+              resolveFinalizePlanScope (classifica target/other-active/archived-unmerged,
+              terminal=archived|done|active-todas-fases-done com phases NÃO-vazio,
+              BLOCK alvo≠focus-sem-confirm, BLOCK slug ambíguo, WARN irmãos não-arquivados)
+              + detectPlanStatusRegression (rank active|paused<done<archived; advisory)
+              puros/never-throws/fail-closed. Inclui as correções de review L#1/L#2/L#4
+              + codex F-001..F-004."
         - id: G-2
           description: >-
             project-finalize.md documenta o guard plan-aware (passo pré-publish:
@@ -615,15 +618,22 @@ phases:
             command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-06-19T17:40:43Z
+            verifiedAt: 2026-06-19T18:05:06Z
             exitCode: 0
             passed: true
             outputSummary: "grep -qi 'plan-aware' (2) && grep -qi 'finalize-plan-scope'
               (4) em project-finalize.md && npm run validate-skills → All 15 skills valid,
-              exit 0 @ b0ccbf5. Step 1.6 documenta o guard determinístico + Step 1 a
-              existence-check do integrationRef (source:default) + o detect+WARN advisory
-              de regressão (reusa a lane do F4)."
-    status: active
+              exit 0 @ 00dd0cd. Step 1.6 documenta o guard determinístico + Step 1 a
+              existence-check do integrationRef em origin (ls-remote/show-ref, cobre
+              source:default; F-004 endureceu prompt-when-absent p/ exigir ref em origin)
+              + o detect+WARN advisory de regressão (reusa a lane do F4)."
+    status: done
+    reviewGate:
+      status: passed
+      at: 00dd0cd
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-19-1803-wlf-f8-finalize-plan-aware.md
+      verifiedAt: 2026-06-19T18:05:06Z
     summary: >-
       Finalize correto sob branch multi-plano: alvo explícito + terminal, WARN de
       irmãos e de regressão de status, e integrationRef verificado antes do PR.

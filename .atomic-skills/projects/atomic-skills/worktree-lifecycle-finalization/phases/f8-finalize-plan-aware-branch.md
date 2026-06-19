@@ -10,18 +10,16 @@ goal: >-
   regressão de status de plano no merge, e verificar a existência do
   integrationRef antes de publicar (fecha o "develop silencioso"). Skill
   genérica; esta WT é a fonte de verdade do finalize.
-status: active
+status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-19T16:20:35Z
-lastUpdated: 2026-06-19T16:20:35Z
-nextAction: >-
-  Rodar `atomic-skills:implement` na F8 começando pela T-001 (TDD:
-  tests/finalize-plan-scope.test.js RED → scripts/finalize-plan-scope.js GREEN).
+lastUpdated: 2026-06-19T18:05:06Z
+nextAction: null
 parentPlan: worktree-lifecycle-finalization
 phaseId: F8
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: G-1
@@ -32,11 +30,22 @@ exitGates:
       alvo≠focus-sem-confirmação, WARN nos irmãos não-arquivados; detector de
       regressão de status advisory; puro/never-throws (fail-closed na dúvida);
       suite verde.
-    status: pending
+    status: met
+    metAt: 2026-06-19T18:05:06Z
     verifier:
       kind: test
       runner: node
       pattern: tests/finalize-plan-scope.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-19T18:05:06Z
+      exitCode: 0
+      testsCollected: 24
+      passed: true
+      outputSummary: "node --test tests/finalize-plan-scope.test.js @ 00dd0cd
+        (phase-done, pós-review both): tests 24, pass 24, fail 0, exit 0.
+        resolveFinalizePlanScope + detectPlanStatusRegression puros/never-throws/
+        fail-closed, com as correções L#1/L#2/L#4 + codex F-001..F-004."
   - id: G-2
     description: >-
       project-finalize.md documenta o guard plan-aware (passo pré-publish:
@@ -44,10 +53,20 @@ exitGates:
       verificação de existência do integrationRef (inclui source:default), e o
       detect+WARN advisory de regressão de status no merge (reusa a lane do F4);
       skills válidos.
-    status: pending
+    status: met
+    metAt: 2026-06-19T18:05:06Z
     verifier:
       kind: shell
       command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T18:05:06Z
+      exitCode: 0
+      passed: true
+      outputSummary: "grep plan-aware (2) && grep finalize-plan-scope (4) em
+        project-finalize.md && npm run validate-skills → All 15 skills valid, exit 0
+        @ 00dd0cd. Step 1.6 (guard determinístico) + Step 1 (existence-check em origin,
+        cobre source:default; F-004 endureceu o prompt-when-absent) + regressão advisory."
 stack:
   - id: 1
     title: Finalize plan-aware — branch ≠ plano (Decisão 9)
@@ -214,22 +233,31 @@ integrationRef (fecha o "develop silencioso").
 
 ## Session handoff
 
-- **Narrative:** F8 (Decisão 9, finalize plan-aware; branch ≠ plano) — **TODAS as 3 tasks DONE**. T-001: `scripts/finalize-plan-scope.js` + `tests/finalize-plan-scope.test.js` (16 testes) via Codex, re-verificado na primária (exit 0, 16/16). T-002: existence-check do `integrationRef` em `origin` no Step 1 de `project-finalize.md` (cobre `source: default`, fecha o "develop silencioso"). T-003: novo Step 1.6 plan-aware (alvo explícito + terminalidade + WARN de irmãos via `resolveFinalizePlanScope`) + detect+WARN advisory de regressão (`detectPlanStatusRegression`, read-only, reusa a lane do F4). `validate-state` ok nas 3. **Phase boundary atingido** — falta `phase-done` (opt-in do operador).
+- **Narrative:** F8 (Decisão 9, finalize plan-aware; branch ≠ plano) **CONCLUÍDA e fechada via `phase-done`**. 3/3 tasks done; review-code `--mode=both` rodado (local + codex 2-pass, 8 findings, todos corrigidos, re-verificado 24/24 + validate-skills 15/15); exit-gates G-1/G-2 `met` com evidência; `phases[F8].reviewGate` `passed @ 00dd0cd`; 2 lessons ratificadas. **Plano F0–F8 inteiro implementado.** `plan.status` segue `active` (plan-done/finalize são opt-in). Próximo: o operador pediu um **DRY-RUN do `project finalize`** (sem push/PR) — dogfood do que esta fase construiu, porque (a) outros projetos na branch ainda não finalizaram e (b) quer ver a validação prévia.
 - **Decision log:**
-  - Modo = **Híbrido** (operador): T-001 → Codex (arquivos novos, zero conflito); T-002/T-003 inline serial (mesmo arquivo `project-finalize.md` → paralelismo do Mode 2 não paga).
-  - Codex reportou `tests 1` no self-check (artefato do reporter em modo subprocess) — a contagem REAL (16) veio da re-verificação na primária, não do summary do Codex (executor self-checks, nunca self-certifies).
-  - `plan.md` é a fonte de status (F0–F7 `done`, F8 `active`); `focus.json` ignorado (stale, anterior à F8).
-  - `phase-done` NÃO auto-rodado (intrusive-actions rule) — o operador opta.
-- **Single nextAction:** Rodar **`phase-done`** (opt-in do operador): executa os exit-gate verifiers G-1 (`node --test tests/finalize-plan-scope.test.js`) + G-2 (`grep -qi 'plan-aware' … && grep -qi 'finalize-plan-scope' … && npm run validate-skills`), o `review-code` phase-diff gate (`--mode=both`, a base do diff é o último HEAD revisado → 1a502e7+), distila lessons, grava `phases[F8].reviewGate` no `plan.md` e avança `currentPhase`. F8 é a ÚLTIMA fase (8/8) → `phase-done` deve oferecer `plan-done` + `finalize`.
+  - Modo = **Híbrido** (operador): T-001 → Codex (arquivos novos, zero conflito); T-002/T-003 inline serial (mesmo arquivo `project-finalize.md`).
+  - Codex reportou `tests 1` no self-check (artefato do reporter) — contagem REAL veio da re-verificação na primária MERGED (executor self-checks, nunca self-certifies). Recorrência da lição do F0; corrective segurou.
+  - Review `both`: fixes locais COMMITADOS (`f015e7c`) antes do codex → codex revisou a árvore pós-fix (bar mais estrito, valida os fixes) em vez do diff byte-idêntico; documentado no review file.
+  - `plan.md` é a fonte de status; `focus.json` stale (ignorado).
+- **Single nextAction:** Executar o **DRY-RUN do `project finalize`** nesta branch: Step 1 (resolve `integrationRef` via `scripts/integration-ref.js` + existence-check em origin), Step 1.5 (cross-WT collision — 7 worktrees vivas), Step 1.6 (plan-aware `resolveFinalizePlanScope` — a branch carrega MÚLTIPLOS planos: alvo explícito = `worktree-lifecycle-finalization`), e MOSTRAR o diff + PR proposto — **HALT antes de qualquer push/PR** (dry-run, sem publicar).
 - **Verbatim state:**
-  - T-001 (primária): `scripts/finalize-plan-scope.js` + `tests/finalize-plan-scope.test.js`. Verifier: `node --test tests/finalize-plan-scope.test.js` → exit 0, tests 16, pass 16, fail 0.
-  - T-002/T-003: `skills/shared/project-assets/project-finalize.md` (Step 1 existence-check + novo Step 1.6 + bullet de escopo).
-  - G-2 verifier: `grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills` → exit 0 (plan-aware×2, finalize-plan-scope×4, All 15 skills valid).
-  - Commits desta fase: T-001 = `1a502e7`; T-002+T-003 = este commit.
-- **Uncommitted changes:** este commit fecha T-002+T-003 (`project-finalize.md` + estado F8: T-002/T-003 `done` com evidência + `tasksDone:3` + este handoff). Após o commit, árvore `multiplan` limpa.
+  - Commits da fase: T-001 `1a502e7`; T-002+T-003 `c7d7f03`; self-review-impl `b0ccbf5`; exit-gates `a761701`; local-fixes `f015e7c`; codex-fixes+review `00dd0cd`; phase-done-close = este commit.
+  - reviewGate: `phases[F8].reviewGate = {status: passed, at: 00dd0cd, mode: both, reviewFile: .atomic-skills/reviews/2026-06-19-1803-wlf-f8-finalize-plan-aware.md}`.
+  - Verifiers finais: `node --test tests/finalize-plan-scope.test.js` → 24/24 exit 0; `grep plan-aware && grep finalize-plan-scope && npm run validate-skills` → exit 0.
+  - finalize é DRY-RUN: NÃO `git push`, NÃO `gh pr create`. integrationRef provável: não-configurado em `routing.json` → prompt-when-absent (develop).
+- **Uncommitted changes:** este commit fecha o phase-done de F8 (plan.md F8 `done`+reviewGate+evidência; initiative `done`+gates met+self-review; lessons file novo; este handoff). Após o commit, árvore `multiplan` limpa; finalize dry-run a seguir não muta estado.
 
 ## Self-review (implement gates) — F8 implementation done
 
 - **G1 read-before-claim:** applied — cada task fechada cita a fonte/o run que a fechou: T-001 com `node --test` (exit 0, tests 16/16) na primária MERGEADA + leitura das 209+280 linhas do diff do Codex antes de aceitar; T-002/T-003 com o verifier shell capturado (exit 0, anchors contados: plan-aware×2, finalize-plan-scope×4).
 - **G2 soft-language:** applied — nenhuma claim de conclusão usa should/probably/works/looks-done; cada `done` carrega `evidence.passed: true` + `exitCode: 0` (e `testsCollected: 16` no T-001), validado por `validate-state` GATE-R2.
 - **G6 reference-or-strike:** applied — os literais do handoff são caminhos/comandos/SHAs verbatim (`1a502e7`, `c7d7f03`, os 3 comandos de verifier, `scripts/finalize-plan-scope.js`); o falso-alarme "tests 1" foi registrado como artefato do reporter, não apagado.
+
+## Self-review against gates (at phase-done F8)
+
+- **G1 read-before-claim:** applied — exit-gates fechados com runs colados (G-1 `node --test` exit 0 tests 24/24 @ 00dd0cd; G-2 grep+validate-skills exit 0). Cada fix de review citou file:line lido na primária.
+- **G2 soft-language:** applied — gates `met` com `evidence.passed: true`; nenhum should/probably/works nas evidências ou no self-review.
+- **G6 reference-or-strike:** applied — evidências carregam comando+exit+sha verbatim; reviewGate `at: 00dd0cd` + reviewFile real.
+- **Exit gates:** 2/2 met com evidência (G-1 test 24/24, G-2 shell). `validate-state` plan+initiative ✓ (GATE-R2 + GATE-R3).
+- **Codex review:** ran via `atomic-skills:review-code --mode=both` (local sealed-envelope agent + codex 2-pass blind→informed) @ HEAD `00dd0cd`, verdict `needs_changes→all fixed`, counts final `0B/0C/4M/0m/0n` (blind `0B/0C/3M/1m`, pass-2 subiu F-003 minor→major; local disjunto `2M/2m`), file `.atomic-skills/reviews/2026-06-19-1803-wlf-f8-finalize-plan-aware.md`. Todos os 8 findings corrigidos e re-verificados.
+- **Lessons:** 2 ratificadas (L-001 enum completo no work-order Mode-2; L-002 matriz fail-closed em módulos guard) em `lessons/worktree-lifecycle-finalization-f8-finalize-plan-aware-branch.md`. Recorrência do auto-report Codex não-confiável NÃO re-lessonada (corrective do F0 segurou).
