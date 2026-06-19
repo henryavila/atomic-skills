@@ -82,6 +82,8 @@ function fixtureTree() {
           parentPlan: 'big',
           tasksDone: 3,
           tasksTotal: 4,
+          weightDone: 5,
+          weightTotal: 8,
           gatesMet: 0,
           gatesTotal: 2,
           nextAction: 'do the thing',
@@ -94,10 +96,11 @@ function fixtureTree() {
               id: 'T-1',
               title: 'a',
               status: 'done',
+              weight: 2,
               closedAt: '2026-06-16T17:45:00Z',
               lastUpdated: '2026-06-16T17:45:00Z',
             },
-            { id: 'T-2', title: 'b', status: 'blocked', blockedBy: ['D-1'] },
+            { id: 'T-2', title: 'b', status: 'blocked', weight: 3, blockedBy: ['D-1'] },
           ],
           exitGates: [{ id: 'G-1', description: 'gate', status: 'pending', verifier: { kind: 'manual' } }],
         },
@@ -138,6 +141,11 @@ describe('buildState — derived fields', () => {
 
   it('carries lastUpdated onto the initiative record (health staleness needs it)', () => {
     assert.equal(s.initiatives[0].lastUpdated, '2026-06-16T18:00:00Z');
+  });
+
+  it('projects weighted task rollups onto the initiative record', () => {
+    assert.equal(s.initiatives[0].weightDone, 5);
+    assert.equal(s.initiatives[0].weightTotal, 8);
   });
 
   it('precomputes plan focus + phase rollup text from the current initiative', () => {
@@ -218,7 +226,7 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       );
       writeFileSync(
         join(planDir, 'phases', 'f0.md'),
-        '---\nslug: big-f0\ntitle: F0 init\nstatus: active\nphaseId: F0\nparentPlan: big\ntasksDone: 1\ntasksTotal: 2\ntasks:\n  - id: T-1\n    title: a\n    status: done\n    closedAt: "2026-06-16T17:45:00Z"\n    lastUpdated: "2026-06-16T17:45:00Z"\n---\n',
+        '---\nslug: big-f0\ntitle: F0 init\nstatus: active\nphaseId: F0\nparentPlan: big\ntasksDone: 1\ntasksTotal: 2\nweightDone: 2\nweightTotal: 5\ntasks:\n  - id: T-1\n    title: a\n    status: done\n    weight: 2\n    closedAt: "2026-06-16T17:45:00Z"\n    lastUpdated: "2026-06-16T17:45:00Z"\n  - id: T-2\n    title: b\n    status: pending\n    weight: 3\n---\n',
       );
 
       const { written } = emitConsumerState(dir, NOW);
