@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T17:35:13.907Z",
+  "generatedAt": "2026-06-19T19:34:12.996Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "Path C escolhido. T-006 done (skill corrigida) + skill re-instalada (user-scope agora 12k, com o fix). Proximo = OPERADOR regenera o briefing em SESSAO NOVA E CEGA; depois re-rodar o critico e resolver D10 (T-005).",
+  "nextAction": "Copia limpa do app criada em /home/henry/lekto-blind-regen (cegueira ESTRUTURAL: 239 arquivos, so codigo, 0 memoria/design/prompts, 0 .env). OPERADOR roda o agente cego LA -> briefing v2 valido; depois copio p/ canonico + critico + D10.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false

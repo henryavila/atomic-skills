@@ -11,9 +11,9 @@ status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
 lastUpdated: 2026-06-19T17:31:45.000Z
-nextAction: "Copia limpa do app criada em /home/henry/lekto-blind-regen (cegueira
-  ESTRUTURAL: 239 arquivos, so codigo, 0 memoria/design/prompts, 0 .env). OPERADOR
-  roda o agente cego LA -> briefing v2 valido; depois copio p/ canonico + critico + D10."
+nextAction: "Regen v2 VALIDO gerado na copia cega (binding prompt limpo: 80px/axis/
+  STEP_MS mortos no D3, A4 band-pinned 'poucos passos calibracao:3'; Vai!/3passos so
+  no lane de textura). Consolidado no canonico (678l). Re-rodando critico v2 -> D10."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
 tasksDone: 5
@@ -290,3 +290,9 @@ _(plan doc, external refs)_
 - **Cópia limpa criada:** `/home/henry/lekto-blind-regen/` — `rsync` do app EXCLUINDO `.git`, `node_modules`/`.nuxt`/`.output`/`dist`, `.claude` (memória!), `.atomic-skills`, `_bmad`, `.github`, `docs/` (todos os prompts+BRAND+research), `CLAUDE.md`/`README.md`/`AGENTS.md`. Depois prunado `backend/vendor` (12450 libs), `storage/logs|framework`, e **todos os `.env` reais** (segredos; mantido só `.example`). **Final: 239 arquivos.**
 - **Verificado limpo:** 0 `.md`, 0 framing de prompt (`Origem:`/`vinculante`/`3 → 2 → 1`), 0 CLAUDE.md/.claude/docs-design, 0 `.env`. Código relevante preservado: `web/app/{pages,components}` (ReviewCard.vue tem `SWIPE_THRESHOLD=80` cru — legítimo p/ o filtro D3 derrubar) + `backend/{routes,app/Enums,Models}` (taxonomia do catálogo).
 - **Protocolo do regen v2:** operador roda agente cego com cwd = `/home/henry/lekto-blind-regen`, `/atomic-skills:design-brief` contra `web/app` (+ backend como contexto), ESCREVE em `/home/henry/lekto-blind-regen/lekto-briefing-regenerated.md` (caminho NEUTRO — agente NÃO toca o tree atomic-skills, que tem contaminantes). Se faltar `scripts/app-map-reconstruct.js`, usar fallback Glob/Grep — NÃO procurar em outros repos. Depois: ESTA sessão copia o output p/ o canônico `f1/lekto-briefing-regenerated.md` (preservando v1 como `recurrence-verdict-v1`/git), re-roda crítico v2, T-005.
+
+## Regen v2 EXECUTADO — resultado preliminar (2026-06-19)
+- **Onde:** o agente cego (na cópia limpa) gerou em `/home/henry/lekto-blind-regen/docs/design/claude-design-handoff/{00-design-system,01-screens,02-fixtures,README}.md` (pasta NOVA, não os priors — esses foram excluídos da cópia). Output VÁLIDO (geração from-code, não copy de prompt).
+- **Consolidado:** os 3 prompts → canônico `f1/lekto-briefing-regenerated.md` (v2, 678 linhas). v1 preservado em `f1/lekto-briefing-regenerated-v1.md` + veredito v1 em `f1/recurrence-verdict-v1.md`.
+- **Leitura preliminar (NÃO é o veredito — crítico decide):** binding (`01-screens`) LIMPO — `grep SWIPE/AXIS/STEP_MS/GO_MS/Origem` = 0; countdown/session/onboarding todos **band-pinned** ("poucos batimentos, calibração ~1s/0,8s"; "~10 cards"; "explicador de **poucos passos** (calibração: 3)" = **A4 resolvido**); swipe = essência sem px; guardrails camada-3 + invariantes preservados. `"Vai!"`/`3 passos` aparecem só em `02-fixtures` (lane de textura mutável, D8) → provável layering correto, não recaída. Contraste com v1 (A4 era recaída) e v2-falho (todos contaminantes com citação).
+- **nextAction:** crítico adversarial v2 (mesma rubrica) → `f1/recurrence-verdict.md` (sobrescreve; v1 preservado). Se `NAO-REINCIDENTE` → F1-G1 passa → T-005 resolve D10 como "modelo leve basta, fix confirmado empiricamente". Decisão D10/phase-done = operador.

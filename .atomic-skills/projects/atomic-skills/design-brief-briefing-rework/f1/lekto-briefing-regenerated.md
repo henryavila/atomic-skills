@@ -1,495 +1,678 @@
-# Briefing de Design — Lekto (regenerado pelo gate de validação)
+<!-- v2 — regeneração CEGA VÁLIDA (2026-06-19) a partir da cópia limpa /home/henry/lekto-blind-regen
+     (sem memória/prompts contaminados). Consolida 00-design-system + 01-screens + 02-fixtures.
+     v1 preservado em f1/lekto-briefing-regenerated-v1.md. Gerado pela skill design-brief + fix T-006. -->
 
-> Gerado por `atomic-skills:design-brief` contra o app real em `/home/henry/lekto/web/app`
-> (frontend Nuxt/Vue) + dados reais do backend Laravel/Postgres local. Idioma de saída: **pt-BR**.
-> Este documento é um **gerador cego**: nenhum artefato da fase (feedback/design/source/handoff) foi
-> lido — apenas o código do app e o banco local.
+# ============ 00 · DESIGN SYSTEM ============
 
----
+# Prompt 1 — Design System do Lekto (construir primeiro, herdar em tudo)
 
-## Parte 0 — Contexto, contrato e decisões
+> **Preâmbulo (vinculante).** Construa um Design System que herdaremos sem alteração em todas as
+> telas. Defina tokens e componentes **uma vez, por nome semântico**; o prompt de telas
+> referenciará esses nomes e **nunca** redefinirá cor, tipografia, espaçamento, raio, sombra ou
+> qualquer componente. Onde houver um requisito abaixo, ele é uma **restrição mensurável**, nunca
+> uma solução visual — **a forma é sua escolha**.
 
-### 0.1 — Produto (intenção)
+## Contexto do produto (para calibrar o tom, não para prescrever forma)
 
-Lekto é um app de **repetição espaçada** que transforma destaques de leitura (Kindle), notas de
-áudio e cartões manuais em **flashcards** e os agenda com o algoritmo **FSRS-6**. A revisão é o
-ritual central: rápida, mobile-first, **3 gestos**. Acesso é **fechado por lista de espera**
-(pré-lançamento). Lema do produto: *"Nunca esqueça o que você escolheu aprender."*
+Lekto é um app de **repetição espaçada** para reter o que se lê. O coração é um **ritual de
+revisão cronometrado**: sessões curtas, foco total, um gesto para avaliar. O DS precisa servir
+tanto a esse momento de **alta concentração e baixo atrito** (a tela de revisão) quanto a telas de
+**navegação e análise** mais calmas (início, explorar, progresso, perfil). O conteúdo é majoritariamente
+em **português**, denso e textual (frases de 1 a 5 sentenças). Suporte a **tema claro e escuro** é
+obrigatório (o app hoje é só escuro; defina ambos).
 
-### 0.2 — Fonte (de onde saiu cada coisa)
+## 1. Contrato de tokens (semântico, não literal)
 
-- **Comportamento (camada 2):** minerado do código — `pages/review.vue`, `stores/review.ts`,
-  `components/Review*.vue`, `pages/login.vue`, `pages/index.vue`, `pages/explore/*`,
-  `middleware/auth.global.ts`, `components/App*.vue`.
-- **Fixtures (camada de conteúdo):** **dados reais** puxados nesta ordem (receita de fixtures):
-  - **Banco local (Postgres `lekto`, leitura)** — cartões reais autorais (domínio *Hábitos
-    Atômicos*); o banco tem hoje **0 decks públicos** (estado real de Explorar = vazio).
-  - **In-repo:** exemplos autorais embutidos na UI (onboarding, landing) + destaques reais do
-    Kindle em `backend/tests/fixtures/kindle-habitos-atomicos.html` (livro *Hábitos Atômicos*,
-    James Clear, pt-BR — 123 destaques reais).
-- **Filosofia / quem decide (camada 3):** corroborada pelo código + copy da landing (FSRS oculto,
-  3 gestos, "memória, não agenda", acesso por waitlist, preview só da frente).
+Nomeie tokens por **papel/intenção**, nunca por valor. O valor literal mora só no DS; as telas
+ligam os nomes. Cubra no mínimo:
 
-### 0.3 — Regime: **brownfield** (app existente, redesign)
+- **Cores por papel**, em **claro e escuro**: superfícies em pelo menos três profundidades
+  (base / elevada / sobreposta), texto em uma escala de ênfase (primário / secundário / suave /
+  tênue), uma **ação primária** (de marca) com seus estados, e **papéis de estado semânticos**.
+- **Os três papéis de avaliação** são parte do contrato e carregam significado distinto —
+  **negativo / parcial / positivo** (no produto: "errei" / "quase" / "lembrei"). Defina-os como
+  três papéis semânticos distinguíveis **sem depender só da cor** (ver WCAG abaixo). Há ainda um
+  papel de **destaque de constância/sequência** (a "ofensiva" de dias).
+- **Escala tipográfica** adequada a blocos de texto longo legíveis (o card de revisão exibe
+  parágrafos curtos que precisam ser confortáveis em mobile).
+- **Escala de espaçamento**, **raios**, **sombras/elevação**.
+- **Durações de movimento** por papel: defina ao menos uma cadência **rápida** (microfeedback de
+  toque/gesto), uma **média** (transições de conteúdo, virar de card) e uma **deliberada**
+  (entrada/saída de overlay). As telas referenciarão essas cadências por nome.
 
-Camada-1 (forma visual) fica em **silêncio** — é do agente de design. Camadas 2 e 3 vêm
-**especificadas com valores concretos**.
+Nenhum valor literal pode vazar para a camada de telas.
 
-### 0.4 — Decisões DEFINE (resolvidas com intenção de produto)
+## 2. Inventário de componentes (com todos os estados)
 
-- **D1 — Tema dark-first (não "claro e escuro" genérico).** `composables/useTheme.ts` é um stub
-  explícito: *"Dark-only app — no theme toggle needed."* O dark **é a identidade** (ritual de
-  estudo, marca = glow violeta sobre navy profundo). **DEFINE:** o contrato de tokens é autoral e
-  **semântico**, de modo que um tema claro futuro seja uma **troca de conjunto de tokens**, não um
-  redesign; porém **todas as telas e estados são especificados em dark (canônico)**. Tema claro
-  está **fora do escopo atual** (relaxamento deliberado e documentado do item "light and dark" do
-  §6, justificado por produto).
-- **D2 — Explorar é uma superfície de descoberta de verdade.** Busca por texto, faceta de
-  categoria e "ver mais" hoje são *placeholders* não-fiados (`preview-feature`). **DEFINE:** são
-  **capacidades reais pretendidas** — o brief especifica seu modelo de interação e o estado
-  "busca sem resultado", além do vazio de catálogo (estado real hoje).
-- **D3 — Copy unificada em pt-BR.** A Revisão e o painel de atalhos têm strings em inglês ("No
-  cards to review", "Session complete!", "Shortcuts", "Done"). São **dívida**; o copy lane abaixo
-  apresenta tudo em pt-BR. Copy é lane **mutável** (o agente pode reescrever) — o que vincula é o
-  ato-de-fala, não a palavra.
+Para cada componente, defina **todos os estados** que ele pode assumir (default, hover, foco,
+ativo, desabilitado, carregando, erro, vazio, selecionado — os que se aplicarem) para que as telas
+nunca precisem inventar um estado faltante. O app precisa, por papel semântico:
 
-### 0.5 — Ledger de cobertura (nenhuma tela fica de fora)
+- **Casca de aplicação** com navegação principal persistente (uma forma para desktop e uma para
+  mobile) e uma região de conteúdo. A navegação cobre **5 destinos** no desktop e **4** no mobile
+  (o destino de análise/progresso fica fora da navegação primária mobile — ver prompt de telas).
+- **Item de navegação** (estados selecionado/não-selecionado).
+- **Cartão de deck** (capa, título, descrição com possível truncamento, autor/avatar, e métricas
+  de contagem) — em duas densidades: uma rica (grade) e uma compacta (lista).
+- **Indicador de progresso linear** (proporção concluída).
+- **Indicador de métrica radial** (um valor 0–100% no centro) e **indicador de métrica linear**.
+- **Mapa de atividade** ao longo do tempo (intensidade por dia; precisa de uma forma densa para
+  desktop e uma compacta para mobile).
+- **Cartão de revisão de duas faces** (frente = estímulo curto; verso = resposta), com a noção de
+  **revelar** e de **sair de cena** após a avaliação.
+- **Indicador de contagem regressiva por card** (um tempo restante visível, da ordem de segundos).
+- **Sobreposição de "prepare-se"** antes da sessão (um aquecimento de poucos batimentos).
+- **Afordância de avaliação por gesto em três direções** (negativo / parcial / positivo), com
+  **feedback proporcional ao avanço do gesto** e estado de cancelamento.
+- **Passo-a-passo de primeira vez** (sequência curta navegável, com indicador de posição).
+- **Painel de atalhos** (somente desktop) que espelha os gestos no teclado.
+- **Campos de formulário** (texto, e-mail, senha com revelar/ocultar), com estados de foco/erro.
+- **Ações** em três pesos: **primária**, **secundária/neutra** e **destrutiva**.
+- **Interruptor (liga/desliga)** com estado em transição.
+- **Diálogo de confirmação** (sobreposto, para ações destrutivas/irreversíveis).
+- **Exibição de segredo/credencial com copiar** e confirmação efêmera de cópia.
+- **Filtros em pílula / categorias** (selecionável, rolável horizontalmente).
+- **Campo de busca**.
+- **Bloco de estado vazio** (ícone/ilustração + mensagem + ação de saída).
+- **Indicador de carregamento**.
+- **Selo de status** (ex.: pendente vs em dia; ativo vs inativo).
+- **Banner/CTA** de destaque.
+- **Sinal de feedback efêmero** (confirmação de ação como "copiado", "na lista").
 
-| Rota | Tela | Layout | Status neste brief |
-|---|---|---|---|
-| `/` (`index.vue`) | **Waitlist / Landing** | fullscreen | ✅ especificada |
-| `/login` | **Login** | fullscreen | ✅ especificada |
-| `/review` | **Revisão** | fullscreen | ✅ especificada |
-| `/explore` | **Explorar** | shell (nav) | ✅ especificada |
-| `/explore/[slug]` | **Deck público** | shell (nav) | ✅ especificada |
-| `/home` | Home (dashboard) | shell | ⊘ fora de escopo deste brief |
-| `/progress` | Progresso (heatmap/stats) | shell | ⊘ fora de escopo deste brief |
-| `/profile` | Perfil | shell | ⊘ fora de escopo deste brief |
-| `/decks/[id]` | Deck próprio (detalhe) | shell | ⊘ fora de escopo deste brief |
+## 3. Um template-base
 
-As 4 telas fora de escopo são reconhecidas de propósito (não esquecidas); ficam para um brief
-posterior. As 5 telas-alvo abaixo recebem o bloco completo de 8 seções.
+Produza **exatamente 1 template-base**: uma única página composta — a casca do app com a navegação,
+uma região de conteúdo e **uma visão de dados representativa** (uma coleção de cartões de deck com
+um CTA no topo) — que exercite os tokens e o inventário juntos. É o ponto de fork que o prompt de
+telas reutiliza; **não** um catálogo de tipos de página.
 
----
+## 4. Acessibilidade (WCAG 2.2 — restrições mensuráveis, não tratamentos)
 
-## Parte A — Prompt do Design System (DS-first)
-
-> **Emitir este prompt primeiro, ao agente de design.** O DS é construído **uma vez** e herdado,
-> sem redefinição, por todas as telas.
-
-### Preâmbulo (vinculante)
-
-> Construa um **Design System** que herdaremos inalterado em todas as telas. Defina tokens e
-> componentes **uma única vez, por nome semântico**; o prompt de telas vai referenciá-los e **nunca**
-> redefinir cor, tipografia, espaçamento, raio, sombra ou qualquer componente. Onde houver um
-> requisito abaixo, ele é uma **restrição mensurável**, nunca uma solução visual — **a forma é sua**.
-> Este produto é **dark-first** por identidade: defina os tokens de forma **semântica (por papel)**
-> para que um tema claro futuro seja uma troca de conjunto de tokens; entregue o sistema e os
-> exemplos no **tema dark canônico**.
-
-### A.1 — Contrato de tokens (semântico, não literal)
-
-Nomeie por **papel/intenção**, não por valor. O valor literal vive **só** no DS; as telas ligam o
-nome. Cobrir:
-
-- **Cor (papéis):** fundo base; superfície; superfície elevada; superfície "de vidro"
-  (translúcida/desfocada); ação primária e sua variante clara; foco/realce; **expressão de
-  recordação** em três papéis distintos — *errei* (negativo), *quase* (parcial/intermediário),
-  *lembrei* (positivo); texto primário / secundário / atenuado / fraco; bordas sutis. Tema dark
-  canônico (tema claro como conjunto-troca futuro, fora do escopo de entrega).
-- **Tipografia:** escala de *display* → corpo → legenda/rótulo. Um acento serifado existe **só** no
-  selo de marca (a palavra grega *λεκτός*); o restante é uma única família de texto.
-- **Espaçamento, raios, elevação/sombra.**
-- **Durações de movimento por papel** (não em ms): *revelação* (virar do cartão), *saída de cartão*
-  (após avaliar), *transição entre telas*, *pulso de orientação* (dicas que pulsam). O valor exato é
-  seu; o que importa é existirem como papéis nomeados.
-
-### A.2 — Inventário de componentes (com **todos os estados**)
-
-Para cada um, defina **todos os estados** que ele assume (padrão, hover, foco, ativo, desabilitado,
-carregando, erro, vazio, selecionado), por **papel semântico** — derivados do que o app realmente
-usa:
-
-- **Casca de navegação** — destinos primários sempre acessíveis, adaptando-se a telas largas e
-  estreitas. Destinos: **Início, Explorar, Revisar, Progresso, Perfil** (em telas estreitas o app
-  hoje promove 4 e omite *Progresso* — decida a regra de promoção, mas mantenha paridade de
-  alcance). Inclui identidade de usuário (avatar + nome/identificador) como ponto de acesso ao
-  perfil.
-- **Região de conteúdo** (área principal sob a navegação).
-- **Campo de entrada de texto** — estados vazio/foco/preenchido/erro/desabilitado; **variante de
-  segredo** com alternância de visibilidade.
-- **Ação primária / secundária / destrutiva** — cada uma com estado **em progresso** (ocupada,
-  re-disparo bloqueado) e **desabilitada**.
-- **Indicador de progresso de sessão** (posição atual dentro de um total finito).
-- **Temporizador de reflexão** — mostra tempo restante decrescente por cartão.
-- **Cartão de estudo de duas faces** — frente/verso, estado *não-revelado*/*revelado*, e **feedback
-  direcional ao vivo** que cresce conforme o gesto avança.
-- **Resumo de deck (catálogo)** — comunica assunto, autoria, tamanho (nº de cartões) e adoção (nº de
-  inscritos), com afordância de abrir/adotar.
-- **Faceta de categoria selecionável** e **etiqueta de metadado** (tags / categoria / "novo").
-- **Superfície de orientação efêmera** — usada na contagem regressiva pré-sessão e na explicação de
-  primeira vez (passos, navegação avançar/voltar, indicador de passo).
-- **Indicador de sincronização/offline** — sinaliza trabalho capturado localmente aguardando
-  reconciliação.
-- **Estados de página** como componentes: **vazio, carregando, erro, offline, primeira-vez,
-  populado**.
-
-### A.3 — Um template-base (exatamente 1)
-
-Produza **exatamente 1 template-base**: uma página composta que exercite tokens + inventário juntos
-— a casca de navegação + região de conteúdo + uma visão de dados representativa (uma grade de
-**resumos de deck**). É o ponto de fork que o prompt de telas reusa — **não** um catálogo de tipos de
-página.
-
-### A.4 — Acessibilidade (WCAG 2.2 — restrições mensuráveis, não prescrições visuais)
-
-- Contraste texto/fundo atende **AA** (≥ 4.5:1 corpo, ≥ 3:1 texto grande) — **inclusive no tema
-  dark**, que é o canônico.
-- Foco **sempre visível**, atendendo ao mínimo de aparência de foco da 2.2.
-- Alvos de toque atendem ao mínimo de tamanho da 2.2 (≥ 24×24 px CSS ou espaçamento equivalente) —
-  **crítico** para a revisão de uma mão.
-- **Nada depende só de cor.** As três expressões de recordação (*errei / quase / lembrei*) precisam
-  de reforço redundante (direção + ícone/rótulo), nunca só matiz.
-
-### Checklist de preenchimento do DS (antes de enviar)
-
-- [ ] Tokens por papel, dark canônico, sem valor literal vazando para a camada de telas.
-- [ ] Inventário lista **todos os estados** por componente.
-- [ ] **Exatamente 1** template-base (não um conjunto).
-- [ ] Itens WCAG 2.2 como restrições mensuráveis, nunca solução visual.
-- [ ] Saída em **pt-BR**.
+- Contraste texto/fundo atende WCAG 2.2 AA (≥ 4.5:1 corpo; ≥ 3:1 texto grande), em **claro e escuro**.
+- Foco sempre visível, atendendo ao mínimo de aparência de foco 2.2.
+- Alvos de toque atendem ao mínimo de tamanho 2.2 (≥ 24×24 px CSS ou espaçamento equivalente) —
+  crítico para o gesto de avaliação feito com o polegar.
+- **Nada transmite estado apenas por cor** — em especial os três papéis de avaliação (errei/quase/
+  lembrei) precisam de um segundo canal além da cor (forma, ícone, posição, rótulo).
 
 ---
 
-## Parte B — Prompt de Telas (consome o DS herdado)
+### Checklist antes de entregar o DS
 
-### Preâmbulo R9 (emitir verbatim, no topo)
+- [ ] Tokens nomeados por papel, com claro + escuro; nenhum valor literal vaza para as telas.
+- [ ] Inventário lista todos os estados de cada componente.
+- [ ] Exatamente **1 template-base** (não um conjunto).
+- [ ] Itens WCAG 2.2 como restrições mensuráveis, nunca como solução visual.
+- [ ] Saída em pt-BR.
 
-> Há **duas autoridades distintas** neste briefing — não um carimbo único de "tudo vinculante":
+# ============ 01 · TELAS ============
+
+# Prompt 2 — Telas do Lekto (consome o DS herdado; nunca o redefine)
+
+> **Há duas autoridades distintas neste briefing — não um carimbo único de "tudo vinculante":**
 > — **Forma visual** (widget, cor, formato, espaçamento): é **sua** para decidir — não prescrevemos.
 > — **Filosofia / o que fica oculto / quem decide** (camada 3): **requisito de produto vinculante**, não negociável.
 > — **Comportamento de interação** (camada 2): é a **calibração atual** do app — a **banda comportamental vincula** (ex.: "a cadência é da ordem de segundos"), mas o **valor exato é o que o app faz hoje (~8s), melhorável por você dentro da banda**, nunca um número congelado.
-> Consumimos o **Design System existente** pelo nome semântico e nunca o redefinimos. Se uma tela precisa de algo que o DS não tem, **pare e sinalize** — não improvise.
+> Consumimos o **Design System existente** pelo nome semântico e **nunca** o redefinimos. Se uma tela
+> precisa de algo que o DS não tem, **pare e sinalize** — não improvise.
 
-> **Tema:** todas as telas e estados abaixo são especificados no **tema dark canônico**. Mobile **e**
-> desktop são obrigatórios em cada tela. (Tema claro está fora do escopo atual — ver D1.)
-
----
-
-### TELA 1 — Revisão (`/review`) · *o coração do produto*
-
-**1. Propósito.** A pessoa revisa uma sessão curta e finita de cartões, julgando **o quão bem
-lembrou** de cada um, no menor atrito possível — de pé, no transporte, com uma mão.
-
-**2. Informação visível (fixtures reais).**
-Cartões reais (banco local Postgres, domínio *Hábitos Atômicos*, `source_type: audio`). Note a
-**textura**: a resposta tem **2–3 frases (~200 caracteres)**, não é one-liner — isto dimensiona o
-cartão.
-
-- **Cartão A** — deck "Hábitos Atômicos"
-  - frente (159 car.): *"Por que ancorar um hábito novo a um momento que você já faz de forma fixa
-    (como sentar ao computador ao chegar do trabalho) torna a mudança mais fácil?"*
-  - verso (205 car.): *"O momento que já é automático funciona como gatilho pronto: você não precisa
-    criar uma deixa nova nem depender de memória ou motivação. Aproveitar uma rotina existente reduz
-    o atrito de adotar o hábito novo."*
-- **Cartão B** — deck "Hábitos Atômicos"
-  - frente (107 car.): *"Você quer adotar um hábito novo, mas vive esquecendo de fazê-lo. Como usar a
-    sua rotina atual a favor disso?"*
-  - verso (210 car.): *"Encaixe o hábito novo logo depois de algo que você já faz fixo no dia, no
-    formato 'depois de [rotina atual], vou [hábito novo]'. O momento existente vira a deixa
-    automática e torna a prática muito mais provável."*
-- **Cartão C (curto — linha de borda)** — exemplo autoral embutido (onboarding)
-  - frente (40 car.): *"Por que hábitos importam mais que metas?"*
-  - verso (39 car.): *"Porque sistemas determinam progresso..."*
-- **Linha de borda longa** — destaque real do Kindle que vira verso (282 car.): *"Fazer uma escolha
-  que seja 1% melhor ou pior parece insignificante no momento, mas, ao longo dos momentos que
-  compõem a vida toda, essas escolhas determinam a diferença entre quem você é e quem poderia ser."*
-
-Cada cartão mostra o **rótulo do deck** ("Hábitos Atômicos") e a posição na sessão (ex.: **3/10**).
-
-`copy (mutável)`: deck em maiúsculas/espaçado · "Toque para revelar" (frente) · final da sessão:
-"Sessão concluída! · {N} cartões revisados · Concluir" · vazio: "Nenhum cartão para revisar agora ·
-Voltar ao início". *(Hoje algumas dessas strings estão em inglês — unificar em pt-BR; ver D3.)*
-
-**3. O que a pessoa precisa fazer.** Ler a frente → tentar lembrar → revelar o verso → **expressar,
-num gesto, o quão bem lembrou** → seguir para o próximo, em fluxo contínuo.
-
-**4. Modelo de interação** *(calibração atual — a banda vincula, o número exato é melhorável):*
-- **Cadência:** **da ordem de segundos** por cartão. Existe um **limite suave de poucos segundos**
-  (hoje **~8s**) para pensar; ao esgotar, **o verso é revelado sozinho**. A pessoa também pode
-  **revelar antes**, por uma **ação instantânea** (um toque no cartão; no desktop, uma tecla).
-- **Tamanho da sessão:** **curta e finita, da ordem de ~uma dezena de cartões** (hoje **10**,
-  ajustável pelo servidor). O progresso é mostrado como posição/total.
-- **Avaliação — 3 expressões humanas por um gesto direcional rápido**, alcançável **com o polegar**,
-  **instantâneo**, que **perdoa um toque acidental** (abaixo de um limiar pequeno, o cartão volta ao
-  lugar). Convencionalmente, *recusa/erro* e *acerto* ocupam **direções opostas** e a expressão
-  **parcial ("quase")** ocupa uma **terceira direção distinta** — o mapeamento exato de eixo é
-  refinável, mas as três devem ser **igualmente rápidas e mutuamente inconfundíveis**, com **reforço
-  redundante além da cor**. Há **feedback direcional ao vivo** que cresce conforme o gesto avança.
-  Uma **direção de escape** (oposta à expressão parcial) **cancela** o gesto sem registrar nada.
-- **A 4ª saída de agendamento ("facilidade") é INFERIDA**, não escolhida: ela deriva da **prontidão
-  da resposta** (se a pessoa respondeu *antes* do limite suave). **Nunca** vira uma 4ª opção a
-  ponderar. *(No código: direita = "fácil" se respondeu antes do tempo, "bom" se o tempo esgotou.)*
-- **Paridade desktop:** igualmente rápida **sem mouse** — uma tecla revela; três teclas/direções
-  cobrem as três expressões. Em telas largas, uma **referência do mapeamento** fica visível (sem ser
-  obrigatória ao fluxo).
-- **Ritual de entrada:** uma **contagem de preparação curta (~3–4s**, hoje 3→2→1→"Vai!") antecede o
-  primeiro cartão. **Só na primeiríssima sessão**, uma explicação de **3 passos** (ler→revelar→avaliar)
-  aparece antes, dispensável e **lembrada** (não repete).
-- **Resiliência offline:** a avaliação é **durável offline** — capturada localmente e reconciliada
-  quando a conexão volta. A pessoa **nunca é bloqueada** por rede.
-
-**5. Filosofia / guardrails (vinculante).**
-- A pessoa julga **apenas a própria memória**. O **agendador (FSRS-6)** e o **próximo intervalo** são
-  decisão **do sistema** e **não aparecem**.
-- O **tempo de resposta** é medido como sinal **oculto** (alimenta o FSRS e a inferência de
-  "facilidade") — **nunca** mostrado como nota/placar.
-- **PROIBIDO:** mostrar "+N dias" / próximo intervalo; rótulos técnicos de avaliação ("Again/Hard/
-  Good/Easy", "1–4", números de dificuldade/estabilidade); transformar a resposta num seletor de
-  opções com intervalos; **qualquer número no caminho de responder**; expor a "facilidade" inferida
-  como escolha separada; **reduzir a avaliação a binário** — a expressão intermediária ("quase") é o
-  diferencial do produto e **deve existir**.
-
-**6. Fluxo.** (1ª vez: explicação de 3 passos →) contagem de preparação → cartão frente → pensar
-(limite suave) → revelar (toque/tecla ou automático) → gesto de avaliação → saída do cartão → próximo
-→ … → resumo de conclusão.
-
-**7. Estados (mobile e desktop, dark).** *carregando* (sessão sendo buscada) · *vazio* (0 cartões a
-revisar) · *primeira-vez* (explicação de 3 passos) · *preparação* (contagem) · *ativo não-revelado*
-(com temporizador) · *ativo revelado* (com feedback de gesto ao vivo) · *offline* (avaliações em fila)
-· *concluído* (sessão encerrada). Em desktop, a referência de mapeamento é visível; em mobile, não.
-
-**8. Restrições.** Uma mão; alvos generosos para o polegar; revelar e avaliar instantâneos; perdoa
-toque acidental (volta ao lugar) e oferece escape; o fluxo não trava sem rede.
-
-> **Consumo do DS:** usa *cartão de estudo de duas faces*, *temporizador de reflexão*, *indicador de
-> progresso de sessão*, *superfície de orientação efêmera*, *indicador offline*. Se faltar algo →
-> **pare e sinalize**.
+As fixtures reais e o lane de `copy (mutável)` estão em `02-fixtures.md` e devem ser usados na seção
+"Informação visível" de cada tela. **Cobrir todos os estados, em mobile e desktop, claro e escuro.**
 
 ---
 
-### TELA 2 — Login (`/login`)
+## Tela 4 — Revisão (`/review`) — o ritual central
 
-**1. Propósito.** Quem já tem acesso entra; quem não tem é encaminhado à lista de espera.
+### 1. Propósito
+A pessoa revisa, numa micro-sessão curta e concentrada, os cards que o sistema selecionou para hoje:
+lê o estímulo, tenta lembrar, revela a resposta e expressa como foi — uma vez por card, em ritmo rápido.
 
-**2. Informação visível (fixtures reais).** Identidade de marca + lema *"Nunca esqueça o que você
-escolheu aprender."* Dois campos: identificador (e-mail) e segredo (senha).
+### 2. Informação visível
+Use o deck real **"Hábitos Atômicos"** (fixtures): frente curta (uma pergunta de 1–3 frases), verso
+de 2–5 frases — veja a **textura real**: as respostas têm várias frases, não one-liners. Em tela há,
+por vez, **um** card; o nome do deck; o progresso da sessão (posição atual sobre o total da
+micro-sessão, ~N de ~10); e, antes de revelar, o tempo restante de reflexão. Estados de fim e vazio
+têm suas próprias mensagens (fixtures).
 
-`copy (mutável)`: rótulo de seção "ENTRAR" · placeholders "Email" / "Senha" · alternância
-"Mostrar/Ocultar senha" · ação "Entrar" · erro **"Credenciais inválidas"** · rodapé "Ainda não tem
-acesso? → Entrar na lista de espera".
+### 3. O que a pessoa precisa fazer
+Concentrar-se num item por vez; revelar a resposta quando quiser (ou deixar revelar sozinha);
+e, vista a resposta, **expressar o quão bem lembrou** num gesto só. Nada mais compete por atenção.
 
-**3. O que a pessoa precisa fazer.** Informar credenciais e autenticar; ou, se não tem acesso,
-seguir para a lista de espera.
+### 4. Modelo de interação (camada 2 — calibração atual, banda vincula)
+- **Brevidade:** cada card é **muito curto** (poucas linhas). A pessoa decide com pouco texto na tela.
+- **Cadência / tempo de reflexão:** da **ordem de segundos**. Há um limite suave por card que, ao
+  expirar, **revela o verso sozinho**. Calibração atual: ~5 a 15 s, **escalando com o tamanho do
+  verso** (≈8 s num verso típico). A banda — "alguns segundos, proporcional ao tamanho da resposta"
+  — vincula; o número exato é melhorável por você dentro dela.
+- **Aquecimento de início de sessão:** antes do primeiro card há um "prepare-se" de **poucos
+  batimentos** (calibração: três contagens de ~1 s e um "vai!" de ~0,8 s) que também antecipa as três
+  direções de resposta. Banda: "um aquecimento curto, de poucos batimentos".
+- **Revelar:** um toque único no card revela; ou a revelação acontece sozinha ao fim do tempo. Latência instantânea.
+- **Avaliar:** depois de revelar, a pessoa expressa o recall num **único gesto rápido, alcançável
+  com o polegar, instantâneo, que perdoa um toque acidental** (um movimento curto e claro o
+  confirma; um movimento pequeno é ignorado e o card volta ao lugar; um movimento na direção
+  "errada"/para cima cancela sem avaliar). Há **três expressões humanas** — negativa, parcial e
+  positiva ("errei / quase / lembrei"); o feedback do gesto é **proporcional ao avanço** dele.
+- **Paridade desktop:** no desktop a mesma avaliação é **igualmente rápida sem mouse** — revelar e
+  cada uma das três expressões têm equivalente direto de teclado, com as dicas sempre visíveis.
+- **Tamanho da sessão:** uma micro-sessão **curta** (calibração: ~10 cards; cap diário de 50). Banda:
+  "curta o bastante para um ritual de poucos minutos". O ciclo pensar→revelar→avaliar→próximo dura
+  **alguns segundos** por card.
+- **Primeira vez:** na primeiríssima sessão, um explicador de **poucos passos** (calibração: 3)
+  apresenta ler→revelar→avaliar; depois disso, não reaparece.
 
-**4. Modelo de interação.** Entrada **deliberada** (digitação) de identificador + segredo; o segredo
-tem **visibilidade alternável**. O envio mostra **estado em progresso** e **bloqueia re-disparo**.
-Latência: a resposta de falha chega rápida e **genérica**. **Não há criação de conta self-service
-aqui** — o único caminho lateral é a lista de espera (acesso é fechado/convite).
+**Vocabulário proibido (R4):** não nomeie botão/lista/aba/barra/modal, nem descreva cor/borda/sombra/
+espaçamento — isso é forma, sua escolha. As palavras exatas dos rótulos são **copy mutável**: o que
+vincula é o ato de fala ("expressar que errou / quase / lembrou"), não a string.
 
-**5. Filosofia / guardrails (vinculante).** O sistema **não revela se a conta existe**: falha sempre
-retorna **uma mensagem genérica única** (segurança). A decisão de "quem entra" é do sistema (acesso
-gated). **PROIBIDO:** distinguir "e-mail não encontrado" de "senha errada"; oferecer cadastro
-self-service nesta tela; vazar dado sensível em mensagem de erro.
+### 5. Filosofia / guardrails (camada 3 — vinculante)
+- A pessoa julga **a própria memória**, nunca **o cronograma**. O intervalo, a data da próxima
+  revisão, a dificuldade e a estabilidade são **decisão do sistema (FSRS-6)** e **não aparecem**.
+- A pessoa dá **um único juízo** ("lembrei?"). Que isso valha *Good* ou *Easy* é **inferido pelo
+  sistema** a partir de a resposta ter vindo **antes ou depois** do tempo de reflexão expirar — **não
+  é uma 4ª opção a ponderar**.
+- **Proibido (anti-padrão):** mostrar "+N dias" ou "revisar em X"; exibir rótulos técnicos
+  (Again/Hard/Good/Easy); transformar a avaliação num seletor de opções com intervalos; oferecer um
+  **quarto** nível de resposta ou reduzir a **dois** (binário). **Nenhum número no caminho de resposta.**
 
-**6. Fluxo.** Inserir credenciais → enviar (em progresso) → sucesso (vai para a área logada) **ou**
-falha (mensagem genérica, permite tentar de novo). Link alternativo → lista de espera.
+### 6. Fluxo
+Entrar → (1ª vez: explicador) → "prepare-se" → card visível com tempo correndo → revelar (toque ou
+expiração) → avaliar com um gesto → próximo card → … → ao fim da micro-sessão, um fecho com a
+contagem revisada e uma saída.
 
-**7. Estados (mobile e desktop, dark).** *ocioso* · *em progresso* (envio ocupado, ação bloqueada) ·
-*erro* (mensagem genérica) · *desabilitado* (campos incompletos). Sem estado "vazio/lista".
+### 7. Estados
+Carregando; **sem cards para hoje** (vazio, com saída); explicador de primeira vez; "prepare-se";
+ativo-antes-de-revelar (tempo correndo); ativo-depois-de-revelar (avaliação habilitada); gesto em
+progresso (feedback proporcional); sessão concluída. **Offline:** a avaliação é registrada e
+**sincronizada depois**; a revisão **não trava** por falta de rede (a pessoa não percebe diferença).
+Tudo em mobile e desktop, claro e escuro.
 
-**8. Restrições.** Mínimo de campos; segredo ocultável; foco visível; erro não acusa qual campo
-falhou.
-
-> **Consumo do DS:** *campo de entrada* (+ variante de segredo), *ação primária* (com estado em
-> progresso), superfícies e marca. Se faltar algo → **pare e sinalize**.
-
----
-
-### TELA 3 — Waitlist / Landing (`/`)
-
-**1. Propósito.** Converter um leitor interessado em **um e-mail na lista de espera**, com o **menor
-atrito possível**, comunicando a proposta do produto de forma honesta.
-
-**2. Informação visível (fixtures reais — copy real da landing).** Página de marketing densa,
-seccionada. A captura de e-mail aparece em **3 pontos** da página (topo, seção dedicada, chamada
-final) — todas enviam o **mesmo campo único** (e-mail).
-
-`copy (mutável)` — copy real do produto (textura a preservar; o agente pode reescrever):
-- Título: *"Nunca esqueça o que você escolheu aprender"*
-- Subtítulo: *"Transforme seus destaques do Kindle em memória permanente. Com IA baseada em 18 regras
-  cognitivas e o algoritmo FSRS-6, o Lekto garante retenção máxima com revisões mobile em 3 gestos."*
-- Campo: placeholder *"seu@email.com"* · ação *"Garantir acesso"* / em progresso *"Enviando..."*
-- Sucesso (em lugar do formulário): *"Pronto! Você está na lista. Avisaremos quando o Lekto estiver
-  pronto."* · garantia *"Seja dos primeiros a usar. Sem spam, prometemos."*
-- Provas/claims reais: *"90% — Esquecido em 30 dias"*, *Curva do Esquecimento de Ebbinghaus*,
-  *"FSRS-6 vs SM-2"*, *"3 Ratings vs Binário"*, *"18 Regras vs Cópia"*, métricas *"350M+ reviews"*,
-  *"30% mais eficiente"*, etimologia *λεκτός* (grego: leitura, lição, coletar, selecionar, intelecto).
-- Trio de benefícios: *Acesso antecipado · Feedback direto · Plano gratuito estendido*.
-- Erro: *"Erro ao enviar. Tente novamente."* (ou mensagem de validação/duplicado vinda da API).
-
-**3. O que a pessoa precisa fazer.** Entender a proposta e **deixar o e-mail**. (Quem já tem acesso
-encontra um caminho discreto para entrar.)
-
-**4. Modelo de interação.** Um **único campo** (e-mail), repetido nos pontos de decisão naturais ao
-rolar. Envio com **sensação instantânea** + indicador **em progresso**; ao concluir, o formulário
-**cede lugar a uma confirmação calma, no mesmo lugar**. Erro/duplicado retorna **mensagem curta
-inline**. Em telas estreitas, a navegação de seções é recolhível.
-
-**5. Filosofia / guardrails (vinculante).** Pré-lançamento: o acesso é **fechado e por prioridade de
-fila** (escassez real, não fabricada). A persuasão se apoia em **claims reais e verificáveis**
-(FSRS-6, 18 regras, 3 gestos, Ebbinghaus). Não há login/conta aqui. **PROIBIDO (forte):** pedir mais
-que o e-mail neste estágio; urgência/escassez de *dark pattern* que não seja verdadeira.
-
-**6. Fluxo.** Ler proposta (qualquer seção) → inserir e-mail → enviar (em progresso) → confirmação no
-lugar. Caminho secundário discreto → login.
-
-**7. Estados (mobile e desktop, dark).** *padrão* (formulário disponível, em 3 pontos) · *em
-progresso* (enviando) · *enviado* (confirmação substitui o formulário) · *erro/validação* (mensagem
-inline) · navegação *recolhida/expandida* (telas estreitas).
-
-**8. Restrições.** Atrito mínimo (1 campo); confirmação não desloca a pessoa; claims honestos;
-caminho para login presente mas discreto.
-
-> **Consumo do DS:** *campo de entrada*, *ação primária* (em progresso), *superfícies de vidro*,
-> *etiqueta de metadado*, marca/tipografia de display (+ acento serifado de marca). Se faltar algo →
-> **pare e sinalize**.
+### 8. Restrições
+Operável **com uma mão**, polegar; **instantâneo**; **perdoa toque acidental**; foco total (sem
+elementos competindo); paridade teclado↔gesto no desktop sem perda de velocidade.
 
 ---
 
-### TELA 4 — Explorar (`/explore`)
+## Tela 1 — Landing / lista de espera (`/`)
 
-**1. Propósito.** Descobrir, numa **biblioteca pública curada**, decks que valha a pena adotar.
+### 1. Propósito
+Apresentar o Lekto a um visitante anônimo e captar o e-mail para a lista de espera.
 
-**2. Informação visível (fixtures reais + representativos sinalizados).**
-> ⚠️ **Estado real hoje:** o banco local tem **0 decks públicos** → o **estado vivo é o vazio**. Os
-> *resumos de deck* abaixo são **representativos**, derivados do **vocabulário real de domínio** (os
-> cartões reais são de *Hábitos Atômicos*; tags reais vêm de `utils/deckMeta.ts`; categorias reais
-> vêm da UI). Sinalizados como representativos porque o conteúdo populado real ainda não existe.
+### 2. Informação visível
+Mensagem-âncora do produto e os diferenciais (fixtures, lane de copy): retenção, FSRS-6, "3 gestos",
+"3 ratings vs binário", a etimologia λεκτός, e o campo de e-mail. Um exemplo ilustrativo do card de
+revisão com as **três** direções de resposta aparece como demonstração da filosofia.
 
-- Cabeçalho: *"Explorar"* + *"Descubra novos horizontes de conhecimento em nossa biblioteca curada
-  de baralhos públicos."* + entrada de busca (placeholder *"Buscar baralhos, temas ou autores..."*).
-- Facetas de categoria (reais): **Tudo · Design · Programação · Psicologia · Idiomas · Marketing ·
-  Finanças**.
-- Grade de **resumos de deck** (representativos):
-  - *"Hábitos Atômicos"* — por **Henry** — tags `[hábitos, produtividade]` — **42 cartões · 128
-    inscritos** — *"Os principais insights de James Clear sobre como pequenas mudanças geram
-    resultados notáveis."*
-  - *"Fundamentos de Psicologia Cognitiva"* — por **Henry** — tags `[psicologia]` — **76 cartões ·
-    54 inscritos** — *"Atenção, memória e vieses do raciocínio."*
-  - **Linha de borda — título longo:** *"Padrões de Projeto de Software Orientado a Objetos (GoF)"* —
-    tags `[programação]` — **120 cartões · 9 inscritos** — *"Os 23 padrões clássicos com exemplos."*
-  - **Linha de borda — sem descrição / deck novo:** *"Vocabulário de Japonês — N5"* — tags
-    `[idiomas]` — **18 cartões · 0 inscritos** — (sem descrição).
+### 3. O que a pessoa precisa fazer
+Entender a proposta e, se convencida, **deixar o e-mail** para ser avisada — em um passo.
 
-`copy (mutável)`: *"Ver mais baralhos"* · vazio: *"Nenhum deck público disponível ainda."* ·
-(D2) busca-sem-resultado: *"Nada encontrado para sua busca."*
+### 4. Modelo de interação
+- Captura de e-mail **em um envio**; após enviar, confirmação **instantânea** no lugar do formulário;
+  erro de validação reaproveita o mesmo ponto, sem navegação.
+- Navegação interna por **âncoras** para as seções (calibração: 4 seções); em telas estreitas o
+  conjunto de navegação **recolhe** e expande sob demanda (cadência rápida).
+- A demonstração do card reforça, visualmente, que a avaliação tem **três** direções (não binária) —
+  coerente com a tela de Revisão.
 
-**3. O que a pessoa precisa fazer.** Folhear; refinar por texto e/ou categoria; abrir um deck para
-avaliar/adotar.
+### 5. Filosofia / guardrails
+Página pública: **nenhum dado autenticado**. A promessa exibida deve refletir a filosofia real do
+produto (agendamento pelo sistema; 3 níveis de resposta; offline). **Proibido** prometer controles
+que o produto nega (ex.: o usuário "ajustar intervalos").
 
-**4. Modelo de interação (D2 — capacidades reais pretendidas).** A lista **carrega de imediato** ao
-entrar. Refino por **consulta de texto livre** (casa com título/tema/autor) **e** por **faceta de
-categoria** (uma ativa por vez, com "Tudo" como neutro). Resultados **estendem sob demanda** ("ver
-mais"), **não** rolagem infinita automática. Cada *resumo* comunica **num relance**: assunto,
-autoria, **tamanho (quantos cartões)** e **adoção (quantas pessoas inscritas)** — suficiente para
-decidir abrir sem entrar. *(Hoje busca/facetas/"ver mais" são placeholders — especificá-los como
-comportamento real; cobrir o estado de "busca sem resultado".)*
+### 6. Fluxo
+Chegar → ler proposta/diferenciais/ciência → informar e-mail → ver confirmação (ou corrigir erro).
 
-**5. Filosofia / guardrails (vinculante).** A **curadoria** (quais decks são públicos / aparecem) é
-do **sistema/dono**; a decisão da pessoa é só **o que explorar e adotar**. Decks **pessoais nunca
-aparecem aqui** (o domínio "Personal" é não-publicável — confirmado em `DeckFactory`). **PROIBIDO:**
-expor decks privados; transformar a adoção/inscrição em algo irreversível ou escondido.
+### 7. Estados
+Formulário; enviando; sucesso (confirmação no lugar do formulário); erro (mensagem de validação);
+navegação recolhida/expandida (mobile). Mobile e desktop, claro e escuro. *(Sem estado autenticado:
+quem está logado é levado ao início.)*
 
-**6. Fluxo.** Entrar → ver biblioteca (ou vazio) → (opcional) buscar/filtrar → abrir um resumo → tela
-de Deck público.
-
-**7. Estados (mobile e desktop, dark).** *carregando* · **vazio (estado vivo hoje)** · *populado*
-(grade) · *busca sem resultado* · *carregando-mais* ("ver mais" em progresso). Grade reflui de 1 →
-múltiplas colunas conforme a largura.
-
-**8. Restrições.** Folhear de uma mão; decisão de abrir feita pelo relance (assunto+tamanho+adoção);
-refino opcional, nunca obrigatório.
-
-> **Consumo do DS:** *casca de navegação* + *região de conteúdo* (fork do template-base), *resumo de
-> deck*, *faceta de categoria*, *campo de entrada* (busca), *etiqueta de metadado*, *estados
-> vazio/carregando*. Se faltar algo → **pare e sinalize**.
+### 8. Restrições
+Carrega rápido; um único campo para a ação principal; compreensível sem rolar até o fim.
 
 ---
 
-### TELA 5 — Deck público (`/explore/[slug]`)
+## Tela 2 — Entrar (`/login`)
 
-**1. Propósito.** Dar à pessoa o suficiente para **julgar se um deck público lhe serve** e decidir
-**adotá-lo (inscrever-se)** — de forma reversível.
+### 1. Propósito
+Autenticar um usuário existente por e-mail e senha.
 
-**2. Informação visível (fixtures reais).** Usando o deck real de domínio *Hábitos Atômicos*:
+### 2. Informação visível
+Identidade do produto, os dois campos (e-mail, senha), a opção de **revelar/ocultar** a senha, e um
+caminho para quem ainda não tem acesso (→ lista de espera). Mensagem de erro: ver fixtures.
 
-- Nome: *"Hábitos Atômicos"* · autoria: *"por Henry"*.
-- Descrição: *"Os principais insights de James Clear sobre como pequenas mudanças geram resultados
-  notáveis."*
-- Metadados: **42 cartões · 128 inscritos** (pluralização real: "1 inscrito" / "N inscritos").
-- Tags: `hábitos` · `produtividade`.
-- **Prévia — SÓ as frentes** de alguns cartões de amostra (verso **nunca** aparece aqui), frentes
-  reais:
-  - *"Por que ancorar um hábito novo a um momento que você já faz de forma fixa (como sentar ao
-    computador ao chegar do trabalho) torna a mudança mais fácil?"*
-  - *"Você quer adotar um hábito novo, mas vive esquecendo de fazê-lo. Como usar a sua rotina atual a
-    favor disso?"*
+### 3. O que a pessoa precisa fazer
+Informar credenciais e entrar; ou seguir para a lista de espera se não tiver conta.
 
-`copy (mutável)`: *"← Voltar"* · rótulo *"Preview"* · ação *"Inscrever-se"* / *"Cancelar inscrição"*.
+### 4. Modelo de interação
+- Envio único; durante a verificação, a ação fica **ocupada** (sem reentrada) e há sinal de espera.
+- Alternar a **visibilidade da senha** é instantâneo e reversível.
+- Sucesso leva direto ao início.
 
-**3. O que a pessoa precisa fazer.** Avaliar escopo/nível pela prévia e pelos metadados, e
-**adotar ou não** (reversível).
+### 5. Filosofia / guardrails
+**Segurança:** o erro de credencial é **genérico e único** — **não revela** se o e-mail existe nem
+qual campo falhou. **Proibido** mensagens que diferenciem "e-mail não encontrado" de "senha errada".
 
-**4. Modelo de interação.** Superfície de **decisão**: o bastante para julgar antes de comprometer. A
-prévia mostra **apenas o lado da pergunta** de alguns cartões — **nunca as respostas** — para que a
-pessoa avalie escopo/nível **sem colher o conteúdo de graça**. **Um único comprometimento
-reversível** (adotar / cancelar), **sempre alcançável sem rolar**, com **retorno otimista imediato**
-na contagem de adoção; o ato é **perdoador** (cancelar é um passo, no mesmo lugar).
+### 6. Fluxo
+Informar e-mail e senha → enviar → (sucesso: início) / (erro: mensagem genérica, permanecer).
 
-**5. Filosofia / guardrails (vinculante).** O que é público e o que a amostra revela é decisão do
-**sistema/dono**; a pessoa decide só **adotar-ou-não**. Adotar injeta os cartões do deck no **próprio
-feed de revisão** da pessoa. **PROIBIDO:** revelar as **respostas** da amostra antes de adotar; expor
-decks privados do dono; fazer a adoção parecer irreversível ou esconder o caminho de cancelar.
+### 7. Estados
+Ocioso; enviando (ocupado); erro (mensagem genérica); senha revelada/oculta. Mobile e desktop, claro e escuro.
 
-**6. Fluxo.** Abrir (a partir de Explorar) → carregar → ler metadados + prévia (só frentes) → adotar
-(otimista) **ou** voltar; se já inscrito, cancelar (reversível).
-
-**7. Estados (mobile e desktop, dark).** *carregando* · *carregado — não inscrito* (ação = adotar) ·
-*carregado — inscrito* (ação = cancelar, tom destrutivo) · *agindo* (ação em progresso, bloqueada) ·
-*prévia vazia* (deck sem cartões de amostra). A ação de comprometimento fica fixa/alcançável em
-qualquer rolagem, respeitando a navegação inferior em telas estreitas.
-
-**8. Restrições.** Decisão sem entrar no deck; ação de comprometimento sempre ao alcance do polegar;
-reversível em um passo; respostas protegidas até adotar.
-
-> **Consumo do DS:** *região de conteúdo* (fork do template-base), *resumo/cabeçalho de deck*,
-> *etiqueta de metadado* (tags/contagens), *ação primária* e *ação destrutiva* (com estado em
-> progresso), *estado carregando*. Se faltar algo → **pare e sinalize**.
+### 8. Restrições
+Foco imediato no primeiro campo; recuperação de erro sem perder o que foi digitado.
 
 ---
 
-## Parte C — Checklist de aceite §6 (auto-verificação, por tela)
+## Tela 3 — Início / meus decks (`/home`)
 
-| Critério (§6) | Revisão | Login | Waitlist | Explorar | Deck público |
-|---|:--:|:--:|:--:|:--:|:--:|
-| Bloco **Modelo de interação** com valores concretos | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Bloco **Filosofia/guardrails** (quem decide + o que fica oculto) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Anti-padrão proibido nomeado** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Auditoria de omissão** passada | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Não nomeia widget** nem descreve forma visual | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Sem **constante de mecânica** (px/ms) e copy tratada como lane **mutável** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Todo valor camada-2 é **calibração-com-banda** ou guardrail de intenção | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Fixtures reais** (banco local / in-repo / destaques reais), textura preservada | ✅ | ✅ | ✅ | ⚠️¹ | ✅ |
-| Cobre **mobile e desktop** + **todos os estados** (dark — ver D1) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Consome o DS** por nome; ordena "pare e sinalize" se faltar | ✅ | ✅ | ✅ | ✅ | ✅ |
+### 1. Propósito
+Ponto de partida do usuário autenticado: o chamado para revisar hoje e o acesso aos decks próprios e inscritos.
 
-¹ **Explorar:** o estado *vazio* usa dado real (banco com 0 decks públicos). O estado *populado* usa
-*resumos representativos* derivados do vocabulário real de domínio (cartões reais de *Hábitos
-Atômicos* + tags reais de `deckMeta.ts` + categorias reais da UI), **explicitamente sinalizados**,
-porque o conteúdo populado real ainda não existe no banco — conjunto completo com linhas de borda
-(título longo, sem-descrição, 0 inscritos).
+### 2. Informação visível
+O quanto há para revisar hoje e a sequência de dias (fixtures: estados conta-nova / em-progresso /
+madura); a coleção de **decks próprios** e de **decks inscritos**, cada um com nome, contagem de cards
+e quantos estão pendentes; e — desenhada como **funcionalidade real** (decisão do operador) — uma
+faixa de **atividade recente, nível/XP e mapa de constância**. Vazios têm mensagem e saída (fixtures).
 
-**Notas de relaxamento documentado:** o item genérico "light **and** dark" do §6 está relaxado por
-**D1** (produto dark-first; tokens semânticos permitem tema claro futuro; telas entregues em dark).
-Todos os demais itens do §6 são atendidos integralmente.
+### 3. O que a pessoa precisa fazer
+Iniciar a revisão do dia (ação principal); ou entrar num deck para revisar/gerenciar; ou, sem decks,
+ir explorar a biblioteca.
+
+### 4. Modelo de interação
+- A ação principal — **iniciar a revisão do dia** — é a mais proeminente e leva ao ritual.
+- Abrir um deck **bifurca pelo papel**: deck **próprio** → tela de gerência; deck **de terceiros
+  (inscrito)** → detalhe público. Mesma intenção, destino conforme posse.
+- Densidade **divergente por porte de tela**: no desktop a coleção é navegável de forma rica; no
+  mobile, de forma compacta e tocável. Calibração de agrupamento: dois grupos (próprios / inscritos).
+- Progressão/gamificação (atividade, nível/XP, constância) é informativa e **não** se torna uma
+  alavanca sobre o agendamento.
+
+### 5. Filosofia / guardrails
+O "quanto revisar hoje" é **definido pelo sistema** (fila do FSRS), não um alvo que o usuário ajusta.
+A gamificação **motiva**, mas **não** altera o que/quando revisar. **Proibido** sugerir que XP/nível
+mudam o cronograma ou que a pessoa pode "adiantar/atrasar" cards manualmente daqui.
+
+### 6. Fluxo
+Entrar → ver o chamado do dia + decks → iniciar revisão **ou** abrir um deck **ou** (vazio) ir explorar.
+
+### 7. Estados
+Carregando; populado; **próprios vazio** (saída para explorar); **inscritos vazio** (saída para
+explorar); deck com pendências vs em dia (selo de status — sem depender só de cor); **degradação
+silenciosa** se uma origem de dados falha (mostrar o que veio, sem quebrar). Mobile e desktop, claro
+e escuro.
+
+### 8. Restrições
+A ação do dia alcançável de imediato; um toque para entrar num deck; estados vazios sempre oferecem saída.
+
+---
+
+## Tela 5 — Explorar biblioteca (`/explore`)
+
+### 1. Propósito
+Descobrir e navegar a biblioteca curada de decks públicos.
+
+### 2. Informação visível
+Uma coleção de decks públicos (fixtures: deck real "Hábitos Atômicos" + biblioteca representativa),
+cada um com nome, descrição (pode truncar), autor e contagens (cards, inscritos). Busca e categorias
+**são reais** (decisão do operador). Vazio: ver fixtures.
+
+### 3. O que a pessoa precisa fazer
+Encontrar um deck de interesse — por **busca textual**, por **filtro de categoria**, ou rolando — e abri-lo.
+
+### 4. Modelo de interação
+- **Busca textual** filtra a coleção conforme se digita (cadência rápida, sub-segundo); **filtro por
+  categoria** restringe por tema (calibração: ~6 categorias temáticas + "tudo"); ambos combináveis.
+- **Carregar mais** traz o próximo lote sob demanda (paginação real; calibração de lote a definir por
+  você dentro de "alguns por vez").
+- Abrir um deck leva ao detalhe público. Densidade da coleção **diverge por porte de tela** (rica no
+  desktop, compacta no mobile).
+
+### 5. Filosofia / guardrails
+Descoberta é **navegação pública**; nada aqui altera o cronograma de ninguém. A ordenação/curadoria da
+biblioteca é decisão do produto, não um controle do usuário. **Proibido** expor respostas (verso) de
+cards públicos nesta listagem.
+
+### 6. Fluxo
+Entrar → buscar/filtrar/rolar → abrir um deck.
+
+### 7. Estados
+Carregando; populado; **vazio** (sem decks públicos); **busca sem resultado**; **carregando mais**;
+**erro de carga** (hoje cai em branco — defina um estado de erro explícito). Mobile e desktop, claro e escuro.
+
+### 8. Restrições
+Busca responde rápido; rolar é fluido; abrir um deck é um toque.
+
+---
+
+## Tela 6 — Detalhe de deck público (`/explore/[slug]`)
+
+### 1. Propósito
+Mostrar um deck público em detalhe e permitir **inscrever-se** / **cancelar inscrição**.
+
+### 2. Informação visível
+Nome, autor, descrição, temas, contagens (cards, inscritos — com plural correto) e uma **prévia** com
+**apenas as frentes** de alguns cards (fixtures `sample_cards`). A ação principal varia conforme já
+inscrito ou não.
+
+### 3. O que a pessoa precisa fazer
+Avaliar o deck pela prévia e **inscrever-se** (ou **cancelar** se já segue).
+
+### 4. Modelo de interação
+- A ação de inscrição é **otimista e instantânea** (a contagem de inscritos reflete na hora); cancelar
+  é a reversão direta, igualmente imediata.
+- Voltar retorna à origem da navegação.
+- A prévia expõe **só a frente** dos cards — o suficiente para julgar o deck sem entregar as respostas.
+
+### 5. Filosofia / guardrails
+Inscrever-se **não** começa a agendar nada de imediato; o FSRS materializa o estado do card na
+**primeira revisão**, decisão do sistema. **Proibido** mostrar o verso dos cards na prévia pública;
+**proibido** expor qualquer parâmetro de agendamento aqui.
+
+### 6. Fluxo
+Abrir → ler detalhe + prévia → inscrever-se (ou cancelar) → seguir para revisar/voltar.
+
+### 7. Estados
+Carregando; populado **não inscrito**; populado **inscrito**; **agindo** (inscrição em curso, ação
+ocupada); **não encontrado** (hoje cai em branco — defina um estado explícito). Seções condicionais
+(sem descrição / sem temas / sem prévia). Mobile e desktop, claro e escuro.
+
+### 8. Restrições
+Decisão de inscrição em um toque e reversível; prévia honesta, sem vazar respostas.
+
+---
+
+## Tela 7 — Gerenciar deck próprio (`/decks/[id]`)
+
+### 1. Propósito
+Gerenciar um deck do próprio usuário: revisar, compartilhar publicamente, copiar o link, ou excluir.
+
+### 2. Informação visível
+Nome, descrição, temas, contagem de cards e quantos estão pendentes hoje; o estado de **público/
+privado**; e, quando público, o **link de compartilhamento**. Confirmação destrutiva: ver fixtures.
+
+### 3. O que a pessoa precisa fazer
+Iniciar a revisão deste deck; alternar visibilidade pública; copiar o link; ou excluir o deck.
+
+### 4. Modelo de interação
+- **Revisar este deck** leva ao ritual já filtrado por este deck.
+- **Tornar público/privado** é um alternar reversível com estado **em transição** (ocupado durante a troca).
+- **Copiar o link** é instantâneo, com **confirmação efêmera** de que copiou.
+- **Excluir** é **destrutivo e irreversível** → exige **confirmação explícita** em uma etapa
+  intermediária antes de efetivar; durante a exclusão, a ação fica ocupada.
+
+### 5. Filosofia / guardrails
+Tornar público **expõe o conteúdo do deck a terceiros** — decisão consciente do dono; deixe o efeito
+claro. A exclusão **apaga cards e todo o histórico de revisão e não pode ser desfeita**: **proibido**
+excluir sem confirmação; **proibido** tornar público sem que o usuário perceba que está publicando.
+
+### 6. Fluxo
+Abrir → revisar / alternar visibilidade / copiar link / excluir (→ confirmar → efetivar → sair).
+
+### 7. Estados
+Carregando; populado; público **ligado** (com link) vs **desligado**; alternando (ocupado);
+confirmação de exclusão; excluindo (ocupado); link copiado (confirmação efêmera); não encontrado.
+Mobile e desktop, claro e escuro.
+
+### 8. Restrições
+Ação destrutiva sempre confirmada; efeito de "tornar público" inequívoco; copiar dá retorno imediato.
+
+---
+
+## Tela 8 — Dashboard de progresso (`/progress`)
+
+### 1. Propósito
+Dar ao usuário uma leitura do próprio aprendizado: retenção, sequência, esforço diário, composição do
+conhecimento, histórico de atividade e previsão de volume.
+
+### 2. Informação visível
+Retenção de longo prazo (um valor 0–100%), a sequência atual e o recorde, o progresso do dia, a
+composição do conhecimento (maduros / jovens / lapsos), o histórico de atividade ao longo do tempo, e
+a previsão de volume (amanhã / próximos 7 dias). Saudação por hora do dia. **Use os três estados de
+estatística das fixtures — incluindo o estado real de conta nova (tudo zerado / dados insuficientes).**
+
+### 3. O que a pessoa precisa fazer
+**Apenas ler** — entender como vai indo. Não há ação que saia desta tela.
+
+### 4. Modelo de interação
+- Tela **somente leitura**: sem gatilhos de navegação para fora.
+- A saudação varia por **faixa do dia** (manhã / tarde / noite).
+- O histórico de atividade tem densidade **divergente por porte de tela** (calibração: ~20 semanas no
+  desktop, ~4 no mobile) — banda: "uma janela longa no desktop, recente no mobile".
+- A consistência semanal cobre os **últimos 7 dias**; a previsão resume **amanhã** e a soma de **7 dias**.
+- Cada bloco de dado **carrega de forma independente** (um pode estar pronto enquanto outro ainda
+  busca), degradando sem quebrar a tela.
+
+### 5. Filosofia / guardrails
+Tudo aqui é **observação**, não controle: a **meta de retenção** e o agendamento são do **sistema** e
+**não** são alavancas que o usuário ajusta. **Proibido** transformar qualquer métrica (retenção,
+intervalos) em um controle editável; **proibido** expor parâmetros internos do FSRS como ajustáveis.
+
+### 6. Fluxo
+Entrar → ler os indicadores (que chegam progressivamente) → sair pela navegação.
+
+### 7. Estados
+Carregando (geral e por bloco); **conta nova / vazio** (tudo zerado, "dados insuficientes para
+tendência", histórico/previsão vazios); populado; tendência presente vs ausente; sequência ativa vs
+inativa (sem depender só de cor); precisão indisponível. Mobile e desktop, claro e escuro.
+**A resolver (divergência):** hoje a Progresso está no menu lateral do desktop mas **ausente** da
+navegação primária do mobile — alcançável só por URL. Recomendação: torná-la alcançável no mobile;
+tratar como decisão de produto, não default silencioso.
+
+### 8. Restrições
+Legível num relance; nenhuma métrica deve sugerir interatividade que não existe (é leitura).
+
+---
+
+## Tela 9 — Perfil (`/profile`)
+
+### 1. Propósito
+Identidade do usuário, alguns indicadores de cabeçalho, gerência do **token de API (MCP)** e sair.
+
+### 2. Informação visível
+Nome e e-mail; sequência (atual + recorde), revisados hoje, quantidade de decks; o **token MCP**
+quando gerado; e a saída. Avisos do token e rótulos: ver fixtures.
+
+### 3. O que a pessoa precisa fazer
+Conferir a própria conta; **gerar/copiar** um token MCP; ou **sair**.
+
+### 4. Modelo de interação
+- **Gerar token** produz um segredo exibido **uma única vez**; **copiar** é instantâneo com
+  **confirmação efêmera** (calibração: ~2 s); **gerar novo** substitui o anterior (revogando-o).
+- **Sair** encerra a sessão e leva ao login.
+
+### 5. Filosofia / guardrails
+**Segurança:** o token é um **segredo mostrado uma só vez** — deixe claro que não será reexibido e que
+gerar um novo invalida o anterior. **Proibido** reexibir um token antigo ou sugerir que ele pode ser
+recuperado depois.
+
+### 6. Fluxo
+Abrir → conferir conta → (opcional) gerar e copiar token → (opcional) sair.
+
+### 7. Estados
+Carregando; populado; **sem token ainda** (só a ação de gerar); **gerando** (ocupado); **token
+presente** (segredo + copiar; ação vira "gerar novo"); **copiado** (confirmação efêmera). Mobile e
+desktop, claro e escuro.
+
+### 8. Restrições
+O segredo é tratado como sensível (mostrado uma vez, copiável); sair é inequívoco.
+
+---
+
+## Auditoria de omissão (R3) — verificada por tela antes de fechar
+Para cada tela acima foi perguntado: *"se eu omitir este parâmetro (tempo, contagem, tamanho,
+modalidade, o que fica oculto), um agente razoável preencheria com algo que contradiz o produto?"* —
+onde sim, o parâmetro foi declarado (ex.: a inferência Good/Easy na Revisão; a mensagem de erro
+genérica no Login; a confirmação destrutiva em Gerenciar deck; o token exibido uma vez no Perfil; o
+agendamento oculto em todas). O silêncio permanece **apenas** sobre forma visual.
+
+# ============ 02 · FIXTURES ============
+
+# Fixtures reais + lane de copy (pareie com "Informação visível" de cada tela)
+
+> **Procedência (R8).** Não há banco de dados de desenvolvimento provisionado. O conteúdo **real**
+> do repositório é o export Kindle de ***Hábitos Atômicos* (James Clear)** — `tests/fixtures/
+> kindle-habitos-atomicos.html`, **123 destaques reais** em português — somado a pares de card
+> reais em testes e às **regras de formato de card** do validador. Os cards abaixo foram
+> **transformados a partir de destaques reais do livro** respeitando o validador (frente = 1–3
+> frases, **pergunta, nunca sim/não**; verso = 2–5 frases; sem markdown/bullets/emoji). Itens
+> marcados **[representativo]** são metadados de biblioteca sem fonte real no repo (existe só um
+> livro real) — sinalizados, não passados como reais.
+>
+> **Textura é dado.** Observe a densidade real: respostas têm 2–4 frases (não one-liners), o
+> português usa travessões `—`, e — crucialmente — **a conta recém-criada do Lekto nasce vazia**
+> (o seeder cria 2 usuários e **zero decks/zero cards**). Por isso os estados **vazio / primeira
+> vez** são reais e de primeira classe, não decoração.
+
+## Regras de formato de card (do `FlashcardValidator` — restrição real)
+
+- **Frente:** 1 a 3 frases; é uma **pergunta**; **proibido** pergunta de sim/não.
+- **Verso:** 2 a 5 frases.
+- **Proibido** em ambos: markdown, títulos (`#`), bullets (`•`), emojis.
+- `timer_seconds` por card = `clamp(4 + palavras_do_verso × 0.6, 5, 15)` → **5 a 15 s**, cresce com
+  o tamanho do verso. (Calibração atual; a banda — "da ordem de segundos" — é o que vincula.)
+
+---
+
+## Deck real — "Hábitos Atômicos" (fonte: export Kindle real)
+
+Metadados (campos reais do modelo `Deck`): `name: "Hábitos Atômicos"`, `domain: pessoal`,
+`format: livro (book)`, `level: iniciante`, `content_language: pt-BR`, `owner_name: "Henry"`.
+
+### Cards (transformados de destaques reais — set state-aware com linhas de borda)
+
+1. **frente:** "O que acontece se você melhorar 1% a cada dia durante um ano?"
+   **verso:** "Você termina cerca de 37 vezes melhor do que começou. Se piorar 1% ao dia, declina
+   quase a zero. Pequenas escolhas diárias se compõem em resultados enormes ao longo do tempo."
+   *(verso longo → timer perto do teto, ~12–15 s)*
+
+2. **frente:** "Por que se diz que hábitos são os juros compostos do autoaperfeiçoamento?"
+   **verso:** "Porque, assim como o dinheiro rende com juros compostos, os efeitos dos hábitos se
+   multiplicam quando você os repete. Mudanças que parecem pequenas no início trazem resultados
+   notáveis se você persistir nelas por anos."
+
+3. **frente:** "O que significa dizer que seus resultados são uma 'mensuração tardia' dos seus hábitos?"
+   **verso:** "Significa que o que você colhe hoje reflete hábitos passados: seu peso reflete
+   hábitos alimentares; seu conhecimento, hábitos de aprendizado; seu patrimônio, hábitos
+   financeiros. Você colhe o que planta e cultiva."
+
+4. **frente:** "Quais são os quatro passos que formam o ciclo de um hábito?"
+   **verso:** "Estímulo, desejo, resposta e recompensa. O estímulo dispara o comportamento, o
+   desejo é a motivação, a resposta é o hábito em si e a recompensa é o benefício que reforça o ciclo."
+
+5. **frente:** "Devemos nos preocupar mais com a trajetória atual ou com os resultados atuais?"
+   **verso:** "Com a trajetória. Os resultados de hoje importam menos do que a direção para onde
+   seus hábitos estão levando você."
+   *(verso curto, 2 frases → linha de borda: timer perto do piso, ~5–6 s)*
+
+6. **frente:** "Como o tempo age sobre os bons e os maus hábitos?"
+   **verso:** "O tempo amplia a margem entre sucesso e fracasso, multiplicando aquilo que você
+   cultiva. Bons hábitos transformam o tempo em aliado; maus hábitos o tornam seu inimigo."
+
+7. **frente:** "O que define um hábito?"
+   **verso:** "É uma rotina ou comportamento realizado regularmente e, em muitos casos, de modo
+   automático. A repetição torna a ação cada vez mais inconsciente ao longo do tempo."
+
+8. **frente:** "Por que hábitos importam mais que metas?" *(par real do onboarding/validador)*
+   **verso:** "Porque sistemas determinam o progresso, enquanto metas só definem a direção. Você
+   não se eleva ao nível de suas metas; você cai ao nível de seus sistemas."
+
+**Linhas de borda incluídas de propósito:** card 1 (verso no teto de tamanho → timer máximo),
+card 5 (verso mínimo de 2 frases → timer mínimo). **Frente mais longa:** card 3.
+**Cardinalidade real do deck no repo:** uma micro-sessão é de **~10 cards**; o cap diário é **50**.
+
+### `sample_cards` (preview pública — só a frente é exposta)
+
+`[{front: "O que acontece se você melhorar 1% a cada dia durante um ano?"},
+{front: "Quais são os quatro passos que formam o ciclo de um hábito?"},
+{front: "O que define um hábito?"}]`
+
+---
+
+## Biblioteca de Explorar (cardinalidade > 1)
+
+O deck **"Hábitos Atômicos"** acima é real. Os demais são **[representativo]** (metadados plausíveis
+nos domínios reais do enum `DeckDomain`; sem conteúdo de card real no repo):
+
+| name | domain | tags | cards_count | owner_name | subscribers_count | descrição (copy mutável) |
+|------|--------|------|-------------|------------|-------------------|--------------------------|
+| Hábitos Atômicos | pessoal | ["Hábitos","Produtividade"] | 8 | Henry | 1 | *(real)* "Os princípios centrais de James Clear sobre construir bons hábitos." |
+| Vocabulário N5 de Japonês `[representativo]` | idiomas | ["Idiomas","Japonês"] | 120 | Aurélio | 34 | "Os primeiros kanji e palavras para o JLPT N5." |
+| Direito Constitucional `[representativo]` | exames | ["Concurso","Direito"] | 240 | Aurélio | 56 | "Artigos essenciais e jurisprudência para concursos." |
+| Fundamentos de UX `[representativo]` | artes/design | ["Design","UX"] | 42 | Henry | 12 | "Leis de usabilidade e heurísticas aplicadas." |
+
+**Linha de borda:** deck com `description: null` e `tags: null` (a capa cai no ícone/gradiente
+padrão; o rótulo de categoria some). **Estado vazio real:** biblioteca sem decks públicos →
+*"Nenhum deck público disponível ainda."*
+
+---
+
+## Estados de estatística (tela de Progresso / Início / Perfil)
+
+Campos reais do endpoint `/stats`. Três estados — e o **vazio é o real de uma conta nova**:
+
+### A) Conta nova / fria (estado real do seeder — primeira classe)
+
+`current_streak: 0`, `longest_streak: 0`, `reviewed_today: 0`, `total_due: 0`,
+`average_retention: null`, `accuracy_today: null`, `mature_cards: 0`, `young_cards: 0`,
+`lapse_cards: 0`, `focus_time_today_ms: 0`, `total_reviews: 0`. Heatmap **vazio**; forecast **vazio**;
+retenção → *"Dados insuficientes para tendência"*; sequência → *"Inativo"*.
+
+### B) Conta em progresso `[representativo]`
+
+`current_streak: 5`, `longest_streak: 12`, `reviewed_today: 8`, `total_due: 14`,
+`average_retention: 0.78`, `accuracy_today: 0.86`, `mature_cards: 23`, `young_cards: 41`,
+`lapse_cards: 3`, `focus_time_today_ms: 480000` (→ "8m"), `total_reviews: 312`.
+
+### C) Conta madura `[representativo]` (linha de borda: números grandes, pt-BR)
+
+`current_streak: 1`, `longest_streak: 167`, `reviewed_today: 50`, `total_due: 50`,
+`average_retention: 0.91`, `accuracy_today: 0.94`, `mature_cards: 1.240`, `young_cards: 88`,
+`lapse_cards: 12`, `focus_time_today_ms: 5400000` (→ "1h 30m"), `total_reviews: 9.870`.
+
+### Heatmap (`/stats/heatmap`) — `Array<{date, count}>` `[representativo]`
+
+Distribuição realista: maioria dos dias 0–4 revisões, alguns picos de 30–50, lacunas (dias 0).
+Desktop = 20 semanas; mobile = 4 semanas. Linha de borda: hoje com count alto (50) e ontem 0.
+
+### Forecast (`/stats/forecast`) — `Array<{date, count}>` `[representativo]`
+
+`[{amanhã: 12}, {+2: 9}, {+3: 22}, {+4: 4}, {+5: 0}, {+6: 15}, {+7: 7}]` → "Amanhã" = 12; "7 Dias" = soma.
+
+### Retenção (`/stats/retention`) — `Array<{days_ago, total, retention}>` `[representativo]`
+
+`[{days_ago: 7, total: 60, retention: 0.82}, {days_ago: 30, total: 210, retention: 0.79}]`
+→ tendência "+3,0% vs últimos 30 dias". Linha de borda: bucket com `retention: null` → "Dados insuficientes".
+
+---
+
+## Lane de `copy (mutável)` — textura real, palavras editáveis pelo agente
+
+> Mineradas do app **como textura** (tom, brevidade, voz pt-BR). **O agente PODE reescrever as
+> palavras.** O que vincula é o **ato de fala** (descrito no bloco de Interação de cada tela), não a string.
+
+- **Landing:** H1 *"Nunca esqueça o que você escolheu aprender"*; subtítulo cita *"algoritmo FSRS-6"*,
+  *"18 regras cognitivas"*, *"revisões mobile em 3 gestos"*; diferenciais *"FSRS-6 vs SM-2"*,
+  *"3 Ratings vs Binário"*, *"18 Regras vs Cópia"*; CTAs *"Garantir acesso"* / *"Quero ser notificado"*;
+  sucesso *"Você está na lista. Avisaremos quando o Lekto estiver pronto."*; etimologia λεκτός.
+- **Login:** *"ENTRAR"*, placeholders *"Email"* / *"Senha"*, erro genérico *"Credenciais inválidas"*,
+  link *"Ainda não tem acesso?"* / *"Entrar na lista de espera"*.
+- **Início:** banner *"Pronto para hoje?"* / *"Você tem {N} cards para revisar hoje."* /
+  *"Sequência: {N} dias"* / CTA *"Iniciar Revisão"*; seções *"Meus Decks"*, *"Inscritos"*;
+  vazio *"Nenhum deck criado"* / *"Crie seu primeiro deck ou explore a comunidade…"*.
+- **Revisão:** countdown *"Prepare-se"* → 3 / 2 / 1 / *"Vai!"*; rótulos de gesto *"Errei"* / *"Quase"* /
+  *"Lembrei"*; verso *"Toque para revelar"*; fim *"Session complete!"* / *"{N} cards reviewed"*
+  (hoje em inglês — textura a corrigir para pt-BR pelo agente); onboarding 3 passos
+  *"Leia e tente lembrar"* / *"Revele a resposta"* / *"Avalie deslizando"*.
+- **Explorar:** *"Explorar"* / *"Descubra novos horizontes…"*; busca *"Buscar baralhos, temas ou
+  autores..."*; categorias *Design · Programação · Psicologia · Idiomas · Marketing · Finanças*;
+  detalhe *"Inscrever-se"* / *"Cancelar inscrição"* / *"{N} cards · {N} inscrito(s)"*.
+- **Gerenciar deck:** *"Revisar este deck"*, *"Tornar público"*, *"Copiar"*, *"Excluir deck"*;
+  confirmação *"Excluir deck?"* / *"Todos os cards e dados de revisão serão perdidos. Esta ação não
+  pode ser desfeita."*.
+- **Progresso:** *"Dashboard de Progresso"*, *"{saudação}, {nome}."*, *"Retenção de Longo Prazo"*,
+  qualidades *"Excelente"* / *"Bom"* / *"Em progresso"*; *"Histórico de Atividade (20 Semanas)"*.
+  (Títulos hoje em inglês — *"Streak details"*, *"Today stats"*, *"Knowledge breakdown"*,
+  *"Consistency"* — textura a unificar em pt-BR pelo agente.)
+- **Perfil:** *"{N}"* / *"dias seguidos"* / *"recorde: {N}"*; *"Token da API (MCP)"* / *"Este token
+  não será exibido novamente…"* / *"Copiar"* → *"Copiado!"*; *"Sair"*.
