@@ -7,38 +7,55 @@ summary: Reescreve a skill, os assets e o spec para o modelo camada-é-autoridad
 goal: aplicar D3–D9 em design-brief.md, nos quatro assets de design-brief-assets
   e no spec canônico three-layer-briefing.md, sem regredir os invariantes
   legítimos.
-status: active
+status: done
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T14:46:17.079Z
-nextAction: Última task da F0 fechada (5/5). Rodar phase-done para verificar os
-  exit gates F0-G1/F0-G2 + review gate e avançar para F1.
+lastUpdated: 2026-06-19T15:17:51.103Z
+nextAction: null
 parentPlan: design-brief-briefing-rework
 phaseId: F0
 tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F0-G1
     description: design-brief.md, os quatro assets e o spec canonico aplicam D3-D9 e
       validate-skills passa.
-    status: pending
+    status: met
+    metAt: 2026-06-19T15:08:33.619Z
     verifier:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T15:08:33.619Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — All 15 skills valid (schema_version 0.2) apos os fixes
+        do review gate
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-06-19
   - id: F0-G2
     description: "Regressao de autoridade fechada: o filtro de mineracao esta
       presente e o preambulo expoe duas autoridades."
-    status: pending
+    status: met
+    metAt: 2026-06-19T15:08:33.619Z
     verifier:
       kind: shell
       command: grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md &&
         grep -qi 'calibra' skills/shared/design-brief-assets/screens-prompt.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T15:08:33.619Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — axis-lock no spec + calibra no screens-prompt; filtro
+        presente e preambulo em duas autoridades
     verifierLabel: "shell: grep -q 'axis-lock' docs/design/design-brief-three-layer-br…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Refazer (reescrever o modelo de autoridade)
@@ -232,13 +249,23 @@ Initiative for phase **F0 — Refazer (reescrever o modelo de autoridade)**.
 
 ## Session handoff
 
-- **Narrative:** Fase F0 (Refazer o modelo de autoridade) com **as 5 tasks fechadas (5/5)**, cada uma com verifier PASS e evidence GATE-R2. Última task (T-005) fechou agora → fronteira de fase: falta rodar **phase-done** (verificar exit gates F0-G1 `validate-skills` + F0-G2 `axis-lock`/`calibra`, rodar o review gate `review-code` do diff da fase, e avançar para F1). Não rodei phase-done — é opt-in do operador.
-- **Decision log:** (1) trabalho R8 órfão commitado em separado (`b32ada5`) antes da F0; (2) commit por-task; (3) preâmbulo R9 como bloco emit-verbatim em pt-BR (idioma de saída canônico, espelha o R9 pt-BR do spec) — instrução do esqueleto em inglês; (4) T-005 ficou só em `anti-contamination.md` (design-brief.md não tem §6 nem tabela DEFINE/DECIDE; o scopeBoundary limita às duas estruturas).
-- **Single nextAction:** Rodar `phase-done` da F0 (verificar F0-G1/F0-G2 + review gate do diff `<commit-antes-do-started>..HEAD`, distilar lessons, gravar `reviewGate` no plan.md, avançar `currentPhase` para F1) — após o operador confirmar.
-- **Verbatim state:** verifier T-005 `npm run validate-skills` → `VALIDATE_EXIT=0` / `✓ All 15 skills valid (schema_version 0.2)`. Gates da F0: F0-G1 `npm run validate-skills` (exit 0 ✓ de fato), F0-G2 `grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md && grep -qi 'calibra' skills/shared/design-brief-assets/screens-prompt.md` (exit 0 ✓ de fato) — ambos a carimbar formalmente no phase-done.
-- **Uncommitted changes:** clean tree (T-005 prestes a ser commitado).
+- **Narrative:** Fase F0 (Refazer o modelo de autoridade) **CONCLUÍDA via phase-done**. 5/5 tasks fechadas com verifier PASS; exit gates F0-G1 (`validate-skills`) e F0-G2 (`axis-lock`+`calibra`) `met` com evidence; `reviewGate: passed` (mode local, at `236d65b6`). O review gate achou 6 defeitos de coerência (3 critical, 2 major, 1 minor) — todos corrigidos no commit `236d65b6`. Lessons L1 (sweep de refactor) e L2 (grep ≠ coerência) ratificadas e gravadas. Plano avançado: `currentPhase` F0→F1; iniciativa F0 arquivada; F1 ativada.
+- **Decision log:** (1) trabalho R8 órfão commitado em separado (`b32ada5`) antes da F0; (2) commit por-task; (3) preâmbulo R9 como bloco emit-verbatim em pt-BR (idioma de saída canônico, espelha o R9 pt-BR do spec); (4) T-005 ficou só em `anti-contamination.md`; (5) review gate corrigiu inclusive a tabela de 3 camadas (fora da scopeBoundary da T-005) — coerência de fase supera o escopo de task individual.
+- **Single nextAction:** Iniciar a F1 **em sessão nova** (o plano determina que a regeneração do briefing Lekto é para sessão nova): F1 T-001 — obter/persistir o feedback original do agente de design sobre o briefing do Lekto.
+- **Verbatim state:** F0-G1 `npm run validate-skills` → exit 0 / `All 15 skills valid (schema_version 0.2)`; F0-G2 `grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md && grep -qi 'calibra' skills/shared/design-brief-assets/screens-prompt.md` → exit 0; `reviewGate.at = 236d65b6f7d0eb7b2a81b006cc276af650027a6e`.
+- **Uncommitted changes:** a registrar no commit do phase-done.
 
 ## Links
 
 - Plan: `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/plan.md`
 - Spec canônico: `docs/design/design-brief-three-layer-briefing.md`
+- Lessons: `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/lessons/design-brief-briefing-rework-f0-refazer-reescrever-o-modelo-de.md`
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 5 tasks fechadas, cada uma com `evidence` ligando o verifier rodado (file:line/comando) que a fechou; review-gate fixes verificados lendo cada `file:line` antes do edit.
+- **G2 soft-language**: `nextAction` + descrições de task + descrições de critério escaneados pela ban-list (should/probably/may/deveria/talvez/parece) — 0 violações; claims de conclusão são `evidence passed:true`.
+- **G6 reference-or-strike**: 2 exit criteria (F0-G1, F0-G2) `met` com `evidence` populada; literais do handoff são caminhos/comandos/shas verbatim.
+- **Codex review**: SKIPPED — review gate rodou em `--mode=local` (diff não-destrutivo: 61 inserções / 15 deleções, sem deleção de arquivo). 6 achados, todos corrigidos.
+- **Review gate (G2)**: gravado no descritor da fase como `reviewGate: { status: passed, at: 236d65b6, mode: local, verifiedAt: 2026-06-19T15:08:33.619Z }`.
+- **Lessons (G1)**: 2 lessons distiladas (L1, L2; ambas reusable, confidence 2) em `lessons/design-brief-briefing-rework-f0-refazer-reescrever-o-modelo-de.md`, ratificadas pelo operador. A fase-start da F1 dispõe as reusable+open.

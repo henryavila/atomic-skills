@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T14:05:38.539Z",
+  "generatedAt": "2026-06-19T15:22:41.660Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -8,10 +8,10 @@
     "status": "active"
   },
   "phase": {
-    "id": "F0",
-    "slug": "design-brief-briefing-rework-f0-refazer-reescrever-o-modelo-de",
-    "title": "Refazer (reescrever o modelo de autoridade)",
-    "index": 1,
+    "id": "F1",
+    "slug": "design-brief-briefing-rework-f1-validar-regenerar-o-briefing-le",
+    "title": "Validar (regenerar o briefing Lekto + contrastar = gate de não-reincidência)",
+    "index": 2,
     "total": 2,
     "status": "active"
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "Start T-001: Filtro de mineração em R2: minerar essência, nunca mecânica (D3)",
+  "nextAction": "Start T-001: Obter e persistir o feedback original do Lekto",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/plan.md",
-      "lastUpdated": "2026-06-19T09:32:41.374Z"
+      "lastUpdated": "2026-06-19T15:17:51.103Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f0-refazer-reescrever-o-modelo-de.md",
-      "lastUpdated": "2026-06-19T09:32:41.374Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f1-validar-regenerar-o-briefing-le.md",
+      "lastUpdated": "2026-06-19T15:17:51.103Z"
     }
   ]
 }

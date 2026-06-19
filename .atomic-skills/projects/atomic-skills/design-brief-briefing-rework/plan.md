@@ -6,9 +6,9 @@ title: design-brief — repensar o modelo de autoridade do briefing
 version: "1.0"
 status: active
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T09:32:41.374Z
+lastUpdated: 2026-06-19T15:17:51.103Z
 branch: plan/design-brief
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -71,22 +71,41 @@ phases:
         - id: F0-G1
           description: design-brief.md, os quatro assets e o spec canonico aplicam D3-D9 e
             validate-skills passa.
-          status: pending
+          status: met
+          metAt: 2026-06-19T15:08:33.619Z
           verifier:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T15:08:33.619Z
+            passed: true
+            exitCode: 0
+            outputSummary: "EXIT=0 — All 15 skills valid (schema_version 0.2) apos os fixes do review gate"
         - id: F0-G2
           description: "Regressao de autoridade fechada: o filtro de mineracao esta
             presente e o preambulo expoe duas autoridades."
-          status: pending
+          status: met
+          metAt: 2026-06-19T15:08:33.619Z
           verifier:
             kind: shell
             command: grep -q 'axis-lock' docs/design/design-brief-three-layer-briefing.md &&
               grep -qi 'calibra'
               skills/shared/design-brief-assets/screens-prompt.md
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T15:08:33.619Z
+            passed: true
+            exitCode: 0
+            outputSummary: "EXIT=0 — axis-lock no spec + calibra no screens-prompt; filtro presente e preambulo em duas autoridades"
+    reviewGate:
+      status: passed
+      at: 236d65b6f7d0eb7b2a81b006cc276af650027a6e
+      mode: local
+      verifiedAt: 2026-06-19T15:08:33.619Z
+    status: done
   - id: F1
     slug: design-brief-briefing-rework-f1-validar-regenerar-o-briefing-le
     title: Validar (regenerar o briefing Lekto + contrastar = gate de
@@ -120,7 +139,7 @@ phases:
             command: grep -q 'F1-D10-RESOLVED'
               .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/design.md
             expectExitCode: 0
-    status: pending
+    status: active
 references:
   - kind: file
     path: .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md

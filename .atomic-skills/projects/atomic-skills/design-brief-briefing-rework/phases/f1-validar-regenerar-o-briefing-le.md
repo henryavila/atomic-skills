@@ -7,10 +7,10 @@ summary: Regenera o briefing Lekto em sessão nova e contrasta com o feedback
 goal: em sessão nova, regenerar o briefing do Lekto com a skill reescrita,
   destilar a rubrica dos padrões transversais do feedback, contrastar via
   crítico adversarial e resolver o fork diferido D10.
-status: pending
+status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T09:40:00.000Z
+lastUpdated: 2026-06-19T15:17:51.103Z
 nextAction: "Start T-001: Obter e persistir o feedback original do Lekto"
 parentPlan: design-brief-briefing-rework
 phaseId: F1
@@ -170,6 +170,7 @@ emerged: []
 planTitle: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
 planActive: true
+current: true
 ---
 
 # Narrative / notes
