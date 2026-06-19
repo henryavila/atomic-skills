@@ -5,7 +5,7 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T13:14:00.000Z
+lastUpdated: 2026-06-19T13:22:02.000Z
 branch: plan/reversible-installer
 currentPhase: F1
 parallelismAllowed: false
@@ -223,7 +223,13 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 
 **Progresso F2 (pacote), suíte 55/55:** (1) MVP Provider/Driver (`f83a1f7`) — contrato `plan(config,planCtx)→[{type,args}]` + `createFileSetProvider` + `createDriver` (uninstall = `replayReverse` + `removeManifest`, round-trip byte-a-byte). (2) Update/re-install 3-hash (`0ee4f6d`) — port da política `--yes` legada: no-clobber + remoção de órfão só não-modificado; Driver passa before-state anterior por (tipo, ordem). (3) **Data-safety RESOLVIDO** (`7703eac`, usuário escolheu lado seguro): arquivo editado pelo usuário SOBREVIVE ao uninstall (track do hash original), simétrico com órfão; diverge do legado num caso que o gate de round-trip não cobre (P3 vence). (4) **Config two-tier** (`e99cc09`) — `defineInstaller({config, providers, effects})`: tier declarativo = `config` (engine só dona de `manifestDir`, resto é pass-through), tier código = providers/effects (escape-hatch de runtime-layer; 4 built-ins auto-registrados). **Reinterpretação deliberada de D2:** config rica (IDEs/catálogo/idioma) é do CONSUMIDOR, não do engine genérico. (5) **Runtime-layer worked example** (`439fe9a`) — `examples/symlink-runtime-layer.js`: efeito custom `symlink` reversível (mesma disciplina no-proof-less-deletion), registrado via `defineInstaller({effects})`, round-trip ponta-a-ponta.
 
-**✅ F2 COMPLETO** (5/5 slices, pacote 58/58, validado por mim). NB: a entrada F2 no frontmatter abaixo segue `status: pending` por ser fase-ponteiro (trabalho rastreado no pacote, não neste plano) — este banner é autoritativo. **Próximo = F3** (big-bang no atomic-skills): consome `@henryavila/tooling-installer` via `file:`, monta SkillsProvider + render + flag de idioma + runtime layers (aiDeck/hooks/auto-update) sobre `defineInstaller`/Driver, remove a cópia in-repo `src/kernel/`, e prova paridade round-trip ATRAVESSANDO a dependência. É a porta one-way (D3) — rede de segurança = round-trip + matriz adversária.
+**✅ F2 COMPLETO** (5/5 slices, pacote 58/58, validado por mim). NB: a entrada F2 no frontmatter abaixo segue `status: pending` por ser fase-ponteiro (trabalho rastreado no pacote, não neste plano) — este banner é autoritativo. **F3 EM ANDAMENTO** (big-bang no atomic-skills, decomposto conforme avanço; one-way D3, rede = round-trip + matriz adversária). Baseline pré-F3: full suite 862 (848 pass, 2 falhas conhecidas do dashboard-bundle), round-trip 7/7.
+- **T-F3-1 ✅** (`20cf7c7`) — `file:` link `@henryavila/tooling-installer` no `package.json` + smoke `tests/tooling-installer-link.test.js` (consome `defineInstaller`/`createFileSetProvider`, round-trip 1/1). ⚠️ path é **dev-only worktree-relative** (`../../../tooling-installer`; npm normaliza file: pra relativo no lock) — trocar por `^0.1.0` no publish/antes de merge p/ main.
+- **T-F3-2** SkillsProvider (IDE matrix + catálogo + render + flag idioma) sobre o Driver — porta `installSkills`/`preRenderFiles`/render de `src/install.js`/`src/render.js`.
+- **T-F3-3** runtime layers (aiDeck/hooks/auto-update) como effect types registrados via `defineInstaller({effects})`.
+- **T-F3-4** big-bang rewire: `install.js`/`uninstall.js` finos (montam config → Driver) + **remove `src/kernel/` in-repo**.
+- **T-F3-5** paridade: round-trip + matriz adversária + full suite verdes atravessando a dependência.
+- **Próximo: T-F3-2.**
 
 **Próximo passo:** continuar F2 no pacote (update semantics → config two-tier → runtime-layer) **ou** começar F3 no atomic-skills (consome via `file:`, move SkillsProvider+render+runtime layers sobre o Driver, remove `src/kernel/` in-repo). F1 in-repo segue done/superseded (não rodar `phase-done`).
 

@@ -7,8 +7,8 @@ goal: implementar os 3 efeitos não-arquivo com before-state preciso e revert se
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T16:41:21.000Z
-lastUpdated: 2026-06-19T13:14:00.000Z
-nextAction: "✅ F2 COMPLETO no pacote ~/tooling-installer (5/5 slices, suíte 58/58, validado por mim): MVP Provider/Driver (f83a1f7) + update 3-hash (0ee4f6d) + data-safety lado seguro (7703eac) + config two-tier defineInstaller (e99cc09) + runtime-layer example symlink (439fe9a). PRÓXIMO = F3 (big-bang no atomic-skills): consome @henryavila/tooling-installer via file:, monta SkillsProvider+render+idioma+runtime layers sobre defineInstaller/Driver, remove src/kernel/ in-repo, prova paridade round-trip atravessando a dependência. One-way door (D3); rede = round-trip + matriz adversária. Recomendado decompor F3 (T-F3-1..5) antes de executar. NÃO rodar phase-done F1 (done/superseded)."
+lastUpdated: 2026-06-19T13:22:02.000Z
+nextAction: "✅ F2 COMPLETO no pacote ~/tooling-installer (5/5 slices, suíte 58/58, validado por mim): MVP Provider/Driver (f83a1f7) + update 3-hash (0ee4f6d) + data-safety lado seguro (7703eac) + config two-tier defineInstaller (e99cc09) + runtime-layer example symlink (439fe9a). F3 EM ANDAMENTO (decomposto conforme avanço; baseline pré-F3: full suite 848 pass/2 falhas dashboard conhecidas, round-trip 7/7). T-F3-1 ✅ (20cf7c7): file: link + smoke tests/tooling-installer-link.test.js (path dev-only worktree-relativo, trocar por ^0.1.0 no publish). Restam: T-F3-2 SkillsProvider sobre Driver (porta installSkills/render) → T-F3-3 runtime layers (aiDeck/hooks/auto-update) → T-F3-4 big-bang + remove src/kernel/ → T-F3-5 paridade. PRÓXIMO = T-F3-2. Ambiente: worktree já tem node_modules (npm install feito). NÃO rodar phase-done F1 (done/superseded)."
 parentPlan: reversible-installer
 phaseId: F1
 tasksDone: 4
