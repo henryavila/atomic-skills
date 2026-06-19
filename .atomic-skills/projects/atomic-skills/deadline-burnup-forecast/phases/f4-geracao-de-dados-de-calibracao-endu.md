@@ -9,7 +9,7 @@ status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T17:29:17Z
 lastUpdated: 2026-06-19T17:29:17Z
-nextAction: "Decidir escopo F1/L-001 c/ usuário, depois Start T-003 (promover closedAt a hard-gate)"
+nextAction: "Implementar T-003 em Mode 1 (TDD): checkClosedAtHardening + crossValidate + harden-closedat.js + schemas"
 parentPlan: deadline-burnup-forecast
 phaseId: F4
 tasksDone: 2
@@ -114,6 +114,11 @@ Initiative for phase **F4 — Geração de dados de calibração + endurecer clo
 - **design-brief-SoT/L-002** (constranger schemaVersion com enum + teste negativo) → **N/A**. F4 não adiciona novo campo schemaVersion versionado (closedAtHardening usa `enforcedFrom` timestamp, não versão).
 - **design-brief-SoT/L-003** (garantir que `npm test` descobre novos testes — `tests/` plural, flat) → **APLICAR**. Todos os testes novos de F4 vão em `tests/` (plural); paths dos verifiers já usam `tests/`. Confirmar glob do `npm test` após criar.
 - **design-brief-SoT/L-004** (unicidade de sub-campo de array via checagem pós-schema) → **N/A**. `grandfatheredTaskIds` é computado pelo script como conjunto (Set) → unicidade garantida na origem; sem sub-campo de array no schema.
+
+### 2026-06-19 — Decisão de escopo F1/L-001 (usuário) + routing T-003
+
+- **F1/L-001: INCLUIR em T-003** (decisão do usuário via AskUserQuestion). T-003 também endurece a projeção emitida: adicionar `closedAt`+`lastUpdated` ao `required` de `/$defs/tasks` em `meta/schemas/aideck-state.schema.json` + regen bundle. Premissa confirmada: hoje estão em `properties` mas fora de `required` (additionalProperties:false). +1 arquivo além dos Files declarados de T-003; coberto pelo `schema-drift.test.js` do verifier. Seguro (campo já é sempre emitido via `?? null`).
+- **Routing T-003 = MODE 1 (self-exec), NÃO Codex** (R-EXEC-30/44, F1 hard disqualifier): a SPEC nomeia `checkMetInvariant` (validate-state.js:364-403) como ponto de integração, mas essa função é PURA e recebe UMA frontmatter — não vê o `closedAtHardening` do plano ao checar tasks da iniciativa. A correlação plano↔iniciativas só existe em `crossValidate` (validate-state.js:507). Design real (settled por mim): novo predicado puro `checkClosedAtHardening(initFm, closedAtHardening)` chamado de `crossValidate` p/ iniciativas com `parentPlan===plan.slug`. Esse design EMERGIU da leitura do código (SPEC arquiteturalmente imprecisa) + alto blast-radius (validador-core, todo plano depende) + risco de teste circular no harden-closedat.js (I/O de path) ⇒ F1 não limpo ⇒ Opus implementa direto (TDD). Distinto de T-001/T-002 (SPEC correta, só latitude mecânica → Codex).
 
 ## Session handoff
 - **Narrative:** F4 ativa, **2/3 tasks** (T-001 + T-002 DONE via Codex Mode 2). T-002 (actuals de task via dispatch-log) implementada por Codex no worktree `codex/f4-t002`, merge `--ff-only` (`e7dc3ab→5f0ce6f`), verifier VERDE no MERGED primary (6 pass, exit 0), 0 regressão (34/34 conjunto append-completion), worktree desmontado. Dogfood E2E: o task-done de T-002 auto-carregou actuals do dispatch-log. Resta SÓ T-003. 9 lições dispositionadas (bloco `## Decisions`).
