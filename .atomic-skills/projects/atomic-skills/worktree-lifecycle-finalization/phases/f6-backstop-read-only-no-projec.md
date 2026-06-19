@@ -11,10 +11,14 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:15:00Z
 lastUpdated: 2026-06-17T21:15:00Z
-nextAction: "Start T-001: Check #9 de backstop de órfãos PR→develop"
+nextAction: "PHASE BOUNDARY — F6 task 1/1 DONE (gates 0/2 pending, resolvem no
+  phase-done). Próximo (operator-prompted, NÃO auto-rodar): phase-done F6 — roda
+  exit-gates G-1 (node --test tests/detect-orphan-worktrees.test.js) + G-2 (grep
+  detect-orphan-worktrees + validate-skills), review-code --mode=both no diff da
+  fase, distila lessons, grava reviewGate no plan.md e avança currentPhase F6→F7."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F6
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 1
 gatesMet: 0
 gatesTotal: 2
@@ -46,8 +50,9 @@ stack:
 tasks:
   - id: T-001
     title: "Check #9 de backstop de órfãos PR→develop"
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T21:30:00Z
+    lastUpdated: 2026-06-17T21:30:00Z
     summary: "Check #9: detecta worktree de feature mergeada e branch arquivada
       não-integrada (WARN)."
     outputs:
@@ -78,6 +83,20 @@ tasks:
       kind: test
       runner: node
       pattern: tests/detect-orphan-worktrees.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T21:30:00Z
+      exitCode: 0
+      testsCollected: 6
+      passed: true
+      outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ a04b628
+        (merged primary): tests 6, pass 6, fail 0, exit 0 — ambos sinais de merge
+        (pr MERGED + isMerged injetado), ambas formas archived (never-pr / pr-open),
+        healthy-clean → [], pureza+never-throws (frozen/null). G-2: grep
+        detect-orphan-worktrees + validate-skills 15/15 exit 0. Mode 2 Codex
+        (impl/wlf-f6-t-001, ff a04b628); auto-report -o 'tests 1' DESCARTADO per
+        wlf-f0-nascimento L-001 (real 6); função pura sobre inputs injetados, fence
+        respeitado (source-only)."
 parked: []
 emerged: []
 summary: 9º check read-only no project verify avisa (WARN) órfãos do modelo PR→develop.
@@ -89,6 +108,27 @@ current: true
 # Narrative / notes
 
 Initiative for phase **F6 — Backstop read-only no project verify (Decisão 6)**.
+
+## Session handoff
+- **Narrative:** **F6 — task 1/1 DONE** (gates 0/2 pending, resolvem no `phase-done`).
+  PHASE BOUNDARY. T-001 em **Mode 2/Codex** (escolha do operador): SPEC re-aterrada no
+  repo vivo antes do dispatch (per L-002) — confirmada settled, função pura sem risco de
+  soundness. Codex criou `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`,
+  pura sobre worktrees/plans/predicado injetados) + teste (6 casos) + check #9 em
+  `project-verify.md`, ff-merged `a04b628`. Re-verificado na primária MERGED: G-1 6/6,
+  G-2 grep+validate-skills exit 0.
+- **Decision log:** (1) SPEC dispatch-ready sem emenda (contraste com F5, que precisou
+  re-escopo) — o grounding L-002 confirmou settled. (2) Auto-report `-o` do Codex "tests
+  1" DESCARTADO — real 6 (wlf-f0 L-001 reconfirmada uma 3ª vez no plano). (3) Função pura
+  sobre inputs injetados (não roda git) → testável + fence trivial (source-only, sem
+  state-tree).
+- **Single nextAction:** **(operator-prompted)** Rodar `phase-done F6`: exit-gates G-1
+  (node --test detect-orphan-worktrees) + G-2 (grep detect-orphan-worktrees +
+  validate-skills), `review-code --mode=both` no diff da fase, distila lessons, grava
+  `reviewGate` no `plan.md` e avança `currentPhase` F6→F7.
+- **Verbatim state:** Commits desta sessão (F6): `a04b628` (feat Codex source, ff),
+  próximo: `chore(project): done F6/T-001` (estado + telemetria). Worktree
+  `impl/wlf-f6-t-001` a remover pós-commit.
 
 ## Decisions
 
