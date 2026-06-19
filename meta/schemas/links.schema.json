@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "links.schema.json",
+  "title": "Fork link sidecar (links.json)",
+  "description": "Non-aiDeck-facing sidecar holding the fork parent/child link for a plan. Lives at <planDir>/links.json. Kept out of plan.md / phase frontmatter so the aiDeck 0.1.0 .strict consumer is unaffected; inline migration is deferred to F5 (aiDeck >= 0.1.2).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "spawnedFrom": {
+      "description": "Child→parent edge: which plan/phase (and optional task) this plan was forked from, and the fork mode.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "phaseId", "mode"],
+      "properties": {
+        "plan": { "type": "string", "minLength": 1 },
+        "phaseId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+      }
+    },
+    "spawnedPlans": {
+      "description": "Parent→child edges, keyed by the anchor phaseId: the child plan slugs forked from each phase.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

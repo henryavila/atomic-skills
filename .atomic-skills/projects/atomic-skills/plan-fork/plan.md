@@ -64,8 +64,9 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: npm run validate-state tests/fixtures/plan-fork/parent.plan.md
-              tests/fixtures/plan-fork/child.plan.md && node --test
+            command: npm run validate-state
+              tests/fixtures/plan-fork/plans/fixture-parent.md
+              tests/fixtures/plan-fork/plans/fixture-child.md && node --test
               tests/links-sidecar.test.js tests/spawn-graph.test.js
     status: active
     summary: Sidecar (links.json) do elo + schema do sidecar + detecção de ciclo;

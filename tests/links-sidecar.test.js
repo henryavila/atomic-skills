@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { parse as parseYaml } from 'yaml';
 import {
   LINKS_FILE,
@@ -13,6 +14,8 @@ import {
   getSpawnedFrom,
   addSpawnedPlan,
   getSpawnedPlans,
+  validateLinks,
+  assertValidLinks,
 } from '../src/links-sidecar.js';
 
 function withTmp(fn) {
@@ -153,6 +156,116 @@ describe('links-sidecar keeps aiDeck-facing frontmatter clean (T-001 acceptance)
       // the link is readable from the sidecar
       assert.deepEqual(getSpawnedFrom(childDir), { plan: 'parent', phaseId: 'F2', mode: 'pause' });
       assert.deepEqual(getSpawnedPlans(parentDir), { F2: ['child'] });
+    });
+  });
+});
+
+describe('links-sidecar schema validation (T-002)', () => {
+  it('accepts a fully-formed link (spawnedFrom + spawnedPlans)', () => {
+    const result = validateLinks({
+      spawnedFrom: { plan: 'parent', phaseId: 'F2', taskId: 'T-003', mode: 'parallel' },
+      spawnedPlans: { F2: ['child-a', 'child-b'], F5: ['child-c'] },
+    });
+    assert.equal(result.valid, true);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('accepts an empty object (both fields optional)', () => {
+    assert.equal(validateLinks({}).valid, true);
+  });
+
+  it('accepts spawnedFrom without the optional taskId', () => {
+    assert.equal(validateLinks({ spawnedFrom: { plan: 'p', phaseId: 'F1', mode: 'pause' } }).valid, true);
+  });
+
+  it('rejects a mode outside the enum', () => {
+    const result = validateLinks({ spawnedFrom: { plan: 'p', phaseId: 'F1', mode: 'merge' } });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.length > 0);
+  });
+
+  it('rejects spawnedFrom missing a required field (plan)', () => {
+    assert.equal(validateLinks({ spawnedFrom: { phaseId: 'F1', mode: 'pause' } }).valid, false);
+  });
+
+  it('rejects an unknown top-level property', () => {
+    assert.equal(validateLinks({ supersedes: 'other-plan' }).valid, false);
+  });
+
+  it('rejects an unknown property inside spawnedFrom', () => {
+    assert.equal(
+      validateLinks({ spawnedFrom: { plan: 'p', phaseId: 'F1', mode: 'pause', bogus: 1 } }).valid,
+      false,
+    );
+  });
+
+  it('rejects spawnedPlans whose value is not an array of strings', () => {
+    assert.equal(validateLinks({ spawnedPlans: { F2: 'child' } }).valid, false);
+    assert.equal(validateLinks({ spawnedPlans: { F2: [1, 2] } }).valid, false);
+  });
+
+  it('assertValidLinks returns the data on valid and throws on invalid', () => {
+    const ok = { spawnedFrom: { plan: 'p', phaseId: 'F1', mode: 'pause' } };
+    assert.equal(assertValidLinks(ok), ok);
+    assert.throws(() => assertValidLinks({ spawnedFrom: { plan: 'p', phaseId: 'F1', mode: 'x' } }), /invalid/i);
+  });
+
+  it('writeLinks/setSpawnedFrom reject an out-of-enum mode at the write boundary', () => {
+    withTmp((root) => {
+      const dir = planDir(root, 'child');
+      assert.throws(() => setSpawnedFrom(dir, { plan: 'p', phaseId: 'F1', mode: 'merge' }), /invalid/i);
+      // nothing was persisted
+      assert.equal(existsSync(linksPath(dir)), false);
+    });
+  });
+});
+
+const FIXTURE_PARENT = 'tests/fixtures/plan-fork/plans/fixture-parent.md';
+const FIXTURE_CHILD = 'tests/fixtures/plan-fork/plans/fixture-child.md';
+
+function fixtureFrontmatter(raw) {
+  return parseYaml(raw.split('---\n')[1]);
+}
+
+describe('links-sidecar parent/child fixtures + validate-state approval (T-004)', () => {
+  it('both fixtures carry NO inline spawned* fields (clean aiDeck-facing frontmatter)', () => {
+    for (const f of [FIXTURE_PARENT, FIXTURE_CHILD]) {
+      const fm = fixtureFrontmatter(readFileSync(f, 'utf8'));
+      assert.equal(fm.spawnedFrom, undefined);
+      assert.equal(fm.spawnedPlans, undefined);
+    }
+  });
+
+  it('validate-state approves the parent/child pair (exit 0)', () => {
+    // throws if validate-state exits non-zero; the fork link is in the sidecar,
+    // so the .strict-validated frontmatter stays clean and the pair passes.
+    execFileSync('node', ['scripts/validate-state.js', FIXTURE_PARENT, FIXTURE_CHILD], {
+      stdio: 'pipe',
+    });
+  });
+
+  it('the fork link round-trips through the sidecar without touching the fixture frontmatter', () => {
+    withTmp((root) => {
+      const parentDir = planDir(root, 'fixture-parent');
+      const childDir = planDir(root, 'fixture-child');
+      const parentMd = readFileSync(FIXTURE_PARENT, 'utf8');
+      const childMd = readFileSync(FIXTURE_CHILD, 'utf8');
+      writeFileSync(join(parentDir, 'plan.md'), parentMd, 'utf8');
+      writeFileSync(join(childDir, 'plan.md'), childMd, 'utf8');
+
+      // the fork: parent gains spawnedPlans[F0], child gains spawnedFrom — sidecar only
+      addSpawnedPlan(parentDir, 'F0', 'fixture-child');
+      setSpawnedFrom(childDir, { plan: 'fixture-parent', phaseId: 'F0', mode: 'pause' });
+
+      assert.deepEqual(getSpawnedPlans(parentDir), { F0: ['fixture-child'] });
+      assert.deepEqual(getSpawnedFrom(childDir), {
+        plan: 'fixture-parent',
+        phaseId: 'F0',
+        mode: 'pause',
+      });
+      // plan.md frontmatter untouched, byte-for-byte
+      assert.equal(readFileSync(join(parentDir, 'plan.md'), 'utf8'), parentMd);
+      assert.equal(readFileSync(join(childDir, 'plan.md'), 'utf8'), childMd);
     });
   });
 });

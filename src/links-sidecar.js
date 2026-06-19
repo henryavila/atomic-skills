@@ -1,5 +1,13 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Ajv from 'ajv/dist/2020.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const schemaPath = join(__dirname, '..', 'meta', 'schemas', 'links.schema.json');
+const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+const ajv = new Ajv({ allErrors: true, strict: false });
+const validate = ajv.compile(schema);
 
 /**
  * Sidecar reader/writer for the fork parent/child link.
@@ -42,11 +50,38 @@ export function readLinks(planDir) {
 }
 
 /**
- * Write the link sidecar for a plan (creates the dir if missing).
+ * Validate a links object against meta/schemas/links.schema.json.
+ * @param {object} data
+ * @returns {{valid: boolean, errors: object[]}} Ajv-shaped errors ([] when valid)
+ */
+export function validateLinks(data) {
+  const valid = validate(data);
+  return { valid, errors: valid ? [] : [...(validate.errors ?? [])] };
+}
+
+/**
+ * Throw when `data` is not a valid links object; return it otherwise.
+ * @param {object} data
+ * @returns {object} the same data
+ */
+export function assertValidLinks(data) {
+  const { valid, errors } = validateLinks(data);
+  if (!valid) {
+    const detail = errors.map((e) => `- ${e.instancePath || '/'} ${e.message ?? 'failed validation'}`).join('\n');
+    throw new Error(`links sidecar is invalid:\n${detail}`);
+  }
+  return data;
+}
+
+/**
+ * Write the link sidecar for a plan (creates the dir if missing). The data is
+ * schema-validated at this write boundary — an invalid link (e.g. a mode
+ * outside the enum) throws and nothing is persisted.
  * @param {string} planDir
  * @param {object} data
  */
 export function writeLinks(planDir, data) {
+  assertValidLinks(data);
   if (!existsSync(planDir)) mkdirSync(planDir, { recursive: true });
   writeFileSync(linksPath(planDir), JSON.stringify(data, null, 2) + '\n', 'utf8');
 }
