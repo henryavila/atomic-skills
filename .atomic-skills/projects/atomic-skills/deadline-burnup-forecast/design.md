@@ -56,8 +56,12 @@ Realidade verificada do tracker hoje:
   Sem peso ⇒ degrada para burn-up por contagem (weight=1).
 
 - **D5 — Deadline por-plano, linha planejada linear (Q4).** `plan.deadline` (isoTimestamp,
-  opcional). Linha planejada = `weightTotal` no `plan.started` → 0 no `plan.deadline`. Escopo
-  do "termino" = **plano**; rollup de portfolio fica para depois.
+  opcional). Linha planejada (Planned Value, earned-value/burn-**UP**) = **0 no `plan.started`
+  → `weightTotal` no `plan.deadline`** (CRESCENTE). Escopo do "termino" = **plano**; rollup de
+  portfolio fica para depois. *(Correção 2026-06-19, ratificada pelo usuário: a direção
+  original aqui dizia "`weightTotal`→0", um burn-DOWN de trabalho restante que inverteria o
+  SPI = earned/planned. Na EVM, PV e EV ambos crescem de 0; SPI = EV/PV. Alinhado à SPEC de
+  F3/T-002, que é a forma implementada.)*
 
 - **D6 — Calibração: gerar dados no v1, tratar depois (Q5).** Cada evento de conclusão grava
   os **actuals crus** junto do peso estimado (phase-done: stats do diff `phase.started→HEAD`
@@ -70,7 +74,7 @@ Realidade verificada do tracker hoje:
 **Mecanismo (Earned Value / SPI, diagnóstico).** `emit-consumer-state.js` ganha um
 `buildSeries()` que lê `completions.jsonl` e emite bare-arrays pré-computados
 (`burnup.json`, `spi.json`), porque o aiDeck não agrega:
-- **Linha planejada:** de `weightTotal` em `plan.started` a 0 em `plan.deadline` (D5).
+- **Linha planejada:** de 0 em `plan.started` a `weightTotal` em `plan.deadline` (D5 — burn-up / Planned Value, CRESCENTE).
 - **Linha real (earned):** soma acumulada de `weight` concluído por dia/semana (de D2).
 - **SPI** = `earned_real / earned_esperado_hoje` (>1 adiantado, <1 atrasado); + "X% do peso
   feito vs Y% do tempo decorrido".
