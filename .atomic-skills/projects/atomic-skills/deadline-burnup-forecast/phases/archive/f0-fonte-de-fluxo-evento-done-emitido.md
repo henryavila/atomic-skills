@@ -16,6 +16,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 1
 gatesTotal: 1
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: G-1
     description: o completions.jsonl recebe um evento imutável por conclusão,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T12:13:08.642Z",
+  "generatedAt": "2026-06-19T12:18:57.341Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 2,
+    "done": 3,
     "total": 3,
     "blocked": 0
   },

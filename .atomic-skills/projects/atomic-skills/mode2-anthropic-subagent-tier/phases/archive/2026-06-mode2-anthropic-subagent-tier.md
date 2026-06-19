@@ -28,6 +28,8 @@ tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 3
 exitGates:
   - id: G-1
     description: "A justifying regime is recorded before any build starts: either

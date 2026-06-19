@@ -16,6 +16,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 3
 gatesTotal: 3
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: F0-G1
     description: Captura funciona end-to-end — idea-add.js cria e atualiza o

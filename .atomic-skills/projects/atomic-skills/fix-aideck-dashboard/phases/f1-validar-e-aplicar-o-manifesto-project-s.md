@@ -13,10 +13,10 @@ status: active
 branch: plan/fix-aideck-dashboard
 started: 2026-06-16T11:57:08.891Z
 lastUpdated: 2026-06-16T14:12:13Z
-nextAction: "RE-ESCOPAR F1 (decisão do usuário) — re-planejar para incluir a
+nextAction: RE-ESCOPAR F1 (decisão do usuário) — re-planejar para incluir a
   migração do cliente v1 state API → v2 dataSource API (ver D-4). Rodar
   brainstorm/decompose; implement está PAUSADO. T-004 blocked; T-001/002/003 a
-  reavaliar no re-plano."
+  reavaliar no re-plano.
 summary: Faz o cliente do dashboard falar com o consumer por-projeto, assinar o
   evento data_changed e ocultar planos concluídos da lista — sem tocar no
   aiDeck.
@@ -26,6 +26,8 @@ tasksDone: 3
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
+weightDone: 3
+weightTotal: 4
 exitGates:
   - id: G-1
     description: "`GET /api/consumers` lista o consumer do projeto (id = projectId)
@@ -164,9 +166,9 @@ tasks:
         projectId), autorizado pelo usuário."
   - id: T-004
     title: Filtrar da lista os planos done e archived
-    summary: "Código escrito (Roadmap.tsx: lanes shipped/parked ocultas por padrão
-      + toggle ConcludedToggle; typecheck exit 0) mas BLOCKED — não verificável
-      ao vivo porque o cliente ainda fala v1 e o dashboard mostra vazio (D-4)."
+    summary: "Código escrito (Roadmap.tsx: lanes shipped/parked ocultas por padrão +
+      toggle ConcludedToggle; typecheck exit 0) mas BLOCKED — não verificável ao
+      vivo porque o cliente ainda fala v1 e o dashboard mostra vazio (D-4)."
     status: blocked
     blockedBy:
       - "D-4: dashboard precisa migrar v1→v2 antes da lista mostrar planos"

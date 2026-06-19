@@ -16,15 +16,21 @@ tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 3
 exitGates:
   - id: G-1
-    description: actuals crus (fase E task/dispatch-log) são gravados por conclusão no
-      sub-objeto admitido e closedAt é hard-gated forward-only via corte persistido
-      (grandfatheredTaskIds) gravado pelo script de flip, sem rejeitar legado.
+    description: actuals crus (fase E task/dispatch-log) são gravados por conclusão
+      no sub-objeto admitido e closedAt é hard-gated forward-only via corte
+      persistido (grandfatheredTaskIds) gravado pelo script de flip, sem
+      rejeitar legado.
     status: pending
     verifier:
       kind: shell
-      command: 'node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js'
+      command: node --test tests/append-completion-actuals.test.js && node --test
+        tests/append-completion-dispatchlog.test.js && node --test
+        tests/validate-state.test.js && node --test
+        tests/harden-closedat.test.js && node --test tests/schema-drift.test.js
     verifierLabel: "shell: node --test tests/append-completion-actuals.test.js && node…"
 stack:
   - id: 1

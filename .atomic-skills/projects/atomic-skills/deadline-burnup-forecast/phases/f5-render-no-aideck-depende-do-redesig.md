@@ -19,6 +19,8 @@ tasksDone: 0
 tasksTotal: 1
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 1
 exitGates:
   - id: G-1
     description: a página de ritmo renderiza com widgets reais ligados a

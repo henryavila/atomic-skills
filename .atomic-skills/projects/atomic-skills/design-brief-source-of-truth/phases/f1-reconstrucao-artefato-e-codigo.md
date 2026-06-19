@@ -15,6 +15,8 @@ tasksDone: 0
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 4
 exitGates:
   - id: G-1
     description: o catálogo sai com existence, conflicts, regime e inputsHash;

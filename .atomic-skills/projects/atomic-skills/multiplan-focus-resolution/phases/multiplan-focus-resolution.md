@@ -17,6 +17,8 @@ tasksDone: 4
 tasksTotal: 6
 gatesMet: 0
 gatesTotal: 1
+weightDone: 4
+weightTotal: 6
 exitGates:
   - id: F0-G1
     description: Enforcer soft implementado e foco determinístico com multi-plano

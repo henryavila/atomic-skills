@@ -18,6 +18,8 @@ tasksDone: 0
 tasksTotal: 0
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 0
 exitGates:
   - id: G-1
     description: Existe um design aprovado do cliente React próprio (src/dashboard)
