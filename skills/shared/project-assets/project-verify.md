@@ -86,6 +86,13 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - **PASS:** every done phase carries a `reviewGate` (its honesty — `passed`⟹`at`, `skipped`⟹`reason` — is already HARD-enforced by `validate-state` GATE-R3 in check #1, so a malformed one surfaces there as a FAIL).
 - **WARN** (report-only): `WARN review-gate: <N> done phase(s) carry no recorded review gate (closed before the gate existed, or review-code was never run) — <plan>/<phaseId>…`. This is the deterministic surface for the legacy/missed case that GATE-R3 deliberately tolerates (absent ≠ malformed); it never mutates and `--fix` does not backfill it (the review must actually run — `phase-done` / `review-due` is the only path that writes a truthful `reviewGate`).
 
+### 9. Orphan worktrees (read-only; PR→develop lifecycle backstop)
+Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. WARN-only in v1; the topology-aware auto-ordering classifier is DEFERRED.
+- **WARN merged-feature-worktree:** a live worktree whose feature branch is already merged into the integration ref (PR `state: MERGED` or `merge-base` ancestry) → `WARN worktrees: feature \`<branch>\` is merged but its worktree \`<path>\` is still live — teardown pending (run \`archive\` after the PR merge, or \`git worktree remove\`).`
+- **WARN archived-unintegrated-branch:** a plan whose \`status: archived\` branch never opened a PR, or has a PR still OPEN and never merged → `WARN worktrees: archived plan \`<slug>\` branch \`<branch>\` never reached \`<integrationRef>\` (no PR, or PR open and never merged).`
+- A clean/active state (no merged-but-live worktree, no archived-unintegrated branch) → no finding.
+- `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
+
 ---
 
 ## Report shape
@@ -101,8 +108,9 @@ project verify — <repo-name> @ <branch>
 [6] aideck      WARN   dashboard not running (cross-check skipped)
 [7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
 [8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
+[9] worktrees   WARN   feature merged but worktree live (plan/x) — teardown pending
 
-VERIFY: 4 warning(s), 0 failure(s)
+VERIFY: 5 warning(s), 0 failure(s)
 ```
 
 ## Red flags
