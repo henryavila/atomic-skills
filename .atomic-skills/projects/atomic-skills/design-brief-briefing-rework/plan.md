@@ -146,6 +146,15 @@ adversarial Aprovado. Duas fases: F0 reescreve a skill + assets + spec canônico
 nova, regenera o briefing Lekto e contrasta com o feedback (gate de não-reincidência), resolvendo o fork
 diferido D10.
 
+**Linhagem (branch `plan/design-brief`).** Este é o **3º plano sequencial** do skill `design-brief`:
+(1) `design-brief-source-of-truth` — reconstrução da superfície de páginas / catálogo app-map (archived);
+(2) `app-map-conflict-arbitration` — descritor de conflito rico + canal de arbitragem (archived);
+(3) **este** — modelo de autoridade / anti-contaminação. Os três são sobre o **mesmo skill**, em sequência;
+os dois anteriores já estavam **arquivados** quando este começou (nunca coexistiram ativos — não houve
+frente concorrente real). O **spec canônico R1–R9** que a F0 edita é **owned pelo `skills-restructuring`**
+(F5/D5, ativo em outro branch) — daí a nota de coordenação (`design.md` Open question (b)). A necessidade
+atual surgiu do **feedback do agente de design sobre o briefing do Lekto**, ao dogfoodar o skill.
+
 ## 2. Inviolable principles
 
 - **P1 Único vetor** — o agente de design nunca leu o código antigo; toda contaminação entra pelo prompt gerado, logo o conserto é só na skill, nos assets e no spec, nunca no agente.
