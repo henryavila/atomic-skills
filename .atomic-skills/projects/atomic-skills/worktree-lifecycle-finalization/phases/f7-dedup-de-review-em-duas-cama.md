@@ -11,11 +11,11 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:45:00Z
 lastUpdated: 2026-06-17T21:45:00Z
-nextAction: "Start T-001: Ledger de superfície em last-review.json
-  (ponteiro→conjunto) + adaptador de migração"
+nextAction: "Start T-002: Dedup em review-code e review-due (por modo,
+  fail-para-RE-revisar) — doc-edits que deferem ao ledger da T-001"
 parentPlan: worktree-lifecycle-finalization
 phaseId: F7
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
@@ -52,8 +52,9 @@ tasks:
   - id: T-001
     title: Ledger de superfície em last-review.json (ponteiro→conjunto) + adaptador
       de migração
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T22:00:00Z
+    lastUpdated: 2026-06-17T22:00:00Z
     summary: last-review.json de ponteiro para conjunto append-only, com migração
       fail-safe.
     outputs:
@@ -81,6 +82,19 @@ tasks:
       kind: test
       runner: node
       pattern: tests/review-ledger.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-17T22:00:00Z
+      exitCode: 0
+      testsCollected: 10
+      passed: true
+      outputSummary: "node --test tests/review-ledger.test.js @ 2c4ca99 (merged primary):
+        tests 10, pass 10, fail 0. Módulo puro review-ledger.js (readLedger/recordReview/
+        alreadyReviewed) NDJSON, fail-safe em pointer-legado/ausente/malformado,
+        recordReview preserva prior bytes (union-safe), alreadyReviewed só prova positiva
+        (mode + SHA-ou-patchId squash-safe). Mode 2 Codex (impl/wlf-f7-t-001, ff 2c4ca99);
+        auto-report -o 'tests 1' DESCARTADO per wlf-f0-nascimento L-001 (real 10); fence
+        source-only; last-review.json vivo + merge=union deferidos ao wiring (T-002+)."
   - id: T-002
     title: Dedup em review-code e review-due (por modo, fail-para-RE-revisar)
     status: pending
@@ -177,9 +191,35 @@ current: true
 
 Initiative for phase **F7 — Dedup de review em duas camadas (Decisão 8)**.
 
+## Session handoff
+- **Narrative:** **F7 — task 1/4 DONE** (T-001 ledger). Em andamento (última fase do plano).
+  T-001 em **Mode 2/Codex**: módulo puro `scripts/review-ledger.js`
+  (`readLedger`/`recordReview`/`alreadyReviewed`, NDJSON, fail-safe) + teste (10 casos),
+  ff-merged `2c4ca99`, re-verificado na primária 10/10.
+- **Decision log:** (1) Formato do ledger = **NDJSON** (não array/objeto) — grounding L-002
+  + lição F5 (union lossless só line-oriented). (2) `recordReview` preserva prior bytes
+  (union-safe); pointer-legado/ausente → fresh ledger (fail-safe re-review). (3) Auto-report
+  `-o` do Codex "tests 1" DESCARTADO — real 10 (wlf-f0 L-001, 4ª vez no plano). (4) O flip
+  do `last-review.json` vivo p/ NDJSON + o `merge=union` no `.gitattributes` ficam DEFERIDOS
+  ao wiring (T-002+) — unir o pointer-objeto agora cairia no trap F5.
+- **Single nextAction:** **(operator-prompted)** Start T-002 (dedup em `review-code.md` +
+  `project-drift.md`, âncora `review-dedup`, fail-para-RE-revisar, defere ao ledger da
+  T-001) — doc auto-referencial → provável Mode 1. Depois T-003 (oráculo patch-id sob
+  squash, += em tests/review-ledger.test.js) e T-004 (work-order Camada B, arquivo em
+  `workorders/`, Opus-owned). Phase-done F7 fecha o PLANO inteiro.
+- **Verbatim state:** Commits F7: `2c4ca99` (feat Codex T-001, ff), próximo:
+  `chore(project): done F7/T-001`. Worktree `impl/wlf-f7-t-001` a remover pós-commit.
+
 ## Decisions
 
-_(record decisions here as they are made)_
+- **Formato do ledger = NDJSON (não array/objeto-com-array):** o scopeBoundary pede
+  "append-only compatível com o merge=union da F5", e a lição F5 é que union é lossless
+  só line-oriented → NDJSON (1 registro por linha). `recordReview` preserva os bytes das
+  linhas prévias (só normaliza trailing newline) pra o union-merge concorrente ficar
+  lossless. Pointer-legado/ausente/malformado → "nada revisado" (fail-safe re-review).
+- **`merge=union` do last-review.json DEFERIDO:** o arquivo vivo só vira NDJSON quando o
+  `recordReview` for wirado (T-002+); adicionar `merge=union` enquanto ainda é um objeto
+  pointer cairia no trap F5. Fica como follow-up do flip de formato.
 
 ## Links
 

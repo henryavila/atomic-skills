@@ -5,7 +5,7 @@ title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
 status: active
 started: 2026-06-16T22:50:35.627Z
-lastUpdated: 2026-06-17T21:45:00Z
+lastUpdated: 2026-06-17T22:00:00Z
 branch: plan/worktree-lifecycle-finalization
 currentPhase: F7
 parallelismAllowed: false
