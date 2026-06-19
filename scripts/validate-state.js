@@ -430,11 +430,17 @@ export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
     ? grandfatheredTaskIds
     : new Set(Array.isArray(grandfatheredTaskIds) ? grandfatheredTaskIds : []);
   const hasText = (v) => typeof v === 'string' && v.length > 0;
+  // PHASE-SCOPED exemption key (`<phaseId>/<taskId>`) — taskIds are phase-local
+  // (T-001 recurs every phase), so a bare-id grandfather would exempt a later
+  // same-id task in another phase. Mirrors `grandfatherKey` in harden-closedat.js.
+  const scope = hasText(frontmatter.phaseId)
+    ? frontmatter.phaseId
+    : (hasText(frontmatter.slug) ? frontmatter.slug : '?');
   for (const task of (Array.isArray(frontmatter.tasks) ? frontmatter.tasks : [])) {
     if (task?.status !== 'done') continue;
-    if (grandfathered.has(task.id)) continue;
+    if (grandfathered.has(`${scope}/${task.id}`)) continue;
     if (!hasText(task.closedAt)) {
-      violations.push(`task ${task.id ?? '?'}: done under closedAt-hardening but has no closedAt — forward-only: new done tasks must record closedAt; only grandfathered ids are exempt.`);
+      violations.push(`task ${task.id ?? '?'}: done under closedAt-hardening but has no closedAt — forward-only: new done tasks must record closedAt; only grandfathered (phase-scoped) ids are exempt.`);
     }
   }
   return violations;

@@ -189,9 +189,23 @@ function normalize(entry) {
  * Append exactly one completion event to `<root>/.atomic-skills/analytics/completions.jsonl`,
  * creating the `analytics/` dir idempotently. Returns the written record.
  * Append-only: existing lines are never read, rewritten, or reordered.
+ *
+ * Task-actuals auto-capture (F4/T-002): a `task-done` entry with no explicit
+ * `actuals` derives them from the dispatch-log sidecar here, so BOTH callers —
+ * the CLI and the direct programmatic `appendCompletion(root, {...})` path the
+ * transition prose also offers — capture attempts/durationMs/escalations. An
+ * explicit `actuals` (e.g. phase actuals on a phase-done event) is never
+ * overwritten; absence of a dispatch-log degrades to no actuals (graceful).
  */
 export function appendCompletion(root, entry) {
-  const record = normalize(entry); // validate BEFORE touching the filesystem
+  let effectiveEntry = entry;
+  if (entry && entry.event === 'task-done' && entry.actuals == null) {
+    const derived = readDispatchActuals(root, {
+      planSlug: entry.planSlug, phaseId: entry.phaseId, taskId: entry.taskId,
+    });
+    if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
+  }
+  const record = normalize(effectiveEntry); // validate BEFORE touching the filesystem
   const dir = join(resolve(root), ...ANALYTICS_DIR);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
@@ -208,16 +222,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const positional = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
   const root = positional || process.cwd();
   try {
-    let actuals;
-    if (args.includes('--actuals-since')) {
-      actuals = computePhaseActuals(flag('actuals-since'), { cwd: root });
-    } else if (flag('event') === 'task-done') {
-      actuals = readDispatchActuals(root, {
-        planSlug: flag('plan'),
-        phaseId: flag('phase'),
-        taskId: flag('task'),
-      });
-    }
+    // Phase actuals are an explicit opt-in flag; task-done dispatch actuals are
+    // auto-derived inside appendCompletion (covers this CLI AND the programmatic path).
+    const actuals = args.includes('--actuals-since')
+      ? computePhaseActuals(flag('actuals-since'), { cwd: root })
+      : undefined;
     const rec = appendCompletion(root, {
       event: flag('event'),
       projectId: flag('project'),

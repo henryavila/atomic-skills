@@ -1120,43 +1120,51 @@ test('routing: collectRoutingConfigs finds status/routing.json under a dir arg, 
 // --- closedAt forward-only hard-gate (F4/T-003) -----------------------------
 
 test('checkClosedAtHardening: non-grandfathered done task without closedAt → violation', () => {
-  const init = { tasks: [{ id: 'T-005', status: 'done' }] };
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }] };
   const v = checkClosedAtHardening(init, new Set());
   assert.equal(v.length, 1);
   assert.ok(v[0].includes('T-005'));
   assert.ok(v[0].includes('closedAt'));
 });
 
-test('checkClosedAtHardening: grandfathered done task without closedAt → no violation', () => {
-  const init = { tasks: [{ id: 'T-005', status: 'done' }] };
-  assert.deepEqual(checkClosedAtHardening(init, new Set(['T-005'])), []);
+test('checkClosedAtHardening: grandfathered (phase-scoped) done task without closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set(['F4/T-005'])), []);
+});
+
+test('checkClosedAtHardening: a SAME-id grandfather from ANOTHER phase does NOT exempt this phase', () => {
+  // F0/T-001 grandfathered; this is F1/T-001 (new) → must still be gated (the F-001 bug).
+  const init = { phaseId: 'F1', tasks: [{ id: 'T-001', status: 'done' }] };
+  const v = checkClosedAtHardening(init, new Set(['F0/T-001']));
+  assert.equal(v.length, 1);
+  assert.ok(v[0].includes('T-001'));
 });
 
 test('checkClosedAtHardening: done task WITH closedAt → no violation', () => {
-  const init = { tasks: [{ id: 'T-005', status: 'done', closedAt: '2026-06-19T10:00:00Z' }] };
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done', closedAt: '2026-06-19T10:00:00Z' }] };
   assert.deepEqual(checkClosedAtHardening(init, new Set()), []);
 });
 
 test('checkClosedAtHardening: pending task without closedAt → no violation', () => {
-  const init = { tasks: [{ id: 'T-005', status: 'pending' }] };
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'pending' }] };
   assert.deepEqual(checkClosedAtHardening(init, new Set()), []);
 });
 
-test('checkClosedAtHardening: accepts a plain array of grandfathered ids', () => {
-  const init = { tasks: [{ id: 'T-005', status: 'done' }, { id: 'T-006', status: 'done' }] };
-  assert.deepEqual(checkClosedAtHardening(init, ['T-005', 'T-006']), []);
+test('checkClosedAtHardening: accepts a plain array of phase-scoped grandfathered keys', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }, { id: 'T-006', status: 'done' }] };
+  assert.deepEqual(checkClosedAtHardening(init, ['F4/T-005', 'F4/T-006']), []);
 });
 
 test('crossValidate: plan with closedAtHardening + non-grandfathered done task missing closedAt → error', () => {
   const plans = new Map([['p', {
     slug: 'p',
-    closedAtHardening: { enforcedFrom: '2026-06-19T19:00:00Z', grandfatheredTaskIds: ['T-002'] },
+    closedAtHardening: { enforcedFrom: '2026-06-19T19:00:00Z', grandfatheredTaskIds: ['F4/T-002'] },
     phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
   }]]);
   const inits = new Map([['p-f4', {
     slug: 'p-f4', parentPlan: 'p', phaseId: 'F4', status: 'active',
     tasks: [
-      { id: 'T-002', status: 'done' },                                  // grandfathered → ok
+      { id: 'T-002', status: 'done' },                                  // grandfathered (F4/T-002) → ok
       { id: 'T-003', status: 'done', closedAt: '2026-06-19T20:00:00Z' }, // has closedAt → ok
       { id: 'T-004', status: 'done' },                                  // NEW done, no closedAt → violation
     ],

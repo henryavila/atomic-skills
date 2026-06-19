@@ -141,3 +141,38 @@ test('appendCompletion omits actuals for Mode-1 task-done events without dispatc
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('appendCompletion auto-derives dispatch actuals on a task-done with no explicit actuals (programmatic path)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-autoderive-'));
+  try {
+    seed(root, [{
+      taskId: 'T-002', plan: 's', phase: 'F4', attempt: 2, escalationCount: 1,
+      startedAt: '2026-06-19T18:00:00Z', finishedAt: '2026-06-19T18:00:05Z',
+    }]);
+    // No `actuals` passed — the direct programmatic path must still capture them.
+    const rec = appendCompletion(root, {
+      event: 'task-done', projectId: 'p', planSlug: 's', phaseId: 'F4', taskId: 'T-002',
+    });
+    assert.deepEqual(rec.actuals, { attempts: 2, escalations: 1, durationMs: 5000 });
+    assert.equal(validateCompletionEvent(rec).ok, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion does not override explicit actuals on a task-done', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-explicit-'));
+  try {
+    seed(root, [{
+      taskId: 'T-002', plan: 's', phase: 'F4', attempt: 9, escalationCount: 9,
+      startedAt: '2026-06-19T18:00:00Z', finishedAt: '2026-06-19T18:00:09Z',
+    }]);
+    const rec = appendCompletion(root, {
+      event: 'task-done', projectId: 'p', planSlug: 's', phaseId: 'F4', taskId: 'T-002',
+      actuals: { attempts: 1 },
+    });
+    assert.deepEqual(rec.actuals, { attempts: 1 }); // explicit wins; no auto-derive
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

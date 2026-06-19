@@ -32,40 +32,65 @@ import { parseFrontmatter } from './validate-state.js';
 
 const hasText = (v) => typeof v === 'string' && v.length > 0;
 
-/** Every initiative .md under a plan dir's phases/ (+ phases/archive/). */
-function collectInitiativePaths(planDir) {
-  const out = [];
-  for (const base of [join(planDir, 'phases'), join(planDir, 'phases', 'archive')]) {
-    if (!existsSync(base)) continue;
-    for (const entry of readdirSync(base)) {
-      if (entry.endsWith('.md') && !entry.startsWith('.')) out.push(join(base, entry));
-    }
-  }
-  return out;
+/** All `.md` files directly under a dir (non-recursive, dotfiles skipped). */
+function mdFilesIn(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((e) => e.endsWith('.md') && !e.startsWith('.'))
+    .map((e) => join(dir, e));
 }
 
 /**
- * Compute the grandfathered cut: the ids of every `done` task WITHOUT a closedAt
- * across the plan's initiatives (active phases AND archive). Pure read — never
- * mutates a file. Returns a sorted, de-duplicated array of ids.
+ * The PHASE-SCOPED key for a task. taskIds are phase-LOCAL — `T-001` recurs in
+ * every phase — so the grandfather cut MUST be keyed by `<phaseId>/<taskId>`, not
+ * the bare id; otherwise grandfathering an old `F0/T-001` would silently exempt a
+ * later `F1/T-001` and defeat the forward-only gate. Falls back to the (globally
+ * unique) initiative slug when phaseId is absent. The SAME derivation runs in
+ * `checkClosedAtHardening` (validate-state.js), so flip and validate agree.
+ */
+function grandfatherKey(initiativeFm, taskId) {
+  const scope = hasText(initiativeFm.phaseId)
+    ? initiativeFm.phaseId
+    : (hasText(initiativeFm.slug) ? initiativeFm.slug : '?');
+  return `${scope}/${taskId}`;
+}
+
+/**
+ * Compute the grandfathered cut: the PHASE-SCOPED keys (`<phaseId>/<taskId>`) of
+ * every `done` task WITHOUT a closedAt across the plan's initiatives, in BOTH
+ * supported layouts — nested (`<planDir>/phases/` + archive, plan-private) and
+ * legacy flat (`<planDir>/../initiatives/` + archive, shared across plans, so
+ * filtered by `parentPlan === planSlug`). Pure read — never mutates a file.
+ * Returns a sorted, de-duplicated array of keys.
  *
- * @param {string} planDir - the plan directory (contains plan.md + phases/)
+ * @param {string} planDir - the plan directory (dirname of plan.md)
+ * @param {string} planSlug - the plan's slug (filters the shared flat initiatives/)
  * @returns {string[]}
  */
-export function computeGrandfathered(planDir) {
-  const ids = new Set();
-  for (const filePath of collectInitiativePaths(planDir)) {
+export function computeGrandfathered(planDir, planSlug) {
+  const keys = new Set();
+  const collect = (filePath, requireParentMatch) => {
     let raw;
-    try { raw = readFileSync(filePath, 'utf8'); } catch { continue; }
+    try { raw = readFileSync(filePath, 'utf8'); } catch { return; }
     const parsed = parseFrontmatter(raw);
-    if (parsed.error || !parsed.frontmatter) continue;
-    for (const task of (Array.isArray(parsed.frontmatter.tasks) ? parsed.frontmatter.tasks : [])) {
+    if (parsed.error || !parsed.frontmatter) return;
+    const fm = parsed.frontmatter;
+    if (requireParentMatch && fm.parentPlan !== planSlug) return;
+    for (const task of (Array.isArray(fm.tasks) ? fm.tasks : [])) {
       if (task?.status === 'done' && hasText(task.id) && !hasText(task.closedAt)) {
-        ids.add(task.id);
+        keys.add(grandfatherKey(fm, task.id));
       }
     }
+  };
+  // Nested layout: plan-private, no parentPlan filter needed.
+  for (const base of [join(planDir, 'phases'), join(planDir, 'phases', 'archive')]) {
+    for (const p of mdFilesIn(base)) collect(p, false);
   }
-  return [...ids].sort();
+  // Legacy flat layout: a shared initiatives/ dir — filter to THIS plan.
+  for (const base of [join(planDir, '..', 'initiatives'), join(planDir, '..', 'initiatives', 'archive')]) {
+    for (const p of mdFilesIn(base)) collect(p, true);
+  }
+  return [...keys].sort();
 }
 
 /**
@@ -93,7 +118,7 @@ export function hardenClosedAt(planPath, now) {
     };
   }
 
-  const grandfatheredTaskIds = computeGrandfathered(dirname(abs));
+  const grandfatheredTaskIds = computeGrandfathered(dirname(abs), fm.slug);
   const enforcedFrom = hasText(now) ? now : new Date().toISOString();
   const next = { ...fm, closedAtHardening: { enforcedFrom, grandfatheredTaskIds } };
 
