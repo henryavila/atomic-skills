@@ -59,7 +59,10 @@ Generation is done only when, for **each** interactive screen:
 - [ ] **Names the forbidden anti-pattern** where the agent's default would collide with the product.
 - [ ] Passed the **omission audit** (R3): no load-bearing parameter left out.
 - [ ] Does **not** name a widget or describe visual form (colour/border/shadow/spacing).
-- [ ] **Real fixtures** present, with the texture (brevity) visible.
+- [ ] **Real fixtures pulled from a real source** (in-repo / local DB / read-only API / operator
+      export), generated **state-aware** (cardinality + edge rows), texture preserved. A few
+      inline examples ≠ fixtures; synthetic only if every real source genuinely failed **and**
+      the operator approved — still a complete flagged set.
 - [ ] Covers **mobile and desktop**, **light and dark**, and **all states**.
 - [ ] **Consumes the DS** by name, never redefining; orders **stop and signal** if the DS lacks something.
 

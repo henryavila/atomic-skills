@@ -7,11 +7,29 @@ designs for imagined content and mis-sizes the interaction.
 
 ## Source: REAL app data (not synthetic)
 
-Pull fixtures from **real sources**: seeders, tests, demo/staging data, or production-like
-content. Redact/anonymise PII, but do **not** substitute synthetic data — synthetic content
-erases the exact length, density, edge rows and domain vocabulary that make the prompt
-faithful. Synthetic is allowed **only** as an explicit fallback, flagged and approved by the
-operator (e.g. when no real source exists for a screen).
+Pull fixtures from **real sources**, walking down this ladder and stopping at the first rung
+that yields real content:
+1. **In-repo:** seeders/factories with real values, tests, demo/staging data, doc examples,
+   sample exports. Faker/placeholder factories do **not** count as real.
+2. **Local database (read-only):** query the dev DB via the app's own tooling (an ORM
+   console/CLI or a direct read query). The safe default.
+3. **App API read-only (GET only):** only with the operator's explicit authorization and
+   credentials they supply; keep the token in a file outside the repo, never in the
+   transcript; never call a write endpoint.
+4. **Operator-provided export.**
+
+Redact/anonymise PII, but do **not** substitute synthetic data while a real rung is still
+available — synthetic content erases the exact length, density, edge rows and domain
+vocabulary that make the prompt faithful. Synthetic is allowed **only** as an explicit,
+operator-approved last resort when every rung above genuinely fails — and even then it must be
+a **complete generated set** (per screen-state, with edge rows), each item flagged as
+representative.
+
+**The failure mode to avoid:** dropping a few plausible inline examples marked "[fallback]"
+and moving on — that is not fixtures. **Texture lesson:** real content is routinely
+denser/longer and in a different state than you would guess (e.g. 3–4-sentence answers where
+you'd write one-liners; an early/cold account where you'd imagine a mature one). Guessing the
+texture defeats R8's whole purpose.
 
 ## Per-screen, state-aware (mine these, don't invent them)
 
@@ -34,8 +52,9 @@ sees the content at the size and density it actually appears.
 
 ## Checklist before sending
 
-- [ ] Every fixture traces to a **real** source (seeder/test/production-like); synthetic ones
-      are flagged as approved fallbacks.
+- [ ] Every fixture traces to a **real** source actually pulled (in-repo / local DB / read-only
+      API / operator export) — Faker/placeholder ≠ real. Synthetic only as an operator-approved
+      last resort, as a complete flagged set, never a few inline examples.
 - [ ] Each screen-state has its **cardinality** captured, including empty and overflow.
 - [ ] **Edge rows** are present (longest, truncated, missing-field, unusual-value).
 - [ ] Texture preserved — short content stays short; no PII.

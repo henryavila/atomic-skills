@@ -22,7 +22,10 @@ interaction:
 
 1. **Purpose** — the person's goal on this screen.
 2. **Visible information** — what must be on screen, with **real fixtures** (see the
-   fixtures recipe). Show the texture: how little text there is at the moment of decision.
+   fixtures recipe). Each screen-state gets a real, **state-aware** set (cardinality + edge
+   rows) **pulled from a real source** (the skill's fixtures step, R8) — a few inline examples are **not**
+   fixtures. Show the texture: how little (or how much) text there really is at the moment of
+   decision.
 3. **What the person needs to do** — intents, not widgets.
 4. **Interaction model** *(mandatory when interactive)* — describe by behavioural attributes,
    never by widget, with the **concrete values mined from the code (R2)**:

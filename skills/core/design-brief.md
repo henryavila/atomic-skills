@@ -93,7 +93,39 @@ Close the gaps with the **interactive omission audit (R3)**, per screen:
 > reasonable agent fill it with something that contradicts the product?"* — if yes, **state
 > the parameter**. Omission is a decision. Resolve whatever is missing with the operator.
 
-### 5. Emit the prompts (output language: pt-BR or the configured language)
+### 5. Acquire and generate REAL fixtures (R8) — non-skippable
+
+Fixtures are a **first-class deliverable**, not a garnish. The screens prompt is incomplete
+until every interactive screen-state carries a **real, state-aware fixture set**
+(cardinality + edge rows + the real brevity/density). A handful of plausible-looking inline
+examples marked "[fallback]" is **not** fixtures — it is the exact failure this step exists
+to prevent.
+
+**Acquire real data — walk down this ladder, stop at the first rung that yields real content:**
+1. **In-repo real content:** seeders/factories with *real* values, tests, demo/staging data,
+   doc examples, sample exports. (Faker/placeholder factories do **not** count as real.)
+2. **The app's local database (read-only):** query it via the app's own tooling
+   ({{BASH_TOOL}}) — an ORM console/CLI or a direct read query against the dev DB. Local is
+   the safe default.
+3. **The app's API in read-only (GET only):** only with the operator's **explicit
+   authorization** and credentials they supply. Handle the token via a file **outside the
+   repo**, never echoed into the transcript; never call a write endpoint.
+4. **An operator-provided export** of real content.
+
+Synthetic data is allowed **only** as an explicit, operator-approved last resort when every
+rung above genuinely fails — and even then it must be a **complete generated set** (per
+screen-state, with edge rows), each item **flagged** as representative. Never ship synthetic
+as if it were real, and never let "synthetic is allowed as a fallback" become the first move.
+
+**Why real beats your guess (texture lesson):** mined real content is routinely denser/longer
+and in a different state than a reasonable guess — answers that run 3–4 sentences where you'd
+write one-liners, an early/cold account where you'd imagine a mature one. Guessing the texture
+defeats R8's whole purpose. Detail: `skills/shared/design-brief-assets/fixtures-recipe.md`.
+
+**HARD-GATE:** do not emit or deliver while any interactive screen still lacks a real,
+state-aware fixture set. If all you have is inline examples, STOP and go pull real data.
+
+### 6. Emit the prompts (output language: pt-BR or the configured language)
 
 Compose the prompts from the lazy assets and **emit each as a markdown file** in the existing
 handoff format (see `docs/design/claude-design-handoff/`), so the design agent can consume
@@ -119,7 +151,11 @@ anti-contamination asset.
   with the thumb" (R7).
 - "I won't pass the countdown timing — let the agent decide the pace." → Omission is not
   neutral; it is an outsourced wrong guess. Mine the value (R2) and state it.
-- "A synthetic fixture will do." → No. Use real data; the brevity/texture is part of the data (R8).
+- "A few inline example cards marked '[fallback]' are my fixtures." → That is the failure, not
+  fixtures (the fixtures step, R8). Pull **real** data down the ladder (repo → local DB → read-only API → operator
+  export) and generate a **state-aware set per screen-state with edge rows**. Synthetic is a
+  last resort, operator-approved, still a complete flagged set. Real content is denser/different
+  than you will guess — guessing defeats R8 (fixtures-recipe).
 - "The scheduler/algorithm can show up as options." → A system decision never becomes a user
   choice (layer 3). Name the forbidden anti-pattern on the risky screen (R6).
 - "I covered the main screens." → No screen left out (§7). Without a complete coverage ledger, stop.
