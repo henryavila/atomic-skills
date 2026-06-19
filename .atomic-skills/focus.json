@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T15:53:58.576Z",
+  "generatedAt": "2026-06-19T17:07:00.939Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 1,
+    "done": 2,
     "total": 5,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "Start T-001: Obter e persistir o feedback original do Lekto",
+  "nextAction": "T-001 done. T-002 (regenerar briefing) exige SESSAO NOVA + caminho do codigo Lekto — handoff p/ gerador cego.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
