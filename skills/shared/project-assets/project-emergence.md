@@ -169,7 +169,40 @@ Steps:
 7. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
 8. Validate everything. Roll back on any failure.
 
-## Why provenance + context live on the item itself (not a separate log)
+## `fork-plan <child-slug> --from <phaseId> --mode pause|parallel [--task <T>]` (rung 7.5)
+
+A phase of an in-flight plan has grown into work that deserves its **own plan** — bigger than `split-phase` (rung 7, still inside the same plan), but it does **not** replace the parent (that is rung 8 `adopt … supersedes`). The phase is forked into a **child plan** linked to the parent by a bidirectional edge; the parent survives and resumes at the anchor phase when the child completes. This is rung **7.5** — additive and reversible, never a substitution.
+
+> **Invocation:** `fork-plan` is a **top-level** verb (`/atomic-skills:project fork-plan <child-slug> --from <phaseId> …`), not part of the `new` menu — it ratifies a parent/child link and then hands off to the `new plan` flow.
+
+`fork-plan` does exactly two things: **(1)** ratifies the fork edge on the parent (the `context` gate — `solves`/`trigger`/`assumesStillValid` — like every emergent item), and **(2)** hands off to the `new plan` flow so the child passes the DESIGN gate (R-ORCH-09) and gets its own `design.md` like any plan. The verb never duplicates `new plan`; it only ratifies the edge and delegates.
+
+**The link lives in a sidecar, not inline.** Under the published aiDeck 0.1.0 consumer the edge fields cannot live in `plan.md` / phase frontmatter (`spawnedFrom` is `.strict()` and drops the whole card; `spawnedPlans` is silently stripped). So `fork-plan` writes the edge to the non-aiDeck-facing `links.json` sidecar via the F0 helpers in `src/links-sidecar.js` (`setSpawnedFrom` on the child, `addSpawnedPlan` on the parent). The inline migration is deferred to F5 (gated on aiDeck ≥ 0.1.2). Forking is **intra-project**; the `mode` lives only on the child's `spawnedFrom`.
+
+### Argument parse
+
+Parse the invocation into:
+
+- `<child-slug>` (positional, required) — the slug of the child plan to create. Must be a valid `common.schema.json#/$defs/slug`.
+- `--from <phaseId>` (required) — the **anchor phase** of the parent that is being forked. Must reference an existing phase id in the active plan; abort with a clear message if it does not.
+- `--mode pause|parallel` (required) — the parent's lifecycle while the child runs. See "Mode semantics" below. A value outside the enum is rejected.
+- `--task <T>` (optional) — the concrete task of the anchor phase that triggered the fork, recorded as `spawnedFrom.taskId`. Omitted when the trigger was the phase as a whole.
+
+A missing required argument is a malformed invocation: print the usage line and stop, touch nothing.
+
+### Steps
+
+1. **Resolve the parent.** Load the active plan. If there is no active plan, abort: "fork-plan requires an active plan." Validate `--from <phaseId>` against `phases[]`; validate `--task <T>` (when given) against that phase initiative's `tasks[]`.
+2. **Pre-mutation gates.** Run the resident pre-mutation gates (migration check + reconciliation) on the anchor-phase initiative, exactly as the other emergent rungs do.
+3. **Ratify gate.** Print the `Proposed mutation:` block for a fork — magnitude `fork-plan (phase → child plan)` — with the drafted `context` (`solves`/`trigger`/`assumesStillValid`) that justifies the fork, the resolved `--from`/`--mode`/`--task`, and a `Reasoning` line (why rung 7.5, not `split-phase` below or `supersedes` above). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. A generic "ok"/"yes" is **not** ratify.
+4. **Ratify-then-write — the edge lands ONLY after ratify.** On `ratify` (or edited context), and **only then**, write the bidirectional edge to the sidecars:
+   - Child: `setSpawnedFrom(<childPlanDir>, { plan: <parent-slug>, phaseId: <from>, taskId?: <T>, mode: <mode> })`.
+   - Parent: `addSpawnedPlan(<parentPlanDir>, <from>, <child-slug>)` — idempotent; `spawnedPlans[<from>]` is an array (a phase may fork several children).
+   The ratified `context`/`provenance` is recorded with the edge. On `cancel`, nothing is written to either sidecar.
+5. **Hand off to `new plan`.** Delegate to the `new plan` flow (`{{ASSETS_PATH}}/project-create-plan.md`) for `<child-slug>`: the child is a real plan and passes the DESIGN gate. The child's `spawnedFrom` edge (written in step 4) is its back-link to the parent.
+6. **Mode side-effects.** Apply the parent-state transition for the chosen `--mode` (see "Mode semantics").
+
+
 
 Every emergent item carries two co-located blocks in its frontmatter:
 
