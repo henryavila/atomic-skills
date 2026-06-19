@@ -139,8 +139,14 @@ phases:
             verifiedAt: 2026-06-19T12:24:41Z
             passed: true
             exitCode: 0
-            outputSummary: "G-1 3-test chain on HEAD d75aa69 — 19 pass (schema-drift 1 + compute-rollups 3 + emit-consumer-state 15), 0 fail, exit 0"
+            outputSummary: "G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0 fail, exit 0"
     status: pending
+    reviewGate:
+      status: passed
+      at: ee960c9
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-19-1233-code-deadline-burnup-forecast-f2.md
+      verifiedAt: 2026-06-19T12:33:22Z
     summary: Dá peso de complexidade a cada task (proxy automático) e soma em
       rollups weightDone/Total.
   - id: F3

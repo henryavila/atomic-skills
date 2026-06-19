@@ -33,11 +33,10 @@ exitGates:
         tests/emit-consumer-state.test.js
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-06-19T12:24:41Z
+      verifiedAt: 2026-06-19T12:33:22Z
       passed: true
       exitCode: 0
-      outputSummary: G-1 3-test chain on HEAD d75aa69 — 19 pass (schema-drift 1 +
-        compute-rollups 3 + emit-consumer-state 15), 0 fail, exit 0
+      outputSummary: "G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0 fail, exit 0"
     verifierLabel: "shell: node --test tests/schema-drift.test.js && node --test tests…"
     evidenceSummary: passed · 2026-06-19
 stack:
@@ -121,11 +120,22 @@ Initiative for phase **F2 — Peso por task: proxy estrutural + rollups**.
 ## Session handoff
 - **Narrative:** F2 (índice 3/6), via Mode 2 / Codex lane — **as 3 tasks fechadas** (T-001 schema+bundle, T-003 auditor+doc, T-002 rollups+emit). Cada uma: Codex em worktree isolado → Opus revisou diff → merge serial (cherry-pick) → re-verify no MERGED primary → `done` com evidência. **tasksDone 3/3, gate G-1 ainda pending.** Falta: telemetria dispatch-log + `phase-done` (gate G-1 + review-code).
 - **Decision log:** D-F2-1..5 acima. Merge-back = commit-no-worktree + `git cherry-pick` (linear, estilo F1). Codex in-worktree bate `spawnSync EPERM` (sandbox bloqueia child_process) — ambiental; só conta o re-run no MERGED primary. Verifiers no primary: T-001 1 pass @f844dde, T-003 3 pass @df3ca7f, T-002 (3+15) pass @8569c76. **Backfill one-time:** o `done` de T-002 + refresh-state adicionou `weightDone`/`weightTotal` a TODAS as initiatives do tree (38) — verificado LOSSLESS (frontmatter parseado idêntico módulo as chaves weight) e idempotente; commitado junto.
-- **Single nextAction:** Escrever os 3 registros de telemetria em `.atomic-skills/status/dispatch-log.json` (T-001/T-003/T-002, executor codex, verifierPassed true), depois rodar `phase-done` para F2 (executa gate G-1 + review-code do diff da fase + advance para F3).
-- **Verbatim state:** HEAD primary `8569c76` (T-001 feat f844dde + close c1442db + T-003 feat df3ca7f + close 545de0e + T-002 feat 8569c76). Gate G-1 verifier: `node --test tests/schema-drift.test.js && node --test tests/compute-rollups.test.js && node --test tests/emit-consumer-state.test.js`. Worktree `dbf-f2-t-002` ainda registrado — remover no cleanup (T-001/T-003 já removidos). dispatch-log.json AINDA não escrita.
-- **Uncommitted changes:** pendente = este handoff + `done` de T-002 (phase file) + focus.json + backfill weight em 38 initiatives, prestes a commitar como `chore(forecast): close F2/T-002`.
+- **Single nextAction:** Concluir o review gate (local, mode=local — DESTRUCTIVE=false) sobre o diff de código da fase `5d31fc3..HEAD`; aplicar blockers/criticals se houver; gravar `phases[F2].reviewGate` no plan.md + self-review + lessons; depois apresentar o advance F2→F3 ao usuário (opt-in, intrusive-actions).
+- **Verbatim state:** HEAD primary `f8ad8a8` (telemetria d75aa69 + gate-G-1-met). tasksDone 3/3, gatesMet 1/1 (G-1 met @d75aa69, evidência 19 pass). Phase diff range = `5d31fc3..HEAD` (base = commit antes de started 2026-06-19T11:20:50Z). Code surface: meta/schemas/{initiative,aideck-state}.schema.json, assets/aideck-consumer/schema.json, scripts/{compute-rollups,emit-consumer-state,find-unweighted-tasks}.js, tests/{compute-rollups,emit-consumer-state,find-unweighted-tasks}.test.js, skills/shared/project-assets/project-create-plan.md. Telemetria dispatch-log: 3 registros F2 escritos. Worktrees Codex: todos removidos.
+- **Uncommitted changes:** clean tree (G-1-met commitado em f8ad8a8); review gate em curso.
 
 ## Links
 
 - plan: `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md`
 - source (interior SPEC das tasks): `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/source.md` (seção F2, linhas 101-134)
+- review: `.atomic-skills/reviews/2026-06-19-1233-code-deadline-burnup-forecast-f2.md`
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks closed, cada uma com `verifier` rodado e capturado em `evidence` (testsCollected + outputSummary, re-run no MERGED primary). Opus leu cada diff do Codex e cada teste antes do merge.
+- **G2 soft-language**: scan de nextAction + descrições de task/criterion + handoff contra a ban list; 0 violações (claims são `passed:true` com outputSummary ancorado em sha).
+- **G6 reference-or-strike**: cada claim carrega path/comando/sha verbatim (worktree refs, comandos de verifier, shas do MERGED primary f844dde/df3ca7f/8569c76; remediação ee960c9).
+- **Codex review (cross-model)**: NÃO rodado para F2 — o gate mandatório foi o review-code local (mode=local, DESTRUCTIVE=false). A opção review-due (`lastReviewedCommit` ≠ HEAD) é oferecida ao usuário no prompt de advance.
+- **Review gate (G2)**: `phases[F2].reviewGate = { status: passed, at: ee960c9, mode: local, reviewFile: …f2.md }`. APPROVED 0B/0C/0M/2m — **ambos os minors APLICADOS** (guarda `Number.isFinite` + teste negative/NaN/Infinity) no commit ee960c9.
+- **Lessons (G1)**: 1 lesson reusable proposta (números não-finitos → `JSON.stringify` → `null` → quebra `type:number` no schema; guardar com `Number.isFinite`, não só `typeof`) — pendente de ratify do usuário no prompt de advance.
+- **Mode 2 telemetry**: 3 registros em dispatch-log (T-001/T-003/T-002, codex; cheap/cheap/standard); todos verifierPassed no MERGED primary; 0 escalations.
