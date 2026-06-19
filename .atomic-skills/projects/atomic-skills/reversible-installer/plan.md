@@ -5,7 +5,7 @@ title: Reversible Installer — motor de instalação reversível e reutilizáve
 version: "1.0"
 status: active
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T12:02:57.000Z
+lastUpdated: 2026-06-19T12:15:44.000Z
 branch: plan/reversible-installer
 currentPhase: F1
 parallelismAllowed: false
@@ -221,7 +221,7 @@ Estado em 2026-06-17 (para quem retomar via `implement`):
 
 **Decisão estrutural (2026-06-19):** **F2 é tracejado/executado no próprio repo do pacote** `~/tooling-installer` (é 100% trabalho lá; um repo standalone para múltiplos consumidores). Este plano retém só **F3** (o consumo). F2 se auto-documenta em `~/tooling-installer/docs/design/provider-driver.md`. A entrada F2 no frontmatter abaixo vira ponteiro (gates verificam no pacote).
 
-**Progresso F2 (pacote, commit `f83a1f7`):** MVP do Provider/Driver LANDED — contrato de Provider (`plan(config,planCtx)→[{type,args}]`) + `createFileSetProvider` de referência + `createDriver` (install aplica/journaliza efeitos; uninstall = `replayReverse` + `removeManifest`, round-trip byte-a-byte). TDD 5 casos; suíte do pacote **43/43** (era 38). Falta no F2: semântica de update/re-install (3-hash + órfãos), config two-tier, exemplo de runtime-layer.
+**Progresso F2 (pacote):** (1) MVP Provider/Driver LANDED (`f83a1f7`) — contrato de Provider (`plan(config,planCtx)→[{type,args}]`) + `createFileSetProvider` + `createDriver` (install journaliza efeitos; uninstall = `replayReverse` + `removeManifest`, round-trip byte-a-byte). (2) **Update/re-install semantics LANDED** (`0ee4f6d`) — `reconcileFileSet` 3-hash (port da política `--yes` legada): disk inalterado→sobrescreve; usuário editou→mantém (no-clobber); órfão→remove só se não-modificado. Driver passa o before-state anterior por (tipo, ordem). Suíte do pacote **50/50** (era 38). **⚠️ Decisão pendente p/ o usuário (flagged em `docs/design/provider-driver.md`):** assimetria de data-safety — arquivo do usuário mantido que ainda está no desired set é REMOVIDO no uninstall (parity legada); órfão mantido SOBREVIVE. Falta no F2: config two-tier, exemplo de runtime-layer.
 
 **Próximo passo:** continuar F2 no pacote (update semantics → config two-tier → runtime-layer) **ou** começar F3 no atomic-skills (consome via `file:`, move SkillsProvider+render+runtime layers sobre o Driver, remove `src/kernel/` in-repo). F1 in-repo segue done/superseded (não rodar `phase-done`).
 
