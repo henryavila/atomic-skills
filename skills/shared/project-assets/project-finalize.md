@@ -84,9 +84,14 @@ diff fail.
 
 Ask the user via {{ASK_USER_QUESTION_TOOL}} — never auto-pick the base:
 
-- **Use an existing ref** — the user names a branch that already exists
-  (e.g. `main`, `develop`, a release branch). Confirm it resolves:
-  `git show-ref --verify --quiet refs/heads/<ref>` (or `refs/remotes/origin/<ref>`).
+- **Use an existing ref** — the user names a branch. Because this ref becomes the
+  PR `--base`, confirm it exists **on `origin`** (not merely locally):
+  `git ls-remote --exit-code --heads origin <ref>` (exit 0). A ref that resolves
+  only locally (`git show-ref --verify --quiet refs/heads/<ref>` but absent on
+  `origin`) is **NOT** acceptable as a base until it is pushed — publishing against
+  a base `origin` lacks recreates the half-publish failure this guard exists to
+  prevent. A local-only ref must be pushed (`git push -u origin <ref>`, exit 0)
+  before it is used or persisted.
 - **Create `develop` from `main`** — `git branch develop main` (or from the repo's
   default branch), then publish it with `git push -u origin develop`.
 

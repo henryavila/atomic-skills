@@ -30,11 +30,13 @@ test('resolveFinalizePlanScope classifies target, other-active, and archived-unm
   ]);
 });
 
-test('resolveFinalizePlanScope classifies unknown non-target statuses as archived-unmerged', () => {
+test('resolveFinalizePlanScope classifies non-archived non-target statuses (paused, unknown) as other-active; only archived is archived-unmerged', () => {
   const result = resolveFinalizePlanScope({
     plans: [
       { slug: 'target', status: 'archived', phases: [] },
-      { slug: 'unknown', status: 'paused', phases: [] },
+      { slug: 'paused-sib', status: 'paused', phases: [] },
+      { slug: 'weird-sib', status: 'mystery', phases: [] },
+      { slug: 'archived-sib', status: 'archived', phases: [] },
     ],
     focusSlug: 'target',
     targetSlug: 'target',
@@ -42,7 +44,9 @@ test('resolveFinalizePlanScope classifies unknown non-target statuses as archive
 
   assert.deepEqual(result.classifications, [
     { slug: 'target', class: 'target' },
-    { slug: 'unknown', class: 'archived-unmerged' },
+    { slug: 'paused-sib', class: 'other-active' },
+    { slug: 'weird-sib', class: 'other-active' },
+    { slug: 'archived-sib', class: 'archived-unmerged' },
   ]);
 });
 
@@ -124,12 +128,12 @@ test('resolveFinalizePlanScope does not block target-focus mismatches when confi
   assert.equal(result.blockReason, null);
 });
 
-test('resolveFinalizePlanScope warns about every active sibling plan the branch merge would drag', () => {
+test('resolveFinalizePlanScope warns about every non-archived sibling (active + paused) the branch merge would drag', () => {
   const result = resolveFinalizePlanScope({
     plans: [
       { slug: 'target', status: 'archived', phases: [] },
       { slug: 'sibling-a', status: 'active', phases: [] },
-      { slug: 'sibling-b', status: 'active', phases: [] },
+      { slug: 'paused-sib', status: 'paused', phases: [] },
       { slug: 'old', status: 'archived', phases: [] },
     ],
     focusSlug: 'target',
@@ -138,14 +142,14 @@ test('resolveFinalizePlanScope warns about every active sibling plan the branch 
 
   assert.deepEqual(result.warnings, [
     {
-      kind: 'sibling-active-plan',
+      kind: 'nonarchived-sibling-plan',
       slug: 'sibling-a',
-      reason: 'active sibling plan sibling-a would be included by a branch merge',
+      reason: 'non-archived sibling plan sibling-a would be included by a branch merge',
     },
     {
-      kind: 'sibling-active-plan',
-      slug: 'sibling-b',
-      reason: 'active sibling plan sibling-b would be included by a branch merge',
+      kind: 'nonarchived-sibling-plan',
+      slug: 'paused-sib',
+      reason: 'non-archived sibling plan paused-sib would be included by a branch merge',
     },
   ]);
 });
@@ -207,6 +211,44 @@ test('resolveFinalizePlanScope treats a top-level status:done target as terminal
 
   assert.equal(result.decision, 'proceed');
   assert.equal(result.blockReason, null);
+});
+
+test('resolveFinalizePlanScope blocks an active target with missing, empty, or non-array phases (fail-closed)', () => {
+  const missing = resolveFinalizePlanScope({
+    plans: [{ slug: 'target', status: 'active' }],
+    focusSlug: 'target',
+    targetSlug: 'target',
+  });
+  const empty = resolveFinalizePlanScope({
+    plans: [{ slug: 'target', status: 'active', phases: [] }],
+    focusSlug: 'target',
+    targetSlug: 'target',
+  });
+  const nonArray = resolveFinalizePlanScope({
+    plans: [{ slug: 'target', status: 'active', phases: 'soon' }],
+    focusSlug: 'target',
+    targetSlug: 'target',
+  });
+
+  for (const result of [missing, empty, nonArray]) {
+    assert.equal(result.decision, 'block');
+    assert.match(result.blockReason ?? '', /no determinable phases/);
+  }
+});
+
+test('resolveFinalizePlanScope fail-closes on an ambiguous target slug shared by multiple branch plans', () => {
+  const result = resolveFinalizePlanScope({
+    plans: [
+      { slug: 'dup', status: 'archived', phases: [] },
+      { slug: 'dup', status: 'active', phases: [{ id: 'f0', status: 'pending' }] },
+    ],
+    focusSlug: 'dup',
+    targetSlug: 'dup',
+  });
+
+  assert.equal(result.decision, 'block');
+  assert.equal(result.target, null);
+  assert.match(result.blockReason ?? '', /ambiguous/);
 });
 
 test('resolveFinalizePlanScope nulls the target on fail-closed block paths (malformed plans, not found)', () => {

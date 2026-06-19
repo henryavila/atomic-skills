@@ -56,8 +56,11 @@ function classifyPlan(plan, targetSlug) {
   const slug = ownString(plan, 'slug');
   const status = ownString(plan, 'status');
   if (slug === targetSlug) return 'target';
-  if (status === 'active') return 'other-active';
-  return 'archived-unmerged';
+  // `archived-unmerged` is the archived bucket; EVERY other non-target status
+  // (active, paused, done, or unknown) is a NON-ARCHIVED sibling the branch merge
+  // would drag along — the documented WARN contract is "non-archived siblings".
+  if (status === 'archived') return 'archived-unmerged';
+  return 'other-active';
 }
 
 function phaseLabel(phase, index) {
@@ -81,6 +84,11 @@ function isTerminalPlan(plan) {
   // every phase is `done` (the plan status flips to archived AFTER merge, per P2).
   if (status === 'archived' || status === 'done') return true;
   if (status !== 'active') return false;
+  // FAIL-CLOSED: an active plan is terminal only with a NON-EMPTY phases array, all
+  // `done`. Missing / empty / non-array phases is indeterminate — never treated as
+  // "all phases done" (that would publish a schema-invalid/indeterminate plan).
+  const phases = ownArray(plan, 'phases');
+  if (phases === undefined || phases.length === 0) return false;
   return undonePhases(plan).length === 0;
 }
 
@@ -129,9 +137,9 @@ export function resolveFinalizePlanScope(input = {}) {
   const warnings = classifications
     .filter((classification) => classification.class === 'other-active')
     .map((classification) => ({
-      kind: 'sibling-active-plan',
+      kind: 'nonarchived-sibling-plan',
       slug: classification.slug,
-      reason: `active sibling plan ${classification.slug} would be included by a branch merge`,
+      reason: `non-archived sibling plan ${classification.slug} would be included by a branch merge`,
     }));
 
   const result = initialResult(targetSlug, classifications, warnings);
@@ -150,17 +158,29 @@ export function resolveFinalizePlanScope(input = {}) {
     return result;
   }
 
-  const targetPlan = plans.find((plan) => ownString(plan, 'slug') === targetSlug);
-  if (targetPlan === undefined) {
+  const matches = plans.filter((plan) => ownString(plan, 'slug') === targetSlug);
+  if (matches.length === 0) {
     result.target = null;
     result.blockReason = `target plan ${targetSlug} was not found among branch plans`;
     return result;
   }
+  if (matches.length > 1) {
+    // FAIL-CLOSED on an ambiguous target: slugs can collide across projects on one
+    // branch. Picking the first match could publish against a terminal plan while a
+    // same-slug unfinished plan rides the merge along — disambiguate by project first.
+    result.target = null;
+    result.blockReason = `target slug ${targetSlug} is ambiguous: ${matches.length} branch plans share it — disambiguate by project before finalizing`;
+    return result;
+  }
+  const targetPlan = matches[0];
 
   if (!isTerminalPlan(targetPlan)) {
     const status = ownString(targetPlan, 'status') ?? 'unknown';
+    const phases = ownArray(targetPlan, 'phases');
     const undone = undonePhases(targetPlan);
-    if (undone.length > 0) {
+    if (status === 'active' && (phases === undefined || phases.length === 0)) {
+      result.blockReason = `target plan ${targetSlug} is active but has no determinable phases (missing/empty/non-array) — cannot confirm all phases done`;
+    } else if (undone.length > 0) {
       result.blockReason = `target plan ${targetSlug} is active but has un-done phase(s): ${undone.join(', ')}`;
     } else {
       result.blockReason = `target plan ${targetSlug} is not terminal (status: ${status})`;
