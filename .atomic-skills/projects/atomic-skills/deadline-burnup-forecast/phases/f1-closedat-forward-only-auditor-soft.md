@@ -60,8 +60,18 @@ Initiative for phase **F1 — closedAt forward-only: auditor soft + emissão**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **D1 — Routing:** as 3 tasks F1 limpam o gate F1 (spec-ready: paths exatos, scopeBoundary, acceptance) + F2 (verifier `kind: shell` determinístico) e nenhuma toca `.atomic-skills/` (Files em `scripts/`, `tests/`, `meta/schemas/`, `assets/`). `routing.json` mantém Mode 2 default permanente ⇒ todas via **Codex (Mode 2)**, worktrees isolados, merge-back serial.
+- **D2 — Resolução de spec T-001:** o `scopeBoundary` diz "ignora `_archive-legacy`", mas a convenção real do repo é `phases/archive/`. Resolvido seguindo o padrão de `scripts/find-signalless-tasks.js`: varrer `phases/*.md` **não-recursivamente** ⇒ o subdir `archive/` (fases arquivadas/legadas) fica naturalmente fora, sem hardcode de nome de pasta. Auditor mede só a lacuna de instrumentação das fases VIVAS.
+- **D3 — Ordem:** T-001 e T-003 são scope-disjuntos (T-001: `scripts/find-unclosed-done.js`+test; T-003: `meta/schemas/aideck-state.schema.json`+bundle) ⇒ worktrees concorrentes permitidos (§2 da lane). T-002 depende de T-003 (`validateAideckState` precisa do bundle já admitindo os campos) ⇒ despachada só após T-003 mergeada. Merge-back sempre serial.
+
+## Session handoff
+- **Narrative:** F0 fechada/arquivada (gate G-1 met + reviewGate passed em `0c64ed5`). Plano em **F1** (closedAt forward-only). Nenhuma task F1 iniciada ainda; tree limpa em `0c64ed5`. Prestes a despachar Codex para T-001 e T-003.
+- **Decision log:** D1 (Mode 2 para as 3), D2 (T-001 ignora `archive/` via scan não-recursivo de `phases/*.md`), D3 (T-001‖T-003 concorrentes → merge serial → T-002). Ver acima.
+- **Single nextAction:** Criar worktrees `/home/henry/atomic-skills/.worktrees/dbf-f1-t-001` (branch `dbf/f1-t-001`) e `dbf-f1-t-003` off `0c64ed5`, despachar Codex em ambos, depois merge serial (T-001 → re-verify → done; T-003 → re-verify → done), depois T-002.
+- **Verbatim state:** verifiers — `node --test tests/find-unclosed-done.test.js` (T-001); `node --test tests/emit-consumer-state.test.js` (T-002); `node --test tests/schema-drift.test.js` (T-003). Bundle regen: `npm run build:aideck-schema` (= `node scripts/build-aideck-consumer-schema.mjs`). Projeção de task: `scripts/emit-consumer-state.js` push em ~L253-268. Schema projeção: `meta/schemas/aideck-state.schema.json` `$defs.tasks` (additionalProperties:false, 12 required, sem closedAt/lastUpdated).
+- **Uncommitted changes:** clean tree (este edit no handoff F1 é a única mudança pendente).
 
 ## Links
 
-_(plan doc, external refs)_
+- Plano: `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md`
+- SPEC: `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/source.md` (F1 = L66-99)
