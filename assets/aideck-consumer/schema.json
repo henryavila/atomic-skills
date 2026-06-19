@@ -734,6 +734,9 @@
         "lastUpdated": {
           "$ref": "#/definitions/isoTimestamp"
         },
+        "deadline": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
         "branch": {
           "type": "string"
         },

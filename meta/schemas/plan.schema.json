@@ -25,6 +25,7 @@
     "status": { "type": "string", "enum": ["active", "paused", "done", "archived"] },
     "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "branch": { "type": "string" },
     "currentPhase": { "type": ["string", "null"] },
     "planActive": {
