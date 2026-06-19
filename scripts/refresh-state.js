@@ -27,10 +27,15 @@ export function refreshState(dir, opts = {}) {
   const emitted = emitFocus(dir, opts);
   const nowMs = opts.nowMs ?? Date.now();
   let series = null;
+  let seriesError = null;
   try {
     series = emitConsumerState(dir, nowMs);
-  } catch {
-    // fail-open: the series is best-effort; the three core passes above are authoritative
+  } catch (err) {
+    // fail-open: the three core passes above are authoritative. Surface the
+    // failure (stderr + summary) so a regression that breaks the series is
+    // visible, not silently swallowed into a clean-looking seriesWritten:0.
+    seriesError = err?.message ?? String(err);
+    console.error(`refresh-state: emit-consumer-state (series) failed, skipping — ${seriesError}`);
   }
   return {
     rollupsChanged: rollups.changed,
@@ -38,6 +43,7 @@ export function refreshState(dir, opts = {}) {
     digestWritten: emitted.written,
     digest: emitted.digest,
     seriesWritten: series?.written?.length ?? 0,
+    seriesError,
   };
 }
 

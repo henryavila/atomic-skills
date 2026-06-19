@@ -22,7 +22,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import Ajv from 'ajv';
-import { readTree, buildState } from './emit-consumer-state.js';
+import { readTree, buildState, buildSeries } from './emit-consumer-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
@@ -72,7 +72,21 @@ export function validateAideckState(dir, { nowMs = FIXED_NOW } = {}) {
   const validatorFor = (id) => ajv.getSchema(`${schema.$id}#/definitions/${id}`);
 
   const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
-  const state = buildState(readTree(root), nowMs);
+  const tree = readTree(root);
+  const state = buildState(tree, nowMs);
+
+  // Burn-up/SPI series are emitted by emitConsumerState (not buildState), so add
+  // them here too — otherwise the gate would never validate burnup/spi records
+  // against #/definitions/burnup|spi. Mirror the emitter's completions read.
+  const logPath = join(root, 'analytics', 'completions.jsonl');
+  let completionLines = [];
+  if (existsSync(logPath)) {
+    completionLines = readFileSync(logPath, 'utf8').split('\n')
+      .map((s) => s.trim()).filter(Boolean)
+      .map((s) => { try { return JSON.parse(s); } catch { return null; } })
+      .filter(Boolean);
+  }
+  Object.assign(state, buildSeries(tree, completionLines, nowMs));
 
   // catalog is generated separately (scripts/generate-catalog-json.js); validate
   // it here too so the gate covers every dataSource the manifest binds.

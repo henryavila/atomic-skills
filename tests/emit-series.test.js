@@ -58,6 +58,10 @@ const completionLines = [
   { projectId: 'projA', planSlug: 'plan-a', ts: '2026-01-03T11:00:00Z', event: 'task-done', weight: 1, weightBasis: 'count' },
   { projectId: 'projA', planSlug: 'plan-a', ts: '2026-01-05T09:00:00Z', event: 'task-done', weight: 3, weightBasis: 'proxy' },
   { projectId: 'projA', planSlug: 'plan-b', ts: '2026-01-04T09:00:00Z', event: 'task-done', weight: 1, weightBasis: 'count' },
+  // phase-done aggregate event (taskId null; producer defaults weight 1 / basis count
+  // per project-transitions.md): must be EXCLUDED from earned — the per-task task-done
+  // events already account for the work; summing it would double-count earned weight.
+  { projectId: 'projA', planSlug: 'plan-a', ts: '2026-01-05T13:00:00Z', event: 'phase-done', weight: 1, weightBasis: 'count' },
 ];
 
 describe('buildSeries', () => {
@@ -79,6 +83,9 @@ describe('buildSeries', () => {
     assert.equal(planA[0].earnedCount, 1);
     assert.equal(planA[0].plannedValue, 2);
     assert.equal(planA[1].earnedProxy, 5);
+    // double-count guard (finding #1): the 2026-01-05 phase-done aggregate event
+    // (weight 1/count) must be excluded from earned. Drop the `event === 'task-done'`
+    // filter in buildSeries and earnedCount here becomes 2 (task-done + phase-done) — RED.
     assert.equal(planA[1].earnedCount, 1);
     assert.equal(planA[1].plannedValue, 4);
     assert.ok(planA[1].plannedValue > planA[0].plannedValue);
