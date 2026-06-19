@@ -1830,6 +1830,75 @@
         }
       }
     },
+    "burnup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "date",
+        "plannedValue",
+        "earnedCount",
+        "earnedProxy"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "plannedValue": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "earnedCount": {
+          "type": "number"
+        },
+        "earnedProxy": {
+          "type": "number"
+        }
+      }
+    },
+    "spi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "asOf",
+        "spiProxy",
+        "spiCount"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "asOf": {
+          "type": "string"
+        },
+        "spiProxy": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "spiCount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
     "catalog": {
       "type": "object",
       "additionalProperties": false,
