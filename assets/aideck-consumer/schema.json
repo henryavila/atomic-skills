@@ -737,6 +737,26 @@
         "deadline": {
           "$ref": "#/definitions/isoTimestamp"
         },
+        "closedAtHardening": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enforcedFrom",
+            "grandfatheredTaskIds"
+          ],
+          "properties": {
+            "enforcedFrom": {
+              "$ref": "#/definitions/isoTimestamp"
+            },
+            "grandfatheredTaskIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "F4/T-003: opts this plan into the closedAt forward-only hard-gate. Written ONCE by scripts/harden-closedat.js. grandfatheredTaskIds = the done-without-closedAt tasks alive at the flip instant (exempt); every later done task must record closedAt. Never implies a retroactive closedAt (P3)."
+        },
         "branch": {
           "type": "string"
         },
@@ -1471,6 +1491,8 @@
         "title",
         "summary",
         "status",
+        "closedAt",
+        "lastUpdated",
         "blocked",
         "blockedBy",
         "blockedByText"

@@ -100,7 +100,7 @@
       "additionalProperties": false,
       "required": [
         "projectId", "planSlug", "initiativeId", "phaseId", "id", "title", "summary",
-        "status", "blocked", "blockedBy", "blockedByText"
+        "status", "closedAt", "lastUpdated", "blocked", "blockedBy", "blockedByText"
       ],
       "properties": {
         "projectId": { "type": "string" },
