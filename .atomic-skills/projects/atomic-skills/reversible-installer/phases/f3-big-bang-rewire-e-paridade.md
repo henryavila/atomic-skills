@@ -10,51 +10,103 @@ goal: religar o atomic-skills sobre o kernel do pacote
 status: active
 branch: plan/reversible-installer
 started: 2026-06-17T15:13:50.418Z
-lastUpdated: 2026-06-19T19:08:25.000Z
-nextAction: "F3 COMPLETA — 6/6 tasks done (T-F3-4 flip + T-F3-5 paridade fechados).
-  install/uninstall rodam via Driver/journal do pacote, src/kernel/ removido, round-trip
-  G-1 7/7, validate-skills 14/14, suíte 828/814/2 (as 2 falhas são ambientais/worktree:
-  dashboard-bundle path + bundle não-buildado, pré-autorizadas). PRÓXIMO = decisão do
-  usuário: rodar `phase-done` (roda exit-gates G-1/G-2/G-3 + review-code do diff da fase
-  + distila lições) para fechar F3 e avançar o plano. NB: G-2 (`npm test` exit 0) só fica
-  100% limpo na main com o bundle buildado — no worktree o teste de path do dashboard
-  sempre falha. Gate de merge de plan/skills-restructuring segue DIFERIDO (ação humana)."
+lastUpdated: 2026-06-19T20:05:00.000Z
+nextAction: "Review gate FALHOU→CORRIGIDO. Os 2 criticals do review (--mode=both) foram
+  corrigidos via TDD (usuário escolheu fix cross-repo): (A) stageRuntimeArtifacts (consumer) +
+  jsonMerge (pacote ~/tooling-installer) threadam `previous` p/ manter ownership no update; (B)
+  uninstall.js chama migrateLegacyInstall antes do Driver. RED→GREEN: round-trip 9/9 (+update
+  +legacy), pacote 62/62, full suite 830/816/2 (mesmas 2 ambientais, ZERO regressão). Fixtures
+  adversários provam que o carry-forward não over-deleta (P3). **Gate convergido 2C→0.** RESTA p/
+  fechar F3: (1) re-confirmar exit-gates no HEAD novo (G-1 round-trip agora 9/9; G-2 830/816/2);
+  (2) gravar reviewGate{status:passed, mode:both} em plan.md; (3) distilar+ratificar lições (a
+  lição central: o round-trip só cobria single-install — update + legacy-uninstall não tinham
+  teste); (4) avançar o plano reconciliando F1(superseded)/F2(pointer) → plan-done (NÃO reabrir
+  F1). NB: ~/.atomic-skills real pode ter sido tocado pelo review agent — NÃO mexer sem confirmar."
 parentPlan: reversible-installer
 phaseId: F3
 current: true
 tasksDone: 6
 tasksTotal: 6
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 3
 exitGates:
   - id: G-1
     description: "O round-trip parity test mais as três fixtures adversárias passam
       com retorno byte-a-byte ao baseline, com a engine vinda do pacote (file:
       link) e a cópia in-repo src/kernel/ já removida."
-    status: pending
+    status: met
+    metAt: 2026-06-19T19:39:58.000Z
     verifier:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T19:39:58.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/install-uninstall-roundtrip.test.js — tests 7,
+        pass 7, fail 0 (exit 0). install→uninstall round-trip + as 3 fixtures
+        adversárias (third-party SessionStart hook sobrevive via jsonMerge; refcount
+        2-owners + crash-retry heal; arquivo legado não-assinado preservado P3) voltam
+        byte-a-byte ao baseline com a engine do pacote @henryavila/tooling-installer
+        (file: link) e src/kernel/ removido."
   - id: G-2
     description: A suíte completa passa via o Driver do pacote, com src/kernel/
       in-repo removido e install.js/uninstall.js legados substituídos.
-    status: pending
+    status: deferred
+    deferredReason: "npm test → 828 tests, 814 pass, 2 fail (exit 1). As 2 falhas são
+      AMBIENTAIS e pré-existentes do dashboard-bundle, NÃO regressões do flip (zero
+      regressão; baseline de F3 já era N/M/2; o flip não toca serve.js/dashboard):
+      (1) 'DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard' — a regex
+      /atomic-skills\\/dist\\/dashboard$/ não casa com
+      '/home/henry/atomic-skills/.worktrees/reversible-installer/dist/dashboard'
+      (nome do dir do worktree é reversible-installer, não atomic-skills) →
+      UN-GREENABLE neste worktree, só passa na main/dir atomic-skills; (2) 'the
+      dashboard bundle has been built' — 'dist/dashboard/index.html missing — run
+      npm run build:dashboard' (bundle não-buildado no dev tree). G-2 fica 100%
+      verde na main com o bundle buildado. Deferral pré-autorizado pelo usuário."
     verifier:
       kind: shell
       command: npm test
       expectExitCode: 0
     verifierLabel: "shell: npm test"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T19:39:58.000Z
+      passed: false
+      exitCode: 1
+      outputSummary: "npm test — tests 828, pass 814, fail 2 (exit 1). Falhas:
+        '✖ DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard' (regex espera
+        …/atomic-skills/dist/dashboard, worktree é …/reversible-installer/dist/dashboard)
+        + '✖ the dashboard bundle has been built (E.T-005 prerequisite)'
+        (dist/dashboard/index.html missing). Ambas ambientais/pré-existentes; zero
+        regressão do flip. G-1 round-trip 7/7 + validate-skills 14/14 limpos."
   - id: G-3
     description: "Inventário: cada mutação persistente emitida por cada runtime
       layer (aiDeck/hooks/auto-update) está mapeada a um efeito registrado, uma
       fixture de round-trip, ou uma entrada de allowlist documentada."
-    status: pending
+    status: met
+    metAt: 2026-06-19T19:39:58.000Z
     verifier:
       kind: manual
       description: Auditar o inventário de mutações por runtime layer durante phase-done.
     verifierLabel: manual
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-06-19T19:39:58.000Z
+      passed: true
+      outputSummary: "Inventário auditado durante phase-done — toda mutação persistente
+        mapeada (confere com o mapa install↔uninstall do CLAUDE.md): skills file set →
+        efeito reconcileFileSet (SkillsProvider, journal); version-check.sh →
+        stageRuntimeArtifacts (journal); SessionStart settings.json → jsonMerge
+        (journal); manifest.json → removeManifest; aiDeck global
+        ~/.atomic-skills/{bin,dashboard,aideck-consumer,src,package-root} →
+        removeRuntimeArtifacts (orquestrado fora do journal, refcount — allowlist
+        documentada); refcount installs.json → registerInstall↔unregisterInstall;
+        órfãos legados → findLegacyOrphans/removeLegacyOrphans (P3 safelist). Coberto
+        por round-trip + 3 fixtures adversárias (7/7). Nenhuma mutação órfã."
 stack:
   - id: 1
     title: Big-bang rewire e paridade
@@ -383,6 +435,31 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
 
 ## Decisions
 
+- **2026-06-19 — 🛑 REVIEW GATE de phase-done FALHOU: 2 CRITICALS de reversibilidade
+  (regressões do flip).** O usuário optou por rodar `phase-done`. Gates G-1 met (round-trip
+  7/7), G-2 deferred (npm test 828/814/2 ambiental), G-3 met (inventário). O review gate
+  obrigatório (`review-code 5c70d19..HEAD --mode=both` — diff destrutivo, src/kernel/+test/kernel/
+  removidos) rodou local (general-purpose, contexto limpo) + codex gpt-5-codex (Pass 1 blind,
+  paralelo, diff frozen). **Ambos acharam o mesmo critical; codex achou um segundo disjunto.**
+  (A) `install→UPDATE→uninstall` deixa resíduo — `stageRuntimeArtifacts.apply` (`stage-runtime-artifacts.js:39,55`)
+  só grava `created` quando `!existedBefore`; no 2º install (update) o hook já existe → journal
+  do último install grava `created:[]` → `revert` não remove (`:60-61`). jsonMerge tem a mesma
+  forma (entrada já presente → `inserts:[]` → revert não subtrai). Só `reconcileFileSet` consulta
+  `previous`. **Reproduzido empírico** (`/tmp/repro-update-residue.mjs`, HOME isolado): 5 paths de
+  resíduo (`.atomic-skills/hooks/version-check.sh` + `.claude/settings.json` etc). Local#1 blocker
+  + codex F-002 critical, ambos high-confidence. **A metade jsonMerge provavelmente está no PACOTE
+  `@henryavila/tooling-installer`** (o teste do pacote cobre double-apply mas não o revert-após-double-apply).
+  (B) `uninstall` de manifesto LEGADO órfã tudo — `uninstall.js:116` chama `buildInstaller({}).uninstall()`
+  (replayReverse+removeManifest) SEM `migrateLegacyInstall` antes; manifesto legado (`{files}` sem
+  `effects`) → replayReverse não reverte nada mas removeManifest apaga o ledger. `install()` migra,
+  `uninstall()` não — regressão do flip (uninstall antigo lia `manifest.files`). codex F-001 critical.
+  **Causa-raiz comum:** o round-trip G-1 (7/7) só cobre SINGLE-install; nem o caminho de update nem o
+  legacy-uninstall têm teste → a paridade alegada por T-F3-5 é INCOMPLETA. **A fase fica `active`, o
+  plano NÃO avança.** Review: `.atomic-skills/reviews/2026-06-19-1958-reversible-installer-f3.md`.
+  Fixes menores não-bloqueantes registrados no review (#2 aideck provider dead-code, #3 dead UI,
+  #4-6 minors). **NB segurança:** o `~/.atomic-skills/` real pode ter sido tocado pelo review agent
+  (`version-check.sh` mtime 16:51); estado atual consistente (hook+settings presentes); NÃO mexer
+  sem confirmar com o usuário.
 - **2026-06-19 — T-F3-4/T-F3-5 EXECUTADOS (flip completo concluído).** O flip rodou em 5
   stages (commits `5b7b859`/`56a0758`/`f1be5d7`): install/uninstall sobre o Driver/journal,
   manifesto híbrido, `src/kernel/`+`test/kernel/` removidos, mapa CLAUDE.md reescrito.
@@ -500,14 +577,16 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   `../lessons/reversible-installer-f0-effect-kernel-file-reconciler.md`
 
 ## Session handoff
-- **Narrative:** **F3 COMPLETA — 6/6 tasks done.** O FLIP COMPLETO (T-F3-4, Opção B) foi
-  executado em 5 stages e T-F3-5 (paridade) fechado. install/uninstall agora rodam sobre o
-  Driver/journal do pacote `@henryavila/tooling-installer` (file: link): `installSkills` →
-  `buildInstaller().install()`, `uninstall` → `buildInstaller({}).uninstall()` (replayReverse);
-  manifesto HÍBRIDO `{effects}`(autoritativo)+`files`+metadata; `src/kernel/`+`test/kernel/`
-  removidos (engine = pacote); flags CLI preservados; runtime global+refcount+legacy-prune
-  orquestrados fora do journal. **PRÓXIMO = `phase-done`** (decisão do usuário — não
-  auto-rodar): exit-gates G-1/G-2/G-3 + review-code do diff da fase + lições.
+- **Narrative:** **Review gate de F3 FALHOU→CORRIGIDO.** O review gate obrigatório
+  (`review-code 5c70d19..HEAD --mode=both`, diff destrutivo) achou 2 criticals de reversibilidade
+  do flip; o usuário escolheu corrigir tudo agora via TDD (cross-repo). Corrigidos RED→GREEN: **(A)**
+  `stageRuntimeArtifacts` (consumer) + `jsonMerge` (pacote `~/tooling-installer`) agora threadam
+  `previous` p/ manter ownership no update; **(B)** `uninstall.js` chama `migrateLegacyInstall` antes
+  do Driver. Verificação: round-trip **9/9** (+update +legacy), pacote **62/62**, full suite
+  **830/816/2** (mesmas 2 ambientais, zero regressão); fixtures adversários provam P3 (não over-deleta).
+  Gate convergido 2C→0. Review: `.atomic-skills/reviews/2026-06-19-1958-reversible-installer-f3.md`.
+  **RESTA p/ fechar F3:** re-confirmar gates no HEAD novo → gravar reviewGate em plan.md → lições
+  (ratificar) → avançar plano (F1 superseded/F2 pointer → plan-done).
 - **Decision log (T-F3-4):** (1) Manifesto HÍBRIDO journal-autoritativo (mais seguro que
   pure-journal; mantém `status.js`/dashboards/compat verdes). (2) DROP da UI de conflito/órfão
   (reconcileFileSet faz no-clobber P3 + orphan removal). (3) runtime global+refcount+
@@ -515,10 +594,12 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   `src/kernel/` só era importado por `test/kernel/*` → removidos os dois. (5) `source` re-exposto
   via `computeSkillsFileSet` (ui.js classifica skill vs asset por source). (6) install() chama
   `migrateLegacyInstall` antes do Driver (adota manifesto legado p/ não clobberar edição do user).
-- **Single nextAction:** Rodar `phase-done` para F3 (verifica G-1/G-2/G-3, review-code do diff
-  da fase, distila lições, avança o plano) — OU, se preferir, mergear `plan/skills-restructuring`
-  + rebasear ANTES (o gate de merge segue diferido). NB: G-2 (`npm test` exit 0) só fica 100%
-  limpo na main com o dashboard buildado.
+- **Single nextAction:** Retomar phase-done no HEAD pós-fix: (1) gravar `reviewGate: {status: passed,
+  at: <sha do fix>, mode: both, reviewFile: .atomic-skills/reviews/2026-06-19-1958-reversible-installer-f3.md}`
+  na fase F3 do `plan.md`; (2) distilar a lição (round-trip não cobria update/legacy-uninstall →
+  cross-model pegou) e ratificar; (3) `proposeAdvance(plan, F3)` reconciliando F1(superseded done)/
+  F2(pointer done) p/ fechar como plan-done sem reabrir F1; (4) propagar/arquivar a fase. Tudo com
+  opt-in do usuário no avanço.
 - **Verbatim state:** F3 commits do flip: `5b7b859` (stage1 installer.js) · `56a0758`
   (stage2-3 install/uninstall finos) · `f1be5d7` (stage4 remove src/kernel + CLAUDE.md). HEAD
   após o phase-file = este commit. Verificação: G-1 `node --test
@@ -532,5 +613,20 @@ Initiative for phase **F3 — Big-bang rewire e paridade** (package-first).
   (trocar por ^0.1.x no publish, que precisa incluir 02dbba3). Arquivos do flip: `src/installer.js`,
   `src/install.js` (~660 linhas), `src/uninstall.js`, `src/providers/skills-file-set.js` (carrega
   source), `tests/uninstall.test.js` (migrado), `CLAUDE.md` (mapa). Branch `plan/reversible-installer`.
-- **Uncommitted changes:** só este phase file (T-F3-4/5 done + evidence + rollups 4→6 +
-  nextAction/handoff/decisions). Todo o código do flip já commitado (5b7b859/56a0758/f1be5d7).
+- **Review gate artifacts (verbatim):** local agent (general-purpose, contexto limpo) + codex
+  `gpt-5-codex` Pass 1 blind (paralelo, diff frozen `/tmp/f3-review-diff.patch`, codex-cli 0.141.0,
+  exit 0). Repro: `/tmp/repro-update-residue.mjs` → `install→install→uninstall` deixa
+  `[.atomic-skills, .atomic-skills/hooks, .atomic-skills/hooks/version-check.sh, .claude,
+  .claude/settings.json]`. Codex Pass 1 raw: `/tmp/codex-pass1-out-f3.md` (verdict needs_changes,
+  0B/2C). Pass 2 DEFERRED (gate já decisivamente FAILED; criticals code-confirmed + reproduzidos).
+  Arquivos a corrigir: `src/uninstall.js:116` (B), `src/runtime-layers/effects/stage-runtime-artifacts.js:39,55`
+  (A consumer), `@henryavila/tooling-installer` jsonMerge (A package, `~/tooling-installer`).
+- **Fix verbatim (cross-repo):** atomic-skills: `src/uninstall.js` (B: +migrateLegacyInstall antes do
+  Driver), `src/runtime-layers/effects/stage-runtime-artifacts.js` (A: apply threada previous.created),
+  `tests/install-uninstall-roundtrip.test.js` (+2 casos). Pacote `~/tooling-installer`:
+  `src/kernel/effects/json-merge.js` (A: apply threada previous, dedupeByJson, fileCreated sticky),
+  `test/driver/json-merge-roundtrip.test.js` (+2 casos). Verif: `node --test tests/install-uninstall-roundtrip.test.js`
+  9/9; `npm --prefix ~/tooling-installer test` 62/62 exit 0; `npm test` 830/816/2.
+- **Uncommitted changes (snapshot @ 2026-06-19T20:05Z):** os 5 arquivos do fix acima (2 repos) +
+  este phase file + o review file + INDEX.md. **A SER COMMITADO** (pacote: 1 commit; atomic-skills:
+  1 commit code+estado). Código do flip já commitado (`5b7b859`/`56a0758`/`f1be5d7`); HEAD `19dda8d`.

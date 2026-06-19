@@ -293,4 +293,97 @@ describe('install→uninstall round-trip', () => {
       rmSync(projectDir, { recursive: true, force: true });
     }
   });
+
+  // ─── Update-path parity (F3 review CRITICAL A) ───
+  // The single-install round-trip is necessary but NOT sufficient: the NORMAL
+  // upgrade path (a second install before uninstall) is where the runtime-layer
+  // effects lose ownership. stageRuntimeArtifacts.apply only records `created`
+  // for paths that did not exist before THIS apply, and jsonMerge only records
+  // the entries it inserts THIS apply — so on the second install both record an
+  // empty before-state, and uninstall (replaying only the latest journal) leaves
+  // the hook script + the SessionStart settings entry behind. The fix threads the
+  // prior before-state (`previous`) so an update re-records what it owns.
+  it('user scope returns to baseline after install→UPDATE→uninstall (no residue)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' }); // UPDATE
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after update→uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `update→uninstall deleted pre-existing: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `update→uninstall modified pre-existing: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  // ─── Legacy-manifest uninstall parity (F3 review CRITICAL B) ───
+  // A pre-kernel install (manifest with a `files` map but NO `effects`) uninstalled
+  // DIRECTLY through the consumer `uninstall()` — without a prior `install` to
+  // migrate it — must still revert. The journal Driver's replayReverse only reads
+  // `effects`, so uninstall MUST run migrateLegacyInstall first; otherwise it
+  // deletes the manifest (the only ownership ledger) while leaving every installed
+  // file orphaned. The proved files revert; a file the user edited after install
+  // survives (P3 — the migrated hash is the only accepted ownership proof).
+  it('user scope uninstall of a LEGACY manifest reverts proved files and preserves user-edited (P3)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    const sha = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
+    const writeAbs = (rel, content) => {
+      const abs = join(fakeHome, rel);
+      mkdirSync(join(abs, '..'), { recursive: true });
+      writeFileSync(abs, content);
+    };
+    try {
+      await withHome(fakeHome, async () => {
+        const provedRel = join('.claude', 'skills', 'atomic-skills', 'proved.md');
+        const editedRel = join('.claude', 'skills', 'atomic-skills', 'edited.md');
+        const provedContent = '---\nname: proved-skill\n---\n\nproved body\n';
+        const editedOriginal = '---\nname: edited-skill\n---\n\noriginal body\n';
+        writeAbs(provedRel, provedContent);
+        writeAbs(editedRel, editedOriginal);
+        // a LEGACY manifest: a `files` map keyed by installed_hash, NO `effects`
+        const legacyManifest = {
+          version: '0.9.0',
+          language: 'en',
+          ides: ['claude-code'],
+          files: {
+            [provedRel]: { installed_hash: sha(provedContent), source: 'skills' },
+            [editedRel]: { installed_hash: sha(editedOriginal), source: 'skills' },
+          },
+          settingsCreated: false,
+        };
+        writeAbs(join('.atomic-skills', 'manifest.json'),
+          JSON.stringify(legacyManifest, null, 2) + '\n');
+        // user edits the second file AFTER the original install — must survive (P3)
+        writeAbs(editedRel, '---\nname: edited-skill\n---\n\nEDITED by the user\n');
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+
+        // proved file (disk hash == installed_hash) → reverted
+        assert.equal(existsSync(join(fakeHome, provedRel)), false,
+          'proved legacy file is reverted (migrated → reconcileFileSet revert)');
+        // user-edited proved file (disk hash != installed_hash) → preserved
+        assert.equal(existsSync(join(fakeHome, editedRel)), true,
+          'user-edited legacy file survives uninstall (P3: no proof-less deletion)');
+        assert.equal(
+          readFileSync(join(fakeHome, editedRel), 'utf8'),
+          '---\nname: edited-skill\n---\n\nEDITED by the user\n',
+          'user-edited legacy file is byte-identical',
+        );
+        // the manifest ledger is reclaimed
+        assert.equal(existsSync(join(fakeHome, '.atomic-skills', 'manifest.json')), false,
+          'legacy manifest removed after a real reversal');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
 });

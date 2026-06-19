@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { readManifest, MANIFEST_DIR } from './manifest.js';
 import { removeRuntimeArtifacts, unregisterInstall } from './install.js';
 import { buildInstaller } from './installer.js';
+import { migrateLegacyInstall } from './migrate-legacy-install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
 
@@ -104,6 +105,14 @@ export async function uninstall(projectDir, options = {}) {
   }
 
   const removed = Object.keys(manifest.files || {}).length;
+
+  // A pre-kernel (legacy) install has a `files` map but NO `effects` journal, so the
+  // Driver's replayReverse would no-op while removeManifest still discards the ledger —
+  // orphaning every installed file (F3 review CRITICAL B). Migrate it into journal
+  // ownership records FIRST (idempotent: a no-op on an already-journal manifest), so the
+  // Driver reverts the proved files and preserves any the user edited since install (P3).
+  // Mirrors install.js, which migrates before its own Driver call.
+  migrateLegacyInstall(basePath, MANIFEST_DIR);
 
   // Revert the install-base journal — the skill file set (reconcileFileSet), the
   // auto-update hook (stageRuntimeArtifacts) and the settings.json SessionStart

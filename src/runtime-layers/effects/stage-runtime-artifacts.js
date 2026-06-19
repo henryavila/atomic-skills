@@ -15,14 +15,20 @@ import { dirname, join, resolve, sep } from 'node:path';
  * defineInstaller({ effects }) instead of forcing the file-set effect (P4 — the
  * catalog stays closed; the consumer extends it without reopening the kernel).
  *
- * Reversibility is the journal's: apply records which target paths it CREATED
- * (those that did not exist before), and revert removes exactly those — no
- * proof-of-creation, no deletion (P3). Pre-existing artifacts (e.g. staged by an
- * earlier install) are clobbered in place but NOT recorded as created, so revert
- * leaves them.
+ * Reversibility is the journal's: apply records which target paths it OWNS, and
+ * revert removes exactly those — no proof-of-creation, no deletion (P3). A path is
+ * owned when it did not exist before THIS apply OR it was already owned by the prior
+ * install (carried forward via the Driver-threaded `previous` before-state). The
+ * carry-forward is essential on the UPDATE path: a re-install re-stages a path that
+ * a prior install created, so `existedBefore` is true, yet the path is still ours
+ * and uninstall must still remove it — without threading `previous`, the latest
+ * journal would record `created: []` and uninstall would leave the artifact behind
+ * (F3 review CRITICAL A). A path that pre-existed the FIRST install and is NOT in
+ * `previous.created` is a genuine user artifact and is never recorded (so revert
+ * leaves it).
  *
  * apply args:
- *   { basePath, items: Array<Item> }
+ *   { basePath, items: Array<Item>, previous?: { created: string[] } }
  * where Item is one of:
  *   { path, content, mode? }   — write string content (optional chmod)
  *   { path, source, mode? }    — copy a single file from absolute `source` (binary-safe)
@@ -32,7 +38,8 @@ import { dirname, join, resolve, sep } from 'node:path';
 export const createStageRuntimeArtifactsEffect = () => ({
   type: 'stageRuntimeArtifacts',
 
-  apply({ basePath, items = [] }) {
+  apply({ basePath, items = [], previous }) {
+    const priorlyOwned = new Set(previous?.created ?? []);
     const created = [];
     for (const item of items) {
       const absPath = resolveWithinBase(basePath, item.path);
@@ -52,7 +59,9 @@ export const createStageRuntimeArtifactsEffect = () => ({
         if (item.mode != null) chmodSync(absPath, item.mode);
       }
 
-      if (!existedBefore) created.push(item.path);
+      // Own the path if we created it now, or if a prior install already owned it
+      // (the UPDATE case: existedBefore is true but the artifact is still ours).
+      if (!existedBefore || priorlyOwned.has(item.path)) created.push(item.path);
     }
     return { created };
   },

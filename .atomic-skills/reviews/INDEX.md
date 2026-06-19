@@ -30,3 +30,4 @@
 | 2026-06-07 17:42 | [f5-phasedone-codex-review](2026-06-07-1742-f5-phasedone-codex-review.md) | code (codex, Pass2 BLOCKED) | needs_changes | 0B/0C/4M/0m/0n | 0d/4=/0+ |
 | 2026-06-09 18:51 | [quick-idea-capture](2026-06-09-1851-quick-idea-capture-codex.md) | plan/codex | needs_changes | 0B/0C/5M/0m/0n | 0d/4=/1+ |
 | 2026-06-17 15:36 | [reversible-installer](2026-06-17-1536-reversible-installer.md) | plan | needs_changes | 0B/2C/4M/0m/0n | 0d/5=/1+ |
+| 2026-06-19 19:58 | [reversible-installer-f3](2026-06-19-1958-reversible-installer-f3.md) | code (both) | needs_changes — GATE FAILED→FIXED | codex 0B/2C · local 1B/0C/1M/4m (2 criticals, A reproduced; both FIXED+tested, suite 830/816/2) | Pass2 deferred |
