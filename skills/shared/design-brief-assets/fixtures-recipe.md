@@ -51,7 +51,8 @@ as **real content** — its brevity, tone and voice are texture the design agent
 belongs with the fixtures. But literal copy is its **own mutable lane**: the exact words are
 **content the design agent may rewrite**, never a binding layer-2 value. What binds is the
 **speech-act** behind the copy (what the words make the person do or understand) — that lives
-in the screen's Interaction-model / Philosophy blocks (R4), not in the string itself. Hand
+in the screen's Interaction-model block (R4) and, where it carries a human×system decision, the
+Philosophy block (R5/R6) — not in the string itself. Hand
 literal copy as a flagged **`copy (mutable)`** set alongside the fixtures, explicitly marked
 editable, so its texture informs the design without freezing the words as a requirement.
 

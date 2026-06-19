@@ -23,7 +23,7 @@ spec: `docs/design/design-brief-three-layer-briefing.md` (three-layer model + R1
 | Layer | Examples | Owner | In the prompt |
 |---|---|---|---|
 | **1. Visual form** | colour, radius, shadow, which widget, spacing, typography | design agent | **silence** |
-| **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, reversibility, parity | **product** | **specify, concrete** |
+| **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, reversibility, parity | **product** | **specify, concrete** (band binds; exact value = current calibration, improvable) |
 | **3. Philosophy / who decides** | human × system; what stays hidden | **product** | **binding guardrail** |
 
 ## Process
@@ -71,7 +71,7 @@ needs something the DS lacks, the prompt orders it to **stop and signal**, not i
 
 Fill the Interaction-model block, per screen, with the values that govern the interaction —
 **R2**:
-- **timings/defaults** (timers, debounces, durations that set the pace),
+- **timings/defaults** (timers and durations that set the **pace** — the cadence, not raw ms),
 - **counts** (how many response levels, how many items),
 - **lengths** (how short the content is at the moment of decision),
 - **modality** (gesture/keyboard/touch),

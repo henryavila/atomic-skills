@@ -38,7 +38,7 @@ interaction:
    value as a hard requirement:
    - *gesture class* (fast / deliberate / typing), *latency* (instant / sub-second /
      deliberate), *effort* (one hand / thumb), *text density* (very short / verbose),
-     *timings* (pace in seconds, default timers), *counts* (how many levels/items),
+     *timings* (pace in seconds, default timers — as cadence, not raw ms), *counts* (how many levels/items),
      *triggers* (only after X), *reversibility* (forgives an accidental touch),
      *parity* (mobile-gesture ↔ desktop-keyboard, equally fast).
    - **Forbidden vocabulary (R4):** never name a button / list / tab / bar / card-UI /

@@ -10,7 +10,7 @@ behaviour and philosophy specified with concrete values.** Canonical spec:
 | Layer | Examples | Owner | In the prompt |
 |---|---|---|---|
 | **1. Visual form** | colour, radius, shadow, which widget, spacing, typography | design agent | **silence** |
-| **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, reversibility, parity | **product** | **specify, concrete** |
+| **2. Interaction model** | pace/timings, counts, lengths, modality, triggers, reversibility, parity | **product** | **specify, concrete** (the band binds; the exact value is current calibration the agent may improve — see DEFINE/DECIDE) |
 | **3. Philosophy / who decides** | human × system; what stays hidden | **product** | **binding guardrail** |
 
 R2 per-regime SOURCE note: layer-2 concrete values are always stated. For `brownfield`

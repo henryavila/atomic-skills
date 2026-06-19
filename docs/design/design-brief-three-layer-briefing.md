@@ -43,7 +43,7 @@ Existem **três camadas**, com **donos diferentes**:
 | Camada | Exemplos | Dono | No prompt |
 |---|---|---|---|
 | **1. Forma visual** | cor, raio, sombra, qual widget, espaçamento, tipografia | Agente de design | **Silêncio** |
-| **2. Modelo de interação / comportamento** | classe do gesto (rápido × deliberado); ritmo/tempo **com valores**; densidade de texto (curtíssimo × verboso); alcance (uma mão/polegar); latência (instantâneo); gatilho (só após X); reversibilidade; paridade mobile-gesto ↔ desktop-teclado | **Produto** | **Especificar, concreto** |
+| **2. Modelo de interação / comportamento** | classe do gesto (rápido × deliberado); ritmo/tempo **com valores**; densidade de texto (curtíssimo × verboso); alcance (uma mão/polegar); latência (instantâneo); gatilho (só após X); reversibilidade; paridade mobile-gesto ↔ desktop-teclado | **Produto** | **Especificar, concreto** (a banda vincula; o valor exato é calibração atual, melhorável) |
 | **3. Filosofia / quem decide o quê** | qual decisão é **humana** × qual é do **sistema**; o que fica **oculto** | **Produto** | **Especificar como guardrail** |
 
 A regra "não induza, deixe o agente decidir" **só vale para a camada 1**. A tentativa anterior a estendeu para 2 e 3 e **silenciou as três**. Resultado: subespecificação.
@@ -68,7 +68,7 @@ Quando se pede "não nomeie o gesto (swipe)", a reação errada é **deletar** a
 
 - **R1 — Três camadas, ownership explícito.** Toda tela com interação gera obrigatoriamente um bloco **Modelo de interação** e um **Filosofia/guardrails**, além da informação. Silêncio é permitido **só** sobre forma visual. "Sem estética" nunca apaga comportamento.
 
-- **R2 — Colher a essência comportamental do código, não a mecânica nem a abstração.** A skill **lê o app real** e extrai os valores que governam a interação — e os carrega para o prompt como requisito. Minere, por tela: tempos/defaults (timers e durações que dão **ritmo** — a cadência, não o ms cru), **contagens** (quantos níveis de resposta, quantos itens), **comprimentos** (quão curto é o conteúdo na hora da decisão), **modalidade** (gesto/teclado/toque), **gatilhos** (o que só fica disponível depois de quê), e **o que o domínio mantém oculto** (ex.: o algoritmo de agenda). Abstrair esses valores ("uma escala curta") é uma falha; declará-los como essência + calibração atual ("~3 níveis; ritmo da ordem de segundos; ~8s no app atual") é o conserto.
+- **R2 — Colher a essência comportamental do código, não a mecânica nem a abstração.** A skill **lê o app real** e extrai os valores que governam a interação — e os carrega para o prompt **como a calibração atual** (vinculante só quando a intenção de produto corrobora — ver proveniência abaixo / R9). Minere, por tela: tempos/defaults (timers e durações que dão **ritmo** — a cadência, não o ms cru), **contagens** (quantos níveis de resposta, quantos itens), **comprimentos** (quão curto é o conteúdo na hora da decisão), **modalidade** (gesto/teclado/toque), **gatilhos** (o que só fica disponível depois de quê), e **o que o domínio mantém oculto** (ex.: o algoritmo de agenda). Abstrair esses valores ("uma escala curta") é uma falha; declará-los como essência + calibração atual ("~3 níveis; ritmo da ordem de segundos; ~8s no app atual") é o conserto.
 
   **Filtro de mineração — essência, nunca mecânica.** O que entra no prompt é a **essência comportamental** (ritmo, contagem, comprimento, modalidade, gatilho), expressa como essência **com a calibração atual**. A **mecânica de implementação fica fora do escopo de R2**: medidas de layout em `px`, `axis-lock` de gesto, `debounce`/durações em ms cru e a **copy literal** (texto de botão/label) são incidentais da implementação, não requisito de produto, e contaminam o prompt se entrarem como valor. *Des-induzir uma constante:* um handler de swipe com `axis-lock: 'x'`, limiar de `80px` e `debounce` de 16ms **não** vira "axis-lock X, 80px, 16ms" no prompt — vira a essência: "um único gesto rápido, horizontal, alcançável com o polegar, que perdoa toque acidental". Minere a essência; descarte o `axis-lock`, o `80px`, o `debounce` e a copy literal.
 
@@ -130,6 +130,7 @@ A geração só está pronta quando, para **cada** tela com interação:
 - [ ] **Nomeia o anti-padrão proibido** onde o default do agente colidiria com o produto.
 - [ ] Passou na **auditoria de omissão** (R3): nenhum parâmetro load-bearing ficou de fora.
 - [ ] **Não** nomeia widget nem descreve forma visual (cor/borda/sombra/espaçamento).
+- [ ] **Nenhuma constante de mecânica** (px, axis-lock, debounce-ms) **nem copy literal entra como requisito** — a mecânica fica fora de R2 (filtro de mineração); a copy literal é lane de textura mutável, não valor vinculante.
 - [ ] **Fixtures reais** presentes, com a **textura** (brevidade) visível.
 - [ ] Cobre **mobile e desktop**, **claro e escuro**, e **todos os estados**.
 - [ ] **Consome o DS** por nome, sem redefinir; manda **parar e sinalizar** se faltar algo no DS.
