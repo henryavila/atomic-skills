@@ -10,12 +10,12 @@ goal: em sessão nova, regenerar o briefing do Lekto com a skill reescrita,
 status: active
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T17:06:31.000Z
-nextAction: "T-002 done (briefing regenerado, verifier EXIT=0). Proximo: T-003 —
-  destilar a rubrica de nao-reincidencia a partir de f1/lekto-feedback.md."
+lastUpdated: 2026-06-19T17:12:42.000Z
+nextAction: "T-003 done (rubrica). Proximo: T-004 — despachar critico adversarial
+  fresco (feedback+rubrica+briefing) -> f1/recurrence-verdict.md."
 parentPlan: design-brief-briefing-rework
 phaseId: F1
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
@@ -120,8 +120,19 @@ tasks:
     title: Destilar a rubrica de não-reincidência dos padrões transversais do
       feedback (D9)
     summary: Destila a rubrica de não-reincidência dos padrões transversais do feedback.
-    status: pending
-    lastUpdated: 2026-06-19T09:40:00.000Z
+    status: done
+    closedAt: 2026-06-19T17:12:42.000Z
+    lastUpdated: 2026-06-19T17:12:42.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T17:12:42.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: EXIT=0 — f1/recurrence-rubric.md existe; destila os 12 padroes
+        transversais (P1-P12) + os 4 contaminantes (A1-A4) em anti-sinais
+        verificaveis, com frame de adjudicacao (citacao != recaida; julga
+        enquadramento), invariantes-que-devem-sobreviver (secao C) e protocolo
+        de veredito p/ T-004. Ancorada em design.md:147-156 + D3/D5/D6/D10.
     description: A partir de f1/lekto-feedback.md (T-001), converte cada padrão
       transversal do feedback num anti-sinal detectável, incluindo os quatro
       contaminantes documentados como anti-sinais explícitos. Não roda a skill
@@ -207,8 +218,8 @@ _(record decisions here as they are made)_
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F0 fechada/commitada (`acc3141`). F1 em curso (**2/5**). **T-002 DONE** — o operador regenerou o briefing Lekto em sessão NOVA e CEGA pela skill `design-brief` reescrita (F0); output `f1/lekto-briefing-regenerated.md` (495 linhas, pt-BR, cobre as 5 telas: Revisão/Login/Waitlist/Deck público/Explorar); verifier `test -f` EXIT=0, evidence gravada, `validate-state` ✓ (GATE-R2). T-001 (feedback persistido) já estava DONE.
-- **Decision log:** (1) Resume gate: a árvore estava "suja" (`?? f1/lekto-briefing-regenerated.md` + ` M phases/…`); o operador confirmou que o `.md` novo É o output esperado de T-002 (geração cega) → não é corrupção, foi consumido ao fechar T-002. (2) **Achado p/ T-004 (NÃO pré-julgado aqui):** dos 4 contaminantes, **2 reaparecem TEXTUALMENTE** no briefing regenerado — copy `"Vai!"` (L236) e onboarding `3 passos` (L237/253/258); `SWIPE_THRESHOLD/80px` e `AXIS_LOCK/10px` AUSENTES. Mas ambos aparecem com enquadramento "hoje 3→2→1→Vai!" / "hoje" (estado-atual-do-código → lane de textura mutável), não como requisito congelado. Se é reincidência ou layering correto é a adjudicação do crítico **T-004** — não fechar isso fora dele. (3) T-003/T-004/T-005 PODEM rodar nesta sessão: T-003 (rubrica) consome o feedback — vê-lo é o trabalho, não contaminação; T-004 é um crítico fresco GIVEN feedback+rubrica+briefing (não cego); T-005 edita design.md. (4) Ordem restante: T-003 (rubrica → `f1/recurrence-rubric.md`) → T-004 (crítico → `f1/recurrence-verdict.md`, marcador `NAO-REINCIDENTE`) → T-005 (resolver D10 em design.md, marcador `F1-D10-RESOLVED`).
-- **Single nextAction:** Iniciar T-003 — destilar a rubrica de não-reincidência a partir de `f1/lekto-feedback.md`, convertendo cada padrão transversal num anti-sinal detectável (incl. os 4 contaminantes como anti-sinais explícitos); output → `f1/recurrence-rubric.md`; verifier `test -f .atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/recurrence-rubric.md` (expectExitCode 0).
-- **Verbatim state:** Briefing regenerado = `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/lekto-briefing-regenerated.md` (495 linhas). Feedback (input de T-003/T-004) = `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/lekto-feedback.md` (291 linhas). Contaminantes vigiados: `SWIPE_THRESHOLD=80px`, `AXIS_LOCK_DISTANCE=10px`, copy `"Vai!"`, onboarding 3 passos. T-002 evidence: EXIT=0, `verifiedAt: 2026-06-19T17:06:31.000Z`. F1-G1 verifier = `grep -q 'NAO-REINCIDENTE' f1/recurrence-verdict.md`; F1-G2 verifier = `grep -q 'F1-D10-RESOLVED' design.md`.
-- **Uncommitted changes:** (snapshot pré-commit) ` M phases/f1-validar-regenerar-o-briefing-le.md` (T-002 done + evidence + handoff + rollup `tasksDone:2`) + `?? f1/lekto-briefing-regenerated.md` (output de T-002). A commitar como "T-002 done".
+- **Narrative:** F0 fechada/commitada (`acc3141`). F1 em curso (**3/5**). **T-002 DONE** (briefing regenerado em sessão cega, `f1/lekto-briefing-regenerated.md`, 495 linhas, commit `17abc36`) + **T-003 DONE** (rubrica de não-reincidência, `f1/recurrence-rubric.md`: A1-A4 contaminantes + P1-P12 padrões + seção C invariantes + protocolo de veredito). Próximo: **T-004** — despachar o crítico adversarial.
+- **Decision log:** (1) Resume gate resolvido: o operador confirmou que `f1/lekto-briefing-regenerated.md` É o output cego de T-002 → consumido ao fechar T-002. (2) **Achado a adjudicar em T-004 (NÃO pré-julgado):** dos 4 contaminantes, `SWIPE_THRESHOLD/80px` e `AXIS_LOCK/10px` AUSENTES (✓ morreram no filtro D3); copy `"Vai!"` (briefing L236) e onboarding `3 passos` (L237/253/258) reaparecem TEXTUALMENTE, mas com enquadramento "hoje …" (estado-atual). Frame da rubrica: **citação ≠ recaída — julga-se o ENQUADRAMENTO** (vinculado-como-requisito vs. calibração-mutável/contexto). (3) Regra D10 pré-registrada: se o crítico flagrar QUALQUER sobre-vínculo → dispara D10 (escalar para a tag R10); se limpo → modelo leve basta, sem tag. (4) Ordem restante: T-004 (crítico → `f1/recurrence-verdict.md`, marcador `NAO-REINCIDENTE` ⟺ limpo) → T-005 (resolver D10 em design.md, marcador `F1-D10-RESOLVED`). **Decisão D10/phase-done é do operador** — pausar e apresentar o veredito antes de T-005.
+- **Single nextAction:** Despachar T-004 — crítico adversarial fresco (subagente read-only) alimentado com `f1/lekto-feedback.md` + `f1/recurrence-rubric.md` + `f1/lekto-briefing-regenerated.md`; ele RETORNA o veredito estruturado (cada item A/B/C ausente|presente + afirmação explícita sobre os 4 contaminantes + se é NAO-REINCIDENTE); eu (thread principal) escrevo `f1/recurrence-verdict.md`. Verifier T-004 = `test -f …/f1/recurrence-verdict.md`; gate F1-G1 = `grep -q 'NAO-REINCIDENTE' …/f1/recurrence-verdict.md`.
+- **Verbatim state:** Inputs do crítico = `.atomic-skills/projects/atomic-skills/design-brief-briefing-rework/f1/{lekto-feedback.md (291l), recurrence-rubric.md, lekto-briefing-regenerated.md (495l)}`. Contaminantes: `SWIPE_THRESHOLD=80px`, `AXIS_LOCK_DISTANCE=10px`, copy `"Vai!"`, onboarding 3 passos. Critérios canônicos: design.md:147-156. D10: design.md:103-110 + open-question (a) design.md:190-192. F1-G1 verifier = `grep -q 'NAO-REINCIDENTE' f1/recurrence-verdict.md`; F1-G2 verifier = `grep -q 'F1-D10-RESOLVED' design.md`. T-003 evidence: EXIT=0, `verifiedAt: 2026-06-19T17:12:42.000Z`.
+- **Uncommitted changes:** (snapshot pré-commit/pré-dispatch) ` M phases/f1-validar-regenerar-o-briefing-le.md` (T-003 done + evidence + handoff + rollup `tasksDone:3`) + `?? f1/recurrence-rubric.md` (output de T-003). A commitar como "T-003 done", depois despachar o crítico T-004.

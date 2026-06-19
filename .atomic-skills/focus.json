@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T17:07:00.939Z",
+  "generatedAt": "2026-06-19T17:13:08.117Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "design-brief-briefing-rework",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 2,
+    "done": 3,
     "total": 5,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 2
   },
-  "nextAction": "T-001 done. T-002 (regenerar briefing) exige SESSAO NOVA + caminho do codigo Lekto — handoff p/ gerador cego.",
+  "nextAction": "T-002 done (briefing regenerado, verifier EXIT=0). Proximo: T-003 — destilar a rubrica de nao-reincidencia a partir de f1/lekto-feedback.md.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f1-validar-regenerar-o-briefing-le.md",
-      "lastUpdated": "2026-06-19T15:17:51.103Z"
+      "lastUpdated": "2026-06-19T17:06:31.000Z"
     }
   ]
 }
