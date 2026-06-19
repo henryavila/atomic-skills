@@ -63,6 +63,15 @@ Initiative for phase **F3 — Série earned-vs-planned + deadline + wiring de re
 
 _(record decisions here as they are made)_
 
+## Session handoff
+- **Narrative:** F3 recém-ativada no phase-done de F2 (commit `a54aa8c`). Nenhuma task de F3 iniciada ainda. F2 (peso por task: weight + rollups weightDone/weightTotal + projeção emit + auditor) está done+arquivada; gate F2/G-1 met (20 pass), review APPROVED, lição L-001 ratificada. Tree limpo.
+- **Decision log:** (nenhuma decisão de F3 ainda). Herda do feature: weightDone/weightTotal já existem no schema (source + projeção) e em rollups; `compute-rollups.weightOf` usa `Number.isFinite(x) && x >= 0` (degrada task sem weight → 1). F3 vai computar a série earned (acumulado de weightDone) vs linha planejada CRESCENTE 0→weightTotal + SPI, e ligar emit-consumer-state ao refresh-state (gap atual: refresh-state roda rollups+reconcile+emitFocus mas NÃO invoca emit-consumer-state).
+- **Single nextAction:** Antes de iniciar F3: (1) ler a SPEC das tasks de F3 em `source.md` (seção F3, linha ~136); (2) dispositionar as 6 lições de `node scripts/list-lessons.js --phase F3` (Apply/Keep/Stale/Reject) — inclui F2/L-001 (guardar números novos do emit com `Number.isFinite`, aplicável aos escalares SPI/série). Depois: Start F3/T-001 (Campo deadline no plano + rebuild do bundle).
+- **Verbatim state:** HEAD primary `a54aa8c`. currentPhase=F3 (plan.md), F3 status active, tasksDone 0/3. Verifier do gate F3/G-1: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json: Mode 2/Codex lane ON (executor padrão). Suite: 8 falhas PRÉ-EXISTENTES (install/countSkills — drift de contagem do plano skills-restructuring, fora de escopo); F2 = 0 regressões.
+- **Uncommitted changes:** clean tree (este handoff é a única edição pendente no snapshot).
+
 ## Links
 
-_(plan doc, external refs)_
+- plan: `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md`
+- source (SPEC F3): `.atomic-skills/projects/atomic-skills/deadline-burnup-forecast/source.md` (seção F3, ~linha 136)
+- lições aplicáveis: `node scripts/list-lessons.js --phase F3`
