@@ -270,5 +270,21 @@
     "finishedAt": "2026-06-19T12:16:23Z",
     "codexWorktreeRef": "dbf/f2-t-002",
     "routingReason": "lane on + F1 spec-ready (settled D-F2-2/3) + F2 shell verifier; seeded off post-T-001/T-003 HEAD 545de0e (schema admits fields + bundle regenerated — dependency D-F2-4 satisfied); re-verified PASS on MERGED primary 8569c76 (compute-rollups 3 + emit-consumer-state 15 incl. validateAideckState round-trip carrying weightDone/weightTotal, no drift) + Opus read diffs (weightOf default-1, weight:0 honored; ?? count fallback) + confirmed emit-consumer-state.js binary flag is pre-existing (box-drawing density), not corruption"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F3",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T15:29:30Z",
+    "finishedAt": "2026-06-19T15:31:04Z",
+    "codexWorktreeRef": "codex/f3-t001",
+    "routingReason": "lane on + F1 spec-ready (settled: deadline optional $ref isoTimestamp) + F2 shell verifier (schema-drift); user-confirmed Codex routing for F3 batch (serial, coupled by bundle). In-worktree verifier hit sandbox spawnSync node EPERM (false-fail on the test-runner child spawn); adjudicated PASS on MERGED primary 228acbe (node --test tests/schema-drift.test.js — 1 test, 1 pass, 0 fail, no drift). Opus read diff: one optional $ref property in plan.schema + regenerated bundle, no required[] addition, no .atomic-skills/ touch."
   }
 ]

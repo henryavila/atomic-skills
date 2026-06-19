@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T12:53:38.766Z",
+  "generatedAt": "2026-06-19T15:31:50.572Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -16,7 +16,7 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 1,
     "total": 3,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Start T-001: — Campo deadline no plano + rebuild do bundle",
+  "nextAction": "Dispatch Codex (Mode 2) para T-001 no worktree .worktrees/codex-f3-t001; ler diff, verificar no primary merged (node --test tests/schema-drift.test.js), done T-001",
   "flags": {
     "drift": false,
     "multipleActivePlans": false

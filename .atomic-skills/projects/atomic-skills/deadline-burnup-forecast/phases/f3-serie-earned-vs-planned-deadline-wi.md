@@ -8,15 +8,19 @@ goal: adicionar plan.deadline, computar a série burn-up (earned acumulado vs
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T12:50:33Z
-lastUpdated: 2026-06-19T12:50:33Z
-nextAction: "Dispatch Codex (Mode 2) para T-001 no worktree .worktrees/codex-f3-t001; ler diff, verificar no primary merged (node --test tests/schema-drift.test.js), done T-001"
+lastUpdated: 2026-06-19T15:32:42Z
+nextAction: "Dispatch Codex (Mode 2) para T-002 (buildSeries: burnup.json + spi.json)
+  em novo worktree; work-order DEVE carregar L-001 (Number.isFinite nos escalares
+  emit: plannedValue/earnedCount/earnedProxy/spiProxy/spiCount) + L-003 (teste em
+  tests/ plural); merge-back serial; re-verificar no primary: node --test
+  tests/emit-series.test.js && node --test tests/schema-drift.test.js"
 parentPlan: deadline-burnup-forecast
 phaseId: F3
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -36,8 +40,22 @@ stack:
 tasks:
   - id: T-001
     title: — Campo deadline no plano + rebuild do bundle
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T15:31:04Z
+    lastUpdated: 2026-06-19T15:31:04Z
+    verifier:
+      kind: shell
+      command: node --test tests/schema-drift.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T15:31:04Z
+      passed: true
+      exitCode: 0
+      testsCollected: 1
+      outputSummary: node --test tests/schema-drift.test.js — 1 test, 1 pass, 0 fail
+        (re-run on MERGED primary 228acbe; bundle in sync, no drift). Executor
+        Codex Mode2 worktree codex/f3-t001; sandbox EPERM no in-worktree run
+        (spawnSync), adjudicado no primary.
   - id: T-002
     title: "— buildSeries: burnup.json + spi.json"
     status: pending
@@ -66,11 +84,11 @@ Initiative for phase **F3 — Série earned-vs-planned + deadline + wiring de re
 - **T-001 design (settled):** `deadline` = campo opcional `{ "$ref": "common.schema.json#/$defs/isoTimestamp" }` em `meta/schemas/plan.schema.json` (NÃO em required[]); regen do bundle via `npm run build:aideck-schema`. O gerador (`scripts/build-aideck-consumer-schema.mjs`) incorpora plan.schema → bundle muda → regen obrigatório senão `schema-drift --check` falha.
 
 ## Session handoff
-- **Narrative:** F3 ativa, 0/3 tasks done. Lições dispositionadas (ver Decisions). Resume gate passou: tree limpo (restaurei `focus.json` que tinha só churn de `generatedAt`). Prestes a **dispatchar Codex (Mode 2)** para T-001 (campo `deadline` no schema do plano + regen do bundle) num worktree dedicado — este snapshot é o checkpoint pré-dispatch (HARD-GATE R-EXEC-15).
-- **Decision log:** ver seção `## Decisions` acima — disposição das 6 lições + routing Codex (serial, acoplado pelo bundle) + design settled de T-001.
-- **Single nextAction:** Criar worktree `.worktrees/codex-f3-t001` (branch `codex/f3-t001` de HEAD), dispatchar `codex exec --sandbox workspace-write` com o work-order de T-001; ler `git -C <wt> diff`; merge-back serial no primary; re-rodar `node --test tests/schema-drift.test.js` no primary merged; `done T-001`.
-- **Verbatim state:** HEAD primary `fef1c2b`, branch `plan/deadline-burnup-forecast`. currentPhase=F3, F3 active, tasksDone 0/3. T-001 verifier: `node --test tests/schema-drift.test.js`. Edit T-001: `"deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" }` em `meta/schemas/plan.schema.json` (opcional, fora de required[]) + regen `npm run build:aideck-schema` → `assets/aideck-consumer/schema.json`. Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json: mode2Enabled true, codexLane.enabled true, minBatchTasks 1. codex-cli 0.141.0. Suite: 8 falhas PRÉ-EXISTENTES (install/countSkills — drift do plano skills-restructuring, fora de escopo).
-- **Uncommitted changes:** este handoff (edits no f3-*.md) é a única edição pendente no snapshot; resto do tree limpo. Worktree do Codex ainda não criado.
+- **Narrative:** F3 ativa, **1/3 tasks done** (T-001 fechada). T-001 (campo `deadline` opcional no plan.schema + regen do bundle) executada por Codex (Mode 2, worktree `codex/f3-t001`), merge-back serial no primary, verifier re-rodado no primary merged → PASS. Worktree removido. Próximo = T-002 (buildSeries).
+- **Decision log:** ver `## Decisions` acima (disposição das 6 lições + routing Codex + design T-001). Nota de execução: o verifier in-worktree do Codex deu falso-fail por `spawnSync node EPERM` (sandbox workspace-write bloqueia spawn do test-runner) — adjudicado no primary merged (fora do sandbox), padrão "executor self-checks, nunca self-certifies". Telemetria em `dispatch-log.json` (registro T-001/F3, executorTier cheap).
+- **Single nextAction:** Dispatch Codex para **T-002** (`buildSeries: burnup.json + spi.json`) em novo worktree (`.worktrees/codex-f3-t002`, branch `codex/f3-t002` de HEAD). O work-order DEVE carregar L-001 (guardar `plannedValue`/`earnedCount`/`earnedProxy`/`spiProxy`/`spiCount` com `Number.isFinite(x) && x >= 0` antes de somar/projetar) + L-003 (teste em `tests/emit-series.test.js`, plural; confirmar `npm test` descobre). Merge-back serial; re-verificar no primary: `node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js`.
+- **Verbatim state:** HEAD primary `228acbe` (T-001 source) + commit de estado pendente deste snapshot. branch `plan/deadline-burnup-forecast`. currentPhase=F3, F3 active, **tasksDone 1/3, weightDone 1/3**. T-001 evidence: shell, exit 0, 1 test pass, MERGED primary 228acbe. T-002 files: `scripts/emit-consumer-state.js`, `meta/schemas/aideck-state.schema.json`, `assets/aideck-consumer/schema.json`, `tests/emit-series.test.js`. T-002 verifier: `node --test tests/emit-series.test.js && node --test tests/schema-drift.test.js`. Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json: mode2Enabled true, codexLane.enabled true, minBatchTasks 1. codex-cli 0.141.0. Suite: 8 falhas PRÉ-EXISTENTES (install/countSkills — drift do plano skills-restructuring, fora de escopo).
+- **Uncommitted changes:** este snapshot (f3-*.md + focus.json regen via refresh-state + dispatch-log.json) está prestes a ser committado; resto do tree limpo.
 
 ## Links
 
