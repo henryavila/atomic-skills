@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T12:18:57.341Z",
+  "generatedAt": "2026-06-19T12:25:41.379Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "deadline-burnup-forecast",
@@ -21,7 +21,7 @@
     "blocked": 0
   },
   "gates": {
-    "met": 0,
+    "met": 1,
     "total": 1
   },
   "nextAction": "Start T-001: — Campo weight no schema da task + rebuild do bundle",

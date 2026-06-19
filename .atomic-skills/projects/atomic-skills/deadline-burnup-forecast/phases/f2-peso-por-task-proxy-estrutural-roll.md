@@ -15,7 +15,7 @@ parentPlan: deadline-burnup-forecast
 phaseId: F2
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 weightDone: 3
 weightTotal: 3
@@ -24,13 +24,22 @@ exitGates:
     description: weight existe no schema (task) e weightDone/weightTotal são
       admitidos (source + projeção), somados em rollups e emitidos sem drift,
       com auditor de backfill.
-    status: pending
+    status: met
+    metAt: 2026-06-19T12:24:41Z
     verifier:
       kind: shell
       command: node --test tests/schema-drift.test.js && node --test
         tests/compute-rollups.test.js && node --test
         tests/emit-consumer-state.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T12:24:41Z
+      passed: true
+      exitCode: 0
+      outputSummary: G-1 3-test chain on HEAD d75aa69 — 19 pass (schema-drift 1 +
+        compute-rollups 3 + emit-consumer-state 15), 0 fail, exit 0
     verifierLabel: "shell: node --test tests/schema-drift.test.js && node --test tests…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: "Peso por task: proxy estrutural + rollups"

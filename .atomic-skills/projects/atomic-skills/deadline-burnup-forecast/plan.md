@@ -127,12 +127,19 @@ phases:
           description: weight existe no schema (task) e weightDone/weightTotal são
             admitidos (source + projeção), somados em rollups e emitidos sem
             drift, com auditor de backfill.
-          status: pending
+          status: met
+          metAt: 2026-06-19T12:24:41Z
           verifier:
             kind: shell
             command: node --test tests/schema-drift.test.js && node --test
               tests/compute-rollups.test.js && node --test
               tests/emit-consumer-state.test.js
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-19T12:24:41Z
+            passed: true
+            exitCode: 0
+            outputSummary: "G-1 3-test chain on HEAD d75aa69 — 19 pass (schema-drift 1 + compute-rollups 3 + emit-consumer-state 15), 0 fail, exit 0"
     status: pending
     summary: Dá peso de complexidade a cada task (proxy automático) e soma em
       rollups weightDone/Total.
