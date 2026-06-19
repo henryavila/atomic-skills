@@ -9,7 +9,7 @@ status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-19T12:50:33Z
 lastUpdated: 2026-06-19T12:50:33Z
-nextAction: "Start T-001: — Campo deadline no plano + rebuild do bundle"
+nextAction: "Dispatch Codex (Mode 2) para T-001 no worktree .worktrees/codex-f3-t001; ler diff, verificar no primary merged (node --test tests/schema-drift.test.js), done T-001"
 parentPlan: deadline-burnup-forecast
 phaseId: F3
 tasksDone: 0
@@ -61,14 +61,16 @@ Initiative for phase **F3 — Série earned-vs-planned + deadline + wiring de re
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **Disposição das 6 lições F3 (phase-start):** L-001 (F2, non-finite→null) **APPLY** — guardar todo escalar numérico novo que chega à projeção emitida (`plannedValue`, `earnedCount`, `earnedProxy`, `spiProxy`, `spiCount`) com `Number.isFinite(x) && x >= 0`, não só `typeof === number` (aplica em T-002). L-003 (design-brief, test/ vs tests/) **APPLY** — testes novos em `tests/` plural (SPEC já especifica `tests/emit-series.test.js`); confirmar que `npm test` descobre. L-001 (design-brief, review local perde majors de contrato) **KEEP** — no phase-done de F3 considerar `review-code --mode=both` (F3 adiciona $defs de schema = porta de mão única). L-002 (F0, discriminator) **KEEP** — modelar SPI null-vs-number limpo no schema (borda → null). L-002 (design-brief, schemaVersion enum) **KEEP background** — F3 não introduz novo campo schemaVersion. L-004 (design-brief, unicidade sub-campo array) **STALE p/ F3** — sem unicidade de sub-campo nesta fase.
+- **Routing F3 = Codex (Mode 2):** confirmado pelo usuário (lane ON em routing.json, sem opt-out). Os 3 tasks são **acoplados** (T-001 e T-002 escrevem o mesmo bundle `assets/aideck-consumer/schema.json`; T-002 lê `deadline`/`weightTotal`; T-003 liga o emit que T-002 cria) → execução **serial**, worktrees um de cada vez, merge-back serial (R-XAGENT-03). Sem paralelismo.
+- **T-001 design (settled):** `deadline` = campo opcional `{ "$ref": "common.schema.json#/$defs/isoTimestamp" }` em `meta/schemas/plan.schema.json` (NÃO em required[]); regen do bundle via `npm run build:aideck-schema`. O gerador (`scripts/build-aideck-consumer-schema.mjs`) incorpora plan.schema → bundle muda → regen obrigatório senão `schema-drift --check` falha.
 
 ## Session handoff
-- **Narrative:** F3 recém-ativada no phase-done de F2 (commit `a54aa8c`). Nenhuma task de F3 iniciada ainda. F2 (peso por task: weight + rollups weightDone/weightTotal + projeção emit + auditor) está done+arquivada; gate F2/G-1 met (20 pass), review APPROVED, lição L-001 ratificada. Tree limpo.
-- **Decision log:** (nenhuma decisão de F3 ainda). Herda do feature: weightDone/weightTotal já existem no schema (source + projeção) e em rollups; `compute-rollups.weightOf` usa `Number.isFinite(x) && x >= 0` (degrada task sem weight → 1). F3 vai computar a série earned (acumulado de weightDone) vs linha planejada CRESCENTE 0→weightTotal + SPI, e ligar emit-consumer-state ao refresh-state (gap atual: refresh-state roda rollups+reconcile+emitFocus mas NÃO invoca emit-consumer-state).
-- **Single nextAction:** Antes de iniciar F3: (1) ler a SPEC das tasks de F3 em `source.md` (seção F3, linha ~136); (2) dispositionar as 6 lições de `node scripts/list-lessons.js --phase F3` (Apply/Keep/Stale/Reject) — inclui F2/L-001 (guardar números novos do emit com `Number.isFinite`, aplicável aos escalares SPI/série). Depois: Start F3/T-001 (Campo deadline no plano + rebuild do bundle).
-- **Verbatim state:** HEAD primary `a54aa8c`. currentPhase=F3 (plan.md), F3 status active, tasksDone 0/3. Verifier do gate F3/G-1: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json: Mode 2/Codex lane ON (executor padrão). Suite: 8 falhas PRÉ-EXISTENTES (install/countSkills — drift de contagem do plano skills-restructuring, fora de escopo); F2 = 0 regressões.
-- **Uncommitted changes:** clean tree (este handoff é a única edição pendente no snapshot).
+- **Narrative:** F3 ativa, 0/3 tasks done. Lições dispositionadas (ver Decisions). Resume gate passou: tree limpo (restaurei `focus.json` que tinha só churn de `generatedAt`). Prestes a **dispatchar Codex (Mode 2)** para T-001 (campo `deadline` no schema do plano + regen do bundle) num worktree dedicado — este snapshot é o checkpoint pré-dispatch (HARD-GATE R-EXEC-15).
+- **Decision log:** ver seção `## Decisions` acima — disposição das 6 lições + routing Codex (serial, acoplado pelo bundle) + design settled de T-001.
+- **Single nextAction:** Criar worktree `.worktrees/codex-f3-t001` (branch `codex/f3-t001` de HEAD), dispatchar `codex exec --sandbox workspace-write` com o work-order de T-001; ler `git -C <wt> diff`; merge-back serial no primary; re-rodar `node --test tests/schema-drift.test.js` no primary merged; `done T-001`.
+- **Verbatim state:** HEAD primary `fef1c2b`, branch `plan/deadline-burnup-forecast`. currentPhase=F3, F3 active, tasksDone 0/3. T-001 verifier: `node --test tests/schema-drift.test.js`. Edit T-001: `"deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" }` em `meta/schemas/plan.schema.json` (opcional, fora de required[]) + regen `npm run build:aideck-schema` → `assets/aideck-consumer/schema.json`. Gate F3/G-1 verifier: `node --test tests/emit-series.test.js && node --test tests/refresh-state.test.js`. routing.json: mode2Enabled true, codexLane.enabled true, minBatchTasks 1. codex-cli 0.141.0. Suite: 8 falhas PRÉ-EXISTENTES (install/countSkills — drift do plano skills-restructuring, fora de escopo).
+- **Uncommitted changes:** este handoff (edits no f3-*.md) é a única edição pendente no snapshot; resto do tree limpo. Worktree do Codex ainda não criado.
 
 ## Links
 
