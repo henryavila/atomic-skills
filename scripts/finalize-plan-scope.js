@@ -1,0 +1,209 @@
+/**
+ * finalize-plan-scope.js — pure read-only plan-aware finalize guard.
+ *
+ * This module never runs git and never mutates state. It only classifies
+ * already-parsed plan slices and integration-ref snapshots.
+ */
+
+const ORDER = ['active', 'archived'];
+
+function ownValue(value, key) {
+  if (value == null || typeof value !== 'object') return undefined;
+  if (!Object.hasOwn(value, key)) return undefined;
+  return value[key];
+}
+
+function ownString(value, key) {
+  const candidate = ownValue(value, key);
+  return typeof candidate === 'string' ? candidate : undefined;
+}
+
+function ownBoolean(value, key) {
+  const candidate = ownValue(value, key);
+  return typeof candidate === 'boolean' ? candidate : undefined;
+}
+
+function ownArray(value, key) {
+  const candidate = ownValue(value, key);
+  return Array.isArray(candidate) ? candidate : undefined;
+}
+
+function ownBranch(value) {
+  const branch = ownValue(value, 'branch');
+  if (branch === null) return null;
+  return typeof branch === 'string' ? branch : undefined;
+}
+
+function rankStatus(status) {
+  const rank = ORDER.indexOf(status);
+  return rank === -1 ? -1 : rank;
+}
+
+function normalizedInput(input) {
+  return input == null || typeof input !== 'object' ? {} : input;
+}
+
+function normalizedSlug(value) {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+function classifyPlan(plan, targetSlug) {
+  const slug = ownString(plan, 'slug');
+  const status = ownString(plan, 'status');
+  if (slug === targetSlug) return 'target';
+  if (status === 'active') return 'other-active';
+  return 'archived-unmerged';
+}
+
+function phaseLabel(phase, index) {
+  const id = ownString(phase, 'id');
+  return id ?? `phase ${index + 1}`;
+}
+
+function undonePhases(plan) {
+  const phases = ownArray(plan, 'phases') ?? [];
+  const undone = [];
+  phases.forEach((phase, index) => {
+    if (ownString(phase, 'status') !== 'done') undone.push(phaseLabel(phase, index));
+  });
+  return undone;
+}
+
+function isTerminalPlan(plan) {
+  const status = ownString(plan, 'status');
+  if (status === 'archived') return true;
+  if (status !== 'active') return false;
+  return undonePhases(plan).length === 0;
+}
+
+function initialResult(target, classifications, warnings) {
+  return {
+    decision: 'block',
+    target,
+    classifications,
+    warnings,
+    blockReason: null,
+  };
+}
+
+/**
+ * resolveFinalizePlanScope — pure, never-throws, FAIL-CLOSED.
+ * @param {object} [input]
+ * @param {Array<{slug:string, status:string,
+ *   phases:Array<{id?:string, status:string}>, branch?:(string|null)}>} [input.plans]
+ *   plan.md state slices present on the branch (already parsed).
+ * @param {(string|null)} [input.focusSlug]  the slug pickFocus would resolve (newest active).
+ * @param {(string|null)} [input.targetSlug] the operator's EXPLICIT chosen target (null = none).
+ * @param {boolean} [input.confirmed]  operator explicitly confirmed a target != focus.
+ * @returns {{
+ *   decision:('proceed'|'block'),
+ *   target:(string|null),
+ *   classifications:Array<{slug:string, class:('target'|'other-active'|'archived-unmerged')}>,
+ *   warnings:Array<{kind:string, slug:string, reason:string}>,
+ *   blockReason:(string|null)
+ * }}
+ */
+export function resolveFinalizePlanScope(input = {}) {
+  const safeInput = normalizedInput(input);
+  const plansValue = ownValue(safeInput, 'plans');
+  const targetSlug = normalizedSlug(ownString(safeInput, 'targetSlug'));
+  const focusSlug = normalizedSlug(ownString(safeInput, 'focusSlug'));
+  const confirmed = ownBoolean(safeInput, 'confirmed') === true;
+  const plans = Array.isArray(plansValue) ? plansValue : [];
+
+  const classifications = [];
+  for (const plan of plans) {
+    const slug = ownString(plan, 'slug');
+    if (slug === undefined) continue;
+    classifications.push({ slug, class: classifyPlan(plan, targetSlug) });
+  }
+
+  const warnings = classifications
+    .filter((classification) => classification.class === 'other-active')
+    .map((classification) => ({
+      kind: 'sibling-active-plan',
+      slug: classification.slug,
+      reason: `active sibling plan ${classification.slug} would be included by a branch merge`,
+    }));
+
+  const result = initialResult(targetSlug, classifications, warnings);
+
+  if (!Array.isArray(plansValue)) {
+    result.blockReason = 'plans must be an array of parsed plan states';
+    return result;
+  }
+
+  if (targetSlug === null) {
+    result.blockReason = 'explicit targetSlug is required before finalizing a plan';
+    return result;
+  }
+
+  const targetPlan = plans.find((plan) => ownString(plan, 'slug') === targetSlug);
+  if (targetPlan === undefined) {
+    result.blockReason = `target plan ${targetSlug} was not found among branch plans`;
+    return result;
+  }
+
+  if (!isTerminalPlan(targetPlan)) {
+    const status = ownString(targetPlan, 'status') ?? 'unknown';
+    const undone = undonePhases(targetPlan);
+    if (undone.length > 0) {
+      result.blockReason = `target plan ${targetSlug} is active but has un-done phase(s): ${undone.join(', ')}`;
+    } else {
+      result.blockReason = `target plan ${targetSlug} is not terminal (status: ${status})`;
+    }
+    return result;
+  }
+
+  if (targetSlug !== focusSlug && !confirmed) {
+    const branch = ownBranch(targetPlan);
+    const branchLabel = typeof branch === 'string' ? branch : 'unknown';
+    result.blockReason = `explicit target ${targetSlug} differs from focus ${focusSlug ?? 'none'}; branch name ${branchLabel} is not the plan slug, so confirm the branch-plan mismatch before finalizing`;
+    return result;
+  }
+
+  result.decision = 'proceed';
+  return result;
+}
+
+/**
+ * detectPlanStatusRegression — pure, never-throws. ADVISORY (never gates).
+ * @param {object} [input]
+ * @param {Array<{slug:string, status:string}>} [input.branchPlans] plan status on THIS branch.
+ * @param {Array<{slug:string, status:string}>} [input.refPlans]    plan status on the integrationRef.
+ * @returns {Array<{slug:string, branchStatus:string, refStatus:string, reason:string}>}
+ *   one entry per plan whose branch status is BEHIND the ref status; [] when none/clean.
+ */
+export function detectPlanStatusRegression(input = {}) {
+  const safeInput = normalizedInput(input);
+  const branchPlansValue = ownValue(safeInput, 'branchPlans');
+  const refPlansValue = ownValue(safeInput, 'refPlans');
+  if (!Array.isArray(branchPlansValue) || !Array.isArray(refPlansValue)) return [];
+
+  const refBySlug = new Map();
+  for (const plan of refPlansValue) {
+    const slug = ownString(plan, 'slug');
+    const status = ownString(plan, 'status');
+    if (slug === undefined || status === undefined) continue;
+    refBySlug.set(slug, status);
+  }
+
+  const regressions = [];
+  for (const plan of branchPlansValue) {
+    const slug = ownString(plan, 'slug');
+    const branchStatus = ownString(plan, 'status');
+    if (slug === undefined || branchStatus === undefined || !refBySlug.has(slug)) continue;
+
+    const refStatus = refBySlug.get(slug);
+    if (rankStatus(branchStatus) >= rankStatus(refStatus)) continue;
+
+    regressions.push({
+      slug,
+      branchStatus,
+      refStatus,
+      reason: `plan ${slug} is ${branchStatus} on the branch but ${refStatus} on the integration ref; merge would regress it`,
+    });
+  }
+
+  return regressions;
+}

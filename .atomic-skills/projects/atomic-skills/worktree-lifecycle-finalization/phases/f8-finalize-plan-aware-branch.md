@@ -19,7 +19,7 @@ nextAction: >-
   tests/finalize-plan-scope.test.js RED → scripts/finalize-plan-scope.js GREEN).
 parentPlan: worktree-lifecycle-finalization
 phaseId: F8
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
@@ -58,8 +58,9 @@ tasks:
     title: "Resolvedor plan-aware + detector de regressão (scripts/finalize-plan-scope.js)"
     summary: Função pura que classifica os planos da branch, decide block/warn, e
       detecta regressão de status de plano no merge.
-    status: pending
-    lastUpdated: 2026-06-19T16:20:35Z
+    status: done
+    closedAt: 2026-06-19T17:28:16Z
+    lastUpdated: 2026-06-19T17:28:16Z
     outputs:
       - kind: file
         path: scripts/finalize-plan-scope.js
@@ -86,6 +87,19 @@ tasks:
       kind: test
       runner: node
       pattern: tests/finalize-plan-scope.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-19T17:28:16Z
+      exitCode: 0
+      testsCollected: 16
+      passed: true
+      outputSummary: "node --test tests/finalize-plan-scope.test.js na árvore primária
+        MERGEADA (cp da worktree impl/wlf-f8-t001): tests 16, pass 16, fail 0, exit 0.
+        Cobre classificação target/other-active/archived-unmerged, gate de terminalidade
+        (fases done OU archived), gate target≠focus-sem-confirmação (surfaça branch≠plan),
+        WARN de irmãos ativos, fail-closed (null/malformado/target-ausente→block,
+        never-throws/frozen) + detectPlanStatusRegression (behind/equal/ahead, one-sided,
+        unknown-status→behind, never-throws)."
   - id: T-002
     title: Verificação de existência do integrationRef no consumo (fecha "develop silencioso")
     summary: finalize confirma que o integrationRef resolvido existe em origin antes
@@ -175,3 +189,20 @@ integrationRef (fecha o "develop silencioso").
 - Consome: `scripts/integration-ref.js` (Decisão 2), `scripts/cross-wt-gate.js` (lane advisory, Decisão 7)
 - Toca: `skills/shared/project-assets/project-finalize.md` (Step 1 + novo passo pré-publish)
 - A criar: `scripts/finalize-plan-scope.js` + `tests/finalize-plan-scope.test.js`
+
+## Session handoff
+
+- **Narrative:** F8 em andamento (Decisão 9, finalize plan-aware; branch ≠ plano). **T-001 DONE** — `scripts/finalize-plan-scope.js` (`resolveFinalizePlanScope` + `detectPlanStatusRegression`, puras/never-throws, espelham `scripts/detect-orphan-worktrees.js`) + `tests/finalize-plan-scope.test.js` (16 testes) entregues via **Codex** numa worktree isolada e re-verificados na árvore primária MERGEADA (exit 0, 16/16). GATE-R2 `validate-state` ok. Restam **T-002 e T-003**, ambas editam `skills/shared/project-assets/project-finalize.md` → acopladas → Mode 1 inline, serial. T-001 fechado neste commit.
+- **Decision log:**
+  - Modo = **Híbrido** (operador): T-001 → Codex (arquivos novos, zero conflito); T-002/T-003 inline (mesmo arquivo → paralelismo do Mode 2 não paga).
+  - Codex reportou `tests 1` no self-check (artefato do reporter em modo subprocess) — a contagem REAL (16) veio da re-verificação na primária, não do summary do Codex (executor self-checks, nunca self-certifies).
+  - `plan.md` é a fonte de status (F0–F7 `done`, F8 `active`); `focus.json` ignorado (stale, anterior à F8).
+  - Codex worktree criada sob o nest do checkout PRIMÁRIO (regra global de git-worktrees); já torn down após captura+verificação na primária.
+- **Single nextAction:** Codificar **T-002** inline em `skills/shared/project-assets/project-finalize.md` Step 1 — verificar que o `integrationRef` resolvido existe em `origin` (`git ls-remote`/`show-ref`) ANTES do `gh pr create`, cobrindo o caso `source: default` (hoje só `not-configured` dispara o prompt); ref ausente cai no prompt-quando-ausente. Depois rodar o verifier: `grep -qi 'ls-remote\|show-ref' skills/shared/project-assets/project-finalize.md && npm run validate-skills`.
+- **Verbatim state:**
+  - T-001 (na primária `multiplan`): `scripts/finalize-plan-scope.js` + `tests/finalize-plan-scope.test.js`. Verifier: `node --test tests/finalize-plan-scope.test.js` → exit 0, tests 16, pass 16, fail 0.
+  - T-002 verifier (kind:shell): `grep -qi 'ls-remote\|show-ref' skills/shared/project-assets/project-finalize.md && npm run validate-skills`.
+  - T-003 verifier (kind:shell): `grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills`.
+  - T-003 consome `scripts/finalize-plan-scope.js` (T-001) e reusa a lane advisory do F4 (Step 1.5 de `project-finalize.md`, agentes A/B read-only).
+  - `routing.json`: `mode2Enabled:true`, `codexLane.enabled:true`, `timeoutSeconds:600`.
+- **Uncommitted changes:** este commit fecha T-001 (2 arquivos novos + estado F8: T-001 `done` com evidência + `tasksDone:1` + este handoff). Após o commit, árvore `multiplan` limpa.
