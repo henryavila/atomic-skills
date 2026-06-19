@@ -8,11 +8,11 @@ goal: tornar closedAt auditável (soft, mede a lacuna de instrumentação) e
 status: active
 branch: plan/deadline-burnup-forecast
 started: 2026-06-17T19:14:53Z
-lastUpdated: 2026-06-19T09:03:39Z
-nextAction: "Start F1/T-002: emit closedAt+lastUpdated na projeção de task (scripts/emit-consumer-state.js) — T-003 já mergeada"
+lastUpdated: 2026-06-19T09:09:57Z
+nextAction: "All F1 tasks done (3/3). Run phase-done to verify exit gate G-1 + review gate + advance to F2 (user opts in)."
 parentPlan: deadline-burnup-forecast
 phaseId: F1
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -51,8 +51,19 @@ tasks:
       outputSummary: node --test tests/find-unclosed-done.test.js — 4 pass, 0 fail (re-run on MERGED primary beec974)
   - id: T-002
     title: — Emitir closedAt e lastUpdated na projeção de task
-    status: pending
-    lastUpdated: 2026-06-17T12:06:57.781Z
+    status: done
+    closedAt: 2026-06-19T09:09:57Z
+    lastUpdated: 2026-06-19T09:09:57Z
+    verifier:
+      kind: shell
+      command: node --test tests/emit-consumer-state.test.js
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-19T09:09:57Z
+      passed: true
+      exitCode: 0
+      testsCollected: 14
+      outputSummary: node --test tests/emit-consumer-state.test.js — 14 pass, 0 fail (re-run on MERGED primary 2cd4f06; inclui validateAideckState ok + null legado)
   - id: T-003
     title: — Admitir closedAt na projeção do schema emitido + rebuild do bundle
     status: done
@@ -87,11 +98,11 @@ Initiative for phase **F1 — closedAt forward-only: auditor soft + emissão**.
 - **D3 — Ordem:** T-001 e T-003 são scope-disjuntos (T-001: `scripts/find-unclosed-done.js`+test; T-003: `meta/schemas/aideck-state.schema.json`+bundle) ⇒ worktrees concorrentes permitidos (§2 da lane). T-002 depende de T-003 (`validateAideckState` precisa do bundle já admitindo os campos) ⇒ despachada só após T-003 mergeada. Merge-back sempre serial.
 
 ## Session handoff
-- **Narrative:** F1 em andamento, **2/3 tasks done**. T-001 (`find-unclosed-done.js` auditor, via Codex) fechada — verificada no primary `beec974` (4 pass). T-003 (schema `$defs.tasks` admite `closedAt`+`lastUpdated` + bundle rebuild, via Codex) fechada — schema-drift verificado no primary `d55f540` (1 pass). HEAD `8454d16`, tree limpa. Falta só **T-002** (emitir os dois campos na projeção), que dependia de T-003 (agora mergeada). Primeiros 2 eventos `task-done` reais gravados em `completions.jsonl`.
+- **Narrative:** **F1 implementação COMPLETA — 3/3 tasks done**, todas via Codex (Mode 2), cada uma re-verificada no primary mergeado. T-001 `find-unclosed-done.js` auditor (`beec974`, 4 pass). T-003 schema admite `closedAt`+`lastUpdated` + bundle rebuild (`d55f540`, schema-drift 1 pass). T-002 emite os campos na projeção com null legado (`2cd4f06`, 14 pass incl. validateAideckState ok). 3 eventos `task-done` reais em `completions.jsonl`. validate-state 54/54. Auditor roda VERDE na tree viva (every done task has closedAt). **Falta o `phase-done`** (verificar exit-gate G-1 + review gate + avançar para F2) — aguarda opt-in do usuário.
 - **Decision log:** D1 (Mode 2 para as 3), D2 (T-001 ignora `archive/` via scan não-recursivo de `phases/*.md`), D3 (T-001‖T-003 concorrentes → merge serial → T-002). Ver acima.
-- **Single nextAction:** Despachar Codex para F1/T-002 em worktree `/home/henry/atomic-skills/.worktrees/dbf-f1-t-002` (branch `dbf/f1-t-002`) off `8454d16`; adicionar `closedAt: t.closedAt ?? null` e `lastUpdated: t.lastUpdated ?? null` ao push de task em `scripts/emit-consumer-state.js`; verify `node --test tests/emit-consumer-state.test.js`; merge → re-verify no primary → `done T-002`.
-- **Verbatim state:** verifier T-002 — `node --test tests/emit-consumer-state.test.js`. Push de task em `scripts/emit-consumer-state.js` (~L253-268), hoje emite id/title/summary/status/blocked/blockedBy/blockedByText. Schema `$defs.tasks` já admite `closedAt`/`lastUpdated` como `["string","null"]` (T-003, commit `d55f540`). Bundle `assets/aideck-consumer/schema.json` regenerado.
-- **Uncommitted changes:** clean tree (este edit no handoff é a única mudança pendente).
+- **Single nextAction:** Rodar `phase-done` para F1: exit-gate G-1 (`node --test tests/find-unclosed-done.test.js && node --test tests/emit-consumer-state.test.js && node --test tests/schema-drift.test.js`), depois review gate (`review-code` no diff `555c15e`-ish..HEAD), distill lessons, advance para F2. NÃO auto-executar — usuário opta.
+- **Verbatim state:** exit-gate G-1 verifier — `node --test tests/find-unclosed-done.test.js && node --test tests/emit-consumer-state.test.js && node --test tests/schema-drift.test.js`. F1 commits: T-001 `beec974`+`8704c2f`, T-003 `d55f540`+`8454d16`, snapshot `555c15e`, T-002 `2cd4f06`. Próxima fase candidata: F2 (peso por task).
+- **Uncommitted changes:** T-002 state closure (este arquivo) — prestes a commitar.
 
 ## Links
 
