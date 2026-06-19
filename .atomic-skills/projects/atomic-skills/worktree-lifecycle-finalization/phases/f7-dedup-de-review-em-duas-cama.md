@@ -11,11 +11,14 @@ status: active
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:45:00Z
 lastUpdated: 2026-06-17T21:45:00Z
-nextAction: "Start T-004: Work-order ao autor do project review (Camada B) — arquivo
-  em workorders/project-review-dedup.md (Opus-owned), âncora project-review-dedup"
+nextAction: "PHASE BOUNDARY — F7 tasks 4/4 DONE (gates 0/2 pending). Próximo
+  (operator-prompted): phase-done F7 — exit-gates G-1 (node --test review-ledger) +
+  G-2 (grep review-dedup ×2 + project-review-dedup + validate-skills), review-code
+  --mode=both no diff da fase, distila lessons, grava reviewGate. F7 é a ÚLTIMA fase
+  → o phase-done fecha o PLANO inteiro (F0–F7); depois: finalize/archive do plano."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F7
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
@@ -175,8 +178,9 @@ tasks:
         git real. Mode 1 inline (+= no arquivo de teste da T-001)."
   - id: T-004
     title: Work-order ao autor do project review (Camada B)
-    status: pending
-    lastUpdated: 2026-06-16T22:50:35.627Z
+    status: done
+    closedAt: 2026-06-17T22:45:00Z
+    lastUpdated: 2026-06-17T22:45:00Z
     summary: Gera o work-order ao autor do project review (run-record do composer).
     outputs:
       - kind: file
@@ -204,6 +208,20 @@ tasks:
         .atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/workorders/project-review-dedup.md
         && grep -qi 'append-only'
         .atomic-skills/projects/atomic-skills/worktree-lifecycle-finalization/workorders/project-review-dedup.md
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-17T22:45:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: "grep -ci 'project-review-dedup' (4) && grep -ci 'append-only' (3) em
+        workorders/project-review-dedup.md, exit 0. Work-order cross-branch (Opus-owned,
+        NÃO edita project-review.md que vive na branch F4-skills): documenta o run-record
+        por-perna do composer ({auditedHead, auditedPlanSha, treeClean, verdict,
+        fingerprint} no MESMO last-review.json via recordReview), o carve-out append-only
+        EXPLÍCITO à política READ-ONLY, reuse-por-perna só com prova de input idêntico (a
+        perna de código defere ao ledger da Camada A), e a guarda absent-set-shape
+        (fail-para-RE-rodar) + guardrails de skill-authoring. Mode 1 (Opus, state-tree).
+        validate-state 65 files valid."
 parked: []
 emerged: []
 summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +
@@ -218,7 +236,7 @@ current: true
 Initiative for phase **F7 — Dedup de review em duas camadas (Decisão 8)**.
 
 ## Session handoff
-- **Narrative:** **F7 — tasks 3/4 DONE** (T-001 ledger + T-002 wiring + T-003 patch-id oráculo, só falta T-004 work-order). Em andamento
+- **Narrative:** **F7 — tasks 4/4 DONE** (T-001 ledger + T-002 wiring + T-003 patch-id oráculo + T-004 work-order Camada B). PHASE BOUNDARY (gates 0/2, resolvem no phase-done). Em andamento
   (última fase do plano). T-001 em **Mode 2/Codex**: módulo puro `scripts/review-ledger.js`
   (`readLedger`/`recordReview`/`alreadyReviewed`, NDJSON, fail-safe) + teste (10 casos),
   ff-merged `2c4ca99`, re-verificado na primária 10/10. T-002 em **Mode 1 inline** (doc
@@ -231,11 +249,12 @@ Initiative for phase **F7 — Dedup de review em duas camadas (Decisão 8)**.
   `-o` do Codex "tests 1" DESCARTADO — real 10 (wlf-f0 L-001, 4ª vez no plano). (4) O flip
   do `last-review.json` vivo p/ NDJSON + o `merge=union` no `.gitattributes` ficam DEFERIDOS
   ao wiring (T-002+) — unir o pointer-objeto agora cairia no trap F5.
-- **Single nextAction:** **(operator-prompted)** Start T-002 (dedup em `review-code.md` +
-  `project-drift.md`, âncora `review-dedup`, fail-para-RE-revisar, defere ao ledger da
-  T-001) — doc auto-referencial → provável Mode 1. Depois T-003 (oráculo patch-id sob
-  squash, += em tests/review-ledger.test.js) e T-004 (work-order Camada B, arquivo em
-  `workorders/`, Opus-owned). Phase-done F7 fecha o PLANO inteiro.
+- **Single nextAction:** **(operator-prompted)** Rodar `phase-done F7` — exit-gates G-1
+  (`node --test tests/review-ledger.test.js`, 13/13) + G-2 (grep `review-dedup` em
+  review-code.md/project-drift.md + `project-review-dedup` no work-order + validate-skills),
+  `review-code --mode=both` no diff de código da fase, distila lessons, grava `reviewGate`.
+  F7 é a ÚLTIMA fase → o phase-done leva o `currentPhase` ao fim e o PLANO (F0–F7) fica
+  pronto para `finalize` (publica PR feature→develop) e depois `archive`.
 - **Verbatim state:** Commits F7: `2c4ca99` (feat Codex T-001, ff), próximo:
   `chore(project): done F7/T-001`. Worktree `impl/wlf-f7-t-001` a remover pós-commit.
 
