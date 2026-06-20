@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: deadline-burnup-forecast
 title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
-status: active
+status: done
 started: 2026-06-17T12:06:57.781Z
 deadline: 2026-06-21T23:59:59Z
-lastUpdated: 2026-06-20T01:38:33Z
+lastUpdated: 2026-06-20T10:14:59Z
 branch: plan/deadline-burnup-forecast
 currentPhase: F5
 parallelismAllowed: false
@@ -63,7 +63,8 @@ phases:
             verifiedAt: 2026-06-17T19:14:53Z
             passed: true
             exitCode: 0
-            outputSummary: "G-1 4-test chain on post-review tree 7c593f7 — 32 pass (14+10+3+5), 0 fail, exit 0"
+            outputSummary: G-1 4-test chain on post-review tree 7c593f7 — 32 pass
+              (14+10+3+5), 0 fail, exit 0
     status: done
     reviewGate:
       status: passed
@@ -101,7 +102,8 @@ phases:
             verifiedAt: 2026-06-19T09:15:51Z
             passed: true
             exitCode: 0
-            outputSummary: "G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0; auditor also green on live tree (every done task has closedAt)"
+            outputSummary: G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit
+              0; auditor also green on live tree (every done task has closedAt)
     status: done
     reviewGate:
       status: passed
@@ -114,10 +116,10 @@ phases:
   - id: F2
     slug: deadline-burnup-forecast-f2-peso-por-task-proxy-estrutural-roll
     title: "Peso por task: proxy estrutural + rollups"
-    goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo modelo
-      no Stage 6 da decomposição (prosa, como os summaries; NUNCA por src/decompose.js
-      congelado) de sinais estruturais e auditor-enforced, com rollups
-      weightDone/weightTotal espelhando tasksDone/tasksTotal.
+    goal: introduzir tasks[].weight (number, opcional, default=1) AUTORADO pelo
+      modelo no Stage 6 da decomposição (prosa, como os summaries; NUNCA por
+      src/decompose.js congelado) de sinais estruturais e auditor-enforced, com
+      rollups weightDone/weightTotal espelhando tasksDone/tasksTotal.
     dependsOn:
       - F1
     subPhaseCount: 3
@@ -140,7 +142,9 @@ phases:
             verifiedAt: 2026-06-19T12:24:41Z
             passed: true
             exitCode: 0
-            outputSummary: "G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0 fail, exit 0"
+            outputSummary: G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass
+              (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0
+              fail, exit 0
     status: done
     reviewGate:
       status: passed
@@ -177,9 +181,9 @@ phases:
             verifiedAt: 2026-06-19T17:29:17Z
             passed: true
             exitCode: 0
-            outputSummary: "G-1 2-test chain on reviewed+remediated HEAD 12edc01 —
-              emit-series 2 + refresh-state 2 = 4 pass, 0 fail, exit 0; suíte 913
-              pass / 8 fail PRÉ-EXISTENTES."
+            outputSummary: G-1 2-test chain on reviewed+remediated HEAD 12edc01 —
+              emit-series 2 + refresh-state 2 = 4 pass, 0 fail, exit 0; suíte
+              913 pass / 8 fail PRÉ-EXISTENTES.
     reviewGate:
       status: passed
       at: 12edc01
@@ -209,17 +213,21 @@ phases:
           metAt: 2026-06-19T19:53:26Z
           verifier:
             kind: shell
-            command: 'node --test tests/append-completion-actuals.test.js && node --test tests/append-completion-dispatchlog.test.js && node --test tests/validate-state.test.js && node --test tests/harden-closedat.test.js && node --test tests/schema-drift.test.js'
+            command: node --test tests/append-completion-actuals.test.js && node --test
+              tests/append-completion-dispatchlog.test.js && node --test
+              tests/validate-state.test.js && node --test
+              tests/harden-closedat.test.js && node --test
+              tests/schema-drift.test.js
           evidence:
             verifierKind: shell
             verifiedAt: 2026-06-19T19:53:26Z
             passed: true
             exitCode: 0
             testsCollected: 94
-            outputSummary: "G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94
-              pass (actuals 4 + dispatchlog 8 + validate-state 75 + harden 6 +
+            outputSummary: G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94 pass
+              (actuals 4 + dispatchlog 8 + validate-state 75 + harden 6 +
               schema-drift 1), 0 fail, exit 0. Suíte completa 953/939/8
-              PRÉ-EXISTENTES (install/detect drift skills-restructuring)."
+              PRÉ-EXISTENTES (install/detect drift skills-restructuring).
     reviewGate:
       status: passed
       at: 8a088d4
@@ -233,11 +241,11 @@ phases:
     slug: deadline-burnup-forecast-f5-render-no-aideck-depende-do-redesig
     title: Render no aiDeck (depende do redesign do dashboard)
     goal: "registrar os dataSources burnup/spi no manifest e uma página com
-      line-chart (planejada + earnedCount + earnedProxy) + stat SPI, usando só widgets publicados.
-      DEPENDÊNCIA EXTERNA: bloqueada até o redesign do dashboard (plano
-      fix-aideck-dashboard, F2) aterrissar — o forecast só renderiza sobre o
-      dashboard refeito; por isso é a última fase. As fases F0–F4
-      (instrumentação de tracking) são independentes e implementáveis já."
+      line-chart (planejada + earnedCount + earnedProxy) + stat SPI, usando só
+      widgets publicados. DEPENDÊNCIA EXTERNA: bloqueada até o redesign do
+      dashboard (plano fix-aideck-dashboard, F2) aterrissar — o forecast só
+      renderiza sobre o dashboard refeito; por isso é a última fase. As fases
+      F0–F4 (instrumentação de tracking) são independentes e implementáveis já."
     dependsOn:
       - F4
     externalImports:
@@ -254,15 +262,32 @@ phases:
         - id: G-1
           description: a página de ritmo renderiza com widgets reais ligados a
             burnup.json/spi.json, sobre o dashboard refeito.
-          status: pending
+          status: met
+          metAt: 2026-06-20T10:14:59Z
           verifier:
             kind: shell
             command: node --test tests/aideck-consumer-manifest.test.js
-    status: active
-    summary: Renderiza o burn-up/SPI no dashboard — T-001 done (verifier 30/30);
-      aguarda deadline do plano + phase-done.
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-20T10:14:59Z
+            passed: true
+            exitCode: 0
+            testsCollected: 30
+            outputSummary: "F5 verifier 30 pass/0 fail (4 asserts F5: dataSources
+              burnup/spi, seção Ritmo, line-chart 3 séries scoped, SPI via
+              gauge, widgets no registry publicado). Sobre o manifest refeito
+              (merge 8ab9c8a)."
+    reviewGate:
+      status: passed
+      at: b3ade2d
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-20-0915-code-deadline-burnup-forecast-f5.md
+      verifiedAt: 2026-06-20T10:14:59Z
+    status: done
+    summary: Renderiza o burn-up/SPI no dashboard — T-001 done (verifier 30/30),
+      review both APROVADO (C4 fix; C3+C1 follow-ups F3 corrigidos a pedido do
+      usuário).
 references: []
-planActive: true
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 ---
 
