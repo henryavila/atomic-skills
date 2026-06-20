@@ -10,13 +10,13 @@ status: active
 branch: plan/plan-fork
 started: 2026-06-19T19:56:59Z
 lastUpdated: 2026-06-19T19:56:59Z
-nextAction: "Phase-start gate F2: rodar `node scripts/list-lessons.js --phase F2`
-  e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-005
-  da F1 — ANTES de codar. Depois T-001: especificar o protocolo de estado parallel
-  (concorrência otimista)."
+nextAction: "Phase-start gate F2: rodar `node scripts/list-lessons.js --phase
+  F2` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui
+  L-001..L-005 da F1 — ANTES de codar. Depois T-001: especificar o protocolo de
+  estado parallel (concorrência otimista)."
 parentPlan: plan-fork
 phaseId: F2
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -38,8 +38,22 @@ stack:
 tasks:
   - id: T-001
     title: Especificar o protocolo de estado parallel (concorrência otimista)
-    status: pending
-    lastUpdated: 2026-06-19T15:32:29.603Z
+    status: done
+    lastUpdated: 2026-06-20T01:13:19Z
+    closedAt: 2026-06-20T01:13:19Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T01:13:19Z
+      exitCode: 0
+      passed: true
+      outputSummary: "test -f docs/design/plan-fork-parallel-state.md → exit 0. Spec
+        define: canônico = worktree do pai (resolução via git worktree list +
+        branch do pai); token = sha256 content-hash (CAS); escrita atômica (lock
+        O_EXCL curto + temp+rename); predicado de conflito exato (token1 !=
+        token0); abort + pendingWriteback declarativo durável no sidecar do
+        filho; verificação das 2 worktrees. 3 decisões one-way-door ratificadas
+        pelo usuário. Ponteiro adicionado no bullet parallel de
+        project-emergence.md."
     scopeBoundary:
       - apenas o modo parallel; o pause-mode não muda.
     acceptance:
@@ -111,8 +125,8 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F2 ativada pelo phase-done da F1. **Phase-start lessons gate FEITO** (18 lessons dispostas — ver § Decisions; 8 APPLY, 10 KEEP, nenhuma Stale/Reject). T-001 (spec do protocolo parallel) começando. F2 implementa o protocolo de estado cross-worktree do modo `parallel` que a F1 rejeitou explicitamente.
-- **Decision log:** (1) disposição das lessons registrada em § Decisions. (2) Flag T-002: o teste vai em `tests/parallel-state.test.js` (não `src/`, que `npm test` ignora — L-003). (3) F2-G1 = `npm test` (baseline RED ambiental — mesma decisão de escopo da F0/F1 vai recair no phase-done).
-- **Single nextAction:** T-001 — fundamentar e escrever `docs/design/plan-fork-parallel-state.md`: definir worktree canônico do estado do pai, leitura por revisão/hash, escrita atômica com token, predicado de conflito exato, abort, recuperação, e verificação a partir das duas worktrees. Verifier: `test -f docs/design/plan-fork-parallel-state.md`. Como é contrato one-way-door (design-brief L-001), surfacear as decisões load-bearing ao usuário antes de finalizar.
-- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`; tree limpo após phase-done F1 (`669cac6`).
-- **Uncommitted changes:** este handoff + a disposição das lessons (estado da F2), a commitar.
+- **Narrative:** F2 — 1/2 tasks. Phase-start lessons gate FEITO (ver § Decisions). **T-001 FECHADA**: spec `docs/design/plan-fork-parallel-state.md` escrita com as 3 decisões one-way-door ratificadas (canônico = worktree do pai via `git worktree list`+branch; token = sha256 content-hash CAS; conflito = abort + `pendingWriteback` declarativo durável no sidecar do filho). Ponteiro adicionado no bullet parallel de `project-emergence.md`. Falta T-002 (implementar `src/parallel-state.js` + teste).
+- **Decision log:** (1) 3 decisões do protocolo ratificadas pelo usuário (§ spec). (2) Flag T-002: o teste vai em `tests/parallel-state.test.js` (NÃO `src/parallel-state.test.js` do outputs declarado — `npm test` faz glob de `tests/*.test.js`; L-003). (3) `pendingWriteback` vai só no sidecar (`links.schema.json`), nunca no `plan.md` `.strict` (aiDeck 0.1.0); se entrar no schema, enum nos campos + teste negativo (L-002). (4) F2-G1 = `npm test` (baseline RED ambiental — mesma decisão de escopo da F0/F1 vai recair no phase-done).
+- **Single nextAction:** T-002 — implementar `src/parallel-state.js` (resolução canônica via `git worktree list --porcelain` + `branch:` do pai; read-by-hash; writeback atômico lock O_EXCL+temp+rename com CAS sha256; conflito → `pendingWriteback` no sidecar do filho) + `tests/parallel-state.test.js` (simula 2 escritas concorrentes com mesmo token0 → 1ª passa, 2ª vira pendingWriteback, sem lost update). Verifier: `npm test` (escopar/rodar `node --test tests/parallel-state.test.js` se baseline RED). Seguir a spec `docs/design/plan-fork-parallel-state.md`.
+- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. T-001 commitada a seguir. Spec em `docs/design/plan-fork-parallel-state.md`.
+- **Uncommitted changes:** T-001 (spec + ponteiro em project-emergence.md + estado da fase) a commitar.

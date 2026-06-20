@@ -223,6 +223,8 @@ A missing required argument is a malformed invocation: print the usage line and 
 
   The rejection is a **numbered procedure step** (step 2), not just prose here, so an executor walking Steps 1→8 cannot fall through to the step-8 write with `parallel`. No `spawnedFrom`/`spawnedPlans` edge and no cross-worktree state is ever written under `parallel` before the protocol exists — writing a `parallel` edge now would strand the project in a concurrency mode nothing can safely service.
 
+  The cross-worktree state protocol the `parallel` mode needs is **specified** in `docs/design/plan-fork-parallel-state.md` (F2: canonical-owner = the parent's own worktree, content-hash compare-and-swap, abort + durable `pendingWriteback` on conflict). Step 2 keeps rejecting `parallel` until that protocol is **implemented** (`src/parallel-state.js`, F2/T-002) and this verb is wired to it — the spec existing is necessary but not sufficient to lift the runtime rejection.
+
 ## Why provenance + context live on the item itself (not a separate log)
 
 Every emergent item carries two co-located blocks in its frontmatter:
