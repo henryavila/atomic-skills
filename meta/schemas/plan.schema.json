@@ -165,38 +165,7 @@
           "enum": ["standard", "ui-gate", "custom"]
         },
         "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
-        "context": { "$ref": "common.schema.json#/$defs/context" },
-        "reviewGate": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["status"],
-          "description": "0.2 (G2 phase-review gate): the outcome of phase-done's review-code gate for THIS phase, written before the phase is set 'done' (project-transitions.md phase-done step 6/8). Shape only here; the cross-field honesty conditional (done + status:passed ⟹ `at` sha present; done + status:skipped ⟹ `reason` present) is enforced by scripts/validate-state.js GATE-R3, NOT the schema — same reason GATE-R2 lives in JS (keeps the aiDeck TS mirror additive-optional). An absent block on a legacy 'done' phase is tolerated (GATE-R2-consistent); `verify` WARNs on it.",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": ["passed", "skipped"],
-              "description": "passed = review-code ran and blocker/critical findings were resolved; skipped = --skip-review with a recorded reason."
-            },
-            "mode": {
-              "type": "string",
-              "enum": ["local", "codex", "both"],
-              "description": "which review mode ran (a destructive phase runs 'both' per G5)."
-            },
-            "at": {
-              "type": "string",
-              "description": "the commit sha the review concluded against (post-fix HEAD). Required-when-passed by GATE-R3."
-            },
-            "reviewFile": {
-              "type": "string",
-              "description": "path to the persisted review file, when one was written (e.g. .atomic-skills/reviews/<…>.md)."
-            },
-            "reason": {
-              "type": "string",
-              "description": "why review was skipped. Required-when-skipped by GATE-R3."
-            },
-            "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
-          }
-        }
+        "context": { "$ref": "common.schema.json#/$defs/context" }
       },
       "allOf": [
         {

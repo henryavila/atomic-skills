@@ -171,14 +171,6 @@ In practice tasks/phases are **not** marked done when the work is done: code lan
 
 **Signal-at-creation (Component E).** Detection can only see tasks that carry a signal, so every task-creating path nudges the author to give one. `node scripts/find-signalless-tasks.js` (zero-token, exits non-zero) lists open tasks with neither a `verifier` nor an `outputs[].path` for backfill — the same replicable-detector pattern as `find-missing-task-summaries.js`. The nudge is soft (some tasks are genuinely unverifiable), but it shrinks the undetectable blind spot toward zero over a project's life.
 
-## Phase-end lessons consolidation (G1 — RESIDENT: learning must outlive the phase)
-
-A `review-code` finding *generates* learning; without a sink the next phase reads, it evaporates (the lesson dies unless the user happens to ask). The lessons loop closes that — capture at the end of a phase, disposition at the start of the next:
-
-1. **Capture (phase-done).** Distilling lessons is part of the **definition** of phase-done (not optional). The agent drafts lessons from real failure signals (confirmed `review-code` findings — especially a cross-model blocker the local pass missed — reopened/blocked tasks, deferred gates, the diff, user corrections), the user ratifies/edits/rejects (selective, capped, blameless), and the ratified set is written to one file per initiative: `.atomic-skills/projects/<id>/<plan-slug>/lessons/<initiative-slug>.md`, validated against `meta/schemas/lesson.schema.json`. A clean phase records zero lessons *explicitly* — silence ≠ zero. Detail: `project-transitions.md` → `phase-done` (Distill).
-2. **Disposition (phase-start).** When an in-plan phase initiative activates, `node scripts/list-lessons.js --phase <id>` (zero-token, push-not-pull — emits only the `scope: reusable` + `status: open` distillate whose `appliesTo` admits the phase) feeds a HARD gate: each applicable lesson is dispositioned **Apply / Keep / Stale / Reject** before the phase activates (override: `--skip-lessons` records the skip, never silent). Detail: `project-create-initiative.md` → step 6b.
-3. **Measurement.** `node scripts/list-lessons.js --stats` prints the deterministic burndown (identified / open / closed / stale / reusable / recurrence). A non-zero **recurrence** count (a new lesson `recurrenceOf` a prior one) is the signal that learning isn't sticking — the user's success criterion made visible.
-
 ## Code-quality gates (state files this skill writes)
 
 Bound by `docs/kb/code-quality-gates.md`:
