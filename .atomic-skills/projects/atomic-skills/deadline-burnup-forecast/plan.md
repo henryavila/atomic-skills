@@ -257,9 +257,9 @@ phases:
           verifier:
             kind: shell
             command: node --test tests/aideck-consumer-manifest.test.js
-    status: pending
-    summary: Renderiza o burn-up/SPI no dashboard — bloqueada até o redesign do
-      dashboard aterrissar.
+    status: active
+    summary: Renderiza o burn-up/SPI no dashboard — T-001 done (verifier 30/30);
+      aguarda deadline do plano + phase-done.
 references: []
 planActive: true
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
