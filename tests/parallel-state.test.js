@@ -489,7 +489,12 @@ describe('fork-resume (F3): parallel mode (reuses the F2 writeback)', () => {
       const edge = getSpawnedFrom(childDir);
       const readToken = contentToken(canonical);
       recordPendingWriteback(childDir, resumePending('plan-fork', edge.phaseId, readToken, 'user refused — deferred'));
-      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      const links = readLinks(childDir);
+      assert.equal(links.pendingWriteback.op, 'resumeParent');
+      assert.equal(links.pendingWriteback.args.phaseId, ANCHOR);
+      // the prescribed resume marker (op/target/args) + the edge form a schema-valid
+      // sidecar — kills a procedure prescribing a malformed resumeParent payload (L-002).
+      assert.equal(validateLinks(links).valid, true, 'durable sidecar (edge + resumeParent marker) is schema-valid');
       assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m, 'refuse leaves the parent paused');
     });
   });
@@ -501,7 +506,9 @@ describe('fork-resume (F3): parallel mode (reuses the F2 writeback)', () => {
       const { canonical, childDir } = forkFixture(root, 'parallel');
       const readToken = contentToken(canonical);
       recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'no TTY — auto-deferred'));
-      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      const links = readLinks(childDir);
+      assert.equal(links.pendingWriteback.op, 'resumeParent');
+      assert.equal(validateLinks(links).valid, true);
       assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
     });
   });
@@ -527,7 +534,9 @@ describe('fork-resume (F3): pause mode (same tree — direct mutation, no CAS)',
       const { canonical, childDir } = forkFixture(root, 'pause');
       const readToken = contentToken(canonical);
       recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'user refused — deferred'));
-      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      const links = readLinks(childDir);
+      assert.equal(links.pendingWriteback.op, 'resumeParent');
+      assert.equal(validateLinks(links).valid, true);
       assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
     });
   });
@@ -537,21 +546,69 @@ describe('fork-resume (F3): pause mode (same tree — direct mutation, no CAS)',
       const { canonical, childDir } = forkFixture(root, 'pause');
       const readToken = contentToken(canonical);
       recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'no TTY — auto-deferred'));
-      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      const links = readLinks(childDir);
+      assert.equal(links.pendingWriteback.op, 'resumeParent');
+      assert.equal(validateLinks(links).valid, true);
       assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
     });
   });
 
-  it('failed-write: a failed parent write leaves the durable marker and the parent unchanged', () => {
-    // models the same-tree write throwing: the recovery path records the marker
-    // and the parent stays paused, exactly like the parallel conflict — the child
-    // must not finalize until recovery.
+  it('failed-write: a REAL same-tree write failure leaves the durable marker and the parent unchanged', () => {
     withTmp((root) => {
       const { canonical, childDir } = forkFixture(root, 'pause');
+      const before = readFileSync(canonical, 'utf8');
       const readToken = contentToken(canonical);
-      recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'write failed — deferred'));
-      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
-      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
+      // Force the direct same-tree resume write to actually throw: target a path
+      // that IS a directory (writeFileSync → EISDIR), modelling a write that dies
+      // mid-resume. The recovery path then records the durable marker. This kills a
+      // failure branch that swallows the error without persisting a recovery marker,
+      // or one that partially writes the parent.
+      let threw = false;
+      try {
+        writeFileSync(join(root, 'parent'), resumeMutation(ANCHOR)(before)); // root/parent is a dir
+      } catch {
+        threw = true;
+        recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'write failed — deferred'));
+      }
+      assert.equal(threw, true, 'the same-tree resume write actually failed (EISDIR)');
+      const links = readLinks(childDir);
+      assert.equal(links.pendingWriteback.op, 'resumeParent', 'a real failure persisted a durable resume marker');
+      assert.equal(validateLinks(links).valid, true);
+      assert.equal(readFileSync(canonical, 'utf8'), before, 'parent plan byte-identical on a failed resume write');
     });
+  });
+});
+
+// The fork-resume LOGIC lives in a procedure doc executed by an AI agent (no JS
+// executor — that is out of this phase's scope). These contract tests gate the
+// doc's load-bearing procedural guards: they FAIL if a future edit drops the hard
+// archive gate, the marker-before-mutation ordering, or the do-not-finalize rule —
+// the structural integrity the T-001 grep verifier cannot check.
+describe('fork-resume (F3): procedure-doc contract (project-transitions.md)', () => {
+  const DOC = readFileSync(new URL('../skills/shared/project-assets/project-transitions.md', import.meta.url), 'utf8');
+  const archiveSection = DOC.slice(DOC.indexOf('## `archive'), DOC.indexOf('## `switch'));
+  const forkResume = DOC.slice(DOC.indexOf('### `fork-resume`'), DOC.indexOf('## `switch'));
+
+  it('archive reads the fork edge BEFORE Plan archival and gates step 3 on the outcome', () => {
+    const gateIdx = archiveSection.indexOf('getSpawnedFrom');
+    const planArchivalIdx = archiveSection.indexOf('Plan archival');
+    assert.ok(gateIdx > -1, 'archive reads getSpawnedFrom');
+    assert.ok(gateIdx < planArchivalIdx, 'the edge is read before Plan archival (no finalize before the gate)');
+    assert.ok(archiveSection.includes('HARD gate'), 'step 2 is a hard gate, not a fall-through offer');
+    assert.ok(archiveSection.includes('STOP the `archive`'), 'a non-accept outcome STOPs the archive command before step 3');
+  });
+
+  it('pause accept records the recovery marker BEFORE the parent writes (marker-before-mutation)', () => {
+    const pause = forkResume.slice(forkResume.indexOf('mode `pause`'));
+    const recordIdx = pause.indexOf('recordPendingWriteback');
+    const mutateIdx = pause.indexOf('apply the resume mutation');
+    assert.ok(recordIdx > -1 && mutateIdx > -1, 'pause accept names both the marker write and the mutation');
+    assert.ok(recordIdx < mutateIdx, 'recordPendingWriteback precedes the non-atomic parent writes');
+    assert.ok(pause.includes('marker-before-mutation'), 'the ordering is called out explicitly');
+  });
+
+  it('a non-accept resume path explicitly leaves the child un-finalized', () => {
+    assert.ok(/refuse \/ no-TTY/.test(forkResume), 'the refuse/no-TTY path exists');
+    assert.ok(forkResume.includes('do **not** finalize the child'), 'a non-accept path explicitly does not finalize the child');
   });
 });
