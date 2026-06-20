@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-20T09:27:50.801Z",
+  "generatedAt": "2026-06-20T09:56:23.591Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "plan-fork",
@@ -8,15 +8,15 @@
     "status": "active"
   },
   "phase": {
-    "id": "F3",
-    "slug": "plan-fork-f3-loop-de-retomada-pause-e-parallel",
-    "title": "Loop de retomada (pause e parallel)",
-    "index": 4,
+    "id": "F4",
+    "slug": "plan-fork-f4-focus-resolver-pai-filho-pause-e-paralle",
+    "title": "Focus-resolver pai/filho (pause e parallel)",
+    "index": 5,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 2,
+    "done": 0,
     "total": 2,
     "blocked": 0
   },
@@ -24,7 +24,7 @@
     "met": 0,
     "total": 1
   },
-  "nextAction": "Phase-start gate F3: rodar `node scripts/list-lessons.js --phase F3` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-005 da F2 (writebackOrDefer, pendingWriteback, stale-lock, --mode=both) — ANTES de codar. Depois T-001: detecção de spawnedFrom no archive-propagation.",
+  "nextAction": "Phase-start gate F4: rodar `node scripts/list-lessons.js --phase F4` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-003 da F3 (hard-gate cross-model, doc-contract tests, marker-before-mutation) — ANTES de codar. Depois T-001: Consciência pai/filho no emit-focus e reconcile-focus.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -35,8 +35,8 @@
       "lastUpdated": "2026-06-20T01:33:14Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f3-loop-de-retomada-pause-e-parallel.md",
-      "lastUpdated": "2026-06-20T01:33:14Z"
+      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f4-focus-resolver-pai-filho-pause-e-paralle.md",
+      "lastUpdated": "2026-06-20T09:51:26Z"
     }
   ]
 }

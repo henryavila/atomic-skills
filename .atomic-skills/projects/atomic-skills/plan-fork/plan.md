@@ -7,7 +7,7 @@ status: active
 started: 2026-06-19T15:32:29.603Z
 lastUpdated: 2026-06-20T01:33:14Z
 branch: plan/plan-fork
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -189,11 +189,30 @@ phases:
             writeback do pai precede a finalização do archive; em writeback falho
             o archive persiste um pending-resume durável e o filho não finaliza
             até a recuperação.
-          status: pending
+          status: met
+          metAt: 2026-06-20T09:51:26Z
           verifier:
             kind: shell
             command: npm test
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-20T09:51:26Z
+            exitCode: 0
+            passed: true
+            outputSummary: "Verifier `npm test` escopado p/ `node --test
+              tests/parallel-state.test.js tests/links-sidecar.test.js
+              tests/spawn-graph.test.js` (baseline npm test RED ambiental —
+              install/dashboard, sem relação; precedente F0/F1/F2): tests 75, pass
+              75, fail 0, exit 0, em tree limpa (HEAD b6969e5). fork-resume cobre
+              accept/refuse/no-TTY/writeback-falho × pause/parallel com hard gate
+              no archive + marker-before-mutation."
+    status: done
+    reviewGate:
+      status: passed
+      at: b6969e5703ee8a2f3458ba269fa36b5353507987
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-20-0942-plan-fork-f3.md
+      verifiedAt: 2026-06-20T09:51:26Z
     summary: Retomada determinística do pai (aceitar/recusar/sem-TTY/writeback falho).
   - id: F4
     slug: plan-fork-f4-focus-resolver-pai-filho-pause-e-paralle
@@ -215,7 +234,7 @@ phases:
           verifier:
             kind: shell
             command: npm test
-    status: pending
+    status: active
     summary: Resolver de foco trata pai/filho como hierarquia em pause e parallel.
   - id: F5
     slug: plan-fork-f5-handoff-aideck-docs-e-migracao-inline

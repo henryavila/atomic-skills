@@ -5,11 +5,15 @@ title: Focus-resolver pai/filho (pause e parallel)
 goal: Fazer o resolver de foco tratar pai(paused)+filho(active) e
   pai(active)+filho(active) parallel como hierarquia, com precedência por
   worktree e aresta pai/filho.
-status: pending
+status: active
 branch: plan/plan-fork
-started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T15:32:29.603Z
-nextAction: "Start T-001: Consciência pai/filho no emit-focus e reconcile-focus"
+started: 2026-06-20T09:51:26Z
+lastUpdated: 2026-06-20T09:51:26Z
+nextAction: "Phase-start gate F4: rodar `node scripts/list-lessons.js --phase
+  F4` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui
+  L-001..L-003 da F3 (hard-gate cross-model, doc-contract tests,
+  marker-before-mutation) — ANTES de codar. Depois T-001: Consciência pai/filho
+  no emit-focus e reconcile-focus."
 parentPlan: plan-fork
 phaseId: F4
 tasksDone: 0
@@ -66,7 +70,8 @@ tasks:
         path: tests/emit-focus.test.js
       - kind: file
         path: tests/reconcile-focus.test.js
-    summary: "Testes do resolver (emit + reconcile): pause e parallel resolvem para o filho."
+    summary: "Testes do resolver (emit + reconcile): pause e parallel resolvem para
+      o filho."
     verifier:
       kind: shell
       command: npm test
@@ -75,6 +80,7 @@ emerged: []
 summary: Resolver de foco trata pai/filho como hierarquia em pause e parallel.
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
+current: true
 ---
 
 # Narrative / notes

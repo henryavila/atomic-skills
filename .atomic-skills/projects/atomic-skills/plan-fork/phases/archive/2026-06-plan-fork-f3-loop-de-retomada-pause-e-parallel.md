@@ -5,20 +5,16 @@ title: Loop de retomada (pause e parallel)
 goal: Na conclusão/archive do filho, oferecer retomar o pai na fase-âncora em
   ambos os modos, com semântica determinística para aceitar, recusar, sem TTY e
   writeback falho.
-status: active
+status: done
 branch: plan/plan-fork
 started: 2026-06-20T01:33:14Z
-lastUpdated: 2026-06-20T01:33:14Z
-nextAction: "F3 no PHASE BOUNDARY: T-001+T-002 done (2/2). Próximo = rodar
-  `phase-done` (intrusivo, opt-in do usuário): roda os exit-gate verifiers,
-  o review-code gate `--mode=both` (decisão registrada: contrato
-  porta-de-mão-única + verifier grep fraco) sobre o diff da fase, e avança o
-  plano pra F4. NÃO auto-avançar."
+lastUpdated: 2026-06-20T09:51:26Z
+nextAction: null
 parentPlan: plan-fork
 phaseId: F3
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F3-G1
@@ -28,11 +24,23 @@ exitGates:
       pai precede a finalização do archive; em writeback falho o archive
       persiste um pending-resume durável e o filho não finaliza até a
       recuperação.
-    status: pending
+    status: met
+    metAt: 2026-06-20T09:51:26Z
     verifier:
       kind: shell
       command: npm test
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T09:51:26Z
+      exitCode: 0
+      passed: true
+      outputSummary: "node --test tests/parallel-state.test.js
+        tests/links-sidecar.test.js tests/spawn-graph.test.js (npm test
+        escopado, baseline RED ambiental) → tests 75, pass 75, fail 0, exit 0,
+        tree limpa HEAD b6969e5. Review --mode=both: blind 4 major → final 3
+        major, todos corrigidos."
     verifierLabel: "shell: npm test"
+    evidenceSummary: passed · 2026-06-20
 stack:
   - id: 1
     title: Loop de retomada (pause e parallel)
@@ -124,6 +132,15 @@ current: true
 # Narrative / notes
 
 Initiative for phase **F3 — Loop de retomada (pause e parallel)**.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed, cada uma com `outputs[]` ligado às linhas-fonte (project-transitions.md, tests/parallel-state.test.js); cada fix de review leu as linhas antes do Edit.
+- **G2 soft-language**: escaneado nextAction + descrições de task/criério + handoff; 0 violações (claims são `passed:true` evidence).
+- **G6 reference-or-strike**: F3-G1 met com `evidence:` populada; literais do handoff são paths/comandos/shas verbatim (HEAD b6969e5, verifier escopado).
+- **Codex review**: rodou via review-code `--mode=both` em HEAD b6969e5, verdict needs_changes→resolvido, blind 0B/0C/4M → final 0B/0C/3M (1 dropped), framing Δ {dropped:1, maintained:3, emerged:0}, file `.atomic-skills/reviews/2026-06-20-0942-plan-fork-f3.md`.
+- **Review gate (G2)**: gravado no descriptor do plano como `reviewGate: { status: passed, at: b6969e5…, mode: both }`. Prosa e campo concordam (GATE-R3).
+- **Lessons (G1)**: 3 lessons reusable distiladas em `lessons/plan-fork-f3-loop-de-retomada-pause-e-parallel.md` (hard-gate cross-model, doc-contract tests, marker-before-mutation), ratificadas pelo usuário. O phase-start da F4 as dispõe via `list-lessons --phase F4`.
 
 ## Decisions
 
