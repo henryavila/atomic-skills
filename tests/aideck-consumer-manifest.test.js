@@ -290,3 +290,54 @@ describe('aiDeck consumer manifest — adopts the DS v2.1 widgets', () => {
     assert.equal(catalogSrc.path, 'meta/catalog.json');
   });
 });
+
+describe('aiDeck consumer manifest — Ritmo (burn-up / SPI render, F5)', () => {
+  it('registers the burnup + spi series dataSources (emitted, root: project)', () => {
+    const byId = new Map(manifest.dataSources.map((d) => [d.id, d]));
+    for (const id of ['burnup', 'spi']) {
+      const ds = byId.get(id);
+      assert.ok(ds, `missing dataSource ${id}`);
+      assert.equal(ds.format, 'json', `${id} must be json`);
+      assert.equal(ds.root, 'project', `${id} must be root: project (watched for SSE)`);
+      assert.match(ds.path, /\.aideck\/state\/(burnup|spi)\.json$/, `${id} must read the emitted state series file`);
+    }
+  });
+
+  it('renders a Ritmo section with a 3-track burn-up line-chart bound to burnup', () => {
+    const ritmo = section('plan', 'Ritmo');
+    assert.ok(ritmo, 'the plan page must carry a "Ritmo" section');
+    const chart = ritmo.widgets.find((w) => w.widget === 'line-chart');
+    assert.ok(chart, 'Ritmo must include a line-chart');
+    assert.equal(chart.source.ref, 'burnup', 'the chart binds the burnup series');
+    assert.equal(chart.config.xField, 'date', 'x axis is the burn-up date');
+    assert.deepEqual(
+      chart.config.series,
+      ['plannedValue', 'earnedCount', 'earnedProxy'],
+      'the chart plots the planned line + both earned bases (count & proxy)',
+    );
+    // burnup is per-plan: scoped to the route's projectId + planSlug.
+    assert.ok(chart.source.param?.match, 'the chart must scope to the selected plan (param.match)');
+  });
+
+  it('renders the SPI from the spi series (spiProxy headline, spiCount informative)', () => {
+    const ritmo = section('plan', 'Ritmo');
+    const spiWidgets = ritmo.widgets.filter((w) => w.source?.ref === 'spi');
+    assert.ok(spiWidgets.length >= 1, 'Ritmo must bind the spi series');
+    const gauge = spiWidgets.find((w) => w.widget === 'gauge' && w.config?.valueField === 'spiProxy');
+    assert.ok(gauge, 'spiProxy is rendered as a gauge (precomputed scalar; stat value:field() is retired in v2.1)');
+    const spiCountShown = spiWidgets.some(
+      (w) => (w.config?.valueField === 'spiCount') || (Array.isArray(w.config?.fields) && w.config.fields.includes('spiCount')),
+    );
+    assert.ok(spiCountShown, 'spiCount must be surfaced too (informative)');
+  });
+
+  it('uses only widgets in the published aiDeck registry (no invented widget)', () => {
+    const registry = new Set(
+      JSON.parse(readFileSync(join(__dirname, '..', 'meta', 'aideck-widget-registry.json'), 'utf8')).widgets,
+    );
+    const ritmo = section('plan', 'Ritmo');
+    for (const w of allWidgets(ritmo.widgets)) {
+      assert.ok(registry.has(w.widget), `Ritmo widget "${w.widget}" is not in the published aiDeck registry`);
+    }
+  });
+});

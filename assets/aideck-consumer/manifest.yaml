@@ -74,6 +74,11 @@ dataSources:
   - { id: stack,       path: '.atomic-skills/.aideck/state/stack.json',         format: json, root: project }
   - { id: parked,      path: '.atomic-skills/.aideck/state/parked.json',        format: json, root: project }
   - { id: emerged,     path: '.atomic-skills/.aideck/state/emerged.json',       format: json, root: project }
+  # Forecast earned-value series + SPI — precomputed per-plan (planSlug) by
+  # emit-consumer-state.js (buildSeries); the v0.1 runtime has no series-aggregation
+  # engine, so the manifest binds these bare arrays directly (no read-time agg).
+  - { id: burnup,      path: '.atomic-skills/.aideck/state/burnup.json',        format: json, root: project }
+  - { id: spi,         path: '.atomic-skills/.aideck/state/spi.json',           format: json, root: project }
   # Skill catalog projection (scripts/generate-catalog-json.js) → the Ajuda page.
   - { id: catalog,     path: 'meta/catalog.json', format: json, root: project }
   # Inbox: the MCP mutation handlers append intents here (jsonl ⇒ a writable dir).
@@ -377,6 +382,34 @@ pages:
             colSpan: 4
             source: { ref: emerged, param: { match: [projectId, { field: planSlug, param: slug }, { field: phaseId, state: selectedPhase }] } }
             config: { title: 'Emerged', titleField: title, emptyNote: 'Nada emergido.' }
+      # ── Ritmo (burn-up / earned-value): ganho acumulado vs a linha planejada até o
+      # deadline do plano, + o SPI. Séries pré-computadas em burnup.json/spi.json
+      # (o engine v0.1 não agrega séries) e scoped ao plano da rota (projectId +
+      # planSlug). plannedValue/SPI são null sem `deadline` no plano → a linha
+      # planejada e o SPI ficam em 0 (tolerância a null do runtime) e ganham sentido
+      # quando o plano declara deadline. SPI via `gauge`/`key-value` (valueField/
+      # fields): `stat` só computa via `value: count()/field()`, aposentado no
+      # contrato v2.1 — gauge é o widget publicado p/ um escalar pré-computado.
+      - title: 'Ritmo'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: line-chart
+            colSpan: 8
+            source: { ref: burnup, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            config:
+              title: 'Burn-up (planejado vs ganho)'
+              xField: date
+              series: [plannedValue, earnedCount, earnedProxy]
+              area: false
+          - widget: gauge
+            colSpan: 2
+            source: { ref: spi, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            config: { valueField: spiProxy, max: 2, label: 'SPI (proxy)' }
+          - widget: key-value
+            colSpan: 2
+            source: { ref: spi, param: { match: [projectId, { field: planSlug, param: slug }] } }
+            config: { fields: [spiProxy, spiCount, deadline, asOf] }
 
   # ── CONCLUÍDOS (layout: single) — tabela de planos done/archived. ────────────
   - slug: concluidos
