@@ -30,7 +30,7 @@
       "description": "Set on the CHILD's sidecar when a cross-worktree writeback to the parent's canonical state aborted on conflict (content-hash mismatch, parallel mode). Declarative (op+args re-applied against fresh parent state on retry), never a byte patch. Cleared on successful writeback. See docs/design/plan-fork-parallel-state.md (F2).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["target", "parent", "op", "readToken", "detectedAt"],
+      "required": ["target", "parent", "op", "args", "readToken", "detectedAt"],
       "properties": {
         "target": { "type": "string", "enum": ["parent-plan", "parent-sidecar"] },
         "parent": { "type": "string", "minLength": 1 },
@@ -39,7 +39,39 @@
         "readToken": { "type": "string", "minLength": 1 },
         "detectedAt": { "type": "string", "minLength": 1 },
         "reason": { "type": "string" }
-      }
+      },
+      "allOf": [
+        {
+          "comment": "Per-op args shape — a malformed replay payload must fail at record time, not at F3 replay (L-002 deferred-failure guard).",
+          "if": { "properties": { "op": { "const": "addSpawnedPlan" } } },
+          "then": {
+            "properties": {
+              "args": {
+                "type": "object",
+                "required": ["phaseId", "childSlug"],
+                "properties": {
+                  "phaseId": { "type": "string", "minLength": 1 },
+                  "childSlug": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "resumeParent" } } },
+          "then": {
+            "properties": {
+              "args": {
+                "type": "object",
+                "required": ["phaseId"],
+                "properties": {
+                  "phaseId": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
