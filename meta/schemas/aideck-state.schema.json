@@ -202,7 +202,8 @@
       "required": [
         "id", "name", "totalPlans", "activeCount", "blockedCount", "concludedCount",
         "isParallel", "hasActiveFront", "mode", "parallelTone", "plansSummary",
-        "phasesActiveText", "bannerTitle", "bannerSub", "moreFrontsText", "updatedRel"
+        "phasesActiveText", "bannerTitle", "bannerSub", "moreFrontsText", "updatedRel",
+        "dotTone", "moreText", "idleText", "fronts"
       ],
       "properties": {
         "id": { "type": "string" },

@@ -40,3 +40,4 @@
 | 2026-06-17 19:38 | [deadline-burnup-forecast-f0](2026-06-17-1938-code-deadline-burnup-forecast-f0.md) | code (local) | needs_changes→all fixed | 0B/1C/1M/1m/0n | — |
 | 2026-06-19 09:20 | [deadline-burnup-forecast-f1](2026-06-19-0920-code-deadline-burnup-forecast-f1.md) | code (local) | approved | 0B/0C/0M/3m/0n (all advisory; m2→F4 lesson) | — |
 | 2026-06-19 17:21 | [deadline-burnup-forecast-f3](2026-06-19-1721-code-deadline-burnup-forecast-f3.md) | code (both) | needs_changes→C+2M fixed, 1M pending user | local 0B/1C/2M/2m · codex 0B/0C/1M/2m | 2d/1+ |
+| 2026-06-20 09:15 | [deadline-burnup-forecast-f5](2026-06-20-0915-code-deadline-burnup-forecast-f5.md) | code (both) | approved w/ caveats — C4 fixed; L1+C3 routed to user as F3 follow-ups | local 0B/0C/1M/2m · codex 0B/0C/3M/1m | F-001 rejected (oos+fp) |

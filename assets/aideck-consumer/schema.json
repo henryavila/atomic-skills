@@ -1796,7 +1796,11 @@
         "bannerTitle",
         "bannerSub",
         "moreFrontsText",
-        "updatedRel"
+        "updatedRel",
+        "dotTone",
+        "moreText",
+        "idleText",
+        "fronts"
       ],
       "properties": {
         "id": {
