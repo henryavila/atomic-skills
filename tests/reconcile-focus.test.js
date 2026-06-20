@@ -135,3 +135,61 @@ test('current marker clears when the plan is no longer active (stale-marker stri
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+/** A parallel fork: parent (active, currentPhase=anchor) + child (active) whose
+ *  links.json sidecar points spawnedFrom at the parent's anchor phase. */
+function buildForkTree() {
+  const root = mkdtempSync(join(tmpdir(), 'as-reconcile-fork-'));
+  const proj = join(root, '.atomic-skills', 'projects', 'proj');
+  const parent = join(proj, 'parent');
+  const child = join(proj, 'child');
+  mkdirSync(join(parent, 'phases'), { recursive: true });
+  mkdirSync(join(child, 'phases'), { recursive: true });
+
+  writeFm(join(parent, 'plan.md'), {
+    schemaVersion: '0.1', slug: 'parent', title: 'Parent', status: 'active', currentPhase: 'F3',
+    phases: [{ id: 'F3', status: 'active' }],
+  });
+  writeFm(join(parent, 'phases', 'f3.md'), { slug: 'parent-f3', status: 'active', phaseId: 'F3', parentPlan: 'parent' });
+
+  writeFm(join(child, 'plan.md'), {
+    schemaVersion: '0.1', slug: 'child', title: 'Child', status: 'active', currentPhase: 'C0',
+    phases: [{ id: 'C0', status: 'active' }],
+  });
+  writeFm(join(child, 'phases', 'c0.md'), { slug: 'child-c0', status: 'active', phaseId: 'C0', parentPlan: 'child' });
+  // the fork edge: child was forked FROM parent at anchor F3, parallel mode.
+  writeFileSync(join(child, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'parent', phaseId: 'F3', mode: 'parallel' } })}\n`);
+
+  return { root, parent, child };
+}
+
+test('reconcileDir defers the parent anchor-phase `current` marker to an active forked child (parallel)', () => {
+  const { root, parent, child } = buildForkTree();
+  try {
+    reconcileDir(root);
+    // The child's currentPhase IS the AGORA focus.
+    assert.ok(readFm(join(child, 'phases', 'c0.md')).current, 'child currentPhase is current');
+    // The parent's anchor phase F3 is its currentPhase, but an active child forked it
+    // → the hierarchy defers the `current` marker to the child (no double-AGORA).
+    const parentF3 = readFm(join(parent, 'phases', 'f3.md'));
+    assert.ok(!parentF3.current, 'parent anchor phase defers current to the active forked child');
+    // The parent is still active scope (timeline), just not the AGORA.
+    assert.ok(parentF3.planActive, 'parent anchor stays planActive (active timeline scope)');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('reconcileDir leaves `current` on a parent whose forked child is NOT active (no over-defer)', () => {
+  const { root, parent, child } = buildForkTree();
+  try {
+    // child paused → it is not an active work front, so the parent keeps the AGORA.
+    const childPlan = readFm(join(child, 'plan.md'));
+    childPlan.status = 'paused';
+    writeFm(join(child, 'plan.md'), childPlan);
+    reconcileDir(root);
+    assert.ok(readFm(join(parent, 'phases', 'f3.md')).current, 'parent keeps current when no active child forked it');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

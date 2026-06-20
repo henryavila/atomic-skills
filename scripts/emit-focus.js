@@ -22,6 +22,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, statSync, readdirS
 import { execSync } from 'node:child_process';
 import { join, resolve, relative, basename, dirname } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
+import { getSpawnedFrom } from '../src/links-sidecar.js';
 
 const SCHEMA_VERSION = '0.1';
 
@@ -68,7 +69,9 @@ function collectPlans(stateRoot) {
       const planFile = join(planDir, 'plan.md');
       if (!existsSync(planFile)) continue;
       const fm = readFm(planFile);
-      if (fm) plans.push({ projId, planDir, planFile, fm });
+      // The fork parent/child edge lives in the plan's links.json sidecar (not the
+      // aiDeck-facing frontmatter); a non-fork plan reads as null.
+      if (fm) plans.push({ projId, planDir, planFile, fm, spawnedFrom: getSpawnedFrom(planDir) });
     }
   }
   return plans;
@@ -113,7 +116,23 @@ function recentFirst(plans) {
  *
  * Focus precedence: exact branch-match > unbranched > any active (last resort);
  * ties broken by recency. Mirrors session-start.sh's branch-then-recency intent.
+ *
+ * Fork hierarchy (F4): a fork parent and its forked CHILD can both be active
+ * claimers (parallel mode, or no branch context). That is a hierarchy, not the
+ * multi-active drift the `⧉` marker warns about — a parent whose forked child is
+ * also a claimer is "superseded": focus resolves to the child and ambiguity is
+ * cleared. (The pause case already excludes the paused parent from `activePlans`.)
  */
+function supersededParentSlugs(plans) {
+  const present = new Set(plans.map((p) => p.fm?.slug).filter(Boolean));
+  const superseded = new Set();
+  for (const p of plans) {
+    const parentSlug = p.spawnedFrom?.plan;
+    if (parentSlug && present.has(parentSlug)) superseded.add(parentSlug);
+  }
+  return superseded;
+}
+
 function pickFocus(activePlans, branch) {
   let claimers;
   let pool;
@@ -126,11 +145,17 @@ function pickFocus(activePlans, branch) {
     claimers = activePlans; // no branch context → cannot disambiguate by tree
     pool = activePlans;
   }
-  const plan = recentFirst(pool)[0];
+  // F4: collapse fork parent→child pairs. A parent whose forked child is also a
+  // claimer yields focus + the claim to the child (precedence by the parent/child
+  // edge); the pair is one hierarchy, not two competitors.
+  const superseded = supersededParentSlugs(claimers);
+  const effClaimers = claimers.filter((p) => !superseded.has(p.fm?.slug));
+  const effPool = pool.filter((p) => !superseded.has(p.fm?.slug));
+  const plan = recentFirst(effPool.length ? effPool : pool)[0];
   return {
     plan,
     init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
-    ambiguous: claimers.length > 1,
+    ambiguous: effClaimers.length > 1,
   };
 }
 

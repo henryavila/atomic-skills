@@ -16,7 +16,7 @@ nextAction: "Phase-start gate F4: rodar `node scripts/list-lessons.js --phase
   no emit-focus e reconcile-focus."
 parentPlan: plan-fork
 phaseId: F4
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -37,8 +37,24 @@ stack:
 tasks:
   - id: T-001
     title: Consciência pai/filho no emit-focus e reconcile-focus
-    status: pending
-    lastUpdated: 2026-06-19T15:32:29.603Z
+    status: done
+    lastUpdated: 2026-06-20T10:18:26Z
+    closedAt: 2026-06-20T10:18:26Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T10:18:26Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Verifier npm test escopado p/ `node --test
+        tests/focus-digest.test.js tests/reconcile-focus.test.js` (baseline RED
+        ambiental — install/dashboard, sem relação): tests 18, pass 18, fail 0,
+        exit 0. Full npm test: 10 fails, TODOS no baseline ambiental conhecido,
+        0 novos (956 pass). emit-focus pickFocus colapsa par fork pai+filho →
+        foco no FILHO + multipleActivePlans=false (supersededParentSlugs lê
+        spawnedFrom do sidecar via getSpawnedFrom). reconcile-focus defere o
+        marcador `current` da fase-âncora do pai pro filho ativo (pre-scan
+        collectForkDeferrals → deferredAnchors). branch-match/recência
+        inalterados (scopeBoundary)."
     scopeBoundary:
       - apenas a regra de hierarquia pai/filho lida do sidecar; não alterar
         branch-match nem recência existentes.
@@ -57,8 +73,23 @@ tasks:
     summary: Hierarquia pai/filho no emit/reconcile-focus (pause e parallel).
   - id: T-002
     title: Testes do resolver nos dois casos
-    status: pending
-    lastUpdated: 2026-06-19T15:32:29.603Z
+    status: done
+    lastUpdated: 2026-06-20T10:18:26Z
+    closedAt: 2026-06-20T10:18:26Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T10:18:26Z
+      exitCode: 0
+      passed: true
+      outputSummary: "TDD red→green confirmado: os 2 testes-chave (parallel fork
+        resolve no filho; reconcile defere o current do pai) FALHARAM antes da
+        T-001 e passam depois. Testes estendem `tests/focus-digest.test.js`
+        (emit: parallel-fork→child, pause-fork→child, no-fork→ainda ambíguo) e
+        `tests/reconcile-focus.test.js` (defere current do pai; não defere
+        quando filho inativo) — NÃO o `tests/emit-focus.test.js` do spec
+        (naming-miss; emit já testado em focus-digest.test.js — design-brief/F0
+        L-003). Cada teste nomeia a mutação que mata. Verifier npm test
+        escopado: 18 pass, exit 0; full suite sem novos fails."
     scopeBoundary:
       - apenas casos de teste; a lógica de produção é a T-001.
     acceptance:
@@ -89,7 +120,21 @@ Initiative for phase **F4 — Focus-resolver pai/filho (pause e parallel)**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+### Phase-start lessons gate (F4) — disposição de 26 lessons aplicáveis
+**Apply (load-bearing p/ F4 — fase de CÓDIGO real, resolver de foco):**
+- design-brief/F0 L-003 — testes têm que ser descobertos pelo `npm test` (glob `tests/**`/`test/**`). **Decisão de escopo:** estender os testes EXISTENTES `tests/focus-digest.test.js` (emit) e `tests/reconcile-focus.test.js` (reconcile); NÃO criar `tests/emit-focus.test.js` (path do spec de T-002 é um naming-miss — os testes do emit já vivem em focus-digest.test.js). Glob pega ambos; evita duplicata/confusão.
+- plan-fork/F0 L-001 — reusar `getSpawnedFrom` (que usa o readLinks já endurecido: try/catch + rejeição não-objeto) p/ ler o elo; não escrever novo parser de sidecar.
+- plan-fork/F1 L-003 — a regra nova seleciona o filho pela aresta NOMEADA (`spawnedFrom.plan == pai.slug`), não por status/recência adivinhada; não alterar branch-match nem recência (scopeBoundary).
+- plan-fork/F3 L-002 + F2 L-005 — TDD: teste VERMELHO antes da T-001, verde depois; nomear a mutação que cada teste mata (sem tautologia). Testar via `buildFocusDigest`/`reconcileDir` em tree temp real (não asserir a própria escrita).
+- plan-fork/F3 L-001 + F1 L-001 — a precedência pai/filho é regra EXPLÍCITA no código, não invariante implícito.
+
+**Keep (julgar no phase-done):** design-brief/F0 L-001 + plan-fork/F2 L-004 — `--mode=both` p/ contrato porta-de-mão-única. F4 é lógica de resolver (recuperável/idempotente via reconcile), NÃO um contrato de concorrência/schema; decidir o modo pelo sinal DESTRUCTIVE no phase-done (provável local), mas a regra de foco é load-bearing — inclinar p/ both se incerto.
+
+**Stale p/ F4:** todas as lessons de procedure fork-plan (F1), schema-enum (design-brief F0 L-002/L-004), spawn-graph (plan-fork F0 L-002), installer round-trip (skills F6), extração de asset (skills F2/F3), lock/CAS (plan-fork F2 L-001/L-002/L-003/L-005 — não toco parallel-state).
+
+### Decisão de design — hierarquia em AMBOS os resolvers (reconcile under-specified no task)
+- **emit-focus `pickFocus`:** quando os claimers (plans que disputam a tree) contêm um par fork pai+filho (filho.spawnedFrom.plan == pai.slug, ambos presentes), o pai é "superseded" → foco resolve pro FILHO e `multipleActivePlans=false` (hierarquia, não a drift multi-active que o ⧉ marca). Pause já resolvia (pai paused fora de activePlans); o fix morde o caso parallel sem branch-disambiguation / mesma tree.
+- **reconcile-focus:** o marcador `current` do pai na fase-âncora é DEFERIDO pro filho ativo (parallel). reconcileDir monta um mapa parentSlug→Set(anchorPhaseId) dos filhos ATIVOS forkados, e reconcileInitiativeFile não marca `current` numa fase-âncora deferida. Mantém emit (AGORA único) e reconcile (marcador por-fase) consistentes. Plans não-forkados ficam inalterados.
 
 ## Links
 

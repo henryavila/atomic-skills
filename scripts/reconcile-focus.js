@@ -23,6 +23,7 @@ import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from '
 import { join, resolve } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { parseFrontmatter } from './validate-state.js';
+import { getSpawnedFrom } from '../src/links-sidecar.js';
 
 // Derived dashboard fields — never hand-authored; stripped + re-appended
 // canonically on every recompute. The booleans (planActive/current) are stamped
@@ -67,7 +68,12 @@ export function reconcileInitiativeFile(filePath, ctx) {
   // Cascade: a paused plan must not keep an `active` phase.
   const status = ctx.cascade && fm.status === 'active' ? 'paused' : fm.status;
   const planActive = ctx.planActive === true;
-  const current = planActive && ctx.currentPhase != null && fm.phaseId === ctx.currentPhase;
+  // F4: a fork parent defers the `current` (AGORA) marker on its anchor phase to an
+  // active forked child running that phase in parallel — so the dashboard never
+  // shows two AGORA phases for one hierarchy. `deferredAnchors` holds this plan's
+  // anchor phaseIds that an active child has forked.
+  const deferred = ctx.deferredAnchors instanceof Set && ctx.deferredAnchors.has(fm.phaseId);
+  const current = planActive && ctx.currentPhase != null && fm.phaseId === ctx.currentPhase && !deferred;
   const planTitle = ctx.planTitle ?? null;
 
   const statusChanged = status !== fm.status;
@@ -83,7 +89,7 @@ export function reconcileInitiativeFile(filePath, ctx) {
 }
 
 /** Reconcile one plan + its initiatives. Pushes change records into `out`. */
-function reconcilePlan(planFile, planDir, out) {
+function reconcilePlan(planFile, planDir, out, deferredAnchors = new Set()) {
   let planRaw;
   try { planRaw = readFileSync(planFile, 'utf8'); } catch (err) {
     out.push({ filePath: planFile, changed: false, error: `read failed: ${err.message}` });
@@ -132,9 +138,33 @@ function reconcilePlan(planFile, planDir, out) {
   if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return;
   for (const entry of readdirSync(phasesDir)) {
     if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-    const r = reconcileInitiativeFile(join(phasesDir, entry), { planActive, currentPhase, cascade, planTitle });
+    const r = reconcileInitiativeFile(join(phasesDir, entry), { planActive, currentPhase, cascade, planTitle, deferredAnchors });
     if (r.changed || r.error) out.push(r);
   }
+}
+
+/** Read a plan/initiative frontmatter, or null on read/parse failure. */
+function readFmSafe(filePath) {
+  let raw;
+  try { raw = readFileSync(filePath, 'utf8'); } catch { return null; }
+  const parsed = parseFrontmatter(raw);
+  return parsed.error ? null : parsed.frontmatter;
+}
+
+/**
+ * F4 pre-scan: build `parentSlug → Set(anchor phaseId)` from every ACTIVE plan
+ * that is a fork child (its links.json carries `spawnedFrom`). The parent then
+ * defers the `current` marker on those anchor phases to the active child. Keyed
+ * by slug (not path) — fork is intra-project, slugs are unique per project tree.
+ */
+function collectForkDeferrals(planEntries) {
+  const map = new Map();
+  for (const { fm, spawnedFrom } of planEntries) {
+    if (!fm || fm.status !== 'active' || !spawnedFrom?.plan || !spawnedFrom?.phaseId) continue;
+    if (!map.has(spawnedFrom.plan)) map.set(spawnedFrom.plan, new Set());
+    map.get(spawnedFrom.plan).add(spawnedFrom.phaseId);
+  }
+  return map;
 }
 
 /** Walk the nested `.atomic-skills/projects/<id>/<slug>/` tree and reconcile each plan. */
@@ -145,6 +175,9 @@ export function reconcileDir(dir) {
   if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) {
     return { changes: out, changed: 0 };
   }
+  // First pass: enumerate every plan + its fork edge so the parent can defer its
+  // anchor `current` marker to an active forked child (needs cross-plan knowledge).
+  const planEntries = [];
   for (const projId of readdirSync(projectsDir)) {
     const projPath = join(projectsDir, projId);
     if (!statSync(projPath).isDirectory()) continue;
@@ -152,8 +185,15 @@ export function reconcileDir(dir) {
       const planDir = join(projPath, planSlug);
       if (!statSync(planDir).isDirectory()) continue;
       const planFile = join(planDir, 'plan.md');
-      if (existsSync(planFile)) reconcilePlan(planFile, planDir, out);
+      if (!existsSync(planFile)) continue;
+      planEntries.push({ planFile, planDir, fm: readFmSafe(planFile), spawnedFrom: getSpawnedFrom(planDir) });
     }
+  }
+  const deferrals = collectForkDeferrals(planEntries);
+  // Second pass: reconcile each plan, passing the anchor phaseIds it must defer.
+  for (const { planFile, planDir, fm } of planEntries) {
+    const deferred = (fm?.slug && deferrals.get(fm.slug)) || new Set();
+    reconcilePlan(planFile, planDir, out, deferred);
   }
   return { changes: out, changed: out.filter((c) => c.changed).length };
 }

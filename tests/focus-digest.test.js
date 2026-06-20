@@ -277,3 +277,66 @@ test('no branch context → cannot disambiguate, ambiguity falls back to active 
     rmSync(repo, { recursive: true, force: true });
   }
 });
+
+// ── F4: fork parent/child hierarchy in the focus resolver ──
+// A fork child carries `spawnedFrom: { plan, phaseId, mode }` in its links.json
+// sidecar. When a parent and its forked child are BOTH active claimers of a tree
+// (parallel mode, or no branch context), they are a hierarchy — focus resolves to
+// the CHILD and it is NOT the multi-active drift the ⧉ marker warns about.
+function writeChildSidecar(repo, slug, parentSlug, phaseId, mode) {
+  const planDir = join(repo, '.atomic-skills', 'projects', 'p', slug);
+  writeFileSync(join(planDir, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: parentSlug, phaseId, mode } })}\n`);
+}
+
+test('F4: parallel fork (parent active + child active) resolves to the CHILD, not ambiguous', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-fork-'));
+  try {
+    // parent is MORE recent than child → recency alone would pick the parent.
+    writeBranchedPlan(repo, 'plan-parent', null, '2026-06-15T10:00:00Z');
+    writeBranchedPlan(repo, 'plan-child', null, '2026-06-15T08:00:00Z');
+    writeChildSidecar(repo, 'plan-child', 'plan-parent', 'F3', 'parallel');
+    // No branch context: without the fork rule → 2 active claimers, recency picks
+    // the parent, multipleActivePlans=true. With it → parent superseded by its
+    // active child → focus = child, no ambiguity. (Mutation killed: drop the collapse.)
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.plan.slug, 'plan-child', 'focus resolves to the fork child, not the parent');
+    assert.equal(d.flags.multipleActivePlans, false, 'a parent/child fork pair is a hierarchy, not drift');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: pause fork (parent paused + child active) resolves to the child, not ambiguous', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-fork-pause-'));
+  try {
+    writeBranchedPlan(repo, 'plan-child', null, '2026-06-15T08:00:00Z');
+    writeChildSidecar(repo, 'plan-child', 'plan-parent', 'F3', 'pause');
+    // parent paused → not an active claimer at all; child is the sole active work front.
+    const parentDir = join(repo, '.atomic-skills', 'projects', 'p', 'plan-parent');
+    mkdirSync(join(parentDir, 'phases'), { recursive: true });
+    writeFm(join(parentDir, 'plan.md'), [
+      'schemaVersion: "0.1"', 'slug: plan-parent', 'title: plan-parent', 'status: paused',
+      'currentPhase: F3', 'lastUpdated: 2026-06-15T10:00:00Z',
+      'phases:', '  - id: F3', '    slug: plan-parent-f3', '    title: Anchor', '    status: paused',
+    ].join('\n'));
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.plan.slug, 'plan-child', 'paused parent yields focus to the active child');
+    assert.equal(d.flags.multipleActivePlans, false);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: two active plans with NO fork edge stay ambiguous (rule does not over-collapse)', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-nofork-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', null, '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', null, '2026-06-15T10:00:00Z');
+    // no links.json on either → not a fork pair → the fork rule must NOT collapse them.
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.flags.multipleActivePlans, true, 'unrelated active plans are still drift');
+    assert.equal(d.plan.slug, 'plan-b', 'recency fallback unchanged');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
