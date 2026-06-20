@@ -65,30 +65,43 @@ const completionLines = [
 ];
 
 describe('buildSeries', () => {
-  it('builds per-plan burn-up buckets and SPI without mixing plans or emitting non-finite numbers', () => {
+  it('builds a DENSE daily burn-up (carry-forward across quiet days) + SPI, per plan', () => {
     const { burnup, spi } = buildSeries(seriesTree(), completionLines, NOW);
 
     const planA = burnup.filter((r) => r.planSlug === 'plan-a');
     const planB = burnup.filter((r) => r.planSlug === 'plan-b');
     const planC = burnup.filter((r) => r.planSlug === 'plan-c');
 
-    assert.equal(planA.length, 2);
-    assert.deepEqual(planA.map((r) => r.date), ['2026-01-03', '2026-01-05']);
-    assert.equal(planB.length, 1);
-    assert.equal(planB[0].date, '2026-01-04');
-    assert.equal(planB[0].earnedProxy, 0);
-    assert.equal(planB[0].earnedCount, 1);
+    // Dense: one row per UTC day from started (2026-01-01) through now (2026-01-06),
+    // NOT just the days that had completions — so the chart renders a continuous curve.
+    const span = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05', '2026-01-06'];
+    assert.deepEqual(planA.map((r) => r.date), span);
+    assert.deepEqual(planB.map((r) => r.date), span);
+    assert.deepEqual(planC.map((r) => r.date), span);
 
-    assert.equal(planA[0].earnedProxy, 2);
-    assert.equal(planA[0].earnedCount, 1);
-    assert.equal(planA[0].plannedValue, 2);
-    assert.equal(planA[1].earnedProxy, 5);
-    // double-count guard (finding #1): the 2026-01-05 phase-done aggregate event
-    // (weight 1/count) must be excluded from earned. Drop the `event === 'task-done'`
-    // filter in buildSeries and earnedCount here becomes 2 (task-done + phase-done) — RED.
-    assert.equal(planA[1].earnedCount, 1);
-    assert.equal(planA[1].plannedValue, 4);
-    assert.ok(planA[1].plannedValue > planA[0].plannedValue);
+    const dayA = Object.fromEntries(planA.map((r) => [r.date, r]));
+    // Earned is cumulative-through-day and CARRIES FORWARD on quiet days.
+    assert.deepEqual([dayA['2026-01-01'].earnedProxy, dayA['2026-01-01'].earnedCount], [0, 0]);
+    assert.deepEqual([dayA['2026-01-03'].earnedProxy, dayA['2026-01-03'].earnedCount], [2, 1]);
+    assert.deepEqual([dayA['2026-01-04'].earnedProxy, dayA['2026-01-04'].earnedCount], [2, 1]); // quiet day → carry forward
+    // double-count guard: the 2026-01-05 phase-done aggregate event (weight 1/count)
+    // is EXCLUDED from earned; only the two task-done events count → proxy 5, count 1.
+    assert.deepEqual([dayA['2026-01-05'].earnedProxy, dayA['2026-01-05'].earnedCount], [5, 1]);
+    assert.deepEqual([dayA['2026-01-06'].earnedProxy, dayA['2026-01-06'].earnedCount], [5, 1]); // quiet day → carry forward
+    // Planned line rises 0 → weightTotal (10) over started→deadline (10 days).
+    assert.equal(dayA['2026-01-01'].plannedValue, 0);
+    assert.equal(dayA['2026-01-03'].plannedValue, 2);
+    assert.equal(dayA['2026-01-06'].plannedValue, 5);
+
+    const dayB = Object.fromEntries(planB.map((r) => [r.date, r]));
+    assert.equal(dayB['2026-01-03'].earnedCount, 0);
+    assert.equal(dayB['2026-01-04'].earnedCount, 1);
+    assert.equal(dayB['2026-01-06'].earnedCount, 1); // carries forward
+    assert.ok(planB.every((r) => r.earnedProxy === 0));
+
+    // plan-c (no deadline): STILL a dense series, but plannedValue null throughout.
+    assert.ok(planC.every((r) => r.plannedValue === null));
+    assert.ok(planC.every((r) => r.earnedCount === 0 && r.earnedProxy === 0));
 
     const planASpi = spi.find((r) => r.planSlug === 'plan-a');
     assert.equal(planASpi.spiProxy, 1);
@@ -100,7 +113,6 @@ describe('buildSeries', () => {
     assert.equal(planASpi.weightTotal, 10);
     assert.equal(planASpi.tasksTotal, 3);
 
-    assert.ok(planC.every((r) => r.plannedValue === null));
     const planCSpi = spi.find((r) => r.planSlug === 'plan-c');
     assert.equal(planCSpi.spiProxy, null);
     assert.equal(planCSpi.spiCount, null);
@@ -118,6 +130,39 @@ describe('buildSeries', () => {
         assert.ok(row[field] === null || Number.isFinite(row[field]), `${field} must be finite or null`);
       }
     }
+  });
+
+  it('reports SPI PAST the deadline (planned clamps to full; an overdue plan is not blank)', () => {
+    // plan-d is OVERDUE: deadline 2026-01-04 < now 2026-01-06.
+    const tree = seriesTree();
+    tree.plans.push({
+      projectId: 'projA', planSlug: 'plan-d',
+      fm: { started: '2026-01-01T00:00:00Z', deadline: '2026-01-04T00:00:00Z' },
+    });
+    tree.initiatives.push({
+      projectId: 'projA', planSlug: 'plan-d', fm: { tasks: [{ id: 'T-1', weight: 4 }] },
+    });
+    const lines = [
+      ...completionLines,
+      { projectId: 'projA', planSlug: 'plan-d', ts: '2026-01-02T10:00:00Z', event: 'task-done', weight: 4, weightBasis: 'proxy' },
+      { projectId: 'projA', planSlug: 'plan-d', ts: '2026-01-02T10:00:00Z', event: 'task-done', weight: 1, weightBasis: 'count' },
+    ];
+    const { spi, burnup } = buildSeries(tree, lines, NOW);
+
+    const d = spi.find((r) => r.planSlug === 'plan-d');
+    // Past the deadline, plannedProxyNow clamps to weightTotal (4) and plannedCountNow
+    // to tasksTotal (1); SPI = earned / full-planned = 4/4 and 1/1 — NOT null.
+    // (Pre-fix: the `nowMs <= deadline` window bound forced both to null.)
+    assert.equal(d.spiProxy, 1);
+    assert.equal(d.spiCount, 1);
+
+    // The dense series still runs started→now even though that crosses the deadline;
+    // plannedValue clamps to weightTotal (4) on/after the deadline day.
+    const planD = burnup.filter((r) => r.planSlug === 'plan-d');
+    assert.deepEqual(planD.map((r) => r.date),
+      ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05', '2026-01-06']);
+    assert.equal(planD.at(-1).plannedValue, 4); // clamped to weightTotal past the deadline
+    assert.equal(planD.at(-1).earnedProxy, 4);
   });
 });
 

@@ -78,7 +78,7 @@ Emitidos por `scripts/emit-consumer-state.js` (`buildSeries` `:403`, `writeState
 | `burnup` | `.atomic-skills/.aideck/state/burnup.json` | JSON array | project |
 | `spi` | `.atomic-skills/.aideck/state/spi.json` | JSON array | project |
 
-**`burnup`** (1 record por (plano × dia-UTC com ≥1 `task-done`); schema `meta/schemas/aideck-state.schema.json:241-253`):
+**`burnup`** (série diária DENSA: 1 record por dia-UTC de `started` até `now`, com o ganho acumulado carregado adiante em dias sem conclusão — para o chart renderar uma curva contínua, não só pontos isolados; schema `meta/schemas/aideck-state.schema.json:241-253`):
 - `projectId` string · `planSlug` string · `date` string `YYYY-MM-DD` (eixo X)
 - `plannedValue` number|null — linha planejada `weightTotal * clamp01((diaInício − started)/(deadline − started))`; **null sem janela planejada**
 - `earnedCount` number — ganho acumulado por contagem (1 por task done; só `event==='task-done'`, `phase-done` excluído)
@@ -90,7 +90,7 @@ Emitidos por `scripts/emit-consumer-state.js` (`buildSeries` `:403`, `writeState
 - `spiProxy` number|null = `earnedProxyNow / plannedProxyNow`
 - `spiCount` number|null = `earnedCountNow / plannedCountNow`
 
-**Null (exato):** `plannedValue` é null sse `!(started finito ∧ deadline finito ∧ deadline > started)`. `spiProxy/spiCount` são null a menos que `nowMs` esteja DENTRO da janela `[started, deadline]` E o denominador planejado seja finito e > 0 (`emit-consumer-state.js:428-431,482,494-499`). O render **tem de tolerar null** (linha planejada ausente/plana, SPI "—").
+**Null (exato):** `plannedValue` é null sse `!(started finito ∧ deadline finito ∧ deadline > started)`. `spiProxy/spiCount` são null sem janela planejada (sem deadline) OU antes de `started`; **reportam de `started` em diante, INCLUSIVE após o deadline** (aí `plannedProxyNow/plannedCountNow` clampam a `weightTotal/tasksTotal`, então um plano atrasado mostra SPI = ganho/planejado-total < 1 em vez de apagar). O render **tem de tolerar null** (linha planejada ausente/plana, SPI "—").
 
 > ⚠️ **Pré-requisito de DADO (não é tarefa do dashboard):** sem `plan.deadline` no frontmatter, `plannedValue`/`spiProxy`/`spiCount` são null. **Este plano vai declarar seu próprio `deadline` antes do F5** — senão o gráfico não tem linha planejada nem SPI para comparar.
 

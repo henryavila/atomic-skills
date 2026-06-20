@@ -448,28 +448,41 @@ export function buildSeries(tree, completionLines, nowMs) {
       return finiteOrNull(tasksTotal * clamp01((ms - started) / (deadline - started)));
     };
 
+    // Bucket earned increments by UTC day (phase-done already excluded above).
+    const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
     const byDay = new Map();
     for (const event of earnedEvents) {
       const ts = Date.parse(String(event.ts || ''));
       if (!Number.isFinite(ts)) continue;
-      const day = new Date(ts).toISOString().slice(0, 10);
+      const day = dayKey(ts);
       if (!byDay.has(day)) byDay.set(day, []);
       byDay.get(day).push(event);
     }
 
+    // DENSE daily series: one row per UTC day from the plan's start through `now`,
+    // carrying cumulative earned forward across quiet days — so the burn-up renders
+    // a continuous curve, not just the days that happened to have completions.
+    // Completion days are unioned in (covers events before `started` / clock skew).
+    // Falls back to completion-day buckets only when `started` is unparseable.
+    const days = new Set(byDay.keys());
+    const startedDayMs = Number.isFinite(started) ? Date.parse(`${dayKey(started)}T00:00:00Z`) : null;
+    if (startedDayMs !== null) {
+      const ONE_DAY = 86400000;
+      const endMs = Math.max(Date.parse(`${dayKey(nowMs)}T00:00:00Z`), startedDayMs);
+      for (let ms = startedDayMs; ms <= endMs; ms += ONE_DAY) days.add(dayKey(ms));
+    }
+
     let earnedCount = 0;
     let earnedProxy = 0;
-    for (const day of [...byDay.keys()].sort()) {
-      for (const event of byDay.get(day)) {
+    for (const day of [...days].sort()) {
+      for (const event of (byDay.get(day) || [])) {
         if (event.weightBasis === 'count') earnedCount += eventWeightOf(event);
         if (event.weightBasis === 'proxy') earnedProxy += eventWeightOf(event);
       }
-      // Bucket semantics (explicit): each row is "cumulative earned THROUGH this
-      // UTC day" vs "planned value at the START of the day" (00:00:00Z). Same-day
-      // completions therefore read slightly ahead of the planned line for that
-      // row (≤ one day of planned value); the render compares the two series, not
-      // a single row's earned-vs-planned delta. spi.json (computed at `nowMs`) is
-      // the point-in-time schedule signal.
+      // Each row is "cumulative earned THROUGH this UTC day" vs "planned value at the
+      // START of the day" (00:00:00Z); quiet days carry the prior cumulative forward.
+      // Same-day completions read slightly ahead of that row's planned line (≤ one
+      // day); spi.json (computed at `nowMs`) is the point-in-time schedule signal.
       const dayMs = Date.parse(`${day}T00:00:00Z`);
       burnup.push({
         projectId: plan.projectId,
@@ -492,7 +505,12 @@ export function buildSeries(tree, completionLines, nowMs) {
 
     const plannedProxyNow = plannedAt(nowMs);
     const plannedCountNow = plannedCountAt(nowMs);
-    const inWindow = hasPlannedWindow && nowMs >= started && nowMs <= deadline;
+    // SPI reports from `started` onward — INCLUDING past the deadline, where
+    // plannedProxyNow/plannedCountNow clamp to weightTotal/tasksTotal (full planned
+    // value). An overdue plan then reports SPI = earned / full-planned (< 1 when
+    // incomplete) instead of going blank exactly when the schedule signal matters
+    // most. Still null without a planned window (no deadline) or before `started`.
+    const afterStart = hasPlannedWindow && nowMs >= started;
     spi.push({
       projectId: plan.projectId,
       planSlug: plan.planSlug,
@@ -504,10 +522,10 @@ export function buildSeries(tree, completionLines, nowMs) {
       deadline: plan.fm?.deadline ?? null,
       weightTotal: finiteOrNull(weightTotal) ?? 0,
       tasksTotal: finiteOrNull(tasksTotal) ?? 0,
-      spiProxy: inWindow && Number.isFinite(plannedProxyNow) && plannedProxyNow > 0
+      spiProxy: afterStart && Number.isFinite(plannedProxyNow) && plannedProxyNow > 0
         ? finiteOrNull(earnedProxyNow / plannedProxyNow)
         : null,
-      spiCount: inWindow && Number.isFinite(plannedCountNow) && plannedCountNow > 0
+      spiCount: afterStart && Number.isFinite(plannedCountNow) && plannedCountNow > 0
         ? finiteOrNull(earnedCountNow / plannedCountNow)
         : null,
     });
