@@ -5,11 +5,14 @@ title: Loop de retomada (pause e parallel)
 goal: Na conclusão/archive do filho, oferecer retomar o pai na fase-âncora em
   ambos os modos, com semântica determinística para aceitar, recusar, sem TTY e
   writeback falho.
-status: pending
+status: active
 branch: plan/plan-fork
-started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T15:32:29.603Z
-nextAction: "Start T-001: Detecção de spawnedFrom no archive-propagation"
+started: 2026-06-20T01:33:14Z
+lastUpdated: 2026-06-20T01:33:14Z
+nextAction: "Phase-start gate F3: rodar `node scripts/list-lessons.js --phase F3`
+  e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-005
+  da F2 (writebackOrDefer, pendingWriteback, stale-lock, --mode=both) — ANTES de codar.
+  Depois T-001: detecção de spawnedFrom no archive-propagation."
 parentPlan: plan-fork
 phaseId: F3
 tasksDone: 0
@@ -20,9 +23,10 @@ exitGates:
   - id: F3-G1
     description: Aceitar, recusar, sem-TTY e writeback-falho têm semântica
       determinística em pause E parallel; nenhum caso deixa o filho arquivado
-      com o pai num estado inconsistente. Ordem de transação — o writeback do pai
-      precede a finalização do archive; em writeback falho o archive persiste um
-      pending-resume durável e o filho não finaliza até a recuperação.
+      com o pai num estado inconsistente. Ordem de transação — o writeback do
+      pai precede a finalização do archive; em writeback falho o archive
+      persiste um pending-resume durável e o filho não finaliza até a
+      recuperação.
     status: pending
     verifier:
       kind: shell
@@ -79,6 +83,7 @@ emerged: []
 summary: Retomada determinística do pai (aceitar/recusar/sem-TTY/writeback falho).
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
+current: true
 ---
 
 # Narrative / notes

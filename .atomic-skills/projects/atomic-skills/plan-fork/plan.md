@@ -5,9 +5,9 @@ title: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 version: "1.0"
 status: active
 started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T19:56:59Z
+lastUpdated: 2026-06-20T01:33:14Z
 branch: plan/plan-fork
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -145,11 +145,29 @@ phases:
           description: "O protocolo de concorrência otimista está definido e testado: a
             escrita atinge o estado canônico do pai e edições concorrentes
             pai/filho são detectadas e abortadas sem lost update."
-          status: pending
+          status: met
+          metAt: 2026-06-20T01:33:14Z
           verifier:
             kind: shell
-            command: npm test
-    status: active
+            command: node --test tests/parallel-state.test.js
+              tests/links-sidecar.test.js tests/spawn-graph.test.js
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-20T01:33:14Z
+            exitCode: 0
+            passed: true
+            outputSummary: "node --test (parallel-state + links-sidecar + spawn-graph)
+              → tests 64, pass 64, fail 0, exit 0. Gate escopado (npm test → node --test;
+              RED ambiental, decisão do usuário, precedente F0/F1). Review --mode=both
+              achou+corrigiu 11 findings (6 local + 5 codex, 2 disjuntos só do codex)
+              em 1f24eb3 antes do met."
+    status: done
+    reviewGate:
+      status: passed
+      at: 1f24eb3
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-20-0120-plan-fork-f2.md
+      verifiedAt: 2026-06-20T01:33:14Z
     summary: Protocolo de estado parallel com concorrência otimista (revisão,
       conflito, abort).
   - id: F3
@@ -175,7 +193,7 @@ phases:
           verifier:
             kind: shell
             command: npm test
-    status: pending
+    status: active
     summary: Retomada determinística do pai (aceitar/recusar/sem-TTY/writeback falho).
   - id: F4
     slug: plan-fork-f4-focus-resolver-pai-filho-pause-e-paralle

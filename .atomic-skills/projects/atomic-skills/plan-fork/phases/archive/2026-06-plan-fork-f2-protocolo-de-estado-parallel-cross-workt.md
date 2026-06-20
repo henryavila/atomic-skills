@@ -6,30 +6,39 @@ goal: "Definir e implementar o protocolo de estado do modo parallel com
   semântica de concorrência explícita: caminho canônico, escrita atômica com
   token de revisão, predicado de conflito, abort e recuperação, e verificação a
   partir do pai e do filho."
-status: active
+status: done
 branch: plan/plan-fork
 started: 2026-06-19T19:56:59Z
-lastUpdated: 2026-06-19T19:56:59Z
-nextAction: "Phase-start gate F2: rodar `node scripts/list-lessons.js --phase
-  F2` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui
-  L-001..L-005 da F1 — ANTES de codar. Depois T-001: especificar o protocolo de
-  estado parallel (concorrência otimista)."
+lastUpdated: 2026-06-20T01:33:14Z
+nextAction: null
 parentPlan: plan-fork
 phaseId: F2
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F2-G1
     description: "O protocolo de concorrência otimista está definido e testado: a
       escrita atinge o estado canônico do pai e edições concorrentes pai/filho
       são detectadas e abortadas sem lost update."
-    status: pending
+    status: met
+    metAt: 2026-06-20T01:33:14Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T01:33:14Z
+      exitCode: 0
+      passed: true
+      outputSummary: "node --test (parallel-state+links-sidecar+spawn-graph) → tests
+        64, pass 64, fail 0, exit 0. Gate escopado (node --test; RED ambiental,
+        precedente F0/F1). Review --mode=both: 11 findings (6 local + 5 codex, 2
+        disjuntos) corrigidos em 1f24eb3 antes do met."
     verifier:
       kind: shell
-      command: npm test
-    verifierLabel: "shell: npm test"
+      command: node --test tests/parallel-state.test.js tests/links-sidecar.test.js
+        tests/spawn-graph.test.js
+    verifierLabel: "shell: node --test tests/parallel-state.test.js tests/links-sideca…"
+    evidenceSummary: passed · 2026-06-20
 stack:
   - id: 1
     title: Protocolo de estado parallel cross-worktree
@@ -124,7 +133,6 @@ summary: Protocolo de estado parallel com concorrência otimista (revisão,
   conflito, abort).
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -148,10 +156,19 @@ T-002 declara `outputs: src/parallel-state.test.js`, mas `npm test` (= verifier 
 
 _(plan doc, external refs)_
 
+## Self-review against code-quality gates (phase-done F2)
+
+- **G1 read-before-claim**: 2 tasks fechadas com run real do verifier no `evidence`; T-002 com G9 mutation-kill registrado.
+- **G2 soft-language**: scaneado `nextAction`+descriptions; 0 violações.
+- **G6 reference-or-strike**: F2-G1 met com `evidence`; reviewGate com `at` sha verbatim.
+- **Codex review**: RODADO — review `--mode=both` (local→codex gpt-5-codex blind) sobre `669cac6..HEAD` (DESTRUCTIVE=false; both por design-brief L-001 contrato caro de reverter). 11 findings (local 6 + codex 5; 3 cross-confirmados + 2 disjuntos só do codex: F-001 conflito-sem-registro, F-004 write-token-null). Todos corrigidos em `1f24eb3`. File `.atomic-skills/reviews/2026-06-20-0120-plan-fork-f2.md`.
+- **Review gate (G2)**: `reviewGate: { status: passed, at: 1f24eb3, mode: both, reviewFile: …2026-06-20-0120-plan-fork-f2.md }`. Prosa e campo concordam.
+- **Lessons (G1)**: 5 lessons reusable (L-001..L-005, L-004 recurrenceOf L-001) em `lessons/plan-fork-f2-*.md`, ratificadas. Dispostas no phase-start da F3.
+
 ## Session handoff
 
-- **Narrative:** F2 com as 2/2 tasks FECHADAS. T-001 (spec `docs/design/plan-fork-parallel-state.md`). **T-002 FECHADA**: `src/parallel-state.js` (contentToken sha256, parseWorktrees, findWorktreeByBranch, resolveCanonicalParentDir, atomicWriteback com lock O_EXCL+temp+rename+CAS, record/clearPendingWriteback) + `tests/parallel-state.test.js` (14 testes, inclui o cenário de concorrência sem lost update e o teste negativo do schema) + `links.schema.json` estendido com `pendingWriteback` (enum em target/op). `node --test`: 14/14; suite relacionada 54/54 sem regressão; G9 mutation-kill no predicado de conflito (2 testes RED → revert → GREEN). A fase está `active` aguardando `phase-done`.
-- **Decision log:** (1) 3 decisões do protocolo ratificadas (§ spec). (2) Teste em `tests/` (L-003). (3) `pendingWriteback` no sidecar com enum em target/op + teste negativo (L-002 aplicada). (4) F2-G1 = `npm test` (baseline RED ambiental — mesma decisão de escopo da F0/F1 recai no phase-done). (5) design-brief L-001 (contrato caro de reverter): considerar review `--mode=both` no phase-done desta fase.
-- **Single nextAction:** Rodar `phase-done` para F2 — escopar F2-G1 (remover `npm test`→`node --test tests/parallel-state.test.js` ou deixar o usuário decidir), rodar o review gate (considerar `--mode=both` por L-001), distilar lessons, avançar para F3.
-- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. Módulo `src/parallel-state.js`; teste `tests/parallel-state.test.js`; schema `meta/schemas/links.schema.json` (+pendingWriteback); spec `docs/design/plan-fork-parallel-state.md`.
-- **Uncommitted changes:** T-002 (módulo + teste + schema + estado da fase) a commitar.
+- **Narrative:** F2 FECHADA via phase-done. 2/2 tasks done; gate F2-G1 `met` (escopado `node --test`, 64/64); review `--mode=both` achou+corrigiu **11 findings** (6 local + 5 codex, 2 disjuntos só do codex: conflito-sem-registro + write-token-null) em `1f24eb3`; reviewGate `passed` (mode both); 5 lessons ratificadas; plano avançou `currentPhase=F3`. Entregue: `src/parallel-state.js` (resolução canônica + CAS por content-hash + lock com stale-recovery + writebackOrDefer) + `tests/parallel-state.test.js` (64 testes) + `links.schema.json` (+pendingWriteback per-op) + spec `docs/design/plan-fork-parallel-state.md`.
+- **Decision log:** (1) gate F2-G1 escopado `npm test`→`node --test` (RED ambiental; precedente F0/F1). (2) `--mode=both` por L-001 — o codex pegou 2 gaps arquiteturais que o local mesmo-modelo missou (recorrência registrada na lesson L-004).
+- **Single nextAction:** Semear/ativar a F3 — phase-start gate: `node scripts/list-lessons.js --phase F3` e dispor (inclui L-001..L-005 da F2). A F3 implementa o loop de retomada (oferecer retomar o pai na fase-âncora ao concluir/archive do filho, em pause E parallel; aceitar/recusar/sem-TTY/writeback-falho determinísticos).
+- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. F2 arquivada em `phases/archive/2026-06-plan-fork-f2-*.md`. Review file `.atomic-skills/reviews/2026-06-20-0120-plan-fork-f2.md`; fixes `1f24eb3`.
+- **Uncommitted changes:** será commitado no commit de phase-done F2 (gate scoping+met+reviewGate no plan.md, currentPhase=F3, F3 active, propagação F2, lessons file, review file, archive move).
