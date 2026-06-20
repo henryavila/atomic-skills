@@ -210,17 +210,18 @@ Wrap `scripts/detect-scope.js` to suggest a `scope.paths` value based on recent 
 Works on both plans and initiatives. If `<slug>` resolves to a plan (nested `projects/<project-id>/<slug>/plan.md`, legacy `.atomic-skills/plans/<slug>.md`), archive the plan **and propagate** to its child initiatives.
 
 1. Identify target (arg or active initiative). Detect kind by resolved file location.
-2. **Plan archival**:
+2. **Fork-link resume offer (read the edge BEFORE any finalize)**: when the target is a plan, read its child→parent edge with `getSpawnedFrom(<target-plan-dir>)` (`src/links-sidecar.js`) **before** touching the plan's status or moving any file. When the edge is present (`{ plan, phaseId, mode }`) the target is a fork child of plan `plan` at anchor phase `phaseId` (degrau 7.5 — the `spawnedFrom` edge written at fork time): **offer** to resume the parent at that anchor — the offer is opt-in, printed for the user, and is **NEVER applied automatically**. When `getSpawnedFrom` returns `null`, skip this step silently — a non-forked plan archives exactly as it did before. Reading the edge here, ahead of the finalize in steps 3–4, is what lets the `fork-resume` application keep its transaction order (the parent writeback precedes the child-archive finalize). The deterministic application of this offer across both modes (`pause` / `parallel`) and its edge cases (accept / refuse / no-TTY / failed writeback) is the **`fork-resume`** step below.
+3. **Plan archival**:
    - Set the plan's `status: archived`.
    - For every initiative with `parentPlan === <slug>` and `status` in {`active`, `paused`, `pending`}: set its `status: archived`, move file to the resolved archive dir (nested `projects/<project-id>/<slug>/phases/archive/<YYYY-MM>-<phase-slug>.md`, legacy `initiatives/archive/<YYYY-MM>-<slug>.md`).
    - **Nested:** the plan folder stays in place under `projects/<project-id>/` with `status: archived` (the `phases/archive/` subdir holds its closed phases). **Legacy flat:** move the plan file to `plans/archive/<YYYY-MM>-<slug>.md`.
-3. **Initiative archival**:
+4. **Initiative archival**:
    - **Resolve open exit gates first** (applies to BOTH standalone and plan-anchored initiatives — standalone has no `phase-done`, so this is the only place its gates get closed). For each `exitGates[]` entry whose `status` is not already `met` or `deferred`: run its `verifier` per the **Verifier execution patterns** (or ask the user when `kind: manual`), then set `status: met` (`metAt: <now>`, plus `evidence` when a verifier ran) on pass, or `status: deferred` (`deferredReason`) when the user skips it. **Never set `done`** — that is a Task status; gate status is `pending`/`met`/`deferred` only (see the *Gate status invariant* in the router). If the user wants to archive without verifying, mark the remaining gates `deferred` with a reason — do not leave them `pending` and do not coerce them to `done`.
    - If the initiative has `parentPlan` and the matching plan phase has `status: done`, verify that the initiative `status` is `done` (not `active`/`pending`). If not, apply the propagation steps from `phase-done` step 8a-d first (set all tasks `done`, exitGates `met`, initiative `status: done`), then continue.
    - Set the initiative's `status: archived`.
    - Move file to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/<YYYY-MM>-<slug>.md`, legacy `initiatives/archive/<YYYY-MM>-<slug>.md`).
-4. Update PROJECT-STATUS.md: remove archived rows from active tables; append to "Recently Archived" (keep last 10).
-5. Announce: "Archived `<slug>` (+<N> child initiatives if plan)".
+5. Update PROJECT-STATUS.md: remove archived rows from active tables; append to "Recently Archived" (keep last 10).
+6. Announce: "Archived `<slug>` (+<N> child initiatives if plan)".
 
 ## `switch <slug>`
 
