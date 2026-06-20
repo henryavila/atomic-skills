@@ -29,3 +29,8 @@
 | 2026-06-02 16:57 | [rmig14-fix-commits-revalidation](2026-06-02-1657-rmig14-fix-commits-revalidation.md) | code | needs_changes | 0B/0C/1M/0m/0n | 1d/0=/1+ |
 | 2026-06-07 17:42 | [f5-phasedone-codex-review](2026-06-07-1742-f5-phasedone-codex-review.md) | code (codex, Pass2 BLOCKED) | needs_changes | 0B/0C/4M/0m/0n | 0d/4=/0+ |
 | 2026-06-09 18:51 | [quick-idea-capture](2026-06-09-1851-quick-idea-capture-codex.md) | plan/codex | needs_changes | 0B/0C/5M/0m/0n | 0d/4=/1+ |
+| 2026-06-15 12:51 | [skills-restructuring-design-brief-3layer](2026-06-15-1251-skills-restructuring-design-brief-3layer.md) | plan | needs_changes | 0B/0C/5M/0m/0n | 0d/4=/1+ |
+| 2026-06-15 15:43 | [design-brief-source-of-truth](2026-06-15-1543-design-brief-source-of-truth.md) | plan | needs_changes | 1B/2C/3M/0m/0n | 0d/5=/1+ |
+| 2026-06-15 16:20 | [design-brief-source-of-truth (rev2)](2026-06-15-1620-design-brief-source-of-truth-rev2.md) | plan | needs_changes | 0B/0C/5M/0m/0n | 0d/4=/1+ |
+| 2026-06-15 16:58 | [design-brief-source-of-truth (PLAN)](2026-06-15-1658-design-brief-source-of-truth-plan.md) | plan | needs_changes | 0B/2C/3M/0m/0n | 0d/5=/0+ |
+| 2026-06-16 07:49 | [design-brief-source-of-truth-f0](2026-06-16-0749-design-brief-source-of-truth-f0.md) | code (both) | needs_changes→all fixed | 0B/0C/3M/3m/0n (codex 2M + local 1M/3m) | 0d/2=/0+ |

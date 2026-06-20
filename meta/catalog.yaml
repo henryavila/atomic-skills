@@ -691,6 +691,57 @@ core:
     dependencies: [git]
     schema_version: '0.2'
 
+  design-brief:
+    name: design-brief
+    title: 'Design Brief — DS + screens prompts, contamination-free'
+    description: 'From a real app (code + product intent), generate the Design System + screens prompts for a design agent (e.g. claude.ai/design) — silence on visual form, but interaction behaviour and philosophy specified with concrete values mined from the code. Use to hand a faithful brief to the design agent without contaminating the visual decision.'
+    value_pitch: >
+      The failure this prevents is the inverse of over-design: it is
+      under-specification. "Don't dictate the visuals" is a layer-1-only rule;
+      extending that silence to the interaction model and the product
+      philosophy lets the design agent fill the gaps with its conventional
+      default — which is usually the product's anti-pattern. `design-brief`
+      keeps silence on visual form but pins behaviour and who-decides-what with
+      concrete values mined from the real code, names the forbidden anti-pattern
+      on risky screens, and ships the DS-first so every screen consumes the
+      inherited Design System instead of redefining it.
+    purpose: >
+      Generate the two design prompts (Design System, then screens that consume
+      the inherited DS) from a real app and its product intent, encoding the
+      three-layer model: visual form stays the design agent's (silence), while
+      interaction behaviour and philosophy are product requirements specified
+      with concrete values — so the redesign is faithful, not a plausible
+      anti-pattern.
+    when_to_use:
+      - 'You are handing an existing app to a design agent (e.g. claude.ai/design) for a redesign'
+      - 'You need a Design System prompt plus per-screen prompts that consume it'
+      - 'A prior hand-written brief produced anti-patterns by leaving behaviour/philosophy unspecified'
+    when_not_to_use:
+      - 'You only need the product decision, not the design prompts (use brainstorm)'
+      - 'There is no real app to mine behavioural parameters from'
+      - 'The design system and screens already exist and are faithful'
+    examples:
+      - command: '/atomic-skills:design-brief "redesign the review dashboard at src/dashboard"'
+        description: 'Mine the app + intent, emit the DS prompt then the screens prompts'
+      - command: '/atomic-skills:design-brief'
+        description: 'Skill asks for the app/scope and the product intent interactively'
+    related: [brainstorm, project]
+    tags: [design, prompts, anti-contamination, core]
+    ide_compatibility: [claude-code, gemini, cursor]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    one_liner: 'Generate DS + screens prompts for a design agent, contamination-free'
+    emoji: '🎨'
+    version_added: '2.3.0'
+    argument_hint: '[app path or scope]'
+    args:
+      - name: scope
+        kind: positional
+        required: false
+        description: 'The target app/scope (repo path + product intent). If omitted, the skill asks interactively.'
+    schema_version: '0.2'
+
   debate:
     name: debate
     title: 'Debate — Multi-Agent Roundtable'

@@ -62,7 +62,8 @@ Steps:
 1. Locate `<id>` (same resolver as `why`). Print the current context.
 2. Print a `Proposed re-ratify:` block with the current values pre-filled — the user can `ratify` (just bump `lastReviewedAt`), paste edits (full re-articulation), or `cancel`.
 3. On ratify: update `context.lastReviewedAt = now`. If edits were pasted: also update `solves` / `trigger` / `assumesStillValid` per the edit. `ratifiedAt` advances to now; `ratifiedBy: human`.
-4. Save. Print a one-line confirmation.
+4. **Verifier-stale check when the edit RECLASSIFIES a scope symbol (G3).** A re-articulation that *moves, cancels, or reclassifies* an item — e.g. "this symbol is no longer decommissioned, it now migrates in F5" — can silently strand any **verifier** that hard-codes that symbol. A gate written `! rg 'RecurringActivity'` (expects zero live refs) becomes a guaranteed false-negative the moment the symbol legitimately stays in the code: the verifier fails on correct code, or worse, passes for the wrong reason. So when step 3's edit changes *what the item is* (not just bumping `lastReviewedAt`): extract the load-bearing symbol(s) from the old vs new `solves`/`trigger`, then scan the parent plan + its phase initiatives for any `verifier:` whose `command`/`sql`/`pattern` mentions that symbol. For each hit, surface it and require a disposition **in the same commit as the re-ratify** — *"Gate `<id>` verifier still asserts `<symbol>` is gone, but you just reclassified it as in-use. Update / re-target / defer this verifier?"*. This mirrors the Arch "keeping-rules-current" HARD-GATE: a classification change and its dependent verifiers move together, never apart. If no verifier mentions the symbol, say so and proceed (no-op).
+5. Save. Print a one-line confirmation.
 
 The original `ratifiedAt` is replaced — that's intentional. The audit trail of "this item used to mean X, now means Y" lives in git history of the .md file, not in a separate field, to avoid context bloat.
 

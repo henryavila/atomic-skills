@@ -184,7 +184,6 @@ emerged: []
 summary: "O inbox barato: script de append, detail file com o fork Analisar/Só
   salvar, idea list, wiring e paridade de install."
 planTitle: Quick Idea Capture
-planActive: true
 ---
 
 # Narrative / notes
