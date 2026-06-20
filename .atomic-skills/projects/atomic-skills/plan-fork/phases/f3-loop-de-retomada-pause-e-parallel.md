@@ -9,14 +9,14 @@ status: active
 branch: plan/plan-fork
 started: 2026-06-20T01:33:14Z
 lastUpdated: 2026-06-20T01:33:14Z
-nextAction: "Phase-start gate F3: rodar `node scripts/list-lessons.js --phase
-  F3` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui
-  L-001..L-005 da F2 (writebackOrDefer, pendingWriteback, stale-lock,
-  --mode=both) — ANTES de codar. Depois T-001: detecção de spawnedFrom no
-  archive-propagation."
+nextAction: "F3 no PHASE BOUNDARY: T-001+T-002 done (2/2). Próximo = rodar
+  `phase-done` (intrusivo, opt-in do usuário): roda os exit-gate verifiers,
+  o review-code gate `--mode=both` (decisão registrada: contrato
+  porta-de-mão-única + verifier grep fraco) sobre o diff da fase, e avança o
+  plano pra F4. NÃO auto-avançar."
 parentPlan: plan-fork
 phaseId: F3
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -74,8 +74,26 @@ tasks:
     summary: Lê o elo no archive e oferece retomar o pai.
   - id: T-002
     title: Retomada determinística nos dois modos e nos casos de borda
-    status: pending
-    lastUpdated: 2026-06-19T15:32:29.603Z
+    status: done
+    lastUpdated: 2026-06-20T09:27:34Z
+    closedAt: 2026-06-20T09:27:34Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T09:27:34Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Verifier `npm test` escopado para `node --test
+        tests/parallel-state.test.js tests/links-sidecar.test.js
+        tests/spawn-graph.test.js` (baseline npm test RED ambiental —
+        countSkills/installSkills/serve constants, sem relação com a F3;
+        precedente F0/F1/F2): tests 72, pass 72, fail 0, exit 0. Adicionado o
+        step `fork-resume` em project-transitions.md (aplicação determinística
+        accept/refuse/no-TTY/writeback-falho × pause/parallel; invariante de
+        transação writeback-precede-finalize; marker durável op:resumeParent) +
+        8 testes (4 casos × 2 modos) em tests/parallel-state.test.js cobrindo o
+        anchor NOMEADO (F1 L-003), o defer durável em conflito (F2 L-001) e
+        parent-untouched no refuse/no-TTY. Testes em tests/ (não src/ do spec —
+        glob-miss, design-brief/F0 L-003)."
     scopeBoundary:
       - a aplicação da retomada; em parallel reusa o writeback da F2; em pause
         reusa refresh-state.
@@ -142,8 +160,8 @@ Initiative for phase **F3 — Loop de retomada (pause e parallel)**.
 _(plan doc, external refs)_
 
 ## Session handoff
-- **Narrative:** F3 (Loop de retomada) ativa. Phase-start lessons gate rodado e disposto (23 lessons, ver Decisions). T-001 (detecção de spawnedFrom no archive) FECHADO via verifier `grep -q spawnedFrom` exit 0 + heading-check; adicionou o step 2 "Fork-link resume offer" em `archive`. Falta T-002 (aplicação determinística da retomada nos 2 modos + 4 casos de borda + testes).
-- **Decision log:** (1) Mode 1 (Opus single-threaded) p/ T-001 e T-002 — mesmo arquivo, dependência, verifier grep fraco (ver Decisions § Roteamento). (2) Testes da F3 vão em `tests/parallel-state.test.js` (NÃO `src/parallel-state.test.js` do spec — glob-miss, lesson design-brief/F0 L-003). (3) Transação F3-G1: writeback do pai PRECEDE finalize do archive; em falha persiste pendingWriteback durável e NÃO finaliza o filho (lessons F1 L-002, F2 L-001). (4) Retomar o pai na fase-âncora NOMEADA (currentPhase := phaseId do elo), não a fase active-por-status (F1 L-003).
-- **Single nextAction:** Iniciar T-002 — expandir o step `fork-resume` em `skills/shared/project-assets/project-transitions.md` (aplicação: accept/refuse/no-TTY/writeback-falho nos modos pause+parallel; parallel reusa `writebackOrDefer`/`getSpawnedFrom` de `src/parallel-state.js`+`src/links-sidecar.js`, pause reusa refresh-state) e cobrir os 4 casos × 2 modos em `tests/parallel-state.test.js`; verifier `npm test` (baseline RED ambiental — escopar p/ `node --test tests/parallel-state.test.js tests/links-sidecar.test.js tests/spawn-graph.test.js`, precedente F0/F1/F2).
-- **Verbatim state:** T-001 verifier: `grep -q spawnedFrom skills/shared/project-assets/project-transitions.md` → exit 0. validate-state F3 → `✓ All 1 file(s) valid`. refresh-state → `rollups 1 changed … plan-fork · F3`. API reuso: `getSpawnedFrom(planDir)→{plan,phaseId,mode}|null`, `writebackOrDefer({canonicalFile,childPlanDir,readToken,mutate,allowCreate})`, `recordPendingWriteback`/`clearPendingWriteback`, `resolveCanonicalParentDir(...)`.
-- **Uncommitted changes:** a ser commitado como `feat(plan-fork): F3/T-001` (impl project-transitions.md step 2 + estado F3). Após o commit: clean tree.
+- **Narrative:** F3 (Loop de retomada) no PHASE BOUNDARY — T-001 e T-002 FECHADOS (2/2), ambos com evidência passing. T-001 adicionou o step 2 "Fork-link resume offer" em `archive` (lê o elo, oferta opt-in). T-002 adicionou o step `fork-resume` (aplicação determinística accept/refuse/no-TTY/writeback-falho × pause/parallel) + 8 testes em `tests/parallel-state.test.js`. Falta só rodar `phase-done` (intrusivo, opt-in).
+- **Decision log:** (1) Mode 1 (Opus single-threaded) p/ T-001 e T-002 — mesmo arquivo, dependência, verifier grep fraco. (2) Testes em `tests/parallel-state.test.js` (NÃO `src/` do spec — glob-miss, design-brief/F0 L-003). (3) Transação F3-G1: writeback do pai PRECEDE finalize do archive; em falha persiste pendingWriteback durável (op:resumeParent) e NÃO finaliza o filho (F1 L-002, F2 L-001). (4) Retomar o pai na fase-âncora NOMEADA (currentPhase := phaseId do elo), não a active-por-status (F1 L-003). (5) phase-done DEVE rodar review-code `--mode=both` (contrato porta-de-mão-única + verifier fraco — F1 L-005, F2 L-004).
+- **Single nextAction:** Rodar `phase-done` (após opt-in do usuário): roda exit-gate verifiers (F3-G1 verifier=`npm test`, escopar p/ `node --test tests/parallel-state.test.js tests/links-sidecar.test.js tests/spawn-graph.test.js` — baseline RED ambiental, precedente F0/F1/F2), o review-code `--mode=both` sobre o diff da fase, e avança o plano pra F4.
+- **Verbatim state:** T-001 verifier `grep -q spawnedFrom skills/shared/project-assets/project-transitions.md` → exit 0. T-002 verifier escopado `node --test tests/parallel-state.test.js tests/links-sidecar.test.js tests/spawn-graph.test.js` → tests 72, pass 72, fail 0, exit 0. Baseline `npm test` RED ambiental: countSkills/installSkills/serve constants (sem relação com a F3). validate-state F3 → `✓ All 1 file(s) valid`.
+- **Uncommitted changes:** a ser commitado como `feat(plan-fork): F3/T-002` (fork-resume em project-transitions.md + 8 testes + estado F3). Após o commit: clean tree.

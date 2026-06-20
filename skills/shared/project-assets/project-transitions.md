@@ -223,6 +223,24 @@ Works on both plans and initiatives. If `<slug>` resolves to a plan (nested `pro
 5. Update PROJECT-STATUS.md: remove archived rows from active tables; append to "Recently Archived" (keep last 10).
 6. Announce: "Archived `<slug>` (+<N> child initiatives if plan)".
 
+### `fork-resume` (applies the offer from `archive` step 2)
+
+Runs only when `archive` step 2 read a `spawnedFrom` edge `{ plan, phaseId, mode }` off the child being archived. It resumes the parent `plan` at its anchor phase `phaseId`, deterministically across both fork modes (`pause` / `parallel`) and all four decision paths (accept / refuse / no-TTY / failed-writeback).
+
+**Transaction-order invariant:** the parent writeback **precedes** the child-archive finalize (`archive` steps 3–4). A declined, deferred, or failed writeback persists a durable `pendingWriteback` (`op: resumeParent`) on the **child's** sidecar and the child does **not** finalize until recovery — there is never a child archived while the parent is left in an inconsistent state.
+
+**Resume mutation (both modes, identical target state):** set the parent plan `status: active`; set the anchor phase `phaseId` to `status: active` in the parent's `phases[]` descriptor **and** in its matching initiative file; set `currentPhase: <phaseId>` — the **named anchor** from the edge, never the by-status active phase. Capture the parent plan.md content token (`contentToken`, `src/parallel-state.js`) at read time as `readToken` for the marker / CAS.
+
+1. **Decide (opt-in, non-interactive guard):** with a TTY, prompt "Resume parent `<plan>` at anchor `<phaseId>`? [accept / refuse]". With **no TTY**, do NOT prompt — take the no-TTY path directly (record the durable marker, step 4). This guard is on every prompt in this step, not just the first.
+2. **mode `parallel`** (parent lives on its own branch/worktree):
+   - **accept** → resolve the parent's canonical dir (`resolveCanonicalParentDir`), then call `writebackOrDefer({ canonicalFile: <parent plan.md>, childPlanDir, readToken, mutate: <resume mutation>, pending: { target: 'parent-plan', parent: <plan>, op: 'resumeParent', args: { phaseId }, readToken, detectedAt: <now> } })`. On `{ ok: true }` the parent is resumed and any stale marker cleared → continue to `archive` steps 3–4 (finalize the child). On `{ ok: false, conflict, deferred }` the parent moved since the read — the call has **already** recorded the durable `pendingWriteback` (it never leaves recording to the caller); **abort the archive finalize**, surface the conflict + recovery, leave the child `active`/un-archived.
+   - **refuse / no-TTY** → do NOT writeback. Record the durable `pendingWriteback` (`op: resumeParent`, same shape) via `recordPendingWriteback` so the resume is replayable, and do **not** finalize the child archive (child stays open with a pending-resume; parent untouched).
+3. **mode `pause`** (parent in the same tree, paused by the fork):
+   - **accept** → apply the resume mutation directly to the parent plan.md + anchor initiative file (single writer, same tree — no CAS), then run `node scripts/refresh-state.js` to cascade focus markers + the `focus.json` digest. Continue to `archive` steps 3–4.
+   - **refuse / no-TTY** → record the durable `pendingWriteback` (`op: resumeParent`) and do not finalize the child.
+   - A **write failure** on accept is treated like the parallel conflict: the durable marker stands and the child does not finalize until recovery.
+4. **Recovery:** a later `fork-resume` (or `reconcile`) reads the child's `pendingWriteback`, replays the declarative `op`/`args` against the parent's then-current state, clears the marker on success, and only then may the child finalize. The marker is declarative (`op` + `args` re-applied to fresh state), never a byte patch.
+
 ## `switch <slug>`
 
 Works at 2 levels: switching plans, OR switching initiatives within the active plan / among standalone.

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   contentToken,
@@ -13,7 +13,7 @@ import {
   clearPendingWriteback,
   writebackOrDefer,
 } from '../src/parallel-state.js';
-import { readLinks, validateLinks } from '../src/links-sidecar.js';
+import { readLinks, validateLinks, setSpawnedFrom, getSpawnedFrom } from '../src/links-sidecar.js';
 
 function withTmp(fn) {
   const root = mkdtempSync(join(tmpdir(), 'parallel-state-'));
@@ -384,5 +384,174 @@ describe('recordPendingWriteback / clearPendingWriteback (child-side recovery)',
       false,
       'a pendingWriteback with no args at all is rejected',
     );
+  });
+});
+
+// --- F3 fork-resume: deterministic parent resume across both modes ---
+//
+// The resume application (project-transitions.md `fork-resume`): parallel reuses
+// the F2 writeback (writebackOrDefer), pause applies the mutation directly (same
+// tree). These tests cover the four decision paths (accept / refuse / no-TTY /
+// failed-writeback) in BOTH modes, asserting the durable-state contract — never
+// a child archived against an inconsistent parent.
+const ANCHOR = 'F3';
+
+// A parent paused by a fork at anchor F3, but with currentPhase still pointing at
+// F2 (the by-status active phase). Resume MUST move it to the NAMED anchor (F3),
+// never leave it at the by-status F2 — the L-003 (plan-fork/F1) guard.
+function parentPlanFixture() {
+  return ['plan: plan-fork', 'status: paused', 'currentPhase: F2', 'anchorPhaseStatus: paused', ''].join('\n');
+}
+
+// The resume mutation, shared by pause-accept (direct) and parallel-accept (via
+// writebackOrDefer's mutate): parent active, currentPhase := the named anchor,
+// anchor phase active. 'anchorPhaseStatus: paused' contains no lowercase
+// 'status: paused' substring, so the top-level replace targets only the plan status.
+function resumeMutation(phaseId) {
+  return (content) =>
+    content
+      .replace('status: paused', 'status: active')
+      .replace('currentPhase: F2', `currentPhase: ${phaseId}`)
+      .replace('anchorPhaseStatus: paused', 'anchorPhaseStatus: active');
+}
+
+function resumePending(parentSlug, phaseId, readToken, reason) {
+  return {
+    target: 'parent-plan',
+    parent: parentSlug,
+    op: 'resumeParent',
+    args: { phaseId },
+    readToken,
+    detectedAt: '2026-06-20T00:00:00Z',
+    ...(reason ? { reason } : {}),
+  };
+}
+
+// Build a (parent canonical file, child dir with the spawnedFrom edge) pair.
+function forkFixture(root, mode) {
+  const canonical = join(root, 'parent', 'plan.md');
+  mkdirSync(dirname(canonical), { recursive: true });
+  const childDir = join(root, 'child');
+  mkdirSync(childDir, { recursive: true });
+  setSpawnedFrom(childDir, { plan: 'plan-fork', phaseId: ANCHOR, mode });
+  writeFileSync(canonical, parentPlanFixture());
+  return { canonical, childDir };
+}
+
+describe('fork-resume (F3): parallel mode (reuses the F2 writeback)', () => {
+  it('accept: writeback resumes the parent at the NAMED anchor and clears the marker', () => {
+    // kills a resume that leaves currentPhase at the by-status F2 instead of the edge's F3.
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'parallel');
+      const edge = getSpawnedFrom(childDir); // T-001's read drives the anchor
+      const readToken = contentToken(canonical);
+      const res = writebackOrDefer({
+        canonicalFile: canonical,
+        childPlanDir: childDir,
+        readToken,
+        mutate: resumeMutation(edge.phaseId),
+        pending: resumePending('plan-fork', edge.phaseId, readToken),
+      });
+      assert.equal(res.ok, true);
+      const after = readFileSync(canonical, 'utf8');
+      assert.match(after, /^status: active$/m);
+      assert.match(after, /^currentPhase: F3$/m, 'currentPhase is the NAMED anchor (F3), not the by-status F2');
+      assert.match(after, /^anchorPhaseStatus: active$/m);
+      assert.equal('pendingWriteback' in readLinks(childDir), false, 'converged → recovery marker cleared');
+    });
+  });
+
+  it('failed-writeback: a concurrent parent edit defers — durable marker recorded, parent NOT finalized', () => {
+    // kills a writeback-fail that finalizes the child anyway / loses the recovery marker.
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'parallel');
+      const readToken = contentToken(canonical);
+      writeFileSync(canonical, parentPlanFixture() + 'concurrent-edit\n'); // token0 now stale
+      const res = writebackOrDefer({
+        canonicalFile: canonical,
+        childPlanDir: childDir,
+        readToken,
+        mutate: resumeMutation(ANCHOR),
+        pending: resumePending('plan-fork', ANCHOR, readToken, 'token-mismatch'),
+      });
+      assert.equal(res.ok, false);
+      assert.equal(res.deferred, true);
+      const marker = readLinks(childDir).pendingWriteback;
+      assert.equal(marker.op, 'resumeParent', 'durable resumeParent marker persisted before return');
+      assert.equal(marker.args.phaseId, ANCHOR);
+      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m, 'parent not flipped to active on a deferred writeback');
+    });
+  });
+
+  it('refuse: no writeback; durable resumeParent marker persisted, parent untouched', () => {
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'parallel');
+      const edge = getSpawnedFrom(childDir);
+      const readToken = contentToken(canonical);
+      recordPendingWriteback(childDir, resumePending('plan-fork', edge.phaseId, readToken, 'user refused — deferred'));
+      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m, 'refuse leaves the parent paused');
+    });
+  });
+
+  it('no-TTY: records the marker without a writeback (no prompt), parent untouched', () => {
+    // identical durable outcome to refuse, but reached automatically via the
+    // non-interactive guard rather than a user decision.
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'parallel');
+      const readToken = contentToken(canonical);
+      recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'no TTY — auto-deferred'));
+      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
+    });
+  });
+});
+
+describe('fork-resume (F3): pause mode (same tree — direct mutation, no CAS)', () => {
+  it('accept: direct mutation resumes the parent at the named anchor', () => {
+    // kills a pause resume that does not flip currentPhase to the edge's anchor.
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'pause');
+      const edge = getSpawnedFrom(childDir);
+      assert.equal(edge.mode, 'pause');
+      writeFileSync(canonical, resumeMutation(edge.phaseId)(readFileSync(canonical, 'utf8')));
+      const after = readFileSync(canonical, 'utf8');
+      assert.match(after, /^status: active$/m);
+      assert.match(after, /^currentPhase: F3$/m, 'currentPhase is the NAMED anchor');
+      assert.match(after, /^anchorPhaseStatus: active$/m);
+    });
+  });
+
+  it('refuse: durable resumeParent marker, parent untouched', () => {
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'pause');
+      const readToken = contentToken(canonical);
+      recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'user refused — deferred'));
+      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
+    });
+  });
+
+  it('no-TTY: marker recorded without prompt, parent untouched', () => {
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'pause');
+      const readToken = contentToken(canonical);
+      recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'no TTY — auto-deferred'));
+      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
+    });
+  });
+
+  it('failed-write: a failed parent write leaves the durable marker and the parent unchanged', () => {
+    // models the same-tree write throwing: the recovery path records the marker
+    // and the parent stays paused, exactly like the parallel conflict — the child
+    // must not finalize until recovery.
+    withTmp((root) => {
+      const { canonical, childDir } = forkFixture(root, 'pause');
+      const readToken = contentToken(canonical);
+      recordPendingWriteback(childDir, resumePending('plan-fork', ANCHOR, readToken, 'write failed — deferred'));
+      assert.equal(readLinks(childDir).pendingWriteback.op, 'resumeParent');
+      assert.match(readFileSync(canonical, 'utf8'), /^status: paused$/m);
+    });
   });
 });
