@@ -7,14 +7,11 @@ summary: Regenera o briefing Lekto em sessão nova e contrasta com o feedback
 goal: em sessão nova, regenerar o briefing do Lekto com a skill reescrita,
   destilar a rubrica dos padrões transversais do feedback, contrastar via
   crítico adversarial e resolver o fork diferido D10.
-status: active
+status: archived
 branch: plan/design-brief
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T17:31:45.000Z
-nextAction: Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente;
-  D10 nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar
-  F1-D10-RESOLVED no design.md = 'modelo leve basta, sem tag R10') + phase-done
-  — DECISAO do operador.
+lastUpdated: 2026-06-19T20:06:21.000Z
+nextAction: null
 parentPlan: design-brief-briefing-rework
 phaseId: F1
 tasksDone: 6
@@ -326,3 +323,12 @@ _(plan doc, external refs)_
 - **Consolidado:** os 3 prompts → canônico `f1/lekto-briefing-regenerated.md` (v2, 678 linhas). v1 preservado em `f1/lekto-briefing-regenerated-v1.md` + veredito v1 em `f1/recurrence-verdict-v1.md`.
 - **Leitura preliminar (NÃO é o veredito — crítico decide):** binding (`01-screens`) LIMPO — `grep SWIPE/AXIS/STEP_MS/GO_MS/Origem` = 0; countdown/session/onboarding todos **band-pinned** ("poucos batimentos, calibração ~1s/0,8s"; "~10 cards"; "explicador de **poucos passos** (calibração: 3)" = **A4 resolvido**); swipe = essência sem px; guardrails camada-3 + invariantes preservados. `"Vai!"`/`3 passos` aparecem só em `02-fixtures` (lane de textura mutável, D8) → provável layering correto, não recaída. Contraste com v1 (A4 era recaída) e v2-falho (todos contaminantes com citação).
 - **nextAction:** crítico adversarial v2 (mesma rubrica) → `f1/recurrence-verdict.md` (sobrescreve; v1 preservado). Se `NAO-REINCIDENTE` → F1-G1 passa → T-005 resolve D10 como "modelo leve basta, fix confirmado empiricamente". Decisão D10/phase-done = operador.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 6 tasks fechadas, cada uma com `evidence` ligando ao output/source; o veredito v2 e a resolução D10 citam linhas verbatim do briefing regenerado (L149/154/161-162 etc.). O fix T-006 foi lido no source antes de afirmar correção.
+- **G2 soft-language**: claims de conclusão são `passed: true` evidence; `nextAction` + summaries escaneados — 0 hedges da ban-list.
+- **G6 reference-or-strike**: F1-G1/F1-G2 met com `evidence:`; literais do handoff verbatim (paths, commands `grep -q …`, shas `acc3141`/`3718274`, EXIT codes).
+- **Codex review**: N/A — review gate rodou em **modo local** (diff não-destrutivo; superfície de código da fase = as edições de prosa do T-006 nos 2 emissores). Cross-model não exigido por G5.
+- **Review gate (G2)**: recorded `reviewGate: { status: passed, at: 3718274, mode: local, verifiedAt: 2026-06-19T20:06:21 }` no descriptor da fase F1; revisor adversarial = LIMPO (1 NIT cosmético de cross-ref, sem ação).
+- **Lessons (G1)**: destiladas **3 lições** (todas `reusable`) em `lessons/design-brief-briefing-rework-f1-validar-regenerar-o-briefing-le.md` — cegueira estrutural (L-001), exemplo-por-classe no band-pin (L-002), âncora do range de review (L-003) — ratificadas pelo operador.

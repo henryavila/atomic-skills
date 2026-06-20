@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T20:08:54.956Z",
+  "generatedAt": "2026-06-20T00:05:51.340Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "design-brief-briefing-rework",
-    "title": "design-brief — repensar o modelo de autoridade do briefing (anti-congelamento de legado)",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "design-brief-briefing-rework-f1-validar-regenerar-o-briefing-le",
-    "title": "Validar (regenerar o briefing Lekto + contrastar = gate de não-reincidência)",
-    "index": 2,
-    "total": 2,
+    "id": "F0",
+    "slug": "multiplan-focus-resolution",
+    "title": "Resolução de foco em camadas + enforcer worktree-por-plano",
+    "index": 1,
+    "total": 1,
     "status": "active"
   },
   "tasks": {
-    "done": 6,
+    "done": 4,
     "total": 6,
     "blocked": 0
   },
   "gates": {
-    "met": 2,
-    "total": 2
+    "met": 0,
+    "total": 1
   },
-  "nextAction": "Critico v2 = NAO-REINCIDENTE (fix T-006 confirmado empiricamente; D10 nao dispara). Gate F1-G1 PASSA (EXIT=0). Falta T-005 (gravar F1-D10-RESOLVED no design.md = 'modelo leve basta, sem tag R10') + phase-done — DECISAO do operador.",
+  "nextAction": "T-006: materializar/entrar na worktree-do-plano no implement (+ dar worktree ao Mode 1); depois promover T-003 (verify WARN→FAIL) quando o dry-run estabilizar.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/plan.md",
-      "lastUpdated": "2026-06-19T15:17:51.103Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/plan.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/design-brief-briefing-rework/phases/f1-validar-regenerar-o-briefing-le.md",
-      "lastUpdated": "2026-06-19T17:31:45.000Z"
+      "path": ".atomic-skills/projects/atomic-skills/multiplan-focus-resolution/phases/multiplan-focus-resolution.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     }
   ]
 }

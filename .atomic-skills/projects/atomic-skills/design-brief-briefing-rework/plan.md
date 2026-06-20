@@ -4,9 +4,9 @@ slug: design-brief-briefing-rework
 title: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-19T09:32:41.374Z
-lastUpdated: 2026-06-19T15:17:51.103Z
+lastUpdated: 2026-06-19T20:06:21.000Z
 branch: plan/design-brief
 currentPhase: F1
 parallelismAllowed: false
@@ -82,7 +82,8 @@ phases:
             verifiedAt: 2026-06-19T15:08:33.619Z
             passed: true
             exitCode: 0
-            outputSummary: "EXIT=0 — All 15 skills valid (schema_version 0.2) apos os fixes do review gate"
+            outputSummary: EXIT=0 — All 15 skills valid (schema_version 0.2) apos os fixes
+              do review gate
         - id: F0-G2
           description: "Regressao de autoridade fechada: o filtro de mineracao esta
             presente e o preambulo expoe duas autoridades."
@@ -99,7 +100,8 @@ phases:
             verifiedAt: 2026-06-19T15:08:33.619Z
             passed: true
             exitCode: 0
-            outputSummary: "EXIT=0 — axis-lock no spec + calibra no screens-prompt; filtro presente e preambulo em duas autoridades"
+            outputSummary: EXIT=0 — axis-lock no spec + calibra no screens-prompt; filtro
+              presente e preambulo em duas autoridades
     reviewGate:
       status: passed
       at: 236d65b6f7d0eb7b2a81b006cc276af650027a6e
@@ -137,7 +139,8 @@ phases:
             verifiedAt: 2026-06-19T20:06:21.000Z
             passed: true
             exitCode: 0
-            outputSummary: "EXIT=0 — veredito v2 NAO-REINCIDENTE; nenhum dos 4 contaminantes reaparece como requisito vinculante"
+            outputSummary: EXIT=0 — veredito v2 NAO-REINCIDENTE; nenhum dos 4 contaminantes
+              reaparece como requisito vinculante
         - id: F1-G2
           description: Fork D10 resolvido e registrado no design.md.
           status: met
@@ -152,13 +155,14 @@ phases:
             verifiedAt: 2026-06-19T20:06:21.000Z
             passed: true
             exitCode: 0
-            outputSummary: "EXIT=0 — F1-D10-RESOLVED no design.md; D10 resolvido = modelo leve D3-D8 basta, sem tag R10"
+            outputSummary: EXIT=0 — F1-D10-RESOLVED no design.md; D10 resolvido = modelo
+              leve D3-D8 basta, sem tag R10
     reviewGate:
       status: passed
       at: 3718274b025e743cd5b995194dc2b830810e7c02
       mode: local
       verifiedAt: 2026-06-19T20:06:21.000Z
-    status: active
+    status: done
 references:
   - kind: file
     path: .atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md
@@ -170,7 +174,6 @@ references:
       sem dependsOn
 planTitle: design-brief — repensar o modelo de autoridade do briefing
   (anti-congelamento de legado)
-planActive: true
 ---
 
 # design-brief — repensar o modelo de autoridade do briefing (anti-congelamento de legado)
