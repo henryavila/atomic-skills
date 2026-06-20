@@ -43,6 +43,7 @@ exitGates:
         plano, SPI via gauge, todo widget no registry publicado). Guardrail de
         widgets 4/0. Manifest refeito presente via merge 8ab9c8a."
     verifierLabel: "shell: node --test tests/aideck-consumer-manifest.test.js"
+    evidenceSummary: passed · 30 tests · 2026-06-20
 externalImports:
   - kind: repo-path
     path: .atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md

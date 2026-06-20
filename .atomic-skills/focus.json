@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-19T20:04:01.323Z",
+  "generatedAt": "2026-06-20T10:20:36.787Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "deadline-burnup-forecast",
-    "title": "Deadline Burn-up Forecast (Earned Value / SPI)",
+    "slug": "fix-aideck-dashboard",
+    "title": "fix-aideck-dashboard: corrigir a integração com aiDeck",
     "status": "active"
   },
   "phase": {
-    "id": "F5",
-    "slug": "deadline-burnup-forecast-f5-render-no-aideck-depende-do-redesig",
-    "title": "Render no aiDeck (depende do redesign do dashboard)",
-    "index": 6,
-    "total": 6,
-    "status": "pending"
+    "id": "F1",
+    "slug": "fix-aideck-dashboard-f1-validar-e-aplicar-o-manifesto-project-s",
+    "title": "Consertar o cliente do dashboard (dados, live-refresh e filtro de lista)",
+    "index": 2,
+    "total": 4,
+    "status": "active"
   },
   "tasks": {
-    "done": 0,
-    "total": 1,
-    "blocked": 0
+    "done": 3,
+    "total": 4,
+    "blocked": 1
   },
   "gates": {
     "met": 0,
-    "total": 1
+    "total": 2
   },
-  "nextAction": "BLOQUEADA — aguarda o redesign do dashboard (fix-aideck-dashboard F2); handoff em docs/handoffs/forecast-render-requirements.md. Não iniciar T-001 até o manifest refeito aterrissar.",
+  "nextAction": "RE-ESCOPAR F1 (decisão do usuário) — re-planejar para incluir a migração do cliente v1 state API → v2 dataSource API (ver D-4). Rodar brainstorm/decompose; implement está PAUSADO. T-004 blocked; T-001/002/003 a reavaliar no re-plano.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md",
-      "lastUpdated": "2026-06-19T20:00:51Z"
+      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md",
+      "lastUpdated": "2026-06-19T14:45:00Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f5-render-no-aideck-depende-do-redesig.md",
-      "lastUpdated": "2026-06-17T16:06:30Z"
+      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/phases/f1-validar-e-aplicar-o-manifesto-project-s.md",
+      "lastUpdated": "2026-06-16T14:12:13Z"
     }
   ]
 }
