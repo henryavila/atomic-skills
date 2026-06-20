@@ -9,7 +9,7 @@
       "additionalProperties": false,
       "required": [
         "projectId", "slug", "title", "status", "branch", "started", "lastUpdated",
-        "currentPhase", "liveFront", "concluded", "suspended", "bucket",
+        "currentPhase",
         "currentPhaseText", "phasesText", "phasesSummary", "roteiroSub", "switcherCaption",
         "nextText", "focusTasksText", "focusTasksPct", "focusMeta", "updatedRel"
       ],
@@ -22,10 +22,6 @@
         "started": { "type": "string" },
         "lastUpdated": { "type": "string" },
         "currentPhase": { "type": "string" },
-        "liveFront": { "type": "boolean" },
-        "concluded": { "type": "boolean" },
-        "suspended": { "type": "boolean" },
-        "bucket": { "type": "string" },
         "currentPhaseText": { "type": "string" },
         "phasesText": { "type": "string" },
         "phasesSummary": { "type": "string" },
@@ -224,18 +220,26 @@
         "bannerTitle": { "type": "string" },
         "bannerSub": { "type": "string" },
         "moreFrontsText": { "type": "string" },
-        "updatedRel": { "type": "string" }
-      }
-    },
-    "totals": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["projetos", "frentesAtivas", "emParalelo", "tasksTravadas"],
-      "properties": {
-        "projetos": { "type": "integer" },
-        "frentesAtivas": { "type": "integer" },
-        "emParalelo": { "type": "integer" },
-        "tasksTravadas": { "type": "integer" }
+        "updatedRel": { "type": "string" },
+        "dotTone": { "type": "string" },
+        "moreText": { "type": "string" },
+        "idleText": { "type": "string" },
+        "fronts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["projectId", "slug", "title", "nextAction", "phaseId", "dotTone"],
+            "properties": {
+              "projectId": { "type": "string" },
+              "slug": { "type": "string" },
+              "title": { "type": "string" },
+              "nextAction": { "type": "string" },
+              "phaseId": { "type": "string" },
+              "dotTone": { "type": "string" }
+            }
+          }
+        }
       }
     },
     "burnup": {

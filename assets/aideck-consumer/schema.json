@@ -482,6 +482,13 @@
         "context": {
           "$ref": "#/definitions/context"
         },
+        "spawnedPlans": {
+          "type": "array",
+          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
+          "items": {
+            "$ref": "#/definitions/slug"
+          }
+        },
         "reviewGate": {
           "type": "object",
           "additionalProperties": false,
@@ -917,6 +924,36 @@
             }
           }
         },
+        "spawnedFrom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "phaseId",
+            "mode"
+          ],
+          "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+          "properties": {
+            "plan": {
+              "$ref": "#/definitions/slug"
+            },
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
+        },
         "references": {
           "type": "array",
           "items": {
@@ -1238,10 +1275,6 @@
         "started",
         "lastUpdated",
         "currentPhase",
-        "liveFront",
-        "concluded",
-        "suspended",
-        "bucket",
         "currentPhaseText",
         "phasesText",
         "phasesSummary",
@@ -1276,18 +1309,6 @@
           "type": "string"
         },
         "currentPhase": {
-          "type": "string"
-        },
-        "liveFront": {
-          "type": "boolean"
-        },
-        "concluded": {
-          "type": "boolean"
-        },
-        "suspended": {
-          "type": "boolean"
-        },
-        "bucket": {
           "type": "string"
         },
         "currentPhaseText": {
@@ -1825,30 +1846,50 @@
         },
         "updatedRel": {
           "type": "string"
-        }
-      }
-    },
-    "totals": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "projetos",
-        "frentesAtivas",
-        "emParalelo",
-        "tasksTravadas"
-      ],
-      "properties": {
-        "projetos": {
-          "type": "integer"
         },
-        "frentesAtivas": {
-          "type": "integer"
+        "dotTone": {
+          "type": "string"
         },
-        "emParalelo": {
-          "type": "integer"
+        "moreText": {
+          "type": "string"
         },
-        "tasksTravadas": {
-          "type": "integer"
+        "idleText": {
+          "type": "string"
+        },
+        "fronts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "projectId",
+              "slug",
+              "title",
+              "nextAction",
+              "phaseId",
+              "dotTone"
+            ],
+            "properties": {
+              "projectId": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "nextAction": {
+                "type": "string"
+              },
+              "phaseId": {
+                "type": "string"
+              },
+              "dotTone": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

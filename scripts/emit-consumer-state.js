@@ -1,12 +1,15 @@
 /**
  * emit-consumer-state.js — emit the denormalized `state/*.json` projection the
- * aiDeck v0.1 manifest binds to (option A′ from the aiDeck runtime answers,
- * docs/handoffs/atomic-skills-v2-answers.md).
+ * aiDeck v0.1 manifest binds to.
  *
- * WHY: the aiDeck runtime is `schemaVersion '0.1'` — it has NO aggregation
- * engine, NO operator/array-OR filters, NO reactive vars. `filter` is strict
- * equality. So every count/ratio/bucket/relative-time the dashboard needs must
- * be PRECOMPUTED here, into flat records aiDeck only reads.
+ * WHY: the aiDeck v0.1 engine computes counts/ratios/sums at read time
+ * (`source: { agg, where, of }`) and does array-membership filters
+ * (`status: [active, paused]`), so we no longer precompute totals or status
+ * bucket booleans here. What we STILL emit is what aiDeck CANNOT derive: per-
+ * record rollups (focusTasksPct, currentPhaseText, mode, activeCount, …),
+ * cross-collection/relationship fields (no join engine) and the boolean flags
+ * (blocked) the aggregates scope on. Contract: the engine handoff
+ * /home/henry/aideck/docs/handoffs/to-atomic-skills-v2-engine-contracts.md (§B2).
  *
  * WHERE: into the repo tree under `.atomic-skills/.aideck/state/` so the source
  * is declared `root: project` and the watcher keeps SSE live-refresh (a
@@ -20,8 +23,9 @@
  *
  * Outputs (under <root>/.aideck/state/):
  *   plans.json · phases.json · initiatives.json · tasks.json · gates.json
- *   phaseGates.json · stack.json · parked.json · emerged.json
- *   projects.json · totals.json · burnup.json · spi.json
+ *   phaseGates.json · stack.json · parked.json · emerged.json · projects.json
+ *   burnup.json · spi.json
+ *   (totals.json retired — the 4 Panorama totals are read-time source.agg now.)
  *
  * CLI:  node scripts/emit-consumer-state.js [<dir>] [--now <iso>]
  *       (<dir> defaults to ./ ; resolves its .atomic-skills/ tree)
@@ -34,8 +38,10 @@ import { verifierLabelFor, evidenceSummaryFor } from './compute-rollups.js';
 
 const STATE_DIRNAME = join('.aideck', 'state');
 
+// Concluded statuses — used for the per-project `concludedCount` rollup (a
+// derived scalar the engine can't compute). Status *filtering* in the manifest
+// now uses array membership (status: [done, archived]) directly.
 const CONCLUDED = new Set(['done', 'archived']);
-const LIVE = new Set(['active', 'paused']);
 
 // ── small pure helpers ──────────────────────────────────────────────────────
 
@@ -117,9 +123,9 @@ export function readTree(root) {
 /**
  * Build the flat record arrays + precomputed fields from the parsed tree.
  * Pure: takes the readTree() output + a fixed `nowMs` (so output is
- * deterministic in tests). The derived-field contract follows
- * docs/.../manifest.sample.yaml — but emitted as plain fields (aiDeck can't
- * aggregate/interpolate) and with bucket booleans replacing array-OR filters.
+ * deterministic in tests). Emits per-record derived fields (rollups,
+ * relationship/flag fields) the engine can't compute; counts/ratios and status
+ * filtering are left to the manifest's read-time source.agg / array filters.
  */
 export function buildState(tree, nowMs) {
   // index initiatives by (projectId, planSlug, phaseId) for plan↔phase joins
@@ -164,11 +170,6 @@ export function buildState(tree, nowMs) {
       started: fm.started || '',
       lastUpdated: fm.lastUpdated || '',
       currentPhase: fm.currentPhase || '',
-      // bucket booleans (replace array-OR filters; aiDeck filter is === only)
-      liveFront: LIVE.has(fm.status),
-      concluded: CONCLUDED.has(fm.status),
-      suspended: fm.status === 'paused' || fm.status === 'blocked',
-      bucket: CONCLUDED.has(fm.status) ? 'concluded' : LIVE.has(fm.status) ? 'live' : fm.status,
       // derived text the widgets render directly
       currentPhaseText: curPhase ? curPhase.title : fm.currentPhase || '',
       phasesText: `${phasesDone}/${phasesTotal} fases`,
@@ -357,7 +358,7 @@ export function buildState(tree, nowMs) {
   const projects = [];
   for (const [id, ps] of [...byProject.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const activeCount = ps.filter((p) => p.status === 'active').length;
-    const concludedCount = ps.filter((p) => p.concluded).length;
+    const concludedCount = ps.filter((p) => CONCLUDED.has(p.status)).length;
     const blockedCount = blockedTasksByProject.get(id) || 0;
     const phActive = activePhasesByProject.get(id) || 0;
     const phTotal = totalPhasesByProject.get(id) || 0;
@@ -366,6 +367,20 @@ export function buildState(tree, nowMs) {
       const t = Date.parse(p.lastUpdated || '');
       return Number.isNaN(t) ? m : Math.max(m, t);
     }, 0);
+    // Denormalized active fronts (the record-card's nested mini-list): the active
+    // plans, capped at 3, with the front's next-action + current phase. The
+    // dashboard can't join, so this rides the project record (matches the DS card).
+    const activePlans = ps.filter((p) => p.status === 'active');
+    const FRONT_CAP = 3;
+    const fronts = activePlans.slice(0, FRONT_CAP).map((p) => ({
+      projectId: id,
+      slug: p.slug,
+      title: p.title,
+      nextAction: p.nextText || '',
+      phaseId: p.currentPhase || '',
+      dotTone: 'info', // active front
+    }));
+    const moreFronts = Math.max(0, activeCount - FRONT_CAP);
     projects.push({
       id,
       name: humanizeId(id),
@@ -377,8 +392,13 @@ export function buildState(tree, nowMs) {
       hasActiveFront: activeCount > 0,
       mode,
       parallelTone: activeCount > 1 ? 'info' : activeCount === 1 ? 'success' : 'neutral',
+      // Leading status dot on the card head: blocked → error, running → info, idle → neutral.
+      dotTone: blockedCount > 0 ? 'error' : activeCount > 0 ? 'info' : 'neutral',
       plansSummary: `${ps.length} · ${concludedCount} ✓`,
       phasesActiveText: `${phActive}/${phTotal}`,
+      fronts,
+      moreText: moreFronts > 0 ? `${moreFronts} frente${moreFronts === 1 ? '' : 's'}` : '',
+      idleText: ps.length === 0 ? 'sem planos ainda' : activeCount === 0 ? 'sem frente ativa' : '',
       bannerTitle: activeCount > 1 ? `${activeCount} frentes em paralelo` : activeCount === 1 ? '1 frente ativa' : 'Sem frente ativa',
       bannerSub: `${ps.length} planos · ${blockedCount} tasks travadas`,
       moreFrontsText: activeCount > 3 ? `+${activeCount - 3} frentes` : '',
@@ -386,14 +406,7 @@ export function buildState(tree, nowMs) {
     });
   }
 
-  const totals = [{
-    projetos: projects.length,
-    frentesAtivas: plans.filter((p) => p.status === 'active').length,
-    emParalelo: projects.filter((p) => p.isParallel).length,
-    tasksTravadas: tasks.filter((t) => t.blocked).length,
-  }];
-
-  return { plans, phases, initiatives, tasks, gates, phaseGates, stack, parked, emerged, projects, totals };
+  return { plans, phases, initiatives, tasks, gates, phaseGates, stack, parked, emerged, projects };
 }
 
 /**

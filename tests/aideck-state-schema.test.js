@@ -9,9 +9,11 @@ import { validateAideckState } from '../scripts/validate-aideck-state.js';
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = join(PROJECT_ROOT, 'assets', 'aideck-consumer', 'schema.json');
 
+// `totals` is no longer emitted — the Panorama totals are read-time source.agg
+// on the aiDeck v0.1 engine, so the bundled schema drops its definition too.
 const EMITTED_ENTITIES = [
   'plans', 'phases', 'initiatives', 'tasks', 'gates', 'phaseGates',
-  'stack', 'parked', 'emerged', 'projects', 'totals', 'catalog',
+  'stack', 'parked', 'emerged', 'projects', 'catalog',
 ];
 
 describe('aideck state schema gate', () => {

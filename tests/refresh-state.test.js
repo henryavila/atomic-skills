@@ -58,7 +58,7 @@ describe('refreshState consumer series integration', () => {
       assert.equal(Object.hasOwn(summary, 'rollupsChanged'), true);
       assert.equal(Object.hasOwn(summary, 'focusChanged'), true);
       assert.equal(Object.hasOwn(summary, 'digestWritten'), true);
-      assert.equal(summary.seriesWritten, 13);
+      assert.equal(summary.seriesWritten, 12); // 11 base − totals.json (retired) + burnup.json + spi.json
 
       const phases = JSON.parse(readFileSync(join(dir, '.atomic-skills', '.aideck', 'state', 'phases.json'), 'utf8'));
       assert.equal(phases.find((phase) => phase.id === 'F1')?.tasksText, '1/2');
