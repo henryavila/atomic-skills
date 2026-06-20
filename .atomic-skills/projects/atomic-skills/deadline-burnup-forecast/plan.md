@@ -5,7 +5,8 @@ title: Deadline Burn-up Forecast (Earned Value / SPI)
 version: "1.0"
 status: active
 started: 2026-06-17T12:06:57.781Z
-lastUpdated: 2026-06-19T20:00:51Z
+deadline: 2026-06-21T23:59:59Z
+lastUpdated: 2026-06-20T01:38:33Z
 branch: plan/deadline-burnup-forecast
 currentPhase: F5
 parallelismAllowed: false
