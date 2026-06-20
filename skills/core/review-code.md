@@ -175,52 +175,21 @@ For the briefing placeholder `{{GIT_REF}}`, use a neutral label:
    review or abort?"** with options `Continue` / `Abort`. In codex mode,
    this also previews the cost (~ $1-2 per 50KB).
 
-## Destructive-diff signal (compute before Step 0)
-
-A predominantly **destructive** diff — a delete/drop/mass-delete — is the
-diff class where a same-model local pass most often false-greens (the cost
-of a missed regression is high, and the bug is an *absence* the author's
-model already rationalized away). Compute this signal from `CAPTURED_DIFF`
-before picking a mode; it is deterministic, not a judgement call:
-
-`DESTRUCTIVE` is true when **any** of these holds over the captured range:
-- a whole source/class/model file is **deleted** (`git diff --diff-filter=D
-  --name-only <range>` is non-empty for a non-test, non-doc file), OR
-- the diff contains a schema/data drop token — `DROP TABLE`, `DROP COLUMN`,
-  `dropColumn`, `dropIfExists`, `Schema::drop`, `->drop(`, `DELETE FROM`,
-  `TRUNCATE`, `->truncate(`, `rm -rf`, or a migration whose net effect is a
-  removal, OR
-- removal-shaped churn: deleted lines dominate (deletions ≥ 3× additions)
-  AND ≥ 50 lines are removed.
-
-This same signal is what `phase-done` computes over the phase diff to choose
-its review mode (`project-transitions.md` → `phase-done` step 6).
-
 ## Step 0 — Pick review mode
 
 Skip this step if `--mode=` was supplied. Otherwise, use
 {{ASK_USER_QUESTION_TOOL}}:
 
-**Question:** "How should this code change be reviewed?" (When `DESTRUCTIVE`
-is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops).
-A same-model local-only pass frequently misses the orphaned-data / dangling-
-reference regression a delete leaves behind — cross-model is strongly
-advised."*)
+**Question:** "How should this code change be reviewed?"
 
 **Options:**
 - **Both (local then codex)** — Recommended for significant changes
-  (auth, payments, data integrity) and **strongly recommended for any
-  destructive diff**. Local agent catches obvious bugs; codex catches what
-  the agent missed. ~$1-2 codex cost.
+  (auth, payments, data integrity). Local agent catches obvious bugs;
+  codex catches what the agent missed. ~$1-2 codex cost.
 - **Local only** — Cheap, fast. Use for routine PRs or pre-commit checks.
-  **Not advised when `DESTRUCTIVE` is true** — if chosen anyway, record the
-  user's explicit override (the false-green risk was surfaced and accepted).
 - **Codex only** — Skip local. Use when another agent self-reviewed.
 
-Default: **Both** — and when `DESTRUCTIVE` is true, `both` is not merely the
-default but the recommended option; the picker leads with the warning above
-so a user choosing `local` does so against an explicit caution, never by
-omission.
+Default: **Both**.
 
 Set `mode ∈ {local, codex, both}` based on the answer.
 

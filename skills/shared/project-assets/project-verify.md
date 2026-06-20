@@ -81,11 +81,6 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - **WARN** (report-only): `WARN completion: <N> task(s)/gate(s) look done in the repo but are still open — run \`reconcile\`.` — then list each candidate's `kind`, `id`, and `evidence`.
 - This check is **strictly report-only**, consistent with `verify`'s read-only contract. `verify --fix` is **NOT** extended to reconcile — closing tasks/gates is a judgement call (verifier-aware, GATE-R2-gated) owned by the `reconcile` verb. `--fix` stays schema-normalization only.
 
-### 8. Phase review gate (read-only; G2 backward-compat surface)
-- For each plan phase with `status: done`, check whether it carries a `reviewGate` block (the structured phase-done review outcome).
-- **PASS:** every done phase carries a `reviewGate` (its honesty — `passed`⟹`at`, `skipped`⟹`reason` — is already HARD-enforced by `validate-state` GATE-R3 in check #1, so a malformed one surfaces there as a FAIL).
-- **WARN** (report-only): `WARN review-gate: <N> done phase(s) carry no recorded review gate (closed before the gate existed, or review-code was never run) — <plan>/<phaseId>…`. This is the deterministic surface for the legacy/missed case that GATE-R3 deliberately tolerates (absent ≠ malformed); it never mutates and `--fix` does not backfill it (the review must actually run — `phase-done` / `review-due` is the only path that writes a truthful `reviewGate`).
-
 ---
 
 ## Report shape
@@ -100,9 +95,8 @@ project verify — <repo-name> @ <branch>
 [5] orphans     PASS
 [6] aideck      WARN   dashboard not running (cross-check skipped)
 [7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
-[8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
 
-VERIFY: 4 warning(s), 0 failure(s)
+VERIFY: 3 warning(s), 0 failure(s)
 ```
 
 ## Red flags
