@@ -25,6 +25,21 @@
         "type": "array",
         "items": { "type": "string", "minLength": 1 }
       }
+    },
+    "pendingWriteback": {
+      "description": "Set on the CHILD's sidecar when a cross-worktree writeback to the parent's canonical state aborted on conflict (content-hash mismatch, parallel mode). Declarative (op+args re-applied against fresh parent state on retry), never a byte patch. Cleared on successful writeback. See docs/design/plan-fork-parallel-state.md (F2).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "parent", "op", "readToken", "detectedAt"],
+      "properties": {
+        "target": { "type": "string", "enum": ["parent-plan", "parent-sidecar"] },
+        "parent": { "type": "string", "minLength": 1 },
+        "op": { "type": "string", "enum": ["addSpawnedPlan", "resumeParent"] },
+        "args": { "type": "object" },
+        "readToken": { "type": "string", "minLength": 1 },
+        "detectedAt": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string" }
+      }
     }
   }
 }

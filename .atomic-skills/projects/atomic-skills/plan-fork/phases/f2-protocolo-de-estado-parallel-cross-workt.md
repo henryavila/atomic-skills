@@ -16,7 +16,7 @@ nextAction: "Phase-start gate F2: rodar `node scripts/list-lessons.js --phase
   estado parallel (concorrência otimista)."
 parentPlan: plan-fork
 phaseId: F2
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
@@ -73,8 +73,33 @@ tasks:
       recuperação."
   - id: T-002
     title: Implementar resolução canônica e writeback com concorrência otimista
-    status: pending
-    lastUpdated: 2026-06-19T15:32:29.603Z
+    status: done
+    lastUpdated: 2026-06-20T01:17:22Z
+    closedAt: 2026-06-20T01:17:22Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-20T01:17:22Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Verifier `npm test` escopado para `node --test
+        tests/parallel-state.test.js` (baseline npm test RED ambiental —
+        precedente F0/F1): tests 14, pass 14, fail 0, exit 0. Suite relacionada
+        `node --test links-sidecar+spawn-graph+parallel-state`: tests 54, pass
+        54, fail 0 (sem regressão da mudança no links.schema.json). G9
+        mutation-kill: desabilitar o predicado de conflito (token1!==readToken)
+        → 2 testes RED (conflito + concorrência), revertido → 14/14 GREEN.
+        Implementa a spec T-001: contentToken sha256, parseWorktrees,
+        resolveCanonicalParentDir, atomicWriteback (lock O_EXCL + temp+rename +
+        CAS), recordPendingWriteback/clearPendingWriteback."
+      mutation:
+        target: src/parallel-state.js:atomicWriteback (predicado de conflito)
+        change: if (token1 !== readToken) → if (false && …) — desabilita o CAS
+        killedBy:
+          - aborts (conflict) without writing when the token is stale
+          - "concurrency: two writebacks captured at the SAME token0 — first
+            wins, second conflicts, no lost update"
+        killTranscript: "inject → node --test: fail 2 (conflito+concorrência) → revert →
+          tests 14 pass 14 fail 0"
     scopeBoundary:
       - apenas a resolução e o writeback do estado parallel; não tocar o
         pause-mode.
@@ -125,8 +150,8 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F2 — 1/2 tasks. Phase-start lessons gate FEITO (ver § Decisions). **T-001 FECHADA**: spec `docs/design/plan-fork-parallel-state.md` escrita com as 3 decisões one-way-door ratificadas (canônico = worktree do pai via `git worktree list`+branch; token = sha256 content-hash CAS; conflito = abort + `pendingWriteback` declarativo durável no sidecar do filho). Ponteiro adicionado no bullet parallel de `project-emergence.md`. Falta T-002 (implementar `src/parallel-state.js` + teste).
-- **Decision log:** (1) 3 decisões do protocolo ratificadas pelo usuário (§ spec). (2) Flag T-002: o teste vai em `tests/parallel-state.test.js` (NÃO `src/parallel-state.test.js` do outputs declarado — `npm test` faz glob de `tests/*.test.js`; L-003). (3) `pendingWriteback` vai só no sidecar (`links.schema.json`), nunca no `plan.md` `.strict` (aiDeck 0.1.0); se entrar no schema, enum nos campos + teste negativo (L-002). (4) F2-G1 = `npm test` (baseline RED ambiental — mesma decisão de escopo da F0/F1 vai recair no phase-done).
-- **Single nextAction:** T-002 — implementar `src/parallel-state.js` (resolução canônica via `git worktree list --porcelain` + `branch:` do pai; read-by-hash; writeback atômico lock O_EXCL+temp+rename com CAS sha256; conflito → `pendingWriteback` no sidecar do filho) + `tests/parallel-state.test.js` (simula 2 escritas concorrentes com mesmo token0 → 1ª passa, 2ª vira pendingWriteback, sem lost update). Verifier: `npm test` (escopar/rodar `node --test tests/parallel-state.test.js` se baseline RED). Seguir a spec `docs/design/plan-fork-parallel-state.md`.
-- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. T-001 commitada a seguir. Spec em `docs/design/plan-fork-parallel-state.md`.
-- **Uncommitted changes:** T-001 (spec + ponteiro em project-emergence.md + estado da fase) a commitar.
+- **Narrative:** F2 com as 2/2 tasks FECHADAS. T-001 (spec `docs/design/plan-fork-parallel-state.md`). **T-002 FECHADA**: `src/parallel-state.js` (contentToken sha256, parseWorktrees, findWorktreeByBranch, resolveCanonicalParentDir, atomicWriteback com lock O_EXCL+temp+rename+CAS, record/clearPendingWriteback) + `tests/parallel-state.test.js` (14 testes, inclui o cenário de concorrência sem lost update e o teste negativo do schema) + `links.schema.json` estendido com `pendingWriteback` (enum em target/op). `node --test`: 14/14; suite relacionada 54/54 sem regressão; G9 mutation-kill no predicado de conflito (2 testes RED → revert → GREEN). A fase está `active` aguardando `phase-done`.
+- **Decision log:** (1) 3 decisões do protocolo ratificadas (§ spec). (2) Teste em `tests/` (L-003). (3) `pendingWriteback` no sidecar com enum em target/op + teste negativo (L-002 aplicada). (4) F2-G1 = `npm test` (baseline RED ambiental — mesma decisão de escopo da F0/F1 recai no phase-done). (5) design-brief L-001 (contrato caro de reverter): considerar review `--mode=both` no phase-done desta fase.
+- **Single nextAction:** Rodar `phase-done` para F2 — escopar F2-G1 (remover `npm test`→`node --test tests/parallel-state.test.js` ou deixar o usuário decidir), rodar o review gate (considerar `--mode=both` por L-001), distilar lessons, avançar para F3.
+- **Verbatim state:** worktree `/home/henry/atomic-skills/.worktrees/plan-fork`; branch `plan/plan-fork`. Módulo `src/parallel-state.js`; teste `tests/parallel-state.test.js`; schema `meta/schemas/links.schema.json` (+pendingWriteback); spec `docs/design/plan-fork-parallel-state.md`.
+- **Uncommitted changes:** T-002 (módulo + teste + schema + estado da fase) a commitar.
