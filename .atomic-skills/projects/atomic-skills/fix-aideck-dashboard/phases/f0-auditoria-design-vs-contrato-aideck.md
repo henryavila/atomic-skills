@@ -11,7 +11,8 @@ started: 2026-06-16T11:57:08.891Z
 lastUpdated: 2026-06-20T00:00:00Z
 parentPlan: fix-aideck-dashboard
 phaseId: F0
-nextAction: "Fase concluída — gap report 3D validado contra o source do aiDeck; o escopo real seguiu para F1 (shell nav.style:'projects') e B (publicar v2.1)."
+nextAction: Fase concluída — gap report 3D validado contra o source do aiDeck; o
+  escopo real seguiu para F1 (shell nav.style:'projects') e B (publicar v2.1).
 summary: "F0 DONE: gap report 3D recebido e validado contra o source do aiDeck
   (3 gaps de gramática eram falsos — linkTo/cell-slots/record-switcher já
   existem). Escopo real = D shell nav.style:'projects' + B publicar v2.1."
@@ -35,7 +36,6 @@ tasks: []
 parked: []
 emerged: []
 planTitle: "fix-aideck-dashboard: corrigir a integração com aiDeck"
-planActive: true
 ---
 
 # F0 · Auditoria do design contra o contrato real do aiDeck (3D)

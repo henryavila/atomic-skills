@@ -7,7 +7,7 @@ goal: "No ../aideck/src/client, adicionar um modo de nav NOMEADO
   sidebar (em vez de CONSUMERS), single consumer, header de página alinhado.
   Shell customizável por MODO nomeado, não free-form. É a correção dominante — o
   manifest sozinho não resolve."
-status: active
+status: done
 branch: plan/fix-aideck-dashboard
 started: 2026-06-16T11:57:08.891Z
 lastUpdated: 2026-06-20T00:00:00Z
@@ -33,18 +33,19 @@ exitGates:
     description: A sidebar renderiza Panorama no topo + lista PROJETOS
       (atomic-skills/arch/lekto) sob UM consumer, validado por captura CDP
       comparada à imagem de referência do design.
-    status: pending
+    status: deferred
+    deferredReason: Owner valida visualmente após o merge (decisão do owner, 2026-06-20).
     verifier:
       kind: manual
       description: Verify exit-gate prose with the user during phase-done.
     verifierLabel: manual
+    evidenceSummary: "deferred: Owner valida visualmente após o merge (decisão do
+      owner, 2026-06-20)."
 stack: []
 tasks: []
 parked: []
 emerged: []
 planTitle: "fix-aideck-dashboard: corrigir a integração com aiDeck"
-planActive: true
-current: true
 ---
 
 # F1 · Shell project-centric no aiDeck (nav.style: projects)

@@ -6,7 +6,7 @@ goal: "Remover os consumers legados (arch/lekto/dispatch-test em
   ~/.aideck/consumers/) → UM consumer atomic-skills + repos como PROJETOS. Add
   teste CI: todo widget/feature do manifest ∈ registry do aiDeck instalado (mata
   o false-green do widget z.string)."
-status: active
+status: done
 branch: plan/fix-aideck-dashboard
 started: 2026-06-16T11:57:08.891Z
 lastUpdated: 2026-06-20T00:00:00Z
@@ -30,11 +30,14 @@ exitGates:
   - id: G-1
     description: A sidebar mostra UM consumer (atomic-skills) com
       arch/lekto/atomic-skills como PROJETOS; nenhum consumer legado.
-    status: pending
+    status: deferred
+    deferredReason: Owner valida visualmente após o merge (decisão do owner, 2026-06-20).
     verifier:
       kind: manual
       description: Verify exit-gate prose with the user during phase-done.
     verifierLabel: manual
+    evidenceSummary: "deferred: Owner valida visualmente após o merge (decisão do
+      owner, 2026-06-20)."
   - id: G-2
     description: Existe um teste que falha (RED) quando o manifest referencia um
       widget/feature ausente no registry do aiDeck instalado.
@@ -54,7 +57,6 @@ tasks: []
 parked: []
 emerged: []
 planTitle: "fix-aideck-dashboard: corrigir a integração com aiDeck"
-planActive: true
 ---
 
 # F3 · Higiene: consumers legados + guardrail CI

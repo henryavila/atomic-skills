@@ -6,7 +6,7 @@ goal: "Realinhar assets/aideck-consumer/manifest.yaml ao manifest.sample do
   design: foco-agora/visão-geral (não foco/planos), headline-banner no Foco,
   dobrar a página phase no detalhe do plano, ajuda via botão ? (não item de
   sidebar). Gerado a partir do mapa-por-tela (parte A da auditoria)."
-status: active
+status: done
 branch: plan/fix-aideck-dashboard
 started: 2026-06-16T11:57:08.891Z
 lastUpdated: 2026-06-20T00:00:00Z
@@ -32,17 +32,19 @@ exitGates:
     description: O manifest corresponde ao design (páginas/widgets/bindings) e o
       render validado (CDP, 0 unknown widgets) bate com as imagens de
       referência.
-    status: pending
+    status: deferred
+    deferredReason: Owner valida visualmente após o merge (decisão do owner, 2026-06-20).
     verifier:
       kind: manual
       description: Verify exit-gate prose with the user during phase-done.
     verifierLabel: manual
+    evidenceSummary: "deferred: Owner valida visualmente após o merge (decisão do
+      owner, 2026-06-20)."
 stack: []
 tasks: []
 parked: []
 emerged: []
 planTitle: "fix-aideck-dashboard: corrigir a integração com aiDeck"
-planActive: true
 ---
 
 # F2 · Realinhar o manifest ao design

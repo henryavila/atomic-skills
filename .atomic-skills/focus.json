@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-21T01:15:29.297Z",
+  "generatedAt": "2026-06-21T01:49:30.271Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "fix-aideck-dashboard",
-    "title": "fix-aideck-dashboard: corrigir a integração com aiDeck",
+    "slug": "deadline-burnup-forecast",
+    "title": "Deadline Burn-up Forecast (Earned Value / SPI)",
     "status": "active"
   },
   "phase": {
-    "id": "F1",
-    "slug": "fix-aideck-dashboard-f1-shell-project-centric-no-aideck",
-    "title": "Shell project-centric no aiDeck (nav.style: projects)",
-    "index": 2,
-    "total": 4,
+    "id": "F0",
+    "slug": "deadline-burnup-forecast-f0-fonte-de-fluxo-evento-done-emitido",
+    "title": "Fonte de fluxo: evento done emitido na transição",
+    "index": 1,
+    "total": 6,
     "status": "active"
   },
   "tasks": {
     "done": 0,
-    "total": 0,
+    "total": 3,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Código FEITO e committado no ../aideck (/home/henry/aideck @ 2b54987, branch feat/ds-v2.1-widgets). Resta o gate G-1 (kind: manual): validação VISUAL do owner — render do shell projects vs imagem de referência #2. Sem chrome-headless neste ambiente; o aiDeck serve em :7777. Depois da validação passar: publicar a v2.1 no npm (ÚLTIMO passo, gate do owner). Sem task codificável pendente p/ implement.",
+  "nextAction": "Start T-001: — Helper append-completion + log JSONL",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md",
-      "lastUpdated": "2026-06-19T14:45:00Z"
+      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/plan.md",
+      "lastUpdated": "2026-06-17T12:06:57.781Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/phases/f1-shell-project-centric-no-aideck.md",
-      "lastUpdated": "2026-06-20T00:00:00Z"
+      "path": ".atomic-skills/projects/atomic-skills/deadline-burnup-forecast/phases/f0-fonte-de-fluxo-evento-done-emitido.md",
+      "lastUpdated": "2026-06-17T12:06:57.781Z"
     }
   ]
 }

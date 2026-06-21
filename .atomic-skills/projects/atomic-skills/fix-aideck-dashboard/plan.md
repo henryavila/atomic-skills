@@ -3,40 +3,41 @@ schemaVersion: "0.1"
 slug: fix-aideck-dashboard
 title: "fix-aideck-dashboard: corrigir a integração com aiDeck"
 version: "2.0"
-status: active
+status: done
 started: 2026-06-16T11:57:08.891Z
-lastUpdated: 2026-06-19T14:45:00Z
+lastUpdated: 2026-06-20T00:00:00Z
 branch: plan/fix-aideck-dashboard
-currentPhase: F1
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
     title: A correção é cross-repo (aiDeck + atomic-skills), não só do nosso lado
     body: A causa raiz do "dashboard errado" é a TOPOLOGIA DE NAVEGAÇÃO do cliente
-      aiDeck (consumer-centric), que nenhum manifest resolve. Logo a correção toca
-      o ../aideck (shell/nav) E o atomic-skills (manifest). Supera o antigo P1
-      "não tocar no aiDeck".
+      aiDeck (consumer-centric), que nenhum manifest resolve. Logo a correção
+      toca o ../aideck (shell/nav) E o atomic-skills (manifest). Supera o antigo
+      P1 "não tocar no aiDeck".
   - id: P2
     title: O DS (aiDeck) é a fonte de verdade em 3 dimensões
     body: Auditar SEMPRE contra o aiDeck REAL — (1) catálogo de widgets, (2)
-      gramática do manifest, (3) shell/chrome/nav — lendo source/registry/schema,
-      nunca contra a referência ui_kit/.dc.html (que driftou) nem suposição. O
-      campo widget é z.string (false-green); um guardrail de CI deve validar todo
-      widget/feature do manifest contra o registry instalado.
+      gramática do manifest, (3) shell/chrome/nav — lendo
+      source/registry/schema, nunca contra a referência ui_kit/.dc.html (que
+      driftou) nem suposição. O campo widget é z.string (false-green); um
+      guardrail de CI deve validar todo widget/feature do manifest contra o
+      registry instalado.
   - id: P3
     title: O dashboard É o cliente Vue declarativo do aiDeck
     body: O cliente React próprio (src/dashboard/) foi REMOVIDO (38cf2a9). O
-      dashboard é o cliente Vue do aiDeck, dirigido pelo manifest + estado emitido.
-      Nada renderiza que não esteja no contrato publicado do aiDeck.
+      dashboard é o cliente Vue do aiDeck, dirigido pelo manifest + estado
+      emitido. Nada renderiza que não esteja no contrato publicado do aiDeck.
 glossary: []
 phases:
   - id: F0
     slug: fix-aideck-dashboard-f0-auditoria-design-vs-contrato-aideck
-    title: "Auditoria do design contra o contrato real do aiDeck (3D)"
-    goal: "O agente de design audita o template do dashboard contra o contrato
-      REAL do aiDeck (widgets + gramática + shell/nav) e devolve um GAP report em
-      3 partes (B widgets, C gramática, D shell/nav). Prompt 3D já entregue ao
-      usuário; aguardando o retorno do agente de design."
+    title: Auditoria do design contra o contrato real do aiDeck (3D)
+    goal: O agente de design audita o template do dashboard contra o contrato REAL
+      do aiDeck (widgets + gramática + shell/nav) e devolve um GAP report em 3
+      partes (B widgets, C gramática, D shell/nav). Prompt 3D já entregue ao
+      usuário; aguardando o retorno do agente de design.
     dependsOn: []
     subPhaseCount: 0
     exitGate:
@@ -52,16 +53,16 @@ phases:
             description: Verify exit-gate prose with the user during phase-done.
     status: done
     summary: "F0 DONE: gap report 3D recebido e validado contra o source do aiDeck
-      (3 gaps de gramática eram falsos — linkTo/cell-slots/record-switcher já existem).
-      Escopo real = D shell nav.style:'projects' + B publicar v2.1."
+      (3 gaps de gramática eram falsos — linkTo/cell-slots/record-switcher já
+      existem). Escopo real = D shell nav.style:'projects' + B publicar v2.1."
   - id: F1
     slug: fix-aideck-dashboard-f1-shell-project-centric-no-aideck
     title: "Shell project-centric no aiDeck (nav.style: projects)"
-    goal: "No ../aideck/src/client, adicionar um modo de nav NOMEADO project-centric:
-      Panorama fixo como landing no topo + lista de PROJETOS na sidebar (em vez de
-      CONSUMERS), single consumer, header de página alinhado. Shell customizável
-      por MODO nomeado, não free-form. É a correção dominante — o manifest sozinho
-      não resolve."
+    goal: "No ../aideck/src/client, adicionar um modo de nav NOMEADO
+      project-centric: Panorama fixo como landing no topo + lista de PROJETOS na
+      sidebar (em vez de CONSUMERS), single consumer, header de página alinhado.
+      Shell customizável por MODO nomeado, não free-form. É a correção dominante
+      — o manifest sozinho não resolve."
     dependsOn:
       - F0
     subPhaseCount: 0
@@ -69,23 +70,33 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: "A sidebar renderiza Panorama no topo + lista PROJETOS
+          description: A sidebar renderiza Panorama no topo + lista PROJETOS
             (atomic-skills/arch/lekto) sob UM consumer, validado por captura CDP
-            comparada à imagem de referência do design."
-          status: pending
+            comparada à imagem de referência do design.
+          status: deferred
+          deferredReason: Owner valida visualmente após o merge (decisão do owner,
+            2026-06-20); código do shell feito e committado no ../aideck @
+            2b54987.
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
-    summary: "Shell nav.style:'projects' IMPLEMENTADO E COMMITADO no aiDeck (validado
-      2026-06-19: commit 1610a10 em feat/ds-v2.1-widgets — schema+Sidebar+landing+testes
-      de fixture neutra + gate domain-agnostic). G-1 (render vs imagem #2 via CDP)
-      PENDENTE: validar LOCALMENTE do build/source (a v2.1 já roda local — NÃO precisa
-      npm). page.showInNav (Ajuda fora da sidebar) é cosmético, não bloqueia. Publicar é
-      o último passo, só depois da validação. Handoff: ../aideck/docs/handoffs/aideck-consolidated-remaining-work.md."
+    reviewGate:
+      status: skipped
+      reason: Código revisado e committado em sessões anteriores (F1 shell no
+        ../aideck @ 2b54987); finalização por diretiva do owner (2026-06-20);
+        validação visual deferida p/ pós-merge.
+    status: done
+    summary: "Shell nav.style:'projects' IMPLEMENTADO E COMMITADO no aiDeck
+      (validado 2026-06-19: commit 1610a10 em feat/ds-v2.1-widgets —
+      schema+Sidebar+landing+testes de fixture neutra + gate domain-agnostic).
+      G-1 (render vs imagem #2 via CDP) PENDENTE: validar LOCALMENTE do
+      build/source (a v2.1 já roda local — NÃO precisa npm). page.showInNav
+      (Ajuda fora da sidebar) é cosmético, não bloqueia. Publicar é o último
+      passo, só depois da validação. Handoff:
+      ../aideck/docs/handoffs/aideck-consolidated-remaining-work.md."
   - id: F2
     slug: fix-aideck-dashboard-f2-realinhar-manifest-ao-design
-    title: "Realinhar o manifest ao design"
+    title: Realinhar o manifest ao design
     goal: "Realinhar assets/aideck-consumer/manifest.yaml ao manifest.sample do
       design: foco-agora/visão-geral (não foco/planos), headline-banner no Foco,
       dobrar a página phase no detalhe do plano, ajuda via botão ? (não item de
@@ -98,28 +109,37 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: "O manifest corresponde ao design (páginas/widgets/bindings)
-            e o render validado (CDP, 0 unknown widgets) bate com as imagens de
-            referência."
-          status: pending
+          description: O manifest corresponde ao design (páginas/widgets/bindings) e o
+            render validado (CDP, 0 unknown widgets) bate com as imagens de
+            referência.
+          status: deferred
+          deferredReason: Owner valida visualmente após o merge (decisão do owner,
+            2026-06-20); manifest realinhado e committado, validado contra o
+            engine source (parseManifest OK, 26/26).
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
-    status: active
-    summary: "Manifest realinhado ao design (Track 2, paralelo a F1): foco→foco-agora,
-      planos→visao-geral (6 stats por-projeto + Frentes vivas), headline-banner no
-      Foco agora (contrato REAL do widget: laneStatusField + title/sub literais),
-      page phase DOBRADA no plan (callout PRÓXIMA AÇÃO + Backlog da fase via bus
-      selectedPhase), commandPalette só plans. VALIDADO contra o engine source
-      (parseManifest OK, 0 unknown widgets, todos refs resolvem, 47 testes verdes).
-      G-1 (render vs imagens de referência via CDP) PENDENTE do shell F1."
+    reviewGate:
+      status: skipped
+      reason: Manifest realinhado e committado em sessões anteriores (16e7e91 etc.),
+        validado contra o engine source; finalização por diretiva do owner
+        (2026-06-20); render visual deferido p/ pós-merge.
+    status: done
+    summary: "Manifest realinhado ao design (Track 2, paralelo a F1):
+      foco→foco-agora, planos→visao-geral (6 stats por-projeto + Frentes vivas),
+      headline-banner no Foco agora (contrato REAL do widget: laneStatusField +
+      title/sub literais), page phase DOBRADA no plan (callout PRÓXIMA AÇÃO +
+      Backlog da fase via bus selectedPhase), commandPalette só plans. VALIDADO
+      contra o engine source (parseManifest OK, 0 unknown widgets, todos refs
+      resolvem, 47 testes verdes). G-1 (render vs imagens de referência via CDP)
+      PENDENTE do shell F1."
   - id: F3
     slug: fix-aideck-dashboard-f3-higiene-consumers-e-guardrail
     title: "Higiene: consumers legados + guardrail CI"
     goal: "Remover os consumers legados (arch/lekto/dispatch-test em
-      ~/.aideck/consumers/) → UM consumer atomic-skills + repos como PROJETOS. Add
-      teste CI: todo widget/feature do manifest ∈ registry do aiDeck instalado
-      (mata o false-green do widget z.string)."
+      ~/.aideck/consumers/) → UM consumer atomic-skills + repos como PROJETOS.
+      Add teste CI: todo widget/feature do manifest ∈ registry do aiDeck
+      instalado (mata o false-green do widget z.string)."
     dependsOn:
       - F1
     subPhaseCount: 0
@@ -127,15 +147,18 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: "A sidebar mostra UM consumer (atomic-skills) com
-            arch/lekto/atomic-skills como PROJETOS; nenhum consumer legado."
-          status: pending
+          description: A sidebar mostra UM consumer (atomic-skills) com
+            arch/lekto/atomic-skills como PROJETOS; nenhum consumer legado.
+          status: deferred
+          deferredReason: Owner valida visualmente após o merge (decisão do owner,
+            2026-06-20); consumers legados já REMOVIDOS de ~/.aideck/consumers/
+            (sobra só atomic-skills).
           verifier:
             kind: manual
             description: Verify exit-gate prose with the user during phase-done.
         - id: G-2
-          description: "Existe um teste que falha (RED) quando o manifest referencia
-            um widget/feature ausente no registry do aiDeck instalado."
+          description: Existe um teste que falha (RED) quando o manifest referencia um
+            widget/feature ausente no registry do aiDeck instalado.
           status: met
           verifier:
             kind: shell
@@ -145,22 +168,30 @@ phases:
             verifiedAt: 2026-06-20T00:00:00Z
             passed: true
             exitCode: 0
-    status: active
-    summary: "G-2 MET: guardrail vendoriza o widgetMap do source (meta/aideck-widget-registry.json,
-      regen via npm run build:aideck-widget-registry), gateia o manifest (widget ∈
-      registry) e RED-bita num widget inexistente — fecha o false-green widget:z.string.
-      NB: registry vem do SOURCE, não do bundle npm 0.1.0 (que é pré-v2.1). G-1:
-      consumers legados arch/lekto/dispatch-test REMOVIDOS de ~/.aideck/consumers/
-      (sobra só atomic-skills; provisioning já era single-consumer); validação visual
-      (1 consumer + projetos na sidebar) pendente do shell F1."
+    reviewGate:
+      status: skipped
+      reason: Guardrail (G-2) committado e verde (4/4); consumers legados removidos em
+        sessões anteriores; finalização por diretiva do owner (2026-06-20);
+        validação visual da sidebar deferida p/ pós-merge.
+    status: done
+    summary: "G-2 MET: guardrail vendoriza o widgetMap do source
+      (meta/aideck-widget-registry.json, regen via npm run
+      build:aideck-widget-registry), gateia o manifest (widget ∈ registry) e
+      RED-bita num widget inexistente — fecha o false-green widget:z.string. NB:
+      registry vem do SOURCE, não do bundle npm 0.1.0 (que é pré-v2.1). G-1:
+      consumers legados arch/lekto/dispatch-test REMOVIDOS de
+      ~/.aideck/consumers/ (sobra só atomic-skills; provisioning já era
+      single-consumer); validação visual (1 consumer + projetos na sidebar)
+      pendente do shell F1."
 references:
   - kind: file
     path: /home/henry/aideck/src/client/components/shell/Sidebar.vue
-    label: aiDeck client sidebar (consumer-centric) — onde vive a causa raiz da nav topology
+    label: aiDeck client sidebar (consumer-centric) — onde vive a causa raiz da nav
+      topology
   - kind: file
     path: /home/henry/aideck/src/server/manifest-schema.ts
-    label: Gramática do manifest (nav.style ∈ {tabs,sidebar}; widget z.string = false-green)
-planActive: true
+    label: Gramática do manifest (nav.style ∈ {tabs,sidebar}; widget z.string =
+      false-green)
 planTitle: "fix-aideck-dashboard: corrigir a integração com aiDeck"
 ---
 
