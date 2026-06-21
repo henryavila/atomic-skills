@@ -1,0 +1,858 @@
+[
+  {
+    "id": "/atomic-skills:fix",
+    "icon": "🔧",
+    "oneLiner": "Diagnose root cause → write test → fix → verify",
+    "facets": [
+      "quality",
+      "debugging",
+      "tdd",
+      "core"
+    ],
+    "summary": "Find the true root cause of a bug, prove it with a failing test, then make the minimal fix — a detective's process, not a firefighter's. The reproducing test outlives the fix and guards against regression.",
+    "pros": [
+      "You observed a bug or unexpected behavior",
+      "A test is failing for unclear reasons",
+      "A regression appeared after a recent change"
+    ],
+    "cons": [
+      "You want to add a new feature (use prompt)",
+      "The issue is in design, not implementation",
+      "You have no symptom to reproduce"
+    ],
+    "examples": [
+      "/atomic-skills:fix \"duplicates in /musicas listing\"",
+      "/atomic-skills:fix"
+    ],
+    "fields": [
+      {
+        "name": "symptom",
+        "kind": "positional",
+        "required": false,
+        "description": "Observed bug or unexpected behavior. If omitted, skill prompts interactively."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "refs": [
+      "/atomic-skills:hunt",
+      "/atomic-skills:review-code"
+    ]
+  },
+  {
+    "id": "/atomic-skills:save-and-push",
+    "icon": "💾",
+    "oneLiner": "Scan for secrets, group commits, save learnings, push safely",
+    "facets": [
+      "workflow",
+      "git",
+      "memory",
+      "core"
+    ],
+    "summary": "Close out a work session safely: extract durable learnings to memory, scan the diff for secrets, group changes into logical commits with conventional messages, and push — refusing to touch main/master without explicit confirmation.",
+    "pros": [
+      "You finished a coherent piece of work",
+      "About to switch context or end the session",
+      "You want learnings persisted before forgetting"
+    ],
+    "cons": [
+      "Work in progress, not yet a coherent commit",
+      "Tests still failing",
+      "You only want to commit (use git directly)"
+    ],
+    "examples": [
+      "/atomic-skills:save-and-push"
+    ],
+    "deps": [
+      "git"
+    ],
+    "refs": [
+      "/atomic-skills:project",
+      "/atomic-skills:init-memory"
+    ]
+  },
+  {
+    "id": "/atomic-skills:review-plan",
+    "icon": "🔍",
+    "oneLiner": "Adversarial plan review with local/codex/both mode picker",
+    "facets": [
+      "review",
+      "planning",
+      "adversarial",
+      "cross-model"
+    ],
+    "summary": "Adversarially review an implementation plan before it runs — locally (fast, cheap), via a cross-model codex envelope (~$1-2), or both (default: local first, then codex on the cleaned plan in a sealed envelope) — hunting for gaps, missing edge cases, and optimistic assumptions, and approving only on cited evidence. Optionally cross-references the plan against its source PRD/spec.",
+    "pros": [
+      "You finished writing a plan and want a structural review",
+      "Significant plan about to enter execution (both mode recommended)",
+      "Cross-model bug hunt against self-preference bias (codex or both)",
+      "Plan was derived from a PRD/spec and you want coverage verification"
+    ],
+    "cons": [
+      "Plan is still brainstorming (not structured yet)",
+      "Trivial plan (skip review entirely)",
+      "Codex CLI not installed and you need codex mode (use --mode=local)"
+    ],
+    "examples": [
+      "/atomic-skills:review-plan docs/plans/migration.md",
+      "/atomic-skills:review-plan docs/plans/migration.md --mode=local",
+      "/atomic-skills:review-plan docs/plans/migration.md --mode=both"
+    ],
+    "fields": [
+      {
+        "name": "plan-path",
+        "kind": "positional",
+        "required": true,
+        "description": "Path to the plan markdown file under review."
+      },
+      {
+        "name": "--mode",
+        "kind": "option",
+        "required": false,
+        "description": "Force a review mode (local, codex, both, or the v2.x alias internal). Skips the Step 0a picker."
+      },
+      {
+        "name": "--no-cross-ref",
+        "kind": "flag",
+        "required": false,
+        "description": "Skip the Step 0b cross-ref picker; force internal-only."
+      },
+      {
+        "name": "--cross-ref",
+        "kind": "option",
+        "required": false,
+        "description": "Comma-separated list of artifact paths to cross-reference against. Skips the picker."
+      },
+      {
+        "name": "--artifacts",
+        "kind": "option",
+        "required": false,
+        "description": "Alias of --cross-ref (compat with v2.x)."
+      },
+      {
+        "name": "--allow-dirty",
+        "kind": "flag",
+        "required": false,
+        "description": "Pass through to the codex pre-flight; suppresses the dirty-tree abort."
+      }
+    ],
+    "deps": [
+      "codex",
+      "git"
+    ],
+    "outputs": [
+      ".atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)",
+      ".atomic-skills/reviews/INDEX.md"
+    ],
+    "refs": [
+      "/atomic-skills:review-code"
+    ]
+  },
+  {
+    "id": "/atomic-skills:review-code",
+    "icon": "🔬",
+    "oneLiner": "Adversarial code review with local/codex/both mode picker",
+    "facets": [
+      "review",
+      "code",
+      "adversarial",
+      "cross-model"
+    ],
+    "summary": "Adversarially review code changes — a git ref (branch, commit, range), a scope keyword (wip = uncommitted work, branch = merge-base..HEAD, all = both), or no argument for an interactive scope picker — in clean context, with every finding tied to a file:line and no approval without evidence. Mode picker: local (fast, cheap), codex (cross-model via the OpenAI Codex CLI, ~$1-2), or both (default: local first, then codex on the byte-identical captured diff in a sealed envelope).",
+    "pros": [
+      "You finished a coherent code change",
+      "You just implemented something and it is still uncommitted (wip scope)",
+      "Significant change about to merge (both mode recommended)",
+      "Critical path (auth, payments, data integrity) — both mode",
+      "Cheap pre-merge sanity check (local mode)"
+    ],
+    "cons": [
+      "Nothing to review (clean tree, no commits ahead of base)",
+      "Trivial change already heavily reviewed",
+      "Codex CLI not installed and you need codex mode (use --mode=local)"
+    ],
+    "examples": [
+      "/atomic-skills:review-code",
+      "/atomic-skills:review-code wip --mode=local",
+      "/atomic-skills:review-code feat/new-feature --mode=local",
+      "/atomic-skills:review-code main..HEAD --mode=both"
+    ],
+    "fields": [
+      {
+        "name": "git-ref",
+        "kind": "positional",
+        "required": false,
+        "description": "Git ref (branch, commit, a..b / a...b) or scope keyword: wip (uncommitted), branch (merge-base..HEAD), all (both). Empty → interactive scope picker."
+      },
+      {
+        "name": "--mode",
+        "kind": "option",
+        "required": false,
+        "description": "Force a review mode (local, codex, both). Skips the Step 0 picker."
+      },
+      {
+        "name": "--allow-dirty",
+        "kind": "flag",
+        "required": false,
+        "description": "Include working-tree changes in the captured diff; suppresses the dirty-tree abort."
+      }
+    ],
+    "deps": [
+      "codex",
+      "git"
+    ],
+    "outputs": [
+      ".atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md (codex/both modes)",
+      ".atomic-skills/reviews/INDEX.md"
+    ],
+    "refs": [
+      "/atomic-skills:review-plan",
+      "/atomic-skills:fix",
+      "/atomic-skills:hunt"
+    ]
+  },
+  {
+    "id": "/atomic-skills:project",
+    "icon": "📊",
+    "oneLiner": "Plan / Initiative / Task state your agent reloads every session",
+    "facets": [
+      "tracking",
+      "anchoring",
+      "planning",
+      "bootstrap",
+      "create",
+      "migrate",
+      "core"
+    ],
+    "summary": "Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: view current state (compact terminal or browser dashboard), create plans/initiatives, run daily mutations and phase transitions, discover in-flight work, adopt existing markdown plans, migrate legacy state, report drift, and reconcile state against code. Procedures load on demand from project-assets per subcommand.",
+    "pros": [
+      "Resuming after a break — view current state (`status`)",
+      "Starting a new multi-phase plan (`new plan`) or initiative (`new initiative`)",
+      "Daily mutations: push/pop, park/emerge, promote, done, phase-done",
+      "Organizing in-flight work scattered across repo (`discover`)",
+      "Capturing an existing markdown plan (`adopt`)",
+      "Migrating legacy state files (`migrate`)",
+      "Checking drift / un-reviewed code / state-vs-code coherence (`scope-creep`, `verify`)"
+    ],
+    "cons": [
+      "One-shot questions or work that fits in the current session",
+      "Editing .atomic-skills/ files by hand (use the subcommands — they set provenance + validate)"
+    ],
+    "examples": [
+      "/atomic-skills:project",
+      "/atomic-skills:project status --browser",
+      "/atomic-skills:project new plan v3-redesign",
+      "/atomic-skills:project done T-005",
+      "/atomic-skills:project verify"
+    ],
+    "subItems": [
+      {
+        "name": "status",
+        "description": "View current state: compact summary, browser dashboard, full terminal view, or filtered tables",
+        "group": "View"
+      },
+      {
+        "name": "verify",
+        "description": "Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)",
+        "group": "View"
+      },
+      {
+        "name": "new",
+        "description": "Create a Plan (multi-phase bootstrap) or an Initiative (standalone or anchored to a phase); bare `new` prints the menu",
+        "group": "Create"
+      },
+      {
+        "name": "discover",
+        "description": "Scan the repo (git, PRs, docs, roadmaps, memory), cluster signals, and propose Plans + Initiatives for approve/reject",
+        "group": "Create"
+      },
+      {
+        "name": "adopt",
+        "description": "Capture an existing free-form markdown plan into structured Plan + Initiatives + Tasks; previews before materializing",
+        "group": "Create"
+      },
+      {
+        "name": "push",
+        "description": "Open a lateral stack frame on top of the current work; type is inferred from the verb",
+        "group": "Stack frames"
+      },
+      {
+        "name": "pop",
+        "description": "Close the top frame with a destination: --resolve (drop), --park (note), or --emerge (follow-up)",
+        "group": "Stack frames"
+      },
+      {
+        "name": "park",
+        "description": "File a low-commitment note for later into parked[]; ratify gate forces a readable solves/trigger",
+        "group": "Backlog"
+      },
+      {
+        "name": "emerge",
+        "description": "File a real follow-up into emerged[] (same ratify gate); --target <phaseId> lands it in another phase",
+        "group": "Backlog"
+      },
+      {
+        "name": "promote",
+        "description": "Turn a parked item into a real task (assigns next T-NNN, carries its context forward)",
+        "group": "Backlog"
+      },
+      {
+        "name": "idea",
+        "description": "Capture a raw idea into the ideas.md inbox (fork: just save / analyze); `idea list` is a zero-token view; `idea promote <n>` routes idea #n through the emergence ladder (ratify-gated)",
+        "group": "Backlog"
+      },
+      {
+        "name": "done",
+        "description": "Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "reconcile",
+        "description": "Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent)",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "phase-done",
+        "description": "Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "phase-reopen",
+        "description": "Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "split-phase",
+        "description": "Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "finalize",
+        "description": "Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive",
+        "group": "Lifecycle"
+      },
+      {
+        "name": "archive",
+        "description": "Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)",
+        "group": "Lifecycle"
+      },
+      {
+        "name": "switch",
+        "description": "Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs",
+        "group": "Lifecycle"
+      },
+      {
+        "name": "migrate",
+        "description": "Two modes: `migrate <slug>` converts a legacy (pre-0.1) initiative to schemaVersion 0.1 (field-mapping diff + placeholder flags); bare `migrate` runs the flat→projects/<id>/<slug>/ layout cut-over (deterministic copy-verify-delete behind a tar snapshot)",
+        "group": "Lifecycle"
+      },
+      {
+        "name": "re-bootstrap",
+        "description": "After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context",
+        "group": "Lifecycle"
+      },
+      {
+        "name": "why",
+        "description": "Read-only deep view of one item: status, ratified solves/trigger/assumptions, provenance, staleness",
+        "group": "Context & drift"
+      },
+      {
+        "name": "re-ratify",
+        "description": "Refresh a stale item: re-confirm the premises (bump review date) or rewrite solves/trigger/assumptions",
+        "group": "Context & drift"
+      },
+      {
+        "name": "scope-creep",
+        "description": "Read-only drift report: phase growth %, scope expansion %, parked zombies, and stale-context items",
+        "group": "Context & drift"
+      },
+      {
+        "name": "detect-scope",
+        "description": "Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept",
+        "group": "Context & drift"
+      },
+      {
+        "name": "review-due",
+        "description": "Run a cross-model codex review on the diff since the last review and record the result for the default view",
+        "group": "Review"
+      }
+    ],
+    "fields": [
+      {
+        "name": "--browser",
+        "kind": "flag",
+        "required": false,
+        "description": "Open the aiDeck dashboard in the browser (status view)"
+      },
+      {
+        "name": "--terminal",
+        "kind": "flag",
+        "required": false,
+        "description": "Full terminal-only view, no browser (status view)"
+      },
+      {
+        "name": "--list",
+        "kind": "flag",
+        "required": false,
+        "description": "List all plans + standalone initiatives (status view)"
+      },
+      {
+        "name": "--plan",
+        "kind": "option",
+        "required": false,
+        "description": "Filter view to a specific plan slug (status view)"
+      },
+      {
+        "name": "--phase",
+        "kind": "option",
+        "required": false,
+        "description": "Filter view to a specific phase id (status view)"
+      },
+      {
+        "name": "--scan",
+        "kind": "option",
+        "required": false,
+        "description": "Extra source paths for discover (comma-separated). E.g. --scan=NOTES/,~/team-plans/"
+      },
+      {
+        "name": "--scope",
+        "kind": "option",
+        "required": false,
+        "description": "Discover: comma-separated source kinds (git,github,docs,roadmap,memory-local,memory-claude,claude-mem)"
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "outputs": [
+      ".atomic-skills/PROJECT-STATUS.md",
+      ".atomic-skills/plans/<slug>.md",
+      ".atomic-skills/initiatives/<slug>.md",
+      ".atomic-skills/status/config.json",
+      ".atomic-skills/bootstrap-drafts/ (discover output)"
+    ],
+    "refs": [
+      "/atomic-skills:fix",
+      "/atomic-skills:save-and-push",
+      "/atomic-skills:review-plan"
+    ]
+  },
+  {
+    "id": "/atomic-skills:prompt",
+    "icon": "📝",
+    "oneLiner": "Generate a self-contained prompt with exact paths and guardrails",
+    "facets": [
+      "meta",
+      "generation",
+      "planning"
+    ],
+    "summary": "Turn a one-line task into a self-contained, codebase-grounded prompt — real file paths, explicit guardrails, and acceptance criteria — ready to drive a parallel agent or a fresh session without back-and-forth.",
+    "pros": [
+      "You have a vague task and want to make it actionable",
+      "You need to brief a parallel agent precisely",
+      "You will hand off the work to a different session"
+    ],
+    "cons": [
+      "You will execute the task in this same session",
+      "You need a multi-phase plan (use project)",
+      "You want to dispatch many tasks (use parallel-dispatch)"
+    ],
+    "examples": [
+      "/atomic-skills:prompt \"refactor auth middleware to use new session API\"",
+      "/atomic-skills:prompt"
+    ],
+    "fields": [
+      {
+        "name": "task",
+        "kind": "positional",
+        "required": false,
+        "description": "Task description in natural language. If omitted, skill asks interactively."
+      }
+    ],
+    "refs": [
+      "/atomic-skills:parallel-dispatch",
+      "/atomic-skills:fix",
+      "/atomic-skills:project"
+    ]
+  },
+  {
+    "id": "/atomic-skills:hunt",
+    "icon": "🎯",
+    "oneLiner": "Adversarial tests from the spec, not the code — depth over breadth",
+    "facets": [
+      "testing",
+      "quality",
+      "pre-implementation"
+    ],
+    "summary": "Write tests that try to *break* one class or function — expected values drawn from the spec, never the implementation — to surface the edge cases, boundaries, and error paths the code never anticipated. Bounded to a single class or function per run so the hunt goes deep, not wide.",
+    "pros": [
+      "Code lacks tests",
+      "You suspect untested edge cases",
+      "Pre-merge quality check"
+    ],
+    "cons": [
+      "Scope larger than 1 class or function",
+      "Existing test suite is already comprehensive",
+      "You want to add features (use prompt instead)"
+    ],
+    "examples": [
+      "/atomic-skills:hunt src/matcher.php",
+      "/atomic-skills:hunt src/auth/"
+    ],
+    "fields": [
+      {
+        "name": "target",
+        "kind": "positional",
+        "required": true,
+        "description": "File, directory, or function/class to hunt. Directory mode caps at 30 files."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "refs": [
+      "/atomic-skills:fix",
+      "/atomic-skills:review-code"
+    ]
+  },
+  {
+    "id": "/atomic-skills:parallel-dispatch",
+    "icon": "🚀",
+    "oneLiner": "Dispatch a task list to N parallel sessions with verified isolation",
+    "facets": [
+      "parallelism",
+      "dispatch",
+      "workflow"
+    ],
+    "summary": "Validate that a finalized task list is genuinely parallelizable, prove scope disjointness mechanically, and dispatch it to N isolated sessions under one batch id — so independent work runs concurrently without collisions. This skill dispatches your list; it does not invent tasks.",
+    "pros": [
+      "You have a finalized list of independent tasks",
+      "Tasks have concrete file-path scopes",
+      "You will be away while agents run"
+    ],
+    "cons": [
+      "Work fits in the current session",
+      "The list is still exploratory",
+      "Tasks have hard sequential dependencies"
+    ],
+    "examples": [
+      "/atomic-skills:parallel-dispatch task-list.md"
+    ],
+    "fields": [
+      {
+        "name": "task-list",
+        "kind": "positional",
+        "required": true,
+        "description": "Path to the markdown file containing the finalized task list."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "outputs": [
+      ".atomic-skills/dispatches/<batch-id>.md"
+    ],
+    "refs": [
+      "/atomic-skills:parallel-dispatch-audit",
+      "/atomic-skills:prompt"
+    ]
+  },
+  {
+    "id": "/atomic-skills:parallel-dispatch-audit",
+    "icon": "👁️",
+    "oneLiner": "Verify each batch deliverable on disk; fix or escalate with evidence",
+    "facets": [
+      "parallelism",
+      "audit",
+      "review",
+      "quality"
+    ],
+    "summary": "Independently verify what a parallel-dispatch batch actually produced — reading each deliverable on disk against the original request, applying only cosmetic fixes, and flipping to read-only escalation with evidence the moment the work diverges (≥5 issues, scope drift, or a missing deliverable).",
+    "pros": [
+      "A parallel-dispatch batch has completed",
+      "You need objective verification of agent outputs"
+    ],
+    "cons": [
+      "Agents are still running (commits less than 2 min old)",
+      "You want to refactor what agents wrote (out of scope)"
+    ],
+    "examples": [
+      "/atomic-skills:parallel-dispatch-audit onboard-ci"
+    ],
+    "fields": [
+      {
+        "name": "slug",
+        "kind": "positional",
+        "required": false,
+        "description": "Batch slug to audit. Defaults to the most recent dispatch."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "outputs": [
+      ".atomic-skills/dispatches/<slug>.md (annotated with audit results)"
+    ],
+    "refs": [
+      "/atomic-skills:parallel-dispatch"
+    ]
+  },
+  {
+    "id": "/atomic-skills:brainstorm",
+    "icon": "💡",
+    "oneLiner": "Diverge, decide, then write a critic-gated design.md before any plan",
+    "facets": [
+      "design",
+      "brainstorming",
+      "lifecycle",
+      "core"
+    ],
+    "summary": "Drive an open idea to a committed, section-linted, critic-approved design.md — diverging across real alternatives before converging — so the plan that follows is built on a deliberate decision, not the first approach that happened to work. The head of the lifecycle chain that `project new plan` decomposes.",
+    "pros": [
+      "Starting a multi-phase plan whose approach is not yet decided",
+      "There are ≥2 viable approaches and the decision is expensive to reverse",
+      "You need a committed design.md before decomposing into tasks"
+    ],
+    "cons": [
+      "An ad-hoc or single-task change (triage exempts it from DESIGN)",
+      "The design is already committed and critic-approved",
+      "You only need divergent perspectives, not a committed artifact (use debate)"
+    ],
+    "examples": [
+      "/atomic-skills:brainstorm \"self-host the project lifecycle\"",
+      "/atomic-skills:brainstorm"
+    ],
+    "fields": [
+      {
+        "name": "goal",
+        "kind": "positional",
+        "required": false,
+        "description": "The problem/goal to design. If omitted, the skill asks interactively."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "refs": [
+      "/atomic-skills:debate",
+      "/atomic-skills:project",
+      "/atomic-skills:review-plan"
+    ]
+  },
+  {
+    "id": "/atomic-skills:design-brief",
+    "icon": "🎨",
+    "oneLiner": "Generate DS + screens prompts for a design agent, contamination-free",
+    "facets": [
+      "design",
+      "prompts",
+      "anti-contamination",
+      "core"
+    ],
+    "summary": "Generate the two design prompts (Design System, then screens that consume the inherited DS) from a real app and its product intent, encoding the three-layer model: visual form stays the design agent's (silence), while interaction behaviour and philosophy are product requirements specified with concrete values — so the redesign is faithful, not a plausible anti-pattern.",
+    "pros": [
+      "You are handing an existing app to a design agent (e.g. claude.ai/design) for a redesign",
+      "You need a Design System prompt plus per-screen prompts that consume it",
+      "A prior hand-written brief produced anti-patterns by leaving behaviour/philosophy unspecified"
+    ],
+    "cons": [
+      "You only need the product decision, not the design prompts (use brainstorm)",
+      "There is no real app to mine behavioural parameters from",
+      "The design system and screens already exist and are faithful"
+    ],
+    "examples": [
+      "/atomic-skills:design-brief \"redesign the review dashboard at src/dashboard\"",
+      "/atomic-skills:design-brief"
+    ],
+    "fields": [
+      {
+        "name": "scope",
+        "kind": "positional",
+        "required": false,
+        "description": "The target app/scope (repo path + product intent). If omitted, the skill asks interactively."
+      }
+    ],
+    "refs": [
+      "/atomic-skills:brainstorm",
+      "/atomic-skills:project"
+    ]
+  },
+  {
+    "id": "/atomic-skills:debate",
+    "icon": "🎭",
+    "oneLiner": "Roundtable of independent subagent personas for divergent thinking",
+    "facets": [
+      "brainstorming",
+      "multi-agent",
+      "roundtable",
+      "divergent",
+      "core"
+    ],
+    "summary": "Run a multi-persona roundtable as independent subagents for divergent thinking — design debates, brainstorming, adversarial review panels — with the human steering each round.",
+    "pros": [
+      "You want genuinely divergent perspectives on an open question",
+      "Debating a design, architecture, or product trade-off",
+      "Brainstorming or widening the option space before deciding",
+      "Running an adversarial review panel (dev + architect + QA cross-talk)"
+    ],
+    "cons": [
+      "You have a finalized, disjoint task list (use parallel-dispatch)",
+      "You need a single converged answer or committed artifacts",
+      "A one-shot factual question with no perspectives to weigh"
+    ],
+    "examples": [
+      "/atomic-skills:debate \"should we split the monolith now or after launch?\"",
+      "/atomic-skills:debate --solo \"review this API design\"",
+      "/atomic-skills:debate --roster personas/security-panel.yaml"
+    ],
+    "fields": [
+      {
+        "name": "topic",
+        "kind": "positional",
+        "required": false,
+        "description": "Opening topic for the roundtable. If omitted, the skill asks after showing the roster."
+      },
+      {
+        "name": "--solo",
+        "kind": "flag",
+        "required": false,
+        "description": "Role-play all personas in one response instead of spawning subagents (fallback when the spawn tool is unavailable)."
+      },
+      {
+        "name": "--model",
+        "kind": "option",
+        "required": false,
+        "description": "Force all subagents onto a specific model."
+      },
+      {
+        "name": "--roster",
+        "kind": "option",
+        "required": false,
+        "description": "Explicit roster file (YAML list or directory of persona files) instead of auto-detection."
+      },
+      {
+        "name": "--gate",
+        "kind": "flag",
+        "required": false,
+        "description": "Gate-mode: bounded agenda + mandatory contrarian every round + a machine-readable Synthesis verdict block handed to a critic. Produces evidence for a stage gate; never decides."
+      }
+    ],
+    "refs": [
+      "/atomic-skills:parallel-dispatch",
+      "/atomic-skills:review-plan",
+      "/atomic-skills:review-code"
+    ]
+  },
+  {
+    "id": "/atomic-skills:implement",
+    "icon": "⚙️",
+    "oneLiner": "Drive decomposed tasks to done, one at a time, verifier-gated",
+    "facets": [
+      "execution",
+      "lifecycle",
+      "implement",
+      "core"
+    ],
+    "summary": "Read the materialized Tasks a plan produced and drive them to done one at a time, gating each completion on its deterministic verifier and keeping durable state recoverable across sessions.",
+    "pros": [
+      "A plan has been decomposed and its tasks admitted by the SPEC gate",
+      "You are implementing a phase task-by-task and want verifier-gated completion",
+      "Resuming a prior implementation session from its handoff block"
+    ],
+    "cons": [
+      "There is no plan/design yet (use brainstorm, then project new plan)",
+      "A one-off bug fix with a known root cause (use fix)",
+      "You only need to verify a single claim, not drive a plan (use verify-claim)"
+    ],
+    "examples": [
+      "/atomic-skills:implement migration-self-host",
+      "/atomic-skills:implement"
+    ],
+    "fields": [
+      {
+        "name": "plan-slug",
+        "kind": "positional",
+        "required": false,
+        "description": "The plan (or project-id/plan-slug) to implement. If omitted, uses the active plan/initiative."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "refs": [
+      "/atomic-skills:project",
+      "/atomic-skills:verify-claim",
+      "/atomic-skills:fix"
+    ]
+  },
+  {
+    "id": "/atomic-skills:verify-claim",
+    "icon": "✅",
+    "oneLiner": "No success claim without fresh verification — run it, cite it",
+    "facets": [
+      "quality",
+      "verification",
+      "gate",
+      "core"
+    ],
+    "summary": "Verify a completion claim by executing its deterministic verifier and citing the observed evidence, producing a binary pass/fail that no producer can self-grant.",
+    "pros": [
+      "About to mark a task done and need its verifier run for real first",
+      "An agent, subagent, or Codex reported success and you must adjudicate it",
+      "Gating any \"the tests pass / the bug is fixed\" claim on captured evidence"
+    ],
+    "cons": [
+      "The claim is a human-judgement / UI observation (use the manual-acceptance gate)",
+      "There is no deterministic verifier (the task failed SPEC admission — surface it)",
+      "You are diagnosing a bug, not verifying a fix (use fix)"
+    ],
+    "examples": [
+      "/atomic-skills:verify-claim T-004",
+      "/atomic-skills:verify-claim \"the parser handles empty input\""
+    ],
+    "fields": [
+      {
+        "name": "claim",
+        "kind": "positional",
+        "required": false,
+        "description": "The claim or task id under verification. If omitted, the skill asks for the claim and its verifier."
+      }
+    ],
+    "deps": [
+      "git"
+    ],
+    "refs": [
+      "/atomic-skills:implement",
+      "/atomic-skills:fix",
+      "/atomic-skills:project"
+    ]
+  },
+  {
+    "id": "/atomic-skills:init-memory",
+    "icon": "🧠",
+    "oneLiner": "Consolidate scattered memory into .ai/memory/ and wire it to the IDE",
+    "facets": [
+      "memory",
+      "setup"
+    ],
+    "summary": "Bootstrap the persistent memory directory and index so that future sessions can pick up where this one left off.",
+    "pros": [
+      "First time using atomic-skills in a project",
+      "Memory directory missing or corrupted",
+      "You want to standardize the memory layout"
+    ],
+    "cons": [
+      "Memory already initialized and healthy"
+    ],
+    "examples": [
+      "/atomic-skills:init-memory"
+    ],
+    "outputs": [
+      ".ai/memory/MEMORY.md"
+    ],
+    "refs": [
+      "/atomic-skills:save-and-push"
+    ]
+  }
+]

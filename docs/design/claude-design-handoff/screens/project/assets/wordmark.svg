@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 56" width="220" height="56" role="img" aria-label="aiDeck">
-  
-  <text x="8" y="40" class="wm" font-size="34">
-    <tspan class="wm-ai">ai</tspan><tspan class="wm-deck">Deck</tspan>
-  </text>
-  <rect x="118" y="32" width="8" height="8" class="wm-dot"></rect>
-</svg>

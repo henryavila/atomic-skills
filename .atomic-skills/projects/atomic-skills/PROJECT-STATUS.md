@@ -28,6 +28,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | app-map-conflict-arbitration | archived | F1 | plan/design-brief | 2026-06-16 |
 | design-brief-briefing-rework | archived | F1 | plan/design-brief | 2026-06-19 |
 | worktree-lifecycle-finalization | active | F8 | plan/worktree-lifecycle-finalization | 2026-06-17 |
+| deadline-burnup-forecast | active | F4 | plan/deadline-burnup-forecast | 2026-06-19 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |

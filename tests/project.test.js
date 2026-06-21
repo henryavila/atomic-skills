@@ -175,16 +175,16 @@ describe('project skill (unified router + lazy assets)', () => {
   it('project-view quarantines the aiDeck contract behind a single named constant', () => {
     install();
     const content = readAsset('project-view.md');
-    // Per-project consumer: the consumer id IS the projectId, bound DYNAMICALLY —
-    // never the old hardcoded `atomic-skills`. (Regression guard for the
-    // consumer-identity-follows-the-project fix.)
-    assert.match(content, /AIDECK_CONSUMER="\$pid"/);
-    assert.doesNotMatch(content, /AIDECK_CONSUMER="atomic-skills"/);
+    // ONE shared consumer (Q10): AIDECK_CONSUMER is the FIXED `atomic-skills`;
+    // the project is scoped by $pid (registered via /api/projects/register).
+    // (Regression guard for the consumer-collapse fix — never per-project ids.)
+    assert.match(content, /AIDECK_CONSUMER="atomic-skills"/);
+    assert.doesNotMatch(content, /AIDECK_CONSUMER="\$pid"/);
     assert.match(content, /AIDECK CONTRACT/);
-    // The consumer is provisioned per-project from the shipped template.
+    // The single consumer is provisioned from the shipped template.
     assert.match(content, /provision-consumer\.js/);
-    assert.match(content, /per-project/i);
-    // The data curl uses the parameter, not a hardcoded inline consumer/path.
+    assert.match(content, /\/api\/projects\/register/);
+    // The data curl uses the parameter + the $pid project scope, not a hardcoded path.
     assert.match(content, /consumers\/\$AIDECK_CONSUMER\/projects\/\$pid\/data/);
     // Separation of produce-data vs deliver-to-aiDeck is documented.
     assert.match(content, /[Pp]roduce the data/);

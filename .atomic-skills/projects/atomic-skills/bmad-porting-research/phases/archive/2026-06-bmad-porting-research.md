@@ -14,6 +14,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 2
 exitGates:
   - id: G-1
     description: Documento de design do party-mode skill com arquitetura, roster,

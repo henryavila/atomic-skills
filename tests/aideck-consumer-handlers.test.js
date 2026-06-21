@@ -10,69 +10,90 @@ import popFrame from '../assets/aideck-consumer/handlers/pop-frame.js';
 import promoteParked from '../assets/aideck-consumer/handlers/promote-parked.js';
 
 // In-memory fixture mirroring what the aiDeck data-source reader hands a handler:
-// a Map keyed by dataSource id, each value an array of records (shapes per
-// meta/schemas/{initiative,plan,common}.schema.json, plus the injected projectId).
+// a Map keyed by dataSource id, each value a FLAT array of records (the emitter's
+// denormalized state/*.json — tasks/gates/stack/parked are sibling sources, each
+// row carrying its join keys: initiativeId|planSlug + projectId).
 const RECENT = new Date().toISOString(); // active + fresh => never stale
 function makeData() {
   const plans = [
-    {
-      slug: 'plan-a', projectId: 'projA', status: 'active', currentPhase: 'f1',
-      phases: [
-        { id: 'f1', status: 'active', dependsOn: [], exitGate: { criteria: [{ id: 'c1', status: 'met' }, { id: 'c2', status: 'pending' }] } },
-        { id: 'f2', status: 'pending', dependsOn: ['f1'] },
-      ],
-    },
+    { slug: 'plan-a', projectId: 'projA', status: 'active', currentPhase: 'f1' },
     // plan-c's current phase initiative has no unblocked task — exercises the
     // scoped no-action path (must NOT leak a different plan's task).
-    { slug: 'plan-c', projectId: 'projA', status: 'active', currentPhase: 'f1', phases: [{ id: 'f1', status: 'active' }] },
+    { slug: 'plan-c', projectId: 'projA', status: 'active', currentPhase: 'f1' },
+  ];
+  const phases = [
+    { planSlug: 'plan-a', projectId: 'projA', id: 'f1', status: 'active', dependsOn: [] },
+    { planSlug: 'plan-a', projectId: 'projA', id: 'f2', status: 'pending', dependsOn: ['f1'] },
+    { planSlug: 'plan-c', projectId: 'projA', id: 'f1', status: 'active', dependsOn: [] },
+  ];
+  const phaseGates = [
+    { planSlug: 'plan-a', projectId: 'projA', phaseId: 'f1', id: 'c1', status: 'met' },
+    { planSlug: 'plan-a', projectId: 'projA', phaseId: 'f1', id: 'c2', status: 'pending' },
   ];
   const initiatives = [
-    {
-      slug: 'init-1', projectId: 'projA', status: 'active', lastUpdated: RECENT,
-      parentPlan: 'plan-a', phaseId: 'f1',
-      tasks: [
-        { id: 't1', title: 'done thing', status: 'done', blockedBy: [] },
-        { id: 't2', title: 'next thing', status: 'pending', blockedBy: ['t1'] }, // unblocked (t1 done)
-        { id: 't3', title: 'later thing', status: 'pending', blockedBy: ['t2'] }, // blocked (t2 pending)
-      ],
-      exitGates: [{ id: 'g1', status: 'met' }, { id: 'g2', status: 'pending' }],
-      stack: [{ kind: 'detour' }],
-      parked: [{ title: 'someday idea' }],
-    },
+    { slug: 'init-1', projectId: 'projA', status: 'active', lastUpdated: RECENT, parentPlan: 'plan-a', phaseId: 'f1' },
     // second active initiative in a different plan — global fallback / wrong-scope probe
-    {
-      slug: 'init-2', projectId: 'projA', status: 'active', lastUpdated: '2020-01-01T00:00:00Z',
-      parentPlan: 'plan-b', phaseId: 'f1',
-      tasks: [{ id: 'tb1', title: 'b task', status: 'pending', blockedBy: [] }],
-      exitGates: [], stack: [],
-    },
+    { slug: 'init-2', projectId: 'projA', status: 'active', lastUpdated: '2020-01-01T00:00:00Z', parentPlan: 'plan-b', phaseId: 'f1' },
     // active but malformed lastUpdated — fix #8 target
-    { slug: 'init-bad-ts', projectId: 'projA', status: 'active', lastUpdated: undefined, parentPlan: 'plan-a', phaseId: 'f2', tasks: [], exitGates: [] },
+    { slug: 'init-bad-ts', projectId: 'projA', status: 'active', lastUpdated: undefined, parentPlan: 'plan-a', phaseId: 'f2' },
     // current phase of plan-c, all tasks done — scoped no-action
-    { slug: 'init-done', projectId: 'projA', status: 'active', lastUpdated: RECENT, parentPlan: 'plan-c', phaseId: 'f1', tasks: [{ id: 'd1', title: 'd', status: 'done', blockedBy: [] }], exitGates: [] },
+    { slug: 'init-done', projectId: 'projA', status: 'active', lastUpdated: RECENT, parentPlan: 'plan-c', phaseId: 'f1' },
   ];
+  const tasks = [
+    { initiativeId: 'init-1', projectId: 'projA', id: 't1', title: 'done thing', status: 'done', blockedBy: [] },
+    { initiativeId: 'init-1', projectId: 'projA', id: 't2', title: 'next thing', status: 'pending', blockedBy: ['t1'] }, // unblocked (t1 done)
+    { initiativeId: 'init-1', projectId: 'projA', id: 't3', title: 'later thing', status: 'pending', blockedBy: ['t2'] }, // blocked (t2 pending)
+    { initiativeId: 'init-2', projectId: 'projA', id: 'tb1', title: 'b task', status: 'pending', blockedBy: [] },
+    { initiativeId: 'init-done', projectId: 'projA', id: 'd1', title: 'd', status: 'done', blockedBy: [] },
+  ];
+  const gates = [
+    { initiativeId: 'init-1', projectId: 'projA', id: 'g1', status: 'met' },
+    { initiativeId: 'init-1', projectId: 'projA', id: 'g2', status: 'pending' },
+  ];
+  const stack = [{ initiativeId: 'init-1', projectId: 'projA', index: 0, id: 1, title: 'detour' }];
+  const parked = [{ initiativeId: 'init-1', projectId: 'projA', index: 0, title: 'someday idea' }];
   const inbox = [
     { kind: 'intent', operation: 'mark_task_done' }, // unconsumed
     { kind: 'intent', operation: 'pop_frame', consumed: true }, // consumed
     { kind: 'decision', verdict: 'approve' }, // not an intent
   ];
-  return new Map([['plans', plans], ['initiatives', initiatives], ['inbox', inbox]]);
+  return new Map([
+    ['plans', plans], ['phases', phases], ['phaseGates', phaseGates], ['initiatives', initiatives],
+    ['tasks', tasks], ['gates', gates], ['stack', stack], ['parked', parked], ['inbox', inbox],
+  ]);
 }
 // F-001 fixture: two projects sharing a plan slug ('shared') AND an initiative
 // slug ('dup'). aiDeck injects projectId onto every record, so the consumer must
 // scope by it; resolving by slug alone would hit the wrong project.
 function makeMultiProjectData() {
   const plans = [
-    { slug: 'shared', projectId: 'projA', status: 'active', currentPhase: 'f1', phases: [{ id: 'f1', status: 'active' }] },
-    { slug: 'shared', projectId: 'projB', status: 'active', currentPhase: 'f1', phases: [{ id: 'f1', status: 'active' }] },
+    { slug: 'shared', projectId: 'projA', status: 'active', currentPhase: 'f1' },
+    { slug: 'shared', projectId: 'projB', status: 'active', currentPhase: 'f1' },
+  ];
+  const phases = [
+    { planSlug: 'shared', projectId: 'projA', id: 'f1', status: 'active', dependsOn: [] },
+    { planSlug: 'shared', projectId: 'projB', id: 'f1', status: 'active', dependsOn: [] },
   ];
   const initiatives = [
-    { slug: 'dup', projectId: 'projA', status: 'active', lastUpdated: RECENT, parentPlan: 'shared', phaseId: 'f1',
-      tasks: [{ id: 'a1', title: 'A task', status: 'pending', blockedBy: [] }], exitGates: [], stack: [{ kind: 'd' }], parked: [{ title: 'pA' }] },
-    { slug: 'dup', projectId: 'projB', status: 'active', lastUpdated: RECENT, parentPlan: 'shared', phaseId: 'f1',
-      tasks: [{ id: 'b1', title: 'B task', status: 'pending', blockedBy: [] }], exitGates: [], stack: [{ kind: 'd' }], parked: [{ title: 'pB' }] },
+    { slug: 'dup', projectId: 'projA', status: 'active', lastUpdated: RECENT, parentPlan: 'shared', phaseId: 'f1' },
+    { slug: 'dup', projectId: 'projB', status: 'active', lastUpdated: RECENT, parentPlan: 'shared', phaseId: 'f1' },
   ];
-  return new Map([['plans', plans], ['initiatives', initiatives], ['inbox', []]]);
+  const tasks = [
+    { initiativeId: 'dup', projectId: 'projA', id: 'a1', title: 'A task', status: 'pending', blockedBy: [] },
+    { initiativeId: 'dup', projectId: 'projB', id: 'b1', title: 'B task', status: 'pending', blockedBy: [] },
+  ];
+  const stack = [
+    { initiativeId: 'dup', projectId: 'projA', index: 0, id: 1, title: 'dA' },
+    { initiativeId: 'dup', projectId: 'projB', index: 0, id: 1, title: 'dB' },
+  ];
+  const parked = [
+    { initiativeId: 'dup', projectId: 'projA', index: 0, title: 'pA' },
+    { initiativeId: 'dup', projectId: 'projB', index: 0, title: 'pB' },
+  ];
+  return new Map([
+    ['plans', plans], ['phases', phases], ['initiatives', initiatives],
+    ['tasks', tasks], ['stack', stack], ['parked', parked], ['inbox', []],
+  ]);
 }
 function makeFiles() {
   const appended = [];
@@ -129,8 +150,12 @@ describe('aideck-consumer get_next_action', () => {
     const data = new Map([
       ['plans', []],
       ['initiatives', [
-        { slug: 'init-blocked', status: 'active', tasks: [{ id: 'a1', title: 'blocked', status: 'pending', blockedBy: ['ghost'] }] },
-        { slug: 'init-open', status: 'active', tasks: [{ id: 'b1', title: 'go', status: 'pending', blockedBy: [] }] },
+        { slug: 'init-blocked', status: 'active' },
+        { slug: 'init-open', status: 'active' },
+      ]],
+      ['tasks', [
+        { initiativeId: 'init-blocked', id: 'a1', title: 'blocked', status: 'pending', blockedBy: ['ghost'] },
+        { initiativeId: 'init-open', id: 'b1', title: 'go', status: 'pending', blockedBy: [] },
       ]],
     ]);
     const r = await getNextAction({ args: {}, data });
@@ -158,8 +183,9 @@ describe('aideck-consumer firstUnblockedPendingTask (F-003: unknown blocker = bl
   // _lib.js firstUnblockedPendingTask (the original F-003 bug).
   function dataWith(tasks) {
     return new Map([
-      ['initiatives', [{ slug: 'init-x', status: 'active', parentPlan: 'plan-x', phaseId: 'f1', tasks }]],
+      ['initiatives', [{ slug: 'init-x', status: 'active', parentPlan: 'plan-x', phaseId: 'f1' }]],
       ['plans', []],
+      ['tasks', tasks.map((t) => ({ initiativeId: 'init-x', ...t }))],
     ]);
   }
 
@@ -382,9 +408,13 @@ describe('aideck-consumer projectId scoping (F-001: slug collision across projec
   });
 
   it('verify_exit_gate / pop_frame / promote_parked intent targets carry projectId', async () => {
-    const init = { slug: 'dup', projectId: 'projB', status: 'active', lastUpdated: RECENT,
-      tasks: [], exitGates: [{ id: 'g1', status: 'pending' }], stack: [{ kind: 'd' }], parked: [{ title: 'pB' }] };
-    const data = () => new Map([['plans', []], ['initiatives', [init]]]);
+    const init = { slug: 'dup', projectId: 'projB', status: 'active', lastUpdated: RECENT };
+    const data = () => new Map([
+      ['plans', []], ['initiatives', [init]],
+      ['gates', [{ initiativeId: 'dup', projectId: 'projB', id: 'g1', status: 'pending' }]],
+      ['stack', [{ initiativeId: 'dup', projectId: 'projB', index: 0, id: 1, title: 'd' }]],
+      ['parked', [{ initiativeId: 'dup', projectId: 'projB', index: 0, title: 'pB' }]],
+    ]);
 
     const fv = makeFiles();
     await verifyExitGate({ args: { initiativeSlug: 'dup', projectId: 'projB', criterionId: 'g1', result: 'met' }, data: data(), files: fv });
@@ -401,8 +431,9 @@ describe('aideck-consumer projectId scoping (F-001: slug collision across projec
     // verify_exit_gate's plan+phase branch stamps target.projectId from the
     // RESOLVED plan (not args) — distinct code path from the initiative branch.
     const planData = new Map([
-      ['plans', [{ slug: 'shared', projectId: 'projB', status: 'active', currentPhase: 'f1',
-        phases: [{ id: 'f1', status: 'active', exitGate: { criteria: [{ id: 'c1', status: 'pending' }] } }] }]],
+      ['plans', [{ slug: 'shared', projectId: 'projB', status: 'active', currentPhase: 'f1' }]],
+      ['phases', [{ planSlug: 'shared', projectId: 'projB', id: 'f1', status: 'active' }]],
+      ['phaseGates', [{ planSlug: 'shared', projectId: 'projB', phaseId: 'f1', id: 'c1', status: 'pending' }]],
       ['initiatives', []],
     ]);
     const fvp = makeFiles();

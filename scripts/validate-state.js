@@ -403,6 +403,50 @@ export function checkMetInvariant(frontmatter) {
 }
 
 /**
+ * closedAt forward-only hard-gate (F4/T-003).
+ *
+ * GATE-R2 proves "passed"; this proves "captured the close instant". When a plan
+ * opts in via `closedAtHardening` (set ONCE by `scripts/harden-closedat.js`), every
+ * `done` task in that plan's initiatives must carry a `closedAt` — UNLESS its id is
+ * in the persisted `grandfatheredTaskIds` cut. That cut (the done-without-closedAt
+ * tasks captured at flip time) is what makes the rule forward-only: pre-existing
+ * legacy is exempt, new closes are enforced, and no retroactive closedAt is ever
+ * invented (P3). A plan with no `closedAtHardening` is NOT gated here (soft — the
+ * pre-T-003 behavior). Pure: no I/O.
+ *
+ * This lives OUTSIDE checkMetInvariant because the opt-in (`closedAtHardening`)
+ * lives on the PLAN while the `done` tasks live on the INITIATIVE — the two only
+ * meet in `crossValidate`, which is where this is invoked. Returns [] when the
+ * invariant holds.
+ *
+ * @param {object} frontmatter - a parsed initiative frontmatter (carries tasks[])
+ * @param {Set<string>|string[]} grandfatheredTaskIds - the plan's exempt-id cut
+ * @returns {string[]} violation messages (empty = invariant holds)
+ */
+export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const grandfathered = grandfatheredTaskIds instanceof Set
+    ? grandfatheredTaskIds
+    : new Set(Array.isArray(grandfatheredTaskIds) ? grandfatheredTaskIds : []);
+  const hasText = (v) => typeof v === 'string' && v.length > 0;
+  // PHASE-SCOPED exemption key (`<phaseId>/<taskId>`) — taskIds are phase-local
+  // (T-001 recurs every phase), so a bare-id grandfather would exempt a later
+  // same-id task in another phase. Mirrors `grandfatherKey` in harden-closedat.js.
+  const scope = hasText(frontmatter.phaseId)
+    ? frontmatter.phaseId
+    : (hasText(frontmatter.slug) ? frontmatter.slug : '?');
+  for (const task of (Array.isArray(frontmatter.tasks) ? frontmatter.tasks : [])) {
+    if (task?.status !== 'done') continue;
+    if (grandfathered.has(`${scope}/${task.id}`)) continue;
+    if (!hasText(task.closedAt)) {
+      violations.push(`task ${task.id ?? '?'}: done under closedAt-hardening but has no closedAt — forward-only: new done tasks must record closedAt; only grandfathered (phase-scoped) ids are exempt.`);
+    }
+  }
+  return violations;
+}
+
+/**
  * GATE-R3 — the machine-checked review-gate invariant (G2).
  *
  * The review-code phase gate is a hard precondition for closing a phase. A
@@ -555,6 +599,34 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
       }
     }
   }
+
+  // closedAt forward-only hard-gate (F4/T-003): when a plan opts in via
+  // `closedAtHardening`, every done task across ITS initiatives (matched by
+  // parentPlan) that is not grandfathered must carry closedAt. Scans all of the
+  // plan's initiatives — active phases too, not just done ones — so a new close
+  // in the live phase is gated immediately.
+  for (const [, plan] of planFrontmatters) {
+    const hardening = plan?.closedAtHardening;
+    if (!hardening || typeof hardening.enforcedFrom !== 'string' || hardening.enforcedFrom.length === 0) continue;
+    // A slug-less (malformed) plan owns no initiatives — without this guard a
+    // `parentPlan`-less standalone initiative would match plan.slug via
+    // `undefined !== undefined` (false) and be gated against the wrong plan.
+    if (typeof plan.slug !== 'string' || plan.slug.length === 0) continue;
+    const grandfathered = new Set(Array.isArray(hardening.grandfatheredTaskIds) ? hardening.grandfatheredTaskIds : []);
+    for (const [slug, init] of initiativeFrontmatters) {
+      if (init?.parentPlan !== plan.slug) continue;
+      const closedAtErrors = checkClosedAtHardening(init, grandfathered);
+      if (closedAtErrors.length > 0) {
+        errors.push({
+          planSlug: plan.slug,
+          phaseId: init.phaseId ?? '?',
+          initiativeSlug: slug,
+          errors: closedAtErrors,
+        });
+      }
+    }
+  }
+
   return errors;
 }
 

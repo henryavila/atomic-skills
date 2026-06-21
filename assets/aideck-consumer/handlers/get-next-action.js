@@ -1,4 +1,4 @@
-import { findInitiative, findPlan, firstUnblockedPendingTask, getInitiatives } from './_lib.js'
+import { findInitiative, findPlan, firstUnblockedPendingTask, getInitiatives, tasksFor } from './_lib.js'
 
 // Compute the next recommended action. Ported from aideck
 // src/server/projections/next-action.ts (reads the pre-loaded data map instead
@@ -17,7 +17,7 @@ export default async function handler({ args, data }) {
     // Explicit scope: findInitiative throws on missing (caller error, not a cue to
     // fall back to another initiative) and on a projectId-ambiguous slug.
     const i = findInitiative(data, initiativeSlug, projectId)
-    const t = firstUnblockedPendingTask(i)
+    const t = firstUnblockedPendingTask(tasksFor(data, i))
     if (t) {
       return {
         initiativeSlug: i.slug,
@@ -42,7 +42,7 @@ export default async function handler({ args, data }) {
         (i) => i.projectId === plan.projectId && i.parentPlan === plan.slug && i.phaseId === plan.currentPhase,
       )
       if (mi) {
-        const t = firstUnblockedPendingTask(mi)
+        const t = firstUnblockedPendingTask(tasksFor(data, mi))
         if (t) {
           return {
             planSlug: plan.slug,
@@ -69,7 +69,7 @@ export default async function handler({ args, data }) {
   // one may have no actionable task while a later active one does. Stopping at the
   // first would falsely report "no next action" and skip real work.
   for (const active of initiatives.filter((i) => i.status === 'active' && inProject(i))) {
-    const t = firstUnblockedPendingTask(active)
+    const t = firstUnblockedPendingTask(tasksFor(data, active))
     if (t) {
       return {
         initiativeSlug: active.slug,

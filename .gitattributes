@@ -3,3 +3,4 @@
 # safe on line-oriented files — see skills/shared/mode2-codex-lane.md §9.
 # Pointwise/overwritten JSON (last-review, last-session, routing) get NO union.
 .atomic-skills/status/dispatch-log.json merge=union
+scripts/emit-consumer-state.js text

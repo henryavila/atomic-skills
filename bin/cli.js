@@ -16,7 +16,6 @@ try {
       'all-detected': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
       port: { type: 'string' },
-      'force-build': { type: 'boolean', default: false },
       'aideck-bin': { type: 'string' },
       demo: { type: 'boolean', default: false },
     },
@@ -37,7 +36,7 @@ if (values.help || !command) {
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status     [--project]
     npx @henryavila/atomic-skills uninstall  [--yes] [--project]
-    npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--force-build] [--aideck-bin <path>]
+    npx @henryavila/atomic-skills serve      [--demo] [--port <N>] [--aideck-bin <path>]
 
   Options:
     --yes, -y         Non-interactive: (install) accept auto-detected defaults;
@@ -50,10 +49,9 @@ if (values.help || !command) {
                       in a tmp dir and serve from there. Useful for first
                       look without bootstrapping your own .atomic-skills/.
     --port <N>        (serve) Port for the aideck backend (default 7777)
-    --force-build     (serve) Rebuild dashboard bundle even if dist/dashboard exists
     --aideck-bin <p>  (serve) Path to aideck binary or its dist/cli.js. Default: probes
-                      $AIDECK_BIN, vendored bundle, installed bundle,
-                      ../aideck/dist/cli.js, then PATH lookup of "aideck"
+                      $AIDECK_BIN, installed launcher shim, the @henryavila/aideck
+                      package, ../aideck/dist/cli.js, then PATH lookup of "aideck"
 
   Docs: https://github.com/henryavila/atomic-skills
   `);
@@ -106,7 +104,6 @@ if (values.help || !command) {
   const { serve } = await import('../src/serve.js');
   await serve({
     port: values.port,
-    forceBuild: values['force-build'],
     aideckBin: values['aideck-bin'],
     demo: values.demo,
   });

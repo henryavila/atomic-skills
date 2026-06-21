@@ -17,6 +17,8 @@ tasksDone: 5
 tasksTotal: 5
 gatesMet: 1
 gatesTotal: 1
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F5-G1
     description: A skill design-brief e seus assets existem e a validação passa.

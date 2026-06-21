@@ -5,6 +5,13 @@
 // (via the project-scoped `files.append`); the atomic-skills skill tails the
 // inbox and applies the mutation to the plan/phase markdown. Read-only handlers
 // just compute over the pre-loaded `data` map.
+//
+// DATA SHAPE: the manifest binds every dataSource to the emitter's DENORMALIZED
+// `state/*.json` (one flat record per entity — no nested arrays). So the handler
+// `data` map is `plans · phases · initiatives · tasks · gates · phaseGates ·
+// stack · parked` (each a flat array). The nested-read accessors below rebuild
+// the parent→children relation the handlers need by filtering the flat child
+// source on the parent's (projectId, slug) — the join keys the emitter carries.
 import { randomUUID } from 'node:crypto'
 
 export function getInitiatives(data) {
@@ -13,6 +20,39 @@ export function getInitiatives(data) {
 export function getPlans(data) {
   return data.get('plans') ?? []
 }
+export function getGates(data) {
+  return data.get('gates') ?? []
+}
+export function getPhaseGates(data) {
+  return data.get('phaseGates') ?? []
+}
+
+// Children of an initiative in a flat source carry `initiativeId` (= the
+// initiative slug) and `projectId`. Scope by BOTH so a slug shared across
+// projects (F-001) never pulls the wrong project's rows.
+function childrenOfInitiative(records, initiative) {
+  return records.filter(
+    (r) => r.initiativeId === initiative.slug && r.projectId === initiative.projectId,
+  )
+}
+export const tasksFor = (data, initiative) =>
+  childrenOfInitiative(data.get('tasks') ?? [], initiative)
+export const gatesFor = (data, initiative) =>
+  childrenOfInitiative(getGates(data), initiative)
+export const stackFor = (data, initiative) =>
+  childrenOfInitiative(data.get('stack') ?? [], initiative)
+export const parkedFor = (data, initiative) =>
+  childrenOfInitiative(data.get('parked') ?? [], initiative)
+
+// Phases + plan-phase gates carry `planSlug` + `projectId` (no initiativeId).
+export const phasesFor = (data, plan) =>
+  (data.get('phases') ?? []).filter(
+    (p) => p.planSlug === plan.slug && p.projectId === plan.projectId,
+  )
+export const phaseGatesFor = (data, plan, phaseId) =>
+  getPhaseGates(data).filter(
+    (g) => g.planSlug === plan.slug && g.projectId === plan.projectId && g.phaseId === phaseId,
+  )
 
 // Resolve a single record by slug, scoped by projectId (F-001).
 //
@@ -58,17 +98,18 @@ export function findPlan(data, slug, projectId) {
 }
 
 /**
- * First pending task all of whose blockers resolve to a `done` task.
- * An unknown/misspelled blocker ID counts as BLOCKING (not satisfied): we never
- * recommend a task whose prerequisite cannot be verified complete. Mirrors
- * get-dependencies.js, which likewise reports an unresolved blocker as blocking.
+ * First pending task (in a flat task list for ONE initiative) all of whose
+ * blockers resolve to a `done` task. An unknown/misspelled blocker ID counts as
+ * BLOCKING (not satisfied): we never recommend a task whose prerequisite cannot
+ * be verified complete. Mirrors get-dependencies.js, which likewise reports an
+ * unresolved blocker as blocking. Caller passes `tasksFor(data, initiative)`.
  */
-export function firstUnblockedPendingTask(initiative) {
-  const tasks = initiative.tasks ?? []
+export function firstUnblockedPendingTask(tasks) {
+  const list = tasks ?? []
   // Index status by id once (O(n)) so each blocker check is O(1) — an unknown id
   // resolves to `undefined` (≠ 'done' ⇒ BLOCKING), avoiding a full per-blocker scan.
-  const statusById = new Map(tasks.map((t) => [t.id, t.status]))
-  return tasks
+  const statusById = new Map(list.map((t) => [t.id, t.status]))
+  return list
     .filter((t) => t.status === 'pending')
     .find((t) =>
       (t.blockedBy ?? []).every((bid) => statusById.get(bid) === 'done')

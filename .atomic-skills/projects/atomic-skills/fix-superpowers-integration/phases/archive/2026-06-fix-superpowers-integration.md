@@ -14,6 +14,8 @@ tasksDone: 0
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 3
+weightDone: 0
+weightTotal: 5
 exitGates:
   - id: G-1
     description: project-plan detecta superpowers v5.1.0 como available

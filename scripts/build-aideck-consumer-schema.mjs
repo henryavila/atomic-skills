@@ -21,6 +21,11 @@ const read = (f) => JSON.parse(readFileSync(join(metaDir, f), 'utf8'))
 const common = read('common.schema.json')
 const plan = read('plan.schema.json')
 const initiative = read('initiative.schema.json')
+// Emitted DENORMALIZED state projection (scripts/emit-consumer-state.js). Its
+// $defs are keyed by the dataSource id (plural: plans/phases/tasks/…) so
+// `aideck validate-file` resolves #/definitions/<id> for the flat records —
+// NOT the nested plan/initiative defs the singular fallback would otherwise hit.
+const state = read('aideck-state.schema.json')
 
 // AJV (aiDeck's schema-validator) runs draft-07: use `definitions` (not `$defs`)
 // and `#/definitions/X` refs. Rewrite both the cross-file (`common.schema.json#/$defs/`)
@@ -55,12 +60,18 @@ function entity(schema) {
   return rewriteRefs(rest)
 }
 
+// Emitted-state entity defs, keyed by dataSource id (plural: plans/phases/…). No
+// collision with the singular primitive defs (plan/initiative/task/…). Spread
+// last so the plural emitted shapes always win the #/definitions/<id> lookup.
+const stateDefs = rewriteRefs(state.$defs ?? {})
+
 const bundle = {
   $id: 'atomic-skills-schema',
   definitions: {
     ...primitiveDefs,
     plan: entity(plan),
     initiative: entity(initiative),
+    ...stateDefs,
   },
 }
 

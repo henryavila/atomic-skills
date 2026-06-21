@@ -15,6 +15,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: F3-G1
     description: ensureAideck de projeto B com aiDeck rodando para projeto A
