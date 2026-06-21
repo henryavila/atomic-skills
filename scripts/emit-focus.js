@@ -22,6 +22,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, statSync, readdirS
 import { execSync } from 'node:child_process';
 import { join, resolve, relative, basename, dirname } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
+import { getSpawnedFrom } from '../src/links-sidecar.js';
 
 const SCHEMA_VERSION = '0.1';
 
@@ -68,7 +69,11 @@ function collectPlans(stateRoot) {
       const planFile = join(planDir, 'plan.md');
       if (!existsSync(planFile)) continue;
       const fm = readFm(planFile);
-      if (fm) plans.push({ projId, planDir, planFile, fm });
+      // The fork parent/child edge lives in the plan's links.json sidecar (not the
+      // aiDeck-facing frontmatter); a non-fork plan reads as null. A torn/malformed
+      // sidecar (plausible mid cross-worktree writeback) must NOT take the whole
+      // resolver down — swallow to null like every other read here does.
+      if (fm) plans.push({ projId, planDir, planFile, fm, spawnedFrom: safeSpawnedFrom(planDir) });
     }
   }
   return plans;
@@ -91,6 +96,16 @@ function findPhaseInitiative(planDir, phaseId) {
 /** A plan's explicit branch binding, or null when unset/empty. */
 function branchOf(p) {
   return typeof p.fm.branch === 'string' && p.fm.branch ? p.fm.branch : null;
+}
+
+/** Read the fork edge, swallowing a torn/malformed sidecar to null (never throw). */
+function safeSpawnedFrom(planDir) {
+  try { return getSpawnedFrom(planDir); } catch { return null; }
+}
+
+/** Project-scoped key — fork is intra-project, so collapse never crosses projects. */
+function planKey(p) {
+  return `${p.projId} ${p.fm?.slug}`;
 }
 
 /** Active plans, most-recently-updated first. */
@@ -121,8 +136,27 @@ function recentFirst(plans) {
  * Focus precedence (when a claimer exists): exact branch-match > unbranched;
  * ties broken by recency. Mirrors session-start.sh's branch-then-recency intent.
  *
+ * Fork hierarchy (F4): a fork parent and its forked CHILD can both be active
+ * claimers (parallel mode, or no branch context). That is a hierarchy, not the
+ * multi-active drift the `⧉` marker warns about — a parent whose forked child is
+ * also a claimer is "superseded": focus resolves to the child and ambiguity is
+ * cleared. (The pause case already excludes the paused parent from `activePlans`.)
+ *
  * @returns {{plan: object|null, init: object|null, ambiguous: boolean, unclaimed: boolean}}
  */
+function supersededParentSlugs(plans) {
+  // Project-scoped present-set (fork is intra-project) so a same-named plan in
+  // another project never falsely supersedes a parent here.
+  const present = new Set(plans.filter((p) => p.fm?.slug).map(planKey));
+  const superseded = new Set();
+  for (const p of plans) {
+    const parentSlug = p.spawnedFrom?.plan;
+    const parentKey = parentSlug ? `${p.projId} ${parentSlug}` : null;
+    if (parentKey && present.has(parentKey)) superseded.add(parentKey);
+  }
+  return superseded;
+}
+
 function pickFocus(activePlans, branch) {
   let pool;
   let claimers;
@@ -137,6 +171,23 @@ function pickFocus(activePlans, branch) {
   } else {
     claimers = activePlans; // no branch context → cannot disambiguate by tree
     pool = activePlans;
+  }
+  // F4: collapse fork parent→child pairs to the child (precedence by the
+  // parent/child edge). Collapse is TRANSITIVE — in a chain A←B←C every non-leaf
+  // ancestor (A, B) is superseded and the deepest active child (C) wins. Collapse
+  // ONLY when a leaf actually survives: if every claimer is superseded (a cycle /
+  // mutual fork has no leaf) the graph is not a valid hierarchy, so fall back to
+  // baseline and let the ⧉ ambiguity flag SURFACE the drift rather than hide it.
+  const superseded = supersededParentSlugs(claimers);
+  const survivors = claimers.filter((p) => !superseded.has(planKey(p)));
+  if (survivors.length > 0 && survivors.length < claimers.length) {
+    const survivorPool = pool.filter((p) => !superseded.has(planKey(p)));
+    const plan = recentFirst(survivorPool.length ? survivorPool : survivors)[0];
+    return {
+      plan,
+      init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
+      ambiguous: survivors.length > 1,
+    };
   }
   const plan = recentFirst(pool)[0];
   return {

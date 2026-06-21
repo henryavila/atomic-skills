@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "links.schema.json",
+  "title": "Fork link sidecar (links.json)",
+  "description": "Sidecar at <planDir>/links.json. As of F5/T-003 the durable fork elo (spawnedFrom/spawnedPlans) migrated INLINE into plan.md frontmatter (the aiDeck consumer now declares the fields); this sidecar is RETIRED for the elo and now holds only the transient parallel-state `pendingWriteback` recovery marker. The spawnedFrom/spawnedPlans definitions below remain so migrateSidecarToInline can read a legacy sidecar.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "spawnedFrom": {
+      "description": "Child→parent edge: which plan/phase (and optional task) this plan was forked from, and the fork mode.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "phaseId", "mode"],
+      "properties": {
+        "plan": { "type": "string", "minLength": 1 },
+        "phaseId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+      }
+    },
+    "spawnedPlans": {
+      "description": "Parent→child edges, keyed by the anchor phaseId: the child plan slugs forked from each phase.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "pendingWriteback": {
+      "description": "Set on the CHILD's sidecar when a cross-worktree writeback to the parent's canonical state aborted on conflict (content-hash mismatch, parallel mode). Declarative (op+args re-applied against fresh parent state on retry), never a byte patch. Cleared on successful writeback. See docs/design/plan-fork-parallel-state.md (F2).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "parent", "op", "args", "readToken", "detectedAt"],
+      "properties": {
+        "target": { "type": "string", "enum": ["parent-plan", "parent-sidecar"] },
+        "parent": { "type": "string", "minLength": 1 },
+        "op": { "type": "string", "enum": ["addSpawnedPlan", "resumeParent"] },
+        "args": { "type": "object" },
+        "readToken": { "type": "string", "minLength": 1 },
+        "detectedAt": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "comment": "Per-op args shape — a malformed replay payload must fail at record time, not at F3 replay (L-002 deferred-failure guard).",
+          "if": { "properties": { "op": { "const": "addSpawnedPlan" } } },
+          "then": {
+            "properties": {
+              "args": {
+                "type": "object",
+                "required": ["phaseId", "childSlug"],
+                "properties": {
+                  "phaseId": { "type": "string", "minLength": 1 },
+                  "childSlug": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "resumeParent" } } },
+          "then": {
+            "properties": {
+              "args": {
+                "type": "object",
+                "required": ["phaseId"],
+                "properties": {
+                  "phaseId": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

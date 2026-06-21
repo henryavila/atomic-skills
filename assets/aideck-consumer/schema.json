@@ -415,6 +415,14 @@
             "minLength": 1
           }
         },
+        "spawnedPlans": {
+          "description": "Fork parent→child edge (degrau 7.5): child plan slugs forked from this phase. Additive — phases without forks omit it. Mirrors aideck PhaseDescriptor.spawnedPlans. Migrated inline from the links.json sidecar by F5/T-003.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "parallelWith": {
           "type": "array",
           "items": {
@@ -783,6 +791,37 @@
         },
         "parallelismAllowed": {
           "type": "boolean"
+        },
+        "spawnedFrom": {
+          "description": "Fork child→parent edge (degrau 7.5): which plan/phase this plan was forked from, and the fork mode. Additive — non-forked plans omit it. Mirrors aideck Plan.spawnedFrom. Migrated inline from the links.json sidecar by F5/T-003 (fork-fields-inline).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "phaseId",
+            "mode"
+          ],
+          "properties": {
+            "plan": {
+              "type": "string",
+              "minLength": 1
+            },
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
         },
         "principles": {
           "type": "array",
