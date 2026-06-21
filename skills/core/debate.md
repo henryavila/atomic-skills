@@ -33,15 +33,6 @@ instead. If {{INVESTIGATOR_TOOL}} is genuinely unavailable in this IDE, do not
 silently fake it: tell the user and offer `--solo` (single-LLM role-play) as a
 conscious fallback.
 
-## Why this matters
-
-The point of a multi-agent debate is diversity of thought. A single model
-predicting "what the architect would say" and "what the QA lead would say"
-collapses both toward the same voice. Spawning each persona as its own subagent
-process yields real disagreement — agents that argue, refuse to hedge, and
-surface blind spots. This is what makes a debate worth more than asking one model
-for a list of pros and cons.
-
 ## Arguments
 
 - `--solo` — Skip subagents; role-play all selected personas yourself in one
@@ -221,69 +212,14 @@ not a running commentary.
 
 ## Gate-mode (`--gate`) — actor for a stage gate, never the judge
 
-Gate-mode is an **opt-in** variant for when a debate feeds a lifecycle stage gate
-(e.g. `atomic-skills:brainstorm`'s DESIGN gate). It is purely additive: without
-`--gate`, everything above is unchanged. In gate-mode `debate` is the **ACTOR** —
-it produces divergence and a structured record. **It does not decide.** A
-separate fresh critic (`skills/shared/debate-assets/critic.md`) emits the binary
-verdict; gate-pass is read from the critic, **never from panel agreement**. A
-unanimous panel is not a pass — it can be a panel that conformed.
-
-The Iron Law still holds in full: every voice is a separately-spawned subagent.
-Gate-mode adds rigor, it does not add shortcuts.
-
-What `--gate` changes:
-
-1. **Bounded agenda.** Take the agenda from the `--gate` argument, or elicit it
-   up front as a short list of decision questions, and announce it. Rounds stay
-   on the agenda — gate-mode is not open chat. When every agenda item has been
-   argued, the debate is ready to close.
-2. **Mandatory contrarian every round.** Each round MUST include at least one
-   voice spawned with an explicit contrarian framing — argue against the
-   emerging consensus, surface the strongest objection. This is proactive every
-   round, not the reactive "all agents agree → bring in a contrarian" of normal
-   mode. Heterogeneity is required: pull voices from different domains, never the
-   same two.
-3. **Machine-readable Synthesis verdict block at close.** Instead of (or after)
-   the prose Orchestrator Synthesis, emit this fenced block so the gate can parse
-   one shape:
-
-   ```yaml
-   ready_for_validation: <yes | no>
-   agenda:
-     - <decision question 1>
-   positions:
-     - voice: <name>
-       stance: <one line — the position this voice settled on>
-   dissent:
-     - voice: <name>
-       objection: <one line — preserved, not smoothed over>
-   open_questions:
-     - <what the panel could not resolve, and what evidence would>
-   ```
-
-   `ready_for_validation: yes` means only that the divergence is exhausted and
-   the artifact is ready to be **handed to the critic** — it is NOT an approval.
-   `no` means a round is still owed (an agenda item unargued, or new dissent that
-   reframes the decision).
-
-**Handoff (R-SP-31).** Gate-mode's Orchestrator-Synthesis hands off to the critic
-as the verdict authority: present the Synthesis verdict block + the artifact under
-review to `skills/shared/debate-assets/critic.md`, which returns the binary
-`Approved | Issues-Found`. Do not compute a pass here. Non-gate synthesis behavior
-(the prose closing on demand or at exit) is unchanged.
-
-## Where this fits (divergent → convergent)
-A debate is the **divergent, human-in-the-loop** tool: it turns an open question
-into a set of perspectives and, ultimately, a consolidated direction. That
-direction is exactly the INPUT that convergent fan-out tools consume:
-- Hand a settled direction to `atomic-skills:parallel-dispatch` to decompose
-  into isolated, parallel implementation tasks.
-- Use a debate as a panel mode for `atomic-skills:review-plan` (architect + PM +
-  dev argue a plan) or `atomic-skills:review-code` (dev + architect + QA
-  cross-talk a diff).
-
-A debate does not compete with those — it sits one step upstream of them.
+Opt-in variant for when a debate feeds a lifecycle stage gate. Purely additive:
+without `--gate`, everything above is unchanged. When `--gate` is set, {{READ_TOOL}}
+`skills/shared/debate-assets/gate-mode.md` and follow it — bounded agenda, a
+mandatory contrarian every round, and a machine-readable Synthesis verdict block
+handed to a fresh critic (`skills/shared/debate-assets/critic.md`) for the binary
+`Approved | Issues-Found`. In gate-mode `debate` is the **ACTOR**, never the judge:
+gate-pass is read from the critic, never from panel agreement (a unanimous panel
+can be a conformed one).
 
 ## Exit
 When the user signals they're done (any natural phrasing), deliver the
@@ -310,14 +246,3 @@ room.
 - "Gate-mode panel reached consensus, so the gate passes." → Consensus is not
   the gate. The fresh critic decides; a conformed panel can agree on a wrong
   answer and commit it as PASS.
-
-## Rationalization Table
-
-| Temptation | Reality |
-|------------|---------|
-| "Role-playing all voices myself reads the same" | It converges to one voice — the exact failure this skill exists to prevent |
-| "Summarizing the agents is cleaner" | The user came to hear the agents debate, not your digest of them |
-| "2-4 agents is arbitrary; I'll spawn 8" | More voices dilute signal and blow context — pick the most relevant few and rotate |
-| "I need a `.claude/agents/` dir to start" | The roster provider falls back to a shipped default; the debate runs anywhere |
-| "Passing the whole transcript keeps agents informed" | It blows their context — a tight <400-word summary outperforms the raw log |
-| "The gate-mode panel was unanimous — that's a pass" | Unanimity measures conformity as much as correctness (the MAD false-pass trap). The pass comes only from the fresh critic's binary verdict, never from the panel |

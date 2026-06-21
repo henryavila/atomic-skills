@@ -35,3 +35,10 @@ nexus.yaml
 dist/*
 node_modules/
 .DS_Store
+
+# Local git worktrees (nested under the repo per the worktree convention; the
+# linked worktrees are registered in .git/worktrees/ and must stay untracked).
+.worktrees/
+
+# project-status hooks: runtime dry-run logs (not content)
+.atomic-skills/status/hooks/*.log

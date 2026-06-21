@@ -58,10 +58,37 @@ start with `--` are flags:
 | `--no-initiatives` | Skip Step 0c; review plan structure only without task-level depth. |
 
 Everything that is NOT a `--` token is part of `plan_path`. Strip trailing
-whitespace. If `plan_path` is empty after parsing, abort with:
-"review-plan requires a plan file path as the first argument." Do NOT
-pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that would try to open
-the literal string "docs/plan.md --mode=local" as a file.
+whitespace. Do NOT pass the unparsed {{ARG_VAR}} to {{READ_TOOL}} — that
+would try to open the literal string "docs/plan.md --mode=local" as a file.
+
+### Target resolution (plan_path → a real plan file)
+
+`plan_path` may be a filesystem path, a **plan slug**, or empty (meaning
+"review the active plan"). Resolve it to an actual `plan.md` BEFORE Step 0b,
+reusing the same detection `atomic-skills:project` runs (its router
+`## Initial detection`) — do NOT re-implement plan discovery here, mirror it.
+Apply the ladder in order and stop at the first match:
+
+1. **Readable file** — if `plan_path` resolves to a readable file, use it
+   directly. This is the common case; the ladder stops here.
+2. **Slug** — else if `plan_path` is non-empty but is not a readable file,
+   treat it as a plan **slug** and resolve the nested layout first:
+   `.atomic-skills/projects/<project-id>/<plan_path>/plan.md`, falling back to
+   the legacy flat `.atomic-skills/plans/<plan_path>.md`. If exactly one
+   resolves, that file becomes `plan_path`.
+3. **Active plan** — else if `plan_path` is empty, fall back to the **active
+   plan**: resolve it the way the router's detection does (the plan with
+   `planActive: true` / the one carrying `currentPhase`) and use its `plan.md`.
+4. **No resolution** — only when none of the above resolve, abort with:
+   "review-plan requires a readable plan file, a known plan slug, or an active
+   plan." (This replaces the former empty-arg abort.)
+
+Resolution is transparent to the rest of the flow: the resolved file is the
+`plan_path` every step below reads. Under the **Non-interactive abort**
+contract immediately below, an ambiguous slug (matches >1 project) or more
+than one active plan does NOT prompt — it aborts and asks the caller to pass
+an explicit `<project-id>/<plan-slug>` path; only an interactive (TTY) run may
+disambiguate by asking which plan was meant.
 
 **Non-interactive abort.** If neither a TTY nor an explicit `--mode=` flag
 is available (invocation from a hook, `parallel-dispatch`, or
@@ -102,9 +129,19 @@ Cross-reference selection is orthogonal to the mode picker. It runs for
 every mode (`local`, `codex`, `both`); the selected artifacts feed into
 the appropriate sub-flow.
 
-1. {{READ_TOOL}} the plan file at `plan_path`.
+1. {{READ_TOOL}} the plan file at `plan_path`. Parse its frontmatter and
+   **auto-seed `detected_artifacts` from provenance, BEFORE the prose scan**:
+   for each `references[]` entry, and for a `supersedes` link, resolve its
+   path — when it points to a readable local file, add it to
+   `detected_artifacts`; when it is a URL (or unresolvable), record it in
+   `links_seen` (same LOCAL PATH / URL rule as step 2). Rationale: a plan that
+   already declares what it `references` or `supersedes` should get those
+   artifacts cross-checked without the user re-listing them by hand — the
+   frontmatter IS the source-document manifest. This seed is an auto-resolution,
+   not an override: the manual `--cross-ref=` / `--no-cross-ref` flags still win
+   (step 3 short-circuit), and the prose scan below still augments it.
 
-2. Scan the plan for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From|Based On)` (regex case-insensitive). Under each, extract bullet/link tokens and CLASSIFY each one:
+2. **Then** scan the plan prose for sections matching `^##? (Source Documents|References|Artifacts|Inputs|Originated From|Based On)` (regex case-insensitive) and APPEND any new tokens to the already-seeded `detected_artifacts` (the prose scan is never dropped — provenance seeds, prose augments; de-dup by resolved path). Under each, extract bullet/link tokens and CLASSIFY each one:
    - **LOCAL PATH** (relative or absolute filesystem path that resolves to a readable file): keep in the `detected_artifacts` list.
    - **URL** (anything matching `^https?://` or `^//`): DO NOT include in `detected_artifacts`. Record in `links_seen` shown to the user as "URL artifacts not auto-fetched — provide local copies if you want cross-ref coverage."
    - **AMBIGUOUS** (e.g. bare repo identifier, ticket ref like `JIRA-123`): treat as URL — not auto-fetched.
@@ -144,51 +181,12 @@ and ask the user how to resolve it. DO NOT edit artifacts.
 
 ## Step 0c — Auto-discover initiative files
 
-Initiative discovery is structural — it expands the plan into its
-constituent task-level detail. It is orthogonal to cross-ref (which checks
-external artifacts like PRDs/specs). Both can be active simultaneously.
-
-Skip this step entirely if `--no-initiatives` was supplied.
-
-1. The plan file was already read in Step 0b. Parse its YAML frontmatter
-   for a `phases:` array and a `slug:` field.
-
-2. If the frontmatter has no `phases:` key, or `phases` is empty: set
-   `initiative_map = {}` and skip the rest of Step 0c. This plan has no
-   phase structure (standalone or flat plan).
-
-3. Derive the initiative directory from `plan_path`, layout-aware:
-   - **Nested** (`plan_path` = `.atomic-skills/projects/<id>/<slug>/plan.md`):
-     the phase initiatives are in the sibling `phases/` dir
-     (`.atomic-skills/projects/<id>/<slug>/phases/`).
-   - **Legacy flat** (`plan_path` = `.atomic-skills/plans/<slug>.md`): look for the
-     sibling `.atomic-skills/initiatives/` directory.
-   If the resolved directory does not exist: set `initiative_map = {}`, record a
-   minor finding ("No phase-initiative directory found — plan phases have no
-   materialized initiatives"), and skip the rest.
-
-4. For each phase in `phases:`, find its matching initiative file:
-   - {{GREP_TOOL}} the resolved phase-initiative directory for files containing
-     `parentPlan: <slug>` (the plan's slug from frontmatter).
-   - Among matches, filter for files that also contain `phaseId: <phase.id>`.
-   - This is schema-driven (uses the actual linking fields set by
-     `project-plan` materialization), not slug-derivation-dependent.
-   - If multiple files match the same phaseId: use the first match and
-     record a minor finding ("Duplicate initiative files for phase <id>").
-
-5. Build `initiative_map`: a mapping of `phaseId → { path, slug, title,
-   tasks[], exitGates[], scope? }`. For each matched file:
-   - {{READ_TOOL}} the initiative file.
-   - Parse its YAML frontmatter to extract: `slug`, `title`, `tasks[]`,
-     `exitGates[]`, `scope?`.
-   - Index the tasks by id for cross-phase reference.
-
-6. Report discovery results (no user prompt — this is automatic):
-   - "**Initiative discovery:** Found N/M initiative files for M phases."
-   - For each discovered initiative: `<phaseId>: <slug> (K tasks)`
-   - For each phase with NO matching initiative: record as a structural
-     finding (severity: **significant**) — "Phase <id> (<title>) has no
-     materialized initiative file."
+Skip this step entirely if `--no-initiatives` was supplied. Otherwise
+{{READ_TOOL}} `skills/shared/project-assets/plan-initiative-depth.md` § *Step 0c*
+and follow it to build `initiative_map` (`phaseId → { path, slug, title, tasks[],
+exitGates[], scope? }`) from the plan's `phases:`. When `initiative_map` is
+non-empty, the **Initiative HARD-GATE** below and the **initiative-depth checks
+(14-20)** activate.
 
 ## Initiative HARD-GATE (only when initiative_map is non-empty)
 
@@ -268,41 +266,14 @@ verified.
 12. **Schema/API:** do migrations and endpoints match the architecture doc?
 13. **UX:** do components, states, tokens, and responsive match the UX spec?
 
-When `initiative_map` is non-empty, ADDITIONALLY run the 7
-initiative-depth checks. For each item, cite line numbers from BOTH the
-plan file AND the relevant initiative file(s). Use format:
-`plan.md:L42 ↔ init-f0.md:L18`. If the finding is initiative-only (e.g.,
-task ambiguity), cite only the initiative file:line but reference the
-phase in the plan.
 
-14. **Gate-task alignment:** for each exit gate in each phase, verify that
-    at least one task in the corresponding initiative has
-    outputs/description that deliver what the gate requires. A gate with
-    no covering task is a **critical** finding.
-15. **Task-level contradictions:** do tasks across different initiatives
-    contradict each other? Example: F0/T-003 validates rootDir contains
-    `.atomic-skills/` but F3/T-001 changes ensureAideck to skip that
-    check — this is a cross-phase contradiction.
-16. **Task-level broken deps:** does a task reference a file or artifact
-    that a task in a PRIOR phase creates? Verify that the creating task
-    exists and its phase appears in the current phase's `dependsOn`.
-17. **Task-level ambiguity:** is any task description too vague to
-    implement without guessing? Evaluate each task individually, not just
-    the phase goal. A task with only a title and no description is
-    automatically **major**.
-18. **Task-level file verification:** `outputs[].path` are deliverables
-    the task CREATES — do NOT check their existence. Instead, verify
-    input file paths mentioned in the task's `description` (files the
-    task reads or modifies): run {{GLOB_TOOL}} to confirm they exist OR
-    that a prior task in the plan creates them.
-19. **Initiative completeness:** `subPhaseCount` is a materialization-time
-    snapshot. The initiative may have MORE tasks (added via `new-task`)
-    but FEWER means tasks were removed — check if intentional. Only flag
-    as **major** when `tasks.length < subPhaseCount` (tasks lost).
-20. **Scope isolation:** if initiatives declare `scope.paths[]`, do any
-    two initiatives touch the same files without an explicit `dependsOn`
-    relationship? Overlap without dependency = **significant** (potential
-    merge conflicts or race conditions during parallel execution).
+When `initiative_map` is non-empty, ADDITIONALLY run the **7 initiative-depth
+checks (items 14-20)** — they live in
+`skills/shared/project-assets/plan-initiative-depth.md` § *Initiative-depth
+checks*. {{READ_TOOL}} that section and run each, citing line numbers from BOTH
+the plan file AND the relevant initiative file(s) (`plan.md:L42 ↔ init-f0.md:L18`).
+If a finding is initiative-only, cite the initiative `file:line` but reference the
+phase in the plan.
 
 ### Iteration
 
@@ -330,114 +301,54 @@ document it as an "alignment note" in the plan itself.
 
 ## Codex sub-flow (modes: codex, both)
 
-The codex sub-flow uses the canonical assets in
-`skills/shared/codex-bridge-assets/` as the single source of truth. Do
-NOT inline-rewrite these; reference them and substitute placeholders.
+Run the canonical two-pass sealed envelope per
+`{{ASSETS_PATH}}/envelope-orchestration.md` (the byte-identical 12-step skeleton
+shared with `review-code`). It uses the canonical leaf assets in
+`skills/shared/codex-bridge-assets/` as the single source of truth; do NOT
+inline-rewrite them. Bind these plan-review artifact slots:
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`.
-   ABORT if any check fails. (`--allow-dirty` passes through from the
-   argument contract.)
+- **`«INPUT»`** — the input plan file is `plan_path` (already validated in Step
+  0b). Validate with {{READ_TOOL}} that the file exists and has ≥ 10 lines. In
+  `mode == both`, this is the CLEANED plan (post-local-fixes).
+- **`«PASS1_TEMPLATE»`** — `{{ASSETS_PATH}}/pass1-briefing-template-plan.txt`.
+- **`«CONSTRAINTS»`** —
+  - {{BASH_TOOL}}: `grep -E "engines|peerDependencies" package.json 2>/dev/null || true`
+  - {{BASH_TOOL}}: `head -20 CLAUDE.md README.md 2>/dev/null | grep -iE "must|required|forbidden" || true`
+  - Verifiable technical constraints (API contracts, forbidden deps, target runtime).
+  - Non-goals: from the plan if declared; from the project if relevant.
+- **`«ARTIFACT»`** — `{{ARTIFACT_PATH}}` ← `plan_path`. `{{ARTIFACT}}` ← the
+  **composite artifact**:
+  - When `initiative_map` is empty, `{{ARTIFACT}}` is the plan content only
+    (unchanged from current behavior).
+  - When `initiative_map` is non-empty, `{{ARTIFACT}}` is NOT just the plan file
+    content. Build:
+    1. Full plan content (read with {{READ_TOOL}}).
+    2. A separator: `\n\n---INITIATIVE DETAIL (context only)---\n\n`
+    3. For EACH phase in `initiative_map` (ordered by phaseId), append a compact
+       initiative summary (NOT the full file — token budget):
+       ```
+       ---INITIATIVE <phaseId>: <slug> (file: <relative-path>)---
+       Tasks: <T-001 title> | <T-002 title> | ...
+       Exit gates: <G1 description (truncated to 80 chars)> | <G2 ...> | ...
+       Scope: <scope.paths[] joined with ", "> (or "not declared")
+       ---END INITIATIVE <phaseId>---
+       ```
+    Initiative summaries are CONTEXT for codex — they help it identify
+    plan-level gaps (e.g., a gate with no plausible task). Codex MUST NOT cite
+    initiative summaries as `file:line` evidence; its findings reference only
+    the plan file. The detailed initiative-depth checks (items 14-20) are
+    executed by the LOCAL self-loop, which reads full initiative files with
+    line numbers.
+- **`«SIZE_BUDGET»`** — {{BASH_TOOL}} `wc -c` the briefing, compute
+  `(size_bytes / 4)` excluding the artifact portion; `> 800` tokens (plan-only)
+  or `> 1600` tokens (plan with initiatives) → WARNING, likely residual framing,
+  request extra approval.
+- **`«TRIAGE_TARGET»`** — the plan file.
+- **`«TRIAGE_NOTES»`** — pre-step: show the user 1 line
+  `Verdict: <V> | Counts (final): <C> | Framing Δ: <D> | Saved at <path>`, then
+  if `counts_final.blocker == 0 && counts_final.critical == 0`, end.
 
-2. **Collect input** — the input plan file is `plan_path` (already
-   validated in Step 0b). Validate with {{READ_TOOL}} that the file
-   exists and has ≥ 10 lines. In `mode == both`, this is the CLEANED
-   plan (post-local-fixes).
-
-3. **Curate Pass 1 briefing (factual minimal)**
-   - {{READ_TOOL}} `{{ASSETS_PATH}}/pass1-briefing-template-plan.txt`.
-   - Identify externally verifiable factual constraints:
-     - {{BASH_TOOL}}: `grep -E "engines|peerDependencies" package.json 2>/dev/null || true`
-     - {{BASH_TOOL}}: `head -20 CLAUDE.md README.md 2>/dev/null | grep -iE "must|required|forbidden" || true`
-     - Verifiable technical constraints (API contracts, forbidden deps, target runtime).
-   - Identify non-goals (from the plan if declared; from the project if relevant).
-   - **DO NOT** include intent narrative, curated memory, authorship, or (when `mode == both`) any reference to the prior local review or fix log.
-   - Substitute placeholders:
-     - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
-     - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
-     - `{{ARTIFACT_PATH}}` ← `plan_path`
-     - `{{ARTIFACT}}` ← composite artifact (see below)
-     - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
-   - **Composite artifact construction:** When `initiative_map` is
-     non-empty, `{{ARTIFACT}}` is NOT just the plan file content. Build:
-     1. Full plan content (read with {{READ_TOOL}}).
-     2. A separator: `\n\n---INITIATIVE DETAIL (context only)---\n\n`
-     3. For EACH phase in `initiative_map` (ordered by phaseId), append a
-        compact initiative summary (NOT the full file — token budget):
-        ```
-        ---INITIATIVE <phaseId>: <slug> (file: <relative-path>)---
-        Tasks: <T-001 title> | <T-002 title> | ...
-        Exit gates: <G1 description (truncated to 80 chars)> | <G2 ...> | ...
-        Scope: <scope.paths[] joined with ", "> (or "not declared")
-        ---END INITIATIVE <phaseId>---
-        ```
-     Initiative summaries are CONTEXT for codex — they help codex
-     identify plan-level gaps (e.g., a gate with no plausible task).
-     Codex MUST NOT cite initiative summaries as `file:line` evidence;
-     its findings reference only the plan file. The detailed
-     initiative-depth checks (items 14-20) are executed by the LOCAL
-     self-loop which reads full initiative files with line numbers.
-     When `initiative_map` is empty, `{{ARTIFACT}}` is the plan content
-     only (unchanged from current behavior).
-   - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
-   - {{BASH_TOOL}}: `wc -c /tmp/codex-briefing-pass1-<ts>.md`. Size
-     check: compute (size_bytes / 4) excluding the artifact portion. If
-     > 800 tokens (plan-only) or > 1600 tokens (plan with initiatives):
-     WARNING — likely residual framing; request extra approval.
-
-4. **Briefing confirmation** — show user in compact form (artifact path,
-   factual constraints, non-goals, estimated tokens). Ask
-   `approve / edit / cancel`. On cancel: abort.
-
-5. **Pass 1 invocation (blind)** — follow
-   `{{ASSETS_PATH}}/invocation-canonical.txt` substituting:
-   - `<BRIEFING_PATH>` = file from step 3
-   - `<OUTPUT_PATH>` = `/tmp/codex-output-pass1-<ts>.md`
-   - `<TIMEOUT_SECONDS>` = 600
-   - `<MODEL_FLAG>` = empty (codex resolves)
-
-   Capture exit code. 124 (GNU timeout) or 142 (perl alarm fallback) → timeout, abort with retry suggestion. Other non-zero → codex error, abort.
-
-6. **Pass 1 validation** — follow
-   `{{ASSETS_PATH}}/validation-checklist.txt` (universal checks 1-9).
-   Failure → 1 corrective retry. Failure again → escalate raw.
-
-7. **Build Pass 2 briefing (informed)** — Pass 1 briefing (without
-   `Begin review now.`) + content of `{{ASSETS_PATH}}/pass2-prompt-suffix.txt`
-   with substitutions:
-   - `{{CONSTRAINTS_LIST}}` ← factual constraints from step 3
-   - `{{PASS_1_OUTPUT}}` ← content of Pass 1 output
-   - `{{OUTPUT_TEMPLATE_PASS2}}` ← contents of `{{ASSETS_PATH}}/output-template-pass2.txt`
-
-   Save to `/tmp/codex-briefing-pass2-<ts>.md`.
-
-8. **Pass 2 invocation (informed)** — same command as step 5 with the
-   pass-2 briefing path and output path.
-
-9. **Pass 2 validation** — universal checks 1-9 + Pass-2-specific checks
-   10-13 from `{{ASSETS_PATH}}/validation-checklist.txt`. Failure → 1
-   corrective retry. Failure again → escalate raw.
-
-10. **Persistence**
-    - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`
-    - {{READ_TOOL}} `{{ASSETS_PATH}}/review-file-template.txt`.
-    - Substitute placeholders. When `mode == both`, the review file MUST
-      include both the local fix log (audit trail) AND codex findings.
-    - Save to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`.
-    - Update `.atomic-skills/reviews/INDEX.md` (create if missing) with a
-      row from `{{ASSETS_PATH}}/index-row-template.txt`.
-
-11. **Triage + fix proposals**
-    - Show user 1 line: `Verdict: <V> | Counts (final): <C> | Framing Δ: <D> | Saved at <path>`
-    - If `counts_final.blocker == 0 && counts_final.critical == 0`: end.
-    - Otherwise, for each finding with severity ∈ {blocker, critical}:
-      - Show: ID, severity, file:line, claim, recommendation
-      - {{READ_TOOL}} the plan file and formulate a concrete edit
-      - Ask: `apply / edit / skip`
-      - `apply`: use {{REPLACE_TOOL}} on the plan file
-      - `edit`: receive new proposal from user, validate and apply
-      - `skip`: record "skipped: <reason>" appended to the review file
-
-12. **Closing** — proceed to "Closing" section below.
+Then proceed to the "Closing" section below.
 
 ---
 
@@ -527,34 +438,7 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 
 ## Closing
 
-Present the summary in this format. Sections marked `(local/both)` only
-appear in the corresponding mode; `(codex/both)` likewise.
-
-```markdown
-### Analysis Summary
-
-**Mode:** local | codex | both
-**Cross-ref:** internal | <artifacts list> (local/both only)
-**Initiatives discovered:** N/M phases (list any missing) | skipped (--no-initiatives) | N/A (no phases)
-**Iterations (local):** [N] (local/both only)
-**Codex iterations:** 2 (blind + informed) (codex/both only)
-**Counts (local):** critical: X, significant: Y, minor: Z (local/both only)
-**Counts (initiative-depth):** critical: X, significant: Y, minor: Z (only when initiative_map non-empty)
-**Counts (codex blind):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
-**Counts (codex final):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
-**Framing Δ (codex):** <d>d / <=>= / <+>+ (codex/both only)
-
-| # | Finding | Severity | Source | Mode | Plan:line | Initiative:line | Artifact:line | Action |
-|---|---------|----------|--------|------|-----------|-----------------|---------------|--------|
-| 1 | <summary> | critical | plan | local | plan.md:108 | — | prd.md:42 | applied |
-| 2 | <summary> | blocker | initiative | codex | plan.md:45 | init-f0.md:18 | — | applied |
-| 3 | <summary> | major | initiative | local | — | init-f2.md:33 | — | recorded |
-
-Source: `plan` = finding in plan file only; `initiative` = finding
-involving initiative file(s); `cross-ref` = finding involving external
-artifact(s).
-
-**Alignment notes added:** [N] (cross-ref only)
-**Reviews saved at:** `.atomic-skills/reviews/<file>.md` (codex/both only)
-**Final status:** Plan approved / with caveats / Escalated to user
-```
+The review output uses the `### Analysis Summary` template in
+`skills/shared/project-assets/plan-initiative-depth.md` § *Closing template*.
+{{READ_TOOL}} it and present the summary in that format — sections marked
+`(local/both)` appear only in local/both mode, `(codex/both)` likewise.

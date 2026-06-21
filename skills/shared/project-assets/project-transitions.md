@@ -84,7 +84,7 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 1. Locate task in `tasks:` (array). Find the entry where `id === <task-id>`.
 2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.
 3. Emit exactly one completion event for the closed task via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })` (or `node scripts/append-completion.js --event task-done --project <projectId> --plan <planSlug> --phase <phaseId> --task <taskId>`). Carry the task's `projectId`, `planSlug`, `phaseId`, and `taskId`; leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
-4. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see project.md → Dashboard rollups; or `node scripts/compute-rollups.js`), then save the initiative file.
+4. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see § Dashboard rollups & focus markers below) by running `node scripts/refresh-state.js` (the one-pass aggregator: rollups + focus markers + the `focus.json` digest), then save the initiative file. Running refresh-state here is what keeps the statusline digest from drifting after a close.
 5. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
    - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
    - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
@@ -105,7 +105,7 @@ The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *
    - For every reconciled **task** that reaches `done` (verifier-backed or manual `Mark done`), emit exactly one `task-done` completion event through the `done <id>` flow's `appendCompletion` / `append-completion` instruction, carrying `projectId`, `planSlug`, `phaseId`, and `taskId` for that task. Criterion-only acknowledgements do not emit task completion events.
    - **`Still open`** → bump the entry's `lastUpdated` to now (acknowledges; resets the signal clock so the same candidate doesn't re-surface immediately). No status change.
    - **`Skip`** → no change.
-4. After applying dispositions, recompute the initiative's dashboard rollups (or `node scripts/compute-rollups.js`) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
+4. After applying dispositions, recompute the initiative's dashboard rollups by running `node scripts/refresh-state.js` (rollups + focus markers + the `focus.json` digest, one pass) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
 
 This is the pause-point applied to completion, as an explicit verb — so `status`/`verify` keep their read-only semantics and the user is never trapped (every candidate has a valid action for its verifier state).
 
@@ -138,7 +138,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
         Emit one separate `task-done` completion event via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })` (or `node scripts/append-completion.js --event task-done --project <projectId> --plan <planSlug> --phase <phaseId> --task <taskId>`) for each task closed by this bulk-close. This is N task events, one per task, never one shared timestamp. Then emit exactly one `phase-done` completion event via `appendCompletion(root, { event: 'phase-done', projectId, planSlug, phaseId, taskId: null, actuals: computePhaseActuals(phaseStarted, { cwd: root }) })`, where `phaseStarted` is the phase initiative's `started` field (the PHASE timestamp — NOT `plan.started`, NOT the branch), or `node scripts/append-completion.js --event phase-done --project <projectId> --plan <planSlug> --phase <phaseId> --actuals-since <phase.started>` with no `--task`, carrying the phase's aggregate actuals once; do NOT duplicate those aggregate actuals onto the per-task `task-done` lines. The helper computes the git diff phase.started->HEAD (filesChanged/locAdded/locRemoved/commits) and degrades to actuals OMITTED (no error) when git/diff is unavailable; never invent actuals. Leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
-     d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary`, then save the initiative file.
+     d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary` by running `node scripts/refresh-state.js` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
    - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
    - For each newly-active phase id, propose `atomic-skills:project new initiative <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new initiative` flow already seeds the initiative's first stack frame from `initiative.template.md`.
@@ -164,91 +164,25 @@ Before archiving the initiative, append a `## Self-review against code-quality g
 
 The block stays with the archived initiative so future spelunking can audit whether the gates were applied AND whether the codex review ran. Silent skipping is forbidden — the phase does not close without the checkpoint. The prose self-review and the structured `phases[].reviewGate` (GATE-R3) are written together at phase-done — the prose for humans, the field for the validator.
 
-## Verifier execution patterns (`verify_exit_gate` workflow)
+## Dashboard rollups & focus markers (recompute on status change)
 
-Applies to **each** `ExitCriterion` with `status === 'pending'` (or any criterion the user asks to re-verify). Used by `phase-done`, by per-task `verifier:` fields, by `archive`'s gate-resolution step, and by ad-hoc verification from the user.
+> Moved here from the `project` router (resident → lazy): these are recomputed by the mutating transitions below (`done`, `phase-done`, `reconcile`, `switch`), so the canonical mechanism lives with the flows that run it.
 
-The output of every successful (or attempted) verification is stamped into the criterion's optional `evidence` block. The shape is:
+**Dashboard rollups.** The generic aiDeck reads state in place and has no compute engine, so the dashboard's progress meters read precomputed scalars. On every task or exit-gate **status** change in an initiative, recompute and write its rollups onto the initiative frontmatter: `tasksTotal` = `tasks.length`, `tasksDone` = count(tasks with `status: done`), `gatesTotal` = `exitGates.length`, `gatesMet` = count(exitGates with `status: met`). The same pass also derives, onto each `exitGates[]` element, the flat gate-evidence scalars the dashboard binds as columns — `verifierLabel` (the gate's `verifier` kind + key arg, truncated) and `evidenceSummary` (one-line digest of `evidence`/`deferredReason`, omitted while pending) — because generic widgets cannot read the nested `verifier`/`evidence` objects. The deterministic batch (re)compute + drift-fixer is `node scripts/compute-rollups.js` (idempotent; safe to run anytime to backfill or repair).
 
-```yaml
-evidence:
-  verifierKind: shell | query | test | manual
-  verifiedAt: <ISO8601>
-  passed: true | false
-  exitCode: <integer>          # shell / test — observed process exit code
-  testsCollected: <integer>    # test only — number of tests the runner actually ran
-  rowCount: <integer>          # query only
-  outputSummary: "<≤500 chars excerpt or user note>"
-  mutation:                    # test only, OPTIONAL (G9 mutation-kill)
-    target: "<file:line>"
-    change: "<behavioral mutation applied at target>"
-    killedBy: ["<test(s) that went RED on the mutation>"]
-    killTranscript: "<≤500-char inject → RED → revert → GREEN excerpt>"
-```
+**Dashboard focus markers + status hygiene.** The dashboard Home ("Foco") shows the active plan(s) and the current phase, but aiDeck cannot join plan→initiative, so two derived markers are precomputed by `node scripts/reconcile-focus.js`: `planActive` (on the plan record + carried to phase rows + on each initiative — true iff the parent plan is `active`) and `current` (on the initiative that is the active plan's `currentPhase`). The same pass enforces a hygiene invariant — **a paused plan must not leave an `active` phase behind**: any `active` phase under a `paused` plan (in the plan's `phases[]` descriptor AND the matching initiative) is demoted to `paused`. Run it on every **plan-status** change and whenever the project-status view opens (it is idempotent). This is the focus counterpart to the rollups: same read-in-place constraint, same precompute discipline.
 
-`evidence` is REQUIRED to set `status: met` when a deterministic verifier (`shell`/`test`/`query`) is present. This is not advisory: **`scripts/validate-state.js` enforces the met-invariant (GATE-R2)** and HARD-FAILS any `met` criterion (or `done` task) whose `shell`/`test`/`query` verifier lacks `evidence.passed === true` — plus, for `kind: test`, `evidence.testsCollected > 0` (a pattern matching 0 tests is **never** `met`), and for `kind: query`, a numeric `evidence.rowCount`. So a verifier result must come from a REAL run, not an assertion. Without passing evidence, the criterion stays `pending` (manual override → `deferred` with `deferredReason`). `kind: manual` and verifier-absent criteria are not gated by GATE-R2 (the manual-acceptance gate and user-overrides govern those).
+**The recompute aggregator (`refresh-state`).** The mutating transitions above (`done`, `reconcile`, `phase-done`, `switch`) do NOT call the two scripts separately — they run `node scripts/refresh-state.js`, the single idempotent chokepoint that funnels, in order, `compute-rollups` (rollups) → `reconcile-focus` (focus markers + the paused-plan hygiene invariant) → `emit-focus` (the flat `focus.json` digest the external statusline reads). `compute-rollups.js`/`reconcile-focus.js` remain the components above; `refresh-state.js` is how every state mutation invokes them in one pass. Routing the recompute through refresh-state is what keeps the `focus.json` digest from drifting between sessions — a raw edit that runs it leaves rollups, focus markers, AND the digest consistent, independent of any session hook.
 
-### `kind: shell`
+## Verifier execution patterns (`verify_exit_gate` workflow) — moved to `verifier-exec.md`
 
-1. Present the criterion `id` + `description` + the full `command` to the user.
-2. Ask: "Run this verifier? (y/N)" — intrusive-actions rule applies.
-3. On `y`: execute with {{BASH_TOOL}}, capture exit code AND a tail of stdout (≤500 chars). Compare exit code with `expectExitCode` (default `0`).
-4. Write `evidence`:
-   - `verifierKind: shell`, `verifiedAt: <now>`
-   - `exitCode: <observed>`, `passed: <bool>`
-   - `outputSummary: <stdout tail>`
-5. If `passed === true`: set `status: met`, `metAt: <now>`.
-6. If `passed === false`: ask "Mark `deferred` with a reason, retry, or leave pending?".
-   - On `deferred`: keep the `evidence` block (so the failed run is recorded), set `status: deferred`, capture `deferredReason`.
-   - On retry: loop back to step 3.
-   - On leave-pending: keep `evidence` (records the failed attempt) but leave `status: pending`.
+The canonical executor (the `evidence` shape, the GATE-R2 met-invariant, and the per-kind workflows `shell`/`manual`/`query`/`test`, No-verifier, Per-task verifiers, and the G9 mutation-kill note) is the **single source** in `{{READ_TOOL}} {{ASSETS_PATH}}/verifier-exec.md`. `phase-done`, per-task `verifier:` fields, `archive`'s gate-resolution step, and `reconcile` all delegate there — read it before running any verifier. Do NOT inline the executor back into these callers (one definition, many callers).
 
-### `kind: manual`
+---
 
-1. Present the criterion `id` + `description` + the verifier's `description`.
-2. Ask: "Confirm this criterion is met? (y/n/defer)".
-3. Write `evidence`:
-   - `verifierKind: manual`, `verifiedAt: <now>`
-   - `passed: <true if y else false>`
-   - `outputSummary: <user's note, or empty>`
-4. On `y`: set `status: met`, `metAt: <now>`.
-5. On `n`: ask "Mark `deferred` (with reason) or leave `pending`?". Apply.
-6. On `defer`: capture `deferredReason`, set `status: deferred`.
+# Cold-path transitions (rare — read on demand)
 
-### `kind: query` (DEFERRED-BY-DESIGN — no DB connection)
-
-This repository assumes **no live DB connection**, so `kind: query` is deferred by design — NOT a silent stub. A user-pasted row count must **never** flip a criterion to `met`: that is exactly the fabricated-pass hole the gate system exists to kill (GATE-R2 hard-fails a `met` query criterion that lacks a numeric `evidence.rowCount` from a real run).
-
-1. Present the criterion `id` + `description` + `sql` + `expectRowCount` (if any).
-2. **Escape hatch (only path to `met`):** if — and only if — the caller supplies a real connection command, execute it with {{BASH_TOOL}}, capture the actual `rowCount`, and write `evidence` (`verifierKind: query`, `verifiedAt: <now>`, `rowCount: <observed integer>`, `passed: <rowCount === expectRowCount>`, `outputSummary`). Set `status: met` only when `passed === true`.
-3. **Default (no connection command):** set `status: deferred`, write `deferredReason` (e.g. `"query verifiers run out-of-band; no DB connection in this repo"`), and write `evidence` with `passed: false` and NO fabricated `rowCount`. Do not ask the user to type a row count — a self-reported number is not evidence.
-
-### `kind: test`
-
-Mirrors `kind: shell` — the runner is executed for real and its result, not a self-report, is the evidence.
-
-1. Present the criterion `id` + `description` + `runner` + `pattern`.
-2. Ask: "Run the test pattern (`<runner> <pattern>`)? (y/N)" — intrusive-actions rule applies.
-3. On `y`: execute `<runner> <pattern>` with {{BASH_TOOL}}, capture the exit code AND a tail of stdout (≤500 chars). **Parse the number of tests the runner actually collected/ran** from its output (e.g. node `# tests N` / `ℹ tests N`; jest `Tests: … total`; pytest `collected N items`). A run is `passed` only when the **exit code is 0 AND `testsCollected > 0`**.
-4. Write `evidence`:
-   - `verifierKind: test`, `verifiedAt: <now>`
-   - `exitCode: <observed>`, `testsCollected: <parsed integer>`, `passed: <bool>`
-   - `outputSummary: <stdout tail>`
-5. If `passed === true`: set `status: met`, `metAt: <now>`.
-6. If `passed === false` — **including the paranoid false-greens: non-zero exit, 0 tests collected, runner-not-found / count unparseable** (treat all three as `passed: false`, never `met`) — ask "Mark `deferred` with a reason, retry, or leave pending?".
-   - On `deferred`: keep the `evidence` block (records the failed/empty run), set `status: deferred`, capture `deferredReason`.
-   - On retry: loop back to step 3.
-   - On leave-pending: keep `evidence`, leave `status: pending`.
-
-> **G9 mutation-kill (optional, behavioral-test gate):** for a `kind: test` criterion guarding a NAMED acceptance criterion, after a GREEN run you MAY inject one adversarially-chosen behavioral mutation at a recorded `file:line`, re-run, and confirm a test goes RED (then revert → GREEN). Record it in `evidence.mutation` (`target`/`change`/`killedBy`/`killTranscript`). A surviving behavioral mutant = tautological/mock-only test = HARD FAIL — do not mark `met`.
-
-### No verifier present
-
-Treat as `kind: manual` with an empty `description`. Ask the user for explicit ack before marking `met`.
-
-### Per-task verifiers (`tasks[].verifier`)
-
-When closing a task (`done <task-id>`) whose entry has a non-empty `verifier:`, apply the same per-kind workflow above **before** marking the task done. Write the result into the task's own `evidence:` block (schemaVersion 0.2, `tasks[].evidence`, the exact same shape as criterion evidence) and stamp `closedAt`. Do NOT record it as a free-text note in `description` — a prose string is unparseable, so it can never be machine-enforced. GATE-R2 covers `done` tasks identically: a task with a `shell`/`test`/`query` verifier that is `done` without passing `evidence` HARD-FAILS `validate-state`.
+The flows above (`push`/`pop`, `done`, `reconcile`, `phase-done`) are the hot path run most sessions. The transitions below are infrequent (reopen / scope / archive / switch); they live below the fold so the hot path stays at the top of the file.
 
 ## `phase-reopen`
 
@@ -305,11 +239,11 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
    - Find target plan; abort if `status` not in {`active`, `paused`}.
    - Set any other active plan to `status: paused` — **and cascade: pause its `active` phase** (in the plan's `phases[]` descriptor AND the matching initiative file). A paused plan must never leave an `active` phase behind.
    - Set target plan to `status: active`.
-   - Update PROJECT-STATUS.md, then run `node scripts/reconcile-focus.js` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers).
+   - Update PROJECT-STATUS.md, then run `node scripts/refresh-state.js` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers AND the `focus.json` digest in one pass).
 3. **Initiative switch**:
    - Find target initiative; abort if not active/paused.
    - If target has `parentPlan` ≠ currently-active plan's slug: warn and offer to also switch the plan.
    - Set any other active initiative to `status: paused`.
    - Set target initiative to `status: active`.
-   - Update PROJECT-STATUS.md.
+   - Update PROJECT-STATUS.md, then run `node scripts/refresh-state.js` (the active-initiative change flips the `current` focus marker, so refresh the markers + the `focus.json` digest in the same pass).
 4. Announce.

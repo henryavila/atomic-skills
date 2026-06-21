@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: skills-restructuring
 title: Reestruturação das skills atomic-skills
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-15T16:29:10Z
-currentPhase: F0
+lastUpdated: 2026-06-16T20:51:13.900Z
+currentPhase: F4
 branch: plan/skills-restructuring
 parallelismAllowed: false
 principles:
@@ -68,7 +68,12 @@ phases:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
-    status: active
+    status: done
+    reviewGate:
+      status: passed
+      at: 8a35a179709de639a8e5fa5493805a548a3c2fde
+      mode: local
+      verifiedAt: 2026-06-16T12:22:09Z
     summary: "Quick-wins de consistência: contagem de stages, caminhos mortos,
       cheat-sheets e gates."
   - id: F1
@@ -85,7 +90,8 @@ phases:
         - id: F1-G1
           description: project.md e implement.md encolhem e a suite de validação continua
             verde.
-          status: pending
+          status: met
+          metAt: 2026-06-16T14:17:46Z
           verifier:
             kind: shell
             command: test $(wc -c < skills/core/project.md) -lt 22000 && test $(wc -c <
@@ -94,7 +100,21 @@ phases:
               skills/shared/project-assets/project-transitions.md && npm run
               validate-skills
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T14:17:46Z
+            passed: true
+            exitCode: 0
+            outputSummary: "project.md=20396B implement.md=16107B (ambos <22000); grep
+              mode2-codex-lane (implement.md) + verifier-exec
+              (project-transitions.md) OK; validate-skills: All 15 skills valid"
+    status: done
+    reviewGate:
+      status: passed
+      at: 390d4477ffa0faf18cedb20756bae636cfc263c3
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1428-skills-restructuring-f1.md
+      verifiedAt: 2026-06-16T14:28:01Z
     summary: Enxuga o router project e o driver implement movendo conteúdo
       não-ambiente para lazy.
   - id: F2
@@ -110,13 +130,27 @@ phases:
       criteria:
         - id: F2-G1
           description: O asset de envelope existe e a suite de validação passa.
-          status: pending
+          status: met
+          metAt: 2026-06-16T18:56:10Z
           verifier:
             kind: shell
             command: test -f skills/shared/codex-bridge-assets/envelope-orchestration.md &&
               npm run validate-skills
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T18:56:10Z
+            passed: true
+            exitCode: 0
+            outputSummary: test -f envelope-orchestration.md && npm run validate-skills →
+              All 15 skills valid (schema_version 0.2); exit 0.
+    reviewGate:
+      status: passed
+      at: 2e09b5962351baf9ce4831947cb8678312e6a5f1
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1856-skills-restructuring-f2.md
+      verifiedAt: 2026-06-16T18:56:10Z
+    status: done
     summary: Uma receita por padrão de bloat aplicada em todas as skills
       (RF/Rationalization, envelope, gates).
   - id: F3
@@ -132,12 +166,25 @@ phases:
       criteria:
         - id: F3-G1
           description: A suite de validação passa após os movimentos per-skill.
-          status: pending
+          status: met
+          metAt: 2026-06-16T19:32:13Z
           verifier:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T19:32:13Z
+            exitCode: 0
+            passed: true
+            outputSummary: All 15 skills valid (schema_version 0.2)
+    reviewGate:
+      status: passed
+      at: aa1c16ca009b61efe3c7e356516f30330f7a4189
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1941-skills-restructuring-f3.md
+      verifiedAt: 2026-06-16T19:41:57Z
+    status: done
     summary: Move blocos mode-gated de cada skill grande para assets lazy.
   - id: F4
     slug: skills-restructuring-f4-feature-project-review
@@ -152,7 +199,8 @@ phases:
       criteria:
         - id: F4-G1
           description: O subcomando existe e a suite de validação passa.
-          status: pending
+          status: met
+          metAt: 2026-06-16T20:08:50.818Z
           verifier:
             kind: shell
             command: test -f skills/shared/project-assets/project-review.md && grep -q
@@ -161,7 +209,22 @@ phases:
               skills/shared/project-assets/project-review.md && npm run
               validate-skills
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T20:08:50.818Z
+            passed: true
+            exitCode: 0
+            outputSummary: "Compound gate exit 0: project-review.md exists, project.md cites
+              'project review', project-review.md cites
+              review-plan/review-code/verify, and npm run validate-skills → 'All
+              15 skills valid'."
+    reviewGate:
+      status: passed
+      at: ecaae5b4abf87aa615c0d23418825cf7fbc9167a
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-2016-skills-restructuring-f4.md
+      verifiedAt: 2026-06-16T20:19:34.153Z
+    status: done
     summary: Subcomando project review que audita plano/iniciativa materializados.
   - id: F5
     slug: skills-restructuring-f5-nova-skill-design-brief
@@ -202,6 +265,68 @@ phases:
     status: done
     summary: "Skill design-brief: gera prompts DS-first + telas-consomem-DS, sem
       contaminar o visual."
+  - id: F6
+    slug: skills-restructuring-f6-focus-json-auto-refresh
+    title: focus.json não drifta silenciosamente
+    goal: garantir que o focus.json (digest da statusline) reflita o estado sem
+      depender de um passo de setup interativo opcional — fechar o gap em que
+      `atomic-skills install` sozinho deixa o digest stale.
+    dependsOn: []
+    subPhaseCount: 2
+    exitGate:
+      summary: 1 criterion to meet
+      criteria:
+        - id: F6-G1
+          description: O fluxo de transição regenera o focus.json e os verifiers de
+            T6.1+T6.2 passam (desacoplado das 8 falhas de contagem delegadas).
+          status: met
+          metAt: 2026-06-16T16:29:42Z
+          verifier:
+            kind: shell
+            command: grep -q 'refresh-state'
+              skills/shared/project-assets/project-transitions.md && node --test
+              tests/install-uninstall-roundtrip.test.js && npm run
+              validate-skills
+            expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-16T16:50:35Z
+            passed: true
+            exitCode: 0
+            outputSummary: grep refresh-state OK; round-trip test 8/8 pass (após os 3 fixes
+              do review gate); validate-skills 15 skills válidas; exit 0.
+    status: done
+    reviewGate:
+      status: passed
+      at: 3a4faf21b8d6bbca4886f4846aca5cb638447bb4
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-06-16-1650-skills-restructuring-f6.md
+      verifiedAt: 2026-06-16T16:50:35Z
+    summary: "Fecha o gap do focus.json stale: transição usa refresh-state + install
+      conecta os hooks (com paridade uninstall)."
+    provenance:
+      surfacedAt: 2026-06-16T14:10:57Z
+      surfacedDuring: skills-restructuring-f1-economia-de-tokens-project-e-implement/T1.5
+      surfacedBy: ai
+    context:
+      solves: Fecha o gap onde o auto-refresh do focus.json depende do passo
+        interativo opcional project-setup §5; quem roda só `atomic-skills
+        install` fica com o digest drifting silenciosamente (foi o que aconteceu
+        neste repo).
+      trigger: Ao investigar por que o focus.json estava stale (sessão 2026-06-16),
+        confirmei via src/install.js que o instalador só registra o hook de
+        auto-update (version-check.sh), não os hooks de project-status que
+        refrescam o digest; o usuário pediu para tratar como uma fase neste
+        plano.
+      assumesStillValid:
+        - refresh-state.js segue sendo o agregador (rollups + focus markers +
+          digest)
+        - a HARD RULE de paridade install↔uninstall continua valendo
+        - os hooks de project-status seguem em
+          skills/shared/project-assets/hooks/
+      ratifiedAt: 2026-06-16T14:10:57Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-06-16T14:10:57Z
 references:
   - kind: file
     path: docs/audits/project-implement-audit-2026-06-15.md
@@ -210,7 +335,6 @@ references:
   - kind: file
     path: docs/audits/token-economy-all-skills-2026-06-15.md
     label: Economia de tokens — todas as skills
-planActive: true
 planTitle: Reestruturação das skills atomic-skills
 ---
 

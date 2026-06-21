@@ -169,6 +169,103 @@ describe('decomposePlan (C.T-002)', () => {
   });
 });
 
+// SPEC interior materialization (T1.5 — H3-mode must carry the per-task SPEC
+// body, not just id+title). A `### Tn` section with the four SPEC fields +
+// a lead description must materialize task.description/scopeBoundary/
+// acceptance/verifier (+ outputs from the Files block).
+const SPEC_SOURCE = [
+  '# Spec Plan',
+  '',
+  '## F0 — Build',
+  '',
+  'Goal: ship the H3 interior parser.',
+  '',
+  '### T0.1 Add the H3 interior parser',
+  '',
+  'Parse each task section body into the schema fields.',
+  '',
+  '- Files: src/decompose.js, tests/decompose.test.js',
+  '- scopeBoundary: do not touch the phase grammar or the exit_gate YAML',
+  '- acceptance: the four interior fields land on the materialized task',
+  '- verifier: { kind: shell, command: "node --test tests/decompose.test.js", expectExitCode: 0 }',
+  '- RED→GREEN: write the failing test first, then the parser',
+  '',
+  '### T0.2 Wire a test-kind verifier',
+  '',
+  '- Files: tests/foo.test.js',
+  '- scopeBoundary: tests only',
+  '- acceptance: the runner collects at least one test',
+  '- verifier: { kind: test, runner: "node --test", pattern: "tests/foo.test.js" }',
+  '',
+].join('\n');
+
+describe('decomposePlan — H3 SPEC interior (T1.5)', () => {
+  const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
+
+  it('materializes description + scopeBoundary + acceptance + verifier + outputs from a ### Tn body', () => {
+    const r = decomposePlan(SPEC_SOURCE, { planSlug: 'spec' });
+    const t = r.initiatives[0].tasks[0];
+    assert.equal(t.id, 'T0.1');
+    assert.equal(t.title, 'Add the H3 interior parser');
+    assert.equal(t.description, 'Parse each task section body into the schema fields.');
+    assert.deepEqual(t.scopeBoundary, ['do not touch the phase grammar or the exit_gate YAML']);
+    assert.deepEqual(t.acceptance, ['the four interior fields land on the materialized task']);
+    assert.deepEqual(t.verifier, { kind: 'shell', command: 'node --test tests/decompose.test.js', expectExitCode: 0 });
+    assert.deepEqual(t.outputs, [
+      { kind: 'file', path: 'src/decompose.js' },
+      { kind: 'file', path: 'tests/decompose.test.js' },
+    ]);
+  });
+
+  it('parses a kind:test verifier into runner + pattern', () => {
+    const r = decomposePlan(SPEC_SOURCE, { planSlug: 'spec' });
+    const t = r.initiatives[0].tasks[1];
+    assert.deepEqual(t.verifier, { kind: 'test', runner: 'node --test', pattern: 'tests/foo.test.js' });
+    assert.deepEqual(t.outputs, [{ kind: 'file', path: 'tests/foo.test.js' }]);
+  });
+
+  it('leaves interior-less ### Tn tasks as id+title only (backward compatible)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const t = r.initiatives[0].tasks[0];
+    assert.equal(t.id, 'T0.1');
+    assert.equal(t.verifier, undefined);
+    assert.equal(t.scopeBoundary, undefined);
+    assert.equal(t.outputs, undefined);
+  });
+
+  it('materialized SPEC tasks carry verifier in frontmatter (find-signalless-tasks would report 0)', () => {
+    const r = decomposePlan(SPEC_SOURCE, { planSlug: 'spec' });
+    const files = materializeDecomposition(r, { planSlug: 'spec', now: FROZEN_DATE });
+    const init = files.find((f) => f.kind === 'initiative');
+    const fm = parseYaml(init.content.split('---\n')[1]);
+    for (const task of fm.tasks) {
+      const hasSignal = Boolean(task.verifier) || (Array.isArray(task.outputs) && task.outputs.length > 0);
+      assert.equal(hasSignal, true, `task ${task.id} has no completion signal`);
+    }
+    assert.equal(fm.tasks[0].verifier.kind, 'shell');
+    assert.deepEqual(fm.tasks[0].scopeBoundary, ['do not touch the phase grammar or the exit_gate YAML']);
+    assert.deepEqual(fm.tasks[0].acceptance, ['the four interior fields land on the materialized task']);
+  });
+
+  it('materialized SPEC plan validates end-to-end via validate-state', () => {
+    const r = decomposePlan(SPEC_SOURCE, { planSlug: 'spec' });
+    const files = materializeDecomposition(r, { planSlug: 'spec', branch: 'main', now: FROZEN_DATE });
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'as-spec-'));
+    try {
+      const validators = buildValidators();
+      for (const f of files) {
+        const absPath = join(tmpRoot, f.relativePath);
+        mkdirSync(dirname(absPath), { recursive: true });
+        writeFileSync(absPath, f.content, 'utf8');
+        const result = validateFile(absPath, validators);
+        assert.equal(result.ok, true, `validateFile failed for ${f.relativePath}: ${JSON.stringify(result.errors)}`);
+      }
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('previewDecomposition (C.T-002)', () => {
   it('renders counts and first 3 phase titles', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
