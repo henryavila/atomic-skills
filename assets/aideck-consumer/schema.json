@@ -416,11 +416,10 @@
           }
         },
         "spawnedPlans": {
-          "description": "Fork parent→child edge (degrau 7.5): child plan slugs forked from this phase. Additive — phases without forks omit it. Mirrors aideck PhaseDescriptor.spawnedPlans. Migrated inline from the links.json sidecar by F5/T-003.",
           "type": "array",
+          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "$ref": "#/definitions/slug"
           }
         },
         "parallelWith": {
@@ -489,13 +488,6 @@
         },
         "context": {
           "$ref": "#/definitions/context"
-        },
-        "spawnedPlans": {
-          "type": "array",
-          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
-          "items": {
-            "$ref": "#/definitions/slug"
-          }
         },
         "reviewGate": {
           "type": "object",
@@ -793,7 +785,6 @@
           "type": "boolean"
         },
         "spawnedFrom": {
-          "description": "Fork child→parent edge (degrau 7.5): which plan/phase this plan was forked from, and the fork mode. Additive — non-forked plans omit it. Mirrors aideck Plan.spawnedFrom. Migrated inline from the links.json sidecar by F5/T-003 (fork-fields-inline).",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -801,10 +792,10 @@
             "phaseId",
             "mode"
           ],
+          "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
           "properties": {
             "plan": {
-              "type": "string",
-              "minLength": 1
+              "$ref": "#/definitions/slug"
             },
             "phaseId": {
               "type": "string",
@@ -960,36 +951,6 @@
               "items": {
                 "type": "string"
               }
-            }
-          }
-        },
-        "spawnedFrom": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "plan",
-            "phaseId",
-            "mode"
-          ],
-          "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
-          "properties": {
-            "plan": {
-              "$ref": "#/definitions/slug"
-            },
-            "phaseId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "taskId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "mode": {
-              "type": "string",
-              "enum": [
-                "pause",
-                "parallel"
-              ]
             }
           }
         },

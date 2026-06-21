@@ -47,7 +47,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 58); // 12 core skills (+ implement, + verify-claim) + 14 shared codex/debate assets (incl. critic.md + invocation-workspace-write.txt) + 25 project assets (20 top-level incl. project-idea.md + 5 hooks) + 2 (namespace root + auto-update hook) + 5 (design-brief: 1 core skill + 4 design-brief-assets)
+    assert.strictEqual(result.files.length, 67); // post-consolidation footprint (single IDE, no module): 14 core skills + 16 shared codex/debate assets + 24 project-assets top-level + 5 hooks + 4 design-brief-assets + namespace root + auto-update hook (7-plan merge added project-finalize/review/idea, verifier-exec, envelope-orchestration, design-brief skill+assets)
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -92,7 +92,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 59); // 12 core + 1 module skill + 14 shared assets (incl. critic.md + invocation-workspace-write.txt) + 25 project assets (20 + 5 hooks) + 2 (namespace root + auto-update hook) + 5 (design-brief: 1 core skill + 4 design-brief-assets)
+    assert.strictEqual(result.files.length, 68); // post-consolidation footprint (single IDE + 1 module skill): the no-module count (67) + 1 enabled module skill
   });
 
   it('substitutes memory_path variable', () => {
@@ -161,7 +161,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 115); // (12 core + 14 shared assets [incl. critic.md + invocation-workspace-write.txt] + 25 project assets [20 + 5 hooks] + 5 design-brief [1 core skill + 4 design-brief-assets]) * 2 IDEs (claude-code + gemini-commands) + auto-update hook (no namespace root for command/toml formats)
+    assert.strictEqual(result.files.length, 133); // post-consolidation footprint across 2 IDEs (claude-code + gemini-commands), command/toml formats (no namespace root) + one auto-update hook; grew with the 7-plan merge (project-finalize/review/idea, verifier-exec, envelope-orchestration, design-brief skill+assets)
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -243,7 +243,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
-    assert.strictEqual(result.files.length, 58); // +1: invocation-workspace-write.txt (14 shared); +1: project-idea.md (20 project top-level); +5: design-brief (1 core skill + 4 design-brief-assets)
+    assert.strictEqual(result.files.length, 67); // post-consolidation: core skills + shared assets + project-assets (incl. 5 hooks) + design-brief skill+assets + namespace root + auto-update hook, no module skills
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -346,9 +346,9 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/commands/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // 14 shared codex/debate assets (incl. critic.md + invocation-workspace-write.txt) + 20 project top-level assets (incl. project-idea.md) + 1 hooks/ subdir + 4 design-brief-assets = 39 entries
-    assert.strictEqual(files.length, 39,
-      `expected 39 entries (14 shared + 20 project + hooks/ dir + 4 design-brief-assets), got ${files.length}: ${files.join(', ')}`);
+    // post-consolidation namespace assets: codex-bridge assets + project-assets top-level + hooks/ subdir + design-brief-assets = 48 entries (7-plan merge added project-finalize/review/migrate/discover/emergence/create-*, verifier-exec, envelope-orchestration, design-brief-assets)
+    assert.strictEqual(files.length, 48,
+      `expected 48 namespace asset entries (codex-bridge + project-assets + hooks/ dir + design-brief-assets), got ${files.length}: ${files.join(', ')}`);
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
