@@ -25,7 +25,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | multiplan-focus-resolution | active | F0 | plan/multiplan-focus | 2026-06-15 |
 | design-brief-source-of-truth | active | F1 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
-| plan-fork | active | F4 | plan/plan-fork | 2026-06-20 |
+| plan-fork | done | F5 | plan/plan-fork | 2026-06-21 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |

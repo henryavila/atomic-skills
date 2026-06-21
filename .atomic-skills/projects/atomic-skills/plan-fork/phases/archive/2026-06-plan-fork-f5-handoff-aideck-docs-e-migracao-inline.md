@@ -161,6 +161,16 @@ current: true
 
 Initiative for phase **F5 — Handoff aiDeck, docs e migração inline**.
 
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks fechadas com `outputs[]` ligados às linhas-fonte; cada fix de review leu as linhas antes do Edit.
+- **G2 soft-language**: nextAction + descrições escaneadas; 0 violações (evidência `passed:true`).
+- **G6 reference-or-strike**: F5-G1 met com `evidence:` populada; literais verbatim (HEAD 0e2e086, shas, contagens).
+- **Codex review**: review-code `--mode=both` em HEAD 0e2e086, verdict needs_changes→resolvido, blind 0B/1C/2M → final igual (framing Δ {dropped:0, maintained:3, emerged:0}), file `.atomic-skills/reviews/2026-06-21-0305-plan-fork-f5.md`. Cross-model pegou 1 crit + 2 major TODOS disjuntos do pass local (recorrência forte de F2 L-004).
+- **Review gate (G2)**: `reviewGate: { status: passed, at: 0e2e086, mode: both }` no descriptor (GATE-R3; prosa e campo concordam).
+- **Lessons (G1)**: 3 reusable distiladas em `lessons/plan-fork-f5-...md` (both-p/-migração-de-formato, read-fallback, re-validar-no-write-novo), ratificadas.
+- **Nota de escopo**: T-003 re-aberta inline por decisão do usuário (aiDeck local tolera os campos; não publica ainda). O publish do aiDeck 0.1.2 + bump do pin `^0.1.0`→`^0.1.2` ficam p/ o usuário no release — o código inline está pronto p/ validação local.
+
 ## Decisions
 
 ### Phase-start lessons gate (F5) — disposição de 29 lessons aplicáveis

@@ -1,42 +1,42 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-21T01:59:07.765Z",
+  "generatedAt": "2026-06-21T11:23:28.717Z",
   "projectId": "atomic-skills",
   "plan": {
-    "slug": "plan-fork",
-    "title": "plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada",
+    "slug": "design-brief-source-of-truth",
+    "title": "design-brief: reconstrução da fonte-de-verdade (catálogo app-map)",
     "status": "active"
   },
   "phase": {
-    "id": "F5",
-    "slug": "plan-fork-f5-handoff-aideck-docs-e-migracao-inline",
-    "title": "Handoff aiDeck, docs e migração inline",
-    "index": 6,
-    "total": 6,
-    "status": "active"
+    "id": "F1",
+    "slug": "design-brief-source-of-truth-f1-reconstrucao-artefato-e-codigo",
+    "title": "Reconstrução (artefato e código) e reconciliação",
+    "index": 2,
+    "total": 3,
+    "status": "pending"
   },
   "tasks": {
-    "done": 3,
-    "total": 3,
+    "done": 0,
+    "total": 4,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "F5 finalizada SEM o publish (decisão do usuário): T-001 (handoff pré-existente) + T-002 (KB fork-plan) DONE; T-003 (migração inline) BLOCKED por dep externa (aiDeck >=0.1.2 publicado + pin bump). NÃO rodar phase-done enquanto T-003 estiver blocked. PRÓXIMO (manual, usuário): publicar aiDeck 0.1.2, bumpar o pin, executar a recipe de 5 passos da T-003 (bloco Decisions), depois reconcile + phase-done. F5 fica ativa até lá.",
+  "nextAction": "Start T-001: Discovery das fontes",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
   },
   "sources": [
     {
-      "path": ".atomic-skills/projects/atomic-skills/plan-fork/plan.md",
-      "lastUpdated": "2026-06-20T01:33:14Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/plan.md",
+      "lastUpdated": "2026-06-16T12:00:18Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f5-handoff-aideck-docs-e-migracao-inline.md",
-      "lastUpdated": "2026-06-21T01:19:34Z"
+      "path": ".atomic-skills/projects/atomic-skills/design-brief-source-of-truth/phases/f1-reconstrucao-artefato-e-codigo.md",
+      "lastUpdated": "2026-06-15T17:00:00.000Z"
     }
   ]
 }

@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: plan-fork
 title: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 version: "1.0"
-status: active
+status: done
 started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-20T01:33:14Z
+lastUpdated: 2026-06-21T03:22:06Z
 branch: plan/plan-fork
 currentPhase: F5
 parallelismAllowed: false
@@ -57,16 +57,16 @@ phases:
         - id: F0-G1
           description: O elo vive no sidecar; plan.md e frontmatters de fase ficam sem
             spawnedFrom/spawnedPlans sob aiDeck 0.1.0; ciclo é rejeitado; os
-            testes passam. O caminho canônico do sidecar (links.json no diretório
-            do plano), o schema e o reader/writer (src/links-sidecar.js) ficam
-            definidos aqui na F0, antes de qualquer escrita da F1; a concorrência
-            cross-worktree é deferida à F2 (pause-only não escreve concorrente).
+            testes passam. O caminho canônico do sidecar (links.json no
+            diretório do plano), o schema e o reader/writer
+            (src/links-sidecar.js) ficam definidos aqui na F0, antes de qualquer
+            escrita da F1; a concorrência cross-worktree é deferida à F2
+            (pause-only não escreve concorrente).
           status: met
           metAt: 2026-06-19T18:53:49Z
           verifier:
             kind: shell
-            command: npm run validate-state
-              tests/fixtures/plan-fork/plans/fixture-parent.md
+            command: npm run validate-state tests/fixtures/plan-fork/plans/fixture-parent.md
               tests/fixtures/plan-fork/plans/fixture-child.md && node --test
               tests/links-sidecar.test.js tests/spawn-graph.test.js
           evidence:
@@ -74,9 +74,9 @@ phases:
             verifiedAt: 2026-06-19T18:53:49Z
             exitCode: 0
             passed: true
-            outputSummary: validate-state 2 plans cross-validated; node --test
-              links-sidecar + spawn-graph → tests 40, pass 40, fail 0, exit 0 (after
-              review fix 52ea43f)
+            outputSummary: validate-state 2 plans cross-validated; node --test links-sidecar
+              + spawn-graph → tests 40, pass 40, fail 0, exit 0 (after review
+              fix 52ea43f)
     status: done
     reviewGate:
       status: passed
@@ -107,19 +107,20 @@ phases:
           metAt: 2026-06-19T19:56:59Z
           verifier:
             kind: shell
-            command: grep -q fork-plan skills/shared/project-assets/project-emergence.md
-              && grep -q fork-plan skills/core/project.md && grep -q ciclo
-              skills/shared/project-assets/project-emergence.md && grep -q parallel
-              skills/shared/project-assets/project-emergence.md
+            command: grep -q fork-plan skills/shared/project-assets/project-emergence.md &&
+              grep -q fork-plan skills/core/project.md && grep -q ciclo
+              skills/shared/project-assets/project-emergence.md && grep -q
+              parallel skills/shared/project-assets/project-emergence.md
           evidence:
             verifierKind: shell
             verifiedAt: 2026-06-19T19:56:59Z
             exitCode: 0
             passed: true
-            outputSummary: "4 greps (fork-plan em project-emergence.md + project.md;
-              ciclo + parallel em project-emergence.md) → exit 0. Gate escopado removendo
-              o && npm test (RED ambiental, decisão do usuário, precedente F0). Review
-              gate local achou+corrigiu 5 findings (4e23baf) antes do met."
+            outputSummary: 4 greps (fork-plan em project-emergence.md + project.md; ciclo +
+              parallel em project-emergence.md) → exit 0. Gate escopado
+              removendo o && npm test (RED ambiental, decisão do usuário,
+              precedente F0). Review gate local achou+corrigiu 5 findings
+              (4e23baf) antes do met.
     status: done
     reviewGate:
       status: passed
@@ -149,18 +150,18 @@ phases:
           metAt: 2026-06-20T01:33:14Z
           verifier:
             kind: shell
-            command: node --test tests/parallel-state.test.js
-              tests/links-sidecar.test.js tests/spawn-graph.test.js
+            command: node --test tests/parallel-state.test.js tests/links-sidecar.test.js
+              tests/spawn-graph.test.js
           evidence:
             verifierKind: shell
             verifiedAt: 2026-06-20T01:33:14Z
             exitCode: 0
             passed: true
-            outputSummary: "node --test (parallel-state + links-sidecar + spawn-graph)
-              → tests 64, pass 64, fail 0, exit 0. Gate escopado (npm test → node --test;
-              RED ambiental, decisão do usuário, precedente F0/F1). Review --mode=both
-              achou+corrigiu 11 findings (6 local + 5 codex, 2 disjuntos só do codex)
-              em 1f24eb3 antes do met."
+            outputSummary: node --test (parallel-state + links-sidecar + spawn-graph) →
+              tests 64, pass 64, fail 0, exit 0. Gate escopado (npm test → node
+              --test; RED ambiental, decisão do usuário, precedente F0/F1).
+              Review --mode=both achou+corrigiu 11 findings (6 local + 5 codex,
+              2 disjuntos só do codex) em 1f24eb3 antes do met.
     status: done
     reviewGate:
       status: passed
@@ -186,9 +187,9 @@ phases:
           description: Aceitar, recusar, sem-TTY e writeback-falho têm semântica
             determinística em pause E parallel; nenhum caso deixa o filho
             arquivado com o pai num estado inconsistente. Ordem de transação — o
-            writeback do pai precede a finalização do archive; em writeback falho
-            o archive persiste um pending-resume durável e o filho não finaliza
-            até a recuperação.
+            writeback do pai precede a finalização do archive; em writeback
+            falho o archive persiste um pending-resume durável e o filho não
+            finaliza até a recuperação.
           status: met
           metAt: 2026-06-20T09:51:26Z
           verifier:
@@ -202,10 +203,10 @@ phases:
             outputSummary: "Verifier `npm test` escopado p/ `node --test
               tests/parallel-state.test.js tests/links-sidecar.test.js
               tests/spawn-graph.test.js` (baseline npm test RED ambiental —
-              install/dashboard, sem relação; precedente F0/F1/F2): tests 75, pass
-              75, fail 0, exit 0, em tree limpa (HEAD b6969e5). fork-resume cobre
-              accept/refuse/no-TTY/writeback-falho × pause/parallel com hard gate
-              no archive + marker-before-mutation."
+              install/dashboard, sem relação; precedente F0/F1/F2): tests 75,
+              pass 75, fail 0, exit 0, em tree limpa (HEAD b6969e5). fork-resume
+              cobre accept/refuse/no-TTY/writeback-falho × pause/parallel com
+              hard gate no archive + marker-before-mutation."
     status: done
     reviewGate:
       status: passed
@@ -241,13 +242,13 @@ phases:
             exitCode: 0
             passed: true
             outputSummary: "Verifier npm test escopado p/ `node --test
-              tests/focus-digest.test.js tests/reconcile-focus.test.js` (baseline
-              RED ambiental — install/dashboard): tests 26, pass 26, fail 0, exit
-              0, tree limpa HEAD 9b96ab2. Full npm test: 10 fails, todos
-              ambientais, 0 novos (964 pass). emit-focus colapsa fork pai→filho
-              (foco no filho, ⧉ limpa) e reconcile defere o current do pai; ambos
-              intra-project, robustos a ciclo/torn-sidecar. Review --mode=both:
-              local 6 + codex blind 5→final 6, todos corrigidos."
+              tests/focus-digest.test.js tests/reconcile-focus.test.js`
+              (baseline RED ambiental — install/dashboard): tests 26, pass 26,
+              fail 0, exit 0, tree limpa HEAD 9b96ab2. Full npm test: 10 fails,
+              todos ambientais, 0 novos (964 pass). emit-focus colapsa fork
+              pai→filho (foco no filho, ⧉ limpa) e reconcile defere o current do
+              pai; ambos intra-project, robustos a ciclo/torn-sidecar. Review
+              --mode=both: local 6 + codex blind 5→final 6, todos corrigidos."
     status: done
     reviewGate:
       status: passed
@@ -273,7 +274,8 @@ phases:
             modos de falha; a KB cobre o degrau 7.5; o caminho de migração
             sidecar-para-inline (gated em aiDeck maior ou igual a 0.1.2) está
             documentado e a migração é coberta por teste.
-          status: pending
+          status: met
+          metAt: 2026-06-21T03:22:06Z
           verifier:
             kind: shell
             command: test -f /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
@@ -282,10 +284,31 @@ phases:
               grep -q strict
               /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
               grep -q fork-plan docs/kb/skill-authoring.md && npm test
-    status: active
-    summary: Handoff aiDeck + KB + migração sidecar→inline (gated em aiDeck ≥0.1.2).
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-21T03:22:06Z
+            exitCode: 0
+            passed: true
+            outputSummary: "Handoff (~/aideck) + KB fork-plan + npm test escopado (node
+              --test dos 4 suites do elo/resolver: 99 pass, exit 0; full npm
+              test 976 pass / 10 ambientais). A migração foi feita INLINE
+              (decisão do usuário: aiDeck local já tolera os campos, não publica
+              ainda). Elo no plan.md (spawnedFrom + phases[].spawnedPlans);
+              schema + consumer schema; migrateSidecarToInline + fallback de
+              upgrade. Review --mode=both: local 2 minor + codex 1 crit + 2
+              major (todos disjuntos), todos corrigidos. NOTA: o publish do
+              aiDeck 0.1.2 + bump do pin ficam p/ o usuário no release (código
+              inline pronto)."
+    status: done
+    reviewGate:
+      status: passed
+      at: 0e2e086
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-21-0305-plan-fork-f5.md
+      verifiedAt: 2026-06-21T03:22:06Z
+    summary: Handoff aiDeck + KB + migração sidecar→inline (feita INLINE; publish do
+      aiDeck fica p/ o release).
 references: []
-planActive: true
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 ---
 
