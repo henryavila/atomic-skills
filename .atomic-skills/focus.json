@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-21T00:33:02.879Z",
+  "generatedAt": "2026-06-21T01:09:35.516Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "plan-fork",
@@ -8,23 +8,23 @@
     "status": "active"
   },
   "phase": {
-    "id": "F4",
-    "slug": "plan-fork-f4-focus-resolver-pai-filho-pause-e-paralle",
-    "title": "Focus-resolver pai/filho (pause e parallel)",
-    "index": 5,
+    "id": "F5",
+    "slug": "plan-fork-f5-handoff-aideck-docs-e-migracao-inline",
+    "title": "Handoff aiDeck, docs e migração inline",
+    "index": 6,
     "total": 6,
     "status": "active"
   },
   "tasks": {
-    "done": 2,
-    "total": 2,
+    "done": 0,
+    "total": 3,
     "blocked": 0
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Phase-start gate F4: rodar `node scripts/list-lessons.js --phase F4` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-003 da F3 (hard-gate cross-model, doc-contract tests, marker-before-mutation) — ANTES de codar. Depois T-001: Consciência pai/filho no emit-focus e reconcile-focus.",
+  "nextAction": "Phase-start gate F5: rodar `node scripts/list-lessons.js --phase F5` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-003 da F4 (NUL/run-tests, cross-product coverage, projId-scope) — ANTES de codar. Depois T-001: Handoff ao aiDeck. NOTA F5: depende de aiDeck >=0.1.2 publicado p/ a migração sidecar→inline; o verifier do gate checa /home/henry/aideck/docs/handoffs/.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -35,8 +35,8 @@
       "lastUpdated": "2026-06-20T01:33:14Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f4-focus-resolver-pai-filho-pause-e-paralle.md",
-      "lastUpdated": "2026-06-20T09:51:26Z"
+      "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f5-handoff-aideck-docs-e-migracao-inline.md",
+      "lastUpdated": "2026-06-21T00:40:11Z"
     }
   ]
 }

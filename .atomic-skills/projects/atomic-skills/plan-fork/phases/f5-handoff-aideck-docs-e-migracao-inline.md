@@ -5,11 +5,16 @@ title: Handoff aiDeck, docs e migração inline
 goal: Documentar a estrutura de estado para o aiDeck, atualizar a KB, e migrar o
   elo do sidecar para inline quando o aiDeck publicado tolerar os campos (maior
   ou igual a 0.1.2).
-status: pending
+status: active
 branch: plan/plan-fork
-started: 2026-06-19T15:32:29.603Z
-lastUpdated: 2026-06-19T15:32:29.603Z
-nextAction: "Start T-001: Handoff ao aiDeck"
+started: 2026-06-21T00:40:11Z
+lastUpdated: 2026-06-21T00:40:11Z
+nextAction: "Phase-start gate F5: rodar `node scripts/list-lessons.js --phase
+  F5` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui
+  L-001..L-003 da F4 (NUL/run-tests, cross-product coverage, projId-scope) —
+  ANTES de codar. Depois T-001: Handoff ao aiDeck. NOTA F5: depende de aiDeck
+  >=0.1.2 publicado p/ a migração sidecar→inline; o verifier do gate checa
+  /home/henry/aideck/docs/handoffs/."
 parentPlan: plan-fork
 phaseId: F5
 tasksDone: 0
@@ -105,6 +110,7 @@ emerged: []
 summary: Handoff aiDeck + KB + migração sidecar→inline (gated em aiDeck ≥0.1.2).
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
+current: true
 ---
 
 # Narrative / notes

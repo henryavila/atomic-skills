@@ -42,3 +42,4 @@
 | 2026-06-19 13:24 | [plan-fork-r3](2026-06-19-1324-plan-fork-r3.md) | plan | needs_changes | 0B/0C/5M/0m/0n | 0d/5=/0+ |
 | 2026-06-19 15:53 | [plan-fork-f0](2026-06-19-1553-plan-fork-f0.md) | code (local) | needs_changes→1 major fixed | 0B/0C/1M/2m/0n (major readLinks fixed 52ea43f; 2 minor → lessons) | 1 fixed in-phase |
 | 2026-06-20 09:42 | [plan-fork-f3](2026-06-20-0942-plan-fork-f3.md) | code | needs_changes→resolved | 0B/0C/3M/0m/0n | 1d/3=/0+ |
+| 2026-06-21 00:24 | [plan-fork-f4](2026-06-21-0024-plan-fork-f4.md) | code | needs_changes→resolved | 0B/0C/5M/1m/0n | 0d/5=/1+ |

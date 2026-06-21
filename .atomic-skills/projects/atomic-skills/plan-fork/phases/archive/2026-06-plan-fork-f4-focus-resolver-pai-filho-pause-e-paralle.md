@@ -5,30 +5,37 @@ title: Focus-resolver pai/filho (pause e parallel)
 goal: Fazer o resolver de foco tratar pai(paused)+filho(active) e
   pai(active)+filho(active) parallel como hierarquia, com precedência por
   worktree e aresta pai/filho.
-status: active
+status: done
 branch: plan/plan-fork
 started: 2026-06-20T09:51:26Z
-lastUpdated: 2026-06-20T09:51:26Z
-nextAction: "Phase-start gate F4: rodar `node scripts/list-lessons.js --phase
-  F4` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui
-  L-001..L-003 da F3 (hard-gate cross-model, doc-contract tests,
-  marker-before-mutation) — ANTES de codar. Depois T-001: Consciência pai/filho
-  no emit-focus e reconcile-focus."
+lastUpdated: 2026-06-21T00:40:11Z
+nextAction: null
 parentPlan: plan-fork
 phaseId: F4
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
 exitGates:
   - id: F4-G1
     description: Os casos pause(paused+active) e parallel(active+active) resolvem
       para o filho sem ambiguidade; os casos de foco existentes não regridem.
-    status: pending
+    status: met
+    metAt: 2026-06-21T00:40:11Z
     verifier:
       kind: shell
       command: npm test
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-21T00:40:11Z
+      exitCode: 0
+      passed: true
+      outputSummary: "node --test tests/focus-digest.test.js
+        tests/reconcile-focus.test.js (npm test escopado, baseline RED
+        ambiental) → 26 pass, exit 0, HEAD 9b96ab2. Review --mode=both: local 6
+        + codex blind 5→final 6, todos corrigidos."
     verifierLabel: "shell: npm test"
+    evidenceSummary: passed · 2026-06-21
 stack:
   - id: 1
     title: Focus-resolver pai/filho (pause e parallel)
@@ -117,6 +124,15 @@ current: true
 # Narrative / notes
 
 Initiative for phase **F4 — Focus-resolver pai/filho (pause e parallel)**.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks fechadas, `outputs[]` ligados às linhas-fonte (emit-focus.js, reconcile-focus.js, 2 test files); cada fix de review leu as linhas antes do Edit; o NUL byte foi localizado por offset antes de corrigir.
+- **G2 soft-language**: nextAction + descrições escaneadas; 0 violações (evidência `passed:true`).
+- **G6 reference-or-strike**: F4-G1 met com `evidence:` populada; literais verbatim (HEAD 9b96ab2, verifier escopado, contagens).
+- **Codex review**: review-code `--mode=both` em HEAD 9b96ab2, verdict needs_changes→resolvido, blind 0B/0C/5M → final 0B/0C/5M/1m (ciclo rebaixado), framing Δ {dropped:0, maintained:5, emerged:1}, file `.atomic-skills/reviews/2026-06-21-0024-plan-fork-f4.md`.
+- **Review gate (G2)**: gravado no descriptor como `reviewGate: { status: passed, at: 9b96ab2, mode: both }` (GATE-R3; prosa e campo concordam).
+- **Lessons (G1)**: 3 reusable distiladas em `lessons/plan-fork-f4-focus-resolver-pai-filho-pause-e-paralle.md` (NUL/run-tests, cross-product coverage, projId-scope), ratificadas. F5 start gate as dispõe.
 
 ## Decisions
 

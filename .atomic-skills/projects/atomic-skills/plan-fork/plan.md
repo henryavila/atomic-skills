@@ -7,7 +7,7 @@ status: active
 started: 2026-06-19T15:32:29.603Z
 lastUpdated: 2026-06-20T01:33:14Z
 branch: plan/plan-fork
-currentPhase: F4
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -230,11 +230,31 @@ phases:
           description: Os casos pause(paused+active) e parallel(active+active) resolvem
             para o filho sem ambiguidade; os casos de foco existentes não
             regridem.
-          status: pending
+          status: met
+          metAt: 2026-06-21T00:40:11Z
           verifier:
             kind: shell
             command: npm test
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-21T00:40:11Z
+            exitCode: 0
+            passed: true
+            outputSummary: "Verifier npm test escopado p/ `node --test
+              tests/focus-digest.test.js tests/reconcile-focus.test.js` (baseline
+              RED ambiental — install/dashboard): tests 26, pass 26, fail 0, exit
+              0, tree limpa HEAD 9b96ab2. Full npm test: 10 fails, todos
+              ambientais, 0 novos (964 pass). emit-focus colapsa fork pai→filho
+              (foco no filho, ⧉ limpa) e reconcile defere o current do pai; ambos
+              intra-project, robustos a ciclo/torn-sidecar. Review --mode=both:
+              local 6 + codex blind 5→final 6, todos corrigidos."
+    status: done
+    reviewGate:
+      status: passed
+      at: 9b96ab2dbda5a8f32c422e164859a84f59cf38a4
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-21-0024-plan-fork-f4.md
+      verifiedAt: 2026-06-21T00:40:11Z
     summary: Resolver de foco trata pai/filho como hierarquia em pause e parallel.
   - id: F5
     slug: plan-fork-f5-handoff-aideck-docs-e-migracao-inline
@@ -262,7 +282,7 @@ phases:
               grep -q strict
               /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
               grep -q fork-plan docs/kb/skill-authoring.md && npm test
-    status: pending
+    status: active
     summary: Handoff aiDeck + KB + migração sidecar→inline (gated em aiDeck ≥0.1.2).
 references: []
 planActive: true
