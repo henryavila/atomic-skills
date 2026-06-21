@@ -151,18 +151,50 @@ function readFmSafe(filePath) {
   return parsed.error ? null : parsed.frontmatter;
 }
 
+/** Read the fork edge, swallowing a torn/malformed sidecar to null (never throw). */
+function safeSpawnedFrom(planDir) {
+  try { return getSpawnedFrom(planDir); } catch { return null; }
+}
+
+/** Project-scoped fork key — fork is intra-project; never crosses projects. */
+function forkKey(projId, slug) {
+  return `${projId} ${slug}`;
+}
+
 /**
- * F4 pre-scan: build `parentSlug → Set(anchor phaseId)` from every ACTIVE plan
+ * F4 pre-scan: build `parentKey → Set(anchor phaseId)` from every ACTIVE plan
  * that is a fork child (its links.json carries `spawnedFrom`). The parent then
- * defers the `current` marker on those anchor phases to the active child. Keyed
- * by slug (not path) — fork is intra-project, slugs are unique per project tree.
+ * defers the `current` marker on those anchor phases to the active child.
+ *
+ * Keyed by `projId + slug` (NOT bare slug) — fork is intra-project, so a same-named
+ * plan in another project must not mis-defer this one's marker. Collapse is
+ * transitive (chain A←B←C: A defers to B, B defers to C, only C is the AGORA). A
+ * `spawnedFrom` cycle (upstream cycle-check should prevent it) would otherwise
+ * defer EVERY node and leave no AGORA — so cycle members are detected and skipped.
  */
 function collectForkDeferrals(planEntries) {
-  const map = new Map();
-  for (const { fm, spawnedFrom } of planEntries) {
+  const parentOf = new Map(); // childKey → parentKey  (functional: ≤1 parent each)
+  const edgeOf = new Map();   // childKey → { parentKey, phaseId }
+  for (const { projId, fm, spawnedFrom } of planEntries) {
     if (!fm || fm.status !== 'active' || !spawnedFrom?.plan || !spawnedFrom?.phaseId) continue;
-    if (!map.has(spawnedFrom.plan)) map.set(spawnedFrom.plan, new Set());
-    map.get(spawnedFrom.plan).add(spawnedFrom.phaseId);
+    const childKey = forkKey(projId, fm.slug);
+    const parentKey = forkKey(projId, spawnedFrom.plan);
+    parentOf.set(childKey, parentKey);
+    edgeOf.set(childKey, { parentKey, phaseId: spawnedFrom.phaseId });
+  }
+  // Detect children on a cycle (walk the unique parent-chain until null or revisit).
+  const onCycle = new Set();
+  for (const start of parentOf.keys()) {
+    const seen = new Set();
+    let cur = start;
+    while (cur != null && parentOf.has(cur) && !seen.has(cur)) { seen.add(cur); cur = parentOf.get(cur); }
+    if (cur != null && seen.has(cur)) for (const n of seen) onCycle.add(n);
+  }
+  const map = new Map();
+  for (const [childKey, edge] of edgeOf) {
+    if (onCycle.has(childKey)) continue; // a cyclic edge defers nobody (no-AGORA guard)
+    if (!map.has(edge.parentKey)) map.set(edge.parentKey, new Set());
+    map.get(edge.parentKey).add(edge.phaseId);
   }
   return map;
 }
@@ -186,13 +218,13 @@ export function reconcileDir(dir) {
       if (!statSync(planDir).isDirectory()) continue;
       const planFile = join(planDir, 'plan.md');
       if (!existsSync(planFile)) continue;
-      planEntries.push({ planFile, planDir, fm: readFmSafe(planFile), spawnedFrom: getSpawnedFrom(planDir) });
+      planEntries.push({ projId, planFile, planDir, fm: readFmSafe(planFile), spawnedFrom: safeSpawnedFrom(planDir) });
     }
   }
   const deferrals = collectForkDeferrals(planEntries);
   // Second pass: reconcile each plan, passing the anchor phaseIds it must defer.
-  for (const { planFile, planDir, fm } of planEntries) {
-    const deferred = (fm?.slug && deferrals.get(fm.slug)) || new Set();
+  for (const { projId, planFile, planDir, fm } of planEntries) {
+    const deferred = (fm?.slug && deferrals.get(forkKey(projId, fm.slug))) || new Set();
     reconcilePlan(planFile, planDir, out, deferred);
   }
   return { changes: out, changed: out.filter((c) => c.changed).length };

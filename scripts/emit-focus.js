@@ -70,8 +70,10 @@ function collectPlans(stateRoot) {
       if (!existsSync(planFile)) continue;
       const fm = readFm(planFile);
       // The fork parent/child edge lives in the plan's links.json sidecar (not the
-      // aiDeck-facing frontmatter); a non-fork plan reads as null.
-      if (fm) plans.push({ projId, planDir, planFile, fm, spawnedFrom: getSpawnedFrom(planDir) });
+      // aiDeck-facing frontmatter); a non-fork plan reads as null. A torn/malformed
+      // sidecar (plausible mid cross-worktree writeback) must NOT take the whole
+      // resolver down — swallow to null like every other read here does.
+      if (fm) plans.push({ projId, planDir, planFile, fm, spawnedFrom: safeSpawnedFrom(planDir) });
     }
   }
   return plans;
@@ -94,6 +96,16 @@ function findPhaseInitiative(planDir, phaseId) {
 /** A plan's explicit branch binding, or null when unset/empty. */
 function branchOf(p) {
   return typeof p.fm.branch === 'string' && p.fm.branch ? p.fm.branch : null;
+}
+
+/** Read the fork edge, swallowing a torn/malformed sidecar to null (never throw). */
+function safeSpawnedFrom(planDir) {
+  try { return getSpawnedFrom(planDir); } catch { return null; }
+}
+
+/** Project-scoped key — fork is intra-project, so collapse never crosses projects. */
+function planKey(p) {
+  return `${p.projId} ${p.fm?.slug}`;
 }
 
 /** Active plans, most-recently-updated first. */
@@ -124,11 +136,14 @@ function recentFirst(plans) {
  * cleared. (The pause case already excludes the paused parent from `activePlans`.)
  */
 function supersededParentSlugs(plans) {
-  const present = new Set(plans.map((p) => p.fm?.slug).filter(Boolean));
+  // Project-scoped present-set (fork is intra-project) so a same-named plan in
+  // another project never falsely supersedes a parent here.
+  const present = new Set(plans.filter((p) => p.fm?.slug).map(planKey));
   const superseded = new Set();
   for (const p of plans) {
     const parentSlug = p.spawnedFrom?.plan;
-    if (parentSlug && present.has(parentSlug)) superseded.add(parentSlug);
+    const parentKey = parentSlug ? `${p.projId} ${parentSlug}` : null;
+    if (parentKey && present.has(parentKey)) superseded.add(parentKey);
   }
   return superseded;
 }
@@ -145,17 +160,28 @@ function pickFocus(activePlans, branch) {
     claimers = activePlans; // no branch context → cannot disambiguate by tree
     pool = activePlans;
   }
-  // F4: collapse fork parent→child pairs. A parent whose forked child is also a
-  // claimer yields focus + the claim to the child (precedence by the parent/child
-  // edge); the pair is one hierarchy, not two competitors.
+  // F4: collapse fork parent→child pairs to the child (precedence by the
+  // parent/child edge). Collapse is TRANSITIVE — in a chain A←B←C every non-leaf
+  // ancestor (A, B) is superseded and the deepest active child (C) wins. Collapse
+  // ONLY when a leaf actually survives: if every claimer is superseded (a cycle /
+  // mutual fork has no leaf) the graph is not a valid hierarchy, so fall back to
+  // baseline and let the ⧉ ambiguity flag SURFACE the drift rather than hide it.
   const superseded = supersededParentSlugs(claimers);
-  const effClaimers = claimers.filter((p) => !superseded.has(p.fm?.slug));
-  const effPool = pool.filter((p) => !superseded.has(p.fm?.slug));
-  const plan = recentFirst(effPool.length ? effPool : pool)[0];
+  const survivors = claimers.filter((p) => !superseded.has(planKey(p)));
+  if (survivors.length > 0 && survivors.length < claimers.length) {
+    const survivorPool = pool.filter((p) => !superseded.has(planKey(p)));
+    const plan = recentFirst(survivorPool.length ? survivorPool : survivors)[0];
+    return {
+      plan,
+      init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
+      ambiguous: survivors.length > 1,
+    };
+  }
+  const plan = recentFirst(pool)[0];
   return {
     plan,
     init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
-    ambiguous: effClaimers.length > 1,
+    ambiguous: claimers.length > 1,
   };
 }
 

@@ -193,3 +193,78 @@ test('reconcileDir leaves `current` on a parent whose forked child is NOT active
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// F4 robustness (cross-model review findings #1, #3)
+test('reconcileDir does not throw on a malformed links.json sidecar', () => {
+  const { root, child } = buildForkTree();
+  try {
+    // a torn/half-written sidecar (plausible mid cross-worktree writeback)
+    writeFileSync(join(child, 'links.json'), '{ "spawnedFrom": ');
+    // Kills "getSpawnedFrom unguarded": without the try/catch the whole reconcile throws.
+    assert.doesNotThrow(() => reconcileDir(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('reconcileDir does not blank ALL `current` markers on a spawnedFrom cycle', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-reconcile-cycle-'));
+  const proj = join(root, '.atomic-skills', 'projects', 'proj');
+  try {
+    for (const slug of ['a', 'b']) {
+      const dir = join(proj, slug);
+      mkdirSync(join(dir, 'phases'), { recursive: true });
+      writeFm(join(dir, 'plan.md'), {
+        schemaVersion: '0.1', slug, title: slug, status: 'active', currentPhase: 'F0',
+        phases: [{ id: 'F0', status: 'active' }],
+      });
+      writeFm(join(dir, 'phases', 'f0.md'), { slug: `${slug}-f0`, status: 'active', phaseId: 'F0', parentPlan: slug });
+    }
+    // mutual fork: a ← b and b ← a (a cycle; upstream cycle-check should prevent it).
+    writeFileSync(join(proj, 'a', 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'b', phaseId: 'F0', mode: 'parallel' } })}\n`);
+    writeFileSync(join(proj, 'b', 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'a', phaseId: 'F0', mode: 'parallel' } })}\n`);
+    reconcileDir(root);
+    // cycle members are skipped → neither defers → each keeps its own current
+    // (baseline multi-current), never the worse-than-baseline zero-AGORA state.
+    const aCur = readFm(join(proj, 'a', 'phases', 'f0.md')).current;
+    const bCur = readFm(join(proj, 'b', 'phases', 'f0.md')).current;
+    assert.ok(aCur && bCur, 'a cyclic fork leaves both currents intact (no no-AGORA regression)');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('reconcileDir does not defer a same-named parent in ANOTHER project (intra-project scoping)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-reconcile-xproj-'));
+  try {
+    // Two projects each with an active "parent" plan at currentPhase F3. Only projX
+    // has an active child forked from parent/F3. projY's "parent" must KEEP its
+    // current — the deferral must not cross the project boundary on a slug match.
+    const mkParent = (proj) => {
+      const dir = join(root, '.atomic-skills', 'projects', proj, 'parent');
+      mkdirSync(join(dir, 'phases'), { recursive: true });
+      writeFm(join(dir, 'plan.md'), {
+        schemaVersion: '0.1', slug: 'parent', title: 'Parent', status: 'active', currentPhase: 'F3',
+        phases: [{ id: 'F3', status: 'active' }],
+      });
+      writeFm(join(dir, 'phases', 'f3.md'), { slug: 'parent-f3', status: 'active', phaseId: 'F3', parentPlan: 'parent' });
+      return dir;
+    };
+    mkParent('projX');
+    mkParent('projY');
+    // child in projX only, forked from parent/F3
+    const childDir = join(root, '.atomic-skills', 'projects', 'projX', 'child');
+    mkdirSync(join(childDir, 'phases'), { recursive: true });
+    writeFm(join(childDir, 'plan.md'), {
+      schemaVersion: '0.1', slug: 'child', title: 'Child', status: 'active', currentPhase: 'C0',
+      phases: [{ id: 'C0', status: 'active' }],
+    });
+    writeFm(join(childDir, 'phases', 'c0.md'), { slug: 'child-c0', status: 'active', phaseId: 'C0', parentPlan: 'child' });
+    writeFileSync(join(childDir, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'parent', phaseId: 'F3', mode: 'parallel' } })}\n`);
+    reconcileDir(root);
+    assert.ok(!readFm(join(root, '.atomic-skills', 'projects', 'projX', 'parent', 'phases', 'f3.md')).current, 'projX parent defers to its forked child');
+    assert.ok(readFm(join(root, '.atomic-skills', 'projects', 'projY', 'parent', 'phases', 'f3.md')).current, 'projY parent (no child) keeps its AGORA');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
