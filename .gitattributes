@@ -1,0 +1,5 @@
+# Append-only sidecar logs are NDJSON (one JSON object per line) so concurrent
+# appends from parallel feature worktrees merge losslessly. union-merge is only
+# safe on line-oriented files — see skills/shared/mode2-codex-lane.md §9.
+# Pointwise/overwritten JSON (last-review, last-session, routing) get NO union.
+.atomic-skills/status/dispatch-log.json merge=union

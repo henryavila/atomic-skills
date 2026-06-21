@@ -22,11 +22,12 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 |------|--------|---------------|--------|---------|
 | quick-idea-capture | archived | F1 | — | 2026-06-09 |
 | skills-restructuring | active | F0 | plan/skills-restructuring | 2026-06-15 |
-| multiplan-focus-resolution | active | F0 | plan/multiplan-focus | 2026-06-15 |
+| multiplan-focus-resolution | archived | — | plan/multiplan-focus | 2026-06-15 |
 | design-brief-source-of-truth | archived | F2 | plan/design-brief | 2026-06-15 |
 | fix-aideck-dashboard | active | F1 | plan/fix-aideck-dashboard | 2026-06-16 |
 | app-map-conflict-arbitration | archived | F1 | plan/design-brief | 2026-06-16 |
 | design-brief-briefing-rework | archived | F1 | plan/design-brief | 2026-06-19 |
+| worktree-lifecycle-finalization | active | F8 | plan/worktree-lifecycle-finalization | 2026-06-17 |
 | aideck-multi-project | archived | — | — | 2026-05-25 |
 | bmad-af-learnings | archived | — | — | 2026-05-27 |
 | bmad-porting-research | archived | F0 | — | 2026-05-27 |
@@ -46,7 +47,8 @@ _(none)_
 |------|----------|--------|-------|
 | design-brief-source-of-truth | 2026-06-16 | F0·F1·F2 (3/3 done) | Catálogo app-map: schema 0.2, reconstrução justapor+confirmação, integração no design-brief (Step 2 reconstrução-primeiro + R2 por regime). Follow-up: idea #3 (descritor de conflito rico + canal CLI). |
 | app-map-conflict-arbitration | 2026-06-16 | F0·F1 (2/2 done) | Descritor de conflito rico + canal de arbitragem (idea #3 do design-brief-source-of-truth). plan-done F1 com reviewGate(both); lição L-001 ratificada. |
-| design-brief-briefing-rework | 2026-06-19 | F0·F1 (2/2 done) | Modelo de autoridade do briefing (anti-contaminação): camada-é-autoridade — D3 filtro / D5 band-pin / D8 textura. F1 gate de não-reincidência: regen cego v2 = NAO-REINCIDENTE após o fix do band-pin de contagens (recaída A4 do v1); D10 resolvido = modelo leve basta, sem tag R10. reviewGate F0(local)+F1(local); 3 lições (cegueira estrutural, exemplo-por-classe, âncora de range). |
+| design-brief-briefing-rework | 2026-06-19 | F0·F1 (2/2 done) | Modelo de autoridade do briefing (anti-contaminação): camada-é-autoridade — D3 filtro / D5 band-pin / D8 textura. F1 gate de não-reincidência: regen cego v2 = NAO-REINCIDENTE após o fix do band-pin de contagens. reviewGate F0(local)+F1(local); 3 lições. |
+| multiplan-focus-resolution | 2026-06-16 | F0 (6/6 done) | Foco determinístico multi-plano + enforcer worktree-por-plano. Gate met, reviewGate passed. |
 
 ## Ad-Hoc Sessions Log (last 5)
 

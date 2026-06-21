@@ -1,0 +1,495 @@
+# Design — worktree-lifecycle-finalization (REVISADO: pivô Git Flow)
+
+Fecha o ciclo de vida da worktree-do-plano. **Este design foi REABERTO e revisado** após um pivô de
+modelo do operador (precedência artefato humano > IA). A versão anterior (premissa "plan-branch é
+bookkeeping, NÃO feature") está preservada no histórico git deste arquivo. Pesquisa-base original:
+`docs/design/project-orchestrator/10-worktree-lifecycle-finalization.md`.
+
+Decisões travadas pelo operador nesta reabertura (não rediscutíveis; ratificadas em B2): modelo
+`worktree = feature → PR → develop → (futuro) main`; escopo v1 = **só feature→develop**; **todo plano
+forka sua branch na criação**; branch de integração = **ref configurável** (default `develop`,
+prompt-quando-ausente), criada de `main` neste repo; correção do coupling **deferida** (interim
+`merge=union`); `focus.json` → **git-ignore**; push como **`plan/<slug>`**.
+
+## Context
+
+A versão anterior deste design derrubou, via painel adversarial, a premissa "finalize simétrico estilo
+feature branch": uma `plan/<slug>` seria *bookkeeping de foco com commits interleaved*, não uma branch
+cujo telos é mergear na trunk. A evidência que sustentava isso era a **interleaving** observada:
+`plan/multiplan-focus` arquivado, 36 commits à frente da `main`, **19 de outros fronts**.
+
+O operador **pivotou o modelo** (bom senso/consenso, refinado para Git Flow): cada worktree-de-plano **é**
+uma feature; cada feature vai a **PR → `develop`** (branch de integração que consolida e mantém histórico
+de PRs; conflitos resolvem na entrada da develop) → futuramente merge → `main`. Nunca PR cego na `main`.
+
+O pivô **não é contraditório com a evidência de interleaving — ele a resolve na raiz.** A interleaving era
+sintoma do modelo antigo, em que a branch nascia tarde (sob concorrência) e os commits do plano
+pré-existente já estavam misturados na árvore compartilhada. Sob o modelo novo, **todo plano forka sua
+própria branch na criação** (Decisão 1): cada feature acumula commits na própria branch desde o início, e
+"1 worktree = 1 feature = 1 PR limpo" passa a ser mecanicamente verdadeiro.
+
+O que falta continua sendo o FIM do ciclo: hoje nada fecha quando o plano termina — o
+`scripts/worktree-teardown.js` (entregue na F1) já decide remoção segura, mas contra `main`
+(`resolveBaseRef` ladder `origin/main→main→null`, `verified_by: scripts/worktree-teardown.js`), e nada
+ABRE o PR. Sob o pivô o finalize passa a **ativo** e o teardown passa a verificar contra o **ref de
+integração configurável**, robusto a squash-merge.
+
+Risco estrutural identificado pelo painel (contrarian corroborado por 3 vozes): o tree `.atomic-skills/`
+(`focus.json`, `status/*`, `projects/*`) é commitado e tocado por TODA branch de plano
+(`verified_by: CLAUDE.md` — "the `.atomic-skills/` project-tracking tree is now meant to be versioned in
+git"). Logo, sob PR→develop **todo par de feature-PRs colide** nesse estado. A v1 contém o risco com o
+mínimo (Decisão 5); a cura estrutural é um plano separado.
+
+## Decisions
+
+1. **Todo plano forka sua própria branch + worktree na CRIAÇÃO (feature-branch desde o nascimento).**
+   Reverte o default lazy da F0 ("plano solo = `branch: null` na árvore atual, forka só sob
+   concorrência"). O mecanismo de fork/stamp/worktree-retroativa permanece útil
+   (`verified_by: scripts/bind-plan-branch.js` stampBranch; `scripts/emit-focus.js` pickFocus intacto) —
+   muda só o GATILHO: de condicional-sob-concorrência para incondicional-na-criação. Consequência
+   load-bearing: elimina a interleaving (cada feature acumula na própria branch), tornando o PR limpo
+   coerente. `emit-focus` NÃO é tocado (seu `multipleActivePlans` é pós-colisão e read-only).
+
+2. **A branch de integração é um ref CONFIGURÁVEL (default `develop`), repo-global; quando ausente, o
+   fluxo PERGUNTA (usar existente OU criar), nunca assume nem falha em silêncio.** Home: campo novo
+   `integrationRef` em `.atomic-skills/status/routing.json`. **Restrição verificada:** o schema tem
+   `additionalProperties: false` e descreve-se como "Mode 2 routing config"
+   (`verified_by: meta/schemas/routing.schema.json`) — adicionar o campo EXIGE estender o schema e
+   generalizar o escopo do arquivo de "Mode 2 routing" para "config de roteamento/integração do repo". O
+   ref NÃO mora no frontmatter do plano (per-plano divergiria a verdade — dois planos apontando para
+   develops diferentes). UX prompt-quando-ausente: **lazy, no ponto de consumo (o finalize, Decisão 3)**,
+   persiste uma vez em `routing.json`; a criação de plano fica zero-rede. Para este repo: criar `develop`
+   a partir de `main` (HEAD de `origin/main`).
+
+3. **O "finalize" passa a ATIVO num comando dedicado `project finalize` (operator-prompted), SEPARADO do
+   `archive`.** O finalize é magérrimo e faz só três coisas: (a) `git push -u origin plan/<slug>` (mantém
+   o nome `plan/<slug>`, não renomeia); (b) `gh pr create --base <integrationRef> --head plan/<slug>
+   --fill`; (c) grava a `pr-url`/identidade no estado do plano (que o invariante da Decisão 4 consulta). O
+   `archive` CONTINUA zero-git e terminal, como hoje (`verified_by:
+   skills/shared/project-assets/project-transitions.md` archive) e roda DEPOIS do merge do PR. Isso separa
+   **publicar** (efeito de rede, irreversível-social: um PR é público) de **encerrar** (estado local
+   reversível) — duas máquinas de estado com modos de falha independentes. Tudo operator-prompted, nunca
+   automático; o finalize mostra o diff `plan/<slug> ^<integrationRef>` e o PR proposto e pede confirmação.
+
+4. **Invariante de não-perda no teardown, contra o ref configurável e SEGURO sob squash-merge:
+   API = sinal de liveness, grafo-local = veto de safety ANCORADO NO HEAD MERGEADO DO PR.** Os dois modos
+   de erro são assimétricos — falso-negativo ("não integrado" quando está) é recuperável (re-roda);
+   falso-positivo ("integrado" quando não está) **deleta trabalho não-mergeado, irreversível**. A
+   composição segura, portanto:
+   - **Liveness (gh):** `gh pr view <branch> --json state,mergedAt,baseRefName,headRefOid` confirma
+     `state==MERGED`, `mergedAt != null` E `baseRefName == <integrationRef>` (PR mergeado no ref CERTO), e
+     CAPTURA o `headRefOid` (SHA do head do PR no instante do merge). Falhou → BLOQUEIA.
+   - **Safety veto (local) contra o head mergeado, NÃO contra a ref:** o tip de `plan/<slug>` não pode
+     avançar além do que o PR mergeou. Concretamente: `git merge-base --is-ancestor <branch>
+     <integrationRef>` (fast-path; cobre merge-commit/rebase-merge) OU — no caso squash, em que os commits
+     da feature ganham SHAs novos em develop e o ancestor falha — `HEAD(<branch>) == headRefOid` (nada foi
+     commitado DEPOIS do head que o PR mergeou). QUALQUER commit além do `headRefOid` → BLOQUEIA (resíduo
+     não-integrado).
+   - **Por que NÃO `git rev-list <branch> --not <integrationRef>`:** sob squash esse rev-list é SEMPRE
+     não-vazio (os SHAs originais nunca viram ancestrais de develop) → bloquearia o caminho-feliz PARA
+     SEMPRE, repetindo a inutilidade do ancestor-only. Ancorar o veto no `headRefOid` (não na ref) é o que
+     torna o teardown de um squash LIMPO permitido (`HEAD == headRefOid`) e ainda bloqueia o resíduo
+     pós-merge. Isso também responde ao caminho operacional: após um squash legítimo sem commits novos, o
+     teardown PROSSEGUE.
+   - O `OR` ingênuo (`ancestor OR pr-merged`) é **REJEITADO**: soma os falsos-positivos das duas pernas e
+     não vê commits adicionados DEPOIS do merge do PR (a API ainda diz MERGED → deletaria o resíduo). O
+     ancoramento no `headRefOid` fecha esse buraco. `patch-id` fica FORA da v1 (o `headRefOid` o substitui
+     com mais precisão).
+   - Indeterminação (sem `gh` auth, ref/`headRefOid` ausente, PR ambíguo/múltiplo) → **BLOQUEIA**. Falha
+     segura over-bloqueia, nunca over-deleta. Sem `-D`/`--force`/`rm -rf`; `git branch -d` (minúsculo) é a
+     2ª guarda nativa. `resolveBaseRef` muda de `origin/main→main` para o `integrationRef`.
+     `verified_by: scripts/worktree-teardown.js` (isTeardownSafe/resolveBaseRef atuais),
+     `skills/shared/worktree-isolation.md:42-43` (merge-before-remove).
+
+5. **Coupling de `.atomic-skills/` contido com o MÍNIMO na v1; a partição estrutural é PLANO SEPARADO.**
+   `focus.json` é estado-de-sessão regenerável (`verified_by: scripts/emit-focus.js:233,187` —
+   `emitFocus`/`buildFocusDigest` reconstroem o digest com `generatedAt` a partir do plan state) →
+   **git-ignore**, removendo o singleton que mais colide entre feature-PRs. Isso é um **carve-out
+   explícito** ao princípio "o tree `.atomic-skills/` é versionado, não ignorado"
+   (`verified_by: CLAUDE.md`), aprovado pelo operador em B2. Os demais JSON append-only de `status/*`
+   ganham `.gitattributes merge=union`. A CURA (particionar por ownership: estado per-plano disjunto por
+   slug viaja na branch; agregados globais saem das feature-branches) fica como **plano separado** (decisão
+   de escopo do operador). Nota de parity: o git-ignore de `focus.json` é mudança manual de repo-policy,
+   **fora** do contrato install/uninstall (o installer não cria nem ignora `focus.json` —
+   `verified_by: CLAUDE.md` seção "Install / Uninstall parity").
+
+6. **Topology-aware DEFERIDO inteiro; backstop read-only re-mirado para o modelo PR→develop.** O
+   classificador de footprint (serializar só dentro de componentes conexos) foi desenhado para ordenar
+   merge-backs LOCAIS; sob PR→develop quem serializa os merges é o GitHub (branch protection / merge do
+   PR), então o **classificador AUTO-ORDENADOR** não se justifica na v1 — vira backlog para quando
+   develop→main precisar de ordenação ou houver paralelismo real com dor de conflito. **Distinção precisa
+   (refinada pós-pesquisa):** o que fica deferido é a AUTO-ORDENAÇÃO dos merges; a *DETECÇÃO* de colisão
+   cross-WT NÃO é mais "confie no merge serial do GitHub" — passa a ser o check ativo de finalize
+   (Decisão 7). R-XAGENT-03 (merge serial) permanece para qualquer merge-back local fora do fluxo de PR. O
+   **backstop** é um **9º check** a ADICIONAR no
+   `project verify` (hoje há 8, §1–8; o #5 já faz orphan-detection de escopo menor —
+   `verified_by: skills/shared/project-assets/project-verify.md` "Checks (in order)" §1–8), read-only,
+   WARN-only, derivado live, e re-mirado para os órfãos do modelo novo: worktree viva de feature já
+   mergeada em develop (teardown pendente); branch de plano arquivado nunca PR-ada, ou PR aberto e nunca
+   mergeado. Sem flag em `focus.json`, sem hook, sem campo de schema novo.
+
+7. **Check de colisão cross-WT no finalize: GATE determinístico (piso do projeto-alvo) + WORKFLOW advisory
+   de agentes LLM — GENÉRICO, escopado ao diff, operator-prompted.** A skill de finalize é **genérica** —
+   roda em QUALQUER projeto-alvo (Java/JS/Python/Go/monorepo grande), sem amarrar à stack ou ao estado
+   deste repo. Disparado só quando há **≥2 worktrees de plano vivas** (uma feature solo não tem com o que
+   colidir).
+   - **Por que existe (evidência):** a literatura define 4 classes de colisão cross-branch — textual /
+     build (static-semantic) / dinâmico-semântico / "higher-order" — e o `git merge` textual SÓ pega a 1ª;
+     mudanças textualmente disjuntas podem mergear limpo mas quebrar build ou comportamento
+     (`verified_by: Shen 2022 TOSEM https://dl.acm.org/doi/10.1145/3546944`;
+     `de Jesus/Borba 2024 ICSE https://arxiv.org/abs/2310.04269`). Conflitos comportamentais escapam de
+     merge E da suíte de testes do próprio projeto (`verified_by: BDCI 2017
+     https://arxiv.org/pdf/1708.01650` — 8 conflitos invisíveis a speculative-merge + testes existentes).
+   - **GATE determinístico (verify-claim-able — é o token de entrada):** merge especulativo das WTs vivas +
+     o **build/typecheck/test/lint DO PRÓPRIO PROJETO-ALVO** na árvore mergeada (comandos DETECTADOS do
+     projeto, nunca hardcoded). Exit code = gate. Pega build-conflicts e conflitos comportamentais cobertos
+     por teste de forma determinística — por isso build & testes NÃO viram agente (rodar o build/teste do
+     projeto já os pega; um "agente de build" duplicaria o piso).
+   - **WORKFLOW advisory (agentes LLM, NÃO-determinístico, NUNCA gate):** conjunto bounded (Pareto), cada
+     agente **escopado ao footprint dos diffs das WTs + vizinhança de dependência imediata** — lê o DIFF,
+     não a árvore inteira, então escala a repo grande (o nº de agentes é fixo; só a leitura escopada cresce,
+     e com o tamanho do diff, não do repo). Foca no que o piso é estruturalmente cego:
+     - **Agente A — interferência comportamental/semântica:** raciocina se a COMBINAÇÃO das mudanças altera
+       comportamento que passa isolado (o gap BDCI). É a única classe sem forma determinística barata
+       genérica (`verified_by: de Jesus 2024` — precisão 0.43 mesmo na análise estática Java-específica ⇒
+       advisory por obrigação, não por escolha).
+     - **Agente B — colisão de recurso-compartilhado/contrato:** ≥2 WTs mutando o mesmo recurso mutável
+       (config, lockfile, gerado, migration, estado global, flag) OU mudando o contrato de um símbolo
+       compartilhado (assinatura/API/tipo/schema) que outra referencia — valor maior quando o build/teste
+       do projeto é FRACO e o piso não pega (`verified_by: Shen 2021 https://arxiv.org/pdf/2102.11307` —
+       93% dos build-conflicts = uma branch referenciar entidade que a outra alterou/removeu).
+   - **Disciplina (inegociável):** os agentes **self-check, nunca self-certify** (verify-claim) — findings
+     roteiam para revisão humana; o GATE determinístico é a prova. Iron Law preservado: agentes são
+     READ-ONLY (leitura paraleliza; merge/código serial — R-XAGENT-03). É um acelerador Claude-Code (a tool
+     `Workflow`); fallback PORTÁVEL (agentes de leitura sequenciais, ou skip registrado) em outro IDE.
+   - **Calibração honesta (frequência ≠ severidade):** essas colisões higher-order são RARAS em frequência
+     (~0.1% vs ~13.5% textual no corpus de `verified_by: Shen 2022`) mas caras POR OCORRÊNCIA
+     (invisibilidade/custo) → justifica um check OPCIONAL/operator-prompted, não always-on.
+
+8. **Dedup de review em DUAS camadas para eliminar re-review redundante sob WTs paralelas: ledger de
+   superfície nas PERNAS + run-record no COMPOSER — ambos fail-para-RE-revisar.** Sob o pivô (cada
+   feature-WT pode rodar review; a consolidação/finalize re-revisa), tanto as pernas de review quanto o
+   audit composto repetem trabalho. Hoje não há memória de dedup: `review-code` re-revisa toda a faixa
+   recebida (único escape grosseiro = modo "Codex only — Skip local", `verified_by:
+   skills/core/review-code.md:218`; mais o SHA per-fase `reviewGate.at`, `verified_by:
+   skills/shared/project-assets/project-transitions.md:126`); o `review-due`/`last-review.json` é ponteiro
+   ÚNICO linear `{lastReviewedCommit, lastReviewedAt, reviewFile}` (`verified_by:
+   skills/shared/project-assets/project-drift.md:78-92,121-139`), não-conjunto; o `project review` é
+   composer READ-ONLY que não re-implementa — só sequencia as pernas (`verified_by:
+   skills/shared/project-assets/project-review.md:7,25-26`).
+   - **Camada A — ledger de superfície unificado (nas PERNAS; edição direta nesta branch):** estender
+     `last-review.json` de ponteiro → **conjunto append-only** de `{commitSha, patchId, mode: local|codex,
+     reviewedAt, reviewFile}`. `review-code` (local) e `review-due` (codex) ambos LEEM antes (faixa a
+     revisar = pedido − superfície já-revisada NAQUELE modo) e GRAVAM depois; dedup **por modo** (uma
+     passada local não dispensa a codex). O `review-code` local hoje não registra superfície/data nenhuma
+     (`verified_by: skills/core/review-code.md` — sem caminho de escrita em `last-review.json`; só o
+     `review-due` grava, `verified_by: skills/shared/project-assets/project-drift.md:134`) — passa a registrar. **Chave dupla SHA + patch-id:** o SHA casa merge-commit/rebase; o `patchId`
+     (`git patch-id`, `verified_by: https://git-scm.com/docs/git-patch-id`) casa sob **squash**, que
+     reescreve SHAs — mesmo princípio do `headRefOid` da Decisão 4. Uso DISTINTO do patch-id rejeitado na
+     Decisão 4: lá como prova de integração (squash colapsa N commits num diff agregado ⇒ falso-positivo);
+     aqui como casamento de dedup com falha-segura para RE-revisar, então um patch-id que não casa apenas
+     causa um re-review seguro. Append-only torna o ledger compatível com o `merge=union` da Decisão 5 (o
+     `last-review.json` é um `status/*` que colide entre feature-PRs). **Eficácia é best-effort pré-merge:**
+     antes do merge, a leitura per-WT pode não enxergar entradas de outras WTs (o `merge=union` só reconcilia
+     no merge), então só a superfície PÓS-merge é deduplicada de forma confiável — a SEGURANÇA não depende
+     disso (uma leitura stale faz RE-revisar, nunca pular), só o ganho de custo é limitado pela janela de
+     union.
+   - **Camada B — run-record do `project review` (no COMPOSER; entregue ao autor da skill):** a Camada A só
+     deduplica a superfície de CÓDIGO; o `project review` roda o audit INTEIRO (linters + `verify` +
+     `review-plan` + `review-code`, `verified_by: skills/shared/project-assets/project-review.md:30-52`),
+     então rodá-lo no WT e de novo no pré-merge repete as pernas não-código. O composer ganha um
+     **run-record próprio** — por execução grava, por perna, `{auditedHead, auditedPlanSha, tree-clean,
+     verdito, fingerprint do input daquela perna}`. Na re-execução, **por perna**, reusa o verdito SÓ com
+     prova POSITIVA de input idêntico: `review-plan` reusa sse `plan.md`+fases byte-idênticos desde o run
+     gravado; `verify`/linters sse o estado relevante inalterado; a perna `review-code` DEFERE ao ledger da
+     Camada A. O run-record é gravado no MESMO `last-review.json` (uma fonte de verdade só) — o que é uma
+     **exceção append-only EXPLÍCITA à política READ-ONLY** do `project review` (`verified_by:
+     skills/shared/project-assets/project-review.md:25-26`): as pernas de audit seguem sem mutar estado, só
+     o run-record append-only é escrito. Esse carve-out (espelhando o git-ignore de `focus.json` da Decisão
+     5) é parte EXPLÍCITA do work-order ao autor da skill — não um efeito colateral oculto.
+   - **Regra de segurança (forçada, comum às duas camadas):** o dedup **falha-para-RE-revisar/RE-rodar** —
+     só pula com prova positiva de já-coberto; qualquer mudança ou incerteza re-executa. Os modos de erro
+     são assimétricos: re-revisar desperdiça custo (recuperável); pular superfície não-revisada embarca
+     código não-auditado = **false-green** irreversível-em-efeito — a mesma assimetria que a Decisão 4 fixa
+     no teardown.
+   - **Composição com D5/D7:** o ledger é o `status/*` que a Decisão 5 contém (`merge=union`/append-only);
+     os agentes advisory da Decisão 7 leem o ledger e escopam só à superfície NOVA (commits de merge +
+     interação de integração), nunca aos diffs per-WT já revisados.
+
+9. **`project finalize` é PLAN-AWARE: branch ≠ plano — resolve um plano-alvo EXPLÍCITO, exige-o terminal, e
+   nunca confia no ponteiro `focus` por default.** O always-fork da Decisão 1 torna "1 worktree = 1 feature"
+   verdadeiro na CRIAÇÃO, mas uma worktree SOBREVIVE a um plano e hospeda o próximo — então uma branch
+   acumula N planos em estágios diferentes (encontrado no dogfood deste plano: `multiplan` carrega
+   `multiplan-focus-resolution` ARCHIVED + `worktree-lifecycle-finalization` ativo; `design-brief` carrega
+   `design-brief-source-of-truth` ARCHIVED + `design-brief-briefing-rework` ativo; o tip ARCHIVED de
+   `skills-restructuring` hospeda o `plan-fork` novo). O `focus.json` aponta sempre para o plano MAIS NOVO
+   (`verified_by: scripts/emit-focus.js` pickFocus), nunca o terminado — um finalize que resolve "o plano
+   ativo" via focus mira o plano ERRADO numa branch multi-plano. O modelo "1 branch = `plan/<slug>` = 1
+   plano" da Decisão 3 quebra aqui.
+   - **GUARD plan-aware (determinístico, verify-claim-able — é a prova):** o finalize resolve um plano-alvo
+     EXPLÍCITO (nunca o default-silencioso do focus); enumera todos os `projects/<project-id>/*/plan.md`
+     presentes na branch e os classifica {alvo / outro-ativo / arquivado-não-mergeado}; BLOQUEIA se o alvo
+     não está pronto-para-publicar (todas as fases `done` — `status` ainda `active` pré-archive per P2 — ou
+     `archived`) OU se o alvo ≠ o que o focus apontaria sem confirmação explícita; emite WARN listando os
+     planos-irmãos NÃO-arquivados que o merge da branch arrastaria junto. Função PURA sobre o estado lido
+     (`verified_by: scripts/finalize-plan-scope.js` a criar), never-throws, nunca auto-resolve. Que
+     branch-name ≠ plan-slug é tornado EXPLÍCITO ao operador (o push continua `plan/<branch>`; o ALVO é o
+     slug do plano).
+   - **DETECT+WARN de regressão de status no merge (advisory, read-only — reusa a lane da Decisão 7):** com
+     ≥2 worktrees vivas, detecta `plan.md` cujo `status` na branch está ATRÁS do `integrationRef` (ex.: a
+     branch tem `skills-restructuring: active/F0` enquanto o ref já o tem ARCHIVED) — um merge cego
+     REGREDIRIA o ciclo de vida desse plano. Sinaliza para o humano; NUNCA gateia, NUNCA auto-resolve (mesma
+     disciplina dos agentes A/B). A CURA estrutural (partição por ownership do tree `.atomic-skills/projects/`
+     — estado per-plano disjunto viaja na branch, agregados saem da feature-branch) permanece o PLANO
+     SEPARADO que a Decisão 5 nomeou; esta Decisão só DETECTA e AVISA.
+   - **Verificação de existência do `integrationRef` no consumo (fecha o gap "develop silencioso"):** mesmo
+     no caso `source: default` do resolvedor da Decisão 2 (`verified_by: scripts/integration-ref.js`), o
+     finalize confirma que o ref resolvido existe em `origin` (`git show-ref` / `git ls-remote`) ANTES do
+     `gh pr create`; ausente ⇒ cai no prompt-quando-ausente (usar existente OU criar), nunca publica contra
+     um ref inexistente. Hoje só `source: not-configured` dispara o prompt (`verified_by:
+     skills/shared/project-assets/project-finalize.md` Step 1) — esta Decisão estende a guarda ao `default`.
+   - **Disciplina:** o GUARD + o ref-check são DETERMINÍSTICOS (a prova); o detector de regressão é
+     ADVISORY/READ-ONLY (rota a humano). Skill genérica (qualquer projeto-alvo). Esta worktree
+     (`plan/worktree-lifecycle-finalization`) é a ÚNICA fonte de verdade da skill finalize; as cópias mais
+     antigas em outras WTs convergem no merge (drift entre versões da skill = FORA de escopo, decisão do
+     operador). A mesma regra vale para qualquer feature: sua WT específica é a fonte de verdade.
+
+## Chosen approach
+
+O modelo (Git Flow `worktree=feature→PR→develop→main`) é decisão do operador. O painel adversarial
+(Aria/Tariq/Flynn + contrarian Dr. Ravi, gate-mode) divergiu sobre o MECANISMO. Três abordagens pesadas:
+
+- **(A) Sobrecarregar `archive` para abrir o PR + push.** Rejeitada — funde "publicar" (rede,
+  irreversível) com "encerrar" (local, terminal, reversível); quebra a propriedade zero-git/offline do
+  `archive` da qual o fluxo já depende.
+- **(B) Teardown minimalista `gh MERGED → remove` (Flynn).** Não escolhida como invariante v1 — mais
+  barata, mas deleta commits adicionados após o merge do PR (a API ainda reporta MERGED). Dissent
+  preservado.
+- **(C) Híbrido — ESCOLHIDA.** Comando dedicado `project finalize` (separa publicar de encerrar, Decisão
+  3) + teardown com **liveness(gh) + veto ancorado no `headRefOid`** seguro sob squash (Decisão 4) + ref configurável em
+  `routing.json` (Decisão 2) + coupling contido com o mínimo (Decisão 5) + topology auto-ordenador deferido
+  (Decisão 6) + **check de colisão cross-WT no finalize: gate determinístico do projeto-alvo + workflow
+  advisory de agentes LLM escopados ao diff (Decisão 7)** + **dedup de review em duas camadas — ledger de
+  superfície nas pernas + run-record no composer (Decisão 8)**.
+
+**Por que (C) ganhou:** Tariq fixou o invariante inegociável — a API dá o SINAL, o grafo local dá o VETO;
+um falso-positivo passa a exigir DOIS erros independentes (o `OR` ingênuo só exigia um). Flynn cravou o
+finalize magérrimo e o corte do over-engineering (patch-id, merge-queue, locks). Aria separou as máquinas
+de estado (publicar vs encerrar) e o ownership do ref (repo-global, não per-plano). O contrarian (Dr. Ravi)
+forçou o reconhecimento de que o coupling de `.atomic-skills/` é a causa-raiz, não um detalhe — o que o
+operador resolveu por escopo (conter agora, particionar depois). A Decisão 7 (check de colisão cross-WT)
+foi adicionada após uma pesquisa multi-fonte (deep-research, 21 claims verificados) que fixou a taxonomia
+de 4 classes e o split determinístico-vs-advisory: o piso (build+test do projeto) pega build+testes de
+forma determinística; os agentes LLM cobrem o gap semântico que merge E testes não veem.
+
+## Blast radius
+
+One-way doors / migração — contenções explícitas:
+
+- **Decisão 1 reverte a F0-Decisão-1 (trabalho já entregue/done).** Muda de novo o contrato de criação de
+  plano (default de fork). Contenção: o mecanismo de fork/worktree-retroativa é REUSADO; só o gatilho
+  inverte (condicional → incondicional). Os paths no-op/degraded do Step 0.5 e o `emit-focus` (11 testes
+  verdes) NÃO são tocados.
+- **Decisão 2 estende `routing.json` (`additionalProperties: false`).** Adicionar `integrationRef` quebra
+  a validação até o schema ser estendido; generaliza o escopo descrito do arquivo. Reversível (remover o
+  campo). Risco social: ninguém deve apontar o ref via frontmatter (gera divergência) — proibido por design.
+- **Decisão 3 introduz efeito de REDE/social irreversível (push + PR).** Um PR aberto é público. Contenção:
+  operator-prompted sempre, nunca automático; `archive` permanece reversível e offline; finalize mostra o
+  diff e o PR proposto antes de agir.
+- **Decisão 5 git-ignora um arquivo hoje rastreado (`focus.json`).** Carve-out a um princípio documentado.
+  Contenção: `focus.json` é regenerável (verificado); a mudança no `.gitignore` é repo-policy manual, fora
+  do contrato install/uninstall; o round-trip test e o consumidor statusline (claudebar) precisam ser
+  confirmados no SPEC (Open question).
+- **Criação da branch `develop`.** Branch permanente nova no repo (deletável, mas load-bearing assim que
+  features passam a mirá-la). Contenção: criada de `main`; develop→main fica fora de escopo (deferido).
+- **Decisão 7 introduz uma superfície de workflow multi-agente (a tool `Workflow`).** Risco: dependência de
+  acelerador Claude-Code; custo de tokens; agentes LLM não-determinísticos. Contenção: os agentes são
+  ADVISORY (nunca o gate — o gate é o piso determinístico verify-claim-able), READ-ONLY (Iron Law
+  preservado), disparados só com ≥2 WTs e operator-prompted; fallback PORTÁVEL (sequencial / skip
+  registrado) onde a `Workflow` não existe. Reversível: remover o passo opcional do finalize.
+- **Decisão 8 muda o shape do `last-review.json` e toca as skills de review (duas camadas, donos
+  diferentes).** A Camada A (schema `last-review.json` ponteiro→conjunto + dedup em `review-code` e
+  `review-due`) é edição direta nesta branch. A Camada B (run-record + skip-por-prova no `project review`)
+  toca `project-review.md`, que NÃO está nesta branch nem na `main` (`b26d989`) — vive na branch da feature
+  F4-skills (commits `9406177`/`ecaae5b`, `verified_by: git log --all -- skills/shared/project-assets/project-review.md`)
+  — então é entregue como work-order gerado (`atomic-skills:prompt`) ao autor da skill, jamais editado desta
+  branch (disciplina de skill-authoring + ownership, `verified_by: CLAUDE.md`). Contenção: schema reversível
+  (encolher o conjunto de volta a ponteiro); o run-record do composer é uma exceção append-only EXPLÍCITA à
+  política READ-ONLY (não um efeito oculto), e o dedup falha-para-RE-rodar — então um bug nele faz re-auditar
+  (over-run), nunca pular um leg (over-skip → false-green). **Dependência cross-branch de ORDENAÇÃO:** como
+  ambas as camadas usam o mesmo `last-review.json`, o schema estendido (Camada A, esta branch) precisa landar
+  antes/junto da mudança do composer (Camada B, outra branch). A ordem é tornada MECÂNICA, não procedural: a
+  perna do composer GUARDA na ausência do shape-conjunto (lê um `last-review.json` ainda em ponteiro/sem
+  run-record como "nada auditado", fail-para-RE-rodar), então landar fora de ordem só causa re-auditoria
+  segura, nunca leitura de campo inexistente. Nenhuma camada deleta dado; ambas falham-para-RE-revisar.
+- **Nenhuma decisão deleta dados.** O teardown bloqueia na dúvida. Reversão mais cara: re-permitir branch
+  incondicional / re-trackear `focus.json` — patches pontuais.
+
+## Non-goals
+
+- **NÃO** mecanizar a consolidação `develop → main` na v1 (cadência de release deferida; lifecycle
+  separado). Só feature→develop.
+- **NÃO** particionar estruturalmente `.atomic-skills/` (estado per-plano disjunto por slug) nesta v1 —
+  é plano separado; a v1 contém o coupling com `focus.json` gitignored + `merge=union`.
+- **NÃO** classificador topology-aware AUTO-ORDENADOR, merge-queue do GitHub, nem fila estilo Zuul na v1 —
+  o GitHub serializa os merges; o auto-ordenador é backlog. (A *detecção* de colisão cross-WT, distinta da
+  auto-ordenação, está IN via Decisão 7.)
+- **NÃO** deixar os agentes LLM (Decisão 7) BLOQUEAREM nada — são advisory; o único gate é o piso
+  determinístico (build+test do projeto na árvore mergeada). Self-check, nunca self-certify.
+- **NÃO** rodar o check de colisão em feature SOLO — só com ≥2 worktrees vivas (sem o que colidir).
+- **NÃO** AUTO-RESOLVER colisão — o check sinaliza/roteia para humano; nunca edita/mergeia para "consertar".
+- **NÃO** detecção patch-id de squash-merge na v1 — o liveness(gh)+veto-ancorado-no-`headRefOid` cobre o
+  caso; patch-id colapsa N commits num diff agregado (falso-positivo de integração-parcial).
+- **NÃO** automatizar push/PR/merge — tudo operator-prompted.
+- **NÃO** renomear `plan/<slug>` → `feat/<slug>` no push — preserva a identidade branch↔worktree↔PR de
+  que o invariante (Decisão 4) depende e não quebra a já-pushada `origin/plan/skills-restructuring`.
+- **NÃO** colocar o `integrationRef` no frontmatter do plano — só repo-global (`routing.json`).
+- **NÃO** dedup de review por hunk/linha nem por content-hash de árvore inteira na v1 — a granularidade é
+  por-commit (SHA) + `patchId` para squash; hunk-level fica como refinamento futuro se a duplicação residual doer.
+- **NÃO** deixar o dedup PULAR review na dúvida — a falha é sempre RE-revisar/RE-rodar (a assimetria da
+  Decisão 4 aplicada ao review).
+- **NÃO** editar `project-review.md` desta branch — a Camada B (Decisão 8) vai por work-order ao autor da skill.
+
+## Open questions
+
+- **Home exata + schema do `integrationRef`:** campo em `routing.json` com schema estendido (escolhido) vs
+  um `integration.json` dedicado repo-scoped — ambos repo-global, mesma UX prompt-quando-ausente. O atrito
+  é o mismatch semântico (routing.json descreve-se como "Mode 2 routing"). Fechar no SPEC.
+- **Impacto do git-ignore de `focus.json`:** confirmar no SPEC que (a) o round-trip
+  install/uninstall (`tests/install-uninstall-roundtrip.test.js`) segue verde com `focus.json` não-rastreado
+  (gerado em runtime, só não commitado), e (b) o consumidor statusline (claudebar) ainda o encontra.
+- **Lista de `status/*` que recebe `merge=union`:** quais JSON são genuinamente append-only (union seguro)
+  vs pontuais (union geraria JSON inválido). Confirmar a lista concreta no SPEC.
+- **Identidade branch↔PR no teardown:** como `gh pr view` resolve o PR de `plan/<slug>` (por head branch) e
+  o desempate quando há múltiplos PRs na mesma branch (um fechado, um mergeado). Fechar no SPEC.
+- **Oráculo de CI (GATE DE SPEC, não opcional):** dois testes precisam existir ANTES de a invariante ser
+  confiável — (a) "squash-merged + commit adicionado DEPOIS ⟹ teardown BLOQUEIA" e (b) "squash-merged
+  LIMPO (`HEAD == headRefOid`) ⟹ teardown PERMITE". Sem eles a Decisão 4 é narrativa, não invariante.
+- **Nº de agentes advisory (Decisão 7):** o default é 2 (semântico-comportamental + recurso/contrato). A
+  pesquisa NÃO confirmou que os dois são sempre suficientemente independentes para justificar ambos — a
+  aditividade BDCI↔speculative-merge foi **refutada (0-3)**. Confirmar no SPEC/uso se 1 (só semântico) basta
+  quando o gate do projeto é forte, ou se um 3º (deps/secrets) se paga. "1-3 é ideia, não limite duro."
+- **Detecção dos comandos build/test do projeto-alvo (o piso determinístico depende disso):** como
+  descobrir de forma robusta e genérica (package.json scripts / Makefile / pyproject / config de CI / etc.)
+  sem hardcode. Fechar no SPEC; é o que torna o gate determinístico portável entre projetos.
+- **Generalização Java→qualquer-linguagem do agente:** os números fortes da pesquisa (93%, precisão 0.43)
+  são Java; o detector genérico é LLM sobre diffs. Fixar no SPEC a forma do prompt/escopo agnóstica de
+  linguagem (assinatura/API + estado compartilhado) e os caps de leitura (com log do que ficou de fora —
+  no-silent-caps) para repos grandes.
+- **Conflito textual no merge especulativo (Decisão 7, do critic):** quando o próprio merge especulativo das
+  WTs vivas já conflita textualmente (classe 1 da taxonomia), o SPEC deve tratar isso como o PRIMEIRO gate
+  determinístico (exit≠0), não como caso indefinido — o piso falha antes do build.
+- **Projeto-alvo sem comando build/test detectável (Decisão 7, do critic):** se o gate determinístico não
+  tem comando para rodar, o SPEC define o desfecho — skip REGISTRADO (com WARN) ou bloqueio — nunca um
+  "passou" silencioso (no-silent-caps).
+- **Fingerprint por-perna do run-record do composer (Decisão 8B):** o que conta como "input idêntico" por
+  perna — `review-plan` (hash de `plan.md`+fases), `verify`/linters (hash do subtree `.atomic-skills/`),
+  `review-code` (defere ao ledger A). Atenção: a perna `verify` também lê estado git/working-tree (branch,
+  scope, órfãos — `verified_by: skills/shared/project-assets/project-review.md:43`), FORA do subtree
+  `.atomic-skills/`, então um hash só do subtree pode sub-chavear a perna `verify` (risco de skip
+  falso-positivo — sufficiency, não segurança, pois a regra falha-para-RE-rodar). Fechar no SPEC + no
+  work-order ao autor da `project-review`.
+- **Armazenamento do run-record do composer (Decisão 8B):** seção nova dentro do `last-review.json`
+  (recomendado — fonte única) vs arquivo dedicado. Fechar no SPEC, respeitando a dependência cross-branch (o
+  schema mora na Camada A, esta branch).
+- **Estabilidade do patch-id sob rebase interativo/fixup (Decisão 8A):** confirmar que `git patch-id` casa
+  o dedup quando commits são reordenados/parcialmente esmagados (não só squash puro). Fechar no SPEC com um
+  teste-oráculo, como o oráculo de CI da Decisão 4.
+- **Migração do `last-review.json` legado ponteiro→conjunto (Decisão 8A, do critic):** não há validador de
+  schema para esse arquivo (é inline-documentado, `verified_by: skills/shared/project-assets/project-drift.md:78-92`),
+  então nada força a migração. Fechar no SPEC: bump de `schemaVersion`, e um adaptador de leitura que trata
+  um arquivo em ponteiro OU ausente como "nenhuma superfície revisada" (fail-safe → re-revisa).
+- **Cópia autoritativa do `last-review.json` na composição (Decisão 8, do critic):** quando a perna
+  `review-code` do composer defere ao ledger A e roda num WT cujo `last-review.json` (arquivo `merge=union`)
+  diverge da árvore pré-merge, qual cópia é autoritativa no instante da composição? Fechar no SPEC junto da
+  lista de `merge=union`.
+
+## Rejected alternatives
+
+- **Premissa original "plan-branch = bookkeeping, NÃO feature; arquivar-sem-merge é normal; nunca mergear
+  na trunk".** SUBSTITUÍDA pelo pivô do operador (precedência humano > IA). A evidência de interleaving que
+  a motivava é endereçada na raiz pela Decisão 1 (always-fork), não ignorada.
+- **Fork lazy sob-concorrência (F0-Decisão-1 original).** Superado pela Decisão 1: o lazy deixava um plano
+  solo sem feature-branch para PR-ar e reintroduzia a interleaving que motivou o design original.
+- **`ancestor OR pr-merged` (híbrido ingênuo).** Rejeitado: soma falsos-positivos e some o resíduo
+  pós-merge. Substituído por liveness(gh) + veto ancorado no `headRefOid` do PR mergeado.
+- **Veto `git rev-list <branch> --not <integrationRef>` (1ª formulação do safety veto, do painel).**
+  Corrigido após o critic: sob squash o rev-list é sempre não-vazio (SHAs reescritos) → bloquearia todo
+  squash-merge para sempre. O veto certo ancora no `headRefOid` do PR, não na ref.
+- **`gh MERGED → remove` (Flynn, minimalista).** Não escolhido como invariante v1 — deleta commits
+  adicionados após o merge. Dissent preservado (mais barato; aceitável só se o dev nunca commita pós-merge).
+- **`patch-id` como prova primária de integração.** Adiado: squash colapsa N commits → patch-id agregado
+  não casa nenhum commit individual; risco de falso-positivo de integração-parcial.
+- **Sobrecarregar `archive` / `phase-done` como casa do finalize.** Rejeitado: `archive` funde publicar com
+  encerrar; `phase-done` é evento 1:N e o PR feature→develop é 1:1.
+- **Classificador topology-aware / merge-queue / Zuul na v1.** Deferido: o GitHub serializa os merges;
+  over-engineering para o volume atual (develop nem existe ainda). Preservado como backlog (Dr. Ravi, Flynn).
+- **`integrationRef` no frontmatter do plano.** Rejeitado por todas as vozes: per-plano divergiria a
+  verdade do ref (qual vence se dois planos discordam?).
+- **Push como `feat/<slug>` (Aria).** Não escolhido — quebra a identidade branch↔PR de que o invariante
+  depende e cria divergência local↔remote; `plan/<slug>` reflete a origem (tooling). Dissent de Aria
+  preservado (alinhar à convenção `feat/*` do remote, PR list legível).
+- **Partição estrutural de `.atomic-skills/` nesta v1.** Deferida a plano separado (escopo do operador);
+  v1 fica com o interim mínimo.
+
+## References
+
+Prior-art (preservado da versão anterior — ainda fundamenta o teardown robusto e o topology deferido):
+
+- **Integração "já mergeado?" e mecânica de merge/squash:** `https://git-scm.com/docs/git-merge-base`,
+  `https://git-scm.com/docs/git-merge`, `https://cli.github.com/manual/gh_pr_view`.
+- **Predição de conflito por footprint (para o topology DEFERIDO):** Owhadi-Kareshk et al.,
+  `https://arxiv.org/pdf/1907.06274` (footprint disjunto ⇒ sem conflito textual, NÃO build-safe).
+- **Serializar só dentro de componentes conexos (backlog topology):** Zuul gating
+  `https://zuul-ci.org/docs/zuul/latest/gating.html`; GitHub merge queue
+  `https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue`.
+- **Git Flow (modelo do pivô):** `https://nvie.com/posts/a-successful-git-branching-model/`.
+- **Máquina interna reusada (quando o classificador voltar):** prova de disjunção par-a-par em
+  `skills/core/parallel-dispatch.md:76-77`.
+
+Colisão cross-WT (Decisão 7 — deep-research desta sessão, 21 claims verificados 3-0/2-1):
+
+- **Taxonomia de 4 classes (textual/build/dinâmico/higher-order):** Shen et al. 2022 TOSEM
+  `https://dl.acm.org/doi/10.1145/3546944`; Shen et al. 2021 `https://arxiv.org/pdf/2102.11307`.
+- **Build-conflict estático (93% = referência a entidade alterada; Bucond, 100% precisão):**
+  `https://arxiv.org/pdf/2102.11307`, `https://dl.acm.org/doi/fullHtml/10.1145/3551349.3556950`.
+- **Conflito dinâmico-semântico por interferência (precisão 0.43 ⇒ advisory):** de Jesus/Borba 2024 ICSE
+  `https://arxiv.org/abs/2310.04269`.
+- **Conflito comportamental invisível a merge E a testes (8 casos):** BDCI 2017
+  `https://arxiv.org/pdf/1708.01650`.
+- **Seleção de teste change-aware (super-aproximação do footprint estrutural):** Machalica et al. 2019
+  `https://arxiv.org/pdf/1810.05286`.
+- **Concentração Pareto nos construtos (>50% top-3, ~80% top-7):** Ghiotto et al. 2018 TSE
+  `https://leomurta.github.io/papers/ghiotto2018.pdf`.
+- **Refutado (transparência):** delta-impact CIA como detector semântico (0-3) e aditividade
+  BDCI↔speculative-merge (0-3) NÃO sobreviveram à verificação — não usados como base.
+
+Dedup de review (Decisão 8):
+
+- **Casamento de conteúdo estável sob reescrita de SHA (patch-id):** `https://git-scm.com/docs/git-patch-id`
+  (id derivado do diff, não do SHA — base do dedup squash-robusto).
+- **Review incremental / faixa já-revisada:** o mecanismo `lastReviewedCommit..HEAD` do `last-review.json`
+  já existente (`verified_by: skills/shared/project-assets/project-drift.md:121-139`) é o ponto de partida
+  que a Decisão 8 generaliza de ponteiro para conjunto.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim:** applied — claims sobre código existente citam arquivo lido NESTA sessão:
+  `scripts/worktree-teardown.js` (resolveBaseRef ladder + isTeardownSafe, lido integralmente),
+  `scripts/emit-focus.js:233,187` (emitFocus/buildFocusDigest — focus.json regenerável),
+  `meta/schemas/routing.schema.json` (additionalProperties:false + escopo "Mode 2 routing", lido),
+  `skills/shared/project-assets/project-transitions.md` (archive zero-git, via evidência F1 T-002),
+  `CLAUDE.md` (tree versionado + install-parity). Estado git verificado por comando nesta sessão
+  (`git rev-parse develop` → ausente; `git branch -r` → `origin/plan/skills-restructuring` presente).
+  Decisão 8 (amendment): claims sobre `review-code.md:218`, `project-transitions.md:126`,
+  `project-drift.md:78-92/121-139`, `project-review.md:7/25-26/30-52` citam arquivos lidos nesta sessão; a
+  ausência de `project-review.md` nesta branch (`git ls-files` vazio; presente nos commits `9406177`/`ecaae5b`,
+  fora da `main` `b26d989`) foi verificada por comando.
+- **G2 soft-language:** applied — Decisions e Chosen approach varridos para should/probably/may/typically/
+  usually e PT deveria/provavelmente/talvez/geralmente em posição de asserção; 0 ocorrências (o único
+  "pode" descreve modo de falha em Context/Blast radius, não asserção de design).
+- **G6 reference-or-strike:** applied — asserções sobre código carregam `verified_by:`; prior-art e os
+  claims empíricos da Decisão 7 carregam URL citável verificada por deep-research (§References, com os 2
+  claims refutados marcados); o que não é verificável agora está em Open questions como pergunta
+  (home/schema do ref, lista de merge=union, identidade branch↔PR, impacto no round-trip, nº de agentes
+  advisory, detecção de comandos build/test, generalização Java→genérico), não como afirmação.
