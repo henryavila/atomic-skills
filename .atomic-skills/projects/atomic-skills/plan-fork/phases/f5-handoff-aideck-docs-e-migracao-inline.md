@@ -111,17 +111,20 @@ tasks:
     summary: Documenta o degrau 7.5 na KB.
   - id: T-003
     title: Migração sidecar para inline (gated em aiDeck maior ou igual a 0.1.2)
-    status: blocked
-    lastUpdated: 2026-06-21T01:19:34Z
-    blockedBy:
-      - "Dep externa: @henryavila/aideck >=0.1.2 PUBLICADO no npm + pin bumpado
-        p/ ^0.1.2. Estado em 2026-06-21: npm latest=0.1.1, instalado=0.1.0,
-        pin=^0.1.0, ~/aideck local=0.1.2 (não publicado). P3: emitir spawnedFrom
-        inline com o consumidor .strict publicado (<=0.1.1) derruba o card — não
-        migrar até publicar."
-      - "Decisão do usuário: a migração será feita MANUALMENTE depois, numa
-        tarefa de reconciliação (recipe de 5 passos registrado no bloco
-        Decisions desta fase)."
+    status: active
+    lastUpdated: 2026-06-21T01:40:00Z
+    decisionLog:
+      - "RE-ABERTA (2026-06-21): usuário alterou o aiDeck local (já declara
+        spawnedFrom/spawnedPlans optional+additive, com testes) e pediu a migração
+        do lado atomic-skills AGORA p/ validar end-to-end ANTES de publicar no npm.
+        Gate npm-pin abandonado."
+      - "DESIGN (decisão do usuário): INLINE SEMPRE (sem gate; sidecar aposentado
+        p/ o elo) + READ/WRITE INLINE COMPLETO. spawnedFrom no topo do plan.md do
+        filho; spawnedPlans no phase descriptor (plan.phases[].spawnedPlans:
+        string[], como o aiDeck PhaseDescriptor). set/get rewrite no frontmatter."
+      - "FRONTEIRA: pendingWriteback (recovery transitório, parallel-state.js, fora
+        dos outputs da T-003) segue usando links.json via readLinks/writeLinks. O
+        sidecar é aposentado p/ o ELO durável; o marcador transitório fica."
     scopeBoundary:
       - só roda quando o pin do aiDeck for maior ou igual a 0.1.2; não emitir os
         campos inline enquanto o pin for 0.1.0.

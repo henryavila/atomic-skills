@@ -14,6 +14,7 @@ import {
   getSpawnedFrom,
   addSpawnedPlan,
   getSpawnedPlans,
+  migrateSidecarToInline,
   validateLinks,
   assertValidLinks,
 } from '../src/links-sidecar.js';
@@ -30,6 +31,15 @@ function withTmp(fn) {
 function planDir(root, slug) {
   const dir = join(root, slug);
   mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** A plan dir WITH a plan.md carrying the given phases — required now that the
+ *  elo lives INLINE in plan.md frontmatter (F5/T-003), not in the sidecar. */
+function planDirMd(root, slug, phaseIds = ['F1', 'F2', 'F3', 'F5']) {
+  const dir = planDir(root, slug);
+  const phases = phaseIds.map((id) => `  - id: ${id}\n    status: active`).join('\n');
+  writeFileSync(join(dir, 'plan.md'), `---\nschemaVersion: "0.1"\nslug: ${slug}\nstatus: active\nphases:\n${phases}\n---\n\nbody\n`, 'utf8');
   return dir;
 }
 
@@ -62,18 +72,21 @@ describe('links-sidecar reader/writer', () => {
     });
   });
 
-  it('setSpawnedFrom writes the child link and omits an undefined taskId', () => {
+  it('setSpawnedFrom writes the child link INLINE and omits an undefined taskId', () => {
     withTmp((root) => {
-      const dir = planDir(root, 'child');
+      const dir = planDirMd(root, 'child');
       setSpawnedFrom(dir, { plan: 'parent', phaseId: 'F2', mode: 'pause' });
       assert.deepEqual(getSpawnedFrom(dir), { plan: 'parent', phaseId: 'F2', mode: 'pause' });
       assert.equal('taskId' in getSpawnedFrom(dir), false);
+      // it lives in plan.md frontmatter, and NO sidecar is created for the elo.
+      assert.ok(parseYaml(readFileSync(join(dir, 'plan.md'), 'utf8').split('---\n')[1]).spawnedFrom);
+      assert.equal(existsSync(linksPath(dir)), false, 'no links.json — elo is inline');
     });
   });
 
   it('setSpawnedFrom keeps taskId when provided', () => {
     withTmp((root) => {
-      const dir = planDir(root, 'child');
+      const dir = planDirMd(root, 'child');
       setSpawnedFrom(dir, { plan: 'parent', phaseId: 'F2', taskId: 'T-003', mode: 'parallel' });
       assert.deepEqual(getSpawnedFrom(dir), {
         plan: 'parent',
@@ -84,38 +97,54 @@ describe('links-sidecar reader/writer', () => {
     });
   });
 
-  it('getSpawnedFrom returns null when absent', () => {
+  it('setSpawnedFrom throws when the child has no plan.md (a fork child is a real plan)', () => {
     withTmp((root) => {
-      assert.equal(getSpawnedFrom(planDir(root, 'plan-a')), null);
+      assert.throws(() => setSpawnedFrom(planDir(root, 'bare'), { plan: 'p', phaseId: 'F1', mode: 'pause' }), /no readable plan\.md/);
     });
   });
 
-  it('addSpawnedPlan accumulates child slugs per phase without duplicates', () => {
+  it('getSpawnedFrom returns null when absent (plan.md without the field, or no plan.md)', () => {
     withTmp((root) => {
-      const dir = planDir(root, 'parent');
+      assert.equal(getSpawnedFrom(planDirMd(root, 'plan-a')), null, 'plan.md without spawnedFrom');
+      assert.equal(getSpawnedFrom(planDir(root, 'bare')), null, 'no plan.md at all');
+    });
+  });
+
+  it('addSpawnedPlan accumulates child slugs per phase descriptor without duplicates', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'parent');
       addSpawnedPlan(dir, 'F2', 'child-a');
       addSpawnedPlan(dir, 'F2', 'child-b');
       addSpawnedPlan(dir, 'F2', 'child-a'); // dup → ignored
       addSpawnedPlan(dir, 'F5', 'child-c');
       assert.deepEqual(getSpawnedPlans(dir), { F2: ['child-a', 'child-b'], F5: ['child-c'] });
+      // it lives on the phase descriptor in plan.md, not a sidecar.
+      const phases = parseYaml(readFileSync(join(dir, 'plan.md'), 'utf8').split('---\n')[1]).phases;
+      assert.deepEqual(phases.find((p) => p.id === 'F2').spawnedPlans, ['child-a', 'child-b']);
+      assert.equal(existsSync(linksPath(dir)), false, 'no links.json — elo is inline');
+    });
+  });
+
+  it('addSpawnedPlan throws on an anchor phase not present in the parent (never guess)', () => {
+    withTmp((root) => {
+      assert.throws(() => addSpawnedPlan(planDirMd(root, 'parent', ['F1']), 'F9', 'child'), /anchor phase 'F9' not found/);
     });
   });
 
   it('getSpawnedPlans returns {} when absent', () => {
     withTmp((root) => {
-      assert.deepEqual(getSpawnedPlans(planDir(root, 'plan-a')), {});
+      assert.deepEqual(getSpawnedPlans(planDirMd(root, 'plan-a')), {});
     });
   });
 
-  it('child and parent link writes do not clobber each other in the same dir', () => {
+  it('child and parent link writes do not clobber each other in the same plan.md', () => {
     withTmp((root) => {
       // a plan that is both a child (of grandparent) and a parent (of grandchild)
-      const dir = planDir(root, 'middle');
+      const dir = planDirMd(root, 'middle');
       setSpawnedFrom(dir, { plan: 'grandparent', phaseId: 'F1', mode: 'pause' });
       addSpawnedPlan(dir, 'F3', 'grandchild');
-      const links = readLinks(dir);
-      assert.deepEqual(links.spawnedFrom, { plan: 'grandparent', phaseId: 'F1', mode: 'pause' });
-      assert.deepEqual(links.spawnedPlans, { F3: ['grandchild'] });
+      assert.deepEqual(getSpawnedFrom(dir), { plan: 'grandparent', phaseId: 'F1', mode: 'pause' });
+      assert.deepEqual(getSpawnedPlans(dir), { F3: ['grandchild'] });
     });
   });
 });
@@ -163,42 +192,75 @@ describe('links-sidecar read hardening (corrupt/empty/non-object sidecar)', () =
   });
 });
 
-describe('links-sidecar keeps aiDeck-facing frontmatter clean (T-001 acceptance)', () => {
-  it('forking writes only the sidecar — plan.md and phase frontmatter are byte-identical', () => {
+describe('fork link is INLINE in plan.md frontmatter (F5/T-003 — supersedes the sidecar)', () => {
+  it('forking writes the edge into the frontmatter on both sides, no elo sidecar', () => {
     withTmp((root) => {
-      const childPlanMd =
-        '---\nschemaVersion: "0.1"\nslug: child\nstatus: active\ncurrentPhase: F0\n---\n\n# child plan\n';
-      const childPhaseMd =
-        '---\nschemaVersion: "0.1"\nphaseId: F0\nstatus: active\n---\n\n# notes\n';
-      const parentPlanMd =
-        '---\nschemaVersion: "0.1"\nslug: parent\nstatus: active\ncurrentPhase: F2\n---\n\n# parent plan\n';
+      const childDir = planDirMd(root, 'child', ['F0']);
+      const parentDir = planDirMd(root, 'parent', ['F2']);
 
-      const childDir = planDir(root, 'child');
-      mkdirSync(join(childDir, 'phases'), { recursive: true });
-      writeFileSync(join(childDir, 'plan.md'), childPlanMd, 'utf8');
-      writeFileSync(join(childDir, 'phases', 'f0.md'), childPhaseMd, 'utf8');
-      const parentDir = planDir(root, 'parent');
-      writeFileSync(join(parentDir, 'plan.md'), parentPlanMd, 'utf8');
-
-      // the fork: link recorded on both sides, sidecar only
       setSpawnedFrom(childDir, { plan: 'parent', phaseId: 'F2', mode: 'pause' });
       addSpawnedPlan(parentDir, 'F2', 'child');
 
-      // aiDeck-facing frontmatter files are untouched, byte-for-byte
-      assert.equal(readFileSync(join(childDir, 'plan.md'), 'utf8'), childPlanMd);
-      assert.equal(readFileSync(join(childDir, 'phases', 'f0.md'), 'utf8'), childPhaseMd);
-      assert.equal(readFileSync(join(parentDir, 'plan.md'), 'utf8'), parentPlanMd);
-
-      // and the parsed frontmatter never grew the link fields
-      const childFm = parseYaml(childPlanMd.split('---\n')[1]);
-      assert.equal(childFm.spawnedFrom, undefined);
-      assert.equal(childFm.spawnedPlans, undefined);
-      const parentFm = parseYaml(parentPlanMd.split('---\n')[1]);
-      assert.equal(parentFm.spawnedPlans, undefined);
-
-      // the link is readable from the sidecar
+      // child plan.md frontmatter now carries spawnedFrom (top-level)
+      const childFm = parseYaml(readFileSync(join(childDir, 'plan.md'), 'utf8').split('---\n')[1]);
+      assert.deepEqual(childFm.spawnedFrom, { plan: 'parent', phaseId: 'F2', mode: 'pause' });
+      // parent plan.md carries spawnedPlans on the anchor phase descriptor
+      const parentFm = parseYaml(readFileSync(join(parentDir, 'plan.md'), 'utf8').split('---\n')[1]);
+      assert.deepEqual(parentFm.phases.find((p) => p.id === 'F2').spawnedPlans, ['child']);
+      // no links.json is created for the elo on either side
+      assert.equal(existsSync(linksPath(childDir)), false);
+      assert.equal(existsSync(linksPath(parentDir)), false);
+      // and it reads back through the same API
       assert.deepEqual(getSpawnedFrom(childDir), { plan: 'parent', phaseId: 'F2', mode: 'pause' });
       assert.deepEqual(getSpawnedPlans(parentDir), { F2: ['child'] });
+    });
+  });
+});
+
+describe('migrateSidecarToInline (retire a legacy links.json elo into plan.md)', () => {
+  it('moves spawnedFrom + spawnedPlans inline and deletes an elo-only sidecar', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'mid', ['F3']);
+      // a legacy sidecar carrying both edges (pre-inline format)
+      writeLinks(dir, { spawnedFrom: { plan: 'gp', phaseId: 'F1', mode: 'pause' }, spawnedPlans: { F3: ['gc'] } });
+      const res = migrateSidecarToInline(dir);
+      assert.deepEqual(res, { migrated: true, spawnedFrom: true, spawnedPlans: true, sidecarRemoved: true });
+      assert.equal(existsSync(linksPath(dir)), false, 'elo-only sidecar deleted after migration');
+      assert.deepEqual(getSpawnedFrom(dir), { plan: 'gp', phaseId: 'F1', mode: 'pause' });
+      assert.deepEqual(getSpawnedPlans(dir), { F3: ['gc'] });
+    });
+  });
+
+  it('preserves a pendingWriteback marker when retiring the elo (keeps the sidecar)', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'child', ['F0']);
+      writeLinks(dir, {
+        spawnedFrom: { plan: 'p', phaseId: 'F0', mode: 'parallel' },
+        pendingWriteback: { target: 'parent-plan', parent: 'p', op: 'resumeParent', args: { phaseId: 'F0' }, readToken: 'tok', detectedAt: '2026-06-21T00:00:00Z' },
+      });
+      const res = migrateSidecarToInline(dir);
+      assert.equal(res.sidecarRemoved, false, 'sidecar kept because pendingWriteback remains');
+      assert.deepEqual(getSpawnedFrom(dir), { plan: 'p', phaseId: 'F0', mode: 'parallel' });
+      assert.equal('spawnedFrom' in readLinks(dir), false, 'elo stripped from the sidecar');
+      assert.ok(readLinks(dir).pendingWriteback, 'transient recovery marker preserved');
+    });
+  });
+
+  it('is a no-op when there is no sidecar or it carries no elo', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'plain', ['F0']);
+      assert.equal(migrateSidecarToInline(dir).migrated, false, 'no sidecar → no-op');
+      writeLinks(dir, { pendingWriteback: { target: 'parent-plan', parent: 'p', op: 'resumeParent', args: { phaseId: 'F0' }, readToken: 'tok', detectedAt: '2026-06-21T00:00:00Z' } });
+      assert.equal(migrateSidecarToInline(dir).migrated, false, 'sidecar without elo → no-op');
+      assert.ok(readLinks(dir).pendingWriteback, 'pendingWriteback-only sidecar untouched');
+    });
+  });
+
+  it('throws (never silently drops) when a sidecar spawnedPlans phaseId has no matching phase', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'p', ['F1']);
+      writeLinks(dir, { spawnedPlans: { F9: ['c'] } });
+      assert.throws(() => migrateSidecarToInline(dir), /anchor phase 'F9' not found/);
     });
   });
 });
@@ -270,45 +332,35 @@ function fixtureFrontmatter(raw) {
   return parseYaml(raw.split('---\n')[1]);
 }
 
-describe('links-sidecar parent/child fixtures + validate-state approval (T-004)', () => {
-  it('both fixtures carry NO inline spawned* fields (clean aiDeck-facing frontmatter)', () => {
-    for (const f of [FIXTURE_PARENT, FIXTURE_CHILD]) {
-      const fm = fixtureFrontmatter(readFileSync(f, 'utf8'));
-      assert.equal(fm.spawnedFrom, undefined);
-      assert.equal(fm.spawnedPlans, undefined);
-    }
+describe('links-sidecar parent/child fixtures + validate-state approval (T-004 → inline T-003)', () => {
+  it('both fixtures carry the elo INLINE in their frontmatter', () => {
+    const childFm = fixtureFrontmatter(readFileSync(FIXTURE_CHILD, 'utf8'));
+    assert.deepEqual(childFm.spawnedFrom, { plan: 'fixture-parent', phaseId: 'F0', mode: 'pause' });
+    const parentFm = fixtureFrontmatter(readFileSync(FIXTURE_PARENT, 'utf8'));
+    assert.deepEqual(parentFm.phases.find((p) => p.id === 'F0').spawnedPlans, ['fixture-child']);
   });
 
-  it('validate-state approves the parent/child pair (exit 0)', () => {
-    // throws if validate-state exits non-zero; the fork link is in the sidecar,
-    // so the .strict-validated frontmatter stays clean and the pair passes.
+  it('validate-state APPROVES the inline-elo pair (exit 0) — the schema accepts the fields', () => {
+    // throws if validate-state exits non-zero; the inline spawnedFrom/spawnedPlans
+    // must pass plan.schema.json (the T-003 schema additions).
     execFileSync('node', ['scripts/validate-state.js', FIXTURE_PARENT, FIXTURE_CHILD], {
       stdio: 'pipe',
     });
   });
 
-  it('the fork link round-trips through the sidecar without touching the fixture frontmatter', () => {
+  it('the fork link reads back from the inline frontmatter (no sidecar)', () => {
     withTmp((root) => {
       const parentDir = planDir(root, 'fixture-parent');
       const childDir = planDir(root, 'fixture-child');
-      const parentMd = readFileSync(FIXTURE_PARENT, 'utf8');
-      const childMd = readFileSync(FIXTURE_CHILD, 'utf8');
-      writeFileSync(join(parentDir, 'plan.md'), parentMd, 'utf8');
-      writeFileSync(join(childDir, 'plan.md'), childMd, 'utf8');
+      writeFileSync(join(parentDir, 'plan.md'), readFileSync(FIXTURE_PARENT, 'utf8'), 'utf8');
+      writeFileSync(join(childDir, 'plan.md'), readFileSync(FIXTURE_CHILD, 'utf8'), 'utf8');
 
-      // the fork: parent gains spawnedPlans[F0], child gains spawnedFrom — sidecar only
-      addSpawnedPlan(parentDir, 'F0', 'fixture-child');
-      setSpawnedFrom(childDir, { plan: 'fixture-parent', phaseId: 'F0', mode: 'pause' });
-
+      // the edge is already inline in the fixtures — read it back through the API
       assert.deepEqual(getSpawnedPlans(parentDir), { F0: ['fixture-child'] });
-      assert.deepEqual(getSpawnedFrom(childDir), {
-        plan: 'fixture-parent',
-        phaseId: 'F0',
-        mode: 'pause',
-      });
-      // plan.md frontmatter untouched, byte-for-byte
-      assert.equal(readFileSync(join(parentDir, 'plan.md'), 'utf8'), parentMd);
-      assert.equal(readFileSync(join(childDir, 'plan.md'), 'utf8'), childMd);
+      assert.deepEqual(getSpawnedFrom(childDir), { plan: 'fixture-parent', phaseId: 'F0', mode: 'pause' });
+      // no links.json anywhere — the elo is purely inline
+      assert.equal(existsSync(linksPath(parentDir)), false);
+      assert.equal(existsSync(linksPath(childDir)), false);
     });
   });
 });

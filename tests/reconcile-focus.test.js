@@ -152,13 +152,13 @@ function buildForkTree() {
   });
   writeFm(join(parent, 'phases', 'f3.md'), { slug: 'parent-f3', status: 'active', phaseId: 'F3', parentPlan: 'parent' });
 
+  // the fork edge is INLINE (F5/T-003): spawnedFrom in the child plan.md frontmatter.
   writeFm(join(child, 'plan.md'), {
     schemaVersion: '0.1', slug: 'child', title: 'Child', status: 'active', currentPhase: 'C0',
+    spawnedFrom: { plan: 'parent', phaseId: 'F3', mode: 'parallel' },
     phases: [{ id: 'C0', status: 'active' }],
   });
   writeFm(join(child, 'phases', 'c0.md'), { slug: 'child-c0', status: 'active', phaseId: 'C0', parentPlan: 'child' });
-  // the fork edge: child was forked FROM parent at anchor F3, parallel mode.
-  writeFileSync(join(child, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'parent', phaseId: 'F3', mode: 'parallel' } })}\n`);
 
   return { root, parent, child };
 }
@@ -194,13 +194,13 @@ test('reconcileDir leaves `current` on a parent whose forked child is NOT active
   }
 });
 
-// F4 robustness (cross-model review findings #1, #3)
-test('reconcileDir does not throw on a malformed links.json sidecar', () => {
+// F4 robustness (cross-model review findings #1, #3) — now against the INLINE elo
+test('reconcileDir does not throw on a plan.md with malformed frontmatter (inline elo source)', () => {
   const { root, child } = buildForkTree();
   try {
-    // a torn/half-written sidecar (plausible mid cross-worktree writeback)
-    writeFileSync(join(child, 'links.json'), '{ "spawnedFrom": ');
-    // Kills "getSpawnedFrom unguarded": without the try/catch the whole reconcile throws.
+    // a torn/half-written plan.md (the elo now lives in frontmatter, not a sidecar)
+    writeFileSync(join(child, 'plan.md'), '---\nschemaVersion: "0.1"\n  : broken : :\nspawnedFrom: nope\n---\nbody\n');
+    // Kills "readFmSafe/safeSpawnedFrom unguarded": without them the whole reconcile throws.
     assert.doesNotThrow(() => reconcileDir(root));
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -211,18 +211,18 @@ test('reconcileDir does not blank ALL `current` markers on a spawnedFrom cycle',
   const root = mkdtempSync(join(tmpdir(), 'as-reconcile-cycle-'));
   const proj = join(root, '.atomic-skills', 'projects', 'proj');
   try {
-    for (const slug of ['a', 'b']) {
+    // mutual fork (a cycle; upstream cycle-check should prevent it): the inline
+    // spawnedFrom on each plan points at the other.
+    for (const [slug, other] of [['a', 'b'], ['b', 'a']]) {
       const dir = join(proj, slug);
       mkdirSync(join(dir, 'phases'), { recursive: true });
       writeFm(join(dir, 'plan.md'), {
         schemaVersion: '0.1', slug, title: slug, status: 'active', currentPhase: 'F0',
+        spawnedFrom: { plan: other, phaseId: 'F0', mode: 'parallel' },
         phases: [{ id: 'F0', status: 'active' }],
       });
       writeFm(join(dir, 'phases', 'f0.md'), { slug: `${slug}-f0`, status: 'active', phaseId: 'F0', parentPlan: slug });
     }
-    // mutual fork: a ← b and b ← a (a cycle; upstream cycle-check should prevent it).
-    writeFileSync(join(proj, 'a', 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'b', phaseId: 'F0', mode: 'parallel' } })}\n`);
-    writeFileSync(join(proj, 'b', 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'a', phaseId: 'F0', mode: 'parallel' } })}\n`);
     reconcileDir(root);
     // cycle members are skipped → neither defers → each keeps its own current
     // (baseline multi-current), never the worse-than-baseline zero-AGORA state.
@@ -257,10 +257,10 @@ test('reconcileDir does not defer a same-named parent in ANOTHER project (intra-
     mkdirSync(join(childDir, 'phases'), { recursive: true });
     writeFm(join(childDir, 'plan.md'), {
       schemaVersion: '0.1', slug: 'child', title: 'Child', status: 'active', currentPhase: 'C0',
+      spawnedFrom: { plan: 'parent', phaseId: 'F3', mode: 'parallel' }, // inline elo (F5/T-003)
       phases: [{ id: 'C0', status: 'active' }],
     });
     writeFm(join(childDir, 'phases', 'c0.md'), { slug: 'child-c0', status: 'active', phaseId: 'C0', parentPlan: 'child' });
-    writeFileSync(join(childDir, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'parent', phaseId: 'F3', mode: 'parallel' } })}\n`);
     reconcileDir(root);
     assert.ok(!readFm(join(root, '.atomic-skills', 'projects', 'projX', 'parent', 'phases', 'f3.md')).current, 'projX parent defers to its forked child');
     assert.ok(readFm(join(root, '.atomic-skills', 'projects', 'projY', 'parent', 'phases', 'f3.md')).current, 'projY parent (no child) keeps its AGORA');

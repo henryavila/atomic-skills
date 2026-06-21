@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import Ajv from 'ajv/dist/2020.js';
 
 import { buildFocusDigest, emitFocus } from '../scripts/emit-focus.js';
+import { setSpawnedFrom } from '../src/links-sidecar.js';
 
 const FIXED_NOW = '2026-06-15T12:00:00.000Z';
 
@@ -279,13 +280,14 @@ test('no branch context → cannot disambiguate, ambiguity falls back to active 
 });
 
 // ── F4: fork parent/child hierarchy in the focus resolver ──
-// A fork child carries `spawnedFrom: { plan, phaseId, mode }` in its links.json
-// sidecar. When a parent and its forked child are BOTH active claimers of a tree
-// (parallel mode, or no branch context), they are a hierarchy — focus resolves to
-// the CHILD and it is NOT the multi-active drift the ⧉ marker warns about.
+// A fork child carries `spawnedFrom: { plan, phaseId, mode }` INLINE in its plan.md
+// INLINE frontmatter (F5/T-003). When a parent and its forked child are BOTH
+// active claimers of a tree (parallel mode, or no branch context), they are a
+// hierarchy — focus resolves to the CHILD and it is NOT the multi-active drift
+// the ⧉ marker warns about.
 function writeChildSidecar(repo, slug, parentSlug, phaseId, mode) {
-  const planDir = join(repo, '.atomic-skills', 'projects', 'p', slug);
-  writeFileSync(join(planDir, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: parentSlug, phaseId, mode } })}\n`);
+  // the child plan.md already exists (writeBranchedPlan) — write the edge inline.
+  setSpawnedFrom(join(repo, '.atomic-skills', 'projects', 'p', slug), { plan: parentSlug, phaseId, mode });
 }
 
 test('F4: parallel fork (parent active + child active) resolves to the CHILD, not ambiguous', () => {
@@ -377,15 +379,17 @@ test('F4: a spawnedFrom cycle does NOT hide the ambiguity flag (no silent over-c
   }
 });
 
-test('F4: a malformed links.json does not take down the whole resolver', () => {
+test('F4: a plan with malformed plan.md frontmatter (the inline elo source) does not take down the resolver', () => {
   const repo = mkdtempSync(join(tmpdir(), 'focus-torn-'));
   try {
     writeBranchedPlan(repo, 'plan-a', 'feature/a', '2026-06-15T10:00:00Z');
-    // a half-written sidecar (plausible mid cross-worktree writeback)
-    writeFileSync(join(repo, '.atomic-skills', 'projects', 'p', 'plan-a', 'links.json'), '{ "spawnedFrom": ');
-    // Kills "getSpawnedFrom unguarded": without the try/catch this throws.
+    // a sibling plan whose plan.md frontmatter is corrupt (the elo now lives there,
+    // not in a sidecar) — collectPlans must skip it, not throw the whole digest.
+    const badDir = join(repo, '.atomic-skills', 'projects', 'p', 'plan-bad');
+    mkdirSync(join(badDir, 'phases'), { recursive: true });
+    writeFileSync(join(badDir, 'plan.md'), '---\nschemaVersion: "0.1"\nslug: plan-bad\n  : : broken yaml :\nstatus: active\n---\nbody\n');
     const d = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/a' });
-    assert.equal(d.plan.slug, 'plan-a', 'resolver still emits despite a corrupt sidecar');
+    assert.equal(d.plan.slug, 'plan-a', 'resolver still emits despite a corrupt sibling plan.md');
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

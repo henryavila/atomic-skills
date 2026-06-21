@@ -8,6 +8,10 @@ started: 2026-06-19T17:00:00.000Z
 lastUpdated: 2026-06-19T17:00:00.000Z
 currentPhase: F0
 parallelismAllowed: false
+spawnedFrom:
+  plan: fixture-parent
+  phaseId: F0
+  mode: pause
 phases:
   - id: F0
     slug: fixture-child-f0
@@ -32,6 +36,7 @@ planTitle: "Fixture child plan (plan-fork sidecar test)"
 
 # Fixture child plan
 
-Sidecar-link fixture. The child→parent edge (`spawnedFrom`) lives in this plan's
-`links.json`, NOT in the frontmatter above — the frontmatter stays clean under
-the aiDeck 0.1.0 `.strict` consumer.
+Inline-elo fixture (F5/T-003). The child→parent edge (`spawnedFrom`) lives
+INLINE in the frontmatter above — the aiDeck consumer (fork-fields release)
+declares it as an optional, additive field, so it no longer drops the card. The
+legacy `links.json` sidecar is retired for the elo.

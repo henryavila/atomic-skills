@@ -1,7 +1,9 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stringify as stringifyYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
+import { parseFrontmatter } from '../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const schemaPath = join(__dirname, '..', 'meta', 'schemas', 'links.schema.json');
@@ -10,25 +12,57 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
 
 /**
- * Sidecar reader/writer for the fork parent/child link.
+ * Reader/writer for the fork parent/child link.
  *
- * The link lives in a non-aiDeck-facing `links.json` inside the plan's own
- * directory, NOT in `plan.md` / phase frontmatter. This keeps the aiDeck-facing
- * state (validated by the published .strict() consumer at aiDeck 0.1.0) clean:
- * `spawnedFrom` would drop the card, `spawnedPlans` would be silently stripped.
- * The inline migration is deferred to F5 (gated on aiDeck >= 0.1.2).
+ * As of F5/T-003 (fork-fields-inline) the durable link lives **INLINE** in the
+ * plan's own `plan.md` frontmatter — `spawnedFrom` on the child plan (top-level),
+ * `spawnedPlans` on the parent's anchor phase descriptor (`phases[].spawnedPlans`,
+ * a string[] of child slugs, mirroring aideck's `PhaseDescriptor.spawnedPlans`).
+ * The aiDeck consumer (>= the fork-fields release) declares both as optional,
+ * additive fields, so inline no longer drops the card. The legacy `links.json`
+ * sidecar is retired for the elo (`migrateSidecarToInline` moves any leftover).
  *
- * Shape of links.json:
- *   {
- *     "spawnedFrom":  { "plan": "<parent-slug>", "phaseId": "F2",
- *                       "taskId": "T-003"?, "mode": "pause" | "parallel" },
- *     "spawnedPlans": { "<phaseId>": ["<child-slug>", ...] }
- *   }
- * A plan may carry `spawnedFrom` (it is a child), `spawnedPlans` (it is a
- * parent), or both (it is a link in a chain).
+ * The `links.json` sidecar primitives (`readLinks`/`writeLinks`/`validateLinks`)
+ * REMAIN for the transient parallel-state `pendingWriteback` recovery marker
+ * (src/parallel-state.js) — that is internal recovery state, not the durable
+ * aiDeck-facing elo, and is out of the inline migration's scope.
  */
 
 export const LINKS_FILE = 'links.json';
+const PLAN_FILE = 'plan.md';
+
+/** @param {string} planDir @returns {string} path to the plan's plan.md */
+function planMdPath(planDir) {
+  return join(planDir, PLAN_FILE);
+}
+
+/**
+ * Read a plan's plan.md frontmatter inline.
+ * @param {string} planDir
+ * @returns {{fm: object, body: string} | null} null when plan.md is absent or
+ *   its frontmatter does not parse (the elo is optional metadata — an unreadable
+ *   plan.md surfaces as "no elo" rather than throwing through the resolvers).
+ */
+function readPlanFm(planDir) {
+  const fp = planMdPath(planDir);
+  if (!existsSync(fp)) return null;
+  const parsed = parseFrontmatter(readFileSync(fp, 'utf8'));
+  if (parsed.error) return null;
+  return { fm: parsed.frontmatter, body: parsed.body ?? '' };
+}
+
+/**
+ * Write a plan's plan.md frontmatter back, preserving the body. Mirrors the
+ * serializer in scripts/reconcile-focus.js + scripts/compute-rollups.js so the
+ * passes never fight over formatting.
+ * @param {string} planDir @param {object} fm @param {string} body
+ */
+function writePlanFm(planDir, fm, body) {
+  const yamlBlock = stringifyYaml(fm).replace(/\n$/, '');
+  const cleanBody = body && body.length ? body.replace(/^\n/, '') : '';
+  const rebuilt = `---\n${yamlBlock}\n---\n${cleanBody ? `\n${cleanBody}` : ''}`;
+  writeFileSync(planMdPath(planDir), rebuilt.endsWith('\n') ? rebuilt : `${rebuilt}\n`, 'utf8');
+}
 
 /**
  * @param {string} planDir - the plan's directory (…/projects/<id>/<slug>)
@@ -102,53 +136,120 @@ export function writeLinks(planDir, data) {
 }
 
 /**
- * Record the child→parent edge (`spawnedFrom`) in the child's sidecar.
- * `taskId` is optional and omitted from the stored object when undefined.
+ * Record the child→parent edge (`spawnedFrom`) INLINE in the child's plan.md
+ * frontmatter. `taskId` is optional and omitted when undefined.
  * @param {string} childPlanDir
  * @param {{plan: string, phaseId: string, taskId?: string, mode: string}} link
- * @returns {object} the updated links object
+ * @returns {object} the updated frontmatter
+ * @throws {Error} when the child has no readable plan.md (a fork child is a real
+ *   plan; its plan.md must exist before the edge is written — F1 L-002: write the
+ *   edge only after the dependent entity is materialized).
  */
 export function setSpawnedFrom(childPlanDir, link) {
   const { plan, phaseId, taskId, mode } = link;
+  // Validate the edge at the write boundary (the inline write does not pass
+  // through the links.json schema): a bad mode/shape must never reach plan.md.
+  if (!plan || !phaseId || (mode !== 'pause' && mode !== 'parallel')) {
+    throw new Error(`invalid spawnedFrom edge: requires non-empty plan + phaseId and mode in {pause, parallel} — got ${JSON.stringify(link)}`);
+  }
   const edge = { plan, phaseId, mode };
   if (taskId !== undefined) edge.taskId = taskId;
-  const data = readLinks(childPlanDir);
-  data.spawnedFrom = edge;
-  writeLinks(childPlanDir, data);
-  return data;
+  const p = readPlanFm(childPlanDir);
+  if (!p) throw new Error(`cannot set spawnedFrom: no readable plan.md at ${planMdPath(childPlanDir)}`);
+  p.fm.spawnedFrom = edge;
+  writePlanFm(childPlanDir, p.fm, p.body);
+  return p.fm;
 }
 
 /**
  * @param {string} planDir
- * @returns {object|null} the `spawnedFrom` edge, or null when absent
+ * @returns {object|null} the inline `spawnedFrom` edge, or null when absent /
+ *   no readable plan.md
  */
 export function getSpawnedFrom(planDir) {
-  return readLinks(planDir).spawnedFrom ?? null;
+  return readPlanFm(planDir)?.fm?.spawnedFrom ?? null;
 }
 
 /**
- * Record the parent→child edge (`spawnedPlans[phaseId]`) in the parent's
- * sidecar. Idempotent: a child slug already present for that phase is not
- * duplicated.
+ * Record the parent→child edge INLINE on the parent's anchor phase descriptor
+ * (`phases[phaseId].spawnedPlans`). Idempotent: a child slug already present is
+ * not duplicated.
  * @param {string} parentPlanDir
  * @param {string} phaseId - the anchor phase the child was forked from
  * @param {string} childSlug
- * @returns {object} the updated links object
+ * @returns {object} the updated frontmatter
+ * @throws {Error} when the parent has no readable plan.md, or the anchor phase
+ *   is not in `phases[]` (act on the NAMED anchor, never guess — F1 L-003).
  */
 export function addSpawnedPlan(parentPlanDir, phaseId, childSlug) {
-  const data = readLinks(parentPlanDir);
-  if (!data.spawnedPlans) data.spawnedPlans = {};
-  const slugs = data.spawnedPlans[phaseId] ?? [];
+  const p = readPlanFm(parentPlanDir);
+  if (!p) throw new Error(`cannot add spawnedPlan: no readable plan.md at ${planMdPath(parentPlanDir)}`);
+  const phases = Array.isArray(p.fm.phases) ? p.fm.phases : [];
+  const phase = phases.find((ph) => ph && ph.id === phaseId);
+  if (!phase) throw new Error(`cannot add spawnedPlan: anchor phase '${phaseId}' not found in ${planMdPath(parentPlanDir)}`);
+  const slugs = Array.isArray(phase.spawnedPlans) ? phase.spawnedPlans : [];
   if (!slugs.includes(childSlug)) slugs.push(childSlug);
-  data.spawnedPlans[phaseId] = slugs;
-  writeLinks(parentPlanDir, data);
-  return data;
+  phase.spawnedPlans = slugs;
+  writePlanFm(parentPlanDir, p.fm, p.body);
+  return p.fm;
 }
 
 /**
  * @param {string} planDir
- * @returns {object} the `spawnedPlans` map (phaseId → child slugs), or {}
+ * @returns {object} the parent→child map (phaseId → child slugs) aggregated from
+ *   the inline `phases[].spawnedPlans`, or {} when none / no readable plan.md
  */
 export function getSpawnedPlans(planDir) {
-  return readLinks(planDir).spawnedPlans ?? {};
+  const p = readPlanFm(planDir);
+  if (!p || !Array.isArray(p.fm.phases)) return {};
+  const out = {};
+  for (const ph of p.fm.phases) {
+    if (ph && ph.id && Array.isArray(ph.spawnedPlans) && ph.spawnedPlans.length) {
+      out[ph.id] = [...ph.spawnedPlans];
+    }
+  }
+  return out;
+}
+
+/**
+ * Migrate a legacy links.json elo (`spawnedFrom`/`spawnedPlans`) INTO the plan.md
+ * frontmatter, then strip those keys from the sidecar — deleting the sidecar file
+ * entirely when nothing else remains (a lone `pendingWriteback` is preserved). A
+ * no-op when there is no sidecar or it carries no elo.
+ * @param {string} planDir
+ * @returns {{migrated: boolean, spawnedFrom: boolean, spawnedPlans: boolean, sidecarRemoved: boolean}}
+ * @throws {Error} when the elo is present but plan.md is unreadable, or a
+ *   `spawnedPlans` phaseId has no matching phase descriptor (fail loud — never
+ *   silently drop a parent edge).
+ */
+export function migrateSidecarToInline(planDir) {
+  const sidecar = linksPath(planDir);
+  if (!existsSync(sidecar)) return { migrated: false, spawnedFrom: false, spawnedPlans: false, sidecarRemoved: false };
+  const data = readLinks(planDir);
+  const hasFrom = data.spawnedFrom != null;
+  const hasPlans = data.spawnedPlans != null && Object.keys(data.spawnedPlans).length > 0;
+  if (!hasFrom && !hasPlans) return { migrated: false, spawnedFrom: false, spawnedPlans: false, sidecarRemoved: false };
+
+  const p = readPlanFm(planDir);
+  if (!p) throw new Error(`cannot migrate elo to inline: no readable plan.md at ${planMdPath(planDir)}`);
+
+  if (hasFrom) {
+    p.fm.spawnedFrom = data.spawnedFrom;
+    delete data.spawnedFrom;
+  }
+  if (hasPlans) {
+    const phases = Array.isArray(p.fm.phases) ? p.fm.phases : [];
+    for (const [phaseId, slugs] of Object.entries(data.spawnedPlans)) {
+      const phase = phases.find((ph) => ph && ph.id === phaseId);
+      if (!phase) throw new Error(`cannot migrate spawnedPlans: anchor phase '${phaseId}' not found in ${planMdPath(planDir)}`);
+      phase.spawnedPlans = [...new Set([...(Array.isArray(phase.spawnedPlans) ? phase.spawnedPlans : []), ...slugs])];
+    }
+    delete data.spawnedPlans;
+  }
+  writePlanFm(planDir, p.fm, p.body);
+
+  const sidecarRemoved = Object.keys(data).length === 0;
+  if (sidecarRemoved) unlinkSync(sidecar);
+  else writeLinks(planDir, data); // re-validates; preserves pendingWriteback
+  return { migrated: true, spawnedFrom: hasFrom, spawnedPlans: hasPlans, sidecarRemoved };
 }

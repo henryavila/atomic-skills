@@ -14,6 +14,8 @@ phases:
     title: Fixture anchor phase
     goal: A fixture anchor phase from which a child plan is forked.
     dependsOn: []
+    spawnedPlans:
+      - fixture-child
     subPhaseCount: 1
     exitGate:
       summary: 1 criterion to meet
@@ -32,6 +34,7 @@ planTitle: "Fixture parent plan (plan-fork sidecar test)"
 
 # Fixture parent plan
 
-Sidecar-link fixture. The parent→child edge (`spawnedPlans`) lives in this
-plan's `links.json`, NOT in the frontmatter above — the frontmatter stays clean
-under the aiDeck 0.1.0 `.strict` consumer.
+Inline-elo fixture (F5/T-003). The parent→child edge (`spawnedPlans`) lives
+INLINE on the anchor phase descriptor above (`phases[F0].spawnedPlans`) — the
+aiDeck consumer (fork-fields release) declares it as an optional, additive
+field. The legacy `links.json` sidecar is retired for the elo.

@@ -428,11 +428,14 @@ function resumePending(parentSlug, phaseId, readToken, reason) {
 }
 
 // Build a (parent canonical file, child dir with the spawnedFrom edge) pair.
+// The elo is INLINE now (F5/T-003), so the child needs its own plan.md before
+// setSpawnedFrom can write the edge into its frontmatter.
 function forkFixture(root, mode) {
   const canonical = join(root, 'parent', 'plan.md');
   mkdirSync(dirname(canonical), { recursive: true });
   const childDir = join(root, 'child');
   mkdirSync(childDir, { recursive: true });
+  writeFileSync(join(childDir, 'plan.md'), `---\nschemaVersion: "0.1"\nslug: child\nstatus: active\nphases:\n  - id: C0\n    status: active\n---\nbody\n`);
   setSpawnedFrom(childDir, { plan: 'plan-fork', phaseId: ANCHOR, mode });
   writeFileSync(canonical, parentPlanFixture());
   return { canonical, childDir };
