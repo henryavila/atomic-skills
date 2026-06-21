@@ -147,8 +147,6 @@ emerged: []
 summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
   com ratify, marcando-a como triaged."
 planTitle: Quick Idea Capture
-planActive: true
-current: true
 ---
 
 # Narrative / notes

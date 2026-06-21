@@ -260,6 +260,23 @@ export const SKILLS: Skill[] = [
     tags: ["design", "brainstorming", "lifecycle", "core"],
   },
   {
+    id: "design-brief",
+    title: "Design Brief — DS + screens prompts, contamination-free",
+    emoji: "🎨",
+    oneLiner: "Generate DS + screens prompts for a design agent, contamination-free",
+    versionAdded: "2.3.0",
+    summary: "From a real app (code + product intent), generate the Design System + screens prompts for a design agent (e.g. claude.ai/design) — silence on visual form, but interaction behaviour and philosophy specified with concrete values mined from the code. Use to hand a faithful brief to the design agent without contaminating the visual decision.",
+    active: true,
+    when: ["You are handing an existing app to a design agent (e.g. claude.ai/design) for a redesign", "You need a Design System prompt plus per-screen prompts that consume it", "A prior hand-written brief produced anti-patterns by leaving behaviour/philosophy unspecified"],
+    whenNot: ["You only need the product decision, not the design prompts (use brainstorm)", "There is no real app to mine behavioural parameters from", "The design system and screens already exist and are faithful"],
+    examples: ["/atomic-skills:design-brief \"redesign the review dashboard at src/dashboard\"", "/atomic-skills:design-brief"],
+    args: [
+      { name: "scope", kind: "positional", required: false, description: "The target app/scope (repo path + product intent). If omitted, the skill asks interactively." },
+    ],
+    related: ["brainstorm", "project"],
+    tags: ["design", "prompts", "anti-contamination", "core"],
+  },
+  {
     id: "debate",
     title: "Debate — Multi-Agent Roundtable",
     emoji: "🎭",

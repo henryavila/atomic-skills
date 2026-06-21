@@ -140,6 +140,26 @@ resolve_detector() {
   return 1
 }
 
+# refresh_focus → regenerate derived state (rollups + focus markers + the
+# focus.json digest claudebar reads) so the session starts coherent. Catches
+# drift accrued while Claude wasn't running — e.g. a `git checkout` between
+# sessions that swapped the tracked `.atomic-skills/` files. Resolves the script
+# like resolve_detector; fail-open and silent so a missing runtime or node never
+# blocks or pollutes SessionStart output.
+refresh_focus() {
+  local c pkg_root="" script=""
+  [[ -f "$HOME/.atomic-skills/package-root" ]] && pkg_root="$(<"$HOME/.atomic-skills/package-root")"
+  for c in "$PROJ_DIR/scripts/refresh-state.js" \
+           "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/refresh-state.js" \
+           "$HOME/.atomic-skills/scripts/refresh-state.js" \
+           ${pkg_root:+"$pkg_root/scripts/refresh-state.js"}; do
+    [[ -f "$c" ]] && { script="$c"; break; }
+  done
+  [[ -n "$script" ]] || return 0
+  command -v node >/dev/null 2>&1 || return 0
+  node "$script" "$PROJ_DIR" >/dev/null 2>&1 || true
+}
+
 # emit_json <markdown-context>  → prints the additionalContext JSON envelope.
 emit_json() {
   local ctx=$1
@@ -169,6 +189,10 @@ branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
   || git -C "$PROJ_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null \
   || echo "")
 [[ "$branch" == "HEAD" ]] && branch=""
+
+# Regenerate derived state up-front so the context assembled below (and the
+# claudebar statusline) reads fresh rollups/focus, not whatever was last on disk.
+refresh_focus
 
 # 1. Project-level index — first chunk of PROJECT-STATUS.md.
 if [[ -f "$STATUS_FILE" ]]; then

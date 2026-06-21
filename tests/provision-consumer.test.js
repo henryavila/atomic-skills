@@ -8,6 +8,7 @@ import {
   provisionConsumer,
   humanizeProjectId,
   stampIdTitle,
+  stampRootDir,
   sanitizeMcpNamespace,
 } from '../src/provision-consumer.js';
 
@@ -97,6 +98,23 @@ describe('provisionConsumer — consumer id + title ARE the consuming project', 
     assert.throws(() => provisionConsumer('Bad Slug', { templateDir: TEMPLATE_DIR, consumersDir }));
     assert.throws(() => provisionConsumer('-leading', { templateDir: TEMPLATE_DIR, consumersDir }));
   });
+
+  // The durable consumer→project binding: aiDeck auto-registers the project from
+  // the consumer manifest's top-level `rootDir`, so the binding survives a
+  // restart and /api/consumers/:id/projects never leaks a sibling's data.
+  it('stamps the bound rootDir when provided', () => {
+    const r = provisionConsumer('foo', { templateDir: TEMPLATE_DIR, consumersDir, rootDir: '/home/me/foo' });
+    assert.equal(r.rootDir, '/home/me/foo');
+    const raw = readFileSync(join(consumersDir, 'foo', 'manifest.yaml'), 'utf8');
+    const rootDir = raw.match(/^rootDir:[ \t]*'?([^'\n]+)'?$/m)?.[1].trim();
+    assert.equal(rootDir, '/home/me/foo', 'top-level rootDir must be stamped for aiDeck auto-register');
+  });
+
+  it('omits the rootDir line when none is provided (backward-compat)', () => {
+    provisionConsumer('foo', { templateDir: TEMPLATE_DIR, consumersDir });
+    const raw = readFileSync(join(consumersDir, 'foo', 'manifest.yaml'), 'utf8');
+    assert.ok(!/^rootDir:/m.test(raw), 'no top-level rootDir line when none provided');
+  });
 });
 
 describe('humanizeProjectId / stampIdTitle units', () => {
@@ -112,6 +130,21 @@ describe('humanizeProjectId / stampIdTitle units', () => {
     assert.ok(out.includes('id: foo'));
     assert.ok(out.includes("title: 'O''Brien'"));
     assert.ok(out.includes("  - title: 'Foco'"), 'nested title untouched');
+  });
+
+  it('stampRootDir inserts a column-0 rootDir line and escapes single quotes', () => {
+    const src = "id: tmpl\ntitle: 'Old'\nmcpNamespace: tmpl\n";
+    const out = stampRootDir(src, "/home/o'brien/foo");
+    assert.match(out, /^rootDir: '\/home\/o''brien\/foo'$/m);
+    assert.ok(out.includes('id: tmpl'), 'existing keys preserved');
+  });
+
+  it('stampRootDir replaces an existing rootDir line rather than duplicating it', () => {
+    const src = "id: tmpl\nrootDir: '/old'\ntitle: 'Old'\n";
+    const out = stampRootDir(src, '/new');
+    assert.ok(out.includes("rootDir: '/new'"));
+    assert.ok(!out.includes("rootDir: '/old'"));
+    assert.equal((out.match(/^rootDir:/mg) || []).length, 1, 'exactly one rootDir line');
   });
 
   it('sanitizeMcpNamespace yields valid [a-z][a-z0-9_]{0,31} namespaces', () => {

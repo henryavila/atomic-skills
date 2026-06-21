@@ -96,6 +96,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 | 🚀 | [`parallel-dispatch`](docs/skills/parallel-dispatch.md) | Dispatch a task list to N parallel sessions with verified isolation | `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION.` |
 | 👁️ | [`parallel-dispatch-audit`](docs/skills/parallel-dispatch-audit.md) | Verify each batch deliverable on disk; fix or escalate with evidence | `NO CONCLUSION WITHOUT EVIDENCE FROM DISK.` |
 | 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Diverge, decide, then write a critic-gated design.md before any plan | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
+| 🎨 | [`design-brief`](docs/skills/design-brief.md) | Generate DS + screens prompts for a design agent, contamination-free | `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
 | ⚙️ | [`implement`](docs/skills/implement.md) | Drive decomposed tasks to done, one at a time, verifier-gated | `CODING STAYS SINGLE-THREADED.` |
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
@@ -242,6 +243,20 @@ The failure this prevents is premature convergence — locking onto the first wo
 ```
 
 [Full reference →](docs/skills/brainstorm.md)
+
+---
+
+### 🎨 `design-brief` — DS + screens prompts, contamination-free
+
+**Iron Law:** `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.`
+
+The failure this prevents is the inverse of over-design: it is under-specification. "Don't dictate the visuals" is a layer-1-only rule; extending that silence to the interaction model and the product philosophy lets the design agent fill the gaps with its conventional default — which is usually the product's anti-pattern. `design-brief` keeps silence on visual form but pins behaviour and who-decides-what with concrete values mined from the real code, names the forbidden anti-pattern on risky screens, and ships the DS-first so every screen consumes the inherited Design System instead of redefining it.
+
+```
+/atomic-skills:design-brief "redesign the review dashboard at src/dashboard"
+```
+
+[Full reference →](docs/skills/design-brief.md)
 
 ---
 

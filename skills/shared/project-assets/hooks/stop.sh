@@ -273,6 +273,25 @@ resolve_detector() {
   return 1
 }
 
+# refresh_focus → regenerate derived state (rollups + focus markers + the
+# focus.json digest claudebar reads) after the turn's mutations — even a raw
+# edit that ran no command leaves rollups AND the digest coherent. Resolves the
+# script like resolve_detector; fail-open and silent (output redirected) so it
+# can never block Stop or corrupt the hook's JSON.
+refresh_focus() {
+  local c pkg_root="" script=""
+  [[ -f "$HOME/.atomic-skills/package-root" ]] && pkg_root="$(<"$HOME/.atomic-skills/package-root")"
+  for c in "$PROJ_DIR/scripts/refresh-state.js" \
+           "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/scripts/refresh-state.js" \
+           "$HOME/.atomic-skills/scripts/refresh-state.js" \
+           ${pkg_root:+"$pkg_root/scripts/refresh-state.js"}; do
+    [[ -f "$c" ]] && { script="$c"; break; }
+  done
+  [[ -n "$script" ]] || return 0
+  command -v node >/dev/null 2>&1 || return 0
+  node "$script" "$PROJ_DIR" >/dev/null 2>&1 || true
+}
+
 # --- pre-flight bypasses ----------------------------------------------------
 
 # Emergency bypass (24h grace).
@@ -289,6 +308,10 @@ stop_hook_active=$(printf '%s' "$payload" | jq -r '.stop_hook_active // false' 2
 
 # Anthropic-recommended loop prevention.
 [[ "$stop_hook_active" == "true" ]] && exit 0
+
+# Backstop: regenerate derived state (rollups + focus.json) for any mutation this
+# turn made, before the drift checks below (which may no-op on a missing config).
+refresh_focus
 
 # Config + initiative resolution must both succeed; otherwise no-op.
 [[ ! -f "$CONFIG" ]] && exit 0
