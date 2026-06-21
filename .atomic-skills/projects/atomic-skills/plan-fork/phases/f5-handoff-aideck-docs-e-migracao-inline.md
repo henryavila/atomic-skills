@@ -17,7 +17,7 @@ nextAction: "F5 finalizada SEM o publish (decisão do usuário): T-001 (handoff
   depois reconcile + phase-done. F5 fica ativa até lá."
 parentPlan: plan-fork
 phaseId: F5
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
@@ -111,20 +111,24 @@ tasks:
     summary: Documenta o degrau 7.5 na KB.
   - id: T-003
     title: Migração sidecar para inline (gated em aiDeck maior ou igual a 0.1.2)
-    status: active
-    lastUpdated: 2026-06-21T01:40:00Z
-    decisionLog:
-      - "RE-ABERTA (2026-06-21): usuário alterou o aiDeck local (já declara
-        spawnedFrom/spawnedPlans optional+additive, com testes) e pediu a migração
-        do lado atomic-skills AGORA p/ validar end-to-end ANTES de publicar no npm.
-        Gate npm-pin abandonado."
-      - "DESIGN (decisão do usuário): INLINE SEMPRE (sem gate; sidecar aposentado
-        p/ o elo) + READ/WRITE INLINE COMPLETO. spawnedFrom no topo do plan.md do
-        filho; spawnedPlans no phase descriptor (plan.phases[].spawnedPlans:
-        string[], como o aiDeck PhaseDescriptor). set/get rewrite no frontmatter."
-      - "FRONTEIRA: pendingWriteback (recovery transitório, parallel-state.js, fora
-        dos outputs da T-003) segue usando links.json via readLinks/writeLinks. O
-        sidecar é aposentado p/ o ELO durável; o marcador transitório fica."
+    status: done
+    lastUpdated: 2026-06-21T01:57:49Z
+    closedAt: 2026-06-21T01:57:49Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-21T01:57:49Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Verifier npm test escopado p/ `node --test` dos suites do elo +
+        resolvers (links-sidecar, parallel-state, focus-digest,
+        reconcile-focus): 93 pass, 0 fail, exit 0. Full npm test: 970 pass, 10
+        ambientais (0 novos). validate-skills 15 ok. Fixtures inline aprovadas
+        pelo plan.schema.json (cross-validação). Elo migrado p/ INLINE:
+        spawnedFrom no plan.md do filho, spawnedPlans no phaseDescriptor;
+        set/get/add/getSpawnedPlans + migrateSidecar ToInline em
+        src/links-sidecar.js; schema + consumer schema reconstruídos; docs
+        (project-emergence, KB) reescritos p/ inline. Commit 4db211f. Re-spec +
+        design no bloco Decisions (T-003 re-aberta inline)."
     scopeBoundary:
       - só roda quando o pin do aiDeck for maior ou igual a 0.1.2; não emitir os
         campos inline enquanto o pin for 0.1.0.
@@ -168,19 +172,14 @@ Initiative for phase **F5 — Handoff aiDeck, docs e migração inline**.
 - plan-fork/F4 L-001 — rodar o verifier após cada edit (Edit "aplicou" ≠ correto).
 **Stale p/ F5:** lessons de código/resolver (F4 L-002/L-003), concorrência (F2), schema-enum, installer, etc. — F5 é doc + migração-deferida.
 
-### Plano da F5 — finalizar SEM o npm publish (decisão do usuário)
-O usuário: "finalize sem o npm publish; eu farei manualmente depois na tarefa de reconciliação."
-- **T-001 (handoff aiDeck):** o arquivo `/home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md` JÁ EXISTE e o verifier (`test -f && grep spawnedFrom && grep spawnedPlans && grep strict`) JÁ PASSA. Confirmar conteúdo adequado e fechar (entrega no repo externo ~/aideck, pré-existente).
-- **T-002 (KB degrau 7.5/fork-plan):** in-repo, desbloqueada — FAZER agora em docs/kb/skill-authoring.md (alvo+verifier admitidos no SPEC apesar do leve mismatch tópico; não realocar).
-- **T-003 (migração sidecar→inline):** BLOQUEADA por dep externa. Estado: aiDeck publicado no npm = 0.1.1; instalado = 0.1.0; pin = `^0.1.0`; ~/aideck local = 0.1.2 (NÃO publicado). P3: emitir spawnedFrom inline com o consumidor `.strict` publicado (≤0.1.1) DERRUBA o card. **Não rodar.** Marcada `blocked`; o usuário publica o aiDeck 0.1.2 + bumpa o pin + executa a migração MANUALMENTE depois (reconcile). Recipe registrado abaixo.
-- **phase-done:** NÃO rodar enquanto T-003 estiver blocked — a fase não fecha sobre uma task aberta. F5 fica ativa com T-001/T-002 done + T-003 blocked.
-
-### Recipe manual da T-003 (para a reconciliação futura, quando aiDeck ≥0.1.2 publicado)
-1. Publicar `@henryavila/aideck` 0.1.2 no npm (a partir de ~/aideck).
-2. Bumpar o pin em `package.json`: `"@henryavila/aideck": "^0.1.2"`; `npm install`.
-3. Adicionar `spawnedFrom` + `spawnedPlans` ao `meta/schemas/plan.schema.json` (espelhando `meta/schemas/links.schema.json`).
-4. Migrar o conteúdo de cada `links.json` pro frontmatter do plan.md (spawnedFrom no plano-filho; spawnedPlans na fase-âncora do pai) e remover o sidecar.
-5. Teste cobrindo os 2 ramos: migra em ≥0.1.2, bloqueia/no-op em 0.1.0. `npm test`.
+### Plano da F5 — T-001/T-002 done; T-003 RE-ABERTA e feita INLINE (decisão do usuário)
+- **T-001 (handoff aiDeck):** `/home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md` já existia e o verifier passa. Fechada (entrega pré-existente no repo externo).
+- **T-002 (KB degrau 7.5/fork-plan):** seção adicionada em docs/kb/skill-authoring.md (depois reescrita p/ inline). Fechada.
+- **T-003 (migração sidecar→inline):** inicialmente marcada `blocked` (gate npm-pin: aiDeck publicado=0.1.1). **RE-ABERTA** quando o usuário disse: "aiDeck já foi alterado [local declara os campos]; alterar tudo do seu lado; não vou publicar no npm agora, só p/ validar e corrigir antes do release."
+  - **Design (2 perguntas ao usuário):** (1) **INLINE SEMPRE, sem gate** — sidecar aposentado p/ o elo; o gate npm-pin foi abandonado. (2) **READ/WRITE INLINE COMPLETO** — set/get/add operam no frontmatter; fork novo já produz inline.
+  - **Implementado:** spawnedFrom no topo do plan.md do filho; spawnedPlans no `phases[].spawnedPlans` (string[], = aiDeck PhaseDescriptor); plan.schema.json + consumer schema; migrateSidecarToInline (preserva pendingWriteback); 5 test files + 2 fixtures migrados; project-emergence.md + KB reescritos. Commit 4db211f.
+  - **Fronteira:** pendingWriteback (parallel-state, transitório) continua no links.json — fora do escopo (outputs da T-003 = links-sidecar.js + plan.schema.json + test).
+  - **Não publicado:** o usuário publica o aiDeck 0.1.2 no npm + bumpa o pin `^0.1.0`→`^0.1.2` MANUALMENTE no release (a parte que sobra; o código inline já está pronto p/ validação local).
 
 ## Links
 
