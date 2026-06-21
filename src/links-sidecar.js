@@ -147,13 +147,13 @@ export function writeLinks(planDir, data) {
  */
 export function setSpawnedFrom(childPlanDir, link) {
   const { plan, phaseId, taskId, mode } = link;
-  // Validate the edge at the write boundary (the inline write does not pass
-  // through the links.json schema): a bad mode/shape must never reach plan.md.
-  if (!plan || !phaseId || (mode !== 'pause' && mode !== 'parallel')) {
-    throw new Error(`invalid spawnedFrom edge: requires non-empty plan + phaseId and mode in {pause, parallel} — got ${JSON.stringify(link)}`);
-  }
   const edge = { plan, phaseId, mode };
-  if (taskId !== undefined) edge.taskId = taskId;
+  // omit an absent OR empty taskId (a present '' would violate minLength:1).
+  if (taskId !== undefined && taskId !== '') edge.taskId = taskId;
+  // Validate the edge at the write boundary through the SAME Ajv schema the old
+  // sidecar path used — the inline write must not let a wrong-typed/malformed edge
+  // (`plan: {}`, `phaseId: 7`, bad mode) reach plan.md to fail only at validate-state.
+  assertValidLinks({ spawnedFrom: edge });
   const p = readPlanFm(childPlanDir);
   if (!p) throw new Error(`cannot set spawnedFrom: no readable plan.md at ${planMdPath(childPlanDir)}`);
   p.fm.spawnedFrom = edge;
@@ -161,13 +161,23 @@ export function setSpawnedFrom(childPlanDir, link) {
   return p.fm;
 }
 
+/** Read a legacy sidecar tolerantly (a corrupt one reads as no-elo, never throws). */
+function legacySidecar(planDir) {
+  try {
+    return readLinks(planDir);
+  } catch {
+    return {};
+  }
+}
+
 /**
  * @param {string} planDir
- * @returns {object|null} the inline `spawnedFrom` edge, or null when absent /
- *   no readable plan.md
+ * @returns {object|null} the inline `spawnedFrom` edge; falls back to a legacy
+ *   `links.json` sidecar when the inline field is absent (upgrade compat for a
+ *   repo not yet migrated by `migrateSidecarToInline`); null when neither has it.
  */
 export function getSpawnedFrom(planDir) {
-  return readPlanFm(planDir)?.fm?.spawnedFrom ?? null;
+  return readPlanFm(planDir)?.fm?.spawnedFrom ?? legacySidecar(planDir).spawnedFrom ?? null;
 }
 
 /**
@@ -189,6 +199,9 @@ export function addSpawnedPlan(parentPlanDir, phaseId, childSlug) {
   if (!phase) throw new Error(`cannot add spawnedPlan: anchor phase '${phaseId}' not found in ${planMdPath(parentPlanDir)}`);
   const slugs = Array.isArray(phase.spawnedPlans) ? phase.spawnedPlans : [];
   if (!slugs.includes(childSlug)) slugs.push(childSlug);
+  // Validate the resulting slug array through the same Ajv boundary (rejects an
+  // empty-string / non-string childSlug before it reaches plan.md).
+  assertValidLinks({ spawnedPlans: { [phaseId]: slugs } });
   phase.spawnedPlans = slugs;
   writePlanFm(parentPlanDir, p.fm, p.body);
   return p.fm;
@@ -201,11 +214,21 @@ export function addSpawnedPlan(parentPlanDir, phaseId, childSlug) {
  */
 export function getSpawnedPlans(planDir) {
   const p = readPlanFm(planDir);
-  if (!p || !Array.isArray(p.fm.phases)) return {};
   const out = {};
-  for (const ph of p.fm.phases) {
-    if (ph && ph.id && Array.isArray(ph.spawnedPlans) && ph.spawnedPlans.length) {
-      out[ph.id] = [...ph.spawnedPlans];
+  if (p && Array.isArray(p.fm.phases)) {
+    for (const ph of p.fm.phases) {
+      if (ph && ph.id && Array.isArray(ph.spawnedPlans) && ph.spawnedPlans.length) {
+        out[ph.id] = [...ph.spawnedPlans];
+      }
+    }
+  }
+  if (Object.keys(out).length > 0) return out;
+  // upgrade compat: fall back to a legacy sidecar spawnedPlans map when no inline
+  // edge is present (a repo not yet migrated by migrateSidecarToInline).
+  const legacy = legacySidecar(planDir).spawnedPlans;
+  if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+    for (const [pid, slugs] of Object.entries(legacy)) {
+      if (Array.isArray(slugs) && slugs.length) out[pid] = [...slugs];
     }
   }
   return out;
@@ -226,6 +249,10 @@ export function migrateSidecarToInline(planDir) {
   const sidecar = linksPath(planDir);
   if (!existsSync(sidecar)) return { migrated: false, spawnedFrom: false, spawnedPlans: false, sidecarRemoved: false };
   const data = readLinks(planDir);
+  // Validate the legacy sidecar BEFORE copying anything inline — a schema-invalid
+  // shape (e.g. `spawnedPlans: { F0: "child" }`, a string) would otherwise be
+  // spread into bogus per-char slugs `["c","h",…]`. Reject without mutating.
+  assertValidLinks(data);
   const hasFrom = data.spawnedFrom != null;
   const hasPlans = data.spawnedPlans != null && Object.keys(data.spawnedPlans).length > 0;
   if (!hasFrom && !hasPlans) return { migrated: false, spawnedFrom: false, spawnedPlans: false, sidecarRemoved: false };

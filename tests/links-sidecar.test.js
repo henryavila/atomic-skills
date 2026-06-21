@@ -97,6 +97,14 @@ describe('links-sidecar reader/writer', () => {
     });
   });
 
+  it('setSpawnedFrom omits an EMPTY-string taskId (would violate schema minLength)', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'child');
+      setSpawnedFrom(dir, { plan: 'parent', phaseId: 'F2', taskId: '', mode: 'pause' });
+      assert.equal('taskId' in getSpawnedFrom(dir), false, 'empty taskId is dropped, not persisted as ""');
+    });
+  });
+
   it('setSpawnedFrom throws when the child has no plan.md (a fork child is a real plan)', () => {
     withTmp((root) => {
       assert.throws(() => setSpawnedFrom(planDir(root, 'bare'), { plan: 'p', phaseId: 'F1', mode: 'pause' }), /no readable plan\.md/);
@@ -145,6 +153,44 @@ describe('links-sidecar reader/writer', () => {
       addSpawnedPlan(dir, 'F3', 'grandchild');
       assert.deepEqual(getSpawnedFrom(dir), { plan: 'grandparent', phaseId: 'F1', mode: 'pause' });
       assert.deepEqual(getSpawnedPlans(dir), { F3: ['grandchild'] });
+    });
+  });
+
+  // F5 review F-001 (codex critical): readers fall back to a legacy un-migrated
+  // sidecar so an upgraded repo's fork edges are not silently lost.
+  it('getSpawnedFrom/getSpawnedPlans fall back to a legacy sidecar when inline is absent', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'legacy', ['F2']); // plan.md has NO inline elo
+      writeLinks(dir, { spawnedFrom: { plan: 'p', phaseId: 'F2', mode: 'pause' }, spawnedPlans: { F2: ['c'] } });
+      assert.deepEqual(getSpawnedFrom(dir), { plan: 'p', phaseId: 'F2', mode: 'pause' }, 'legacy spawnedFrom still visible');
+      assert.deepEqual(getSpawnedPlans(dir), { F2: ['c'] }, 'legacy spawnedPlans still visible');
+    });
+  });
+
+  it('inline elo takes precedence over a stale legacy sidecar', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'both', ['F2']);
+      setSpawnedFrom(dir, { plan: 'inline-parent', phaseId: 'F2', mode: 'parallel' }); // inline
+      writeLinks(dir, { spawnedFrom: { plan: 'stale-sidecar', phaseId: 'F9', mode: 'pause' } });
+      assert.equal(getSpawnedFrom(dir).plan, 'inline-parent', 'inline wins over the stale sidecar');
+    });
+  });
+
+  // F5 review F-002 (codex major): the inline writers enforce the schema shape.
+  it('setSpawnedFrom rejects a wrong-typed edge (not just truthiness)', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'child');
+      assert.throws(() => setSpawnedFrom(dir, { plan: {}, phaseId: 'F2', mode: 'pause' }), /invalid/i);
+      assert.throws(() => setSpawnedFrom(dir, { plan: 'p', phaseId: 7, mode: 'pause' }), /invalid/i);
+      assert.equal(getSpawnedFrom(dir), null, 'nothing persisted on a rejected edge');
+    });
+  });
+
+  it('addSpawnedPlan rejects an empty-string childSlug at the write boundary', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'parent', ['F2']);
+      assert.throws(() => addSpawnedPlan(dir, 'F2', ''), /invalid/i);
+      assert.deepEqual(getSpawnedPlans(dir), {}, 'nothing persisted on a rejected slug');
     });
   });
 });
@@ -261,6 +307,18 @@ describe('migrateSidecarToInline (retire a legacy links.json elo into plan.md)',
       const dir = planDirMd(root, 'p', ['F1']);
       writeLinks(dir, { spawnedPlans: { F9: ['c'] } });
       assert.throws(() => migrateSidecarToInline(dir), /anchor phase 'F9' not found/);
+    });
+  });
+
+  // F5 review F-003 (codex major): a schema-invalid sidecar is rejected BEFORE any
+  // copy — `spawnedPlans: { F0: "child" }` (string) must not spread into per-char slugs.
+  it('rejects a schema-invalid sidecar without mutating plan.md (no per-char slug corruption)', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'p', ['F0']);
+      // write the malformed sidecar directly (writeLinks would reject it)
+      writeFileSync(linksPath(dir), JSON.stringify({ spawnedPlans: { F0: 'child' } }), 'utf8');
+      assert.throws(() => migrateSidecarToInline(dir), /invalid/i);
+      assert.deepEqual(getSpawnedPlans(dir), {}, 'plan.md not mutated; no ["c","h","i",…] corruption');
     });
   });
 });

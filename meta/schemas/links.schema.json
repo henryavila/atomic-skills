@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "links.schema.json",
   "title": "Fork link sidecar (links.json)",
-  "description": "Non-aiDeck-facing sidecar holding the fork parent/child link for a plan. Lives at <planDir>/links.json. Kept out of plan.md / phase frontmatter so the aiDeck 0.1.0 .strict consumer is unaffected; inline migration is deferred to F5 (aiDeck >= 0.1.2).",
+  "description": "Sidecar at <planDir>/links.json. As of F5/T-003 the durable fork elo (spawnedFrom/spawnedPlans) migrated INLINE into plan.md frontmatter (the aiDeck consumer now declares the fields); this sidecar is RETIRED for the elo and now holds only the transient parallel-state `pendingWriteback` recovery marker. The spawnedFrom/spawnedPlans definitions below remain so migrateSidecarToInline can read a legacy sidecar.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
