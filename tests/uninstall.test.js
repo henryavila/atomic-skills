@@ -8,7 +8,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { install, removeRuntimeArtifacts, removeAutoUpdateHook, installRuntimeArtifacts } from '../src/install.js';
+import { install, removeRuntimeArtifacts, installRuntimeArtifacts } from '../src/install.js';
 import { uninstall, pruneEmptyParents } from '../src/uninstall.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -143,124 +143,14 @@ describe('removeRuntimeArtifacts', () => {
   });
 });
 
-describe('removeAutoUpdateHook', () => {
-  it('removes only the version-check.sh entry and preserves unrelated SessionStart hooks', () => {
-    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
-    try {
-      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
-      const settingsPath = join(base, '.claude', 'settings.json');
-      mkdirSync(join(settingsPath, '..'), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify({
-        hooks: {
-          SessionStart: [
-            { matcher: '*', hooks: [
-              { type: 'command', command: versionCheck },
-              { type: 'command', command: '/other/hook.sh' },
-            ] },
-          ],
-        },
-        otherSetting: true,
-      }, null, 2));
-
-      removeAutoUpdateHook({ basePath: base, scope: 'project' });
-
-      const after = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      const commands = (after.hooks?.SessionStart || [])
-        .flatMap((e) => e.hooks || []).map((h) => h.command);
-      assert.ok(!commands.includes(versionCheck), 'version-check entry removed');
-      assert.ok(commands.includes('/other/hook.sh'), 'unrelated hook preserved');
-      assert.equal(after.otherSetting, true, 'unrelated settings preserved');
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
-
-  it('prunes the SessionStart matcher entirely when it only held our hook', () => {
-    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
-    try {
-      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
-      const settingsPath = join(base, '.claude', 'settings.json');
-      mkdirSync(join(settingsPath, '..'), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify({
-        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
-      }, null, 2));
-
-      removeAutoUpdateHook({ basePath: base, scope: 'project' });
-
-      const after = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      assert.ok(!after.hooks?.SessionStart || after.hooks.SessionStart.length === 0,
-        'empty SessionStart pruned');
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
-
-  it('is a no-op when settings.json is absent', () => {
-    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
-    try {
-      assert.doesNotThrow(() => removeAutoUpdateHook({ basePath: base, scope: 'project' }));
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
-
-  it('deletes an emptied settings.json the installer created (settingsCreated:true)', () => {
-    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
-    try {
-      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
-      const settingsPath = join(base, '.claude', 'settings.json');
-      mkdirSync(join(settingsPath, '..'), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify({
-        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
-      }, null, 2));
-
-      removeAutoUpdateHook({ basePath: base, scope: 'user', settingsCreated: true });
-
-      assert.ok(!existsSync(settingsPath), 'installer-created orphan settings.json deleted');
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
-
-  it('preserves an emptied settings.json the user already had (settingsCreated:false)', () => {
-    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
-    try {
-      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
-      const settingsPath = join(base, '.claude', 'settings.json');
-      mkdirSync(join(settingsPath, '..'), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify({
-        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
-      }, null, 2));
-
-      removeAutoUpdateHook({ basePath: base, scope: 'user', settingsCreated: false });
-
-      assert.ok(existsSync(settingsPath), 'pre-existing settings.json preserved');
-      assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')), {});
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
-
-  it('preserves a settings.json that still holds other keys', () => {
-    const base = mkdtempSync(join(tmpdir(), 'as-uninst-hook-'));
-    try {
-      const versionCheck = join(base, '.atomic-skills', 'hooks', 'version-check.sh');
-      const settingsPath = join(base, '.claude', 'settings.json');
-      mkdirSync(join(settingsPath, '..'), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify({
-        hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command', command: versionCheck }] }] },
-        otherSetting: true,
-      }, null, 2));
-
-      removeAutoUpdateHook({ basePath: base, scope: 'user', settingsCreated: true });
-
-      assert.ok(existsSync(settingsPath), 'settings.json with other keys preserved');
-      assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).otherSetting, true);
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
-});
+// NOTE (T-F3-4 flip): the legacy `removeAutoUpdateHook` was removed. The
+// auto-update SessionStart entry is now reverted by the journal's jsonMerge effect
+// (Driver.uninstall), and its surgical data-safety contract — a pre-existing
+// third-party hook survives, an installer-created settings.json is removed, a
+// user's pre-existing one is preserved — is covered by the round-trip test
+// ("preserves a pre-existing THIRD-PARTY SessionStart hook"), the runtime-layers
+// test (test/runtime-layers/atomic-skills.test.js, auto-update surgical revert),
+// and the package's json-merge round-trip test.
 
 describe('uninstall (integration)', () => {
   it('--yes removes manifest files and manifest without prompting (user scope)', async () => {

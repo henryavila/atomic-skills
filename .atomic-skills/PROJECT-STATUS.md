@@ -1,5 +1,5 @@
 ---
-lastUpdated: '2026-06-09T22:00:00Z'
+lastUpdated: '2026-06-19T20:05:00Z'
 schemaVersion: '0.1'
 activePlans: 1
 activeInitiatives: 0
@@ -20,6 +20,17 @@ Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar
 |-------|--------|---------|
 | F0 — Captura barata (MVP do inbox) | done | Script de append, detail file com o fork, `idea list`, wiring e paridade de install. 3/3 tasks, 3/3 gates (codex lane). |
 | F1 — Promoção via emergence ladder | done | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. 2/2 tasks, 2/2 gates (codex lane). Plano completo — pronto para `archive`. |
+
+### reversible-installer — Reversible Installer (✅ DONE — plan-done 2026-06-19)
+
+Extrai o instalador do atomic-skills num kernel genérico de sincronização reversível de arquivos templados, consumível por qualquer projeto via dependência + config; uninstall out-of-the-box. **Concluído package-first:** a engine é o pacote `@henryavila/tooling-installer` (file: link), atomic-skills é o 1º consumidor. Follow-ups fora do plano: publish do pacote ^0.1.x + trocar o file: link; gate de merge de plan/skills-restructuring.
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| F0 — Effect Kernel + file reconciler | done | Funda o kernel: contrato de efeito reversível, journal e o reconciler de arquivos (porta do 3-hash). 3/3 tasks, 2/2 gates (codex lane; review local 2 major fixed). |
+| F1 — Efeitos built-in não-arquivo | done | Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com before-state + matriz adversária. Construídos in-repo, depois SUPERSEDED → migraram p/ o pacote; paridade no round-trip 9/9. 4/4 tasks, 1/1 gate. |
+| F2 — Providers e config two-tier | done | Provider + Driver + config two-tier — fase-ponteiro, 100% no repo do pacote (62/62). 0/3 tasks (no pacote), 1/2 gates (G-2 verifier removido no flip, provado no pacote). |
+| F3 — Big-bang rewire e paridade | done | Religa atomic-skills sobre o pacote (SkillsProvider + runtime layers), remove src/kernel/, prova paridade. 6/6 tasks, 2/3 gates (G-2 deferred ambiental); review gate --mode=both achou+corrigiu 2 criticals de reversibilidade. |
 
 ## Paused Plans
 
