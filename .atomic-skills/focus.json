@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-21T01:09:35.516Z",
+  "generatedAt": "2026-06-21T01:20:37.240Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "plan-fork",
@@ -16,15 +16,15 @@
     "status": "active"
   },
   "tasks": {
-    "done": 0,
+    "done": 2,
     "total": 3,
-    "blocked": 0
+    "blocked": 1
   },
   "gates": {
     "met": 0,
     "total": 1
   },
-  "nextAction": "Phase-start gate F5: rodar `node scripts/list-lessons.js --phase F5` e dispor cada lesson reusable+open (Apply/Keep/Stale/Reject) — inclui L-001..L-003 da F4 (NUL/run-tests, cross-product coverage, projId-scope) — ANTES de codar. Depois T-001: Handoff ao aiDeck. NOTA F5: depende de aiDeck >=0.1.2 publicado p/ a migração sidecar→inline; o verifier do gate checa /home/henry/aideck/docs/handoffs/.",
+  "nextAction": "F5 finalizada SEM o publish (decisão do usuário): T-001 (handoff pré-existente) + T-002 (KB fork-plan) DONE; T-003 (migração inline) BLOCKED por dep externa (aiDeck >=0.1.2 publicado + pin bump). NÃO rodar phase-done enquanto T-003 estiver blocked. PRÓXIMO (manual, usuário): publicar aiDeck 0.1.2, bumpar o pin, executar a recipe de 5 passos da T-003 (bloco Decisions), depois reconcile + phase-done. F5 fica ativa até lá.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -36,7 +36,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/plan-fork/phases/f5-handoff-aideck-docs-e-migracao-inline.md",
-      "lastUpdated": "2026-06-21T00:40:11Z"
+      "lastUpdated": "2026-06-21T01:19:34Z"
     }
   ]
 }
