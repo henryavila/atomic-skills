@@ -138,10 +138,13 @@ phases:
             um widget/feature ausente no registry do aiDeck instalado."
           status: met
           verifier:
-            kind: command
-            description: "node --test tests/aideck-manifest-widget-registry.test.js —
-              gate (widget ∈ registry) + RED-bite provado (stat-bogus → flagged) +
-              drift-check vs WidgetRenderer.vue widgetMap (38 keys)."
+            kind: shell
+            command: node --test tests/aideck-manifest-widget-registry.test.js
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-20T00:00:00Z
+            passed: true
+            exitCode: 0
     status: active
     summary: "G-2 MET: guardrail vendoriza o widgetMap do source (meta/aideck-widget-registry.json,
       regen via npm run build:aideck-widget-registry), gateia o manifest (widget ∈

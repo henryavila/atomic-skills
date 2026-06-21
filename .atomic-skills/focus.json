@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.1",
-  "generatedAt": "2026-06-16T13:33:33.836Z",
+  "generatedAt": "2026-06-21T01:15:29.297Z",
   "projectId": "atomic-skills",
   "plan": {
     "slug": "fix-aideck-dashboard",
@@ -9,22 +9,22 @@
   },
   "phase": {
     "id": "F1",
-    "slug": "fix-aideck-dashboard-f1-validar-e-aplicar-o-manifesto-project-s",
-    "title": "Consertar o cliente do dashboard (dados, live-refresh e filtro de lista)",
-    "index": 1,
-    "total": 2,
+    "slug": "fix-aideck-dashboard-f1-shell-project-centric-no-aideck",
+    "title": "Shell project-centric no aiDeck (nav.style: projects)",
+    "index": 2,
+    "total": 4,
     "status": "active"
   },
   "tasks": {
     "done": 0,
-    "total": 4,
+    "total": 0,
     "blocked": 0
   },
   "gates": {
     "met": 0,
-    "total": 2
+    "total": 1
   },
-  "nextAction": "Tornar o consumer id dinâmico em src/dashboard/lib/api.ts (remover o literal `project-status`, resolver projectId) nos 5 call-sites; depois migrar a assinatura SSE para `data_changed`.",
+  "nextAction": "Código FEITO e committado no ../aideck (/home/henry/aideck @ 2b54987, branch feat/ds-v2.1-widgets). Resta o gate G-1 (kind: manual): validação VISUAL do owner — render do shell projects vs imagem de referência #2. Sem chrome-headless neste ambiente; o aiDeck serve em :7777. Depois da validação passar: publicar a v2.1 no npm (ÚLTIMO passo, gate do owner). Sem task codificável pendente p/ implement.",
   "flags": {
     "drift": false,
     "multipleActivePlans": false
@@ -32,11 +32,11 @@
   "sources": [
     {
       "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/plan.md",
-      "lastUpdated": "2026-06-16T12:40:58Z"
+      "lastUpdated": "2026-06-19T14:45:00Z"
     },
     {
-      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/phases/f1-validar-e-aplicar-o-manifesto-project-s.md",
-      "lastUpdated": "2026-06-16T12:40:58Z"
+      "path": ".atomic-skills/projects/atomic-skills/fix-aideck-dashboard/phases/f1-shell-project-centric-no-aideck.md",
+      "lastUpdated": "2026-06-20T00:00:00Z"
     }
   ]
 }
