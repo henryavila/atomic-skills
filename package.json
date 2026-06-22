@@ -18,7 +18,7 @@
     "assets/"
   ],
   "scripts": {
-    "test": "node --test tests/*.test.js",
+    "test": "node --test 'tests/**/*.test.js' 'test/**/*.test.js'",
     "test:hooks": "bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh && bash tests/hooks/pre-commit.test.sh",
     "new-skill": "node scripts/new-skill.js",
     "validate-skills": "node scripts/validate-skills.js",

@@ -80,6 +80,23 @@ export function stampMcpNamespace(yaml, ns) {
 }
 
 /**
+ * Set the top-level `rootDir:` key to the consuming repo's absolute path. aiDeck
+ * reads this to AUTO-REGISTER the project on every scan (so the consumer→project
+ * binding survives a restart without the skill re-registering) and to SCOPE
+ * `/api/consumers/<id>/projects` to this project only — never another consumer's.
+ * The template carries no `rootDir:` line, so insert one right after the
+ * column-0 `id:` line; if a line already exists (re-provision), replace it.
+ * Single quotes are YAML-escaped (`'` → `''`), matching stampIdTitle.
+ */
+export function stampRootDir(yaml, rootDir) {
+  const line = `rootDir: '${String(rootDir).replace(/'/g, "''")}'`;
+  if (/^rootDir:[ \t].*$/m.test(yaml)) {
+    return yaml.replace(/^rootDir:[ \t].*$/m, line);
+  }
+  return yaml.replace(/^(id:[ \t].*)$/m, `$1\n${line}`);
+}
+
+/**
  * Resolve the shipped consumer template directory. Works whether this module is
  * loaded from the package `src/` (sibling `../assets/aideck-consumer`) or from
  * the installed runtime `~/.atomic-skills/src/` (sibling `../aideck-consumer`).
@@ -107,7 +124,9 @@ const VALID_PROJECT_ID = /^[a-z0-9][a-z0-9-]*$/;
  * @param {string} [opts.templateDir]   shipped template dir (default: defaultTemplateDir())
  * @param {string} [opts.consumersDir]  aiDeck consumers root (default: ~/.aideck/consumers)
  * @param {string} [opts.title]         override display title (default: humanized projectId)
- * @returns {{ consumerId: string, dir: string, title: string }}
+ * @param {string} [opts.rootDir]       absolute path of the consuming repo; stamped into the
+ *                                      manifest so aiDeck auto-registers + scopes its project
+ * @returns {{ consumerId: string, dir: string, title: string, mcpNamespace: string, rootDir: string|undefined }}
  */
 export function provisionConsumer(projectId, opts = {}) {
   if (typeof projectId !== 'string' || !VALID_PROJECT_ID.test(projectId)) {
@@ -133,9 +152,12 @@ export function provisionConsumer(projectId, opts = {}) {
   const mcpNamespace = opts.mcpNamespace ?? sanitizeMcpNamespace(projectId);
   let stamped = stampIdTitle(readFileSync(tmplManifest, 'utf8'), projectId, title);
   stamped = stampMcpNamespace(stamped, mcpNamespace);
+  // Stamp the bound rootDir so aiDeck auto-registers + scopes this consumer's
+  // project (durable consumer→project binding). Absent → a generic consumer.
+  if (opts.rootDir) stamped = stampRootDir(stamped, opts.rootDir);
   writeFileSync(join(dir, 'manifest.yaml'), stamped, 'utf8');
 
-  return { consumerId: projectId, dir, title, mcpNamespace };
+  return { consumerId: projectId, dir, title, mcpNamespace, rootDir: opts.rootDir };
 }
 
 // CLI: `node provision-consumer.js <projectId> [title]` — used by the project
@@ -144,8 +166,11 @@ export function provisionConsumer(projectId, opts = {}) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [, , projectId, title] = process.argv;
   try {
-    const r = provisionConsumer(projectId, title ? { title } : {});
-    process.stdout.write(`CONSUMER_ID=${r.consumerId}\nCONSUMER_TITLE=${r.title}\n`);
+    // cwd IS the consuming repo (the skill runs this from the repo root), so it
+    // is the rootDir aiDeck binds the project to. Stamping it makes the
+    // consumer→project binding durable + scoped (no re-register needed).
+    const r = provisionConsumer(projectId, { rootDir: process.cwd(), ...(title ? { title } : {}) });
+    process.stdout.write(`CONSUMER_ID=${r.consumerId}\nCONSUMER_TITLE=${r.title}\nCONSUMER_ROOTDIR=${r.rootDir}\n`);
   } catch (e) {
     process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
     process.exit(1);

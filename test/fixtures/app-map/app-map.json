@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "0.1",
+  "inputsHash": "sha256:abcdef123456",
+  "projectId": "demo-project",
+  "pages": [
+    {
+      "id": "dashboard",
+      "label": "Dashboard",
+      "purpose": "Shows the user their current work.",
+      "audience": "registered",
+      "accessTier": "auth:member",
+      "status": "built",
+      "regime": "brownfield",
+      "existence": "confirmed",
+      "aliases": ["home"],
+      "provenance": {
+        "id": "routes/dashboard.tsx",
+        "label": "docs/product-map.md",
+        "purpose": "docs/product-map.md",
+        "audience": "docs/personas.md",
+        "accessTier": "middleware/auth.ts",
+        "status": "routes/dashboard.tsx",
+        "regime": "routes/dashboard.tsx",
+        "existence": "routes/dashboard.tsx"
+      },
+      "conflicts": [
+        {
+          "field": "audience",
+          "artefactValue": "visitor",
+          "codeValue": "registered",
+          "evidence": "docs/personas.md disagrees with middleware/auth.ts",
+          "resolution": "pending"
+        }
+      ]
+    }
+  ]
+}
