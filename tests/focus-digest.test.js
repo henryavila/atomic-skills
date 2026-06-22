@@ -24,6 +24,7 @@ import Ajv from 'ajv/dist/2020.js';
 
 import { buildFocusDigest, emitFocus } from '../scripts/emit-focus.js';
 import { bindPlanBranch, stampBranch } from '../scripts/bind-plan-branch.js';
+import { setSpawnedFrom } from '../src/links-sidecar.js';
 
 const FIXED_NOW = '2026-06-15T12:00:00.000Z';
 
@@ -336,4 +337,166 @@ test('stampBranch replaces an existing branch line and inserts when absent', () 
   assert.match(r2, /^lastUpdated: 2026-06-16T00:00:00Z$/m);
   // inserted inside the frontmatter block, before the closing ---
   assert.ok(r2.indexOf('branch: feature/z') < r2.indexOf('\n---', 3));
+});
+
+// ── F4: fork parent/child hierarchy in the focus resolver ──
+// A fork child carries `spawnedFrom: { plan, phaseId, mode }` INLINE in its plan.md
+// INLINE frontmatter (F5/T-003). When a parent and its forked child are BOTH
+// active claimers of a tree (parallel mode, or no branch context), they are a
+// hierarchy — focus resolves to the CHILD and it is NOT the multi-active drift
+// the ⧉ marker warns about.
+function writeChildSidecar(repo, slug, parentSlug, phaseId, mode) {
+  // the child plan.md already exists (writeBranchedPlan) — write the edge inline.
+  setSpawnedFrom(join(repo, '.atomic-skills', 'projects', 'p', slug), { plan: parentSlug, phaseId, mode });
+}
+
+test('F4: parallel fork (parent active + child active) resolves to the CHILD, not ambiguous', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-fork-'));
+  try {
+    // parent is MORE recent than child → recency alone would pick the parent.
+    writeBranchedPlan(repo, 'plan-parent', null, '2026-06-15T10:00:00Z');
+    writeBranchedPlan(repo, 'plan-child', null, '2026-06-15T08:00:00Z');
+    writeChildSidecar(repo, 'plan-child', 'plan-parent', 'F3', 'parallel');
+    // No branch context: without the fork rule → 2 active claimers, recency picks
+    // the parent, multipleActivePlans=true. With it → parent superseded by its
+    // active child → focus = child, no ambiguity. (Mutation killed: drop the collapse.)
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.plan.slug, 'plan-child', 'focus resolves to the fork child, not the parent');
+    assert.equal(d.flags.multipleActivePlans, false, 'a parent/child fork pair is a hierarchy, not drift');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: pause fork (parent paused + child active) resolves to the child, not ambiguous', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-fork-pause-'));
+  try {
+    writeBranchedPlan(repo, 'plan-child', null, '2026-06-15T08:00:00Z');
+    writeChildSidecar(repo, 'plan-child', 'plan-parent', 'F3', 'pause');
+    // parent paused → not an active claimer at all; child is the sole active work front.
+    const parentDir = join(repo, '.atomic-skills', 'projects', 'p', 'plan-parent');
+    mkdirSync(join(parentDir, 'phases'), { recursive: true });
+    writeFm(join(parentDir, 'plan.md'), [
+      'schemaVersion: "0.1"', 'slug: plan-parent', 'title: plan-parent', 'status: paused',
+      'currentPhase: F3', 'lastUpdated: 2026-06-15T10:00:00Z',
+      'phases:', '  - id: F3', '    slug: plan-parent-f3', '    title: Anchor', '    status: paused',
+    ].join('\n'));
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.plan.slug, 'plan-child', 'paused parent yields focus to the active child');
+    assert.equal(d.flags.multipleActivePlans, false);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: two active plans with NO fork edge stay ambiguous (rule does not over-collapse)', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-nofork-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', null, '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', null, '2026-06-15T10:00:00Z');
+    // no links.json on either → not a fork pair → the fork rule must NOT collapse them.
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.flags.multipleActivePlans, true, 'unrelated active plans are still drift');
+    assert.equal(d.plan.slug, 'plan-b', 'recency fallback unchanged');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// F4 robustness (cross-model review findings #1, #2, #5)
+test('F4: grandchild fork chain collapses transitively to the deepest active child', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-chain-'));
+  try {
+    writeBranchedPlan(repo, 'gp', null, '2026-06-15T10:00:00Z'); // grandparent, MOST recent
+    writeBranchedPlan(repo, 'parent', null, '2026-06-15T09:00:00Z');
+    writeBranchedPlan(repo, 'child', null, '2026-06-15T08:00:00Z'); // oldest
+    writeChildSidecar(repo, 'parent', 'gp', 'F1', 'parallel');
+    writeChildSidecar(repo, 'child', 'parent', 'F1', 'parallel');
+    // Transitive collapse: gp and parent superseded → deepest active child wins,
+    // even though recency would pick gp. (Kills "only direct parents collapse".)
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.plan.slug, 'child', 'deepest active child wins the chain');
+    assert.equal(d.flags.multipleActivePlans, false);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: a spawnedFrom cycle does NOT hide the ambiguity flag (no silent over-collapse)', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-cycle-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', null, '2026-06-15T10:00:00Z');
+    writeBranchedPlan(repo, 'plan-b', null, '2026-06-15T09:00:00Z');
+    writeChildSidecar(repo, 'plan-a', 'plan-b', 'F1', 'parallel'); // a ← b
+    writeChildSidecar(repo, 'plan-b', 'plan-a', 'F1', 'parallel'); // b ← a → cycle
+    // Every claimer superseded → no leaf → NOT a valid hierarchy. The collapse must
+    // NOT fire: the ⧉ drift flag stays true. (Kills "collapse even when empty".)
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.flags.multipleActivePlans, true, 'cycle surfaces drift, not hidden');
+    assert.ok(['plan-a', 'plan-b'].includes(d.plan.slug), 'falls back to a real plan, never a superseded ghost');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: a plan with malformed plan.md frontmatter (the inline elo source) does not take down the resolver', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-torn-'));
+  try {
+    writeBranchedPlan(repo, 'plan-a', 'feature/a', '2026-06-15T10:00:00Z');
+    // a sibling plan whose plan.md frontmatter is corrupt (the elo now lives there,
+    // not in a sidecar) — collectPlans must skip it, not throw the whole digest.
+    const badDir = join(repo, '.atomic-skills', 'projects', 'p', 'plan-bad');
+    mkdirSync(join(badDir, 'phases'), { recursive: true });
+    writeFileSync(join(badDir, 'plan.md'), '---\nschemaVersion: "0.1"\nslug: plan-bad\n  : : broken yaml :\nstatus: active\n---\nbody\n');
+    const d = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/a' });
+    assert.equal(d.plan.slug, 'plan-a', 'resolver still emits despite a corrupt sibling plan.md');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: a fork edge whose parent slug only exists in ANOTHER project does not collapse', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-xproj-'));
+  try {
+    // Two projects; project q has an active "shared" plan; project p's "shared" is
+    // a fork CHILD pointing at parent "shared" — but the matching parent is in q,
+    // not p. Intra-project scoping must NOT collapse across the project boundary.
+    const mk = (proj, slug, last) => {
+      const dir = join(repo, '.atomic-skills', 'projects', proj, slug);
+      mkdirSync(join(dir, 'phases'), { recursive: true });
+      writeFm(join(dir, 'plan.md'), [
+        'schemaVersion: "0.1"', `slug: ${slug}`, `title: ${slug}`, 'status: active',
+        'currentPhase: F0', `lastUpdated: ${last}`,
+        'phases:', '  - id: F0', `    slug: ${slug}-f0`, '    title: Zero', '    status: active',
+      ].join('\n'));
+      return dir;
+    };
+    mk('q', 'shared', '2026-06-15T10:00:00Z');
+    const pChild = mk('p', 'pchild', '2026-06-15T09:00:00Z');
+    writeFileSync(join(pChild, 'links.json'), `${JSON.stringify({ spawnedFrom: { plan: 'shared', phaseId: 'F0', mode: 'parallel' } })}\n`);
+    // p/pchild's parent "shared" lives in project q → no same-project parent → no
+    // collapse → two unrelated active plans remain ambiguous (no false hierarchy).
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.equal(d.flags.multipleActivePlans, true, 'cross-project slug match must not collapse');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('F4: exact-branch parent + UNBRANCHED active child still collapses to the child (branch context)', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-fork-branch-'));
+  try {
+    // parent owns the branch (exact match), child is unbranched but the active work
+    // front. claimers={parent,child}, pool={parent} (exact wins) → the survivor
+    // (child) is NOT in pool. The fallback must pick the child from survivors, NOT
+    // resurrect the superseded parent from pool. (Kills the effPool→pool fallback.)
+    writeBranchedPlan(repo, 'plan-parent', 'feature/x', '2026-06-15T10:00:00Z');
+    writeBranchedPlan(repo, 'plan-child', null, '2026-06-15T08:00:00Z');
+    writeChildSidecar(repo, 'plan-child', 'plan-parent', 'F0', 'parallel');
+    const d = buildFocusDigest(repo, { now: FIXED_NOW, branch: 'feature/x' });
+    assert.equal(d.plan.slug, 'plan-child', 'focus is the surviving child, not the superseded exact-branch parent');
+    assert.equal(d.flags.multipleActivePlans, false, 'a resolved hierarchy, not drift');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });

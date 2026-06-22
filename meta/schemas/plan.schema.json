@@ -50,6 +50,18 @@
       "description": "Derived denormalization (scripts/reconcile-focus.js): a copy of `title`, carried by the `phases` dataSource onto each phase row so a repeat-grouped widget can label the group with the human plan title instead of the slug (the dashboard can't join). Never hand-authored."
     },
     "parallelismAllowed": { "type": "boolean" },
+    "spawnedFrom": {
+      "description": "Fork child→parent edge (degrau 7.5): which plan/phase this plan was forked from, and the fork mode. Additive — non-forked plans omit it. Mirrors aideck Plan.spawnedFrom. Migrated inline from the links.json sidecar by F5/T-003 (fork-fields-inline).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "phaseId", "mode"],
+      "properties": {
+        "plan": { "type": "string", "minLength": 1 },
+        "phaseId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+      }
+    },
     "principles": {
       "type": "array",
       "items": {
@@ -156,6 +168,11 @@
           "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
         },
         "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "spawnedPlans": {
+          "description": "Fork parent→child edge (degrau 7.5): child plan slugs forked from this phase. Additive — phases without forks omit it. Mirrors aideck PhaseDescriptor.spawnedPlans. Migrated inline from the links.json sidecar by F5/T-003.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         },

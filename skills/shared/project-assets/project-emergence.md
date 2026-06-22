@@ -169,6 +169,62 @@ Steps:
 7. Update plan `currentPhase` if it pointed at the split phase: set to the first new sub-phase that is `active` or `pending`.
 8. Validate everything. Roll back on any failure.
 
+## `fork-plan <child-slug> --from <phaseId> --mode pause|parallel [--task <T>]` (rung 7.5)
+
+A phase of an in-flight plan has grown into work that deserves its **own plan** — bigger than `split-phase` (rung 7, still inside the same plan), but it does **not** replace the parent (that is rung 8 `adopt … supersedes`). The phase is forked into a **child plan** linked to the parent by a bidirectional edge; the parent survives and resumes at the anchor phase when the child completes. This is rung **7.5** — additive and reversible, never a substitution.
+
+> **Invocation:** `fork-plan` is a **top-level** verb (`/atomic-skills:project fork-plan <child-slug> --from <phaseId> …`), not part of the `new` menu — it ratifies a parent/child link and then hands off to the `new plan` flow.
+
+`fork-plan` does exactly two things: **(1)** ratifies the fork edge on the parent (the `context` gate — `solves`/`trigger`/`assumesStillValid` — like every emergent item), and **(2)** hands off to the `new plan` flow so the child passes the DESIGN gate (R-ORCH-09) and gets its own `design.md` like any plan. The verb never duplicates `new plan`; it only ratifies the edge and delegates.
+
+**The link lives INLINE in `plan.md` frontmatter (F5/T-003).** The aiDeck consumer (fork-fields release) declares `spawnedFrom` (on the Plan) and `spawnedPlans` (on the anchor phase descriptor) as optional, additive fields, so they no longer drop the card. `fork-plan` writes the edge inline via the helpers in `src/links-sidecar.js` (`setSpawnedFrom` on the child → its `plan.md` top-level `spawnedFrom`; `addSpawnedPlan` on the parent → `phases[<from>].spawnedPlans`). The legacy `links.json` sidecar is retired for the elo (`migrateSidecarToInline` moves any leftover); the only remaining sidecar use is the transient parallel-state `pendingWriteback` recovery marker (F2). Forking is **intra-project**; the `mode` lives only on the child's `spawnedFrom`.
+
+### Argument parse
+
+Parse the invocation into:
+
+- `<child-slug>` (positional, required) — the slug of the child plan to create. Must be a valid `common.schema.json#/$defs/slug`.
+- `--from <phaseId>` (required) — the **anchor phase** of the parent that is being forked. Must reference an existing phase id in the active plan. For `--mode pause` it must additionally be the plan's **`currentPhase`** (the active phase) — you fork the phase you are executing; pausing a non-active phase is meaningless. Abort with a clear message if either check fails.
+- `--mode pause|parallel` (required) — the parent's lifecycle while the child runs. See "Mode semantics" below. A value outside the two-token enum is a parse error (malformed invocation). **`parallel` parses as a syntactically valid value but is rejected at runtime in F1** (step 2) because its cross-worktree state protocol is F2 — do not rely on the enum to reject it.
+- `--task <T>` (optional) — the concrete task of the anchor phase that triggered the fork, recorded as `spawnedFrom.taskId`. Omitted when the trigger was the phase as a whole.
+
+A missing required argument is a malformed invocation: print the usage line and stop, touch nothing.
+
+### Steps
+
+1. **Resolve the parent + validate the anchor.** Load the active plan. If there is no active plan, abort: "fork-plan requires an active plan." Validate `--from <phaseId>` against `phases[]`. For `--mode pause`, also require `--from` to equal the plan's `currentPhase` (abort otherwise — see the arg-parse note). Validate `--task <T>` (when given) against the anchor phase initiative's `tasks[]`.
+2. **Reject `--mode parallel` (F1) — before any gate or write.** `parallel` is a syntactically valid value but its cross-worktree state protocol is **F2** (see "Mode semantics"). Reject it here, before the pre-mutation gates, the cycle-check, the ratify gate, and any inline edge write, printing the F2 message below. Nothing is touched. Only `--mode pause` proceeds past this step in F1. (The rejection is a numbered step precisely so an executor walking the list top-to-bottom cannot reach the step-8 write with `parallel`.)
+3. **Pre-mutation gates.** Run the resident pre-mutation gates (migration check + reconciliation) on the anchor-phase initiative, exactly as the other emergent rungs do.
+4. **Cycle-check — BEFORE the ratify gate, before any inline edge write.** This is the design's *detecção de ciclo* guard (D5): a child must never fork one of its own ancestors, and a plan cannot fork itself. Build the parent→child adjacency from the project's existing edges and test the proposed `parent → child` edge with the F0 helpers in `src/spawn-graph.js` — **do not reimplement the detection here**:
+   - Collect every plan in the project that carries a `spawnedPlans` map (read each via `getSpawnedPlans` from `src/links-sidecar.js`), shaped as `{ slug, spawnedPlans }`. **Always include the prospective parent in this list** — with `spawnedPlans: {}` when it has none yet (a first-time fork) — so `buildAdjacency` (`src/spawn-graph.js`, which only adds slugs present in its input) always materializes the parent node. Pass the list to `buildAdjacency(plans)`.
+   - Call `wouldCreateCycle(adjacency, <parent-slug>, <child-slug>)`. It returns `true` when `<child-slug> === <parent-slug>` (self-fork) or when `<child-slug>` can already reach `<parent-slug>` along ≥1 spawn edges (forking an ancestor).
+   - **On `true`: abort atomically.** Print the offending edge (e.g. "fork rejected — `<child>` is an ancestor of `<parent>`; this would close a cycle (`detecção de ciclo`, D5)") and **write nothing** — the ratify gate is never reached, so no `context` lands and neither `setSpawnedFrom` nor `addSpawnedPlan` runs. The check precedes ratify precisely so a cycle is refused before the human is asked to ratify a fork that cannot exist.
+   - On `false`: proceed to the ratify gate.
+5. **Ratify gate.** Print the `Proposed mutation:` block for a fork — magnitude `fork-plan (phase → child plan)` — with the drafted `context` (`solves`/`trigger`/`assumesStillValid`) that justifies the fork, the resolved `--from`/`--mode`/`--task`, and a `Reasoning` line (why rung 7.5, not `split-phase` below or `supersedes` above). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. A generic "ok"/"yes" is **not** ratify. Nothing below this step runs until ratify.
+6. **Pause the parent — BEFORE the handoff (pause mode).** On `ratify`, set the parent plan `P` → `status: paused` and its anchor phase (`--from`, = `currentPhase`) → `status: paused`, then run `node scripts/refresh-state.js` (the paused-plan hygiene invariant + focus markers). Doing this **before** step 7 is mandatory: the `new plan` handoff runs a single-active-plan pre-flight (`{{ASSETS_PATH}}/project-create-plan.md` → Stage 6, R-FOCUS-01) that scans for other `active` plans; if the parent were still active here, that pre-flight would fire its multi-active resolution prompt and contradict the pause this verb owns. Pausing first leaves exactly one active plan (the child, born in step 7).
+7. **Hand off to `new plan` (the child is materialized here).** Delegate to the `new plan` flow (`{{ASSETS_PATH}}/project-create-plan.md`) for `<child-slug>`: the child is a real plan and passes the DESIGN gate (R-ORCH-09). **The handoff can abort** — the DESIGN gate may HARD-BLOCK, or the user may cancel (Stage 5 "does NOT write to `.atomic-skills/`"). If it aborts: **no inline edge exists yet** (the writes are step 8), so the only rollback needed is to re-activate the parent + anchor phase paused in step 6 (un-pause `P`, anchor → `active`, `refresh-state`), then stop. Nothing is half-forked.
+8. **Write the bidirectional edge — only after the child plan exists.** Now that step 7 has materialized the child:
+   - Child: `setSpawnedFrom(<childPlanDir>, { plan: <parent-slug>, phaseId: <from>, taskId?: <T>, mode: <mode> })`. (`<childPlanDir>` now holds a real `plan.md`, so this is not an orphan write.)
+   - Parent: `addSpawnedPlan(<parentPlanDir>, <from>, <child-slug>)` — idempotent; `spawnedPlans[<from>]` is an array (a phase may fork several children).
+   The ratified `context`/`provenance` is recorded with the edge. Deferring the write to after child materialization is what prevents a dangling parent `spawnedPlans` entry pointing at a child that never materialized when step 7 aborts.
+
+### Mode semantics
+
+`--mode` decides what happens to the **parent** while the child plan runs. The value lives on the child's `spawnedFrom.mode` (written in step 8).
+
+- **`--mode pause` (fully implemented in F1).** The parent suspends and waits for the child at the anchor phase:
+  - Parent plan `P` → `status: paused`, and its anchor phase (`--from <phaseId>`, constrained to be `currentPhase` — see step 1) → `status: paused`. This is the **same effect** `switch`/cascade-pause produces (`{{ASSETS_PATH}}/project-transitions.md` → `switch`, which demotes a paused plan's active phase), but `fork-plan` pauses the **named** `--from` phase explicitly rather than relying on cascade-pause's "demote whatever phase is active" — they coincide only because `--from` is required to be the active phase, and the explicit pause keeps the behavior correct even if that invariant ever loosens. The paused-plan hygiene invariant (`refresh-state` → `reconcile-focus`) then holds: no `active` phase is left under the paused parent.
+  - This pause happens in **step 6, before the step-7 handoff** — so `new plan`'s single-active-plan pre-flight sees the parent already paused.
+  - The child plan is born `active` (via the `new plan` handoff in step 7).
+  - The resume — un-pausing `P` and reactivating the anchor phase when the child completes/archives — is **not** part of this rung; it is the archive-propagation loop delivered in a later phase. `fork-plan --mode pause` only establishes the paused parent + active child here.
+- **`--mode parallel` (REJECTED until F2).** The parallel mode keeps the parent `active` in its own worktree alongside an `active` child in a separate worktree — which requires a cross-worktree **state protocol** (atomic, concurrency-safe writes to the shared project state from two live worktrees). That protocol does not exist yet; it is **F2** (`plan-fork-f2-protocolo-de-estado-parallel-cross-workt`). So in F1, `--mode parallel` is **rejected in step 2 — before any gate or write — with a clear message**:
+
+  > `fork-plan --mode parallel` is not available yet — the cross-worktree state protocol it depends on lands in phase F2 (protocolo de estado parallel cross-worktree). Re-run with `--mode pause`, or wait for F2.
+
+  The rejection is a **numbered procedure step** (step 2), not just prose here, so an executor walking Steps 1→8 cannot fall through to the step-8 write with `parallel`. No `spawnedFrom`/`spawnedPlans` edge and no cross-worktree state is ever written under `parallel` before the protocol exists — writing a `parallel` edge now would strand the project in a concurrency mode nothing can safely service.
+
+  The cross-worktree state protocol the `parallel` mode needs is **specified** in `docs/design/plan-fork-parallel-state.md` (F2: canonical-owner = the parent's own worktree, content-hash compare-and-swap, abort + durable `pendingWriteback` on conflict). Step 2 keeps rejecting `parallel` until that protocol is **implemented** (`src/parallel-state.js`, F2/T-002) and this verb is wired to it — the spec existing is necessary but not sufficient to lift the runtime rejection.
+
 ## Why provenance + context live on the item itself (not a separate log)
 
 Every emergent item carries two co-located blocks in its frontmatter:
