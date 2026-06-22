@@ -1,8 +1,25 @@
 # Realocar `_assets/` para fora da árvore de comandos (skills-restructuring F0B)
 
-> Status: **blueprint** (não implementado). Snapshot pra retomar numa sessão/worktree nova.
-> Vira a fase **F0B** do `skills-restructuring` — **antes de F1** (a refatoração F1–F3 move
-> MAIS conteúdo pra `_assets/`; relocar depois empilharia poluição + forçaria re-migração).
+> Status: **IMPLEMENTADO (2026-06-22) — via PLANO B, não o A**. O bloco abaixo é o blueprint
+> histórico; a decisão final divergiu do "plano A (runtime)" que o usuário inclinava aqui.
+>
+> **O que shipou (plano B — irmão de `commands/`, manifest-trackado):** os assets passam de
+> `<ide.dir>/atomic-skills/_assets` para o **irmão** `<dirname(ide.dir)>/atomic-skills/_assets`
+> (ex.: `.claude/commands/atomic-skills/_assets` → `.claude/atomic-skills/_assets`), fora da
+> árvore varrida pelo IDE. Helper único `getAssetsDir(ideId)` em `src/config.js`, consumido por
+> `src/render.js` (ASSETS_PATH) e `src/providers/skills-file-set.js` (destBase) — write == read.
+> Sem mexer em `install.js`/`uninstall.js`: os assets continuam manifest-trackados, então
+> `reconcileFileSet`/`replayReverse` revertem de graça (round-trip 9/9 sem editar o teste) e o
+> próximo install **reapa** o `_assets/` antigo sob `commands/` como órfão (P3).
+>
+> **Por que B e não A** (robustez/resíduo, validado): A (runtime refcountado) usaria `rmSync`
+> cego em `removeRuntimeArtifacts` → violaria P3 (apagaria asset editado sem prova) + exigiria
+> estender o reclaim ou deixaria resíduo `.atomic-skills/_assets/…`; e jogaria assets de
+> install-de-projeto pro `$HOME`. B preserva a HARD RULE de paridade sem nenhum código novo de
+> reversão. Suite 1322/1322, validate-skills 15/15, round-trip empírico (install→uninstall) =
+> `$HOME` vazio.
+>
+> O resto deste doc é o blueprint original (inclui a change-list do plano A, NÃO seguida).
 
 ## Problema
 

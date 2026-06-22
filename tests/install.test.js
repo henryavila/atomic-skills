@@ -275,10 +275,10 @@ describe('installSkills', () => {
       scope: 'project',
     });
 
-    const expected = join(projectDir, '.claude/commands/atomic-skills/_assets/sample.md');
+    const expected = join(projectDir, '.claude/atomic-skills/_assets/sample.md');
     assert.ok(existsSync(expected), `expected ${expected} to exist`);
     const content = readFileSync(expected, 'utf8');
-    assert.ok(content.includes('.claude/commands/atomic-skills/_assets'),
+    assert.ok(content.includes('.claude/atomic-skills/_assets'),
       'ASSETS_PATH should be substituted');
   });
 
@@ -343,7 +343,7 @@ describe('installSkills', () => {
       scope: 'project',
     });
 
-    const assetsDir = pjoin(projectDir, '.claude/commands/atomic-skills/_assets');
+    const assetsDir = pjoin(projectDir, '.claude/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
     // post-consolidation namespace assets: codex-bridge assets + project-assets top-level + hooks/ subdir + design-brief-assets = 50 entries (incl. project-consolidate.md + review-plan-target-resolution.md)

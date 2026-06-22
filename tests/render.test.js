@@ -56,22 +56,22 @@ describe('renderTemplate', () => {
 
   it('substitutes ASSETS_PATH for claude-code IDE', () => {
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'claude-code');
-    assert.ok(result.includes('asset at .claude/commands/atomic-skills/_assets/foo.md'));
+    assert.ok(result.includes('asset at .claude/atomic-skills/_assets/foo.md'));
   });
 
   it('substitutes ASSETS_PATH for cursor IDE', () => {
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'cursor');
-    assert.ok(result.includes('asset at .cursor/skills/atomic-skills/_assets/foo.md'));
+    assert.ok(result.includes('asset at .cursor/atomic-skills/_assets/foo.md'));
   });
 
   it('substitutes ASSETS_PATH for codex IDE', () => {
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'codex');
-    assert.ok(result.includes('asset at .agents/skills/atomic-skills/_assets/foo.md'));
+    assert.ok(result.includes('asset at .agents/atomic-skills/_assets/foo.md'));
   });
 
   it('substitutes ASSETS_PATH for gemini-commands IDE (TOML flat pattern)', () => {
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'gemini-commands');
-    assert.ok(result.includes('asset at .gemini/commands/atomic-skills-_assets/foo.md'),
+    assert.ok(result.includes('asset at .gemini/atomic-skills-_assets/foo.md'),
       `expected TOML flat pattern, got: ${result}`);
   });
 
@@ -79,13 +79,13 @@ describe('renderTemplate', () => {
     // A user-scope install lives under $HOME; a relative path only resolves
     // when CWD is $HOME itself, so the skill breaks in every other repo.
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'claude-code', 'user');
-    assert.ok(result.includes('asset at ~/.claude/commands/atomic-skills/_assets/foo.md'),
+    assert.ok(result.includes('asset at ~/.claude/atomic-skills/_assets/foo.md'),
       `expected ~/ prefix for user scope, got: ${result}`);
   });
 
   it('keeps ASSETS_PATH relative for project-scope installs', () => {
     const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'claude-code', 'project');
-    assert.ok(result.includes('asset at .claude/commands/atomic-skills/_assets/foo.md'),
+    assert.ok(result.includes('asset at .claude/atomic-skills/_assets/foo.md'),
       `expected relative path for project scope, got: ${result}`);
     assert.ok(!result.includes('~/'), 'project scope must not get the ~/ prefix');
   });

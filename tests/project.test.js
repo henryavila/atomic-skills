@@ -39,7 +39,7 @@ describe('project skill (unified router + lazy assets)', () => {
   }
 
   const ROUTER = '.claude/commands/atomic-skills/project.md';
-  const ASSET = (name) => `.claude/commands/atomic-skills/_assets/${name}`;
+  const ASSET = (name) => `.claude/atomic-skills/_assets/${name}`;
 
   function readRouter() {
     return readFileSync(join(tempDir, ROUTER), 'utf8');

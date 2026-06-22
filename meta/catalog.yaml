@@ -981,7 +981,7 @@ module_meta:
       - 'Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)'
       - 'Briefing templates (plan + code) and consolidated review file template'
       - 'Reviews INDEX.md row template'
-    notes: 'Assets are installed per-IDE at `<ide-namespace>/_assets/` (e.g. `.claude/commands/atomic-skills/_assets/`) and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
+    notes: 'Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
   auto-update:
     title: 'Auto-Update'
     version_added: '1.8.0'

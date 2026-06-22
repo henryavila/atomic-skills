@@ -3,11 +3,11 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { renderTemplate, renderForIDE } from '../render.js';
 import {
-  IDE_CONFIG,
   SKILL_NAMESPACE,
   getSkillPath,
   getSkillFormat,
   getNamespaceRootPath,
+  getAssetsDir,
 } from '../config.js';
 
 /**
@@ -114,10 +114,7 @@ export function computeSkillsFileSet(config) {
       const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
 
       for (const ideId of ides) {
-        const ide = IDE_CONFIG[ideId];
-        const destBase = ide.format === 'toml'
-          ? `${ide.dir}/${SKILL_NAMESPACE}-_assets`
-          : `${ide.dir}/${SKILL_NAMESPACE}/_assets`;
+        const destBase = getAssetsDir(ideId);
 
         for (const f of assetFiles) {
           if (f.isDirectory()) {

@@ -472,7 +472,7 @@ Shared infrastructure for the codex sub-flow inside `review-plan` and `review-co
 - Briefing templates (plan + code) and consolidated review file template
 - Reviews INDEX.md row template
 
-Assets are installed per-IDE at `<ide-namespace>/_assets/` (e.g. `.claude/commands/atomic-skills/_assets/`) and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
+Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
 
 ### Auto-Update (new in 1.8.0)
 
