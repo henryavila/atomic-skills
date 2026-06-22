@@ -21,6 +21,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project idea                         → capture an idea into the inbox (fork: Só salvar / Analisar)
 /atomic-skills:project idea list                    → zero-token view of the ideas.md inbox
 /atomic-skills:project idea promote <n>             → promote idea #n via the emergence ladder (ratify-gated)
+/atomic-skills:project finalize                     → publish plan/<slug> as a PR vs <integrationRef> (push + gh pr create); operator-prompted, pre-merge, pre-archive
 /atomic-skills:project done|push|pop|park|emerge|promote|switch|phase-done|phase-reopen|archive
 /atomic-skills:project why|re-ratify|scope-creep|review-due|detect-scope
 /atomic-skills:project adopt <file.md>|discover|migrate <slug>|re-bootstrap <slug>|split-phase <id>
@@ -43,6 +44,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `park`, `emerge`, `emerge --target`, `promote`, `new-task`, `new-phase`, `split-phase` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-emergence.md` |
 | `idea`, `idea list`, `idea promote <n>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-idea.md` |
 | `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
+| `finalize` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-finalize.md` |
 | `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
 | `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
 
@@ -88,7 +90,7 @@ Every code-modifying session must be anchored to an active initiative — a phas
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
-Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `verify`, `why`, `scope-creep`).
+Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `finalize`, `archive`, `switch`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `verify`, `why`, `scope-creep`).
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)

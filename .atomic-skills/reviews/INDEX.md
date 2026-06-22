@@ -36,3 +36,12 @@
 | 2026-06-16 07:49 | [design-brief-source-of-truth-f0](2026-06-16-0749-design-brief-source-of-truth-f0.md) | code (both) | needs_changes→all fixed | 0B/0C/3M/3m/0n (codex 2M + local 1M/3m) | 0d/2=/0+ |
 | 2026-06-17 15:36 | [reversible-installer](2026-06-17-1536-reversible-installer.md) | plan | needs_changes | 0B/2C/4M/0m/0n | 0d/5=/1+ |
 | 2026-06-19 19:58 | [reversible-installer-f3](2026-06-19-1958-reversible-installer-f3.md) | code (both) | needs_changes — GATE FAILED→FIXED | codex 0B/2C · local 1B/0C/1M/4m (2 criticals, A reproduced; both FIXED+tested, suite 830/816/2) | Pass2 deferred |
+| 2026-06-16 15:39 | [worktree-lifecycle-finalization](2026-06-16-1539-worktree-lifecycle-finalization.md) | plan | needs_changes | 0B/1C/4M/0m/0n | 1d/4=/1+ |
+| 2026-06-17 14:14 | [wlf-f1-integrationref](2026-06-17-1414-wlf-f1-integrationref.md) | code (both) | approve | 0B/0C/0M/0m/0n (codex final; blind 1M/1m + local 1M/3m, fixes applied) | 2d/0=/0+ |
+| 2026-06-17 16:51 | [wlf-f2-teardown-squash-safe](2026-06-17-1651-wlf-f2-teardown.md) | code (both) | approve | 0B/0C/0M/0m/0n (codex final; blind 1M/1m + local 3m, fixes applied as hardening) | 2d/0=/0+ |
+| 2026-06-17 18:50 | [wlf-f3-project-finalize](2026-06-17-1850-wlf-f3-project-finalize.md) | code (both) | needs_changes→all fixed | 0B/0C/4M/0m/0n (codex final, all applied; local 1C/1M/1m) | 2d/3=/1+ |
+| 2026-06-17 20:30 | [wlf-f4-cross-wt-collision](2026-06-17-2030-wlf-f4-cross-wt-collision.md) | code (both) | needs_changes→all fixed | 0B/0C/2M/2m/0n (codex final, all applied; local 2M/4m) | 0d/3=/1+ |
+| 2026-06-17 21:00 | [wlf-f5-coupling-ndjson-union](2026-06-17-2100-wlf-f5-coupling-ndjson-union.md) | code (both) | needs_changes→all fixed | 0B/0C/1M/1m/2n (codex blind 1M caught local-missed; local 1m/2n) | 2d/1=/0+ |
+| 2026-06-17 21:30 | [wlf-f6-orphan-worktrees](2026-06-17-2130-wlf-f6-orphan-worktrees.md) | code (both) | needs_changes→all fixed | 0B/0C/2M/4m/2n (codex blind 2M caught local-missed-logic; emerged 1m pass-2) | 3d/1=/1+ |
+| 2026-06-17 23:00 | [wlf-f7-dedup-review-ledger](2026-06-17-2300-wlf-f7-dedup-review-ledger.md) | code (both) | needs_changes→all fixed | 0B/0C/5M/2m/2n (codex blind 5M caught 4 local-missed-logic + doc; local 1M doc/1m/2n; pass-2 emerged 0) | 0d/5=/0+ |
+| 2026-06-19 18:03 | [wlf-f8-finalize-plan-aware](2026-06-19-1803-wlf-f8-finalize-plan-aware.md) | code (both) | needs_changes→all fixed | 0B/0C/4M/0m/0n (codex final, all applied; blind 3M/1m, pass-2 upgraded F-003 minor→major; local 2M/2m disjoint) | 0d/4=/0+ |

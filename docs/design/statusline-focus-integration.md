@@ -59,7 +59,8 @@ do foco atual. O claudebar nunca anda na árvore — só lê este arquivo.
 
   "flags": {
     "drift": false,                       // detect-completion.js encontrou deriva
-    "multipleActivePlans": true           // há >1 plano active; foco escolhido por current:true
+    "multipleActivePlans": false,         // tree-relative: >1 plano disputa ESTA árvore
+    "unclaimedBranch": false              // branch conhecida que nenhum plano ativo reivindica
   },
 
   "sources": [                            // arquivos de que ESTE digest foi derivado.
@@ -87,9 +88,18 @@ do foco atual. O claudebar nunca anda na árvore — só lê este arquivo.
 - **Sem foco ⇒ digest com `plan: null` e `sources: []`** (não apagar o arquivo). Assim o
   consumidor distingue "sem plano ativo" (renderiza nada) de "produtor nunca rodou"
   (arquivo ausente → renderiza nada também, mas é estado diferente para debug).
-- **`multipleActivePlans`**: o repo já permite >1 plano `active`. O foco exibido é sempre a fase
-  marcada `current: true` por `reconcile-focus.js`. O flag só serve para o consumidor poder
-  (opcionalmente) sinalizar ambiguidade.
+- **Seleção do foco (tree-relative, NÃO `current:true`)**: o repo permite >1 plano `active`, então
+  `pickFocus` (`emit-focus.js`) escolhe **por árvore**, não por um marcador global. Precedência:
+  match exato de `branch:` > plano sem branch (reivindica qualquer árvore); empate por recência
+  (`lastUpdated`). `current:true` (carimbado por `reconcile-focus.js`) NÃO decide o foco — é
+  por-plano e não desambigua entre planos.
+- **`multipleActivePlans`** (tree-relative): `true` só quando >1 plano ativo disputa a árvore
+  ATUAL — a deriva que o enforcer worktree-por-plano previne. Worktrees isoladas (cada plano na
+  sua branch) nunca dão `true`. Sem contexto de branch (HEAD destacado) qualquer >1 ativo conta.
+- **`unclaimedBranch`**: `true` quando a branch é conhecida mas nenhum plano ativo a reivindica
+  (todos estão em outras branches). Nesse caso `plan: null` por design — o produtor nunca mostra
+  um plano de outra árvore como foco. Resolve-se com `node scripts/bind-plan-branch.js <slug>`,
+  que carimba a branch atual no plano escolhido.
 - **`phase.index`/`total`** são pré-computados na emissão (índice de `currentPhase` em
   `plan.phases[]`, 1-based). Consumidor nunca calcula.
 - **Versão**: `schemaVersion: "0.1"`. Mudança incompatível ⇒ bump + o consumidor degrada
@@ -112,11 +122,13 @@ Tudo que muta estado chama **só** isto. Rodar "demais" é inofensivo (idempoten
 ### 2.2 `scripts/emit-focus.js` (novo)
 
 ```
-1. Resolve foco:
+1. Resolve foco (pickFocus, tree-relative):
    - varre projects/*/ ; acha plano(s) com status:active
-   - acha a fase com current:true  (já pré-computada por reconcile-focus)
-   - se nenhum  -> emite { plan:null, sources:[] }
-   - se múltiplos active -> usa o que tem current:true ; seta flags.multipleActivePlans
+   - se nenhum ativo            -> emite { plan:null, sources:[] }
+   - na branch atual: claimers = match exato de branch: + planos sem branch
+       . há claimer -> foco = mais recente (exato>sem-branch); multipleActivePlans = claimers>1
+       . nenhum claimer (todos em outras branches) -> { plan:null, flags.unclaimedBranch=true }
+   - sem branch (HEAD destacado) -> mais recente; multipleActivePlans = ativos>1
 2. phase.index/total <- posição de plan.currentPhase em plan.phases[]
 3. tasks/gates <- rollups do frontmatter da fase corrente
 4. nextAction  <- frontmatter da fase corrente

@@ -93,11 +93,13 @@ A non-zero exit means at least one `### Tn` task lacks one of its four HOW field
 
 ### Stage 6 — Create Plan + Initiatives
 
-**Single-focus pre-flight (R-FOCUS-01) — at most one active plan claims a working tree.** The plan you are about to create is `active`. Before materializing, detect other active plans with {{BASH_TOOL}} (`status: active` across `.atomic-skills/projects/*/*/plan.md`). If any already exist, this is a **concurrent front** and the focus becomes ambiguous — the statusline / `focus.json` cannot tell which plan is "current" because they share one working tree. Resolve it with {{ASK_USER_QUESTION_TOOL}} **before** choosing the `branch` value passed to `materializeDecomposition`:
+**Single-focus pre-flight (R-FOCUS-01) — at most one active plan per working tree.** The plan you are about to create is `active` and, under always-fork (Decisão 1), gets its own `plan/<slug>` branch + worktree at creation — so it never shares the current tree. What the pre-flight resolves is any **pre-existing** active plan still on `branch: null` (the legacy lazy default) that shares the current tree: detect them with {{BASH_TOOL}} (`status: active` across `.atomic-skills/projects/*/*/plan.md`). If any such legacy plan exists, this is a **concurrent front** and the focus becomes ambiguous — the statusline / `focus.json` cannot tell which plan is "current". Resolve it with {{ASK_USER_QUESTION_TOOL}} **before** materializing the entering plan (which always passes `branch: 'plan/<slug>'`):
 
-- **Own worktree (parallel — recommended for genuinely parallel work):** create an isolated home per `skills/shared/worktree-isolation.md` (`git worktree add -b plan/<slug> <path>`), pass `branch: 'plan/<slug>'`, and stamp a **distinct** `branch:` on any pre-existing active plan that still has `branch: null` (its own `plan/<other-slug>`). Each active plan then owns a tree → focus resolves per-worktree, no `⧉`.
-- **Pause the others (sequential — one front at a time):** set every other active plan to `status: paused` and cascade-pause its `active` phase, exactly as `switch` does (project-transitions.md → `switch`); pass `branch: '<current-branch-or-null>'`. One tree, one focus.
-- **Proceed anyway (accept the drift):** keep the others active; pass `branch: '<current-branch>'` (`git symbolic-ref --short HEAD`) so focus has at least a signal. The `⧉` multi-active marker shows until resolved, and `verify` reports it (§3 branch match).
+Na criação, todo plano — solo ou concorrente — forka incondicionalmente sua própria branch `plan/<slug>` e sua própria worktree. Passe `branch: 'plan/<slug>'` para `materializeDecomposition`, revertendo o padrão preguiçoso anterior de permanecer com `branch: null` no caso solo.
+
+- **Own worktree (parallel — recommended for genuinely parallel work):** create an isolated home per `skills/shared/worktree-isolation.md` (`git worktree add -b plan/<slug> <path>`), pass `branch: 'plan/<slug>'`, and stamp a **distinct** `branch:` on any pre-existing active plan that still has `branch: null` (its own `plan/<other-slug>`). Antes de materializar/escrever o plano entrante, capture o source-ref do pré-existente (o ref onde o trabalho dele ainda está, por exemplo `git rev-parse HEAD` na árvore atual) e materialize a worktree retroativa com `retroactiveWorktreeAdd({ slug, baseRef })`, semeada nesse ref capturado — nunca no HEAD pós-mutação, para não vazar artefatos do entrante; o comando nunca usa `--force`. Each active plan then owns a tree → focus resolves per-worktree, no `⧉`.
+- **Pause the others (sequential — one front at a time):** set every other active plan to `status: paused` and cascade-pause its `active` phase, exactly as `switch` does (project-transitions.md → `switch`). The entering plan still forks its own `plan/<slug>` (always-fork); pausing the others leaves a single active front.
+- **Proceed anyway (accept the drift):** keep the others active on their current branches; the entering plan forks `plan/<slug>` regardless. The `⧉` multi-active marker shows for any other plan still on `branch: null` until it is stamped, and `verify` reports it (§3 branch match).
 
 This is the **soft** form — detect + guided choice, never a silent multi-active; **record the chosen isolation verbatim, never default to "proceed".** The **hard** form (block a 2nd active plan that shares a tree with no distinct `branch:`) is `verify`'s `WARN → FAIL` promotion, the same dry-run→strict ladder as the other gates.
 
@@ -108,7 +110,7 @@ node -e "
 import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
   const md = require('node:fs').readFileSync('<source.md>', 'utf8');
   const result = decomposePlan(md, { planSlug: '<slug>' });
-  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>' });
+  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: 'plan/<slug>' });
   console.log(JSON.stringify(files));
 });"
 ```

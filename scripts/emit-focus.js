@@ -111,17 +111,29 @@ function recentFirst(plans) {
  * enforcer prevents. When the branch is unknown (detached HEAD / no git) branch
  * cannot disambiguate, so any >1 active plans are reported ambiguous.
  *
- * Focus precedence: exact branch-match > unbranched > any active (last resort);
+ * `unclaimed` means we are on a known branch that NO active plan claims (every
+ * active plan is bound to some OTHER branch). We deliberately do NOT fall back to
+ * a foreign-tree plan — showing a plan that belongs to another worktree as "your
+ * focus here" is a false signal. The caller emits an empty focus + the
+ * `unclaimedBranch` flag so the consumer can prompt the user to bind a plan to
+ * this branch (`scripts/bind-plan-branch.js`).
+ *
+ * Focus precedence (when a claimer exists): exact branch-match > unbranched;
  * ties broken by recency. Mirrors session-start.sh's branch-then-recency intent.
+ *
+ * @returns {{plan: object|null, init: object|null, ambiguous: boolean, unclaimed: boolean}}
  */
 function pickFocus(activePlans, branch) {
-  let claimers;
   let pool;
+  let claimers;
   if (branch) {
     const exact = activePlans.filter((p) => branchOf(p) === branch);
     const unbranched = activePlans.filter((p) => branchOf(p) === null);
     claimers = [...exact, ...unbranched]; // a plan branched elsewhere does NOT claim this tree
-    pool = exact.length ? exact : unbranched.length ? unbranched : activePlans;
+    pool = exact.length ? exact : unbranched; // NO last-resort to a foreign-tree plan
+    if (pool.length === 0) {
+      return { plan: null, init: null, ambiguous: false, unclaimed: true };
+    }
   } else {
     claimers = activePlans; // no branch context → cannot disambiguate by tree
     pool = activePlans;
@@ -131,6 +143,7 @@ function pickFocus(activePlans, branch) {
     plan,
     init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
     ambiguous: claimers.length > 1,
+    unclaimed: false,
   };
 }
 
@@ -184,7 +197,7 @@ export function buildFocusDigest(dir, { now = new Date().toISOString(), drift = 
     tasks: null,
     gates: null,
     nextAction: null,
-    flags: { drift: false, multipleActivePlans: false },
+    flags: { drift: false, multipleActivePlans: false, unclaimedBranch: false },
     sources: [],
   };
 
@@ -192,7 +205,13 @@ export function buildFocusDigest(dir, { now = new Date().toISOString(), drift = 
   const activePlans = plans.filter((p) => p.fm.status === 'active');
   if (activePlans.length === 0) return empty;
 
-  const { plan, init, ambiguous } = pickFocus(activePlans, branch);
+  const { plan, init, ambiguous, unclaimed } = pickFocus(activePlans, branch);
+  // Known branch that no active plan claims: emit an empty focus (never a
+  // foreign-tree plan) + the flag the consumer uses to offer a bind.
+  if (unclaimed) {
+    return { ...empty, generatedAt: now, flags: { drift: Boolean(drift), multipleActivePlans: false, unclaimedBranch: true } };
+  }
+
   const sources = [{ path: rel(plan.planFile), lastUpdated: plan.fm.lastUpdated ?? null }];
   if (init) sources.push({ path: rel(init.file), lastUpdated: init.fm.lastUpdated ?? null });
 
@@ -205,7 +224,7 @@ export function buildFocusDigest(dir, { now = new Date().toISOString(), drift = 
     tasks: taskCounts(init),
     gates: gateCounts(init),
     nextAction: (init?.fm.nextAction ?? null) || null,
-    flags: { drift: Boolean(drift), multipleActivePlans: ambiguous },
+    flags: { drift: Boolean(drift), multipleActivePlans: ambiguous, unclaimedBranch: false },
     sources,
   };
 }
