@@ -333,6 +333,11 @@
         "group": "Lifecycle"
       },
       {
+        "name": "consolidate",
+        "description": "Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize)",
+        "group": "Lifecycle"
+      },
+      {
         "name": "archive",
         "description": "Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)",
         "group": "Lifecycle"

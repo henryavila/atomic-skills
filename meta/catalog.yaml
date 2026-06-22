@@ -375,6 +375,11 @@ core:
         signature: ''
         description: 'Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive'
         example: '/atomic-skills:project finalize'
+      - name: consolidate
+        group: 'Lifecycle'
+        signature: ''
+        description: 'Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize)'
+        example: '/atomic-skills:project consolidate'
       - name: archive
         group: 'Lifecycle'
         signature: '[<slug>]'
