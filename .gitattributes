@@ -9,4 +9,6 @@
 # appends from parallel feature worktrees merge losslessly. union-merge is only
 # safe on line-oriented files — see skills/shared/mode2-codex-lane.md §9.
 # Pointwise/overwritten JSON (last-review, last-session, routing) get NO union.
+# (The `project consolidate` driver carries the same union as a fallback for trees
+# where these attributes are not yet active.)
 scripts/emit-consumer-state.js text
