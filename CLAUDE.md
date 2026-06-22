@@ -59,7 +59,7 @@ its reversal — that is the gate.
 ## install.js ↔ uninstall.js map
 
 **The flip (T-F3-4) made install/uninstall thin over the
-`@henryavila/minimalist-installer` engine (consumed via `file:` link).** The
+`@henryavila/minimalist-installer` engine (consumed via the published npm package).** The
 install-base file domain is now a JOURNAL of reversible effects — `installSkills`
 delegates to `buildInstaller().install()` (`src/installer.js`), and `uninstall`
 calls `buildInstaller({}).uninstall()` which **replays the journal in reverse**
