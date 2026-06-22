@@ -1,0 +1,7 @@
+# Fase 0 — append-only state ledgers union losslessly so N-worktree consolidation
+# never hand-merges them (git applies the union driver natively at merge time).
+# NDJSON sidecar log (one JSON object per line):
+.atomic-skills/status/dispatch-log.json merge=union
+# Append-only markdown ledgers (date-keyed / append-list rows are line-independent):
+.atomic-skills/reviews/INDEX.md merge=union
+.atomic-skills/projects/*/ideas.md merge=union
