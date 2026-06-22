@@ -326,7 +326,7 @@ export function removeLegacyOrphans(basePath, orphans) {
 
 /**
  * Core install logic (non-interactive, testable) — flipped onto the
- * @henryavila/tooling-installer engine (T-F3-4). It delegates every file mutation
+ * @henryavila/minimalist-installer engine (T-F3-4). It delegates every file mutation
  * to the install-base Driver (`buildInstaller`): the SkillsProvider emits the
  * skill file set (reconcileFileSet) and the auto-update runtime layer emits the
  * executable hook (stageRuntimeArtifacts) + the settings.json SessionStart entry

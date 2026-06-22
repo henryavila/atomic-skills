@@ -57,7 +57,7 @@
   "dependencies": {
     "@clack/prompts": "^1.2.0",
     "@henryavila/aideck": "^0.1.0",
-    "@henryavila/tooling-installer": "file:../../../tooling-installer",
+    "@henryavila/minimalist-installer": "file:../../../tooling-installer",
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",
     "yaml": "^2.9.0"

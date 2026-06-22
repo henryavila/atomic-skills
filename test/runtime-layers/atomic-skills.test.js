@@ -6,7 +6,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { defineInstaller } from '@henryavila/tooling-installer';
+import { defineInstaller } from '@henryavila/minimalist-installer';
 import { createStageRuntimeArtifactsEffect } from '../../src/runtime-layers/effects/stage-runtime-artifacts.js';
 import { createAideckRuntimeProvider } from '../../src/runtime-layers/aideck.js';
 import { createAutoUpdateRuntimeProvider } from '../../src/runtime-layers/auto-update.js';

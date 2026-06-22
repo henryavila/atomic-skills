@@ -4,12 +4,12 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { defineInstaller, createFileSetProvider } from '@henryavila/tooling-installer';
+import { defineInstaller, createFileSetProvider } from '@henryavila/minimalist-installer';
 
-// T-F3-1 smoke: prove atomic-skills can consume @henryavila/tooling-installer
+// T-F3-1 smoke: prove atomic-skills can consume @henryavila/minimalist-installer
 // through the file: link end-to-end (not just that imports resolve). The full
 // SkillsProvider rewire is the later F3 slices; this only verifies the seam.
-describe('tooling-installer link smoke (T-F3-1)', () => {
+describe('minimalist-installer link smoke (T-F3-1)', () => {
   let dir;
 
   afterEach(() => {

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import {
   defineInstaller, createFileSetProvider, readManifest,
-} from '@henryavila/tooling-installer';
+} from '@henryavila/minimalist-installer';
 import {
   migrateLegacyManifest, migrateLegacyInstall,
 } from '../src/migrate-legacy-install.js';

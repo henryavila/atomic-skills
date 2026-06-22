@@ -1,4 +1,4 @@
-import { readManifest, writeManifest } from '@henryavila/tooling-installer';
+import { readManifest, writeManifest } from '@henryavila/minimalist-installer';
 
 // T-F3-6 — migrate a pre-kernel (legacy) install into journal ownership records.
 //

@@ -2,7 +2,7 @@ import { computeSkillsFileSet } from './skills-file-set.js';
 
 /**
  * SkillsProvider — a pure planner (the Provider contract from
- * @henryavila/tooling-installer) that maps the atomic-skills config to a single
+ * @henryavila/minimalist-installer) that maps the atomic-skills config to a single
  * reconcileFileSet effect whose desired file set reproduces installSkills'
  * footprint (skill bodies + shared assets + namespace roots).
  *

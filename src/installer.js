@@ -1,11 +1,11 @@
-import { defineInstaller } from '@henryavila/tooling-installer';
+import { defineInstaller } from '@henryavila/minimalist-installer';
 import { createSkillsProvider } from './providers/skills-provider.js';
 import { createAutoUpdateRuntimeProvider } from './runtime-layers/auto-update.js';
 import { createStageRuntimeArtifactsEffect } from './runtime-layers/effects/stage-runtime-artifacts.js';
 import { MANIFEST_DIR } from './manifest.js';
 
 /**
- * Build the install-base installer over the @henryavila/tooling-installer engine
+ * Build the install-base installer over the @henryavila/minimalist-installer engine
  * (T-F3-4 flip). The journal lives at <projectDir>/<MANIFEST_DIR>/manifest.json
  * and records the install-base effects:
  *
