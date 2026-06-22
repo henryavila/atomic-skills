@@ -40,6 +40,12 @@ const POINTWISE_STATE = new Set([
 const GENERATED_DEFAULT = new Set([
   'src/dashboard/data/skills.generated.ts',
   'assets/aideck-consumer/schema.json',
+  'package-lock.json', // lockfile: resolve then `npm install` to relock against the merged package.json
+]);
+// Additive line-oriented config (ignore lists / attribute rules) union losslessly.
+const CONFIG_UNION = new Set([
+  '.gitignore',
+  '.gitattributes',
 ]);
 
 const IDEAS_GLOB = /^\.atomic-skills\/projects\/[^/]+\/ideas\.md$/;
@@ -64,6 +70,9 @@ export function classifyConflictPath(path, opts = {}) {
   }
   if (LEDGER_APPEND.has(p) || IDEAS_GLOB.test(p)) {
     return mk('ledger-append', 'union', true, 'append-only ledger; line union is lossless');
+  }
+  if (CONFIG_UNION.has(p)) {
+    return mk('config-union', 'union', true, 'additive line-oriented config (ignore/attribute rules); union is lossless');
   }
   if (POINTWISE_STATE.has(p)) {
     return mk('pointwise-state', 'last-writer-wins', true, 'single-value machine state; newest writer wins');

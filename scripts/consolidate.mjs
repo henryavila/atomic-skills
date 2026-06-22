@@ -68,11 +68,16 @@ const showStage = (n, path) => git(['show', `:${n}:${path}`], { allowFail: true 
 const isAncestor = (a, b) => git(['merge-base', '--is-ancestor', a, b], { allowFail: true }) !== null;
 
 function findRevertOfMerge(branch) {
+  // The actual revert is a `Revert "<original subject>"` commit — NOT the merge
+  // commit of the revert PR. Exclude merges and require the subject to start with
+  // `Revert "` so we revert the content-revert, not a merge (which needs -m).
   const slug = branch.replace(/^plan\//, '');
-  const log = git(['log', BASE, '--grep=^Revert', '--format=%H\t%s'], { allowFail: true }) || '';
+  const log = git(['log', BASE, '--no-merges', '--grep=^Revert "', '--format=%H\t%s'], { allowFail: true }) || '';
   for (const line of log.split('\n').filter(Boolean)) {
-    const [sha, ...rest] = line.split('\t');
-    if (rest.join('\t').includes(slug)) return sha;
+    const tab = line.indexOf('\t');
+    const sha = line.slice(0, tab);
+    const subj = line.slice(tab + 1);
+    if (subj.startsWith('Revert "') && subj.includes(slug)) return sha;
   }
   return null;
 }
@@ -119,19 +124,27 @@ function applyPolicy(path, c) {
 const audit = [];
 let stopped = null;
 
+// A revert-of-revert is already applied when HEAD history records reverting that sha.
+const revertAlreadyUndone = (sha) =>
+  (git(['log', 'HEAD', '--grep', `This reverts commit ${sha}`, '--format=%H'], { allowFail: true }) || '').trim() !== '';
+
 for (const branch of BRANCHES) {
-  if (isAncestor(branch, 'HEAD')) { audit.push({ branch, action: 'skip (already merged)' }); continue; }
   const ahead = Number((git(['rev-list', '--count', `${BASE}..${branch}`], { allowFail: true }) || '0').trim());
   const revertSha = REVERTED.has(branch) || ahead === 0 ? findRevertOfMerge(branch) : null;
   const decision = classifyBranchIntegration({ aheadCount: ahead, revertOfMergeSha: revertSha });
 
-  if (decision.action === 'skip-noop') { audit.push({ branch, action: 'skip (ahead=0, no revert)' }); continue; }
+  // revert-of-revert is decided BEFORE the ancestor-skip: a merged-then-reverted
+  // branch IS an ancestor of HEAD (its commits are in history) yet its CONTENT is
+  // absent — skipping it would silently drop the feature.
   if (decision.action === 'revert-of-revert') {
+    if (revertAlreadyUndone(decision.revertSha)) { audit.push({ branch, action: 'skip (revert-of-revert already applied)' }); continue; }
     const r = git(['revert', '--no-edit', decision.revertSha], { allowFail: true });
     if (r == null) { stopped = { branch, reason: `revert-of-revert ${decision.revertSha} conflicted — manual` }; break; }
     audit.push({ branch, action: `revert-of-revert (${decision.revertSha.slice(0, 7)})`, note: 'merged-then-reverted restored' });
     continue;
   }
+  if (isAncestor(branch, 'HEAD')) { audit.push({ branch, action: 'skip (already merged)' }); continue; }
+  if (decision.action === 'skip-noop') { audit.push({ branch, action: 'skip (ahead=0, no revert)' }); continue; }
 
   // standard merge
   const merged = git(['merge', '--no-ff', '--no-edit', branch], { allowFail: true });
@@ -150,7 +163,7 @@ for (const branch of BRANCHES) {
   audit.push({ branch, action: 'merge + typed-resolution', autoResolved: resolved.length, resolved, ejected });
 
   if (ejected.length) { stopped = { branch, ejected }; break; }
-  git(['commit', '--no-edit']); // complete the fully-auto merge
+  git(['commit', '--no-edit', '--no-verify']); // complete the fully-auto merge (skip per-commit doc hooks on intermediate trees)
 }
 
 // ── report ──

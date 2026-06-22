@@ -43,13 +43,20 @@ test('classifyConflictPath: PROJECT-STATUS.md (narrative) → take-ours-verify, 
   }
 });
 
-test('classifyConflictPath: generated artifacts (default + injected) → regenerate', () => {
+test('classifyConflictPath: generated artifacts + lockfile (default + injected) → regenerate', () => {
   assert.equal(classifyConflictPath('assets/aideck-consumer/schema.json').policy, 'regenerate');
   assert.equal(classifyConflictPath('src/dashboard/data/skills.generated.ts').policy, 'regenerate');
+  assert.equal(classifyConflictPath('package-lock.json').policy, 'regenerate');
   assert.equal(
     classifyConflictPath('build/gen.ts', { generatedPaths: ['build/gen.ts'] }).policy,
     'regenerate',
   );
+});
+
+test('classifyConflictPath: additive config dotfiles → union (auto)', () => {
+  assert.equal(classifyConflictPath('.gitignore').policy, 'union');
+  assert.equal(classifyConflictPath('.gitattributes').policy, 'union');
+  assert.equal(classifyConflictPath('.gitignore').class, 'config-union');
 });
 
 test('classifyConflictPath: FAIL-CLOSED — semantic/unknown source → eject (never auto)', () => {
