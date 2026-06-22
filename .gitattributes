@@ -3,4 +3,11 @@
 # safe on line-oriented files — see skills/shared/mode2-codex-lane.md §9.
 # Pointwise/overwritten JSON (last-review, last-session, routing) get NO union.
 .atomic-skills/status/dispatch-log.json merge=union
+# Append-only markdown ledgers (date-keyed / append-list rows are line-independent)
+# also union losslessly — wired so N-worktree consolidation never hand-merges them
+# (the dominant repeated-conflict tail in the 7-plan consolidation). The
+# `project consolidate` driver carries the same union as a fallback for trees
+# where this attribute is not yet active.
+.atomic-skills/reviews/INDEX.md merge=union
+.atomic-skills/projects/*/ideas.md merge=union
 scripts/emit-consumer-state.js text
