@@ -23,6 +23,7 @@ import {
   classifyConflictPath,
   unionLines,
   pickNewerByTimestamp,
+  jsonCarriesTimestamp,
   classifyBranchIntegration,
 } from './consolidation-resolve.js';
 
@@ -43,6 +44,10 @@ const BRANCHES = (args.branches || '').split(',').map((s) => s.trim()).filter(Bo
 const REVERTED = new Set((args.reverted || '').split(',').map((s) => s.trim()).filter(Boolean));
 const REGEN = args.regen || '';
 const GATE = args.gate || '';
+// Repo-config for the two classes with no generic signal (default empty → generic).
+const GENERATED_GLOBS = (args['generated-globs'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+const NARRATIVE_GLOBS = (args['narrative-globs'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+const RUNTIME_GLOBS = (args['runtime-globs'] || '').split(',').map((s) => s.trim()).filter(Boolean);
 if (!WD || !BASE || !BRANCHES.length) {
   console.error('usage: consolidate.mjs --workdir <dir> --base <ref> --branches a,b,c');
   process.exit(64);
@@ -154,7 +159,17 @@ for (const branch of BRANCHES) {
   const resolved = [];
   const ejected = [];
   for (const path of conflicted) {
-    const c = classifyConflictPath(path, { generatedPaths: [] });
+    // Compute the SIGNALS the classifier decides over (orchestrator does the I/O).
+    const ours = showStage(2, path);
+    const theirs = showStage(3, path);
+    const headText = (ours ?? theirs ?? '').slice(0, 600);
+    const mergeUnion = /merge:\s*union/.test(git(['check-attr', 'merge', '--', path], { allowFail: true }) || '');
+    const gitIgnored = git(['check-ignore', '-q', '--', path], { allowFail: true }) !== null;
+    const jsonTimestamped = ours != null && theirs != null && jsonCarriesTimestamp(ours, theirs);
+    const c = classifyConflictPath(path, {
+      headText, mergeUnion, gitIgnored, jsonTimestamped,
+      generatedGlobs: GENERATED_GLOBS, narrativeGlobs: NARRATIVE_GLOBS, runtimeGlobs: RUNTIME_GLOBS,
+    });
     if (!c.auto) { ejected.push({ path, class: c.class, reason: c.reason }); continue; }
     const applied = applyPolicy(path, c);
     if (!applied.ok) { ejected.push({ path, class: c.class, reason: 'policy could not apply (fail-closed)' }); continue; }
