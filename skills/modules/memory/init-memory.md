@@ -11,20 +11,12 @@ Confirm = run `ls` on both directories and compare.
 
 ## Critical Context — How Claude Code Reads Memory
 
-Claude Code loads auto-memory from `~/.claude/projects/{project_dir}/memory/MEMORY.md` by default,
-where `{project_dir}` is the project path with `/` replaced by `-`
-(e.g., `/home/user/myapp` → `-home-user-myapp`).
-
-Moving files to `{{memory_path}}` does NOT make Claude read them automatically.
-Two ways to connect:
-
-**Path A — `autoMemoryDirectory` (recommended):**
-Configure an absolute path in `.claude/settings.local.json` or `~/.claude/settings.json`.
-Does NOT accept relative paths. Does NOT accept project settings (`.claude/settings.json`).
-
-**Path B — Redirect (fallback):**
-Create a `MEMORY.md` in the default directory that points to `{{memory_path}}`.
-Fragile — new memory files become invisible if the redirect is not updated.
+Moving files to `{{memory_path}}` does NOT make Claude Code read them — by default
+it loads `~/.claude/projects/{project_dir}/memory/MEMORY.md`. Connecting the
+canonical path needs explicit wiring (`autoMemoryDirectory`, or a fragile
+redirect). The full derivation + both connection paths live in
+`skills/modules/memory/_assets/connect.md` § *Critical Context*; Process step 5
+executes them.
 
 ## MEMORY.md Limits
 
@@ -110,49 +102,11 @@ content to topic files and keep only links in the index.
 
 ### 5. Connect to Claude Code
 
-Detect the IDE in use by checking for `.claude/`, `.cursor/`, `.gemini/`, etc.
-
-**If Claude Code (`.claude/` exists):**
-
-Check if `autoMemoryDirectory` is already configured:
-```bash
-{{GREP_TOOL}} -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/dev/null
-```
-
-**If configuration found:**
-Check if it points to `$CANONICAL_PATH`.
-- If it already points to `$CANONICAL_PATH`: report "autoMemoryDirectory already configured correctly" and skip to step 6.
-- If it points to a different directory (e.g., the old `.memory/`): offer to update it to `$CANONICAL_PATH`.
-
-**If NOT configured**, present:
-
-> Claude Code reads memory from `$AUTO_MEMORY_DIR` by default.
-> To read from `{{memory_path}}` directly, I need to configure `autoMemoryDirectory`.
->
-> A) Configure in `.claude/settings.local.json` (recommended)
-> B) Create manual redirect in the default directory (fragile)
-> C) Skip — configure later
-
-**If option A:**
-If `.claude/settings.local.json` does not exist, create it.
-Add `"autoMemoryDirectory": "$CANONICAL_PATH"` to the JSON.
-Example result:
-```json
-{
-  "autoMemoryDirectory": "/home/user/myapp/.ai/memory"
-}
-```
-
-**If option B:**
-Create `$AUTO_MEMORY_DIR/MEMORY.md` with this content:
-```markdown
-# Auto Memory - Redirect
-This project's memory is in `{{memory_path}}` inside the repository.
-Read `{{memory_path}}MEMORY.md` for general context.
-Save new learnings to `{{memory_path}}`, not here.
-```
-
-**If other IDE:** skip this step.
+Wire the canonical path so Claude Code actually reads it: {{READ_TOOL}}
+`skills/modules/memory/_assets/connect.md` § *Step 5 — Connect to Claude Code* and
+follow it — detect the IDE, then check/set `autoMemoryDirectory` in
+`.claude/settings.local.json` (Path A, recommended) or create the redirect
+(Path B); skip for non-Claude IDEs.
 
 ### 6. Update project instructions
 

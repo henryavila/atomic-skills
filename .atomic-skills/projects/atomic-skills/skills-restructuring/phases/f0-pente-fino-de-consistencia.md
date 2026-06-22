@@ -4,28 +4,34 @@ slug: skills-restructuring-f0-pente-fino-de-consistencia
 title: Pente fino de consistência
 goal: corrigir resíduo e drift documental de baixo risco nas skills, sem mudar
   comportamento.
-status: active
+status: done
 branch: null
 started: 2026-06-15T13:37:12.477Z
-lastUpdated: 2026-06-15T13:54:20.262Z
-nextAction: "Start T0.1: Corrigir contagem de stages no create-plan"
+lastUpdated: 2026-06-16T12:22:09Z
+nextAction: null
 parentPlan: skills-restructuring
 phaseId: F0
-tasksDone: 0
+tasksDone: 7
 tasksTotal: 7
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
-weightDone: 0
-weightTotal: 7
 exitGates:
   - id: F0-G1
     description: Suite de validação de skills passa após as correções de pente fino.
-    status: pending
+    status: met
+    metAt: 2026-06-16T12:22:09Z
     verifier:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: ✓ All 15 skills valid (schema_version 0.2)
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-06-16
 stack:
   - id: 1
     title: Pente fino de consistência
@@ -34,8 +40,15 @@ stack:
 tasks:
   - id: T0.1
     title: Corrigir contagem de stages no create-plan
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: grep '9 stages' present + '7 stages' absent in project-create-plan.md
     summary: "Heading do create-plan: 7→9 stages"
     description: 'Trocar o heading "7 stages" por "9 stages" em
       project-create-plan.md, que roda Stage 1 a 9. Arquivos:
@@ -56,8 +69,15 @@ tasks:
         path: skills/shared/project-assets/project-create-plan.md
   - id: T0.2
     title: Completar cheat-sheet de Task com summary e evidence
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: Task Optional line cites summary + evidence in skills/core/project.md
     summary: Cheat-sheet de Task ganha summary e evidence
     description: "Adicionar `summary` e `evidence` à lista de opcionais de Task no
       Schema quick-reference do router. Arquivos: skills/core/project.md"
@@ -75,8 +95,15 @@ tasks:
         path: skills/core/project.md
   - id: T0.3
     title: Completar cheat-sheet de PhaseDescriptor
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: PhaseDescriptor Optional line cites summary, provenance, context
     summary: Cheat-sheet de PhaseDescriptor ganha summary/provenance/context
     description: "Adicionar `summary`, `provenance`, `context` aos opcionais de
       PhaseDescriptor no router. Arquivos: skills/core/project.md"
@@ -94,8 +121,15 @@ tasks:
         path: skills/core/project.md
   - id: T0.4
     title: Anotar campos 0.2 do verifier manual
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: manual verifier branch cites demoCommand + fallbackKind
     summary: Verifier manual anotado com os campos 0.2
     description: "Anotar o branch manual do ExitCriterionVerifier com os opcionais
       0.2 (demoCommand, fallbackKind, steps, expected, data). Arquivos:
@@ -114,8 +148,15 @@ tasks:
         path: skills/core/project.md
   - id: T0.5
     title: Corrigir caminho morto do review-code no drift
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: no skills/en/ in project-drift.md; atomic-skills:review-code present
     summary: Caminho morto do review-code no drift vira slug
     description: "Trocar o caminho morto skills/en/core/review-code.md pelo slug
       atomic-skills:review-code. Arquivos:
@@ -136,8 +177,15 @@ tasks:
         path: skills/shared/project-assets/project-drift.md
   - id: T0.6
     title: Registrar o gate G9 no registry canônico
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: "'## G9' heading present in docs/kb/code-quality-gates.md"
     summary: Gate G9 registrado no code-quality-gates
     description: "Adicionar a entrada G9 mutation-kill em code-quality-gates.md,
       espelhando a definição inline de project-transitions.md. Arquivos:
@@ -155,8 +203,15 @@ tasks:
         path: docs/kb/code-quality-gates.md
   - id: T0.7
     title: Remover referência dangling AIDECK_STATE_DOMAIN
-    status: pending
-    lastUpdated: 2026-06-15T13:53:44.618Z
+    status: done
+    lastUpdated: 2026-06-16T12:22:09Z
+    closedAt: 2026-06-16T12:22:09Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-16T12:22:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: AIDECK_STATE_DOMAIN absent in project-view.md; AIDECK_BIN present
     summary: Referência dangling AIDECK_STATE_DOMAIN removida
     description: "Remover AIDECK_STATE_DOMAIN da prosa do project-view.md, mantendo
       AIDECK_BIN e DASHBOARD_DIR. Arquivos:
@@ -181,8 +236,6 @@ emerged: []
 summary: "Quick-wins de consistência: contagem de stages, caminhos mortos,
   cheat-sheets e gates."
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -191,7 +244,32 @@ Initiative for phase **F0 — Pente fino de consistência**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **Routing:** batch opted OUT to Mode 1 (single-threaded inline). Codex lane is ON and all 7 tasks are spec-ready w/ deterministic verifiers, so Mode 2 was the default — but these are one-line doc-consistency edits with pure-`grep` verifiers, and T0.2/T0.3/T0.4 all touch the same file `skills/core/project.md` (non-parallelizable in worktrees). Worktree dispatch overhead would dwarf the work. Operator's prerogative to opt a batch OUT.
+- **T0.6 G9 scope:** added only the `## G9 — Mutation-kill` section, mirroring the inline `evidence.mutation` shape from `skills/shared/project-assets/project-transitions.md`. Did NOT touch the rule×skill matrix (scopeBoundary: "apenas adicionar a seção G9") — consistent with how G8 is handled (note, no matrix column).
+
+## Session handoff
+- **Narrative:** Phase **F0 — Pente fino de consistência** complete. All 7 tasks (T0.1–T0.7) coded single-threaded inline (Mode 1) and closed through verify-on-done: each task's `grep` verifier ran and passed (exit 0), evidence written. Exit gate **F0-G1** (`npm run validate-skills`) re-run and passing (`✓ All 15 skills valid`). `validate-state` (GATE-R2) green. Phase status still `active` pending the user's `phase-done` opt-in (review-code phase-diff gate + advance to F1 are intrusive — not auto-run).
+- **Decision log:** see `## Decisions` above — Mode-1 opt-out rationale; G9 added without matrix edit.
+- **Single nextAction:** Run `phase-done` for F0 on user opt-in — it runs the mandatory `atomic-skills:review-code` phase-diff gate over the F0 diff, then advances `plan.md` `currentPhase` F0→F1.
+- **Verbatim state:** `npm run validate-skills` → exit 0, `✓ All 15 skills valid (schema_version 0.2)`. `npm run validate-state` → exit 0. Per-task verifiers all exit 0 (T0.1–T0.7). Files changed: `skills/shared/project-assets/project-create-plan.md` (7→9 stages), `skills/core/project.md` (Task/PhaseDescriptor/ExitCriterionVerifier cheat-sheets), `skills/shared/project-assets/project-drift.md` (`atomic-skills:review-code` slug), `docs/kb/code-quality-gates.md` (`## G9 — Mutation-kill`), `skills/shared/project-assets/project-view.md` (dropped `AIDECK_STATE_DOMAIN`).
+- **Uncommitted changes:**
+  ```
+   M .atomic-skills/projects/atomic-skills/skills-restructuring/phases/f0-pente-fino-de-consistencia.md
+   M docs/kb/code-quality-gates.md
+   M skills/core/project.md
+   M skills/shared/project-assets/project-create-plan.md
+   M skills/shared/project-assets/project-drift.md
+   M skills/shared/project-assets/project-view.md
+  ```
+
+## Self-review against gates
+- G1 read-before-claim: applied — each closed task links the source edit + the verifier run (exit 0) that closed it; verifier outputs captured verbatim.
+- G2 soft-language: applied — completion claims are `passed: true` evidence; handoff narrative scanned for the ban list (no should/probably/works/looks done).
+- G6 reference-or-strike: applied — handoff literals are verbatim paths/commands/exit codes.
+
+## Self-review against gates (at phase-done)
+- **Review gate:** `atomic-skills:review-code HEAD~1..HEAD --mode=local` (non-destructive diff per G5 signal — no file deletes, no drop tokens, additions dominate). Verdict `findings_exist`: 0 blocker / 0 critical / 0 major / 1 minor. The minor (G9 absent from rule×skill matrix without a footnote, unlike G8) was fixed in commit `8a35a17` — `docs/kb/code-quality-gates.md` footnote mirroring the G8 note. Loop converged clean (CRITICAL+MAJOR = 0). reviewGate stamped on `plan.md` phases[F0]: `{status: passed, at: 8a35a179709de639a8e5fa5493805a548a3c2fde, mode: local}`.
+- **Lessons:** 1 reusable lesson (L-001) distilled from the review finding, ratified by the operator, written to `lessons/skills-restructuring-f0-pente-fino-de-consistencia.md` (validate-state exit 0). Failure signal = the matrix-footnote gap (a confirmed minor review finding, fixed in 8a35a17).
 
 ## Links
 

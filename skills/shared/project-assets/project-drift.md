@@ -71,7 +71,7 @@ The original `ratifiedAt` is replaced — that's intentional. The audit trail of
 
 ## Codex review tracking
 
-`review-code --mode=codex` (or `--mode=both`) is the cross-model adversarial review gate (see `skills/en/core/review-code.md` — the codex sub-flow inside `review-code`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
+`review-code --mode=codex` (or `--mode=both`) is the cross-model adversarial review gate (see `atomic-skills:review-code` — the codex sub-flow inside `review-code`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
 
 ### State file
 

@@ -21,7 +21,7 @@ Run with {{BASH_TOOL}}:
 - **Resolve `<project-id>`** (the nested top level): if exactly one `.atomic-skills/projects/*/` folder exists, use it; if several, ask which project the plan belongs to; if none, default to the repo's basename (`basename "$PWD"`) and create `.atomic-skills/projects/<project-id>/`. The plan materializes under that folder.
 - Pre-flight collision: `test -f .atomic-skills/projects/<project-id>/<slug>/plan.md` (legacy fallback `test -f .atomic-skills/plans/<slug>.md`) — abort early on collision before any work.
 
-## Default flow — 7 stages
+## Default flow — 9 stages
 
 Stages run in order. Each stage gates the next: do not advance past a stage with an unresolved question.
 
@@ -396,6 +396,8 @@ This flow is bound by the gates in `docs/kb/code-quality-gates.md`. The plan you
 - **G2 soft-language ban** — the plan body MUST NOT contain `should`, `probably`, `may`, `typically`, `usually`, `I think`, `it seems`, `in theory`, `tends to`. Convert every such phrase to either a verified statement or an explicit `unverified: <why>` marker. Words like "will" (future tense for tasks you commit to) are fine.
 - **G6 reference-or-strike** — every assertion in the plan body or in a task description carries one of: `verified_by: <file:line>`, `verified_by: <command>`, or `unverified: <why>`. A bare claim with no marker is deleted on the next review pass.
 
+**Applies to the runtime state this skill writes too** (moved from the `project` router): `nextAction`, task `description`, and exit-criterion `description` MUST NOT contain `should`, `probably`, `may`, `typically`, `I think` (G2) — convert to a verified statement or an `unverified: <why>` marker; when a task `description` references existing code, paste the relevant source lines into `description` (G1, no inferring from filenames); every exit-criterion claim carries a `verifier:` or an `unverified:` marker (G6).
+
 ### Self-review against gates
 
 After the plan file is written (Stage 6, or after `adopt` materializes), before declaring the plan ready, append a `## Self-review against code-quality gates` block at the end of the plan body:
@@ -409,6 +411,36 @@ After the plan file is written (Stage 6, or after `adopt` materializes), before 
 ```
 
 If any gate is violated, do NOT close the planning session. Either fix the violation inline or write a follow-up task to address it before implementation begins. Silent application is forbidden — the checkpoint must be in the committed plan file.
+
+## Schema quick-reference (authoritative files: `meta/schemas/`)
+
+> Moved here from the `project` router (resident → lazy): the schema field-reference is consulted when materializing/authoring state, so it lives with the creation flow.
+
+**Plan** (`projects/<project-id>/<plan-slug>/plan.md` frontmatter; legacy flat `plans/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `version`, `status`, `started`, `lastUpdated`, `currentPhase` (string|null), `parallelismAllowed` (bool), `phases[]`. Optional: `branch`, `principles[]`, `glossary[]`, `tracks[]`, `interPhaseGates[]`, `supersedes`, `references[]`, `whatStaysValid[]`. Body = `narrative`.
+- `PhaseDescriptor`: `id`, `slug`, `title`, `goal`, `dependsOn[]`, `subPhaseCount`, `exitGate {summary, criteria[]}`, `status`. Optional: `summary`, `parallelWith[]`, `track`, `audience`, `externalImports[]`, `exitGateType`, `provenance`, `context`.
+- `ExitCriterion`: `id`, `description`, `status` (`pending`/`met`/`deferred`). Optional: `verifier`, `metAt`, `deferredReason`, `evidence`.
+- `ExitCriterionVerifier` (oneOf): `{kind: shell, command, expectExitCode?}` · `{kind: query, sql, expectRowCount?}` · `{kind: test, runner, pattern}` · `{kind: manual, description, demoCommand?, fallbackKind?, steps?, expected?, data?}` (0.2 fields).
+
+**Initiative** (phase file `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`; legacy flat `initiatives/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`, `tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` (skill-precomputed dashboard rollups — keep fresh on every task/gate mutation; see project-transitions.md → Dashboard rollups). Body = `body`.
+- `Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `summary`, `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `scopeBoundary[]`, `acceptance[]` (max 5), `verifier`, `evidence`, `provenance`, `context`.
+- `StackFrame`: `id` (int ≥ 1), `title`, `type` (`task`/`research`/`validation`/`discussion`), `openedAt`.
+- `CrossTaskRef`: `fromTaskId`, `toInitiativeSlug`, `toTaskId`, `relation` (`depends_on`/`extends`/`unblocks`/`references`). Optional: `note`.
+
+Provenance + context (co-located on every emergent item; schema makes them inseparable):
+- `provenance: { surfacedAt, surfacedDuring, surfacedBy, originalPhaseId? }` — `common.schema.json#/$defs/provenance`.
+- `context: { solves, trigger, assumesStillValid?, ratifiedAt, ratifiedBy, lastReviewedAt }` — `common.schema.json#/$defs/context`.
+
+You (LLM) can parse frontmatter YAML directly. For edge cases (nested quotes, multi-line, complex lists), invoke the `yaml` npm package via `node -e "import('yaml').then(...)"`. Bump `lastUpdated:` to now (`date -u +%Y-%m-%dT%H:%M:%SZ`) on every mutation.
+
+## Summaries & level hygiene (replicable mechanisms)
+
+> Moved here from the `project` router: these are authored at materialization (Stage 6) and enforced at decompose, so the canonical mechanism lives with the creation flow. Stage 6 above is the inline procedure; this is the full replicable spec.
+
+**Phase summaries (replicable, not ad-hoc).** Every phase carries a concise one-line `summary` of what it does — distinct from the longer technical `goal` — on BOTH the `plan.phases[].summary` descriptor (Home timeline) and the phase initiative's `summary` (Home "Agora"). A summary is a dev memory-aid AND a check that the decomposition was interpreted correctly (a user correction signals possible mis-scoping, not just wording). The mechanism lives in the skill so it repeats in any repo: (1) **new plans** author + user-validate summaries at materialization (project-create-plan.md → Stage 6); (2) **existing/backfill** — run `node scripts/find-missing-summaries.js` (deterministic, zero-token; lists every phase lacking a summary + exits non-zero, AND prints the install-configured language to author in), then author a concise summary for each from its `goal`/`title`, **validate with the user via {{ASK_USER_QUESTION_TOOL}}** (present all summaries, ask `Aprovar todos` / `Ajustar alguns`, apply corrections), and write to the descriptor + initiative. **Language: always the install-configured communication language** (the user/project `manifest.json` `language`, which the renderer already prepends to skill bodies) — never an ad-hoc guess. Never hand-author summaries as a one-off outside this loop — the detector + the configured-language rule + the validate step are what make it reproducible.
+
+**Task summaries (replicable; the skill ALWAYS generates them).** One level down from phase summaries: every **task** carries a concise one-line `summary` of what it does — distinct from the label `title` and the longer `description` — surfaced on the dashboard Home (Agora task table) and the Initiative-detail tasks table so the focus panel reads as work, not bare ids. The TEXT is semantic (AI-authored), so a script can't write it; the guarantee that the skill *always* produces one is structural, in three layers off one deterministic detector (`node scripts/find-missing-task-summaries.js`, zero-token, exits non-zero, prints the install-configured language): (1) **decompose** — author + user-validate each task's summary at materialization (project-create-plan.md → Stage 6, in the SAME {{ASK_USER_QUESTION_TOOL}} gate as the phase summaries); (2) **mid-execution** — whenever a task is created after decompose, its summary is authored + ratified in the same gate that writes the task: `new-task` and `promote` author it in the `Drafted summary` of the ratify block and re-run the detector (project-emergence.md), and the aiDeck inbox drainer authors it when applying a `promote_parked` intent (project-view.md → "Draining a task-creating intent"); phase-creating paths (`new-phase`, `new initiative`) author the phase summary the same way; (3) **drift/backfill** — run the detector (it lists every task lacking a summary), author each from its `title`/`description`/acceptance, validate with the user via {{ASK_USER_QUESTION_TOOL}} (present all, ask `Aprovar todos` / `Ajustar alguns`, apply corrections), and write onto `tasks[].summary`. **Language: always the install-configured communication language** — never an ad-hoc guess. A correction is a signal the task may be mis-scoped, not just mis-worded. Because a missing summary is a non-zero detector exit, it cannot silently survive a normal skill cycle — that is what "the skill always generates" means.
+
+**Level hygiene — a task is not a phase.** The hierarchy is Plan → Phase → Task. A task title must NOT masquerade as a phase-level heading (`Phase A — …`, `Fase 2: …`) — it lies about its level and confuses the dashboard. Enforced in two places off one shared predicate (`levelConfusedTaskTitle` in `scripts/lint-source.js`): the **SPEC gate** (`lintSpec`, run at decompose — project-create-plan.md Stage 5) HARD-BLOCKS a level-confused `### Tn` title in the source; for **materialized state**, `node scripts/lint-task-titles.js` (deterministic, zero-token, exits non-zero) lists offenders to rename — drop the `Phase/Fase <X> —` prefix, keep the descriptive part.
 
 ## Red Flags (plan creation)
 

@@ -1,0 +1,21 @@
+{
+  "strict_mode": false,
+  "emergent_strict_mode": false,
+  "dry_run_started": "2026-06-16",
+  "drift_threshold": 0.5,
+  "staleContextDays": 14,
+  "parkedZombieDays": 30,
+  "source_globs": [
+    "src/",
+    "lib/",
+    "app/",
+    "services/",
+    "pkg/",
+    "internal/"
+  ],
+  "max_stack_depth_warning": 6,
+  "auto_archive_done_threshold": 30,
+  "reconciliationThresholdHours": 24,
+  "maxTaskDescriptionLines": 15,
+  "maxTaskAcceptance": 5
+}

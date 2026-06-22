@@ -87,7 +87,7 @@ Stop exploring when you can answer YES to all three:
 2. I have grep output proving no cross-references between any pair of scopes
 3. The next Read/Grep I might run would not change the decomposition hypothesis
 
-If exploration cannot converge (each new op keeps revealing new unknowns): the task is not cleanly decomposable. Classify confidence as LOW and ABORT. Suggest sequential execution or finer decomposition.
+If exploration cannot converge (each new op keeps revealing new unknowns): the task is not cleanly decomposable. Classify confidence as LOW and ABORT. Suggest sequential execution or finer decomposition. A third remedy, when the tasks must run in parallel despite touching a shared tree: isolate each in its own git worktree per `skills/shared/worktree-isolation.md` — concurrent writers then never share a working tree (the merge-back is still serial).
 
 No operational limits (no "max N greps") — convergence is the criterion. If you are still learning, continue. If you are not, stop.
 
@@ -138,41 +138,7 @@ Escape brackets in grep: `\[dispatch-...\]`.
 
 ### Phase 3 — Generate N task prompts
 
-For each task, emit a self-contained prompt with these sections in order. No paraphrase — user wording goes in verbatim.
-
-```
-[Role + Context]
-You are one of N parallel agents working on project `<repo name>` (cwd `<absolute path>`, branch `<branch>`). The other agents run in separate sessions — you cannot communicate with them.
-
-[User's exact request for this task]
-<verbatim copy of the user's original task statement — do not paraphrase or summarize>
-
-[Acceptance criteria]
-<verbatim from user if provided; omit section if not>
-
-[Paths you may touch — strict]
-- <exact path 1>
-- <exact path 2>
-- ...
-
-[Branch]
-Verify you are on branch `<branch>` before any operation (`git rev-parse --abbrev-ref HEAD`). If not: checkout first. All commits go to this branch.
-
-[Commit protocol]
-All commits from this session use prefix: `[dispatch-<YYYYMMDD>-<HHMMSS>-<slug>] <type>: <description>`
-Stage files ONLY by explicit path (e.g., `git add docs/onboard-mac.md`). NEVER `git add .` or `git add -A` — your session shares the working tree with sibling agents, and a broad stage will include their uncommitted changes.
-
-[Restrictions — DO NOT]
-- Do NOT touch paths outside the list above. If you need a path outside your scope, STOP and report.
-- Do NOT run destructive git (push --force, reset --hard, branch -D, history rewrite).
-- Do NOT use `git add .` or `git add -A` — always explicit paths (see above).
-- Do NOT broadcast externally (no gh pr create, no external messaging, no notifications).
-- Do NOT push — the user pushes when all agents complete.
-- Do NOT exceed scope even if an adjacent fix looks "obvious".
-
-[Ambiguity handling]
-If architectural ambiguity OR a path outside your scope is required OR your diff grows beyond what the task requires: STOP and report to the user in chat. Do not commit a partial or contaminated state.
-```
+For each task, emit a self-contained prompt per the **Task prompt skeleton** in `skills/shared/parallel-dispatch-assets/templates.md` ({{READ_TOOL}} it and fill the slots). No paraphrase — user wording goes in verbatim.
 
 Rules for each prompt:
 - Self-contained — sibling agents never referenced by name (they run in different sessions; the reference would be meaningless)
@@ -185,85 +151,7 @@ Rules for each prompt:
 
 Write to `.atomic-skills/dispatches/<slug>.md` using {{WRITE_TOOL}}. The `.atomic-skills/` directory holds the project-tracking state, so the plan persists across reboots; commit it (or ignore it locally) per the repo's convention.
 
-Structure:
-
-`````markdown
-# Parallel Dispatch — <slug>
-
-**Batch id (commit prefix):** `[dispatch-<YYYYMMDD>-<HHMMSS>-<slug>]`
-**Audit prefix:** `[audit-dispatch-<YYYYMMDD>-<HHMMSS>-<slug>]`
-**Branch:** `<branch>`
-**Confidence:** HIGH / MEDIUM / LOW
-**Agents:** N task + 1 audit pass
-
-## Verified decomposition
-
-| # | Task | Scope (paths) | Deliverables |
-|---|------|---------------|--------------|
-| 1 | [title] | `<paths>` | [list] |
-| 2 | [title] | `<paths>` | [list] |
-| ... |
-
-## Isolation evidence
-
-- Pairwise grep outputs: `<citations of actual output>`
-- `git status --porcelain` at dispatch time: `<output>`
-
-## Shared-state warnings
-
-Agents with disjoint source scopes can still collide indirectly via shared state:
-- Lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, `uv.lock`)
-- Build artifacts (`dist/`, `.next/`, `target/`)
-- Root config (`.gitignore`, `.env.example`, `tsconfig.json`)
-- Caches (`__pycache__`, `.pytest_cache`)
-
-If any task installs dependencies, regenerates a build, or edits root config: serialize those tasks or accept the collision risk.
-
----
-
-## Agent 1 — [title]
-
-**Open a new session and paste the prompt below.** The code block has a copy button.
-
-```
-[full prompt — self-contained, user request verbatim]
-```
-
-## Agent 2 — [title]
-```
-[full prompt]
-```
-
-...
-
----
-
-## Run the audit
-
-After all N task agents complete, open a fresh session and run:
-
-```
-atomic-skills:parallel-dispatch-audit <slug>
-```
-
-The audit reads this plan file automatically from `.atomic-skills/dispatches/<slug>.md`.
-
----
-
-## Rollback
-
-Revert all task commits in this batch:
-
-```bash
-git revert $(git log --format=%H --grep='\[dispatch-<YYYYMMDD>-<HHMMSS>-<slug>\]' --reverse)
-```
-
-Audit commits carry `[audit-dispatch-<YYYYMMDD>-<HHMMSS>-<slug>]`; revert them separately if needed.
-
----
-
-*Old dispatch plans in `.atomic-skills/dispatches/` can be removed once audit is complete — the prefix in git log is the authoritative record.*
-`````
+Use the **Dispatch plan file** template in `skills/shared/parallel-dispatch-assets/templates.md` ({{READ_TOOL}} it and fill the slots — header, verified decomposition table, isolation evidence, shared-state warnings, one block per agent, the audit/rollback footers).
 
 ### Phase 5 — Hand off (with browser confirmation)
 
@@ -307,32 +195,8 @@ If declined: "Open the file manually at `.atomic-skills/dispatches/<slug>.md` wh
 
 If you thought any of the above: STOP. Parallel work is discipline; shortcuts defeat it.
 
-## Rationalization Table
-
-| Temptation | Reality |
-|------------|---------|
-| "User gave vague input, I'll decompose myself" | Decomposition is input, not output. Redirect to brainstorming |
-| "These tasks are clearly independent" | Clearly to whom? Show the grep output |
-| "User asked for 7 agents, so 7 it is" | Cap at 5; past that, coordination cost > parallelism gain |
-| "`git add .` is fine, agents have small scopes" | Sibling sessions share the working tree; broad stage contaminates |
-| "Disjoint source paths = isolated agents" | Lockfiles, build artifacts, root config collide indirectly |
-| "I'll paraphrase the user's task for the prompt" | Paraphrase loses intent. Copy user verbatim |
-| "Limited to 5 ops so I'm done" | Convergence is the criterion, not count. Did you stop because you converged or because you capped? |
-| "Confidence LOW but I'll send it anyway" | LOW is a refusal signal. Sequential is safer |
-| "Audit is optional if agents are careful" | Careful ≠ correct. Every PR gets reviewed for a reason |
-| "10 agents because I'm in a hurry" | 1 − 0.9¹⁰ ≈ 65% chance of ≥1 bug. Diminishing returns past 3-4 |
-| "Batch id is overkill" | `git log --grep` earns its cost the first time you need rollback |
+The refutation detail behind each Red Flag — the load-bearing numbers (bug-budget math, the cap at 5) — lives in `skills/shared/parallel-dispatch-assets/rationalization.md` (§ parallel-dispatch); {{READ_TOOL}} it when a flag above tempts a shortcut.
 
 ## Closing Report
 
-Report:
-- Body of work: [1-line summary]
-- Precondition check: 4/4 passed (Q1-Q4)
-- Tasks produced: N
-- Confidence: HIGH / MEDIUM / LOW
-- Isolation evidence: `<paired grep citations>`
-- Branch: `<branch>`
-- Batch id: `[dispatch-<YYYYMMDD>-<HHMMSS>-<slug>]`
-- Plan file: `.atomic-skills/dispatches/<slug>.md`
-- Next action: user opens N new sessions and pastes task prompts
-- Post-hoc: invoke `atomic-skills:parallel-dispatch-audit <slug>` after all agents complete
+Report per the **Closing report — dispatch** spec in `skills/shared/parallel-dispatch-assets/templates.md` ({{READ_TOOL}} it for the canonical field list).

@@ -285,7 +285,6 @@ emerged: []
 summary: "Skill design-brief: gera prompts DS-first + telas-consomem-DS, sem
   contaminar o visual."
 planTitle: Reestruturação das skills atomic-skills
-planActive: true
 ---
 
 # Narrative / notes
