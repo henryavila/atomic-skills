@@ -16,6 +16,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 1
 gatesTotal: 1
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-1
     description: O schema define e valida TODOS os campos do contrato (existence,

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, checkReviewGate, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1115,4 +1115,76 @@ test('routing: collectRoutingConfigs finds status/routing.json under a dir arg, 
     rmSync(dir, { recursive: true, force: true });
     rmSync(dirNoConfig, { recursive: true, force: true });
   }
+});
+
+// --- closedAt forward-only hard-gate (F4/T-003) -----------------------------
+
+test('checkClosedAtHardening: non-grandfathered done task without closedAt → violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }] };
+  const v = checkClosedAtHardening(init, new Set());
+  assert.equal(v.length, 1);
+  assert.ok(v[0].includes('T-005'));
+  assert.ok(v[0].includes('closedAt'));
+});
+
+test('checkClosedAtHardening: grandfathered (phase-scoped) done task without closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set(['F4/T-005'])), []);
+});
+
+test('checkClosedAtHardening: a SAME-id grandfather from ANOTHER phase does NOT exempt this phase', () => {
+  // F0/T-001 grandfathered; this is F1/T-001 (new) → must still be gated (the F-001 bug).
+  const init = { phaseId: 'F1', tasks: [{ id: 'T-001', status: 'done' }] };
+  const v = checkClosedAtHardening(init, new Set(['F0/T-001']));
+  assert.equal(v.length, 1);
+  assert.ok(v[0].includes('T-001'));
+});
+
+test('checkClosedAtHardening: done task WITH closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done', closedAt: '2026-06-19T10:00:00Z' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set()), []);
+});
+
+test('checkClosedAtHardening: pending task without closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'pending' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set()), []);
+});
+
+test('checkClosedAtHardening: accepts a plain array of phase-scoped grandfathered keys', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }, { id: 'T-006', status: 'done' }] };
+  assert.deepEqual(checkClosedAtHardening(init, ['F4/T-005', 'F4/T-006']), []);
+});
+
+test('crossValidate: plan with closedAtHardening + non-grandfathered done task missing closedAt → error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    closedAtHardening: { enforcedFrom: '2026-06-19T19:00:00Z', grandfatheredTaskIds: ['F4/T-002'] },
+    phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+  }]]);
+  const inits = new Map([['p-f4', {
+    slug: 'p-f4', parentPlan: 'p', phaseId: 'F4', status: 'active',
+    tasks: [
+      { id: 'T-002', status: 'done' },                                  // grandfathered (F4/T-002) → ok
+      { id: 'T-003', status: 'done', closedAt: '2026-06-19T20:00:00Z' }, // has closedAt → ok
+      { id: 'T-004', status: 'done' },                                  // NEW done, no closedAt → violation
+    ],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].initiativeSlug, 'p-f4');
+  assert.ok(errors[0].errors.some((e) => e.includes('T-004')));
+  assert.ok(!errors[0].errors.some((e) => e.includes('T-002')));
+  assert.ok(!errors[0].errors.some((e) => e.includes('T-003')));
+});
+
+test('crossValidate: plan WITHOUT closedAtHardening → soft (no closedAt error)', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+  }]]);
+  const inits = new Map([['p-f4', {
+    slug: 'p-f4', parentPlan: 'p', phaseId: 'F4', status: 'active',
+    tasks: [{ id: 'T-004', status: 'done' }], // no closedAt, but no hardening → not gated
+  }]]);
+  assert.equal(crossValidate(plans, inits).length, 0);
 });

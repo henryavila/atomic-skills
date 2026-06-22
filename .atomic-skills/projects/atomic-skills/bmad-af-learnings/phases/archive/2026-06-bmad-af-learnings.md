@@ -13,6 +13,8 @@ tasksDone: 7
 tasksTotal: 7
 gatesMet: 1
 gatesTotal: 2
+weightDone: 7
+weightTotal: 7
 exitGates:
   - id: G-1
     description: "State sync: tasks marcadas done dentro da mesma sessão em que o

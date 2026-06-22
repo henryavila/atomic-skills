@@ -1,4 +1,4 @@
-import { appendIntent, findInitiative } from './_lib.js'
+import { appendIntent, findInitiative, parkedFor } from './_lib.js'
 
 // Record an intent to promote a parked item to a task. `parkedTitleOrIndex` is
 // either the parked item's title (string) or its index (number). Ported from
@@ -7,7 +7,9 @@ export default async function handler({ args, data, files }) {
   const { initiativeSlug, parkedTitleOrIndex, projectId, by = 'ai' } = args
   const initiative = findInitiative(data, initiativeSlug, projectId)
 
-  const parked = initiative.parked ?? []
+  // Flat parked rows for this initiative, in original order (emitter preserves
+  // the array index), so a numeric index lookup matches the source ordering.
+  const parked = parkedFor(data, initiative)
   const found =
     typeof parkedTitleOrIndex === 'number'
       ? parked[parkedTitleOrIndex]

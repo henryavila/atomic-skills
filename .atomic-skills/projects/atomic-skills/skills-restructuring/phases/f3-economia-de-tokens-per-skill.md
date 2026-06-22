@@ -2,7 +2,8 @@
 schemaVersion: "0.1"
 slug: skills-restructuring-f3-economia-de-tokens-per-skill
 title: "Economia de tokens: per-skill"
-goal: mover blocos mode-gated e branch-only de cada skill grande para assets lazy, carregando só o branch que roda.
+goal: mover blocos mode-gated e branch-only de cada skill grande para assets
+  lazy, carregando só o branch que roda.
 status: pending
 branch: null
 started: 2026-06-15T13:37:12.477Z
@@ -14,6 +15,8 @@ tasksDone: 0
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 5
 exitGates:
   - id: F3-G1
     description: A suite de validação passa após os movimentos per-skill.
@@ -34,15 +37,20 @@ tasks:
     status: pending
     lastUpdated: 2026-06-15T13:53:44.618Z
     summary: "review-code: blocos mode-gated e diff-capture para asset"
-    description: "Mover os blocos local-review e codex-subflow e os branches de captura de diff para local-review-assets, carregados só no modo que roda. Arquivos: skills/core/review-code.md, skills/shared/local-review-assets/diff-capture.md"
+    description: "Mover os blocos local-review e codex-subflow e os branches de
+      captura de diff para local-review-assets, carregados só no modo que roda.
+      Arquivos: skills/core/review-code.md,
+      skills/shared/local-review-assets/diff-capture.md"
     scopeBoundary:
-      - não tocar o Step 0 mode-picker resident; preservar o algoritmo de shape do diff intacto.
+      - não tocar o Step 0 mode-picker resident; preservar o algoritmo de shape
+        do diff intacto.
     acceptance:
       - o asset de diff-capture existe
       - review-code encolhe abaixo de 20000 bytes.
     verifier:
       kind: shell
-      command: test -f skills/shared/local-review-assets/diff-capture.md && test $(wc -c < skills/core/review-code.md) -lt 20000
+      command: test -f skills/shared/local-review-assets/diff-capture.md && test $(wc
+        -c < skills/core/review-code.md) -lt 20000
       expectExitCode: 0
     outputs:
       - kind: file
@@ -54,7 +62,10 @@ tasks:
     status: pending
     lastUpdated: 2026-06-15T13:53:44.618Z
     summary: "review-plan: initiative-depth e closing para asset lazy"
-    description: "Mover Step 0c initiative-discovery, checks 14-20 e o closing template para um asset lazy; manter o HARD-GATE de iniciativa resident. Arquivos: skills/core/review-plan.md, skills/shared/project-assets/plan-initiative-depth.md"
+    description: "Mover Step 0c initiative-discovery, checks 14-20 e o closing
+      template para um asset lazy; manter o HARD-GATE de iniciativa resident.
+      Arquivos: skills/core/review-plan.md,
+      skills/shared/project-assets/plan-initiative-depth.md"
     scopeBoundary:
       - não tocar o HARD-GATE de iniciativa nem o Step 0 mode-picker.
     acceptance:
@@ -62,7 +73,8 @@ tasks:
       - review-plan encolhe abaixo de 24000 bytes.
     verifier:
       kind: shell
-      command: test -f skills/shared/project-assets/plan-initiative-depth.md && test $(wc -c < skills/core/review-plan.md) -lt 24000
+      command: test -f skills/shared/project-assets/plan-initiative-depth.md && test
+        $(wc -c < skills/core/review-plan.md) -lt 24000
       expectExitCode: 0
     outputs:
       - kind: file
@@ -74,7 +86,10 @@ tasks:
     status: pending
     lastUpdated: 2026-06-15T13:53:44.618Z
     summary: "hunt: directory-triage para asset, convention unificada"
-    description: "Mover Phase 0 directory-triage e o consolidated report para hunt-assets, deixando ponteiro de duas linhas; unificar a convention-detection. Arquivos: skills/core/hunt.md, skills/shared/hunt-assets/directory-triage.md"
+    description: "Mover Phase 0 directory-triage e o consolidated report para
+      hunt-assets, deixando ponteiro de duas linhas; unificar a
+      convention-detection. Arquivos: skills/core/hunt.md,
+      skills/shared/hunt-assets/directory-triage.md"
     scopeBoundary:
       - preservar a Iron Law e o escopo canônico single-file da hunt.
     acceptance:
@@ -82,7 +97,8 @@ tasks:
       - hunt encolhe abaixo de 14000 bytes.
     verifier:
       kind: shell
-      command: test -f skills/shared/hunt-assets/directory-triage.md && test $(wc -c < skills/core/hunt.md) -lt 14000
+      command: test -f skills/shared/hunt-assets/directory-triage.md && test $(wc -c <
+        skills/core/hunt.md) -lt 14000
       expectExitCode: 0
     outputs:
       - kind: file
@@ -94,7 +110,9 @@ tasks:
     status: pending
     lastUpdated: 2026-06-15T13:53:44.618Z
     summary: "debate: gate-mode para asset, seções redundantes removidas"
-    description: 'Mover o bloco gate-mode para debate-assets/gate-mode.md e deletar as seções redundantes "why this matters" e "where this fits". Arquivos: skills/core/debate.md, skills/shared/debate-assets/gate-mode.md'
+    description: 'Mover o bloco gate-mode para debate-assets/gate-mode.md e deletar
+      as seções redundantes "why this matters" e "where this fits". Arquivos:
+      skills/core/debate.md, skills/shared/debate-assets/gate-mode.md'
     scopeBoundary:
       - não tocar a Iron Law spawn-don't-roleplay nem o Synthesis Handoff.
     acceptance:
@@ -102,7 +120,8 @@ tasks:
       - debate encolhe abaixo de 15000 bytes.
     verifier:
       kind: shell
-      command: test -f skills/shared/debate-assets/gate-mode.md && test $(wc -c < skills/core/debate.md) -lt 15000
+      command: test -f skills/shared/debate-assets/gate-mode.md && test $(wc -c <
+        skills/core/debate.md) -lt 15000
       expectExitCode: 0
     outputs:
       - kind: file
@@ -114,7 +133,10 @@ tasks:
     status: pending
     lastUpdated: 2026-06-15T13:53:44.618Z
     summary: "init-memory: Step 5 e Critical Context para asset"
-    description: "Introduzir scaffold router mais asset e mover Step 5 Connect e Critical Context para um asset lazy. Arquivos: skills/modules/memory/init-memory.md, skills/modules/memory/_assets/connect.md"
+    description: "Introduzir scaffold router mais asset e mover Step 5 Connect e
+      Critical Context para um asset lazy. Arquivos:
+      skills/modules/memory/init-memory.md,
+      skills/modules/memory/_assets/connect.md"
     scopeBoundary:
       - não tocar os passos iniciais de criação da estrutura de memória.
     acceptance:
@@ -122,7 +144,8 @@ tasks:
       - init-memory encolhe abaixo de 7800 bytes.
     verifier:
       kind: shell
-      command: test -f skills/modules/memory/_assets/connect.md && test $(wc -c < skills/modules/memory/init-memory.md) -lt 7800
+      command: test -f skills/modules/memory/_assets/connect.md && test $(wc -c <
+        skills/modules/memory/init-memory.md) -lt 7800
       expectExitCode: 0
     outputs:
       - kind: file

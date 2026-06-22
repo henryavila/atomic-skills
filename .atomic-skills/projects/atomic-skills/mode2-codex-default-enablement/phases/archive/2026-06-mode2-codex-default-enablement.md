@@ -24,6 +24,8 @@ tasksDone: 5
 tasksTotal: 5
 gatesMet: 4
 gatesTotal: 4
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: G-1
     description: "QUALITY-CARRIERS PRESERVED: spec-completeness dispatch gate

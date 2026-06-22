@@ -45,3 +45,10 @@
 | 2026-06-17 21:30 | [wlf-f6-orphan-worktrees](2026-06-17-2130-wlf-f6-orphan-worktrees.md) | code (both) | needs_changes→all fixed | 0B/0C/2M/4m/2n (codex blind 2M caught local-missed-logic; emerged 1m pass-2) | 3d/1=/1+ |
 | 2026-06-17 23:00 | [wlf-f7-dedup-review-ledger](2026-06-17-2300-wlf-f7-dedup-review-ledger.md) | code (both) | needs_changes→all fixed | 0B/0C/5M/2m/2n (codex blind 5M caught 4 local-missed-logic + doc; local 1M doc/1m/2n; pass-2 emerged 0) | 0d/5=/0+ |
 | 2026-06-19 18:03 | [wlf-f8-finalize-plan-aware](2026-06-19-1803-wlf-f8-finalize-plan-aware.md) | code (both) | needs_changes→all fixed | 0B/0C/4M/0m/0n (codex final, all applied; blind 3M/1m, pass-2 upgraded F-003 minor→major; local 2M/2m disjoint) | 0d/4=/0+ |
+| 2026-06-17 10:19 | [deadline-burnup-forecast](2026-06-17-1019-plan-deadline-burnup-forecast.md) | plan | needs_changes | 0B/1C/5M/0m/0n | 0d/6=/0+ |
+| 2026-06-17 14:02 | [deadline-burnup-forecast (rev2)](2026-06-17-1402-plan-deadline-burnup-forecast-rev2.md) | plan | needs_changes→all fixed | 0B/0C/6M/0m/0n | 1d/5=/1+ |
+| 2026-06-17 15:08 | [deadline-burnup-forecast (rev3)](2026-06-17-1508-plan-deadline-burnup-forecast-rev3.md) | plan | needs_changes→all fixed | 0B/0C/4M/0m/0n | 1d/4=/0+ |
+| 2026-06-17 19:38 | [deadline-burnup-forecast-f0](2026-06-17-1938-code-deadline-burnup-forecast-f0.md) | code (local) | needs_changes→all fixed | 0B/1C/1M/1m/0n | — |
+| 2026-06-19 09:20 | [deadline-burnup-forecast-f1](2026-06-19-0920-code-deadline-burnup-forecast-f1.md) | code (local) | approved | 0B/0C/0M/3m/0n (all advisory; m2→F4 lesson) | — |
+| 2026-06-19 17:21 | [deadline-burnup-forecast-f3](2026-06-19-1721-code-deadline-burnup-forecast-f3.md) | code (both) | needs_changes→C+2M fixed, 1M pending user | local 0B/1C/2M/2m · codex 0B/0C/1M/2m | 2d/1+ |
+| 2026-06-20 09:15 | [deadline-burnup-forecast-f5](2026-06-20-0915-code-deadline-burnup-forecast-f5.md) | code (both) | approved w/ caveats — C4 fixed; L1+C3 routed to user as F3 follow-ups | local 0B/0C/1M/2m · codex 0B/0C/3M/1m | F-001 rejected (oos+fp) |

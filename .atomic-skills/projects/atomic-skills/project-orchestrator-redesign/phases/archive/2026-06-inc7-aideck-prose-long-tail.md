@@ -18,6 +18,8 @@ tasksDone: 10
 tasksTotal: 10
 gatesMet: 1
 gatesTotal: 1
+weightDone: 10
+weightTotal: 10
 exitGates:
   - id: F5-G1
     description: "The project-status skill reads + mutates the live nested tree

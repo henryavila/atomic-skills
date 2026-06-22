@@ -15,6 +15,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 2
 exitGates:
   - id: G-1
     description: the regression run passes the concrete criteria-based rubric

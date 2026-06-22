@@ -15,6 +15,8 @@ tasksDone: 0
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 4
 exitGates:
   - id: F5-G1
     description: Clicar num plano do projeto B navega para /project-b/plans/slug

@@ -16,7 +16,7 @@ no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 
 # Each test runs in a tmpdir copy of the repo so we don't mutate real state.
 # We copy only what the hook needs: .husky/, .git/ (init fresh), package.json,
-# scripts/, meta/, skills/, src/dashboard/data/, README.md, and src/config.js.
+# scripts/, meta/, skills/, README.md, and src/config.js.
 mk_tmp_repo() {
   local tmp
   tmp=$(mktemp -d -t pre-commit-test-XXXXXX)
@@ -43,7 +43,7 @@ mk_tmp_repo() {
 }
 
 # ─── Test 1: catalog input change triggers regen + auto-stage ───
-run "stage meta/catalog.yaml → hook regenerates + auto-stages README + skills.generated.ts"
+run "stage meta/catalog.yaml → hook regenerates + auto-stages README"
 tmp=$(mk_tmp_repo)
 (
   cd "$tmp"

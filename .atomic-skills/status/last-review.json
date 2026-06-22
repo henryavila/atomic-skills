@@ -1,15 +1,15 @@
 {
   "schemaVersion": "0.1",
-  "branch": "plan/worktree-lifecycle-finalization",
-  "lastReviewedCommit": "83d2ee1",
-  "lastReviewedAt": "2026-06-17T23:00:00Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-17-2300-wlf-f7-dedup-review-ledger.md",
-  "verdict": "needs_changes",
+  "branch": "plan/deadline-burnup-forecast",
+  "lastReviewedCommit": "8a088d4ffc6e922ff788e139d59097f30f841a66",
+  "lastReviewedAt": "2026-06-19T19:53:26Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md",
+  "verdict": "approved_with_remediations",
   "counts": {
     "blocker": 0,
-    "critical": 0,
-    "major": 5,
+    "critical": 1,
+    "major": 2,
     "minor": 2,
-    "nit": 2
+    "nit": 0
   }
 }
