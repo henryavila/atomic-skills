@@ -62,7 +62,8 @@ Steps:
 1. Locate `<id>` (same resolver as `why`). Print the current context.
 2. Print a `Proposed re-ratify:` block with the current values pre-filled — the user can `ratify` (just bump `lastReviewedAt`), paste edits (full re-articulation), or `cancel`.
 3. On ratify: update `context.lastReviewedAt = now`. If edits were pasted: also update `solves` / `trigger` / `assumesStillValid` per the edit. `ratifiedAt` advances to now; `ratifiedBy: human`.
-4. Save. Print a one-line confirmation.
+4. **Verifier-stale check when the edit RECLASSIFIES a scope symbol (G3).** A re-articulation that *moves, cancels, or reclassifies* an item — e.g. "this symbol is no longer decommissioned, it now migrates in F5" — can silently strand any **verifier** that hard-codes that symbol. A gate written `! rg 'RecurringActivity'` (expects zero live refs) becomes a guaranteed false-negative the moment the symbol legitimately stays in the code: the verifier fails on correct code, or worse, passes for the wrong reason. So when step 3's edit changes *what the item is* (not just bumping `lastReviewedAt`): extract the load-bearing symbol(s) from the old vs new `solves`/`trigger`, then scan the parent plan + its phase initiatives for any `verifier:` whose `command`/`sql`/`pattern` mentions that symbol. For each hit, surface it and require a disposition **in the same commit as the re-ratify** — *"Gate `<id>` verifier still asserts `<symbol>` is gone, but you just reclassified it as in-use. Update / re-target / defer this verifier?"*. This mirrors the Arch "keeping-rules-current" HARD-GATE: a classification change and its dependent verifiers move together, never apart. If no verifier mentions the symbol, say so and proceed (no-op).
+5. Save. Print a one-line confirmation.
 
 The original `ratifiedAt` is replaced — that's intentional. The audit trail of "this item used to mean X, now means Y" lives in git history of the .md file, not in a separate field, to avoid context bloat.
 
@@ -70,7 +71,7 @@ The original `ratifiedAt` is replaced — that's intentional. The audit trail of
 
 ## Codex review tracking
 
-`review-code --mode=codex` (or `--mode=both`) is the cross-model adversarial review gate (see `skills/en/core/review-code.md` — the codex sub-flow inside `review-code`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
+`review-code --mode=codex` (or `--mode=both`) is the cross-model adversarial review gate (see `atomic-skills:review-code` — the codex sub-flow inside `review-code`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
 
 ### State file
 
@@ -89,6 +90,28 @@ The original `ratifiedAt` is replaced — that's intentional. The audit trail of
 ```
 
 If the file is absent, treat as "never reviewed".
+
+**Generalized to a surface-review ledger (`review-dedup`).** The single-pointer shape
+above is the LEGACY form. The TARGET is an append-only **NDJSON set-ledger** (one record
+`{commitSha, patchId, mode, reviewedAt, reviewFile}` per line) read/written via the pure
+module `scripts/review-ledger.js` (F7/T-001): `readLedger` migrates a legacy pointer (or
+an absent/malformed file) **fail-safe to "nothing reviewed"**, `recordReview` appends
+(byte-preserving, never overwrites — `merge=union`-safe per F5), `alreadyReviewed(content,
+{ commitSha, patchId }, mode)` answers per mode with positive proof only.
+
+> ⚠️ **Format flip is a COORDINATED, DEFERRED follow-up — not yet live.** Four readers
+> still parse `last-review.json` as the legacy single pointer via `jq -r
+> '.lastReviewedCommit'`: (1) the default-view CODEX REVIEW line below, (2) `review-due`
+> step 1 (`<base>` derivation), (3) the `phase-done` integration, and (4)
+> `project-transitions.md` archive-gate. An NDJSON record has **no** top-level
+> `lastReviewedCommit`, so flipping the file's format WITHOUT migrating all four readers
+> in lockstep would make them read empty and report "never run" / mis-compute the base.
+> Therefore: until that lockstep migration lands, `last-review.json` STAYS the legacy
+> pointer, and the `review-dedup` legs read it through `readLedger` → `[]` → the dedup is
+> **inert-but-safe** (it never false-skips; it always re-reviews on the pointer). There is
+> no auto-"mirror"; the migration is the follow-up that flips the writer to `recordReview`
+> AND repoints the four readers to the ledger (last record's `commitSha` for the
+> up-to-date check) together.
 
 ### Default view — CODEX REVIEW line
 
@@ -130,18 +153,24 @@ Steps:
    > Run cross-model adversarial review on `<range>` (`<N>` commits, `<L>` lines)? Cost: ~$0.50–$1.50, ~5–10 minutes. (y/N)
 
 4. On `y`: invoke `atomic-skills:review-code` with args = `<range> --mode=codex` (skips the Step 0 picker and runs only the codex sub-flow). The skill produces a review file in `.atomic-skills/reviews/`.
-5. On completion (review skill returned a verdict): update `last-review.json`:
-   ```json
-   {
-     "schemaVersion": "0.1",
-     "branch": "<current branch>",
-     "lastReviewedCommit": "<HEAD sha at start of review>",
-     "lastReviewedAt": "<ISO timestamp>",
-     "reviewFile": ".atomic-skills/reviews/<filename>.md",
-     "verdict": "<from review frontmatter>",
-     "counts": <from review frontmatter>
-   }
-   ```
+   - **Dedup (`review-dedup`, fail-para-RE-revisar):** the surface fingerprint is
+     `commitSha` = HEAD of `<range>` + `patchId` = `git diff <range> | git patch-id
+     --stable`. `review-code`'s Step 0.5 already skips the **codex** pass when
+     `alreadyReviewed(content, { commitSha, patchId }, 'codex')` is true; `review-due`
+     may short-circuit the cost prompt of step 3 on the same positive proof and report
+     "already reviewed (codex)". Skip ONLY on positive proof — a pointer/absent/malformed
+     ledger reads as "nothing reviewed", so review RUNS (re-review on doubt). The dedup is
+     per mode: a `local` review never discharges the `codex` leg.
+5. On completion (review skill returned a verdict): update `last-review.json`. **Until the
+   coordinated format flip lands** (see the ⚠️ note under "State file"), keep writing the
+   LEGACY single-pointer shape (so the four pointer readers — CODEX REVIEW line, this
+   step's `<base>`, `phase-done`, `transitions` archive-gate — keep working):
+   `{ schemaVersion, branch, lastReviewedCommit: <HEAD sha at review start>, lastReviewedAt,
+   reviewFile, verdict, counts }`. **At the flip**, this single write switches to the
+   append-only ledger — `recordReview(content, { commitSha, patchId, mode: 'codex',
+   reviewedAt, reviewFile })` (`scripts/review-ledger.js`), prior records preserved
+   byte-for-byte — IN LOCKSTEP with repointing the four readers to the ledger. The ledger
+   record is the durable per-mode dedup proof; the pointer is the interim back-compat shape.
 6. Apply fixes for blocker/critical (`review-code` codex sub-flow already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
 
 ### `phase-done` integration

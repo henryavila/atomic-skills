@@ -52,7 +52,7 @@ Two independent legacy conditions, each recommending a different `migrate` mode.
 - Find active initiatives whose `branch:` equals the current branch.
 - **PASS:** exactly one active initiative matches (or the user is on the plan's expected branch).
 - **WARN:** zero matches → `WARN branch: no active initiative anchored to \`<branch>\`. You are working unanchored (Iron Law). Run \`status\` to disambiguate or open an initiative.`
-- **WARN:** more than one match → `WARN branch: <N> active initiatives claim \`<branch>\`: <slugs>. Only one should be active per branch.`
+- **FAIL:** more than one match → `FAIL branch: <N> active initiatives claim \`<branch>\`: <slugs>. At most one active plan may claim a tree (Iron Law). Give each its own tree (\`git worktree add -b plan/<slug>\`) + stamp a distinct \`branch:\`, \`pause\` all but one, or stamp distinct \`branch:\` values so they stop sharing \`<branch>\`.` This is the **hard** end of the soft→strict ladder whose **soft** form is `create-plan` Stage 6's single-focus pre-flight (R-FOCUS-01): create-plan warns + guides at materialization; `verify` is where a multi-active that already shares a tree fails the coherence pass.
 - Also flag: an active plan whose `currentPhase` initiative `branch:` does not match the current branch → `WARN phase-branch: active plan \`<plan>\` currentPhase \`<id>\` is on branch \`<x>\`, you are on \`<branch>\`.`
 
 ### 4. Scope coverage (read-only; wraps `detect-scope` data, no write)
@@ -81,6 +81,18 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - **WARN** (report-only): `WARN completion: <N> task(s)/gate(s) look done in the repo but are still open — run \`reconcile\`.` — then list each candidate's `kind`, `id`, and `evidence`.
 - This check is **strictly report-only**, consistent with `verify`'s read-only contract. `verify --fix` is **NOT** extended to reconcile — closing tasks/gates is a judgement call (verifier-aware, GATE-R2-gated) owned by the `reconcile` verb. `--fix` stays schema-normalization only.
 
+### 8. Phase review gate (read-only; G2 backward-compat surface)
+- For each plan phase with `status: done`, check whether it carries a `reviewGate` block (the structured phase-done review outcome).
+- **PASS:** every done phase carries a `reviewGate` (its honesty — `passed`⟹`at`, `skipped`⟹`reason` — is already HARD-enforced by `validate-state` GATE-R3 in check #1, so a malformed one surfaces there as a FAIL).
+- **WARN** (report-only): `WARN review-gate: <N> done phase(s) carry no recorded review gate (closed before the gate existed, or review-code was never run) — <plan>/<phaseId>…`. This is the deterministic surface for the legacy/missed case that GATE-R3 deliberately tolerates (absent ≠ malformed); it never mutates and `--fix` does not backfill it (the review must actually run — `phase-done` / `review-due` is the only path that writes a truthful `reviewGate`).
+
+### 9. Orphan worktrees (read-only; PR→develop lifecycle backstop)
+Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. WARN-only in v1; the topology-aware auto-ordering classifier is DEFERRED.
+- **WARN merged-feature-worktree:** a live worktree whose feature branch is already merged into the integration ref (PR `state: MERGED` or `merge-base` ancestry) → `WARN worktrees: feature \`<branch>\` is merged but its worktree \`<path>\` is still live — teardown pending (run \`archive\` after the PR merge, or \`git worktree remove\`).`
+- **WARN archived-never-pr / archived-pr-open-unmerged:** an archived plan whose branch never reached the integration ref — no PR was opened (`kind: archived-never-pr`), or a PR is still OPEN and never merged (`kind: archived-pr-open-unmerged`). A branch that DID reach it (PR `state: MERGED` **or** `merge-base` ancestry) is the healthy terminal state and is NOT flagged, even when no PR identity was recorded. → `WARN worktrees: archived plan \`<slug>\` branch \`<branch>\` never reached \`<integrationRef>\`.`
+- A clean/active state (no merged-but-live worktree, no archived-unreached branch) → no finding.
+- `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
+
 ---
 
 ## Report shape
@@ -95,8 +107,10 @@ project verify — <repo-name> @ <branch>
 [5] orphans     PASS
 [6] aideck      WARN   dashboard not running (cross-check skipped)
 [7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
+[8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
+[9] worktrees   WARN   feature merged but worktree live (plan/x) — teardown pending
 
-VERIFY: 3 warning(s), 0 failure(s)
+VERIFY: 6 warning(s), 0 failure(s)
 ```
 
 ## Red flags

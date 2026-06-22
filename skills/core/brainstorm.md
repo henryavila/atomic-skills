@@ -81,11 +81,7 @@ Optional accelerator (Claude Code): fan the panel + critic out in parallel nativ
 
 ## Code-quality gates
 
-This flow is bound by `docs/kb/code-quality-gates.md`. The design you write must comply with:
-
-- **G1 read-before-claim** — when the design asserts what an existing file/subsystem does, paste the source lines next to the claim. Inferring from a name is forbidden.
-- **G2 soft-language ban** — no `should`, `probably`, `may`, `typically`, `usually`, `I think`, `it seems`, `in theory`, `tends to` in the design body. Convert each to a verified statement or an explicit `unverified: <why>` marker.
-- **G6 reference-or-strike** — every assertion in `design.md` carries `verified_by: <file:line | command>` or `unverified: <why>`. A bare claim is deleted on the next review pass.
+This flow is bound by `docs/kb/code-quality-gates.md` — it applies **G1** (read-before-claim), **G2** (soft-language ban), and **G6** (reference-or-strike). See the KB for the definitions + good/bad examples; the self-review block below is where they shape `design.md`.
 
 ## Self-review against gates
 
@@ -114,21 +110,6 @@ Silent application is forbidden; the checkpoint ships in the committed doc.
 - "The critic is slow / the user didn't ask for it / I'll self-review and run it later." → None of those is a reason. Slowness is friction (spawn it, work in parallel); user-silence is not skip-permission; self-review re-confirms your own blind spots; "later" means advancing un-Approved now. Run the critic before declaring the design done.
 
 If you thought any of the above: STOP. Go back to the phase you were skipping.
-
-## Rationalization
-
-| Temptation | Reality |
-|------------|---------|
-| "The first workable approach is the design" | First-workable ≠ best. The approach you never voiced is the one premature convergence hides. Frame ≥2 or prove there is one. |
-| "A panel is ceremony for an obvious call" | The ladder agrees — no panel unless ≥2 viable AND expensive-to-reverse. But "obvious" is exactly the self-grade the ladder, not your gut, must rule on. |
-| "Everyone on the panel agreed, so it's approved" | Consensus measures spread, not completeness — a conformed panel commits a wrong answer as PASS. Approval = critic verdict + user word. |
-| "I'll record the chosen approach and skip the rejected ones" | The rejected alternatives are the design's memory; without them the next session re-litigates the same fork blind. |
-| "WHAT and HOW are the same doc, I'll write tasks inline" | The HOW-as-tasks is the decompose step's job and lives in task bodies. A design that is a task list skips the decisions it exists to record. |
-| "Critic said Issues-Found but the findings are minor, advance" | needs_changes/reject is Issues-Found, full stop. Fix and re-run (≤3), or escalate. There is no minor-override on the gate. |
-| "It's just a design doc, the gates don't apply" | A design built on unverified claims (G1/G6) propagates the error into every task decomposed from it — it is the highest-leverage place to enforce them. |
-| "The lead said 'don't overthink it' / we already aligned on A — the single approach is sanctioned" | A steer to be pragmatic and yesterday's nod are not a waiver of the fork. The ladder rules on ≥2-viable, not the loudest stakeholder; "I was told to" and "nobody objected" do not convert an unframed fork into a proven one. Frame ≥2 or prove (in B0) there is exactly one — deadline pressure is not the proof. |
-| "Skip the design doc = jump to the task list; I can picture it and backfill the 'why' later" | "Skip the doc" means skip the ceremony, not the decisions — Decisions + Chosen approach are 3–4 lines, not a document. A task list from absent decisions bakes in unexamined assumptions, and the rationale is the one part that cannot be reconstructed once your context is evicted. Lock the decisions terse-but-present first, then derive tasks from them. |
-| "The critic is slow and the user didn't ask for it — I'll self-review and run it later" | Latency is friction (spawn it, work in parallel); user-silence is not skip-permission; self-review re-confirms your own blind spots (the freshness contract); "later" = advancing un-Approved now, which the Iron Law forbids. The critic runs before B5, every time. |
 
 ## Closing
 

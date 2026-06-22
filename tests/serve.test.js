@@ -95,15 +95,11 @@ describe('serve constants', () => {
     assert.match(serve.__testing.ENV_FILE_PATH, /\.atomic-skills\/env$/)
   })
 
-  it('DEFAULT_BUNDLE_DIR resolves to <pkg>/dist/dashboard', () => {
-    assert.match(serve.__testing.DEFAULT_BUNDLE_DIR, /atomic-skills\/dist\/dashboard$/)
-  })
-
-  it('the dashboard bundle has been built (E.T-005 prerequisite)', () => {
-    assert.ok(
-      existsSync(join(serve.__testing.DEFAULT_BUNDLE_DIR, 'index.html')),
-      'dist/dashboard/index.html missing — run `npm run build:dashboard`'
-    )
+  it('DEFAULT_BUNDLE_DIR points at the staged aiDeck client (~/.atomic-skills/dashboard)', () => {
+    // The dashboard is the aiDeck Vue client staged by the installer, not a
+    // bundle atomic-skills builds. serve() passes it via --static-dir only
+    // when present; otherwise aideck serves its own bundled client.
+    assert.match(serve.__testing.DEFAULT_BUNDLE_DIR, /\.atomic-skills\/dashboard$/)
   })
 })
 

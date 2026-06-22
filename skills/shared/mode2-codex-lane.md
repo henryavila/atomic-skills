@@ -176,27 +176,34 @@ never force-removes the worktree) is in `skills/shared/worktree-isolation.md`
 § *Merge-back when a BATCH of worktrees exists*. v1 is operator-prompted; the
 unattended serial-rebase is the deferred v2.
 
-## 9. Telemetry — sidecar `dispatch-log.json` (R-EXEC-42), NOT a schema bump
+## 9. Telemetry — sidecar `dispatch-log.json`, NDJSON (R-EXEC-42), NOT a schema bump
 
 Append one record per task to `.atomic-skills/status/dispatch-log.json` (a
 sidecar — do NOT bump the Task schema to 0.2 for this until the lane is proven).
-Shape:
+
+**Format: NDJSON (newline-delimited JSON).** Each record is ONE compact JSON
+object on its OWN single line; the file is a stream of such lines, NOT a single
+pretty-printed JSON array. This is load-bearing: the sidecar is git-tracked and
+parallel feature worktrees append to it concurrently, so it carries `merge=union`
+in `.gitattributes`. git's union driver is lossless ONLY for line-oriented files —
+a multi-line JSON array would union-merge into invalid JSON (a `}` directly
+followed by `{` with no separating comma). One-object-per-line keeps every
+concurrent append a self-contained, individually-valid JSON line. Read it back by
+parsing each non-empty line as JSON
+(`raw.split('\n').filter(Boolean).map(JSON.parse)`); append by writing the
+compact object plus a trailing newline. Record shape (written as a single line):
 
 ```json
-{
-  "taskId": "T-101",
-  "executorTier": "cheap | standard",
-  "executor": "codex | subagent",
-  "attempt": 1,
-  "verifierKind": "test | shell",
-  "verifierPassed": true,
-  "escalatedTo": null,
-  "escalationCount": 0,
-  "startedAt": "<isoTimestamp>",
-  "finishedAt": "<isoTimestamp>",
-  "codexWorktreeRef": "<branch-or-path>"
-}
+{"taskId":"T-101","plan":"<plan-slug>","phase":"<phaseId>","executorTier":"cheap | standard","executor":"codex | subagent","attempt":1,"verifierKind":"test | shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"<isoTimestamp>","finishedAt":"<isoTimestamp>","codexWorktreeRef":"<branch-or-path>","routingReason":"<why this task routed here>"}
 ```
+
+`plan` + `phase` are REQUIRED match keys, not optional: the task-actuals
+consumer (`scripts/append-completion.js` `readDispatchActuals`, F4/T-002) keys
+on `plan`+`phase`+`taskId` to attach `attempts`/`durationMs`/`escalations` to the
+`task-done` completion event. A record that omits them never matches and silently
+degrades that task to actuals-omitted — so a writer that follows this contract
+MUST emit `plan` and `phase` (taskIds repeat across phases; `taskId` alone is
+ambiguous).
 
 Plus the persisted routing decision + reason (no "satisfied lever" — the
 scarce-resource trigger was dropped in §3; record simply that the task cleared

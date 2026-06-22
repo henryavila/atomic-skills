@@ -1,5 +1,6 @@
 {
   "mode2Enabled": true,
+  "integrationRef": "develop",
   "codexLane": {
     "enabled": true,
     "timeoutSeconds": 600,

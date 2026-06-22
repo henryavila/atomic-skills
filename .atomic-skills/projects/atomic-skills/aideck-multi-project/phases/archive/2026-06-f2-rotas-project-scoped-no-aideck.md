@@ -15,6 +15,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 2
 gatesTotal: 2
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F2-G1
     description: GET /api/projects/:id/state/project-status retorna state do projeto correto

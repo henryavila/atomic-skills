@@ -324,6 +324,93 @@ function parseTaskBullet(line, autoCounter) {
   return null;
 }
 
+// Read a `name: value` body field, tolerating a leading list marker and bold
+// emphasis (`- Files:` and `- **Files:**` both parse). Mirrors the SPEC gate's
+// reader in scripts/lint-source.js so decompose materializes exactly what the
+// gate admits.
+function fieldValue(line, name) {
+  const clean = line.replace(/\*\*/g, '');
+  const re = new RegExp(`^\\s*[-*]?\\s*${name}\\s*:\\s*(.*)$`, 'i');
+  const m = clean.match(re);
+  return m ? m[1].trim() : null;
+}
+
+function stripWrappingQuotes(s) {
+  const t = String(s || '').trim();
+  return /^(['"]).*\1$/.test(t) ? t.slice(1, -1) : t;
+}
+
+// Parse a per-task `verifier:` value into the schema verifier object. The
+// canonical form is the same inline flow-map the exit_gate block uses
+// (`{ kind: shell, command: "…", expectExitCode: 0 }`); a bare `kind: shell,
+// command: …` is wrapped and parsed the same way. A loose `kind shell <cmd>`
+// is the shell-only fallback. Returns null when no deterministic kind is found.
+function parseTaskVerifier(value) {
+  if (!value) return null;
+  const v = String(value).trim();
+  const candidate = v.startsWith('{') ? v : `{ ${v} }`;
+  try {
+    const parsed = parseYaml(candidate);
+    if (parsed && typeof parsed === 'object' && parsed.kind) return parsed;
+  } catch { /* fall through to the loose shell parse */ }
+  const km = v.match(/\bkind[\s:]+(shell|test|query|manual)\b/i);
+  if (!km) return null;
+  const kind = km[1].toLowerCase();
+  const rest = v.slice(km.index + km[0].length).replace(/^[\s,;:]+/, '').trim();
+  if (kind === 'shell') {
+    const cmd = stripWrappingQuotes(rest.replace(/^command\s*[:=]?\s*/i, ''));
+    return cmd ? { kind, command: cmd } : { kind };
+  }
+  if (kind === 'query') {
+    const sql = stripWrappingQuotes(rest.replace(/^sql\s*[:=]?\s*/i, ''));
+    return sql ? { kind, sql } : { kind };
+  }
+  if (kind === 'manual') return rest ? { kind, description: stripWrappingQuotes(rest) } : { kind };
+  // test: a runner+pattern needs the flow-map form; the loose form is ambiguous.
+  return { kind };
+}
+
+// Parse a `### Tn` task section body into the per-task SPEC interior so the
+// materialized task carries a completion signal (T1.5). Lead prose before the
+// first field bullet becomes `description`; `- Files:` becomes `outputs[]`;
+// scopeBoundary / acceptance become single-element arrays; `- verifier:` is
+// structured via parseTaskVerifier. A body with none of these yields {} so an
+// interior-less task stays id+title only (backward compatible).
+function parseTaskInterior(bodyLines) {
+  const interior = {};
+  const descLines = [];
+  let sawField = false;
+  let files = null;
+  let scope = null;
+  let acceptance = null;
+  let verifierRaw = null;
+  for (const line of bodyLines) {
+    const trimmed = line.trim();
+    const f = fieldValue(line, 'files');
+    if (f != null) { files = f; sawField = true; continue; }
+    const s = fieldValue(line, 'scope[\\s_-]?boundary');
+    if (s != null) { scope = s; sawField = true; continue; }
+    const a = fieldValue(line, 'acceptance');
+    if (a != null) { acceptance = a; sawField = true; continue; }
+    const ver = fieldValue(line, 'verifier');
+    if (ver != null) { verifierRaw = ver; sawField = true; continue; }
+    // Lead prose (a non-bullet line before any field) → description. Other
+    // bullets (e.g. `- RED→GREEN:`) are ignored.
+    if (!sawField && trimmed && !/^[-*]\s/.test(trimmed)) descLines.push(trimmed);
+  }
+  const description = descLines.join(' ').trim();
+  if (description) interior.description = description;
+  if (scope) interior.scopeBoundary = [scope];
+  if (acceptance) interior.acceptance = [acceptance];
+  const verifier = parseTaskVerifier(verifierRaw);
+  if (verifier) interior.verifier = verifier;
+  if (files) {
+    const paths = files.split(',').map((p) => p.trim()).filter(Boolean);
+    if (paths.length > 0) interior.outputs = paths.map((p) => ({ kind: 'file', path: p }));
+  }
+  return interior;
+}
+
 function extractTasks(bodyLines) {
   // Mode 1: bullets under a marker H3 (`### Sub-fases`, `### Tasks`, …).
   // The bullets must start with `- **<id> — <title>.**` to qualify.
@@ -349,11 +436,15 @@ function extractTasks(bodyLines) {
     }
     if (tasks.length > 0) return tasks;
   }
-  // Mode 2: H3 = task (fallback). Skips marker H3s.
+  // Mode 2: H3 = task (fallback). Skips marker H3s. Each task section's body
+  // (the lines until the next H3) is parsed for the per-task SPEC interior
+  // (description + Files + scopeBoundary + acceptance + verifier) so the
+  // materialized task carries a completion signal (T1.5). An interior-less
+  // section stays id+title only — backward compatible.
   const tasks = [];
   let counter = 0;
-  for (const line of bodyLines) {
-    const m = line.match(H3_RE);
+  for (let i = 0; i < bodyLines.length; i++) {
+    const m = bodyLines[i].match(H3_RE);
     if (!m) continue;
     if (TASK_MARKER_H3_RE.test(normalizeHeading(m[1]))) continue;
     counter += 1;
@@ -361,7 +452,12 @@ function extractTasks(bodyLines) {
     const idMatch = raw.match(TASK_ID_RE);
     const id = idMatch ? idMatch[1].toUpperCase() : `T-${String(counter).padStart(3, '0')}`;
     const title = idMatch ? idMatch[2].trim() : raw.trim();
-    tasks.push({ id, title });
+    let end = bodyLines.length;
+    for (let k = i + 1; k < bodyLines.length; k++) {
+      if (H3_RE.test(bodyLines[k])) { end = k; break; }
+    }
+    const interior = parseTaskInterior(bodyLines.slice(i + 1, end));
+    tasks.push({ id, title, ...interior });
   }
   return tasks;
 }
@@ -776,6 +872,10 @@ export function materializeDecomposition(decompose, opts = {}) {
       ...(t.description ? { description: t.description } : {}),
       status: 'pending',
       lastUpdated: iso,
+      ...(t.scopeBoundary ? { scopeBoundary: t.scopeBoundary } : {}),
+      ...(t.acceptance ? { acceptance: t.acceptance } : {}),
+      ...(t.verifier ? { verifier: t.verifier } : {}),
+      ...(t.outputs ? { outputs: t.outputs } : {}),
     }));
     const exitGates = init.exitGates.map((g, gIdx) => {
       const c = {

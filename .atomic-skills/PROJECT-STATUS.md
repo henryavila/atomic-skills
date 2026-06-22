@@ -1,7 +1,7 @@
 ---
-lastUpdated: '2026-06-09T22:00:00Z'
+lastUpdated: '2026-06-19T20:05:00Z'
 schemaVersion: '0.1'
-activePlans: 1
+activePlans: 2
 activeInitiatives: 0
 archivedCount: 7
 ---
@@ -12,6 +12,23 @@ Canonical entry point. Auto-updated by `atomic-skills:project-status`. Read firs
 
 ## Active Plans
 
+### worktree-lifecycle-finalization — Finalização do ciclo de vida da worktree-do-plano (F0–F7 implementadas · pronto para finalize/archive)
+
+Cada plano forka branch+worktree na criação; publicar (`finalize` → push + PR feature→develop) e encerrar (`archive`, zero-git pós-merge) são máquinas de estado separadas, operator-prompted; nunca remover trabalho não-provado-integrado (fail-closed: em indeterminação, BLOQUEIA).
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| F0 — Always-fork na criação (Decisão 1) | done | Fork incondicional branch+worktree no nascimento do plano; "1 worktree = 1 feature = 1 PR limpo" mecânico. |
+| F1 — integrationRef configurável | done | Resolver puro de `integrationRef`/`baseRef` (routing.json + schema), base do PR e dos git ops separadas. |
+| F2 — Teardown seguro squash-safe (Decisão 2) | done | `isTeardownSafe` — liveness via `gh pr view` (MERGED+headRefOid) + veto local; squash-safe; fail-closed. |
+| F3 — project finalize dedicado (Decisão 3) | done | Comando `finalize`: push + `gh pr create --base <integrationRef>`, grava pr-url; archive intocado. 1/1 tasks, 2/2 gates. |
+| F4 — Check de colisão cross-WT no finalize (Decisão 7) | done | Gate determinístico `cross-wt-gate.js` (≥2 WTs, merge especulativo, fail-closed) + advisory A/B read-only no finalize; archive→teardown wired. 3/3 tasks, 2/2 gates. |
+| F5 — Coupling interim de .atomic-skills/ (Decisão 5) | done | `focus.json` git-ignored (pré-existente) + `dispatch-log.json`→NDJSON com `merge=union` provado (union lossless só line-oriented); round-trip preservado. 1/1 tasks, 2/2 gates (Mode 2/Codex). |
+| F6 — Backstop read-only no project verify (Decisão 6) | done | 9º check `findOrphanWorktrees` (puro, read-only): WARN para órfãos PR→develop (worktree de feature mergeada; branch arquivada não-integrada). 1/1 tasks, 2/2 gates (Mode 2/Codex). |
+| F7 — Dedup de review em duas camadas (Decisão 8) | done | Ledger NDJSON `scripts/review-ledger.js` (fail-safe, prova-positiva) + `review-dedup` em review-code/review-due + work-order Camada B. 4/4 tasks, 2/2 gates (T-001 Mode 2; T-002–004 Mode 1). Flip de formato do `last-review.json` = follow-up coordenado deferido. |
+
+**Plano implementado (F0–F7 done).** Próximos passos operator-prompted (P2, não auto-rodados): `project finalize` (push `plan/worktree-lifecycle-finalization` + abre PR feature→develop) e, após merge, `archive`. Sessão Mode-2/Codex dogfood: F4/T-001, F5/T-001, F6/T-001, F7/T-001 via Codex; demais Mode 1. `review-code --mode=both` pegou logic/contract bugs que o mesmo-modelo perdeu em todas as 7 fases.
+
 ### quick-idea-capture — Quick Idea Capture (currentPhase: F1)
 
 Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar) num único `ideas.md`, promoção sempre separada via emergence ladder. Dashboard fica para fase posterior.
@@ -20,6 +37,17 @@ Inbox barato de ideias do projeto: captura em segundos (fork Analisar/Só salvar
 |-------|--------|---------|
 | F0 — Captura barata (MVP do inbox) | done | Script de append, detail file com o fork, `idea list`, wiring e paridade de install. 3/3 tasks, 3/3 gates (codex lane). |
 | F1 — Promoção via emergence ladder | done | Verbo `idea promote`: extrai a ideia e roteia pela ladder com ratify, marcando-a triaged. 2/2 tasks, 2/2 gates (codex lane). Plano completo — pronto para `archive`. |
+
+### reversible-installer — Reversible Installer (✅ DONE — plan-done 2026-06-19)
+
+Extrai o instalador do atomic-skills num kernel genérico de sincronização reversível de arquivos templados, consumível por qualquer projeto via dependência + config; uninstall out-of-the-box. **Concluído package-first:** a engine é o pacote `@henryavila/tooling-installer` (file: link), atomic-skills é o 1º consumidor. Follow-ups fora do plano: publish do pacote ^0.1.x + trocar o file: link; gate de merge de plan/skills-restructuring.
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| F0 — Effect Kernel + file reconciler | done | Funda o kernel: contrato de efeito reversível, journal e o reconciler de arquivos (porta do 3-hash). 3/3 tasks, 2/2 gates (codex lane; review local 2 major fixed). |
+| F1 — Efeitos built-in não-arquivo | done | Os 3 efeitos não-arquivo (json-merge/refcount/legacy-prune) com before-state + matriz adversária. Construídos in-repo, depois SUPERSEDED → migraram p/ o pacote; paridade no round-trip 9/9. 4/4 tasks, 1/1 gate. |
+| F2 — Providers e config two-tier | done | Provider + Driver + config two-tier — fase-ponteiro, 100% no repo do pacote (62/62). 0/3 tasks (no pacote), 1/2 gates (G-2 verifier removido no flip, provado no pacote). |
+| F3 — Big-bang rewire e paridade | done | Religa atomic-skills sobre o pacote (SkillsProvider + runtime layers), remove src/kernel/, prova paridade. 6/6 tasks, 2/3 gates (G-2 deferred ambiental); review gate --mode=both achou+corrigiu 2 criticals de reversibilidade. |
 
 ## Paused Plans
 

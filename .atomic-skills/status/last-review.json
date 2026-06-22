@@ -1,9 +1,15 @@
 {
   "schemaVersion": "0.1",
-  "branch": "main",
-  "lastReviewedCommit": "9e21b16eec9b7fb8d61c2d3d2ae4021c89300071",
-  "lastReviewedAt": "2026-06-07T17:42:28Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-07-1742-f5-phasedone-codex-review.md",
-  "verdict": "needs_changes",
-  "counts": { "blocker": 0, "critical": 0, "major": 4, "minor": 0, "nit": 0 }
+  "branch": "plan/deadline-burnup-forecast",
+  "lastReviewedCommit": "8a088d4ffc6e922ff788e139d59097f30f841a66",
+  "lastReviewedAt": "2026-06-19T19:53:26Z",
+  "reviewFile": ".atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md",
+  "verdict": "approved_with_remediations",
+  "counts": {
+    "blocker": 0,
+    "critical": 1,
+    "major": 2,
+    "minor": 2,
+    "nit": 0
+  }
 }

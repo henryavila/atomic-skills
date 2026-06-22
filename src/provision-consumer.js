@@ -1,19 +1,22 @@
 /**
- * Per-project aiDeck consumer provisioning.
+ * aiDeck consumer provisioning (ONE shared consumer, Q10 model).
  *
- * The aiDeck dashboard surfaces `.atomic-skills/` state through a "consumer"
- * (a manifest + schema + handlers under `~/.aideck/consumers/<id>/`). aiDeck
- * keys each consumer by its `manifest.id` (consumer-registry scans the dir and
- * registers `result.value.id`), and the dashboard URL / breadcrumb are that id.
+ * The aiDeck v0.1 runtime keys CONSUMERS by `manifest.id` (consumer-registry
+ * scans ~/.aideck/consumers/<dir>/manifest.yaml) and keys PROJECTS separately by
+ * projectId (project-registry). A consumer's `root: project` dataSources resolve
+ * per-project via /api/consumers/:id/projects/:projectId/data/:ds.
  *
- * The identity a user sees MUST be the project that uses the skill — not a fixed
- * "atomic-skills" / "Project Status". So instead of shipping one global consumer
- * verbatim, we ship a TEMPLATE and stamp a per-project copy lazily (at `status`
- * time, when PWD = the consuming repo and the projectId is concrete): consumer
- * `id` = projectId, `title` = humanized projectId. Running the skill in repo
- * `foo` yields `~/.aideck/consumers/foo/` titled "Foo".
+ * So there is exactly ONE atomic-skills consumer — id `atomic-skills`,
+ * mcpNamespace `atomic_skills`, title `Atomic Skills` — and every consuming repo
+ * is registered as a *project* (the skill POSTs /api/projects/register, or
+ * `aideck up` does it on launch). The dashboard scopes by the `:projectId` route
+ * param. This replaces the former one-consumer-per-projectId stamping: with N
+ * repos sharing one consumer, per-project ids would fragment the MCP namespace
+ * and the consumer registry for no benefit (the project layer already scopes).
  *
- * This module is the single, replicable mechanism + its regression surface.
+ * Provisioning is therefore identity-free: copy the shipped template verbatim
+ * into ~/.aideck/consumers/atomic-skills/. Idempotent + self-healing (fresh copy
+ * each call). aiDeck never writes the repo's state — the Iron Law holds.
  */
 import {
   readFileSync,
@@ -26,57 +29,20 @@ import {
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
-import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** A projectId slug ("acme-api") → a human display title ("Acme Api"). */
-export function humanizeProjectId(projectId) {
-  return String(projectId)
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
+// The single, canonical consumer identity (must match the shipped template's
+// top-level id/mcpNamespace/title — re-stamped below so a drifted template can
+// never deploy a consumer the skill's AIDECK_CONSUMER won't resolve).
+export const CONSUMER_ID = 'atomic-skills';
+export const CONSUMER_MCP_NAMESPACE = 'atomic_skills';
+export const CONSUMER_TITLE = 'Atomic Skills';
 
-/**
- * A projectId → an aiDeck mcpNamespace ([a-z][a-z0-9_]{0,31}). The MCP tool name
- * is `aideck_<mcpNamespace>_<tool>`, so per-project consumers MUST carry distinct
- * namespaces or their tools collide in the shared registry. Derived from the pid
- * (dashes→underscores), letter-prefixed if needed, capped at 32 chars.
- * "atomic-skills" → "atomic_skills" (unchanged from the legacy value).
- *
- * Two distinct ids that share the same first 32 sanitized chars would truncate
- * to the SAME namespace and collide in the shared MCP registry (F-004). When —
- * and only when — truncation is needed, the tail is replaced by a short
- * deterministic hash of the FULL sanitized ns (25 prefix chars + '_' + 6 hex =
- * 32), so long ids stay distinct while short ids keep their exact legacy value.
- */
-export function sanitizeMcpNamespace(projectId) {
-  let ns = String(projectId)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  if (!/^[a-z]/.test(ns)) ns = `as_${ns}`;
-  if (ns.length <= 32) return ns;
-  const hash = createHash('sha1').update(ns).digest('hex').slice(0, 6); // [0-9a-f] ⊂ [a-z0-9]
-  return `${ns.slice(0, 25)}_${hash}`;
-}
-
-/**
- * Rewrite ONLY the top-level (column-0) `id:` and `title:` keys of a consumer
- * manifest, leaving every nested `title:` (page/section/widget) and all comments
- * untouched. Anchored to start-of-line so indented keys never match.
- */
-export function stampIdTitle(yaml, id, title) {
-  let out = yaml.replace(/^id:[ \t].*$/m, `id: ${id}`);
-  out = out.replace(/^title:[ \t].*$/m, `title: '${String(title).replace(/'/g, "''")}'`);
-  return out;
-}
-
-/** Rewrite the top-level `mcpNamespace:` key (column-0 only). */
-export function stampMcpNamespace(yaml, ns) {
-  return yaml.replace(/^mcpNamespace:[ \t].*$/m, `mcpNamespace: ${ns}`);
+/** Rewrite a top-level (column-0) `key:` line, leaving nested/indented keys + comments intact. */
+function stampTopLevel(yaml, key, value) {
+  const re = new RegExp(`^${key}:[ \\t].*$`, 'm');
+  return yaml.replace(re, `${key}: ${value}`);
 }
 
 /**
@@ -96,28 +62,17 @@ export function defaultTemplateDir() {
   return join(HERE, '..', 'assets', 'aideck-consumer');
 }
 
-const VALID_PROJECT_ID = /^[a-z0-9][a-z0-9-]*$/;
-
 /**
- * Provision (idempotent) a per-project consumer whose id + title ARE the
- * consuming project. Copies the template, then stamps id/title.
+ * Provision (idempotent) the single shared atomic-skills consumer.
  *
- * @param {string} projectId            normalized repo slug (basename, lowercased)
  * @param {object} [opts]
  * @param {string} [opts.templateDir]   shipped template dir (default: defaultTemplateDir())
  * @param {string} [opts.consumersDir]  aiDeck consumers root (default: ~/.aideck/consumers)
- * @param {string} [opts.title]         override display title (default: humanized projectId)
- * @returns {{ consumerId: string, dir: string, title: string }}
+ * @returns {{ consumerId: string, dir: string, title: string, mcpNamespace: string }}
  */
-export function provisionConsumer(projectId, opts = {}) {
-  if (typeof projectId !== 'string' || !VALID_PROJECT_ID.test(projectId)) {
-    throw new Error(
-      `provisionConsumer: invalid projectId ${JSON.stringify(projectId)} (expected slug [a-z0-9-])`,
-    );
-  }
+export function provisionConsumer(opts = {}) {
   const templateDir = opts.templateDir ?? defaultTemplateDir();
   const consumersDir = opts.consumersDir ?? join(homedir(), '.aideck', 'consumers');
-  const title = opts.title ?? humanizeProjectId(projectId);
 
   const tmplManifest = join(templateDir, 'manifest.yaml');
   if (!existsSync(tmplManifest)) {
@@ -125,27 +80,30 @@ export function provisionConsumer(projectId, opts = {}) {
   }
 
   // Fresh copy each time → idempotent and self-healing if a prior copy drifted.
-  const dir = join(consumersDir, projectId);
+  const dir = join(consumersDir, CONSUMER_ID);
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   cpSync(templateDir, dir, { recursive: true });
 
-  const mcpNamespace = opts.mcpNamespace ?? sanitizeMcpNamespace(projectId);
-  let stamped = stampIdTitle(readFileSync(tmplManifest, 'utf8'), projectId, title);
-  stamped = stampMcpNamespace(stamped, mcpNamespace);
-  writeFileSync(join(dir, 'manifest.yaml'), stamped, 'utf8');
+  // Re-stamp the canonical identity (defensive: pins the deployed consumer to the
+  // exported constants regardless of template drift). No per-project values.
+  let manifest = readFileSync(tmplManifest, 'utf8');
+  manifest = stampTopLevel(manifest, 'id', CONSUMER_ID);
+  manifest = stampTopLevel(manifest, 'mcpNamespace', CONSUMER_MCP_NAMESPACE);
+  manifest = stampTopLevel(manifest, 'title', `'${CONSUMER_TITLE}'`);
+  writeFileSync(join(dir, 'manifest.yaml'), manifest, 'utf8');
 
-  return { consumerId: projectId, dir, title, mcpNamespace };
+  return { consumerId: CONSUMER_ID, dir, title: CONSUMER_TITLE, mcpNamespace: CONSUMER_MCP_NAMESPACE };
 }
 
-// CLI: `node provision-consumer.js <projectId> [title]` — used by the project
-// skill's `status` ensure-aideck flow. Prints the resolved consumer id so the
-// caller can set AIDECK_CONSUMER from it.
+// CLI: `node provision-consumer.js` — used by the project skill's `status`
+// ensure-aideck flow. Prints the fixed consumer identity so the caller can set
+// AIDECK_CONSUMER from it. Project registration (rootDir → projectId) is a
+// separate runtime step (POST /api/projects/register), not this module's job.
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const [, , projectId, title] = process.argv;
   try {
-    const r = provisionConsumer(projectId, title ? { title } : {});
-    process.stdout.write(`CONSUMER_ID=${r.consumerId}\nCONSUMER_TITLE=${r.title}\n`);
+    const r = provisionConsumer();
+    process.stdout.write(`CONSUMER_ID=${r.consumerId}\nCONSUMER_TITLE=${r.title}\nCONSUMER_NS=${r.mcpNamespace}\n`);
   } catch (e) {
     process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
     process.exit(1);

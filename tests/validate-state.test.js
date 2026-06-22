@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,7 +15,7 @@ const SCHEMA_DIR = join(REPO_ROOT, 'meta', 'schemas');
 
 function buildValidators() {
   const ajv = new Ajv({ allErrors: true, strict: false });
-  for (const name of ['common.schema.json', 'plan.schema.json', 'initiative.schema.json', 'routing.schema.json']) {
+  for (const name of ['common.schema.json', 'plan.schema.json', 'initiative.schema.json', 'routing.schema.json', 'lesson.schema.json']) {
     const schema = JSON.parse(readFileSync(join(SCHEMA_DIR, name), 'utf8'));
     ajv.addSchema(schema);
   }
@@ -23,6 +23,7 @@ function buildValidators() {
     validatePlan: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/plan.schema.json'),
     validateInitiative: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/initiative.schema.json'),
     validateRouting: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/routing.schema.json'),
+    validateLesson: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/lesson.schema.json'),
   };
 }
 
@@ -799,6 +800,139 @@ test('GATE-R2 (plan level): met phase criterion with a verifier but no evidence 
   assert.match(checkMetInvariant(plan).join('\n'), /phase F0 criterion F0-G1/);
 });
 
+// checkReviewGate (GATE-R3): the review-code phase gate is a hard precondition
+// for closing a phase. A 'done' phase carrying a reviewGate block must be HONEST
+// — a 'passed' claim needs an `at` sha anchor; a 'skipped' needs a `reason`.
+// Like GATE-R2, the conditional lives in JS (not the schema) to keep the aiDeck
+// mirror additive; an ABSENT block on a legacy 'done' phase is tolerated.
+
+const donePlan = (reviewGate) => ({
+  schemaVersion: '0.2', slug: 'p', title: 'P',
+  phases: [{ id: 'F0', slug: 'p-f0', status: 'done', exitGate: { criteria: [] }, ...(reviewGate ? { reviewGate } : {}) }],
+});
+
+test('GATE-R3 RED (a): done phase with reviewGate status:passed but NO `at` sha violates', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed' }));
+  assert.ok(v.length >= 1, 'a passed review claim with no reviewed-sha anchor must violate');
+  assert.match(v.join('\n'), /phase F0/);
+  assert.match(v.join('\n'), /at/);
+});
+
+test('GATE-R3 RED (b): done phase with reviewGate status:skipped but NO reason violates', () => {
+  const v = checkReviewGate(donePlan({ status: 'skipped' }));
+  assert.ok(v.length >= 1, 'a skipped review with no reason must violate');
+  assert.match(v.join('\n'), /reason/);
+});
+
+test('GATE-R3 GREEN: passed+at and skipped+reason both pass', () => {
+  assert.deepEqual(checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d', mode: 'both' })), []);
+  assert.deepEqual(checkReviewGate(donePlan({ status: 'skipped', reason: 'docs-only phase, no code diff' })), []);
+});
+
+test('GATE-R3: a done phase with NO reviewGate block is TOLERATED (legacy / GATE-R2-consistent)', () => {
+  assert.deepEqual(checkReviewGate(donePlan(undefined)), [], 'absent reviewGate on a done phase is not hard-failed');
+});
+
+test('GATE-R3: a non-done phase is never gated even with a malformed reviewGate', () => {
+  const plan = {
+    schemaVersion: '0.2', slug: 'p', title: 'P',
+    phases: [{ id: 'F0', slug: 'p-f0', status: 'active', exitGate: { criteria: [] }, reviewGate: { status: 'passed' } }],
+  };
+  assert.deepEqual(checkReviewGate(plan), [], 'only a DONE phase is gated on review honesty');
+});
+
+test('GATE-R3 wiring: validateFile REJECTS a schema-valid plan whose done phase claims passed without an `at`', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-r3-'));
+  try {
+    const planDir = join(dir, 'projects', 'atomic-skills', 'sample');
+    mkdirSync(planDir, { recursive: true });
+    const plan = {
+      schemaVersion: '0.2', slug: 'sample', title: 'Sample', version: '1', status: 'active',
+      started: '2026-06-01T00:00:00Z', lastUpdated: '2026-06-01T00:00:00Z',
+      currentPhase: 'F0', parallelismAllowed: false,
+      phases: [{
+        id: 'F0', slug: 'sample-f0', title: 'F0', goal: 'do a thing', dependsOn: [], subPhaseCount: 0,
+        status: 'done', exitGate: { summary: 's', criteria: [] },
+        reviewGate: { status: 'passed' }, // dishonest: passed with no `at` anchor
+      }],
+    };
+    const planMd = join(planDir, 'plan.md');
+    writeFileSync(planMd, `---\n${stringifyYaml(plan).trimEnd()}\n---\n`);
+    const validators = buildValidators();
+    const result = validateFile(planMd, validators);
+    assert.equal(result.ok, false, 'GATE-R3 must reject a passed-without-anchor done phase even when the schema passes');
+    assert.match(result.errors.join('\n'), /at/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Lessons file (Spec 2 / G1): a per-initiative lessons file under
+// projects/<id>/<slug>/lessons/<initiative-slug>.md. validate-state must infer
+// the 'lesson' kind, validate against lesson.schema.json, and collect it.
+
+const baseLessonFile = (overrides = {}) => ({
+  schemaVersion: '0.2', slug: 'alpha-f1', projectId: 'proj', parentPlan: 'alpha',
+  lessons: [
+    {
+      id: 'L-001',
+      statement: 'decommission checked code refs but not data in polymorphic columns',
+      corrective: 'for any drop/decommission, scan polymorphic/FK/enum columns for value-refs and decide disposition before deleting',
+      scope: 'reusable', appliesTo: [], status: 'open', confidence: 2,
+      createdAt: '2026-06-15T00:00:00Z',
+    },
+  ],
+  ...overrides,
+});
+
+test('lesson schema: a well-formed lessons file validates', () => {
+  const validators = buildValidators();
+  assert.equal(validators.validateLesson(baseLessonFile()), true,
+    `valid lessons file must pass: ${JSON.stringify(validators.validateLesson.errors)}`);
+});
+
+test('lesson schema: a lesson missing `corrective` (locus+fix) fails', () => {
+  const validators = buildValidators();
+  const bad = baseLessonFile({ lessons: [{ id: 'L-001', statement: 'something went wrong here', scope: 'reusable', status: 'open', confidence: 2, createdAt: '2026-06-15T00:00:00Z' }] });
+  assert.equal(validators.validateLesson(bad), false, 'a lesson without a corrective action must fail (Self-Refine actionable shape)');
+});
+
+test('lesson schema: an unknown lesson field is rejected (additionalProperties:false)', () => {
+  const validators = buildValidators();
+  const bad = baseLessonFile();
+  bad.lessons[0].madeUpField = true;
+  assert.equal(validators.validateLesson(bad), false);
+});
+
+test('kind inference (nested): projects/<id>/<slug>/lessons/<init>.md → lesson and validates', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-lesson-'));
+  try {
+    const lessonMd = join(dir, 'projects', 'proj', 'alpha', 'lessons', 'alpha-f1.md');
+    mkdirSync(dirname(lessonMd), { recursive: true });
+    writeFileSync(lessonMd, `---\n${stringifyYaml(baseLessonFile()).trimEnd()}\n---\n`);
+    const validators = buildValidators();
+    const result = validateFile(lessonMd, validators);
+    assert.equal(result.kind, 'lesson', `expected kind 'lesson', got '${result.kind}'`);
+    assert.equal(result.ok, true, `lessons file must validate: ${result.errors.join('; ')}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('collectTargets: a dir arg also walks projects/<id>/<slug>/lessons/', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-lesson-collect-'));
+  try {
+    const planDir = join(dir, 'projects', 'proj', 'alpha');
+    mkdirSync(join(planDir, 'lessons'), { recursive: true });
+    writeFileSync(join(planDir, 'plan.md'), '---\nslug: alpha\n---\n');
+    writeFileSync(join(planDir, 'lessons', 'alpha-f1.md'), `---\n${stringifyYaml(baseLessonFile()).trimEnd()}\n---\n`);
+    const found = collectTargets([dir]).map((p) => p.split('/').slice(-2).join('/'));
+    assert.ok(found.includes('lessons/alpha-f1.md'), `lessons file not collected: ${found.join(', ')}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('collectTargets (Inc2 R-XAGENT-05): a dir arg walks BOTH flat and nested projects/*/*/ layouts', () => {
   const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-collect-'));
   try {
@@ -981,4 +1115,76 @@ test('routing: collectRoutingConfigs finds status/routing.json under a dir arg, 
     rmSync(dir, { recursive: true, force: true });
     rmSync(dirNoConfig, { recursive: true, force: true });
   }
+});
+
+// --- closedAt forward-only hard-gate (F4/T-003) -----------------------------
+
+test('checkClosedAtHardening: non-grandfathered done task without closedAt → violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }] };
+  const v = checkClosedAtHardening(init, new Set());
+  assert.equal(v.length, 1);
+  assert.ok(v[0].includes('T-005'));
+  assert.ok(v[0].includes('closedAt'));
+});
+
+test('checkClosedAtHardening: grandfathered (phase-scoped) done task without closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set(['F4/T-005'])), []);
+});
+
+test('checkClosedAtHardening: a SAME-id grandfather from ANOTHER phase does NOT exempt this phase', () => {
+  // F0/T-001 grandfathered; this is F1/T-001 (new) → must still be gated (the F-001 bug).
+  const init = { phaseId: 'F1', tasks: [{ id: 'T-001', status: 'done' }] };
+  const v = checkClosedAtHardening(init, new Set(['F0/T-001']));
+  assert.equal(v.length, 1);
+  assert.ok(v[0].includes('T-001'));
+});
+
+test('checkClosedAtHardening: done task WITH closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done', closedAt: '2026-06-19T10:00:00Z' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set()), []);
+});
+
+test('checkClosedAtHardening: pending task without closedAt → no violation', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'pending' }] };
+  assert.deepEqual(checkClosedAtHardening(init, new Set()), []);
+});
+
+test('checkClosedAtHardening: accepts a plain array of phase-scoped grandfathered keys', () => {
+  const init = { phaseId: 'F4', tasks: [{ id: 'T-005', status: 'done' }, { id: 'T-006', status: 'done' }] };
+  assert.deepEqual(checkClosedAtHardening(init, ['F4/T-005', 'F4/T-006']), []);
+});
+
+test('crossValidate: plan with closedAtHardening + non-grandfathered done task missing closedAt → error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    closedAtHardening: { enforcedFrom: '2026-06-19T19:00:00Z', grandfatheredTaskIds: ['F4/T-002'] },
+    phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+  }]]);
+  const inits = new Map([['p-f4', {
+    slug: 'p-f4', parentPlan: 'p', phaseId: 'F4', status: 'active',
+    tasks: [
+      { id: 'T-002', status: 'done' },                                  // grandfathered (F4/T-002) → ok
+      { id: 'T-003', status: 'done', closedAt: '2026-06-19T20:00:00Z' }, // has closedAt → ok
+      { id: 'T-004', status: 'done' },                                  // NEW done, no closedAt → violation
+    ],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].initiativeSlug, 'p-f4');
+  assert.ok(errors[0].errors.some((e) => e.includes('T-004')));
+  assert.ok(!errors[0].errors.some((e) => e.includes('T-002')));
+  assert.ok(!errors[0].errors.some((e) => e.includes('T-003')));
+});
+
+test('crossValidate: plan WITHOUT closedAtHardening → soft (no closedAt error)', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+  }]]);
+  const inits = new Map([['p-f4', {
+    slug: 'p-f4', parentPlan: 'p', phaseId: 'F4', status: 'active',
+    tasks: [{ id: 'T-004', status: 'done' }], // no closedAt, but no hardening → not gated
+  }]]);
+  assert.equal(crossValidate(plans, inits).length, 0);
 });

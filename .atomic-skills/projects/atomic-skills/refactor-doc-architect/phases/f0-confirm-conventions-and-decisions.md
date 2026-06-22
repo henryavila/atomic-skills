@@ -15,6 +15,8 @@ tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 3
 exitGates:
   - id: G-1
     description: an existing skill's layout is documented as the template to follow;

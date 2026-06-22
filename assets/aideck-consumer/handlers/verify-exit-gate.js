@@ -1,4 +1,4 @@
-import { appendIntent, findInitiative, findPlan } from './_lib.js'
+import { appendIntent, findInitiative, findPlan, gatesFor, phaseGatesFor } from './_lib.js'
 
 // Record an intent to set the result of an exit-gate criterion (met | deferred)
 // on a plan phase or an initiative. Computes an `allGatesMet` hint from the
@@ -22,13 +22,12 @@ export default async function handler({ args, data, files }) {
   let projectId
   if (initiativeSlug) {
     const initiative = findInitiative(data, initiativeSlug, args.projectId)
-    gates = initiative.exitGates ?? []
+    gates = gatesFor(data, initiative)
     projectId = initiative.projectId
   } else if (planSlug && phaseId) {
     const plan = findPlan(data, planSlug, args.projectId)
-    const phase = (plan.phases ?? []).find((p) => p.id === phaseId)
-    if (!phase) throw new Error(`phase ${phaseId} not found in plan ${planSlug}`)
-    gates = phase.exitGate?.criteria ?? []
+    gates = phaseGatesFor(data, plan, phaseId)
+    if (gates.length === 0) throw new Error(`phase ${phaseId} not found in plan ${planSlug}`)
     projectId = plan.projectId
   } else {
     throw new Error('provide either initiativeSlug, or planSlug + phaseId')

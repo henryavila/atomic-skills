@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.henryavila.com/schemas/focus.schema.json",
+  "title": "Focus digest",
+  "description": "Flat, denormalized projection of the current `.atomic-skills/` focus, emitted by scripts/emit-focus.js for external statusline consumers (claudebar). The producer owns this format; consumers read one file and never walk the YAML tree. See docs/design/statusline-focus-integration.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "plan", "phase", "tasks", "gates", "flags", "sources"],
+  "properties": {
+    "schemaVersion": { "const": "0.1" },
+    "generatedAt": { "type": "string", "description": "ISO-8601 timestamp of when this digest was emitted." },
+    "projectId": { "type": ["string", "null"] },
+    "plan": {
+      "type": ["object", "null"],
+      "description": "null = no active plan (consumer renders nothing).",
+      "additionalProperties": false,
+      "required": ["slug", "title", "status"],
+      "properties": {
+        "slug": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "paused", "done", "archived"] }
+      }
+    },
+    "phase": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["id", "index", "total"],
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": ["string", "null"] },
+        "title": { "type": ["string", "null"] },
+        "index": { "type": "integer", "minimum": 1, "description": "1-based position of currentPhase within plan.phases[]." },
+        "total": { "type": "integer", "minimum": 0 },
+        "status": { "type": ["string", "null"], "enum": ["pending", "active", "paused", "done", "archived", null] }
+      }
+    },
+    "tasks": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["done", "total", "blocked"],
+      "properties": {
+        "done": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "gates": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["met", "total"],
+      "properties": {
+        "met": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "nextAction": { "type": ["string", "null"] },
+    "flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["drift", "multipleActivePlans"],
+      "properties": {
+        "drift": { "type": "boolean" },
+        "multipleActivePlans": {
+          "type": "boolean",
+          "description": "Tree-relative ambiguity: true iff more than one active plan claims the current branch/worktree. A plan with an explicit `branch:` claims only that branch's tree; an unbranched plan claims any tree; an unknown branch (detached HEAD) cannot disambiguate so any >1 active plans count. A properly-isolated worktree-per-plan setup is therefore never true. The consumer renders the `⧉` marker when true."
+        },
+        "unclaimedBranch": {
+          "type": "boolean",
+          "description": "True iff the current branch is known but NO active plan claims it (every active plan is bound to some other branch). When true, `plan` is null by design — the producer never shows a foreign-tree plan as the focus. The consumer offers to bind a plan to this branch (`scripts/bind-plan-branch.js <plan-slug>`). Optional/defaults false; absent in pre-0.1 digests."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "Files this digest was derived from. The consumer re-reads each source's frontmatter `lastUpdated` and compares to the recorded value to detect staleness (git checkout / external edits the producer never saw).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "lastUpdated"],
+        "properties": {
+          "path": { "type": "string", "description": "Repo-root-relative POSIX path." },
+          "lastUpdated": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

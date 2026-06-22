@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atomic-skills.henryavila.com/schemas/routing.schema.json",
-  "title": "atomic-skills Mode 2 routing config (R-XAGENT-10 / R-EXEC-41)",
-  "description": "Validates the operator-supplied `.atomic-skills/status/routing.json`. This config is the ONLY surface that enables Mode 2 (Opus-plans / other-model-executes); the implement skill reads it and declares per-task tier REQUIREMENTS + the dispatch CONTRACT only — never the provider economics or cost narrative (those live here, operator-owned). ABSENT FILE ⇒ Mode-1-only defaults (mode2Enabled=false): Mode 1 self-exec is the unconditional default. An empty object `{}` is valid and means all defaults. `$/token` framing is an explicit non-goal and has no field here by design.",
+  "title": "atomic-skills repo routing + integration config (R-XAGENT-10 / R-EXEC-41)",
+  "description": "Validates the repo's operator-supplied routing and integration config at `.atomic-skills/status/routing.json`. This config is the ONLY surface that enables Mode 2 (Opus-plans / other-model-executes); the implement skill reads it and declares per-task tier REQUIREMENTS + the dispatch CONTRACT only — never the provider economics or cost narrative (those live here, operator-owned). ABSENT FILE ⇒ Mode-1-only defaults (mode2Enabled=false): Mode 1 self-exec is the unconditional default. An empty object `{}` is valid and means all defaults. `$/token` framing is an explicit non-goal and has no field here by design.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -10,6 +10,12 @@
       "type": "boolean",
       "default": false,
       "description": "Master switch. Default (and absent-file behaviour) is false ⇒ Mode-1-only (the shipped default, safe for a fresh install with no Codex configured). When set true the Codex lane is ON and is the DEFAULT executor for spec-ready, verifier-bearing tasks (R-EXEC-44: enabling is explicit + file-backed, never implicit; the operator opts a batch OUT to Mode 1, not in)."
+    },
+    "integrationRef": {
+      "type": "string",
+      "minLength": 1,
+      "default": "develop",
+      "description": "Repo-global integration ref where feature PRs land (for example, `develop`). Optional; when absent, the resolver (F1/T-002) applies the `develop` default and signals not-configured for the lazy prompt. The schema only validates shape and does not apply the default itself (Ajv here runs without useDefaults). Never per-plan."
     },
     "tierMap": {
       "type": "object",

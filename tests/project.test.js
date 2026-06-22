@@ -129,9 +129,14 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /does NOT open the browser|cheap; does NOT/i);
   });
 
-  it('router documents schema quick-reference (Plan / Initiative / Task fields)', () => {
+  it('schema quick-reference lives in project-create-plan.md (moved from the router), router points to it', () => {
     install();
-    const content = readRouter();
+    // T1.1 moved the schema field-reference out of the resident router into the
+    // creation flow (lazy); the router keeps a one-line pointer (P2).
+    const router = readRouter();
+    assert.match(router, /schema field-reference/i);
+    assert.match(router, /project-create-plan\.md/);
+    const content = readAsset('project-create-plan.md');
     assert.match(content, /Schema quick-reference/i);
     for (const field of [
       'currentPhase', 'parallelismAllowed', 'phases[]',
@@ -175,16 +180,16 @@ describe('project skill (unified router + lazy assets)', () => {
   it('project-view quarantines the aiDeck contract behind a single named constant', () => {
     install();
     const content = readAsset('project-view.md');
-    // Per-project consumer: the consumer id IS the projectId, bound DYNAMICALLY —
-    // never the old hardcoded `atomic-skills`. (Regression guard for the
-    // consumer-identity-follows-the-project fix.)
-    assert.match(content, /AIDECK_CONSUMER="\$pid"/);
-    assert.doesNotMatch(content, /AIDECK_CONSUMER="atomic-skills"/);
+    // ONE shared consumer (Q10): AIDECK_CONSUMER is the FIXED `atomic-skills`;
+    // the project is scoped by $pid (registered via /api/projects/register).
+    // (Regression guard for the consumer-collapse fix — never per-project ids.)
+    assert.match(content, /AIDECK_CONSUMER="atomic-skills"/);
+    assert.doesNotMatch(content, /AIDECK_CONSUMER="\$pid"/);
     assert.match(content, /AIDECK CONTRACT/);
-    // The consumer is provisioned per-project from the shipped template.
+    // The single consumer is provisioned from the shipped template.
     assert.match(content, /provision-consumer\.js/);
-    assert.match(content, /per-project/i);
-    // The data curl uses the parameter, not a hardcoded inline consumer/path.
+    assert.match(content, /\/api\/projects\/register/);
+    // The data curl uses the parameter + the $pid project scope, not a hardcoded path.
     assert.match(content, /consumers\/\$AIDECK_CONSUMER\/projects\/\$pid\/data/);
     // Separation of produce-data vs deliver-to-aiDeck is documented.
     assert.match(content, /[Pp]roduce the data/);
@@ -400,9 +405,15 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /propagate/i);
   });
 
-  it('project-transitions documents the Verifier execution patterns workflow', () => {
+  it('verifier execution patterns live in verifier-exec.md (single source), project-transitions points to it', () => {
     install();
-    const content = readAsset('project-transitions.md');
+    // T1.4 extracted the Verifier execution patterns to verifier-exec.md as the
+    // single source; project-transitions.md keeps the section heading + a pointer.
+    const transitions = readAsset('project-transitions.md');
+    assert.match(transitions, /Verifier execution patterns/);
+    assert.match(transitions, /verifier-exec\.md/);
+    // The canonical executor (per-kind workflows + evidence shape) lives here.
+    const content = readAsset('verifier-exec.md');
     assert.match(content, /Verifier execution patterns/);
     assert.match(content, /verify_exit_gate/);
     for (const kind of ['shell', 'manual', 'query', 'test']) {

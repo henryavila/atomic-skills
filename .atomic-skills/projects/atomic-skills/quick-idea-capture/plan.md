@@ -3,7 +3,7 @@ schemaVersion: "0.1"
 slug: quick-idea-capture
 title: Quick Idea Capture
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-09T18:41:40.321Z
 lastUpdated: 2026-06-09T21:35:00Z
 currentPhase: F1
@@ -146,7 +146,6 @@ phases:
     summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
       com ratify, marcando-a como triaged."
 references: []
-planActive: true
 planTitle: Quick Idea Capture
 ---
 

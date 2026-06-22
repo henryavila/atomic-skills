@@ -25,6 +25,20 @@
     "status": { "type": "string", "enum": ["active", "paused", "done", "archived"] },
     "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "closedAtHardening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enforcedFrom", "grandfatheredTaskIds"],
+      "properties": {
+        "enforcedFrom": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+        "grandfatheredTaskIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "description": "F4/T-003: opts this plan into the closedAt forward-only hard-gate. Written ONCE by scripts/harden-closedat.js. grandfatheredTaskIds = the done-without-closedAt tasks alive at the flip instant (exempt); every later done task must record closedAt. Never implies a retroactive closedAt (P3)."
+    },
     "branch": { "type": "string" },
     "currentPhase": { "type": ["string", "null"] },
     "planActive": {
@@ -36,6 +50,18 @@
       "description": "Derived denormalization (scripts/reconcile-focus.js): a copy of `title`, carried by the `phases` dataSource onto each phase row so a repeat-grouped widget can label the group with the human plan title instead of the slug (the dashboard can't join). Never hand-authored."
     },
     "parallelismAllowed": { "type": "boolean" },
+    "spawnedFrom": {
+      "description": "Fork child→parent edge (degrau 7.5): which plan/phase this plan was forked from, and the fork mode. Additive — non-forked plans omit it. Mirrors aideck Plan.spawnedFrom. Migrated inline from the links.json sidecar by F5/T-003 (fork-fields-inline).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "phaseId", "mode"],
+      "properties": {
+        "plan": { "type": "string", "minLength": 1 },
+        "phaseId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+      }
+    },
     "principles": {
       "type": "array",
       "items": {
@@ -106,6 +132,18 @@
         "remainsValid": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "spawnedFrom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "phaseId", "mode"],
+      "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+      "properties": {
+        "plan": { "$ref": "common.schema.json#/$defs/slug" },
+        "phaseId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["pause", "parallel"] }
+      }
+    },
     "references": {
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
@@ -130,6 +168,11 @@
           "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
         },
         "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "spawnedPlans": {
+          "description": "Fork parent→child edge (degrau 7.5): child plan slugs forked from this phase. Additive — phases without forks omit it. Mirrors aideck PhaseDescriptor.spawnedPlans. Migrated inline from the links.json sidecar by F5/T-003.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         },
@@ -165,7 +208,43 @@
           "enum": ["standard", "ui-gate", "custom"]
         },
         "provenance": { "$ref": "common.schema.json#/$defs/provenance" },
-        "context": { "$ref": "common.schema.json#/$defs/context" }
+        "context": { "$ref": "common.schema.json#/$defs/context" },
+        "spawnedPlans": {
+          "type": "array",
+          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
+          "items": { "$ref": "common.schema.json#/$defs/slug" }
+        },
+        "reviewGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "description": "0.2 (G2 phase-review gate): the outcome of phase-done's review-code gate for THIS phase, written before the phase is set 'done' (project-transitions.md phase-done step 6/8). Shape only here; the cross-field honesty conditional (done + status:passed ⟹ `at` sha present; done + status:skipped ⟹ `reason` present) is enforced by scripts/validate-state.js GATE-R3, NOT the schema — same reason GATE-R2 lives in JS (keeps the aiDeck TS mirror additive-optional). An absent block on a legacy 'done' phase is tolerated (GATE-R2-consistent); `verify` WARNs on it.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["passed", "skipped"],
+              "description": "passed = review-code ran and blocker/critical findings were resolved; skipped = --skip-review with a recorded reason."
+            },
+            "mode": {
+              "type": "string",
+              "enum": ["local", "codex", "both"],
+              "description": "which review mode ran (a destructive phase runs 'both' per G5)."
+            },
+            "at": {
+              "type": "string",
+              "description": "the commit sha the review concluded against (post-fix HEAD). Required-when-passed by GATE-R3."
+            },
+            "reviewFile": {
+              "type": "string",
+              "description": "path to the persisted review file, when one was written (e.g. .atomic-skills/reviews/<…>.md)."
+            },
+            "reason": {
+              "type": "string",
+              "description": "why review was skipped. Required-when-skipped by GATE-R3."
+            },
+            "verifiedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+          }
+        }
       },
       "allOf": [
         {

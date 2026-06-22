@@ -1,0 +1,2 @@
+We need a Checkout page that only logged-in users can reach.
+The Search page is public for any visitor.

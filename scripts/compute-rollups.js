@@ -26,17 +26,22 @@ import { join, resolve } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { parseFrontmatter } from './validate-state.js';
 
-const ROLLUP_KEYS = ['tasksDone', 'tasksTotal', 'gatesMet', 'gatesTotal'];
+const ROLLUP_KEYS = ['tasksDone', 'tasksTotal', 'gatesMet', 'gatesTotal', 'weightDone', 'weightTotal'];
 
 /** Self-contained rollup counts for one initiative's frontmatter. */
 export function rollupsFor(fm) {
   const tasks = Array.isArray(fm.tasks) ? fm.tasks : [];
   const gates = Array.isArray(fm.exitGates) ? fm.exitGates : [];
+  // Finite + non-negative: rejects NaN/±Infinity (Infinity would serialize as null
+  // via JSON.stringify and break the consumer schema's `type: number`) and negatives.
+  const weightOf = (t) => (Number.isFinite(t?.weight) && t.weight >= 0 ? t.weight : 1);
   return {
     tasksDone: tasks.filter((t) => t && t.status === 'done').length,
     tasksTotal: tasks.length,
     gatesMet: gates.filter((g) => g && g.status === 'met').length,
     gatesTotal: gates.length,
+    weightDone: tasks.filter((t) => t && t.status === 'done').reduce((sum, t) => sum + weightOf(t), 0),
+    weightTotal: tasks.reduce((sum, t) => sum + weightOf(t), 0),
   };
 }
 

@@ -15,6 +15,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 0
 gatesTotal: 2
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F4-G1
     description: HomePage renderiza 2 ConsumerBands quando 2 projetos registrados

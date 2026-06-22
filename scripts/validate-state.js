@@ -18,15 +18,20 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
+import { validateAppMap } from '../src/app-map/validate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
+const APP_MAP_FILENAME = 'app-map.json';
+const APP_MAP_MAX_DEPTH = 12;
+const APP_MAP_SKIP_DIRS = new Set(['.git', 'node_modules']);
 
 const SCHEMA_FILES = {
   common: 'common.schema.json',
   plan: 'plan.schema.json',
   initiative: 'initiative.schema.json',
   routing: 'routing.schema.json',
+  lesson: 'lesson.schema.json',
 };
 
 /**
@@ -53,6 +58,7 @@ function buildAjv() {
     validatePlan: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/plan.schema.json'),
     validateInitiative: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/initiative.schema.json'),
     validateRouting: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/routing.schema.json'),
+    validateLesson: ajv.getSchema('https://atomic-skills.henryavila.com/schemas/lesson.schema.json'),
   };
 }
 
@@ -131,6 +137,9 @@ function kindFromPath(filePath) {
     // LAST in the loop body so a flat path with a `plans`/`initiatives`
     // segment is unaffected (it short-circuits above).
     if (parts[i] === 'phases') return 'initiative';
+    // Spec 2 / G1: a `lessons/` ancestor marks a per-initiative lessons file
+    // (projects/<id>/<slug>/lessons/<initiative-slug>.md).
+    if (parts[i] === 'lessons') return 'lesson';
   }
   return null;
 }
@@ -188,12 +197,61 @@ export function collectTargets(args) {
             }
             addMd(join(planPath, 'phases'));
             addMd(join(planPath, 'phases', 'archive'));
+            addMd(join(planPath, 'lessons')); // Spec 2 / G1: per-initiative lessons files
           }
         }
       }
     }
   }
   return targets;
+}
+
+/**
+ * Collect durable app-map catalogs from CLI argv without changing state
+ * markdown discovery. Direct file args must be named exactly `app-map.json`;
+ * directory args are walked recursively with bounded depth.
+ */
+export function collectAppMaps(args) {
+  const appMaps = [];
+  const seen = new Set();
+  const addAppMap = (filePath) => {
+    if (seen.has(filePath)) return;
+    appMaps.push(filePath);
+    seen.add(filePath);
+  };
+
+  const walk = (dirPath, depth) => {
+    if (depth > APP_MAP_MAX_DEPTH) return;
+    for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (APP_MAP_SKIP_DIRS.has(entry.name)) continue;
+        walk(join(dirPath, entry.name), depth + 1);
+        continue;
+      }
+      if (entry.isFile() && entry.name === APP_MAP_FILENAME) {
+        addAppMap(join(dirPath, entry.name));
+      }
+    }
+  };
+
+  for (const arg of args) {
+    const absPath = resolve(arg);
+    if (!existsSync(absPath)) {
+      throw new Error(`path not found: ${arg}`);
+    }
+    const stat = statSync(absPath);
+    if (stat.isFile()) {
+      if (basename(absPath) === APP_MAP_FILENAME) {
+        addAppMap(absPath);
+      }
+      continue;
+    }
+    if (stat.isDirectory()) {
+      walk(absPath, 0);
+    }
+  }
+
+  return appMaps;
 }
 
 /**
@@ -241,6 +299,33 @@ export function validateRouting(routingPath, validators) {
   const ok = validators.validateRouting(config);
   if (!ok) {
     const errors = (validators.validateRouting.errors || []).map((e) => {
+      const where = e.instancePath || '(root)';
+      return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
+    });
+    return { ok: false, errors };
+  }
+  return { ok: true, errors: [] };
+}
+
+/**
+ * Validate a single durable app-map catalog with the shared app-map validator.
+ */
+export function validateAppMapFile(appMapPath) {
+  let raw;
+  try {
+    raw = readFileSync(appMapPath, 'utf8');
+  } catch (err) {
+    return { ok: false, errors: [`cannot read app-map.json: ${err.message}`] };
+  }
+  let catalog;
+  try {
+    catalog = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, errors: [`JSON parse error: ${err.message}`] };
+  }
+  const result = validateAppMap(catalog);
+  if (!result.valid) {
+    const errors = result.errors.map((e) => {
       const where = e.instancePath || '(root)';
       return `${where}: ${e.message}${e.params ? ' ' + JSON.stringify(e.params) : ''}`;
     });
@@ -318,6 +403,99 @@ export function checkMetInvariant(frontmatter) {
 }
 
 /**
+ * closedAt forward-only hard-gate (F4/T-003).
+ *
+ * GATE-R2 proves "passed"; this proves "captured the close instant". When a plan
+ * opts in via `closedAtHardening` (set ONCE by `scripts/harden-closedat.js`), every
+ * `done` task in that plan's initiatives must carry a `closedAt` — UNLESS its id is
+ * in the persisted `grandfatheredTaskIds` cut. That cut (the done-without-closedAt
+ * tasks captured at flip time) is what makes the rule forward-only: pre-existing
+ * legacy is exempt, new closes are enforced, and no retroactive closedAt is ever
+ * invented (P3). A plan with no `closedAtHardening` is NOT gated here (soft — the
+ * pre-T-003 behavior). Pure: no I/O.
+ *
+ * This lives OUTSIDE checkMetInvariant because the opt-in (`closedAtHardening`)
+ * lives on the PLAN while the `done` tasks live on the INITIATIVE — the two only
+ * meet in `crossValidate`, which is where this is invoked. Returns [] when the
+ * invariant holds.
+ *
+ * @param {object} frontmatter - a parsed initiative frontmatter (carries tasks[])
+ * @param {Set<string>|string[]} grandfatheredTaskIds - the plan's exempt-id cut
+ * @returns {string[]} violation messages (empty = invariant holds)
+ */
+export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const grandfathered = grandfatheredTaskIds instanceof Set
+    ? grandfatheredTaskIds
+    : new Set(Array.isArray(grandfatheredTaskIds) ? grandfatheredTaskIds : []);
+  const hasText = (v) => typeof v === 'string' && v.length > 0;
+  // PHASE-SCOPED exemption key (`<phaseId>/<taskId>`) — taskIds are phase-local
+  // (T-001 recurs every phase), so a bare-id grandfather would exempt a later
+  // same-id task in another phase. Mirrors `grandfatherKey` in harden-closedat.js.
+  const scope = hasText(frontmatter.phaseId)
+    ? frontmatter.phaseId
+    : (hasText(frontmatter.slug) ? frontmatter.slug : '?');
+  for (const task of (Array.isArray(frontmatter.tasks) ? frontmatter.tasks : [])) {
+    if (task?.status !== 'done') continue;
+    if (grandfathered.has(`${scope}/${task.id}`)) continue;
+    if (!hasText(task.closedAt)) {
+      violations.push(`task ${task.id ?? '?'}: done under closedAt-hardening but has no closedAt — forward-only: new done tasks must record closedAt; only grandfathered (phase-scoped) ids are exempt.`);
+    }
+  }
+  return violations;
+}
+
+/**
+ * GATE-R3 — the machine-checked review-gate invariant (G2).
+ *
+ * The review-code phase gate is a hard precondition for closing a phase. A
+ * markdown self-review block can CLAIM "review ran" without it having; the
+ * `reviewGate` block on a plan phase makes that claim machine-checkable. This
+ * pure predicate enforces, for a plan phase with status:'done' that CARRIES a
+ * reviewGate block, that the claim is HONEST:
+ *   - status:'passed' must carry an `at` sha (the commit the review concluded
+ *     against) — a passed claim with no anchor is not evidence, it is a boast,
+ *   - status:'skipped' must carry a `reason` (mirrors --skip-review's recorded
+ *     reason; a silent skip is forbidden).
+ * An ABSENT reviewGate on a 'done' phase is NOT gated here — consistent with
+ * GATE-R2's verifier-absent tolerance, and required for backward-compat with
+ * the live 0.1/0.2 phases written before this field existed (`verify` check #8
+ * surfaces the absence as a WARN instead, read-only). Non-done phases are never
+ * gated. Like GATE-R2 this conditional lives in JS, not the schema: Ajv 2020
+ * cannot express the status⟹sibling-required conditional without forcing the
+ * aiDeck TS mirror to change, so the schema keeps `reviewGate` additive-optional
+ * and the honesty rule lives here. Pure: no I/O. Returns [] when it holds.
+ *
+ * @param {object} frontmatter - a parsed plan frontmatter (initiatives have no phases → no-op)
+ * @returns {string[]} violation messages (empty = invariant holds)
+ */
+export function checkReviewGate(frontmatter) {
+  const violations = [];
+  if (frontmatter == null || typeof frontmatter !== 'object') return violations;
+  const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
+  const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
+  for (const phase of phases) {
+    if (phase?.status !== 'done') continue;
+    const rg = phase.reviewGate;
+    if (rg == null || typeof rg !== 'object') continue; // absent ⇒ tolerated (legacy / GATE-R2-consistent)
+    const label = `phase ${phase.id ?? '?'}`;
+    if (rg.status === 'passed') {
+      if (!hasText(rg.at)) {
+        violations.push(`${label}: reviewGate.status is 'passed' but has no \`at\` sha — a passed review claim must record the commit it concluded against, not just assert it ran.`);
+      }
+    } else if (rg.status === 'skipped') {
+      if (!hasText(rg.reason)) {
+        violations.push(`${label}: reviewGate.status is 'skipped' but carries no \`reason\` — a silent review skip is forbidden (record why, mirroring --skip-review).`);
+      }
+    } else {
+      violations.push(`${label}: reviewGate.status must be 'passed' or 'skipped' (got ${JSON.stringify(rg.status)}).`);
+    }
+  }
+  return violations;
+}
+
+/**
  * Validate a single file. Returns { ok, kind, errors[] }.
  */
 export function validateFile(filePath, validators) {
@@ -339,7 +517,11 @@ export function validateFile(filePath, validators) {
   if (parsed.error) {
     return { ok: false, kind, errors: [parsed.error] };
   }
-  const validate = kind === 'plan' ? validators.validatePlan : validators.validateInitiative;
+  const validate = kind === 'plan'
+    ? validators.validatePlan
+    : kind === 'lesson'
+      ? validators.validateLesson
+      : validators.validateInitiative;
   const ok = validate(parsed.frontmatter);
   if (!ok) {
     const errors = (validate.errors || []).map((e) => {
@@ -352,7 +534,10 @@ export function validateFile(filePath, validators) {
   // JSON-Schema cannot express: a met/done item with a deterministic verifier
   // must carry real evidence. This is the stop-the-line that makes verify-on-done
   // non-self-graded — its failure is a hard validation error, not a warning.
-  const invariantViolations = checkMetInvariant(parsed.frontmatter);
+  const invariantViolations = [
+    ...checkMetInvariant(parsed.frontmatter),
+    ...checkReviewGate(parsed.frontmatter), // GATE-R3 (G2): done phase's review claim must be honest
+  ];
   if (invariantViolations.length > 0) {
     return { ok: false, kind, errors: invariantViolations };
   }
@@ -414,6 +599,34 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
       }
     }
   }
+
+  // closedAt forward-only hard-gate (F4/T-003): when a plan opts in via
+  // `closedAtHardening`, every done task across ITS initiatives (matched by
+  // parentPlan) that is not grandfathered must carry closedAt. Scans all of the
+  // plan's initiatives — active phases too, not just done ones — so a new close
+  // in the live phase is gated immediately.
+  for (const [, plan] of planFrontmatters) {
+    const hardening = plan?.closedAtHardening;
+    if (!hardening || typeof hardening.enforcedFrom !== 'string' || hardening.enforcedFrom.length === 0) continue;
+    // A slug-less (malformed) plan owns no initiatives — without this guard a
+    // `parentPlan`-less standalone initiative would match plan.slug via
+    // `undefined !== undefined` (false) and be gated against the wrong plan.
+    if (typeof plan.slug !== 'string' || plan.slug.length === 0) continue;
+    const grandfathered = new Set(Array.isArray(hardening.grandfatheredTaskIds) ? hardening.grandfatheredTaskIds : []);
+    for (const [slug, init] of initiativeFrontmatters) {
+      if (init?.parentPlan !== plan.slug) continue;
+      const closedAtErrors = checkClosedAtHardening(init, grandfathered);
+      if (closedAtErrors.length > 0) {
+        errors.push({
+          planSlug: plan.slug,
+          phaseId: init.phaseId ?? '?',
+          initiativeSlug: slug,
+          errors: closedAtErrors,
+        });
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -432,14 +645,17 @@ function main() {
   }
 
   let targets;
+  let appMaps;
   try {
     targets = collectTargets(args);
+    appMaps = collectAppMaps(args);
+    targets = targets.filter((target) => basename(target) !== APP_MAP_FILENAME);
   } catch (err) {
     console.error(`ERROR: ${err.message}`);
     process.exit(2);
   }
 
-  if (targets.length === 0) {
+  if (targets.length === 0 && appMaps.length === 0) {
     console.error('ERROR: no plans/*.md or initiatives/*.md found in given path(s)');
     process.exit(2);
   }
@@ -453,6 +669,21 @@ function main() {
     } else {
       failed += 1;
       console.error(`\n✖ ${rel}  [${result.kind ?? 'unknown'}]`);
+      for (const err of result.errors) {
+        console.error(`    - ${err}`);
+      }
+    }
+  }
+
+  let appMapFailed = 0;
+  for (const appMapPath of appMaps) {
+    const rel = appMapPath.replace(`${process.cwd()}/`, '');
+    const result = validateAppMapFile(appMapPath);
+    if (result.ok) {
+      console.log(`✓ ${rel}  [app-map]`);
+    } else {
+      appMapFailed += 1;
+      console.error(`\n✖ ${rel}  [app-map]`);
       for (const err of result.errors) {
         console.error(`    - ${err}`);
       }
@@ -497,9 +728,10 @@ function main() {
     }
   }
 
-  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0) {
+  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0 && appMapFailed === 0) {
     const routingNote = routingConfigs.length ? `, ${routingConfigs.length} routing config(s) valid` : '';
-    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote} (schemaVersion 0.1/0.2)`);
+    const appMapNote = appMaps.length ? `, ${appMaps.length} app-map catalog(s) valid` : '';
+    console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote}${appMapNote} (schemaVersion 0.1/0.2)`);
     process.exit(0);
   }
   if (failed > 0) {
@@ -510,6 +742,9 @@ function main() {
   }
   if (routingFailed > 0) {
     console.error(`✖ ${routingFailed} routing config(s) failed validation`);
+  }
+  if (appMapFailed > 0) {
+    console.error(`✖ ${appMapFailed} app-map catalog(s) failed validation`);
   }
   process.exit(1);
 }

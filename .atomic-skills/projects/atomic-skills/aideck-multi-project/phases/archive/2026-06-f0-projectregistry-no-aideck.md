@@ -15,6 +15,8 @@ tasksDone: 5
 tasksTotal: 5
 gatesMet: 4
 gatesTotal: 5
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F0-G1
     description: POST /api/projects/register aceita rootDir, cria entrada no

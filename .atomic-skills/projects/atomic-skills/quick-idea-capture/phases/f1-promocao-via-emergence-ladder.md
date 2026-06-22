@@ -17,6 +17,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F1-G1
     description: Promoção converte uma ideia em task ou iniciativa via ladder e
@@ -147,8 +149,6 @@ emerged: []
 summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
   com ratify, marcando-a como triaged."
 planTitle: Quick Idea Capture
-planActive: true
-current: true
 ---
 
 # Narrative / notes

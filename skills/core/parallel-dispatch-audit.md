@@ -241,28 +241,8 @@ Do NOT push automatically. Let the user decide when returning.
 
 If you thought any of the above: STOP. Audit authority is narrow by design.
 
-## Rationalization Table
-
-| Temptation | Reality |
-|------------|---------|
-| "The commit exists, the work is done" | Empty commits and wrong content also commit fine. Open the file |
-| "I can fix this architectural issue quickly" | You are the auditor, not the implementer. Escalate |
-| "Pushing saves the user time" | The user decides when to propagate — don't preempt |
-| "I'll revert the failed agent" | Reverts without user confirmation destroy recoverable work |
-| "Minor issues — I can keep going past 5" | 5+ issues means the dispatch plan was wrong; piecemeal fixes hide the root cause |
-| "Contradiction between docs? Pick one quietly" | Record the resolution — silent picks erase evidence |
-| "Scope drift is fine if the code is better" | The user did not approve that change. Escalate |
-| "Latest commit is recent but probably done" | <2 min is the HARD-GATE line. Confirm with user |
-| "Plan file missing, I'll invent expected scopes" | That's degraded mode — announce it, don't pretend |
+The refutation detail behind each Red Flag lives in `skills/shared/parallel-dispatch-assets/rationalization.md` (§ parallel-dispatch-audit); {{READ_TOOL}} it when a flag above tempts a shortcut.
 
 ## Closing Report
 
-Report inline:
-- Mode: full / degraded
-- Batch id: `[dispatch-<YYYYMMDD>-<HHMMSS>-<slug>]`
-- Count check: expected N, found M (match / mismatch)
-- Agents status: [X ✅ / Y 🟡 / Z ❌]
-- Audit commits: M (prefix `[audit-dispatch-<slug>]`)
-- Pending push: N in repo-A, M in repo-B (command: `git -C <repo> push`)
-- Report: `.atomic-skills/dispatches/<slug>-audit.md`
-- Next action: [1 sentence]
+Report inline per the **Closing report — audit** spec in `skills/shared/parallel-dispatch-assets/templates.md` ({{READ_TOOL}} it for the canonical field list).

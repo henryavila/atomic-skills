@@ -16,6 +16,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 3
 gatesTotal: 3
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: F0-G1
     description: Captura funciona end-to-end — idea-add.js cria e atualiza o
@@ -184,7 +186,6 @@ emerged: []
 summary: "O inbox barato: script de append, detail file com o fork Analisar/Só
   salvar, idea list, wiring e paridade de install."
 planTitle: Quick Idea Capture
-planActive: true
 ---
 
 # Narrative / notes

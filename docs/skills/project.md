@@ -74,6 +74,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 | Command | Description |
 |---------|-------------|
+| `finalize` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive |
 | `archive [<slug>]` | Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives) |
 | `switch <slug>` | Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs |
 | `migrate [<slug>]` | Two modes: `migrate <slug>` converts a legacy (pre-0.1) initiative to schemaVersion 0.1 (field-mapping diff + placeholder flags); bare `migrate` runs the flat→projects/<id>/<slug>/ layout cut-over (deterministic copy-verify-delete behind a tar snapshot) |

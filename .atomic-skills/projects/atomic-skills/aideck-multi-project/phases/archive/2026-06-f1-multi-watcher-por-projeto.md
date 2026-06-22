@@ -15,6 +15,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 4
 gatesTotal: 4
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F1-G1
     description: Registrar 2 projetos cria 2 watchers independentes; file change em

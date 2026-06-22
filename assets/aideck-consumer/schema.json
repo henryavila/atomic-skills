@@ -415,6 +415,13 @@
             "minLength": 1
           }
         },
+        "spawnedPlans": {
+          "type": "array",
+          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
+          "items": {
+            "$ref": "#/definitions/slug"
+          }
+        },
         "parallelWith": {
           "type": "array",
           "items": {
@@ -481,6 +488,48 @@
         },
         "context": {
           "$ref": "#/definitions/context"
+        },
+        "reviewGate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "description": "0.2 (G2 phase-review gate): the outcome of phase-done's review-code gate for THIS phase, written before the phase is set 'done' (project-transitions.md phase-done step 6/8). Shape only here; the cross-field honesty conditional (done + status:passed ⟹ `at` sha present; done + status:skipped ⟹ `reason` present) is enforced by scripts/validate-state.js GATE-R3, NOT the schema — same reason GATE-R2 lives in JS (keeps the aiDeck TS mirror additive-optional). An absent block on a legacy 'done' phase is tolerated (GATE-R2-consistent); `verify` WARNs on it.",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "passed",
+                "skipped"
+              ],
+              "description": "passed = review-code ran and blocker/critical findings were resolved; skipped = --skip-review with a recorded reason."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "local",
+                "codex",
+                "both"
+              ],
+              "description": "which review mode ran (a destructive phase runs 'both' per G5)."
+            },
+            "at": {
+              "type": "string",
+              "description": "the commit sha the review concluded against (post-fix HEAD). Required-when-passed by GATE-R3."
+            },
+            "reviewFile": {
+              "type": "string",
+              "description": "path to the persisted review file, when one was written (e.g. .atomic-skills/reviews/<…>.md)."
+            },
+            "reason": {
+              "type": "string",
+              "description": "why review was skipped. Required-when-skipped by GATE-R3."
+            },
+            "verifiedAt": {
+              "$ref": "#/definitions/isoTimestamp"
+            }
+          }
         }
       },
       "allOf": [
@@ -565,6 +614,11 @@
             "type": "integer",
             "minimum": 0
           }
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Complexity proxy for the earned-value burn-up (F2). Optional; absent ⇒ treated as 1 (count-burnup degradation). AI-authored at decompose (Stage 6 of project-create-plan.md) from structural signals (# of acceptance, Files, scopeBoundary, verifier kind); decompose.js stays frozen (R-ORCH-10). Backfill detector = scripts/find-unweighted-tasks.js. Summed into the weightDone/weightTotal rollups."
         },
         "scopeBoundary": {
           "description": "Explicit exclusions — what this task must NOT do. Prevents scope creep at the task level.",
@@ -687,6 +741,29 @@
         "lastUpdated": {
           "$ref": "#/definitions/isoTimestamp"
         },
+        "deadline": {
+          "$ref": "#/definitions/isoTimestamp"
+        },
+        "closedAtHardening": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enforcedFrom",
+            "grandfatheredTaskIds"
+          ],
+          "properties": {
+            "enforcedFrom": {
+              "$ref": "#/definitions/isoTimestamp"
+            },
+            "grandfatheredTaskIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "F4/T-003: opts this plan into the closedAt forward-only hard-gate. Written ONCE by scripts/harden-closedat.js. grandfatheredTaskIds = the done-without-closedAt tasks alive at the flip instant (exempt); every later done task must record closedAt. Never implies a retroactive closedAt (P3)."
+        },
         "branch": {
           "type": "string"
         },
@@ -706,6 +783,36 @@
         },
         "parallelismAllowed": {
           "type": "boolean"
+        },
+        "spawnedFrom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "phaseId",
+            "mode"
+          ],
+          "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+          "properties": {
+            "plan": {
+              "$ref": "#/definitions/slug"
+            },
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
         },
         "principles": {
           "type": "array",
@@ -949,6 +1056,16 @@
           "minimum": 0,
           "description": "Rollup: tasks.length."
         },
+        "weightDone": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rollup precomputed by scripts/compute-rollups.js: sum of weight (default 1 per weightless task) over tasks with status 'done'. Weighted mirror of tasksDone for the earned-value burn-up (F2)."
+        },
+        "weightTotal": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rollup: sum of weight (default 1 per weightless task) over all tasks. Weighted mirror of tasksTotal."
+        },
         "gatesMet": {
           "type": "integer",
           "minimum": 0,
@@ -1142,6 +1259,851 @@
                 "type": "string"
               }
             }
+          }
+        }
+      }
+    },
+    "plans": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "slug",
+        "title",
+        "status",
+        "branch",
+        "started",
+        "lastUpdated",
+        "currentPhase",
+        "currentPhaseText",
+        "phasesText",
+        "phasesSummary",
+        "roteiroSub",
+        "switcherCaption",
+        "nextText",
+        "focusTasksText",
+        "focusTasksPct",
+        "focusMeta",
+        "updatedRel"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "started": {
+          "type": "string"
+        },
+        "lastUpdated": {
+          "type": "string"
+        },
+        "currentPhase": {
+          "type": "string"
+        },
+        "currentPhaseText": {
+          "type": "string"
+        },
+        "phasesText": {
+          "type": "string"
+        },
+        "phasesSummary": {
+          "type": "string"
+        },
+        "roteiroSub": {
+          "type": "string"
+        },
+        "switcherCaption": {
+          "type": "string"
+        },
+        "nextText": {
+          "type": "string"
+        },
+        "focusTasksText": {
+          "type": "string"
+        },
+        "focusTasksPct": {
+          "type": "number"
+        },
+        "focusMeta": {
+          "type": "string"
+        },
+        "updatedRel": {
+          "type": "string"
+        }
+      }
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "planTitle",
+        "id",
+        "slug",
+        "title",
+        "status",
+        "dependsOn",
+        "summary",
+        "index",
+        "isCurrent",
+        "tasksText"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "planTitle": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "isCurrent": {
+          "type": "boolean"
+        },
+        "tasksText": {
+          "type": "string"
+        }
+      }
+    },
+    "initiatives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "slug",
+        "title",
+        "status",
+        "phaseId",
+        "parentPlan",
+        "planTitle",
+        "planActive",
+        "current",
+        "lastUpdated",
+        "nextText",
+        "summary",
+        "tasksDone",
+        "tasksTotal",
+        "gatesMet",
+        "gatesTotal",
+        "tasksText",
+        "gatesText",
+        "stackText",
+        "selectedPhaseLabel"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "parentPlan": {
+          "type": "string"
+        },
+        "planTitle": {
+          "type": "string"
+        },
+        "planActive": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "boolean"
+        },
+        "lastUpdated": {
+          "type": "string"
+        },
+        "nextText": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tasksDone": {
+          "type": "integer"
+        },
+        "tasksTotal": {
+          "type": "integer"
+        },
+        "weightDone": {
+          "type": "number"
+        },
+        "weightTotal": {
+          "type": "number"
+        },
+        "gatesMet": {
+          "type": "integer"
+        },
+        "gatesTotal": {
+          "type": "integer"
+        },
+        "tasksText": {
+          "type": "string"
+        },
+        "gatesText": {
+          "type": "string"
+        },
+        "stackText": {
+          "type": "string"
+        },
+        "selectedPhaseLabel": {
+          "type": "string"
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "id",
+        "title",
+        "summary",
+        "status",
+        "closedAt",
+        "lastUpdated",
+        "blocked",
+        "blockedBy",
+        "blockedByText"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "closedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastUpdated": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "blockedBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blockedByText": {
+          "type": "string"
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "id",
+        "description",
+        "status",
+        "verifierLabel",
+        "evidenceSummary"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "verifierLabel": {
+          "type": "string"
+        },
+        "evidenceSummary": {
+          "type": "string"
+        }
+      }
+    },
+    "phaseGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "phaseId",
+        "id",
+        "description",
+        "status",
+        "verifierLabel",
+        "evidenceSummary"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "verifierLabel": {
+          "type": "string"
+        },
+        "evidenceSummary": {
+          "type": "string"
+        }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "index",
+        "id",
+        "title",
+        "type",
+        "openedAt"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "openedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "parked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "index",
+        "title",
+        "surfacedAt"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "surfacedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "emerged": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "initiativeId",
+        "phaseId",
+        "index",
+        "title",
+        "surfacedAt",
+        "promoted"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "initiativeId": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "surfacedAt": {
+          "type": "string"
+        },
+        "promoted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "projects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "totalPlans",
+        "activeCount",
+        "blockedCount",
+        "concludedCount",
+        "isParallel",
+        "hasActiveFront",
+        "mode",
+        "parallelTone",
+        "plansSummary",
+        "phasesActiveText",
+        "bannerTitle",
+        "bannerSub",
+        "moreFrontsText",
+        "updatedRel",
+        "dotTone",
+        "moreText",
+        "idleText",
+        "fronts"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "totalPlans": {
+          "type": "integer"
+        },
+        "activeCount": {
+          "type": "integer"
+        },
+        "blockedCount": {
+          "type": "integer"
+        },
+        "concludedCount": {
+          "type": "integer"
+        },
+        "isParallel": {
+          "type": "boolean"
+        },
+        "hasActiveFront": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "parallelTone": {
+          "type": "string"
+        },
+        "plansSummary": {
+          "type": "string"
+        },
+        "phasesActiveText": {
+          "type": "string"
+        },
+        "bannerTitle": {
+          "type": "string"
+        },
+        "bannerSub": {
+          "type": "string"
+        },
+        "moreFrontsText": {
+          "type": "string"
+        },
+        "updatedRel": {
+          "type": "string"
+        },
+        "dotTone": {
+          "type": "string"
+        },
+        "moreText": {
+          "type": "string"
+        },
+        "idleText": {
+          "type": "string"
+        },
+        "fronts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "projectId",
+              "slug",
+              "title",
+              "nextAction",
+              "phaseId",
+              "dotTone"
+            ],
+            "properties": {
+              "projectId": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "nextAction": {
+                "type": "string"
+              },
+              "phaseId": {
+                "type": "string"
+              },
+              "dotTone": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "burnup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "date",
+        "plannedValue",
+        "earnedCount",
+        "earnedProxy"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "plannedValue": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "earnedCount": {
+          "type": "number"
+        },
+        "earnedProxy": {
+          "type": "number"
+        }
+      }
+    },
+    "spi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "planSlug",
+        "asOf",
+        "started",
+        "deadline",
+        "weightTotal",
+        "tasksTotal",
+        "spiProxy",
+        "spiCount"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "planSlug": {
+          "type": "string"
+        },
+        "asOf": {
+          "type": "string"
+        },
+        "started": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deadline": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "weightTotal": {
+          "type": "number"
+        },
+        "tasksTotal": {
+          "type": "number"
+        },
+        "spiProxy": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "spiCount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "icon",
+        "oneLiner",
+        "facets",
+        "summary",
+        "pros",
+        "cons",
+        "examples"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "oneLiner": {
+          "type": "string"
+        },
+        "facets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "pros": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subItems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "description",
+              "group"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "kind",
+              "required",
+              "description"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "deps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }

@@ -35,161 +35,40 @@ In codex sub-flow: codex is an adversarial reviewer from a different
 family (GPT). Find bugs, vulnerabilities, race conditions — don't defend
 the code.
 
-## Argument & diff capture contract
+## Argument & diff capture
 
-Parse {{ARG_VAR}} BEFORE any prompt or diff command. {{ARG_VAR}} is the
-raw argument string; split into `git_ref` + optional flags. Tokens
-starting with `--` are flags:
-
-| Flag | Effect |
-|---|---|
-| `--mode=local` | Skip Step 0 mode picker; force local sealed envelope. |
-| `--mode=codex` | Skip Step 0 mode picker; force codex envelope. |
-| `--mode=both` | Skip Step 0 mode picker; force local→codex. |
-| `--allow-dirty` | Include working-tree changes in the captured diff; suppress the dirty-tree abort. |
-| `--max-iterations=N` | Max verification-loop iterations (default 3). Convergence rule (plateau detection) may stop earlier. |
-
-Everything not starting with `--` is `git_ref`. It may be a git ref, a
-scope keyword (`wip` | `branch` | `all`), or empty — keyword and empty
-forms are handled by **Scope resolution** below, never by guessing a ref.
-
-**Non-interactive abort.** Without a TTY, every interactive prompt in
-this skill is unavailable — do NOT invoke {{ASK_USER_QUESTION_TOOL}} in
-background. Abort instead when, non-interactively:
-- no explicit `--mode=` flag: "review-code invoked without TTY and
-  without `--mode=`; pass `--mode=local|codex|both` explicitly."
-- `git_ref` is empty: "review-code invoked without TTY and without a
-  ref/scope; pass a git ref or `wip`|`branch`|`all` explicitly."
-
-### Scope resolution (run before ref validation)
-
-If `git_ref` is a scope keyword or empty, resolve the review scope here
-instead of validating a ref:
-
-| Keyword | Scope | Capture command |
-|---|---|---|
-| `wip` | Uncommitted changes (staged + unstaged + untracked) | `git diff HEAD`; then for each untracked file (`??` in `git status --porcelain`) append `git diff --no-index /dev/null <file>` (`--no-index` exits 1 on differences — expected) |
-| `branch` | Commits on HEAD vs the default base | `git diff $(git merge-base <base> HEAD)..HEAD` |
-| `all` | Branch commits + uncommitted changes | `git diff $(git merge-base <base> HEAD)` — worktree vs merge-base; the single-ref form is intentional here |
-
-`<base>`: the branch named by `git symbolic-ref refs/remotes/origin/HEAD`,
-else `main`, else `master` (first that passes `git show-ref`). If no base
-resolves or `git merge-base` returns nothing (detached/disjoint history),
-`branch` and `all` are unavailable — say so instead of improvising.
-
-**Empty `git_ref` (interactive picker):**
-
-1. Detect what exists:
-   - `git status --porcelain` → D = count of dirty + untracked files.
-   - `git rev-list --count $(git merge-base <base> HEAD)..HEAD` → C =
-     commits ahead of base.
-2. Offer ONLY scopes that exist, via {{ASK_USER_QUESTION_TOOL}}
-   ("What should be reviewed?"):
-   - D > 0 → "Uncommitted changes (D files)" → `wip`
-   - C > 0 → "Branch vs <base> (C commits)" → `branch`
-   - C > 0 and D > 0 → "Everything since <base> (C commits + D files)" → `all`
-3. D == 0 and C == 0: abort with "Nothing to review: working tree clean
-   and no commits ahead of <base>. Pass an explicit git ref."
-4. No TTY: non-interactive abort above — never guess a scope.
-
-With `SCOPE` resolved: skip ref-validation steps 1-3 and 5 (the capture
-command comes from the table above); apply step 4 (dirty-tree policy —
-scope-aware) and steps 6-8 unchanged.
-
-For the briefing placeholder `{{GIT_REF}}`, use a neutral label:
-`wip` → `uncommitted working-tree changes`; `branch` → `<merge-base>..HEAD`;
-`all` → `<merge-base>..HEAD + working tree`. No intent, no narrative.
-
-### Ref validation (run before Step 0 mode picker)
-
-1. **Detect ref shape (test in order, triple-dot FIRST):**
-   - If `git_ref` contains `...` (triple-dot): RANGE; separator = `...`.
-   - Else if `git_ref` contains `..` (double-dot): RANGE; separator = `..`.
-   - Else: SINGLE ref.
-
-   Triple-dot detection MUST come first. If you test `..` first and use
-   it as the split separator, `'main...HEAD'.split('..')` returns
-   `['main', '.HEAD']` (with a leftover dot). Order matters.
-
-2. **Validate:**
-   - SINGLE: {{BASH_TOOL}}: `git rev-parse --verify <git_ref>` exits 0.
-   - RANGE: split on the DETECTED separator (do NOT split on `..` when
-     the separator was `...`). Validate each non-empty endpoint with
-     `git rev-parse --verify <endpoint>`. Empty endpoint (e.g. `..HEAD`
-     or `HEAD..`) is shorthand for `HEAD` — valid.
-
-   Why conditional: `git rev-parse --verify` rejects revision-range
-   syntax — passing `main..HEAD` raw fails even when both endpoints
-   exist.
-
-3. **For SINGLE, distinguish COMMIT vs BRANCH (deterministic):**
-   - If `git show-ref --verify --quiet refs/heads/<git_ref>` exits 0 → SINGLE BRANCH.
-   - Else if `git show-ref --verify --quiet refs/remotes/<git_ref>` exits 0 → SINGLE BRANCH (remote-tracking).
-   - Else if `git cat-file -t <git_ref>` outputs `commit` → SINGLE COMMIT.
-   - Else if `git cat-file -t <git_ref>` outputs `tag` → resolve via `git rev-parse <git_ref>^{commit}` and treat as SINGLE COMMIT.
-   - Else abort: "Cannot classify `<git_ref>` as branch or commit; refusing to guess."
-   - **Ambiguity rule:** if `git_ref` matches BOTH a local branch and a commit SHA (rare), prefer BRANCH and warn the user. Surface in the ask-the-user-for-base prompt (step 5).
-
-4. **Dirty-tree policy** (applies to all modes; scope-aware):
-   - {{BASH_TOOL}}: `git status --porcelain`. Tree clean: proceed.
-   - `SCOPE ∈ {wip, all}`: the working tree IS the review subject — do
-     NOT abort. Treat `--allow-dirty` as implicitly set for preflight
-     check #3. In codex mode, warn once: "reviewing uncommitted work;
-     prefer `--mode=local` for WIP, or commit first for a codex pass."
-   - Committed-only subject (`branch`, explicit ref/range) + dirty tree:
-     - With `--allow-dirty`: warning + include working-tree changes in `CAPTURED_DIFF`.
-     - Interactive: use {{ASK_USER_QUESTION_TOOL}} — "Working tree has
-       uncommitted changes outside the reviewed ref. The review agent
-       reads worktree files, so `file:line` citations may not match the
-       diff." Options: `Review ref only` / `Include working-tree changes`
-       / `Abort`.
-     - Non-interactive without `--allow-dirty`: abort with the same
-       message as `{{ASSETS_PATH}}/preflight-checks.txt` check #3
-       ("Codex bug #8404 can cause hallucinated findings when reviewing
-       against a dirty tree. Either commit/stash changes, or re-invoke
-       with `--allow-dirty`.").
-
-5. **Pick the right diff command per shape** (`git diff <ref>` is NOT uniform):
-   - **SINGLE COMMIT:** `git show --format= --patch <git_ref>` (equivalent: `git diff <git_ref>^!`) — patch of THAT commit alone.
-   - **SINGLE BRANCH:** use {{ASK_USER_QUESTION_TOOL}} to ask **"Which base should we diff `<git_ref>` against?"** with options derived from `git symbolic-ref refs/remotes/origin/HEAD` (default branch) and `main` / `master` if they exist (dedupe). Once base is chosen, run `git diff $(git merge-base <base> <git_ref>)..<git_ref>`. DO NOT use `HEAD` as one side: when the user is checked out on the branch being reviewed (`HEAD` resolves to the branch tip), `merge-base <branch> HEAD == <branch>` and the diff is empty. If `git merge-base` returns nothing (disjoint history), abort and re-ask.
-   - **RANGE:** `git diff <git_ref>` — already correct.
-   - **NEVER use `git diff <single-ref>` raw for ref shapes:** it diffs
-     the WORKTREE against the ref, leaking unrelated local edits into the
-     review. The one sanctioned use is scope `all`, where the worktree IS
-     the review subject (see Scope resolution).
-
-6. **Materialize `CAPTURED_DIFF` ONCE.** Run the shape-specific command
-   from step 5 (or the scope-table command when `SCOPE` is set) and store
-   the output as `CAPTURED_DIFF`. Both phases
-   (local agent briefing + codex briefing) MUST consume `CAPTURED_DIFF`, never
-   re-execute `git diff`. This guarantees both reviewers see byte-identical
-   material.
-
-7. {{BASH_TOOL}}: `git diff --name-only` using the same shape-specific
-   (or scope) command → list of modified files (`CAPTURED_FILES`); for
-   `wip`/`all`, append untracked file names from `git status --porcelain`.
-   If empty: abort with "No changes in ref".
-
-8. {{BASH_TOOL}}: pipe `CAPTURED_DIFF` to `wc -c`. If > 50000 bytes: use
-   {{ASK_USER_QUESTION_TOOL}} to ask **"Diff is N bytes (large). Continue
-   review or abort?"** with options `Continue` / `Abort`. In codex mode,
-   this also previews the cost (~ $1-2 per 50KB).
+Before Step 0, {{READ_TOOL}} `skills/shared/local-review-assets/diff-capture.md`
+and execute it. It parses {{ARG_VAR}} (flags + `git_ref` / scope keyword),
+resolves the scope, validates the ref shape, applies the dirty-tree policy, and
+materializes `CAPTURED_DIFF` + `CAPTURED_FILES` ONCE — plus `SCOPE`, the
+{{GIT_REF}} label, and the deterministic `DESTRUCTIVE` signal. Step 0 and both
+review phases consume those outputs; never re-run `git diff`.
 
 ## Step 0 — Pick review mode
 
 Skip this step if `--mode=` was supplied. Otherwise, use
 {{ASK_USER_QUESTION_TOOL}}:
 
-**Question:** "How should this code change be reviewed?"
+**Question:** "How should this code change be reviewed?" (When `DESTRUCTIVE`
+is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops).
+A same-model local-only pass frequently misses the orphaned-data / dangling-
+reference regression a delete leaves behind — cross-model is strongly
+advised."*)
 
 **Options:**
 - **Both (local then codex)** — Recommended for significant changes
-  (auth, payments, data integrity). Local agent catches obvious bugs;
-  codex catches what the agent missed. ~$1-2 codex cost.
+  (auth, payments, data integrity) and **strongly recommended for any
+  destructive diff**. Local agent catches obvious bugs; codex catches what
+  the agent missed. ~$1-2 codex cost.
 - **Local only** — Cheap, fast. Use for routine PRs or pre-commit checks.
+  **Not advised when `DESTRUCTIVE` is true** — if chosen anyway, record the
+  user's explicit override (the false-green risk was surfaced and accepted).
 - **Codex only** — Skip local. Use when another agent self-reviewed.
 
-Default: **Both**.
+Default: **Both** — and when `DESTRUCTIVE` is true, `both` is not merely the
+default but the recommended option; the picker leads with the warning above
+so a user choosing `local` does so against an explicit caution, never by
+omission.
 
 Set `mode ∈ {local, codex, both}` based on the answer.
 
@@ -198,6 +77,50 @@ template var resolves per IDE — Claude Code uses its native multi-choice
 prompt tool; Gemini / Cursor / Codex CLI / Opencode / GitHub Copilot /
 generic receive a descriptive string so the agent renders the prompt as
 plain text. Hardcoding any specific tool name would break the other IDEs.
+
+---
+
+## Step 0.5 — Surface-review dedup (`review-dedup`, fail-para-RE-revisar)
+
+Before running a pass, consult the **surface-review ledger** so the same surface is
+not re-reviewed in the same mode under parallel worktrees. The ledger is the pure
+module `scripts/review-ledger.js` (F7/T-001) over
+`.atomic-skills/status/last-review.json`; this skill NEVER re-implements the
+match logic, it defers to that module.
+
+1. **Fingerprint the surface** from the captured range (deterministic, from Step 6):
+   - `commitSha` = the tip SHA of the reviewed range (e.g. `git rev-parse <git_ref>`
+     for a ref/range; for `wip`/`all` the working tree has no commit → leave empty,
+     which forces RE-review, never a skip).
+   - `patchId` = `git diff <range> | git patch-id --stable | awk '{print $1}'`
+     (stable under squash/rebase — the SHA may be rewritten, the patch-id holds).
+2. **Per-mode skip with POSITIVE proof only.** For EACH mode about to run
+   (`local` and/or `codex`), read the ledger content from
+   `.atomic-skills/status/last-review.json` and call
+   `alreadyReviewed(content, { commitSha, patchId }, mode)`. If it returns **true**,
+   SKIP that mode's pass and announce: `review-dedup: <mode> pass skipped — surface
+   already reviewed (<commitSha|patchId>).` The dedup is **per mode**: a `local`
+   hit does NOT skip the `codex` pass and vice-versa (one model's pass never
+   discharges the other's). In `mode == both`, evaluate the two modes independently;
+   if both are already-reviewed, report up-to-date and END.
+3. **Fail-para-RE-revisar.** Skip ONLY on a positive `alreadyReviewed`. A pointer /
+   absent / malformed `last-review.json` is read by the module as "nothing reviewed"
+   (it returns false), so the pass RUNS — indeterminacy never skips a review.
+4. **Record after a pass completes** (a verdict was produced): append a ledger record
+   with `recordReview(content, { commitSha, patchId, mode, reviewedAt, reviewFile })` —
+   append-only (prior lines preserved → `merge=union`-safe per F5), one record per mode
+   per surface, never overwriting earlier entries. The persisted review file (Step
+   "Persist") supplies `reviewFile`. **Do NOT unilaterally flip a project's
+   `last-review.json` format:** where a project still keeps the legacy single-pointer
+   shape with pointer-readers not yet migrated (e.g. this repo — see `project-drift.md`'s
+   "State file" ⚠️ note), the record-back-write is deferred to that project's coordinated
+   lockstep flip; until then the skip-read above is the only active dedup effect (safe,
+   since a pointer reads as "nothing reviewed"). `recordReview` on a legacy pointer starts
+   a fresh ledger, so the flip happens the first time the write-back is enabled.
+
+This dedup is the code legs only (`review-code` local + codex, and `review-due` →
+`project-drift.md`); the `project review` composer (Layer B) carries its own
+append-only run-record via a separate work-order, never written from here.
 
 ---
 
@@ -306,77 +229,24 @@ Parse the agent's output. For each finding:
 
 ## Codex sub-flow (modes: codex, both)
 
-The codex sub-flow uses canonical assets in
-`skills/shared/codex-bridge-assets/` as the single source of truth.
+Run the canonical two-pass sealed envelope per
+`{{ASSETS_PATH}}/envelope-orchestration.md` (the byte-identical 12-step skeleton
+shared with `review-plan`). It uses the canonical leaf assets in
+`skills/shared/codex-bridge-assets/` as the single source of truth. Bind these
+code-review artifact slots:
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`.
-   ABORT if any check fails. (`--allow-dirty` passes through from the
-   argument contract; the dirty-tree check in step 4 above has already
-   filtered this.)
-
-2. **Input** — `CAPTURED_DIFF` and `CAPTURED_FILES` from the
-   argument-capture step. Both phases use the same captured material; do
-   NOT re-run `git diff`.
-
-3. **Gather extra context (codex briefing)**
-   - For each file in `CAPTURED_FILES`: ensure {{READ_TOOL}} ran and the content is available.
-   - For each modified public symbol: {{GREP_TOOL}} for callers (limit 5).
-
-4. **Curate Pass 1 briefing (factual minimal)**
-   - {{READ_TOOL}} `{{ASSETS_PATH}}/pass1-briefing-template-code.txt`.
-   - Identify externally verifiable factual constraints:
-     - `package.json` engines, forbidden deps.
-     - Public API contracts (grep README/docs).
-     - Schema/migration constraints if any.
-   - Identify non-goals (short, no rationale).
-   - **DO NOT** include intent, memory, authorship, or (when `mode == both`) any reference to the prior local review or fix log.
-   - Substitute placeholders:
-     - `{{ANTI_FRAMING_DIRECTIVE}}` ← contents of `{{ASSETS_PATH}}/anti-framing-directive.txt`
-     - `{{NON_GOALS_LIST}}` ← short bullet list with no rationale
-     - `{{ARTIFACT}}` ← `CAPTURED_DIFF` (NOT a fresh `git diff`)
-     - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
-   - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
-   - Verify briefing size without diff: < 800 tokens.
-
-5. **Briefing confirmation** — show user: git ref, modified files,
-   callers included, estimated tokens. Ask `approve / edit / cancel`.
-
-6. **Pass 1 invocation (blind)** — follow
-   `{{ASSETS_PATH}}/invocation-canonical.txt`. `MODEL_FLAG` empty by
-   default (codex resolves via `~/.codex/config.toml` or bundled
-   default). User can override by passing `model:<id>`.
-
-7. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt`
-   (universal checks 1-9). Failure → 1 corrective retry. Failure again →
-   escalate raw.
-
-8. **Build Pass 2 briefing (informed)** — append
-   `{{ASSETS_PATH}}/pass2-prompt-suffix.txt` substituting
-   `{{CONSTRAINTS_LIST}}`, `{{PASS_1_OUTPUT}}`, `{{OUTPUT_TEMPLATE_PASS2}}`.
-
-9. **Pass 2 invocation** — same command as step 6 with the pass-2
-   briefing path and output path.
-
-10. **Pass 2 validation** — universal checks 1-9 + Pass-2-only checks
-    10-13.
-
-11. **Persistence**
-    - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`
-    - {{READ_TOOL}} `{{ASSETS_PATH}}/review-file-template.txt`.
-    - Substitute placeholders. When `mode == both`, include both the
-      local fix log AND codex findings in the review file.
-    - Save to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`.
-    - Update `.atomic-skills/reviews/INDEX.md` (create if missing) using
-      `{{ASSETS_PATH}}/index-row-template.txt`.
-
-12. **Triage + fix proposals**
-    - For each finding with severity ∈ {blocker, critical}:
-      - Show ID, severity, file:line, claim, recommendation.
-      - {{READ_TOOL}} the file, formulate edit.
-      - Ask: `apply / edit / skip`.
-      - `apply` uses {{REPLACE_TOOL}}.
-    - Major/minor/nit: record in review file, no required action.
-    - Suggest user run tests if fixes were applied.
+- **`«INPUT»`** — `CAPTURED_DIFF` and `CAPTURED_FILES` from the argument-capture
+  step. Do NOT re-run `git diff`.
+- **`«PASS1_TEMPLATE»`** — `{{ASSETS_PATH}}/pass1-briefing-template-code.txt`.
+- **`«CONSTRAINTS»`** — `package.json` engines / forbidden deps; public API
+  contracts (grep README/docs); schema/migration constraints if any. Gather
+  extra context: for each file in `CAPTURED_FILES` ensure {{READ_TOOL}} ran and
+  the content is available; for each modified public symbol {{GREP_TOOL}} for
+  callers (limit 5).
+- **`«ARTIFACT»`** — `CAPTURED_DIFF` (NOT a fresh `git diff`).
+- **`«SIZE_BUDGET»`** — < 800 tokens (briefing without the diff).
+- **`«TRIAGE_TARGET»`** — the changed source file(s).
+- **`«TRIAGE_NOTES»`** — after applying fixes, suggest the user run tests.
 
 ---
 
@@ -388,14 +258,7 @@ The codex sub-flow uses canonical assets in
 
 ## Code-quality gates (review lens)
 
-When triaging findings and applying fixes, the code you write must
-comply with `docs/kb/code-quality-gates.md`:
-
-- **G1 read-before-claim** — when applying a fix, paste the actual source lines being changed into the fix description before writing the edit. Inferring "the bug is on line 42" without reading line 42 is forbidden.
-- **G2 soft-language ban** — fix descriptions and commit messages MUST NOT contain `should`, `probably`, `may`, `typically`, `usually`. State what the fix does, not what it should do.
-- **G3 anti-tautology in tests** — if the fix adds a test that codifies the bug-then-fix, for each new assertion answer: "what mutation in the fix would make this test fail?" If the answer is "none", rewrite the assertion.
-- **G4 fixture realism** — if the bug involves external data (transcript, HTTP payload, config file), sample a real instance before constructing the test fixture. The 60-second sample rule applies.
-- **G7 premature-abstraction ban** — fixing one bug does not justify introducing a helper "for future similar bugs". Three identical sites = consider helper. Two or fewer = duplicate, document the pattern in a comment, move on.
+When triaging findings and applying fixes, the code you write is bound by `docs/kb/code-quality-gates.md` — apply **G1** (read-before-claim), **G2** (soft-language ban in fix descriptions/commit messages), **G3** (anti-tautology in tests), **G4** (fixture realism, 60-second sample rule), and **G7** (premature-abstraction ban; three-site floor). See the KB for the definitions + good/bad examples; the self-review block below is where they shape the review output.
 
 ## Self-review against gates
 

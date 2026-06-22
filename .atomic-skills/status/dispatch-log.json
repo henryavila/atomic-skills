@@ -1,3 +1,32 @@
+{"taskId":"T-002","plan":"quick-idea-capture","phase":"F0","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-09T19:18:53Z","finishedAt":"2026-06-09T19:55:00Z","codexWorktreeRef":"impl/qic-t-002","routingReason":"lane on (routing.json) + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary 8c8198d"}
+{"taskId":"T-003","plan":"quick-idea-capture","phase":"F0","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-09T19:18:54Z","finishedAt":"2026-06-09T20:05:00Z","codexWorktreeRef":"impl/qic-t-003","routingReason":"lane on + F1 + F2; in-worktree self-check failed on sandbox EPERM (spawnSync git) — environmental; verifier PASSED on merged primary (roundtrip 4/4 + grep)"}
+{"taskId":"T-001","plan":"quick-idea-capture","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-09T19:18:52Z","finishedAt":"2026-06-09T20:20:00Z","codexWorktreeRef":"impl/qic-t-001","routingReason":"lane on + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary (9/9)"}
+{"taskId":"T-001","plan":"quick-idea-capture","phase":"F1","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-09T20:55:00Z","finishedAt":"2026-06-09T21:05:00Z","codexWorktreeRef":"impl/qic-f1-t-001","routingReason":"lane on + F1 spec-ready (design settled pre-dispatch) + F2 deterministic shell verifier; re-verified on merged primary (84/84 + greps)"}
+{"taskId":"T-002","plan":"quick-idea-capture","phase":"F1","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-09T20:55:01Z","finishedAt":"2026-06-09T21:30:00Z","codexWorktreeRef":"impl/qic-f1-t-002","routingReason":"lane on + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary (idea-mark 5/5 + idea-promote 3/3)"}
+{"taskId":"T-001","plan":"design-brief-source-of-truth","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T01:00:00Z","finishedAt":"2026-06-16T01:08:41Z","codexWorktreeRef":"codex/db-t001","routingReason":"lane on (routing.json) + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary ac117c4 (node --test 4/4)"}
+{"taskId":"T-002","plan":"design-brief-source-of-truth","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T01:09:00Z","finishedAt":"2026-06-16T01:16:11Z","codexWorktreeRef":"codex/db-t002","routingReason":"lane on + F1 spec-ready + F2 deterministic shell verifier; seeded off post-T-001 HEAD (schema present); re-verified on merged primary aeaa60a (node --test 2/2)"}
+{"taskId":"T-003","plan":"design-brief-source-of-truth","phase":"F0","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T01:17:00Z","finishedAt":"2026-06-16T01:35:47Z","codexWorktreeRef":"codex/db-t003","routingReason":"lane on + F1 spec-ready (design settled in work-order: canonical app-map.json discovery + valid/invalid fixtures) + F2 shell verifier; in-worktree self-check hit wrapper timeout (exit 124) AFTER completing edits — environmental; both verifiers re-verified PASS on merged primary 886da30 (validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regression validate-state .atomic-skills 42 files)"}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T16:28:00Z","finishedAt":"2026-06-16T16:34:00Z","codexWorktreeRef":"impl/wlf-t001","routingReason":"lane on (routing.json) + F1 spec-ready + F2 deterministic test verifier; coupled with T-002 (same 3 files) -> serial; Codex self-report said tests:1 (discarded, self-check != self-certify), re-verified on MERGED primary d66fbe2 (node --test 5/5, exit 0)"}
+{"taskId":"T-002","plan":"worktree-lifecycle-finalization","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T16:40:00Z","finishedAt":"2026-06-16T16:47:49Z","codexWorktreeRef":"impl/wlf-t002","routingReason":"lane on + F1 spec-ready + F2 deterministic test verifier; coupled with T-001 -> serial, seeded off post-T-001 d66fbe2; Codex self-report tests:1 (discarded), re-verified on MERGED primary 145774b (node --test 9/9 incl. T-001 preserved, exit 0)"}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F1","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T17:52:00Z","finishedAt":"2026-06-16T17:59:33Z","codexWorktreeRef":"impl/wlf-f1-t001","routingReason":"lane on + F1 spec-ready (interface pinned in work-order) + F2 deterministic test verifier; Codex self-report tests:1 (discarded per lesson L-001), re-verified on MERGED primary 3a07fb6 (node --test 8/8, exit 0)"}
+{"taskId":"T-002","plan":"worktree-lifecycle-finalization","phase":"F1","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T18:02:00Z","finishedAt":"2026-06-16T18:07:28Z","codexWorktreeRef":"impl/wlf-f1-t002","routingReason":"lane on + F1 spec-ready + F2 deterministic shell verifier (anchor grep + validate-skills, WEAK → compensated by Opus diff review); re-verified on MERGED primary 0a098bf (exit 0, 15 skills valid)"}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T11:45:00Z","finishedAt":"2026-06-17T11:58:35Z","codexWorktreeRef":"impl/wlf-f0-t001","routingReason":"lane on (mode2Enabled+codexLane.enabled) + F1 spec-ready (exact paths/scopeBoundary/acceptance/settled design) + F2 deterministic test verifier (node --test tests/plan-branch-policy.test.js); operator opted IN to Mode 2 default for this small task. Codex exec workspace-write in isolated worktree; diff reviewed (no test weakening, 9=9 tests, meaningful flips); re-verified on MERGED primary 789ca16 (tests 9, pass 9, exit 0)."}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F1","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T13:34:00Z","finishedAt":"2026-06-17T13:37:44Z","codexWorktreeRef":"impl/wlf-t-001","routingReason":"lane on (mode2Enabled+codexLane.enabled, minBatchTasks=1) + F1 spec-ready (exact paths/scopeBoundary/acceptance/settled design) + F2 deterministic test verifier (node --test tests/routing-schema.test.js); Codex default executor, no opt-out. Fresh re-bootstrapped F1 (prior 2026-06-16 F1 entries are stale, different task structure). Codex exec workspace-write in isolated worktree impl/wlf-t-001 off bb8e5ab; -o self-report discarded (mode2 L-001: self-check != self-certify); diff reviewed (integrationRef added, additionalProperties:false preserved, title+description generalized, no existing fields touched); ff-merged + re-verified on MERGED primary 4555063 (node --test tests 4, pass 4, exit 0)."}
+{"taskId":"T-002","plan":"worktree-lifecycle-finalization","phase":"F1","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T13:44:00Z","finishedAt":"2026-06-17T13:48:57Z","codexWorktreeRef":"impl/wlf-t-002","routingReason":"lane on (mode2Enabled+codexLane.enabled, minBatchTasks=1) + F1 spec-ready (exact paths/scopeBoundary/acceptance/settled design — pure resolver contract pinned in work-order) + F2 deterministic test verifier (node --test tests/integration-ref.test.js); Codex default executor, no opt-out. Codex exec workspace-write in isolated worktree impl/wlf-t-002 off 9085ae6 (post-T-001 HEAD); -o self-report discarded (mode2 L-001); diff reviewed (pure fn over already-read content, declared/default/not-configured discriminated, no fs/git/net, input not mutated, only the 2 target files); ff-merged + re-verified on MERGED primary 722bf50 (node --test tests 6, pass 6, exit 0)."}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F4","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T19:52:00Z","finishedAt":"2026-06-17T20:05:00Z","codexWorktreeRef":"impl/wlf-t-001","routingReason":"operator chose Mode 2 (AskUserQuestion); lane on (mode2Enabled+codexLane.enabled, minBatchTasks=1) + F1 spec-ready (exact paths/scopeBoundary/acceptance + settled Decisao 7 design; API contract pinned in work-order) + F2 deterministic test verifier (node --test tests/cross-wt-gate.test.js). Codex exec workspace-write in isolated worktree impl/wlf-t-001 off a1bdd01; -o self-report (tests 1) DISCARDED per wlf-f0-nascimento L-001; diff reviewed (2 target files only, no .atomic-skills touch, pure over injected mergeProbe/runner, adapter-throw blocks, Object.hasOwn); ff-merged 5e1328d + re-verified on MERGED primary (node --test tests 16, pass 16, exit 0)."}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F5","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T20:45:00Z","finishedAt":"2026-06-17T21:00:00Z","codexWorktreeRef":"impl/wlf-f5-t-001","routingReason":"operator Mode 2 (reconfirmed after NDJSON re-scope); lane on + F1 spec-ready (amended SPEC) + F2 shell verifier; state-fence: dispatch-log array->NDJSON Opus-owned, Codex source only; -o self-report pass-1 DISCARDED per wlf-f0 L-001 (real 3/3); Codex adapted require->import (ESM); ff 59ee587; re-verified MERGED primary exit 0"}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F6","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T21:15:00Z","finishedAt":"2026-06-17T21:30:00Z","codexWorktreeRef":"impl/wlf-f6-t-001","routingReason":"operator Mode 2; lane on + F1 spec-ready (grounded per L-002, dispatch-ready no amend) + F2 test verifier; source-only, fence trivial; -o self-report tests-1 DISCARDED per wlf-f0 L-001 (real 6); ff a04b628; re-verified MERGED primary 6/6"}
+{"taskId":"T-001","plan":"worktree-lifecycle-finalization","phase":"F7","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T21:45:00Z","finishedAt":"2026-06-17T22:00:00Z","codexWorktreeRef":"impl/wlf-f7-t-001","routingReason":"operator Mode 2; lane on + F1 spec-ready (grounded L-002: NDJSON pinned per F5) + F2 test verifier; source-only fence; -o self-report tests-1 DISCARDED per wlf-f0 L-001 (real 10); ff 2c4ca99; re-verified MERGED primary 10/10"}
+{"taskId":"T-001","plan":"design-brief-source-of-truth","phase":"F2","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T16:25:00Z","finishedAt":"2026-06-16T16:33:04Z","codexWorktreeRef":"impl/db-t001","routingReason":"operator chose Mode 2 for the F2 batch; lane on (routing.json) + F1 spec-ready (F1 contracts + schema 0.2 settled) + F2 deterministic shell verifier; multi-file orchestrator bridge → standard tier; re-verified on merged primary ff0d51c (node --test reconstruct 6/6, discovered by npm test glob)"}
+{"taskId":"T-002","plan":"design-brief-source-of-truth","phase":"F2","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T16:37:00Z","finishedAt":"2026-06-16T16:41:30Z","codexWorktreeRef":"impl/db-t002","routingReason":"Mode 2 batch; lane on + F1 spec-ready (prose intent + anchors specified in work-order) + F2 deterministic shell verifier; single-section prose edit + structural test → cheap tier; serial after T-001 (both edit design-brief.md, not concurrent); re-verified on merged primary 59eb549 (node --test design-brief-step2 4/4, anchors incl. ordering)"}
+{"taskId":"T-003","plan":"design-brief-source-of-truth","phase":"F2","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-16T16:44:00Z","finishedAt":"2026-06-16T16:48:03Z","codexWorktreeRef":"impl/db-t003","routingReason":"Mode 2 batch; lane on + F1 spec-ready (regime-switch intent + layer-1-intact anchors in work-order) + F2 deterministic shell verifier; two-file prose edit (§4 + asset note) + structural test → cheap tier; serial after T-002 (both edit design-brief.md, not concurrent); re-verified on merged primary 812aad5 (node --test design-brief-r2 3/3, incl. verbatim Iron Law + layer-1 row)"}
+{"taskId":"T-001","plan":"reversible-installer","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T16:05:00Z","finishedAt":"2026-06-17T16:10:22Z","codexWorktreeRef":"impl/ri-f0-t001","routingReason":"lane on (routing.json) + F1 spec-ready (design settled pre-dispatch) + F2 deterministic test verifier; codex self-report mis-stated tests=1, real run tests=4 — re-verified on merged primary 37d0e24 (effect.test.js 4/4)"}
+{"taskId":"T-002","plan":"reversible-installer","phase":"F0","executorTier":"cheap","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T16:12:00Z","finishedAt":"2026-06-17T16:15:50Z","codexWorktreeRef":"impl/ri-f0-t002","routingReason":"lane on + F1 spec-ready + F2 deterministic test verifier; codex self-report again mis-stated tests=1, real run tests=4 — re-verified on merged primary 83be588 (journal.test.js 4/4)"}
+{"taskId":"T-003","plan":"reversible-installer","phase":"F0","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T16:17:00Z","finishedAt":"2026-06-17T16:21:35Z","codexWorktreeRef":"impl/ri-f0-t003","routingReason":"lane on + F1 spec-ready (3-hash + orphan source ported into briefing) + F2 deterministic test verifier; codex self-report mis-stated tests=1, real run tests=3 — re-verified on merged primary f92c7c0 (reconciler.test.js 3/3); full suite 832 832 818/2 (2 pre-existing dashboard fails, zero kernel regression)"}
+{"taskId":"T-001","plan":"reversible-installer","phase":"F1","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T18:05:00Z","finishedAt":"2026-06-17T18:19:31Z","codexWorktreeRef":"impl/ri-f1-t001","routingReason":"lane on (routing.json) + F1 spec-ready (json-merge before-state design settled in briefing pre-dispatch) + F2 deterministic test verifier; codex self-report sub-counted tests=1 (file-level), real re-run on merged primary 5e0261b = tests 9 pass 9 (L-003)"}
+{"taskId":"T-002","plan":"reversible-installer","phase":"F1","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T18:22:00Z","finishedAt":"2026-06-17T18:27:36Z","codexWorktreeRef":"impl/ri-f1-t002","routingReason":"lane on + F1 spec-ready (refcount D8 per-owner-marker design settled in briefing) + F2 deterministic test verifier; codex self-report sub-counted tests=1 (file-level), real re-run on merged primary ade1120 = tests 8 pass 8 (L-003)"}
+{"taskId":"T-003","plan":"reversible-installer","phase":"F1","executorTier":"standard","executor":"codex","attempt":1,"verifierKind":"test","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T18:33:00Z","finishedAt":"2026-06-17T18:38:53Z","codexWorktreeRef":"impl/ri-f1-t003","routingReason":"lane on + F1 spec-ready (legacy-prune fully settled by existing install.js funcs, ported into briefing) + F2 deterministic test verifier; codex self-report sub-counted tests=1 (file-level), real re-run on merged primary 75428bd = tests 8 pass 8; full npm test 859/845/2 (2 pre-existing dashboard fails, zero kernel regression)"}
+{"taskId":"T-004","plan":"reversible-installer","phase":"F1","executorTier":"opus","executor":"self","attempt":1,"verifierKind":"shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"2026-06-17T18:40:00Z","finishedAt":"2026-06-17T18:45:33Z","codexWorktreeRef":null,"routingReason":"Mode 1 self-exec (NOT routed to Codex): F1 spec-readiness disqualifier — crash-simulation fixture design emerged during implementation; also the exit-gate verifier + tightly coupled to legacy install/uninstall test infra. node --test tests/install-uninstall-roundtrip.test.js = 7/7 on primary 77cd386"}
 [
   {
     "taskId": "T-002",
@@ -78,5 +107,277 @@
     "finishedAt": "2026-06-09T21:30:00Z",
     "codexWorktreeRef": "impl/qic-f1-t-002",
     "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary (idea-mark 5/5 + idea-promote 3/3)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T01:00:00Z",
+    "finishedAt": "2026-06-16T01:08:41Z",
+    "codexWorktreeRef": "codex/db-t001",
+    "routingReason": "lane on (routing.json) + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary ac117c4 (node --test 4/4)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T01:09:00Z",
+    "finishedAt": "2026-06-16T01:16:11Z",
+    "codexWorktreeRef": "codex/db-t002",
+    "routingReason": "lane on + F1 spec-ready + F2 deterministic shell verifier; seeded off post-T-001 HEAD (schema present); re-verified on merged primary aeaa60a (node --test 2/2)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "design-brief-source-of-truth",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-16T01:17:00Z",
+    "finishedAt": "2026-06-16T01:35:47Z",
+    "codexWorktreeRef": "codex/db-t003",
+    "routingReason": "lane on + F1 spec-ready (design settled in work-order: canonical app-map.json discovery + valid/invalid fixtures) + F2 shell verifier; in-worktree self-check hit wrapper timeout (exit 124) AFTER completing edits — environmental; both verifiers re-verified PASS on merged primary 886da30 (validate-state test/fixtures exit 0 + validate-state.test.js 2/2 + regression validate-state .atomic-skills 42 files)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T19:00:00Z",
+    "finishedAt": "2026-06-17T19:14:53Z",
+    "codexWorktreeRef": "impl/dbf-t-002",
+    "routingReason": "lane on (routing.json mode2Enabled+codexLane) + operator confirmed Mode 2 + F1 spec-ready + F2 deterministic shell verifier; re-verified on merged primary 657de01 (8 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F0",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T19:20:00Z",
+    "finishedAt": "2026-06-17T19:14:53Z",
+    "codexWorktreeRef": "impl/dbf-t-003",
+    "routingReason": "lane on + operator Mode 2 + F1 spec-ready + F2 deterministic shell verifier; self-authored verifier so Opus reviewed prose+detector+per-block negatives on diff; re-verified on merged primary 238f677 (5 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-004",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F0",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-17T19:30:00Z",
+    "finishedAt": "2026-06-17T19:14:53Z",
+    "codexWorktreeRef": "impl/dbf-t-004",
+    "routingReason": "lane on + operator Mode 2 + F1 spec-ready + F2 deterministic shell verifier; test-only contract file, Opus verified it exercises the REAL API (no stub); re-verified on merged primary 8741d48 (3 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T08:58:00Z",
+    "finishedAt": "2026-06-19T09:02:11Z",
+    "codexWorktreeRef": "dbf/f1-t-001",
+    "routingReason": "lane on (routing.json mode2Enabled+codexLane, standing default) + F1 spec-ready (Opus resolved scopeBoundary _archive-legacy→archive/ via non-recursive scan, D2) + F2 deterministic shell verifier; dispatched concurrently with T-003 (scope-disjoint); re-verified on merged primary beec974 (find-unclosed-done 4 pass, 0 fail) + Opus read script+test (genuine archive-exclusion coverage)"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T08:58:00Z",
+    "finishedAt": "2026-06-19T09:03:39Z",
+    "codexWorktreeRef": "dbf/f1-t-003",
+    "routingReason": "lane on + F1 spec-ready + F2 shell verifier; dispatched concurrently with T-001 (scope-disjoint); in-worktree self-check hit spawnSync EPERM (schema-drift.test.js uses execFileSync, sandbox blocks child_process) — environmental, Codex confirmed build --check exit 0 manually; verifier re-verified PASS on merged primary d55f540 (schema-drift 1 pass, 0 fail)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F1",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T09:06:00Z",
+    "finishedAt": "2026-06-19T09:09:57Z",
+    "codexWorktreeRef": "dbf/f1-t-002",
+    "routingReason": "lane on + F1 spec-ready + F2 shell verifier; seeded off post-T-003 HEAD 8454d16 (schema admits fields — dependency satisfied); re-verified on merged primary 2cd4f06 (emit-consumer-state 14 pass, 0 fail incl. validateAideckState ok + null-legacy assertions); Opus read diff (closedAt/lastUpdated ?? null) + test (no false-green)"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F2",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T12:02:30Z",
+    "finishedAt": "2026-06-19T12:06:02Z",
+    "codexWorktreeRef": "dbf/f2-t-001",
+    "routingReason": "lane on (routing.json mode2Enabled+codexLane, standing default) + F1 spec-ready (schema field additions, settled D-F2-1) + F2 deterministic shell verifier; dispatched concurrently with T-003 (scope-disjoint, overlap empty); in-worktree self-check hit spawnSync EPERM (sandbox blocks child_process for schema-drift execFileSync) — environmental; re-verified PASS on MERGED primary f844dde (schema-drift 1 pass) + Opus read schema diffs (3 fields, none in required) + bundle regenerated"
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F2",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T12:02:30Z",
+    "finishedAt": "2026-06-19T12:05:57Z",
+    "codexWorktreeRef": "dbf/f2-t-003",
+    "routingReason": "lane on + F1 spec-ready (mirror of find-missing-task-summaries, settled D-F2-5) + F2 shell verifier; dispatched concurrently with T-001 (scope-disjoint); re-verified PASS on MERGED primary df3ca7f (find-unweighted-tasks 3 pass incl. weight:0 valid + non-number flagged) + Opus read script/test/Stage6 diff (read-only auditor, decompose.js untouched)"
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F2",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T12:14:00Z",
+    "finishedAt": "2026-06-19T12:16:23Z",
+    "codexWorktreeRef": "dbf/f2-t-002",
+    "routingReason": "lane on + F1 spec-ready (settled D-F2-2/3) + F2 shell verifier; seeded off post-T-001/T-003 HEAD 545de0e (schema admits fields + bundle regenerated — dependency D-F2-4 satisfied); re-verified PASS on MERGED primary 8569c76 (compute-rollups 3 + emit-consumer-state 15 incl. validateAideckState round-trip carrying weightDone/weightTotal, no drift) + Opus read diffs (weightOf default-1, weight:0 honored; ?? count fallback) + confirmed emit-consumer-state.js binary flag is pre-existing (box-drawing density), not corruption"
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F3",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T15:29:30Z",
+    "finishedAt": "2026-06-19T15:31:04Z",
+    "codexWorktreeRef": "codex/f3-t001",
+    "routingReason": "lane on + F1 spec-ready (settled: deadline optional $ref isoTimestamp) + F2 shell verifier (schema-drift); user-confirmed Codex routing for F3 batch (serial, coupled by bundle). In-worktree verifier hit sandbox spawnSync node EPERM (false-fail on the test-runner child spawn); adjudicated PASS on MERGED primary 228acbe (node --test tests/schema-drift.test.js — 1 test, 1 pass, 0 fail, no drift). Opus read diff: one optional $ref property in plan.schema + regenerated bundle, no required[] addition, no .atomic-skills/ touch."
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F3",
+    "executorTier": "standard",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T16:20:00Z",
+    "finishedAt": "2026-06-19T16:31:18Z",
+    "codexWorktreeRef": "codex/f3-t002",
+    "routingReason": "lane on + F1 spec-ready APÓS hardening Opus (contradição burn-up design.md vs SPEC surfaçada+resolvida @e1fdd8a; contrato burnup/spi + spiCount count-scale ratificados pelo usuário) + F2 shell verifier. PASS no MERGED primary 90b4366 (emit-series 2 + schema-drift 1, 0 fail). 1 follow-up Opus Mode1: regressão de contagem 11→13 em emit-consumer-state.test.js (consequência direta dos 2 arquivos emitidos novos). Revisão Opus: impl fiel ao spec; teste assere valores concretos re-derivados (não circular); guards Number.isFinite em todo escalar emitido (L-001); teste em tests/ plural (L-003). Suíte: 911 pass / 8 fail pré-existentes, 0 regressão nova."
+  },
+  {
+    "taskId": "T-003",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F3",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T16:33:00Z",
+    "finishedAt": "2026-06-19T16:37:53Z",
+    "codexWorktreeRef": "codex/f3-t003",
+    "routingReason": "lane on + F1 spec-ready (aditivo, design settled pela SPEC) + F2 shell verifier. PASS no MERGED primary 6844e95 (refresh-state.test.js 2/2). Sem escalação, sem follow-up. Revisão Opus: 4º passo aditivo+fail-open, 3 passos existentes intactos, teste prova gap fechado (burnup ausente→presente) + path sem eventos, não circular. Suíte: 927 tests / 913 pass / 8 fail pré-existentes, 0 regressão nova. In-worktree verifier passou (refresh-state não spawna child → sem EPERM)."
+  },
+  {
+    "taskId": "T-001",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F4",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T18:42:00Z",
+    "finishedAt": "2026-06-19T18:47:13Z",
+    "codexWorktreeRef": "codex/f4-t001",
+    "routingReason": "lane on + F1 spec-ready (design settled pelo Opus no work-order: helper computePhaseActuals + flag CLI + prosa) + F2 shell verifier. PASS no MERGED primary 003b526 (append-completion-actuals.test.js 4/4, exit 0). Sem escalacao. Revisao Opus: impl fiel ao design, teste re-deriva valores concretos (nao circular), graceful-degradation coberta, escopo limpo (3 files, nenhum .atomic-skills/ tocado). In-worktree verifier passou (sem EPERM). Timestamps aproximados da sessao."
+  },
+  {
+    "taskId": "T-002",
+    "plan": "deadline-burnup-forecast",
+    "phase": "F4",
+    "executorTier": "cheap",
+    "executor": "codex",
+    "attempt": 1,
+    "verifierKind": "shell",
+    "verifierPassed": true,
+    "escalatedTo": null,
+    "escalationCount": 0,
+    "startedAt": "2026-06-19T18:53:00Z",
+    "finishedAt": "2026-06-19T18:57:30Z",
+    "codexWorktreeRef": "codex/f4-t002",
+    "routingReason": "lane on + F1 spec-ready (design settled pelo Opus: readDispatchActuals + CLI auto-enrich, prosa intocada) + F2 shell verifier. PASS no MERGED primary 5f0ce6f (append-completion-dispatchlog.test.js 6/6) + 0 regressao (34/34 no conjunto append-completion). Revisao Opus: fiel ao design, match plan+phase+taskId (nao taskId so), guards Number.isFinite, graceful, sem spawn no teste. Timestamps aproximados da sessao."
   }
 ]

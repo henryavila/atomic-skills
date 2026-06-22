@@ -101,6 +101,20 @@ Keep it terse — five scenarios is a short list, not a report. The point is fal
 
 ---
 
+## The `fork-plan` step (degrau 7.5) — when a phase becomes its own plan
+
+The emergence ladder has a step between `split-phase` and `supersede`: **degrau 7.5, `fork-plan`**. Use it when a phase of an executing plan grows too large for `new-phase`/`split-phase`, but the parent plan stays valid — the phase is forked into a **child plan** linked to the parent by a bidirectional, ratified edge. The parent either **pauses** (mode `pause`) or **runs in parallel** in its own worktree (mode `parallel`), and resumes at the anchor phase when the child completes. Distinct from `supersede` (replacement): `fork-plan` is **additive and reversible**.
+
+Full procedure (ratify gate, cycle-check before any write, the two modes, pause-only fallback): `skills/shared/project-assets/project-emergence.md` → `fork-plan`. Load-bearing contract points:
+
+- **The child is a real plan.** It passes the DESIGN gate (R-ORCH-09) like any plan; `fork-plan` only ratifies the edge and delegates to the `new plan` flow.
+- **Intra-project only; `mode` lives on the child.** The parent references the child on its anchor phase (`spawnedPlans`); the child references the parent (`spawnedFrom`).
+- **The edge lives INLINE in `plan.md` frontmatter** (`spawnedFrom` on the child plan, `spawnedPlans` on the parent's anchor phase descriptor) — the aiDeck consumer (fork-fields release) declares both as optional, additive fields. The original design bridged through a non-aiDeck-facing `links.json` sidecar while the consumer was `.strict`; that sidecar is now retired for the elo (migrated inline by `migrateSidecarToInline`), leaving only the transient parallel-state `pendingWriteback` recovery marker in `links.json`.
+- **Resume is a transaction.** On the child's archive, the parent writeback **precedes** the child-archive finalize; a declined/failed writeback persists a durable `pendingWriteback` (`op: resumeParent`) and the child does not finalize until recovery. The archive step is a **hard gate**, not a fall-through offer (`project-transitions.md` → `archive` / `fork-resume`).
+- **Focus treats parent/child as a hierarchy.** The focus resolver collapses an active parent+child fork pair to the child (no spurious multi-active `⧉`), scoped intra-project (`scripts/emit-focus.js`, `scripts/reconcile-focus.js`).
+
+---
+
 ## Self-review against code-quality gates
 
 Before declaring a discipline block done, append (mirrors `docs/kb/code-quality-gates.md:13-24`):
