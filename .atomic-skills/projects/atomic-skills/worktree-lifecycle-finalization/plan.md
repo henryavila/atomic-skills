@@ -3,7 +3,7 @@ schemaVersion: "0.1"
 slug: worktree-lifecycle-finalization
 title: Finalização do ciclo de vida da worktree-do-plano
 version: "1.0"
-status: active
+status: archived
 started: 2026-06-16T22:50:35.627Z
 lastUpdated: 2026-06-19T16:20:35Z
 branch: plan/worktree-lifecycle-finalization
@@ -638,7 +638,7 @@ phases:
       Finalize correto sob branch multi-plano: alvo explícito + terminal, WARN de
       irmãos e de regressão de status, e integrationRef verificado antes do PR.
 references: []
-planActive: true
+planActive: false
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 ---
 
