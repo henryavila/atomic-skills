@@ -28,11 +28,27 @@ Name tokens by **role/intent**, not by value — e.g. `surface/raised`, `text/mu
 the literal value lives only in the DS. Cover: colour roles (incl. light **and** dark),
 typographic scale, spacing scale, radii, shadows/elevation, motion durations.
 
+When a product invariant requires **perceptual separation** — a small set of directional senses
+that must never be confused (e.g. a few opposed rating/direction tokens) — give it a **dedicated
+treatment** with the **maximum separation** the medium allows between members, **not** inherited
+from the generic semantic set (`state/danger`, `state/warning`, `state/success`) and **never
+colour-only** (pair colour with shape, icon, position or label).
+
 ### 2. Component inventory (with states)
 
 For each component, define **every state** it can take — default, hover, focus, active,
 disabled, loading, error, empty, selected — so screens never invent a missing state. List the
-components the app actually needs (derived from the inventory), each by semantic role.
+components the app actually needs, each by semantic role.
+
+Derive the inventory from the **product's verbs**, not only the screens the code renders today:
+a product that lets you *create*, *edit* and *archive* an entity needs the surfaces for those
+verbs (an entity/record composer, a registration form, an edit form, an archive affordance), not
+just the read/review components the legacy screens happen to show.
+
+The inverse also holds: do **not** include a component just because the existing code has one.
+A component the redesign removed (e.g. a mined desktop-only shortcuts panel) is a mined
+artefact, not a requirement — and a *behaviour* the redesign keeps (e.g. keyboard parity) is a
+behaviour to satisfy, not a mandated panel to draw.
 
 ### 3. One base template
 
@@ -40,6 +56,10 @@ Produce **exactly 1 base template**: a single composed layout (e.g. an app shell
 navigation, a content region, and one representative data view) that exercises the tokens and
 the component inventory together. This is the fork point the screens prompt reuses — not a
 catalogue of page types.
+
+When the app **embeds its screens in a container** (a shell root, not the bare viewport),
+overlays/sheets/dialogs must be **containable within the app frame** — anchored to the shell
+root, never viewport-fixed — so they cannot escape the embedded surface.
 
 ### 4. Accessibility constraints (WCAG 2.2 — measurable, not prescriptive)
 
@@ -49,12 +69,22 @@ State these as **verifiable constraints**, never as a chosen visual treatment:
 - Hit targets meet the 2.2 target-size minimum (≥ 24×24 CSS px or equivalent spacing).
 - Nothing relies on colour alone to convey state.
 
+### 5. Coherence with the redesign's decisions
+
+The DS must not reintroduce what the redesign already dropped. If a hub screen deliberately
+sheds a mined metric or gamification mechanic (the hub-vs-dashboard split), the DS must not
+suggest that mechanic either — e.g. don't ship an XP/level component for a hub that chose not
+to gamify.
+
 ---
 
 ## Fill-in checklist before sending
 
 - [ ] Tokens named by role, with light + dark, no literal values leaking into the screens layer.
+- [ ] Perceptual-separation invariants (if any) get a dedicated, max-separation, not-colour-only treatment.
+- [ ] Inventory derives from the product's verbs (incl. create/edit/archive surfaces), not only mined read/review screens; no removed mined component carried in.
 - [ ] Component inventory lists every state per component.
-- [ ] Exactly **1 base template** requested (not a set).
+- [ ] Exactly **1 base template** requested (not a set); overlays containable within the app frame when screens are embedded.
+- [ ] DS reintroduces no mechanic the redesign dropped (no gamification for a de-gamified hub).
 - [ ] WCAG 2.2 items phrased as measurable constraints, never as visual solutions.
 - [ ] Output is in pt-BR (or the install-configured language).

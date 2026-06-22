@@ -22,40 +22,43 @@ function read(path) {
   return readFileSync(path, 'utf8');
 }
 
-function step4Section() {
+// Locate the R2 mining section by its heading TEXT, not its number — process steps
+// get renumbered as the skill evolves; the contract guarded here is the section's
+// content (per-regime R2 source + R3 omission audit), not its ordinal.
+function r2Section() {
   const markdown = read(designBriefPath);
-  const start = markdown.indexOf('### 4.');
-  const end = markdown.indexOf('### 5.', start);
+  const heading = markdown.indexOf('Mine the behavioural parameters');
+  assert.notEqual(heading, -1, 'design brief must contain the R2 mining section');
 
-  assert.notEqual(start, -1, 'design brief must contain a §4 heading');
-  assert.notEqual(end, -1, 'design brief must contain a §5 heading after §4');
-
+  const start = markdown.lastIndexOf('\n### ', heading) + 1;
+  const next = markdown.indexOf('\n### ', heading + 1);
+  const end = next === -1 ? markdown.length : next;
   return markdown.slice(start, end);
 }
 
-test('§4 chooses the R2 source by page regime without silencing the parameter', () => {
-  const section = step4Section();
+test('R2 mining section chooses the source by page regime without silencing the parameter', () => {
+  const section = r2Section();
   const lower = section.toLowerCase();
 
   assert.match(
     lower,
     /brownfield[\s\S]{0,220}(mine|extract)[\s\S]{0,120}code|code[\s\S]{0,120}(mine|extract)[\s\S]{0,220}brownfield/,
-    '§4 must say brownfield pages mine R2 values from code',
+    'R2 section must say brownfield pages mine R2 values from code',
   );
   assert.match(
     lower,
     /greenfield[\s\S]{0,260}ask[\s\S]{0,120}operator[\s\S]{0,260}seeded[\s\S]{0,160}catalog[\s\S]{0,160}artefacts?/,
-    '§4 must say greenfield pages ask the operator, seeded by catalog artefacts',
+    'R2 section must say greenfield pages ask the operator, seeded by catalog artefacts',
   );
   assert.match(
     lower,
     /never[\s\S]{0,80}silenc|silenc[\s\S]{0,80}never/,
-    '§4 must say the R2 parameter is never silenced',
+    'R2 section must say the R2 parameter is never silenced',
   );
   assert.match(
     lower,
     /interactive omission audit \(r3\)[\s\S]{0,420}omission is a decision/,
-    '§4 must keep the R3 omission audit intact',
+    'R2 section must keep the R3 omission audit intact',
   );
 });
 
