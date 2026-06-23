@@ -21,6 +21,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 1
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: F5-G1
     description: O handoff documenta os campos, a semântica intra-project e os dois

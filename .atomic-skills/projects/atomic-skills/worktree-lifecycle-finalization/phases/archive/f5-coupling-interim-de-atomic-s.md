@@ -18,11 +18,14 @@ tasksDone: 1
 tasksTotal: 1
 gatesMet: 2
 gatesTotal: 2
+weightDone: 1
+weightTotal: 1
 exitGates:
   - id: G-1
-    description: focus.json ignorado (já satisfeito) + dispatch-log.json em NDJSON com
-      merge=union PROVADO (check-attr + union-merge lossless), pontuais não-unidos;
-      round-trip install/uninstall verde com focus.json não-rastreado.
+    description: focus.json ignorado (já satisfeito) + dispatch-log.json em NDJSON
+      com merge=union PROVADO (check-attr + union-merge lossless), pontuais
+      não-unidos; round-trip install/uninstall verde com focus.json
+      não-rastreado.
     status: met
     metAt: 2026-06-17T21:00:00Z
     verifier:
@@ -35,11 +38,11 @@ exitGates:
       verifiedAt: 2026-06-17T21:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: "Full chain exit 0 @ 9bde0c9: grep focus.json + grep merge=union +
-        node --test dispatch-log-merge-union (3/3: wired strictEqual('union'),
-        pointwise-not-union, NDJSON union lossless) + round-trip 4/4; check-attr prova
-        dispatch-log→union, last-review→unspecified."
-    verifierLabel: "shell: grep merge=union .gitattributes && node --test …merge-union + roundtrip"
+      outputSummary: "Full chain exit 0 @ 9bde0c9: grep focus.json + grep merge=union
+        + node --test dispatch-log-merge-union (3/3: wired strictEqual('union'),
+        pointwise-not-union, NDJSON union lossless) + round-trip 4/4; check-attr
+        prova dispatch-log→union, last-review→unspecified."
+    verifierLabel: "shell: grep -q 'focus.json' .gitignore && grep -qi 'merge=union' .…"
     evidenceSummary: passed · 2026-06-17
   - id: G-2
     description: Suite e skills válidos após o carve-out.
@@ -53,8 +56,8 @@ exitGates:
       verifiedAt: 2026-06-17T21:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: "npm run validate-skills → All 15 skills valid (0.2), exit 0 @
-        9bde0c9 (§9 NDJSON edit válido)."
+      outputSummary: npm run validate-skills → All 15 skills valid (0.2), exit 0 @
+        9bde0c9 (§9 NDJSON edit válido).
     verifierLabel: "shell: npm run validate-skills"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -64,8 +67,8 @@ stack:
     openedAt: 2026-06-16T22:50:35.627Z
 tasks:
   - id: T-001
-    title: dispatch-log.json → NDJSON + merge=union provado (focus.json já ignorado),
-      round-trip preservado
+    title: dispatch-log.json → NDJSON + merge=union provado (focus.json já
+      ignorado), round-trip preservado
     status: done
     closedAt: 2026-06-17T21:00:00Z
     lastUpdated: 2026-06-17T21:00:00Z
@@ -89,20 +92,22 @@ tasks:
         `dispatch-log.json` VIRA NDJSON (1 objeto JSON válido/linha), não array
       - a mudança no `.gitignore` é repo-policy manual, FORA do contrato
         install/uninstall (já satisfeita — `focus.json` já ignorado)
-      - "dispatch-log.json é STATE-tree (`.atomic-skills/`) → conversão é
-        Opus-owned (fence); Codex toca só source (.gitattributes, skill, teste)."
+      - dispatch-log.json é STATE-tree (`.atomic-skills/`) → conversão é
+        Opus-owned (fence); Codex toca só source (.gitattributes, skill, teste).
     acceptance:
-      - "`dispatch-log.json` é NDJSON: cada linha um objeto JSON válido, o arquivo
-        não é mais um array único"
+      - "`dispatch-log.json` é NDJSON: cada linha um objeto JSON válido, o
+        arquivo não é mais um array único"
       - "`.gitattributes` aplica `merge=union` a
-        `.atomic-skills/status/dispatch-log.json` (provado por `git check-attr`) e
-        NÃO aos pontuais; `focus.json` segue ignorado no `.gitignore` (pré-existente)"
-      - "um teste PROVA a losslessness do union-merge (`git merge-file --union`
+        `.atomic-skills/status/dispatch-log.json` (provado por `git check-attr`)
+        e NÃO aos pontuais; `focus.json` segue ignorado no `.gitignore`
+        (pré-existente)"
+      - um teste PROVA a losslessness do union-merge (`git merge-file --union`
         sobre fixtures NDJSON, dois appends concorrentes → ambas as linhas
-        presentes, cada uma JSON válido) — não só grep"
+        presentes, cada uma JSON válido) — não só grep
       - "`skills/shared/mode2-codex-lane.md` instrui append NDJSON (1 linha por
         registro), não append-ao-array"
-      - round-trip install/uninstall segue verde; statusline ainda acha focus.json.
+      - round-trip install/uninstall segue verde; statusline ainda acha
+        focus.json.
     verifier:
       kind: shell
       command: grep -q 'focus.json' .gitignore && grep -qi 'merge=union'
@@ -113,16 +118,17 @@ tasks:
       verifiedAt: 2026-06-17T21:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: "Verifier completo exit 0 na primária MERGED @ 59ee587 + conversão
-        Opus: grep focus.json (.gitignore, pré-existente) + grep merge=union
-        (.gitattributes) + node --test dispatch-log-merge-union (3/3 pass: wired,
-        pointwise-not-union, NDJSON union lossless) + round-trip 4/4. git check-attr
-        prova dispatch-log.json→union e last-review.json→unspecified. validate-skills
-        15/15, validate-state exit 0. dispatch-log.json migrado array→NDJSON (16
-        records, round-trip parse lossless). Mode 2 Codex (impl/wlf-f5-t-001, ff
-        59ee587); auto-report -o 'pass 1' DESCARTADO per wlf-f0-nascimento L-001
-        (real 3/3); Codex adaptou require→import (repo ESM) corretamente; fence:
-        conversão do dispatch-log Opus-owned, Codex só source."
+      outputSummary: "Verifier completo exit 0 na primária MERGED @ 59ee587 +
+        conversão Opus: grep focus.json (.gitignore, pré-existente) + grep
+        merge=union (.gitattributes) + node --test dispatch-log-merge-union (3/3
+        pass: wired, pointwise-not-union, NDJSON union lossless) + round-trip
+        4/4. git check-attr prova dispatch-log.json→union e
+        last-review.json→unspecified. validate-skills 15/15, validate-state exit
+        0. dispatch-log.json migrado array→NDJSON (16 records, round-trip parse
+        lossless). Mode 2 Codex (impl/wlf-f5-t-001, ff 59ee587); auto-report -o
+        'pass 1' DESCARTADO per wlf-f0-nascimento L-001 (real 3/3); Codex
+        adaptou require→import (repo ESM) corretamente; fence: conversão do
+        dispatch-log Opus-owned, Codex só source."
 parked: []
 emerged: []
 summary: "Contém o coupling de .atomic-skills: focus.json ignorado + status/*

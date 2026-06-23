@@ -27,6 +27,8 @@ tasksDone: 0
 tasksTotal: 0
 gatesMet: 0
 gatesTotal: 1
+weightDone: 0
+weightTotal: 0
 exitGates:
   - id: G-1
     description: O manifest corresponde ao design (páginas/widgets/bindings) e o

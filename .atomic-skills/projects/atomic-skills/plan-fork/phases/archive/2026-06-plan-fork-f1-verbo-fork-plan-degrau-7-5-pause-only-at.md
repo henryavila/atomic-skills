@@ -17,6 +17,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 1
 gatesTotal: 1
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F1-G1
     description: fork-plan grava o elo no sidecar só após ratify; roda o cycle-check

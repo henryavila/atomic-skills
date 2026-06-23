@@ -19,6 +19,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 1
 gatesTotal: 1
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: G-1
     description: As três fixtures adversárias (hook de terceiro, refcount 2-install
@@ -29,7 +31,6 @@ exitGates:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T20:05:00.000Z
@@ -42,6 +43,8 @@ exitGates:
         do pacote @henryavila/tooling-installer (file: link). Reconciliado no
         phase-done de F3 — os efeitos vivem no pacote, a paridade no
         round-trip."
+    verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Efeitos built-in não-arquivo

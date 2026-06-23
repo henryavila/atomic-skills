@@ -22,6 +22,8 @@ tasksDone: 0
 tasksTotal: 3
 gatesMet: 1
 gatesTotal: 2
+weightDone: 0
+weightTotal: 3
 exitGates:
   - id: G-1
     description: O SkillsProvider reproduz a instalação de skills atual (paths e
@@ -32,7 +34,6 @@ exitGates:
       kind: test
       runner: node --test
       pattern: test/providers/skills-provider.test.js
-    verifierLabel: "test: node --test test/providers/skills-provider.test.js"
     evidence:
       verifierKind: test
       verifiedAt: 2026-06-19T20:05:00.000Z
@@ -43,6 +44,8 @@ exitGates:
         0). O SkillsProvider planeja o file set de skills (reconcileFileSet)
         reproduzindo paths/conteúdo de installSkills byte-a-byte. Reconciliado
         no phase-done de F3.
+    verifierLabel: "test: node --test test/providers/skills-provider.test.js"
+    evidenceSummary: passed · 3 tests · 2026-06-19
   - id: G-2
     description: Um runtime layer registra e reverte um tipo de efeito novo sem
       reabrir o kernel.
@@ -60,6 +63,8 @@ exitGates:
       runner: node --test
       pattern: test/kernel/runtime-layer.test.js
     verifierLabel: "test: node --test test/kernel/runtime-layer.test.js"
+    evidenceSummary: "deferred: Verifier test/kernel/runtime-layer.test.js foi
+      REMOVIDO no flip de F3 (src/kern…"
 stack:
   - id: 1
     title: Providers e config two-tier

@@ -26,6 +26,8 @@ tasksDone: 0
 tasksTotal: 0
 gatesMet: 1
 gatesTotal: 2
+weightDone: 0
+weightTotal: 0
 exitGates:
   - id: G-1
     description: A sidebar mostra UM consumer (atomic-skills) com

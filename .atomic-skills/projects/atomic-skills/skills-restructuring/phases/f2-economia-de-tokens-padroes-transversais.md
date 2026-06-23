@@ -15,6 +15,8 @@ tasksDone: 7
 tasksTotal: 7
 gatesMet: 1
 gatesTotal: 1
+weightDone: 7
+weightTotal: 7
 exitGates:
   - id: F2-G1
     description: O asset de envelope existe e a suite de validação passa.

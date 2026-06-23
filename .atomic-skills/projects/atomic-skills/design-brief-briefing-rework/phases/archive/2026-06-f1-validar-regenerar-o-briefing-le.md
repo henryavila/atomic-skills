@@ -18,6 +18,8 @@ tasksDone: 6
 tasksTotal: 6
 gatesMet: 2
 gatesTotal: 2
+weightDone: 6
+weightTotal: 6
 exitGates:
   - id: F1-G1
     description: Briefing Lekto regenerado e contrastado; o veredito de

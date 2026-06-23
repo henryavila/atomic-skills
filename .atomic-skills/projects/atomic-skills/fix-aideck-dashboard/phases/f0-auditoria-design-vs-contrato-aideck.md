@@ -20,6 +20,8 @@ tasksDone: 0
 tasksTotal: 0
 gatesMet: 1
 gatesTotal: 1
+weightDone: 0
+weightTotal: 0
 exitGates:
   - id: G-1
     description: "Gap report 3D recebido e revisado: cada item
