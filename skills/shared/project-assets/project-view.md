@@ -84,11 +84,28 @@ Steps:
        if [ -n "$url" ]; then
          health=$(curl -sf "$url/api/health" 2>/dev/null)
          if echo "$health" | grep -q '"service":"aideck"'; then
-           # Register this project
-           curl -sf -X POST "$url/api/projects/register" \
-             -H 'Content-Type: application/json' \
-             -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
-           AIDECK_URL="$url"
+           # Version gate (upgrade-path fix). A long-lived server started from an
+           # OLDER aiDeck keeps serving its old SPA + manifest schema: serve-mode
+           # scans consumers once at boot and never re-scans, and both `aideck up`
+           # and this loop otherwise reuse ANY healthy process regardless of build.
+           # So after an aiDeck bump (`npm i` + `atomic-skills install` restage the
+           # 0.x bundle) the stale server silently shadows it. Compare the running
+           # build (/api/health .version) to the installed one (`aideck --version`);
+           # on mismatch, stop it and leave AIDECK_URL empty so step 2 boots the
+           # current build. Unknown/equal versions → reuse as before (no regression).
+           srv_ver=$(echo "$health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
+           inst_ver=$(node "$AIDECK_BIN" --version 2>/dev/null | tr -d '[:space:]')
+           if [ -n "$srv_ver" ] && [ -n "$inst_ver" ] && [ "$srv_ver" != "$inst_ver" ]; then
+             echo "aiDeck $srv_ver running but $inst_ver installed — restarting to load the current build." >&2
+             node "$AIDECK_BIN" down >/dev/null 2>&1
+             # AIDECK_URL stays empty → step 2 spawns the current build.
+           else
+             # Register this project
+             curl -sf -X POST "$url/api/projects/register" \
+               -H 'Content-Type: application/json' \
+               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
+             AIDECK_URL="$url"
+           fi
          fi
        fi
      fi
