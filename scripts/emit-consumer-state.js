@@ -244,7 +244,10 @@ export function buildState(tree, nowMs) {
       planActive: fm.planActive === true,
       current: fm.current === true,
       lastUpdated: fm.lastUpdated || '',
-      nextText: fm.nextAction || '',
+      // A done/archived phase has no "próxima ação" — clear it so the detail
+      // card's PRÓXIMA AÇÃO callout collapses away instead of showing a stale,
+      // already-completed action.
+      nextText: (fm.status === 'done' || fm.status === 'archived') ? '' : (fm.nextAction || ''),
       summary: fm.summary || '',
       tasksDone: tDone,
       tasksTotal: tTotal,

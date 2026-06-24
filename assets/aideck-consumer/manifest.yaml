@@ -96,8 +96,9 @@ pages:
     default: true
     layout: sections
     sections:
-      - title: 'Panorama'
-        columns: 12
+      # Untitled lead section — the page header ("Atomic Skills · Panorama")
+      # already names it; a "Panorama" section title here just duplicates it.
+      - columns: 12
         gap: 16
         widgets:
           # §A5 read-time aggregation + cross-project scope: each stat merges
@@ -212,6 +213,9 @@ pages:
                     dependsOnField: dependsOn
                     metricField: tasksText
                     currentField: isCurrent
+                    # Each phase marker links to the plan detail, opened directly at
+                    # that phase (?phase=<id> seeds the detail's selectedPhase bus).
+                    linkTo: 'plan/:projectId/:planSlug?phase=:id'
                 # Tasks of the current phase (precomputed onto the plan record).
                 - widget: progress-bar
                   config:
@@ -233,6 +237,11 @@ pages:
             source: { ref: plans, filter: { status: [paused, blocked] } }
             config:
               columns: [title, status, currentPhaseText, nextText]
+              columnLabels:
+                title: 'Frente'
+                status: 'Status'
+                currentPhaseText: 'Fase atual'
+                nextText: 'Próxima ação'
               linkTo: 'plan/:projectId/:slug'
               linkField: title
               emptyNote: 'Nada suspenso ou travado.'
@@ -281,6 +290,12 @@ pages:
             source: { ref: plans, filter: { status: [active, paused] } }
             config:
               columns: [title, status, currentPhaseText, nextText, updatedRel]
+              columnLabels:
+                title: 'Frente'
+                status: 'Status'
+                currentPhaseText: 'Fase atual'
+                nextText: 'Próxima ação'
+                updatedRel: 'Atualizado'
               linkTo: 'plan/:projectId/:slug'
               linkField: title
               emptyNote: 'Nenhuma frente viva — veja Concluídos ou rode a skill project.'
@@ -290,11 +305,16 @@ pages:
     title: 'Detalhe do plano'
     icon: '🌳'
     layout: sections
+    # In the sidebar (após Visão geral, antes de Concluídos), como no design. Opened
+    # from the nav it arrives with no :slug; the record-switcher below self-selects
+    # the first live plan (router.replace → /plan/:projectId/:slug) so the page opens
+    # populated instead of empty. Also reachable by clicking a plan or via ⌘K.
     sections:
-      - title: 'Plano'
-        widgets:
-          # Selector in place of tabs: selection = navigation (RouterLinks); current
-          # resolved from the route. Switches between the live plans (§A6 array filter).
+      # ── Title row = the plan selector. record-switcher renders the plan title
+      # AND switches between the live plans (selection navigates). No separate
+      # key-value meta block — the design carries branch in the switcher caption
+      # and status in the switcher chip (manifest.sample §plan, section 1).
+      - widgets:
           - widget: record-switcher
             colSpan: 12
             source: { ref: plans, filter: { status: [active, paused] } }
@@ -304,23 +324,27 @@ pages:
               titleField: title
               captionField: switcherCaption
               statusField: status
+              # Opened from the sidebar (no :slug), self-select the ACTIVE plan
+              # (not just the first in source order, which may be paused).
+              defaultStatus: active
               linkTo: 'plan/:projectId/:slug'
-          - widget: key-value
-            colSpan: 12
-            source: { ref: plans, param: { match: [projectId, slug] } }
-            config:
-              fields: [status, currentPhaseText, branch, started, lastUpdated]
-      - title: 'Roteiro'
+
+      # ── Master-detail (THE hero of this screen): roteiro on the left, the
+      # selected phase's detail on the right. The vertical stepper writes
+      # pageState.selectedPhase (seeded to the current phase on load); the right
+      # card re-scopes to that phase reactively. Two columns of a 12-grid: 5 | 7.
+      - columns: 12
+        gap: 16
         widgets:
-          # Vertical selectable roteiro. Selecting a phase writes pageState.selectedPhase
-          # (cross-widget bus); the "Fase selecionada" panels below re-scope to it
-          # reactively. The stepper seeds the CURRENT phase on load (currentField), so
-          # the panels open populated. No linkTo — that would navigate instead of select.
+          # LEFT (5/12) — selectable roteiro with dependencies + per-phase task
+          # metric. Selecting a phase drives the detail card; no linkTo (that would
+          # navigate instead of select).
           - widget: stepper
-            colSpan: 12
+            colSpan: 5
             source: { ref: phases, param: { match: [projectId, { field: planSlug, param: slug }] } }
             emits: { select: { set: selectedPhase } }
             config:
+              label: 'Roteiro de fases'
               orientation: vertical
               selectable: true
               idField: id
@@ -329,40 +353,54 @@ pages:
               dependsOnField: dependsOn
               metricField: tasksText
               currentField: isCurrent
-      # ── Fase selecionada: the phase/initiative detail FOLDED into the plan page
-      # (there is no standalone /phase route). Every widget re-scopes to the
-      # selected phase via the page-state bus (phaseId == selectedPhase) + the route
-      # (projectId + planSlug); phaseId alone collides across plans. The stepper
-      # above seeds the current phase on load, so these open populated.
-      - title: 'Fase selecionada'
-        columns: 12
-        gap: 16
-        widgets:
-          # PRÓXIMA AÇÃO da iniciativa da fase selecionada (folded from the phase page).
-          - widget: callout
-            colSpan: 12
+              # Deep-link target: when arrived at via a phase marker (?phase=<id>),
+              # open with that phase selected instead of the current one.
+              selectParam: phase
+          # RIGHT (7/12) — the SELECTED phase as one record-detail card. Source is
+          # the phase's initiative (1 record via the selectedPhase bus). The head
+          # shows the phase name + "F1 · fase atual"; a TASKS/GATES/STACK metric
+          # strip; then a composed body (próxima-ação callout · task status-list ·
+          # exit-gate checklist). Body widgets bind to the card record via $parent
+          # — the same composition pattern as the Foco agora card.
+          - widget: collection-grid
+            colSpan: 7
             source: { ref: initiatives, param: { match: [projectId, { field: planSlug, param: slug }, { field: phaseId, state: selectedPhase }] } }
-            config: { variant: attention, eyebrow: 'PRÓXIMA AÇÃO', bodyField: nextText, tone: info }
-          # Tasks of the SELECTED phase. Matched by route (projectId + planSlug) AND
-          # the bus value (phaseId == selectedPhase) — phaseId alone collides across
-          # plans. An unset bus value is skipped, so it degrades to all-plan tasks.
-          - widget: status-list
-            colSpan: 6
-            source: { ref: tasks, param: { match: [projectId, { field: planSlug, param: slug }, { field: phaseId, state: selectedPhase }] } }
             config:
-              idField: id
-              labelField: title
-              statusField: status
-              annotationField: blockedByText
-              groupBy: status
-              groupOrder: [active, blocked, pending, done]
-          # Exit-gate criteria of the SELECTED phase (re-scoped via the same bus).
-          - widget: table
-            colSpan: 6
-            source: { ref: phaseGates, param: { match: [projectId, { field: planSlug, param: slug }, { field: phaseId, state: selectedPhase }] } }
-            config:
-              columns: [id, description, status, verifierLabel, evidenceSummary]
-              emptyNote: 'Sem exit gates nesta fase.'
+              minColWidth: 280
+              titleField: title
+              subField: selectedPhaseLabel
+              fields: [tasksText, gatesText, stackText]
+              fieldLabels: ['TASKS', 'GATES', 'STACK']
+            slots:
+              body:
+                # Próxima ação — the one actionable next step for this phase.
+                # titleField:'' suppresses the default `title` field so the callout
+                # shows ONLY the eyebrow + próxima-ação body (the card head already
+                # names the phase — no redundant title line). For a done phase
+                # nextText is empty → eyebrow-only → the callout collapses to nothing.
+                - widget: callout
+                  config: { eyebrow: 'PRÓXIMA AÇÃO', bodyField: nextText, titleField: '', tone: info }
+                # Tasks of the phase, grouped by status (active → blocked → pending → done).
+                - widget: status-list
+                  source: { ref: tasks, filter: { projectId: '$parent.projectId', planSlug: '$parent.planSlug', phaseId: '$parent.phaseId' } }
+                  config:
+                    title: 'Tasks da fase'
+                    idField: id
+                    labelField: title
+                    statusField: status
+                    annotationField: blockedByText
+                    groupBy: status
+                    groupOrder: [active, blocked, pending, done]
+                # Exit-gate criteria as a checklist (square mark · criterion · verifier).
+                - widget: status-list
+                  source: { ref: phaseGates, filter: { projectId: '$parent.projectId', planSlug: '$parent.planSlug', phaseId: '$parent.phaseId' } }
+                  config:
+                    title: 'Exit gates'
+                    variant: checklist
+                    idField: id
+                    labelField: description
+                    statusField: status
+                    metaField: verifierLabel
       # ── Backlog da fase (folded from the phase page): stack/parked/emerged of the
       # selected phase's initiative, re-scoped via the same bus + route. stack/
       # parked/emerged carry projectId + planSlug + phaseId (emit-consumer-state.js).
@@ -420,6 +458,11 @@ pages:
     source: { ref: plans, filter: { status: [done, archived] } }
     config:
       columns: [title, status, phasesText, updatedRel]
+      columnLabels:
+        title: 'Frente'
+        status: 'Status'
+        phasesText: 'Fases'
+        updatedRel: 'Atualizado'
       linkTo: 'plan/:projectId/:slug'
       linkField: title
       emptyNote: 'Nada concluído ainda.'

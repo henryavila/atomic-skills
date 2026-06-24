@@ -196,9 +196,12 @@ describe('aiDeck consumer manifest — Foco agora fans out per active plan (N≥
     assert.equal(stepper.config.frame, false, 'the body stepper renders inline (frameless)');
     assert.equal(stepper.source.filter.planSlug, '$parent.slug');
     assert.equal(stepper.source.filter.projectId, '$parent.projectId');
-    // The foco stepper is display-only — its steps must NOT linkTo a /phase route
-    // (that page is folded into the plan detail). The card title links to the plan.
-    assert.equal(stepper.config.linkTo, undefined, 'foco stepper steps do not navigate to a removed phase page');
+    // Each phase marker drills into the PLAN detail opened directly at that phase
+    // (?phase=<id> seeds the detail's selectedPhase bus) — NOT a standalone /phase
+    // route (which doesn't exist; the phase detail is folded into the plan page).
+    assert.match(stepper.config.linkTo, /^plan\//, 'foco stepper steps link to the plan detail');
+    assert.match(stepper.config.linkTo, /[?&]phase=:id\b/, 'the link carries the phase id (deep-link to the phase)');
+    assert.ok(!/(^|\/)phase\//.test(stepper.config.linkTo), 'must not target a removed /phase route');
   });
 });
 
@@ -214,14 +217,19 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
 
   it('folds the phase/initiative detail INTO the plan page (no standalone phase page)', () => {
     assert.ok(!page('phase'), 'the standalone phase page is folded into the plan detail');
-    // The fold surfaces the selected phase initiative: a PRÓXIMA AÇÃO callout off
-    // the initiatives source, scoped to the selected phase via the page-state bus.
-    const callout = allWidgets(page('plan').sections).find(
-      (w) => w.widget === 'callout' && w.source?.ref === 'initiatives',
+    // The fold surfaces the selected phase as a record-detail card off the
+    // initiatives source, scoped to the selected phase via the page-state bus; the
+    // PRÓXIMA AÇÃO callout lives in that card's composed body.
+    const detail = allWidgets(page('plan').sections).find(
+      (w) => w.widget === 'collection-grid' && w.source?.ref === 'initiatives',
     );
-    assert.ok(callout, 'the plan page folds in the initiative PRÓXIMA AÇÃO callout');
-    const match = callout.source.param.match;
-    assert.ok(match.some((e) => e.field === 'phaseId' && e.state === 'selectedPhase'), 'the folded callout reads the selected phase from the bus');
+    assert.ok(detail, 'the plan page folds in the selected-phase detail card (initiatives)');
+    const match = detail.source.param.match;
+    assert.ok(match.some((e) => e.field === 'phaseId' && e.state === 'selectedPhase'), 'the folded detail reads the selected phase from the bus');
+    const callout = allWidgets(page('plan').sections).find(
+      (w) => w.widget === 'callout' && w.config?.eyebrow === 'PRÓXIMA AÇÃO',
+    );
+    assert.ok(callout, 'the detail card body folds in the PRÓXIMA AÇÃO callout');
   });
 
   it('opens help via the chrome ? and declares it out of the sidebar (showInNav: false)', () => {
@@ -247,30 +255,46 @@ describe('aiDeck consumer manifest — adopts the DS v2.1 widgets', () => {
   });
 
   it('drives detail pages by route param (composite source.param, ≤2 route params)', () => {
-    // The client router caps detail routes at /:projectId/:slug, so detail widgets
-    // filter by composite source.param.
-    const planKv = section('plan', 'Plano').widgets.find((w) => w.widget === 'key-value');
-    assert.deepEqual(planKv.source.param.match, ['projectId', 'slug']);
+    // The client router caps detail routes at /:projectId/:slug, so the detail card
+    // filters by composite source.param — at most 2 ROUTE params (the selectedPhase
+    // entry is a page-state bus value, not a route param).
+    const detail = allWidgets(page('plan').sections).find(
+      (w) => w.widget === 'collection-grid' && w.source?.ref === 'initiatives',
+    );
+    const routeParams = detail.source.param.match.filter((e) => typeof e === 'string' || (e && e.param));
+    assert.ok(routeParams.length <= 2, 'detail filters by ≤2 route params (/:projectId/:slug)');
+    assert.ok(routeParams.some((e) => e === 'projectId'), 'detail scopes by projectId');
+    assert.ok(routeParams.some((e) => e.field === 'planSlug' && e.param === 'slug'), 'detail scopes by planSlug from the route');
   });
 
   it('plano roteiro selects a phase via the emits/state bus (reactive, not navigation)', () => {
-    const stepper = section('plan', 'Roteiro').widgets.find((w) => w.widget === 'stepper');
-    assert.ok(stepper.selectable !== false && stepper.config.selectable === true, 'roteiro stepper is selectable');
+    const stepper = allWidgets(page('plan').sections).find((w) => w.widget === 'stepper');
+    assert.ok(stepper, 'the plan page has a roteiro stepper');
+    assert.equal(stepper.config.selectable, true, 'roteiro stepper is selectable');
     assert.deepEqual(stepper.emits?.select, { set: 'selectedPhase' }, 'selecting writes pageState.selectedPhase');
     // linkTo would render the step as a RouterLink and navigate instead of selecting.
     assert.equal(stepper.config.linkTo, undefined, 'the reactive roteiro stepper must NOT carry linkTo');
     assert.equal(stepper.config.currentField, 'isCurrent', 'seeds the current phase into the bus on load');
   });
 
-  it('the Fase selecionada panels re-scope to the bus value AND the route (no phaseId collision)', () => {
-    const panel = section('plan', 'Fase selecionada');
-    for (const w of panel.widgets) {
-      const match = w.source.param.match;
-      // route scope (projectId + planSlug) prevents the shared "F1" phaseId from
-      // matching other plans; the state entry narrows to the selected phase.
-      assert.ok(match.some((e) => e === 'projectId'), `${w.widget} scopes by projectId`);
-      assert.ok(match.some((e) => e.field === 'planSlug' && e.param === 'slug'), `${w.widget} scopes by planSlug`);
-      assert.ok(match.some((e) => e.field === 'phaseId' && e.state === 'selectedPhase'), `${w.widget} reads phaseId from the bus`);
+  it('the selected-phase detail re-scopes to the bus value AND the route (no phaseId collision)', () => {
+    // The detail CARD scopes by route (projectId + planSlug) AND the bus
+    // (phaseId == selectedPhase) — route scope prevents the shared "F1" phaseId from
+    // matching other plans; the bus narrows to the selected phase. Its body
+    // task/gate lists inherit that exact phase via $parent (no independent phaseId).
+    const detail = allWidgets(page('plan').sections).find(
+      (w) => w.widget === 'collection-grid' && w.source?.ref === 'initiatives',
+    );
+    const match = detail.source.param.match;
+    assert.ok(match.some((e) => e === 'projectId'), 'detail scopes by projectId');
+    assert.ok(match.some((e) => e.field === 'planSlug' && e.param === 'slug'), 'detail scopes by planSlug');
+    assert.ok(match.some((e) => e.field === 'phaseId' && e.state === 'selectedPhase'), 'detail reads phaseId from the bus');
+    const lists = detail.slots.body.filter((w) => w.widget === 'status-list');
+    assert.ok(lists.length >= 2, 'tasks + exit-gate checklists are folded into the detail body');
+    for (const w of lists) {
+      assert.equal(w.source.filter.projectId, '$parent.projectId', `${w.config.title} inherits projectId via $parent`);
+      assert.equal(w.source.filter.planSlug, '$parent.planSlug', `${w.config.title} inherits planSlug via $parent`);
+      assert.equal(w.source.filter.phaseId, '$parent.phaseId', `${w.config.title} inherits phaseId via $parent`);
     }
   });
 
