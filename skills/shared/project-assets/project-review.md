@@ -34,11 +34,11 @@ Resolve `<slug>` (or empty → active plan) to a concrete `plan.md` and its phas
 
 ### 2. Deterministic linters (read-only; wraps existing scripts)
 Run the zero-token deterministic checks and report each PASS/WARN/FAIL — do NOT re-implement them:
-- `{{BASH_TOOL}} npm run validate-state .atomic-skills/` — schema validity (FAIL ⇒ a downstream skill / aiDeck will reject the state).
-- `{{BASH_TOOL}} npm run validate-skills` — catalog + skill-body validity.
-- `{{BASH_TOOL}} node scripts/find-signalless-tasks.js` — open tasks with neither a `verifier` nor an `outputs[].path` (WARN: undetectable by drift).
-- `{{BASH_TOOL}} node scripts/find-missing-task-summaries.js` — tasks missing the authored summary (WARN).
-- `{{BASH_TOOL}} node scripts/detect-completion.js --json` (scope with `--project <id>` when the slug is ambiguous) — open entries that look done in the repo (WARN ⇒ recommend `reconcile`).
+- `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/` — schema validity (FAIL ⇒ a downstream skill / aiDeck will reject the state).
+- `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-skills.js"` — catalog + skill-body validity.
+- `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` — open tasks with neither a `verifier` nor an `outputs[].path` (WARN: undetectable by drift).
+- `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` — tasks missing the authored summary (WARN).
+- `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` (scope with `--project <id>` when the slug is ambiguous) — open entries that look done in the repo (WARN ⇒ recommend `reconcile`).
 
 ### 3. State⇄code coherence (read-only; composes `verify`)
 Run the `verify` pass over the resolved target by reading `{{ASSETS_PATH}}/project-verify.md` and executing its checks (schema, legacy, branch, scope, orphans, aiDeck, completion drift, review-gate). Fold its `VERIFY:` verdict into this report as the *coherence* leg. Do NOT duplicate the verify checks here — read that file and run them.

@@ -74,7 +74,7 @@ The handoff lives in the active initiative body (durable `.atomic-skills/` state
 - **Narrative:** where we are, in 2–4 sentences — the phase, what just landed, what is mid-flight.
 - **Decision log:** the load-bearing choices made this session and why (so the next session does not re-litigate them).
 - **Single nextAction:** ONE concrete next step (e.g. "Run `done T-004`, then start T-005 in src/foo.js"). Exactly one — not a list.
-- **Verbatim state:** the exact paths, commands, and error text in play — pasted, not summarized. `npm run validate-state .atomic-skills/...`, the failing assertion, the file:line.
+- **Verbatim state:** the exact paths, commands, and error text in play — pasted, not summarized. `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/...`, the failing assertion, the file:line.
 - **Uncommitted changes:** the `git status --porcelain` list at snapshot time (or "clean tree").
 ```
 

@@ -94,14 +94,14 @@ does); touching an **object** opens **that object's hub** — never guess a verb
 
 ### 3. Screen inventory + coverage ledger (§7 — no screen left out)
 
-Run reconstruction first with {{BASH_TOOL}}: `node scripts/app-map-reconstruct.js <appRoot> --delta`.
+Run reconstruction first with {{BASH_TOOL}}: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/app-map-reconstruct.js" <appRoot> --delta`.
 This happens before consuming the catalog and before any live route enumeration.
 
 Use the delta as the divergence list that needs operator arbitration. For each delta item,
 ask with {{ASK_USER_QUESTION_TOOL}} over the conflict's full witness set (no value dropped — P1).
 The arbitration is applied **programmatically**: the agent passes the resolved pages to
 `persistReconstruction({ pages })`, which writes the catalog carrying the operator's decisions.
-The CLI flag `node scripts/app-map-reconstruct.js <appRoot> --persist` is non-interactive
+The CLI flag `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/app-map-reconstruct.js" <appRoot> --persist` is non-interactive
 RE-emission of the catalog from the current sources — it does NOT record arbitration; the
 resolved-page channel does.
 

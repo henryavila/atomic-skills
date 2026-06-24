@@ -29,7 +29,7 @@ Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a
 `verify` is a thin orchestrator over existing machinery. It does not re-implement any check; it wraps and reports them.
 
 ### 1. Schema validity (wraps `validate-state`)
-- Run `npm run validate-state .atomic-skills/` (or `--slug`-scoped file paths).
+- Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/` (or `--slug`-scoped file paths).
 - **PASS:** all files valid.
 - **FAIL:** print the validator's errors verbatim. If `--fix` was passed, first run `src/normalize.js` on `.atomic-skills/` (resolve it the same 3-path way the default view does), then re-run `validate-state`. Report what normalization changed. If files still fail after normalization, the failure is structural (not drift) — report it and recommend `migrate <slug>` for legacy files or manual repair.
 - **Failure message (no fix):** `FAIL schema: <file> — <validator message>. Run \`verify --fix\` for safe normalization, or \`migrate <slug>\` if legacy.`
@@ -56,7 +56,7 @@ Two independent legacy conditions, each recommending a different `migrate` mode.
 - Also flag: an active plan whose `currentPhase` initiative `branch:` does not match the current branch → `WARN phase-branch: active plan \`<plan>\` currentPhase \`<id>\` is on branch \`<x>\`, you are on \`<branch>\`.`
 
 ### 4. Scope coverage (read-only; wraps `detect-scope` data, no write)
-- For the active initiative that has a `scope.paths`, compare against recent git activity: run `npm run detect-scope -- --json --branch=<branch> --limit=20`.
+- For the active initiative that has a `scope.paths`, compare against recent git activity: run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-scope.js" --json --branch=<branch> --limit=20`.
 - **WARN** when recent commits touch paths NOT covered by any `scope.paths` glob → `WARN scope: recent commits touch <paths> outside the initiative's declared scope. Run \`detect-scope\` to update, or this may be scope creep — see \`scope-creep\`.`
 - Initiatives without `scope.paths` are skipped (scope is optional), not failed.
 
@@ -76,7 +76,7 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - When `--fix` is passed and aiDeck reports a STATE_ERROR, run the same normalization as check 1's fix path, then re-check.
 
 ### 7. Completion drift (read-only; wraps `detect-completion`)
-- Run `node scripts/detect-completion.js --json` (the deterministic, zero-token detector — `--project <id>` to disambiguate same-slug plans). It classifies each open task / pending criterion by a *changed-deliverable* signal (`output-exists` / `commit-ref`); a `verifier:`'s presence alone is never a signal, and `acceptance[]` prose is never parsed.
+- Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` (the deterministic, zero-token detector — `--project <id>` to disambiguate same-slug plans). It classifies each open task / pending criterion by a *changed-deliverable* signal (`output-exists` / `commit-ref`); a `verifier:`'s presence alone is never a signal, and `acceptance[]` prose is never parsed.
 - **PASS:** `drift` is false — no open entry looks done in the repo.
 - **WARN** (report-only): `WARN completion: <N> task(s)/gate(s) look done in the repo but are still open — run \`reconcile\`.` — then list each candidate's `kind`, `id`, and `evidence`.
 - This check is **strictly report-only**, consistent with `verify`'s read-only contract. `verify --fix` is **NOT** extended to reconcile — closing tasks/gates is a judgement call (verifier-aware, GATE-R2-gated) owned by the `reconcile` verb. `--fix` stays schema-normalization only.
@@ -94,7 +94,7 @@ Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan
 - `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
 
 ### 10. Plan review receipt (read-only; creation-gate backstop)
-Run `node scripts/find-unreviewed-plans.js .atomic-skills` (deterministic, zero-token — resolve it the same 3-path way the default view resolves `normalize.js`). It reports every non-archived materialized plan whose body lacks a `## Reviews` section carrying a `- internal:` line — i.e. the mandatory adversarial review (project-create-plan.md Stage 8a) either never ran or left no receipt.
+Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" .atomic-skills` (deterministic, zero-token — resolve it the same 3-path way the default view resolves `normalize.js`). It reports every non-archived materialized plan whose body lacks a `## Reviews` section carrying a `- internal:` line — i.e. the mandatory adversarial review (project-create-plan.md Stage 8a) either never ran or left no receipt.
 - **PASS:** every plan carries an internal-review receipt.
 - **WARN** (report-only): `WARN review: <N> plan(s) carry no adversarial-review receipt (created before the gate existed, or materialized in a batch that bypassed Stage 8) — <projectId>/<slug>…`. This is the **warn** end of the soft→strict ladder whose **hard** end is `create-plan` Stage 8c (which HARD-BLOCKS a freshly-created plan with no receipt). Like check #8, `--fix` does NOT backfill it — the review must actually run: `atomic-skills:review-plan --mode=internal <plan>` writes a truthful receipt. A batch of plans materialized outside the creation flow (e.g. via `materializeDecomposition` directly) is exactly the case this surfaces.
 

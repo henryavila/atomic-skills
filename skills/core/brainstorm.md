@@ -44,7 +44,7 @@ Produce an Orchestrator Synthesis of the panel (or of your framed options, if no
 Write `projects/<project-id>/<plan-slug>/design.md` with the sections in **The design doc** below, then commit it (it is a canonical tracked artifact, unlike the throwaway `source.md` draft). Run the section lint before going further:
 
 ```bash
-node scripts/lint-design.js projects/<project-id>/<plan-slug>/design.md
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js" projects/<project-id>/<plan-slug>/design.md
 # add --migration when any decision is a one-way door (requires the Blast radius section)
 ```
 
