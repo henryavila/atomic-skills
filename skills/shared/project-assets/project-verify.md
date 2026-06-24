@@ -93,6 +93,11 @@ Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan
 - A clean/active state (no merged-but-live worktree, no archived-unreached branch) → no finding.
 - `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
 
+### 10. Plan review receipt (read-only; creation-gate backstop)
+Run `node scripts/find-unreviewed-plans.js .atomic-skills` (deterministic, zero-token — resolve it the same 3-path way the default view resolves `normalize.js`). It reports every non-archived materialized plan whose body lacks a `## Reviews` section carrying a `- internal:` line — i.e. the mandatory adversarial review (project-create-plan.md Stage 8a) either never ran or left no receipt.
+- **PASS:** every plan carries an internal-review receipt.
+- **WARN** (report-only): `WARN review: <N> plan(s) carry no adversarial-review receipt (created before the gate existed, or materialized in a batch that bypassed Stage 8) — <projectId>/<slug>…`. This is the **warn** end of the soft→strict ladder whose **hard** end is `create-plan` Stage 8c (which HARD-BLOCKS a freshly-created plan with no receipt). Like check #8, `--fix` does NOT backfill it — the review must actually run: `atomic-skills:review-plan --mode=internal <plan>` writes a truthful receipt. A batch of plans materialized outside the creation flow (e.g. via `materializeDecomposition` directly) is exactly the case this surfaces.
+
 ---
 
 ## Report shape
@@ -109,8 +114,9 @@ project verify — <repo-name> @ <branch>
 [7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
 [8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
 [9] worktrees   WARN   feature merged but worktree live (plan/x) — teardown pending
+[10] review     WARN   2 plan(s) carry no adversarial-review receipt (curta/refatoracao, curta/web-app)
 
-VERIFY: 6 warning(s), 0 failure(s)
+VERIFY: 7 warning(s), 0 failure(s)
 ```
 
 ## Red flags

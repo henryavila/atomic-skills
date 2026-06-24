@@ -169,7 +169,7 @@ Invoke `atomic-skills:review-plan --mode=internal` with arg = the plan file path
 - Bare assertions without `verified_by:` or `unverified:` (G6)
 - Internal contradictions, broken dependencies, ambiguous tasks
 
-Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher.
+Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher. When it returns clean, `review-plan` writes the **internal receipt** — a `- internal:` line in the plan's `## Reviews` section (see `review-plan`'s Closing). That receipt is what Stage 8c's deterministic gate checks; an internal review that left no `- internal:` line is treated as **not run**.
 
 **Stage 8b — Cross-model review with Codex (intrusive-actions rule).**
 
@@ -178,9 +178,19 @@ Announce to the user:
 > The plan is materialized and passed internal review. Run a cross-model adversarial review via Codex (`atomic-skills:review-plan --mode=codex`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
 
 - On `y`: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=codex` (skips the Step 0a mode picker and runs only the codex sub-flow). Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item.
-- On `n`: continue, but record the skip in the plan's `## Self-review against code-quality gates` block (new line: `Codex review: SKIPPED — <user reason or "not provided">`).
+- On `n`: continue, but record the skip as a `- codex: SKIPPED — <user reason or "not provided">` line in the plan's `## Reviews` section (the same section that carries the internal receipt). The internal receipt still makes the plan pass Stage 8c; codex is offered, not required.
 
-Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` codex sub-flow contract. The plan body MUST link to it in a `## Reviews` section appended after `## Self-review against code-quality gates`.
+Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` codex sub-flow contract. The plan body MUST link to it from the same `## Reviews` section (appended after `## Self-review against code-quality gates`), as a `- codex:` line.
+
+**Stage 8c — Receipt gate (deterministic, HARD-BLOCK).**
+
+8a/8b are LLM steps; a prose "always runs" is exactly what let a batch of plans land unreviewed before this gate existed (a skill cannot enforce its own invocation). So the close of Stage 8 is a zero-token, deterministic check that the review actually left a receipt — the same kind of gate Stages 4/5 already use:
+
+```bash
+node scripts/find-unreviewed-plans.js .atomic-skills
+```
+
+A non-zero exit means at least one materialized plan lacks a `## Reviews` section with a `- internal:` line — the internal review (8a) either did not run or left no receipt. This **HARD-BLOCKS** declaring the plan ready: re-run 8a so `review-plan` writes the receipt, then re-run the gate. Resolve the script the same 3-path way Stage 6's normalize step does (repo `./scripts`, global npm root, `$HOME/.atomic-skills`). The gate is the creation-time **hard** end of the soft→strict ladder whose report-only **warn** end is `project verify` check #10 (which surfaces unreviewed plans already on disk). Batch/programmatic materialization that bypasses this flow entirely is caught there, not here.
 
 ### Stage 9 — Announce
 
@@ -372,7 +382,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 10. **Activate first phase.** Same as Stage 7 of the default flow.
 
-11. **Adversarial review.** Same as Stages 8a + 8b of the default flow — internal review always (apply findings inline), Codex cross-model review prompted to user (y/N). Persist the codex review file to `.atomic-skills/reviews/<…>.md` and link from the plan body's `## Reviews` section.
+11. **Adversarial review.** Same as Stages 8a + 8b + 8c of the default flow — internal review always (apply findings inline; `review-plan` writes the `- internal:` receipt), Codex cross-model review prompted to user (y/N), then the deterministic receipt gate `node scripts/find-unreviewed-plans.js .atomic-skills` HARD-BLOCKS until the adopted plan carries a `## Reviews` receipt. Persist the codex review file to `.atomic-skills/reviews/<…>.md` and link from the plan body's `## Reviews` section.
 
 12. **Announce.** Same as Stage 9 of the default flow:
     - Plan path
