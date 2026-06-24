@@ -348,6 +348,10 @@ pages:
               orientation: vertical
               selectable: true
               idField: id
+              # Rail circle reads the phase id (F0, F1…) so it agrees with the
+              # card's "at <id>" meta and the "depends on <id>" lines — one
+              # numbering scheme instead of circle-ordinal vs id.
+              circleField: id
               labelField: title
               statusField: status
               dependsOnField: dependsOn
