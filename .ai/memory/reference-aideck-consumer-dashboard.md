@@ -58,3 +58,21 @@ serving the old manifest. Kill by `lsof -iTCP:7777 -iTCP:7778 -sTCP:LISTEN` pids
 lock-pid read. **Verify the rendered DOM with headless Playwright** (anchors,
 `getComputedStyle(row).cursor`, widget Y-order) — the manifest API and unit tests can
 be green while the browser shows stale/wrong. Use `waitUntil:'load'` (SSE never idles).
+
+## Local aiDeck dev workflow and smoke gotchas (2026-06-25)
+- `scripts/dev-aideck.mjs link` must stage the same launcher shim produced by
+  `src/runtime-layers/aideck.js::buildShim()`. Copying `dist/cli.js` directly into
+  `~/.atomic-skills/bin/aideck.mjs` breaks because the CLI's relative imports
+  resolve beside the staged shim instead of beside the aiDeck package `dist/`.
+  Regression tests must execute the staged shim, not only inspect strings.
+- The v2 consumer dataSources bind to regenerable JSON under
+  `.atomic-skills/.aideck/state/*.json`. Before dashboard serve/register/smoke,
+  run the `refresh-state` chokepoint so `plans.json`, `phases.json`, and
+  `initiatives.json` exist. Missing files surface as REST `io_error` on
+  `/api/consumers/atomic-skills/projects/<projectId>/data/<ds>`.
+- `initiatives` is `root: project`; the smoke route is
+  `/api/consumers/atomic-skills/projects/<projectId>/data/initiatives`, not the
+  old `/api/consumers/atomic-skills/initiatives`.
+- `aideck up` alone starts the API without the staged SPA and `/` returns
+  `not found`. For a browser dashboard either use `atomic-skills serve` or pass
+  `--static-dir=$HOME/.atomic-skills/dashboard`, then register the project.
