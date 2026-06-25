@@ -1,5 +1,6 @@
 import { describe, it, afterEach } from 'node:test'
 import { strict as assert } from 'node:assert'
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -147,6 +148,62 @@ describe('listProjects (Inc2: R-MIG-13 / R-ORCH-26 — folder name = projectId)'
       assert.deepEqual(out[0].plans, ['real'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('ensureAideck dashboard state freshness', () => {
+  it('regenerates the aiDeck project projection before registering a project', () => {
+    const home = mkdtempSync(join(tmpdir(), 'as-serve-home-'))
+    const repo = mkdtempSync(join(tmpdir(), 'as-serve-repo-'))
+    try {
+      const planDir = join(repo, '.atomic-skills', 'projects', 'demo', 'plan-a')
+      mkdirSync(join(planDir, 'phases'), { recursive: true })
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        '---\nslug: plan-a\ntitle: Plan A\nstatus: active\nstarted: "2026-01-01T00:00:00Z"\nlastUpdated: "2026-01-02T00:00:00Z"\ncurrentPhase: F1\nphases:\n  - id: F1\n    title: Phase 1\n    status: active\n---\n',
+      )
+      writeFileSync(
+        join(planDir, 'phases', 'f1.md'),
+        '---\nslug: f1\ntitle: Phase 1\nstatus: active\nphaseId: F1\nparentPlan: plan-a\ntasks:\n  - id: T-1\n    title: First\n    status: pending\n---\n',
+      )
+
+      const child = `
+        import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+        import { join } from 'node:path';
+        const repo = process.env.TEST_REPO;
+        mkdirSync(join(process.env.HOME, '.atomic-skills'), { recursive: true });
+        writeFileSync(join(process.env.HOME, '.atomic-skills', 'env'), "export AS_DASHBOARD_URL='http://127.0.0.1:7777'\\n");
+        globalThis.fetch = async (url, init = {}) => {
+          const href = String(url);
+          if (href.endsWith('/api/health')) {
+            return new Response(JSON.stringify({ service: 'aideck' }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          if (href.endsWith('/api/projects/register')) {
+            const body = JSON.parse(init.body);
+            if (body.rootDir !== repo) throw new Error('registered wrong rootDir: ' + body.rootDir);
+            return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          return new Response(JSON.stringify({}), { status: 404, headers: { 'content-type': 'application/json' } });
+        };
+        const { ensureAideck } = await import('./src/serve.js');
+        process.chdir(repo);
+        const url = await ensureAideck({ timeoutMs: 500 });
+        if (url !== 'http://127.0.0.1:7777') throw new Error('unexpected url: ' + url);
+        const plansPath = join(repo, '.atomic-skills', '.aideck', 'state', 'plans.json');
+        if (!existsSync(plansPath)) throw new Error('missing emitted plans.json');
+        const plans = JSON.parse(readFileSync(plansPath, 'utf8'));
+        if (!Array.isArray(plans) || plans[0]?.slug !== 'plan-a') throw new Error('bad emitted plans: ' + JSON.stringify(plans));
+      `
+
+      execFileSync(process.execPath, ['--input-type=module', '-e', child], {
+        cwd: join(import.meta.dirname, '..'),
+        env: { ...process.env, HOME: home, TEST_REPO: repo },
+        encoding: 'utf8',
+      })
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+      rmSync(repo, { recursive: true, force: true })
     }
   })
 })

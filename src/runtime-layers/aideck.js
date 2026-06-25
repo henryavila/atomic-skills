@@ -7,8 +7,16 @@ import { join } from 'node:path';
  * shim rewrites argv[1] so the CLI entrypoint guard fires under
  * `node aideck.mjs <args>` (a bare import would load the module without running
  * the CLI).
+ *
+ * Exported (not just used by the runtime-layer planner) so the dev workflow
+ * `scripts/dev-aideck.mjs` reuses the SAME shim — single source of truth, so a
+ * local-dev link can't diverge from the installer's staged shim (the bug that
+ * shipped a raw `dist/cli.js` copy whose relative imports don't resolve outside
+ * the package's dist/ tree).
+ *
+ * Pure (string in, string out); safe to unit-test and to execute.
  */
-function buildShim(cliPath) {
+export function buildShim(cliPath) {
   const cliLit = JSON.stringify(cliPath);
   return (
     '// atomic-skills launcher for the published @henryavila/aideck CLI.\n'

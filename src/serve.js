@@ -26,6 +26,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { refreshState } from '../scripts/refresh-state.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = resolve(__dirname, '..')
@@ -216,6 +217,18 @@ function readUrlFromAnyEnvFile() {
   return null
 }
 
+function refreshDashboardState(dir) {
+  try {
+    const result = refreshState(dir)
+    if (result.seriesError) {
+      process.stderr.write(`atomic-skills serve: refresh-state partial failure — ${result.seriesError}\n`)
+    }
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause)
+    process.stderr.write(`atomic-skills serve: refresh-state failed — ${message}\n`)
+  }
+}
+
 /**
  * Derive a projectId slug from a directory path, matching the algorithm in
  * aideck's ProjectRegistry: lowercase basename, replace invalid chars with
@@ -274,6 +287,9 @@ export function listProjects(stateRoot = '.atomic-skills') {
  */
 export async function ensureAideck(opts = {}) {
   const { port, timeoutMs = 10000 } = opts
+  const cwd = process.cwd()
+
+  refreshDashboardState(cwd)
 
   // 1. Check if already running via env file (either ~/.atomic-skills/env or ~/.aideck/env)
   const existingUrl = readUrlFromAnyEnvFile()
@@ -283,8 +299,6 @@ export async function ensureAideck(opts = {}) {
       if (res.ok) {
         const body = await res.json()
         if (body?.service === 'aideck') {
-          const cwd = process.cwd()
-
           // Always register so this project appears in /api/projects,
           // even when the server was originally started from this rootDir.
           const projectId = deriveProjectId(cwd)
@@ -353,7 +367,6 @@ export async function ensureAideck(opts = {}) {
         const res = await fetch(`${url}/api/health`)
         if (res.ok) {
           // Register this project with the freshly started server
-          const cwd = process.cwd()
           const projectId = deriveProjectId(cwd)
           try {
             await fetch(`${url}/api/projects/register`, {
@@ -412,6 +425,8 @@ export async function serve(opts = {}) {
     spawnCwd = demoRoot
     console.error(`atomic-skills serve: demo fixtures staged at ${demoRoot}`)
   }
+
+  refreshDashboardState(spawnCwd)
 
   const child = spawnAideck({ bundleDir, port, aideckBin: opts.aideckBin, cwd: spawnCwd })
 

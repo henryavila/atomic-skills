@@ -28,6 +28,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse as parseYaml } from 'yaml';
+import { refreshState } from './refresh-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -137,6 +138,17 @@ if (result.ok) {
 
 // ── 2. running server probe ────────────────────────────────────────────────
 head('[running server]');
+if (shouldSmoke) {
+  head('[derived state refresh]');
+  const refreshed = refreshState(REPO_ROOT);
+  if (refreshed.seriesError) {
+    warnings++;
+    console.log(c.warn(`  ⚠ refresh-state had a partial failure: ${refreshed.seriesError}`));
+  } else {
+    console.log(`  ${c.ok('✓ PASS')}  refreshed ${refreshed.seriesWritten} aiDeck state files`);
+  }
+}
+
 const aideckUrl = readRunningUrl();
 if (!aideckUrl) {
   console.log(c.dim('  no running instance found (~/.aideck/env absent or unreadable) — skipping live probe'));
@@ -219,8 +231,8 @@ async function smokeTestRoutes(aideckUrl, consumerId) {
         check: (body) => Array.isArray(body?.records),
       },
       {
-        name: `GET /api/consumers/${consumerId}/initiatives`,
-        url: `${aideckUrl}/api/consumers/${consumerId}/initiatives`,
+        name: `GET /api/consumers/${consumerId}/projects/${firstProject}/data/initiatives`,
+        url: `${aideckUrl}/api/consumers/${consumerId}/projects/${firstProject}/data/initiatives`,
         check: (body) => Array.isArray(body?.records),
       },
     );

@@ -7,15 +7,26 @@
  *   node scripts/dev-aideck.mjs unlink   — volta ao pacote npm
  *   node scripts/dev-aideck.mjs status   — mostra qual build está ativo
  *
+ * Options:
+ *   --aideck-root <path>  — caminho para o repo do aideck
+ *   --no-build            — linka um aideck JÁ buildado (pula `npm run build`)
+ *
  * Motivação: Precisamos testar mudanças no aiDeck antes de publicar.
  * O aideck local pode estar em ../aideck ou em path configurado via --aideck-root.
+ *
+ * O staging do runtime REUSA o buildShim canônico (src/runtime-layers/aideck.js)
+ * — mesmo shim launcher que o instalador escreve. Uma cópia bruta de dist/cli.js
+ * NÃO funciona: seus imports relativos (./cli/args.js, ./server/index.js, …)
+ * só resolvem dentro da árvore dist/ do pacote; o shim importa cli.js por
+ * caminho ABSOLUTO para que o node resolva esses imports no lugar certo.
  */
 
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
+import { buildShim } from '../src/runtime-layers/aideck.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
@@ -34,13 +45,15 @@ const c = {
 
 // ── args ────────────────────────────────────────────────────────────────
 let aideckRoot = null;
+let noBuild = false;
 const args = process.argv.slice(2);
 const command = args[0];
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--aideck-root' && args[i + 1]) {
     aideckRoot = args[i + 1];
-    break;
+  } else if (args[i] === '--no-build') {
+    noBuild = true;
   }
 }
 
@@ -89,28 +102,44 @@ function isSymlink(path) {
 }
 
 function getSymlinkTarget(path) {
+  // readlinkSync lê o alvo do symlink; readFileSync seguiria o link e falharia
+  // (EISDIR em symlink de diretório) — devolvendo sempre null no `status`.
   try {
-    return readFileSync(path, 'utf8');
+    return readlinkSync(path);
   } catch {
     return null;
   }
 }
 
-function restageRuntime(aideckPath) {
-  // Restage bin
+/**
+ * Restage the runtime artifacts (bin shim + dashboard client) from an aideck
+ * build dir into <homeDir>/.atomic-skills/. REUSES the canonical buildShim so
+ * the staged bin is byte-identical to the installer's — a raw dist/cli.js copy
+ * does NOT work (its relative imports only resolve inside the package's dist/).
+ *
+ * `homeDir` is a test seam (defaults to the real $HOME); exported so the
+ * regression test can stage into a sandbox HOME and EXECUTE the result.
+ */
+export function restageRuntime(aideckPath, homeDir = homedir()) {
+  const runtimeBin = join(homeDir, '.atomic-skills', 'bin', 'aideck.mjs');
+  const runtimeDashboard = join(homeDir, '.atomic-skills', 'dashboard');
+
+  // Bin: argv-rewrite launcher shim (mirrors src/install.js + buildShim).
   const binSrc = join(aideckPath, 'dist', 'cli.js');
   if (existsSync(binSrc)) {
-    mkdirSync(dirname(RUNTIME_BIN), { recursive: true });
-    copyFileSync(binSrc, RUNTIME_BIN);
-    console.log(`  ${c.ok('✓')} Staged ${RUNTIME_BIN}`);
+    mkdirSync(dirname(runtimeBin), { recursive: true });
+    writeFileSync(runtimeBin, buildShim(binSrc));
+    console.log(`  ${c.ok('✓')} Staged ${runtimeBin} (shim → ${binSrc})`);
   }
 
-  // Restage dashboard (client)
+  // Dashboard client: clean first so stale files from a prior build don't
+  // linger (mirrors src/install.js: rmSync then cpSync).
   const clientSrc = join(aideckPath, 'dist', 'client');
-  if (existsSync(clientSrc)) {
-    mkdirSync(RUNTIME_DASHBOARD, { recursive: true });
-    execSync(`cp -r "${clientSrc}/"* "${RUNTIME_DASHBOARD}/"`, { stdio: 'inherit' });
-    console.log(`  ${c.ok('✓')} Staged ${RUNTIME_DASHBOARD}`);
+  if (existsSync(join(clientSrc, 'index.html'))) {
+    if (existsSync(runtimeDashboard)) rmSync(runtimeDashboard, { recursive: true, force: true });
+    mkdirSync(runtimeDashboard, { recursive: true });
+    execSync(`cp -r "${clientSrc}/"* "${runtimeDashboard}/"`, { stdio: 'inherit' });
+    console.log(`  ${c.ok('✓')} Staged ${runtimeDashboard}`);
   }
 }
 
@@ -145,8 +174,8 @@ async function cmdLink() {
 
   console.log(`Found aiDeck at: ${sibling}`);
 
-  // Build
-  if (!buildAideck(sibling)) {
+  // Build (skip with --no-build — link an already-built aideck for fast iteration)
+  if (!noBuild && !buildAideck(sibling)) {
     process.exit(1);
   }
 
@@ -245,7 +274,12 @@ async function cmdStatus() {
 }
 
 // ── main ─────────────────────────────────────────────────────────────────
-
+// Only run the CLI when invoked directly — importing this module (for the
+// restageRuntime unit test) must NOT execute the command dispatch. The
+// process.argv[1] truthy-check guards REPL/-e/test-runner imports where it is
+// undefined (pathToFileURL(undefined) throws ERR_INVALID_ARG_TYPE).
+const isMain = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
 (async () => {
   switch (command) {
     case 'link':
@@ -265,6 +299,8 @@ async function cmdStatus() {
       console.log('  node scripts/dev-aideck.mjs status   — mostra qual build está ativo');
       console.log('\nOptions:');
       console.log('  --aideck-root <path>  — caminho para o repo do aideck');
+      console.log('  --no-build            — linka um aideck JÁ buildado (pula npm run build)');
       process.exit(1);
   }
 })();
+}
