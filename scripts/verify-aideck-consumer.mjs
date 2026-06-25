@@ -12,13 +12,16 @@
  *   2. probing a running aiDeck instance (if any): is `atomic-skills` registered,
  *      and is that server the same build as the installed package (a stale server
  *      reused by `aideck up` will keep serving the old schema/SPA),
+ *   3. (with --smoke) test data routes that the client calls: /api/consumers/.../data/...
  * and exits non-zero on any blocking mismatch.
  *
  * This is the "is it fixed yet?" probe: after the aiDeck npm release lands and you
  * `npm i` + reinstall + `aideck down`, run `npm run verify:aideck-consumer` — green
  * means the cross-repo contract is satisfied.
  *
- * CLI:  node scripts/verify-aideck-consumer.mjs
+ * CLI:
+ *   node scripts/verify-aideck-consumer.mjs           — manifest + server check
+ *   node scripts/verify-aideck-consumer.mjs --smoke   — + data routes smoke test
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -30,6 +33,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const CONSUMER_DIR = join(REPO_ROOT, 'assets', 'aideck-consumer');
 const CONSUMER_ID = 'atomic-skills';
+
+// Parse args
+const args = process.argv.slice(2);
+const shouldSmoke = args.includes('--smoke') || args.includes('--smoke-routes');
 
 const c = {
   ok: (s) => `\x1b[32m${s}\x1b[0m`,
@@ -166,6 +173,83 @@ if (!aideckUrl) {
       ),
     );
   }
+
+  // Smoke test de rotas se --smoke foi passado
+  if (shouldSmoke && ids.includes(CONSUMER_ID)) {
+    await smokeTestRoutes(aideckUrl, CONSUMER_ID);
+  } else if (shouldSmoke) {
+    console.log(c.dim('  (smoke test skipped — consumer not registered)'));
+  }
+}
+
+// ── smoke test de rotas de dados ─────────────────────────────────────────────
+async function smokeTestRoutes(aideckUrl, consumerId) {
+  head('[data routes smoke]');
+  const tests = [
+    {
+      name: 'GET /api/consumers',
+      url: `${aideckUrl}/api/consumers`,
+      check: (body) => Array.isArray(body?.consumers) && body.consumers.length > 0,
+    },
+    {
+      name: `GET /api/consumers/${consumerId}`,
+      url: `${aideckUrl}/api/consumers/${consumerId}`,
+      check: (body) => body?.manifest?.id === consumerId,
+    },
+    {
+      name: `GET /api/consumers/${consumerId}/projects`,
+      url: `${aideckUrl}/api/consumers/${consumerId}/projects`,
+      check: (body) => Array.isArray(body?.projects),
+    },
+  ];
+
+  // Se temos projetos registrados, testa rotas project-scoped
+  const projectsResp = await getJson(`${aideckUrl}/api/consumers/${consumerId}/projects`);
+  if (projectsResp?.projects && projectsResp.projects.length > 0) {
+    const firstProject = projectsResp.projects[0].projectId || projectsResp.projects[0].id || projectsResp.projects[0].slug;
+    tests.push(
+      {
+        name: `GET /api/consumers/${consumerId}/projects/${firstProject}/data/phases`,
+        url: `${aideckUrl}/api/consumers/${consumerId}/projects/${firstProject}/data/phases`,
+        check: (body) => Array.isArray(body?.records),
+      },
+      {
+        name: `GET /api/consumers/${consumerId}/projects/${firstProject}/data/plans`,
+        url: `${aideckUrl}/api/consumers/${consumerId}/projects/${firstProject}/data/plans`,
+        check: (body) => Array.isArray(body?.records),
+      },
+      {
+        name: `GET /api/consumers/${consumerId}/initiatives`,
+        url: `${aideckUrl}/api/consumers/${consumerId}/initiatives`,
+        check: (body) => Array.isArray(body?.records),
+      },
+    );
+  } else {
+    console.log(c.dim('  (no projects registered, skipping project-scoped routes)'));
+  }
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of tests) {
+    const resp = await fetch(test.url);
+    const body = await resp.json().catch(() => null);
+    const ok = resp.ok && test.check(body);
+
+    if (ok) {
+      passed++;
+      console.log(`  ${c.ok('✓')} ${test.name}`);
+    } else {
+      failed++;
+      blocking++;
+      console.log(`  ${c.bad('✗')} ${test.name} — ${resp.status} ${resp.statusText}`);
+      if (body?.error) {
+        console.log(c.dim(`    → ${body.error.code || body.error.message || 'unknown error'}`));
+      }
+    }
+  }
+
+  console.log(c.dim(`  Summary: ${passed} passed, ${failed} failed`));
 }
 
 // ── verdict ────────────────────────────────────────────────────────────────

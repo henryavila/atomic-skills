@@ -551,6 +551,29 @@ The same discipline the skills enforce on your agent, the repo enforces on itsel
 
 See also [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md) and [docs/kb/skill-frontmatter-spec.md](docs/kb/skill-frontmatter-spec.md).
 
+### aiDeck Development
+
+When developing features in the aiDeck that affect atomic-skills:
+
+```bash
+# Link aiDeck local (build + symlink)
+npm run dev:aideck:link
+
+# Check status
+npm run dev:aideck:status
+
+# Restart dashboard to use local build
+npm run serve
+
+# Verify data routes work
+npm run verify:aideck:smoke
+
+# When done, restore published version
+npm run dev:aideck:unlink
+```
+
+See [docs/aideck-dev-workflow.md](docs/aideck-dev-workflow.md) for troubleshooting and details.
+
 ## License
 
 MIT
