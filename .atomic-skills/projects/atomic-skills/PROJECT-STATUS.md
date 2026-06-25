@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-06-25T12:55:57Z
-schemaVersion: '0.1'
-activePlans: 3
-activeInitiatives: 3
-archivedCount: 3
+lastUpdated: 2026-06-25T13:45:23.449Z
+schemaVersion: "0.1"
+activePlans: 2
+activeInitiatives: 2
+archivedCount: 14
 ---
 
 # Project Status Index
@@ -38,6 +38,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | mode2-codex-default-enablement | archived | — | main | 2026-06-06 |
 | project-orchestrator-redesign | archived | — | main | 2026-06-01 |
 | refactor-doc-architect | paused | F0 | main | 2026-05-31 |
+| plan-dependencies | active | F0 | plan/plan-dependencies | 2026-06-25 |
 
 ## Active Initiatives (standalone)
 

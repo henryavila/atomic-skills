@@ -18,11 +18,10 @@ weightDone: 0
 weightTotal: 0
 exitGates:
   - id: G-1
-    description: >-
-      Panorama, Foco agora, Visao geral e Arquivados exibem estados sem
+    description: "Panorama, Foco agora, Visao geral e Arquivados exibem estados sem
       duplicar listas operacionais: ativos/pausados/travados ficam no fluxo
       aberto; done aparece em Visao geral; archived aparece apenas em
-      Arquivados.
+      Arquivados."
     status: pending
     verifier:
       kind: manual
@@ -38,6 +37,8 @@ parked: []
 emerged: []
 summary: Reorganiza Panorama, Foco, Visao geral e Arquivados por estado operacional.
 planTitle: Reorganizar ciclo de vida das telas do dashboard
+planActive: true
+current: true
 ---
 
 # Narrative / notes

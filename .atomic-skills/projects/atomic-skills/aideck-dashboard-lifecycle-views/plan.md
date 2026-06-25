@@ -20,17 +20,18 @@ phases:
       summary: 1 criterion to meet
       criteria:
         - id: G-1
-          description: >-
-            Panorama, Foco agora, Visao geral e Arquivados exibem estados sem
+          description: "Panorama, Foco agora, Visao geral e Arquivados exibem estados sem
             duplicar listas operacionais: ativos/pausados/travados ficam no
             fluxo aberto; done aparece em Visao geral; archived aparece apenas
-            em Arquivados.
+            em Arquivados."
           status: pending
           verifier:
             kind: manual
             description: Validar no dashboard aiDeck com o projeto atomic-skills.
     status: active
     summary: Reorganiza Panorama, Foco, Visao geral e Arquivados por estado operacional.
+planActive: true
+planTitle: Reorganizar ciclo de vida das telas do dashboard
 ---
 
 # Narrative / notes

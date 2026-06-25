@@ -5,3 +5,6 @@
 {"ts":"2026-06-19T18:47:13.910Z","event":"task-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F4","taskId":"T-001","weight":1,"weightBasis":"count"}
 {"ts":"2026-06-19T18:58:42.670Z","event":"task-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F4","taskId":"T-002","weight":1,"weightBasis":"count","actuals":{"attempts":1,"escalations":0,"durationMs":270000}}
 {"ts":"2026-06-19T19:22:02.492Z","event":"task-done","projectId":"atomic-skills","planSlug":"deadline-burnup-forecast","phaseId":"F4","taskId":"T-003","weight":1,"weightBasis":"count"}
+{"ts":"2026-06-25T19:01:03.437Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.1","weight":2,"weightBasis":"proxy"}
+{"ts":"2026-06-25T19:04:51.581Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.2","weight":3,"weightBasis":"proxy"}
+{"ts":"2026-06-25T19:08:24.318Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.3","weight":3,"weightBasis":"proxy"}
