@@ -8,3 +8,4 @@
 {"ts":"2026-06-25T19:01:03.437Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.1","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-06-25T19:04:51.581Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.2","weight":3,"weightBasis":"proxy"}
 {"ts":"2026-06-25T19:08:24.318Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.3","weight":3,"weightBasis":"proxy"}
+{"ts":"2026-06-25T19:33:52.391Z","event":"phase-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":18,"locAdded":1890,"locRemoved":14,"commits":1}}

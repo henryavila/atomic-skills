@@ -4,10 +4,10 @@ slug: plan-dependencies-f1-acoplamento-com-planos-emergidos
 title: Acoplamento com planos emergidos
 goal: quando um plano nasce de uma fase ou task por `fork-plan`, registrar a
   origem e a dependencia operacional correta sem duplicar fonte de verdade.
-status: pending
+status: active
 branch: plan/plan-dependencies
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T13:45:23.449Z
+lastUpdated: 2026-06-25T19:32:16Z
 nextAction: "Start T1.1: Add a dependency write primitive for plan frontmatter"
 parentPlan: plan-dependencies
 phaseId: F1
@@ -141,6 +141,7 @@ emerged: []
 summary: Acopla planos emergidos e edges manuais ao grafo sem confundir origem com bloqueio operacional.
 planTitle: plan-dependencies - dependencias executaveis entre planos
 planActive: true
+current: true
 ---
 
 # Narrative / notes

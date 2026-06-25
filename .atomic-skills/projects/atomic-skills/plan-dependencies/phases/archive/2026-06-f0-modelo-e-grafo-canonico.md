@@ -4,11 +4,11 @@ slug: plan-dependencies-f0-modelo-e-grafo-canonico
 title: Modelo e grafo canonico
 goal: adicionar o contrato exato de `dependsOnPlans[]` e o helper puro que
   calcula edges, bloqueios e ordem topologica entre planos.
-status: active
+status: done
 branch: plan/plan-dependencies
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T19:08:11Z
-nextAction: Await operator opt-in to advance F0 to F1 via phase-done
+lastUpdated: 2026-06-25T19:32:16Z
+nextAction: F1 is active; start T1.1 in src/links-sidecar.js and tests/links-sidecar.test.js
 parentPlan: plan-dependencies
 phaseId: F0
 tasksDone: 3
@@ -149,7 +149,7 @@ summary: Define o contrato, o schema e o helper que validam dependencias
   executaveis entre planos.
 planTitle: plan-dependencies - dependencias executaveis entre planos
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -171,8 +171,8 @@ _(plan doc, external refs)_
 - Phase lessons: zero lessons distilled — review-code recorded `0B/0C/0M/0m/0n` in `.atomic-skills/reviews/2026-06-25-1910-plan-dependencies-f0.md`.
 
 ## Session handoff
-- **Narrative:** F0 `plan-dependencies-f0-modelo-e-grafo-canonico` esta ativa em `plan/plan-dependencies`. T0.1, T0.2 e T0.3 foram fechadas com `evidence.passed: true`; F0-G1 esta `met`; review-code local degradado esta `approved`. A fase aguarda opt-in do operador para avançar F0 -> F1.
-- **Decision log:** Mode 1 foi usado porque `rtk find /Users/henry/.agents -name mode2-codex-lane.md` e `rtk find /Users/henry/.codex -name mode2-codex-lane.md` retornaram `0 for 'mode2-codex-lane.md'`; sem esse contrato, nao houve dispatch Mode 2. Review-code local rodou em modo degradado porque `diff-capture.md` e `briefing-template.txt` nao existem nesta instalacao, e a ferramenta multi-agent carregada diz `Do not spawn sub-agents unless the user explicitly asks for sub-agents, delegation, or parallel agent work.` O `reviewGate` de F0 em `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md` registra `at: "working-tree@7b16b5f"` para nao fingir commit inexistente.
-- **Single nextAction:** Ask the operator to approve advancing `plan-dependencies` from F0 to F1; on approval, set F0 `status: done`, set F1 `status: active`, set `currentPhase: F1`, append one `phase-done` completion event, and refresh state.
-- **Verbatim state:** Active files: `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md`, `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f0-modelo-e-grafo-canonico.md`, `meta/schemas/plan.schema.json`, `tests/validate-state.test.js`, `src/plan-dependencies.js`, `tests/plan-dependencies.test.js`, `scripts/validate-state.js`, `.atomic-skills/analytics/completions.jsonl`, `.atomic-skills/reviews/2026-06-25-1910-plan-dependencies-f0.md`. F0-G1 PASS command: `rtk node --test tests/plan-dependencies.test.js tests/validate-state.test.js` exited `0` with `tests 88`, `pass 88`, `fail 0`, `duration_ms 3492.4795`. Full state command: `rtk node scripts/validate-state.js .atomic-skills` exited `0` with `All 129 file(s) valid, 21 plan(s) cross-validated, 1 routing config(s) valid (schemaVersion 0.1/0.2)`. Local review file: `.atomic-skills/reviews/2026-06-25-1910-plan-dependencies-f0.md` verdict `approved`, counts `0B/0C/0M/0m/0n`.
-- **Uncommitted changes:** ` M .atomic-skills/analytics/completions.jsonl`; ` M .atomic-skills/projects/atomic-skills/PROJECT-STATUS.md`; ` M .atomic-skills/projects/atomic-skills/aideck-dashboard-lifecycle-views/phases/aideck-dashboard-lifecycle-views.md`; ` M .atomic-skills/projects/atomic-skills/aideck-dashboard-lifecycle-views/plan.md`; ` M .atomic-skills/reviews/INDEX.md`; ` M meta/schemas/plan.schema.json`; ` M scripts/validate-state.js`; ` M tests/validate-state.test.js`; `?? .atomic-skills/projects/atomic-skills/plan-dependencies/`; `?? .atomic-skills/reviews/2026-06-25-1115-plan-dependencies.md`; `?? .atomic-skills/reviews/2026-06-25-1910-plan-dependencies-f0.md`; `?? src/plan-dependencies.js`; `?? tests/plan-dependencies.test.js`
+- **Narrative:** F0 `plan-dependencies-f0-modelo-e-grafo-canonico` esta `done` em `plan/plan-dependencies`; T0.1, T0.2 e T0.3 estao fechadas com `evidence.passed: true`. F0-G1 esta `met`, o review-code local degradado esta `approved`, e `plan-dependencies` avancou `currentPhase: F1`. F1 `plan-dependencies-f1-acoplamento-com-planos-emergidos` esta ativa.
+- **Decision log:** Mode 1 foi usado em F0 porque `rtk find /Users/henry/.agents -name mode2-codex-lane.md` e `rtk find /Users/henry/.codex -name mode2-codex-lane.md` retornaram `0 for 'mode2-codex-lane.md'`; sem esse contrato, nao houve dispatch Mode 2. Review-code local rodou em modo degradado porque `diff-capture.md` e `briefing-template.txt` nao existem nesta instalacao, e a ferramenta multi-agent carregada diz `Do not spawn sub-agents unless the user explicitly asks for sub-agents, delegation, or parallel agent work.` O `reviewGate` de F0 em `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md` registra `at: "working-tree@7b16b5f"` porque a revisao local ocorreu antes do commit `ba3e122`.
+- **Single nextAction:** Start T1.1 in `src/links-sidecar.js` and `tests/links-sidecar.test.js`, then run `rtk node --test tests/links-sidecar.test.js`.
+- **Verbatim state:** Active files: `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md`, `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/archive/2026-06-f0-modelo-e-grafo-canonico.md`, `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f1-acoplamento-com-planos-emergidos.md`, `.atomic-skills/analytics/completions.jsonl`. F0-G1 PASS command: `rtk node --test tests/plan-dependencies.test.js tests/validate-state.test.js` exited `0` with `tests 88`, `pass 88`, `fail 0`, `duration_ms 3812.112791` on the post-commit check. Phase event command: `rtk node scripts/append-completion.js --event phase-done --project atomic-skills --plan plan-dependencies --phase F0 --actuals-since 2026-06-25T13:43:40.847Z` exited `0` with `append-completion: phase-done atomic-skills/plan-dependencies/F0 weight=1(count) ✓`. Event line: `{"ts":"2026-06-25T19:33:52.391Z","event":"phase-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":18,"locAdded":1890,"locRemoved":14,"commits":1}}`. Refresh command: `rtk node scripts/refresh-state.js .` exited `0` with `refresh-state: rollups 0 changed, focus 0 changed, digest → plan-dependencies · F1`. Full state command after phase transition: `rtk node scripts/validate-state.js .atomic-skills` exited `0` with `All 129 file(s) valid, 21 plan(s) cross-validated, 1 routing config(s) valid (schemaVersion 0.1/0.2)`. Phase transition timestamp: `2026-06-25T19:32:16Z`; HEAD before transition: `ba3e1228e90e6deabe0aa4e999dab813afc2f7d7`.
+- **Uncommitted changes:** ` M .atomic-skills/analytics/completions.jsonl`; ` M .atomic-skills/projects/atomic-skills/PROJECT-STATUS.md`; ` D .atomic-skills/projects/atomic-skills/plan-dependencies/phases/f0-modelo-e-grafo-canonico.md`; ` M .atomic-skills/projects/atomic-skills/plan-dependencies/phases/f1-acoplamento-com-planos-emergidos.md`; ` M .atomic-skills/projects/atomic-skills/plan-dependencies/plan.md`; `?? .atomic-skills/projects/atomic-skills/plan-dependencies/phases/archive/2026-06-f0-modelo-e-grafo-canonico.md`

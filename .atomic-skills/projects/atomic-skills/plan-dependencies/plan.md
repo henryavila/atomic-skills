@@ -5,9 +5,9 @@ title: plan-dependencies - dependencias executaveis entre planos
 version: "1.0"
 status: active
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T19:09:48Z
+lastUpdated: 2026-06-25T19:32:16Z
 branch: plan/plan-dependencies
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -70,7 +70,7 @@ phases:
             passed: true
             exitCode: 0
             outputSummary: "rtk node --test tests/plan-dependencies.test.js tests/validate-state.test.js: tests 88, pass 88, fail 0, duration_ms 3492.4795"
-    status: active
+    status: done
     reviewGate:
       status: passed
       mode: local
@@ -100,7 +100,7 @@ phases:
             command: rtk node --test tests/links-sidecar.test.js
               tests/validate-skills.test.js tests/transition-emits.test.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Acopla planos emergidos e edges manuais ao grafo sem confundir origem
       com bloqueio operacional.
   - id: F2
