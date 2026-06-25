@@ -186,13 +186,14 @@ Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<pl
 
 **Stage 8c — Receipt gate (deterministic, HARD-BLOCK).**
 
-8a/8b are LLM steps; a prose "always runs" is exactly what let a batch of plans land unreviewed before this gate existed (a skill cannot enforce its own invocation). So the close of Stage 8 is a zero-token, deterministic check that the review actually left a receipt — the same kind of gate Stages 4/5 already use:
+8a/8b are LLM steps; a prose "always runs" is exactly what let a batch of plans land unreviewed before this gate existed (a skill cannot enforce its own invocation). So the close of Stage 8 is a zero-token, deterministic check that the review actually left a receipt on the plan materialized by THIS run — the same kind of gate Stages 4/5 already use:
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" .atomic-skills
+PLAN_PATH=".atomic-skills/projects/<projectId>/<planSlug>/plan.md"
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
 ```
 
-A non-zero exit means at least one materialized plan lacks a `## Reviews` section with a `- internal:` line — the internal review (8a) either did not run or left no receipt. This **HARD-BLOCKS** declaring the plan ready: re-run 8a so `review-plan` writes the receipt, then re-run the gate. Resolve the script the same 3-path way Stage 6's normalize step does (repo `./scripts`, global npm root, `$HOME/.atomic-skills`). The gate is the creation-time **hard** end of the soft→strict ladder whose report-only **warn** end is `project verify` check #10 (which surfaces unreviewed plans already on disk). Batch/programmatic materialization that bypasses this flow entirely is caught there, not here.
+A non-zero exit means the newly materialized plan lacks a `## Reviews` section with a `- internal:` line — the internal review (8a) either did not run or left no receipt. This **HARD-BLOCKS** declaring that plan ready: re-run 8a so `review-plan` writes the receipt, then re-run the scoped gate. Resolve the script the same 3-path way Stage 6's normalize step does (repo `./scripts`, global npm root, `$HOME/.atomic-skills`). This gate checks only the newly materialized plan; the tree-wide backstop is `project verify` check #10, where pre-existing legacy or batch-created plans already on disk surface as report-only WARNs. Batch/programmatic materialization that bypasses this flow entirely is caught there, not here.
 
 ### Stage 9 — Announce
 

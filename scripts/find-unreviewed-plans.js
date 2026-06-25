@@ -21,14 +21,15 @@
  * Sibling of find-unweighted-tasks.js / find-signalless-tasks.js. The receipt
  * TEXT is authored by the review skill; this script only proves it exists.
  *
- * Exit 0 = every non-archived plan carries a review receipt; exit 1 = at least
- * one is unreviewed.
+ * Exit 0 = every selected non-archived plan carries a review receipt; exit 1 =
+ * at least one is unreviewed.
  *
- * CLI:  node scripts/find-unreviewed-plans.js [<dir>]   (defaults to ./.atomic-skills)
+ * CLI:  node scripts/find-unreviewed-plans.js [<repo|.atomic-skills|plan.md|plan-dir>]
+ *       (defaults to cwd)
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
 
 /**
@@ -50,7 +51,26 @@ export function reviewReceiptGap(body) {
   return hasInternal ? null : 'no-internal-line';
 }
 
-/** Read a plan.md; push a report entry if it lacks a review receipt. Archived plans skipped. */
+function inferPlanMeta(filePath) {
+  const abs = resolve(filePath);
+  const parts = abs.split(/[\\/]+/);
+  const atomicIdx = parts.lastIndexOf('.atomic-skills');
+  const planFile = basename(abs);
+
+  if (atomicIdx !== -1) {
+    const afterAtomic = parts.slice(atomicIdx + 1);
+    if (afterAtomic[0] === 'projects' && afterAtomic[1] && afterAtomic[2] && afterAtomic[3] === 'plan.md') {
+      return { projectId: afterAtomic[1], planSlug: afterAtomic[2], planFile: 'plan.md' };
+    }
+    if (afterAtomic[0] === 'plans' && planFile.endsWith('.md')) {
+      return { projectId: '(flat)', planSlug: 'plans', planFile };
+    }
+  }
+
+  return { projectId: '(scoped)', planSlug: basename(dirname(abs)), planFile };
+}
+
+/** Read a plan file; push a report entry if it lacks a review receipt. Archived plans skipped. */
 function collectPlanFile(filePath, meta, report) {
   let raw;
   try {
@@ -67,15 +87,36 @@ function collectPlanFile(filePath, meta, report) {
 }
 
 /**
- * Collect [{ projectId, planSlug, planFile, reason }] for every materialized,
- * non-archived plan lacking an adversarial-review receipt, across BOTH layouts
+ * Collect [{ projectId, planSlug, planFile, reason }] for materialized,
+ * non-archived plans lacking an adversarial-review receipt.
+ *
+ * When called with a plan file or a directory containing `plan.md`, this is a
+ * scoped creation gate: only that plan is checked. When called with a repo root
+ * or `.atomic-skills`, this is a global verify backstop across BOTH layouts
  * (matching find-unweighted-tasks.js): nested `projects/<id>/<slug>/plan.md` and
  * flat legacy `plans/*.md`. Scanning nested-only would silently false-green an
  * un-migrated/coexistence tree. `archive/` subdirs + dotfiles skipped.
  */
-export function findUnreviewedPlans(dir) {
-  const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
+export function findUnreviewedPlans(target = process.cwd()) {
+  const targetPath = resolve(target);
   const report = [];
+
+  if (existsSync(targetPath)) {
+    const targetStat = statSync(targetPath);
+    if (targetStat.isFile()) {
+      collectPlanFile(targetPath, inferPlanMeta(targetPath), report);
+      return report;
+    }
+    if (targetStat.isDirectory()) {
+      const scopedPlanFile = join(targetPath, 'plan.md');
+      if (existsSync(scopedPlanFile) && statSync(scopedPlanFile).isFile()) {
+        collectPlanFile(scopedPlanFile, inferPlanMeta(scopedPlanFile), report);
+        return report;
+      }
+    }
+  }
+
+  const root = existsSync(join(targetPath, '.atomic-skills')) ? join(targetPath, '.atomic-skills') : targetPath;
 
   // Nested: projects/<id>/<slug>/plan.md
   const projectsDir = join(root, 'projects');
