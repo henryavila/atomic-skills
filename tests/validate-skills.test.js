@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -517,5 +517,36 @@ describe('validateReleaseHighlight', () => {
 
   it('passes valid release_highlight', () => {
     assert.deepEqual(validateReleaseHighlight({ release_highlight: { body: 'Real release notes.' } }), []);
+  });
+});
+
+describe('project skill plan dependency command docs', () => {
+  it('routes project depend to a lazy detail file with add/remove/list/resolve semantics', () => {
+    const routerPath = join(process.cwd(), 'skills', 'core', 'project.md');
+    const detailPath = join(
+      process.cwd(),
+      'skills',
+      'shared',
+      'project-assets',
+      'project-dependencies.md'
+    );
+
+    assert.equal(existsSync(detailPath), true, 'project-dependencies.md must exist');
+
+    const router = readFileSync(routerPath, 'utf8');
+    const detail = readFileSync(detailPath, 'utf8');
+
+    assert.match(router, /project depend list/);
+    assert.match(router, /project-dependencies\.md/);
+    assert.match(detail, /depend add/);
+    assert.match(detail, /depend remove/);
+    assert.match(detail, /depend list/);
+    assert.match(detail, /depend resolve/);
+    assert.match(detail, /addPlanDependency/);
+    assert.match(detail, /dependsOnPlans\[\]/);
+    assert.match(detail, /release\.archived: resolved/);
+    assert.match(detail, /cross-project plan dependencies are not supported/);
+    assert.match(detail, /never edits `spawnedFrom`/);
+    assert.match(detail, /never edits `phases\[\]\.spawnedPlans`/);
   });
 });

@@ -52,6 +52,12 @@ The gate is skipped for read-only commands (`status` views, `why`, `scope-creep`
 
 The 24-hour threshold is configurable via `.atomic-skills/status/config.json` key `reconciliationThresholdHours` (default: 24). Set to `0` to disable.
 
+## Plan dependency block guidance (`dependsOnPlans[]`)
+
+Before a transition or next-action view tells the operator to execute a plan, it must surface plan-level blockers from `dependsOnPlans[]` separately from phase/task dependencies. Build the project plan graph with `src/plan-dependencies.js` and treat `blockedByPlans[<plan-slug>]` as the operational source of truth; `spawnedFrom` and `phases[].spawnedPlans` explain origin only and never open or close execution by themselves.
+
+When a plan is blocked, print the blocked path in this shape: `plan <dependent> is blocked by prerequisite plan <prerequisite> (status: <status>)`. Then print the resume path: switch to the prerequisite plan and finish it when its status is `active`, `paused`, or `pending`; when the prerequisite is `done`, rerun the original transition; when the prerequisite is `archived`, keep the dependent blocked unless the edge records an explicit archived-resolution decision (`release.archived: resolved`). A transition that detects such a blocker stops before changing plan/phase status, so the operator never advances a blocked plan by following stale next-action prose.
+
 ## Stack frames: `push` / `pop`
 
 ### `push <description>`
@@ -132,6 +138,7 @@ Invoked when the active initiative is the phase initiative of an active plan AND
    - `{ kind: 'single', next: '<id>', alternatives: [...] }` — propose "Phase `<id>` done. Advance `currentPhase` to `<next>`? (y/N)". List `alternatives` so the user can override before accepting.
    - `{ kind: 'parallel-choice', eligible: [...] }` — when the plan has `parallelismAllowed: true`, ask "Which of `<eligible...>` should be activated now? Select one or more (or `none`)".
    Before presenting any of the above, call `src/transition.js`:`unknownDeps(plan)`. If it returns non-empty, surface the typos to the user and abort the advance — the dependency graph is broken.
+   Also apply **Plan dependency block guidance (`dependsOnPlans[]`)** before offering the next executable phase: if the current plan is blocked by a prerequisite plan, print the prerequisite, its status, and the resume path, then stop before writing `currentPhase` or phase statuses.
 8. On the user's accept of an advance:
    - **Propagate completion to the initiative** (BEFORE archiving):
      a. Set all `tasks[].status = 'done'`, `tasks[].closedAt = <now>`, `tasks[].lastUpdated = <now>` for any task not already `done`.
@@ -261,6 +268,7 @@ Works at 2 levels: switching plans, OR switching initiatives within the active p
 1. Detect kind (resolve nested-first, then legacy flat): is there a plan at `projects/<project-id>/<slug>/plan.md` (legacy `.atomic-skills/plans/<slug>.md`)? OR a phase/standalone initiative at `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`)?
 2. **Plan switch**:
    - Find target plan; abort if `status` not in {`active`, `paused`}.
+   - Apply **Plan dependency block guidance (`dependsOnPlans[]`)** before setting the target active. If the target is blocked, print the prerequisite plan(s), their statuses, and the resume path; leave the current active plan unchanged.
    - Set any other active plan to `status: paused` — **and cascade: pause its `active` phase** (in the plan's `phases[]` descriptor AND the matching initiative file). A paused plan must never leave an `active` phase behind.
    - Set target plan to `status: active`.
    - Update PROJECT-STATUS.md, then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers AND the `focus.json` digest in one pass).

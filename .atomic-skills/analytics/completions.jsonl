@@ -9,3 +9,8 @@
 {"ts":"2026-06-25T19:04:51.581Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.2","weight":3,"weightBasis":"proxy"}
 {"ts":"2026-06-25T19:08:24.318Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":"T0.3","weight":3,"weightBasis":"proxy"}
 {"ts":"2026-06-25T19:33:52.391Z","event":"phase-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":18,"locAdded":1890,"locRemoved":14,"commits":1}}
+{"ts":"2026-06-25T19:50:33.907Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F1","taskId":"T1.1","weight":2,"weightBasis":"proxy","actuals":{"attempts":1,"durationMs":391000,"escalations":0}}
+{"ts":"2026-06-25T19:55:32.739Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F1","taskId":"T1.2","weight":1,"weightBasis":"proxy"}
+{"ts":"2026-06-25T19:57:52.419Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F1","taskId":"T1.3","weight":1,"weightBasis":"proxy"}
+{"ts":"2026-06-25T20:04:34.406Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F1","taskId":"T1.4","weight":2,"weightBasis":"proxy"}
+{"ts":"2026-06-25T21:55:29.767Z","event":"phase-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F1","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":18,"locAdded":1892,"locRemoved":14,"commits":2}}

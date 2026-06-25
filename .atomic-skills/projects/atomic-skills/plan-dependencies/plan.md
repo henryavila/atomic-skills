@@ -5,9 +5,9 @@ title: plan-dependencies - dependencias executaveis entre planos
 version: "1.0"
 status: active
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T19:32:16Z
+lastUpdated: 2026-06-25T21:51:42Z
 branch: plan/plan-dependencies
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -94,13 +94,28 @@ phases:
           description: Fork-plan records origin and default operational dependency for an
             extracted child plan, explicit dependency commands cover manual edges,
             and transitions surface the blocked-plan path.
-          status: pending
+          status: met
+          metAt: 2026-06-25T20:05:38Z
           verifier:
             kind: shell
             command: rtk node --test tests/links-sidecar.test.js
               tests/validate-skills.test.js tests/transition-emits.test.js
             expectExitCode: 0
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-25T20:05:38Z
+            passed: true
+            exitCode: 0
+            outputSummary: "rtk node --test tests/links-sidecar.test.js tests/validate-skills.test.js
+              tests/transition-emits.test.js: tests 99, pass 99, fail 0,
+              duration_ms 910.85375"
+    status: done
+    reviewGate:
+      status: passed
+      mode: local
+      at: "working-tree@7f374bb"
+      reviewFile: .atomic-skills/reviews/2026-06-25-2151-plan-dependencies-f1.md
+      verifiedAt: 2026-06-25T21:51:42Z
     summary: Acopla planos emergidos e edges manuais ao grafo sem confundir origem
       com bloqueio operacional.
   - id: F2
@@ -124,7 +139,7 @@ phases:
               tests/aideck-state-schema.test.js
               tests/aideck-consumer-handlers.test.js
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Publica planEdges e dependencias de plano para o consumer aiDeck.
   - id: F3
     slug: plan-dependencies-f3-dashboard-caminho-de-execucao

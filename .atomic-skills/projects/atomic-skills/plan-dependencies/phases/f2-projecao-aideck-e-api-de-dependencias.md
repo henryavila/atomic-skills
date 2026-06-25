@@ -4,10 +4,10 @@ slug: plan-dependencies-f2-projecao-aideck-e-api-de-dependencias
 title: Projecao aiDeck e API de dependencias
 goal: expor dependencia e origem de planos como dados denormalizados para o
   consumer, mantendo compatibilidade com dependencias de fase e task.
-status: pending
+status: active
 branch: plan/plan-dependencies
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T13:45:23.449Z
+lastUpdated: 2026-06-25T21:51:42Z
 nextAction: "Start T2.1: Emit planEdges and derived plan fields"
 parentPlan: plan-dependencies
 phaseId: F2
@@ -118,6 +118,7 @@ emerged: []
 summary: Publica planEdges e dependencias de plano para o consumer aiDeck.
 planTitle: plan-dependencies - dependencias executaveis entre planos
 planActive: true
+current: true
 ---
 
 # Narrative / notes
