@@ -89,3 +89,15 @@ be green while the browser shows stale/wrong. Use `waitUntil:'load'` (SSE never 
   `undefined`. The first registered project may appear inside the Panorama card
   list, but it must not become the page scope. Per-project pages (`foco-agora`,
   detail routes, or `?project=`) are the only places that expand/select projects.
+
+## Dashboard lifecycle semantics (2026-06-25)
+- Avoid the ambiguous label "frentes vivas" unless it has a single technical
+  predicate. Use explicit lifecycle buckets:
+  - `active`/`paused`/`blocked` = open operational work that can demand attention.
+  - `done` = recently completed work; show it in the project-level Visao geral
+    below the active/paused sections, not in the cold-history page.
+  - `archived` = cold history; show it only in Arquivados, ordered by recency and
+    optimized for regression/search rather than day-to-day focus.
+- Panorama should help choose which project needs attention. Foco agora should
+  show what to act on. Visao geral should explain project health and lifecycle
+  distribution. Arquivados should not compete with operational screens.
