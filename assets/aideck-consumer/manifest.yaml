@@ -131,7 +131,7 @@ pages:
             config:
               minColWidth: 340
               titleField: name
-              linkTo: 'foco-agora/:id'                  # title-link → enter the project's Foco
+              linkTo: 'foco-agora?project=:id'          # title-link → enter the project's Foco
               dotToneField: dotTone                     # leading status dot (error/info/neutral)
               badgeField: mode                          # "paralelo N" | "isolado" | "ocioso"
               badgeToneField: parallelTone

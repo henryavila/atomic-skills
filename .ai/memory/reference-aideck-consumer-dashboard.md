@@ -76,3 +76,16 @@ be green while the browser shows stale/wrong. Use `waitUntil:'load'` (SSE never 
 - `aideck up` alone starts the API without the staged SPA and `/` returns
   `not found`. For a browser dashboard either use `atomic-skills serve` or pass
   `--static-dir=$HOME/.atomic-skills/dashboard`, then register the project.
+
+## aiDeck Home vs project scope (2026-06-25)
+- The aiDeck root `/` is the global dashboard landing. It must render the
+  project-centric consumer's `nav.landingPage` in place; it must NOT redirect to
+  `/:consumerId/:landingPage`, because that makes a cross-project Panorama look
+  scoped to a consumer/project in the URL.
+- In aiDeck code, keep this generic: prefer the registered consumer whose summary
+  has `navStyle: 'projects'`; use its manifest as the rendering/data contract,
+  but keep `router.currentRoute.fullPath === '/'`.
+- On the landing page for `nav.style:'projects'`, `selectedProjectId` must stay
+  `undefined`. The first registered project may appear inside the Panorama card
+  list, but it must not become the page scope. Per-project pages (`foco-agora`,
+  detail routes, or `?project=`) are the only places that expand/select projects.
