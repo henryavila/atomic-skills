@@ -287,7 +287,7 @@ pages:
         widgets:
           - widget: table
             colSpan: 12
-            source: { ref: plans, filter: { status: [active, paused] } }
+            source: { ref: plans, filter: { status: [active, paused, blocked] } }
             config:
               columns: [title, status, currentPhaseText, nextText, updatedRel]
               columnLabels:
@@ -298,14 +298,29 @@ pages:
                 updatedRel: 'Atualizado'
               linkTo: 'plan/:projectId/:slug'
               linkField: title
-              emptyNote: 'Nenhuma frente viva — veja Concluídos ou rode a skill project.'
+              emptyNote: 'Nenhuma frente aberta — veja Concluídas recentes ou Arquivados.'
+      - title: 'Concluídas recentes'
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: plans, filter: { status: done } }
+            config:
+              columns: [title, status, phasesText, updatedRel]
+              columnLabels:
+                title: 'Frente'
+                status: 'Status'
+                phasesText: 'Fases'
+                updatedRel: 'Atualizado'
+              linkTo: 'plan/:projectId/:slug'
+              linkField: title
+              emptyNote: 'Nenhuma conclusão recente.'
 
   # ── PLAN detail (drill-down, /plan/:projectId/:slug). ────────────────────────
   - slug: plan
     title: 'Detalhe do plano'
     icon: '🌳'
     layout: sections
-    # In the sidebar (após Visão geral, antes de Concluídos), como no design. Opened
+    # In the sidebar (após Visão geral, antes de Arquivados), como no design. Opened
     # from the nav it arrives with no :slug; the record-switcher below self-selects
     # the first live plan (router.replace → /plan/:projectId/:slug) so the page opens
     # populated instead of empty. Also reachable by clicking a plan or via ⌘K.
@@ -453,13 +468,13 @@ pages:
             source: { ref: spi, param: { match: [projectId, { field: planSlug, param: slug }] } }
             config: { fields: [spiProxy, spiCount, deadline, asOf] }
 
-  # ── CONCLUÍDOS (layout: single) — tabela de planos done/archived. ────────────
-  - slug: concluidos
-    title: 'Concluídos'
-    icon: '✅'
+  # ── ARQUIVADOS (layout: single) — histórico frio, sem planos done recentes. ──
+  - slug: arquivados
+    title: 'Arquivados'
+    icon: '🗄️'
     layout: single
     widget: table
-    source: { ref: plans, filter: { status: [done, archived] } }
+    source: { ref: plans, filter: { status: archived } }
     config:
       columns: [title, status, phasesText, updatedRel]
       columnLabels:
@@ -469,7 +484,7 @@ pages:
         updatedRel: 'Atualizado'
       linkTo: 'plan/:projectId/:slug'
       linkField: title
-      emptyNote: 'Nada concluído ainda.'
+      emptyNote: 'Nada arquivado ainda.'
 
   # ── AJUDA (layout: single) — catálogo de skills (master-detail interno).
   # Reached ONLY from the chrome `?` (help: help), not the sidebar: showInNav: false

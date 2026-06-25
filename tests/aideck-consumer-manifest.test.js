@@ -205,7 +205,7 @@ describe('aiDeck consumer manifest — Foco agora fans out per active plan (N≥
   });
 });
 
-describe('aiDeck consumer manifest — design topology (foco-agora · visão-geral · plano folds phase · concluídos)', () => {
+describe('aiDeck consumer manifest — design topology (foco-agora · visão-geral · plano folds phase · arquivados)', () => {
   it('renames planos → visao-geral with a per-project metrics strip + Frentes vivas table', () => {
     assert.ok(page('visao-geral'), 'expected the visao-geral page');
     assert.ok(!page('planos'), 'the old planos slug must be renamed to visao-geral');
@@ -213,6 +213,37 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
     assert.ok(stats.length >= 5, 'visao-geral leads with a per-project stats strip');
     const table = allWidgets(page('visao-geral').sections).find((w) => w.widget === 'table');
     assert.ok(table, 'visao-geral lists the live fronts in a table');
+  });
+
+  it('separates lifecycle views: open work, recent done, and archived history', () => {
+    const forbiddenInOpenFlow = new Set(['done', 'archived']);
+    for (const pageSlug of ['panorama', 'foco-agora']) {
+      for (const w of allWidgets(page(pageSlug).sections)) {
+        for (const sourceKey of ['filter', 'where']) {
+          const status = w.source?.[sourceKey]?.status;
+          const values = Array.isArray(status) ? status : status ? [status] : [];
+          for (const value of values) {
+            assert.ok(
+              !forbiddenInOpenFlow.has(value),
+              `${pageSlug} ${w.widget} ${sourceKey}.status must not include ${value}`,
+            );
+          }
+        }
+      }
+    }
+
+    const liveFronts = section('visao-geral', 'Frentes vivas').widgets.find((w) => w.widget === 'table');
+    assert.deepEqual(liveFronts.source.filter.status, ['active', 'paused', 'blocked']);
+
+    const recentDone = section('visao-geral', 'Concluídas recentes').widgets.find((w) => w.widget === 'table');
+    assert.equal(recentDone.source.ref, 'plans');
+    assert.deepEqual(recentDone.source.filter, { status: 'done' });
+
+    assert.ok(page('arquivados'), 'expected a dedicated Arquivados page');
+    assert.ok(!page('concluidos'), 'Concluídos must be folded into Visão geral, not a standalone mixed page');
+    const archived = page('arquivados');
+    assert.equal(archived.title, 'Arquivados');
+    assert.deepEqual(archived.source.filter, { status: 'archived' });
   });
 
   it('folds the phase/initiative detail INTO the plan page (no standalone phase page)', () => {
