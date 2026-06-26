@@ -7,15 +7,15 @@ status: active
 branch: develop
 started: 2026-06-25T12:55:57Z
 lastUpdated: 2026-06-25T12:55:57Z
-nextAction: "Criar T-001: realinhar labels, filtros e secoes do manifest aiDeck."
+nextAction: "Executar T-001: realinhar labels, filtros e secoes do manifest aiDeck."
 parentPlan: aideck-dashboard-lifecycle-views
 phaseId: F0
 tasksDone: 0
-tasksTotal: 0
+tasksTotal: 1
 gatesMet: 0
 gatesTotal: 1
 weightDone: 0
-weightTotal: 0
+weightTotal: 1
 exitGates:
   - id: G-1
     description: "Panorama, Foco agora, Visao geral e Arquivados exibem estados sem
@@ -32,7 +32,12 @@ stack:
     title: Reorganizar ciclo de vida das telas do dashboard
     type: task
     openedAt: 2026-06-25T12:55:57Z
-tasks: []
+tasks:
+  - id: T-001
+    title: Realinhar labels, filtros e secoes do manifest aiDeck
+    status: pending
+    lastUpdated: 2026-06-25T12:55:57Z
+    summary: Realinha labels, filtros e secoes do manifest aiDeck para o ciclo de vida do dashboard.
 parked: []
 emerged: []
 summary: Reorganiza Panorama, Foco, Visao geral e Arquivados por estado operacional.
