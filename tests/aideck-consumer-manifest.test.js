@@ -149,6 +149,7 @@ describe('aiDeck consumer manifest — Panorama is the cross-project landing', (
     // per-project nested fronts (denormalized via nestedField) link through :projectId
     // — robust across internal-vs-registered project divergence — never the record's
     // internal :id.
+    assert.equal(grid.config.linkTo, 'foco-agora?project=:projectId', 'project cards must enter the registered project scope');
     assert.ok(grid.config.nestedField, 'the project card nests its live fronts');
     assert.ok(
       grid.config.nestedLinkTo && grid.config.nestedLinkTo.includes(':projectId'),
@@ -230,6 +231,17 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
       (w) => w.widget === 'callout' && w.config?.eyebrow === 'PRÓXIMA AÇÃO',
     );
     assert.ok(callout, 'the detail card body folds in the PRÓXIMA AÇÃO callout');
+  });
+
+  it('keeps the plan detail off the sidebar and lets the selector resolve done plans', () => {
+    const planPage = page('plan');
+    assert.equal(planPage.showInNav, false, 'plan detail requires :slug and must not be opened as a generic sidebar page');
+
+    const switcher = allWidgets(planPage.sections).find((w) => w.widget === 'record-switcher');
+    assert.ok(switcher, 'plan detail keeps the record-switcher for changing plans');
+    assert.equal(switcher.source.ref, 'plans');
+    assert.equal(switcher.source.filter, undefined, 'selector must include done/archived plans so the URL and header agree');
+    assert.equal(switcher.config.linkTo, 'plan/:projectId/:slug');
   });
 
   it('opens help via the chrome ? and declares it out of the sidebar (showInNav: false)', () => {
