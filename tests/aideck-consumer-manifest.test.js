@@ -233,9 +233,9 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
     assert.ok(callout, 'the detail card body folds in the PRÓXIMA AÇÃO callout');
   });
 
-  it('keeps the plan detail off the sidebar and lets the selector resolve done plans', () => {
+  it('keeps the plan detail in the sidebar and lets the selector resolve done plans', () => {
     const planPage = page('plan');
-    assert.equal(planPage.showInNav, false, 'plan detail requires :slug and must not be opened as a generic sidebar page');
+    assert.notEqual(planPage.showInNav, false, 'plan detail must remain visible in the project sidebar');
 
     const switcher = allWidgets(planPage.sections).find((w) => w.widget === 'record-switcher');
     assert.ok(switcher, 'plan detail keeps the record-switcher for changing plans');

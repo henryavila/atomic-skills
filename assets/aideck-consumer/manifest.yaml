@@ -305,12 +305,10 @@ pages:
   - slug: plan
     title: 'Detalhe do plano'
     icon: '🌳'
-    showInNav: false
     layout: sections
-    # Detail page only: it requires /plan/:projectId/:slug. It stays out of the
-    # sidebar because a generic /plan?project=... URL has no selected plan and would
-    # force the record-switcher to pick a different plan than the operator intended.
-    # Reach it by clicking a plan/front row, Concluídos, or via ⌘K.
+    # Detail page: project-sidebar entry opens /plan?project=..., while plan/front
+    # rows, Concluídos and ⌘K deep-link to /plan/:projectId/:slug. The switcher
+    # owns the selected plan and can resolve live, done and archived records.
     sections:
       # ── Title row = the plan selector. record-switcher renders the plan title
       # AND switches between the live plans (selection navigates). No separate

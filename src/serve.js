@@ -244,6 +244,20 @@ export function deriveProjectId(rootDir) {
 }
 
 /**
+ * Resolve the project id atomic-skills should register with aiDeck. In the
+ * nested layout the folder under `.atomic-skills/projects/<id>/` is the
+ * canonical project id; the cwd basename is only a fallback for flat/legacy
+ * trees. This matters in plan worktrees: the worktree directory can be named
+ * after the plan (`plan-dependencies`) while the actual project is
+ * `atomic-skills`.
+ */
+export function resolveRegisteredProjectId(rootDir) {
+  const projects = listProjects(join(rootDir, '.atomic-skills'))
+  if (projects.length === 1) return projects[0].projectId
+  return deriveProjectId(rootDir)
+}
+
+/**
  * Enumerate the projects present on disk under the nested layout
  * `<stateRoot>/projects/<projectId>/<planSlug>/plan.md`. The folder name IS the
  * projectId (Decision #9 / R-ORCH-26) — this on-disk enumeration is the source
@@ -278,6 +292,52 @@ export function listProjects(stateRoot = '.atomic-skills') {
   return out
 }
 
+function sameResolvedPath(a, b) {
+  try {
+    return resolve(a) === resolve(b)
+  } catch {
+    return false
+  }
+}
+
+async function postProjectRegistration(baseUrl, rootDir, projectId) {
+  const res = await fetch(`${baseUrl}/api/projects/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rootDir, projectId })
+  })
+  if (res.status === 404) return { status: 'unsupported' }
+  if (!res.ok) return { status: 'failed' }
+
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    // Older compatible builds may return no useful body; a 2xx is enough there.
+  }
+  return { status: 'ok', project: body?.project ?? null }
+}
+
+async function ensureProjectRegistration(baseUrl, rootDir) {
+  const projectId = resolveRegisteredProjectId(rootDir)
+  const first = await postProjectRegistration(baseUrl, rootDir, projectId)
+  if (first.status !== 'ok') return first.status
+
+  const registered = first.project?.projectId
+  if (!registered || registered === projectId) return 'ok'
+
+  const registeredRoot = first.project?.rootDir
+  if (!registeredRoot || !sameResolvedPath(registeredRoot, rootDir)) return 'failed'
+
+  const del = await fetch(`${baseUrl}/api/projects/${encodeURIComponent(registered)}`, { method: 'DELETE' })
+  if (!del.ok && del.status !== 404) return 'failed'
+
+  const second = await postProjectRegistration(baseUrl, rootDir, projectId)
+  if (second.status !== 'ok') return second.status
+  const secondId = second.project?.projectId
+  return !secondId || secondId === projectId ? 'ok' : 'failed'
+}
+
 /**
  * Idempotent "ensure aiDeck is running". If already healthy, returns the URL.
  * If running with a different rootDir, registers this project instead of
@@ -301,21 +361,12 @@ export async function ensureAideck(opts = {}) {
         if (body?.service === 'aideck') {
           // Always register so this project appears in /api/projects,
           // even when the server was originally started from this rootDir.
-          const projectId = deriveProjectId(cwd)
-          try {
-            const regRes = await fetch(`${existingUrl}/api/projects/register`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ rootDir: cwd, projectId })
-            })
-            if (regRes.ok) {
-              return existingUrl
-            }
-          } catch { /* registration failed */ }
+          const registration = await ensureProjectRegistration(existingUrl, cwd)
+          if (registration === 'ok') return existingUrl
 
           // Registration endpoint not available (old aideck) and rootDir
           // matches — still usable as-is.
-          if (!body.rootDir || body.rootDir === cwd) return existingUrl
+          if (registration === 'unsupported' && (!body.rootDir || body.rootDir === cwd)) return existingUrl
 
           // rootDir mismatch + old aideck without /api/projects — restart
           process.stderr.write(
@@ -367,15 +418,8 @@ export async function ensureAideck(opts = {}) {
         const res = await fetch(`${url}/api/health`)
         if (res.ok) {
           // Register this project with the freshly started server
-          const projectId = deriveProjectId(cwd)
-          try {
-            await fetch(`${url}/api/projects/register`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ rootDir: cwd, projectId })
-            })
-          } catch { /* best effort */ }
-          return url
+          const registration = await ensureProjectRegistration(url, cwd)
+          if (registration === 'ok' || registration === 'unsupported') return url
         }
       } catch { /* not ready yet */ }
     }

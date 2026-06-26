@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -198,7 +198,113 @@ describe('ensureAideck dashboard state freshness', () => {
 
       execFileSync(process.execPath, ['--input-type=module', '-e', child], {
         cwd: join(import.meta.dirname, '..'),
-        env: { ...process.env, HOME: home, TEST_REPO: repo },
+        env: { ...process.env, HOME: home, TEST_REPO: realpathSync(repo) },
+        encoding: 'utf8',
+      })
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+      rmSync(repo, { recursive: true, force: true })
+    }
+  })
+
+  it('uses the single nested project folder as the registered project id', () => {
+    const home = mkdtempSync(join(tmpdir(), 'as-serve-home-'))
+    const repo = mkdtempSync(join(tmpdir(), 'as-serve-repo-'))
+    try {
+      const planDir = join(repo, '.atomic-skills', 'projects', 'demo', 'plan-a')
+      mkdirSync(join(planDir, 'phases'), { recursive: true })
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        '---\nslug: plan-a\ntitle: Plan A\nstatus: active\ncurrentPhase: F0\nphases:\n  - id: F0\n    title: Phase 0\n    status: active\n---\n',
+      )
+
+      const child = `
+        import { mkdirSync, writeFileSync } from 'node:fs';
+        import { join } from 'node:path';
+        const repo = process.env.TEST_REPO;
+        const registeredProjectIds = [];
+        mkdirSync(join(process.env.HOME, '.atomic-skills'), { recursive: true });
+        writeFileSync(join(process.env.HOME, '.atomic-skills', 'env'), "export AS_DASHBOARD_URL='http://127.0.0.1:7777'\\n");
+        globalThis.fetch = async (url, init = {}) => {
+          const href = String(url);
+          if (href.endsWith('/api/health')) {
+            return new Response(JSON.stringify({ service: 'aideck' }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          if (href.endsWith('/api/projects/register')) {
+            const body = JSON.parse(init.body);
+            registeredProjectIds.push(body.projectId);
+            if (body.rootDir !== repo) throw new Error('registered wrong rootDir: ' + body.rootDir);
+            return new Response(JSON.stringify({ schemaVersion: '0.1', project: { projectId: body.projectId, rootDir: repo } }), { status: 201, headers: { 'content-type': 'application/json' } });
+          }
+          return new Response(JSON.stringify({}), { status: 404, headers: { 'content-type': 'application/json' } });
+        };
+        const { ensureAideck } = await import('./src/serve.js');
+        process.chdir(repo);
+        const url = await ensureAideck({ timeoutMs: 500 });
+        if (url !== 'http://127.0.0.1:7777') throw new Error('unexpected url: ' + url);
+        if (registeredProjectIds.join(',') !== 'demo') throw new Error('registered wrong projectIds: ' + registeredProjectIds.join(','));
+      `
+
+      execFileSync(process.execPath, ['--input-type=module', '-e', child], {
+        cwd: join(import.meta.dirname, '..'),
+        env: { ...process.env, HOME: home, TEST_REPO: realpathSync(repo) },
+        encoding: 'utf8',
+      })
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+      rmSync(repo, { recursive: true, force: true })
+    }
+  })
+
+  it('replaces an existing basename registration for the same rootDir', () => {
+    const home = mkdtempSync(join(tmpdir(), 'as-serve-home-'))
+    const repo = mkdtempSync(join(tmpdir(), 'as-serve-repo-'))
+    try {
+      const planDir = join(repo, '.atomic-skills', 'projects', 'demo', 'plan-a')
+      mkdirSync(join(planDir, 'phases'), { recursive: true })
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        '---\nslug: plan-a\ntitle: Plan A\nstatus: active\ncurrentPhase: F0\nphases:\n  - id: F0\n    title: Phase 0\n    status: active\n---\n',
+      )
+
+      const child = `
+        import { mkdirSync, writeFileSync } from 'node:fs';
+        import { join } from 'node:path';
+        const repo = process.env.TEST_REPO;
+        let registerCalls = 0;
+        let deleteCalls = 0;
+        mkdirSync(join(process.env.HOME, '.atomic-skills'), { recursive: true });
+        writeFileSync(join(process.env.HOME, '.atomic-skills', 'env'), "export AS_DASHBOARD_URL='http://127.0.0.1:7777'\\n");
+        globalThis.fetch = async (url, init = {}) => {
+          const href = String(url);
+          if (href.endsWith('/api/health')) {
+            return new Response(JSON.stringify({ service: 'aideck' }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          if (href.endsWith('/api/projects/register')) {
+            registerCalls++;
+            const body = JSON.parse(init.body);
+            if (body.projectId !== 'demo') throw new Error('registered wrong projectId: ' + body.projectId);
+            const projectId = registerCalls === 1 ? 'plan-dependencies' : 'demo';
+            const status = registerCalls === 1 ? 200 : 201;
+            return new Response(JSON.stringify({ schemaVersion: '0.1', project: { projectId, rootDir: repo } }), { status, headers: { 'content-type': 'application/json' } });
+          }
+          if (href.endsWith('/api/projects/plan-dependencies') && init.method === 'DELETE') {
+            deleteCalls++;
+            return new Response(JSON.stringify({ schemaVersion: '0.1', status: 'unregistered' }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          return new Response(JSON.stringify({}), { status: 404, headers: { 'content-type': 'application/json' } });
+        };
+        const { ensureAideck } = await import('./src/serve.js');
+        process.chdir(repo);
+        const url = await ensureAideck({ timeoutMs: 500 });
+        if (url !== 'http://127.0.0.1:7777') throw new Error('unexpected url: ' + url);
+        if (registerCalls !== 2) throw new Error('expected two register calls, saw ' + registerCalls);
+        if (deleteCalls !== 1) throw new Error('expected one delete call, saw ' + deleteCalls);
+      `
+
+      execFileSync(process.execPath, ['--input-type=module', '-e', child], {
+        cwd: join(import.meta.dirname, '..'),
+        env: { ...process.env, HOME: home, TEST_REPO: realpathSync(repo) },
         encoding: 'utf8',
       })
     } finally {
