@@ -271,6 +271,20 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const start = content.indexOf('**Stage 8c — Receipt gate');
+    const end = content.indexOf('### Stage 9');
+    const stage8c = content.slice(start, end);
+    assert.ok(start >= 0 && end > start, 'Stage 8c block must be present');
+    assert.match(stage8c, /PLAN_PATH="\.atomic-skills\/projects\/<projectId>\/<planSlug>\/plan\.md"/);
+    assert.match(stage8c, /find-unreviewed-plans\.js" "\$PLAN_PATH"/);
+    assert.doesNotMatch(stage8c, /find-unreviewed-plans\.js" \.atomic-skills/);
+    assert.match(stage8c, /only the newly materialized plan/i);
+    assert.match(stage8c, /`project verify`/);
+  });
+
   it('project-create-plan references templates via ASSETS_PATH (no raw skills/shared path)', () => {
     install();
     const content = readAsset('project-create-plan.md');
@@ -403,6 +417,16 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Plan archival/i);
     assert.match(content, /Plan switch/i);
     assert.match(content, /propagate/i);
+  });
+
+  it('project-transitions requires explicit-path microcommits at task and phase checkpoints', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    assert.match(content, /Microcommit checkpoints/);
+    assert.match(content, /rtk git add <explicit-paths>/);
+    assert.match(content, /rtk git commit -m "chore\(project\): checkpoint <plan> <phase> <task-id>"/);
+    assert.match(content, /rtk git commit -m "chore\(project\): advance <plan> <phase>"/);
+    assert.match(content, /Never use `git add \.` or `git add -A`/);
   });
 
   it('verifier execution patterns live in verifier-exec.md (single source), project-transitions points to it', () => {

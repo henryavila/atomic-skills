@@ -1,24 +1,26 @@
-Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). You read the materialized Tasks `project` produced (each already carrying exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted), code them one at a time, and close each only through verify-on-done. Durable `.atomic-skills/` state is the snapshot; the `## Session handoff` block is how the next session resumes.
+Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). You read the materialized Tasks `project` produced (each already carrying exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted), code them one at a time, and close each only through verify-on-done. Microcommits anchor the recovered tree; durable `.atomic-skills/` state plus the `## Session handoff` block is how the next session resumes.
 
 If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected.
 
 ## Iron Law
 
 CODING STAYS SINGLE-THREADED.
+MICROCOMMITS ARE THE SNAPSHOT.
 
-One writer touches the working tree at a time — never two concurrent agents editing files in the same tree. Subagents are for read-only investigation, never parallel coding. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor never self-certifies.
+One writer touches the working tree at a time — never two concurrent agents editing files in the same tree. Subagents are for read-only investigation, never parallel coding. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor never self-certifies. After every verified task close, create explicit-path microcommits for the implementation diff and the project-state close diff; a handoff over dirty task-owned work is an emergency note, not a checkpoint.
 
 <HARD-GATE>
 If you are about to mark a task `done` because it *looks* finished, without running its verifier through `verify-claim` / the verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.
+If a verified task changed files and you are about to continue without committing those exact paths: STOP. Run `git diff --name-only`, classify the paths, then use {{BASH_TOOL}} with `rtk git add <explicit-paths>` and a microcommit. Never use `git add .` or `git add -A`.
 If you are RESUMING and `git status` is dirty/stale OR the `## Session handoff` block has an unfilled `TODO`/`REPLACE_*` placeholder: STOP. Refuse to execute. Surface the missing pieces and resolve them (commit/stash, fill the handoff) before any task runs — a resume over an inconsistent snapshot corrupts the work.
 If you are about to dispatch a read-only subagent or hand off a token-heavy read: STOP and write the snapshot FIRST (the handoff is the pre-dispatch checkpoint).
 </HARD-GATE>
 
 ## Mindset
 
-This is an **execution driver, not an orchestrator** — call it that so no one expects concurrency that single-threaded coding will never use. It is a serial loop with durable checkpoints: code a task, verify it, snapshot, repeat. The value is not speed; it is that the work is always recoverable from `.atomic-skills/` state and that no task closes on a claim instead of a fact.
+This is an **execution driver, not an orchestrator** — call it that so no one expects concurrency that single-threaded coding will never use. It is a serial loop with durable checkpoints: code a task, verify it, commit it, close it, commit the state, repeat. The value is not speed; it is that the work is always recoverable from git plus `.atomic-skills/` state and that no task closes on a claim instead of a fact.
 
-The snapshot trigger is **event-driven, never a self-measured context gauge.** You cannot read your own remaining context window — the number is fabricated and the loss is silent (the host meter, where one exists, is advisory only). So you snapshot on *events* you can observe: after each task closes, before each subagent dispatch, at every phase boundary, and on request. That cadence — not a "I'm at 60%" guess — is what keeps the handoff fresh.
+The snapshot trigger is **event-driven, never a self-measured context gauge.** You cannot read your own remaining context window — the number is fabricated and the loss is silent (the host meter, where one exists, is advisory only). So you snapshot on *events* you can observe: after each task closes, before each subagent dispatch, at every phase boundary, and on request. A snapshot means a microcommit plus a refreshed handoff. A handoff that records dirty files is a crash report, not a successful checkpoint.
 
 ## Process
 
@@ -56,12 +58,14 @@ For the chosen task, in this order:
 2. **Distill heavy reads (optional).** If understanding the change requires reading a large surface, delegate that READ to a read-only {{INVESTIGATOR_TOOL}} subagent that returns a distilled ≤1–2k-token summary — **write the snapshot BEFORE dispatching** (the dispatch order is always: snapshot, then dispatch). The subagent reads; you write. It never edits files.
 3. **Code the change.** Make the minimum edit that satisfies `acceptance[]`, single-threaded, within scope. Test-first where it drives the design (the discipline lives in `atomic-skills:fix`).
 4. **Verify before claiming done.** Run the task's deterministic verifier through `atomic-skills:verify-claim` (which delegates to the canonical Verifier execution patterns in `{{ASSETS_PATH}}/project-transitions.md`). PASS requires the real run: the exit code matches the verifier's expectation (default 0) AND, for `kind: test`, `testsCollected > 0`. A FAIL routes to `atomic-skills:fix` — whose root-cause + boundary-instrumentation discipline draws on `skills/shared/debug-techniques.md` (§1 root-cause tracing, §2 boundary instrumentation when the failure spans modules) — or to the user; never to done.
-5. **Close it.** On a verified PASS, run `done <task-id>` (`{{ASSETS_PATH}}/project-transitions.md`), which writes the evidence and detects the phase transition. `validate-state` (GATE-R2) then re-enforces that a `done` task with a deterministic verifier carries passing evidence.
-6. **Snapshot.** Write/refresh the `## Session handoff` block (below). This is the after-each-task cadence event.
+5. **Commit the implementation diff.** Run {{BASH_TOOL}}: `rtk git diff --name-only`, classify every changed path, and stage only the paths that belong to this task with `rtk git add <explicit-paths>`. Never use `git add .` or `git add -A`; if unrelated dirty files exist, leave them unstaged and report them in the handoff. Commit with a task-scoped subject such as `rtk git commit -m "feat(T-NNN): <summary>"` (or `fix`/`docs`/`test` when that is the real change type). If the task changed only project state, skip this implementation commit and say why in the handoff.
+6. **Close it.** On a verified PASS and committed implementation diff, run `done <task-id>` (`{{ASSETS_PATH}}/project-transitions.md`), which writes the evidence and detects the phase transition. `validate-state` (GATE-R2) then re-enforces that a `done` task with a deterministic verifier carries passing evidence.
+7. **Commit the project-state close diff.** Stage the exact `.atomic-skills/` files and generated tracked files written by `done`, then run {{BASH_TOOL}}: `rtk git commit -m "chore(project): close <task-id>"`. Keep this separate from the implementation commit so state-close regressions are traceable.
+8. **Snapshot.** Write/refresh the `## Session handoff` block (below). This is the after-each-task cadence event and should normally record a clean tree except for explicitly unrelated pre-existing files.
 
 ### Step 3 — Phase boundary
 
-When the last task of the phase closes, `done` announces the phase transition. Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, and advances the plan. Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule).
+When the last task of the phase closes, `done` announces the phase transition. Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint. Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule).
 
 **Session cut-over (advisory, v1).** At a phase boundary, if the next pending task is structurally unrelated to the recent working set, you MAY recommend writing the handoff and starting a fresh session (a tightly-scoped fresh context beats a large stale one). This is advisory only — see `docs/design/project-orchestrator/06-session-boundary-and-telemetry.md` (F-E1). It never forces a cut, and it never reads a self-reported context-%.
 
@@ -75,10 +79,20 @@ The handoff lives in the active initiative body (durable `.atomic-skills/` state
 - **Decision log:** the load-bearing choices made this session and why (so the next session does not re-litigate them).
 - **Single nextAction:** ONE concrete next step (e.g. "Run `done T-004`, then start T-005 in src/foo.js"). Exactly one — not a list.
 - **Verbatim state:** the exact paths, commands, and error text in play — pasted, not summarized. `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/...`, the failing assertion, the file:line.
-- **Uncommitted changes:** the `git status --porcelain` list at snapshot time (or "clean tree").
+- **Uncommitted changes:** the `git status --porcelain` list at snapshot time. Expected value after a healthy task close is "clean tree" or explicitly unrelated pre-existing files; task-owned dirty files mean the microcommit checkpoint was skipped and must be fixed before continuing.
 ```
 
 `resume` reads this block and refuses if the tree is dirty/stale or any field is an unfilled placeholder (Step 0). A self-sufficient handoff is the entire cost of a cheap resume — the next session re-orients from it, not from a cold investigation.
+
+## Microcommit discipline
+
+Microcommits are part of the execution loop, not an end-of-session cleanup. The smallest healthy unit is:
+
+1. Implementation commit after verifier PASS: {{BASH_TOOL}} `rtk git add <explicit-paths>` then `rtk git commit -m "feat(T-NNN): <summary>"`.
+2. State close commit after `done <task-id>`: {{BASH_TOOL}} `rtk git add <explicit-state-paths>` then `rtk git commit -m "chore(project): close <task-id>"`.
+3. Phase boundary commit after `phase-done`: {{BASH_TOOL}} `rtk git add <explicit-state-paths>` then `rtk git commit -m "chore(project): advance <plan> <phase>"`.
+
+Never use `git add .` or `git add -A`. If a formatter or generator changes additional files, classify them into the relevant microcommit or stop and explain why they are unrelated.
 
 ## Heavy reads via subagents (snapshot-before-dispatch)
 
@@ -99,7 +113,7 @@ When the Codex lane is on, Mode 2 hands spec-ready, independently-verifiable exe
 
 ## Degraded mode (folds `executing-plans`)
 
-When there is no plan structure to drive — a loose checklist, a one-off change, or a plan whose tasks lack admitted verifiers — implement degrades to a single disciplined inline loop: do one item, verify it with the cheapest real check available, snapshot, next. No tiering, no worktrees, no Mode 2. This is the absorbed `executing-plans` behavior: the same single-threaded code→verify→snapshot rhythm without the lifecycle scaffolding. It never invents the missing spec; if a task needs a verifier it does not have, surface that gap rather than closing the task on a claim.
+When there is no plan structure to drive — a loose checklist, a one-off change, or a plan whose tasks lack admitted verifiers — implement degrades to a single disciplined inline loop: do one item, verify it with the cheapest real check available, microcommit it, snapshot, next. No tiering, no worktrees, no Mode 2. This is the absorbed `executing-plans` behavior: the same single-threaded code→verify→commit→snapshot rhythm without the lifecycle scaffolding. It never invents the missing spec; if a task needs a verifier it does not have, surface that gap rather than closing the task on a claim.
 
 ## Cross-agent note
 

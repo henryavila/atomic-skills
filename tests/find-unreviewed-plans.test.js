@@ -120,3 +120,46 @@ test('findUnreviewedPlans: reports each unreviewed plan across multiple projects
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('findUnreviewedPlans: scoped plan file reports that plan even when the tree is not scanned', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-unrev-scoped-file-'));
+  try {
+    const planDir = nestedPlan(root, 'mesh-identify', 'new-plan', NO_REVIEWS);
+    const report = findUnreviewedPlans(join(planDir, 'plan.md'));
+    assert.equal(report.length, 1);
+    assert.equal(report[0].projectId, 'mesh-identify');
+    assert.equal(report[0].planSlug, 'new-plan');
+    assert.equal(report[0].planFile, 'plan.md');
+    assert.equal(report[0].reason, 'no-reviews-section');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('findUnreviewedPlans: scoped reviewed plan passes despite an unreviewed legacy sibling in the global tree', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-unrev-scoped-clean-'));
+  try {
+    const reviewedDir = nestedPlan(root, 'mesh-identify', 'new-plan', REVIEWS_OK);
+    const flat = join(root, '.atomic-skills', 'plans');
+    mkdirSync(flat, { recursive: true });
+    writePlan(join(flat, 'mesh-restructure.md'), { schemaVersion: '0.1', slug: 'mesh-restructure', title: 'legacy', status: 'active' }, NO_REVIEWS);
+
+    assert.equal(findUnreviewedPlans(root).length, 1, 'global verify still surfaces the legacy plan');
+    assert.deepEqual(findUnreviewedPlans(join(reviewedDir, 'plan.md')), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('findUnreviewedPlans: scoped plan directory checks its own plan.md only', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-unrev-scoped-dir-'));
+  try {
+    const planDir = nestedPlan(root, 'mesh-identify', 'new-plan', NO_REVIEWS);
+    nestedPlan(root, 'mesh-identify', 'reviewed-sibling', REVIEWS_OK);
+    const report = findUnreviewedPlans(planDir);
+    assert.equal(report.length, 1);
+    assert.equal(report[0].planSlug, 'new-plan');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

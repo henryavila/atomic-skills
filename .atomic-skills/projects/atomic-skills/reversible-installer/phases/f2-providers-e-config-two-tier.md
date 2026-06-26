@@ -18,11 +18,11 @@ nextAction: "FECHADA (reconciliada no phase-done de F3, 2026-06-19).
   runtime-layer está provada no pacote + test/runtime-layers/."
 parentPlan: reversible-installer
 phaseId: F2
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 1
 gatesTotal: 2
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -73,8 +73,19 @@ stack:
 tasks:
   - id: T-001
     title: defineInstaller (config two-tier)
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-19T20:05:00.000Z
+    closedAt: 2026-06-19T20:05:00.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-19T20:05:00.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 62
+      outputSummary: "Reconciliado no phase-done de F3: fase-ponteiro com 100%
+        do contrato Provider + Driver + config two-tier implementado no repo do
+        pacote @henryavila/tooling-installer; suíte do pacote 62/62. A task
+        defineInstaller pertence a esse contrato package-first."
     summary: defineInstaller resolve config two-tier, rejeita runtime layer sem
       apply/revert, namespace parametrizável.
     description: Aceita dados declarativos (namespace, ides, variables,
@@ -92,8 +103,19 @@ tasks:
       pattern: test/define-installer.test.js
   - id: T-002
     title: SkillsProvider (porta IDE matrix, render e catálogo)
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-19T20:05:00.000Z
+    closedAt: 2026-06-19T20:05:00.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-19T20:05:00.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 3
+      outputSummary: "node --test test/providers/skills-provider.test.js → 3/3
+        (exit 0). O SkillsProvider planeja o file set de skills
+        (reconcileFileSet) reproduzindo paths/conteúdo de installSkills
+        byte-a-byte. Reconciliado no phase-done de F3."
     summary: SkillsProvider emite efeitos de arquivo do catálogo, render multi-IDE,
       COMM_LANG opt-out.
     description: Encapsula src/config.js:5-55 (IDE matrix), src/render.js:37-97
@@ -112,8 +134,22 @@ tasks:
       pattern: test/providers/skills-provider.test.js
   - id: T-003
     title: API de registro de runtime layer
-    status: pending
-    lastUpdated: 2026-06-17T15:20:11.565Z
+    status: done
+    lastUpdated: 2026-06-19T20:05:00.000Z
+    closedAt: 2026-06-19T20:05:00.000Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-19T20:05:00.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 62
+      outputSummary: "Reconciliado no phase-done de F3: a capacidade de um
+        runtime layer registrar+reverter um efeito novo sem reabrir o kernel
+        está provada no pacote @henryavila/tooling-installer (suíte 62/62) e no
+        consumidor via test/runtime-layers/atomic-skills.test.js
+        (stageRuntimeArtifacts custom effect 3/3). O gate G-2 da initiative
+        permanece deferred porque o verifier antigo test/kernel/runtime-layer.test.js
+        foi removido no flip de F3."
     summary: API de registro p/ runtime layer declarar um tipo de efeito novo com
       fixtures.
     description: Formaliza como um runtime layer (F3) declara um tipo de efeito

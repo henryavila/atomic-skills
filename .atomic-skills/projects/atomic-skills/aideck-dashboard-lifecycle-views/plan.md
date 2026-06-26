@@ -5,7 +5,7 @@ title: Reorganizar ciclo de vida das telas do dashboard
 version: "1.0"
 status: done
 started: 2026-06-25T12:55:57Z
-lastUpdated: 2026-06-26T16:55:14Z
+lastUpdated: 2026-06-25T15:14:56Z
 branch: develop
 currentPhase: F0
 parallelismAllowed: false
@@ -25,19 +25,26 @@ phases:
             fluxo aberto; done aparece em Visao geral; archived aparece apenas
             em Arquivados."
           status: met
-          metAt: 2026-06-26T16:55:14Z
+          metAt: 2026-06-25T15:14:56Z
           verifier:
             kind: manual
             description: Validar no dashboard aiDeck com o projeto atomic-skills.
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-25T15:14:56Z
+            passed: true
+            outputSummary: "Live aiDeck http://127.0.0.1:7777 exposes pages:
+              panorama:Panorama,foco-agora:Foco agora,visao-geral:Visão
+              geral,plan:Detalhe do plano,arquivados:Arquivados,help:Ajuda; npm
+              run verify:aideck:smoke passed 6 data routes, 0 failed."
     status: done
     reviewGate:
       status: passed
-      at: b5f78be65e49b5ae3668d66924e6892f7ac31b92
-      mode: both
-      reviewFile: .atomic-skills/reviews/2026-06-26-1825-aideck-lifecycle-g1.md
-      verifiedAt: 2026-06-26T18:25:33Z
+      mode: local
+      at: 962bce8a08e0f9ad9659b7c3c7586c6a8863ad10+working-tree
+      reviewFile: .atomic-skills/reviews/2026-06-25-aideck-dashboard-lifecycle-views-f0.md
+      verifiedAt: 2026-06-25T15:18:49Z
     summary: Reorganiza Panorama, Foco, Visao geral e Arquivados por estado operacional.
-planActive: false
 planTitle: Reorganizar ciclo de vida das telas do dashboard
 ---
 

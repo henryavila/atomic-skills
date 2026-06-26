@@ -64,6 +64,18 @@ P1/F2/T-004 generating P2 renders `Surgiu de P1 · F2/T-004`; P2 enters
 `Bloqueado` only when `dependsOnPlans[]` also names P1 as its prerequisite.
 Without that edge, the lineage row never blocks execution.
 
+## Microcommit checkpoints
+
+Every mutating transition that closes a task or advances a phase ends with an explicit-path git checkpoint. Run these via {{BASH_TOOL}} and keep unrelated dirty files unstaged:
+
+- Inspect first: `rtk git status --short` and `rtk git diff --name-only`.
+- Stage only the files written by the transition: `rtk git add <explicit-paths>`.
+- For a single task close, commit the state checkpoint as `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`.
+- For a phase boundary, split logical checkpoints when the diff is large (review gate, lessons, archive move, next-phase activation), with the final advance commit shaped as `rtk git commit -m "chore(project): advance <plan> <phase>"`.
+
+Never use `git add .` or `git add -A`. If `git diff --name-only` includes paths that do not belong to the current transition, leave them unstaged and report them in the `## Session handoff` block instead of sweeping them into the checkpoint.
+
+
 ## Stack frames: `push` / `pop`
 
 ### `push <description>`
@@ -97,11 +109,12 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.
 3. Emit exactly one completion event for the closed task via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })` (or `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/append-completion.js" --event task-done --project <projectId> --plan <planSlug> --phase <phaseId> --task <taskId>`). Carry the task's `projectId`, `planSlug`, `phaseId`, and `taskId`; leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
 4. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` + per-gate `verifierLabel`/`evidenceSummary` — see § Dashboard rollups & focus markers below) by running `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (the one-pass aggregator: rollups + focus markers + the `focus.json` digest), then save the initiative file. Running refresh-state here is what keeps the statusline digest from drifting after a close.
-5. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
+5. **Microcommit checkpoint**: inspect the transition diff, stage only the task-close state paths, and run {{BASH_TOOL}} with `rtk git add <explicit-paths>` followed by `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. If unrelated dirty files pre-existed, leave them unstaged and name them in the announcement.
+6. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
    - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
    - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
    - Do NOT automatically run `phase-done` or `archive` — the user opts in (intrusive-actions rule).
-6. Announce the task closure.
+7. Announce the task closure and the checkpoint commit sha.
 
 If the closing task has a non-empty `verifier:`, see **Per-task verifiers** below first.
 
@@ -156,9 +169,11 @@ Invoked when the active initiative is the phase initiative of an active plan AND
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
    - For each newly-active phase id, propose `atomic-skills:project new initiative <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new initiative` flow already seeds the initiative's first stack frame from `initiative.template.md`.
    - Save the plan + PROJECT-STATUS.md.
+   - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
 9. On user decline (or `plan-done` accept without `currentPhase` change):
    - **Propagate completion to the initiative** (same steps 8a-d above).
    - Set the parent plan's phase `status: done` and stop without seeding a successor.
+   - **Microcommit checkpoint**: stage explicit paths only and commit the no-successor close as `rtk git commit -m "chore(project): advance <plan> <phase>"`.
 
 ### Self-review against gates (at phase-done)
 
