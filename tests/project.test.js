@@ -419,6 +419,16 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /propagate/i);
   });
 
+  it('project-transitions requires explicit-path microcommits at task and phase checkpoints', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    assert.match(content, /Microcommit checkpoints/);
+    assert.match(content, /rtk git add <explicit-paths>/);
+    assert.match(content, /rtk git commit -m "chore\(project\): checkpoint <plan> <phase> <task-id>"/);
+    assert.match(content, /rtk git commit -m "chore\(project\): advance <plan> <phase>"/);
+    assert.match(content, /Never use `git add \.` or `git add -A`/);
+  });
+
   it('verifier execution patterns live in verifier-exec.md (single source), project-transitions points to it', () => {
     install();
     // T1.4 extracted the Verifier execution patterns to verifier-exec.md as the
