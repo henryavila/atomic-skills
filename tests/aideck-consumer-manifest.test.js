@@ -430,3 +430,42 @@ describe('aiDeck consumer manifest — Ritmo (burn-up / SPI render, F5)', () => 
     }
   });
 });
+
+describe('aiDeck consumer manifest — lifecycle separation (initiative aideck-dashboard-lifecycle-views, gate G-1)', () => {
+  // G-1: "Panorama, Foco agora, Visão geral e Arquivados exibem estados sem
+  // duplicar listas operacionais: ativos/pausadas/travados ficam no fluxo aberto;
+  // done aparece em Visão geral; archived aparece APENAS em Arquivados." The old
+  // `concluidos` page mixed [done, archived] in one list — this gate splits them.
+  it('exposes a dedicated Arquivados page that lists ONLY archived fronts', () => {
+    const arq = page('arquivados');
+    assert.ok(arq, 'G-1 names an Arquivados view — expected the arquivados page');
+    const tbl = allWidgets(arq).find((w) => w.widget === 'table');
+    assert.ok(tbl, 'Arquivados renders a table of archived fronts');
+    assert.equal(tbl.source.filter.status, 'archived', 'Arquivados must show archived fronts only');
+  });
+
+  it('retires the concluidos page that combined done+archived into one list', () => {
+    assert.ok(!page('concluidos'), 'concluidos mixed [done, archived]; G-1 splits done→Visão geral, archived→Arquivados');
+  });
+
+  it('surfaces done fronts in Visão geral (recently completed, separate from archived)', () => {
+    const doneTable = allWidgets(page('visao-geral').sections).find(
+      (w) => w.widget === 'table' && w.source?.filter?.status === 'done',
+    );
+    assert.ok(doneTable, 'done fronts must appear in Visão geral (G-1: "done aparece em Visão geral")');
+  });
+
+  it('keeps archived isolated to Arquivados — no other list duplicates it', () => {
+    // G-1: "archived aparece APENAS em Arquivados". A selector (the plan switcher)
+    // carries no status filter so it is not a "list"; only filtered lists count.
+    const offenders = [];
+    for (const p of manifest.pages) {
+      for (const w of allWidgets(p)) {
+        const s = w.source?.filter?.status;
+        const hasArchived = Array.isArray(s) ? s.includes('archived') : s === 'archived';
+        if (hasArchived && p.slug !== 'arquivados') offenders.push(`${p.slug}/${w.widget}`);
+      }
+    }
+    assert.equal(offenders.length, 0, `archived duplicated outside Arquivados: ${offenders.join(', ')}`);
+  });
+});

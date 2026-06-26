@@ -299,7 +299,24 @@ pages:
                 updatedRel: 'Atualizado'
               linkTo: 'plan/:projectId/:slug'
               linkField: title
-              emptyNote: 'Nenhuma frente viva — veja Concluídos ou rode a skill project.'
+              emptyNote: 'Nenhuma frente viva — veja Arquivados ou rode a skill project.'
+      # Concluídas recentemente — done aparece em Visão geral (G-1), separado do
+      # arquivo frio (archived → página Arquivados dedicada). Histórico morno.
+      - title: 'Concluídas recentemente'
+        subtitle: 'frentes finalizadas — histórico morno antes do arquivo'
+        widgets:
+          - widget: table
+            colSpan: 12
+            source: { ref: plans, filter: { status: done } }
+            config:
+              columns: [title, phasesText, updatedRel]
+              columnLabels:
+                title: 'Frente'
+                phasesText: 'Fases'
+                updatedRel: 'Concluído'
+              linkTo: 'plan/:projectId/:slug'
+              linkField: title
+              emptyNote: 'Nenhuma frente concluída ainda.'
 
   # ── PLAN detail (drill-down, /plan/:projectId/:slug). ────────────────────────
   - slug: plan
@@ -549,23 +566,23 @@ pages:
             source: { ref: spi, param: { match: [projectId, { field: planSlug, param: slug }] } }
             config: { fields: [spiProxy, spiCount, deadline, asOf] }
 
-  # ── CONCLUÍDOS (layout: single) — tabela de planos done/archived. ────────────
-  - slug: concluidos
-    title: 'Concluídos'
-    icon: '✅'
+  # ── ARQUIVADOS (layout: single) — histórico frio: planos archived APENAS aqui.
+  # G-1: archived aparece apenas em Arquivados (done foi para Visão geral).
+  - slug: arquivados
+    title: 'Arquivados'
+    icon: '🗄️'
     layout: single
     widget: table
-    source: { ref: plans, filter: { status: [done, archived] } }
+    source: { ref: plans, filter: { status: archived } }
     config:
-      columns: [title, status, phasesText, updatedRel]
+      columns: [title, phasesText, updatedRel]
       columnLabels:
         title: 'Frente'
-        status: 'Status'
         phasesText: 'Fases'
         updatedRel: 'Atualizado'
       linkTo: 'plan/:projectId/:slug'
       linkField: title
-      emptyNote: 'Nada concluído ainda.'
+      emptyNote: 'Nenhum plano arquivado.'
 
   # ── AJUDA (layout: single) — catálogo de skills (master-detail interno).
   # Reached ONLY from the chrome `?` (help: help), not the sidebar: showInNav: false
