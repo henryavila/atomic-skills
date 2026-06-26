@@ -31,9 +31,11 @@ phases:
             description: Validar no dashboard aiDeck com o projeto atomic-skills.
     status: done
     reviewGate:
-      status: skipped
-      reason: "Realinhamento somente de manifest (YAML + 4 testes unitarios, sem logica de producao JS); alteracao TDD-travada (gate G-1) e validada ao vivo headless; review-code cross-model nao executado para esta iniciativa de rastreio."
-      verifiedAt: 2026-06-26T16:55:14Z
+      status: passed
+      at: b5f78be65e49b5ae3668d66924e6892f7ac31b92
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-06-26-1825-aideck-lifecycle-g1.md
+      verifiedAt: 2026-06-26T18:25:33Z
     summary: Reorganiza Panorama, Foco, Visao geral e Arquivados por estado operacional.
 planActive: false
 planTitle: Reorganizar ciclo de vida das telas do dashboard

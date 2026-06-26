@@ -75,6 +75,6 @@ _(dashboard references and validation notes)_
 - **G1 read-before-claim**: 1 task fechada (T-001), entregue no commit `b5f78be` (split done/archived no manifest + 4 testes G-1). Gate G-1 validado ao vivo (headless) antes do close.
 - **G2 soft-language**: escaneado `nextAction` + descricoes de task/criteria; 0 violacoes.
 - **G6 reference-or-strike**: 1 exit criterion (G-1), 1 met com `evidence:` populada (`verifierKind: manual`, `passed: true`).
-- **Codex review**: SKIPPED — realinhamento somente de manifest (YAML + testes), sem logica de producao JS; TDD-travado (gate G-1) e validado ao vivo headless. Registrado em `plan.md` `phases[F0].reviewGate` (skipped + reason).
-- **Review gate (G2)**: `reviewGate: { status: skipped, reason: <manifest-only>, verifiedAt: 2026-06-26T16:55:14Z }` no descritor da fase — GATE-R3 permite (skipped + reason presente).
+- **Codex review**: rodou `review-code b5f78be^..b5f78be --mode=both` — local (agente selado, contexto limpo) + codex two-pass (GPT-5 Codex, blind + informed); verdict **approve**, 0 findings em ambas as passagens. Arquivo: `.atomic-skills/reviews/2026-06-26-1825-aideck-lifecycle-g1.md`.
+- **Review gate (G2)**: `reviewGate: { status: passed, at: b5f78be, mode: both, reviewFile: <...>, verifiedAt: 2026-06-26T18:25:33Z }` no descritor da fase — GATE-R3 satisfeito (passed + `at` sha).
 - **Lessons (G1)**: nenhuma licao destilada (fase limpa — sem sinal de falha).
