@@ -25,3 +25,12 @@ Instruções escritas em prosa narrativa (parágrafos, seções descritivas) sã
 1. **Checklist numerado** (a fonte primária que o agente segue)
 2. **Diagrama de fluxo** (se aplicável — reforço visual da sequência)
 3. Prosa pode complementar com contexto e explicação, mas NUNCA ser o único lugar onde uma etapa obrigatória está definida
+
+## Checkpoint recuperável exige commit, não só handoff
+Quando o usuário pede rastreabilidade, "snapshot" em skill de execução precisa significar microcommit por caminhos explícitos. Um handoff que apenas lista arquivos sujos vira relato de acidente: a próxima sessão ainda precisa inferir o que é próprio da task, o que é state update e o que é sujeira alheia.
+**Why:** Em 2026-06-25, o fluxo `implement`/`project-transitions` fechava task/fase e escrevia `.atomic-skills/`, mas aceitava "Uncommitted changes" como snapshot. O usuário apontou que isso quebrou rastreamento e pediu microcommits automáticos. A correção foi transformar microcommit em Iron Law/checklist: commit da implementação após verifier PASS, `done`, commit separado do estado, e phase-boundary commits no `phase-done`.
+**How to apply:** Para workflows de execução:
+1. Defina o checkpoint no checklist como `git add <paths explícitos>` + `git commit`, não como "salvar handoff".
+2. Proíba `git add .` / `git add -A` no ponto de maior tentação.
+3. Separe commit de implementação do commit de `.atomic-skills/`/estado para permitir bisect e auditoria.
+4. Se existirem arquivos sujos fora do escopo, deixe-os unstaged e reporte; não use o checkpoint para varrer sujeira alheia.
