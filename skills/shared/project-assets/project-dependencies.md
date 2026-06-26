@@ -39,7 +39,7 @@ Then resolve project scope:
 After any write, run with {{BASH_TOOL}}:
 
 ```bash
-npm run validate-state
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"
 ```
 
 If validation reports an unknown prerequisite, self-dependency, or dependency cycle, revert only the dependency edit made by this command and report the validation error.
@@ -67,7 +67,7 @@ node --input-type=module -e "import { addPlanDependency } from './src/links-side
 
 `addPlanDependency` validates the edge against `meta/schemas/plan.schema.json#/$defs/planDependency`, preserves the plan body, and dedupes by `plan + origin.phaseId + origin.taskId + createdBy`. For a manual edge that identity collapses to `prerequisite + manual`, so re-running the command is a no-op.
 
-After the write, run `npm run validate-state`. If it passes, print the edge as:
+After the write, run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"`. If it passes, print the edge as:
 
 ```text
 plan <dependent> now depends on plan <prerequisite> (release.archived: blocked)
@@ -84,7 +84,7 @@ Rules:
 - Removing an edge never edits `spawnedFrom` or `phases[].spawnedPlans`; origin history remains intact.
 - If removing the final edge, remove `dependsOnPlans` entirely from frontmatter instead of leaving an empty array.
 
-Use the same parser/serializer pattern as `src/links-sidecar.js` (`parseFrontmatter` plus YAML stringify), so the markdown body is preserved. Then run `npm run validate-state`.
+Use the same parser/serializer pattern as `src/links-sidecar.js` (`parseFrontmatter` plus YAML stringify), so the markdown body is preserved. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"`.
 
 ## `depend resolve`
 

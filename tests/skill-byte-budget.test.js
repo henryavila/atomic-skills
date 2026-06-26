@@ -13,13 +13,26 @@
 // back to a lazy asset (or the ceiling is deliberately raised with a reason).
 //
 // Provenance of each ceiling:
-//   project.md / implement.md  < 22000  — F1 (thin router + lean driver)
+//   project.md                 < 23000  — F1 (thin router; raised 2026-06-26, see below)
+//   implement.md               < 22000  — F1 (lean driver)
 //   review-code.md             < 20000  — F3/T3.1
 //   review-plan.md             < 24000  — F3/T3.2
 //   hunt.md                    < 14000  — F3/T3.3
 //   debate.md                  < 15000  — F3/T3.4
 //   init-memory.md             <  7800  — F3/T3.5
 //   parallel-dispatch.md       < 13000  — F2/T2.4
+//
+// Deliberate raise (2026-06-26): project.md 22000 → 23000. The `depend` verb
+// (plan-dependencies work) added first-class RESIDENT router surface that
+// cannot be externalized: a grammar line, a dispatch-table row, gate-list
+// entries, AND the operator-model block (Caminho de execução / Surgiu de
+// lanes) which validate-skills.test.js ("documents execution path separately
+// from lineage in project operator docs") MANDATES stays resident in project.md
+// (and in project-transitions.md). The depend PROCEDURE is lazy in
+// project-dependencies.md, but the operator-model prose is test-required
+// resident — so this is not re-inlined detail, it is a new verb's required
+// resident surface, and F1's thin-router ceiling grows +1000 to admit it.
+// Do NOT raise again to absorb genuinely-movable prose — externalize instead.
 
 import { describe, it } from 'node:test'
 import { strict as assert } from 'node:assert'
@@ -32,7 +45,7 @@ const REPO_ROOT = resolve(__dirname, '..')
 
 // [relative path under skills/, hard ceiling in bytes, provenance]
 const BUDGETS = [
-  ['core/project.md', 22000, 'F1 — thin router'],
+  ['core/project.md', 23000, 'F1 — thin router (raised 22000→23000 2026-06-26: depend verb added resident grammar+dispatch+gate-list surface + operator-model block mandated resident by validate-skills.test.js)'],
   ['core/implement.md', 22000, 'F1 — lean driver'],
   ['core/review-code.md', 20000, 'F3/T3.1'],
   ['core/review-plan.md', 24000, 'F3/T3.2'],
