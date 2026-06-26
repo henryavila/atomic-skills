@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -49,6 +49,38 @@ describe('resolveAideckBin', () => {
     delete process.env.AIDECK_BIN
     const result = serve.resolveAideckBin()
     assert.ok(typeof result === 'string' && result.length > 0)
+  })
+})
+
+// The published @henryavila/aideck can be stale or broken while the new aiDeck
+// version isn't published yet. A developer must be able to point `serve` at a
+// LOCAL aiDeck build. From a plan worktree the auto-detected sibling (../aideck)
+// resolves to the wrong path, so the explicit override commands are the only
+// reliable escape hatch. These guard that those commands stay wired.
+describe('local aiDeck escape hatch (published build may be unpublished/broken)', () => {
+  it('persistent command: `npm run dev:aideck` wires the local-aiDeck orchestrator', () => {
+    const pkg = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'))
+    const script = pkg.scripts?.['dev:aideck']
+    assert.ok(
+      typeof script === 'string' && script.includes('dev-aideck.mjs'),
+      '`npm run dev:aideck` (link/unlink/status) must invoke scripts/dev-aideck.mjs',
+    )
+    assert.ok(
+      existsSync(join(import.meta.dirname, '..', 'scripts', 'dev-aideck.mjs')),
+      'scripts/dev-aideck.mjs must exist',
+    )
+  })
+
+  it('one-shot command: `serve --aideck-bin <path>` is exposed by the CLI', () => {
+    const help = execFileSync(
+      process.execPath,
+      [join(import.meta.dirname, '..', 'bin', 'cli.js'), '--help'],
+      { encoding: 'utf8' },
+    )
+    assert.ok(
+      help.includes('--aideck-bin'),
+      'serve must expose --aideck-bin so an operator can point at a local aiDeck build',
+    )
   })
 })
 
