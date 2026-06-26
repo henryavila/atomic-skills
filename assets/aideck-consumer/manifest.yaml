@@ -66,6 +66,7 @@ commandPalette:
 dataSources:
   - { id: projects,    path: '.atomic-skills/.aideck/state/projects.json',    format: json, root: project }
   - { id: plans,       path: '.atomic-skills/.aideck/state/plans.json',        format: json, root: project }
+  - { id: planEdges,   path: '.atomic-skills/.aideck/state/planEdges.json',    format: json, root: project }
   - { id: phases,      path: '.atomic-skills/.aideck/state/phases.json',       format: json, root: project }
   - { id: initiatives, path: '.atomic-skills/.aideck/state/initiatives.json',  format: json, root: project }
   - { id: tasks,       path: '.atomic-skills/.aideck/state/tasks.json',         format: json, root: project }
@@ -131,7 +132,7 @@ pages:
             config:
               minColWidth: 340
               titleField: name
-              linkTo: 'foco-agora?project=:id'          # title-link → enter the project's Foco
+              linkTo: 'foco-agora?project=:projectId'   # title-link → enter the registered project's Foco
               dotToneField: dotTone                     # leading status dot (error/info/neutral)
               badgeField: mode                          # "paralelo N" | "isolado" | "ocioso"
               badgeToneField: parallelTone
@@ -332,7 +333,7 @@ pages:
       - widgets:
           - widget: record-switcher
             colSpan: 12
-            source: { ref: plans, filter: { status: [active, paused] } }
+            source: { ref: plans }
             config:
               idField: slug
               paramField: slug
@@ -439,6 +440,102 @@ pages:
             colSpan: 4
             source: { ref: emerged, param: { match: [projectId, { field: planSlug, param: slug }, { field: phaseId, state: selectedPhase }] } }
             config: { title: 'Emerged', titleField: title, emptyNote: 'Nada emergido.' }
+      # ── Caminho entre planos — usa executionLane, derivado do grafo canonico de
+      # dependsOnPlans[]. Origem historica nao participa desse bloqueio.
+      - title: 'Caminho de execucao'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: status-list
+            colSpan: 3
+            source: { ref: plans, filter: { executionLane: ready } }
+            config:
+              title: 'Liberado agora'
+              idField: slug
+              labelField: title
+              statusField: status
+              annotationField: nextText
+          - widget: status-list
+            colSpan: 3
+            source: { ref: plans, filter: { executionLane: running } }
+            config:
+              title: 'Em andamento'
+              idField: slug
+              labelField: title
+              statusField: status
+              annotationField: currentPhaseText
+          - widget: status-list
+            colSpan: 3
+            source: { ref: plans, filter: { executionLane: blocked } }
+            config:
+              title: 'Bloqueado'
+              idField: slug
+              labelField: title
+              statusField: status
+              annotationField: blockedByPlansText
+          - widget: status-list
+            colSpan: 3
+            source: { ref: plans, filter: { executionLane: completed } }
+            config:
+              title: 'Concluido'
+              idField: slug
+              labelField: title
+              statusField: status
+              annotationField: unblocksPlansText
+      # ── Relacoes do plano selecionado — separa linhagem (origin) do bloqueio
+      # operacional (dependency). O host seleciona o plano da rota e os widgets
+      # filhos filtram planEdges via $parent.
+      - title: 'Relacoes do plano'
+        columns: 12
+        gap: 16
+        widgets:
+          - widget: collection-grid
+            colSpan: 12
+            source: { ref: plans, param: { match: [projectId, { field: slug, param: slug }] } }
+            config:
+              minColWidth: 320
+              titleField: title
+              subField: originText
+              fields: [blockedByPlansText, unblocksPlansText, executionLane]
+              fieldLabels: ['Dependencias', 'Impacto', 'Lane']
+            slots:
+              body:
+                - widget: table
+                  source: { ref: planEdges, filter: { projectId: '$parent.projectId', type: origin, toPlan: '$parent.slug' } }
+                  config:
+                    title: 'Origem'
+                    columns: [label, fromPlan, phaseId, taskId, mode]
+                    columnLabels:
+                      label: 'Relacao'
+                      fromPlan: 'Plano origem'
+                      phaseId: 'Fase'
+                      taskId: 'Task'
+                      mode: 'Modo'
+                    emptyNote: 'Sem origem registrada.'
+                - widget: table
+                  source: { ref: planEdges, filter: { projectId: '$parent.projectId', type: dependency, fromPlan: '$parent.slug' } }
+                  config:
+                    title: 'Dependencias'
+                    columns: [label, toPlan, blocked, resolved, releaseArchived]
+                    columnLabels:
+                      label: 'Relacao'
+                      toPlan: 'Prerequisito'
+                      blocked: 'Bloqueia'
+                      resolved: 'Resolvida'
+                      releaseArchived: 'Archive'
+                    emptyNote: 'Sem dependencias de plano.'
+                - widget: table
+                  source: { ref: planEdges, filter: { projectId: '$parent.projectId', type: dependency, toPlan: '$parent.slug' } }
+                  config:
+                    title: 'Impacto do plano'
+                    columns: [label, fromPlan, blocked, resolved, createdBy]
+                    columnLabels:
+                      label: 'Relacao'
+                      fromPlan: 'Plano dependente'
+                      blocked: 'Bloqueia'
+                      resolved: 'Resolvida'
+                      createdBy: 'Criado por'
+                    emptyNote: 'Nenhum plano depende deste.'
       # ── Ritmo (burn-up / earned-value): ganho acumulado vs a linha planejada até o
       # deadline do plano, + o SPI. Séries pré-computadas em burnup.json/spi.json
       # (o engine v0.1 não agrega séries) e scoped ao plano da rota (projectId +
@@ -476,10 +573,9 @@ pages:
     widget: table
     source: { ref: plans, filter: { status: archived } }
     config:
-      columns: [title, status, phasesText, updatedRel]
+      columns: [title, phasesText, updatedRel]
       columnLabels:
         title: 'Frente'
-        status: 'Status'
         phasesText: 'Fases'
         updatedRel: 'Atualizado'
       linkTo: 'plan/:projectId/:slug'

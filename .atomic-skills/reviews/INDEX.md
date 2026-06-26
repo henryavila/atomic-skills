@@ -62,3 +62,6 @@
 | 2026-06-20 09:42 | [plan-fork-f3](2026-06-20-0942-plan-fork-f3.md) | code | needs_changes→resolved | 0B/0C/3M/0m/0n | 1d/3=/0+ |
 | 2026-06-21 00:24 | [plan-fork-f4](2026-06-21-0024-plan-fork-f4.md) | code | needs_changes→resolved | 0B/0C/5M/1m/0n | 0d/5=/1+ |
 | 2026-06-21 03:05 | [plan-fork-f5](2026-06-21-0305-plan-fork-f5.md) | code | needs_changes→resolved | 0B/1C/2M/0m/0n | 0d/3=/0+ |
+| 2026-06-25 11:15 | [plan-dependencies](2026-06-25-1115-plan-dependencies.md) | plan/codex | needs_changes->all fixed | 0B/0C/4M/0m/0n | 0d/4=/0+ |
+| 2026-06-25 19:10 | [plan-dependencies-f0](2026-06-25-1910-plan-dependencies-f0.md) | code (local degraded) | approved | 0B/0C/0M/0m/0n | inline fallback |
+| 2026-06-26 | aideck-lifecycle-g1 | approve | 0B/0C/0M/0m/0n | [2026-06-26-1825-aideck-lifecycle-g1.md](./2026-06-26-1825-aideck-lifecycle-g1.md) |

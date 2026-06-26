@@ -13,6 +13,7 @@ import {
   setSpawnedFrom,
   getSpawnedFrom,
   addSpawnedPlan,
+  addPlanDependency,
   getSpawnedPlans,
   migrateSidecarToInline,
   validateLinks,
@@ -191,6 +192,83 @@ describe('links-sidecar reader/writer', () => {
       const dir = planDirMd(root, 'parent', ['F2']);
       assert.throws(() => addSpawnedPlan(dir, 'F2', ''), /invalid/i);
       assert.deepEqual(getSpawnedPlans(dir), {}, 'nothing persisted on a rejected slug');
+    });
+  });
+
+  it('addPlanDependency writes a dependency INLINE exactly once and preserves the plan body', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'dependent', ['F2']);
+      const planPath = join(dir, 'plan.md');
+      const beforeBody = readFileSync(planPath, 'utf8').split('---\n').slice(2).join('---\n');
+      const dep = {
+        plan: 'prereq-plan',
+        createdBy: 'fork-plan',
+        origin: { phaseId: 'F2', taskId: 'T-004', mode: 'pause' },
+      };
+
+      addPlanDependency(dir, dep);
+      addPlanDependency(dir, dep);
+
+      const raw = readFileSync(planPath, 'utf8');
+      const fm = parseYaml(raw.split('---\n')[1]);
+      assert.deepEqual(fm.dependsOnPlans, [dep]);
+      assert.equal(raw.split('---\n').slice(2).join('---\n'), beforeBody);
+      assert.equal(existsSync(linksPath(dir)), false, 'no links.json — dependency is inline');
+    });
+  });
+
+  it('addPlanDependency dedupes by plan + origin.phaseId + origin.taskId + createdBy', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'dependent', ['F2']);
+      addPlanDependency(dir, {
+        plan: 'prereq-plan',
+        createdBy: 'fork-plan',
+        origin: { phaseId: 'F2', taskId: 'T-004', mode: 'pause' },
+      });
+      addPlanDependency(dir, {
+        plan: 'prereq-plan',
+        createdBy: 'fork-plan',
+        origin: { phaseId: 'F2', taskId: 'T-004', mode: 'parallel' },
+        release: { archived: 'resolved' },
+      });
+      addPlanDependency(dir, {
+        plan: 'prereq-plan',
+        createdBy: 'fork-plan',
+        origin: { phaseId: 'F2', taskId: 'T-005', mode: 'pause' },
+      });
+
+      const fm = parseYaml(readFileSync(join(dir, 'plan.md'), 'utf8').split('---\n')[1]);
+      assert.equal(fm.dependsOnPlans.length, 2);
+      assert.deepEqual(
+        fm.dependsOnPlans.map((dep) => dep.origin.taskId),
+        ['T-004', 'T-005'],
+      );
+    });
+  });
+
+  it('addPlanDependency validates the dependency shape before writing', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'dependent', ['F2']);
+      const planPath = join(dir, 'plan.md');
+      const before = readFileSync(planPath, 'utf8');
+
+      assert.throws(
+        () => addPlanDependency(dir, { plan: 'prereq-plan', createdBy: 'fork-plan', origin: { phaseId: 'F2', mode: 'merge' } }),
+        /invalid/i,
+      );
+      assert.equal(readFileSync(planPath, 'utf8'), before, 'plan.md was not mutated after a rejected dependency');
+    });
+  });
+
+  it('addPlanDependency rejects an origin anchor without phaseId', () => {
+    withTmp((root) => {
+      const dir = planDirMd(root, 'dependent', ['F2']);
+      assert.throws(
+        () => addPlanDependency(dir, { plan: 'prereq-plan', createdBy: 'fork-plan', origin: { taskId: 'T-004', mode: 'pause' } }),
+        /invalid/i,
+      );
+      const fm = parseYaml(readFileSync(join(dir, 'plan.md'), 'utf8').split('---\n')[1]);
+      assert.equal(fm.dependsOnPlans, undefined);
     });
   });
 });

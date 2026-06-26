@@ -144,6 +144,12 @@
         "mode": { "type": "string", "enum": ["pause", "parallel"] }
       }
     },
+    "dependsOnPlans": {
+      "description": "Operational plan dependency edges persisted on the blocked plan. Each entry points at a prerequisite plan in the same project. This is separate from `spawnedFrom` / `phases[].spawnedPlans`, which describe origin only.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/planDependency" }
+    },
     "references": {
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/artifactRef" }
@@ -154,6 +160,54 @@
     }
   },
   "$defs": {
+    "planDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "createdBy"],
+      "properties": {
+        "plan": { "$ref": "common.schema.json#/$defs/slug" },
+        "createdBy": { "type": "string", "enum": ["fork-plan", "manual"] },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["phaseId", "mode"],
+          "properties": {
+            "phaseId": { "type": "string", "minLength": 1 },
+            "taskId": { "type": "string", "minLength": 1 },
+            "mode": { "type": "string", "enum": ["pause", "parallel"] }
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["archived"],
+          "properties": {
+            "archived": {
+              "type": "string",
+              "enum": ["blocked", "resolved"],
+              "default": "blocked",
+              "description": "`archived` prerequisites block by default; `resolved` records an explicit decision that archiving satisfied this edge."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "createdBy": { "const": "fork-plan" } },
+            "required": ["createdBy"]
+          },
+          "then": { "required": ["origin"] }
+        },
+        {
+          "if": {
+            "properties": { "createdBy": { "const": "manual" } },
+            "required": ["createdBy"]
+          },
+          "then": { "not": { "required": ["origin"] } }
+        }
+      ]
+    },
     "phaseDescriptor": {
       "type": "object",
       "additionalProperties": false,

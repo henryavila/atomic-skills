@@ -7,9 +7,16 @@ import { parseFrontmatter } from '../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const schemaPath = join(__dirname, '..', 'meta', 'schemas', 'links.schema.json');
+const commonSchemaPath = join(__dirname, '..', 'meta', 'schemas', 'common.schema.json');
+const planSchemaPath = join(__dirname, '..', 'meta', 'schemas', 'plan.schema.json');
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+const commonSchema = JSON.parse(readFileSync(commonSchemaPath, 'utf8'));
+const planSchema = JSON.parse(readFileSync(planSchemaPath, 'utf8'));
 const ajv = new Ajv({ allErrors: true, strict: false });
+ajv.addSchema(commonSchema);
+ajv.addSchema(planSchema);
 const validate = ajv.compile(schema);
+const validatePlanDependency = ajv.getSchema('https://atomic-skills.henryavila.com/schemas/plan.schema.json#/$defs/planDependency');
 
 /**
  * Reader/writer for the fork parent/child link.
@@ -122,6 +129,26 @@ export function assertValidLinks(data) {
   return data;
 }
 
+function assertValidPlanDependency(data) {
+  const valid = validatePlanDependency(data);
+  if (!valid) {
+    const detail = (validatePlanDependency.errors ?? [])
+      .map((e) => `- ${e.instancePath || '/'} ${e.message ?? 'failed validation'}`)
+      .join('\n');
+    throw new Error(`plan dependency is invalid:\n${detail}`);
+  }
+  return data;
+}
+
+function planDependencyKey(dep) {
+  return JSON.stringify([
+    dep.plan,
+    dep.origin?.phaseId ?? '',
+    dep.origin?.taskId ?? '',
+    dep.createdBy,
+  ]);
+}
+
 /**
  * Write the link sidecar for a plan (creates the dir if missing). The data is
  * schema-validated at this write boundary — an invalid link (e.g. a mode
@@ -232,6 +259,30 @@ export function getSpawnedPlans(planDir) {
     }
   }
   return out;
+}
+
+/**
+ * Record a dependent→prerequisite plan dependency INLINE on the dependent
+ * plan's `plan.md` frontmatter (`dependsOnPlans[]`). Idempotent by operational
+ * edge identity: `plan + origin.phaseId + origin.taskId + createdBy`.
+ * @param {string} planDir
+ * @param {{plan: string, createdBy: string, origin?: {phaseId?: string, taskId?: string, mode?: string}, release?: {archived?: string}}} dependency
+ * @returns {object} the updated frontmatter
+ * @throws {Error} when the dependency shape is schema-invalid, or the dependent
+ *   plan has no readable plan.md.
+ */
+export function addPlanDependency(planDir, dependency) {
+  assertValidPlanDependency(dependency);
+  const p = readPlanFm(planDir);
+  if (!p) throw new Error(`cannot add plan dependency: no readable plan.md at ${planMdPath(planDir)}`);
+  const deps = Array.isArray(p.fm.dependsOnPlans) ? p.fm.dependsOnPlans : [];
+  const key = planDependencyKey(dependency);
+  if (!deps.some((dep) => dep && typeof dep === 'object' && planDependencyKey(dep) === key)) {
+    deps.push(dependency);
+  }
+  p.fm.dependsOnPlans = deps;
+  writePlanFm(planDir, p.fm, p.body);
+  return p.fm;
 }
 
 /**

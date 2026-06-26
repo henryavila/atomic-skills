@@ -231,6 +231,11 @@ async function smokeTestRoutes(aideckUrl, consumerId) {
         check: (body) => Array.isArray(body?.records),
       },
       {
+        name: `GET /api/consumers/${consumerId}/projects/${firstProject}/data/planEdges`,
+        url: `${aideckUrl}/api/consumers/${consumerId}/projects/${firstProject}/data/planEdges`,
+        check: (body) => Array.isArray(body?.records),
+      },
+      {
         name: `GET /api/consumers/${consumerId}/projects/${firstProject}/data/initiatives`,
         url: `${aideckUrl}/api/consumers/${consumerId}/projects/${firstProject}/data/initiatives`,
         check: (body) => Array.isArray(body?.records),

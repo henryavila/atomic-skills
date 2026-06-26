@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -408,6 +408,114 @@ test('round-trip: parsed plan passes schema after re-serialization', () => {
   }
 });
 
+function basePlan(overrides = {}) {
+  return {
+    schemaVersion: '0.2',
+    slug: 'parent-plan',
+    title: 'Parent plan',
+    version: '1.0',
+    status: 'active',
+    started: '2026-06-01T00:00:00Z',
+    lastUpdated: '2026-06-01T00:00:00Z',
+    branch: 'plan/parent-plan',
+    currentPhase: 'F0',
+    parallelismAllowed: false,
+    phases: [{
+      id: 'F0',
+      slug: 'parent-plan-f0',
+      title: 'F0',
+      goal: 'Do the first phase',
+      dependsOn: [],
+      subPhaseCount: 1,
+      exitGate: { summary: 'done', criteria: [] },
+      status: 'active',
+    }],
+    ...overrides,
+  };
+}
+
+function planErrorText(errors) {
+  return (errors || [])
+    .map((e) => `${e.instancePath} ${e.message} ${JSON.stringify(e.params)}`)
+    .join('\n');
+}
+
+test('plan schema: dependsOnPlans is optional for legacy plans', () => {
+  const validators = buildValidators();
+  assert.equal(
+    validators.validatePlan(basePlan({ schemaVersion: '0.1' })),
+    true,
+    `legacy plan without dependsOnPlans must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+});
+
+test('plan schema: dependsOnPlans accepts fork-plan and manual dependency edges', () => {
+  const validators = buildValidators();
+  const plan = basePlan({
+    dependsOnPlans: [
+      {
+        plan: 'child-plan',
+        createdBy: 'fork-plan',
+        origin: { phaseId: 'F2', taskId: 'T-004', mode: 'pause' },
+        release: { archived: 'blocked' },
+      },
+      {
+        plan: 'manual-prereq',
+        createdBy: 'manual',
+      },
+    ],
+  });
+  assert.equal(
+    validators.validatePlan(plan),
+    true,
+    `valid dependsOnPlans edges must pass: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+});
+
+test('plan schema: dependsOnPlans rejects malformed edges with named errors', () => {
+  const validators = buildValidators();
+  const cases = [
+    {
+      name: 'missing plan',
+      dependsOnPlans: [{ createdBy: 'manual' }],
+      pattern: /plan/,
+    },
+    {
+      name: 'fork-plan without origin',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'fork-plan' }],
+      pattern: /origin/,
+    },
+    {
+      name: 'invalid origin mode',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'fork-plan', origin: { phaseId: 'F2', mode: 'merge' } }],
+      pattern: /\/origin\/mode/,
+    },
+    {
+      name: 'invalid archived release policy',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'manual', release: { archived: 'complete' } }],
+      pattern: /\/release\/archived/,
+    },
+    {
+      name: 'unknown edge property',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'manual', unexpected: true }],
+      pattern: /additional properties|unexpected/,
+    },
+    {
+      name: 'duplicate exact edge',
+      dependsOnPlans: [
+        { plan: 'child-plan', createdBy: 'manual' },
+        { plan: 'child-plan', createdBy: 'manual' },
+      ],
+      pattern: /uniqueItems|duplicate/,
+    },
+  ];
+
+  for (const c of cases) {
+    assert.equal(validators.validatePlan(basePlan({ dependsOnPlans: c.dependsOnPlans })), false, c.name);
+    assert.match(planErrorText(validators.validatePlan.errors), c.pattern, c.name);
+  }
+});
+
 test('crossValidate: done phase + done initiative with done tasks → no errors', () => {
   const plans = new Map([['p', {
     slug: 'p',
@@ -498,6 +606,60 @@ test('crossValidate: pending phase + pending initiative → no cross-check', () 
   }]]);
   const errors = crossValidate(plans, inits);
   assert.equal(errors.length, 0);
+});
+
+test('plan dependency validation: legacy plans without dependsOnPlans pass', () => {
+  const plans = new Map([
+    ['parent', { slug: 'parent', __projectId: 'proj', spawnedFrom: { plan: 'root', phaseId: 'F0', mode: 'pause' } }],
+    ['child', { slug: 'child', __projectId: 'proj' }],
+  ]);
+  assert.deepEqual(collectPlanDependencyErrors(plans), []);
+});
+
+test('plan dependency validation rejects self-edge and orphan prerequisite', () => {
+  const plans = new Map([
+    ['parent', {
+      slug: 'parent',
+      __projectId: 'proj',
+      dependsOnPlans: [
+        { plan: 'parent', createdBy: 'manual' },
+        { plan: 'missing', createdBy: 'manual' },
+      ],
+    }],
+  ]);
+  const errors = collectPlanDependencyErrors(plans);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].errors.join('\n'), /self-dependency/);
+  assert.match(errors[0].errors.join('\n'), /unknown-prerequisite/);
+});
+
+test('plan dependency validation rejects direct and transitive cycles', () => {
+  const direct = collectPlanDependencyErrors(new Map([
+    ['a', { slug: 'a', __projectId: 'proj', dependsOnPlans: [{ plan: 'b', createdBy: 'manual' }] }],
+    ['b', { slug: 'b', __projectId: 'proj', dependsOnPlans: [{ plan: 'a', createdBy: 'manual' }] }],
+  ]));
+  assert.match(direct[0].errors.join('\n'), /dependency-cycle/);
+  assert.match(direct[0].errors.join('\n'), /a -> b -> a/);
+
+  const transitive = collectPlanDependencyErrors(new Map([
+    ['a', { slug: 'a', __projectId: 'proj', dependsOnPlans: [{ plan: 'b', createdBy: 'manual' }] }],
+    ['b', { slug: 'b', __projectId: 'proj', dependsOnPlans: [{ plan: 'c', createdBy: 'manual' }] }],
+    ['c', { slug: 'c', __projectId: 'proj', dependsOnPlans: [{ plan: 'a', createdBy: 'manual' }] }],
+  ]));
+  assert.match(transitive[0].errors.join('\n'), /dependency-cycle/);
+  assert.match(transitive[0].errors.join('\n'), /a -> b -> c -> a/);
+});
+
+test('plan dependency validation rejects dependencies that resolve only in another project', () => {
+  const plans = new Map([
+    ['proj-a/parent', { slug: 'parent', __projectId: 'proj-a', dependsOnPlans: [{ plan: 'shared', createdBy: 'manual' }] }],
+    ['proj-b/shared', { slug: 'shared', __projectId: 'proj-b' }],
+  ]);
+  const errors = collectPlanDependencyErrors(plans);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].errors.join('\n'), /cross-project-dependency/);
+  assert.match(errors[0].errors.join('\n'), /proj-a/);
+  assert.match(errors[0].errors.join('\n'), /proj-b/);
 });
 
 // ── R-XAGENT-08: kind inference for the nested projects/<id>/<slug>/ layout ──

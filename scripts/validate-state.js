@@ -19,6 +19,7 @@ import { dirname, join, resolve, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { validateAppMap } from '../src/app-map/validate.js';
+import { validatePlanDependencyGraph } from '../src/plan-dependencies.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -142,6 +143,15 @@ function kindFromPath(filePath) {
     if (parts[i] === 'lessons') return 'lesson';
   }
   return null;
+}
+
+function projectIdFromPath(filePath) {
+  const parts = resolve(filePath).split('/');
+  const idx = parts.lastIndexOf('projects');
+  if (idx >= 0 && typeof parts[idx + 1] === 'string' && parts[idx + 1].length > 0) {
+    return parts[idx + 1];
+  }
+  return '__legacy';
 }
 
 /**
@@ -627,6 +637,68 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
     }
   }
 
+  errors.push(...collectPlanDependencyErrors(planFrontmatters));
+
+  return errors;
+}
+
+function formatPlanDependencyError(error) {
+  return `[${error.code}] ${error.message}`;
+}
+
+export function collectPlanDependencyErrors(planFrontmatters) {
+  const plans = [...planFrontmatters.values()]
+    .filter((plan) => plan && typeof plan.slug === 'string' && plan.slug.length > 0);
+  const projectsBySlug = new Map();
+  const plansByProject = new Map();
+
+  for (const plan of plans) {
+    const projectId = typeof plan.__projectId === 'string' && plan.__projectId.length > 0
+      ? plan.__projectId
+      : '__legacy';
+    if (!plansByProject.has(projectId)) plansByProject.set(projectId, []);
+    plansByProject.get(projectId).push(plan);
+    if (!projectsBySlug.has(plan.slug)) projectsBySlug.set(plan.slug, new Set());
+    projectsBySlug.get(plan.slug).add(projectId);
+  }
+
+  const errors = [];
+  for (const [projectId, projectPlans] of plansByProject) {
+    const sameProjectSlugs = new Set(projectPlans.map((plan) => plan.slug));
+    const crossProjectMessages = [];
+
+    for (const plan of projectPlans) {
+      for (const dep of Array.isArray(plan.dependsOnPlans) ? plan.dependsOnPlans : []) {
+        if (!dep || typeof dep.plan !== 'string') continue;
+        if (sameProjectSlugs.has(dep.plan)) continue;
+        const otherProjects = [...(projectsBySlug.get(dep.plan) ?? [])].filter((id) => id !== projectId);
+        if (otherProjects.length === 0) continue;
+        crossProjectMessages.push(
+          `[cross-project-dependency] plan ${plan.slug} in project ${projectId} depends on ${dep.plan}, which exists only in project(s): ${otherProjects.join(', ')}`
+        );
+      }
+    }
+
+    const graphErrors = validatePlanDependencyGraph(projectPlans).filter((error) => {
+      if (error.code !== 'unknown-prerequisite') return true;
+      const otherProjects = [...(projectsBySlug.get(error.prerequisite) ?? [])].filter((id) => id !== projectId);
+      return otherProjects.length === 0;
+    });
+
+    const messages = [
+      ...crossProjectMessages,
+      ...graphErrors.map(formatPlanDependencyError),
+    ];
+    if (messages.length > 0) {
+      errors.push({
+        planSlug: projectId,
+        phaseId: 'dependsOnPlans',
+        initiativeSlug: 'plan-dependencies',
+        errors: messages,
+      });
+    }
+  }
+
   return errors;
 }
 
@@ -698,8 +770,13 @@ function main() {
     try { raw = readFileSync(target, 'utf8'); } catch { continue; }
     const parsed = parseFrontmatter(raw);
     if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
-    if (kind === 'plan') planFrontmatters.set(parsed.frontmatter.slug, parsed.frontmatter);
-    if (kind === 'initiative') initiativeFrontmatters.set(parsed.frontmatter.slug, parsed.frontmatter);
+    const projectId = projectIdFromPath(target);
+    if (kind === 'plan') {
+      planFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+    }
+    if (kind === 'initiative') {
+      initiativeFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+    }
   }
 
   const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters);

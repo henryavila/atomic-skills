@@ -37,7 +37,7 @@ describe('aiDeck consumer manifest — v2 cutover (schemaVersion 0.1, emitted st
   it('binds every entity dataSource to the emitted state/*.json (root: project)', () => {
     const byId = new Map(manifest.dataSources.map((d) => [d.id, d]));
     // `totals` is gone — the 4 Panorama totals are read-time source.agg now.
-    for (const id of ['plans', 'phases', 'initiatives', 'tasks', 'gates', 'phaseGates', 'stack', 'parked', 'emerged', 'projects']) {
+    for (const id of ['plans', 'planEdges', 'phases', 'initiatives', 'tasks', 'gates', 'phaseGates', 'stack', 'parked', 'emerged', 'projects']) {
       const ds = byId.get(id);
       assert.ok(ds, `missing dataSource ${id}`);
       assert.equal(ds.format, 'json', `${id} must be json`);
@@ -149,6 +149,7 @@ describe('aiDeck consumer manifest — Panorama is the cross-project landing', (
     // per-project nested fronts (denormalized via nestedField) link through :projectId
     // — robust across internal-vs-registered project divergence — never the record's
     // internal :id.
+    assert.equal(grid.config.linkTo, 'foco-agora?project=:projectId', 'project cards must enter the registered project scope');
     assert.ok(grid.config.nestedField, 'the project card nests its live fronts');
     assert.ok(
       grid.config.nestedLinkTo && grid.config.nestedLinkTo.includes(':projectId'),
@@ -263,6 +264,17 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
     assert.ok(callout, 'the detail card body folds in the PRÓXIMA AÇÃO callout');
   });
 
+  it('keeps the plan detail in the sidebar and lets the selector resolve done plans', () => {
+    const planPage = page('plan');
+    assert.notEqual(planPage.showInNav, false, 'plan detail must remain visible in the project sidebar');
+
+    const switcher = allWidgets(planPage.sections).find((w) => w.widget === 'record-switcher');
+    assert.ok(switcher, 'plan detail keeps the record-switcher for changing plans');
+    assert.equal(switcher.source.ref, 'plans');
+    assert.equal(switcher.source.filter, undefined, 'selector must include done/archived plans so the URL and header agree');
+    assert.equal(switcher.config.linkTo, 'plan/:projectId/:slug');
+  });
+
   it('opens help via the chrome ? and declares it out of the sidebar (showInNav: false)', () => {
     // Help is reachable via the chrome `?` (manifest.help) and declares showInNav:
     // false — the generic page nav-visibility flag specified for the F1 shell
@@ -271,6 +283,59 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
     assert.equal(manifest.help, 'help');
     assert.ok(page('help'), 'help must remain a real page (opened by the chrome ?)');
     assert.equal(page('help').showInNav, false, 'help is reachable by ? only, not listed in the sidebar');
+  });
+});
+
+describe('aiDeck consumer manifest — plan dependency dashboard widgets', () => {
+  it('renders the execution path as four executionLane buckets', () => {
+    const caminho = section('plan', 'Caminho de execucao');
+    assert.ok(caminho, 'the plan page must expose the execution path');
+    const expected = new Map([
+      ['Liberado agora', 'ready'],
+      ['Em andamento', 'running'],
+      ['Bloqueado', 'blocked'],
+      ['Concluido', 'completed'],
+    ]);
+    for (const [title, lane] of expected) {
+      const widget = caminho.widgets.find((w) => w.config?.title === title);
+      assert.ok(widget, `missing execution lane widget ${title}`);
+      assert.equal(widget.widget, 'status-list', `${title} must render as a status-list`);
+      assert.equal(widget.source.ref, 'plans', `${title} reads plans`);
+      assert.equal(widget.source.filter.executionLane, lane, `${title} filters by executionLane=${lane}`);
+    }
+  });
+
+  it('renders origin, dependencies and impact from planEdges as separate plan relations', () => {
+    const relacoes = section('plan', 'Relacoes do plano');
+    assert.ok(relacoes, 'the plan page must expose selected-plan relations');
+    const host = relacoes.widgets.find((w) => w.widget === 'collection-grid' && w.source?.ref === 'plans');
+    assert.ok(host, 'relations are scoped through the selected plan record');
+    assert.deepEqual(host.source.param.match, [ 'projectId', { field: 'slug', param: 'slug' } ]);
+    const byTitle = new Map(host.slots.body.map((w) => [w.config?.title, w]));
+
+    const origem = byTitle.get('Origem');
+    assert.equal(origem.source.ref, 'planEdges');
+    assert.deepEqual(origem.source.filter, {
+      projectId: '$parent.projectId',
+      type: 'origin',
+      toPlan: '$parent.slug',
+    });
+
+    const dependencias = byTitle.get('Dependencias');
+    assert.equal(dependencias.source.ref, 'planEdges');
+    assert.deepEqual(dependencias.source.filter, {
+      projectId: '$parent.projectId',
+      type: 'dependency',
+      fromPlan: '$parent.slug',
+    });
+
+    const impacto = byTitle.get('Impacto do plano');
+    assert.equal(impacto.source.ref, 'planEdges');
+    assert.deepEqual(impacto.source.filter, {
+      projectId: '$parent.projectId',
+      type: 'dependency',
+      toPlan: '$parent.slug',
+    });
   });
 });
 
@@ -394,5 +459,44 @@ describe('aiDeck consumer manifest — Ritmo (burn-up / SPI render, F5)', () => 
     for (const w of allWidgets(ritmo.widgets)) {
       assert.ok(registry.has(w.widget), `Ritmo widget "${w.widget}" is not in the published aiDeck registry`);
     }
+  });
+});
+
+describe('aiDeck consumer manifest — lifecycle separation (initiative aideck-dashboard-lifecycle-views, gate G-1)', () => {
+  // G-1: "Panorama, Foco agora, Visão geral e Arquivados exibem estados sem
+  // duplicar listas operacionais: ativos/pausadas/travados ficam no fluxo aberto;
+  // done aparece em Visão geral; archived aparece APENAS em Arquivados." The old
+  // `concluidos` page mixed [done, archived] in one list — this gate splits them.
+  it('exposes a dedicated Arquivados page that lists ONLY archived fronts', () => {
+    const arq = page('arquivados');
+    assert.ok(arq, 'G-1 names an Arquivados view — expected the arquivados page');
+    const tbl = allWidgets(arq).find((w) => w.widget === 'table');
+    assert.ok(tbl, 'Arquivados renders a table of archived fronts');
+    assert.equal(tbl.source.filter.status, 'archived', 'Arquivados must show archived fronts only');
+  });
+
+  it('retires the concluidos page that combined done+archived into one list', () => {
+    assert.ok(!page('concluidos'), 'concluidos mixed [done, archived]; G-1 splits done→Visão geral, archived→Arquivados');
+  });
+
+  it('surfaces done fronts in Visão geral (recently completed, separate from archived)', () => {
+    const doneTable = allWidgets(page('visao-geral').sections).find(
+      (w) => w.widget === 'table' && w.source?.filter?.status === 'done',
+    );
+    assert.ok(doneTable, 'done fronts must appear in Visão geral (G-1: "done aparece em Visão geral")');
+  });
+
+  it('keeps archived isolated to Arquivados — no other list duplicates it', () => {
+    // G-1: "archived aparece APENAS em Arquivados". A selector (the plan switcher)
+    // carries no status filter so it is not a "list"; only filtered lists count.
+    const offenders = [];
+    for (const p of manifest.pages) {
+      for (const w of allWidgets(p)) {
+        const s = w.source?.filter?.status;
+        const hasArchived = Array.isArray(s) ? s.includes('archived') : s === 'archived';
+        if (hasArchived && p.slug !== 'arquivados') offenders.push(`${p.slug}/${w.widget}`);
+      }
+    }
+    assert.equal(offenders.length, 0, `archived duplicated outside Arquivados: ${offenders.join(', ')}`);
   });
 });

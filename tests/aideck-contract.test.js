@@ -15,6 +15,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import YAML from 'yaml'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -34,6 +35,7 @@ const INITIATIVE_TEMPLATE_PATH = join(
   'project-assets',
   'initiative.template.md'
 )
+const AIDECK_MANIFEST_PATH = join(REPO_ROOT, 'assets', 'aideck-consumer', 'manifest.yaml')
 
 const HAS_AIDECK = existsSync(AIDECK_DIST)
 const SKIP_REASON = HAS_AIDECK ? null : `sibling aideck dist not at ${AIDECK_DIST}`
@@ -250,6 +252,37 @@ describe('aideck cross-repo contract', () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
+  })
+})
+
+describe('aideck consumer plan dependency contract', () => {
+  it('publishes planEdges and separates execution path from plan relations', () => {
+    const manifest = YAML.parse(readFileSync(AIDECK_MANIFEST_PATH, 'utf8'))
+    const byId = new Map(manifest.dataSources.map((d) => [d.id, d]))
+    assert.deepEqual(byId.get('planEdges'), {
+      id: 'planEdges',
+      path: '.atomic-skills/.aideck/state/planEdges.json',
+      format: 'json',
+      root: 'project',
+    })
+
+    const planPage = manifest.pages.find((p) => p.slug === 'plan')
+    const execution = planPage.sections.find((s) => s.title === 'Caminho de execucao')
+    assert.ok(execution, 'plan page must expose execution path')
+    assert.deepEqual(
+      execution.widgets.map((w) => w.source?.filter?.executionLane),
+      ['ready', 'running', 'blocked', 'completed'],
+    )
+
+    const relations = planPage.sections.find((s) => s.title === 'Relacoes do plano')
+    assert.ok(relations, 'plan page must expose selected-plan relations')
+    const host = relations.widgets.find((w) => w.widget === 'collection-grid')
+    const edgeFilters = host.slots.body.map((w) => w.source.filter)
+    assert.deepEqual(edgeFilters, [
+      { projectId: '$parent.projectId', type: 'origin', toPlan: '$parent.slug' },
+      { projectId: '$parent.projectId', type: 'dependency', fromPlan: '$parent.slug' },
+      { projectId: '$parent.projectId', type: 'dependency', toPlan: '$parent.slug' },
+    ])
   })
 })
 
