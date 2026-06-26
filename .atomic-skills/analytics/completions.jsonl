@@ -22,3 +22,5 @@
 {"ts":"2026-06-26T01:05:31.131Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F3","taskId":"T3.2","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-06-26T01:09:13.197Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F3","taskId":"T3.3","weight":1,"weightBasis":"proxy"}
 {"ts":"2026-06-26T01:19:34.214Z","event":"phase-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":35,"locAdded":3150,"locRemoved":35,"commits":4}}
+{"ts":"2026-06-26T16:58:46.177Z","event":"task-done","projectId":"atomic-skills","planSlug":"aideck-dashboard-lifecycle-views","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-06-26T16:58:46.291Z","event":"phase-done","projectId":"atomic-skills","planSlug":"aideck-dashboard-lifecycle-views","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":45,"locAdded":3996,"locRemoved":73,"commits":12}}

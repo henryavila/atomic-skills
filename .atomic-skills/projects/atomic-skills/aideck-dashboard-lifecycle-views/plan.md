@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: aideck-dashboard-lifecycle-views
 title: Reorganizar ciclo de vida das telas do dashboard
 version: "1.0"
-status: active
+status: done
 started: 2026-06-25T12:55:57Z
-lastUpdated: 2026-06-25T12:55:57Z
+lastUpdated: 2026-06-26T16:55:14Z
 branch: develop
 currentPhase: F0
 parallelismAllowed: false
@@ -24,13 +24,18 @@ phases:
             duplicar listas operacionais: ativos/pausados/travados ficam no
             fluxo aberto; done aparece em Visao geral; archived aparece apenas
             em Arquivados."
-          status: pending
+          status: met
+          metAt: 2026-06-26T16:55:14Z
           verifier:
             kind: manual
             description: Validar no dashboard aiDeck com o projeto atomic-skills.
-    status: active
+    status: done
+    reviewGate:
+      status: skipped
+      reason: "Realinhamento somente de manifest (YAML + 4 testes unitarios, sem logica de producao JS); alteracao TDD-travada (gate G-1) e validada ao vivo headless; review-code cross-model nao executado para esta iniciativa de rastreio."
+      verifiedAt: 2026-06-26T16:55:14Z
     summary: Reorganiza Panorama, Foco, Visao geral e Arquivados por estado operacional.
-planActive: true
+planActive: false
 planTitle: Reorganizar ciclo de vida das telas do dashboard
 ---
 
