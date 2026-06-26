@@ -47,6 +47,10 @@ describe('verify-aideck-consumer route smoke', () => {
           status: 200,
           body: { records: [] },
         },
+        'http://localhost:7777/api/consumers/atomic-skills/projects/test/data/planEdges': {
+          status: 200,
+          body: { records: [] },
+        },
         'http://localhost:7777/api/consumers/atomic-skills/projects/test/data/initiatives': {
           status: 200,
           body: { records: [] },
@@ -54,9 +58,9 @@ describe('verify-aideck-consumer route smoke', () => {
       };
 
       const fn = mockFetch(responses);
-      // TODO: importar e rodar smokeTestRoutes com fetch mockado
-      // Por ora, só verificamos que os responses estão corretos
+      // Espelha a lista de rotas project-scoped de smokeTestRoutes.
       assert.strictEqual(responses['http://localhost:7777/api/consumers'].status, 200);
+      assert.strictEqual(responses['http://localhost:7777/api/consumers/atomic-skills/projects/test/data/planEdges'].status, 200);
       assert.strictEqual(responses['http://localhost:7777/api/consumers/atomic-skills/projects/test/data/initiatives'].status, 200);
       assert.ok(!('http://localhost:7777/api/consumers/atomic-skills/initiatives' in responses));
       fn.mock.restore();
@@ -74,9 +78,14 @@ describe('verify-aideck-consumer route smoke', () => {
           status: 404,
           body: { error: { code: 'path_not_found', message: 'Route not found' } },
         },
+        'http://localhost:7777/api/consumers/atomic-skills/projects/test/data/planEdges': {
+          status: 404,
+          body: { error: { code: 'path_not_found', message: 'Route not found' } },
+        },
       };
 
       const fn = mockFetch(responses);
+      assert.strictEqual(responses['http://localhost:7777/api/consumers/atomic-skills/projects/test/data/planEdges'].status, 404);
       assert.strictEqual(responses['http://localhost:7777/api/consumers/atomic-skills/projects/test/data/initiatives'].status, 404);
       fn.mock.restore();
     });

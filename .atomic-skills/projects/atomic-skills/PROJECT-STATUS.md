@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-06-25T21:51:42Z
+lastUpdated: 2026-06-26T01:17:15Z
 schemaVersion: "0.1"
 activePlans: 2
 activeInitiatives: 2
@@ -38,7 +38,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | mode2-codex-default-enablement | archived | — | main | 2026-06-06 |
 | project-orchestrator-redesign | archived | — | main | 2026-06-01 |
 | refactor-doc-architect | paused | F0 | main | 2026-05-31 |
-| plan-dependencies | active | F2 | plan/plan-dependencies | 2026-06-25 |
+| plan-dependencies | done | F3 | plan/plan-dependencies | 2026-06-25 |
 
 ## Active Initiatives (standalone)
 

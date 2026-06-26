@@ -549,4 +549,20 @@ describe('project skill plan dependency command docs', () => {
     assert.match(detail, /never edits `spawnedFrom`/);
     assert.match(detail, /never edits `phases\[\]\.spawnedPlans`/);
   });
+
+  it('documents execution path separately from lineage in project operator docs', () => {
+    const router = readFileSync(join(process.cwd(), 'skills', 'core', 'project.md'), 'utf8');
+    const transitions = readFileSync(
+      join(process.cwd(), 'skills', 'shared', 'project-assets', 'project-transitions.md'),
+      'utf8'
+    );
+
+    for (const text of [router, transitions]) {
+      assert.match(text, /Caminho de execucao/);
+      assert.match(text, /Surgiu de/);
+      assert.match(text, /P1\/F2\/T-004/);
+      assert.match(text, /P2/);
+      assert.match(text, /dependsOnPlans\[\]/);
+    }
+  });
 });

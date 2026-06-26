@@ -37,7 +37,7 @@ describe('aiDeck consumer manifest — v2 cutover (schemaVersion 0.1, emitted st
   it('binds every entity dataSource to the emitted state/*.json (root: project)', () => {
     const byId = new Map(manifest.dataSources.map((d) => [d.id, d]));
     // `totals` is gone — the 4 Panorama totals are read-time source.agg now.
-    for (const id of ['plans', 'phases', 'initiatives', 'tasks', 'gates', 'phaseGates', 'stack', 'parked', 'emerged', 'projects']) {
+    for (const id of ['plans', 'planEdges', 'phases', 'initiatives', 'tasks', 'gates', 'phaseGates', 'stack', 'parked', 'emerged', 'projects']) {
       const ds = byId.get(id);
       assert.ok(ds, `missing dataSource ${id}`);
       assert.equal(ds.format, 'json', `${id} must be json`);
@@ -240,6 +240,59 @@ describe('aiDeck consumer manifest — design topology (foco-agora · visão-ger
     assert.equal(manifest.help, 'help');
     assert.ok(page('help'), 'help must remain a real page (opened by the chrome ?)');
     assert.equal(page('help').showInNav, false, 'help is reachable by ? only, not listed in the sidebar');
+  });
+});
+
+describe('aiDeck consumer manifest — plan dependency dashboard widgets', () => {
+  it('renders the execution path as four executionLane buckets', () => {
+    const caminho = section('plan', 'Caminho de execucao');
+    assert.ok(caminho, 'the plan page must expose the execution path');
+    const expected = new Map([
+      ['Liberado agora', 'ready'],
+      ['Em andamento', 'running'],
+      ['Bloqueado', 'blocked'],
+      ['Concluido', 'completed'],
+    ]);
+    for (const [title, lane] of expected) {
+      const widget = caminho.widgets.find((w) => w.config?.title === title);
+      assert.ok(widget, `missing execution lane widget ${title}`);
+      assert.equal(widget.widget, 'status-list', `${title} must render as a status-list`);
+      assert.equal(widget.source.ref, 'plans', `${title} reads plans`);
+      assert.equal(widget.source.filter.executionLane, lane, `${title} filters by executionLane=${lane}`);
+    }
+  });
+
+  it('renders origin, dependencies and impact from planEdges as separate plan relations', () => {
+    const relacoes = section('plan', 'Relacoes do plano');
+    assert.ok(relacoes, 'the plan page must expose selected-plan relations');
+    const host = relacoes.widgets.find((w) => w.widget === 'collection-grid' && w.source?.ref === 'plans');
+    assert.ok(host, 'relations are scoped through the selected plan record');
+    assert.deepEqual(host.source.param.match, [ 'projectId', { field: 'slug', param: 'slug' } ]);
+    const byTitle = new Map(host.slots.body.map((w) => [w.config?.title, w]));
+
+    const origem = byTitle.get('Origem');
+    assert.equal(origem.source.ref, 'planEdges');
+    assert.deepEqual(origem.source.filter, {
+      projectId: '$parent.projectId',
+      type: 'origin',
+      toPlan: '$parent.slug',
+    });
+
+    const dependencias = byTitle.get('Dependencias');
+    assert.equal(dependencias.source.ref, 'planEdges');
+    assert.deepEqual(dependencias.source.filter, {
+      projectId: '$parent.projectId',
+      type: 'dependency',
+      fromPlan: '$parent.slug',
+    });
+
+    const impacto = byTitle.get('Impacto do plano');
+    assert.equal(impacto.source.ref, 'planEdges');
+    assert.deepEqual(impacto.source.filter, {
+      projectId: '$parent.projectId',
+      type: 'dependency',
+      toPlan: '$parent.slug',
+    });
   });
 });
 

@@ -4,11 +4,11 @@ slug: plan-dependencies-f2-projecao-aideck-e-api-de-dependencias
 title: Projecao aiDeck e API de dependencias
 goal: expor dependencia e origem de planos como dados denormalizados para o
   consumer, mantendo compatibilidade com dependencias de fase e task.
-status: active
+status: done
 branch: plan/plan-dependencies
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-26T00:14:56Z
-nextAction: Run review-code for F2 phase-done
+lastUpdated: 2026-06-26T00:49:43Z
+nextAction: F3 is active; start T3.1 in assets/aideck-consumer/manifest.yaml and tests/aideck-consumer-manifest.test.js
 parentPlan: plan-dependencies
 phaseId: F2
 tasksDone: 3
@@ -154,7 +154,7 @@ emerged: []
 summary: Publica planEdges e dependencias de plano para o consumer aiDeck.
 planTitle: plan-dependencies - dependencias executaveis entre planos
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -187,12 +187,15 @@ _(plan doc, external refs)_
 ## Self-review against code-quality gates
 
 - G1 read-before-claim: aplicado - cada task fechada carrega evidencia `passed: true` com o comando do verifier em `tasks[].evidence`; o review cita linhas de fonte em `.atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`.
-- G2 soft-language: aplicado - claims de conclusao usam `passed: true` e `status: passed`; o handoff foi revisado para nao usar "should", "probably", "works" ou "looks done".
+- G2 soft-language: aplicado - claims de conclusao usam `passed: true` e `status: passed`; o handoff foi revisado contra a lista G2.
 - G6 reference-or-strike: aplicado - o handoff lista paths, comandos, outputs e `git status --porcelain` literais.
+- Codex review: nao invocado como revisao cross-model nesta transicao; o review gate de F2 ja estava registrado como `reviewGate: { status: passed, at: "working-tree@436330a", mode: local, reviewFile: .atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md, verifiedAt: 2026-06-26T00:15:00Z }`.
+- Review gate (G2): registrado no phase descriptor de `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md` antes de F2 mudar para `status: done`.
+- Lessons (G1): no lessons distilled (clean phase); `.atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md` lista `No blocker, critical, major, or minor findings.`
 
 ## Session handoff
-- **Narrative:** F2 esta ativa em `atomic-skills/plan-dependencies`; T2.1, T2.2 e T2.3 fecharam com `evidence.passed: true` no arquivo `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md`. O exit gate F2-G1 esta `met` em `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md` e na phase initiative, e o review gate esta `passed` com review file `.atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`. A fase esta pronta para o opt-in de avancar `currentPhase` para F3 e arquivar a initiative F2.
+- **Narrative:** F2 esta fechada como `status: done` e arquivada em `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/archive/2026-06-f2-projecao-aideck-e-api-de-dependencias.md`. T2.1, T2.2 e T2.3 carregam `evidence.passed: true`, F2-G1 esta `met`, e o review gate aponta para `.atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`. F3 esta ativa em `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f3-dashboard-caminho-de-execucao.md`.
 - **Decision log:** Mode 2 ficou indisponivel porque `rtk find /Users/henry/.agents -path '*mode2-codex-lane.md' -print` retornou `0 for '/Users/henry/.agents'`; T2.1, T2.2 e T2.3 rodaram em Mode 1. T2.2 regenerou `assets/aideck-consumer/schema.json` com `rtk node scripts/build-aideck-consumer-schema.mjs`, incluindo tambem defs ja presentes em `meta/schemas/plan.schema.json`. Review-code rodou em fallback local inline porque os assets `diff-capture.md`, `briefing-template.txt` e `anti-framing-directive.txt` nao existem sob `/Users/henry/.agents`, e subagente nao foi usado sem pedido explicito do usuario.
-- **Single nextAction:** Ask the user whether to advance F2 to F3 and archive `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md`.
-- **Verbatim state:** `rtk node --test tests/emit-consumer-state.test.js tests/aideck-state-schema.test.js tests/aideck-consumer-handlers.test.js` => `tests 55`, `pass 55`, `fail 0`, `duration_ms 914.824958`. `rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/plan-dependencies/plan.md .atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md` => `✓ .atomic-skills/projects/atomic-skills/plan-dependencies/plan.md  [plan]`, `✓ .atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md  [initiative]`, and `✓ All 2 file(s) valid, 1 plan(s) cross-validated (schemaVersion 0.1/0.2)`. `.atomic-skills/analytics/completions.jsonl` tail includes `{"ts":"2026-06-26T00:13:52.986Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F2","taskId":"T2.3","weight":2,"weightBasis":"proxy"}`. `reviewGate.reviewFile: .atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`.
-- **Uncommitted changes:** clean tree after commit.
+- **Single nextAction:** Continue from the active F3 handoff in `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f3-dashboard-caminho-de-execucao.md`.
+- **Verbatim state:** `rtk node --test tests/emit-consumer-state.test.js tests/aideck-state-schema.test.js tests/aideck-consumer-handlers.test.js` => `tests 55`, `pass 55`, `fail 0`, `duration_ms 914.824958`. `rtk node scripts/append-completion.js --event phase-done --project atomic-skills --plan plan-dependencies --phase F2 --actuals-since 2026-06-25T13:43:40.847Z` => `append-completion: phase-done atomic-skills/plan-dependencies/F2 weight=1(count) ✓`. `rtk node scripts/refresh-state.js` => `refresh-state: rollups 0 changed, focus 1 changed, digest → plan-dependencies · F3`.
+- **Uncommitted changes:** see active F3 handoff in `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f3-dashboard-caminho-de-execucao.md`.

@@ -58,6 +58,12 @@ Before a transition or next-action view tells the operator to execute a plan, it
 
 When a plan is blocked, print the blocked path in this shape: `plan <dependent> is blocked by prerequisite plan <prerequisite> (status: <status>)`. Then print the resume path: switch to the prerequisite plan and finish it when its status is `active`, `paused`, or `pending`; when the prerequisite is `done`, rerun the original transition; when the prerequisite is `archived`, keep the dependent blocked unless the edge records an explicit archived-resolution decision (`release.archived: resolved`). A transition that detects such a blocker stops before changing plan/phase status, so the operator never advances a blocked plan by following stale next-action prose.
 
+Use the same split in dashboard prose and next-action prose: **Caminho de execucao**
+is the operational lane, while **Surgiu de** is lineage. Example:
+P1/F2/T-004 generating P2 renders `Surgiu de P1 · F2/T-004`; P2 enters
+`Bloqueado` only when `dependsOnPlans[]` also names P1 as its prerequisite.
+Without that edge, the lineage row never blocks execution.
+
 ## Stack frames: `push` / `pop`
 
 ### `push <description>`

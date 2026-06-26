@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: plan-dependencies
 title: plan-dependencies - dependencias executaveis entre planos
 version: "1.0"
-status: active
+status: done
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-26T00:14:56Z
+lastUpdated: 2026-06-26T01:17:15Z
 branch: plan/plan-dependencies
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -69,12 +69,14 @@ phases:
             verifiedAt: 2026-06-25T19:09:48Z
             passed: true
             exitCode: 0
-            outputSummary: "rtk node --test tests/plan-dependencies.test.js tests/validate-state.test.js: tests 88, pass 88, fail 0, duration_ms 3492.4795"
+            outputSummary: "rtk node --test tests/plan-dependencies.test.js
+              tests/validate-state.test.js: tests 88, pass 88, fail 0,
+              duration_ms 3492.4795"
     status: done
     reviewGate:
       status: passed
       mode: local
-      at: "working-tree@7b16b5f"
+      at: working-tree@7b16b5f
       reviewFile: .atomic-skills/reviews/2026-06-25-1910-plan-dependencies-f0.md
       verifiedAt: 2026-06-25T19:12:17Z
     summary: Define o contrato, o schema e o helper que validam dependencias
@@ -92,8 +94,8 @@ phases:
       criteria:
         - id: F1-G1
           description: Fork-plan records origin and default operational dependency for an
-            extracted child plan, explicit dependency commands cover manual edges,
-            and transitions surface the blocked-plan path.
+            extracted child plan, explicit dependency commands cover manual
+            edges, and transitions surface the blocked-plan path.
           status: met
           metAt: 2026-06-25T20:05:38Z
           verifier:
@@ -106,14 +108,14 @@ phases:
             verifiedAt: 2026-06-25T20:05:38Z
             passed: true
             exitCode: 0
-            outputSummary: "rtk node --test tests/links-sidecar.test.js tests/validate-skills.test.js
-              tests/transition-emits.test.js: tests 99, pass 99, fail 0,
-              duration_ms 910.85375"
+            outputSummary: "rtk node --test tests/links-sidecar.test.js
+              tests/validate-skills.test.js tests/transition-emits.test.js:
+              tests 99, pass 99, fail 0, duration_ms 910.85375"
     status: done
     reviewGate:
       status: passed
       mode: local
-      at: "working-tree@7f374bb"
+      at: working-tree@7f374bb
       reviewFile: .atomic-skills/reviews/2026-06-25-2151-plan-dependencies-f1.md
       verifiedAt: 2026-06-25T21:51:42Z
     summary: Acopla planos emergidos e edges manuais ao grafo sem confundir origem
@@ -147,13 +149,13 @@ phases:
             exitCode: 0
             outputSummary: "rtk node --test tests/emit-consumer-state.test.js
               tests/aideck-state-schema.test.js
-              tests/aideck-consumer-handlers.test.js: tests 55, pass 55, fail
-              0, duration_ms 914.824958"
-    status: active
+              tests/aideck-consumer-handlers.test.js: tests 55, pass 55, fail 0,
+              duration_ms 914.824958"
+    status: done
     reviewGate:
       status: passed
       mode: local
-      at: "working-tree@436330a"
+      at: working-tree@436330a
       reviewFile: .atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md
       verifiedAt: 2026-06-26T00:15:00Z
     summary: Publica planEdges e dependencias de plano para o consumer aiDeck.
@@ -171,7 +173,8 @@ phases:
         - id: F3-G1
           description: Dashboard manifest and consumer checks expose execution path and
             origin relation as separate UI concepts.
-          status: pending
+          status: met
+          metAt: 2026-06-26T01:17:15Z
           verifier:
             kind: shell
             command: rtk node --test tests/aideck-consumer-manifest.test.js
@@ -179,15 +182,29 @@ phases:
               tests/aideck-contract.test.js
               tests/verify-aideck-routes-smoke.test.js
             expectExitCode: 0
-    status: pending
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-26T01:17:15Z
+            passed: true
+            exitCode: 0
+            outputSummary: "rtk node --test tests/aideck-consumer-manifest.test.js
+              tests/aideck-consumer-manifest-compat.test.js
+              tests/aideck-contract.test.js
+              tests/verify-aideck-routes-smoke.test.js: tests 45, pass 39, fail
+              0, skipped 6, duration_ms 336.262792"
+    status: done
+    reviewGate:
+      status: passed
+      mode: local
+      at: working-tree@106d8b5
+      reviewFile: .atomic-skills/reviews/2026-06-26-0116-plan-dependencies-f3.md
+      verifiedAt: 2026-06-26T01:17:15Z
     summary: Mostra no dashboard o caminho de execucao e a linhagem Surgiu de
       separadamente.
 references:
   - kind: repo-path
     path: .atomic-skills/projects/atomic-skills/plan-dependencies/design.md
-    label: DESIGN - origem historica, dependencia operacional e dashboard de
-      execucao
-planActive: true
+    label: DESIGN - origem historica, dependencia operacional e dashboard de execucao
 planTitle: plan-dependencies - dependencias executaveis entre planos
 ---
 

@@ -32,6 +32,16 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project new-task|new-phase
 ```
 
+## Plan dependency operator model
+
+The dashboard separates execution order from historical lineage. Read **Caminho de execucao**
+to decide what can run now: `dependsOnPlans[]` drives the
+`Liberado agora`, `Em andamento`, `Bloqueado`, and `Concluido` lanes, and a
+blocked lane must name the prerequisite plan that releases the work. Read
+**Surgiu de** only as lineage: if P1/F2/T-004 generated P2, the lineage row is
+`Surgiu de P1 · F2/T-004`; P2 is blocked only when its `dependsOnPlans[]` edge
+also names P1 as a prerequisite.
+
 ## Dispatch table — load the detail file BEFORE acting
 
 The procedures are NOT in this router. For each subcommand: **PARSE the arg, then `{{READ_TOOL}}` the detail file, then execute its steps.** Do not act from the table alone — the table only tells you which file holds the procedure.
