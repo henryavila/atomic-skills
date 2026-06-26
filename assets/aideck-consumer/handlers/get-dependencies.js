@@ -2,8 +2,43 @@ import { findInitiative, findPlan, phasesFor, tasksFor } from './_lib.js'
 
 // Resolve dependencies for a phase or a task. Ported from aideck
 // src/mcp/tools/dependencies.ts (reads the pre-loaded data map). Read-only.
+const planEdgesFor = (data, plan) =>
+  (data.get('planEdges') ?? []).filter((e) => e.projectId === plan.projectId)
+
+function originForPlan(edges, plan) {
+  return edges
+    .filter((e) => e.type === 'origin' && e.toPlan === plan.slug)
+    .map((e) => ({
+      parentPlan: e.parentPlan || e.fromPlan,
+      phaseId: e.phaseId || '',
+      ...(e.taskId ? { taskId: e.taskId } : {}),
+      mode: e.mode || '',
+    }))
+}
+
 export default async function handler({ args, data }) {
   const { scope, projectId } = args
+
+  if (scope === 'plan') {
+    const plan = findPlan(data, args.planSlug, projectId)
+    const edges = planEdgesFor(data, plan)
+    const dependencies = edges.filter((e) => e.type === 'dependency' && e.fromPlan === plan.slug)
+    const blockedBy = dependencies.map((e) => e.toPlan)
+    const resolved = dependencies
+      .filter((e) => e.resolved === true || e.blocked === false)
+      .map((e) => e.toPlan)
+    const blocking = dependencies
+      .filter((e) => !(e.resolved === true || e.blocked === false))
+      .map((e) => e.toPlan)
+    return {
+      scope: 'plan',
+      id: plan.slug,
+      blockedBy,
+      resolved,
+      blocking,
+      origin: originForPlan(edges, plan),
+    }
+  }
 
   if (scope === 'phase') {
     const plan = findPlan(data, args.planSlug, projectId)
@@ -37,5 +72,5 @@ export default async function handler({ args, data }) {
     }
   }
 
-  throw new Error(`invalid scope: ${scope} (expected 'phase' or 'task')`)
+  throw new Error(`invalid scope: ${scope} (expected 'phase', 'task', or 'plan')`)
 }

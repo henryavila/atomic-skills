@@ -7,27 +7,38 @@ goal: expor dependencia e origem de planos como dados denormalizados para o
 status: active
 branch: plan/plan-dependencies
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T21:51:42Z
-nextAction: "Start T2.1: Emit planEdges and derived plan fields"
+lastUpdated: 2026-06-26T00:14:56Z
+nextAction: Run review-code for F2 phase-done
 parentPlan: plan-dependencies
 phaseId: F2
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
-weightDone: 0
+weightDone: 7
 weightTotal: 7
 exitGates:
   - id: F2-G1
     description: aiDeck state emits and validates plan dependency and origin edges,
       and get-dependencies supports scope plan.
-    status: pending
+    status: met
+    metAt: 2026-06-26T00:14:56Z
     verifier:
       kind: shell
       command: rtk node --test tests/emit-consumer-state.test.js
         tests/aideck-state-schema.test.js tests/aideck-consumer-handlers.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-26T00:14:56Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk node --test tests/emit-consumer-state.test.js
+        tests/aideck-state-schema.test.js
+        tests/aideck-consumer-handlers.test.js: tests 55, pass 55, fail 0,
+        duration_ms 914.824958"
     verifierLabel: "shell: rtk node --test tests/emit-consumer-state.test.js tests/aid…"
+    evidenceSummary: passed · 2026-06-26
 stack:
   - id: 1
     title: Projecao aiDeck e API de dependencias
@@ -39,8 +50,9 @@ tasks:
     description: Estender o emissor de estado para produzir `planEdges.json` e
       campos derivados em `plans.json` que o dashboard consegue ordenar e
       explicar.
-    status: pending
-    lastUpdated: 2026-06-25T13:43:40.847Z
+    status: done
+    closedAt: 2026-06-26T00:07:20Z
+    lastUpdated: 2026-06-26T00:07:20Z
     scopeBoundary:
       - nao mudar o formato de `tasks.json`, `gates.json` ou `phases.json` alem
         de joins de leitura ja existentes
@@ -53,6 +65,13 @@ tasks:
       kind: shell
       command: rtk node --test tests/emit-consumer-state.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-26T00:07:20Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk node --test tests/emit-consumer-state.test.js: tests 18,
+        pass 18, fail 0, duration_ms 306.716542"
     outputs:
       - kind: file
         path: scripts/emit-consumer-state.js
@@ -64,8 +83,9 @@ tasks:
     title: Extend aiDeck state schemas for plan edges
     description: Adicionar a nova fonte aos schemas estritos do aiDeck e manter o
       bundle gerado em sincronia com o schema fonte.
-    status: pending
-    lastUpdated: 2026-06-25T13:43:40.847Z
+    status: done
+    closedAt: 2026-06-26T00:10:41Z
+    lastUpdated: 2026-06-26T00:10:41Z
     scopeBoundary:
       - nao relaxar `additionalProperties` dos records existentes e nao remover
         campos publicados de fontes atuais
@@ -78,6 +98,14 @@ tasks:
       command: rtk node --test tests/aideck-state-schema.test.js && rtk node
         scripts/build-aideck-consumer-schema.mjs --check
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-26T00:10:41Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk node --test tests/aideck-state-schema.test.js && rtk node
+        scripts/build-aideck-consumer-schema.mjs --check: tests 4, pass 4, fail
+        0, duration_ms 778.689958; schema.json up to date"
     outputs:
       - kind: file
         path: meta/schemas/aideck-state.schema.json
@@ -93,8 +121,9 @@ tasks:
     title: Add get-dependencies scope plan
     description: Estender o handler `get-dependencies` para consultar dependencias
       plano -> plano sem quebrar os escopos atuais de fase e task.
-    status: pending
-    lastUpdated: 2026-06-25T13:43:40.847Z
+    status: done
+    closedAt: 2026-06-26T00:13:39Z
+    lastUpdated: 2026-06-26T00:13:39Z
     scopeBoundary:
       - nao mudar a resposta dos escopos `phase` e `task` para fixtures
         existentes
@@ -106,6 +135,13 @@ tasks:
       kind: shell
       command: rtk node --test tests/aideck-consumer-handlers.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-26T00:13:39Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk node --test tests/aideck-consumer-handlers.test.js: tests
+        33, pass 33, fail 0, duration_ms 150.333666"
     outputs:
       - kind: file
         path: assets/aideck-consumer/handlers/get-dependencies.js
@@ -127,8 +163,36 @@ Initiative for phase **F2 — Projecao aiDeck e API de dependencias**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- 2026-06-26T00:07:20Z: Mode 2 nao foi usado porque o contrato obrigatorio
+  `/Users/henry/.agents/skills/atomic-skills/shared/mode2-codex-lane.md` nao
+  existe neste ambiente; T2.1 rodou em Mode 1 no worktree
+  `/Volumes/External/code/atomic-skills/.worktrees/plan-dependencies`.
+- 2026-06-26T00:07:20Z: T2.1 manteve a atualizacao de schema para T2.2; o teste
+  `tests/emit-consumer-state.test.js` valida a emissao de `planEdges.json` sem
+  exigir que `meta/schemas/aideck-state.schema.json` aceite os novos campos
+  nesta task.
+- 2026-06-26T00:10:41Z: T2.2 adicionou `planEdges` e os novos campos de
+  `plans` em `meta/schemas/aideck-state.schema.json`; o bundle
+  `assets/aideck-consumer/schema.json` foi regenerado com
+  `rtk node scripts/build-aideck-consumer-schema.mjs`.
+- 2026-06-26T00:13:39Z: T2.3 adicionou `scope: plan` em
+  `assets/aideck-consumer/handlers/get-dependencies.js`, lendo `planEdges` e
+  preservando os escopos `phase` e `task` cobertos por
+  `tests/aideck-consumer-handlers.test.js`.
 
 ## Links
 
 _(plan doc, external refs)_
+
+## Self-review against code-quality gates
+
+- G1 read-before-claim: aplicado - cada task fechada carrega evidencia `passed: true` com o comando do verifier em `tasks[].evidence`; o review cita linhas de fonte em `.atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`.
+- G2 soft-language: aplicado - claims de conclusao usam `passed: true` e `status: passed`; o handoff foi revisado para nao usar "should", "probably", "works" ou "looks done".
+- G6 reference-or-strike: aplicado - o handoff lista paths, comandos, outputs e `git status --porcelain` literais.
+
+## Session handoff
+- **Narrative:** F2 esta ativa em `atomic-skills/plan-dependencies`; T2.1, T2.2 e T2.3 fecharam com `evidence.passed: true` no arquivo `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md`. O exit gate F2-G1 esta `met` em `.atomic-skills/projects/atomic-skills/plan-dependencies/plan.md` e na phase initiative, e o review gate esta `passed` com review file `.atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`. A fase esta pronta para o opt-in de avancar `currentPhase` para F3 e arquivar a initiative F2.
+- **Decision log:** Mode 2 ficou indisponivel porque `rtk find /Users/henry/.agents -path '*mode2-codex-lane.md' -print` retornou `0 for '/Users/henry/.agents'`; T2.1, T2.2 e T2.3 rodaram em Mode 1. T2.2 regenerou `assets/aideck-consumer/schema.json` com `rtk node scripts/build-aideck-consumer-schema.mjs`, incluindo tambem defs ja presentes em `meta/schemas/plan.schema.json`. Review-code rodou em fallback local inline porque os assets `diff-capture.md`, `briefing-template.txt` e `anti-framing-directive.txt` nao existem sob `/Users/henry/.agents`, e subagente nao foi usado sem pedido explicito do usuario.
+- **Single nextAction:** Ask the user whether to advance F2 to F3 and archive `.atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md`.
+- **Verbatim state:** `rtk node --test tests/emit-consumer-state.test.js tests/aideck-state-schema.test.js tests/aideck-consumer-handlers.test.js` => `tests 55`, `pass 55`, `fail 0`, `duration_ms 914.824958`. `rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/plan-dependencies/plan.md .atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md` => `✓ .atomic-skills/projects/atomic-skills/plan-dependencies/plan.md  [plan]`, `✓ .atomic-skills/projects/atomic-skills/plan-dependencies/phases/f2-projecao-aideck-e-api-de-dependencias.md  [initiative]`, and `✓ All 2 file(s) valid, 1 plan(s) cross-validated (schemaVersion 0.1/0.2)`. `.atomic-skills/analytics/completions.jsonl` tail includes `{"ts":"2026-06-26T00:13:52.986Z","event":"task-done","projectId":"atomic-skills","planSlug":"plan-dependencies","phaseId":"F2","taskId":"T2.3","weight":2,"weightBasis":"proxy"}`. `reviewGate.reviewFile: .atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md`.
+- **Uncommitted changes:** clean tree after commit.

@@ -5,7 +5,7 @@ title: plan-dependencies - dependencias executaveis entre planos
 version: "1.0"
 status: active
 started: 2026-06-25T13:43:40.847Z
-lastUpdated: 2026-06-25T21:51:42Z
+lastUpdated: 2026-06-26T00:14:56Z
 branch: plan/plan-dependencies
 currentPhase: F2
 parallelismAllowed: false
@@ -132,14 +132,30 @@ phases:
         - id: F2-G1
           description: aiDeck state emits and validates plan dependency and origin edges,
             and get-dependencies supports scope plan.
-          status: pending
+          status: met
+          metAt: 2026-06-26T00:14:56Z
           verifier:
             kind: shell
             command: rtk node --test tests/emit-consumer-state.test.js
               tests/aideck-state-schema.test.js
               tests/aideck-consumer-handlers.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-26T00:14:56Z
+            passed: true
+            exitCode: 0
+            outputSummary: "rtk node --test tests/emit-consumer-state.test.js
+              tests/aideck-state-schema.test.js
+              tests/aideck-consumer-handlers.test.js: tests 55, pass 55, fail
+              0, duration_ms 914.824958"
     status: active
+    reviewGate:
+      status: passed
+      mode: local
+      at: "working-tree@436330a"
+      reviewFile: .atomic-skills/reviews/2026-06-26-0015-plan-dependencies-f2.md
+      verifiedAt: 2026-06-26T00:15:00Z
     summary: Publica planEdges e dependencias de plano para o consumer aiDeck.
   - id: F3
     slug: plan-dependencies-f3-dashboard-caminho-de-execucao

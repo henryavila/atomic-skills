@@ -11,7 +11,9 @@
         "projectId", "slug", "title", "status", "branch", "started", "lastUpdated",
         "currentPhase",
         "currentPhaseText", "phasesText", "phasesSummary", "roteiroSub", "switcherCaption",
-        "nextText", "focusTasksText", "focusTasksPct", "focusMeta", "updatedRel"
+        "nextText", "blockedByPlans", "blockedByPlansText", "unblocksPlans",
+        "unblocksPlansText", "originText", "executionLane", "executionIndex",
+        "focusTasksText", "focusTasksPct", "focusMeta", "updatedRel"
       ],
       "properties": {
         "projectId": { "type": "string" },
@@ -28,6 +30,13 @@
         "roteiroSub": { "type": "string" },
         "switcherCaption": { "type": "string" },
         "nextText": { "type": "string" },
+        "blockedByPlans": { "type": "array", "items": { "type": "string" } },
+        "blockedByPlansText": { "type": "string" },
+        "unblocksPlans": { "type": "array", "items": { "type": "string" } },
+        "unblocksPlansText": { "type": "string" },
+        "originText": { "type": "string" },
+        "executionLane": { "type": "string", "enum": ["ready", "running", "blocked", "completed"] },
+        "executionIndex": { "type": "integer" },
         "focusTasksText": { "type": "string" },
         "focusTasksPct": { "type": "number" },
         "focusMeta": { "type": "string" },
@@ -241,6 +250,33 @@
             }
           }
         }
+      }
+    },
+    "planEdges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectId", "type", "id", "fromPlan", "toPlan", "label"],
+      "properties": {
+        "projectId": { "type": "string" },
+        "type": { "type": "string", "enum": ["dependency", "origin"] },
+        "id": { "type": "string" },
+        "fromPlan": { "type": "string" },
+        "toPlan": { "type": "string" },
+        "label": { "type": "string" },
+        "dependentPlan": { "type": "string" },
+        "prerequisitePlan": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "blocked": { "type": "boolean" },
+        "resolved": { "type": "boolean" },
+        "releaseArchived": { "type": "string" },
+        "originPhaseId": { "type": "string" },
+        "originTaskId": { "type": "string" },
+        "originMode": { "type": "string" },
+        "parentPlan": { "type": "string" },
+        "childPlan": { "type": "string" },
+        "phaseId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "mode": { "type": "string" }
       }
     },
     "burnup": {

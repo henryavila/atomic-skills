@@ -375,6 +375,107 @@
         }
       }
     },
+    "planDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan",
+        "createdBy"
+      ],
+      "properties": {
+        "plan": {
+          "$ref": "#/definitions/slug"
+        },
+        "createdBy": {
+          "type": "string",
+          "enum": [
+            "fork-plan",
+            "manual"
+          ]
+        },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "phaseId",
+            "mode"
+          ],
+          "properties": {
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "archived"
+          ],
+          "properties": {
+            "archived": {
+              "type": "string",
+              "enum": [
+                "blocked",
+                "resolved"
+              ],
+              "default": "blocked",
+              "description": "`archived` prerequisites block by default; `resolved` records an explicit decision that archiving satisfied this edge."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "createdBy": {
+                "const": "fork-plan"
+              }
+            },
+            "required": [
+              "createdBy"
+            ]
+          },
+          "then": {
+            "required": [
+              "origin"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "createdBy": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "createdBy"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "origin"
+              ]
+            }
+          }
+        }
+      ]
+    },
     "phaseDescriptor": {
       "type": "object",
       "additionalProperties": false,
@@ -954,6 +1055,14 @@
             }
           }
         },
+        "dependsOnPlans": {
+          "description": "Operational plan dependency edges persisted on the blocked plan. Each entry points at a prerequisite plan in the same project. This is separate from `spawnedFrom` / `phases[].spawnedPlans`, which describe origin only.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/planDependency"
+          }
+        },
         "references": {
           "type": "array",
           "items": {
@@ -1281,6 +1390,13 @@
         "roteiroSub",
         "switcherCaption",
         "nextText",
+        "blockedByPlans",
+        "blockedByPlansText",
+        "unblocksPlans",
+        "unblocksPlansText",
+        "originText",
+        "executionLane",
+        "executionIndex",
         "focusTasksText",
         "focusTasksPct",
         "focusMeta",
@@ -1328,6 +1444,39 @@
         },
         "nextText": {
           "type": "string"
+        },
+        "blockedByPlans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blockedByPlansText": {
+          "type": "string"
+        },
+        "unblocksPlans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unblocksPlansText": {
+          "type": "string"
+        },
+        "originText": {
+          "type": "string"
+        },
+        "executionLane": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "running",
+            "blocked",
+            "completed"
+          ]
+        },
+        "executionIndex": {
+          "type": "integer"
         },
         "focusTasksText": {
           "type": "string"
@@ -1894,6 +2043,84 @@
               }
             }
           }
+        }
+      }
+    },
+    "planEdges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "type",
+        "id",
+        "fromPlan",
+        "toPlan",
+        "label"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dependency",
+            "origin"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "fromPlan": {
+          "type": "string"
+        },
+        "toPlan": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "dependentPlan": {
+          "type": "string"
+        },
+        "prerequisitePlan": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "resolved": {
+          "type": "boolean"
+        },
+        "releaseArchived": {
+          "type": "string"
+        },
+        "originPhaseId": {
+          "type": "string"
+        },
+        "originTaskId": {
+          "type": "string"
+        },
+        "originMode": {
+          "type": "string"
+        },
+        "parentPlan": {
+          "type": "string"
+        },
+        "childPlan": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
         }
       }
     },
