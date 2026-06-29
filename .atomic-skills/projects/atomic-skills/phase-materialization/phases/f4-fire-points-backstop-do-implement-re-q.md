@@ -21,6 +21,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 4
 exitGates:
   - id: F4-G1
     description: phase-done/switch/phase-reopen chamam materialize internamente (sem
@@ -31,6 +33,7 @@ exitGates:
       kind: shell
       command: npm test -- tests/phase-materialization/
       expectExitCode: 0
+    verifierLabel: "shell: npm test -- tests/phase-materialization/"
   - id: F4-G2
     description: Os 2 eventos D6.1 (critico drift + implement Step 2.1 runtime
       scope) sao os unicos re-question points, sem maquinaria nova
@@ -39,6 +42,7 @@ exitGates:
       kind: manual
       description: Confirmar em implement.md/project-drift.md que só os 2 eventos D6.1
         re-questionam o businessIntent
+    verifierLabel: manual
 stack:
   - id: 1
     title: Fire points + backstop do implement + re-question events + lessons
@@ -119,6 +123,8 @@ parked: []
 emerged: []
 summary: Conecta o gate nos fire points (phase-done/switch/phase-reopen) e
   endurece o implement como backstop, com re-question em 2 eventos.
+planTitle: Materialização lazy de fases + gate de validação de negócio
+planActive: true
 ---
 
 # Narrative / notes

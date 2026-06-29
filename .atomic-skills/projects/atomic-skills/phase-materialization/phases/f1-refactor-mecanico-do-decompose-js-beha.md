@@ -20,6 +20,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 4
 exitGates:
   - id: F1-G1
     description: "Refactor é behavior-preserving: golden/snapshot de
@@ -29,6 +31,7 @@ exitGates:
       kind: shell
       command: npm test
       expectExitCode: 0
+    verifierLabel: "shell: npm test"
   - id: F1-G2
     description: decomposeOnePhase e writeInitiativeFile exportadas e reutilizaveis
       (F2/F3 dependerão delas)
@@ -39,6 +42,7 @@ exitGates:
         m.decomposeOnePhase !== \"function\" || typeof m.writeInitiativeFile !==
         \"function\") process.exit(1) })"
       expectExitCode: 0
+    verifierLabel: 'shell: node -e "import(\"./src/decompose.js\").then(m => { if (typ…'
 stack:
   - id: 1
     title: Refactor mecânico do decompose.js (behavior-preserving)
@@ -120,6 +124,8 @@ parked: []
 emerged: []
 summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num
   refactor mecânico que preserva o output byte a byte (R-ORCH-10).
+planTitle: Materialização lazy de fases + gate de validação de negócio
+planActive: true
 ---
 
 # Narrative / notes

@@ -22,6 +22,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 6
 exitGates:
   - id: F2-G1
     description: new plan com >=2 fases materializa só F0 (1 initiative file) +
@@ -32,6 +34,7 @@ exitGates:
       kind: shell
       command: npm test -- tests/decompose-lazy.test.js
       expectExitCode: 0
+    verifierLabel: "shell: npm test -- tests/decompose-lazy.test.js"
   - id: F2-G2
     description: "status/verify E o dashboard tratam fase descriptor-only como
       pendente-de-materialização (estado valido), nao como erro (F-004: o goal
@@ -43,6 +46,7 @@ exitGates:
         sobre um plano dogfood com F1 descriptor-only; confirmar que F1 aparece
         como pendente-de-materialização (não vazio/quebrado) em todos, sem
         erro/falso-positivo
+    verifierLabel: manual
 stack:
   - id: 1
     title: Materialização lazy + leitores distinguem descriptor-only
@@ -149,6 +153,8 @@ parked: []
 emerged: []
 summary: new plan passa a materializar só F0; F1..N viram descritores
   (subPhaseCount:0) e os leitores distinguem descritor-only de materializada.
+planTitle: Materialização lazy de fases + gate de validação de negócio
+planActive: true
 ---
 
 # Narrative / notes

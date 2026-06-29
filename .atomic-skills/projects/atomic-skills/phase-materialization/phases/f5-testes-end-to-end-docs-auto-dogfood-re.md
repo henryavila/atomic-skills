@@ -20,6 +20,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 3
 exitGates:
   - id: F5-G1
     description: Suíte completa verde (npm test) e fluxo e2e new plan → materialize
@@ -29,6 +31,7 @@ exitGates:
       kind: shell
       command: npm test
       expectExitCode: 0
+    verifierLabel: "shell: npm test"
   - id: F5-G2
     description: Docs refletem o comportamento lazy e declaram D9 (hipótese) + D10
       (non-goal); auto-dogfood do mecanismo no próprio plano
@@ -38,6 +41,7 @@ exitGates:
       description: Revisar CLAUDE.md + docs/kb; confirmar que o verbo materialize e a
         distinção descriptor-only estão documentados e D9/D10 registrados como
         postura/non-goal
+    verifierLabel: manual
 stack:
   - id: 1
     title: Testes end-to-end + docs + auto-dogfood/review
@@ -112,6 +116,8 @@ parked: []
 emerged: []
 summary: Teste e2e do fluxo completo + docs que declaram a postura D9 (hipótese)
   e o non-goal D10 (constituição separada).
+planTitle: Materialização lazy de fases + gate de validação de negócio
+planActive: true
 ---
 
 # Narrative / notes

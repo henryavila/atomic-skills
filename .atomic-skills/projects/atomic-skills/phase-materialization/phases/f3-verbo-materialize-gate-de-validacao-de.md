@@ -20,6 +20,8 @@ tasksDone: 0
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
+weightDone: 0
+weightTotal: 4
 exitGates:
   - id: F3-G1
     description: O verbo materialize <phase> leva descritor → iniciativa com tasks,
@@ -31,6 +33,7 @@ exitGates:
       description: "Dogfood: rodar atomic-skills:project materialize <F1> sobre um
         plano dogfood; confirmar gate de blank-field-prompting + detector exit 0
         libera + arquivo phases/f1-*.md escrito com tasks + businessIntent"
+    verifierLabel: manual
   - id: F3-G2
     description: validate-skills verde apos adicionar o verbo e o detail file
     status: pending
@@ -38,6 +41,7 @@ exitGates:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
+    verifierLabel: "shell: npm run validate-skills"
 stack:
   - id: 1
     title: Verbo `materialize` + gate de validação de negócio
@@ -130,6 +134,8 @@ parked: []
 emerged: []
 summary: Cria o verbo materialize <phase> que leva descritor a iniciativa
   passando pelo gate de businessIntent com blank-field-prompting.
+planTitle: Materialização lazy de fases + gate de validação de negócio
+planActive: true
 ---
 
 # Narrative / notes

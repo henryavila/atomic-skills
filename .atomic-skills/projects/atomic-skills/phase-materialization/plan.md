@@ -288,6 +288,8 @@ phases:
     summary: Teste e2e do fluxo completo + docs que declaram a postura D9 (hipótese)
       e o non-goal D10 (constituição separada).
 references: []
+planActive: true
+planTitle: Materialização lazy de fases + gate de validação de negócio
 ---
 
 # Materialização lazy de fases + gate de validação de negócio
