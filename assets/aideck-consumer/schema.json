@@ -509,6 +509,59 @@
           "type": "string",
           "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
         },
+        "businessIntent": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
+          "required": [
+            "value",
+            "workflow",
+            "rules",
+            "outOfScope",
+            "doneWhen"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rules": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outOfScope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "doneWhen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "derived": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "answer": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
         "dependsOn": {
           "type": "array",
           "items": {
@@ -1116,6 +1169,59 @@
         "summary": {
           "type": "string",
           "description": "Concise one-line human summary of what this phase does (mirrors the plan phase descriptor's `summary`). Authored + user-validated at phase generation; shown on the dashboard Home (Agora callout)."
+        },
+        "businessIntent": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
+          "required": [
+            "value",
+            "workflow",
+            "rules",
+            "outOfScope",
+            "doneWhen"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rules": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outOfScope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "doneWhen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "derived": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "answer": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
         },
         "status": {
           "type": "string",
