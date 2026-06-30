@@ -600,6 +600,49 @@ function normalizeExitGateCriteria(raw) {
 }
 
 /**
+ * Decompose ONE phase section into its initiative object. Extracted from
+ * decomposePlan's per-phase loop as a strictly mechanical refactor (R-ORCH-10):
+ * the heuristics, field order, and emitted object shape are byte-identical to
+ * the previous inline logic. Exposed so the F3 `materialize` verb can decompose
+ * a single phase in isolation — given its phaseId + title + bodyLines, plus the
+ * shared plan slug (for slug derivation) and warnings sink.
+ *
+ * The cross-phase invariants (duplicate-phaseId rejection, phaseIds bookkeeping)
+ * are NOT part of one-phase decomposition; decomposePlan keeps those in its loop.
+ *
+ * @param {object} phaseSource — the phase section to decompose
+ * @param {string} phaseSource.phaseId — uppercased phase id (e.g. `F0`)
+ * @param {string} phaseSource.title — phase title (H2 remainder after the id);
+ *   falls back to phaseId when empty/whitespace
+ * @param {string[]} phaseSource.bodyLines — the section body lines
+ * @param {object} [ctx] — shared decompose context
+ * @param {string} [ctx.planSlug] — plan slug (for slug derivation; falsy ⇒ slug `''`)
+ * @param {string[]} [ctx.warnings] — sink for parse warnings (malformed YAML, …)
+ * @returns {DecomposedInitiative}
+ */
+export function decomposeOnePhase(phaseSource, ctx = {}) {
+  const { phaseId, title: titleRaw, bodyLines } = phaseSource;
+  const { planSlug = '', warnings = [] } = ctx;
+  const phaseTitle = (titleRaw || '').trim() || phaseId;
+  const goal = extractGoal(bodyLines);
+  const tasks = extractTasks(bodyLines);
+  const exitGateRaw = extractFirstYamlBlock(bodyLines, 'exit_gate', warnings, phaseId)
+    ?? extractFirstYamlBlock(bodyLines, 'exitGate', warnings, phaseId);
+  const exitGatesFromYaml = normalizeExitGateCriteria(exitGateRaw);
+  const exitGates = exitGatesFromYaml.length > 0
+    ? exitGatesFromYaml
+    : (extractExitGateProse(bodyLines) || []);
+  return {
+    phaseId,
+    slug: planSlug ? deriveInitiativeSlug(planSlug, phaseId, phaseTitle) : '',
+    title: phaseTitle,
+    goal,
+    tasks,
+    exitGates,
+  };
+}
+
+/**
  * Main entry — decompose a markdown plan into structured proposal.
  */
 export function decomposePlan(markdown, opts = {}) {
@@ -670,25 +713,14 @@ export function decomposePlan(markdown, opts = {}) {
           `Each phase H2 must declare a unique id like F0, F1, F2, …`
         );
       }
-      const phaseTitleRaw = (phaseMatch[2] || '').trim();
-      const phaseTitle = phaseTitleRaw || phaseId;
-      const goal = extractGoal(section.bodyLines);
-      const tasks = extractTasks(section.bodyLines);
-      const exitGateRaw = extractFirstYamlBlock(section.bodyLines, 'exit_gate', warnings, phaseId)
-        ?? extractFirstYamlBlock(section.bodyLines, 'exitGate', warnings, phaseId);
-      const exitGatesFromYaml = normalizeExitGateCriteria(exitGateRaw);
-      const exitGates = exitGatesFromYaml.length > 0
-        ? exitGatesFromYaml
-        : (extractExitGateProse(section.bodyLines) || []);
-
-      initiatives.push({
-        phaseId,
-        slug: planSlug ? deriveInitiativeSlug(planSlug, phaseId, phaseTitle) : '',
-        title: phaseTitle,
-        goal,
-        tasks,
-        exitGates,
-      });
+      // Per-phase extraction lives in decomposeOnePhase (F1/T-004); the loop
+      // only owns the cross-phase invariants (duplicate id + phaseIds order).
+      initiatives.push(
+        decomposeOnePhase(
+          { phaseId, title: phaseMatch[2] || '', bodyLines: section.bodyLines },
+          { planSlug, warnings },
+        ),
+      );
       phaseIds.push(phaseId);
       continue;
     }

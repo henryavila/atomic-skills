@@ -12,15 +12,16 @@ goal: "Extrair `decomposeOnePhase(phaseSource, ctx)` e
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-30T18:05:12.000Z
-nextAction: "Start T-004: Extrair `decomposeOnePhase(phaseSource, ctx)` de `decomposePlan`"
+lastUpdated: 2026-06-30T21:07:51.000Z
+nextAction: "Start T-005: Extrair `writeInitiativeFile(initiative, planSlug,
+  ctx)` do loop de materialize"
 parentPlan: phase-materialization
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 2
 weightTotal: 4
 exitGates:
   - id: F1-G1
@@ -59,8 +60,9 @@ tasks:
       `decomposeOnePhase` por fase em vez de inlinar a lógica. A heurística é a
       mesma — só muda a estrutura (a função agora é invocável isoladamente por
       fase, o que F3 precisa).
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-06-30T21:07:51.000Z
+    closedAt: 2026-06-30T21:07:51.000Z
     scopeBoundary:
       - corpo de `decomposePlan` (`:605-715`) e a nova função extraída em
         `src/decompose.js`; NÃO alterar regexes/constantes do topo (`:93-120`),
@@ -84,6 +86,18 @@ tasks:
     summary: Extrai decomposeOnePhase(phaseSource,ctx) do loop de decomposePlan, sem
       mudar heurística nem output.
     weight: 2
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-30T21:07:51.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 78
+      outputSummary: node --test tests/decompose.test.js → exit 0; ℹ tests 78 / ℹ pass
+        78 / ℹ fail 0 (13 suites). +6 new decomposeOnePhase (F1/T-004)
+        direct-invocation tests; all 72 existing decomposePlan /
+        materializeDecomposition tests green — byte-identical refactor invariant
+        (R-ORCH-10) holds; decomposeOnePhase exported and invocable in isolation
+        over a phase's bodyLines (deepEqual vs decomposePlan for same source).
   - id: T-005
     title: Extrair `writeInitiativeFile(initiative, planSlug, ctx)` do loop de
       materialize

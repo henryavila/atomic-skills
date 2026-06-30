@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
-import { decomposePlan, previewDecomposition, materializeDecomposition } from '../src/decompose.js';
+import { decomposePlan, previewDecomposition, materializeDecomposition, decomposeOnePhase } from '../src/decompose.js';
 import { validateFile } from '../scripts/validate-state.js';
 
 const SCHEMA_DIR = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'meta', 'schemas');
@@ -166,6 +166,98 @@ describe('decomposePlan (C.T-002)', () => {
     assert.equal(r.initiatives[0].tasks[0].id, 'T-001');
     assert.equal(r.initiatives[0].tasks[1].id, 'T-002');
     assert.equal(r.initiatives[0].tasks[2].id, 'T-003');
+  });
+});
+
+describe('decomposeOnePhase (F1/T-004) — single-phase extraction', () => {
+  // T-004 extracts the per-phase body of decomposePlan's loop into a standalone
+  // function so F3's `materialize` verb can decompose one phase in isolation.
+  // The mechanical-refactor invariant (R-ORCH-10): decomposing a phase alone
+  // yields the byte-identical initiative that decomposePlan yields for the same
+  // phase embedded in a plan.
+
+  it('is exported as a function', () => {
+    assert.equal(typeof decomposeOnePhase, 'function');
+  });
+
+  it('decomposes one phase in isolation over its bodyLines (goal + tasks + exit gates + slug)', () => {
+    const bodyLines = [
+      '',
+      'Goal: clean the data before any UI work.',
+      '',
+      '### T0.1 Migrate dump',
+      '',
+      '### T0.2 Deduplicate songs',
+      '',
+      '```yaml',
+      'exit_gate:',
+      '  - id: F0-G1',
+      '    description: core-v2 created',
+      '    verifier: { kind: shell, command: "npm test", expectExitCode: 0 }',
+      '```',
+      '',
+    ];
+    const init = decomposeOnePhase(
+      { phaseId: 'F0', title: 'Foundation Repair', bodyLines },
+      { planSlug: 'sample', warnings: [] },
+    );
+    assert.equal(init.phaseId, 'F0');
+    assert.equal(init.title, 'Foundation Repair');
+    assert.equal(init.slug, 'sample-f0-foundation-repair');
+    assert.match(init.goal, /clean the data before any UI work/);
+    assert.equal(init.tasks.length, 2);
+    assert.equal(init.tasks[0].id, 'T0.1');
+    assert.equal(init.exitGates.length, 1);
+    assert.equal(init.exitGates[0].id, 'F0-G1');
+    assert.equal(init.exitGates[0].verifier.kind, 'shell');
+  });
+
+  it('yields the byte-identical initiative that decomposePlan yields for the same source (R-ORCH-10)', () => {
+    const bodyLines = [
+      '',
+      'Goal: rebuild admin UI.',
+      '',
+      '### T0.1 Migrate dump',
+      '',
+      '### T0.2 Deduplicate songs',
+      '',
+    ];
+    const alone = decomposeOnePhase(
+      { phaseId: 'F1', title: 'UI Redesign', bodyLines },
+      { planSlug: 'sample', warnings: [] },
+    );
+    const md = ['# Plan', '', '## F1 — UI Redesign', ...bodyLines, ''].join('\n');
+    const embedded = decomposePlan(md, { planSlug: 'sample' }).initiatives[0];
+    assert.deepEqual(alone, embedded);
+  });
+
+  it('leaves slug empty when ctx.planSlug is not provided', () => {
+    const init = decomposeOnePhase(
+      { phaseId: 'F1', title: 'X', bodyLines: ['Goal: g.', '### A'] },
+      {},
+    );
+    assert.equal(init.slug, '');
+  });
+
+  it('falls back to phaseId when the title is empty', () => {
+    const init = decomposeOnePhase(
+      { phaseId: 'F2', title: '', bodyLines: ['Goal: g.', '### A'] },
+      { planSlug: 'p' },
+    );
+    assert.equal(init.title, 'F2');
+  });
+
+  it('pushes malformed exit_gate YAML into ctx.warnings (the shared sink)', () => {
+    const warnings = [];
+    decomposeOnePhase(
+      {
+        phaseId: 'F0',
+        title: 'S',
+        bodyLines: ['```yaml', 'exit_gate:', '  - id: F0-G1', '    description: "unclosed', '```', '', '### A'],
+      },
+      { planSlug: 'x', warnings },
+    );
+    assert.ok(warnings.some((w) => /Malformed `exit_gate:` YAML block in phase F0/.test(w)));
   });
 });
 
