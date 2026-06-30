@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
-import { decomposePlan, previewDecomposition, materializeDecomposition, decomposeOnePhase } from '../src/decompose.js';
+import { decomposePlan, previewDecomposition, materializeDecomposition, decomposeOnePhase, writeInitiativeFile } from '../src/decompose.js';
 import { validateFile } from '../scripts/validate-state.js';
 
 const SCHEMA_DIR = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'meta', 'schemas');
@@ -258,6 +258,68 @@ describe('decomposeOnePhase (F1/T-004) — single-phase extraction', () => {
       { planSlug: 'x', warnings },
     );
     assert.ok(warnings.some((w) => /Malformed `exit_gate:` YAML block in phase F0/.test(w)));
+  });
+});
+
+describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () => {
+  // T-005 extracts the per-phase body of materializeDecomposition's loop into a
+  // standalone function so F2 (materialize F0 only) and F3 (the `materialize`
+  // verb) can write one initiative without re-running whole-plan materialize.
+  // Mechanical-refactor invariant (R-ORCH-10): writing a phase in isolation
+  // yields the byte-identical {slug, relativePath, content} that
+  // materializeDecomposition emits for that phase embedded in a plan.
+  const FROZEN = new Date('2026-05-19T12:00:00.000Z');
+
+  it('is exported as a function', () => {
+    assert.equal(typeof writeInitiativeFile, 'function');
+  });
+
+  it('produces the byte-identical initiative file that materializeDecomposition emits for the same phase (R-ORCH-10)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN });
+    // files = [plan, F0-init, F1-init, F2-init]; compare the isolated F1 write
+    // to the embedded F1 file (files[2]).
+    const alone = writeInitiativeFile(r.initiatives[1], 'sample', {
+      iso: FROZEN.toISOString(),
+      branch: null,
+      active: false, // F1 is not the first phase
+      stateRoot: '.atomic-skills',
+      planDir: null,
+      projectId: null,
+      seenSlugs: new Set(),
+      seenPaths: new Set([files[0].relativePath]),
+    });
+    assert.deepEqual(alone, files[2]);
+  });
+
+  it('emits status active when ctx.active is true, pending when false', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const iso = FROZEN.toISOString();
+    const mk = (active) => writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso, branch: null, active, stateRoot: '.atomic-skills', planDir: null, projectId: null,
+      seenSlugs: new Set(), seenPaths: new Set(),
+    });
+    assert.equal(parseYaml(mk(true).content.split('---\n')[1]).status, 'active');
+    assert.equal(parseYaml(mk(false).content.split('---\n')[1]).status, 'pending');
+  });
+
+  it('throws on slug/path collision and mutates the shared seenSlugs/seenPaths', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const iso = FROZEN.toISOString();
+    const seenSlugs = new Set();
+    const seenPaths = new Set();
+    const file = writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso, branch: null, active: true, stateRoot: '.atomic-skills', planDir: null, projectId: null, seenSlugs, seenPaths,
+    });
+    assert.equal(file.kind, 'initiative');
+    // The first write registered the slug+path; a second write for the SAME
+    // phase now collides.
+    assert.throws(
+      () => writeInitiativeFile(r.initiatives[0], 'sample', {
+        iso, branch: null, active: false, stateRoot: '.atomic-skills', planDir: null, projectId: null, seenSlugs, seenPaths,
+      }),
+      /slug collision/,
+    );
   });
 });
 

@@ -12,16 +12,17 @@ goal: "Extrair `decomposeOnePhase(phaseSource, ctx)` e
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-30T21:07:51.000Z
-nextAction: "Start T-005: Extrair `writeInitiativeFile(initiative, planSlug,
-  ctx)` do loop de materialize"
+lastUpdated: 2026-06-30T22:03:01.000Z
+nextAction: F1 sem tasks pendentes (T-004 + T-005 done) — rodar `phase-done F1`
+  (exit-gates F1-G1 `npm test` + F1-G2 exports + review-code gate) para avançar
+  o plano para F2
 parentPlan: phase-materialization
 phaseId: F1
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 2
+weightDone: 4
 weightTotal: 4
 exitGates:
   - id: F1-G1
@@ -111,8 +112,9 @@ tasks:
       (mantendo o guard de colisão `seenSlugs`/`seenPaths`). Comportamento
       idêntico; a função fica reutilizável por F2 (que a chamará só para F0) e
       F3 (que a chamará no `materialize`).
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-06-30T22:03:01.000Z
+    closedAt: 2026-06-30T22:03:01.000Z
     scopeBoundary:
       - o loop `for` em `materializeDecomposition` (`:866-946`) e a nova função
         extraída; NÃO alterar `renderInitiativeBody`, o cálculo de
@@ -134,6 +136,18 @@ tasks:
     summary: Extrai writeInitiativeFile do loop de materializeDecomposition,
       mantendo guard de colisão e output idêntico.
     weight: 2
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-06-30T22:03:01.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 82
+      outputSummary: node --test tests/decompose.test.js → exit 0; ℹ tests 82 / ℹ pass
+        82 / ℹ fail 0 (14 suites). +4 new writeInitiativeFile (F1/T-005)
+        direct-invocation tests incl. deepEqual vs materializeDecomposition for
+        the same phase (R-ORCH-10 byte-identical {slug,relativePath,content});
+        ctx.active true/false flips status; collision guard mutates shared
+        seenSlugs/seenPaths. All existing flat+nested materialize tests green.
 parked: []
 emerged: []
 summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num

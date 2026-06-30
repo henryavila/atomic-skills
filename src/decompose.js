@@ -747,6 +747,114 @@ export function decomposePlan(markdown, opts = {}) {
 }
 
 /**
+ * Build ONE initiative file ({kind, slug, relativePath, content}) for a phase.
+ * Extracted from materializeDecomposition's per-phase loop as a strictly
+ * mechanical refactor (R-ORCH-10): the frontmatter shape, body, path layout,
+ * and collision guard are byte-identical to the previous inline logic. Exposed
+ * so F2 (materialize F0 only) and F3 (the `materialize` verb) can write a single
+ * initiative without re-running the whole-plan materialization.
+ *
+ * @param {DecomposedInitiative} initiative — the phase's decomposed initiative
+ * @param {string} planSlug — the plan slug (parentPlan + slug-derivation basis)
+ * @param {object} ctx — shared materialize context
+ * @param {string} ctx.iso — ISO timestamp for started/lastUpdated/openedAt
+ * @param {string|null} [ctx.branch] — branch (null ⇒ emitted as `null`)
+ * @param {boolean} [ctx.active] — true ⇒ status 'active' (first phase, or a
+ *   phase activating via the F3 `materialize` verb); false ⇒ 'pending'
+ * @param {string} ctx.stateRoot — state-dir prefix for the flat layout
+ * @param {string|null} ctx.planDir — nested plan dir (null ⇒ flat layout)
+ * @param {string|null} ctx.projectId — set ⇒ nested layout; null ⇒ flat
+ * @param {Set<string>} ctx.seenSlugs — collision-guard slug set (mutated in place)
+ * @param {Set<string>} ctx.seenPaths — collision-guard path set (mutated in place)
+ * @returns {MaterializedFile} the {kind:'initiative', slug, relativePath, content}
+ */
+export function writeInitiativeFile(initiative, planSlug, ctx) {
+  const init = initiative;
+  const {
+    iso, branch = null, active = false,
+    stateRoot, planDir, projectId, seenSlugs, seenPaths,
+  } = ctx;
+  const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
+  const tasks = init.tasks.map((t) => ({
+    id: t.id,
+    title: t.title || `Task ${t.id}`,
+    ...(t.description ? { description: t.description } : {}),
+    status: 'pending',
+    lastUpdated: iso,
+    ...(t.scopeBoundary ? { scopeBoundary: t.scopeBoundary } : {}),
+    ...(t.acceptance ? { acceptance: t.acceptance } : {}),
+    ...(t.verifier ? { verifier: t.verifier } : {}),
+    ...(t.outputs ? { outputs: t.outputs } : {}),
+  }));
+  const exitGates = init.exitGates.map((g, gIdx) => {
+    const c = {
+      id: g.id || `${init.phaseId}-G${gIdx + 1}`,
+      description: g.description || `TODO: fill criterion description for ${init.phaseId}`,
+      status: 'pending',
+    };
+    if (g.verifier) c.verifier = g.verifier;
+    return c;
+  });
+  const title = init.title || init.phaseId;
+  const initFm = {
+    schemaVersion: '0.1',
+    slug: initSlug,
+    title,
+    goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
+    status: active ? 'active' : 'pending',
+    branch: branch || null,
+    started: iso,
+    lastUpdated: iso,
+    nextAction: tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null,
+    parentPlan: planSlug,
+    phaseId: init.phaseId,
+    // Rollups precomputed for the dashboard (aiDeck stays read-in-place). At
+    // materialization every task/gate is pending, so done/met start at 0;
+    // the project-status skill recomputes these on every task/gate mutation.
+    tasksDone: tasks.filter((t) => t.status === 'done').length,
+    tasksTotal: tasks.length,
+    gatesMet: exitGates.filter((g) => g.status === 'met').length,
+    gatesTotal: exitGates.length,
+    exitGates,
+    stack: [{
+      id: 1,
+      title,
+      type: 'task',
+      openedAt: iso,
+    }],
+    tasks,
+    parked: [],
+    emerged: [],
+  };
+  const initBody = renderInitiativeBody(init);
+  const initContent = `---\n${yamlStringify(initFm)}---\n\n${initBody}\n`;
+  // Nested filename drops the redundant `<planSlug>-` prefix (the phases/ dir
+  // already encodes the plan) → `f0-<title>.md`; flat keeps the full slug.
+  const phaseFileName = initSlug.startsWith(`${planSlug}-`) ? initSlug.slice(planSlug.length + 1) : initSlug;
+  const relativePath = projectId
+    ? `${planDir}/phases/${phaseFileName}.md`
+    : `${stateRoot}/initiatives/${initSlug}.md`;
+  // Collision guard — per-call (per-plan), so the same slug in TWO different
+  // plans never collides (separate calls, separate sets); two phases in ONE
+  // plan that produce the same identity slug OR the same emitted path throw.
+  if (seenSlugs.has(initSlug) || seenPaths.has(relativePath)) {
+    throw new Error(
+      `materializeDecomposition: slug collision for phase ${init.phaseId} ` +
+      `(slug "${initSlug}"). Two phases produced the same initiative path; ` +
+      `shorten the plan slug or rename the conflicting phase title.`
+    );
+  }
+  seenSlugs.add(initSlug);
+  seenPaths.add(relativePath);
+  return {
+    kind: 'initiative',
+    slug: initSlug,
+    relativePath,
+    content: initContent,
+  };
+}
+
+/**
  * Materialize a decompose result into Plan + Initiative file contents that
  * Stage 6 (and `adopt`) write to disk. Pure function: returns a list of
  * `{kind, slug, relativePath, content}` items; the skill body owns the actual
@@ -894,87 +1002,22 @@ export function materializeDecomposition(decompose, opts = {}) {
   const seenPaths = new Set([files[0].relativePath]);
   const seenSlugs = new Set();
 
-  // Initiative files (one per phase)
+  // Initiative files (one per phase). Per-phase materialization lives in
+  // writeInitiativeFile (F1/T-005); the loop owns only the shared collision
+  // sets + the first-phase-is-active decision.
   for (let idx = 0; idx < initiatives.length; idx++) {
-    const init = initiatives[idx];
-    const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
-    const tasks = init.tasks.map((t) => ({
-      id: t.id,
-      title: t.title || `Task ${t.id}`,
-      ...(t.description ? { description: t.description } : {}),
-      status: 'pending',
-      lastUpdated: iso,
-      ...(t.scopeBoundary ? { scopeBoundary: t.scopeBoundary } : {}),
-      ...(t.acceptance ? { acceptance: t.acceptance } : {}),
-      ...(t.verifier ? { verifier: t.verifier } : {}),
-      ...(t.outputs ? { outputs: t.outputs } : {}),
-    }));
-    const exitGates = init.exitGates.map((g, gIdx) => {
-      const c = {
-        id: g.id || `${init.phaseId}-G${gIdx + 1}`,
-        description: g.description || `TODO: fill criterion description for ${init.phaseId}`,
-        status: 'pending',
-      };
-      if (g.verifier) c.verifier = g.verifier;
-      return c;
-    });
-    const title = init.title || init.phaseId;
-    const initFm = {
-      schemaVersion: '0.1',
-      slug: initSlug,
-      title,
-      goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
-      status: idx === 0 ? 'active' : 'pending',
-      branch: branch || null,
-      started: iso,
-      lastUpdated: iso,
-      nextAction: tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null,
-      parentPlan: planSlug,
-      phaseId: init.phaseId,
-      // Rollups precomputed for the dashboard (aiDeck stays read-in-place). At
-      // materialization every task/gate is pending, so done/met start at 0;
-      // the project-status skill recomputes these on every task/gate mutation.
-      tasksDone: tasks.filter((t) => t.status === 'done').length,
-      tasksTotal: tasks.length,
-      gatesMet: exitGates.filter((g) => g.status === 'met').length,
-      gatesTotal: exitGates.length,
-      exitGates,
-      stack: [{
-        id: 1,
-        title,
-        type: 'task',
-        openedAt: iso,
-      }],
-      tasks,
-      parked: [],
-      emerged: [],
-    };
-    const initBody = renderInitiativeBody(init);
-    const initContent = `---\n${yamlStringify(initFm)}---\n\n${initBody}\n`;
-    // Nested filename drops the redundant `<planSlug>-` prefix (the phases/ dir
-    // already encodes the plan) → `f0-<title>.md`; flat keeps the full slug.
-    const phaseFileName = initSlug.startsWith(`${planSlug}-`) ? initSlug.slice(planSlug.length + 1) : initSlug;
-    const relativePath = projectId
-      ? `${planDir}/phases/${phaseFileName}.md`
-      : `${stateRoot}/initiatives/${initSlug}.md`;
-    // Collision guard — per-call (per-plan), so the same slug in TWO different
-    // plans never collides (separate calls, separate sets); two phases in ONE
-    // plan that produce the same identity slug OR the same emitted path throw.
-    if (seenSlugs.has(initSlug) || seenPaths.has(relativePath)) {
-      throw new Error(
-        `materializeDecomposition: slug collision for phase ${init.phaseId} ` +
-        `(slug "${initSlug}"). Two phases produced the same initiative path; ` +
-        `shorten the plan slug or rename the conflicting phase title.`
-      );
-    }
-    seenSlugs.add(initSlug);
-    seenPaths.add(relativePath);
-    files.push({
-      kind: 'initiative',
-      slug: initSlug,
-      relativePath,
-      content: initContent,
-    });
+    files.push(
+      writeInitiativeFile(initiatives[idx], planSlug, {
+        iso,
+        branch,
+        active: idx === 0,
+        stateRoot,
+        planDir,
+        projectId,
+        seenSlugs,
+        seenPaths,
+      }),
+    );
   }
 
   return files;
