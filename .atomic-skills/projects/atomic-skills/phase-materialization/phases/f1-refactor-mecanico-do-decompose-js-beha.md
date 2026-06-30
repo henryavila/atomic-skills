@@ -12,17 +12,17 @@ goal: "Extrair `decomposeOnePhase(phaseSource, ctx)` e
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-30T22:03:01.000Z
-nextAction: "Destravar F1-G1 corrigindo as 6 falhas pré-existentes (5 em
-  tests/install.test.js + 1 em tests/refresh-state.test.js; pré-existentes em
-  3fffdb9, fora do scopeBoundary do F1; decisão do usuário = CORRIGIR, não
-  emendar F1-G1). Confirmar hipótese stale-count, fix mínimo, npm test verde,
-  commit separado, THEN rodar phase-done F1."
+lastUpdated: 2026-06-30T22:49:23.000Z
+nextAction: "F1-G1 + F1-G2 agora `met` (evidence shell exit 0: npm test 1479
+  verde + exports guard). Restante do phase-done: (6) review gate review-code
+  --mode=local sobre 3fffdb9..HEAD + registrar reviewGate no plan.md (GATE-R3) +
+  destilar lessons; (7/8) advance currentPhase F1→F2 (propagar conclusão,
+  arquivar F1, semear iniciativa F2)."
 parentPlan: phase-materialization
 phaseId: F1
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 4
 weightTotal: 4
@@ -30,23 +30,46 @@ exitGates:
   - id: F1-G1
     description: "Refactor é behavior-preserving: golden/snapshot de
       materializeDecomposition inalterado sobre os fixtures canonicos"
-    status: pending
+    status: met
+    metAt: 2026-06-30T22:49:23.000Z
     verifier:
       kind: shell
       command: npm test
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-30T22:49:23.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "npm test → exit 0; ℹ tests 1479 / ℹ pass 1471 / ℹ fail 0 / ℹ
+        skipped 8 (177 suites). Byte-identidade R-ORCH-10 do refactor de
+        decompose.js confirmada (tests/decompose.test.js 82/82 verde:
+        flat+nested + novos deepEqual vs
+        decomposePlan/materializeDecomposition); as 6 falhas pré-existentes de
+        install/refresh-state corrigidas em 9b5e645."
     verifierLabel: "shell: npm test"
+    evidenceSummary: passed · 2026-06-30
   - id: F1-G2
     description: decomposeOnePhase e writeInitiativeFile exportadas e reutilizaveis
       (F2/F3 dependerão delas)
-    status: pending
+    status: met
+    metAt: 2026-06-30T22:49:23.000Z
     verifier:
       kind: shell
       command: node -e "import(\"./src/decompose.js\").then(m => { if (typeof
         m.decomposeOnePhase !== \"function\" || typeof m.writeInitiativeFile !==
         \"function\") process.exit(1) })"
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-30T22:49:23.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: node -e exports guard → exit 0; o guard process.exit(1) NÃO
+        disparou, confirmando que decomposeOnePhase e writeInitiativeFile são
+        ambas funções exportadas de src/decompose.js (reutilizáveis por F2/F3).
     verifierLabel: 'shell: node -e "import(\"./src/decompose.js\").then(m => { if (typ…'
+    evidenceSummary: passed · 2026-06-30
 stack:
   - id: 1
     title: Refactor mecânico do decompose.js (behavior-preserving)
