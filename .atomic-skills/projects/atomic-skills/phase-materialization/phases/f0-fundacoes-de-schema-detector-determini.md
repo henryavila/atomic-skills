@@ -10,38 +10,62 @@ goal: Adicionar o campo de schema aditivo/opcional `businessIntent` no
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T14:50:13.796Z
-nextAction: "Start T-001: Adicionar sub-schema `businessIntent` ao
-  `phaseDescriptor` E à initiative"
+lastUpdated: 2026-06-29T19:41:42.000Z
+nextAction: "F0 tasks 2/2 done. BLOCKER before phase-done: T-001 left a
+  schema-drift (assets/aideck-consumer/schema.json not regenerated after the
+  businessIntent addition → schema-drift.test.js fails inside F0-G1's full `npm
+  test`). Resolve (npm run build:aideck-schema + commit), reconcile F0-G2's
+  file-list to include the regenerated bundle, THEN run phase-done F0."
 parentPlan: phase-materialization
 phaseId: F0
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
-weightDone: 2
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: F0-G1
     description: Schemas (plan phaseDescriptor + initiative) aceitam legados (sem
       businessIntent) e novos (com), e o detector exit-0/1 sobre fixtures
       canonicos
-    status: pending
+    status: met
+    metAt: 2026-06-30T16:10:18.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-30T16:10:18.000Z
+      exitCode: 0
+      testsCollected: 21
+      passed: true
+      outputSummary: node --test 'tests/phase-materialization/*.test.js' → exit 0; ℹ
+        tests 21 / pass 21 / fail 0; 3 suites (business-intent-schema 11 +
+        find-missing-business-intent 10)
     verifier:
       kind: shell
-      command: npm test -- tests/phase-materialization/
+      command: node --test 'tests/phase-materialization/*.test.js'
       expectExitCode: 0
-    verifierLabel: "shell: npm test -- tests/phase-materialization/"
+    verifierLabel: "shell: node --test 'tests/phase-materialization/*.test.js'"
+    evidenceSummary: passed · 21 tests · 2026-06-30
   - id: F0-G2
     description: Nenhum arquivo de fluxo/skill alterado nesta fase (zero behavior
       change confirmado pelo diff)
-    status: pending
+    status: met
+    metAt: 2026-06-30T16:10:18.000Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-06-30T16:10:18.000Z
+      passed: true
+      outputSummary: git diff --name-only 67f1257..HEAD -- skills/ src/ = vazio e git
+        status --porcelain -- skills/ src/ = vazio (0 skill/flow file)
     verifier:
       kind: manual
       description: Confirmar via git diff que só meta/schemas/plan.schema.json +
         meta/schemas/initiative.schema.json +
-        scripts/find-missing-business-intent.js + tests/ foram tocados
+        scripts/find-missing-business-intent.js + tests/ +
+        assets/aideck-consumer/schema.json (bundle regerado para incluir
+        businessIntent — artefato gerado, zero behavior nova) foram tocados
     verifierLabel: manual
+    evidenceSummary: passed · 2026-06-30
 stack:
   - id: 1
     title: Fundações de schema + detector determinístico
@@ -126,8 +150,9 @@ tasks:
       (string reservada tratada como ausente). HARD-BLOCK via exit 1. Fases
       descriptor-only (sem arquivo) são ignoradas (ainda não ativadas — D5
       backfill-on-activation)."
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-06-29T19:41:42.000Z
+    closedAt: 2026-06-29T19:41:42.000Z
     scopeBoundary:
       - novo arquivo `scripts/find-missing-business-intent.js` + teste; NÃO
         alterar `find-missing-summaries.js`, `validate-state.js`, nem reuso de
@@ -143,6 +168,21 @@ tasks:
       command: node --test
         tests/phase-materialization/find-missing-business-intent.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-29T19:41:42.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 10
+      outputSummary: node --test
+        tests/phase-materialization/find-missing-business-intent.test.js → exit
+        0; ℹ tests 10 / ℹ pass 10 / ℹ fail 0. Detector gates the 5-field spine ×
+        2 surfaces on MATERIALZIED phases (descriptor
+        plan.phases[].businessIntent + initiative businessIntent); reports first
+        missing/empty/[NEEDS CLARIFICATION] field per surface; descriptor-only
+        phases (no initiative file) skipped (D5 backfill-on-activation);
+        derived[] never gated; nested + flat layouts scanned; CLI exit 0/1
+        (all-clear vs gap token). TDD red→green (ERR_MODULE_NOT_FOUND → 10/10).
     outputs:
       - kind: file
         path: scripts/find-missing-business-intent.js
@@ -174,25 +214,26 @@ Initiative for phase **F0 — Fundações de schema + detector determinístico**
 
 ## Session handoff
 
-- **Narrative:** F0 em andamento no worktree-home. **T-001 fechado** — sub-schema `businessIntent` (5 campos obrigatórios-quando-presente `value`/`workflow`/`rules`/`outOfScope`/`doneWhen` + `derived[]` opcional) adicionado inline em `plan.schema.json` (`phaseDescriptor.properties`, após `summary`) e `initiative.schema.json` (`properties`, após `summary`), ambos properties-only fora do `required`; teste `tests/phase-materialization/business-intent-schema.test.js` 11/11 green; `done T-001` executado com `evidence.passed:true`/`testsCollected:11`, GATE-R2 validado. `tasksDone: 1/2`, `weightDone: 2/5`. **Falta T-003** (detector `find-missing-business-intent.js`, weight 3) para fechar F0.
-- **Decision log:** carregam para a próxima sessão (não re-litigar) — vide `## Decisions` acima: inline vs `$defs`; convenções do sub-schema (`minLength:1`, `additionalProperties:false`); teste por documento cheio; TDD.
-- **Single nextAction:** Começar **T-003** — criar `scripts/find-missing-business-intent.js` no mesmo molde de SAÍDA de `find-missing-summaries.js` (`configuredLanguage`, CLI exit 0/1, importa `parseFrontmatter` de `validate-state.js`, percorre nested+flat) + `tests/phase-materialization/find-missing-business-intent.test.js`; checa os 5 campos da espinha `businessIntent` × 2 superfícies (descriptor `plan.phases[].businessIntent` + initiative `businessIntent`) em fases **materializadas**, reporta o 1º ausente/vazio/`[NEEDS CLARIFICATION]`, exit 0/1; fases descriptor-only (sem arquivo de iniciativa) ignoradas; `derived[]` nunca gateado.
+- **Narrative:** F0 2/2 tasks done; verify-on-done completo para task T-003. **T-003 fechado** (detector `find-missing-business-intent.js` + teste, 10/10 green, evidence no frontmatter, GATE-R2 pass, rollups 2/2). **Schema-drift do T-001 CORRIGIDO**: `npm run build:aideck-schema` regerou `assets/aideck-consumer/schema.json` c/ `businessIntent` (definitions 28; `--check` up-to-date ✓). **F0-G1 emendado** de `npm test -- tests/phase-materialization/` (rodava a suíte cheia c/ 8 falhas pré-existentes) p/ `node --test 'tests/phase-materialization/*.test.js'` (escopado, fiel ao intento do gate) → 21/21 green; **F0-G2 file-list reconciliada** p/ incluir o bundle. Ambos os arquivos re-validados. Gates pré-verificados PASS (F0-G1 21/21, F0-G2 scope OK). Próximo = review-code gate + advance de `phase-done` (NÃO rodados — checkpoint no boundary de fase).
+- **Decision log (carregam, não re-litigar):** (1) detector: materializada = existência do init file (`initByPhaseId.has(id)`), NÃO `subPhaseCount`; reporta 1º campo faltante por superfície (ordem value→doneWhen); `[NEEDS CLARIFICATION]` (trim-exato) = ausente (proof-of-work); flat casa por `phaseId` (simétrico ao nested); `derived[]` nunca gateado; orphan initiatives não gateadas. (2) **schema-drift era do T-001** (commit `5cc60a7` mudou os 2 schemas-fonte sem regerar o bundle consumer; T-001 fechou c/ verificador escopo-estreito que não pegou); fix = regen canônico (`schema-drift.test.js` documenta o passo). (3) **8 falhas pré-existentes** (6 install `Unknown option '--scope'`/`use either --ide or --all-detected` + 2 refreshState `actual:13/expected:12`) herdadas da base do branch, presentes em HEAD=`5cc60a7` ANTES desta sessão, ALHEIAS ao phase-materialization → fora do escopo de F0; por isso F0-G1 foi escopado (o "não quebrar nada" é papel do F0-G2 diff-scope, que PASSA: 0 skill/flow file tocado). (4) **YAML gotcha**: plain-scalar c/ colon-space (ex. `scoped: node`) quebra o parse (`Nested mappings are not allowed`) → evitar em descriptions. (5) `npm test -- <dir>` NÃO escopa (o script globs a suíte cheia) + `node --test <dir>` (bare dir) falha c/ `Cannot find module` → usar `node --test '<glob>'`.
+- **Single nextAction:** Rodar `phase-done F0`: (a) formalizar gates met — F0-G1 `node --test 'tests/phase-materialization/*.test.js'` (21/21), F0-G2 scope-confirm (já verificado); (b) **review-code gate** — diff `67f1257..HEAD`+uncommitted, **não-destrutivo** (puro aditivo: 203+106 insert, 0 delete) → `--mode=local`; (c) distillar lessons (fase limpa → provável zero, mas responder explicitamente); (d) gravar `reviewGate` no plan.md fase F0 (GATE-R3); (e) advance F0→F1 + `archive F0` + `new initiative` p/ F1.
 - **Verbatim state:**
-  - Worktree-home (onde se codifica): `/Volumes/External/code/atomic-skills/.worktrees/phase-materialization` — branch `plan/phase-materialization` (a árvore primária `develop` está 1 commit atrás; o `plan.md`/fases só existem no worktree).
-  - Verificador T-001 (PASS, evidence gravada no frontmatter): `node --test tests/phase-materialization/business-intent-schema.test.js` → exit 0, `ℹ tests 11 / ℹ pass 11 / ℹ fail 0`.
-  - Gate GATE-R2 (PASS): `node scripts/validate-state.js .atomic-skills/projects/atomic-skills/phase-materialization/phases/f0-fundacoes-de-schema-detector-determini.md` → `✓ All 1 file(s) valid`, exit 0.
-  - Scripts pelo **repo-root direto** (NÃO via `$(cat $HOME/.atomic-skills/package-root …)` — pode estar stale): `scripts/append-completion.js`, `scripts/refresh-state.js`, `scripts/validate-state.js`.
-  - Exit gate F0-G1 (pendente; roda só em `phase-done`): `npm test -- tests/phase-materialization/`, `expectExitCode: 0`.
-  - Deps do worktree instalados via `npm ci` (ajv etc.; gitignored, não suja a árvore).
+  - Worktree-home: `/Volumes/External/code/atomic-skills/.worktrees/phase-materialization` — branch `plan/phase-materialization`.
+  - T-003 verifier (PASS, evidence no frontmatter): `node --test tests/phase-materialization/find-missing-business-intent.test.js` → exit 0, `ℹ tests 10 / pass 10 / fail 0`.
+  - F0-G1 scoped verifier (PASS, pré-verificado): `node --test 'tests/phase-materialization/*.test.js'` → exit 0, `ℹ tests 21 / pass 21 / fail 0`.
+  - schema-drift guard (PASS após regen): `node scripts/build-aideck-consumer-schema.mjs --check` → "schema.json up to date ✓".
+  - F0-G2 scope (PASS): `git diff --name-only 67f1257..HEAD -- skills/ src/` + `git status --porcelain -- skills/ src/` → vazio (0 skill/flow file); deliverables = `meta/schemas/{plan,initiative}.schema.json` + `tests/phase-materialization/{business-intent-schema,find-missing-business-intent}.test.js` + `scripts/find-missing-business-intent.js` + `assets/aideck-consumer/schema.json`.
+  - validate-state (PASS): `node scripts/validate-state.js .atomic-skills/projects/atomic-skills/phase-materialization/plan.md .atomic-skills/projects/atomic-skills/phase-materialization/phases/f0-fundacoes-de-schema-detector-determini.md` → "All 2 file(s) valid".
+  - **Pré-existentes (fora do escopo F0):** `npm test` tem 8 falhas em HEAD=`5cc60a7` (6 install + 2 refreshState, ver decision log) — independentes do phase-materialization.
+  - Scripts pelo **repo-root direto** (NÃO via `$(cat $HOME/.atomic-skills/package-root …)` — stale).
 - **Uncommitted changes** (`git status --porcelain`, branch `plan/phase-materialization`):
-  - ` M meta/schemas/initiative.schema.json` ← T-001 deliverable
-  - ` M meta/schemas/plan.schema.json` ← T-001 deliverable
-  - `?? tests/phase-materialization/` ← T-001 deliverable (novo teste)
-  - ` M .atomic-skills/projects/atomic-skills/phase-materialization/phases/f0-*.md` ← `done T-001` (status/closedAt/evidence + rollups)
-  - ` M .atomic-skills/projects/atomic-skills/phase-materialization/phases/f1-*.md` … `f5-*.md` ← `refresh-state.js`: rollups/focus markers derivados (project-wide)
-  - ` M .atomic-skills/projects/atomic-skills/phase-materialization/plan.md` ← `refresh-state.js`: focus markers
-  - ` M .atomic-skills/analytics/completions.jsonl` ← evento `task-done T-001`
-  - Nota: os `M` em f1–f5 + plan.md + analytics são efeito colateral **canônico** de `refresh-state.js` (mandatório no step 4 do `done`), **não** escopo de T-001.
+  - ` M .atomic-skills/analytics/completions.jsonl` ← evento `task-done T-003`
+  - ` M .atomic-skills/projects/atomic-skills/phase-materialization/phases/f0-*.md` ← `done T-003` (status/closedAt/evidence) + emendas F0-G1 (scoped) / F0-G2 (file-list) + `refresh-state.js` rollups
+  - ` M .atomic-skills/projects/atomic-skills/phase-materialization/plan.md` ← emendas F0-G1 (scoped) / F0-G2 (file-list)
+  - ` M assets/aideck-consumer/schema.json` ← regen (drift-fix do T-001)
+  - `?? scripts/find-missing-business-intent.js` ← T-003 deliverable
+  - `?? tests/phase-materialization/find-missing-business-intent.test.js` ← T-003 deliverable
+  - Nenhum microcommit feito (`done` step 5 + `phase-done` step 8 microcommits pendentes).
 
 ## Links
 

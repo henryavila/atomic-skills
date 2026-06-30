@@ -79,21 +79,44 @@ phases:
         - id: F0-G1
           description: Schemas (plan phaseDescriptor + initiative) aceitam legados (sem
             businessIntent) e novos (com), e o detector exit-0/1 sobre fixtures
-            canonicos
-          status: pending
+            canonicos (escopado a tests/phase-materialization via node --test; o
+            gate de zero-behavior-change e o F0-G2 diff-scope)
+          status: met
+          metAt: 2026-06-30T16:10:18.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-30T16:10:18.000Z
+            exitCode: 0
+            testsCollected: 21
+            passed: true
+            outputSummary: node --test 'tests/phase-materialization/*.test.js'
+              → exit 0; ℹ tests 21 / pass 21 / fail 0; 3 suites (business-intent-schema
+              11 + find-missing-business-intent 10)
           verifier:
             kind: shell
-            command: npm test -- tests/phase-materialization/
+            command: "node --test 'tests/phase-materialization/*.test.js'"
             expectExitCode: 0
         - id: F0-G2
           description: Nenhum arquivo de fluxo/skill alterado nesta fase (zero behavior
             change confirmado pelo diff)
-          status: pending
+          status: met
+          metAt: 2026-06-30T16:10:18.000Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-06-30T16:10:18.000Z
+            passed: true
+            outputSummary: git diff --name-only 67f1257..HEAD -- skills/ src/ = vazio
+              e git status --porcelain -- skills/ src/ = vazio (0 skill/flow file);
+              deliverables = meta/schemas/{plan,initiative}.schema.json +
+              scripts/find-missing-business-intent.js + tests/phase-materialization/ +
+              assets/aideck-consumer/schema.json
           verifier:
             kind: manual
             description: Confirmar via git diff que só meta/schemas/plan.schema.json +
               meta/schemas/initiative.schema.json +
-              scripts/find-missing-business-intent.js + tests/ foram tocados
+              scripts/find-missing-business-intent.js + tests/ +
+              assets/aideck-consumer/schema.json (bundle regerado para incluir
+              businessIntent — artefato gerado, zero behavior nova) foram tocados
     status: active
     summary: Adiciona o campo de schema opcional businessIntent no phaseDescriptor
       do plano E na initiative (espelha summary) + o detector determinístico que
