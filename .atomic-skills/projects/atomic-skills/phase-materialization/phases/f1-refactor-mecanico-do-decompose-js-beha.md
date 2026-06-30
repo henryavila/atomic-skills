@@ -13,9 +13,11 @@ status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
 lastUpdated: 2026-06-30T22:03:01.000Z
-nextAction: F1 sem tasks pendentes (T-004 + T-005 done) — rodar `phase-done F1`
-  (exit-gates F1-G1 `npm test` + F1-G2 exports + review-code gate) para avançar
-  o plano para F2
+nextAction: "Destravar F1-G1 corrigindo as 6 falhas pré-existentes (5 em
+  tests/install.test.js + 1 em tests/refresh-state.test.js; pré-existentes em
+  3fffdb9, fora do scopeBoundary do F1; decisão do usuário = CORRIGIR, não
+  emendar F1-G1). Confirmar hipótese stale-count, fix mínimo, npm test verde,
+  commit separado, THEN rodar phase-done F1."
 parentPlan: phase-materialization
 phaseId: F1
 tasksDone: 2
@@ -166,19 +168,28 @@ Initiative for phase **F1 — Refactor mecânico do decompose.js (behavior-prese
 - **Assinatura `decomposeOnePhase(phaseSource, ctx)`** — `phaseSource = { phaseId, title, bodyLines }`, `ctx = { planSlug, warnings }`; retorna o objeto iniciativa. Os invariantes cross-phase (rejeição de `phaseId` duplicado + bookkeeping de `phaseIds`) ficaram no loop de `decomposePlan` (precisam do conjunto completo de fases — não são concerns de uma fase). O `title` é passado cru (`phaseMatch[2] || ''`) e normalizado dentro da função (`(title||'').trim() || phaseId`).
 - **Assinatura `writeInitiativeFile(initiative, planSlug, ctx)`** — `ctx = { iso, branch, active, stateRoot, planDir, projectId, seenSlugs, seenPaths }`. `active` (boolean) substitui o inline `idx === 0` para que o `materialize` de F3 (fase única) passe `active: true`. Os Sets mutáveis `seenSlugs`/`seenPaths` são passados por referência e mutados in-place (guard de colisão byte-idêntico).
 - **Mensagem de erro do collision guard deixada verbatim** (`materializeDecomposition: slug collision …`) dentro de `writeInitiativeFile` — byte-identity R-ORCH-10; o teste existente assevera `/slug collision/` de qualquer forma. F3 pode refinar o prefixo quando adotar a função.
+- **Decisão F1-G1 (gate-contract, escolha do usuário via AskUserQuestion):** `npm test` (F1-G1) falha com 6 erros PRÉ-EXISTENTES (presentes em `3fffdb9`, antes do F1; nenhum em `tests/decompose.test.js`). Usuário escolheu **Option 2 = CORRIGIR as 6** (manter F1-G1 = `npm test` sem emenda), NÃO Option 1 (emendar para escopado, como F0-G1 foi emendado). As 6 correções são pré-existentes e FORA do `scopeBoundary` do F1 → commitar separadamente (`fix(test):`/`test:`), nunca nos commits do refactor F1.
 
 ## Links
 
 _(plan doc: `plan.md` no mesmo dir; design `design.md`; research `research-plan-quality.md`)_
 
 ## Session handoff
-- **Narrative:** F1 (refactor mecânico de `src/decompose.js`) implementado: T-004 (`decomposeOnePhase`) e T-005 (`writeInitiativeFile`) ambos `done` com evidence `passed:true` (verifier `node --test tests/decompose.test.js` → 78 depois 82 tests, verde). Refactor estritamente mecânico (R-ORCH-10) — output de `materializeDecomposition` byte-idêntico, provado por todos os testes flat+nested existentes + novos testes `deepEqual` vs `decomposePlan`/`materializeDecomposition`. Dois commits: `refactor(decompose): extract decomposeOnePhase (F1/T-004)` e `… writeInitiativeFile (F1/T-005)`. F1 está no boundary de fase: tasksDone 2/2, exit-gates ainda pending.
-- **Decision log:** ver `## Decisions` acima (3 decisões load-bearing: assinaturas das 2 funções + mensagem de erro verbatim).
-- **Single nextAction:** Rodar `phase-done F1` — executa os exit-gates F1-G1 (`npm test`, expect exit 0) e F1-G2 (check de exports), depois o gate obrigatório `review-code` no diff da fase, e avança `currentPhase` para F2.
+- **Narrative:** F1 (refactor mecânico de `src/decompose.js`) IMPLEMENTADO e committed: T-004 (`decomposeOnePhase`) + T-005 (`writeInitiativeFile`) ambos `done` com evidence `passed:true` (`node --test tests/decompose.test.js` 78→82 verde; byte-identidade R-ORCH-10 provada pelos testes flat+nested existentes + novos `deepEqual` vs `decomposePlan`/`materializeDecomposition`). Commits `bcad8bc` (T-004), `eeda14b` (T-005). Blocker atual para `phase-done`: F1-G1 = `npm test` falha com **6 erros PRÉ-EXISTENTES** (presentes em `3fffdb9`, antes do F1; nenhum em `tests/decompose.test.js`, que está 82/82 verde). **Decisão do usuário: CORRIGIR as 6 (NÃO emendar F1-G1 para escopado)** — trabalho fora do `scopeBoundary` do F1, autorizado explicitamente. Root-cause investigation começou (só leitura); hipótese forte = as 6 são *stale-expected-count drifts* (testes com contagens hardcoded que ficaram atrás do inventário atual de `skills/`), NÃO bugs de lógica — mas PRECISA ser confirmado lendo cada teste + a lógica de install/refresh ANTES de bumpar contagens (fix-skill: root-cause → TDD → minimal).
+- **Decision log:** ver `## Decisions` acima — 3 decisões de assinatura + a **decisão F1-G1 (Option 2: corrigir as 6, manter `npm test` sem emenda)**. As 6 correções são pré-existentes e fora do escopo do F1 → commitar separadamente.
+- **Single nextAction:** Continuar a correção das 6 falhas: confirmar a hipótese stale-count para cada uma (ver lista verbatim abaixo), aplicar fix mínimo (bump expected OU tornar dinâmico), rodar `npm test` até 1479/1479 verde, commitar separado, THEN rodar `phase-done F1`.
 - **Verbatim state:**
-  - Árvore: clean após o checkpoint do handoff. Branch `plan/phase-materialization`; WT `.worktrees/phase-materialization`.
+  - Árvore: **CLEAN** (resume-gate deve passar — só houve investigação por leitura; nenhuma correção começou). Branch `plan/phase-materialization`; WT `.worktrees/phase-materialization`.
   - F1 initiative: `.atomic-skills/projects/atomic-skills/phase-materialization/phases/f1-refactor-mecanico-do-decompose-js-beha.md` (tasksDone 2/2; gatesMet 0/2 pending).
-  - Exit-gate verifiers: F1-G1 = `npm test` (expectExitCode 0); F1-G2 = `node -e "import(\"./src/decompose.js\").then(m => { if (typeof m.decomposeOnePhase !== \"function\" || typeof m.writeInitiativeFile !== \"function\") process.exit(1) })"`.
+  - As **6 falhas** (`npm test` → ℹ tests 1479 / pass 1465 / fail 6), todas pré-existentes em `3fffdb9`:
+    - `tests/install.test.js:50` "creates command files for claude-code" — `actual 70 !== expected 69`
+    - `tests/install.test.js:95` "installs memory module skills when module is enabled" — `actual 71 !== expected 70`
+    - `tests/install.test.js:164` "creates files for multiple IDEs" — `actual 139 !== expected 137`
+    - `tests/install.test.js:246` "keeps core-only install count when scope is user and no module is selected" — `actual 70 !== expected 69`
+    - `tests/install.test.js` "copies codex-bridge and project assets to claude-code namespace" — `expected 50 namespace asset entries, got 51` (lista 51 arquivos de `skills/shared/`, p.ex. `ds-prompt.md`, `screens-prompt.md`, `rationalization.md`, `gate-mode.md`, `envelope-orchestration.md`, `fixtures-recipe.md`, `roster.yaml`, `templates.md`, `validation-checklist.txt` — CONFIRMAR se são legítimos no set copiado ou se o install está copiando largo demais)
+    - `tests/refresh-state.test.js:61` "regenerates burnup/spi while preserving the existing refresh passes" — `summary.seriesWritten actual 13 !== expected 12` (comentário do teste: `11 base − totals.json (retired) + burnup.json + spi.json`; descobrir qual é a 13ª series que `scripts/refresh-state.js` agora escreve)
+  - Exit-gate verifiers (a rodar DEPOIS das 6 verdes): F1-G1 = `npm test` (expectExitCode 0); F1-G2 = `node -e "import(\"./src/decompose.js\").then(m => { if (typeof m.decomposeOnePhase !== \"function\" || typeof m.writeInitiativeFile !== \"function\") process.exit(1) })"`.
   - Scripts pelo repo-root direto (NÃO `$HOME/.atomic-skills/package-root` — stale): `node scripts/validate-state.js`, `node scripts/refresh-state.js`, `node scripts/append-completion.js`.
-- **Uncommitted changes:** clean tree (T-004, T-005 e este handoff committed).
+  - Repro das falhas: `npm test 2>&1 | grep -E "ℹ (tests|pass|fail) "` e `node --test tests/install.test.js 2>&1 | grep -A14 AssertionError`.
+- **Uncommitted changes:** clean tree (T-004, T-005 e este handoff committed; as 6 correções ainda NÃO começaram — só investigação por leitura).
 
