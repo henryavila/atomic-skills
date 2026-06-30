@@ -7,15 +7,11 @@ goal: Adicionar o campo de schema aditivo/opcional `businessIntent` no
   o detector determinístico `find-missing-business-intent.js` — todos com zero
   mudança de comportamento e totalmente backward-compat. Esta fase habilita
   F1–F4 sem alterar nenhum fluxo existente.
-status: active
+status: done
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T19:41:42.000Z
-nextAction: "F0 tasks 2/2 done. BLOCKER before phase-done: T-001 left a
-  schema-drift (assets/aideck-consumer/schema.json not regenerated after the
-  businessIntent addition → schema-drift.test.js fails inside F0-G1's full `npm
-  test`). Resolve (npm run build:aideck-schema + commit), reconcile F0-G2's
-  file-list to include the regenerated bundle, THEN run phase-done F0."
+lastUpdated: 2026-06-30T18:05:12.000Z
+nextAction: null
 parentPlan: phase-materialization
 phaseId: F0
 tasksDone: 2
@@ -198,7 +194,6 @@ summary: Adiciona o campo de schema opcional businessIntent no phaseDescriptor
   checa — zero mudança de comportamento.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
-current: true
 ---
 
 # Narrative / notes
@@ -234,6 +229,15 @@ Initiative for phase **F0 — Fundações de schema + detector determinístico**
   - `?? scripts/find-missing-business-intent.js` ← T-003 deliverable
   - `?? tests/phase-materialization/find-missing-business-intent.test.js` ← T-003 deliverable
   - Nenhum microcommit feito (`done` step 5 + `phase-done` step 8 microcommits pendentes).
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed, each linked to source lines in its `outputs[]` + the verifier run that closed it (T-001 `tests/phase-materialization/business-intent-schema.test.js` 11/11; T-003 `scripts/find-missing-business-intent.js` + test 10/10). At phase-done, F0-G1 re-run fresh this session — `node --test 'tests/phase-materialization/*.test.js'` → 21/21 exit 0; F0-G2 scope re-confirmed fresh — `git diff --name-only 67f1257..HEAD -- skills/ src/` = vazio.
+- **G2 soft-language**: scanned `nextAction` + task/gate descriptions for the ban list (EN should/probably/works + PT deveria/provavelmente); written in indicative. 0 violations.
+- **G6 reference-or-strike**: 2 exit criteria, 2 met with `evidence:` populated (F0-G1 exitCode:0/testsCollected:21; F0-G2 manual passed:true with scope diff); `reviewGate` stamped on the phase descriptor.
+- **Codex review**: SKIPPED at phase-done — DESTRUCTIVE signal false over `67f1257..HEAD` (pure additive: 865 insert / 19 delete, 0 non-test/doc files deleted, 0 schema/data drop tokens), so `--mode=local` was the non-destructive default (G5), not a cross-model skip. The false-green risk cross-model mitigates is the destructive-delete regression, which is absent here.
+- **Review gate (G2/GATE-R3)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: 079c19d, mode: local, verifiedAt: 2026-06-30T16:10:18Z }`. Local review agent (clean context, sealed envelope) returned verdict clean — 0 findings (blocker/critical/major/minor all 0), 2 passes; the `businessIntent` sub-schema probed live across accept/reject edge cases (legacy-absent, complete, missing-`value`, empty-string, extra-prop, wrong-type, empty `derived[]`, derived-missing-`question`); both CLI exit-0/exit-1 paths tested; the `parseFrontmatter` import from `validate-state.js` resolves. 2 adjacent notes raised (NOT findings, outside F0 surface): pre-existing duplicate `spawnedFrom`/`spawnedPlans` keys in `plan.schema.json` (latent, predates this changeset); `configuredLanguage` copy-pasted into the detector by design (T-003 `scopeBoundary` forbade reusing the export).
+- **Lessons (G1)**: 1 lesson distilled into `lessons/phase-materialization-f0-fundacoes-de-schema-detector-determini.md` (L-001, `scope: reusable` — per-task verifier narrowness on the source→artifact schema-drift of T-001; the narrow test verifier missed the un-regenerated consumer bundle, caught only by the broader phase gate), ratified by the operator. Surfaces at F1 start via `node scripts/list-lessons.js --phase F1`.
 
 ## Links
 

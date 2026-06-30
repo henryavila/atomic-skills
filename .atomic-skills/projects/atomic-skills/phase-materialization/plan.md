@@ -5,9 +5,9 @@ title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
 status: active
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T14:50:13.796Z
+lastUpdated: 2026-06-30T18:05:12.000Z
 branch: plan/phase-materialization
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -117,7 +117,12 @@ phases:
               scripts/find-missing-business-intent.js + tests/ +
               assets/aideck-consumer/schema.json (bundle regerado para incluir
               businessIntent — artefato gerado, zero behavior nova) foram tocados
-    status: active
+    reviewGate:
+      status: passed
+      at: 079c19d
+      mode: local
+      verifiedAt: 2026-06-30T16:10:18.000Z
+    status: done
     summary: Adiciona o campo de schema opcional businessIntent no phaseDescriptor
       do plano E na initiative (espelha summary) + o detector determinístico que
       o checa — zero mudança de comportamento.
@@ -156,7 +161,7 @@ phases:
               m.decomposeOnePhase !== \"function\" || typeof
               m.writeInitiativeFile !== \"function\") process.exit(1) })"
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num
       refactor mecânico que preserva o output byte a byte (R-ORCH-10).
   - id: F2
