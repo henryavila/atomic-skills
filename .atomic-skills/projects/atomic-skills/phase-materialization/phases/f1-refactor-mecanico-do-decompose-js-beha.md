@@ -216,3 +216,12 @@ _(plan doc: `plan.md` no mesmo dir; design `design.md`; research `research-plan-
   - Repro das falhas: `npm test 2>&1 | grep -E "ℹ (tests|pass|fail) "` e `node --test tests/install.test.js 2>&1 | grep -A14 AssertionError`.
 - **Uncommitted changes:** clean tree (T-004, T-005 e este handoff committed; as 6 correções ainda NÃO começaram — só investigação por leitura).
 
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed (T-004 `decomposeOnePhase`, T-005 `writeInitiativeFile`), cada uma com `outputs[]` (`src/decompose.js`, `tests/decompose.test.js`) + `evidence` de execução real do verifier (`node --test tests/decompose.test.js` 78→82 verde; byte-identidade R-ORCH-10 provada por `deepEqual` vs `decomposePlan`/`materializeDecomposition`).
+- **G2 soft-language**: scanned `nextAction` + descrições de tasks + descrições de critérios contra a ban-list; 0 violações.
+- **G6 reference-or-strike**: 2 exit criteria (F1-G1, F1-G2), ambas `met` com `evidence:` populado (`verifierKind: shell`, `passed: true`, `exitCode: 0`); 0 `deferred`, 0 unverified-and-flagged.
+- **Codex review**: N/A — fase NÃO-destrutiva (G5 `DESTRUCTIVE=false`: refactor mecânico, sem deleção de arquivo-fonte, sem drop tokens, churn 428+/122−), então o review gate rodou **local-only** (`--mode=local`): verdict `clean`, 0 findings, 2 passes (agent em contexto limpo; byte-identidade das duas extrações + as 4 contagens de teste empiricamente confirmadas contra produção — 70/71/139/51 e `seriesWritten:13`). Nenhum review-file persistido (local-only não escreve `.atomic-skills/reviews/`).
+- **Review gate (G2)**: registrado no descritor da fase em `plan.md` como `reviewGate: { status: passed, at: 340991b25d56ab281464346250bdd63ea5e048b1, mode: local, verifiedAt: 2026-06-30T23:04:44.000Z }`. Esta linha de prose é o audit humano; o campo no descritor é o machine-checkable que GATE-R3 enforce — concordam.
+- **Lessons (G1)**: clean phase — 0 findings do review, 0 tarefas reabertas/blocked, 0 gates deferidos. A única não-trivialidade foi F1-G1 (`npm test`) temporariamente bloqueada por 6 falhas PRÉ-EXISTENTES de outra feature (plan-dependency), corrigidas em commit `9b5e645` separado e fora do `scopeBoundary` do F1 — não é um failure-signal DO F1.
+

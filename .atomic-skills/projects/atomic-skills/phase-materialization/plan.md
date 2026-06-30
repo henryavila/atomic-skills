@@ -164,6 +164,11 @@ phases:
     status: active
     summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num
       refactor mecânico que preserva o output byte a byte (R-ORCH-10).
+    reviewGate:
+      status: passed
+      at: 340991b25d56ab281464346250bdd63ea5e048b1
+      mode: local
+      verifiedAt: 2026-06-30T23:04:44.000Z
   - id: F2
     slug: phase-materialization-f2-materializacao-lazy-leitores-distingue
     title: Materialização lazy + leitores distinguem descriptor-only
