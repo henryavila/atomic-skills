@@ -5,9 +5,9 @@ title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
 status: active
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T10:29:08.000Z
+lastUpdated: 2026-07-01T12:35:00.000Z
 branch: plan/phase-materialization
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -89,12 +89,12 @@ phases:
             exitCode: 0
             testsCollected: 21
             passed: true
-            outputSummary: node --test 'tests/phase-materialization/*.test.js'
-              → exit 0; ℹ tests 21 / pass 21 / fail 0; 3 suites (business-intent-schema
-              11 + find-missing-business-intent 10)
+            outputSummary: node --test 'tests/phase-materialization/*.test.js' → exit 0; ℹ
+              tests 21 / pass 21 / fail 0; 3 suites (business-intent-schema 11 +
+              find-missing-business-intent 10)
           verifier:
             kind: shell
-            command: "node --test 'tests/phase-materialization/*.test.js'"
+            command: node --test 'tests/phase-materialization/*.test.js'
             expectExitCode: 0
         - id: F0-G2
           description: Nenhum arquivo de fluxo/skill alterado nesta fase (zero behavior
@@ -105,18 +105,19 @@ phases:
             verifierKind: manual
             verifiedAt: 2026-06-30T16:10:18.000Z
             passed: true
-            outputSummary: git diff --name-only 67f1257..HEAD -- skills/ src/ = vazio
-              e git status --porcelain -- skills/ src/ = vazio (0 skill/flow file);
+            outputSummary: git diff --name-only 67f1257..HEAD -- skills/ src/ = vazio e git
+              status --porcelain -- skills/ src/ = vazio (0 skill/flow file);
               deliverables = meta/schemas/{plan,initiative}.schema.json +
-              scripts/find-missing-business-intent.js + tests/phase-materialization/ +
-              assets/aideck-consumer/schema.json
+              scripts/find-missing-business-intent.js +
+              tests/phase-materialization/ + assets/aideck-consumer/schema.json
           verifier:
             kind: manual
             description: Confirmar via git diff que só meta/schemas/plan.schema.json +
               meta/schemas/initiative.schema.json +
               scripts/find-missing-business-intent.js + tests/ +
               assets/aideck-consumer/schema.json (bundle regerado para incluir
-              businessIntent — artefato gerado, zero behavior nova) foram tocados
+              businessIntent — artefato gerado, zero behavior nova) foram
+              tocados
     reviewGate:
       status: passed
       at: 079c19d
@@ -153,10 +154,10 @@ phases:
             verifiedAt: 2026-06-30T22:49:23.000Z
             passed: true
             exitCode: 0
-            outputSummary: "npm test → exit 0; ℹ tests 1479 / pass 1471 / fail 0 /
-              skipped 8 (177 suites). Byte-identidade R-ORCH-10 confirmada
+            outputSummary: npm test → exit 0; ℹ tests 1479 / pass 1471 / fail 0 / skipped 8
+              (177 suites). Byte-identidade R-ORCH-10 confirmada
               (tests/decompose.test.js 82/82); 6 falhas pré-existentes de
-              install/refresh-state corrigidas em 9b5e645."
+              install/refresh-state corrigidas em 9b5e645.
           verifier:
             kind: shell
             command: npm test
@@ -171,9 +172,9 @@ phases:
             verifiedAt: 2026-06-30T22:49:23.000Z
             passed: true
             exitCode: 0
-            outputSummary: "node -e exports guard → exit 0; o guard process.exit(1)
-              não disparou — decomposeOnePhase e writeInitiativeFile ambas
-              exportadas de src/decompose.js (reutilizáveis por F2/F3)."
+            outputSummary: node -e exports guard → exit 0; o guard process.exit(1) não
+              disparou — decomposeOnePhase e writeInitiativeFile ambas
+              exportadas de src/decompose.js (reutilizáveis por F2/F3).
           verifier:
             kind: shell
             command: node -e "import(\"./src/decompose.js\").then(m => { if (typeof
@@ -275,23 +276,48 @@ phases:
           description: O verbo materialize <phase> leva descritor → iniciativa com tasks,
             passando pelo gate businessIntent (blank-field-prompting) e
             hard-blockado pelo detector D4
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: "Dogfood: rodar atomic-skills:project materialize <F1> sobre um
               plano dogfood; confirmar gate de blank-field-prompting + detector
               exit 0 libera + arquivo phases/f1-*.md escrito com tasks +
               businessIntent"
+          metAt: 2026-07-01T12:05:00.000Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-01T12:05:00.000Z
+            passed: true
+            outputSummary: "Dogfood em worktree isolado: project materialize F1 executado
+              manualmente; detector `node
+              scripts/find-missing-business-intent.js .atomic-skills` retornou
+              exit 0 com `every materialized phase has a complete businessIntent
+              spine`."
         - id: F3-G2
           description: validate-skills verde apos adicionar o verbo e o detail file
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-01T11:18:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-01T11:18:00.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: npm run validate-skills -> exit 0; node
+              scripts/validate-skills.js; ✓ All 15 skills valid (schema_version
+              0.2).
+    status: done
     summary: Cria o verbo materialize <phase> que leva descritor a iniciativa
       passando pelo gate de businessIntent com blank-field-prompting.
+    reviewGate:
+      status: passed
+      at: de4fb488d2e122f688443db7029b2101aea0522e
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-01-1225-phase-materialization-f3.md
+      verifiedAt: 2026-07-01T12:35:00.000Z
   - id: F4
     slug: phase-materialization-f4-fire-points-backstop-do-implement-re-q
     title: Fire points + backstop do implement + re-question events + lessons
@@ -326,7 +352,7 @@ phases:
             kind: manual
             description: Confirmar em implement.md/project-drift.md que só os 2 eventos D6.1
               re-questionam o businessIntent
-    status: pending
+    status: active
     summary: Conecta o gate nos fire points (phase-done/switch/phase-reopen) e
       endurece o implement como backstop, com re-question em 2 eventos.
   - id: F5

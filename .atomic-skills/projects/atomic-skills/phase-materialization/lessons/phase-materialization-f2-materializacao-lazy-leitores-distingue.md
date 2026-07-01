@@ -9,9 +9,9 @@ lessons:
       `phaseId` can cross-match unrelated plans when several flat plans share
       common ids such as `F0`, turning a descriptor-only phase into a false
       materialized phase.
-    corrective: Locus - flat legacy plan/initiative joins. Key by
-      `(parentPlan, phaseId)` first; use phaseId-only fallback only for a single
-      unscoped legacy initiative; add a cross-plan regression whenever a detector
+    corrective: Locus - flat legacy plan/initiative joins. Key by `(parentPlan,
+      phaseId)` first; use phaseId-only fallback only for a single unscoped
+      legacy initiative; add a cross-plan regression whenever a detector
       supports both nested and flat layouts.
     scope: reusable
     appliesTo: []
@@ -19,7 +19,7 @@ lessons:
     confidence: 2
     evidence: .atomic-skills/reviews/2026-07-01-1029-phase-materialization-f2.md
     createdAt: 2026-07-01T10:29:08Z
-    validatedAt: 2026-07-01T10:29:08Z
+    validatedAt: 2026-07-01T12:35:00.000Z
 ---
 
 # Lessons - F2 Materializacao lazy + leitores distinguem descriptor-only

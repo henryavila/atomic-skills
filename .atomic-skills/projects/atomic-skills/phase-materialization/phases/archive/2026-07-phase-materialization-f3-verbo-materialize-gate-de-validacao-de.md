@@ -8,17 +8,16 @@ goal: Implementar o verbo top-level `materialize <phase>` (D7) que leva uma fase
   caminho reutilizável que F4 fará `phase-done`/`switch`/`phase-reopen` chamarem
   internamente (D7). Depende de F0 (schema + detector), F1
   (`decomposeOnePhase`/`writeInitiativeFile`), F2 (fonte por-fase retida).
-status: active
+status: done
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T11:06:29.000Z
-nextAction: "Run `phase-done F3`: verify F3-G1 manual dogfood and F3-G2
-  `npm run validate-skills`, then run the review gate before advancing."
+lastUpdated: 2026-07-01T12:35:00.000Z
+nextAction: null
 parentPlan: phase-materialization
 phaseId: F3
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 4
 weightTotal: 4
@@ -27,21 +26,40 @@ exitGates:
     description: O verbo materialize <phase> leva descritor → iniciativa com tasks,
       passando pelo gate businessIntent (blank-field-prompting) e hard-blockado
       pelo detector D4
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: "Dogfood: rodar atomic-skills:project materialize <F1> sobre um
         plano dogfood; confirmar gate de blank-field-prompting + detector exit 0
         libera + arquivo phases/f1-*.md escrito com tasks + businessIntent"
+    metAt: 2026-07-01T12:05:00.000Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-01T12:05:00.000Z
+      passed: true
+      outputSummary: "Dogfood em worktree isolado: project materialize F1 executado
+        manualmente; detector `node scripts/find-missing-business-intent.js
+        .atomic-skills` retornou exit 0 com `every materialized phase has a
+        complete businessIntent spine`."
     verifierLabel: manual
+    evidenceSummary: passed · 2026-07-01
   - id: F3-G2
     description: validate-skills verde apos adicionar o verbo e o detail file
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
+    metAt: 2026-07-01T11:18:00.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-01T11:18:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: npm run validate-skills -> exit 0; node
+        scripts/validate-skills.js; ✓ All 15 skills valid (schema_version 0.2).
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-07-01
 stack:
   - id: 1
     title: Verbo `materialize` + gate de validação de negócio
@@ -77,8 +95,8 @@ tasks:
       verifiedAt: 2026-07-01T10:40:25.000Z
       passed: true
       exitCode: 0
-      outputSummary: npm run validate-skills -> exit 0; node scripts/validate-skills.js;
-        ✓ All 15 skills valid (schema_version 0.2)
+      outputSummary: npm run validate-skills -> exit 0; node
+        scripts/validate-skills.js; ✓ All 15 skills valid (schema_version 0.2)
     outputs:
       - kind: file
         path: skills/core/project.md
@@ -154,7 +172,7 @@ summary: Cria o verbo materialize <phase> que leva descritor a iniciativa
   passando pelo gate de businessIntent com blank-field-prompting.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -237,3 +255,12 @@ _(plan doc, external refs)_
   `??
   skills/shared/project-assets/project-materialize.md`;
   `?? tests/phase-materialization/materialize-verb.test.js`.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed with verifier evidence and outputs recorded: T-008 (`validate-skills`) and T-009 (`materialize-verb.test.js`, full `npm test`, and dogfood state validation).
+- **G2 soft-language**: materialize/router/transition contracts are phrased as explicit requirements and covered by static tests; no advisory-only close claim is used for the phase.
+- **G6 reference-or-strike**: 2 exit criteria, both met with evidence blocks; the review findings are recorded in .atomic-skills/reviews/2026-07-01-1225-phase-materialization-f3.md.
+- **Codex review**: ran local clean-context `review-code` at HEAD = `de4fb488d2e122f688443db7029b2101aea0522e`, verdict `approved_with_remediation`, counts `0B/0C/4M/0m/0n`, file .atomic-skills/reviews/2026-07-01-1225-phase-materialization-f3.md.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: de4fb488d2e122f688443db7029b2101aea0522e, mode: local, reviewFile: .atomic-skills/reviews/2026-07-01-1225-phase-materialization-f3.md }`.
+- **Lessons (G1)**: distilled 1 reusable lesson into `lessons/phase-materialization-f3-verbo-materialize-gate-de-validacao-de.md`, ratified by the user; applied at F4 start by tightening T-010 acceptance around direct/internal/reuse/parallel transition paths.

@@ -10,11 +10,12 @@ goal: "Conectar o gate nos fire points (D6):
   saída de `scopeBoundary`. Lições consolidadas fase-a-fase já integram via gate
   de lessons (phase-start). Depende de F2 (descriptor-only) e F3 (materialize
   verbo)."
-status: pending
+status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T14:50:13.796Z
-nextAction: "Start T-010: Fire points chamam `materialize` internamente (D6 + D7)"
+lastUpdated: 2026-07-01T12:35:00.000Z
+nextAction: "Start T-010: fire points call materialize internally, with
+  direct/internal/reuse/parallel paths covered."
 parentPlan: phase-materialization
 phaseId: F4
 tasksDone: 0
@@ -70,6 +71,9 @@ tasks:
         substituída por chamada interna a `materialize`; `phase-done` sobre
         F0→F1 (F1 descriptor-only) dispara materialize sem colisão; fases
         `done`/`archived` seguem intocadas (non-goal)
+      - "F3/L-001 applied: fire-points coverage must include direct invocation,
+        internal caller invocation, existing initiative reuse, and
+        parallel-choice activation paths in the focused test"
     verifier:
       kind: test
       runner: node --test
@@ -125,6 +129,7 @@ summary: Conecta o gate nos fire points (phase-done/switch/phase-reopen) e
   endurece o implement como backstop, com re-question em 2 eventos.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
+current: true
 ---
 
 # Narrative / notes
@@ -133,7 +138,7 @@ Initiative for phase **F4 — Fire points + backstop do implement + re-question 
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **Phase-start lessons gate executado para F4.** Disposicoes: F0/L-001 Keep (sem artefato gerado nesta fase), F1/L-001 Keep (gate F4-G1 ja e escopado a tests/phase-materialization), F2/L-001 Keep (sem scanner flat/nested novo nesta fase), F3/L-001 Apply em T-010 cobrindo chamada direta, chamada interna, reuse de initiative existente e ativacao paralela.
 
 ## Links
 
