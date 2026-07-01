@@ -152,6 +152,32 @@ test('flat legacy layout gates materialized phases by phaseId, skips descriptor-
   }
 });
 
+test('flat legacy layout does not materialize a descriptor-only phase from another plan sharing phaseId', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-bi-flat-cross-'));
+  try {
+    const flat = join(root, '.atomic-skills');
+    mkdirSync(join(flat, 'plans'), { recursive: true });
+    mkdirSync(join(flat, 'initiatives'), { recursive: true });
+    writeFm(join(flat, 'plans', 'plan-a.md'), {
+      slug: 'plan-a',
+      status: 'active',
+      currentPhase: 'F0',
+      phases: [{ id: 'F0' }],
+    });
+    writeFm(join(flat, 'initiatives', 'plan-b-f0.md'), {
+      slug: 'plan-b-f0',
+      parentPlan: 'plan-b',
+      phaseId: 'F0',
+      status: 'active',
+      businessIntent: spine(),
+    });
+
+    assert.deepEqual(findMissingBusinessIntent(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('configuredLanguage is exported (parity) and defaults to a string', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-bi-lang-'));
   try {

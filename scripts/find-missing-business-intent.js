@@ -149,35 +149,53 @@ export function findMissingBusinessIntent(dir) {
   }
 
   // Flat (legacy coexistence): plans/*.md descriptors + initiatives/*.md.
-  // A flat phase is "materialized" when a flat initiative shares its phaseId
-  // (the cross-link the flat layout offers). No matching initiative → descriptor-
-  // only → skipped. Initiatives are indexed by phaseId, matching the nested scan.
+  // A flat phase is "materialized" when a flat initiative belongs to the same
+  // parentPlan + phaseId. Very old unscoped initiatives can still be matched by
+  // phaseId only when that fallback is unambiguous; otherwise skip rather than
+  // false-materializing a descriptor-only phase from another plan.
   const flatInits = join(root, 'initiatives');
-  const flatInitByPhaseId = new Map();
+  const flatInitByPlanPhase = new Map();
+  const unscopedFlatInitsByPhaseId = new Map();
   if (existsSync(flatInits) && statSync(flatInits).isDirectory()) {
     for (const entry of readdirSync(flatInits)) {
       if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
       const init = fmOf(join(flatInits, entry));
-      if (init && init.phaseId != null) flatInitByPhaseId.set(String(init.phaseId), init);
+      if (!init || init.phaseId == null) continue;
+      const phaseId = String(init.phaseId);
+      if (init.parentPlan) {
+        flatInitByPlanPhase.set(`${String(init.parentPlan)}\0${phaseId}`, init);
+      } else {
+        const list = unscopedFlatInitsByPhaseId.get(phaseId) || [];
+        list.push(init);
+        unscopedFlatInitsByPhaseId.set(phaseId, list);
+      }
     }
   }
+  const flatInitFor = (planSlug, phaseId) => {
+    const exact = flatInitByPlanPhase.get(`${planSlug}\0${phaseId}`);
+    if (exact) return exact;
+    const unscoped = unscopedFlatInitsByPhaseId.get(phaseId) || [];
+    return unscoped.length === 1 ? unscoped[0] : null;
+  };
   const flatPlans = join(root, 'plans');
   if (existsSync(flatPlans) && statSync(flatPlans).isDirectory()) {
     for (const entry of readdirSync(flatPlans)) {
       if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
       const plan = fmOf(join(flatPlans, entry));
       if (!plan) continue;
+      const planSlug = String(plan.slug || entry.replace(/\.md$/, ''));
       const missing = [];
       for (const ph of Array.isArray(plan.phases) ? plan.phases : []) {
         if (!ph || typeof ph !== 'object') continue;
         const id = String(ph.id ?? '?');
-        if (!flatInitByPhaseId.has(id)) continue; // descriptor-only → skip (D5)
+        const init = flatInitFor(planSlug, id);
+        if (!init) continue; // descriptor-only → skip (D5)
         const dField = firstMissingField(ph.businessIntent);
         if (dField) missing.push({ phaseId: id, field: dField, where: 'descriptor' });
-        const iField = firstMissingField(flatInitByPhaseId.get(id).businessIntent);
+        const iField = firstMissingField(init.businessIntent);
         if (iField) missing.push({ phaseId: id, field: iField, where: 'initiative' });
       }
-      if (missing.length) report.push({ projectId: '(flat)', planSlug: entry.replace(/\.md$/, ''), missing });
+      if (missing.length) report.push({ projectId: '(flat)', planSlug, missing });
     }
   }
 
