@@ -5,9 +5,9 @@ title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
 status: active
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T10:19:21.000Z
+lastUpdated: 2026-07-01T10:29:08.000Z
 branch: plan/phase-materialization
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -218,12 +218,12 @@ phases:
           metAt: 2026-07-01T10:19:21.000Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-01T10:19:21.000Z
+            verifiedAt: 2026-07-01T10:28:50.000Z
             passed: true
             exitCode: 0
-            testsCollected: 1494
+            testsCollected: 1495
             outputSummary: npm test -- tests/decompose-lazy.test.js → exit 0; node --test
-              collected 1494 tests / pass 1486 / fail 0 / skipped 8 (179
+              collected 1495 tests / pass 1487 / fail 0 / skipped 8 (179
               suites).
         - id: F2-G2
           description: "status/verify E o dashboard tratam fase descriptor-only como
@@ -245,7 +245,13 @@ phases:
               valid; detect-completion --json → drift:false;
               verify:aideck-consumer -- --smoke → RESULT: PASS; descriptor-only
               projection: F1/F2 pending 0/0, only F0 initiative."
-    status: active
+    reviewGate:
+      status: passed
+      at: 71d21049539b5db3408834155c1f6b24970d8144
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-01-1029-phase-materialization-f2.md
+      verifiedAt: 2026-07-01T10:29:08.000Z
+    status: done
     summary: new plan passa a materializar só F0; F1..N viram descritores
       (subPhaseCount:0) e os leitores distinguem descritor-only de
       materializada.
@@ -283,7 +289,7 @@ phases:
             kind: shell
             command: npm run validate-skills
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Cria o verbo materialize <phase> que leva descritor a iniciativa
       passando pelo gate de businessIntent com blank-field-prompting.
   - id: F4

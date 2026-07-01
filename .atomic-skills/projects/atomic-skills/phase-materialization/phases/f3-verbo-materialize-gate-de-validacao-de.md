@@ -8,10 +8,10 @@ goal: Implementar o verbo top-level `materialize <phase>` (D7) que leva uma fase
   caminho reutilizável que F4 fará `phase-done`/`switch`/`phase-reopen` chamarem
   internamente (D7). Depende de F0 (schema + detector), F1
   (`decomposeOnePhase`/`writeInitiativeFile`), F2 (fonte por-fase retida).
-status: pending
+status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T14:50:13.796Z
+lastUpdated: 2026-07-01T10:29:08.000Z
 nextAction: "Start T-008: Adicionar o verbo `materialize <phase>` à gramática do
   router (D7)"
 parentPlan: phase-materialization
@@ -136,6 +136,7 @@ summary: Cria o verbo materialize <phase> que leva descritor a iniciativa
   passando pelo gate de businessIntent com blank-field-prompting.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
+current: true
 ---
 
 # Narrative / notes
@@ -144,9 +145,40 @@ Initiative for phase **F3 — Verbo `materialize` + gate de validação de negó
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **F3 ativada por `phase-done F2` usando a iniciativa existente.** O plano já
+  tinha esta initiative materializada; a transição apenas promoveu `status:
+  active`/`current: true` em vez de criar um segundo arquivo.
+- **Phase-start lessons gate executado.** `node scripts/list-lessons.js --phase
+  F3` retornou 78 lessons aplicáveis; a nova F2/L-001 fica como APPLY para
+  qualquer trabalho que una leitores/detectores entre layout nested e flat
+  (especialmente T-009 ao orquestrar o detector de businessIntent).
 
 ## Links
 
 _(plan doc, external refs)_
 
+## Session handoff
+
+- **Narrative:** F2 foi concluída via `phase-done`: exit gates F2-G1/F2-G2 estão
+  met, review gate local passou com 1 major corrigido, F2 foi arquivada em
+  `phases/archive/2026-07-phase-materialization-f2-materializacao-lazy-leitores-distingue.md`,
+  e esta F3 agora é a fase ativa/current.
+- **Decision log:** review-code rodou em modo local inline degradado porque o
+  asset `diff-capture.md` estava ausente e a ferramenta multi-agent disponível
+  não permite subagents sem pedido explícito do usuário. O finding real foi
+  corrigido no commit `71d21049539b5db3408834155c1f6b24970d8144`: o detector
+  flat de `businessIntent` agora casa `(parentPlan, phaseId)` antes de qualquer
+  fallback por `phaseId`. A F3 existente foi reaproveitada como successor.
+- **Single nextAction:** Start T-008: adicionar `materialize <phase>` ao router
+  em `skills/core/project.md` e criar/ligar
+  `skills/shared/project-assets/project-materialize.md`.
+- **Verbatim state:** `rtk npm test -- tests/decompose-lazy.test.js` -> exit 0,
+  1495 tests / 1487 pass / 0 fail / 8 skipped / 179 suites. `rtk node --test
+  tests/phase-materialization/find-missing-business-intent.test.js` -> exit 0,
+  11 tests / 11 pass. `rtk node scripts/list-lessons.js --phase F3` -> exit 0,
+  78 applicable lessons. Review file:
+  `.atomic-skills/reviews/2026-07-01-1029-phase-materialization-f2.md`.
+- **Uncommitted changes at handoff creation:** phase-boundary state staged for
+  commit (`plan.md`, F2 archive move, F3 activation, review report/index, F2
+  lessons, analytics event, project status). After the phase-boundary commit,
+  expected `git status --porcelain` is empty.

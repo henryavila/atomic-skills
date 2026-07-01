@@ -66,3 +66,4 @@
 | 2026-06-25 19:10 | [plan-dependencies-f0](2026-06-25-1910-plan-dependencies-f0.md) | code (local degraded) | approved | 0B/0C/0M/0m/0n | inline fallback |
 | 2026-06-26 | aideck-lifecycle-g1 | approve | 0B/0C/0M/0m/0n | [2026-06-26-1825-aideck-lifecycle-g1.md](./2026-06-26-1825-aideck-lifecycle-g1.md) |
 | 2026-06-29 13:55 | [phase-materialization](2026-06-29-1355-phase-materialization.md) | plan | needs_changes | 0B/3C/2M/0m/0n | 1d/4=/1+ |
+| 2026-07-01 10:29 | [phase-materialization-f2](2026-07-01-1029-phase-materialization-f2.md) | code (local degraded) | approved_with_remediation | 0B/0C/1M/0m/0n | inline fallback |

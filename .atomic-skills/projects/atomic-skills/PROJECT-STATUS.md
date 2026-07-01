@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-06-29T12:56:02Z
+lastUpdated: 2026-07-01T10:32:22Z
 schemaVersion: '0.1'
 activePlans: 1
 activeInitiatives: 1
@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| phase-materialization | active | F0 | plan/phase-materialization | 2026-06-29 | 0/6 |
+| phase-materialization | active | F3 | plan/phase-materialization | 2026-06-29 | 3/6 |
 
 ## Done Plans (not archived)
 

@@ -10,12 +10,11 @@ goal: 'Implementar D1 (lazy FORTE) + a retenção da fonte por-fase (D2):
   `materialize` consumir. Os leitores (`status`/`verify`/dashboard) passam a
   distinguir "descritor-only, pendente de materialização" (sem arquivo) de
   "materializada" (com arquivo). Depende de F1.'
-status: active
+status: done
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T10:19:21.000Z
-nextAction: "F2 tasks done (T-006 + T-007). Run `phase-done F2` to verify exit
-  gates (F2-G1 shell + F2-G2 manual dashboard) + review gate, then advance to F3."
+lastUpdated: 2026-07-01T10:29:08.000Z
+nextAction: null
 parentPlan: phase-materialization
 phaseId: F2
 tasksDone: 2
@@ -37,14 +36,14 @@ exitGates:
     metAt: 2026-07-01T10:19:21.000Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-01T10:19:21.000Z
+      verifiedAt: 2026-07-01T10:28:50.000Z
       passed: true
       exitCode: 0
-      testsCollected: 1494
+      testsCollected: 1495
       outputSummary: npm test -- tests/decompose-lazy.test.js → exit 0; node --test
-        collected 1494 tests / pass 1486 / fail 0 / skipped 8 (179 suites).
+        collected 1495 tests / pass 1487 / fail 0 / skipped 8 (179 suites).
     verifierLabel: "shell: npm test -- tests/decompose-lazy.test.js"
-    evidenceSummary: passed · 1494 tests · 2026-07-01
+    evidenceSummary: passed · 1495 tests · 2026-07-01
   - id: F2-G2
     description: "status/verify E o dashboard tratam fase descriptor-only como
       pendente-de-materialização (estado valido), nao como erro (F-004: o goal
@@ -207,7 +206,7 @@ summary: new plan passa a materializar só F0; F1..N viram descritores
   (subPhaseCount:0) e os leitores distinguem descritor-only de materializada.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
-current: true
+current: false
 ---
 
 # Narrative / notes
@@ -231,3 +230,12 @@ Initiative for phase **F2 — Materialização lazy + leitores distinguem descri
 ## Links
 
 _(plan doc, external refs)_
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed (T-006 and T-007), each with `outputs[]` and real verifier evidence; exit gates F2-G1/F2-G2 are `met` with `evidence:` populated.
+- **G2 soft-language**: completion claims are anchored in `passed: true` evidence and exact verifier output; the new phase-boundary handoff in F3 uses literal paths/commands and no placeholders.
+- **G6 reference-or-strike**: 2 exit criteria, 2 met with evidence, 0 deferred, 0 unverified.
+- **Codex review**: `review-code` local mode was run inline at HEAD `71d21049539b5db3408834155c1f6b24970d8144`; isolation degraded because the installed `diff-capture.md` asset was missing and the available multi-agent tool forbids spawning subagents unless the user explicitly asks. Verdict `approved_with_remediation`, counts `0 blocker, 0 critical, 1 major, 0 minor`, file `.atomic-skills/reviews/2026-07-01-1029-phase-materialization-f2.md`.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: 71d21049539b5db3408834155c1f6b24970d8144, mode: local, reviewFile: .atomic-skills/reviews/2026-07-01-1029-phase-materialization-f2.md, verifiedAt: 2026-07-01T10:29:08.000Z }`.
+- **Lessons (G1)**: distilled 1 reusable lesson into `lessons/phase-materialization-f2-materializacao-lazy-leitores-distingue.md`; it is open and sourced to the verified review finding.
