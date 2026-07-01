@@ -1,0 +1,94 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DETAIL = join(
+  __dirname,
+  '..',
+  '..',
+  'skills',
+  'shared',
+  'project-assets',
+  'project-materialize.md',
+);
+const doc = readFileSync(DETAIL, 'utf8');
+
+function assertInOrder(tokens) {
+  let last = -1;
+  for (const token of tokens) {
+    const idx = doc.indexOf(token, last + 1);
+    assert.notEqual(idx, -1, `missing token: ${token}`);
+    assert.ok(idx > last, `token out of order: ${token}`);
+    last = idx;
+  }
+}
+
+test('T-009 documents the materialize flow from retained source to active phase', () => {
+  assertInOrder([
+    'Load retained source sidecar.',
+    'Run the phase-start lessons gate.',
+    'Collect the user-written `businessIntent` spine.',
+    'Reuse `decomposeOnePhase(phaseSource, ctx)`',
+    'Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.',
+    'Write the initiative with `businessIntent` and update the parent plan',
+    'descriptor atomically.',
+    'Run `scripts/find-missing-business-intent.js`.',
+    'Run `scripts/validate-state.js`.',
+    'Run `scripts/refresh-state.js`.',
+  ]);
+});
+
+test('T-009 businessIntent gate requires business/customer value and non-goal outOfScope', () => {
+  assert.match(doc, /`value` states both business value and customer\/user value\./);
+  assert.match(doc, /`outOfScope` is a non-goal, not a vague omission\./);
+  assert.match(doc, /Reject the block when any required field is blank/);
+  assert.match(doc, /\[NEEDS CLARIFICATION\]/);
+});
+
+test('T-009 body reuses F1/F2 primitives and does not duplicate decompose logic', () => {
+  assert.match(doc, /do not duplicate decomposition heuristics/);
+  assert.match(doc, /For the F2 `captureVersion: "0\.1"` shape/);
+  assert.match(doc, /reuse its `goal`, `tasks`, and\s+`exitGates` directly/);
+  assert.match(doc, /do not re-parse the\s+whole source markdown as a fallback/);
+});
+
+test('T-009 descriptor update names the fields required by the detector and readers', () => {
+  assertInOrder([
+    'add `businessIntent` to the initiative frontmatter',
+    'set `businessIntent` on the parent plan descriptor;',
+    'set `subPhaseCount` to `initiative.tasks.length`;',
+    'set the descriptor `status` to `active`;',
+    'set `currentPhase` to the phase id;',
+    'The detector runs',
+  ]);
+});
+
+test('T-009 detector command uses package-root resolution and scans state root, not a plan file', () => {
+  assert.match(doc, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
+  assert.doesNotMatch(doc, /find-missing-business-intent\.js \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/);
+  assert.match(doc, /Do not pass `plan\.md` to this detector/);
+});
+
+test('T-009 materialize target is dependency-safe and does not leave two active phases', () => {
+  assert.match(doc, /The requested phase must equal `currentPhase`/);
+  assert.match(doc, /Every `dependsOn\[\]` phase must\s+be `done`/);
+  assert.match(doc, /no other phase descriptor or initiative may remain `active`/);
+});
+
+test('router treats materialize as a mutating command behind pre-mutation gates', () => {
+  const router = readFileSync(join(__dirname, '..', '..', 'skills', 'core', 'project.md'), 'utf8');
+  const gateLine = router.split('\n').find((line) => line.includes('BEFORE executing a mutating command')) || '';
+  assert.match(gateLine, /`materialize`/);
+});
+
+test('phase transitions delegate descriptor-only activation to materialize, not new initiative', () => {
+  const transitions = readFileSync(
+    join(__dirname, '..', '..', 'skills', 'shared', 'project-assets', 'project-transitions.md'),
+    'utf8',
+  );
+  assert.match(transitions, /atomic-skills:project materialize <phase-id>/);
+  assert.match(transitions, /do not propose `new initiative` for descriptor-only phases/);
+});

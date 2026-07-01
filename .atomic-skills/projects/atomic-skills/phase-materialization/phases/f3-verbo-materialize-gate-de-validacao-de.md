@@ -11,16 +11,16 @@ goal: Implementar o verbo top-level `materialize <phase>` (D7) que leva uma fase
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T10:29:08.000Z
-nextAction: "Start T-008: Adicionar o verbo `materialize <phase>` à gramática do
-  router (D7)"
+lastUpdated: 2026-07-01T11:06:29.000Z
+nextAction: "Run `phase-done F3`: verify F3-G1 manual dogfood and F3-G2
+  `npm run validate-skills`, then run the review gate before advancing."
 parentPlan: phase-materialization
 phaseId: F3
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 4
 weightTotal: 4
 exitGates:
   - id: F3-G1
@@ -57,8 +57,9 @@ tasks:
       `phase-done` — é verbo próprio porque `phase-done`/`switch`/`phase-reopen`
       o chamam internamente (decisão estrutural de contrato de chamada, não
       ergonômica — D7).
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-07-01T10:40:25.000Z
+    closedAt: 2026-07-01T10:40:25.000Z
     scopeBoundary:
       - a `## Grammar` e a dispatch-table em `skills/core/project.md` + o novo
         `project-materialize.md`; NÃO remover/renomear verbos existentes, NÃO
@@ -71,6 +72,13 @@ tasks:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-01T10:40:25.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: npm run validate-skills -> exit 0; node scripts/validate-skills.js;
+        ✓ All 15 skills valid (schema_version 0.2)
     outputs:
       - kind: file
         path: skills/core/project.md
@@ -103,8 +111,9 @@ tasks:
       nenhum campo da espinha fica vazio/marcado numa fase ativada (D4); a
       validação *com o usuário* (blank-field-prompting) é passo de fluxo, não
       checável por script (D3.4 honestidade)."
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-07-01T11:06:29.000Z
+    closedAt: 2026-07-01T10:44:21.000Z
     scopeBoundary:
       - o corpo do verbo em `project-materialize.md` + novo teste; reusa
         `decomposeOnePhase`/`writeInitiativeFile` (F1) e a fonte retida (F2) sem
@@ -121,6 +130,14 @@ tasks:
       kind: test
       runner: node --test
       pattern: tests/phase-materialization/materialize-verb.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-01T11:06:29.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 8
+      outputSummary: node --test tests/phase-materialization/materialize-verb.test.js
+        -> exit 0; tests 8 / pass 8 / fail 0 / duration_ms 147.689416.
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-materialize.md
@@ -128,7 +145,8 @@ tasks:
         path: tests/phase-materialization/materialize-verb.test.js
     summary: "Implementa o corpo do verbo: fonte retida → decomposeOnePhase → gate
       businessIntent (blank-field) → write → detector → atualiza atomicamente o
-      descritor em plan.md (F-003)."
+      descritor em plan.md (F-003), com contratos pós-review para detector,
+      dependências, router e transições descriptor-only."
     weight: 3
 parked: []
 emerged: []
@@ -159,26 +177,63 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F2 foi concluída via `phase-done`: exit gates F2-G1/F2-G2 estão
-  met, review gate local passou com 1 major corrigido, F2 foi arquivada em
-  `phases/archive/2026-07-phase-materialization-f2-materializacao-lazy-leitores-distingue.md`,
-  e esta F3 agora é a fase ativa/current.
-- **Decision log:** review-code rodou em modo local inline degradado porque o
-  asset `diff-capture.md` estava ausente e a ferramenta multi-agent disponível
-  não permite subagents sem pedido explícito do usuário. O finding real foi
-  corrigido no commit `71d21049539b5db3408834155c1f6b24970d8144`: o detector
-  flat de `businessIntent` agora casa `(parentPlan, phaseId)` antes de qualquer
-  fallback por `phaseId`. A F3 existente foi reaproveitada como successor.
-- **Single nextAction:** Start T-008: adicionar `materialize <phase>` ao router
-  em `skills/core/project.md` e criar/ligar
-  `skills/shared/project-assets/project-materialize.md`.
-- **Verbatim state:** `rtk npm test -- tests/decompose-lazy.test.js` -> exit 0,
-  1495 tests / 1487 pass / 0 fail / 8 skipped / 179 suites. `rtk node --test
-  tests/phase-materialization/find-missing-business-intent.test.js` -> exit 0,
-  11 tests / 11 pass. `rtk node scripts/list-lessons.js --phase F3` -> exit 0,
-  78 applicable lessons. Review file:
-  `.atomic-skills/reviews/2026-07-01-1029-phase-materialization-f2.md`.
-- **Uncommitted changes at handoff creation:** phase-boundary state staged for
-  commit (`plan.md`, F2 archive move, F3 activation, review report/index, F2
-  lessons, analytics event, project status). After the phase-boundary commit,
-  expected `git status --porcelain` is empty.
+- **Narrative:** F3 está ativa/current e T-008/T-009 estão `done` com evidência
+  `passed: true` nos respectivos task frontmatters. Após a revisão em contexto
+  limpo, os cinco achados foram corrigidos: o detector de businessIntent agora
+  é chamado via package-root e varre `.atomic-skills`; a initiative materializada
+  e o descriptor do plano recebem o mesmo `businessIntent`; `materialize` entrou
+  nos pre-mutation gates; o pre-flight exige alvo igual a `currentPhase`,
+  dependências `done` e ausência de outra fase ativa; e `phase-done` delega
+  activation descriptor-only para `materialize` em vez de `new initiative`.
+  O `npm test` completo também expôs os contratos derivados da nova lazy asset:
+  contagens do instalador foram atualizadas e a linha residente do router foi
+  encurtada para manter `skills/core/project.md` abaixo do teto de 23000 bytes.
+  A fronteira de fase está pronta para `phase-done F3`.
+- **Decision log:** Mode 2 estava ligado em
+  `.atomic-skills/status/routing.json`, mas a bridge Codex não estava
+  despachável porque os assets
+  `/Users/henry/.agents/atomic-skills/_assets/codex-bridge-assets/preflight-checks.txt`
+  e
+  `/Users/henry/.agents/atomic-skills/_assets/codex-bridge-assets/invocation-workspace-write.txt`
+  não existem; T-008 e T-009 foram executadas em Mode 1 com esse motivo
+  registrado. O novo detail file usa `{{ARG_VAR}}`, `{{BASH_TOOL}}`,
+  `{{WRITE_TOOL}}` e `{{ASK_USER_QUESTION_TOOL}}` para respeitar o contrato
+  cross-agent. O verificador de T-009 falhou uma vez porque
+  `tests/phase-materialization/materialize-verb.test.js:22` usava
+  `doc.indexOf(token)` global e o token `scripts/find-missing-business-intent.js`
+  já aparecia antes da seção de descriptor update; a correção foi trocar o
+  último token do teste por `The detector runs`. A revisão em contexto limpo foi
+  executada por um agente sem histórico conversacional sobre o diff de
+  implementação/testes, e as regressões resultantes foram fixadas com testes
+  vermelhos primeiro.
+- **Single nextAction:** Run `phase-done F3` and disposition the manual dogfood
+  gate F3-G1 before advancing.
+- **Verbatim state:** `rtk node --test
+  tests/phase-materialization/materialize-verb.test.js` -> exit 0: `ℹ tests 8`
+  / `ℹ pass 8` / `ℹ fail 0` / `ℹ duration_ms 147.689416`. `rtk node --test
+  tests/install.test.js` -> exit 0: `ℹ tests 37` / `ℹ pass 37` / `ℹ fail 0`.
+  `rtk node --test tests/skill-byte-budget.test.js` -> exit 0: `ℹ tests 8`
+  / `ℹ pass 8` / `ℹ fail 0`. `rtk npm test` -> exit 0: `ℹ tests 1506`
+  / `ℹ pass 1498` / `ℹ fail 0` / `ℹ skipped 8`. `rtk npm run
+  validate-skills` -> exit 0: `> node scripts/validate-skills.js` / `✓ All 15
+  skills valid (schema_version 0.2)`. `rtk node scripts/validate-state.js
+  .atomic-skills/projects/atomic-skills/phase-materialization/plan.md
+  .atomic-skills/projects/atomic-skills/phase-materialization/phases/f3-verbo-materialize-gate-de-validacao-de.md`
+  -> exit 0: `✓ All 2 file(s) valid, 1 plan(s) cross-validated (schemaVersion
+  0.1/0.2)`. Earlier completion events were already appended for T-008 and
+  T-009 and were not duplicated. `rtk cat
+  /Users/henry/.agents/atomic-skills/_assets/codex-bridge-assets/preflight-checks.txt`
+  -> exit 1: `cat:
+  /Users/henry/.agents/atomic-skills/_assets/codex-bridge-assets/preflight-checks.txt:
+  No such file or directory`. `rtk cat
+  /Users/henry/.agents/atomic-skills/_assets/codex-bridge-assets/invocation-workspace-write.txt`
+  -> exit 1: `cat:
+  /Users/henry/.agents/atomic-skills/_assets/codex-bridge-assets/invocation-workspace-write.txt:
+  No such file or directory`.
+- **Uncommitted changes:** ` M .atomic-skills/analytics/completions.jsonl`; ` M
+  .atomic-skills/projects/atomic-skills/phase-materialization/phases/f3-verbo-materialize-gate-de-validacao-de.md`;
+  ` M skills/core/project.md`; ` M
+  skills/shared/project-assets/project-transitions.md`; ` M tests/install.test.js`;
+  `??
+  skills/shared/project-assets/project-materialize.md`;
+  `?? tests/phase-materialization/materialize-verb.test.js`.
