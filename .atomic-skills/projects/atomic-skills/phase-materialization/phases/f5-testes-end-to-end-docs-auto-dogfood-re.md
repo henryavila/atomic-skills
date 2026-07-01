@@ -137,3 +137,10 @@ Initiative for phase **F5 — Testes end-to-end + docs + auto-dogfood/review**.
 
 _(plan doc, external refs)_
 
+## Session handoff
+
+- **Narrative:** F5 is now the active phase for `phase-materialization` after F4 phase-done. F4 gates passed, local review found and fixed the invalid `lastUpdated` phase-descriptor instruction, and F4/L-001 was applied to T-012 acceptance.
+- **Decision log:** The F4 review ran as local inline fallback because multi-agent spawn requires explicit user authorization in this session. The real F4 review range used `33869d1..HEAD` instead of the stale F4 `started` timestamp, matching the actual post-F3 phase work.
+- **Single nextAction:** Start T-012 in `tests/phase-materialization/e2e-lifecycle.test.js`.
+- **Verbatim state:** `rtk node scripts/validate-state.js .atomic-skills` -> `✓ All 141 file(s) valid, 22 plan(s) cross-validated, 1 routing config(s) valid`; `rtk node --test tests/phase-materialization/*.test.js tests/skill-byte-budget.test.js` -> `ℹ tests 53`; `ℹ pass 53`; `ℹ fail 0`; phase advance commit `5946570 chore(project): advance phase-materialization F4`.
+- **Uncommitted changes:** clean tree after phase-boundary commit `5946570`.
