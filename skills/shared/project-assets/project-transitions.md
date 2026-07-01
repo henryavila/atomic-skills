@@ -23,7 +23,7 @@ The pre-mutation check is the **only** way legacy files are touched, and migrati
 
 ## Pre-mutation reconciliation gate (detail)
 
-Every time you load an active initiative for a **mutating** command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `materialize`, `archive`, `switch`, `detect-scope`, `re-ratify`, `new-task`, `new-phase`), run this check AFTER the migration check and BEFORE executing the command:
+Every time you load an active initiative for a **mutating** command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `re-ratify`, `new-task`, `new-phase`), run this check AFTER the migration check and BEFORE executing the command. `materialize` can be the command that creates the phase initiative; when no active initiative exists, it skips this active-initiative reconciliation gate and runs its own plan-level pre-flight. When called from `phase-done`/`switch`/`phase-reopen`, the caller has already run this gate.
 
 1. Parse `tasks[]` from the active initiative's frontmatter.
 2. Collect tasks where `status` is `active` AND `lastUpdated` is older than 24 hours from now.
@@ -167,13 +167,14 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary` by running `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
    - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
-   - For each newly-active phase id whose initiative file is absent
-     (descriptor-only), run `atomic-skills:project materialize <phase-id>` to
-     materialize the next initiative through the retained sidecar, lessons gate,
-     user-written `businessIntent`, detector, validation, and refresh sequence;
-     do not propose `new initiative` for descriptor-only phases. If the
-     initiative file already exists, skip `materialize` and reuse the existing
-     initiative.
+   - For each newly-active phase id, set the phase descriptor to
+     `status: active` with refreshed `lastUpdated`. If the matching initiative
+     file exists, set that initiative to `status: active` and refresh
+     `lastUpdated`, then run `refresh-state`. If the initiative file is absent
+     (descriptor-only), run `atomic-skills:project materialize <phase-id>` with
+     the full selected active phase id set so parallel-choice phases beyond the
+     first pass pre-flight; do not propose `new initiative` for descriptor-only
+     phases.
    - Save the plan + PROJECT-STATUS.md.
    - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
 9. On user decline (or `plan-done` accept without `currentPhase` change):

@@ -73,15 +73,25 @@ test('T-009 detector command uses package-root resolution and scans state root, 
 });
 
 test('T-009 materialize target is dependency-safe and does not leave two active phases', () => {
-  assert.match(doc, /The requested phase must equal `currentPhase`/);
-  assert.match(doc, /Every `dependsOn\[\]` phase must\s+be `done`/);
-  assert.match(doc, /no other phase descriptor or initiative may remain `active`/);
+  assert.match(doc, /For a direct top-level invocation, the requested phase must equal\s+`currentPhase`/);
+  assert.match(doc, /caller passes the selected active phase id set/);
+  assert.match(doc, /Every `dependsOn\[\]`\s+phase must be `done`/);
+  assert.match(doc, /no phase outside the selected active set may remain\s+`active`/);
 });
 
-test('router treats materialize as a mutating command behind pre-mutation gates', () => {
+test('router treats materialize as mutating with a no-active-initiative exception', () => {
   const router = readFileSync(join(__dirname, '..', '..', 'skills', 'core', 'project.md'), 'utf8');
   const gateLine = router.split('\n').find((line) => line.includes('BEFORE executing a mutating command')) || '';
-  assert.match(gateLine, /`materialize`/);
+  const commandList = gateLine.match(/\(([^)]*)\)/)?.[1] || '';
+  assert.doesNotMatch(commandList, /`materialize`/);
+  assert.match(router, /`materialize` exception: may create the initiative/);
+  assert.match(router, /Callers gated/);
+});
+
+test('T-009 validate-state targets the materialized initiative file explicitly', () => {
+  assert.match(doc, /validate-state\.js" \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/phases\/<resolved-phase-file>\.md/);
+  assert.match(doc, /Pass the newly written initiative file explicitly/);
+  assert.doesNotMatch(doc, /validate-state\.js" \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/phases\/`/);
 });
 
 test('phase transitions delegate descriptor-only activation to materialize, not new initiative', () => {
@@ -90,5 +100,7 @@ test('phase transitions delegate descriptor-only activation to materialize, not 
     'utf8',
   );
   assert.match(transitions, /atomic-skills:project materialize <phase-id>/);
-  assert.match(transitions, /do not propose `new initiative` for descriptor-only phases/);
+  assert.match(transitions, /do not propose `new initiative` for descriptor-only\s+phases/);
+  assert.match(transitions, /If the matching initiative\s+file exists, set that initiative to `status: active`/);
+  assert.match(transitions, /full selected active phase id set so parallel-choice phases beyond the\s+first pass pre-flight/);
 });

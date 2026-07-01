@@ -108,7 +108,7 @@ Every code-modifying session must be anchored to an active initiative — a phas
 
 ## Pre-mutation gates (apply before ANY mutating subcommand)
 
-Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `materialize`, `finalize`, `consolidate`, `archive`, `switch`, `depend add`, `depend remove`, `depend resolve`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip them for read-only commands (`status` views, `verify`, `review`, `why`, `scope-creep`, `depend list`).
+Run these in order on the active initiative BEFORE executing a mutating command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `finalize`, `consolidate`, `archive`, `switch`, `depend add`, `depend remove`, `depend resolve`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`). Skip read-only commands. `materialize` exception: may create the initiative; if absent, use plan preflight. Callers gated.
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)

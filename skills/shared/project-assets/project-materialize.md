@@ -54,11 +54,16 @@ The command's load-bearing order is fixed:
    Resolve exactly one active plan and read its `plan.md`.
 3. Locate the requested phase descriptor by `id` or `slug`. If no descriptor
    matches, stop and print the valid ids/slugs from `phases[]`.
-4. The requested phase must equal `currentPhase`. Every `dependsOn[]` phase must
-   be `done`, and no other phase descriptor or initiative may remain `active`
-   when this command writes. If the current tree still has a different active
-   phase, stop and route through `phase-done`, `switch`, or `phase-reopen` so the
-   transition demotes/archives the old phase before materializing the target.
+4. For a direct top-level invocation, the requested phase must equal
+   `currentPhase`. For an internal transition call (`phase-done`/`switch`/
+   `phase-reopen`), the caller passes the selected active phase id set; the
+   requested phase must be in that set, which allows parallel-choice activation
+   where `currentPhase` points at the first selected phase. Every `dependsOn[]`
+   phase must be `done`, and no phase outside the selected active set may remain
+   `active` when this command writes. If the current tree still has an unrelated
+   active phase, stop and route through `phase-done`, `switch`, or `phase-reopen`
+   so the transition demotes/archives the old phase before materializing the
+   target.
 5. If the phase initiative file already exists, stop: the phase is already
    materialized. Do not overwrite it from the sidecar.
 6. Load the retained sidecar for the descriptor. Require
@@ -134,7 +139,10 @@ Reject the block when any required field is blank or still contains
    Exit code `0` is required. Any non-zero exit leaves the initiative and plan
    edits open for repair; do not report the phase as active.
 8. Run schema validation with `{{BASH_TOOL}}`:
-   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/`.
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md`.
+   Pass the newly written initiative file explicitly; do not pass the `phases/`
+   directory because the validator treats arbitrary directories as discovery
+   roots and can skip a bare phase directory.
 9. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
 
 ## Failure Handling
