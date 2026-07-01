@@ -54,3 +54,22 @@ Também confira `tests/skill-byte-budget.test.js` quando mexer em
 `skills/core/project.md`: uma nova linha residente de grammar/dispatch pode
 estourar o teto de bytes. Prefira encurtar a superfície residente e deixar o
 detalhe no lazy asset, em vez de aumentar o teto.
+
+## Lifecycle E2E deve afirmar estado pós-transição
+
+Em testes que simulam transições de lifecycle, não basta checar a lista inicial
+de arquivos emitida pelo setup. Depois que a ação sob teste roda, asserte o
+estado mutado no filesystem/frontmatter resultante.
+
+**Why:** Em 2026-07-01, o E2E de materialização lazy checava que F2 continuava
+descriptor-only olhando o array inicial de `materializeDecomposition`. Se o fluxo
+de ativação de F1 escrevesse `phases/f2-*.md` por acidente, o teste continuaria
+verde porque a lista pré-ação não mudaria. A revisão local pegou esse
+falso-verde antes do fechamento da fase.
+
+**How to apply:** Em testes de `phase-done`, `switch`, `phase-reopen`,
+`materialize` ou fluxos similares:
+1. Execute a transição.
+2. Releia o frontmatter ou consulte o filesystem produzido pela transição.
+3. Asserte presença/ausência de arquivos e campos no estado pós-ação, não em
+   estruturas capturadas antes da ação.
