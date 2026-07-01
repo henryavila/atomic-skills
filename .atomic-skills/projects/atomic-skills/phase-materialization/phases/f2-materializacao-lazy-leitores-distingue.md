@@ -18,11 +18,11 @@ nextAction: "Start T-007: Leitores distinguem descriptor-only de materializada
   (project-view.md + project-verify.md + descriptor-only-readers.test.js)"
 parentPlan: phase-materialization
 phaseId: F2
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 4
+weightDone: 6
 weightTotal: 6
 exitGates:
   - id: F2-G1
@@ -132,8 +132,9 @@ tasks:
       que não FAILa em fase descritor-only), e o consumer dashboard (manifest a
       confirmar — aiDeck só lê, mantém agnóstico). A distinção é pela **ausência
       do arquivo de iniciativa**, nunca por `subPhaseCount`.'
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-07-01T09:48:37.000Z
+    closedAt: 2026-07-01T09:48:37.000Z
     scopeBoundary:
       - as seções de leitura de fase→initiative em project-view.md e
         project-verify.md + novo teste; NÃO alterar aiDeck (agnóstico), NÃO
@@ -153,6 +154,23 @@ tasks:
       kind: test
       runner: node --test
       pattern: tests/phase-materialization/descriptor-only-readers.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-01T09:48:37.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 5
+      outputSummary: node --test
+        tests/phase-materialization/descriptor-only-readers.test.js → exit 0; ℹ
+        tests 5 / pass 5 / fail 0. Pinning test sobre árvore descritor-only
+        (materializeDecomposition lazy — plano + iniciativa F0 + sidecar F1/F2,
+        sem iniciativa F1/F2) — validate-state
+        validateFile/collectTargets/crossValidate não FAILam em F1/F2 (só
+        done-phases checadas); find-missing-business-intent ignora F1/F2 (D5,
+        sem arquivo de iniciativa); distinção pela ausência do arquivo, não
+        subPhaseCount. Prose em project-view.md (--phase/--plan renderizam
+        pendente-de-materialização) + project-verify.md (descritor-only é
+        válido). validate-skills 15/15; npm test 1494/0 fail.
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-view.md
