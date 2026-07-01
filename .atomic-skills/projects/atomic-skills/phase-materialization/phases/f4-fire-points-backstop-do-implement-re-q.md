@@ -13,14 +13,14 @@ goal: "Conectar o gate nos fire points (D6):
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T13:05:51.000Z
+lastUpdated: 2026-07-01T18:23:18.000Z
 nextAction: "Run phase-done for phase-materialization/F4: execute exit gates,
   review-code, lessons distillation, and plan advance."
 parentPlan: phase-materialization
 phaseId: F4
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 4
 weightTotal: 4
@@ -29,21 +29,40 @@ exitGates:
     description: phase-done/switch/phase-reopen chamam materialize internamente (sem
       a instrução new initiative quebrada) e implement recusa fase
       descriptor-only/sem businessIntent
-    status: pending
+    status: met
     verifier:
       kind: shell
-      command: npm test -- tests/phase-materialization/
+      command: node --test tests/phase-materialization/*.test.js
       expectExitCode: 0
-    verifierLabel: "shell: npm test -- tests/phase-materialization/"
+    metAt: 2026-07-01T18:23:18.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-01T18:23:18.000Z
+      exitCode: 0
+      passed: true
+      outputSummary: rtk node --test tests/phase-materialization/*.test.js -> exit 0;
+        tests 45 / pass 45 / fail 0; duration_ms 743.223666.
+    verifierLabel: "shell: node --test tests/phase-materialization/*.test.js"
+    evidenceSummary: passed · 2026-07-01
   - id: F4-G2
     description: Os 2 eventos D6.1 (critico drift + implement Step 2.1 runtime
       scope) sao os unicos re-question points, sem maquinaria nova
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Confirmar em implement.md/project-drift.md que só os 2 eventos D6.1
         re-questionam o businessIntent
+    metAt: 2026-07-01T18:23:18.000Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-01T18:23:18.000Z
+      passed: true
+      outputSummary: "rtk rg found exactly the two D6.1 triggers in
+        skills/core/implement.md: critic/review drift and runtime scopeBoundary
+        exit; lint-source.js is explicitly excluded; project-drift.md adds no
+        extra businessIntent re-question trigger."
     verifierLabel: manual
+    evidenceSummary: passed · 2026-07-01
 stack:
   - id: 1
     title: Fire points + backstop do implement + re-question events + lessons
@@ -150,6 +169,7 @@ planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 
