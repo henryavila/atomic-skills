@@ -36,3 +36,4 @@
 {"ts":"2026-07-01T10:40:50.687Z","event":"task-done","projectId":"atomic-skills","planSlug":"phase-materialization","phaseId":"F3","taskId":"T-008","weight":1,"weightBasis":"proxy"}
 {"ts":"2026-07-01T10:44:41.876Z","event":"task-done","projectId":"atomic-skills","planSlug":"phase-materialization","phaseId":"F3","taskId":"T-009","weight":3,"weightBasis":"proxy"}
 {"ts":"2026-07-01T12:28:53.855Z","event":"phase-done","projectId":"atomic-skills","planSlug":"phase-materialization","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":36,"locAdded":5262,"locRemoved":138,"commits":29}}
+{"ts":"2026-07-01T12:56:12.771Z","event":"task-done","projectId":"atomic-skills","planSlug":"phase-materialization","phaseId":"F4","taskId":"T-010","weight":2,"weightBasis":"proxy"}
