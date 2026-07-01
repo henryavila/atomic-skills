@@ -13,7 +13,7 @@ goal: "Conectar o gate nos fire points (D6):
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T13:03:19.000Z
+lastUpdated: 2026-07-01T13:05:51.000Z
 nextAction: "Run phase-done for phase-materialization/F4: execute exit gates,
   review-code, lessons distillation, and plan advance."
 parentPlan: phase-materialization
@@ -165,8 +165,8 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** Fase F4 esta ativa em `.atomic-skills/projects/atomic-skills/phase-materialization/phases/f4-fire-points-backstop-do-implement-re-q.md`. T-010 e T-011 estao `done` com `evidence.passed: true`; `tasksDone: 2`, `weightDone: 4`, `gatesMet: 0`. A implementacao de T-011 esta no commit `63241cd docs(T-011): harden implement business intent backstop`; o worktree isolado de T-011 foi removido depois da comparacao byte-a-byte.
+- **Narrative:** Fase F4 esta ativa em `.atomic-skills/projects/atomic-skills/phase-materialization/phases/f4-fire-points-backstop-do-implement-re-q.md`. T-010 e T-011 estao `done` com `evidence.passed: true`; `tasksDone: 2`, `weightDone: 4`, `gatesMet: 0`. A implementacao de T-011 esta no commit `63241cd docs(T-011): harden implement business intent backstop`, e o fechamento de estado esta no commit `283e763 chore(project): close T-011`.
 - **Decision log:** T-011 roteou para Mode 2 porque `.atomic-skills/status/routing.json` contem `"mode2Enabled": true` e `"codexLane": {"enabled": true, "timeoutSeconds": 600, "sandbox": "workspace-write"}` e a task tinha `scopeBoundary[]`, `acceptance[]` e verifier deterministico. O self-report do executor nao certificou a task: o diff foi lido com `rtk git -C /Volumes/External/code/atomic-skills/.worktrees/phase-materialization-t011-codex diff`, integrado serialmente na arvore principal, verificado com `rtk node --test tests/phase-materialization/implement-backstop.test.js`, e entao commitado em `63241cd`.
 - **Single nextAction:** Run `phase-done` for `phase-materialization/F4`.
 - **Verbatim state:** `rtk node --test tests/phase-materialization/implement-backstop.test.js` -> `✔ T-011 Step 1 refuses descriptor-only phases before accepting pending tasks`; `✔ T-011 Step 1 requires a complete businessIntent spine on descriptor and initiative`; `✔ T-011 Step 2.1 documents exactly the two D6.1 re-question events`; `✔ T-011 Step 2.1 runtime scope exits stop and report path plus reason`; `ℹ tests 4`; `ℹ pass 4`; `ℹ fail 0`; source anchors: `skills/core/implement.md:51`, `skills/core/implement.md:54`, `skills/core/implement.md:56`, `skills/core/implement.md:65`, `skills/core/implement.md:67`, `skills/core/implement.md:72`, `tests/phase-materialization/implement-backstop.test.js:29`, `tests/phase-materialization/implement-backstop.test.js:46`, `tests/phase-materialization/implement-backstop.test.js:64`, `tests/phase-materialization/implement-backstop.test.js:79`; cleanup commands: `rtk git worktree remove --force /Volumes/External/code/atomic-skills/.worktrees/phase-materialization-t011-codex` -> `ok`; `rtk git branch -D impl/phase-materialization-t011` -> `ok`.
-- **Uncommitted changes:** ` M .atomic-skills/analytics/completions.jsonl`; ` M .atomic-skills/projects/atomic-skills/phase-materialization/phases/f4-fire-points-backstop-do-implement-re-q.md`
+- **Uncommitted changes:** clean tree after the final handoff checkpoint.
