@@ -14,8 +14,8 @@ status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
 lastUpdated: 2026-07-01T08:42:22.000Z
-nextAction: "Start T-006: Mudar `materializeDecomposition` para materializar só
-  F0 + reter fonte por-fase (D1)"
+nextAction: "Start T-007: Leitores distinguem descriptor-only de materializada
+  (project-view.md + project-verify.md + descriptor-only-readers.test.js)"
 parentPlan: phase-materialization
 phaseId: F2
 tasksDone: 1
@@ -178,7 +178,17 @@ Initiative for phase **F2 — Materialização lazy + leitores distinguem descri
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **always-lazy (não opt-in flag) — T-006.** `materializeDecomposition` materializa só F0 incondicionalmente (D1), não via `opts.lazy`. Razão: (a) a aceitação de T-006 ponto 1 diz "emite exatamente 1 initiative file" sem condição; (b) o ponto 6 de backward-compat é sobre plano legado já em disco (intocado), não sobre o default da função; (c) um flag opt-in exigiria wirear `new plan` (fora do scopeBoundary de T-006) para a aceitação valer. Custo: 5 asserções do `decompose.test.js` que codificavam o contrato não-lazy foram atualizadas (byte-identity agora em F0; shape/colisão/validate refletem lazy); F0 segue byte-idêntico (R-ORCH-10 preservado).
+- **Conteúdo do sidecar = iniciativa parseada por-fase.** O sidecar `phases/<slug>.source.json` captura `{captureVersion, phaseId, slug, title, goal, tasks, exitGates}` — exatamente o dado que `materializeDecomposition` tem in-scope (`decompose.initiatives[idx]`). A fonte markdown bruta por-fase NÃO é retida por `decomposePlan` (consumida por `decomposeOnePhase`), e tocar `decomposePlan`/`decomposeOnePhase` está fora do escopo (F1/P1). É o que o verbo `materialize` (F3) consome sem re-parsear o doc.
+- **`writePhaseSourceSidecar` guarda o namespace de slug compartilhado.** Dois descritores com o mesmo slug teriam colisão diferida (o `materialize` de F1 depois sobrescreveria F0); o guard de slug up-front preserva a garantia do `writeInitiativeFile` através da fronteira lazy (testes de colisão F-001 seguem verde).
+
+## Session handoff
+
+- **Narrative:** F2 (Materialização lazy). T-006 FECHADO e verificado — `materializeDecomposition` agora é always-lazy (materializa só F0; F1..N viram descritores `subPhaseCount:0` + sidecar `phases/<slug>.source.json`). Próxima task pendente: T-007 (leitores distinguem descritor-only de materializada). Nenhuma task em mid-flight.
+- **Decision log:** sempre-lazy (não flag opt-in); sidecar = iniciativa parseada por-fase; guard de slug no sidecar — ver `## Decisions` acima.
+- **Single nextAction:** Iniciar **T-007**: editar `skills/shared/project-assets/project-view.md` (status mostra fase descritor-only como "pendente de materialização") + `skills/shared/project-assets/project-verify.md` (não FAILa em descritor-only) + criar `tests/phase-materialization/descriptor-only-readers.test.js` (verifier `node --test`).
+- **Verbatim state:** Verifier de T-006 executado: `node --test tests/decompose-lazy.test.js` → EXIT=0, ℹ tests 10 / pass 10 / fail 0; `evidence.passed:true`, `testsCollected:10`. Suíte cheia `npm test` → 1489 tests / 0 fail / 8 skipped. `node scripts/validate-state.js .atomic-skills/projects/atomic-skills/phase-materialization/phases/f2-materializacao-lazy-leitores-distingue.md` → "All 1 file(s) valid". Rollups: tasksDone 1/2, weightDone 4/6. Commits: `d7671f3` (feat code+test), `e7e489a` (checkpoint state). Próximo verifier (T-007): `node --test tests/phase-materialization/descriptor-only-readers.test.js`.
+- **Uncommitted changes:** clean tree (T-006 committed; este handoff é o próximo commit `docs(project)`).
 
 ## Links
 
