@@ -5,7 +5,7 @@ title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
 status: active
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-30T18:05:12.000Z
+lastUpdated: 2026-07-01T10:19:21.000Z
 branch: plan/phase-materialization
 currentPhase: F2
 parallelismAllowed: false
@@ -210,22 +210,41 @@ phases:
           description: new plan com >=2 fases materializa só F0 (1 initiative file) +
             descritores F1..N com subPhaseCount:0 e exitGate retido, e fonte
             por-fase persistida
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm test -- tests/decompose-lazy.test.js
             expectExitCode: 0
+          metAt: 2026-07-01T10:19:21.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-01T10:19:21.000Z
+            passed: true
+            exitCode: 0
+            testsCollected: 1494
+            outputSummary: npm test -- tests/decompose-lazy.test.js → exit 0; node --test
+              collected 1494 tests / pass 1486 / fail 0 / skipped 8 (179
+              suites).
         - id: F2-G2
           description: "status/verify E o dashboard tratam fase descriptor-only como
             pendente-de-materialização (estado valido), nao como erro (F-004: o
             goal de F2 nomeia o dashboard)"
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Rodar atomic-skills:project status e verify + abrir o dashboard
               sobre um plano dogfood com F1 descriptor-only; confirmar que F1
               aparece como pendente-de-materialização (não vazio/quebrado) em
               todos, sem erro/falso-positivo
+          metAt: 2026-07-01T10:19:21.000Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-01T10:19:21.000Z
+            passed: true
+            outputSummary: "refresh-state exit 0; validate-state .atomic-skills → 138 files
+              valid; detect-completion --json → drift:false;
+              verify:aideck-consumer -- --smoke → RESULT: PASS; descriptor-only
+              projection: F1/F2 pending 0/0, only F0 initiative."
     status: active
     summary: new plan passa a materializar só F0; F1..N viram descritores
       (subPhaseCount:0) e os leitores distinguem descritor-only de
@@ -374,4 +393,3 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 - internal: 1 critical finding applied (corrupção sistemática do `verifier:` da última task nas 6 fases — F0/T-003, F1/T-005, F2/T-007, F3/T-009, F4/T-011, F5/T-013; causa-raiz: o bloco fenced ```yaml exit_gate``` posicionado após a última task `### Tn` era absorvido por `parseTaskInterior` em `src/decompose.js:379-412`, e o último `verifier:` do gate sobrescrevia o da task; fix de raiz: fence reposicionado para logo após `Goal:` no `source.md` + re-materialize — os verifiers voltaram a ser determinísticos test/shell como pretendido) @ uncommitted (2026-06-29T13:20:54Z)
 
 - codex: needs_changes → resolved (3 critical, 2 major; todos os 5 aplicados ao `source.md` + re-materializado 2026-06-29) — .atomic-skills/reviews/2026-06-29-1355-phase-materialization.md (F-001 businessIntent adicionado ao `initiative.schema.json` via T-001; F-002 sidecar `phases/<slug>.source.json` definido como captura não-validada em T-006 — `validate-state.js`/`find-*.js` filtram `*.md`, verificado `find-missing-summaries.js:86` + `validate-state.js` `addMd`; F-003 T-009 `materialize` agora atualiza atomicamente o descritor em `plan.md`; F-004 F2-G2 + T-007 gateiam a projeção do dashboard; F-005 `definitionOfDone[]` removido do plano — T-002 descartado, sem consumer/enforcement neste plano)
-

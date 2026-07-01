@@ -13,14 +13,14 @@ goal: 'Implementar D1 (lazy FORTE) + a retenção da fonte por-fase (D2):
 status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T08:42:22.000Z
+lastUpdated: 2026-07-01T10:19:21.000Z
 nextAction: "F2 tasks done (T-006 + T-007). Run `phase-done F2` to verify exit
   gates (F2-G1 shell + F2-G2 manual dashboard) + review gate, then advance to F3."
 parentPlan: phase-materialization
 phaseId: F2
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 6
 weightTotal: 6
@@ -29,24 +29,44 @@ exitGates:
     description: new plan com >=2 fases materializa só F0 (1 initiative file) +
       descritores F1..N com subPhaseCount:0 e exitGate retido, e fonte por-fase
       persistida
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: npm test -- tests/decompose-lazy.test.js
       expectExitCode: 0
+    metAt: 2026-07-01T10:19:21.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-01T10:19:21.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 1494
+      outputSummary: npm test -- tests/decompose-lazy.test.js → exit 0; node --test
+        collected 1494 tests / pass 1486 / fail 0 / skipped 8 (179 suites).
     verifierLabel: "shell: npm test -- tests/decompose-lazy.test.js"
+    evidenceSummary: passed · 1494 tests · 2026-07-01
   - id: F2-G2
     description: "status/verify E o dashboard tratam fase descriptor-only como
       pendente-de-materialização (estado valido), nao como erro (F-004: o goal
       de F2 nomeia o dashboard)"
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Rodar atomic-skills:project status e verify + abrir o dashboard
         sobre um plano dogfood com F1 descriptor-only; confirmar que F1 aparece
         como pendente-de-materialização (não vazio/quebrado) em todos, sem
         erro/falso-positivo
+    metAt: 2026-07-01T10:19:21.000Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-01T10:19:21.000Z
+      passed: true
+      outputSummary: "refresh-state exit 0; validate-state .atomic-skills → 138 files
+        valid; detect-completion --json → drift:false; verify:aideck-consumer --
+        --smoke → RESULT: PASS; descriptor-only projection: F1/F2 pending 0/0,
+        only F0 initiative."
     verifierLabel: manual
+    evidenceSummary: passed · 2026-07-01
 stack:
   - id: 1
     title: Materialização lazy + leitores distinguem descriptor-only
