@@ -5,7 +5,7 @@ title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
 status: active
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T18:23:18.000Z
+lastUpdated: 2026-07-01T18:25:06.000Z
 branch: plan/phase-materialization
 currentPhase: F4
 parallelismAllowed: false
@@ -373,6 +373,12 @@ phases:
     status: active
     summary: Conecta o gate nos fire points (phase-done/switch/phase-reopen) e
       endurece o implement como backstop, com re-question em 2 eventos.
+    reviewGate:
+      status: passed
+      at: fe74783bda02e3bd604db183ac61fa02f75e80ce
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-01-1825-phase-materialization-f4.md
+      verifiedAt: 2026-07-01T18:25:06.000Z
   - id: F5
     slug: phase-materialization-f5-testes-end-to-end-docs-auto-dogfood-re
     title: Testes end-to-end + docs + auto-dogfood/review
@@ -412,6 +418,7 @@ references: []
 planActive: true
 planTitle: Materialização lazy de fases + gate de validação de negócio
 ---
+
 
 
 # Materialização lazy de fases + gate de validação de negócio
