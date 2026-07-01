@@ -14,8 +14,8 @@ status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
 lastUpdated: 2026-07-01T08:42:22.000Z
-nextAction: "Start T-007: Leitores distinguem descriptor-only de materializada
-  (project-view.md + project-verify.md + descriptor-only-readers.test.js)"
+nextAction: "F2 tasks done (T-006 + T-007). Run `phase-done F2` to verify exit
+  gates (F2-G1 shell + F2-G2 manual dashboard) + review gate, then advance to F3."
 parentPlan: phase-materialization
 phaseId: F2
 tasksDone: 2
@@ -202,11 +202,11 @@ Initiative for phase **F2 — Materialização lazy + leitores distinguem descri
 
 ## Session handoff
 
-- **Narrative:** F2 (Materialização lazy). T-006 FECHADO e verificado — `materializeDecomposition` agora é always-lazy (materializa só F0; F1..N viram descritores `subPhaseCount:0` + sidecar `phases/<slug>.source.json`). Próxima task pendente: T-007 (leitores distinguem descritor-only de materializada). Nenhuma task em mid-flight.
-- **Decision log:** sempre-lazy (não flag opt-in); sidecar = iniciativa parseada por-fase; guard de slug no sidecar — ver `## Decisions` acima.
-- **Single nextAction:** Iniciar **T-007**: editar `skills/shared/project-assets/project-view.md` (status mostra fase descritor-only como "pendente de materialização") + `skills/shared/project-assets/project-verify.md` (não FAILa em descritor-only) + criar `tests/phase-materialization/descriptor-only-readers.test.js` (verifier `node --test`).
-- **Verbatim state:** Verifier de T-006 executado: `node --test tests/decompose-lazy.test.js` → EXIT=0, ℹ tests 10 / pass 10 / fail 0; `evidence.passed:true`, `testsCollected:10`. Suíte cheia `npm test` → 1489 tests / 0 fail / 8 skipped. `node scripts/validate-state.js .atomic-skills/projects/atomic-skills/phase-materialization/phases/f2-materializacao-lazy-leitores-distingue.md` → "All 1 file(s) valid". Rollups: tasksDone 1/2, weightDone 4/6. Commits: `d7671f3` (feat code+test), `e7e489a` (checkpoint state). Próximo verifier (T-007): `node --test tests/phase-materialization/descriptor-only-readers.test.js`.
-- **Uncommitted changes:** clean tree (T-006 committed; este handoff é o próximo commit `docs(project)`).
+- **Narrative:** F2 (Materialização lazy) — ambas as tasks FECHADAS e verificadas. T-006 (always-lazy `materializeDecomposition` + sidecar `phases/<slug>.source.json`) e T-007 (leitores distinguem descritor-only + pinning test) done; tasksDone 2/2, weightDone 6/6. Próximo passo de fase: `phase-done F2` (exit gates F2-G1 shell + F2-G2 manual dashboard + review gate), depois avança para F3.
+- **Decision log:** sempre-lazy (não flag opt-in); sidecar = iniciativa parseada por-fase; guard de slug no sidecar (T-006). T-007: os leitores executáveis (validate-state `crossValidate` só checa done-phases; find-missing-business-intent pula sem-arquivo) JÁ tratavam descritor-only — o detector F0/T-003 foi escrito prospectivamente p/ D1 lazy; T-007 só adicionou prose de renderização (`--phase`/`--plan` em project-view.md) + nota "descritor-only é válido" em project-verify.md + pinning test, sem mudança de código nos leitores. Lição YAML: `outputSummary` (plain scalar) NÃO pode conter `: ` (colon-space) no meio — validate-state pega (bug real introduzido e corrigido no close de T-007).
+- **Single nextAction:** Rodar **`phase-done F2`** (opt-in do usuário): executa F2-G1 (`npm test -- tests/decompose-lazy.test.js`) + F2-G2 (manual dashboard) + o gate de review (`review-code` no diff da fase), destila lessons, arquiva a iniciativa F2 e avança `currentPhase` para F3.
+- **Verbatim state:** T-006 verifier `node --test tests/decompose-lazy.test.js` → EXIT=0/10 pass; T-007 verifier `node --test tests/phase-materialization/descriptor-only-readers.test.js` → EXIT=0/5 pass. Suíte cheia `npm test` → 1494 tests / 0 fail / 8 skipped. `npm run validate-skills` → 15/15. `node scripts/validate-state.js <f2-initiative>` → "All 1 file(s) valid". Rollups: tasksDone 2/2, gatesMet 0/2 (F2-G1/F2-G2 ainda pending — phase-done os resolve). Commits T-006: `d7671f3`/`e7e489a`/`0491dd5`; T-007: `9da9a03`/`8be9ad7`.
+- **Uncommitted changes:** clean tree (este handoff é o próximo commit `docs(project)`).
 
 ## Links
 
