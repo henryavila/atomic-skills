@@ -41,3 +41,16 @@ network):
 3. Adicionar pelo menos um teste que exercita explicitamente o fallback
    (ex.: "LANG vazio + Intl pt → pt") para garantir que o caminho de fallback
    funciona quando o primário falha.
+
+## Novo lazy asset de skill exige contratos de instalação e budget
+
+Quando adicionar um arquivo em `skills/shared/project-assets/` (ou outro asset
+copiado para namespaces das IDEs), atualize os testes que fixam a quantidade de
+arquivos instalados e inclua um spot-check do novo asset. O `npm test` completo
+pega isso via `tests/install.test.js`, mas a suíte focada da feature pode passar
+sem perceber o drift.
+
+Também confira `tests/skill-byte-budget.test.js` quando mexer em
+`skills/core/project.md`: uma nova linha residente de grammar/dispatch pode
+estourar o teto de bytes. Prefira encurtar a superfície residente e deixar o
+detalhe no lazy asset, em vez de aumentar o teto.
