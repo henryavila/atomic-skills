@@ -165,10 +165,10 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
      d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary` by running `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
-   - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
+   - Update the parent plan's matching phase descriptor to `status: done` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode), and refresh the plan root `lastUpdated`.
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
    - For each newly-active phase id, set the phase descriptor to
-     `status: active` with refreshed `lastUpdated`. If the matching initiative
+     `status: active` and refresh the plan root `lastUpdated`. If the matching initiative
      file exists, set that initiative to `status: active` and refresh
      `lastUpdated`, then run `refresh-state`. If the initiative file is absent
      (descriptor-only), run `atomic-skills:project materialize <phase-id>` with
