@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: phase-materialization
 title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
-status: active
+status: done
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T18:27:56.000Z
+lastUpdated: 2026-07-01T21:05:39.338Z
 branch: plan/phase-materialization
 currentPhase: F5
 parallelismAllowed: false
@@ -397,25 +397,48 @@ phases:
         - id: F5-G1
           description: Suíte completa verde (npm test) e fluxo e2e new plan → materialize
             → advance coberto por teste
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm test
             expectExitCode: 0
+          metAt: 2026-07-01T20:51:49.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-01T20:51:49.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: rtk npm test -> exit 0; tests 1517 / pass 1509 / fail 0 / skipped
+              8; duration_ms 6633.03625.
         - id: F5-G2
           description: Docs refletem o comportamento lazy e declaram D9 (hipótese) + D10
             (non-goal); auto-dogfood do mecanismo no próprio plano
-          status: pending
+          status: met
           verifier:
             kind: manual
             description: Revisar CLAUDE.md + docs/kb; confirmar que o verbo materialize e a
               distinção descriptor-only estão documentados e D9/D10 registrados
               como postura/non-goal
-    status: active
+          metAt: 2026-07-01T21:05:39.338Z
+          evidence:
+            verifierKind: manual
+            verifiedAt: 2026-07-01T21:05:39.338Z
+            passed: true
+            outputSummary: rtk rg confirmed CLAUDE.md and
+              docs/kb/project-lazy-materialization.md document lazy
+              materialization, descriptor-only/materialized distinction,
+              materialize <phase>, D9 as hypothesis, and D10 as non-goal;
+              ban-list scan returned no matches.
+    status: done
     summary: Teste e2e do fluxo completo + docs que declaram a postura D9 (hipótese)
       e o non-goal D10 (constituição separada).
+    reviewGate:
+      status: passed
+      at: ac484de06cf99f37444dcc990c0a9d7454ebbdd8
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-01-2051-phase-materialization-f5.md
+      verifiedAt: 2026-07-01T21:05:39.338Z
 references: []
-planActive: true
 planTitle: Materialização lazy de fases + gate de validação de negócio
 ---
 

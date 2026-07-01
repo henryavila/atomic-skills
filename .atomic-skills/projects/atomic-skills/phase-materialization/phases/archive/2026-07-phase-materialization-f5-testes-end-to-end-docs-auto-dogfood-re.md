@@ -8,40 +8,58 @@ goal: Fechar com testes de integração do fluxo completo (new plan → lazy →
   no design, não código — fica documentada, não implementada como instrumento
   (não-entregável). D10 (constituição de anti-patterns) é non-goal explícito
   (iniciativa separada).
-status: active
+status: done
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T18:27:56.000Z
-nextAction: "Start T-012: Teste de integração do fluxo completo (new plan → lazy
-  → materialize → advance)"
+lastUpdated: 2026-07-01T21:05:39.338Z
+nextAction: null
 parentPlan: phase-materialization
 phaseId: F5
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: F5-G1
     description: Suíte completa verde (npm test) e fluxo e2e new plan → materialize
       → advance coberto por teste
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: npm test
       expectExitCode: 0
+    metAt: 2026-07-01T20:51:49.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-01T20:51:49.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk npm test -> exit 0; tests 1517 / pass 1509 / fail 0 / skipped
+        8; duration_ms 6633.03625.
     verifierLabel: "shell: npm test"
+    evidenceSummary: passed · 2026-07-01
   - id: F5-G2
     description: Docs refletem o comportamento lazy e declaram D9 (hipótese) + D10
       (non-goal); auto-dogfood do mecanismo no próprio plano
-    status: pending
+    status: met
     verifier:
       kind: manual
       description: Revisar CLAUDE.md + docs/kb; confirmar que o verbo materialize e a
         distinção descriptor-only estão documentados e D9/D10 registrados como
         postura/non-goal
+    metAt: 2026-07-01T21:05:39.338Z
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-01T21:05:39.338Z
+      passed: true
+      outputSummary: rtk rg confirmed CLAUDE.md and
+        docs/kb/project-lazy-materialization.md document lazy materialization,
+        descriptor-only/materialized distinction, materialize <phase>, D9 as
+        hypothesis, and D10 as non-goal; ban-list scan returned no matches.
     verifierLabel: manual
+    evidenceSummary: passed · 2026-07-01
 stack:
   - id: 1
     title: Testes end-to-end + docs + auto-dogfood/review
@@ -60,8 +78,9 @@ tasks:
       + businessIntent e F1 vira `active`. Cobre o caminho feliz; não testa
       eficácia anti-rubber-stamp (D9 = hipótese não-provada, contrafactual
       inobservável)."
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-07-01T20:22:58.000Z
+    closedAt: 2026-07-01T20:22:58.000Z
     scopeBoundary:
       - novo arquivo de teste e2e + fixtures sob
         `tests/phase-materialization/fixtures/`; NÃO alterar código prod (este
@@ -84,6 +103,14 @@ tasks:
     summary: "Teste e2e: new plan → descritores lazy → materialize F1 → initiative
       com tasks → F1 active."
     weight: 2
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-01T20:22:58.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 1
+      outputSummary: rtk node --test tests/phase-materialization/e2e-lifecycle.test.js
+        -> exit 0; tests 1 / pass 1 / fail 0; duration_ms 132.290292.
   - id: T-013
     title: "Docs: CLAUDE.md + kb + declaration da postura D9/D10 non-goals"
     description: "Atualiza a documentação para refletir o novo comportamento: (a)
@@ -94,8 +121,9 @@ tasks:
       **postura D9** (gate-como-hipótese, instrumento Open, não-entregável) e o
       **non-goal D10** (constituição de anti-patterns = iniciativa separada) no
       plano/ docs para que não sejam esquecidos como pendências implícitas."
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-07-01T20:25:20.000Z
+    closedAt: 2026-07-01T20:25:20.000Z
     scopeBoundary:
       - a seção de rastreamento em CLAUDE.md + novo doc kb; NÃO alterar
         schemas/scripts/skill-assets de fluxo (apenas docs)
@@ -115,13 +143,18 @@ tasks:
     summary: Docs (CLAUDE.md + kb) descrevem o lazy e registram D9 (hipótese) e D10
       (non-goal).
     weight: 1
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-01T20:25:20.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk npm run validate-skills -> exit 0; node
+        scripts/validate-skills.js; All 15 skills valid (schema_version 0.2).
 parked: []
 emerged: []
 summary: Teste e2e do fluxo completo + docs que declaram a postura D9 (hipótese)
   e o non-goal D10 (constituição separada).
 planTitle: Materialização lazy de fases + gate de validação de negócio
-planActive: true
-current: true
 ---
 
 
@@ -139,8 +172,17 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F5 is now the active phase for `phase-materialization` after F4 phase-done. F4 gates passed, local review found and fixed the invalid `lastUpdated` phase-descriptor instruction, and F4/L-001 was applied to T-012 acceptance.
-- **Decision log:** The F4 review ran as local inline fallback because multi-agent spawn requires explicit user authorization in this session. The real F4 review range used `33869d1..HEAD` instead of the stale F4 `started` timestamp, matching the actual post-F3 phase work.
-- **Single nextAction:** Start T-012 in `tests/phase-materialization/e2e-lifecycle.test.js`.
-- **Verbatim state:** `rtk node scripts/validate-state.js .atomic-skills` -> `✓ All 141 file(s) valid, 22 plan(s) cross-validated, 1 routing config(s) valid`; `rtk node --test tests/phase-materialization/*.test.js tests/skill-byte-budget.test.js` -> `ℹ tests 53`; `ℹ pass 53`; `ℹ fail 0`; phase advance commit `5946570 chore(project): advance phase-materialization F4`.
-- **Uncommitted changes:** clean tree after phase-boundary commit `5946570`.
+- **Narrative:** F5 has both tasks closed with verifier evidence. T-012 added the lifecycle e2e test; T-013 documented lazy materialization in `CLAUDE.md` and `docs/kb/project-lazy-materialization.md`.
+- **Decision log:** T-012 stayed in Mode 1 because this session's main executor is already Codex and no separate cross-provider writing lane was dispatchable from the current host. T-013 kept docs-only scope: `CLAUDE.md` plus the new KB, with no schema/script/skill-flow edits.
+- **Single nextAction:** Run `atomic-skills:project phase-done` for F5 after explicit user approval.
+- **Verbatim state:** `rtk node --test tests/phase-materialization/*.test.js` -> `ℹ tests 46`; `ℹ pass 46`; `ℹ fail 0`; `rtk npm run validate-skills` -> `✓ All 15 skills valid (schema_version 0.2)`; `rtk rg -n "\b(should|probably|may|typically|usually|tends to|in theory|deveria|provavelmente|talvez|normalmente|geralmente)\b" CLAUDE.md docs/kb/project-lazy-materialization.md` -> exit 1 / no matches.
+- **Uncommitted changes:** `.atomic-skills/analytics/completions.jsonl`; `.atomic-skills/projects/atomic-skills/phase-materialization/phases/f5-testes-end-to-end-docs-auto-dogfood-re.md`; `CLAUDE.md`; `docs/kb/project-lazy-materialization.md`; `tests/phase-materialization/e2e-lifecycle.test.js`; `tests/phase-materialization/fixtures/e2e-lifecycle-source.md`.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: T-012 and T-013 were closed from verifier evidence; the F5 review finding cites the corrected post-transition filesystem assertion in `tests/phase-materialization/e2e-lifecycle.test.js`.
+- **G2 soft-language**: scanned `nextAction`, task descriptions, and criterion descriptions in the F5 initiative state; no banned soft-language terms were introduced by the closure update.
+- **G6 reference-or-strike**: 2 exit criteria, 2 met with `evidence` populated, 0 deferred, 0 unverified.
+- **Codex review**: local inline fallback review at HEAD `ac484de06cf99f37444dcc990c0a9d7454ebbdd8`, verdict `passed-after-fix`, file `.atomic-skills/reviews/2026-07-01-2051-phase-materialization-f5.md`.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: ac484de06cf99f37444dcc990c0a9d7454ebbdd8, mode: local, reviewFile: .atomic-skills/reviews/2026-07-01-2051-phase-materialization-f5.md }`.
+- **Lessons (G1)**: distilled 1 reusable lesson into `lessons/phase-materialization-f5-testes-end-to-end-docs-auto-dogfood-re.md`; ratified by the user on 2026-07-01T21:05:39.338Z.
