@@ -18,11 +18,11 @@ nextAction: "Start T-006: Mudar `materializeDecomposition` para materializar só
   F0 + reter fonte por-fase (D1)"
 parentPlan: phase-materialization
 phaseId: F2
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 4
 weightTotal: 6
 exitGates:
   - id: F2-G1
@@ -76,8 +76,9 @@ tasks:
       `initiative.schema.json` nem quebra a validação; só o verbo `materialize`
       (F3) o lê. `new plan` (F0) segue ganhando tasks + passando pelo gate de
       businessIntent na criação (non-goal \"não mudar a F0\")."
-    status: pending
-    lastUpdated: 2026-06-29T13:19:41.314Z
+    status: done
+    lastUpdated: 2026-07-01T09:30:32.000Z
+    closedAt: 2026-07-01T09:30:32.000Z
     scopeBoundary:
       - "`materializeDecomposition` (`:771-949`) e a emissão de `phases[]`
         (`:796-822`); NÃO alterar `decomposeOnePhase`/`writeInitiativeFile`
@@ -97,6 +98,19 @@ tasks:
       kind: test
       runner: node --test
       pattern: tests/decompose-lazy.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-01T09:30:32.000Z
+      passed: true
+      exitCode: 0
+      testsCollected: 10
+      outputSummary: node --test tests/decompose-lazy.test.js → exit 0; ℹ tests 10 /
+        pass 10 / fail 0 (1 suite). materializeDecomposition (always-lazy) emite
+        1 plano + 1 iniciativa (F0) + sidecar phases/<slug>.source.json por fase
+        F1..N; phases[] F0 subPhaseCount=tasks, F1/F2=0 com exitGate retido;
+        validate-state.js + find-missing-summaries.js ignoram o .json (F-002);
+        decompose.test.js atualizado (byte-identity F0 preservada + shape lazy);
+        suíte cheia npm test 1489 tests / 0 fail.
     outputs:
       - kind: file
         path: src/decompose.js
