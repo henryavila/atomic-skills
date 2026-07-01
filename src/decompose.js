@@ -855,6 +855,67 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
 }
 
 /**
+ * Build ONE per-phase source sidecar ({kind:'source', slug, relativePath,
+ * content}) for a descriptor-only phase (F1..N) that `new plan` did NOT
+ * materialize into an initiative. The sidecar is a CAPTURE artifact (F-002),
+ * not validated state: validate-state.js and the find-*.js detectors iterate
+ * phases/ filtering *.md (endsWith('.md')), so the .json is skipped. It holds
+ * the phase's parsed initiative (goal + raw tasks + exitGates) so the F3
+ * `materialize` verb can re-materialize it via writeInitiativeFile WITHOUT
+ * re-running decomposePlan on the whole plan — the laziness hinge (D1/D2).
+ *
+ * @param {DecomposedInitiative} initiative — the phase's decomposed initiative
+ * @param {string} planSlug — plan slug (slug-derivation basis)
+ * @param {object} ctx — shared materialize context
+ * @param {string} ctx.stateRoot — state-dir prefix for the flat layout
+ * @param {string|null} ctx.planDir — nested plan dir (null ⇒ flat layout)
+ * @param {string|null} ctx.projectId — set ⇒ nested layout; null ⇒ flat
+ * @param {Set<string>} ctx.seenSlugs — collision-guard slug set (mutated in place)
+ * @param {Set<string>} ctx.seenPaths — collision-guard path set (mutated in place)
+ * @returns {MaterializedFile} the {kind:'source', slug, relativePath, content}
+ */
+export function writePhaseSourceSidecar(initiative, planSlug, ctx) {
+  const init = initiative;
+  const { stateRoot, planDir, projectId, seenSlugs, seenPaths } = ctx;
+  const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
+  // Same filename convention as writeInitiativeFile: nested drops the redundant
+  // <planSlug>- prefix (the phases/ dir already encodes the plan).
+  const phaseFileName = initSlug.startsWith(`${planSlug}-`) ? initSlug.slice(planSlug.length + 1) : initSlug;
+  const relativePath = projectId
+    ? `${planDir}/phases/${phaseFileName}.source.json`
+    : `${stateRoot}/initiatives/${initSlug}.source.json`;
+  // A descriptor-only phase shares the initiative slug namespace: if two phases
+  // derive the same slug, the F3 `materialize` verb would later overwrite one
+  // initiative file with the other. Guard the slug up-front — the same guarantee
+  // writeInitiativeFile gives F0 — so the collision surfaces at `new plan` time,
+  // not silently deferred to materialization.
+  if (seenSlugs.has(initSlug) || seenPaths.has(relativePath)) {
+    throw new Error(
+      `materializeDecomposition: slug collision for phase ${init.phaseId} ` +
+      `(slug "${initSlug}"). Two phases produced the same source path; ` +
+      `shorten the plan slug or rename the conflicting phase title.`,
+    );
+  }
+  seenSlugs.add(initSlug);
+  seenPaths.add(relativePath);
+  const capture = {
+    captureVersion: '0.1',
+    phaseId: init.phaseId,
+    slug: initSlug,
+    title: init.title || init.phaseId,
+    goal: init.goal,
+    tasks: init.tasks,
+    exitGates: init.exitGates,
+  };
+  return {
+    kind: 'source',
+    slug: initSlug,
+    relativePath,
+    content: `${JSON.stringify(capture, null, 2)}\n`,
+  };
+}
+
+/**
  * Materialize a decompose result into Plan + Initiative file contents that
  * Stage 6 (and `adopt`) write to disk. Pure function: returns a list of
  * `{kind, slug, relativePath, content}` items; the skill body owns the actual
@@ -870,7 +931,15 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
  *     phase's dependsOn is set to [prevPhaseId] so the default decompose
  *     produces a strictly sequential plan (the user can edit later). The
  *     first phase is `status: active`; the rest are `pending`. subPhaseCount
- *     equals the number of H3-derived tasks.
+ *     is the number of H3-derived tasks for F0; for F1..N it is 0 (D1 lazy:
+ *     descriptor-only, pending materialization — an honest "unknown" that is
+ *     distinct from a materialized-empty phase). exitGate.criteria are
+ *     retained up-front for every phase from the source.
+ *
+ *   - Initiative file: ONLY F0 (the active phase) is materialized up-front
+ *     (D1 lazy FORTE). F1..N stay descriptor-only — instead of an initiative
+ *     file, a per-phase source sidecar `phases/<slug>.source.json` (kind
+ *     'source') captures the parsed initiative for the F3 `materialize` verb.
  *
  *   - Exit-gate summary: when criteria exist, "N criterion(a) to meet";
  *     when empty, "TODO: define exit gate" (schema requires minLength 1).
@@ -887,7 +956,7 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
  *     user is expected to fix these — every sentinel is visible.
  *
  * @typedef {object} MaterializedFile
- * @property {'plan'|'initiative'} kind
+ * @property {'plan'|'initiative'|'source'} kind
  * @property {string} slug
  * @property {string} relativePath — relative to repo root
  * @property {string} content — full file content (frontmatter + body)
@@ -950,7 +1019,10 @@ export function materializeDecomposition(decompose, opts = {}) {
       title: init.title || init.phaseId,
       goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
       dependsOn: prevId ? [prevId] : [],
-      subPhaseCount: init.tasks.length,
+      // D1 lazy: F0 reports its real task count; F1..N stay descriptor-only
+      // (subPhaseCount:0 is an honest "unknown until materialized" placeholder,
+      // distinct from a materialized-empty phase).
+      subPhaseCount: idx === 0 ? init.tasks.length : 0,
       exitGate: {
         summary: criteria.length > 0
           ? `${criteria.length} ${criteria.length === 1 ? 'criterion' : 'criteria'} to meet`
@@ -1002,15 +1074,26 @@ export function materializeDecomposition(decompose, opts = {}) {
   const seenPaths = new Set([files[0].relativePath]);
   const seenSlugs = new Set();
 
-  // Initiative files (one per phase). Per-phase materialization lives in
-  // writeInitiativeFile (F1/T-005); the loop owns only the shared collision
-  // sets + the first-phase-is-active decision.
-  for (let idx = 0; idx < initiatives.length; idx++) {
+  // D1 lazy FORTE: only F0 (the active phase) is materialized into an
+  // initiative file up-front. F1..N stay descriptor-only — no initiative file,
+  // just a per-phase source sidecar (F-002 capture) that the F3 `materialize`
+  // verb consumes later. writeInitiativeFile owns F0's file (F1/T-005);
+  // writePhaseSourceSidecar owns the descriptor-only captures.
+  files.push(
+    writeInitiativeFile(initiatives[0], planSlug, {
+      iso,
+      branch,
+      active: true,
+      stateRoot,
+      planDir,
+      projectId,
+      seenSlugs,
+      seenPaths,
+    }),
+  );
+  for (let idx = 1; idx < initiatives.length; idx++) {
     files.push(
-      writeInitiativeFile(initiatives[idx], planSlug, {
-        iso,
-        branch,
-        active: idx === 0,
+      writePhaseSourceSidecar(initiatives[idx], planSlug, {
         stateRoot,
         planDir,
         projectId,

@@ -274,22 +274,23 @@ describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () 
     assert.equal(typeof writeInitiativeFile, 'function');
   });
 
-  it('produces the byte-identical initiative file that materializeDecomposition emits for the same phase (R-ORCH-10)', () => {
+  it('produces the byte-identical initiative file that materializeDecomposition emits for F0 (R-ORCH-10)', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN });
-    // files = [plan, F0-init, F1-init, F2-init]; compare the isolated F1 write
-    // to the embedded F1 file (files[2]).
-    const alone = writeInitiativeFile(r.initiatives[1], 'sample', {
+    // Under D1 lazy (T-006) only F0 is materialized as an initiative; compare the
+    // isolated F0 write to the embedded F0 initiative (the single kind:'initiative').
+    const f0 = files.find((f) => f.kind === 'initiative');
+    const alone = writeInitiativeFile(r.initiatives[0], 'sample', {
       iso: FROZEN.toISOString(),
       branch: null,
-      active: false, // F1 is not the first phase
+      active: true, // F0 is the first/active phase
       stateRoot: '.atomic-skills',
       planDir: null,
       projectId: null,
       seenSlugs: new Set(),
       seenPaths: new Set([files[0].relativePath]),
     });
-    assert.deepEqual(alone, files[2]);
+    assert.deepEqual(alone, f0);
   });
 
   it('emits status active when ctx.active is true, pending when false', () => {
@@ -444,18 +445,18 @@ describe('previewDecomposition (C.T-002)', () => {
 describe('materializeDecomposition (C.T-004 — adopt path)', () => {
   const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
 
-  it('emits one plan file + one initiative file per phase', () => {
+  it('emits one plan + one initiative (F0) + one source sidecar per later phase (D1 lazy)', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
-    assert.equal(files.length, 1 + r.initiatives.length);
+    const inits = files.filter((f) => f.kind === 'initiative');
+    const sources = files.filter((f) => f.kind === 'source');
     assert.equal(files[0].kind, 'plan');
     assert.equal(files[0].slug, 'sample');
     assert.equal(files[0].relativePath, '.atomic-skills/plans/sample.md');
-    for (let i = 0; i < r.initiatives.length; i++) {
-      const f = files[i + 1];
-      assert.equal(f.kind, 'initiative');
-      assert.match(f.relativePath, /^\.atomic-skills\/initiatives\/sample-f\d+/);
-    }
+    assert.equal(inits.length, 1, 'D1 lazy: only F0 is materialized as an initiative');
+    assert.match(inits[0].relativePath, /^\.atomic-skills\/initiatives\/sample-f0/);
+    assert.equal(sources.length, r.initiatives.length - 1, 'one source sidecar per F1..N');
+    for (const f of sources) assert.match(f.relativePath, /^\.atomic-skills\/initiatives\/sample-f[12]/);
   });
 
   it('Plan frontmatter validates against plan.schema.json', () => {
@@ -485,7 +486,10 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     const tmpRoot = mkdtempSync(join(tmpdir(), 'as-mat-'));
     try {
       const validators = buildValidators();
-      for (const f of files) {
+      // F-002: the .source.json sidecar (kind 'source') is a capture artifact,
+      // not validated state — validate-state skips it, so only the .md files
+      // are validated here.
+      for (const f of files.filter((f) => f.kind !== 'source')) {
         const absPath = join(tmpRoot, f.relativePath);
         mkdirSync(dirname(absPath), { recursive: true });
         writeFileSync(absPath, f.content, 'utf8');
@@ -498,7 +502,7 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     }
   });
 
-  it('first phase + first initiative are active; rest are pending', () => {
+  it('first phase is active and F0 initiative mirrors it; rest are pending descriptors (D1 lazy)', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
     const planFm = parseYaml(files[0].content.split('---\n')[1]);
@@ -506,12 +510,13 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     assert.equal(planFm.phases[1].status, 'pending');
     assert.equal(planFm.phases[2].status, 'pending');
     assert.equal(planFm.currentPhase, 'F0');
-    // Initiatives mirror the phase status
+    // D1 lazy: only F0 is materialized; its initiative mirrors the active phase.
+    // F1/F2 are descriptor-only (pending), with no initiative file.
     const inits = files.filter((f) => f.kind === 'initiative');
+    assert.equal(inits.length, 1);
     const fm0 = parseYaml(inits[0].content.split('---\n')[1]);
-    const fm1 = parseYaml(inits[1].content.split('---\n')[1]);
     assert.equal(fm0.status, 'active');
-    assert.equal(fm1.status, 'pending');
+    assert.equal(fm0.phaseId, 'F0');
   });
 
   it('each initiative carries parentPlan + phaseId + exit gates + tasks', () => {
@@ -633,7 +638,9 @@ describe('materializeDecomposition — nested projects/<id>/<slug>/ layout (Inc2
     const tmpRoot = mkdtempSync(join(tmpdir(), 'as-nested-'));
     try {
       const validators = buildValidators();
-      for (const f of files) {
+      // F-002: the .source.json sidecar (kind 'source') is a capture artifact,
+      // not validated state — only the .md files are validated here.
+      for (const f of files.filter((f) => f.kind !== 'source')) {
         const absPath = join(tmpRoot, f.relativePath);
         mkdirSync(dirname(absPath), { recursive: true });
         writeFileSync(absPath, f.content, 'utf8');
