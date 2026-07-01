@@ -13,14 +13,17 @@ lessons:
       initiative level, not inside `phases[]`.
     scope: reusable
     appliesTo: []
-    status: open
+    status: closed
     confidence: 2
     evidence: .atomic-skills/reviews/2026-07-01-1825-phase-materialization-f4.md
     createdAt: 2026-07-01T18:25:06.000Z
-    validatedAt: 2026-07-01T18:25:06.000Z
+    validatedAt: 2026-07-01T18:27:56.000Z
 ---
+
 
 # Lessons - F4 Fire points + backstop do implement + re-question events
 
 Distilled at F4 phase-done from the local review finding fixed in
 `fe74783bda02e3bd604db183ac61fa02f75e80ce`.
+
+Disposition at F5 phase-start: Apply to T-012 acceptance.

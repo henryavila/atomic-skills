@@ -10,12 +10,11 @@ goal: "Conectar o gate nos fire points (D6):
   saída de `scopeBoundary`. Lições consolidadas fase-a-fase já integram via gate
   de lessons (phase-start). Depende de F2 (descriptor-only) e F3 (materialize
   verbo)."
-status: active
+status: done
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T18:23:18.000Z
-nextAction: "Run phase-done for phase-materialization/F4: execute exit gates,
-  review-code, lessons distillation, and plan advance."
+lastUpdated: 2026-07-01T18:27:56.000Z
+nextAction: null
 parentPlan: phase-materialization
 phaseId: F4
 tasksDone: 2
@@ -167,8 +166,9 @@ summary: Conecta o gate nos fire points (phase-done/switch/phase-reopen) e
   endurece o implement como backstop, com re-question em 2 eventos.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
-current: true
+current: false
 ---
+
 
 
 # Narrative / notes
@@ -190,3 +190,11 @@ _(plan doc, external refs)_
 - **Single nextAction:** Run `phase-done` for `phase-materialization/F4`.
 - **Verbatim state:** `rtk node --test tests/phase-materialization/implement-backstop.test.js` -> `✔ T-011 Step 1 refuses descriptor-only phases before accepting pending tasks`; `✔ T-011 Step 1 requires a complete businessIntent spine on descriptor and initiative`; `✔ T-011 Step 2.1 documents exactly the two D6.1 re-question events`; `✔ T-011 Step 2.1 runtime scope exits stop and report path plus reason`; `ℹ tests 4`; `ℹ pass 4`; `ℹ fail 0`; source anchors: `skills/core/implement.md:51`, `skills/core/implement.md:54`, `skills/core/implement.md:56`, `skills/core/implement.md:65`, `skills/core/implement.md:67`, `skills/core/implement.md:72`, `tests/phase-materialization/implement-backstop.test.js:29`, `tests/phase-materialization/implement-backstop.test.js:46`, `tests/phase-materialization/implement-backstop.test.js:64`, `tests/phase-materialization/implement-backstop.test.js:79`; cleanup commands: `rtk git worktree remove --force /Volumes/External/code/atomic-skills/.worktrees/phase-materialization-t011-codex` -> `ok`; `rtk git branch -D impl/phase-materialization-t011` -> `ok`.
 - **Uncommitted changes:** clean tree after the final handoff checkpoint.
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed with verifier evidence in frontmatter; phase review finding cites `skills/shared/project-assets/project-transitions.md:168` and `:170`.
+- **G2 soft-language**: completion claims use passed evidence; no pending/deferred gate claim remains in F4.
+- **G6 reference-or-strike**: 2 exit criteria, 2 met with `evidence:`, 0 deferred, 0 unverified.
+- **Codex review**: local inline fallback review at HEAD `fe74783bda02e3bd604db183ac61fa02f75e80ce`, verdict `passed-after-fix`, file `.atomic-skills/reviews/2026-07-01-1825-phase-materialization-f4.md`.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: fe74783bda02e3bd604db183ac61fa02f75e80ce, mode: local }`.
+- **Lessons (G1)**: distilled 1 reusable lesson into `lessons/phase-materialization-f4-fire-points-backstop-do-implement-re-q.md`; applied to F5/T-012 acceptance at phase start.

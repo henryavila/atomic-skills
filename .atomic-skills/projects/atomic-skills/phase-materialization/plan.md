@@ -5,9 +5,9 @@ title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
 status: active
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T18:25:06.000Z
+lastUpdated: 2026-07-01T18:27:56.000Z
 branch: plan/phase-materialization
-currentPhase: F4
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -370,7 +370,7 @@ phases:
               scopeBoundary exit; lint-source.js is explicitly excluded;
               project-drift.md adds no extra businessIntent re-question
               trigger."
-    status: active
+    status: done
     summary: Conecta o gate nos fire points (phase-done/switch/phase-reopen) e
       endurece o implement como backstop, com re-question em 2 eventos.
     reviewGate:
@@ -411,13 +411,14 @@ phases:
             description: Revisar CLAUDE.md + docs/kb; confirmar que o verbo materialize e a
               distinção descriptor-only estão documentados e D9/D10 registrados
               como postura/non-goal
-    status: pending
+    status: active
     summary: Teste e2e do fluxo completo + docs que declaram a postura D9 (hipótese)
       e o non-goal D10 (constituição separada).
 references: []
 planActive: true
 planTitle: Materialização lazy de fases + gate de validação de negócio
 ---
+
 
 
 

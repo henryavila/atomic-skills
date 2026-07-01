@@ -8,10 +8,10 @@ goal: Fechar com testes de integração do fluxo completo (new plan → lazy →
   no design, não código — fica documentada, não implementada como instrumento
   (não-entregável). D10 (constituição de anti-patterns) é non-goal explícito
   (iniciativa separada).
-status: pending
+status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T14:50:13.796Z
+lastUpdated: 2026-07-01T18:27:56.000Z
 nextAction: "Start T-012: Teste de integração do fluxo completo (new plan → lazy
   → materialize → advance)"
 parentPlan: phase-materialization
@@ -71,6 +71,9 @@ tasks:
         materialize F1 → initiative escrita → F1 active; falha (regression
         guard) se `materializeDecomposition` voltar a materializar todas as
         fases
+      - "F4/L-001 applied: the e2e lifecycle test must validate the mutated plan
+        state and guard that phase descriptors do not receive schema-invalid
+        timestamp fields; timestamps belong at plan root or initiative level."
     verifier:
       kind: test
       runner: node --test
@@ -118,7 +121,9 @@ summary: Teste e2e do fluxo completo + docs que declaram a postura D9 (hipótese
   e o non-goal D10 (constituição separada).
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
+current: true
 ---
+
 
 # Narrative / notes
 
@@ -126,7 +131,7 @@ Initiative for phase **F5 — Testes end-to-end + docs + auto-dogfood/review**.
 
 ## Decisions
 
-_(record decisions here as they are made)_
+- **Phase-start lessons gate executado para F5.** F4/L-001 Apply em T-012: o e2e lifecycle deve validar o estado mutado e guardar contra `lastUpdated` schema-invalid dentro de `phases[]`.
 
 ## Links
 
