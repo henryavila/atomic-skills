@@ -7,7 +7,7 @@ status: active
 started: 2026-06-29T13:19:41.314Z
 lastUpdated: 2026-06-30T18:05:12.000Z
 branch: plan/phase-materialization
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -146,7 +146,17 @@ phases:
         - id: F1-G1
           description: "Refactor é behavior-preserving: golden/snapshot de
             materializeDecomposition inalterado sobre os fixtures canonicos"
-          status: pending
+          status: met
+          metAt: 2026-06-30T22:49:23.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-30T22:49:23.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "npm test → exit 0; ℹ tests 1479 / pass 1471 / fail 0 /
+              skipped 8 (177 suites). Byte-identidade R-ORCH-10 confirmada
+              (tests/decompose.test.js 82/82); 6 falhas pré-existentes de
+              install/refresh-state corrigidas em 9b5e645."
           verifier:
             kind: shell
             command: npm test
@@ -154,14 +164,23 @@ phases:
         - id: F1-G2
           description: decomposeOnePhase e writeInitiativeFile exportadas e reutilizaveis
             (F2/F3 dependerão delas)
-          status: pending
+          status: met
+          metAt: 2026-06-30T22:49:23.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-06-30T22:49:23.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "node -e exports guard → exit 0; o guard process.exit(1)
+              não disparou — decomposeOnePhase e writeInitiativeFile ambas
+              exportadas de src/decompose.js (reutilizáveis por F2/F3)."
           verifier:
             kind: shell
             command: node -e "import(\"./src/decompose.js\").then(m => { if (typeof
               m.decomposeOnePhase !== \"function\" || typeof
               m.writeInitiativeFile !== \"function\") process.exit(1) })"
             expectExitCode: 0
-    status: active
+    status: done
     summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num
       refactor mecânico que preserva o output byte a byte (R-ORCH-10).
     reviewGate:
@@ -207,7 +226,7 @@ phases:
               sobre um plano dogfood com F1 descriptor-only; confirmar que F1
               aparece como pendente-de-materialização (não vazio/quebrado) em
               todos, sem erro/falso-positivo
-    status: pending
+    status: active
     summary: new plan passa a materializar só F0; F1..N viram descritores
       (subPhaseCount:0) e os leitores distinguem descritor-only de
       materializada.

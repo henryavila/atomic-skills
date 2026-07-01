@@ -10,10 +10,10 @@ goal: 'Implementar D1 (lazy FORTE) + a retenção da fonte por-fase (D2):
   `materialize` consumir. Os leitores (`status`/`verify`/dashboard) passam a
   distinguir "descritor-only, pendente de materialização" (sem arquivo) de
   "materializada" (com arquivo). Depende de F1.'
-status: pending
+status: active
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-29T14:50:13.796Z
+lastUpdated: 2026-07-01T08:42:22.000Z
 nextAction: "Start T-006: Mudar `materializeDecomposition` para materializar só
   F0 + reter fonte por-fase (D1)"
 parentPlan: phase-materialization
@@ -155,6 +155,7 @@ summary: new plan passa a materializar só F0; F1..N viram descritores
   (subPhaseCount:0) e os leitores distinguem descritor-only de materializada.
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
+current: true
 ---
 
 # Narrative / notes

@@ -9,15 +9,11 @@ goal: "Extrair `decomposeOnePhase(phaseSource, ctx)` e
   Nenhuma mudança de comportamento — o output de `materializeDecomposition`
   sobre qualquer input deve ser byte-idêntico ao atual. Habilita F2 (lazy) e F3
   (verbo `materialize`) sem ainda mudar o que `new plan` produz."
-status: active
+status: done
 branch: plan/phase-materialization
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-06-30T22:49:23.000Z
-nextAction: "F1-G1 + F1-G2 agora `met` (evidence shell exit 0: npm test 1479
-  verde + exports guard). Restante do phase-done: (6) review gate review-code
-  --mode=local sobre 3fffdb9..HEAD + registrar reviewGate no plan.md (GATE-R3) +
-  destilar lessons; (7/8) advance currentPhase F1→F2 (propagar conclusão,
-  arquivar F1, semear iniciativa F2)."
+lastUpdated: 2026-07-01T08:42:22.000Z
+nextAction: null
 parentPlan: phase-materialization
 phaseId: F1
 tasksDone: 2
@@ -179,7 +175,6 @@ summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num
   refactor mecânico que preserva o output byte a byte (R-ORCH-10).
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
-current: true
 ---
 
 # Narrative / notes
