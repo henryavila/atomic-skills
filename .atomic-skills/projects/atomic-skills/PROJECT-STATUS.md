@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-01T21:05:39.338Z
+lastUpdated: 2026-07-02T17:51:15.099Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
-archivedCount: 14
+archivedCount: 15
 ---
 
 # Project Status Index
@@ -24,7 +24,6 @@ _(none)_
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| phase-materialization | done | F5 | plan/phase-materialization | 2026-06-29 | 6/6 |
 | fix-aideck-dashboard | done | F3 | plan/fix-aideck-dashboard | 2026-06-16 | 4/4 |
 | deadline-burnup-forecast | done | F5 | plan/deadline-burnup-forecast | 2026-06-17 | 6/6 |
 | reversible-installer | done | F3 | plan/reversible-installer | 2026-06-17 | 4/4 |
@@ -45,6 +44,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
 | design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
 | worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
 | app-map-conflict-arbitration | 2026-06-16 | F1 | 2/2 | app-map: descritor de conflito rico + canal de arbitragem |
@@ -54,7 +54,6 @@ _(none)_
 | quick-idea-capture | 2026-06-09 | F1 | 2/2 | Quick Idea Capture |
 | mode2-anthropic-subagent-tier | 2026-06-09 | F0 | 0/1 | Mode 2 - Anthropic subagent executor tier (Sonnet/Haiku) |
 | bmad-porting-research | 2026-06-09 | F0 | 0/1 | Pesquisa: Porting de Modulos BMAD para Atomic Skills |
-| bmad-af-learnings | 2026-06-08 | - | 1/1 | BMad AF Learnings - State Sync + Quality Gates |
 
 ## Ad-Hoc Sessions Log (last 5)
 

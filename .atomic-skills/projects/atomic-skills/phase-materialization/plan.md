@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: phase-materialization
 title: Materialização lazy de fases + gate de validação de negócio
 version: "1.0"
-status: done
+status: archived
 started: 2026-06-29T13:19:41.314Z
-lastUpdated: 2026-07-01T21:05:39.338Z
+lastUpdated: 2026-07-02T17:51:15.099Z
 branch: plan/phase-materialization
 currentPhase: F5
 parallelismAllowed: false
