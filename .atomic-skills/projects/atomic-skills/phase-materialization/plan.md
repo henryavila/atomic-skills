@@ -438,7 +438,10 @@ phases:
       mode: local
       reviewFile: .atomic-skills/reviews/2026-07-01-2051-phase-materialization-f5.md
       verifiedAt: 2026-07-01T21:05:39.338Z
-references: []
+references:
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/28
+    label: "PR #28"
 planTitle: Materialização lazy de fases + gate de validação de negócio
 ---
 
