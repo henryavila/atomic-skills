@@ -554,6 +554,31 @@ test('crossValidate: done phase + active initiative with pending tasks → error
   assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
 });
 
+test('crossValidate: nested done phase resolves project-scoped initiative keys', () => {
+  const plans = new Map([['proj/p', {
+    slug: 'p',
+    __projectId: 'proj',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
+    }],
+  }]]);
+  const inits = new Map([['proj/p-f0', {
+    slug: 'p-f0',
+    __projectId: 'proj',
+    status: 'active',
+    tasks: [{ id: 'T-001', status: 'pending' }],
+    exitGates: [{ id: 'F0-G1', status: 'pending' }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].planSlug, 'p');
+  assert.equal(errors[0].initiativeSlug, 'p-f0');
+  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
+  assert.ok(errors[0].errors.some((e) => e.includes('1 initiative task(s) not done')));
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+});
+
 test('crossValidate: done phase + no matching initiative → no errors (graceful skip)', () => {
   const plans = new Map([['p', {
     slug: 'p',

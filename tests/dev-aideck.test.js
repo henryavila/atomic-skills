@@ -117,6 +117,25 @@ describe('restageRuntime — regressão hermética que EXECUTA o shim', () => {
     assert.ok(existsSync(idx), 'dashboard/index.html deve ser staged');
     assert.ok(readFileSync(idx, 'utf8').includes('fixture-client'));
   });
+
+  it('stages dashboard without shell-interpreting aideckPath or homeDir', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dev-aideck-path-injection-'));
+    const marker = join(root, 'pwned');
+    const unsafeFixture = join(root, `aideck"; echo PWNED > ${marker}; #`);
+    const unsafeHome = join(root, 'home');
+    try {
+      mkdirSync(join(unsafeFixture, 'dist', 'client'), { recursive: true });
+      writeFileSync(join(unsafeFixture, 'dist', 'client', 'index.html'), '<html>safe-copy</html>\n');
+      restageRuntime(unsafeFixture, unsafeHome);
+      assert.equal(existsSync(marker), false, 'path quotes must not execute shell commands');
+      assert.match(
+        readFileSync(join(unsafeHome, '.atomic-skills', 'dashboard', 'index.html'), 'utf8'),
+        /safe-copy/,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 // ── CLI read-only (sempre rodam; não mutam HOME nem node_modules) ───────────

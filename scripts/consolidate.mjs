@@ -15,7 +15,7 @@
  *     [--reverted plan/x,plan/y] [--regen "npm run build:aideck-schema"] [--gate "npm run validate-skills"]
  */
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -52,6 +52,12 @@ if (!WD || !BASE || !BRANCHES.length) {
   console.error('usage: consolidate.mjs --workdir <dir> --base <ref> --branches a,b,c');
   process.exit(64);
 }
+try {
+  if (!statSync(WD).isDirectory()) throw new Error('not a directory');
+} catch {
+  console.error(`ERROR: --workdir is not a readable directory: ${WD}`);
+  process.exit(64);
+}
 
 function git(a, { allowFail = false } = {}) {
   try {
@@ -63,14 +69,25 @@ function git(a, { allowFail = false } = {}) {
 }
 function sh(cmd) {
   try {
-    const out = execFileSync('bash', ['-lc', `cd ${WD} && ${cmd}`], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const out = execFileSync('bash', ['-lc', cmd], { cwd: WD, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
     return { ok: true, out };
   } catch (e) {
     return { ok: false, out: (e.stdout || '') + (e.stderr || '') };
   }
 }
+function mustResolveRef(ref, label) {
+  try {
+    git(['rev-parse', '--verify', '--end-of-options', ref]);
+  } catch {
+    console.error(`ERROR: cannot resolve ${label} '${ref}' in ${WD}`);
+    process.exit(2);
+  }
+}
 const showStage = (n, path) => git(['show', `:${n}:${path}`], { allowFail: true });
 const isAncestor = (a, b) => git(['merge-base', '--is-ancestor', a, b], { allowFail: true }) !== null;
+
+mustResolveRef(BASE, 'base');
+for (const branch of BRANCHES) mustResolveRef(branch, 'branch');
 
 function findRevertOfMerge(branch) {
   // The actual revert is a `Revert "<original subject>"` commit — NOT the merge

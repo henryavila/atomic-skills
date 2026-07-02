@@ -271,6 +271,19 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('project-create-plan collects F0 businessIntent before materializing the active phase', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
+    assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    assert.match(stage6, /Collect the user-written `businessIntent` spine for F0/);
+    assert.match(stage6, /businessIntent: <businessIntent>/);
+    assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
+  });
+
   it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {
     install();
     const content = readAsset('project-create-plan.md');

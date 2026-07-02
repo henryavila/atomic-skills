@@ -764,6 +764,8 @@ export function decomposePlan(markdown, opts = {}) {
  * @param {string} ctx.stateRoot — state-dir prefix for the flat layout
  * @param {string|null} ctx.planDir — nested plan dir (null ⇒ flat layout)
  * @param {string|null} ctx.projectId — set ⇒ nested layout; null ⇒ flat
+ * @param {object|null} [ctx.businessIntent] — ratified businessIntent spine
+ *   for active phase materialization
  * @param {Set<string>} ctx.seenSlugs — collision-guard slug set (mutated in place)
  * @param {Set<string>} ctx.seenPaths — collision-guard path set (mutated in place)
  * @returns {MaterializedFile} the {kind:'initiative', slug, relativePath, content}
@@ -772,7 +774,7 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
   const init = initiative;
   const {
     iso, branch = null, active = false,
-    stateRoot, planDir, projectId, seenSlugs, seenPaths,
+    stateRoot, planDir, projectId, businessIntent = null, seenSlugs, seenPaths,
   } = ctx;
   const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
   const tasks = init.tasks.map((t) => ({
@@ -808,6 +810,7 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
     nextAction: tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null,
     parentPlan: planSlug,
     phaseId: init.phaseId,
+    ...(businessIntent ? { businessIntent } : {}),
     // Rollups precomputed for the dashboard (aiDeck stays read-in-place). At
     // materialization every task/gate is pending, so done/met start at 0;
     // the project-status skill recomputes these on every task/gate mutation.
@@ -975,6 +978,8 @@ export function writePhaseSourceSidecar(initiative, planSlug, ctx) {
  * @param {string} [opts.stateRoot] — state-dir prefix (default '.atomic-skills').
  *   The F-D1 redirectable root: a dogfood copy can be targeted without touching
  *   the live (gitignored, non-git-restorable) tree. Applies to BOTH layouts.
+ * @param {object} [opts.businessIntent] — optional ratified spine for the
+ *   initially active F0; legacy callers may omit it.
  * @returns {MaterializedFile[]}
  */
 export function materializeDecomposition(decompose, opts = {}) {
@@ -991,6 +996,9 @@ export function materializeDecomposition(decompose, opts = {}) {
   const iso = now.toISOString();
   const stateRoot = (opts.stateRoot && typeof opts.stateRoot === 'string') ? opts.stateRoot : '.atomic-skills';
   const projectId = (opts.projectId && typeof opts.projectId === 'string') ? opts.projectId : null;
+  const businessIntent = (opts.businessIntent && typeof opts.businessIntent === 'object' && !Array.isArray(opts.businessIntent))
+    ? opts.businessIntent
+    : null;
   // Nested-layout plan directory (null in flat mode).
   const planDir = projectId ? `${stateRoot}/projects/${projectId}/${planSlug}` : null;
 
@@ -1013,7 +1021,7 @@ export function materializeDecomposition(decompose, opts = {}) {
       if (g.verifier) c.verifier = g.verifier;
       return c;
     });
-    return {
+    const descriptor = {
       id: init.phaseId,
       slug: init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`,
       title: init.title || init.phaseId,
@@ -1031,6 +1039,8 @@ export function materializeDecomposition(decompose, opts = {}) {
       },
       status: idx === 0 ? 'active' : 'pending',
     };
+    if (idx === 0 && businessIntent) descriptor.businessIntent = businessIntent;
+    return descriptor;
   });
 
   // Principles + glossary: fill empty fields with sentinels so schema passes
@@ -1087,6 +1097,7 @@ export function materializeDecomposition(decompose, opts = {}) {
       stateRoot,
       planDir,
       projectId,
+      businessIntent,
       seenSlugs,
       seenPaths,
     }),

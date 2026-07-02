@@ -182,6 +182,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         branch: BRANCH,
         now: new Date(STARTED_AT),
         stateRoot: STATE_ROOT,
+        businessIntent: BUSINESS_INTENT,
       });
       writeTree(tmpRoot, files);
 
@@ -196,9 +197,13 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
       const planPath = join(tmpRoot, planFile.relativePath);
       const f0Path = join(tmpRoot, initialInitiatives[0].relativePath);
       const initialPlan = readFrontmatterFile(planPath).frontmatter;
+      const initialF0 = initialPlan.phases.find((phase) => phase.id === 'F0');
       const initialF1 = initialPlan.phases.find((phase) => phase.id === 'F1');
       const initialF2 = initialPlan.phases.find((phase) => phase.id === 'F2');
+      const initialF0Fm = readFrontmatterFile(f0Path).frontmatter;
       assert.equal(initialPlan.currentPhase, 'F0');
+      assert.deepEqual(initialF0.businessIntent, BUSINESS_INTENT);
+      assert.deepEqual(initialF0Fm.businessIntent, BUSINESS_INTENT);
       assert.equal(initialF1.status, 'pending');
       assert.equal(initialF1.subPhaseCount, 0);
       assert.equal(initialF2.status, 'pending');

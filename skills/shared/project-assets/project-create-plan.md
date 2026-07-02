@@ -103,6 +103,8 @@ Na criação, todo plano — solo ou concorrente — forka incondicionalmente su
 
 This is the **soft** form — detect + guided choice, never a silent multi-active; **record the chosen isolation verbatim, never default to "proceed".** The **hard** form (block a 2nd active plan that shares a tree with no distinct `branch:`) is `verify`'s `WARN → FAIL` promotion, the same dry-run→strict ladder as the other gates.
 
+**F0 businessIntent gate (active phase cannot start blank).** Collect the user-written `businessIntent` spine for F0 before materializing the active phase. Use {{ASK_USER_QUESTION_TOOL}} to ask for the five-field block (`value`, `workflow`, `rules`, `outOfScope`, `doneWhen`) in the install-configured communication language. Reject blank values and `[NEEDS CLARIFICATION]`; if the user cannot answer, stop before writing state. Store the ratified object as `<businessIntent>` and pass it into `materializeDecomposition`, so both the F0 plan descriptor and F0 initiative frontmatter carry the same business intent spine from creation.
+
 Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
 ```bash
@@ -110,7 +112,7 @@ node -e "
 import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
   const md = require('node:fs').readFileSync('<source.md>', 'utf8');
   const result = decomposePlan(md, { planSlug: '<slug>' });
-  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: 'plan/<slug>' });
+  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: 'plan/<slug>', businessIntent: <businessIntent> });
   console.log(JSON.stringify(files));
 });"
 ```
@@ -132,6 +134,9 @@ For each entry, `mkdir -p` its parent dir and write it (plan first, so a failure
 After writing every file, **normalize then validate**:
 
 ```bash
+# 0. Ensure every materialized phase has businessIntent on both state surfaces
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills
+
 # 1. Auto-repair known drift (gate status synonyms, references kind/title,
 #    missing required initiative fields). Idempotent; safe to always run.
 #    Resolve the script the same way the `status` default view does.
