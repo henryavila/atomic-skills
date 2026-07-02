@@ -23,7 +23,7 @@ The pre-mutation check is the **only** way legacy files are touched, and migrati
 
 ## Pre-mutation reconciliation gate (detail)
 
-Every time you load an active initiative for a **mutating** command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `re-ratify`, `new-task`, `new-phase`), run this check AFTER the migration check and BEFORE executing the command:
+Every time you load an active initiative for a **mutating** command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `re-ratify`, `new-task`, `new-phase`), run this check AFTER the migration check and BEFORE executing the command. `materialize` can be the command that creates the phase initiative; when no active initiative exists, it skips this active-initiative reconciliation gate and runs its own plan-level pre-flight. When called from `phase-done`/`switch`/`phase-reopen`, the caller has already run this gate.
 
 1. Parse `tasks[]` from the active initiative's frontmatter.
 2. Collect tasks where `status` is `active` AND `lastUpdated` is older than 24 hours from now.
@@ -165,9 +165,16 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      b. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`. If the matching plan criterion (by `id`) has an `evidence` block, copy it to the initiative exitGate.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
      d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks done + gates met) + per-gate `verifierLabel`/`evidenceSummary` by running `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
-   - Update the parent plan's matching phase: `status: done`, `lastUpdated: <now>` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode).
+   - Update the parent plan's matching phase descriptor to `status: done` — **only with `reviewGate` already recorded (step 6)**; GATE-R3 rejects a `done` phase whose review claim is missing its `at`/`reason` anchor. Set the plan's `currentPhase` to the picked next phase (or to the first of multiple in parallel mode), and refresh the plan root `lastUpdated`.
    - Run `archive <slug>` on the just-closed initiative so its file moves to the resolved archive dir (nested `projects/<project-id>/<plan-slug>/phases/archive/`, legacy `initiatives/archive/`).
-   - For each newly-active phase id, propose `atomic-skills:project new initiative <plan-slug>-<phase-id-lower>-<phase-title-kebab>` to materialize the next initiative. The `new initiative` flow already seeds the initiative's first stack frame from `initiative.template.md`.
+   - For each newly-active phase id, set the phase descriptor to
+     `status: active` and refresh the plan root `lastUpdated`. If the matching initiative
+     file exists, set that initiative to `status: active` and refresh
+     `lastUpdated`, then run `refresh-state`. If the initiative file is absent
+     (descriptor-only), run `atomic-skills:project materialize <phase-id>` with
+     the full selected active phase id set so parallel-choice phases beyond the
+     first pass pre-flight; do not propose `new initiative` for descriptor-only
+     phases.
    - Save the plan + PROJECT-STATUS.md.
    - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
 9. On user decline (or `plan-done` accept without `currentPhase` change):
@@ -218,14 +225,18 @@ Reverse of `phase-done`. Used when a closed phase needs more work (regression, s
 
 1. Identify the target phase (by `phaseId` arg or by reading the parent plan's last-done phase).
 2. Locate the initiative file (resolved per the active layout). Check both the live path (nested `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`, legacy `initiatives/<slug>.md`) and its archive dir (nested `…/phases/archive/`, legacy `initiatives/archive/`). Note whether it is archived (do NOT move yet).
-3. Confirm with user: "Reopen phase `<id>`? This sets initiative status back to active, clears `metAt` on all criteria, and resets all tasks to pending."
-4. On accept:
-   - If the initiative file was archived: move it back to its live resolved path (nested `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`, legacy `initiatives/<slug>.md`).
-   - Set initiative `status: active`.
-   - Set every `exitGate[].status` and `phases[<id>].exitGate.criteria[].status` to `pending`; clear `metAt`.
-   - Set all `tasks[].status = 'pending'`; clear `tasks[].closedAt`; refresh `tasks[].lastUpdated = <now>`.
-5. If the plan had advanced past this phase, leave `currentPhase` unchanged (user decides whether to re-route).
-6. Save. Update PROJECT-STATUS.md.
+3. Resolve the target phase descriptor in the parent plan. If neither the live/archive initiative file nor the descriptor exists, abort with the valid phase ids/slugs.
+4. Confirm with user: "Reopen phase `<id>`? If it is descriptor-only, this materializes it; otherwise it sets initiative status back to active, clears `metAt` on all criteria, and resets all tasks to pending."
+5. On accept:
+   - If the matching initiative file is absent (descriptor-only), run `atomic-skills:project materialize <phase-id>` as an internal transition caller with the selected active phase id set containing the reopened target; do not propose `new initiative` for descriptor-only phases. `materialize` owns the businessIntent/decompose/write/validate flow; this command does not duplicate it or overwrite an existing initiative file.
+   - If the matching initiative file exists, reuse it:
+     - If the initiative file was archived: move it back to its live resolved path (nested `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`, legacy `initiatives/<slug>.md`).
+     - Set initiative `status: active`.
+     - Set every `exitGate[].status` and `phases[<id>].exitGate.criteria[].status` to `pending`; clear `metAt`.
+     - Set all `tasks[].status = 'pending'`; clear `tasks[].closedAt`; refresh `tasks[].lastUpdated = <now>`.
+6. Leave every other `done` or `archived` phase untouched; only the explicitly reopened target may move back to `active` or be materialized.
+7. If the plan had advanced past this phase, leave `currentPhase` unchanged (user decides whether to re-route).
+8. Save. Update PROJECT-STATUS.md.
 
 ## `detect-scope`
 
@@ -286,17 +297,19 @@ Runs only when `archive` step 2 read a `spawnedFrom` edge `{ plan, phaseId, mode
 
 Works at 2 levels: switching plans, OR switching initiatives within the active plan / among standalone.
 
-1. Detect kind (resolve nested-first, then legacy flat): is there a plan at `projects/<project-id>/<slug>/plan.md` (legacy `.atomic-skills/plans/<slug>.md`)? OR a phase/standalone initiative at `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`)?
+1. Detect kind (resolve nested-first, then legacy flat): is there a plan at `projects/<project-id>/<slug>/plan.md` (legacy `.atomic-skills/plans/<slug>.md`)? OR a phase/standalone initiative at `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`)? OR a phase descriptor id/slug in the currently active plan whose initiative file is absent (descriptor-only)?
 2. **Plan switch**:
    - Find target plan; abort if `status` not in {`active`, `paused`}.
    - Apply **Plan dependency block guidance (`dependsOnPlans[]`)** before setting the target active. If the target is blocked, print the prerequisite plan(s), their statuses, and the resume path; leave the current active plan unchanged.
    - Set any other active plan to `status: paused` — **and cascade: pause its `active` phase** (in the plan's `phases[]` descriptor AND the matching initiative file). A paused plan must never leave an `active` phase behind.
    - Set target plan to `status: active`.
+   - Resolve the target plan's `currentPhase` (or its `active` phase descriptor when `currentPhase` is absent). If the matching initiative file exists, reuse it: set that initiative to `status: active`, refresh `lastUpdated`, and do not overwrite it. If the initiative file is absent (descriptor-only), run `atomic-skills:project materialize <phase-id>` as an internal transition caller with the selected active phase id set containing the target active/current phase, after the old active plan/initiative has been paused/demoted and before reporting the switch complete; do not propose `new initiative` for descriptor-only phases.
    - Update PROJECT-STATUS.md, then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (cascades the pause + refreshes the dashboard `planActive`/`current` focus markers AND the `focus.json` digest in one pass).
 3. **Initiative switch**:
-   - Find target initiative; abort if not active/paused.
+   - Find target initiative or target phase descriptor; abort if an existing initiative is not active/paused.
    - If target has `parentPlan` ≠ currently-active plan's slug: warn and offer to also switch the plan.
    - Set any other active initiative to `status: paused`.
-   - Set target initiative to `status: active`.
+   - If the matching initiative file exists, reuse it: set target initiative to `status: active`, refresh `lastUpdated`, and do not overwrite it.
+   - If the matching initiative file is absent and the active plan descriptor has the target phase (descriptor-only), set the target phase descriptor to `status: active`, set `currentPhase` to that phase id, then run `atomic-skills:project materialize <phase-id>` as an internal transition caller with the selected active phase id set containing the target phase. Do this after any old active initiative is paused and before reporting the switch complete; do not propose `new initiative` for descriptor-only phases.
    - Update PROJECT-STATUS.md, then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (the active-initiative change flips the `current` focus marker, so refresh the markers + the `focus.json` digest in the same pass).
 4. Announce.

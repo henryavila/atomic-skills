@@ -436,9 +436,9 @@ A team is rebuilding its matching engine.
    decomposes it into a Plan (`rebuild-matcher`) with phases **F0** "Foundation audit",
    **F1** "New matcher" (`dependsOn: [F0]`), **F2** "Cutover" — each with an exit gate. F0's
    criterion *"matcher round-trip test passes"* carries a verifier
-   `{kind: shell, command: "npm test -- matcher"}`. Stage 6 materializes one initiative per
-   phase (`rebuild-matcher-f0-foundation-audit`, …), activates F0, and runs
-   `review-plan --mode=internal` then a prompted codex review.
+   `{kind: shell, command: "npm test -- matcher"}`. Stage 6 materializes only the F0
+   initiative, retains F1/F2 as descriptor-only source sidecars for later activation,
+   activates F0, and runs `review-plan --mode=internal` then a prompted codex review.
 
 2. **Anchor.** Daily, `project-status` matches the branch to the active F0 initiative and
    shows `3/5 tasks done`.
@@ -453,9 +453,9 @@ A team is rebuilding its matching engine.
 
 4. **Phase close.** When F0's last task closes, `done T-005` surfaces the transition.
    `project-status phase-done` runs each exit verifier (stamping `evidence{passed: true,
-   exitCode: 0}`), runs the `review-code` gate on the phase diff, calls `proposeAdvance` to
-   move `currentPhase` to F1, marks the F0 initiative `done`, archives it, and seeds the F1
-   initiative.
+   exitCode: 0}`), runs the `review-code` gate on the phase diff, calls `proposeAdvance`,
+   collects the F1 `businessIntent`, materializes F1 from its retained sidecar, moves
+   `currentPhase`, marks the F0 initiative `done`, and archives it.
 
 5. **Drift, weeks later.** `scope-creep` flags that the parked cache idea is a 40-day zombie
    with stale context. `re-ratify` either refreshes its premises or retires it.

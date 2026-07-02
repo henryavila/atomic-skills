@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
-import { decomposePlan, previewDecomposition, materializeDecomposition } from '../src/decompose.js';
+import { decomposePlan, previewDecomposition, materializeDecomposition, decomposeOnePhase, writeInitiativeFile } from '../src/decompose.js';
 import { validateFile } from '../scripts/validate-state.js';
 
 const SCHEMA_DIR = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'meta', 'schemas');
@@ -169,6 +169,161 @@ describe('decomposePlan (C.T-002)', () => {
   });
 });
 
+describe('decomposeOnePhase (F1/T-004) — single-phase extraction', () => {
+  // T-004 extracts the per-phase body of decomposePlan's loop into a standalone
+  // function so F3's `materialize` verb can decompose one phase in isolation.
+  // The mechanical-refactor invariant (R-ORCH-10): decomposing a phase alone
+  // yields the byte-identical initiative that decomposePlan yields for the same
+  // phase embedded in a plan.
+
+  it('is exported as a function', () => {
+    assert.equal(typeof decomposeOnePhase, 'function');
+  });
+
+  it('decomposes one phase in isolation over its bodyLines (goal + tasks + exit gates + slug)', () => {
+    const bodyLines = [
+      '',
+      'Goal: clean the data before any UI work.',
+      '',
+      '### T0.1 Migrate dump',
+      '',
+      '### T0.2 Deduplicate songs',
+      '',
+      '```yaml',
+      'exit_gate:',
+      '  - id: F0-G1',
+      '    description: core-v2 created',
+      '    verifier: { kind: shell, command: "npm test", expectExitCode: 0 }',
+      '```',
+      '',
+    ];
+    const init = decomposeOnePhase(
+      { phaseId: 'F0', title: 'Foundation Repair', bodyLines },
+      { planSlug: 'sample', warnings: [] },
+    );
+    assert.equal(init.phaseId, 'F0');
+    assert.equal(init.title, 'Foundation Repair');
+    assert.equal(init.slug, 'sample-f0-foundation-repair');
+    assert.match(init.goal, /clean the data before any UI work/);
+    assert.equal(init.tasks.length, 2);
+    assert.equal(init.tasks[0].id, 'T0.1');
+    assert.equal(init.exitGates.length, 1);
+    assert.equal(init.exitGates[0].id, 'F0-G1');
+    assert.equal(init.exitGates[0].verifier.kind, 'shell');
+  });
+
+  it('yields the byte-identical initiative that decomposePlan yields for the same source (R-ORCH-10)', () => {
+    const bodyLines = [
+      '',
+      'Goal: rebuild admin UI.',
+      '',
+      '### T0.1 Migrate dump',
+      '',
+      '### T0.2 Deduplicate songs',
+      '',
+    ];
+    const alone = decomposeOnePhase(
+      { phaseId: 'F1', title: 'UI Redesign', bodyLines },
+      { planSlug: 'sample', warnings: [] },
+    );
+    const md = ['# Plan', '', '## F1 — UI Redesign', ...bodyLines, ''].join('\n');
+    const embedded = decomposePlan(md, { planSlug: 'sample' }).initiatives[0];
+    assert.deepEqual(alone, embedded);
+  });
+
+  it('leaves slug empty when ctx.planSlug is not provided', () => {
+    const init = decomposeOnePhase(
+      { phaseId: 'F1', title: 'X', bodyLines: ['Goal: g.', '### A'] },
+      {},
+    );
+    assert.equal(init.slug, '');
+  });
+
+  it('falls back to phaseId when the title is empty', () => {
+    const init = decomposeOnePhase(
+      { phaseId: 'F2', title: '', bodyLines: ['Goal: g.', '### A'] },
+      { planSlug: 'p' },
+    );
+    assert.equal(init.title, 'F2');
+  });
+
+  it('pushes malformed exit_gate YAML into ctx.warnings (the shared sink)', () => {
+    const warnings = [];
+    decomposeOnePhase(
+      {
+        phaseId: 'F0',
+        title: 'S',
+        bodyLines: ['```yaml', 'exit_gate:', '  - id: F0-G1', '    description: "unclosed', '```', '', '### A'],
+      },
+      { planSlug: 'x', warnings },
+    );
+    assert.ok(warnings.some((w) => /Malformed `exit_gate:` YAML block in phase F0/.test(w)));
+  });
+});
+
+describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () => {
+  // T-005 extracts the per-phase body of materializeDecomposition's loop into a
+  // standalone function so F2 (materialize F0 only) and F3 (the `materialize`
+  // verb) can write one initiative without re-running whole-plan materialize.
+  // Mechanical-refactor invariant (R-ORCH-10): writing a phase in isolation
+  // yields the byte-identical {slug, relativePath, content} that
+  // materializeDecomposition emits for that phase embedded in a plan.
+  const FROZEN = new Date('2026-05-19T12:00:00.000Z');
+
+  it('is exported as a function', () => {
+    assert.equal(typeof writeInitiativeFile, 'function');
+  });
+
+  it('produces the byte-identical initiative file that materializeDecomposition emits for F0 (R-ORCH-10)', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN });
+    // Under D1 lazy (T-006) only F0 is materialized as an initiative; compare the
+    // isolated F0 write to the embedded F0 initiative (the single kind:'initiative').
+    const f0 = files.find((f) => f.kind === 'initiative');
+    const alone = writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso: FROZEN.toISOString(),
+      branch: null,
+      active: true, // F0 is the first/active phase
+      stateRoot: '.atomic-skills',
+      planDir: null,
+      projectId: null,
+      seenSlugs: new Set(),
+      seenPaths: new Set([files[0].relativePath]),
+    });
+    assert.deepEqual(alone, f0);
+  });
+
+  it('emits status active when ctx.active is true, pending when false', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const iso = FROZEN.toISOString();
+    const mk = (active) => writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso, branch: null, active, stateRoot: '.atomic-skills', planDir: null, projectId: null,
+      seenSlugs: new Set(), seenPaths: new Set(),
+    });
+    assert.equal(parseYaml(mk(true).content.split('---\n')[1]).status, 'active');
+    assert.equal(parseYaml(mk(false).content.split('---\n')[1]).status, 'pending');
+  });
+
+  it('throws on slug/path collision and mutates the shared seenSlugs/seenPaths', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const iso = FROZEN.toISOString();
+    const seenSlugs = new Set();
+    const seenPaths = new Set();
+    const file = writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso, branch: null, active: true, stateRoot: '.atomic-skills', planDir: null, projectId: null, seenSlugs, seenPaths,
+    });
+    assert.equal(file.kind, 'initiative');
+    // The first write registered the slug+path; a second write for the SAME
+    // phase now collides.
+    assert.throws(
+      () => writeInitiativeFile(r.initiatives[0], 'sample', {
+        iso, branch: null, active: false, stateRoot: '.atomic-skills', planDir: null, projectId: null, seenSlugs, seenPaths,
+      }),
+      /slug collision/,
+    );
+  });
+});
+
 // SPEC interior materialization (T1.5 — H3-mode must carry the per-task SPEC
 // body, not just id+title). A `### Tn` section with the four SPEC fields +
 // a lead description must materialize task.description/scopeBoundary/
@@ -290,18 +445,18 @@ describe('previewDecomposition (C.T-002)', () => {
 describe('materializeDecomposition (C.T-004 — adopt path)', () => {
   const FROZEN_DATE = new Date('2026-05-19T12:00:00.000Z');
 
-  it('emits one plan file + one initiative file per phase', () => {
+  it('emits one plan + one initiative (F0) + one source sidecar per later phase (D1 lazy)', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
-    assert.equal(files.length, 1 + r.initiatives.length);
+    const inits = files.filter((f) => f.kind === 'initiative');
+    const sources = files.filter((f) => f.kind === 'source');
     assert.equal(files[0].kind, 'plan');
     assert.equal(files[0].slug, 'sample');
     assert.equal(files[0].relativePath, '.atomic-skills/plans/sample.md');
-    for (let i = 0; i < r.initiatives.length; i++) {
-      const f = files[i + 1];
-      assert.equal(f.kind, 'initiative');
-      assert.match(f.relativePath, /^\.atomic-skills\/initiatives\/sample-f\d+/);
-    }
+    assert.equal(inits.length, 1, 'D1 lazy: only F0 is materialized as an initiative');
+    assert.match(inits[0].relativePath, /^\.atomic-skills\/initiatives\/sample-f0/);
+    assert.equal(sources.length, r.initiatives.length - 1, 'one source sidecar per F1..N');
+    for (const f of sources) assert.match(f.relativePath, /^\.atomic-skills\/initiatives\/sample-f[12]/);
   });
 
   it('Plan frontmatter validates against plan.schema.json', () => {
@@ -331,7 +486,10 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     const tmpRoot = mkdtempSync(join(tmpdir(), 'as-mat-'));
     try {
       const validators = buildValidators();
-      for (const f of files) {
+      // F-002: the .source.json sidecar (kind 'source') is a capture artifact,
+      // not validated state — validate-state skips it, so only the .md files
+      // are validated here.
+      for (const f of files.filter((f) => f.kind !== 'source')) {
         const absPath = join(tmpRoot, f.relativePath);
         mkdirSync(dirname(absPath), { recursive: true });
         writeFileSync(absPath, f.content, 'utf8');
@@ -344,7 +502,7 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     }
   });
 
-  it('first phase + first initiative are active; rest are pending', () => {
+  it('first phase is active and F0 initiative mirrors it; rest are pending descriptors (D1 lazy)', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN_DATE });
     const planFm = parseYaml(files[0].content.split('---\n')[1]);
@@ -352,12 +510,13 @@ describe('materializeDecomposition (C.T-004 — adopt path)', () => {
     assert.equal(planFm.phases[1].status, 'pending');
     assert.equal(planFm.phases[2].status, 'pending');
     assert.equal(planFm.currentPhase, 'F0');
-    // Initiatives mirror the phase status
+    // D1 lazy: only F0 is materialized; its initiative mirrors the active phase.
+    // F1/F2 are descriptor-only (pending), with no initiative file.
     const inits = files.filter((f) => f.kind === 'initiative');
+    assert.equal(inits.length, 1);
     const fm0 = parseYaml(inits[0].content.split('---\n')[1]);
-    const fm1 = parseYaml(inits[1].content.split('---\n')[1]);
     assert.equal(fm0.status, 'active');
-    assert.equal(fm1.status, 'pending');
+    assert.equal(fm0.phaseId, 'F0');
   });
 
   it('each initiative carries parentPlan + phaseId + exit gates + tasks', () => {
@@ -479,7 +638,9 @@ describe('materializeDecomposition — nested projects/<id>/<slug>/ layout (Inc2
     const tmpRoot = mkdtempSync(join(tmpdir(), 'as-nested-'));
     try {
       const validators = buildValidators();
-      for (const f of files) {
+      // F-002: the .source.json sidecar (kind 'source') is a capture artifact,
+      // not validated state — only the .md files are validated here.
+      for (const f of files.filter((f) => f.kind !== 'source')) {
         const absPath = join(tmpRoot, f.relativePath);
         mkdirSync(dirname(absPath), { recursive: true });
         writeFileSync(absPath, f.content, 'utf8');

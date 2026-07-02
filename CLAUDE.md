@@ -22,6 +22,8 @@ Para manter compatibilidade entre Claude Code, Gemini CLI e outros:
 
 Este repo tem a skill `atomic-skills:project` (router fino + detalhe lazy em `skills/shared/project-assets/`). Estado operacional canônico em `.atomic-skills/` é mantido via esta skill + hooks opcionais. Execute `atomic-skills:project` para setup na primeira vez, depois para operação durante desenvolvimento.
 
+Planos multi-fase usam materialização lazy: `new plan` cria o `plan.md`, materializa só a F0 e mantém F1..N como descritores até `atomic-skills:project materialize <phase>`. O contrato operacional, incluindo `descriptor-only` vs `materializada`, gate `businessIntent`, D9 como hipótese e D10 como non-goal, está em `docs/kb/project-lazy-materialization.md`.
+
 ## Install / Uninstall parity (HARD RULE)
 
 Every persistent mutation the installer (`src/install.js`) makes MUST have a
