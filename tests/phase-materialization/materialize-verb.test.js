@@ -66,10 +66,10 @@ test('T-009 descriptor update names the fields required by the detector and read
   ]);
 });
 
-test('T-009 detector command uses package-root resolution and scans state root, not a plan file', () => {
-  assert.match(doc, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
-  assert.doesNotMatch(doc, /find-missing-business-intent\.js \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/);
-  assert.match(doc, /Do not pass `plan\.md` to this detector/);
+test('T-009 detector command uses package-root resolution and scopes to the active plan file', () => {
+  assert.match(doc, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/);
+  assert.doesNotMatch(doc, /find-missing-business-intent\.js" \.atomic-skills`/);
+  assert.match(doc, /Pass the parent `plan\.md` so unrelated legacy plans cannot block this materialization/);
 });
 
 test('T-009 materialize target is dependency-safe and does not leave two active phases', () => {

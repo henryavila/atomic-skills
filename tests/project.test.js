@@ -281,7 +281,8 @@ describe('project skill (unified router + lazy assets)', () => {
     const stage6 = content.slice(stage6Start, stage7Start);
     assert.match(stage6, /Collect the user-written `businessIntent` spine for F0/);
     assert.match(stage6, /businessIntent: <businessIntent>/);
-    assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
+    assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
+    assert.doesNotMatch(stage6, /find-missing-business-intent\.js" \.atomic-skills\s/);
   });
 
   it('project-create-plan Stage 6 documents lazy outputs and explicit F0 validation', () => {
@@ -311,7 +312,8 @@ describe('project skill (unified router + lazy assets)', () => {
     const adopt = content.slice(adoptStart, gatesStart);
     assert.match(adopt, /collect the same user-written F0 `businessIntent` spine/);
     assert.match(adopt, /businessIntent: <businessIntent>/);
-    assert.match(adopt, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
+    assert.match(adopt, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
+    assert.doesNotMatch(adopt, /find-missing-business-intent\.js" \.atomic-skills\s/);
     assert.match(adopt, /phases\/<f0-phase-file>\.md/);
     assert.match(adopt, /only the materialized F0 initiative/);
     assert.match(adopt, /source sidecars retained/);

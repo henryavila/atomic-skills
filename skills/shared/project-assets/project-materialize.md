@@ -133,9 +133,10 @@ Reject the block when any required field is blank or still contains
    after both writes because it checks the descriptor and the materialized
    initiative together.
 7. Run the detector with `{{BASH_TOOL}}`:
-   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills`.
-   Do not pass `plan.md` to this detector: its CLI scans a state root (repo root
-   or `.atomic-skills`) and discovers nested/flat plans from there.
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
+   A tree root (`.atomic-skills` or repo root) is reserved for explicit audits that
+   intentionally scan every materialized phase.
    Exit code `0` is required. Any non-zero exit leaves the initiative and plan
    edits open for repair; do not report the phase as active.
 8. Run schema validation with `{{BASH_TOOL}}`:

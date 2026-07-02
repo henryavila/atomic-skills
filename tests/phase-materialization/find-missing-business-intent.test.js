@@ -29,13 +29,18 @@ function spine() {
 // `phases` is the descriptor list; `initiatives` is {filename: frontmatter}.
 function nestedFixture(proj, plan, phases, initiatives = {}) {
   const root = mkdtempSync(join(tmpdir(), 'as-bi-'));
+  addNestedPlan(root, proj, plan, phases, initiatives);
+  return root;
+}
+
+function addNestedPlan(root, proj, plan, phases, initiatives = {}) {
   const dir = join(root, '.atomic-skills', 'projects', proj, plan);
   mkdirSync(join(dir, 'phases'), { recursive: true });
   writeFm(join(dir, 'plan.md'), { slug: plan, status: 'active', currentPhase: 'F0', phases });
   for (const [file, fm] of Object.entries(initiatives)) {
     writeFm(join(dir, 'phases', file), fm);
   }
-  return root;
+  return dir;
 }
 
 function gaps(report) {
@@ -178,10 +183,61 @@ test('flat legacy layout does not materialize a descriptor-only phase from anoth
   }
 });
 
+test('scoped nested plan file reports gaps in that plan instead of silently passing', () => {
+  const { rules, ...withoutRules } = spine();
+  const root = nestedFixture('proj', 'dirty', [{ id: 'F0', businessIntent: withoutRules }], {
+    'f0.md': { slug: 'dirty-f0', phaseId: 'F0', status: 'active', businessIntent: spine() },
+  });
+  try {
+    const planFile = join(root, '.atomic-skills', 'projects', 'proj', 'dirty', 'plan.md');
+    assert.deepEqual(gaps(findMissingBusinessIntent(planFile)), ['F0:rules(descriptor)']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('scoped nested plan file ignores unrelated legacy plans while tree-wide audit still reports them', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-bi-scope-'));
+  try {
+    const { doneWhen, ...withoutDoneWhen } = spine();
+    addNestedPlan(root, 'proj', 'legacy', [{ id: 'F0', businessIntent: withoutDoneWhen }], {
+      'f0.md': { slug: 'legacy-f0', phaseId: 'F0', status: 'active', businessIntent: spine() },
+    });
+    addNestedPlan(root, 'proj', 'fresh', [{ id: 'F0', businessIntent: spine() }], {
+      'f0.md': { slug: 'fresh-f0', phaseId: 'F0', status: 'active', businessIntent: spine() },
+    });
+
+    const freshPlanFile = join(root, '.atomic-skills', 'projects', 'proj', 'fresh', 'plan.md');
+    assert.deepEqual(findMissingBusinessIntent(freshPlanFile), []);
+    assert.deepEqual(
+      findMissingBusinessIntent(root).map((r) => `${r.projectId}/${r.planSlug}`),
+      ['proj/legacy'],
+    );
+
+    const ok = execFileSync('node', [SCRIPT, freshPlanFile], { encoding: 'utf8' });
+    assert.match(ok, /complete businessIntent spine/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('configuredLanguage is exported (parity) and defaults to a string', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-bi-lang-'));
   try {
     assert.equal(typeof configuredLanguage(root), 'string');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('configuredLanguage resolves the project manifest from a scoped plan file target', () => {
+  const root = nestedFixture('proj', 'alpha', [{ id: 'F0', businessIntent: spine() }], {
+    'f0.md': { slug: 'a-f0', phaseId: 'F0', status: 'active', businessIntent: spine() },
+  });
+  try {
+    writeFileSync(join(root, '.atomic-skills', 'manifest.json'), JSON.stringify({ language: 'zz-test' }));
+    const planFile = join(root, '.atomic-skills', 'projects', 'proj', 'alpha', 'plan.md');
+    assert.equal(configuredLanguage(planFile), 'zz-test');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

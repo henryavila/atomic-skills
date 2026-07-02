@@ -1,6 +1,6 @@
 /**
  * find-missing-business-intent.js — deterministic, zero-token DETECTOR (D4) of
- * MATERIALZIED phases whose businessIntent spine is incomplete.
+ * MATERIALIZED phases whose businessIntent spine is incomplete.
  *
  * The 5-field businessIntent spine (value/workflow/rules/outOfScope/doneWhen) is
  * the load-bearing business context a phase must state before it is implemented.
@@ -28,11 +28,14 @@
  *
  * Exit 0 = every materialized phase has a complete spine; exit 1 = ≥1 gap.
  *
- * CLI:  node scripts/find-missing-business-intent.js [<dir>]   (defaults to ./.atomic-skills)
+ * CLI:
+ *   node scripts/find-missing-business-intent.js [<state-root>|<plan-dir>|<plan.md>]
+ *   defaults to ./.atomic-skills. A plan target scopes the gate to that plan;
+ *   a state root remains a tree-wide audit.
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { parseFrontmatter } from './validate-state.js';
 
@@ -56,7 +59,9 @@ export function configuredLanguage(dir) {
   const read = (p) => {
     try { return JSON.parse(readFileSync(p, 'utf8')).language || null; } catch { return null; }
   };
+  const stateRoot = containingAtomicSkillsRoot(dir);
   return (
+    (stateRoot ? read(join(stateRoot, 'manifest.json')) : null) ||
     read(join(dir, '.atomic-skills', 'manifest.json')) ||
     read(join(dir, 'manifest.json')) ||
     read(join(homedir(), '.atomic-skills', 'manifest.json')) ||
@@ -70,6 +75,34 @@ function fmOf(filePath) {
     return parsed.error ? null : parsed.frontmatter;
   } catch {
     return null;
+  }
+}
+
+function isDirectory(filePath) {
+  try {
+    return statSync(filePath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isFile(filePath) {
+  try {
+    return statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function containingAtomicSkillsRoot(filePath) {
+  let current = isFile(filePath) ? dirname(resolve(filePath)) : resolve(filePath);
+  while (true) {
+    if (basename(current) === '.atomic-skills') return current;
+    const nested = join(current, '.atomic-skills');
+    if (isDirectory(nested)) return nested;
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
   }
 }
 
@@ -93,57 +126,143 @@ function firstMissingField(businessIntent) {
   return null;
 }
 
+function collectMissingForPlan(plan, initForPhaseId) {
+  const missing = [];
+  for (const ph of Array.isArray(plan.phases) ? plan.phases : []) {
+    if (!ph || typeof ph !== 'object') continue;
+    const id = String(ph.id ?? '?');
+    const init = initForPhaseId(id);
+    if (!init) continue; // descriptor-only → skip (D5)
+    const dField = firstMissingField(ph.businessIntent);
+    if (dField) missing.push({ phaseId: id, field: dField, where: 'descriptor' });
+    const iField = firstMissingField(init.businessIntent);
+    if (iField) missing.push({ phaseId: id, field: iField, where: 'initiative' });
+  }
+  return missing;
+}
+
+function nestedPlanReport(projectId, planSlug, planDir) {
+  const planFile = join(planDir, 'plan.md');
+  if (!existsSync(planFile)) return null;
+  const plan = fmOf(planFile);
+  if (!plan) return null;
+
+  const initByPhaseId = new Map();
+  const phasesDir = join(planDir, 'phases');
+  if (isDirectory(phasesDir)) {
+    for (const entry of readdirSync(phasesDir)) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const init = fmOf(join(phasesDir, entry));
+      if (init && init.phaseId != null) initByPhaseId.set(String(init.phaseId), init);
+    }
+  }
+
+  const missing = collectMissingForPlan(plan, (id) => initByPhaseId.get(id));
+  return missing.length ? { projectId, planSlug, missing } : null;
+}
+
+function flatInitIndex(root) {
+  const flatInits = join(root, 'initiatives');
+  const byPlanPhase = new Map();
+  const unscopedByPhaseId = new Map();
+  if (!isDirectory(flatInits)) return { byPlanPhase, unscopedByPhaseId };
+
+  for (const entry of readdirSync(flatInits)) {
+    if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+    const init = fmOf(join(flatInits, entry));
+    if (!init || init.phaseId == null) continue;
+    const phaseId = String(init.phaseId);
+    if (init.parentPlan) {
+      byPlanPhase.set(`${String(init.parentPlan)}\0${phaseId}`, init);
+    } else {
+      const list = unscopedByPhaseId.get(phaseId) || [];
+      list.push(init);
+      unscopedByPhaseId.set(phaseId, list);
+    }
+  }
+  return { byPlanPhase, unscopedByPhaseId };
+}
+
+function flatPlanReport(root, planFile, initIndex) {
+  const plan = fmOf(planFile);
+  if (!plan) return null;
+  const planSlug = String(plan.slug || basename(planFile).replace(/\.md$/, ''));
+  const flatInitFor = (phaseId) => {
+    const exact = initIndex.byPlanPhase.get(`${planSlug}\0${phaseId}`);
+    if (exact) return exact;
+    const unscoped = initIndex.unscopedByPhaseId.get(phaseId) || [];
+    return unscoped.length === 1 ? unscoped[0] : null;
+  };
+  const missing = collectMissingForPlan(plan, flatInitFor);
+  return missing.length ? { projectId: '(flat)', planSlug, missing } : null;
+}
+
+function resolveScanTarget(dir) {
+  const target = resolve(dir);
+
+  if (isFile(target)) {
+    if (basename(target) === 'plan.md') {
+      const planDir = dirname(target);
+      return {
+        type: 'nestedPlan',
+        projectId: basename(dirname(planDir)),
+        planSlug: basename(planDir),
+        planDir,
+      };
+    }
+    if (basename(dirname(target)) === 'plans' && target.endsWith('.md')) {
+      return { type: 'flatPlan', root: dirname(dirname(target)), planFile: target };
+    }
+  }
+
+  if (isDirectory(target) && existsSync(join(target, 'plan.md'))) {
+    return {
+      type: 'nestedPlan',
+      projectId: basename(dirname(target)),
+      planSlug: basename(target),
+      planDir: target,
+    };
+  }
+
+  return {
+    type: 'root',
+    root: existsSync(join(target, '.atomic-skills')) ? join(target, '.atomic-skills') : target,
+  };
+}
+
 /**
  * Collect { projectId, planSlug, missing: [{phaseId, field, where}] } for every
- * MATERIALZIED phase whose businessIntent spine is incomplete on either surface.
+ * MATERIALIZED phase whose businessIntent spine is incomplete on either surface.
  * Scans BOTH layouts (matching find-missing-summaries.js / compute-rollups.js):
  * nested projects/<id>/<slug>/{plan.md, phases/*.md} and flat legacy
  * plans/*.md + initiatives/*.md. Descriptor-only phases (no initiative file) are
  * skipped — not yet activated (D5).
  */
 export function findMissingBusinessIntent(dir) {
-  const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
+  const target = resolveScanTarget(dir);
+  if (target.type === 'nestedPlan') {
+    const one = nestedPlanReport(target.projectId, target.planSlug, target.planDir);
+    return one ? [one] : [];
+  }
+  if (target.type === 'flatPlan') {
+    const one = flatPlanReport(target.root, target.planFile, flatInitIndex(target.root));
+    return one ? [one] : [];
+  }
+
+  const root = target.root;
   const report = [];
 
   // Nested: projects/<id>/<slug>/{plan.md, phases/*.md}
   const projectsDir = join(root, 'projects');
-  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+  if (isDirectory(projectsDir)) {
     for (const projId of readdirSync(projectsDir)) {
       const projPath = join(projectsDir, projId);
-      if (!statSync(projPath).isDirectory()) continue;
+      if (!isDirectory(projPath)) continue;
       for (const planSlug of readdirSync(projPath)) {
         const planDir = join(projPath, planSlug);
-        if (!statSync(planDir).isDirectory()) continue;
-        const planFile = join(planDir, 'plan.md');
-        if (!existsSync(planFile)) continue;
-        const plan = fmOf(planFile);
-        if (!plan) continue;
-
-        // Materialized = has a phases/<slug>.md initiative. Indexed by phaseId
-        // (matching find-missing-summaries.js): the FILE's existence is the
-        // materialization gate, never subPhaseCount.
-        const initByPhaseId = new Map();
-        const phasesDir = join(planDir, 'phases');
-        if (existsSync(phasesDir) && statSync(phasesDir).isDirectory()) {
-          for (const entry of readdirSync(phasesDir)) {
-            if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-            const init = fmOf(join(phasesDir, entry));
-            if (init && init.phaseId != null) initByPhaseId.set(String(init.phaseId), init);
-          }
-        }
-
-        const missing = [];
-        for (const ph of Array.isArray(plan.phases) ? plan.phases : []) {
-          if (!ph || typeof ph !== 'object') continue;
-          const id = String(ph.id ?? '?');
-          if (!initByPhaseId.has(id)) continue; // descriptor-only → skip (D5)
-          // Materialized → check BOTH surfaces, first-missing-field each.
-          const dField = firstMissingField(ph.businessIntent);
-          if (dField) missing.push({ phaseId: id, field: dField, where: 'descriptor' });
-          const iField = firstMissingField(initByPhaseId.get(id).businessIntent);
-          if (iField) missing.push({ phaseId: id, field: iField, where: 'initiative' });
-        }
-        if (missing.length) report.push({ projectId: projId, planSlug, missing });
+        if (!isDirectory(planDir)) continue;
+        const one = nestedPlanReport(projId, planSlug, planDir);
+        if (one) report.push(one);
       }
     }
   }
@@ -153,49 +272,13 @@ export function findMissingBusinessIntent(dir) {
   // parentPlan + phaseId. Very old unscoped initiatives can still be matched by
   // phaseId only when that fallback is unambiguous; otherwise skip rather than
   // false-materializing a descriptor-only phase from another plan.
-  const flatInits = join(root, 'initiatives');
-  const flatInitByPlanPhase = new Map();
-  const unscopedFlatInitsByPhaseId = new Map();
-  if (existsSync(flatInits) && statSync(flatInits).isDirectory()) {
-    for (const entry of readdirSync(flatInits)) {
-      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-      const init = fmOf(join(flatInits, entry));
-      if (!init || init.phaseId == null) continue;
-      const phaseId = String(init.phaseId);
-      if (init.parentPlan) {
-        flatInitByPlanPhase.set(`${String(init.parentPlan)}\0${phaseId}`, init);
-      } else {
-        const list = unscopedFlatInitsByPhaseId.get(phaseId) || [];
-        list.push(init);
-        unscopedFlatInitsByPhaseId.set(phaseId, list);
-      }
-    }
-  }
-  const flatInitFor = (planSlug, phaseId) => {
-    const exact = flatInitByPlanPhase.get(`${planSlug}\0${phaseId}`);
-    if (exact) return exact;
-    const unscoped = unscopedFlatInitsByPhaseId.get(phaseId) || [];
-    return unscoped.length === 1 ? unscoped[0] : null;
-  };
+  const initIndex = flatInitIndex(root);
   const flatPlans = join(root, 'plans');
-  if (existsSync(flatPlans) && statSync(flatPlans).isDirectory()) {
+  if (isDirectory(flatPlans)) {
     for (const entry of readdirSync(flatPlans)) {
       if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-      const plan = fmOf(join(flatPlans, entry));
-      if (!plan) continue;
-      const planSlug = String(plan.slug || entry.replace(/\.md$/, ''));
-      const missing = [];
-      for (const ph of Array.isArray(plan.phases) ? plan.phases : []) {
-        if (!ph || typeof ph !== 'object') continue;
-        const id = String(ph.id ?? '?');
-        const init = flatInitFor(planSlug, id);
-        if (!init) continue; // descriptor-only → skip (D5)
-        const dField = firstMissingField(ph.businessIntent);
-        if (dField) missing.push({ phaseId: id, field: dField, where: 'descriptor' });
-        const iField = firstMissingField(init.businessIntent);
-        if (iField) missing.push({ phaseId: id, field: iField, where: 'initiative' });
-      }
-      if (missing.length) report.push({ projectId: '(flat)', planSlug, missing });
+      const one = flatPlanReport(root, join(flatPlans, entry), initIndex);
+      if (one) report.push(one);
     }
   }
 
