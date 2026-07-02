@@ -284,6 +284,40 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
   });
 
+  it('project-create-plan Stage 6 documents lazy outputs and explicit F0 validation', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
+    assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    assert.match(stage6, /f0-<phase-slug>\.md/);
+    assert.match(stage6, /f<N>-<phase-slug>\.source\.json/);
+    assert.match(stage6, /only the materialized F0 initiative/);
+    assert.match(stage6, /phases\/<f0-phase-file>\.md/);
+    assert.doesNotMatch(stage6, /f<N>-<phase-slug>\.md` per phase/);
+    assert.doesNotMatch(stage6, /each phase initiative under it/);
+    assert.doesNotMatch(stage6, /validate-state\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/phases\/\s+# per phase/);
+  });
+
+  it('project-create-plan adopt flow keeps the same F0 businessIntent and lazy validation contract', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const adoptStart = content.indexOf('## `adopt <file.md>`');
+    const gatesStart = content.indexOf('## Code-quality gates');
+    assert.notEqual(adoptStart, -1, 'adopt section must exist');
+    assert.notEqual(gatesStart, -1, 'code-quality section must exist');
+    const adopt = content.slice(adoptStart, gatesStart);
+    assert.match(adopt, /collect the same user-written F0 `businessIntent` spine/);
+    assert.match(adopt, /businessIntent: <businessIntent>/);
+    assert.match(adopt, /scripts\/find-missing-business-intent\.js" \.atomic-skills/);
+    assert.match(adopt, /phases\/<f0-phase-file>\.md/);
+    assert.match(adopt, /only the materialized F0 initiative/);
+    assert.match(adopt, /source sidecars retained/);
+    assert.doesNotMatch(adopt, /each phase initiative to its plan's group/);
+  });
+
   it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {
     install();
     const content = readAsset('project-create-plan.md');

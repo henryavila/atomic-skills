@@ -119,9 +119,10 @@ import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) 
 
 The returned `{relativePath, content}[]` resolves to:
 - `.atomic-skills/projects/<project-id>/<slug>/plan.md` (from `{{ASSETS_PATH}}/plan.template.md`)
-- `.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-<phase-slug>.md` per phase (from `{{ASSETS_PATH}}/initiative.template.md`, `parentPlan: <slug>` + `phaseId: <id>` filled, plan-membership block kept)
+- `.atomic-skills/projects/<project-id>/<slug>/phases/f0-<phase-slug>.md` for the initially active F0 initiative (from `{{ASSETS_PATH}}/initiative.template.md`, `parentPlan: <slug>` + `phaseId: F0` filled, plan-membership block kept)
+- `.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-<phase-slug>.source.json` for every descriptor-only F1..N phase retained for future `materialize <phase>`
 
-For each entry, `mkdir -p` its parent dir and write it (plan first, so a failure never orphans phases). Then append rows to that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`) — the Plan in "Active Plans", each phase initiative under it.
+For each entry, `mkdir -p` its parent dir and write it (plan first, so a failure never orphans phases). Then append rows to that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`) — the Plan in "Active Plans" and only the materialized F0 initiative under it. Do not add F1+ rows yet; descriptor-only phases become initiative rows only when `materialize <phase>` writes their `.md` file.
 
 **Phase summaries — author + user-validate (post-decompose annotation; decompose.js stays frozen per R-ORCH-10).** For each materialized phase, write a **concise one-line `summary`** of what it does — distinct from the longer technical `goal` — **in the install-configured communication language** (the `manifest.json` `language`; never an ad-hoc choice) — onto BOTH `plan.phases[].summary` (the descriptor, read by the Home timeline) and the phase's initiative `summary` (read by the Home "Agora"). Then **validate them with the user via {{ASK_USER_QUESTION_TOOL}}** before finalizing — present every phase's summary in the message, then ask (e.g. "Os resumos das fases estão coerentes e claros?") with options `Aprovar todos` / `Ajustar alguns`; on adjust, apply the user's corrections and re-confirm. Do NOT finalize the plan on an assumed-OK. The summary is a dev memory-aid AND a check that your decomposition interpretation matches the user's intent — **treat a correction as a signal the phase may be mis-scoped, not just mis-worded** (re-open the decomposition if so). (This is additive — an optional field authored after materialization; it never changes the decompose source format or heuristics.)
 
@@ -152,7 +153,7 @@ done
 
 # 2. Validate (nested paths; legacy fallback shown in parens).
 node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md         # (legacy: .atomic-skills/plans/<slug>.md)
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/         # per phase (legacy: .atomic-skills/initiatives/)
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md         # validate only emitted .md initiatives; .source.json sidecars are capture artifacts
 ```
 
 If `NORM` is empty (script not resolvable in this repo), apply the normalization rules inline before validating — same rules as the `status` default view STATE_ERROR auto-repair: gate `status` synonyms → `met`/`pending` (never `done` on a gate), `references[]` get a `kind` and `label` (not `title`), missing required **initiative** arrays → `[]` and `branch`/`nextAction` → `null` (never touch plan files this way — they are `.strict()`).
@@ -368,23 +369,23 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **Advisory No-Placeholders surface (R-ORCH-12):** `adopt` is the pre-lifecycle capture path, so the No-Placeholders lint runs **advisorily, not as a hard gate** — run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source-path>` and surface any `REPLACE_*`/`TODO`/fuzzy-path hits as warnings so the user can decide to clean them before or after capture; never block the capture on them. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
 
-6. **Materialize.** On confirmation, run the pure transform:
+6. **Materialize.** On confirmation, collect the same user-written F0 `businessIntent` spine as the default flow. If the user cannot fill the five required fields, stop before writing state. Then run the pure transform:
 
    ```bash
    node -e "
    import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
      const md = require('node:fs').readFileSync('<source-path>', 'utf8');
      const result = decomposePlan(md, { planSlug: '<slug>' });
-     const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>' });
+     const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>', businessIntent: <businessIntent> });
      console.log(JSON.stringify(files));
    });"
    ```
 
-   Then for each `{relativePath, content}` in the returned array (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`) and write the file. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
+   Then for each `{relativePath, content}` in the returned array (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`) and write the file. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
-7. **Validate.** Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` and `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/` (legacy fallback `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/`). On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
+7. **Validate.** First run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills`; it must exit `0` because F0 is already materialized. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` and `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md` (legacy fallback `.atomic-skills/plans/<slug>.md` + the emitted F0 initiative file). Do not validate the `phases/` directory as a proxy for all phases: descriptor-only F1+ entries are not `.md` initiatives yet, and `.source.json` sidecars are capture artifacts. On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
 
-8. **Update PROJECT-STATUS.md.** Append rows in that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`): the Plan to "Active Plans", each phase initiative to its plan's group. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
+8. **Update PROJECT-STATUS.md.** Append rows in that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`): the Plan to "Active Plans" and only the materialized F0 initiative to its plan's group. F1+ descriptor-only phases are visible through `plan.phases[]` and get initiative rows only after `materialize <phase>` writes their `.md` files. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
 
 9. **Optional source archive.** Ask: "Archive the source markdown to `docs/archive/<YYYY-MM-DD>-<basename>`? (y/N)". If yes, `git mv` the file (preserves history). If no, leave it in place; the user can repeat `adopt` against an updated copy without conflict because the materialized state is the canonical source from this point forward.
 
@@ -394,7 +395,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 12. **Announce.** Same as Stage 9 of the default flow:
     - Plan path
-    - N initiatives created
+    - 1 initiative created + N descriptor-only source sidecars retained
     - Active phase: `<F0> — <title>`
     - Reviews: internal (zero findings) + codex (verdict, counts, file) OR (skipped per user)
     - Suggested next: `atomic-skills:project status` to view the bird's-eye
