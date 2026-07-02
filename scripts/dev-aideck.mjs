@@ -21,7 +21,7 @@
  * caminho ABSOLUTO para que o node resolva esses imports no lugar certo.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -138,7 +138,9 @@ export function restageRuntime(aideckPath, homeDir = homedir()) {
   if (existsSync(join(clientSrc, 'index.html'))) {
     if (existsSync(runtimeDashboard)) rmSync(runtimeDashboard, { recursive: true, force: true });
     mkdirSync(runtimeDashboard, { recursive: true });
-    execSync(`cp -r "${clientSrc}/"* "${runtimeDashboard}/"`, { stdio: 'inherit' });
+    for (const entry of readdirSync(clientSrc)) {
+      cpSync(join(clientSrc, entry), join(runtimeDashboard, entry), { recursive: true });
+    }
     console.log(`  ${c.ok('✓')} Staged ${runtimeDashboard}`);
   }
 }

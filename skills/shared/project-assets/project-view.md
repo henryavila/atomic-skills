@@ -309,7 +309,7 @@ ACTIVE INITIATIVES (standalone)
 Bird's-eye view of an active plan (or the only active plan if no slug given). Render:
 1. Header: `<plan-slug> · v<version> · <status> · currentPhase: <id>`
 2. PRINCIPLES (numbered list, title only)
-3. PHASES (table): ID | Title | Status (icon) | SubPhases | Depends On | Exit Gate Summary
+3. PHASES (table): ID | Title | Status (icon) | SubPhases | Depends On | Exit Gate Summary. **A descriptor-only phase (no initiative file in `phases/` — D1 lazy) renders its Status as `⏳ pendente de materialização`**, distinct from a materialized `pending`/`active` phase; its SubPhases shows `0` (an honest "unknown until materialized"). Never render an empty initiative or a stale `nextAction` for it — point the operator at `atomic-skills:project materialize <phase-id>`.
 4. INTER-PHASE GATES (if present): "from → to: <criteria>"
 5. REFERENCES (count + first 3)
 
@@ -319,7 +319,7 @@ Detail view of the current phase of the active plan (or the given phase id). Ren
 1. Header: `<plan-slug>/<phaseId> — <title> · <status>`
 2. GOAL
 3. EXIT GATE: criteria with status icons; render verifier kind summary
-4. INITIATIVE for this phase (if exists): tasks summary inline
+4. INITIATIVE for this phase. **Descriptor-only** = no initiative file in `phases/` (D1 lazy: the phase was not materialized at `new plan`). Render `⏳ Pendente de materialização — rode \`atomic-skills:project materialize <phase-id>\` para decompor esta fase em tasks.` and skip tasks/rollups/`nextAction` (there are none yet). The distinction is the **absence of the initiative file**, never `subPhaseCount` (a descriptor's `subPhaseCount:0` is an honest "unknown until materialized"). Otherwise (initiative exists): tasks summary inline (`tasksDone`/`tasksTotal`), `nextAction`, and the phase rollup.
 5. CROSS-TASK REFS impacting this phase
 
 ## `--stack`

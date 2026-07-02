@@ -567,11 +567,15 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
 
   for (const [, plan] of planFrontmatters) {
     if (!plan.phases) continue;
+    const projectId = typeof plan.__projectId === 'string' && plan.__projectId.length > 0
+      ? plan.__projectId
+      : null;
     for (const phase of plan.phases) {
       if (phase.status !== 'done') continue;
       if (!phase.slug) continue;
 
-      const init = initBySlug.get(phase.slug);
+      const init = (projectId ? initBySlug.get(`${projectId}/${phase.slug}`) : null)
+        ?? initBySlug.get(phase.slug);
       if (!init) continue;
 
       const phaseErrors = [];

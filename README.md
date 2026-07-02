@@ -416,10 +416,10 @@ Three facts the model hinges on, and that most TODO trackers get wrong:
 
 A team rebuilds its matching engine:
 
-1. **Plan it.** `project new plan rebuild-matcher` points at a spec and decomposes it into a Plan with phases **F0** (Foundation audit), **F1** (New matcher, `dependsOn: [F0]`), **F2** (Cutover). F0's exit criterion *"matcher round-trip test passes"* carries a `{kind: shell, command: "npm test -- matcher"}` verifier. The skill materializes one initiative per phase, activates F0, and runs `review-plan` plus a codex review.
+1. **Plan it.** `project new plan rebuild-matcher` points at a spec and decomposes it into a Plan with phases **F0** (Foundation audit), **F1** (New matcher, `dependsOn: [F0]`), **F2** (Cutover). F0's exit criterion *"matcher round-trip test passes"* carries a `{kind: shell, command: "npm test -- matcher"}` verifier. The skill materializes only the F0 initiative, retains F1/F2 as descriptor-only source sidecars for later activation, activates F0, and runs `review-plan` plus a codex review.
 2. **Work it.** `project status` matches the git branch to the active F0 initiative and shows **3/5 tasks done.**
 3. **Handle emergence.** Mid-work the agent proposes a new task, prints the mutation block with a drafted `context`, and **HALTs.** The developer types `ratify`; `project new-task --target F1 "Add cross-landlord canary"` lands it with `provenance` + ratified `context`. A smaller idea (*"maybe cache the join later"*) gets `park`ed instead.
-4. **Close the phase.** `done T-005` closes the last task; `project phase-done` verifies each exit criterion (stamping `evidence`), runs the `review-code` gate on the phase diff, advances `currentPhase` to F1, archives F0, and seeds the F1 initiative.
+4. **Close the phase.** `done T-005` closes the last task; `project phase-done` verifies each exit criterion (stamping `evidence`), runs the `review-code` gate on the phase diff, collects the F1 `businessIntent`, materializes F1 from its retained sidecar, advances `currentPhase`, and archives F0.
 5. **Watch for drift.** Weeks later, `scope-creep` flags the parked cache idea as a 40-day zombie with stale context; `re-ratify` refreshes it or retires it.
 
 Every command above is documented in [docs/skills/project.md](docs/skills/project.md).

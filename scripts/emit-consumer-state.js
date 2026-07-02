@@ -23,7 +23,7 @@
  *
  * Outputs (under <root>/.aideck/state/):
  *   plans.json · phases.json · initiatives.json · tasks.json · gates.json
- *   phaseGates.json · stack.json · parked.json · emerged.json · projects.json
+ *   phaseGates.json · stack.json · parked.json · emerged.json · projects.json · planEdges.json
  *   burnup.json · spi.json
  *   (totals.json retired — the 4 Panorama totals are read-time source.agg now.)
  *
