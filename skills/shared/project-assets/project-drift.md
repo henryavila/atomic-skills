@@ -47,7 +47,7 @@ RATIFIED:
   ratifiedAt:     2026-05-19T16:10:00Z (by human)
   lastReviewedAt: 2026-05-19T16:10:00Z
 
-NEXT: blocked on T-002 — run `done T-002` to unblock.
+NEXT: blocked on T-002 — finish the blocker (`done T-002`), then `unblock <this-id>` to resume (closing the blocker does NOT auto-flip this task out of `blocked`).
 ```
 
 The render is read-only. It does not mutate. When `lastReviewedAt` exceeds `staleContextDays` (default 14, configurable), prepend a `⚠ Not re-reviewed in <N> days — premises may have shifted. Run \`re-ratify <id>\`?` banner.

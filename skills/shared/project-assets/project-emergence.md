@@ -76,7 +76,15 @@ Both `Reasoning` and `Drafted context` are mandatory. The first defends against 
 2. **Ratify gate**: same shape as `park`. HALT until ratify / edited / cancel.
 3. On ratify: append to `emerged:`: `{title: "<description>", surfacedAt: <now>, promoted: false, context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }}`.
 4. Save.
-5. Offer: "Create new initiative now for '<description>'? (run `atomic-skills:project new initiative <slug>`)" — if yes, hand off to the `new initiative` flow (`{{ASSETS_PATH}}/project-create-initiative.md`).
+5. Offer: "Create new initiative now for '<description>'? (run `atomic-skills:project new initiative <slug>`)" — if yes, hand off to the `new initiative` flow (`{{ASSETS_PATH}}/project-create-initiative.md`). **If declined, say so explicitly:** "Kept in `emerged[]` — later `promote "<description>"` turns it into a task, or `emerge <idx> --delete` drops it." (C-1 — the item is not stranded; both the promote and the drop path are named.)
+
+## `park <idx> --delete` / `emerge <idx> --delete` (disposal)
+
+The disposal path the `scope-creep` footer recommends (C-1 / E1#4 — previously referenced but undefined, so parked/emerged zombies could only grow). Drops one stale backlog entry with a light confirm (no ratify gate — dropping a note is not a code mutation, but it IS irreversible for that entry's articulated context, so confirm once).
+
+1. Resolve `<idx>` (or title) in `parked:` (for `park … --delete`) or `emerged:` (for `emerge … --delete`).
+2. Print the entry's `title` + `context.solves` and ask `delete` / `cancel`. A generic "yes" confirms here (this is a discard, not a ratify).
+3. On `delete`: remove the entry from its list and save. On `cancel`: no-op.
 
 ### `emerge --target <phaseId> "<title>"`
 
@@ -86,12 +94,12 @@ Same ratify gate as base `emerge` — the `--target` flag only changes WHERE the
 
 ## `promote <parking-item-title-or-index>` (rung 3)
 
-1. Locate item in `parked:`. Confirm it carries a `context` block (it must — schema requires it for every parked entry).
+1. Locate the item in **`parked:` OR `emerged:`** (C-1 / B2#1 — an `emerge`d item is a promotable backlog entry too; `promote` used to read `parked:` only, stranding every `emerged[]` item forever). Match by title or index across both lists; if the same title exists in both, prefer `parked:` and say so. Confirm it carries a `context` block (schema requires it for both `parked` and `emerged` entries).
 2. Generate next task ID (`T-<NNN+1>` based on the highest existing).
 3. **Re-ratify check** (only if `context.lastReviewedAt` is older than `parkedZombieDays` in config — default 30): print the existing context, ask "Premises still valid? `ratify` to keep, paste edits to update, `cancel` to abort." Fresh items skip this prompt — their context was just ratified.
 4. **Draft + ratify the `summary`** — ALWAYS, fresh or stale (the parked entry never carried one, so it is authored here, NOT inherited). Show a one-line summary (install-configured communication language, derived from the parked title + `context.solves`) and have the user ratify it: fold it into the step-3 prompt when that runs, or show it on its own for fresh items. This step is unconditional — never skip it on the fresh-item path.
 5. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, summary: <ratified one-line>, status: pending, lastUpdated: <now>, provenance: { surfacedAt: <parked surfacedAt>, surfacedDuring: "promote(<current-init>)", surfacedBy: human }, context: { …carried from parked, lastReviewedAt: now …}}`. The carried context's `ratifiedAt` is preserved (proof the human articulated this once); `lastReviewedAt` advances if step 3 ran. **`summary` is mandatory** — a promoted task with no summary renders bare in the dashboard Agora.
-6. Remove item from `parked:`.
+6. **Drain the source entry (C-1 / B2#2):** if the item came from `parked:`, remove it from `parked:`. If it came from `emerged:`, set that entry's `promoted: true` (never left `false` after a promote — the flag was previously write-once-`false` and never flipped, so `emerged[]` grew monotonically and views mis-reported promoted work as pending forever); keep the entry as promoted lineage. Backlog views (`--terminal` EMERGED panel, `scope-creep`) list only `emerged[]` items with `promoted: false`.
 7. **Completion-signal nudge (Component E, soft):** if the promoted task carries neither a `verifier` nor an `outputs[].path`, ask whether to add one so it can be auto-detected as done (decline is allowed — the task just stays invisible to `detect-completion` and must be closed by hand). Same nudge as `new-task` step 10; `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` audits the gap.
 8. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` (zero-token backstop, same as `new-task`) — a non-zero exit means the summary slipped; author it before announcing. Then announce the new task ID.
 

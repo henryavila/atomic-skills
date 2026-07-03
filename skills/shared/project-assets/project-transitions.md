@@ -52,6 +52,15 @@ The gate is skipped for read-only commands (`status` views, `why`, `scope-creep`
 
 The 24-hour threshold is configurable via `.atomic-skills/status/config.json` key `reconciliationThresholdHours` (default: 24). Set to `0` to disable.
 
+## `unblock <task-id>` (C-1 / B2#3 — the missing exit from `blocked`)
+
+`blocked` is a first-class open task status (the reconciliation gate sets it, and auto-transition counts it among remaining work), but it had **no documented forward transition** — a blocked task could only be `done` (needs its verifier to pass) or hand-edited, which the Iron Law forbids. `unblock` is that exit. It is a mutating command (subject to the pre-mutation gates); it does NOT close the task — it returns it to workable state.
+
+1. Locate the task `<task-id>` in the active initiative's `tasks[]`. If its `status` is not `blocked`, report that and stop (nothing to unblock).
+2. If it carries `blockedBy[]`, show each blocker and its current status. Confirm with the user that the blocker is resolved (or that they want to unblock regardless). A blocker task that is itself still open is a warning, not a hard stop — the user may have unblocked out-of-band.
+3. Set `status: active` (or `pending` if the user has not started it), clear `blockedBy[]`, bump `lastUpdated`. Leave `evidence`/`closedAt` untouched (the task was never closed).
+4. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups/focus reflect the reopened work, and save.
+
 ## Plan dependency block guidance (`dependsOnPlans[]`)
 
 Before a transition or next-action view tells the operator to execute a plan, it must surface plan-level blockers from `dependsOnPlans[]` separately from phase/task dependencies. Build the project plan graph with `src/plan-dependencies.js` and treat `blockedByPlans[<plan-slug>]` as the operational source of truth; `spawnedFrom` and `phases[].spawnedPlans` explain origin only and never open or close execution by themselves.
@@ -302,6 +311,8 @@ Runs only when `archive` step 2 read a `spawnedFrom` edge `{ plan, phaseId, mode
 ## `switch <slug>`
 
 Works at 2 levels: switching plans, OR switching initiatives within the active plan / among standalone.
+
+**`switch <slug>` IS the resume path for a `paused` plan/initiative (C-1 / E1#5).** There is no separate `resume` verb: a paused target is accepted (step 2/3 allow `status: paused`) and set back to `active`. So a manually-paused plan (or one paused by a prior `switch` / `fork-plan --mode pause` / the single-focus pre-flight) is resumed by simply switching to it. The no-args summary and `status --list` mark paused plans so the operator knows what to switch back to.
 
 1. Detect kind (resolve nested-first, then legacy flat): is there a plan at `projects/<project-id>/<slug>/plan.md` (legacy `.atomic-skills/plans/<slug>.md`)? OR a phase/standalone initiative at `projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md` (legacy `.atomic-skills/initiatives/<slug>.md`)? OR a phase descriptor id/slug in the currently active plan whose initiative file is absent (descriptor-only)?
 2. **Plan switch**:

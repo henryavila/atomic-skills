@@ -262,7 +262,7 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
   2. STACK (tree with box-drawing): each frame from `stack:` indented; mark last with ` ◉ HERE`
   3. TASKS (table): ID | Title | State-with-icon | Updated | Solves
      - The `Solves` column renders `context.solves` (truncated to fit, e.g. 60 chars + `…`). For original-materialization tasks (no context), render `—`. The column is what makes every row self-explanatory in a listing — without it, the user has to `why <id>` every line to remember what each task is about.
-  4. PARKED + EMERGED side by side (2 columns). Each item renders as:
+  4. PARKED + EMERGED side by side (2 columns). EMERGED lists only entries with `promoted: false` (a `promoted: true` entry is drained-to-a-task lineage, not open backlog — C-1). Each item renders as:
      ```
      ⌂ <truncated title>
         solves: <truncated context.solves>
