@@ -181,7 +181,7 @@ A `review-code` finding *generates* learning; without a sink the next phase read
 
 ## Code-quality gates (state files this skill writes)
 
-Bound by `docs/kb/code-quality-gates.md` (G1 read-before-claim, G2 soft-language ban on `nextAction`/task/exit-criterion descriptions, G6 reference-or-strike on every exit-criterion). The full rules live with the authoring flow — `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` → `## Code-quality gates (plan creation)`.
+Bound by `docs/kb/code-quality-gates.md` (G1 read-before-claim, G2 soft-language ban, G6 reference-or-strike). Enforcement = authoring-time lint + self-review, NOT a `validate-state` gate (C-6; why in the asset). Full rules — `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` → `## Code-quality gates (plan creation)`.
 
 ## Red Flags
 

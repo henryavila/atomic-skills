@@ -429,6 +429,11 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 ## Code-quality gates (plan creation)
 
+**Enforcement honesty (C-6 — what is deterministic vs. discipline).** Be precise about which of these the tooling actually enforces, so the skill never markets self-review as a machine gate:
+- **Deterministic, at authoring time:** the placeholder-literal subset (`REPLACE_*`, sentinel `TODO`/`FIXME`/`TBD`/`WIP`/`HACK`/`XXX`) is caught by `scripts/lint-source.js` (`lintSource`/`lintSpec`), run by this `new plan`/`adopt` flow before the plan is declared ready.
+- **Self-review discipline (NOT a `validate-state` check):** G2 soft-language and G6 reference-or-strike are enforced by the self-review block below + the review pass, not by `validate-state.js`. A plan with `nextAction: "this should probably work"` or an unreferenced exit-criterion passes `validate-state`/`verify`/CI green.
+- **Why SPEC-LINT is not a run-always tree gate:** `materializeDecomposition` intentionally seeds `TODO:` sentinels into descriptor-only F1..N phases (D1 lazy) and into any empty F0 field, so a tree-wide `validate-state` spec-lint would false-fail freshly-created and not-yet-materialized plans. The design once labeled a run-always SPEC-LINT "GATE-R3"; that never landed in `validate-state.js` for this reason, and the `GATE-R3` symbol in `validate-state.js` is a *different*, shipped invariant (the phase review-gate honesty check). Making SPEC-LINT a deterministic tree gate requires first changing decompose's placeholder strategy — an open decision, not shipped.
+
 This flow is bound by the gates in `docs/kb/code-quality-gates.md`. The plan you generate must comply with:
 
 - **G1 read-before-claim** — when the plan asserts what an existing file does (e.g. "the `matcher` function joins on tenant_id"), paste the relevant source lines into the plan body next to the claim. Inferring from the file name is forbidden.
