@@ -125,6 +125,38 @@ test('digest validates against focus.schema.json', () => {
   }
 });
 
+// C-4: an un-migrated FLAT tree (plans/*.md + initiatives/*.md, no projects/)
+// must still produce a populated statusline digest — was empty because
+// collectPlans bailed when projects/ was absent.
+test('buildFocusDigest reads a flat legacy tree (plan/phase/tasks not null)', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'focus-flat-'));
+  const asDir = join(repo, '.atomic-skills');
+  mkdirSync(join(asDir, 'plans'), { recursive: true });
+  mkdirSync(join(asDir, 'initiatives'), { recursive: true });
+  try {
+    writeFm(join(asDir, 'plans', 'legacy.md'), [
+      'schemaVersion: "0.1"', 'slug: legacy', 'title: Legacy', 'status: active',
+      'currentPhase: F0', 'lastUpdated: 2026-06-15T10:00:00Z',
+      'phases:', '  - id: F0', '    slug: legacy-f0', '    title: Phase Zero', '    status: active',
+    ].join('\n'));
+    writeFm(join(asDir, 'initiatives', 'legacy.md'), [
+      'schemaVersion: "0.1"', 'slug: legacy-f0', 'title: Phase Zero', 'status: active',
+      'phaseId: F0', 'parentPlan: legacy', 'nextAction: "Do it"',
+      'tasksDone: 1', 'tasksTotal: 2', 'lastUpdated: 2026-06-15T11:00:00Z',
+      'tasks:', '  - id: T1', '    status: done', '  - id: T2', '    status: pending',
+    ].join('\n'));
+
+    const d = buildFocusDigest(repo, { now: FIXED_NOW });
+    assert.deepEqual(d.plan, { slug: 'legacy', title: 'Legacy', status: 'active' });
+    assert.equal(d.projectId, '(flat)');
+    assert.equal(d.phase.id, 'F0');
+    assert.deepEqual(d.tasks, { done: 1, total: 2, blocked: 0 });
+    assert.equal(d.nextAction, 'Do it');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('no active plan → plan: null, schema still valid', () => {
   const repo = mkdtempSync(join(tmpdir(), 'focus-none-'));
   try {

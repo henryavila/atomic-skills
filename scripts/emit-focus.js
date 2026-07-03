@@ -55,34 +55,64 @@ function readFm(filePath) {
   return parsed.error ? null : parsed.frontmatter;
 }
 
-/** Every `projects/<id>/<slug>/plan.md` with its parsed frontmatter + paths. */
+/** Every `projects/<id>/<slug>/plan.md` with its parsed frontmatter + paths,
+ *  plus flat legacy `plans/*.md` (C-4: nested-first, flat-fallback — without this
+ *  an un-migrated tree produces an empty statusline digest even though the router
+ *  promises the fallback and compute-rollups already reads flat). */
 function collectPlans(stateRoot) {
-  const projectsDir = join(stateRoot, 'projects');
-  if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) return [];
   const plans = [];
-  for (const projId of readdirSync(projectsDir)) {
-    const projPath = join(projectsDir, projId);
-    if (!statSync(projPath).isDirectory()) continue;
-    for (const planSlug of readdirSync(projPath)) {
-      const planDir = join(projPath, planSlug);
-      if (!statSync(planDir).isDirectory()) continue;
-      const planFile = join(planDir, 'plan.md');
-      if (!existsSync(planFile)) continue;
+  const projectsDir = join(stateRoot, 'projects');
+  if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+    for (const projId of readdirSync(projectsDir)) {
+      const projPath = join(projectsDir, projId);
+      if (!statSync(projPath).isDirectory()) continue;
+      for (const planSlug of readdirSync(projPath)) {
+        const planDir = join(projPath, planSlug);
+        if (!statSync(planDir).isDirectory()) continue;
+        const planFile = join(planDir, 'plan.md');
+        if (!existsSync(planFile)) continue;
+        const fm = readFm(planFile);
+        // The fork parent/child edge lives in the plan's links.json sidecar (not the
+        // aiDeck-facing frontmatter); a non-fork plan reads as null. A torn/malformed
+        // sidecar (plausible mid cross-worktree writeback) must NOT take the whole
+        // resolver down — swallow to null like every other read here does.
+        if (fm) plans.push({ projId, planDir, planFile, fm, spawnedFrom: safeSpawnedFrom(planDir), flat: false, stateRoot });
+      }
+    }
+  }
+  // Flat legacy coexistence: `plans/*.md`. Flat plans carry no fork sidecar; their
+  // active initiative lives in `initiatives/*.md`, resolved by findPhaseInitiative.
+  const flatPlansDir = join(stateRoot, 'plans');
+  if (existsSync(flatPlansDir) && statSync(flatPlansDir).isDirectory()) {
+    for (const entry of readdirSync(flatPlansDir)) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const planFile = join(flatPlansDir, entry);
       const fm = readFm(planFile);
-      // The fork parent/child edge lives in the plan's links.json sidecar (not the
-      // aiDeck-facing frontmatter); a non-fork plan reads as null. A torn/malformed
-      // sidecar (plausible mid cross-worktree writeback) must NOT take the whole
-      // resolver down — swallow to null like every other read here does.
-      if (fm) plans.push({ projId, planDir, planFile, fm, spawnedFrom: safeSpawnedFrom(planDir) });
+      if (fm) plans.push({ projId: '(flat)', planDir: null, planFile, fm, spawnedFrom: null, flat: true, stateRoot });
     }
   }
   return plans;
 }
 
-/** The phase initiative file matching plan.currentPhase, or null. */
-function findPhaseInitiative(planDir, phaseId) {
+/** The phase initiative file matching plan.currentPhase, or null. Handles both
+ *  the nested `<planDir>/phases/*.md` and the flat legacy `initiatives/*.md`
+ *  layout (C-4), scoping a flat match to the plan by parentPlan/slug. */
+function findPhaseInitiative(p, phaseId) {
+  if (p.flat) {
+    const initsDir = join(p.stateRoot, 'initiatives');
+    if (!existsSync(initsDir) || !statSync(initsDir).isDirectory()) return null;
+    for (const entry of readdirSync(initsDir)) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const file = join(initsDir, entry);
+      const fm = readFm(file);
+      if (!fm) continue;
+      const belongs = (fm.parentPlan ?? fm.slug) === p.fm.slug;
+      if (belongs && (phaseId == null || fm.phaseId === phaseId)) return { file, fm };
+    }
+    return null;
+  }
   if (phaseId == null) return null;
-  const phasesDir = join(planDir, 'phases');
+  const phasesDir = join(p.planDir, 'phases');
   if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return null;
   for (const entry of readdirSync(phasesDir)) {
     if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
@@ -185,14 +215,14 @@ function pickFocus(activePlans, branch) {
     const plan = recentFirst(survivorPool.length ? survivorPool : survivors)[0];
     return {
       plan,
-      init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
+      init: findPhaseInitiative(plan, plan.fm.currentPhase ?? null),
       ambiguous: survivors.length > 1,
     };
   }
   const plan = recentFirst(pool)[0];
   return {
     plan,
-    init: findPhaseInitiative(plan.planDir, plan.fm.currentPhase ?? null),
+    init: findPhaseInitiative(plan, plan.fm.currentPhase ?? null),
     ambiguous: claimers.length > 1,
     unclaimed: false,
   };

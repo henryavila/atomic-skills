@@ -173,6 +173,27 @@ function buildPlanEdges(projectId, graph) {
  */
 export function readTree(root) {
   const out = { plans: [], initiatives: [] };
+
+  // Flat legacy coexistence (C-4): `plans/*.md` + `initiatives/*.md` (+archive).
+  // Without this an un-migrated flat tree emits an empty dashboard even though the
+  // router promises "readers resolve nested first, fall back to flat" and the
+  // sibling compute-rollups/find-* already read flat. Flat records use the
+  // sentinel projectId `(flat)`; a flat initiative joins its plan via parentPlan.
+  const pushFlatMd = (dir, kind) => {
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+    for (const entry of readdirSync(dir).sort()) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const parsed = parseFrontmatter(readFileSync(join(dir, entry), 'utf8'));
+      if (parsed.error || !parsed.frontmatter) continue;
+      const fm = parsed.frontmatter;
+      if (kind === 'plan') out.plans.push({ projectId: '(flat)', planSlug: fm.slug || entry.replace(/\.md$/, ''), fm });
+      else out.initiatives.push({ projectId: '(flat)', planSlug: fm.parentPlan || fm.slug || entry.replace(/\.md$/, ''), fm });
+    }
+  };
+  pushFlatMd(join(root, 'plans'), 'plan');
+  pushFlatMd(join(root, 'initiatives'), 'initiative');
+  pushFlatMd(join(root, 'initiatives', 'archive'), 'initiative');
+
   const projectsDir = join(root, 'projects');
   if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) return out;
 

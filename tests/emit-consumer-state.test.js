@@ -351,4 +351,34 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // C-4: an un-migrated FLAT tree (plans/*.md + initiatives/*.md, no projects/)
+  // must still emit a populated dashboard — the router promises nested-first,
+  // flat-fallback, and the sibling readers honor it. Was: readTree bailed to
+  // empty when projects/ was absent → blank dashboard for legacy users.
+  it('reads a flat legacy tree so the dashboard is not blank pre-migration', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'emit-state-flat-'));
+    try {
+      const asDir = join(dir, '.atomic-skills');
+      mkdirSync(join(asDir, 'plans'), { recursive: true });
+      mkdirSync(join(asDir, 'initiatives'), { recursive: true });
+      writeFileSync(
+        join(asDir, 'plans', 'legacy.md'),
+        '---\nslug: legacy\ntitle: Legacy\nstatus: active\ncurrentPhase: F0\nphases:\n  - id: F0\n    title: Found\n    status: active\n---\n',
+      );
+      writeFileSync(
+        join(asDir, 'initiatives', 'legacy.md'),
+        '---\nslug: legacy\ntitle: Legacy init\nstatus: active\nphaseId: F0\nparentPlan: legacy\ntasksDone: 1\ntasksTotal: 2\ntasks:\n  - id: T-1\n    title: a\n    status: done\n  - id: T-2\n    title: b\n    status: pending\n---\n',
+      );
+
+      emitConsumerState(dir, NOW);
+      const plans = JSON.parse(readFileSync(join(asDir, '.aideck', 'state', 'plans.json'), 'utf8'));
+      const inits = JSON.parse(readFileSync(join(asDir, '.aideck', 'state', 'initiatives.json'), 'utf8'));
+      assert.equal(plans.length, 1, 'flat plan must surface in plans.json');
+      assert.equal(plans[0].projectId, '(flat)');
+      assert.equal(inits.length, 1, 'flat initiative must surface in initiatives.json');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

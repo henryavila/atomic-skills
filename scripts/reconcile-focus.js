@@ -88,8 +88,11 @@ export function reconcileInitiativeFile(filePath, ctx) {
   return { filePath, changed: true, status, planActive, current, planTitle, cascaded: statusChanged };
 }
 
-/** Reconcile one plan + its initiatives. Pushes change records into `out`. */
-function reconcilePlan(planFile, planDir, out, deferredAnchors = new Set()) {
+/** Reconcile one plan + its initiatives. Pushes change records into `out`.
+ *  `initiativeFilesOverride` (C-4): when set, reconcile exactly those initiative
+ *  files instead of scanning `<planDir>/phases/` — used for the flat legacy layout
+ *  whose initiatives live in `initiatives/*.md`, not under the plan dir. */
+function reconcilePlan(planFile, planDir, out, deferredAnchors = new Set(), initiativeFilesOverride = null) {
   let planRaw;
   try { planRaw = readFileSync(planFile, 'utf8'); } catch (err) {
     out.push({ filePath: planFile, changed: false, error: `read failed: ${err.message}` });
@@ -133,12 +136,20 @@ function reconcilePlan(planFile, planDir, out, deferredAnchors = new Set()) {
     out.push({ filePath: planFile, changed: true, note: `planActive=${planActive}${cascade ? ' + phases active→paused' : ''}` });
   }
 
-  // 2. Each initiative file under phases/ (archive left as-is).
-  const phasesDir = join(planDir, 'phases');
-  if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return;
-  for (const entry of readdirSync(phasesDir)) {
-    if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
-    const r = reconcileInitiativeFile(join(phasesDir, entry), { planActive, currentPhase, cascade, planTitle, deferredAnchors });
+  // 2. Each initiative file (archive left as-is). Nested: `<planDir>/phases/*.md`;
+  //    flat legacy (override): the caller-supplied `initiatives/*.md` list.
+  let initiativeFiles;
+  if (initiativeFilesOverride) {
+    initiativeFiles = initiativeFilesOverride;
+  } else {
+    const phasesDir = join(planDir, 'phases');
+    if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) return;
+    initiativeFiles = readdirSync(phasesDir)
+      .filter((e) => e.endsWith('.md') && !e.startsWith('.'))
+      .map((e) => join(phasesDir, e));
+  }
+  for (const file of initiativeFiles) {
+    const r = reconcileInitiativeFile(file, { planActive, currentPhase, cascade, planTitle, deferredAnchors });
     if (r.changed || r.error) out.push(r);
   }
 }
@@ -204,8 +215,32 @@ export function reconcileDir(dir) {
   const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
   const projectsDir = join(root, 'projects');
   const out = [];
+
+  // Flat legacy coexistence (C-4): reconcile `plans/*.md` + their `initiatives/*.md`
+  // (grouped by parentPlan/slug). Without this an un-migrated flat tree never gets
+  // its planActive/current/planTitle focus markers — the dashboard Home timeline
+  // shows stale/absent focus. Flat has no fork sidecar, so no deferrals apply.
+  const flatPlansDir = join(root, 'plans');
+  const flatInitsDir = join(root, 'initiatives');
+  if (existsSync(flatPlansDir) && statSync(flatPlansDir).isDirectory()) {
+    const flatInitFiles = (existsSync(flatInitsDir) && statSync(flatInitsDir).isDirectory())
+      ? readdirSync(flatInitsDir).filter((e) => e.endsWith('.md') && !e.startsWith('.')).map((e) => join(flatInitsDir, e))
+      : [];
+    for (const entry of readdirSync(flatPlansDir)) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const planFile = join(flatPlansDir, entry);
+      const fm = readFmSafe(planFile);
+      const planSlug = fm?.slug || entry.replace(/\.md$/, '');
+      const mine = flatInitFiles.filter((f) => {
+        const ifm = readFmSafe(f);
+        return ifm && (ifm.parentPlan ?? ifm.slug) === planSlug;
+      });
+      reconcilePlan(planFile, null, out, new Set(), mine);
+    }
+  }
+
   if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) {
-    return { changes: out, changed: 0 };
+    return { changes: out, changed: out.filter((c) => c.changed).length };
   }
   // First pass: enumerate every plan + its fork edge so the parent can defer its
   // anchor `current` marker to an active forked child (needs cross-plan knowledge).
