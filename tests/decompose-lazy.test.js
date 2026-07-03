@@ -196,6 +196,44 @@ describe('materializeDecomposition — lazy (T-006 / D1): materializes only F0',
     }
   });
 
+  // C-2 / C1#1: a businessIntent spine passed to materialize must be COMPLETE
+  // (schema-required value/workflow/rules/outOfScope/doneWhen, each non-empty).
+  // The writer used to copy any non-array object verbatim onto BOTH the descriptor
+  // and the F0 initiative, producing schema-invalid state caught only downstream.
+  // Now it fails closed at the write boundary.
+  const COMPLETE_BI = {
+    value: 'ship the thing', workflow: 'do the steps', rules: 'follow them',
+    outOfScope: 'not that', doneWhen: 'it passes',
+  };
+
+  it('throws on an INCOMPLETE businessIntent instead of writing schema-invalid state', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const partial = { ...COMPLETE_BI };
+    delete partial.doneWhen; // one required field missing
+    assert.throws(
+      () => materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', now: FROZEN, businessIntent: partial }),
+      /businessIntent/i,
+      'an incomplete spine must fail closed at materialize, not reach disk',
+    );
+    // A non-string / blank field is equally rejected.
+    assert.throws(
+      () => materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', now: FROZEN, businessIntent: { ...COMPLETE_BI, value: '   ' } }),
+      /businessIntent/i,
+    );
+  });
+
+  it('a COMPLETE businessIntent writes a schema-valid descriptor AND F0 initiative', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const files = materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', now: FROZEN, businessIntent: COMPLETE_BI });
+    const validators = buildValidators();
+    const planFm = fmOf(files.find((f) => f.kind === 'plan').content);
+    assert.equal(planFm.phases[0].businessIntent.doneWhen, 'it passes');
+    assert.equal(validators.validatePlan(planFm), true, `plan invalid: ${JSON.stringify(validators.validatePlan.errors)}`);
+    const initFm = fmOf(files.find((f) => f.kind === 'initiative').content);
+    assert.equal(initFm.businessIntent.value, 'ship the thing');
+    assert.equal(validators.validateInitiative(initFm), true, `initiative invalid: ${JSON.stringify(validators.validateInitiative.errors)}`);
+  });
+
   it('find-missing-summaries.js skips the .source.json sidecar (presence does not break or false-positive)', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const files = materializeDecomposition(r, { planSlug: 'sample', projectId: 'atomic-skills', now: FROZEN });

@@ -149,7 +149,11 @@ Reject the block when any required field is blank or still contains
    Pass the newly written initiative file explicitly; do not pass the `phases/`
    directory because the validator treats arbitrary directories as discovery
    roots and can skip a bare phase directory.
-9. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
+9. **Task-level guarantees — author + gate (C-2, B1#1, mirrors `new plan`).** Materializing a phase creates its tasks, so — exactly like the F0 eager path (`project-create-plan.md` → "Summaries & level hygiene") — every materialized task must carry a `summary`, a `weight`, and a completion `signal` (`verifier` or `outputs[].path`). Do NOT leave these to a later accidental backfill: DRAFT each task `summary` (+ `weight`) from the sidecar goal/tasks, present for one ratify/edit, and write them onto the initiative. Then verify with the tree-scoped detectors (`{{BASH_TOOL}}`, run at the repo root — they scan `projects/*/*/phases/*.md`, NOT a single file; passing one phase path returns a vacuous green). The **just-materialized `<resolved-phase-file>` must NOT appear** in their output (unrelated pre-existing debt in other plans is a separate backfill, not a blocker for this phase):
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` — this phase absent from the offender list.
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"` — this phase absent.
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` — soft nudge only (some tasks are genuinely unverifiable; record the reason rather than forcing a fake signal).
+10. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
 
 ## Failure Handling
 

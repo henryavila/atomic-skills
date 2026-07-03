@@ -979,9 +979,34 @@ export function writePhaseSourceSidecar(initiative, planSlug, ctx) {
  *   The F-D1 redirectable root: a dogfood copy can be targeted without touching
  *   the live (gitignored, non-git-restorable) tree. Applies to BOTH layouts.
  * @param {object} [opts.businessIntent] — optional ratified spine for the
- *   initially active F0; legacy callers may omit it.
+ *   initially active F0; legacy callers may omit it. When PRESENT it must be
+ *   COMPLETE (see assertCompleteBusinessIntent) — an incomplete spine fails
+ *   closed here rather than writing schema-invalid state (C-2 / audit C1#1).
  * @returns {MaterializedFile[]}
  */
+
+/** The schema-required businessIntent spine fields (mirrors initiative/plan schema). */
+const BUSINESS_INTENT_REQUIRED = Object.freeze(['value', 'workflow', 'rules', 'outOfScope', 'doneWhen']);
+
+/**
+ * Fail-closed guard (C-2 / audit C1#1): a businessIntent passed to materialize is
+ * written verbatim onto BOTH the plan phase descriptor and the F0 initiative, so a
+ * partial/blank spine would produce state that only a downstream validate step
+ * rejects. Reject it at the write boundary instead. Returns the object unchanged
+ * when every required field is a non-empty string; throws otherwise.
+ */
+export function assertCompleteBusinessIntent(bi) {
+  const missing = BUSINESS_INTENT_REQUIRED.filter(
+    (k) => typeof bi[k] !== 'string' || bi[k].trim().length === 0,
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `materializeDecomposition: businessIntent is incomplete — missing/blank required field(s): ${missing.join(', ')} (all of ${BUSINESS_INTENT_REQUIRED.join(', ')} must be non-empty strings)`,
+    );
+  }
+  return bi;
+}
+
 export function materializeDecomposition(decompose, opts = {}) {
   if (!decompose || typeof decompose !== 'object' || !decompose.plan) {
     throw new TypeError('materializeDecomposition: decompose result must be the object returned by decomposePlan()');
@@ -997,7 +1022,7 @@ export function materializeDecomposition(decompose, opts = {}) {
   const stateRoot = (opts.stateRoot && typeof opts.stateRoot === 'string') ? opts.stateRoot : '.atomic-skills';
   const projectId = (opts.projectId && typeof opts.projectId === 'string') ? opts.projectId : null;
   const businessIntent = (opts.businessIntent && typeof opts.businessIntent === 'object' && !Array.isArray(opts.businessIntent))
-    ? opts.businessIntent
+    ? assertCompleteBusinessIntent(opts.businessIntent)
     : null;
   // Nested-layout plan directory (null in flat mode).
   const planDir = projectId ? `${stateRoot}/projects/${projectId}/${planSlug}` : null;
