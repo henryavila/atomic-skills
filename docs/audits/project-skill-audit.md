@@ -293,6 +293,16 @@ Os três clusters CRÍTICOS foram resolvidos com TDD + validação de cada claim
 - **C-7 — cadência de review desonesta** · commit `634510b`. `review-due` só avança o ponteiro verde `lastReviewedCommit` em verdict LIMPO (needs_changes deixa o ponteiro no valor anterior → CODEX line mostra atenção); `verify` #8 agora é mode-aware (review local-only emite INFO, não finge cross-model). Prose-only.
 - **C-8 — fricção** · commit `ccd5d34`. `migrate` puro (layout cut-over) agora roteável (grammar+dispatch); novo `verify` check #0 diagnostica o gotcha `package-root` stale deterministicamente em vez de falha críptica. Restam como polish BAIXO: fuzzy id-lookup (E3#3), fork-plan no grammar block (A1#1), resolver helper uniforme.
 
-Suíte completa **1554 testes, 1552 pass, 0 fail**; 15 skills válidas; router sob o budget de 23000B. **Todos os 8 clusters (C-1..C-8) endereçados.** Follow-up BAIXO restante: E3#3/A1#1 + os itens design-backlog do C-6 (mutation-kill obrigatório, G10, F-E2 telemetria — deferidos-por-design, honestamente opcionais no skill).
+Suíte completa **1554 testes, 1552 pass, 0 fail**; 15 skills válidas; router sob o budget de 23000B. **Todos os 8 clusters (C-1..C-8) endereçados.**
+
+### Follow-ups (2026-07-03, 2ª rodada)
+
+- **E3#3 fuzzy id-lookup** · commit `1e78fec`. Regra compartilhada em `project-transitions.md`: todo verbo com `<slug>`/`<phase-id>`/`<task-id>` aceita prefixo/substring do id OU do título, desambigua em múltiplos, lista ids válidos em zero.
+- **A1#1 fork-plan no grammar** · `1e78fec`. Adicionado à linha de power-verbs (era roteável mas indescobrível). Router sob budget.
+- **E2#4 G10 (gate-must-be-able-to-fail)** · `1e78fec`. Meta-gate do CANON que nunca shippou agora em `code-quality-gates.md` + self-review + matriz + checklist "Adding a new gate".
+- **E2#3 G9 magnitude floor** · `1e78fec`. mutation-kill "esperado" em critical-path `kind:test` (ausência justificada no self-review), opcional no resto — honesto que é disciplina de self-review.
+- **E3#2 package-root uniforme** · resolvido-por-diagnóstico via o `verify` check #0 (C-8, commit `ccd5d34`); refactor inline de ~20 sites descartado como churn de valor marginal.
+- **C-6 SPEC-LINT determinístico** · **VERIFICADO-BLOQUEADO** (não shipado): a checagem de literais banidos tem falso-positivo real com a variável de tool-abstraction `{{REPLACE_TOOL}}` + menções em prosa (confirmado no estado vivo do repo). Fica documentado-aberto no asset; forçá-lo introduziria ruído.
+- **E2#2 F-E2 telemetria** · **DEFERIDO-com-decisão** (design doc `06-*`): não é defeito do que está shipado (deferido-por-design). Achado: `completions.jsonl` já é o substrato append-only — qualquer build deve estender, não forkar; e substrato vazio = dead code. Recomendado como iniciativa própria (1 falsifier vertical), não cram.
 
 **Nota metodológica:** cada achado carrega `arquivo:linha` e o descompasso concreto promessa-vs-comportamento; achados vagos foram descartados pelos auditores. As unidades C3 (migração) e partes de C2/C4/D1 **confirmaram fidelidade** (sem finding) onde a prose bate com o código — registrado explicitamente para não sugerir que "sem finding" = "não auditado". O loop resiliente (cron 30min) sobreviveu a 2 janelas de rate-limit e retomou automaticamente do checkpoint, como projetado.
