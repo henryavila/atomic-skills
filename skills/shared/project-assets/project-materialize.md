@@ -153,6 +153,7 @@ Reject the block when any required field is blank or still contains
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` — this phase absent from the offender list.
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"` — this phase absent.
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` — soft nudge only (some tasks are genuinely unverifiable; record the reason rather than forcing a fake signal).
+   Then set the initiative `nextAction` (C-5) to the ONE concrete first step — `Run \`done <first-task-id>\` after <its first move>` (G2: a verified imperative, one step) — so a cold session resuming right after materialization reads an accurate pointer, not the template seed.
 10. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
 
 ## Failure Handling
