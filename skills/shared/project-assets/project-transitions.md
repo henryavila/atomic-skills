@@ -95,11 +95,12 @@ Inferred types from verb: "research" → research; "test" → validation; "discu
 1. Identify top frame of the stack.
 2. Destination:
    - `--resolve` (default): remove from stack, add note in Done if it was a task
-   - `--park`: route through the `park` flow (`{{ASSETS_PATH}}/project-emergence.md`) — including the ratify gate before the entry is written to `parked[]`
-   - `--emerge`: route through the `emerge` flow (`{{ASSETS_PATH}}/project-emergence.md`) — including the ratify gate before the entry is written to `emerged[]`
-3. Remove frame from stack.
-4. Announce: "Frame <N> popped to <destination>. Current frame: <new top>."
-5. Update `lastUpdated` and save.
+   - `--park`: route through the `park` flow (`{{ASSETS_PATH}}/project-emergence.md`) — including the ratify gate before the entry is written to `parked[]`. Treat the delegated flow as a transaction that returns one of `applied` / `cancelled` / `blocked`.
+   - `--emerge`: route through the `emerge` flow (`{{ASSETS_PATH}}/project-emergence.md`) — including the ratify gate before the entry is written to `emerged[]`. Treat the delegated flow as a transaction that returns one of `applied` / `cancelled` / `blocked`.
+3. **Transactional pop boundary:** remove the frame from `stack[]` ONLY after the chosen destination reports `applied`. If the user replies `cancel`, gives a non-ratify response, the delegated flow blocks on validation, or the write to `parked[]`/`emerged[]` fails, leave the frame in place, leave `lastUpdated` unchanged, and announce: "Pop cancelled — frame <N> remains on the stack."
+4. For `--resolve`, the destination is local and the transaction is immediately `applied`; remove the frame.
+5. Announce: "Frame <N> popped to <destination>. Current frame: <new top>."
+6. Update `lastUpdated` and save.
 
 `pop --resolve` skips the ratify gate entirely — resolving a frame doesn't create a new backlog entry, so there's nothing to articulate.
 
@@ -129,6 +130,7 @@ The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *
 1. Run the deterministic detector: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` (add `--project <id>` when more than one project holds the resolved plan-slug; `--slug`/`--plan` to widen within the project). It returns `candidates[]`, each carrying `kind` (`task`|`criterion`), `id`, the resolved `initiativePath` (the **safe write target** — never a bare slug), `evidence` (`output-exists`|`commit-ref`), `paths`/`commit`, and `hasVerifier` + `verifier`.
 2. If `drift` is false → announce "No completion drift — open entries carry no done-signal." and stop.
 3. For each candidate (batch the **oldest 4 first**, mirroring the reconciliation gate), present a {{ASK_USER_QUESTION_TOOL}} whose options are **verifier-aware**:
+   - **Fresh-read write token:** immediately before applying any disposition that writes, re-read `candidate.initiativePath` from disk and locate the entry by `kind` + `id` again. Never write back a parsed snapshot captured before the prompt. If the entry is missing, already closed, or its verifier/context changed since detection, skip that candidate and re-run `detect-completion.js --json` after the current batch; this avoids stale snapshot writes after another session edited the same initiative.
    - **`hasVerifier: true`** → options `Run verifier` / `Still open` / `Skip`. There is **no "mark done" shortcut** — the only close path is running the verifier (the **Verifier execution patterns** below), which writes GATE-R2 `evidence` and, on pass, sets the entry `done`/`met`. A failing verifier leaves it open. This is forced by GATE-R2: an entry with a `shell`/`test`/`query` verifier cannot reach `done`/`met` without `evidence.passed === true`.
    - **`hasVerifier: false`** → options `Mark done` / `Still open` / `Skip`. `Mark done` is the manual-acknowledgement path — for a **task**, run the `done <id>` flow (incl. auto-transition + rollup recompute); for a **criterion**, the "No verifier present → manual ack" path → set `status: met`, `metAt: <now>`, write `evidence` (`verifierKind: manual`, `passed: true`). GATE-R2 does NOT gate verifier-absent entries, so manual ack is valid here.
    - For every reconciled **task** that reaches `done` (verifier-backed or manual `Mark done`), emit exactly one `task-done` completion event through the `done <id>` flow's `appendCompletion` / `append-completion` instruction, carrying `projectId`, `planSlug`, `phaseId`, and `taskId` for that task. Criterion-only acknowledgements do not emit task completion events.

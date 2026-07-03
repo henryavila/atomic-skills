@@ -296,6 +296,22 @@ of a run record.
 **Exit gate:** every long flow has either transactional no-op-on-cancel behavior
 or a durable run record that makes resume deterministic.
 
+**Implementation note (2026-07-02):** F6 implemented for the project skill
+transaction/resume surfaces. `pop --park/--emerge` now removes a frame only after
+the delegated ratify flow reports `applied`; `new plan` and `adopt` persist
+creation-gate records before canonical writes and roll back by `filesWritten`;
+`discover --commit` uses strict `discover-run.json` as the run authority;
+`consolidate.mjs` writes `consolidate-run.json` with `--resume` semantics;
+`reconcile` re-reads `candidate.initiativePath` immediately before each write;
+and `finalize` requires an explicit `<slug>`. Verified with
+`rtk node --test tests/consolidate-script.test.js`,
+`rtk node --test tests/project.test.js`,
+`rtk node --test tests/transition-emits.test.js`,
+`rtk node scripts/lint-transition-emits.js`,
+`rtk node --test tests/finalize-plan-scope.test.js`,
+`rtk node --test tests/skill-script-resolution.test.js`,
+`rtk npm test`, and `rtk npm run check-docs`.
+
 **Fresh-session prompt:**
 
 > Implement F6 from `docs/plans/2026-07-02-project-skill-coherence-repair.md`.

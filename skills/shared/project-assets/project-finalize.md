@@ -1,6 +1,6 @@
 # project — `finalize` (publish the plan branch as a PR) (lazy detail)
 
-Loaded by the router for `/atomic-skills:project finalize`.
+Loaded by the router for `/atomic-skills:project finalize <slug>`.
 
 > **Invocation:** `finalize` is a **top-level**, **operator-prompted** verb — never
 > automatic. It PUBLISHES the finished plan branch (`plan/<slug>`) as a pull request
@@ -204,6 +204,13 @@ active plan" via the focus pointer would finalize the **WRONG** plan on a multi-
 branch. **`branch ≠ plan`:** the push stays `plan/<branch>`, but the **target is a
 plan SLUG**, resolved EXPLICITLY here — never silently from the focus pointer.
 
+**Grammar alignment:** `finalize` requires the operator to pass the target as
+`finalize <slug>`. A bare `finalize` stops before `scripts/finalize-plan-scope.js`
+with: "finalize requires an explicit plan slug; rerun `atomic-skills:project finalize <slug>`."
+Do not prompt and then infer from focus inside the same run: the explicit slug is
+the resume-safe transaction key, and a cancelled prompt must have zero publish
+effect.
+
 ### The deterministic guard is the proof — `scripts/finalize-plan-scope.js`
 
 Enumerate every `projects/<project-id>/*/plan.md` present on the branch, parse them,
@@ -324,7 +331,7 @@ merges and never archives.
 - **Cross-WT collision check (Step 1.5) is advisory + operator-prompted** — fires
   only with ≥2 live worktrees; the deterministic gate is the proof, the advisory
   LLM agents are read-only, never gate, and never auto-resolve.
-- **Plan-aware target resolution (Step 1.6) resolves an EXPLICIT plan slug** — never
+- **Plan-aware target resolution (Step 1.6) resolves an EXPLICIT plan slug from `finalize <slug>`** — never
   the silent `focus` default. The deterministic guard
   (`scripts/finalize-plan-scope.js`) BLOCKS a non-terminal or
   `branch ≠ plan`-unconfirmed target; the status-regression detector is

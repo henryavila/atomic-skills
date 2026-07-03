@@ -44,6 +44,18 @@ integration tip from it. Enable `git rerere` (recorded resolutions replay across
 Process candidates in a deterministic order (largest / most-conflicting first — order
 affects only cascade cost, not the build+test verdict). For each candidate:
 
+Before the first merge, `scripts/consolidate.mjs` writes
+`.atomic-skills/status/consolidate-run.json` (or the explicit `--run-file`) with
+`runId`, `base`, ordered `branches`, `candidates[]`, and `status: "running"`.
+After every candidate it updates that same file with `merged` / `skipped` /
+`ejected` state and the audit lines. If the process halts for semantic conflicts,
+the file records `status: "blocked"`, `stop.branch`, and the ejected paths. Resume
+with `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/consolidate.mjs" --workdir <dir> --resume`; `--resume` reloads
+the original `base` and ordered branches from the run file and refuses mismatched
+`--base` / `--branches` arguments. Do not reconstruct a stopped train from current
+git history alone — git tells what is merged, while the run record tells which
+train was intended and where the operator stopped.
+
 - **Merged-then-reverted** (head already in base history + a `Revert "…"` of its merge):
   re-merge is a no-op; do **revert-of-revert** (`git revert <the-revert>`), a clean
   single-parent restore — never a silent skip. (`classifyBranchIntegration`.)

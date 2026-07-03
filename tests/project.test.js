@@ -367,6 +367,27 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.doesNotMatch(adopt, /each phase initiative to its plan's group/);
   });
 
+  it('project-create-plan persists creation gates for new plan and adopt resume/rollback', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    const adoptStart = content.indexOf('## `adopt <file.md>`');
+    const gatesStart = content.indexOf('## Code-quality gates');
+    const adopt = content.slice(adoptStart, gatesStart);
+
+    assert.match(stage6, /Creation gate run record/);
+    assert.match(stage6, /\.atomic-skills\/status\/creation-gates\/<project-id>-<slug>\.json/);
+    assert.match(stage6, /filesWritten/);
+    assert.match(stage6, /status: "cancelled"/);
+    assert.match(stage6, /status: "rolled-back"/);
+    assert.match(stage6, /Do not infer a half-created plan by scanning `\.atomic-skills\/projects\/`/);
+    assert.match(adopt, /kind: "adopt"/);
+    assert.match(adopt, /resume boundary for `adopt`/);
+    assert.match(adopt, /rollback deletes exactly `filesWritten`/);
+  });
+
   it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {
     install();
     const content = readAsset('project-create-plan.md');
@@ -489,6 +510,18 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('project-discover uses discover-run.json as the durable commit authority', () => {
+    install();
+    const content = readAsset('project-discover.md');
+    assert.match(content, /strict `discover-run\.json` is the durable run record/);
+    assert.match(content, /stable `runId`/);
+    assert.match(content, /candidate\.approved === true/);
+    assert.match(content, /Do NOT add ad-hoc top-level fields/);
+    assert.match(content, /Read `\.atomic-skills\/bootstrap-drafts\/discover-run\.json` first/);
+    assert.match(content, /runId.*candidates\[\]/);
+    assert.match(content, /copied into the audit log/);
+  });
+
   // ─── Lazy asset: emergence ──────────────────────────────────────────────
 
   it('project-emergence documents the proposal/ratify/commit pattern + per-rung procedures', () => {
@@ -576,6 +609,43 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(blob.includes('openedAt'));
     assert.ok(blob.includes('surfacedAt'));
     assert.ok(blob.includes('fromFrame'));
+  });
+
+  it('project-transitions makes pop and reconcile transactional at their write boundaries', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    const popStart = content.indexOf('### `pop [--resolve|--park|--emerge]`');
+    const doneStart = content.indexOf('## `done <task-id>`');
+    const pop = content.slice(popStart, doneStart);
+    const reconcileStart = content.indexOf('## `reconcile`');
+    const phaseStart = content.indexOf('## `phase-done`');
+    const reconcile = content.slice(reconcileStart, phaseStart);
+
+    assert.match(pop, /Transactional pop boundary/);
+    assert.match(pop, /ONLY after the chosen destination reports `applied`/);
+    assert.match(pop, /frame <N> remains on the stack/);
+    assert.match(reconcile, /Fresh-read write token/);
+    assert.match(reconcile, /re-read `candidate\.initiativePath` from disk/);
+    assert.match(reconcile, /Never write back a parsed snapshot captured before the prompt/);
+  });
+
+  it('project-finalize requires an explicit slug and project-consolidate records resume state', () => {
+    install();
+    const router = readRouter();
+    const finalize = readAsset('project-finalize.md');
+    const consolidate = readAsset('project-consolidate.md');
+
+    assert.match(router, /project finalize <slug>/);
+    assert.match(router, /\| `finalize <slug>` \|/);
+    assert.match(finalize, /finalize` requires the operator to pass the target as\s+`finalize <slug>`/);
+    assert.match(finalize, /A bare `finalize` stops before `scripts\/finalize-plan-scope\.js`/);
+    assert.match(finalize, /explicit slug is\s+the resume-safe transaction key/);
+
+    assert.match(consolidate, /\.atomic-skills\/status\/consolidate-run\.json/);
+    assert.match(consolidate, /`runId`, `base`, ordered `branches`, `candidates\[\]`/);
+    assert.match(consolidate, /`status: "blocked"`/);
+    assert.match(consolidate, /--resume/);
+    assert.match(consolidate, /refuses mismatched/);
   });
 
   // ─── Lazy asset: migrate / re-bootstrap ─────────────────────────────────

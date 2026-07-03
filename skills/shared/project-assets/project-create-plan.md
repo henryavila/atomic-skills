@@ -105,6 +105,26 @@ This is the **soft** form — detect + guided choice, never a silent multi-activ
 
 **F0 businessIntent gate (active phase cannot start blank).** Collect the user-written `businessIntent` spine for F0 before materializing the active phase. Use {{ASK_USER_QUESTION_TOOL}} to ask for the five-field block (`value`, `workflow`, `rules`, `outOfScope`, `doneWhen`) in the install-configured communication language. Reject blank values and `[NEEDS CLARIFICATION]`; if the user cannot answer, stop before writing state. Store the ratified object as `<businessIntent>` and pass it into `materializeDecomposition`, so both the F0 plan descriptor and F0 initiative frontmatter carry the same business intent spine from creation.
 
+**Creation gate run record (resume / cancel boundary).** Before Stage 6 writes any canonical state file, write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with:
+
+```json
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "<slug>",
+  "projectId": "<project-id>",
+  "sourcePath": "<source.md>",
+  "stage": "ready-to-materialize",
+  "businessIntentAccepted": true,
+  "filesPlanned": [],
+  "filesWritten": [],
+  "status": "pending",
+  "updatedAt": "<now>"
+}
+```
+
+Update the record after `materializeDecomposition` returns (`filesPlanned`), after each file write (`filesWritten`), after validation (`status: "validated"`), and after the review receipt gate (`status: "ready"`). On `cancel` before the first canonical write, set `status: "cancelled"` and write nothing else. On any failure after a canonical write, delete exactly `filesWritten`, set `status: "rolled-back"` with the verbatim error, and stop. On resume, read this record first: if `status` is `pending` with no `filesWritten`, continue at Stage 6; if `filesWritten` is non-empty and validation/review is incomplete, validate those exact paths or roll them back before continuing. Do not infer a half-created plan by scanning `.atomic-skills/projects/`; the creation gate is the authority.
+
 Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
 ```bash
@@ -158,7 +178,7 @@ node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/v
 
 If `NORM` is empty (script not resolvable in this repo), apply the normalization rules inline before validating — same rules as the `status` default view STATE_ERROR auto-repair: gate `status` synonyms → `met`/`pending` (never `done` on a gate), `references[]` get a `kind` and `label` (not `title`), missing required **initiative** arrays → `[]` and `branch`/`nextAction` → `null` (never touch plan files this way — they are `.strict()`).
 
-If any file still fails schema validation after normalization, surface the errors and roll back (delete the just-written files). Do not leave partial state on disk.
+If any file still fails schema validation after normalization, surface the errors and roll back (delete exactly `creationGate.filesWritten`). Do not leave partial state on disk.
 
 ### Stage 7 — Activate first phase
 
@@ -369,7 +389,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **Advisory No-Placeholders surface (R-ORCH-12):** `adopt` is the pre-lifecycle capture path, so the No-Placeholders lint runs **advisorily, not as a hard gate** — run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source-path>` and surface any `REPLACE_*`/`TODO`/fuzzy-path hits as warnings so the user can decide to clean them before or after capture; never block the capture on them. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
 
-6. **Materialize.** On confirmation, collect the same user-written F0 `businessIntent` spine as the default flow. If the user cannot fill the five required fields, stop before writing state. Then run the pure transform:
+6. **Materialize.** On confirmation, collect the same user-written F0 `businessIntent` spine as the default flow. If the user cannot fill the five required fields, stop before writing state. Then write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with `kind: "adopt"`, `sourcePath: "<source-path>"`, `stage: "ready-to-materialize"`, `businessIntentAccepted: true`, `filesPlanned: []`, `filesWritten: []`, and `status: "pending"`. This is the durable resume boundary for `adopt`: before the first canonical write, `cancel` only marks the gate `cancelled`; after any write, rollback deletes exactly `filesWritten`. Resume reads this record first and never infers progress by scanning the destination tree. Then run the pure transform:
 
    ```bash
    node -e "
@@ -381,7 +401,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
    });"
    ```
 
-   Then for each `{relativePath, content}` in the returned array (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`) and write the file. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
+   Then update the creation gate's `filesPlanned` from the returned `{relativePath, content}[]`. For each returned path (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`), write the file, and append the path to `filesWritten` before proceeding to the next file. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
 7. **Validate.** First run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md`; it must exit `0` because F0 is already materialized. This scoped gate checks the plan and F0 initiative just written without blocking on unrelated legacy plans; tree-wide detector runs remain an audit command, not this creation gate. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` and `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md` (legacy fallback `.atomic-skills/plans/<slug>.md` + the emitted F0 initiative file). Do not validate the `phases/` directory as a proxy for all phases: descriptor-only F1+ entries are not `.md` initiatives yet, and `.source.json` sidecars are capture artifacts. On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
 
@@ -403,9 +423,9 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 ### Failure-mode summary
 
 - **Decompose throws (zero phases):** the source file does not match the convention. Surface the message verbatim; abort. Suggest the user run the default flow's minimal-template subflow (Stage 3 option `(c)`) and migrate content into it.
-- **Validation fails after materialize:** roll back (delete files), surface schema errors. The decomposer or materialize logic has a bug — file an initiative against atomic-skills, do NOT manually patch the files.
+- **Validation fails after materialize:** read the creation gate, roll back by deleting exactly `filesWritten`, mark it `rolled-back`, and surface schema errors. The decomposer or materialize logic has a bug — file an initiative against atomic-skills, do NOT manually patch the files.
 - **User aborts at step 5:** no files written, no rollback needed. The user can re-run `adopt` with an edited source file.
-- **User aborts during step 6 (rare — fs errors):** roll back any files written so far. The repo state must return to pre-`adopt` state on any failure.
+- **User aborts during step 6 (rare — fs errors):** roll back the creation gate's `filesWritten`. The repo state must return to pre-`adopt` state on any failure.
 
 ## Code-quality gates (plan creation)
 
