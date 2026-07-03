@@ -73,3 +73,49 @@ falso-verde antes do fechamento da fase.
 2. Releia o frontmatter ou consulte o filesystem produzido pela transição.
 3. Asserte presença/ausência de arquivos e campos no estado pós-ação, não em
    estruturas capturadas antes da ação.
+
+## Hooks e testes de ambiente precisam de HOME isolado
+
+Hooks de sessão podem ler arquivos globais do usuário (`~/.atomic-skills/env`,
+`~/.aideck/env`, package-root etc.). Se a suíte usa o HOME real, um estado local
+válido da máquina do Henry pode contaminar um teste que esperava contexto vazio.
+
+**Why:** Em 2026-07-03, `tests/hooks/session-start.test.sh` falhou localmente no
+caso "sem .atomic-skills/" porque o hook injetou "Dashboard running" a partir de
+`~/.atomic-skills/env`. A lógica estava correta; o teste não isolava todas as
+fontes externas.
+
+**How to apply:** Ao rodar ou criar testes de hooks, envolver a suíte com HOME
+temporário quando o teste não quer ler estado global:
+
+```bash
+tmp_home=$(mktemp -d)
+HOME="$tmp_home" npm run test:hooks
+```
+
+Quando um teste precisa exercitar o env global, crie explicitamente o arquivo no
+HOME temporário dentro do próprio caso.
+
+## Run records de rollback registram antes da escrita canônica
+
+Fluxos resumíveis que prometem rollback por `filesWritten` precisam persistir o
+alvo antes de tentar escrever o arquivo canônico. Registrar só depois da escrita
+abre uma janela de crash/interrupção em que o arquivo existe mas o run record não
+consegue removê-lo no resume.
+
+**Why:** Em 2026-07-03, o review de `project-create-plan.md` encontrou a
+instrução "write file, then append to filesWritten". Isso contradizia a regra de
+não inferir metade-criada por scan de `.atomic-skills/projects/`.
+
+**How to apply:** Para cada path materializado:
+1. Calcule `filesPlanned`.
+2. Antes da escrita canônica, adicione o path a `filesWritten` e persista o run
+   record.
+3. Escreva o arquivo.
+4. No rollback/resume, delete exatamente `filesWritten`; deletar path
+   registrado mas não criado é no-op aceitável, arquivo criado sem registro é
+   proibido.
+
+Regressão útil: teste textual/estrutural que falha se o skill voltar a instruir
+"write then append". Para scripts executáveis, preferir teste de fault-injection
+entre registro e escrita.
