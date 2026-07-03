@@ -189,6 +189,18 @@ function recordCandidate(branch, status, patch = {}) {
     candidates.push(candidate);
     runRecord.candidates = candidates;
   }
+  if (candidate.status && candidate.status !== status && ['ejected', 'merged', 'skipped', 'failed'].includes(candidate.status)) {
+    const history = Array.isArray(candidate.history) ? candidate.history : [];
+    history.push({
+      status: candidate.status,
+      action: candidate.action || null,
+      reason: candidate.reason || null,
+      ejected: Array.isArray(candidate.ejected) ? candidate.ejected : [],
+      updatedAt: candidate.updatedAt || null,
+      supersededAt: nowIso(),
+    });
+    candidate.history = history;
+  }
   Object.assign(candidate, { status, updatedAt: nowIso() }, patch);
 }
 

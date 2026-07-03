@@ -380,12 +380,39 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(stage6, /Creation gate run record/);
     assert.match(stage6, /\.atomic-skills\/status\/creation-gates\/<project-id>-<slug>\.json/);
     assert.match(stage6, /filesWritten/);
+    assert.match(stage6, /before each canonical file write/);
+    assert.match(stage6, /append the path to `filesWritten` and persist the creation gate, then write the canonical file/);
     assert.match(stage6, /status: "cancelled"/);
     assert.match(stage6, /status: "rolled-back"/);
     assert.match(stage6, /Do not infer a half-created plan by scanning `\.atomic-skills\/projects\/`/);
     assert.match(adopt, /kind: "adopt"/);
     assert.match(adopt, /resume boundary for `adopt`/);
     assert.match(adopt, /rollback deletes exactly `filesWritten`/);
+    assert.match(adopt, /Recording the path before the write makes rollback\/resume safe/);
+  });
+
+  it('project lessons commands stay project and plan scoped', () => {
+    install();
+    const router = readRouter();
+    const transitions = readAsset('project-transitions.md');
+    const createInitiative = readAsset('project-create-initiative.md');
+    const emergence = readAsset('project-emergence.md');
+    const materialize = readAsset('project-materialize.md');
+
+    for (const [name, content] of [
+      ['router', router],
+      ['project-transitions.md', transitions],
+      ['project-create-initiative.md', createInitiative],
+      ['project-emergence.md', emergence],
+      ['project-materialize.md', materialize],
+    ]) {
+      assert.doesNotMatch(
+        content,
+        /list-lessons\.js" --phase <(?:id|phase-id)>/,
+        `${name} must not use an unscoped list-lessons command`
+      );
+    }
+    assert.match(transitions, /list-lessons\.js" --project <project-id> --plan <parentPlan> --phase <next-phase-id>/);
   });
 
   it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {

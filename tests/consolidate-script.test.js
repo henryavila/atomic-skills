@@ -156,7 +156,7 @@ test('consolidate --resume reloads base and branches from the run file', () => {
       base,
       branches: [base],
       gate: 'printf resumed-gate',
-      candidates: [{ branch: base, status: 'ejected' }],
+      candidates: [{ branch: base, status: 'ejected', ejected: [{ path: 'README.md', class: 'eject' }] }],
       audit: [],
       stop: { branch: base, ejected: [{ path: 'README.md', class: 'eject' }] },
     }, null, 2));
@@ -174,6 +174,8 @@ test('consolidate --resume reloads base and branches from the run file', () => {
     assert.equal(run.resumedAt.includes('T'), true);
     assert.deepEqual(run.branches, [base]);
     assert.equal(run.candidates[0].status, 'skipped');
+    assert.equal(run.candidates[0].history[0].status, 'ejected');
+    assert.deepEqual(run.candidates[0].history[0].ejected.map((entry) => entry.path), ['README.md']);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
