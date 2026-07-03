@@ -58,6 +58,7 @@
     },
     "branch": { "type": ["string", "null"] },
     "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "startedCommit": { "type": "string", "minLength": 7, "description": "C-3 (earned-value integrity): the immutable git HEAD SHA at phase activation, recorded so phase-done actuals compute from a rebase/squash/amend-proof commit anchor instead of the fragile `started` committer-date heuristic. Optional + additive: absent on legacy phases, which degrade to the date heuristic. Consumed by scripts/append-completion.js computePhaseActuals via `--actuals-since-commit`." },
     "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "nextAction": { "type": ["string", "null"] },
     "parentPlan": { "$ref": "common.schema.json#/$defs/slug" },

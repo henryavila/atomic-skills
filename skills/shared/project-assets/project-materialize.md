@@ -119,9 +119,14 @@ Reject the block when any required field is blank or still contains
 4. Build the initiative file content and the parent plan descriptor update in
    memory before writing either one. Parse the returned initiative frontmatter
    and add `businessIntent` to the initiative frontmatter with the exact
-   user-ratified spine before rendering the file content. The write target must
-   be the resolved phase path only; never write outside the active plan's state
-   directory.
+   user-ratified spine before rendering the file content. Also stamp
+   `startedCommit` on the initiative frontmatter with the current git HEAD
+   (`{{BASH_TOOL}} git rev-parse HEAD`) — the immutable earned-value anchor (C-3)
+   that lets `phase-done` compute actuals from a rebase/squash/amend-proof commit
+   instead of the fragile `started` committer-date; omit the field silently when
+   not a git repo (legacy phases degrade to the date heuristic). The write target
+   must be the resolved phase path only; never write outside the active plan's
+   state directory.
 5. Update the parent plan descriptor for the phase in the same mutation:
    - set `businessIntent` on the parent plan descriptor;
    - set `subPhaseCount` to `initiative.tasks.length`;

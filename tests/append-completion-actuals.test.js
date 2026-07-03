@@ -60,6 +60,70 @@ test('computePhaseActuals degrades to undefined without a usable git range', () 
   }
 });
 
+// C-3: a commit anchor (immutable) must beat the committer-date heuristic, which
+// a rebase/squash/amend silently corrupts. Here EVERY commit has a committer date
+// LATER than the phase's `started` (as if the history was rebased after the phase
+// began), so `--before=<started>` finds no base and the date heuristic inflates
+// the actuals to include pre-phase work. The commit anchor computes the true range.
+test('computePhaseActuals prefers a commit anchor over the date heuristic', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'as-actuals-anchor-'));
+  try {
+    git(cwd, ['init']);
+    git(cwd, ['config', 'user.email', 'codex@example.com']);
+    git(cwd, ['config', 'user.name', 'Codex']);
+
+    // Pre-phase commit — committer date rewritten LATE (post-rebase simulation).
+    writeFileSync(join(cwd, 'pre.txt'), 'pre\n');
+    commit(cwd, 'pre-phase base', '2026-05-01T00:00:00Z');
+    const anchor = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+
+    // The phase's own work — one file, three inserts.
+    writeFileSync(join(cwd, 'work.txt'), 'a\nb\nc\n');
+    commit(cwd, 'phase work', '2026-05-02T00:00:00Z');
+
+    const started = '2026-04-01T00:00:00Z'; // before BOTH committer dates
+
+    // Date heuristic (bug): no commit is `--before` the started date, so the base
+    // is the empty tree and the diff wrongly includes pre.txt too (2 files, 2 commits).
+    assert.deepEqual(computePhaseActuals(started, { cwd }), {
+      filesChanged: 2, locAdded: 4, locRemoved: 0, commits: 2,
+    });
+
+    // Commit anchor (fix): base = the real pre-phase commit → only phase work counts.
+    assert.deepEqual(computePhaseActuals(started, { cwd, sinceCommit: anchor }), {
+      filesChanged: 1, locAdded: 3, locRemoved: 0, commits: 1,
+    });
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+// A commit anchor that is NOT an ancestor of HEAD (wrong branch / rewritten away)
+// is unusable as a range base, so the function falls back to the date heuristic
+// rather than emitting a meaningless diff.
+test('computePhaseActuals falls back to the date heuristic when the anchor is not an ancestor', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'as-actuals-nonanc-'));
+  try {
+    git(cwd, ['init']);
+    git(cwd, ['config', 'user.email', 'codex@example.com']);
+    git(cwd, ['config', 'user.name', 'Codex']);
+
+    writeFileSync(join(cwd, 'base.txt'), 'base\n');
+    commit(cwd, 'base before phase', '2026-01-01T00:00:00Z');
+    writeFileSync(join(cwd, 'later.txt'), 'one\ntwo\nthree\n');
+    commit(cwd, 'phase work', '2026-03-01T00:00:00Z');
+
+    const bogus = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'; // not an ancestor
+    // Falls back to the date heuristic → same as passing no anchor at all.
+    assert.deepEqual(
+      computePhaseActuals('2026-02-01T00:00:00Z', { cwd, sinceCommit: bogus }),
+      computePhaseActuals('2026-02-01T00:00:00Z', { cwd }),
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test('appendCompletion writes a validating phase-done line with actuals', () => {
   const tmpRoot = mkdtempSync(join(tmpdir(), 'as-actuals-log-'));
   try {

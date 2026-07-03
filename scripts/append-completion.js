@@ -51,22 +51,40 @@ const GIT_EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 const hasText = (v) => typeof v === 'string' && v.length > 0;
 
 /**
- * Compute the phase's aggregate actuals from git history since `since`
- * (an ISO timestamp = the phase's `started` field). Returns
- * { filesChanged, locAdded, locRemoved, commits } (all finite numbers) on
- * success, or `undefined` on ANY failure (git absent, not a repo, bad/empty
- * `since`, unparseable output). NEVER throws — graceful degradation so a
- * phase-done transition is never blocked by missing git (principle P2).
+ * Compute the phase's aggregate actuals from git history since the phase began.
+ * The base of the range is resolved in priority order:
+ *   1. `sinceCommit` — the immutable commit SHA recorded at phase activation
+ *      (`initiative.startedCommit`). Preferred because it is rebase/squash/amend
+ *      proof; used only when it resolves to a real ANCESTOR of HEAD.
+ *   2. `since` — an ISO timestamp (the phase's `started` field), resolved via the
+ *      `--before` committer-date heuristic. FALLBACK ONLY: a history rewrite moves
+ *      committer dates, so this can silently pick a base from a prior phase (or the
+ *      empty tree) and inflate the actuals — the exact reason the anchor exists.
+ * Returns { filesChanged, locAdded, locRemoved, commits } (all finite numbers) on
+ * success, or `undefined` on ANY failure (git absent, not a repo, no usable base,
+ * unparseable output). NEVER throws — graceful degradation so a phase-done
+ * transition is never blocked by missing git (principle P2).
  */
-export function computePhaseActuals(since, { cwd = process.cwd() } = {}) {
-  if (!hasText(since)) return undefined;
+export function computePhaseActuals(since, { cwd = process.cwd(), sinceCommit } = {}) {
+  if (!hasText(since) && !hasText(sinceCommit)) return undefined;
   try {
     const git = (a) => execFileSync('git', a, {
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
-    const base = git(['rev-list', '-1', `--before=${since}`, 'HEAD']);
+    // Prefer the immutable commit anchor; accept it only when it is a real
+    // ancestor of HEAD, else fall back to the (fragile) date heuristic.
+    let base = '';
+    if (hasText(sinceCommit)) {
+      try {
+        git(['merge-base', '--is-ancestor', sinceCommit, 'HEAD']); // throws unless ancestor
+        base = git(['rev-parse', sinceCommit]);
+      } catch { base = ''; }
+    }
+    if (!base && hasText(since)) {
+      base = git(['rev-list', '-1', `--before=${since}`, 'HEAD']);
+    }
     const commits = Number(base
       ? git(['rev-list', '--count', `${base}..HEAD`])
       : git(['rev-list', '--count', 'HEAD']));
@@ -224,8 +242,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     // Phase actuals are an explicit opt-in flag; task-done dispatch actuals are
     // auto-derived inside appendCompletion (covers this CLI AND the programmatic path).
-    const actuals = args.includes('--actuals-since')
-      ? computePhaseActuals(flag('actuals-since'), { cwd: root })
+    const actuals = (args.includes('--actuals-since') || args.includes('--actuals-since-commit'))
+      ? computePhaseActuals(flag('actuals-since'), { cwd: root, sinceCommit: flag('actuals-since-commit') })
       : undefined;
     const rec = appendCompletion(root, {
       event: flag('event'),
