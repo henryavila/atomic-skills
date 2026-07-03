@@ -597,10 +597,36 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
       for (const planCrit of (phase.exitGate?.criteria || [])) {
         if (planCrit.status !== 'met') continue;
         const initCrit = (init.exitGates || []).find((c) => c.id === planCrit.id);
-        if (initCrit && initCrit.status !== 'met') {
+        if (!initCrit) continue;
+        if (initCrit.status !== 'met') {
           phaseErrors.push(
             `plan criterion ${planCrit.id} is 'met' but initiative exitGate is '${initCrit.status}'`
           );
+          continue; // status already divergent — evidence cross-check is moot
+        }
+
+        // C2#2 — GATE-R2 must not be splittable across the plan↔initiative
+        // mirror. checkMetInvariant gates evidence per-FILE, but phase-done
+        // step 8b writes the exit gate on BOTH the plan criterion and the
+        // initiative exitGate. An operator validating one file at a time can be
+        // fooled when a met, deterministically-verified criterion carries its
+        // evidence on only ONE surface, or carries contradicting evidence on
+        // each. Co-validate the evidence here, where both files are in hand.
+        const kind = planCrit.verifier?.kind ?? initCrit.verifier?.kind;
+        if (DETERMINISTIC_VERIFIER_KINDS.has(kind)) {
+          const pe = planCrit.evidence;
+          const ie = initCrit.evidence;
+          const pHas = pe != null && typeof pe === 'object';
+          const iHas = ie != null && typeof ie === 'object';
+          if (pHas !== iHas) {
+            phaseErrors.push(
+              `criterion ${planCrit.id}: evidence block present on only one surface (plan:${pHas ? 'present' : 'absent'}, initiative:${iHas ? 'present' : 'absent'}) — a met ${kind} criterion mirrored across plan and initiative must carry evidence on BOTH (GATE-R2 must not split across files).`
+            );
+          } else if (pHas && iHas && pe.passed !== ie.passed) {
+            phaseErrors.push(
+              `criterion ${planCrit.id}: evidence.passed disagrees across surfaces (plan=${JSON.stringify(pe.passed)}, initiative=${JSON.stringify(ie.passed)}) — the met-invariant must be identical on the plan and the initiative.`
+            );
+          }
         }
       }
 

@@ -616,6 +616,92 @@ test('crossValidate: met plan criterion + pending initiative gate → error', ()
   assert.ok(errors[0].errors.some((e) => e.includes('F0-G2') && e.includes('pending')));
 });
 
+// C2#2 — GATE-R2 must not be splittable across the plan↔initiative mirror.
+// checkMetInvariant gates evidence per-FILE; phase-done step 8b mirrors the exit
+// gate into initiative.exitGates[]. An operator validating one file at a time
+// (or a model stamping 'met' with evidence on only one surface) can leave the
+// met-invariant divided between two files. crossValidate must co-validate the
+// evidence, not just the status.
+const EV = (passed, testsCollected) => ({ passed, ...(testsCollected != null ? { testsCollected } : {}) });
+
+test('crossValidate: met criterion, deterministic verifier, matching evidence on BOTH → no error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'test' }, evidence: EV(true, 11) },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'test' }, evidence: EV(true, 11) }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
+});
+
+test('crossValidate: met criterion, evidence on initiative mirror ONLY → error (split invariant)', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'test' } },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'test' }, evidence: EV(true, 11) }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1') && /only one surface/.test(e)));
+});
+
+test('crossValidate: met criterion, contradicting evidence.passed across surfaces → error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'shell' }, evidence: EV(true) },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'shell' }, evidence: EV(false) }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1') && /disagrees/.test(e)));
+});
+
+test('crossValidate: manual verifier (not deterministic) → no evidence cross-check', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'manual' }, evidence: EV(true) },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'manual' } }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
+});
+
 test('crossValidate: pending phase + pending initiative → no cross-check', () => {
   const plans = new Map([['p', {
     slug: 'p',
