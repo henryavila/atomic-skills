@@ -37,6 +37,11 @@ user to resolve with the appropriate command (`migrate`, `re-ratify`,
 
 `verify` is a thin orchestrator over existing machinery. It does not re-implement any check; it wraps and reports them.
 
+### 0. Runtime resolvability (read-only; diagnoses the `package-root` gotcha — C-8)
+- Every check below runs `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/<x>.js"`. That `|| echo .` fallback only fires when `package-root` is ABSENT; a **stale** file (present but pointing at an old/removed checkout) is read successfully, so the scripts run against a dead path and every detector silently fail-opens (drift/lessons/rollup checks quietly pass) or dies with a cryptic `Cannot find module`. Diagnose it deterministically FIRST: resolve `ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"` and test `[ -f "$ROOT/scripts/validate-state.js" ]`.
+- **PASS:** the resolved `scripts/validate-state.js` exists → the runtime is live.
+- **FAIL (blocks the rest with an actionable message, not a cryptic ENOENT):** `FAIL runtime: package-root resolves to '<ROOT>' but <ROOT>/scripts/ is missing — stale/absent runtime. Fix: re-run \`atomic-skills\` install, or from the repo root the fallback \`.\` is used.` If `ROOT` is the fallback `.` and the repo root also lacks `scripts/`, say so (you are not at the package root).
+
 ### 1. Schema validity (wraps `validate-state`)
 - Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/` (or `--slug`-scoped file paths).
 - **PASS:** all files valid.

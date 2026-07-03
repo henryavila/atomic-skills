@@ -28,8 +28,8 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project done|push|pop|park|emerge|promote|unblock|switch|phase-done|phase-reopen|archive
 /atomic-skills:project depend list [<plan>] | add <dependent> <prerequisite> | remove <dependent> <prerequisite> | resolve <dependent> <prerequisite> --archived
 /atomic-skills:project why|re-ratify|scope-creep|review-due|detect-scope
-/atomic-skills:project adopt <file.md>|discover|migrate <slug>|re-bootstrap <slug>|split-phase <id>
-# valid but NOT in the menu (use by intent via the ladder, or typed by power-users):
+/atomic-skills:project adopt <file.md>|discover|migrate [<slug>]|re-bootstrap <slug>|split-phase <id>
+# valid but NOT in the menu (intent via the ladder, or typed by power-users):
 /atomic-skills:project new-task|new-phase
 ```
 
@@ -63,7 +63,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `done`, `phase-done`, `phase-reopen`, `switch`, `archive`, `detect-scope`, `reconcile`, `unblock`, `push`, `pop`, verifier patterns | `{{READ_TOOL}} {{ASSETS_PATH}}/project-transitions.md` |
 | `finalize <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-finalize.md` |
 | `consolidate` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-consolidate.md` |
-| `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
+| `migrate` (bare = cut-over), `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
 | `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
 
 Lazy-load is NOT optional. For any subcommand above: **STOP. `{{READ_TOOL}}` the listed file before you act.** Acting from memory of a similar command is the failure mode this architecture exists to prevent.
@@ -181,7 +181,7 @@ A `review-code` finding *generates* learning; without a sink the next phase read
 
 ## Code-quality gates (state files this skill writes)
 
-Bound by `docs/kb/code-quality-gates.md` (G1 read-before-claim, G2 soft-language ban, G6 reference-or-strike). Enforcement = authoring-time lint + self-review, NOT a `validate-state` gate (C-6; why in the asset). Full rules — `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` → `## Code-quality gates (plan creation)`.
+Bound by `docs/kb/code-quality-gates.md` (G1 read-before-claim, G2 soft-language ban, G6 reference-or-strike). Enforcement = authoring-time lint + self-review, NOT a `validate-state` gate (C-6). Full rules + why — `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` → `## Code-quality gates (plan creation)`.
 
 ## Red Flags
 
