@@ -29,8 +29,8 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 /atomic-skills:project depend list [<plan>] | add <dependent> <prerequisite> | remove <dependent> <prerequisite> | resolve <dependent> <prerequisite> --archived
 /atomic-skills:project why|re-ratify|scope-creep|review-due|detect-scope
 /atomic-skills:project adopt <file.md>|discover|migrate [<slug>]|re-bootstrap <slug>|split-phase <id>
-# valid but NOT in the menu (intent via the ladder, or typed by power-users):
-/atomic-skills:project new-task|new-phase
+# valid but NOT in menu (intent via the ladder, or typed by power-users):
+/atomic-skills:project new-task|new-phase|fork-plan
 ```
 
 ## Plan dependency operator model

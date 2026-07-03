@@ -452,6 +452,7 @@ After the plan file is written (Stage 6, or after `adopt` materializes), before 
 - **G1 read-before-claim**: N claims about existing code, all backed by pasted source lines (see §X.Y for each). / N/A — plan describes entirely new work, no existing code referenced.
 - **G2 soft-language**: scanned the plan for the ban list; M occurrences found and rewritten (changelog: <…>). / 0 occurrences.
 - **G6 reference-or-strike**: K assertions, each carries `verified_by:` or `unverified:`. Unverified assertions: <list with reasons>.
+- **G10 gate-must-be-able-to-fail**: each exit-criterion states (or can state) its `FAILS when …` — the concrete defect that makes it red. Vanity criteria (no input makes them red, e.g. "well-structured") rewritten to a falsifiable claim or struck. Criteria without a stateable failure: <list, or "none">.
 ```
 
 If any gate is violated, do NOT close the planning session. Either fix the violation inline or write a follow-up task to address it before implementation begins. Silent application is forbidden — the checkpoint must be in the committed plan file.

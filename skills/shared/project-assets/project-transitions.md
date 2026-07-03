@@ -11,6 +11,17 @@ Every step below that "loads", "moves", or "archives" a plan/initiative file res
 - **Archive** → the layout's archive dir: nested `projects/<project-id>/<plan-slug>/phases/archive/<YYYY-MM>-<slug>.md` for a phase initiative (a whole plan is archived in place with `status: archived`); legacy flat `initiatives/archive/` + `plans/archive/`.
 - **Index** → that project's `projects/<project-id>/PROJECT-STATUS.md`; legacy top-level `.atomic-skills/PROJECT-STATUS.md`.
 
+### Fuzzy identifier resolution (applies to every id/slug/phase arg — C-8 / E3#3)
+
+A user resuming after a break knows *what* they want ("reopen the validation phase") but not the exact token (`f0.5-validation`). So every verb that takes a `<slug>` / `<phase-id>` / `<task-id>` (`switch`, `phase-reopen`, `materialize`, `unblock`, `done`, `why`, `depend`, `split-phase`) resolves its argument leniently instead of demanding an exact match:
+
+1. **Exact id/slug** → use it.
+2. **Else case-insensitive prefix / substring of the id OR the human `title`/`summary`** across the candidate set (active plan's phases/tasks, or plans for `switch`). A single match → use it (echo the resolved id: "Resolved 'validation' → `f0.5-validation`").
+3. **Multiple matches** → list them and disambiguate via {{ASK_USER_QUESTION_TOOL}} (never guess).
+4. **Zero matches** → print the valid ids for that verb's scope (the same list the abort messages already show) so the next attempt is one copy away — never just "not found".
+
+This is resolution only; it does not relax any gate. `materialize` already accepts id-or-slug — this generalizes that leniency to the rest so a wrong first guess costs a disambiguation, not a browser round-trip.
+
 Where a step writes `initiatives/…`, `plans/…`, or `PROJECT-STATUS.md` below, read it as "the resolved path for the active layout".
 
 ## Pre-mutation migration check (detail)

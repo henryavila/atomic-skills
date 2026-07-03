@@ -331,7 +331,34 @@ revert                              →  test_boundary GREEN ✓
 evidence.mutation.killedBy: [test_boundary]
 ```
 
-**Applies to:** any `kind: test` exit-gate / task verifier where the test's protective value is load-bearing; recorded in the criterion's `evidence.mutation`. Optional (not GATE-R2-enforced), but when present it upgrades a green to a proven kill.
+**Applies to:** any `kind: test` exit-gate / task verifier, recorded in the criterion's `evidence.mutation`. **Magnitude floor (E2#3):** on a **decision-logic / critical-path** criterion (the test IS the load-bearing proof the phase is correct) the mutation-kill is **expected** — its absence must be justified in the self-review, not silently skipped; elsewhere it stays optional. It is not GATE-R2-machine-enforced (validate-state cannot know which paths are critical), so this floor is a self-review discipline — but "optional everywhere" undersells the one non-fakeable TDD oracle the design calls load-bearing. When present it upgrades a green to a proven kill.
+
+---
+
+## G10 — Gate-must-be-able-to-fail (the meta-gate)
+
+**Rule.** Every gate — including a new exit-criterion, a verifier, or a rule added to *this* file — must be **falsifiable**: you can state the concrete defect it rejects. Encode that as a one-line **failure-proof** next to the gate:
+
+```
+FAILS when ⟨concrete defect that makes it red⟩; cheapest pass ⟨the minimum a correct impl does⟩; foreclosed by ⟨what stops a vacuous/green-always pass⟩.
+```
+
+If you cannot fill the `FAILS when` clause, the gate measures nothing (it is green for every input, correct or not) — that is the vanity-gate the anti-tautology rule (G3) forbids, lifted from tests to gates in general. Delete it or sharpen it until it can fail.
+
+**Failure it catches.** A gate/criterion phrased so it always passes — e.g. an exit-criterion "the code is well-structured" (no input makes it red), or a verifier whose command exits 0 regardless of the code. Such a gate gives false assurance: `phase-done` rests on a green that a broken phase would also produce.
+
+**Bad — cannot fail:**
+```
+exit-criterion: "error handling is robust"        # what input makes this RED? none stated → vanity
+```
+**Good — failure-proof stated:**
+```
+exit-criterion: "POST /x with a malformed body returns 400, asserted by test_bad_body"
+FAILS when the handler 500s or 200s on a malformed body; cheapest pass = validate + return 400;
+foreclosed by G9 mutation-kill on test_bad_body.
+```
+
+**Applies to:** every exit-criterion (pairs with G6 reference-or-strike), every verifier, and every future gate added to this file (see "Adding a new gate" below). Enforcement is **self-review discipline** (the `## Self-review against code-quality gates` block audits it), not a `validate-state` check — consistent with G2/G6 (see the `project` skill's enforcement-honesty note in `project-create-plan.md`).
 
 ---
 
@@ -346,8 +373,9 @@ evidence.mutation.killedBy: [test_boundary]
 | G5 red-phase | | | | ✓ | | | |
 | G6 reference-or-strike | ✓ | ✓ | | | ✓ | ✓ | |
 | G7 anti-premature-abstraction | | | | ✓ | | ✓ | ✓ |
+| G10 gate-must-be-able-to-fail | ✓ | | | | ✓ | ✓ | |
 
-G8 (react-hook-safety) aplica-se ao dashboard deste repo — injetado via CLAUDE.md, não via skills genéricos.
+G8 (react-hook-safety) aplica-se ao dashboard deste repo — injetado via CLAUDE.md, não via skills genéricos. G9 (mutation-kill) é opt-in por verifier `kind: test` (não uma linha de skill). G10 aplica-se a todo autor de gate/exit-criterion.
 
 G9 (mutation-kill) é opcional e aplica-se a qualquer verifier `kind: test` (independente de skill) — registrada no `evidence.mutation` de uma exit-gate/task, não mapeia colunas do matrix.
 
@@ -358,7 +386,8 @@ Skills inject only the rules they ✓. The Self-review checkpoint at the end of 
 ## Adding a new gate (G8+)
 
 1. Add the rule to this file with the same shape (Rule / Failure it catches / Bad / Good / Applies to).
-2. Update the rule × skill matrix above.
-3. Update each affected skill body's `## Code-quality gates` section + Self-review checkpoint to include the new gate id.
+2. **Pass G10 on the new gate itself:** state its failure-proof — `FAILS when ⟨defect⟩; cheapest pass ⟨X⟩; foreclosed by ⟨mechanism⟩`. A gate whose `Failure it catches` clause you cannot write is a vanity gate; do not add it.
+3. Update the rule × skill matrix above.
+4. Update each affected skill body's `## Code-quality gates` section + Self-review checkpoint to include the new gate id.
 
 The gate IDs are stable (G1 stays G1 forever). New gates always append. Deprecating a gate: mark it `## G<n> — DEPRECATED (replaced by G<m>)` and leave the body; do not renumber.
