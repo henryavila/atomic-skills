@@ -11,8 +11,9 @@ set -euo pipefail
 
 PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
-PLANS_DIR="$ASKILLS_DIR/plans"
-INITIATIVES_DIR="$ASKILLS_DIR/initiatives"
+PROJECTS_DIR="$ASKILLS_DIR/projects"          # nested layout root: projects/<id>/<slug>/
+PLANS_DIR="$ASKILLS_DIR/plans"                # legacy flat layout
+INITIATIVES_DIR="$ASKILLS_DIR/initiatives"    # legacy flat layout
 CONFIG="$ASKILLS_DIR/status/config.json"
 DRIFT_LOG="$ASKILLS_DIR/status/drift.log"
 SKIP_FLAG="$ASKILLS_DIR/status/SKIP"
@@ -40,6 +41,85 @@ get_field() {
   ' "$file"
 }
 
+# plan_slug_of <plan-file>  -> nested plan slug from parent directory, or
+# legacy flat slug from `<slug>.md`.
+plan_slug_of() {
+  local f=$1
+  if [[ "$(basename "$f")" == "plan.md" ]]; then
+    basename "$(dirname "$f")"
+  else
+    basename "$f" .md
+  fi
+}
+
+list_nested_plan_files() {
+  [[ -d "$PROJECTS_DIR" ]] && \
+    find "$PROJECTS_DIR" -mindepth 3 -maxdepth 3 -type f -name 'plan.md' 2>/dev/null | sort
+}
+
+list_legacy_plan_files() {
+  [[ -d "$PLANS_DIR" ]] && \
+    find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null | sort
+}
+
+# list_plan_files  -> nested `projects/<id>/<slug>/plan.md` first, then legacy
+# flat `plans/*.md`.
+list_plan_files() {
+  list_nested_plan_files
+  list_legacy_plan_files
+}
+
+# select_active_plan <branch>  -> active nested plan if any, otherwise legacy
+# flat fallback. Within the chosen layout, prefer branch match, then newest.
+select_active_plan() {
+  local branch=$1 layout f pbranch mtime
+  local branch_matched="" newest="" newest_mtime=0 count=0
+  for layout in nested legacy; do
+    branch_matched=""
+    newest=""
+    newest_mtime=0
+    count=0
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      [[ "$(get_field "$f" status)" == "active" ]] || continue
+      count=$((count + 1))
+      pbranch=$(get_field "$f" branch)
+      if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
+        branch_matched="$f"
+      fi
+      mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+      if (( mtime > newest_mtime )); then
+        newest_mtime=$mtime
+        newest="$f"
+      fi
+    done < <([[ "$layout" == "nested" ]] && list_nested_plan_files || list_legacy_plan_files)
+    if (( count > 0 )); then
+      printf '%s\n' "${branch_matched:-$newest}"
+      return 0
+    fi
+  done
+  printf '\n'
+}
+
+# phases_dir_of <plan-file>  -> nested sibling phases dir, or legacy shared
+# initiatives dir.
+phases_dir_of() {
+  local f=$1
+  if [[ "$(basename "$f")" == "plan.md" ]]; then
+    echo "$(dirname "$f")/phases"
+  else
+    echo "$INITIATIVES_DIR"
+  fi
+}
+
+# list_phase_files  -> nested phase files first, then legacy flat initiatives.
+list_phase_files() {
+  [[ -d "$PROJECTS_DIR" ]] && \
+    find "$PROJECTS_DIR" -type f -name '*.md' ! -name '*.rendered.md' -path '*/phases/*' ! -path '*/phases/archive/*' 2>/dev/null
+  [[ -d "$INITIATIVES_DIR" ]] && \
+    find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null
+}
+
 # Reads the `scope.paths` list from an initiative frontmatter, one entry per
 # stdout line. Outputs nothing when the field is absent or empty.
 get_scope_paths() {
@@ -64,35 +144,21 @@ get_scope_paths() {
 }
 
 # Picks the active initiative, mirroring session-start.sh:
-#   plan-anchored → standalone branch-match → empty.
+#   nested plan-anchored → legacy plan-anchored → standalone branch-match → empty.
 detect_active_initiative() {
   local branch=$1
-  local plan_slug="" current_phase_id="" active_plan="" newest=""
-  local newest_mtime=0 branch_matched=""
+  local plan_slug="" current_phase_id="" active_plan=""
 
-  if [[ -d "$PLANS_DIR" ]]; then
-    while IFS= read -r f; do
-      [[ -z "$f" ]] && continue
-      [[ "$(get_field "$f" status)" == "active" ]] || continue
-      local pbranch
-      pbranch=$(get_field "$f" branch)
-      if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
-        branch_matched="$f"
-      fi
-      local mtime
-      mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
-      if (( mtime > newest_mtime )); then
-        newest_mtime=$mtime
-        newest="$f"
-      fi
-    done < <(find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
-    active_plan="${branch_matched:-$newest}"
+  if [[ -d "$PROJECTS_DIR" || -d "$PLANS_DIR" ]]; then
+    active_plan=$(select_active_plan "$branch")
   fi
 
   if [[ -n "$active_plan" ]]; then
-    plan_slug=$(basename "$active_plan" .md)
+    plan_slug=$(plan_slug_of "$active_plan")
     current_phase_id=$(get_field "$active_plan" currentPhase)
-    if [[ -d "$INITIATIVES_DIR" && -n "$current_phase_id" ]]; then
+    local phases_dir
+    phases_dir=$(phases_dir_of "$active_plan")
+    if [[ -d "$phases_dir" && -n "$current_phase_id" ]]; then
       while IFS= read -r f; do
         [[ -z "$f" ]] && continue
         [[ "$(get_field "$f" parentPlan)" == "$plan_slug" ]] || continue
@@ -100,11 +166,11 @@ detect_active_initiative() {
         [[ "$(get_field "$f" status)" == "active" ]] || continue
         echo "$f"
         return 0
-      done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+      done < <(find "$phases_dir" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
     fi
   fi
 
-  if [[ -d "$INITIATIVES_DIR" && -n "$branch" ]]; then
+  if [[ -n "$branch" ]] && [[ -d "$PROJECTS_DIR" || -d "$INITIATIVES_DIR" ]]; then
     while IFS= read -r f; do
       [[ -z "$f" ]] && continue
       [[ "$(get_field "$f" status)" == "active" ]] || continue
@@ -114,7 +180,7 @@ detect_active_initiative() {
         echo "$f"
         return 0
       fi
-    done < <(find "$INITIATIVES_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null)
+    done < <(list_phase_files)
   fi
   echo ""
 }
@@ -334,11 +400,9 @@ branch=$(git -C "$PROJ_DIR" symbolic-ref --short HEAD 2>/dev/null \
 # and never runs a verifier (closing is the `reconcile` verb's job). Fail-open:
 # missing detector / node / jq, or any error → emit nothing, never block.
 #
-# This runs BEFORE the flat-only `detect_active_initiative` resolution below, and
-# does NOT depend on its `$active` result: `detect_active_initiative` scans only
-# the legacy flat plans//initiatives/ layout, so gating on it would skip the
-# NESTED `projects/<id>/<slug>/` layout entirely. The detector resolves its own
-# nested-first, branch-aware target — so completion drift fires for both layouts.
+# This runs before the scope-drift initiative resolution below and does not
+# depend on its `$active` result. Both paths resolve nested project state before
+# the legacy flat fallback.
 reconciliation_enabled=$(jq -r '.reconciliationThresholdHours // 24' "$CONFIG" 2>/dev/null || echo 24)
 if [[ "$reconciliation_enabled" != "0" ]]; then
   detector=$(resolve_detector || true)
@@ -367,9 +431,9 @@ if [[ "$reconciliation_enabled" != "0" ]]; then
 fi
 
 # --- scope drift check ------------------------------------------------------
-# The scope-drift check below needs the active initiative. Resolve it now (flat
-# layout) and no-op if there is none — completion drift above already ran for
-# both layouts independently of this.
+# The scope-drift check below needs the active initiative. Resolve it now with
+# the same nested-first, flat-fallback order as SessionStart and no-op if there
+# is none.
 active=$(detect_active_initiative "$branch")
 [[ -z "$active" ]] && exit 0
 

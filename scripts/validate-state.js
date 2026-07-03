@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node scripts/validate-state.js                       # validates ./.atomic-skills/
- *   node scripts/validate-state.js <dir>                 # validates <dir>/plans/*.md + <dir>/initiatives/*.md
+ *   node scripts/validate-state.js <dir>                 # validates nested projects/<project-id>/<plan-slug> plan + phase files; legacy flat plans/*.md + initiatives/*.md also accepted
  *   node scripts/validate-state.js <file.md> [<file>...] # validates specific file(s); kind inferred from path
  *
  * Exit codes:
@@ -156,8 +156,9 @@ function projectIdFromPath(filePath) {
 
 /**
  * Collect all *.md files to validate from a CLI argv list.
- * Each arg can be a file or a directory; directories are scanned for
- * plans/*.md + initiatives/*.md non-recursively.
+ * Each arg can be a file or a directory; directories are scanned for the
+ * nested projects/<project-id>/<plan-slug> layout plus legacy flat
+ * plans/*.md + initiatives/*.md.
  */
 export function collectTargets(args) {
   const targets = [];

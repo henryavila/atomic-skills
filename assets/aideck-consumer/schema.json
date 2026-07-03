@@ -7,7 +7,7 @@
         "0.1",
         "0.2"
       ],
-      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). 0.2 is additive-optional over 0.1 (mutation/manual/task.evidence fields); a one-shot src/migrate.js migrate01to02 stamps new files to '0.2'. A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
+      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). Current plan/initiative writers prefer 0.1; 0.2 is accepted for explicitly upgraded files and is additive-optional over 0.1 (mutation/manual/task.evidence fields). A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
     },
     "isoTimestamp": {
       "type": "string",
@@ -569,13 +569,6 @@
             "minLength": 1
           }
         },
-        "spawnedPlans": {
-          "type": "array",
-          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
-          "items": {
-            "$ref": "#/definitions/slug"
-          }
-        },
         "parallelWith": {
           "type": "array",
           "items": {
@@ -642,6 +635,13 @@
         },
         "context": {
           "$ref": "#/definitions/context"
+        },
+        "spawnedPlans": {
+          "type": "array",
+          "description": "Fork parent→child origin edge (rung 7.5): child plan slugs forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans and the inline field migrated from legacy links.json. Durable edge fields are child slugs only; fork rationale `context`/`provenance` is not persisted on this edge.",
+          "items": {
+            "$ref": "#/definitions/slug"
+          }
         },
         "reviewGate": {
           "type": "object",
@@ -850,8 +850,8 @@
       }
     },
     "plan": {
-      "title": "atomic-skills Plan frontmatter (schemaVersion 0.1)",
-      "description": "Validates the YAML frontmatter of `.atomic-skills/plans/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
+      "title": "atomic-skills Plan frontmatter (schemaVersion 0.1/0.2)",
+      "description": "Validates the YAML frontmatter of nested `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` files, with legacy flat `.atomic-skills/plans/<slug>.md` accepted during migration. Current plan writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
       "type": "object",
       "required": [
         "schemaVersion",
@@ -937,36 +937,6 @@
         },
         "parallelismAllowed": {
           "type": "boolean"
-        },
-        "spawnedFrom": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "plan",
-            "phaseId",
-            "mode"
-          ],
-          "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
-          "properties": {
-            "plan": {
-              "$ref": "#/definitions/slug"
-            },
-            "phaseId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "taskId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "mode": {
-              "type": "string",
-              "enum": [
-                "pause",
-                "parallel"
-              ]
-            }
-          }
         },
         "principles": {
           "type": "array",
@@ -1108,6 +1078,36 @@
             }
           }
         },
+        "spawnedFrom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "phaseId",
+            "mode"
+          ],
+          "description": "Fork child→parent origin edge (rung 7.5): points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema and the inline field migrated from legacy links.json. Durable edge fields are identity + mode only; fork rationale `context`/`provenance` is not persisted on this edge. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+          "properties": {
+            "plan": {
+              "$ref": "#/definitions/slug"
+            },
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
+        },
         "dependsOnPlans": {
           "description": "Operational plan dependency edges persisted on the blocked plan. Each entry points at a prerequisite plan in the same project. This is separate from `spawnedFrom` / `phases[].spawnedPlans`, which describe origin only.",
           "type": "array",
@@ -1132,8 +1132,8 @@
       }
     },
     "initiative": {
-      "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1)",
-      "description": "Validates the YAML frontmatter of `.atomic-skills/initiatives/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives omit `parentPlan` and `phaseId`.",
+      "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1/0.2)",
+      "description": "Validates the YAML frontmatter of nested phase files at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, with legacy flat `.atomic-skills/initiatives/<slug>.md` accepted during migration. Current initiative writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives are represented as a degenerate one-phase plan in the nested layout; legacy flat standalone files omit `parentPlan` and `phaseId`.",
       "type": "object",
       "required": [
         "schemaVersion",

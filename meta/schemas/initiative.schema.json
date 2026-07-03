@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atomic-skills.henryavila.com/schemas/initiative.schema.json",
-  "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1)",
-  "description": "Validates the YAML frontmatter of `.atomic-skills/initiatives/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives omit `parentPlan` and `phaseId`.",
+  "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1/0.2)",
+  "description": "Validates the YAML frontmatter of nested phase files at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, with legacy flat `.atomic-skills/initiatives/<slug>.md` accepted during migration. Current initiative writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives are represented as a degenerate one-phase plan in the nested layout; legacy flat standalone files omit `parentPlan` and `phaseId`.",
   "type": "object",
   "additionalProperties": false,
   "required": [

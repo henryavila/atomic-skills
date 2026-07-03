@@ -104,3 +104,30 @@ test('phase transitions delegate descriptor-only activation to materialize, not 
   assert.match(transitions, /If the matching initiative\s+file exists, set that initiative to `status: active`/);
   assert.match(transitions, /full selected active phase id set so parallel-choice phases beyond the\s+first pass pre-flight/);
 });
+
+test('new-phase cannot create a materialized initiative without businessIntent', () => {
+  const emergence = readFileSync(
+    join(__dirname, '..', '..', 'skills', 'shared', 'project-assets', 'project-emergence.md'),
+    'utf8',
+  );
+  const start = emergence.indexOf('## `new-phase <id>');
+  const end = emergence.indexOf('## `split-phase <id>`');
+  assert.notEqual(start, -1, 'new-phase section must exist');
+  assert.notEqual(end, -1, 'split-phase section must exist');
+  const block = emergence.slice(start, end);
+
+  let last = -1;
+  for (const token of [
+    'Run the phase-start lessons gate before materialization',
+    'Collect the user-written `businessIntent` spine',
+    'Create the phase initiative file',
+    'add `businessIntent` to the new initiative frontmatter',
+    'set `businessIntent` on the parent plan descriptor',
+    'Run `scripts/find-missing-business-intent.js` scoped to the parent plan',
+  ]) {
+    const idx = block.indexOf(token, last + 1);
+    assert.notEqual(idx, -1, `missing token: ${token}`);
+    assert.ok(idx > last, `token out of order: ${token}`);
+    last = idx;
+  }
+});

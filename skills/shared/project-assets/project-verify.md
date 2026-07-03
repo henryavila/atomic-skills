@@ -11,7 +11,7 @@ Loaded by the router when the user runs `/atomic-skills:project verify`.
 ### Inputs
 - **Implicit:** the `.atomic-skills/` tree in the CWD, the current git branch + working tree, and (optionally) a running aiDeck instance.
 - **Optional args:**
-  - `--fix` — apply the deterministic, safe repairs the read-only pass identifies (schema normalization via `src/normalize.js`, nothing else). Without `--fix`, `verify` is strictly read-only and mutates nothing.
+  - `--fix` — explicit authorization to apply the deterministic, safe repairs the read-only pass identifies (schema normalization via `src/normalize.js`, nothing else). Without `--fix`, `verify` is strictly read-only and mutates nothing.
   - `--slug <slug>` — scope the verification to one plan/initiative instead of the whole tree.
 
 ### Output
@@ -20,7 +20,16 @@ A sectioned report (PASS / WARN / FAIL per check) printed to the terminal, endin
 Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a mutating command in the same turn — surface the failures and let the user decide.
 
 ### Mutation policy
-`verify` (no flag) is **READ-ONLY**. It runs checks and reports; it writes nothing. The ONLY mutation path is `verify --fix`, and even then it is restricted to the same deterministic normalization the default view's STATE_ERROR auto-repair performs (`src/normalize.js`): gate-status synonyms → `met`/`pending`, `references[]` `kind`/`label` backfill, missing required initiative arrays → `[]`. `--fix` NEVER touches plan files structurally, NEVER advances phases, NEVER closes tasks, NEVER edits the markdown body. Anything beyond normalization is reported as a finding for the user to resolve with the appropriate command (`migrate`, `re-ratify`, `detect-scope`, `phase-done`, …) — `verify` does not perform those itself.
+`verify` (no flag) is **READ-ONLY**. It runs checks and reports; it writes nothing.
+`verify --fix` is the explicit mutation gate. Before any `--fix` write, print the target scope and the normalization classes that may be applied, then run only
+the deterministic normalizer. The allowed repairs are the same normalization the
+status view may offer after a STATE_ERROR gate (`src/normalize.js`): gate-status
+synonyms → `met`/`pending`, `references[]` `kind`/`label` backfill, missing
+required initiative arrays → `[]`. `--fix` NEVER touches plan files
+structurally, NEVER advances phases, NEVER closes tasks, NEVER edits the
+markdown body. Anything beyond normalization is reported as a finding for the
+user to resolve with the appropriate command (`migrate`, `re-ratify`,
+`detect-scope`, `phase-done`, …) — `verify` does not perform those itself.
 
 ---
 
@@ -73,7 +82,7 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - Reuse the ensure-aideck script from `{{ASSETS_PATH}}/project-view.md` to get `AIDECK_URL` and `STATE_ERROR` (this is the only place `verify` touches the AIDECK CONTRACT — it does not duplicate the domain string; it delegates to `project-view.md`).
 - **PASS:** `AIDECK_URL` non-empty AND `STATE_ERROR` empty.
 - **WARN:** `AIDECK_URL` empty → `WARN aideck: dashboard not running; skipped the live-state cross-check. Run \`atomic-skills install\` / \`status --browser\`.`
-- **FAIL:** `STATE_ERROR` non-empty → `FAIL aideck: dashboard would render \`⊘ failed to load\` — <STATE_ERROR>. Run \`verify --fix\` (normalizes) or \`status --browser\` (auto-repairs + opens).`
+- **FAIL:** `STATE_ERROR` non-empty → `FAIL aideck: dashboard would render \`⊘ failed to load\` — <STATE_ERROR>. Run \`verify --fix\` (normalizes) or \`status --browser\` (offers the gated repair/open flow).`
 - When `--fix` is passed and aiDeck reports a STATE_ERROR, run the same normalization as check 1's fix path, then re-check.
 
 ### 7. Completion drift (read-only; wraps `detect-completion`)

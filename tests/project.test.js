@@ -215,6 +215,27 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /\bmigrate\b/);
   });
 
+  it('project-view documents nested-first terminal/status resolution', () => {
+    install();
+    const content = readAsset('project-view.md');
+    assert.match(content, /Nested-first state resolution/);
+    assert.match(content, /projects\/<project-id>\/<plan-slug>\/plan\.md/);
+    assert.match(content, /projects\/<project-id>\/<plan-slug>\/phases/);
+    assert.match(content, /top-level `\.atomic-skills\/PROJECT-STATUS\.md` only when no nested project index exists/);
+    assert.match(content, /legacy `\.atomic-skills\/plans\/archive\/\*\.md`/);
+  });
+
+  it('project-view gates every status refresh/repair write behind explicit approval', () => {
+    install();
+    const content = readAsset('project-view.md');
+    assert.match(content, /## Mutation policy/);
+    assert.match(content, /status.*read-only by default/i);
+    assert.match(content, /Refresh derived dashboard state now\? \(y\/N\)/);
+    assert.match(content, /Do NOT run `compute-rollups\.js` or `reconcile-focus\.js` automatically/);
+    assert.match(content, /Repair STATE_ERROR now\? \(y\/N\)/);
+    assert.match(content, /Terminal, list, plan, phase, stack, archived, and report views never run refresh or repair writers/);
+  });
+
   // ─── Lazy asset: verify (NEW) ───────────────────────────────────────────
 
   it('project-verify defines an explicit contract (NEW command)', () => {
@@ -233,6 +254,32 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /aideck|aiDeck/i);
     // failure messages
     assert.match(content, /FAIL/);
+  });
+
+  it('router and verify detail agree that verify --fix is the only verify mutation path', () => {
+    install();
+    const router = readRouter();
+    const verify = readAsset('project-verify.md');
+    assert.match(router, /project verify \[--fix\]/);
+    assert.match(router, /READ-ONLY unless `--fix`/);
+    assert.match(router, /`verify --fix` exception: its only allowed mutation is the normalization gate in `project-verify\.md`/);
+    assert.match(verify, /`verify --fix` is the explicit mutation gate/);
+    assert.match(verify, /Before any `--fix` write/);
+    assert.match(verify, /print the target scope and the normalization classes/);
+  });
+
+  // ─── Lazy asset: review ─────────────────────────────────────────────────
+
+  it('project-review is honest about delegated review writes and gates them', () => {
+    install();
+    const router = readRouter();
+    const content = readAsset('project-review.md');
+    assert.match(router, /review \[<slug>\].*mutation-gated audit/);
+    assert.match(content, /report-only until a delegated write-capable leg is explicitly approved/);
+    assert.match(content, /Before invoking a delegated leg that can write/);
+    assert.match(content, /ask for explicit approval/);
+    assert.match(content, /If approval is denied or unavailable, SKIP that leg/);
+    assert.match(content, /never closes a task, never meets a gate, never advances a phase/);
   });
 
   // ─── Lazy asset: setup ──────────────────────────────────────────────────
@@ -399,9 +446,11 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Failure-mode summary/);
   });
 
-  it('router references schemaVersion 0.1', () => {
+  it('router documents schemaVersion 0.1/0.2 coexistence', () => {
     install();
-    assert.match(readRouter(), /schemaVersion.*'0\.1'/);
+    assert.match(readRouter(), /schemaVersion` policy/);
+    assert.match(readRouter(), /'0\.1'/);
+    assert.match(readRouter(), /'0\.2'/);
   });
 
   // ─── Lazy asset: create-initiative ──────────────────────────────────────
@@ -451,6 +500,23 @@ describe('project skill (unified router + lazy assets)', () => {
     for (const cmd of ['park', 'emerge', 'promote', 'new-task', 'new-phase', 'split-phase']) {
       assert.ok(content.includes(cmd), `emergence must document: ${cmd}`);
     }
+  });
+
+  it('project-emergence new-phase materializes only after lessons and businessIntent gates', () => {
+    install();
+    const content = readAsset('project-emergence.md');
+    const start = content.indexOf('## `new-phase <id>');
+    const end = content.indexOf('## `split-phase <id>`');
+    assert.notEqual(start, -1, 'new-phase section must exist');
+    assert.notEqual(end, -1, 'split-phase section must exist');
+    const block = content.slice(start, end);
+    assert.match(block, /phase-start lessons gate/);
+    assert.match(block, /list-lessons\.js" --project <project-id> --plan <plan-slug> --phase <phase-id>/);
+    assert.match(block, /Collect the user-written `businessIntent` spine/);
+    assert.match(block, /businessIntent: <businessIntent>/);
+    assert.match(block, /set `businessIntent` on the parent plan descriptor/);
+    assert.match(block, /add `businessIntent` to the new initiative frontmatter/);
+    assert.match(block, /find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/);
   });
 
   // ─── Lazy asset: transitions (verifiers, phase-done, archive, switch) ────
@@ -519,9 +585,23 @@ describe('project skill (unified router + lazy assets)', () => {
     const content = readAsset('project-migrate.md');
     assert.match(content, /## `migrate <slug>`/);
     assert.match(content, /## `re-bootstrap <slug>`/);
+    assert.match(content, /Shared target resolver/);
+    assert.match(content, /projects\/\*\/\*\/phases\/\*\.md/);
+    assert.match(content, /Only when there is no nested match, use legacy `\.atomic-skills\/initiatives\/<slug>\.md`/);
+    assert.match(content, /<resolved-path>/);
     assert.match(content, /migrateLegacyInitiative/);
     assert.match(content, /isMigratedPlaceholder/);
     assert.match(content, /Pasted-edit canonical format/);
+  });
+
+  it('project-dependencies requires project targeting when nested resolution is ambiguous', () => {
+    install();
+    const content = readAsset('project-dependencies.md');
+    assert.match(content, /--project <id>/);
+    assert.match(content, /more than one nested project is a possible target/);
+    assert.match(content, /rerun with `--project <id>`/);
+    assert.match(content, /Do not write/);
+    assert.match(content, /legacy flat `\.atomic-skills\/plans\/<slug>\.md` layout/);
   });
 
   // ─── Lazy asset: drift / codex review ───────────────────────────────────

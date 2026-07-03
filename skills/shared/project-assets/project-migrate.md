@@ -8,11 +8,21 @@ Loaded by the router for `/atomic-skills:project migrate <slug>` and `/atomic-sk
 - **`migrate <slug>`** — per-file SCHEMA migration of one legacy initiative (legacy → 0.1 frontmatter shape). Section below.
 - **`migrate`** (no slug) — whole-tree LAYOUT cut-over: move the legacy flat `plans/`+`initiatives/` tree into the nested `projects/<id>/<slug>/` layout (R-MIG-20). See **`migrate` (layout cut-over)** below. This is the irreversible D7 step — copy-verify-delete behind a tar snapshot.
 
+## Shared target resolver for `<slug>` commands
+
+Use this resolver for both `migrate <slug>` and `re-bootstrap <slug>`:
+
+1. Search nested phase files first: `.atomic-skills/projects/*/*/phases/*.md` (excluding `phases/archive/`). A file matches when its frontmatter `slug:` equals `<slug>`; as a compatibility fallback, also accept a basename match after stripping `.md`.
+2. If exactly one nested match exists, use that file. This covers post-layout-migration phase initiatives and standalone degenerate one-phase plans.
+3. If multiple nested matches exist, ask the user to choose the `<project-id>/<plan-slug>/<phase-file>` target before reading or writing. Do not fall back to flat just because nested is ambiguous.
+4. Only when there is no nested match, use legacy `.atomic-skills/initiatives/<slug>.md`.
+5. If neither target exists, report `no initiative found for <slug>` and stop without writing.
+
 ## `migrate <slug>`
 
 Explicit migration trigger for a legacy initiative.
 
-1. Load `.atomic-skills/initiatives/<slug>.md`. Parse frontmatter.
+1. Resolve `<slug>` with the shared target resolver above. Load the resolved file and parse frontmatter.
 2. If `schemaVersion === '0.1'`, announce "Already migrated" and exit.
 3. Ask the user (intrusive-actions rule):
    > "This file uses the legacy (pre-0.1) format. Migrate now?
@@ -20,10 +30,10 @@ Explicit migration trigger for a legacy initiative.
    >   (s) standalone — no parentPlan
    >   (p) under existing plan — pick from list
    >   (n) cancel"
-4. On `(s)` or `(p)`: run `src/migrate.js`:`migrateLegacyInitiative(legacy, { parentPlan, phaseId })`. Write the result back.
-5. Report: "Migrated `<slug>` to schemaVersion 0.1. Field mapping summary: ..." (show the diff at a high level).
+4. On `(s)` or `(p)`: run `src/migrate.js`:`migrateLegacyInitiative(legacy, { parentPlan, phaseId })`. For a nested target, default `parentPlan` to the containing plan slug and preserve any existing `phaseId`; for a legacy flat target, use the user's `(s)` or `(p)` selection as before. Write the result back to the resolved file.
+5. Report: "Migrated `<slug>` to schemaVersion 0.1 at `<resolved-path>`. Field mapping summary: ..." (show the diff at a high level).
 6. If the migrated file has any item where `isMigratedPlaceholder(context)` is true, append: **"<N> parked/emerged items carry placeholder context. Run `re-bootstrap <slug>` to re-articulate them in batch, or `atomic-skills:project re-ratify <id>` per item."**
-7. Optionally run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/initiatives/<slug>.md` to confirm.
+7. Optionally run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" <resolved-path>` to confirm.
 
 ## `migrate` (layout cut-over — flat → `projects/<id>/<slug>/`)
 
@@ -70,7 +80,7 @@ Re-articulates the `context` of every parked/emerged item still carrying a migra
 
 ### Pre-flight
 
-1. {{READ_TOOL}} `.atomic-skills/initiatives/<slug>.md`. Parse YAML frontmatter.
+1. Resolve `<slug>` with the shared target resolver above, then {{READ_TOOL}} the resolved file and parse YAML frontmatter.
 2. If `schemaVersion !== '0.1'`: abort with "Initiative is legacy. Run `migrate <slug>` first."
 3. **Load excludes config.** {{READ_TOOL}} `.atomic-skills/status/config.json` (treat absent file or missing key as empty). Build the effective excludes list:
    ```js
@@ -179,7 +189,7 @@ assumesStillValid:
      cancelled at: <item id, if any>
    ```
 2. If S > 0: remind "Run `re-bootstrap <slug>` or `atomic-skills:project re-ratify <id>` to handle the remaining <S> items."
-3. If R > 0: bump initiative `lastUpdated` to now. {{WRITE_TOOL}} the updated frontmatter back to `.atomic-skills/initiatives/<slug>.md`.
+3. If R > 0: bump initiative `lastUpdated` to now. {{WRITE_TOOL}} the updated frontmatter back to `<resolved-path>`.
 
 ### Honest limits
 

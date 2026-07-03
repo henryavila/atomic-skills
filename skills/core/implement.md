@@ -10,7 +10,7 @@ MICROCOMMITS ARE THE SNAPSHOT.
 One writer touches the working tree at a time — never two concurrent agents editing files in the same tree. Subagents are for read-only investigation, never parallel coding. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor never self-certifies. After every verified task close, create explicit-path microcommits for the implementation diff and the project-state close diff; a handoff over dirty task-owned work is an emergency note, not a checkpoint.
 
 <HARD-GATE>
-If you are about to mark a task `done` because it *looks* finished, without running its verifier through `verify-claim` / the verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.
+If you are about to mark a task `done` because it *looks* finished, without running its verifier through the `done` / verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.
 If a verified task changed files and you are about to continue without committing those exact paths: STOP. Run `git diff --name-only`, classify the paths, then use {{BASH_TOOL}} with `rtk git add <explicit-paths>` and a microcommit. Never use `git add .` or `git add -A`.
 If you are RESUMING and `git status` is dirty/stale OR the `## Session handoff` block has an unfilled `TODO`/`REPLACE_*` placeholder: STOP. Refuse to execute. Surface the missing pieces and resolve them (commit/stash, fill the handoff) before any task runs — a resume over an inconsistent snapshot corrupts the work.
 If you are about to dispatch a read-only subagent or hand off a token-heavy read: STOP and write the snapshot FIRST (the handoff is the pre-dispatch checkpoint).
@@ -72,10 +72,10 @@ For the chosen task, in this order:
    These are the only two `businessIntent` re-question points for this plan. `lint-source.js` is explicitly not the D6.1b runtime trigger: it validates admitted `scopeBoundary[]` at admit time, before implementation, and this flow adds no new static detector machinery.
 2. **Distill heavy reads (optional).** If a read would flood context, snapshot first, then delegate a read-only summary to {{INVESTIGATOR_TOOL}}. The subagent never edits.
 3. **Code the change.** Make the minimum single-threaded edit inside scope; use `atomic-skills:fix` when a failing test needs root-cause work.
-4. **Verify before claiming done.** Run the deterministic verifier through `atomic-skills:verify-claim`; PASS requires the real exit code and, for tests, `testsCollected > 0`. FAIL routes to `atomic-skills:fix` or the user.
+4. **Pre-close check.** Run the deterministic verifier/check before committing implementation code when the task has one, using the cheapest real command available. This is implementation confidence, not closure evidence: `done <task-id>` is the closure authority and reruns the task verifier from `tasks[].verifier`, then writes `tasks[].evidence`. Do not copy a pre-close `verify-claim` transcript into task evidence.
 5. **Commit the implementation diff.** Use `rtk git diff --name-only`, stage only task-owned explicit paths, never `git add .` / `-A`, and commit with a task-scoped subject.
-6. **Close it.** On verified PASS plus implementation commit, run `done <task-id>`; it writes evidence and phase-transition signals. GATE-R2 enforces evidence.
-7. **Commit the project-state close diff.** Stage exact state/generated paths written by `done`; commit `chore(project): close <task-id>`.
+6. **Close it.** After the implementation commit, run `done <task-id>`. The `done` flow executes the per-task verifier before setting `status: done`, writes evidence and phase-transition signals, refreshes state, and owns the project-state checkpoint commit. GATE-R2 enforces evidence.
+7. **Confirm the close checkpoint.** If `done` reports that its checkpoint commit succeeded, do not create a second close commit. If it reports an uncommitted state diff, stop and resolve only the explicit state paths it names.
 8. **Snapshot.** Refresh `## Session handoff`; after a healthy close it records a clean tree or explicitly unrelated dirty files.
 
 ### Step 3 — Phase boundary
@@ -103,8 +103,8 @@ The handoff lives in the active initiative body (durable `.atomic-skills/` state
 
 Microcommits are part of the execution loop, not an end-of-session cleanup. The smallest healthy unit is:
 
-1. Implementation commit after verifier PASS: {{BASH_TOOL}} `rtk git add <explicit-paths>` then `rtk git commit -m "feat(T-NNN): <summary>"`.
-2. State close commit after `done <task-id>`: {{BASH_TOOL}} `rtk git add <explicit-state-paths>` then `rtk git commit -m "chore(project): close <task-id>"`.
+1. Implementation commit after a real pre-close check: {{BASH_TOOL}} `rtk git add <explicit-paths>` then `rtk git commit -m "feat(T-NNN): <summary>"`.
+2. State close commit is owned by `done <task-id>`: it stages the explicit state paths it writes and commits `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. The implement driver verifies that checkpoint happened instead of creating a duplicate close commit.
 3. Phase boundary commit after `phase-done`: {{BASH_TOOL}} `rtk git add <explicit-state-paths>` then `rtk git commit -m "chore(project): advance <plan> <phase>"`.
 
 Never use `git add .` or `git add -A`. If a formatter or generator changes additional files, classify them into the relevant microcommit or stop and explain why they are unrelated.

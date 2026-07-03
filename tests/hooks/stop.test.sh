@@ -20,6 +20,7 @@ init_git_branch() {
 # Write a Plan (mirror session-start tests).
 write_plan() {
   local file=$1 slug=$2 status=$3 phase=$4
+  local branch=${5:-}
   cat > "$file" <<EOF
 ---
 schemaVersion: '0.1'
@@ -29,6 +30,7 @@ version: '1.0'
 status: ${status}
 started: 2026-05-20T00:00:00Z
 lastUpdated: 2026-05-20T00:00:00Z
+$( [[ -n "$branch" ]] && echo "branch: ${branch}" )
 currentPhase: ${phase}
 parallelismAllowed: false
 principles: []
@@ -227,6 +229,61 @@ rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
 [[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing"
 grep -q '"breadcrumb": "p/F0 ▸ i"' .atomic-skills/status/drift.log && ok || no "missing plan/phase breadcrumb"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
+
+# Test 8b: nested-only plan-anchored initiative → drift detected.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/projects/acme/p/phases .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_plan .atomic-skills/projects/acme/p/plan.md p active F0
+write_initiative .atomic-skills/projects/acme/p/phases/f0-i.md i active "" p F0 "src/"
+write_transcript /tmp/t.jsonl 2026-05-20T00:00:00Z "$TMP/lib/a.js,$TMP/lib/b.js,$TMP/lib/c.js"
+run "nested-only plan-anchored initiative → drift detected via nested plan→phase"
+echo "{\"stop_hook_active\":false,\"transcript_path\":\"/tmp/t.jsonl\"}" | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing for nested-only plan"
+grep -q '"breadcrumb": "p/F0 ▸ f0-i"' .atomic-skills/status/drift.log && ok || no "missing nested plan/phase breadcrumb"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
+
+# Test 8c: nested-only standalone degenerate plan → drift detected.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/projects/acme/hf/phases .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_plan .atomic-skills/projects/acme/hf/plan.md hf active F0
+write_initiative .atomic-skills/projects/acme/hf/phases/hf.md hf active feat hf F0 "src/"
+write_transcript /tmp/t.jsonl 2026-05-20T00:00:00Z "$TMP/lib/a.js,$TMP/lib/b.js,$TMP/lib/c.js"
+run "nested-only standalone degenerate plan → drift detected"
+echo "{\"stop_hook_active\":false,\"transcript_path\":\"/tmp/t.jsonl\"}" | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing for nested standalone"
+grep -q '"breadcrumb": "hf/F0 ▸ hf"' .atomic-skills/status/drift.log && ok || no "missing nested standalone breadcrumb"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
+
+# Test 8d: nested active plan wins over legacy flat branch match.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/projects/acme/nested/phases .atomic-skills/plans .atomic-skills/initiatives .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_plan .atomic-skills/projects/acme/nested/plan.md nested active F0
+write_initiative .atomic-skills/projects/acme/nested/phases/f0-nested.md f0-nested active "" nested F0 "src/"
+write_plan .atomic-skills/plans/flat.md flat active F0 feat
+write_initiative .atomic-skills/initiatives/flat-i.md flat-i active feat flat F0 "src/"
+write_transcript /tmp/t.jsonl 2026-05-20T00:00:00Z "$TMP/lib/a.js,$TMP/lib/b.js,$TMP/lib/c.js"
+run "nested active plan wins over legacy flat branch match"
+echo "{\"stop_hook_active\":false,\"transcript_path\":\"/tmp/t.jsonl\"}" | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing for nested-over-flat case"
+grep -q '"breadcrumb": "nested/F0 ▸ f0-nested"' .atomic-skills/status/drift.log && ok || no "missing nested breadcrumb"
+if grep -q '"breadcrumb": "flat/F0 ▸ flat-i"' .atomic-skills/status/drift.log; then
+  no "legacy flat breadcrumb should not win when nested active plan exists"
+else
+  ok
+fi
 cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
 
 # Test 9: 50% out-of-scope (not >50%) → no warning

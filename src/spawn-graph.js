@@ -4,8 +4,9 @@
  * The graph is a directed adjacency of parent→child spawn edges:
  *   { "<parent-slug>": ["<child-slug>", ...], ... }
  * Forking is intra-project, so a single adjacency over plan slugs suffices.
- * The F1 `fork-plan` verb builds the adjacency from the sidecars (`links.json`)
- * and calls `wouldCreateCycle` BEFORE ratifying — this module never reads files.
+ * The `fork-plan` verb builds the adjacency from inline `phases[].spawnedPlans`
+ * origin edges (legacy links.json is only an upgrade fallback) and calls
+ * `wouldCreateCycle` BEFORE ratifying — this module never reads files.
  */
 
 /**

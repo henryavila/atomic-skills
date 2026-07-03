@@ -144,14 +144,32 @@ Steps:
 1. Load the active plan. If no active plan, abort with: "new-phase requires an active plan. Run `atomic-skills:project new plan <slug>` to create one first."
 2. **Reconciliation gate**: run the pre-mutation reconciliation gate (router) on the active phase initiative.
 3. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
-4. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, the drafted `summary` (one-line what-this-phase-does, install-configured language), AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
-5. On ratify (or edited context):
-   - Append phase descriptor to `phases[]` with `summary: <ratified one-line>`, `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
+4. **Phase-start lessons gate.** Run the phase-start lessons gate before materialization:
+   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>`.
+   Apply, keep, stale, or reject every applicable lesson before the new phase file is created. `--skip-lessons` must record the skip reason; never silently bypass the gate.
+5. **BusinessIntent gate.** Collect the user-written `businessIntent` spine using the same five-field block as `materialize`:
+   ```yaml
+   businessIntent: <businessIntent>
+   value: ""
+   workflow: ""
+   rules: ""
+   outOfScope: ""
+   doneWhen: ""
+   derived: []
+   ```
+   Reject blanks and `[NEEDS CLARIFICATION]`; re-ask rather than inventing content.
+6. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, the drafted `summary` (one-line what-this-phase-does, install-configured language), the collected `businessIntent: <businessIntent>`, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
+7. On ratify (or edited context):
+   - Append phase descriptor to `phases[]` with `summary: <ratified one-line>`, `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }`, `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`, and the ratified `businessIntent`.
    - Create the phase initiative file at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md` (legacy flat `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md`) from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`, and the same ratified `summary` (the Home "Agora"/timeline read it from both surfaces — see skills/core/project.md → "Phase summaries").
+   - Parse the initiative frontmatter and add `businessIntent` to the new initiative frontmatter before writing.
+   - set `businessIntent` on the parent plan descriptor in the same write that inserts the phase descriptor.
    - Save plan + initiative.
-   - Validate both files via `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"`.
-6. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
-7. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan. Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
+   - Run `scripts/find-missing-business-intent.js` scoped to the parent plan:
+     `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   - Validate both files via `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md`.
+8. On any detector or validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
+9. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan. Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
 
 ## `split-phase <id>` (rung 7)
 
@@ -207,7 +225,7 @@ A missing required argument is a malformed invocation: print the usage line and 
    - Child: `setSpawnedFrom(<childPlanDir>, { plan: <parent-slug>, phaseId: <from>, taskId?: <T>, mode: <mode> })`. (`<childPlanDir>` now holds a real `plan.md`, so this is not an orphan write.)
    - Parent: `addSpawnedPlan(<parentPlanDir>, <from>, <child-slug>)` — idempotent; `spawnedPlans[<from>]` is an array (a phase may fork several children).
    - Parent dependency for pause mode: `addPlanDependency(<parentPlanDir>, { plan: <child-slug>, createdBy: 'fork-plan', origin: { phaseId: <from>, taskId?: <T>, mode: <mode> }, release: { archived: 'blocked' } })` — idempotent; the parent depends on the child because the child blocks resuming the extracted phase.
-   Example: if parent plan `P1` forks child plan `P2` from `F2` task `T-004` with `--mode pause`, then `P2` records `spawnedFrom: { plan: P1, phaseId: F2, taskId: T-004, mode: pause }`, `P1.phases[F2].spawnedPlans` includes `P2`, and `P1.dependsOnPlans[]` includes a `fork-plan` edge whose `plan` is `P2`. The ratified `context`/`provenance` is recorded with the edge. Deferring these writes to after child materialization is what prevents a dangling parent `spawnedPlans` or `dependsOnPlans` entry pointing at a child that never materialized when step 7 aborts.
+   Example: if parent plan `P1` forks child plan `P2` from `F2` task `T-004` with `--mode pause`, then `P2` records `spawnedFrom: { plan: P1, phaseId: F2, taskId: T-004, mode: pause }`, `P1.phases[F2].spawnedPlans` includes `P2`, and `P1.dependsOnPlans[]` includes a `fork-plan` edge whose `plan` is `P2`. These durable edge fields store origin/dependency identity only; the ratify gate records the rationale in the operator-reviewed proposal, not as `context`/`provenance` on the edge schema. Deferring these writes to after child materialization is what prevents a dangling parent `spawnedPlans` or `dependsOnPlans` entry pointing at a child that never materialized when step 7 aborts.
 
 ### Mode semantics
 

@@ -55,6 +55,76 @@ test('phase-done prose instructs N task events plus one aggregate phase event', 
   assert.match(phase, /do NOT duplicate those aggregate actuals onto the per-task `task-done` lines/);
 });
 
+test('done prose requires verifier handling before status mutation', () => {
+  const real = readFileSync(TRANSITIONS, 'utf8');
+  const done = block(real, HEADERS.done);
+
+  const verifierIdx = done.indexOf('Verifier handling is the first state-changing gate');
+  const statusIdx = done.indexOf('set `status: done`');
+  assert.notEqual(verifierIdx, -1);
+  assert.notEqual(statusIdx, -1);
+  assert.ok(verifierIdx < statusIdx, 'verifier handling must precede status:done');
+  assert.match(done, /closure authority/);
+  assert.match(done, /Do NOT consume `verify-claim` output as task evidence/);
+});
+
+test('phase-done prose preserves deferred gates instead of bulk-marking them met', () => {
+  const real = readFileSync(TRANSITIONS, 'utf8');
+  const phase = block(real, HEADERS.phase);
+
+  assert.match(phase, /Never convert `pending` or `deferred` gates to `met`/);
+  assert.match(phase, /set `status: deferred`[\s\S]{0,120}`deferredReason`/);
+  assert.doesNotMatch(phase, /For each `exitGates\[\]`[\s\S]{0,160}`status !== 'met'`[\s\S]{0,160}set `status: met`/);
+});
+
+test('old done ordering is reported as verifier-before-done', () => {
+  const fixture = tempMarkdown(minimalFixture({
+    done: [
+      HEADERS.done,
+      '',
+      '1. Locate task in `tasks:`.',
+      '2. Change `status: done`, set `closedAt: <now>`, refresh `lastUpdated: <now>`.',
+      "3. Emit exactly one completion event via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })`.",
+      '4. If the closing task has a non-empty `verifier:`, see **Per-task verifiers** below first.',
+    ].join('\n'),
+  }));
+  try {
+    const result = lintTransitionEmits(fixture.path);
+
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.offenders.map((o) => o.block), [HEADERS.done]);
+    assert.ok(result.offenders[0].missing.includes('verifier-before-done'));
+    assert.ok(result.offenders[0].missing.includes('done closure authority'));
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+test('old phase-done bulk-met propagation is reported', () => {
+  const fixture = tempMarkdown(minimalFixture({
+    phase: [
+      HEADERS.phase,
+      '',
+      '1. Load the active initiative.',
+      '2. For each criterion (`status === pending`) run the verifier.',
+      '3. If any criterion is still `pending`, document the override by setting `deferredReason`.',
+      "4. Emit one `task-done` event per task via `appendCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId })`, then exactly one `phase-done` completion event with `actuals`.",
+      "5. For each `exitGates[]` in the initiative with `status !== 'met'`: set `status: met`, `metAt: <now>`.",
+    ].join('\n'),
+  }));
+  try {
+    const result = lintTransitionEmits(fixture.path);
+
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.offenders.map((o) => o.block), [HEADERS.phase]);
+    assert.ok(result.offenders[0].missing.includes('no-bulk-met'));
+    assert.ok(result.offenders[0].missing.includes('no-pending-or-deferred-to-met'));
+    assert.ok(result.offenders[0].missing.includes('deferred-status-override'));
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
 test('missing done emit is reported only on the done block', () => {
   const fixture = tempMarkdown(minimalFixture({
     done: [

@@ -9,10 +9,10 @@ This command edits only the canonical operational dependency source: `dependsOnP
 ## Grammar
 
 ```text
-/atomic-skills:project depend list [<plan-slug>]
-/atomic-skills:project depend add <dependent-plan-slug> <prerequisite-plan-slug>
-/atomic-skills:project depend remove <dependent-plan-slug> <prerequisite-plan-slug>
-/atomic-skills:project depend resolve <dependent-plan-slug> <prerequisite-plan-slug> --archived
+/atomic-skills:project depend list [<plan-slug>] [--project <id>]
+/atomic-skills:project depend add <dependent-plan-slug> <prerequisite-plan-slug> [--project <id>]
+/atomic-skills:project depend remove <dependent-plan-slug> <prerequisite-plan-slug> [--project <id>]
+/atomic-skills:project depend resolve <dependent-plan-slug> <prerequisite-plan-slug> --archived [--project <id>]
 ```
 
 Parse the subcommand and slugs from `{{ARG_VAR}}`.
@@ -29,12 +29,16 @@ Before `add`, `remove`, or `resolve`, run the router's pre-mutation gates from `
 
 Then resolve project scope:
 
-1. Locate the active project folder under `.atomic-skills/projects/<project-id>/`.
-2. Enumerate that folder's immediate plan directories and require `plan.md` for every candidate.
-3. Resolve both slugs in that same project folder.
-4. If either slug is missing, print the missing slug and stop without writing.
-5. If the same slug resolves in a different project folder, print `cross-project plan dependencies are not supported` and stop without writing.
-6. If dependent equals prerequisite, stop without writing.
+1. Parse optional `--project <id>`.
+2. Enumerate nested project folders first: `.atomic-skills/projects/<project-id>/`, considering only immediate plan directories that contain `plan.md`.
+3. If `--project <id>` was supplied, restrict all resolution to that folder. If it does not exist, print `unknown project: <id>` and stop without writing.
+4. If `--project` was omitted and exactly one nested project contains all referenced plan slugs (or, for `depend list`, contains the requested slug or has at least one plan when no slug is provided), use it.
+5. If `--project` was omitted and more than one nested project is a possible target, ask the user to rerun with `--project <id>` and list the candidate project ids. Do not write.
+6. If no nested project can satisfy the command, fall back to the legacy flat `.atomic-skills/plans/<slug>.md` layout.
+7. Resolve both slugs in the same project folder or flat fallback.
+8. If either slug is missing, print the missing slug and stop without writing.
+9. If the same slug resolves in a different project folder than the selected one, print `cross-project plan dependencies are not supported; rerun with --project <id> to target one project` and stop without writing.
+10. If dependent equals prerequisite, stop without writing.
 
 After any write, run with {{BASH_TOOL}}:
 
@@ -46,7 +50,7 @@ If validation reports an unknown prerequisite, self-dependency, or dependency cy
 
 ## `depend list`
 
-Read every plan in the resolved project, build the graph with `src/plan-dependencies.js`, and print:
+Read every plan in the resolved nested project (or legacy flat fallback), build the graph with `src/plan-dependencies.js`, and print:
 
 - Manual and `fork-plan` edges from `dependencyEdges`, grouped by dependent plan.
 - Current blockers from `blockedByPlans[plan]`.

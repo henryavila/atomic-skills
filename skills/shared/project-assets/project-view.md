@@ -36,6 +36,16 @@ DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
 
 ---
 
+## Mutation policy
+
+`status` is read-only by default. It may detect stale derived dashboard state,
+missing summaries, or a `STATE_ERROR`, but it does not write unless the user
+explicitly accepts the specific refresh/repair prompt. Terminal, list, plan, phase, stack, archived, and report views never run refresh or repair writers; they render from the current files and report any gaps. `status --browser` and
+default `status` may offer these gated writes before opening the dashboard:
+`Refresh derived dashboard state now? (y/N)`, `Repair missing summaries now?
+(y/N)`, and `Repair STATE_ERROR now? (y/N)`. A no/default answer means no
+write; continue with the best read-only rendering or show the terminal fallback.
+
 ## Default (`status`, no extra flag, structure exists)
 
 > **Note on no-args:** plain `/atomic-skills:project` (no subcommand) does NOT
@@ -49,9 +59,9 @@ The default view opens the **aiDeck dashboard** in the browser. aiDeck is the ca
 
 Steps:
 
-0. **Sync derived dashboard state (idempotent).** Before opening the dashboard, refresh the precomputed fields aiDeck reads (it has no compute engine): rollups + flat gate-evidence, then the focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-rollups.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/reconcile-focus.js"`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
+0. **Offer derived dashboard refresh (mutation-gated).** Before opening the dashboard, explain that aiDeck reads precomputed fields and offer: `Refresh derived dashboard state now? (y/N)`. Do NOT run `compute-rollups.js` or `reconcile-focus.js` automatically. Only on `y`, refresh rollups + flat gate-evidence, then focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-rollups.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/reconcile-focus.js"`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
 
-   **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), author each summary in the install-configured language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
+   **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), offer `Repair missing summaries now? (y/N)`. Only on `y`, author each summary in the install-configured language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
 
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
@@ -177,7 +187,7 @@ Steps:
 
    Parse the output: if `AIDECK_URL` is non-empty, aiDeck is running.
 
-2. **Repair on `STATE_ERROR`.** A non-empty `STATE_ERROR=...` line means a dataSource failed to load — under Model-B aiDeck reads are per-dataSource and do **not** strict-validate, so this is an io/YAML-parse error (not a schema reject). Run the normalizer as a best-effort hygiene pass (it also keeps the data clean for `aideck validate` against the consumer `schema.json`), then continue:
+2. **Repair on `STATE_ERROR` (mutation-gated).** A non-empty `STATE_ERROR=...` line means a dataSource failed to load — under Model-B aiDeck reads are per-dataSource and do **not** strict-validate, so this is an io/YAML-parse error (not a schema reject). Offer `Repair STATE_ERROR now? (y/N)` before any file write. On no/default, do not normalize; print the error and fall back to the terminal view. On `y`, run the normalizer as a best-effort hygiene pass (it also keeps the data clean for `aideck validate` against the consumer `schema.json`), then continue:
 
    a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it in this order and run the first that exists:
       ```bash
@@ -234,8 +244,18 @@ Steps:
 
 Full terminal-only view (the previous default). No browser launch.
 
+### Nested-first state resolution
+
+Every terminal/status reader resolves state in this order:
+
+- **Project index:** enumerate `.atomic-skills/projects/*/`; a folder counts as a project once it contains at least one `<plan-slug>/plan.md`. Read `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` first. Use top-level `.atomic-skills/PROJECT-STATUS.md` only when no nested project index exists.
+- **Plan:** enumerate `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` before legacy `.atomic-skills/plans/<slug>.md`. Prefer the active plan whose `branch:` matches the current branch; otherwise pick the most-recent active plan and surface disambiguation when needed.
+- **Phase initiative:** for a nested plan, search only `.atomic-skills/projects/<project-id>/<plan-slug>/phases/*.md` for matching `parentPlan`, `phaseId`, and `status: active`. For a legacy flat plan, search `.atomic-skills/initiatives/*.md` with the same fields.
+- **Standalone plan:** treat standalone work as the nested degenerate one-phase plan shape (`projects/<project-id>/<slug>/plan.md` plus `phases/<slug>.md`). Only if no nested phase matches the current branch, fall back to a legacy flat `.atomic-skills/initiatives/<slug>.md`.
+- **Archive:** list nested `.atomic-skills/projects/*/*/phases/archive/*.md` first, then legacy `.atomic-skills/plans/archive/*.md` and `.atomic-skills/initiatives/archive/*.md`.
+
 If there is an active initiative whose `branch:` matches `git rev-parse --abbrev-ref HEAD`:
-- Read `.atomic-skills/initiatives/<slug>.md`, parse frontmatter YAML
+- Resolve the initiative with the nested-first pattern above, then read that file and parse frontmatter YAML.
 - Render in terminal:
   1. Header: `▸ <slug> · <status> · depth <N> · updated <human-timestamp>`
      - If the initiative has `parentPlan` + `phaseId`, prepend: `<plan-slug>/<phaseId> ▸ <slug>`
@@ -379,7 +399,7 @@ Present Structured Options:
 Detected context:
 - Branch: <current-branch>
 - Active plan: <plan-slug> (currentPhase: <id>)   [or "none"]
-- No matching active initiative in .atomic-skills/PROJECT-STATUS.md
+- No matching active initiative in the resolved nested-first PROJECT-STATUS.md
 
 Active initiatives:
   1. <slug-1> (branch <branch-1>, last updated <timestamp>, [under <plan>] or [standalone])
@@ -398,7 +418,7 @@ By choice:
 - (b): load file; `push` new frame for lateral expansion
 - (c): run the `new initiative` flow (`{{ASSETS_PATH}}/project-create-initiative.md`) with `parentPlan` = active plan slug; ask for `phaseId` (suggest plan's `currentPhase`)
 - (d): run the `new initiative` flow with no plan membership
-- (e): append row to "Ad-Hoc Sessions Log" in PROJECT-STATUS.md with timestamp + short description
+- (e): append row to "Ad-Hoc Sessions Log" in the resolved nested-first PROJECT-STATUS.md with timestamp + short description
 
 ## aiDeck integration notes
 
