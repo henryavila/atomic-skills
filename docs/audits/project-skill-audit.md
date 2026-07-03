@@ -278,4 +278,14 @@ O idiom `$(cat $HOME/.atomic-skills/package-root || echo .)` está em ~20 passos
 7. **Honestidade da cadência de review (C-7):** gate no verdict antes de carimbar `last-review.json`; inspecionar `mode` no check #8.
 8. **Fricção (C-8):** um resolver helper único de `package-root` + check no `verify`; rotear `migrate` puro; fuzzy-match de id nos verbos mutantes.
 
+### Resolução dos 3 CRÍTICOs (2026-07-03)
+
+Os três clusters CRÍTICOS foram resolvidos com TDD + validação de cada claim contra o código atual antes de mexer (1 falso-positivo do auditor foi **verificado e descartado**, não "corrigido"):
+
+- **C-3 — earned-value** · commit `f023827`. `computePhaseActuals` agora prefere um **commit anchor imutável** (`sinceCommit`, usado só quando é ancestral de HEAD) sobre a heurística `--before` de committer-date; fallback preservado p/ fases legacy. Novo campo aditivo `initiative.startedCommit` (schema + consumer rebuild) carimbado na ativação; `phase-done` passa `--actuals-since-commit`. TDD: anchor vence a heurística sob datas reescritas; non-ancestor faz fallback.
+- **C-2 — bordas de materialização** · commit `9d0e739`. `materializeDecomposition` **fail-closed** em `businessIntent` incompleto (`assertCompleteBusinessIntent`, TDD); `new initiative` ganhou gate businessIntent **draft-and-ratify** + detector (resolve a fricção E3#1 junto); `materialize` autora task summary/weight + verifica com detectores tree-scoped (corrigido: single-file era verde vácuo). **C1#2 descartado** (false positive — summary de descriptor é garantia de plan-creation p/ TODA fase; o eager check é intencional).
+- **C-1 — becos sem saída** · commit `9d1b168`. `promote` dreana de `parked[]` **ou** `emerged[]` (+ flip `promoted:true`, fim do crescimento monotônico); novo verbo **`unblock <task-id>`** (roteado: grammar+dispatch+gate-list) como saída de `blocked`, com hint do `why` corrigido (fechar o blocker NÃO desbloqueia sozinho); `park/emerge <idx> --delete` de disposição; `switch` documentado como resume de plano pausado.
+
+Suíte completa **1551 testes, 1549 pass, 0 fail**; 15 skills válidas; router sob o budget de 23000B. ALTO/MÉDIO restantes (C-4..C-8) ficam para follow-up.
+
 **Nota metodológica:** cada achado carrega `arquivo:linha` e o descompasso concreto promessa-vs-comportamento; achados vagos foram descartados pelos auditores. As unidades C3 (migração) e partes de C2/C4/D1 **confirmaram fidelidade** (sem finding) onde a prose bate com o código — registrado explicitamente para não sugerir que "sem finding" = "não auditado". O loop resiliente (cron 30min) sobreviveu a 2 janelas de rate-limit e retomou automaticamente do checkpoint, como projetado.
