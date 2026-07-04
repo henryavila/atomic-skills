@@ -285,7 +285,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    argument_hint: '[status|verify|reconcile|new|idea|done|push|pop|park|emerge|promote|switch|…]'
+    argument_hint: '[status|new|materialize|done|phase-done|finalize|verify|…]'
     one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'
@@ -355,6 +355,16 @@ core:
         signature: ''
         description: 'Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent)'
         example: '/atomic-skills:project reconcile'
+      - name: materialize
+        group: 'Tasks & phases'
+        signature: '<phase-id>'
+        description: 'Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement`'
+        example: '/atomic-skills:project materialize F1'
+      - name: unblock
+        group: 'Tasks & phases'
+        signature: '<task-id>'
+        description: 'Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first'
+        example: '/atomic-skills:project unblock T-006'
       - name: phase-done
         group: 'Tasks & phases'
         signature: ''
@@ -420,11 +430,21 @@ core:
         signature: ''
         description: 'Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept'
         example: '/atomic-skills:project detect-scope'
+      - name: review
+        group: 'Review'
+        signature: '[<slug>] [--with-code] [--mode=local|both]'
+        description: 'Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases'
+        example: '/atomic-skills:project review v3-redesign --with-code'
       - name: review-due
         group: 'Review'
         signature: ''
         description: 'Run a cross-model codex review on the diff since the last review and record the result for the default view'
         example: '/atomic-skills:project review-due'
+      - name: depend
+        group: 'Dependencies'
+        signature: 'list [<plan>] | add <dependent> <prerequisite> | remove <dependent> <prerequisite> | resolve <dependent> <prerequisite> --archived'
+        description: 'Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido)'
+        example: '/atomic-skills:project depend add p2-api p1-schema'
     args:
       - name: '--browser'
         kind: flag

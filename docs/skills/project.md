@@ -66,6 +66,8 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 |---------|-------------|
 | `done <task-id>` | Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive |
 | `reconcile` | Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent) |
+| `materialize <phase-id>` | Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement` |
+| `unblock <task-id>` | Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first |
 | `phase-done` | Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase |
 | `phase-reopen [<phase-id>]` | Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending |
 | `split-phase <id>` | Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done |
@@ -94,7 +96,14 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 | Command | Description |
 |---------|-------------|
+| `review [<slug>] [--with-code] [--mode=local\|both]` | Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases |
 | `review-due` | Run a cross-model codex review on the diff since the last review and record the result for the default view |
+
+*Dependencies*
+
+| Command | Description |
+|---------|-------------|
+| `depend list [<plan>] \| add <dependent> <prerequisite> \| remove <dependent> <prerequisite> \| resolve <dependent> <prerequisite> --archived` | Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido) |
 
 **Arguments:**
 

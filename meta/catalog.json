@@ -313,6 +313,16 @@
         "group": "Tasks & phases"
       },
       {
+        "name": "materialize",
+        "description": "Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement`",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "unblock",
+        "description": "Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first",
+        "group": "Tasks & phases"
+      },
+      {
         "name": "phase-done",
         "description": "Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase",
         "group": "Tasks & phases"
@@ -378,9 +388,19 @@
         "group": "Context & drift"
       },
       {
+        "name": "review",
+        "description": "Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases",
+        "group": "Review"
+      },
+      {
         "name": "review-due",
         "description": "Run a cross-model codex review on the diff since the last review and record the result for the default view",
         "group": "Review"
+      },
+      {
+        "name": "depend",
+        "description": "Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido)",
+        "group": "Dependencies"
       }
     ],
     "fields": [
