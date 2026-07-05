@@ -13,6 +13,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 ```
 /atomic-skills:project                              → compact summary (no-args, cheap; no browser)
 /atomic-skills:project status [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]
+/atomic-skills:project help [--html]         → GPS de terminal: onde estou + próximo passo (alias: `next`; `--html` abre o guia visual)
 /atomic-skills:project verify [--fix]        → state ⇄ code check (READ-ONLY unless `--fix`; normalization gate only)
 /atomic-skills:project reconcile             → close tasks/gates that look done in the repo (the ONLY completion-mutation path)
 /atomic-skills:project review [<slug>] [--with-code] [--mode=local|both]  → mutation-gated audit (delegated reviews; never closes/advances)
@@ -50,6 +51,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | Subcommand(s) | Detail file (read first) |
 |---|---|
 | `status`, `status --browser`, `--terminal`, `--list`, `--plan`, `--phase`, `--stack`, `--archived`, `--report`, disambiguation | `{{READ_TOOL}} {{ASSETS_PATH}}/project-view.md` |
+| `help`, `help --html`, `next` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-help.md` |
 | `verify`, `verify --fix` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
 | `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
 | first-time setup (`.atomic-skills/` absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
