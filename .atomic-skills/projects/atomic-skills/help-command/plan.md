@@ -147,11 +147,19 @@ phases:
         - id: G-1
           description: compute-help.test.js passa (mapa de decisão coberto + fail-open
             provado)
-          status: pending
+          status: met
+          metAt: 2026-07-05T15:21:15Z
           verifier:
             kind: test
             runner: node --test
             pattern: tests/help/compute-help.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-07-05T15:21:15Z
+            exitCode: 0
+            testsCollected: 25
+            passed: true
+            outputSummary: "node --test tests/help/compute-help.test.js → tests 25, pass 25, fail 0"
     status: active
     businessIntent:
       value: "F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
