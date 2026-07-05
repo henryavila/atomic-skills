@@ -20,12 +20,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| help-command | active | F1 | develop | 2026-07-05 | 1/4 |
+| help-command | active | F1 | develop | 2026-07-05 | 2/4 |
 
 ### help-command
 | Initiative | Phase | Status | Tasks |
 |------------|-------|--------|-------|
-| _(F1 descriptor-only — run `materialize F1`)_ | F1 | pending | — |
+| f1-o-mapa-estado-proximo-passo-como-helper | F1 | done | 2/2 |
+| _(F2 descriptor-only — run `materialize F2` to continue)_ | F2 | pending | — |
 
 ## Done Plans (not archived)
 
