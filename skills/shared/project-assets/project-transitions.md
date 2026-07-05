@@ -219,6 +219,7 @@ Before archiving the initiative, append a `## Self-review against code-quality g
 - **G1 read-before-claim**: N tasks closed, each linked to source lines in its `outputs[]` field. / N/A — phase was pure planning (no code).
 - **G2 soft-language**: scanned `nextAction` + task descriptions + criterion descriptions for the ban list; 0 violations (or list with rewrites).
 - **G6 reference-or-strike**: K exit criteria, J met with `evidence:` populated, L deferred with `deferredReason:`, M unverified-and-flagged.
+- **G10 gate-must-be-able-to-fail**: each exit criterion states its `FAILS when …` — the concrete red condition. Vanity criteria (no input makes them red) rewritten to a falsifiable claim or struck. Criteria without a stateable failure: <list, or "none">.
 - **Codex review**: ran via `atomic-skills:project review-due` at HEAD = `<sha>`, verdict `<v>`, counts `<…>`, file `.atomic-skills/reviews/<…>.md`. / SKIPPED at phase-done per user (`<reason or "no reason given">`).
 - **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: <passed|skipped>, at: <sha>, mode: <local|both>, reason: <if skipped> }`. This prose line is the human audit; the descriptor field is the machine-checkable one GATE-R3 enforces — they must agree.
 - **Lessons (G1)**: distilled M lesson(s) into `lessons/<initiative-slug>.md` (K reusable, L local), ratified by the user — or `no lessons distilled (clean phase)`. The next phase's start gate dispositions the reusable+open ones.
