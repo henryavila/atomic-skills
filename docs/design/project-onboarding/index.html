@@ -1,16 +1,755 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="./support.js"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
-  <link rel="stylesheet" href="_ds/aideck-ds-9ef1e68c-ed08-408f-bfcc-30062532851a/colors_and_type.css">
-  <link rel="stylesheet" href="aideck-widgets.css">
-  <style>
+<title>Guia — atomic-skills:project</title>
+<style>
+/* ── aiDeck DS foundations (tokens + type) — inlined, offline ── */
+/* ─────────────────────────────────────────────────────────────────────
+   aiDeck Design System — Foundations (v2)
+   Dark-first only. Light theme is explicitly out of scope.
+
+   aiDeck is a GENERIC dashboard runtime: it reads consumer manifests
+   and projects 25 built-in widgets across 3 layout modes. Tokens here
+   are intentionally domain-agnostic — `status-success` not `phase-done`,
+   `chart-1..8` not `verifier-shell`.
+
+   Calibration target: a consumer with 5+ pages, each containing 10-20
+   widgets across sections, must fit a 13" laptop without horizontal
+   scroll, overflow, truncation, or pagination tricks. Density is a
+   feature, not a problem to be solved with whitespace.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Fonts — Inter (sans, UI + narrative) + JetBrains Mono (identifiers,
+   paths, code, all monospace surfaces). Both Google Fonts, both free. */
+/* Google Fonts @import removed for offline — falls back to the system stack in --font-sans/--font-mono */
+
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────────
+     Six steps so nested widgets/cards step up without clashing.
+     Cooler, deeper canvas → reads as premium dev-tool (Vercel,
+     Linear, Raycast). Hairline borders separate steps as primary
+     elevation signal; shadows are reserved for floating layers. */
+  --bg-sunken:      #07090d;   /* inputs, code blocks, deepest wells */
+  --bg-canvas:      #0a0d12;   /* page background */
+  --bg-surface:     #12161d;   /* widget cards, section panels */
+  --bg-elevated:    #1a1f28;   /* hover, popovers, dropdowns */
+  --bg-overlay:     #232936;   /* selected rows, focus halos */
+  --bg-highlight:   #2d3340;   /* highest — used sparingly */
+
+  /* ── Glass (premium translucent surfaces) ──────────────────────
+     For the chrome header, command palette, drawers, popovers.
+     Always paired with backdrop-filter: blur. Falls back gracefully
+     when blur is unsupported (still readable). */
+  --glass-thin:     rgba(18, 22, 29, 0.55);
+  --glass-medium:   rgba(18, 22, 29, 0.72);
+  --glass-thick:    rgba(10, 13, 18, 0.85);
+  --glass-border:   rgba(255, 255, 255, 0.06);
+  --glass-blur:     saturate(180%) blur(20px); /* @kind other */
+  --glass-blur-sm:  saturate(160%) blur(10px); /* @kind other */
+
+  /* ── Borders ──────────────────────────────────────────────────
+     Three weights. All hairlines are 1px — never thicker. */
+  --border-subtle:  #1a2029;   /* faint dividers inside a widget */
+  --border-default: #262d38;   /* widget outlines, cards, panels */
+  --border-strong:  #3d4656;   /* focus indication, selected */
+  --border-bright:  #555f72;   /* hover on interactive elements */
+
+  /* ── Foreground (text + icons) ────────────────────────────────
+     Five steps. Captions and metadata default to muted; only primary
+     content gets the brightest level. */
+  --fg-default:     #e9eef5;   /* primary text — body, headings */
+  --fg-muted:       #98a1ad;   /* secondary — captions, labels */
+  --fg-subtle:      #6b7585;   /* tertiary — metadata, placeholders */
+  --fg-faint:       #424a5a;   /* lowest — disabled, vertical rules */
+  --fg-on-accent:   #08090d;   /* text on a saturated chip fill */
+
+  /* ── Semantic status (consumer-agnostic) ──────────────────────
+     Five canonical states. Consumers map their domain vocabulary
+     onto these tokens — a Kanban "Done" column, a CI "passed" row,
+     a metric "trending up" indicator all reach for `success`. */
+  --status-success: #4cc28e;   /* emerald   — passed, done, healthy */
+  --status-warning: #e0a44a;   /* amber     — needs attention, blocked */
+  --status-error:   #ff5c5c;   /* coral red — failed, critical, broken */
+  --status-info:    #5fb1ff;   /* azure     — active, running, current */
+  --status-neutral: #8b95a3;   /* slate     — idle, pending, unknown */
+
+  /* Soft fills (alpha-mixed onto surface) — for chip & badge backgrounds.
+     `color-mix` computes alpha against the underlying surface so chips
+     nest correctly inside elevated cards. */
+  --status-success-bg: color-mix(in srgb, var(--status-success) 14%, var(--bg-surface));
+  --status-warning-bg: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  --status-error-bg:   color-mix(in srgb, var(--status-error)   16%, var(--bg-surface));
+  --status-info-bg:    color-mix(in srgb, var(--status-info)    14%, var(--bg-surface));
+  --status-neutral-bg: var(--bg-elevated);
+
+  /* Border-tinted versions, for outlined chips and inline badges */
+  --status-success-line: color-mix(in srgb, var(--status-success) 42%, var(--border-default));
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 42%, var(--border-default));
+  --status-error-line:   color-mix(in srgb, var(--status-error)   48%, var(--border-default));
+  --status-info-line:    color-mix(in srgb, var(--status-info)    42%, var(--border-default));
+  --status-neutral-line: var(--border-default);
+
+  /* ── Chart palette ─────────────────────────────────────────────
+     8 distinguishable hues for multi-series data, ordered for
+     legibility on dark surfaces. Tuned in OKLCH for consistent
+     luminance — no series is louder than another. Use in order;
+     if a chart has 3 series, use --chart-1, -2, -3.
+     Modern + elegant, not crayon-box. */
+  --chart-1: #5fb1ff;   /* azure       — series A (primary) */
+  --chart-2: #4cc28e;   /* emerald     — series B */
+  --chart-3: #e668a8;   /* magenta     — series C */
+  --chart-4: #e0a44a;   /* amber       — series D */
+  --chart-5: #8b5cf6;   /* violet      — series E */
+  --chart-6: #2dd4bf;   /* teal        — series F */
+  --chart-7: #f0c757;   /* gold        — series G */
+  --chart-8: #f87171;   /* coral       — series H (kept last; reads as warning) */
+
+  /* Translucent versions for area fills & bar washes */
+  --chart-1-fill: color-mix(in srgb, var(--chart-1) 22%, transparent);
+  --chart-2-fill: color-mix(in srgb, var(--chart-2) 22%, transparent);
+  --chart-3-fill: color-mix(in srgb, var(--chart-3) 22%, transparent);
+  --chart-4-fill: color-mix(in srgb, var(--chart-4) 22%, transparent);
+  --chart-5-fill: color-mix(in srgb, var(--chart-5) 22%, transparent);
+  --chart-6-fill: color-mix(in srgb, var(--chart-6) 22%, transparent);
+  --chart-7-fill: color-mix(in srgb, var(--chart-7) 22%, transparent);
+  --chart-8-fill: color-mix(in srgb, var(--chart-8) 22%, transparent);
+
+  /* ── Functional accents (UI chrome) ───────────────────────────
+     Primary is `info` (azure) — it's the runtime's signature color.
+     The cyan square in the wordmark uses the same hue. */
+  --accent-primary: var(--status-info);
+  --accent-focus:   #88c4ff;     /* focus-visible ring */
+  --accent-link:    #88c4ff;
+
+  /* ── Typography stacks ────────────────────────────────────────
+     Inter for sans (UI, narrative, headings). JetBrains Mono for
+     identifiers, paths, commands, code, IDs — anywhere fixed-width
+     glyph alignment matters. Ligatures off for mono (developers
+     want to see exactly what's there). */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+               "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono",
+               "Menlo", "Consolas", monospace;
+  --font-display: var(--font-sans); /* @kind font */
+
+  /* ── Type scale (dense — 10 → 56) ─────────────────────────────
+     Base body is 13–14px. View headers 24px. Page titles 28–32px.
+     Intentionally tighter than a marketing page: developers prefer
+     more rows over taller rows. */
+  --fs-2xs: 10px;    /* micro labels — use sparingly */
+  --fs-xs:  11px;    /* timestamps, IDs, metadata */
+  --fs-sm:  12px;    /* table cells, captions */
+  --fs-base:13px;    /* dense body default */
+  --fs-md:  14px;    /* primary body, UI controls */
+  --fs-lg:  16px;    /* widget titles */
+  --fs-xl:  20px;    /* section headers */
+  --fs-2xl: 24px;    /* page headers */
+  --fs-3xl: 32px;    /* page titles, stat-widget value */
+  --fs-4xl: 40px;    /* hero stat / dashboard headline */
+  --fs-5xl: 56px;    /* display — single-page hero only */
+
+  /* ── Line heights ─────────────────────────────────────────────  */
+  --lh-tight:  1.15;   /* @kind font */ /* headings, large numbers */
+  --lh-snug:   1.35;   /* @kind font */ /* UI text, widget body */
+  --lh-normal: 1.5;    /* @kind font */ /* body */
+  --lh-relaxed:1.65;   /* @kind font */ /* long-form narrative (markdown widget) */
+
+  /* ── Letter spacing ───────────────────────────────────────────  */
+  --tracking-tight:  -0.015em; /* @kind font */
+  --tracking-normal: 0; /* @kind font */
+  --tracking-wide:   0.04em;     /* uppercase eyebrows · @kind font */
+  --tracking-wider:  0.08em;     /* status pills, all-caps labels · @kind font */
+
+  /* ── Font weights (Inter) ─────────────────────────────────────  */
+  --fw-regular:  400; /* @kind font */
+  --fw-medium:   500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:     700; /* @kind font */
+
+  /* ── Spacing scale (4px base) ─────────────────────────────────
+     Dense. Calibrated so a sections-layout page with 8 widgets
+     (mix of stat tiles and tables) fits the visible fold of a
+     13" laptop without horizontal scroll. */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;
+  --space-24: 48px;
+  --space-32: 64px;
+
+  /* ── Radii ─────────────────────────────────────────────────────
+     Modest. Default for widgets and buttons is 8px. Pills (status
+     chips) are 999px. This is DevTools — not consumer-app pillows. */
+  --radius-none: 0;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;       /* inline chips, small controls */
+  --radius-lg:   8px;       /* default widget, button */
+  --radius-xl:   12px;      /* large panels, drawer */
+  --radius-2xl:  16px;      /* hero stat tile, modal */
+  --radius-pill: 999px;
+
+  /* ── Borders ──────────────────────────────────────────────────  */
+  --border-width: 1px; /* @kind spacing */
+
+  /* ── Elevation ────────────────────────────────────────────────
+     Dark surfaces get a SUBTLE inner highlight (1px top, 4-7% white)
+     to mimic top-light. Drop shadows used only for floating layers
+     (menus, popovers, drawer). Hairline borders + surface step are
+     the primary elevation signal. */
+  --highlight-inset:        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --highlight-inset-strong: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+  --shadow-none:    none;
+  --shadow-ambient: 0 1px 0 rgba(0, 0, 0, 0.4),
+                    var(--highlight-inset);
+  --shadow-sm:      0 2px 4px -2px rgba(0, 0, 0, 0.5),
+                    var(--highlight-inset);
+  --shadow-md:      0 8px 24px -8px rgba(0, 0, 0, 0.6),
+                    0 2px 6px -2px rgba(0, 0, 0, 0.4),
+                    var(--highlight-inset);
+  --shadow-lg:      0 24px 48px -16px rgba(0, 0, 0, 0.7),
+                    0 8px 16px -4px rgba(0, 0, 0, 0.45),
+                    var(--highlight-inset-strong);
+  --shadow-xl:      0 40px 80px -24px rgba(0, 0, 0, 0.8),
+                    0 16px 32px -8px rgba(0, 0, 0, 0.5),
+                    var(--highlight-inset-strong);
+  --shadow-focus:   0 0 0 2px var(--bg-canvas),
+                    0 0 0 4px var(--accent-focus);
+  --shadow-glow-info: 0 0 0 1px color-mix(in srgb, var(--status-info) 50%, transparent),
+                      0 0 32px -8px color-mix(in srgb, var(--status-info) 50%, transparent),
+                      var(--highlight-inset);
+
+  /* ── Motion ───────────────────────────────────────────────────
+     Quick & quiet. No bouncy springs — this is a cockpit. */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --duration-instant: 80ms; /* @kind other */
+  --duration-fast:    120ms; /* @kind other */
+  --duration-normal:  200ms; /* @kind other */
+  --duration-slow:    320ms; /* @kind other */
+
+  /* ── Textures ─────────────────────────────────────────────────
+     Two canonical textures. Grid is the default canvas background —
+     it gives the runtime its engineered, graph-paper feel. Scan
+     overlays "live data is streaming" surfaces (SSE-connected widgets).
+     Both respect prefers-reduced-motion. */
+  --texture-grid: radial-gradient(circle at 1px 1px,
+    rgba(255, 255, 255, 0.085) 1px, transparent 0); /* @kind other */
+  --texture-grid-size: 28px 28px;
+
+  --texture-scan: repeating-linear-gradient(0deg,
+    transparent 0,
+    transparent 2px,
+    rgba(255, 255, 255, 0.045) 2px,
+    rgba(255, 255, 255, 0.045) 3px); /* @kind other */
+
+  /* Larger feature-grid for hero / empty backdrops */
+  --texture-grid-lg: linear-gradient(
+      rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg,
+      rgba(255, 255, 255, 0.04) 1px, transparent 1px); /* @kind other */
+  --texture-grid-lg-size: 64px 64px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Semantic typography presets
+
+   Use these classes; do not hand-pick font-size + weight on every
+   element. Anything not covered (rare) is a sign the scale needs
+   extending — bring the proposal back to the design system, don't
+   one-off it.
+   ───────────────────────────────────────────────────────────────────── */
+
+.t-display {
+  font-family: var(--font-display);
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-default);
+}
+
+.t-display-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--fg-default);
+  font-feature-settings: "calt" 0;
+}
+
+.t-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-default);
+}
+
+.t-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-default);
+}
+
+.t-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg-default);
+}
+
+.t-h4 {
+  font-family: var(--font-sans);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg-default);
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+  color: var(--fg-default);
+}
+
+.t-body-sm {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--fg-default);
+}
+
+.t-caption {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  color: var(--fg-muted);
+}
+
+.t-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-snug);
+  color: var(--fg-subtle);
+  letter-spacing: 0;
+  font-feature-settings: "calt" 0;
+}
+
+.t-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.t-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-feature-settings: "calt" 0;
+  color: var(--fg-default);
+}
+
+.t-code-inline {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0.08em 0.4em;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--fg-default);
+  font-feature-settings: "calt" 0;
+}
+
+.t-link {
+  color: var(--accent-link);
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in srgb, var(--accent-link) 50%, transparent);
+}
+.t-link:hover { border-bottom-style: solid; }
+
+/* Tabular numbers — for stats, tables, anything numeric.
+   JetBrains Mono is fixed-pitch; this only helps Inter. */
+.t-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Reset + base
+   ───────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-canvas);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent-primary) 35%, transparent);
+  color: var(--fg-default);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Texture utility classes
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Default canvas: graph-paper dots. Apply on body or page wrapper. */
+.has-texture-grid {
+  background-image: var(--texture-grid);
+  background-size: var(--texture-grid-size);
+  background-attachment: fixed;
+}
+
+/* Heavier feature-grid for empty states, hero backdrops, login walls */
+.has-texture-grid-lg {
+  background-image: var(--texture-grid-lg);
+  background-size: var(--texture-grid-lg-size);
+}
+
+/* SSE-live widget — slow scan sweep. Apply to a relative-positioned
+   widget body; emits a ::after layer above the content. */
+.is-live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--texture-scan);
+  background-size: 100% 6px;
+  pointer-events: none;
+  border-radius: inherit;
+  animation: aideck-scan-shift 12s linear infinite;
+  opacity: 0.45;
+  mix-blend-mode: lighten;
+}
+.is-live { position: relative; }
+
+@keyframes aideck-scan-shift {
+  from { background-position: 0 0; }
+  to   { background-position: 0 240px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Glass utility — chrome header, drawers, command palette, popovers.
+
+   The translucent dark-surface look is intentional and load-bearing:
+   it tells the user the chrome floats above content (the data is
+   what matters; chrome is utility). Always paired with backdrop-filter.
+   ───────────────────────────────────────────────────────────────────── */
+
+.glass {
+  background: var(--glass-medium);
+  -webkit-backdrop-filter: var(--glass-blur);
+          backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+.glass-thin {
+  background: var(--glass-thin);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+          backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+}
+.glass-thick {
+  background: var(--glass-thick);
+  -webkit-backdrop-filter: var(--glass-blur);
+          backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Skeleton shimmer — loading state for any widget body.
+   Apply `.skeleton` to a div sized to the placeholder shape.
+   ───────────────────────────────────────────────────────────────────── */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 100%);
+  animation: aideck-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes aideck-shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%);  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Reduced motion — silence all kinetic textures.
+   ───────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .is-live::after,
+  .skeleton::after { animation: none; }
+}
+
+</style>
+<style>
+/* ── aiDeck widget classes — inlined, offline ── */
+/* ─────────────────────────────────────────────────────────────────────
+   aiDeck v2.1 widget classes — lifted verbatim from the DS specimens
+   (preview/widget-*.html). Same class names + values the DS ships, so the
+   dashboard renders the canonical widgets, not a re-skin.
+   Foundations (tokens) come from colors_and_type.css; chrome/layout from kit.css.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* ── status chip (shared atom: stepper, status-list, record-switcher) ── */
+.sc { display:inline-flex; align-items:center; gap:5px; height:18px; padding:0 7px; border-radius:var(--radius-pill); font-family:var(--font-sans); font-size:10px; font-weight:500; border:1px solid transparent; white-space:nowrap; }
+.sc .d { width:5px; height:5px; border-radius:50%; flex:none; }
+.sc.s-active  { background:var(--status-info-bg);    border-color:var(--status-info-line);    color:var(--status-info); }
+.sc.s-warn    { background:var(--status-warning-bg); border-color:var(--status-warning-line); color:var(--status-warning); }
+.sc.s-error   { background:var(--status-error-bg);   border-color:var(--status-error-line);   color:var(--status-error); }
+.sc.s-done    { background:var(--status-success-bg); border-color:var(--status-success-line); color:var(--status-success); }
+.sc.s-pending { background:var(--status-neutral-bg); border-color:var(--status-neutral-line); color:var(--fg-muted); }
+.sc .d.t-active  { background:var(--status-info); }
+.sc .d.t-warn    { background:var(--status-warning); }
+.sc .d.t-error   { background:var(--status-error); }
+.sc .d.t-done    { background:var(--status-success); }
+.sc .d.t-pending { background:var(--status-neutral); }
+
+/* ── stepper · horizontal ───────────────────────────────────────────── */
+.hstep { display:flex; align-items:center; }
+.hpill { display:inline-flex; align-items:center; justify-content:center; height:22px; min-width:30px; padding:0 9px; border-radius:var(--radius-pill); font-family:var(--font-mono); font-size:11px; font-weight:500; font-feature-settings:'calt' 0; white-space:nowrap; flex:none; border:1px solid transparent; }
+.hpill.done   { background:color-mix(in srgb, var(--status-success) 24%, var(--bg-surface)); border-color:var(--status-success-line); color:var(--status-success); }
+.hpill.active { background:var(--status-info); color:var(--fg-on-accent); border-color:var(--status-info); }
+.hpill.warn   { background:var(--status-warning-bg); border-color:var(--status-warning-line); color:var(--status-warning); }
+.hpill.error  { background:var(--status-error-bg); border-color:var(--status-error-line); color:var(--status-error); }
+.hpill.future { background:transparent; border:1px dashed var(--border-bright); color:var(--fg-subtle); }
+.hpill.cur    { box-shadow:0 0 0 2px var(--bg-surface), 0 0 0 3px var(--status-info); }
+.hconn { height:2px; flex:1; min-width:10px; background:var(--border-default); border-radius:2px; }
+.hconn.done   { background:color-mix(in srgb, var(--status-success) 55%, var(--border-default)); }
+.hconn.future { background:transparent; border-top:2px dashed var(--border-default); height:0; }
+.hdense { display:flex; gap:3px; align-items:center; }
+.hdot { width:9px; height:9px; border-radius:2px; flex:none; }
+
+/* ── stepper · vertical (selectable + dependencies) ─────────────────── */
+.vstep { position:relative; padding-left:4px; }
+.vrow { position:relative; display:grid; grid-template-columns:26px 1fr auto; gap:10px; padding:8px 8px 8px 0; border-radius:var(--radius-md); cursor:pointer; transition:background var(--duration-fast) var(--ease-out); }
+.vrow:hover { background:var(--bg-elevated); }
+.vrow.sel { background:var(--bg-overlay); box-shadow:inset 2px 0 0 var(--status-info); }
+.vnode { position:relative; display:flex; justify-content:center; }
+.vnum { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10px; font-weight:600; border:1px solid var(--border-default); background:var(--bg-elevated); color:var(--fg-muted); font-feature-settings:'calt' 0; z-index:1; }
+.vnum.done   { background:color-mix(in srgb, var(--status-success) 24%, var(--bg-surface)); border-color:var(--status-success-line); color:var(--status-success); }
+.vnum.active { background:var(--status-info); border-color:var(--status-info); color:var(--fg-on-accent); }
+.vnum.warn   { background:var(--status-warning-bg); border-color:var(--status-warning-line); color:var(--status-warning); }
+.vnum.error  { background:var(--status-error-bg); border-color:var(--status-error-line); color:var(--status-error); }
+.vnum.cur    { box-shadow:0 0 0 2px var(--bg-surface), 0 0 0 3px var(--status-info); }
+.vline { position:absolute; left:50%; top:22px; bottom:-16px; width:1px; background:var(--border-default); transform:translateX(-0.5px); }
+.vrow:last-child .vline { display:none; }
+.vtitle { font-family:var(--font-sans); font-size:12px; color:var(--fg-default); font-weight:500; }
+.vdep { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; margin-top:2px; }
+.vdep b { color:var(--fg-muted); font-weight:500; }
+.vmetric { font-family:var(--font-mono); font-size:11px; color:var(--fg-muted); font-variant-numeric:tabular-nums; font-feature-settings:'calt' 0; align-self:center; }
+
+/* ── status-list (grouped) + checklist ──────────────────────────────── */
+.grp-head { display:flex; align-items:center; gap:8px; padding:7px 10px 5px; margin-top:2px; }
+.grp-head .gt { font-family:var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.grp-head .gc { font-family:var(--font-mono); font-size:10px; color:var(--fg-faint); font-feature-settings:'calt' 0; }
+.grp-head .gl { flex:1; height:1px; background:var(--border-subtle); }
+.sl-row { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; padding:5px 10px; }
+.sl-row + .sl-row { border-top:1px solid var(--border-subtle); }
+.sl-id { font-family:var(--font-mono); font-size:11px; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.sl-label { font-family:var(--font-sans); font-size:12px; color:var(--fg-default); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sl-anno { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; white-space:nowrap; }
+.sl-anno.warn { color:var(--status-warning); }
+.sl-anno.error { color:var(--status-error); }
+.ck-row { display:flex; align-items:center; gap:9px; padding:6px 10px; }
+.ck-row + .ck-row { border-top:1px solid var(--border-subtle); }
+.ck-mark { width:16px; height:16px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10px; font-weight:700; flex:none; font-feature-settings:'calt' 0; }
+.ck-mark.ok { background:var(--status-success-bg); border:1px solid var(--status-success-line); color:var(--status-success); }
+.ck-mark.no { background:var(--status-error-bg); border:1px solid var(--status-error-line); color:var(--status-error); }
+.ck-mark.idle { background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--fg-faint); }
+.ck-mark.warn { background:var(--status-warning-bg); border:1px solid var(--status-warning-line); color:var(--status-warning); }
+.ck-label { flex:1; font-family:var(--font-sans); font-size:12px; color:var(--fg-default); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ck-meta { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── callout (atom) ─────────────────────────────────────────────────── */
+.callout { border-radius:0 6px 6px 0; padding:9px 12px; }
+.callout .eyebrow { font-family:var(--font-sans); font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:3px; }
+.callout .body { font-family:var(--font-sans); font-size:12px; color:var(--fg-default); line-height:1.45; }
+.co-info    { border-left:2px solid var(--status-info);    background:color-mix(in srgb, var(--status-info) 8%, var(--bg-surface)); }
+.co-info .eyebrow { color:var(--status-info); }
+.co-warn    { border-left:2px solid var(--status-warning); background:color-mix(in srgb, var(--status-warning) 8%, var(--bg-surface)); }
+.co-warn .eyebrow { color:var(--status-warning); }
+.co-error   { border-left:2px solid var(--status-error);   background:color-mix(in srgb, var(--status-error) 8%, var(--bg-surface)); }
+.co-error .eyebrow { color:var(--status-error); }
+.co-success { border-left:2px solid var(--status-success); background:color-mix(in srgb, var(--status-success) 8%, var(--bg-surface)); }
+.co-success .eyebrow { color:var(--status-success); }
+
+/* ── collection-grid + record-card preset ───────────────────────────── */
+.cgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; align-items:start; }
+.rcard { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-lg); box-shadow:var(--shadow-ambient); overflow:hidden; display:flex; flex-direction:column; }
+.rcard.attn { border-color:var(--status-error-line); box-shadow:0 0 0 1px color-mix(in srgb, var(--status-error) 18%, transparent), var(--shadow-ambient); }
+.rc-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:9px 12px; border-bottom:1px solid var(--border-subtle); }
+.rc-titlewrap { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.rc-title { font-family:var(--font-sans); font-size:13px; font-weight:600; color:var(--fg-default); letter-spacing:-0.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rc-title a, .rc-title .lnk { color:var(--accent-link); text-decoration:none; cursor:pointer; }
+.rc-title .lnk:hover { text-decoration:underline; text-underline-offset:3px; }
+.rc-sub { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rc-body { padding:11px 12px; display:flex; flex-direction:column; gap:11px; }
+.badge { font-family:var(--font-mono); font-size:9px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-muted); background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:var(--radius-sm); padding:2px 6px; font-feature-settings:'calt' 0; white-space:nowrap; flex:none; }
+.pr-top { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px; }
+.pr-label { font-family:var(--font-mono); font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.pr-val { font-family:var(--font-mono); font-size:10px; color:var(--fg-muted); font-variant-numeric:tabular-nums; font-feature-settings:'calt' 0; }
+.pr-track { height:5px; border-radius:3px; background:var(--bg-sunken); overflow:hidden; }
+.pr-fill { height:100%; border-radius:3px; }
+.stat-row { display:flex; gap:14px; }
+.stat-cell .sv { font-family:var(--font-mono); font-size:16px; font-weight:600; color:var(--fg-default); font-variant-numeric:tabular-nums; line-height:1; font-feature-settings:'calt' 0; }
+.stat-cell .sl { font-family:var(--font-mono); font-size:9px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-subtle); margin-top:3px; font-feature-settings:'calt' 0; }
+.nested { display:flex; flex-direction:column; gap:0; border:1px solid var(--border-subtle); border-radius:var(--radius-sm); overflow:hidden; }
+.nrow { display:flex; align-items:center; gap:7px; padding:5px 8px; cursor:pointer; }
+.nrow + .nrow { border-top:1px solid var(--border-subtle); }
+.nrow:hover { background:var(--bg-elevated); }
+.ndot { width:6px; height:6px; border-radius:50%; flex:none; }
+.ntitle { flex:1; font-family:var(--font-sans); font-size:11px; color:var(--fg-default); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ncode { font-family:var(--font-mono); font-size:9px; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.rc-foot { display:flex; align-items:center; justify-content:space-between; padding:7px 12px; border-top:1px solid var(--border-subtle); background:var(--bg-canvas); }
+.rc-foot .ts { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.lh-live { display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:9px; color:var(--status-success); font-feature-settings:'calt' 0; letter-spacing:0.04em; text-transform:uppercase; }
+.lh-live i { width:5px; height:5px; border-radius:50%; background:var(--status-success); box-shadow:0 0 6px color-mix(in srgb, var(--status-success) 80%, transparent); }
+
+/* ── record-switcher ────────────────────────────────────────────────── */
+.pg-switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; padding:3px 8px 3px 4px; margin-left:-4px; border-radius:var(--radius-md); transition:background var(--duration-fast) var(--ease-out); background:transparent; border:none; }
+.pg-switch:hover { background:var(--bg-elevated); }
+.pg-switch h1 { margin:0; font-family:var(--font-sans); font-size:24px; font-weight:600; color:var(--fg-default); letter-spacing:-0.02em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:560px; }
+.pg-switch .caret { font-family:var(--font-mono); font-size:14px; color:var(--fg-subtle); flex:none; }
+.dd { position:absolute; left:0; top:calc(100% + 8px); z-index:60; width:420px; max-height:60vh; overflow-y:auto; background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:var(--radius-lg); box-shadow:var(--shadow-xl); padding:5px; }
+.dd-eyebrow { font-family:var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-subtle); padding:7px 10px 5px; font-feature-settings:'calt' 0; }
+.dd-row { display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center; padding:7px 9px; border-radius:var(--radius-md); cursor:pointer; }
+.dd-row:hover { background:var(--bg-overlay); }
+.dd-row.cur { background:color-mix(in srgb, var(--status-info) 10%, var(--bg-elevated)); }
+.dd-name { font-family:var(--font-sans); font-size:13px; color:var(--fg-default); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dd-cap { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); margin-top:1px; font-feature-settings:'calt' 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dd-check { font-family:var(--font-mono); color:var(--status-info); font-size:12px; opacity:0; }
+.dd-row.cur .dd-check { opacity:1; }
+
+/* ── headline-banner + lanes ────────────────────────────────────────── */
+.hb { display:flex; align-items:stretch; justify-content:space-between; gap:14px; border-radius:var(--radius-lg); border:1px solid var(--border-default); background:var(--bg-surface); box-shadow:var(--shadow-ambient); padding:14px 16px; }
+.hb.tone-info    { border-color:var(--status-info-line); }
+.hb.tone-success { border-color:var(--status-success-line); }
+.hb.tone-neutral { border-color:var(--border-default); }
+.hb-num { font-family:var(--font-mono); font-size:40px; font-weight:600; line-height:1; letter-spacing:-0.03em; color:var(--fg-default); font-variant-numeric:tabular-nums; font-feature-settings:'calt' 0; }
+.hb-num.info    { color:var(--status-info); }
+.hb-num.success { color:var(--status-success); }
+.hb-num.neutral { color:var(--fg-muted); }
+.hb-title { font-family:var(--font-sans); font-size:14px; font-weight:600; color:var(--fg-default); margin-top:8px; letter-spacing:-0.01em; }
+.hb-sub { font-family:var(--font-mono); font-size:11px; color:var(--fg-subtle); margin-top:3px; font-feature-settings:'calt' 0; }
+.lanes { display:flex; align-items:flex-end; gap:3px; }
+.lane { width:6px; border-radius:2px 2px 0 0; height:46px; }
+.lane.active { opacity:1; }
+.lane.idle { opacity:0.28; }
+
+/* ── labeled progress (enhanced) ────────────────────────────────────── */
+.pblock { display:flex; flex-direction:column; }
+.pb-top { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; }
+.pb-label { font-family:var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted); font-feature-settings:'calt' 0; }
+.pb-val { font-family:var(--font-mono); font-size:11px; color:var(--fg-default); font-variant-numeric:tabular-nums; font-feature-settings:'calt' 0; }
+.pb-track { height:6px; border-radius:3px; background:var(--bg-sunken); overflow:hidden; }
+.pb-fill { height:100%; border-radius:3px; }
+.pb-cap { font-family:var(--font-sans); font-size:11px; color:var(--fg-subtle); margin-top:5px; }
+
+/* ── catalog (master-detail) ────────────────────────────────────────── */
+.cat { border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--bg-surface); box-shadow:var(--shadow-ambient); overflow:hidden; display:flex; flex-direction:column; height:70vh; }
+.cat-tools { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--border-subtle); }
+.cat-search { display:flex; align-items:center; gap:7px; flex:none; width:240px; height:30px; padding:0 11px; background:var(--bg-sunken); border:1px solid var(--border-default); border-radius:var(--radius-md); }
+.cat-search span { font-family:var(--font-mono); color:var(--fg-subtle); font-size:13px; }
+.cat-search input { flex:1; min-width:0; background:none; border:none; outline:none; color:var(--fg-default); font-family:var(--font-sans); font-size:13px; }
+.facets { display:flex; gap:6px; flex-wrap:wrap; }
+.facet { font-family:var(--font-sans); font-size:11px; color:var(--fg-muted); background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:var(--radius-pill); padding:3px 10px; cursor:pointer; user-select:none; transition:all var(--duration-fast) var(--ease-out); }
+.facet:hover { border-color:var(--border-bright); }
+.facet.on { background:var(--status-info-bg); border-color:var(--status-info-line); color:var(--status-info); }
+.cat-body { display:grid; grid-template-columns:280px 1fr; flex:1; min-height:0; }
+.master { border-right:1px solid var(--border-subtle); overflow-y:auto; padding:5px; }
+.m-row { display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center; padding:8px 9px; border-radius:var(--radius-md); cursor:pointer; }
+.m-row:hover { background:var(--bg-elevated); }
+.m-row.sel { background:var(--bg-overlay); box-shadow:inset 2px 0 0 var(--status-info); }
+.m-ico { font-size:15px; width:18px; text-align:center; }
+.m-name { font-family:var(--font-sans); font-size:13px; color:var(--fg-default); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.m-one { font-family:var(--font-sans); font-size:10px; color:var(--fg-subtle); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.m-badge { font-family:var(--font-mono); font-size:9px; color:var(--chart-5); background:color-mix(in srgb, var(--chart-5) 16%, var(--bg-surface)); border:1px solid color-mix(in srgb, var(--chart-5) 42%, var(--border-default)); border-radius:var(--radius-sm); padding:1px 6px; font-feature-settings:'calt' 0; white-space:nowrap; }
+.m-empty { padding:24px 12px; text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.detail { overflow-y:auto; padding:16px 18px; }
+.d-head { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+.d-ico { font-size:19px; }
+.d-title { font-family:var(--font-sans); font-size:18px; font-weight:600; color:var(--fg-default); letter-spacing:-0.015em; }
+.d-id { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); margin-left:auto; font-feature-settings:'calt' 0; }
+.sec { margin-top:16px; }
+.sec-h { font-family:var(--font-mono); font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--fg-subtle); margin-bottom:7px; font-feature-settings:'calt' 0; }
+.d-summary { font-family:var(--font-sans); font-size:12px; color:var(--fg-default); line-height:1.55; }
+.code { font-family:var(--font-mono); font-size:11px; color:var(--status-info); background:var(--bg-sunken); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:7px 10px; font-feature-settings:'calt' 0; white-space:pre; overflow-x:auto; }
+.code + .code { margin-top:6px; }
+.code .pfx { color:var(--fg-subtle); }
+.pc { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.pc-li { display:flex; gap:7px; font-family:var(--font-sans); font-size:11px; color:var(--fg-muted); padding:2px 0; line-height:1.45; }
+.pc-li .mk { font-family:var(--font-mono); font-weight:700; flex:none; }
+.pc-li.pro .mk { color:var(--status-success); }
+.pc-li.con .mk { color:var(--status-error); }
+.sub-grp { font-family:var(--font-mono); font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-subtle); margin:8px 0 4px; font-feature-settings:'calt' 0; }
+.sub-row { display:flex; flex-direction:column; gap:2px; padding:6px 0; border-top:1px solid var(--border-subtle); }
+.sub-row .sig { display:flex; align-items:baseline; gap:8px; }
+.sub-name { font-family:var(--font-mono); font-size:12px; font-weight:600; color:var(--fg-default); flex:none; font-feature-settings:'calt' 0; }
+.sub-args { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+.sub-desc { font-family:var(--font-sans); font-size:11px; color:var(--fg-muted); line-height:1.45; }
+table.ft { width:100%; border-collapse:collapse; font-size:11px; }
+table.ft th { text-align:left; font-family:var(--font-mono); font-size:9px; letter-spacing:0.05em; text-transform:uppercase; color:var(--fg-subtle); padding:4px 8px; border-bottom:1px solid var(--border-subtle); font-weight:500; font-feature-settings:'calt' 0; }
+table.ft td { padding:5px 8px; border-bottom:1px solid var(--border-subtle); color:var(--fg-default); font-family:var(--font-sans); }
+table.ft td.mono { font-family:var(--font-mono); color:var(--fg-muted); font-feature-settings:'calt' 0; }
+.chips { display:flex; gap:6px; flex-wrap:wrap; }
+.chip-mono { font-family:var(--font-mono); font-size:10px; color:var(--fg-muted); background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:var(--radius-sm); padding:2px 7px; font-feature-settings:'calt' 0; }
+.chip-ref { font-family:var(--font-mono); font-size:10px; color:var(--accent-link); background:color-mix(in srgb, var(--status-info) 8%, var(--bg-elevated)); border:1px solid var(--status-info-line); border-radius:var(--radius-sm); padding:2px 7px; cursor:pointer; font-feature-settings:'calt' 0; }
+.chip-ref:hover { background:var(--status-info-bg); }
+
+</style>
+<style>
     html { scroll-behavior: smooth; scroll-padding-top: 24px; }
     .gp-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
     .gp-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
@@ -23,8 +762,10 @@
     .mstate:hover { filter:brightness(1.12); }
     .facet { white-space:nowrap; }
   </style>
-</helmet>
-
+</head>
+<body>
+<div id="dc-root"></div>
+<template id="dc-tpl">
 <div class="has-texture-grid" style="min-height:100vh;display:flex;align-items:flex-start;gap:0">
 
   <!-- ── side nav ─────────────────────────────────────────────── -->
@@ -483,8 +1224,102 @@
 
   </main>
 </div>
-</x-dc>
-<script type="text/x-dc" data-dc-script>
+</template>
+<script>
+
+/* ── minimal offline DC runtime — no React, no Babel, no network ──
+   Runs the component class natively; evaluates {{expr}} with new Function;
+   expands <sc-for>/<sc-if>; wires on* handlers; re-renders on setState.
+   cloneNode preserves SVG namespace, so the state-machine diagram renders
+   and no raw {{ }} ever reaches the live parser. */
+class DCLogic {
+  setState(patch){ Object.assign(this.state, patch); schedule(); }
+}
+let instance = null, root = null, tpl = null, pending = false;
+function evalExpr(expr, scope){
+  try { return (new Function('$s', 'with($s){ return (' + expr + ') }'))(scope); }
+  catch (e) { return undefined; }
+}
+function interp(str, scope){
+  return str.replace(/\{\{([\s\S]*?)\}\}/g, (_, e) => {
+    const v = evalExpr(e.trim(), scope); return v == null ? '' : String(v);
+  });
+}
+function attrExpr(node, name){
+  const v = node.getAttribute(name) || '';
+  return v.replace(/^\{\{|\}\}$/g, '').trim();
+}
+function processNodes(nodes, scope, out){
+  for (let i = 0; i < nodes.length; i++) processNode(nodes[i], scope, out);
+}
+function processNode(node, scope, out){
+  if (node.nodeType === 3){
+    const t = node.nodeValue;
+    out.appendChild(document.createTextNode(t.indexOf('{{') >= 0 ? interp(t, scope) : t));
+    return;
+  }
+  if (node.nodeType !== 1){ out.appendChild(node.cloneNode(true)); return; }
+  const ln = node.localName;
+  if (ln === 'sc-for'){
+    const arr = evalExpr(attrExpr(node, 'list'), scope) || [];
+    const as = node.getAttribute('as') || 'item';
+    for (let k = 0; k < arr.length; k++){
+      const child = Object.create(scope); child[as] = arr[k]; child.$index = k;
+      processNodes(node.childNodes, child, out);
+    }
+    return;
+  }
+  if (ln === 'sc-if'){
+    if (evalExpr(attrExpr(node, 'value'), scope)) processNodes(node.childNodes, scope, out);
+    return;
+  }
+  const el = node.cloneNode(false);
+  const attrs = Array.prototype.slice.call(el.attributes || []);
+  for (const at of attrs){
+    const name = at.name, val = at.value;
+    if (name.indexOf('hint-') === 0){ el.removeAttribute(name); continue; }
+    if (/^on/i.test(name) && val.indexOf('{{') >= 0){
+      el.removeAttribute(name);
+      const fn = evalExpr(val.replace(/^\{\{|\}\}$/g, '').trim(), scope);
+      if (typeof fn === 'function') el.addEventListener(name.slice(2).toLowerCase(), fn);
+      continue;
+    }
+    if (val.indexOf('{{') >= 0) el.setAttribute(name, interp(val, scope));
+  }
+  if (el.localName === 'input'){
+    const vexpr = node.getAttribute('value');
+    if (vexpr && vexpr.indexOf('{{') >= 0) el.value = interp(vexpr, scope);
+  }
+  processNodes(node.childNodes, scope, el);
+  out.appendChild(el);
+}
+function render(){
+  const scope = instance.renderVals();
+  const active = document.activeElement;
+  const wasInput = !!(active && active.localName === 'input' && root.contains(active));
+  const caret = wasInput && 'selectionStart' in active ? active.selectionStart : null;
+  const frag = document.createDocumentFragment();
+  processNodes(tpl.content.childNodes, scope, frag);
+  root.textContent = '';
+  root.appendChild(frag);
+  if (wasInput){
+    const el = root.querySelector('input');
+    if (el){ el.focus(); if (caret != null){ try { el.setSelectionRange(caret, caret); } catch (e) {} } }
+  }
+}
+function schedule(){
+  if (pending) return; pending = true;
+  requestAnimationFrame(() => { pending = false; render(); });
+}
+function boot(){
+  root = document.getElementById('dc-root');
+  tpl = document.getElementById('dc-tpl');
+  instance = new Component();
+  render();
+  if (instance.componentDidMount) instance.componentDidMount();
+}
+
+
 class Component extends DCLogic {
   state = { stage: 'IDEIA', machine: 'task', sel: 'active', q: '', grp: 'all', diagScale: 1 };
 
@@ -838,6 +1673,11 @@ class Component extends DCLogic {
     };
   }
 }
+
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+
 </script>
 </body>
 </html>
