@@ -60,8 +60,8 @@ phases:
             runner: node --test
             pattern: tests/compatibility.test.js
         - id: G-3
-          description: uma linha da dispatch table (âncora `|`) casa `help` E resolve
-            para project-help.md
+          description: uma linha da dispatch table (âncora `|`) casa `help` E resolve para
+            project-help.md
           status: pending
           verifier:
             kind: shell
@@ -77,8 +77,8 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: "awk '/name: help/{f=1} f&&/signature:/{print;exit}'
-              meta/catalog.yaml | grep -q -- --html"
+            command: "awk '/name: help/{f=1} f&&/signature:/{print;exit}' meta/catalog.yaml
+              | grep -q -- --html"
     status: active
     businessIntent:
       value: Estabelece o contrato do comando `help` (router + asset + catálogo) para
@@ -139,8 +139,8 @@ phases:
             runner: node --test
             pattern: tests/help/html-resolve.test.js
         - id: G-3
-          description: eyeball num projeto real registrado como evidência (com
-            campos suficientes p/ auditar depois)
+          description: eyeball num projeto real registrado como evidência (com campos
+            suficientes p/ auditar depois)
           status: pending
           verifier:
             kind: manual
@@ -177,6 +177,8 @@ phases:
             pattern: tests/help/help-vocab.test.js
     status: pending
 references: []
+planActive: true
+planTitle: Comando `help` — GPS de terminal da skill `project`
 ---
 
 # Comando `help` — GPS de terminal da skill `project`
