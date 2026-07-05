@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "adopt",
+  "slug": "help-command",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/_drafts/help-command-source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/help-command/plan.md",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f0-contrato-esqueleto.md",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f1-o-mapa-estado-proximo-passo-como-helper.source.json",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f2-rendering-do-bloco-de-ensino.source.json",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/help-command/plan.md",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f0-contrato-esqueleto.md",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f1-o-mapa-estado-proximo-passo-como-helper.source.json",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f2-rendering-do-bloco-de-ensino.source.json",
+    ".atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-05T11:46:18Z"
+}

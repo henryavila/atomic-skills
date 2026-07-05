@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-02T17:51:15.099Z
+lastUpdated: 2026-07-05T11:36:53Z
 schemaVersion: "0.1"
-activePlans: 0
-activeInitiatives: 0
+activePlans: 1
+activeInitiatives: 1
 archivedCount: 15
 ---
 
@@ -18,7 +18,14 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-_(none)_
+| Slug | Status | Current Phase | Branch | Started | Phases |
+|------|--------|---------------|--------|---------|--------|
+| help-command | active | F0 | develop | 2026-07-05 | 0/4 |
+
+### help-command
+| Initiative | Phase | Status | Tasks |
+|------------|-------|--------|-------|
+| f0-contrato-esqueleto | F0 | active | 0/3 |
 
 ## Done Plans (not archived)
 
