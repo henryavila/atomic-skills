@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/aideck-ds-9ef1e68c-ed08-408f-bfcc-30062532851a/colors_and_type.css">
+  <link rel="stylesheet" href="aideck-widgets.css">
+  <style>
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    .gp-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+    .gp-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+    .gp-scroll::-webkit-scrollbar-track { background: transparent; }
+    .navlink { display:flex; align-items:baseline; gap:9px; padding:7px 10px; border-radius:6px; text-decoration:none; color:var(--fg-muted); transition:background 120ms var(--ease-out), color 120ms var(--ease-out); border-left:2px solid transparent; }
+    .navlink:hover { background:var(--bg-elevated); color:var(--fg-default); }
+    .navlink .nn { font-family:var(--font-mono); font-size:10px; color:var(--fg-subtle); font-feature-settings:'calt' 0; }
+    .cmd-card { transition:border-color 120ms var(--ease-out), background 120ms var(--ease-out); }
+    .cmd-card:hover { border-color:var(--border-bright); background:var(--bg-elevated); }
+    .mstate:hover { filter:brightness(1.12); }
+    .facet { white-space:nowrap; }
+  </style>
+</helmet>
+
+<div class="has-texture-grid" style="min-height:100vh;display:flex;align-items:flex-start;gap:0">
+
+  <!-- ── side nav ─────────────────────────────────────────────── -->
+  <aside class="gp-scroll" style="position:sticky;top:0;flex:none;width:236px;height:100vh;overflow-y:auto;padding:22px 16px;border-right:1px solid var(--border-subtle);background:color-mix(in srgb, var(--bg-canvas) 82%, transparent);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:4px">
+    <div style="display:flex;align-items:center;gap:8px;padding:2px 10px 14px">
+      <span style="width:15px;height:15px;border-radius:4px;background:var(--status-info);box-shadow:0 0 10px -1px var(--status-info)"></span>
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--fg-default);font-feature-settings:'calt' 0">atomic-skills<span style="color:var(--fg-subtle)">:</span>project</span>
+    </div>
+    <div class="t-eyebrow" style="padding:4px 10px 6px;color:var(--fg-subtle)">a constituição</div>
+    <a class="navlink" href="#topo"><span class="nn">00</span><span>Modelo mental</span></a>
+    <a class="navlink" href="#fluxo"><span class="nn">01</span><span>Fluxo de vida</span></a>
+    <a class="navlink" href="#estados"><span class="nn">02</span><span>Máquinas de estado</span></a>
+    <a class="navlink" href="#regras"><span class="nn">03</span><span>Pode / Não pode</span></a>
+    <a class="navlink" href="#comandos"><span class="nn">04</span><span>Comandos</span></a>
+    <a class="navlink" href="#skills"><span class="nn">05</span><span>Skills conectadas</span></a>
+    <a class="navlink" href="#perdido"><span class="nn">06</span><span>Estou perdido</span></a>
+    <span style="flex:1"></span>
+    <div style="margin-top:18px;padding:9px 10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-surface)">
+      <div style="display:flex;align-items:center;gap:7px"><i style="width:6px;height:6px;border-radius:50%;background:var(--status-success);box-shadow:0 0 6px var(--status-success);flex:none"></i><span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-muted);font-feature-settings:'calt' 0">127.0.0.1</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--fg-subtle);font-feature-settings:'calt' 0">só leitura</span></div>
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--fg-faint);margin-top:7px;line-height:1.7;font-feature-settings:'calt' 0">estado canônico:<br>~/.atomic-skills/</div>
+    </div>
+  </aside>
+
+  <!-- ── content ──────────────────────────────────────────────── -->
+  <main style="flex:1;min-width:0;max-width:1160px;margin:0 auto;padding:0 clamp(24px,4vw,64px) 96px">
+
+    <!-- HERO -->
+    <section id="topo" style="padding:76px 0 8px">
+      <div style="display:grid;grid-template-columns:1.15fr 0.85fr;gap:48px;align-items:center">
+        <div>
+          <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid var(--status-error-line);background:var(--status-error-bg);border-radius:999px;margin-bottom:22px;white-space:nowrap">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--status-error);font-feature-settings:'calt' 0;white-space:nowrap">IRON LAW</span>
+          </div>
+          <h1 style="font-family:var(--font-sans);font-size:clamp(30px,3.6vw,46px);font-weight:700;line-height:1.05;letter-spacing:-0.03em;margin:0;color:var(--fg-default);text-wrap:balance">
+            Nenhuma implementação<br>sem <span style="color:var(--status-info)">initiative ancorada</span>.
+          </h1>
+          <p style="font-family:var(--font-sans);font-size:16px;line-height:1.6;color:var(--fg-muted);max-width:52ch;margin:22px 0 0;text-wrap:pretty">
+            A skill <span class="t-code-inline">project</span> rastreia trabalho multi-dia como uma máquina de estados sob contrato de gates. Esta página é a <b style="color:var(--fg-default);font-weight:600">constituição</b> — o modelo mental estável, não o estado vivo. Entenda a máquina antes de tocar em qualquer comando.
+          </p>
+          <div style="display:flex;gap:8px;margin-top:26px;flex-wrap:wrap">
+            <a href="#fluxo" style="text-decoration:none"><span class="sc s-active" style="height:26px;padding:0 12px;font-size:11px;cursor:pointer"><span class="d t-active"></span>ver o fluxo de vida →</span></a>
+            <a href="#regras" style="text-decoration:none"><span class="sc s-error" style="height:26px;padding:0 12px;font-size:11px;cursor:pointer"><span class="d t-error"></span>o que NÃO pode</span></a>
+          </div>
+        </div>
+        <!-- nested containment glyph -->
+        <div style="border:1px solid var(--border-default);border-radius:12px;background:linear-gradient(180deg, var(--bg-surface), var(--bg-canvas));box-shadow:var(--shadow-md);padding:20px">
+          <div class="t-eyebrow" style="margin-bottom:14px">o aninhamento · em 30s</div>
+          <div style="border:1px solid var(--chart-1);border-radius:10px;padding:12px;background:color-mix(in srgb, var(--chart-1) 7%, transparent)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <span style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--chart-1);font-feature-settings:'calt' 0">PLANO</span>
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--fg-subtle);font-feature-settings:'calt' 0">plan/&lt;slug&gt;</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="border:1px solid var(--chart-3);border-radius:8px;padding:9px 10px;background:color-mix(in srgb, var(--chart-3) 8%, transparent)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--chart-3);font-feature-settings:'calt' 0">FASE · F1</span>
+                  <span style="font-family:var(--font-mono);font-size:9px;color:var(--fg-subtle);font-feature-settings:'calt' 0">initiative · exit-gate</span>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <span style="font-family:var(--font-mono);font-size:9px;color:var(--status-info);background:var(--bg-sunken);border:1px solid var(--border-default);border-radius:4px;padding:2px 7px;font-feature-settings:'calt' 0">T-001</span>
+                  <span style="font-family:var(--font-mono);font-size:9px;color:var(--status-info);background:var(--bg-sunken);border:1px solid var(--border-default);border-radius:4px;padding:2px 7px;font-feature-settings:'calt' 0">T-002</span>
+                  <span style="font-family:var(--font-mono);font-size:9px;color:var(--fg-subtle);background:var(--bg-sunken);border:1px solid var(--border-default);border-radius:4px;padding:2px 7px;font-feature-settings:'calt' 0">T-003</span>
+                </div>
+              </div>
+              <div style="border:1px dashed var(--border-bright);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between">
+                <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--fg-subtle);font-feature-settings:'calt' 0">FASE · F2</span>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--fg-faint);font-feature-settings:'calt' 0">descriptor-only</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-family:var(--font-mono);font-size:10px;color:var(--fg-subtle);font-feature-settings:'calt' 0">
+            <span style="color:var(--chart-1)">Plano</span> ⊃ <span style="color:var(--chart-3)">Fases</span> ⊃ <span style="color:var(--status-info)">Tasks</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODELO MENTAL -->
+    <section id="modelo" style="padding:52px 0 8px">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px">
+        <span class="t-eyebrow" style="color:var(--status-info)">00 · entidades</span>
+      </div>
+      <h2 class="t-h2" style="margin:0 0 4px">As peças que a skill rastreia</h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 24px;max-width:70ch">Uma hierarquia de 3 níveis, mais um inbox e frames laterais. O estado canônico vive em <span class="t-code-inline">.atomic-skills/</span> — versionado em git, <b style="color:var(--fg-default);font-weight:600">nunca editado à mão</b>.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <sc-for list="{{ entities }}" as="e" hint-placeholder-count="6">
+          <div style="border:1px solid var(--border-default);border-left:2px solid {{ e.accent }};border-radius:8px;background:var(--bg-surface);box-shadow:var(--shadow-ambient);padding:13px 14px;display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <span style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--fg-default)">{{ e.name }}</span>
+              <span style="font-family:var(--font-mono);font-size:9px;color:{{ e.accent }};font-feature-settings:'calt' 0">{{ e.tag }}</span>
+            </div>
+            <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--fg-muted);margin:0">{{ e.what }}</p>
+            <div style="font-family:var(--font-mono);font-size:9.5px;color:var(--fg-subtle);font-feature-settings:'calt' 0;border-top:1px solid var(--border-subtle);padding-top:7px">{{ e.nest }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <h3 class="t-h4" style="margin:34px 0 4px">Três conceitos que decidem tudo</h3>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 18px">Sem eles, o resto do sistema não faz sentido.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <sc-for list="{{ concepts }}" as="c" hint-placeholder-count="3">
+          <div style="border:1px solid var(--border-default);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column">
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:9px">
+              <span style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:600;background:color-mix(in srgb, {{ c.accent }} 16%, var(--bg-surface));border:1px solid {{ c.accent }};color:{{ c.accent }};font-feature-settings:'calt' 0">{{ c.num }}</span>
+              <span style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--fg-default)">{{ c.title }}</span>
+            </div>
+            <div style="padding:13px 14px;display:flex;flex-direction:column;gap:10px;flex:1">
+              <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.55;color:var(--fg-muted);margin:0">{{ c.body }}</p>
+              <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="2">
+                  <div style="display:flex;gap:8px;align-items:flex-start">
+                    <span style="font-family:var(--font-mono);font-size:9.5px;color:{{ r.color }};background:var(--bg-sunken);border:1px solid var(--border-subtle);border-radius:4px;padding:2px 6px;white-space:nowrap;font-feature-settings:'calt' 0;flex:none">{{ r.key }}</span>
+                    <span style="font-family:var(--font-sans);font-size:11px;color:var(--fg-muted);line-height:1.45">{{ r.val }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- FLUXO DE VIDA -->
+    <section id="fluxo" style="padding:56px 0 8px;border-top:1px solid var(--border-subtle);margin-top:44px">
+      <span class="t-eyebrow" style="color:var(--status-info)">01 · a espinha</span>
+      <h2 class="t-h2" style="margin:6px 0 4px">Da ideia ao arquivamento</h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 22px;max-width:74ch">Cada seta é gateada: <b style="color:var(--fg-default);font-weight:600">não se avança de um estágio com uma pergunta em aberto.</b> Clique num estágio para ver o que ele faz, qual gate o fecha e o que produz.</p>
+
+      <div class="gp-scroll" style="overflow-x:auto;padding:6px 2px 14px">
+        <div style="display:flex;align-items:stretch;min-width:min-content;height:96px">
+          <sc-for list="{{ spine }}" as="s" hint-placeholder-count="10">
+            <sc-if value="{{ s.notFirst }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:none;width:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding-top:2px">
+                <span style="font-family:var(--font-mono);font-size:15px;color:{{ s.gateArrowColor }};line-height:1">→</span>
+                <sc-if value="{{ s.hasGate }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-family:var(--font-mono);font-size:8.5px;color:var(--status-warning);border:1px solid var(--status-warning-line);background:var(--status-warning-bg);border-radius:4px;padding:2px 5px;text-align:center;line-height:1.2;white-space:nowrap;font-feature-settings:'calt' 0">{{ s.gate }}</span>
+                </sc-if>
+              </div>
+            </sc-if>
+            <div style="flex:none;display:flex;align-items:center">
+              <div onClick="{{ s.onClick }}" style="{{ s.boxStyle }}">
+                <span style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.02em;color:{{ s.labelColor }};font-feature-settings:'calt' 0">{{ s.label }}</span>
+                <span style="font-family:var(--font-mono);font-size:8px;color:var(--fg-subtle);font-feature-settings:'calt' 0">{{ s.tier }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- selected stage detail -->
+      <div style="margin-top:14px;border:1px solid var(--status-info-line);border-radius:12px;background:var(--bg-surface);box-shadow:var(--shadow-md);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-subtle);background:color-mix(in srgb, var(--status-info) 6%, var(--bg-surface))">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--fg-on-accent);background:var(--status-info);border-radius:6px;padding:4px 10px;font-weight:600;font-feature-settings:'calt' 0;white-space:nowrap;flex:none">{{ stage.step }}</span>
+          <span style="font-family:var(--font-sans);font-size:18px;font-weight:700;letter-spacing:-0.01em;color:var(--fg-default)">{{ stage.label }}</span>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-subtle);font-feature-settings:'calt' 0">{{ stage.tier }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:0">
+          <div style="padding:16px 18px;border-right:1px solid var(--border-subtle)">
+            <div class="sec-h" style="margin-bottom:8px">o que acontece</div>
+            <p style="font-family:var(--font-sans);font-size:13px;line-height:1.6;color:var(--fg-default);margin:0">{{ stage.what }}</p>
+            <div class="sec-h" style="margin:16px 0 7px">comandos</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ stage.cmds }}" as="c" hint-placeholder-count="1">
+                <div class="code"><span class="pfx">/atomic-skills:project </span>{{ c }}</div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+            <sc-if value="{{ stage.hasGate }}" hint-placeholder-val="{{ true }}">
+              <div class="callout co-warn">
+                <div class="eyebrow">gate que fecha a seta</div>
+                <div class="body">{{ stage.gateFull }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ stage.hasProduces }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div class="sec-h" style="margin-bottom:6px">produz</div>
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--status-success);background:var(--status-success-bg);border:1px solid var(--status-success-line);border-radius:6px;padding:4px 9px;display:inline-block;font-feature-settings:'calt' 0">{{ stage.produces }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ stage.hasDelegates }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div class="sec-h" style="margin-bottom:6px">delega para</div>
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--chart-5);background:color-mix(in srgb, var(--chart-5) 12%, var(--bg-surface));border:1px solid color-mix(in srgb, var(--chart-5) 42%, var(--border-default));border-radius:6px;padding:4px 9px;display:inline-block;font-feature-settings:'calt' 0">↳ {{ stage.delegates }}</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <!-- two supporting diagrams -->
+      <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-top:24px">
+        <div style="border:1px solid var(--border-default);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-ambient);padding:16px 18px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+            <h4 class="t-h4" style="margin:0">Criar um plano · <span class="t-code" style="font-size:13px">new plan</span></h4>
+            <span class="t-meta">9 estágios · cada um gateia o próximo</span>
+          </div>
+          <p class="t-body-sm" style="color:var(--fg-subtle);margin:0 0 14px;font-size:11.5px">O bootstrap real, em ordem.</p>
+          <div class="vstep">
+            <sc-for list="{{ steps }}" as="st" hint-placeholder-count="9">
+              <div class="vrow" style="cursor:default;grid-template-columns:26px 1fr auto">
+                <div class="vnode"><span class="vnum {{ st.numCls }}">{{ st.n }}</span><span class="vline"></span></div>
+                <div style="min-width:0">
+                  <div class="vtitle">{{ st.title }}</div>
+                  <div class="vdep">{{ st.note }}</div>
+                </div>
+                <sc-if value="{{ st.hasGate }}" hint-placeholder-val="{{ false }}">
+                  <span class="sc {{ st.gateCls }}" style="align-self:center"><span class="d {{ st.gateDot }}"></span>{{ st.gate }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="border:1px solid var(--border-default);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-ambient);padding:16px 18px;display:flex;flex-direction:column">
+          <h4 class="t-h4" style="margin:0 0 4px">O loop de execução</h4>
+          <p class="t-body-sm" style="color:var(--fg-subtle);margin:0 0 16px;font-size:11.5px">Por fase, depois que o plano existe.</p>
+          <div style="display:flex;flex-direction:column;gap:0;flex:1">
+            <sc-for list="{{ loop }}" as="l" hint-placeholder-count="4">
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="display:flex;flex-direction:column;align-items:center;flex:none;width:22px">
+                  <span style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;color:{{ l.color }};border:1px solid {{ l.line }};background:color-mix(in srgb, {{ l.color }} 12%, var(--bg-surface));font-feature-settings:'calt' 0">{{ l.glyph }}</span>
+                  <sc-if value="{{ l.notLast }}" hint-placeholder-val="{{ true }}"><span style="width:1px;flex:1;min-height:22px;background:var(--border-default)"></span></sc-if>
+                </div>
+                <div style="padding-bottom:16px;min-width:0">
+                  <div style="font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--fg-default);font-feature-settings:'calt' 0">{{ l.cmd }}</div>
+                  <div style="font-family:var(--font-sans);font-size:11px;color:var(--fg-muted);margin-top:3px;line-height:1.45">{{ l.desc }}</div>
+                  <sc-if value="{{ l.hasGate }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-block;margin-top:6px;font-family:var(--font-mono);font-size:9px;color:var(--status-warning);border:1px solid var(--status-warning-line);border-radius:4px;padding:2px 6px;font-feature-settings:'calt' 0">⚑ {{ l.gate }}</span>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MÁQUINAS DE ESTADO -->
+    <section id="estados" style="padding:56px 0 8px;border-top:1px solid var(--border-subtle);margin-top:44px">
+      <span class="t-eyebrow" style="color:var(--status-info)">02 · transições reais</span>
+      <h2 class="t-h2" style="margin:6px 0 4px">Máquinas de estado</h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 20px;max-width:72ch">Task, Fase e Plano são máquinas de estado com transições nomeadas. Passe o mouse ou clique num estado para destacar suas transições de saída.</p>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <sc-for list="{{ machineTabs }}" as="t" hint-placeholder-count="3">
+          <button onClick="{{ t.onClick }}" class="facet {{ t.onCls }}" style="font-size:12px;padding:6px 16px;font-family:var(--font-mono);font-feature-settings:'calt' 0">{{ t.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:stretch">
+        <!-- diagram -->
+        <div class="gp-diag-wrap" style="border:1px solid var(--border-default);border-radius:10px;background:radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--status-info) 5%, var(--bg-surface)), var(--bg-surface));box-shadow:var(--shadow-ambient);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center">
+          <div style="{{ machine.innerStyle }}">
+            <svg viewBox="0 0 760 300" width="760" height="300" style="position:absolute;inset:0">
+              <defs>
+                <marker id="gp-ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+                </marker>
+              </defs>
+              <sc-for list="{{ machine.edges }}" as="e" hint-placeholder-count="4">
+                <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" marker-end="url(#gp-ah)" style="transition:stroke 120ms"></path>
+                <text x="{{ e.lx }}" y="{{ e.ly }}" text-anchor="middle" style="font-family:var(--font-mono);font-size:11px;font-feature-settings:'calt' 0;fill:{{ e.lcolor }};transition:fill 120ms">{{ e.label }}</text>
+              </sc-for>
+            </svg>
+            <sc-for list="{{ machine.nodes }}" as="n" hint-placeholder-count="4">
+              <div class="mstate" onMouseEnter="{{ n.onEnter }}" onClick="{{ n.onEnter }}" style="{{ n.style }}">
+                <span style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:{{ n.color }};font-feature-settings:'calt' 0">{{ n.label }}</span>
+                <sc-if value="{{ n.hasSub }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--font-mono);font-size:9px;color:var(--fg-subtle);font-feature-settings:'calt' 0">{{ n.sub }}</span></sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ machine.hasNote }}" hint-placeholder-val="{{ true }}">
+              <div style="{{ machine.noteStyle }}">{{ machine.note }}</div>
+            </sc-if>
+          </div>
+        </div>
+        <!-- detail -->
+        <div style="border:1px solid var(--border-default);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-ambient);padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span class="sc {{ machine.sel.chipCls }}" style="height:22px;font-size:11px;padding:0 10px"><span class="d {{ machine.sel.dotCls }}"></span>{{ machine.sel.label }}</span>
+          </div>
+          <p style="font-family:var(--font-sans);font-size:12.5px;line-height:1.55;color:var(--fg-default);margin:0">{{ machine.sel.desc }}</p>
+          <div>
+            <div class="sec-h" style="margin-bottom:7px">transições de saída</div>
+            <sc-if value="{{ machine.sel.hasOuts }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ machine.sel.outs }}" as="o" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:var(--font-mono);font-size:11px;line-height:1.4;color:var(--fg-muted);font-feature-settings:'calt' 0">
+                    <span style="color:var(--status-info);background:var(--bg-sunken);border:1px solid var(--border-subtle);border-radius:4px;padding:2px 6px">{{ o.via }}</span>
+                    <span style="color:var(--fg-faint)">→</span>
+                    <span style="color:var(--fg-default)">{{ o.to }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ machine.sel.noOuts }}" hint-placeholder-val="{{ false }}">
+              <span style="font-family:var(--font-mono);font-size:11px;color:var(--fg-subtle);font-feature-settings:'calt' 0">// estado terminal</span>
+            </sc-if>
+          </div>
+          <sc-if value="{{ machine.sel.hasRule }}" hint-placeholder-val="{{ false }}">
+            <div class="callout co-error" style="margin-top:auto">
+              <div class="eyebrow">regra</div>
+              <div class="body">{{ machine.sel.rule }}</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </section>
+
+    <!-- PODE / NÃO PODE -->
+    <section id="regras" style="padding:56px 0 8px;border-top:1px solid var(--border-subtle);margin-top:44px">
+      <span class="t-eyebrow" style="color:var(--status-error)">03 · o ouro da página</span>
+      <h2 class="t-h2" style="margin:6px 0 4px">O que pode · o que <span style="color:var(--status-error)">não pode</span></h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 22px;max-width:74ch">Nenhuma outra superfície ensina isto. As proibições são invariantes — regras duras que a skill se recusa a violar.</p>
+
+      <div style="display:grid;grid-template-columns:0.82fr 1.18fr;gap:16px;align-items:start">
+        <!-- PODE -->
+        <div style="border:1px solid var(--status-success-line);border-radius:12px;background:var(--bg-surface);box-shadow:var(--shadow-ambient);overflow:hidden">
+          <div style="padding:13px 16px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:9px;background:var(--status-success-bg)">
+            <span style="width:22px;height:22px;border-radius:6px;background:var(--status-success);color:var(--fg-on-accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:13px">✓</span>
+            <span style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:var(--fg-default)">O que a skill FAZ por você</span>
+          </div>
+          <div style="padding:6px 0">
+            <sc-for list="{{ canDo }}" as="c" hint-placeholder-count="7">
+              <div style="display:flex;gap:11px;padding:10px 16px;border-top:1px solid var(--border-subtle)">
+                <span style="font-family:var(--font-mono);color:var(--status-success);font-size:12px;flex:none;margin-top:1px">✓</span>
+                <p style="font-family:var(--font-sans);font-size:12px;line-height:1.5;color:var(--fg-muted);margin:0">{{ c }}</p>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- NÃO PODE — dominant -->
+        <div style="border:1px solid var(--status-error-line);border-radius:12px;background:var(--bg-surface);box-shadow:0 0 0 1px color-mix(in srgb, var(--status-error) 14%, transparent), var(--shadow-md);overflow:hidden">
+          <div style="padding:13px 16px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:9px;background:var(--status-error-bg)">
+            <span style="width:22px;height:22px;border-radius:6px;background:var(--status-error);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:13px">⛔</span>
+            <span style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:var(--fg-default)">O que a skill NÃO permite</span>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--status-error);border:1px solid var(--status-error-line);border-radius:4px;padding:2px 6px;font-feature-settings:'calt' 0">invariantes</span>
+          </div>
+          <div>
+            <sc-for list="{{ cannotDo }}" as="c" hint-placeholder-count="11">
+              <div style="display:flex;gap:12px;padding:11px 16px;border-top:1px solid var(--border-subtle)">
+                <span style="font-family:var(--font-mono);color:var(--status-error);font-size:13px;flex:none;margin-top:1px">×</span>
+                <div style="min-width:0">
+                  <div style="font-family:var(--font-sans);font-size:12.5px;font-weight:600;color:{{ c.leadColor }};margin-bottom:2px">{{ c.lead }}</div>
+                  <p style="font-family:var(--font-sans);font-size:12px;line-height:1.5;color:var(--fg-muted);margin:0">{{ c.body }}</p>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMANDOS -->
+    <section id="comandos" style="padding:56px 0 8px;border-top:1px solid var(--border-subtle);margin-top:44px">
+      <span class="t-eyebrow" style="color:var(--status-info)">04 · referência</span>
+      <h2 class="t-h2" style="margin:6px 0 4px">Comandos, agrupados por função</h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 8px;max-width:74ch">Prefixo de todos: <span class="t-code-inline">/atomic-skills:project</span>. Bare imprime um resumo compacto de 5 linhas e para — não abre o browser.</p>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 16px">
+        <div style="display:flex;align-items:center;gap:8px;width:280px;height:34px;padding:0 12px;background:var(--bg-sunken);border:1px solid var(--border-default);border-radius:8px">
+          <span style="font-family:var(--font-mono);color:var(--fg-subtle);font-size:14px;font-feature-settings:'calt' 0">⌕</span>
+          <input value="{{ cmd.q }}" onInput="{{ cmd.onSearch }}" placeholder="buscar comando, flag, conceito…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;background:none;border:none;outline:none;color:var(--fg-default);font-family:var(--font-sans);font-size:13px" />
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ cmd.facets }}" as="f" hint-placeholder-count="10">
+            <span onClick="{{ f.onClick }}" class="facet {{ f.onCls }}">{{ f.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{ cmd.hasResults }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <sc-for list="{{ cmd.groups }}" as="g" hint-placeholder-count="4">
+            <div>
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+                <span style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--fg-default)">{{ g.label }}</span>
+                <span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-subtle);font-feature-settings:'calt' 0">{{ g.count }}</span>
+                <span style="flex:1;height:1px;background:var(--border-subtle)"></span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px">
+                <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="3">
+                  <div class="cmd-card" style="border:1px solid var(--border-default);border-radius:8px;background:var(--bg-surface);padding:11px 13px;box-shadow:var(--shadow-ambient)">
+                    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                      <span style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--status-info);font-feature-settings:'calt' 0">{{ c.name }}</span>
+                      <sc-if value="{{ c.hasSig }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-subtle);font-feature-settings:'calt' 0">{{ c.sig }}</span></sc-if>
+                    </div>
+                    <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--fg-muted);margin:0">{{ c.desc }}</p>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ cmd.noResults }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:40px;text-align:center;border:1px dashed var(--border-default);border-radius:10px">
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--fg-subtle);font-feature-settings:'calt' 0">// nada encontrado — limpe o filtro</span>
+        </div>
+      </sc-if>
+    </section>
+
+    <!-- SKILLS CONECTADAS -->
+    <section id="skills" style="padding:56px 0 8px;border-top:1px solid var(--border-subtle);margin-top:44px">
+      <span class="t-eyebrow" style="color:var(--chart-5)">05 · o mapa de delegação</span>
+      <h2 class="t-h2" style="margin:6px 0 4px">Como conecta com as outras skills</h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 22px;max-width:74ch"><span class="t-code-inline">project</span> é um orquestrador fino: delega partes do ciclo para skills irmãs. Quem chama quem, e em que momento.</p>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ delegation }}" as="d" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:230px 22px 220px 1fr;gap:14px;align-items:center;border:1px solid var(--border-default);border-radius:8px;background:var(--bg-surface);box-shadow:var(--shadow-ambient);padding:12px 16px">
+            <div style="min-width:0">
+              <div style="font-family:var(--font-sans);font-size:12px;font-weight:600;color:var(--fg-default)">{{ d.moment }}</div>
+              <div style="font-family:var(--font-mono);font-size:9.5px;color:var(--fg-subtle);margin-top:2px;font-feature-settings:'calt' 0">{{ d.cycle }}</div>
+            </div>
+            <span style="font-family:var(--font-mono);color:var(--chart-5);font-size:15px;text-align:center">↳</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:{{ d.skillColor }};background:color-mix(in srgb, {{ d.skillColor }} 10%, var(--bg-surface));border:1px solid color-mix(in srgb, {{ d.skillColor }} 40%, var(--border-default));border-radius:6px;padding:4px 9px;font-feature-settings:'calt' 0;justify-self:start;white-space:normal;line-height:1.4;max-width:100%">{{ d.skill }}</span>
+            <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.45;color:var(--fg-muted);margin:0">{{ d.role }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ESTOU PERDIDO -->
+    <section id="perdido" style="padding:56px 0 8px;border-top:1px solid var(--border-subtle);margin-top:44px">
+      <span class="t-eyebrow" style="color:var(--status-info)">06 · fecha o loop</span>
+      <h2 class="t-h2" style="margin:6px 0 4px">Estou perdido</h2>
+      <p class="t-body-sm" style="color:var(--fg-muted);margin:0 0 22px;max-width:74ch">Três camadas, cada uma com seu papel. Você acabou de aprender aqui — agora oriente-se no terminal e aja no dashboard.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <div style="border:1px solid var(--status-info-line);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-on-accent);background:var(--status-info);border-radius:5px;padding:2px 7px;font-feature-settings:'calt' 0;white-space:nowrap">1 · aprender</span></div>
+          <div style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:var(--fg-default)">Esta página</div>
+          <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--fg-muted);margin:0">A constituição. Vale para qualquer projeto, em qualquer momento — conhecimento estável.</p>
+        </div>
+        <div style="border:1px solid var(--border-default);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-muted);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:5px;padding:2px 7px;font-feature-settings:'calt' 0;white-space:nowrap">2 · orientar</span></div>
+          <div style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:var(--fg-default)">O terminal · <span class="t-code" style="font-size:13px">guide</span></div>
+          <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--fg-muted);margin:0">"Onde estou / próximo passo." O GPS contextual do seu projeto agora.</p>
+          <div class="code" style="margin-top:auto"><span class="pfx">$ </span>/atomic-skills:project</div>
+        </div>
+        <div style="border:1px solid var(--border-default);border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-family:var(--font-mono);font-size:10px;color:var(--status-success);background:var(--status-success-bg);border:1px solid var(--status-success-line);border-radius:5px;padding:2px 7px;font-feature-settings:'calt' 0;white-space:nowrap">3 · agir</span></div>
+          <div style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:var(--fg-default)">O dashboard · <span class="t-code" style="font-size:13px">aiDeck</span></div>
+          <p style="font-family:var(--font-sans);font-size:11.5px;line-height:1.5;color:var(--fg-muted);margin:0">O estado vivo: grafos Mermaid, status dos exit-gates, SSE em tempo real.</p>
+          <div class="code" style="margin-top:auto"><span class="pfx">$ </span>status --browser</div>
+        </div>
+      </div>
+
+      <div style="margin-top:36px;padding-top:20px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+        <span style="width:12px;height:12px;border-radius:3px;background:var(--status-info)"></span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--fg-subtle);font-feature-settings:'calt' 0">atomic-skills:project · a constituição · files are canonical · 127.0.0.1</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { stage: 'IDEIA', machine: 'task', sel: 'active', q: '', grp: 'all', diagScale: 1 };
+
+  componentDidMount(){
+    const measure = () => {
+      const el = document.querySelector('.gp-diag-wrap');
+      if (!el) return;
+      const w = el.clientWidth - 24; // minus padding allowance
+      const s = Math.max(0.34, Math.min(1, w / 760));
+      if (Math.abs(s - (this.state.diagScale || 1)) > 0.005) this.setState({ diagScale: s });
+    };
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(measure);
+      const el = document.querySelector('.gp-diag-wrap');
+      if (el) this._ro.observe(el);
+    } else if (typeof window !== 'undefined') {
+      this._onResize = measure; window.addEventListener('resize', measure);
+    }
+    setTimeout(measure, 120);
+    setTimeout(measure, 400);
+  }
+  componentWillUnmount(){
+    if (this._ro) this._ro.disconnect();
+    if (this._onResize && typeof window !== 'undefined') window.removeEventListener('resize', this._onResize);
+  }
+
+  // tone -> css var
+  TVAR = { info:'--status-info', success:'--status-success', warning:'--status-warning', error:'--status-error', neutral:'--status-neutral' };
+
+  // ── static content ─────────────────────────────────────────────
+  ENTITIES = [
+    { name:'Plano', tag:'Plan', accent:'var(--chart-1)', what:'Uma entrega multi-fase com um objetivo. Tem um branch próprio (plan/<slug>).', nest:'contém Fases' },
+    { name:'Fase', tag:'Phase / Initiative', accent:'var(--chart-3)', what:'Um estágio do plano (F0, F1, …). Cada fase é uma initiative com um exit-gate.', nest:'contém Tasks · standalone = plano de 1 fase' },
+    { name:'Task', tag:'T-001 …', accent:'var(--status-info)', what:'Uma unidade de trabalho implementável, com critérios de aceite e um verificador.', nest:'folha da árvore' },
+    { name:'Ideas', tag:'ideas.md', accent:'var(--chart-4)', what:'Inbox de ideias cruas, antes de virarem trabalho.', nest:'fora da árvore · entra via idea promote' },
+    { name:'Stack frames', tag:'push / pop', accent:'var(--chart-5)', what:'Investigações laterais empilhadas sobre o trabalho atual.', nest:'pilha temporária' },
+    { name:'Backlog', tag:'parked[] / emerged[]', accent:'var(--chart-6)', what:'Trabalho futuro classificado pela emergence ladder antes de aterrissar.', nest:'vira Task via promote' },
+  ];
+
+  CONCEPTS = [
+    { num:'1', accent:'var(--chart-1)', title:'Materialização lazy', body:'new plan não materializa todas as fases de uma vez. Cria o plan.md, materializa só a F0 e mantém F1..N como descritores — evita comprometer detalhe em fases distantes que ainda vão mudar.',
+      rows:[ {key:'descriptor-only', color:'var(--fg-subtle)', val:'a fase existe como uma linha, sem arquivo de initiative com tasks.'}, {key:'materializada', color:'var(--status-success)', val:'virou um arquivo de initiative completo, pronta para implement.'} ] },
+    { num:'2', accent:'var(--status-info)', title:'businessIntent', body:'No momento de materialize, um gate HARD captura a espinha de intenção de negócio da fase. Uma fase não materializa sem isso — é a ponte de um plano decomposto para a implementação.',
+      rows:[ {key:'5 campos', color:'var(--status-info)', val:'value · workflow · rules · outOfScope · doneWhen'} ] },
+    { num:'3', accent:'var(--status-warning)', title:'Exit-gate', body:'Cada fase tem critérios de saída verificáveis. Você não avança de fase enquanto um critério estiver pending.',
+      rows:[ {key:'verificador', color:'var(--status-warning)', val:'cada critério é fechado por shell / test / query — nunca por achismo.'} ] },
+  ];
+
+  SPINE = [
+    { key:'IDEIA',       tier:'inbox',      gate:'',            hasGate:false,
+      what:'Inbox de ideias cruas, antes de virarem trabalho. Fica fora da árvore e entra no fluxo via idea promote.',
+      cmds:['idea','idea list','idea promote <n>'], gateFull:'', produces:'ideas.md', delegates:'' },
+    { key:'DESIGN',      tier:'brainstorm', gate:'brainstorm',  hasGate:true,
+      what:'Antes de decompor qualquer plano, o WHAT/WHY + a abordagem escolhida têm que existir como um design.md aprovado por um crítico. O ciclo: frame → diverge → usuário ratifica → escreve → gate do crítico.',
+      cmds:['(via new plan · estágio 2)'], gateFull:'O gate do crítico bloqueia até o design.md estar aprovado. PLAN nunca começa num design que não linta limpo.', produces:'design.md', delegates:'atomic-skills:brainstorm' },
+    { key:'PLANO',       tier:'new plan',   gate:'',            hasGate:false,
+      what:'new plan faz o bootstrap de 9 estágios: cria o plan.md, abre o branch plan/<slug> e materializa só a F0 — F1..N ficam como descritores.',
+      cmds:['new plan <slug>'], gateFull:'', produces:'plan.md · branch plan/<slug>', delegates:'' },
+    { key:'DECOMPOSE',   tier:'SPEC gate',  gate:'SPEC gate',   hasGate:true,
+      what:'Quebra o plano em fases e tasks. O gate SPEC exige que cada task carregue seus 4 campos HOW antes de ser admitida ao implement. Tasks destrutivas exigem ainda ≥1 critério de impacto-de-DADOS.',
+      cmds:['(via new plan · estágio 5)'], gateFull:'Cada task precisa de Files (caminhos exatos), scopeBoundary, acceptance e um verifier determinístico (shell/test/query — manual NÃO satisfaz). Nenhuma task admitida sem os 4.', produces:'fases + tasks', delegates:'src/decompose.js (interno)' },
+    { key:'MATERIALIZE', tier:'per fase',   gate:'businessIntent', hasGate:true,
+      what:'Transforma uma fase descriptor-only num arquivo de initiative completo. Um gate HARD captura a espinha businessIntent.',
+      cmds:['materialize <phase-id>'], gateFull:'businessIntent — gate HARD com 5 campos: value / workflow / rules / outOfScope / doneWhen. Uma fase não materializa sem isso.', produces:'arquivo de initiative com tasks', delegates:'' },
+    { key:'IMPLEMENT',   tier:'por task',   gate:'por task',    hasGate:true,
+      what:'O driver single-threaded leva as tasks admitidas ao DONE, fechando cada uma só via verify-on-done.',
+      cmds:['implement'], gateFull:'Cada task fecha só via verify-on-done — nunca por "parece pronto".', produces:'', delegates:'atomic-skills:implement' },
+    { key:'VERIFY',      tier:'verificador', gate:'verificador', hasGate:true,
+      what:'done <task-id> é a autoridade de fechamento: roda o verificador, só então marca done e reescreve o nextAction — o ponteiro que uma sessão fria lê primeiro.',
+      cmds:['done <task-id>'], gateFull:'O verificador (shell / test / query) roda numa execução fresca. Sem passar, a task não fecha.', produces:'closedAt + evidência', delegates:'atomic-skills:verify-claim' },
+    { key:'REVIEW',      tier:'auditoria',  gate:'',            hasGate:false,
+      what:'review audita de forma adversarial mas NUNCA fecha task nem avança fase — só reporta achados.',
+      cmds:['review [--with-code]'], gateFull:'', produces:'achados', delegates:'atomic-skills:review-plan · review-code' },
+    { key:'DONE',        tier:'phase-done', gate:'phase-done',  hasGate:true,
+      what:'phase-done verifica cada critério do exit-gate pelo seu verificador, roda um code review obrigatório e só então avança currentPhase.',
+      cmds:['phase-done'], gateFull:'phase-done — todos os exit-gates verificados + code review obrigatório. Não avança com um critério pending.', produces:'currentPhase avança', delegates:'' },
+    { key:'ARCHIVE',     tier:'finalize',   gate:'finalize → PR', hasGate:true,
+      what:'finalize publica o branch do plano como PR. consolidate integra ≥2 worktrees prontas. archive move o plano terminado para archive/ (cascateia para as fases).',
+      cmds:['finalize','consolidate','archive [<slug>]'], gateFull:'finalize é operator-prompted, pré-merge, pré-archive: push plan/<slug> + gh pr create.', produces:'PR · archive/', delegates:'' },
+  ];
+
+  STEPS = [
+    { title:'Validar slug', note:'nome do plano', gate:'' },
+    { title:'DESIGN (brainstorm)', note:'WHAT/WHY + abordagem → design.md aprovado por crítico', gate:'crítico' },
+    { title:'Fonte do plano', note:'source plan a partir do design, de markdown existente, ou de template', gate:'' },
+    { title:'Receber markdown + lint No-Placeholders', note:'scan determinístico, zero-token', gate:'HARD' },
+    { title:'Decompose + SPEC per-task gate', note:'cada task com os 4 campos HOW', gate:'SPEC' },
+    { title:'Criar Plano + Initiatives', note:'lazy: só F0 · isolamento: worktree / pausar / prosseguir', gate:'' },
+    { title:'Resumos + peso', note:'summary de 1 linha + weight por fase e task', gate:'' },
+    { title:'Sinal de conclusão', note:'verifier OU outputs[].path', gate:'' },
+    { title:'Validação com o usuário', note:'correção de resumo = sinal de fase mal-escopada', gate:'' },
+  ];
+
+  LOOP = [
+    { glyph:'◆', tone:'warning', cmd:'materialize <phase>', desc:'abre a fase e captura o businessIntent.', gate:'businessIntent gate' },
+    { glyph:'▸', tone:'info', cmd:'implement', desc:'leva as tasks admitidas ao DONE, task a task.', gate:'' },
+    { glyph:'✓', tone:'success', cmd:'done <task-id>', desc:'cada task fecha só via done + verificador.', gate:'verify-on-done' },
+    { glyph:'⚑', tone:'success', cmd:'phase-done', desc:'exit-gates verificados + code review → avança currentPhase.', gate:'code review obrigatório' },
+  ];
+
+  // ── state machines ─────────────────────────────────────────────
+  MACHINES = {
+    task: {
+      note:'ativa > 24h → gate de reconciliação',
+      noteXY:[380,104],
+      nodes:[
+        { id:'pending', label:'pending', tone:'neutral', x:60, y:120, w:140, h:56, desc:'Ainda não começou. Aguarda ser puxada para execução.', outs:[{via:'iniciar',to:'active'},{via:'—',to:'blocked'}], rule:'' },
+        { id:'active', label:'active', sub:'>24h → reconcile', tone:'info', x:310, y:120, w:140, h:56, desc:'Em andamento. Uma task active há mais de 24h dispara o gate de reconciliação na próxima mutação — você precisa dizer: ainda ativa? done? blocked?', outs:[{via:'done + verificador',to:'done'},{via:'bloquear',to:'blocked'}], rule:'' },
+        { id:'done', label:'done', tone:'success', x:580, y:120, w:130, h:56, desc:'Fechada, com closedAt e evidência do verificador.', outs:[], rule:'' },
+        { id:'blocked', label:'blocked', tone:'error', x:310, y:212, w:140, h:56, desc:'Status de primeira classe. Antes era um beco: só ia a done ou era editada à mão (proibido pela Iron Law).', outs:[{via:'unblock',to:'active / pending'}], rule:'A única saída para frente documentada é unblock — que NÃO fecha a task, devolve ao estado trabalhável.' },
+      ],
+      edges:[
+        { from:'pending', d:'M200,148 L302,148', lx:251, ly:139, label:'iniciar' },
+        { from:'active', d:'M450,148 L572,148', lx:511, ly:139, label:'done + verif' },
+        { from:'active', d:'M380,176 L380,208', lx:412, ly:198, label:'bloquear' },
+        { from:'blocked', d:'M310,240 C250,240 250,148 302,148', lx:236, ly:198, label:'unblock' },
+      ],
+    },
+    fase: {
+      note:'split-phase → divide em sub-fases',
+      noteXY:[355,104],
+      nodes:[
+        { id:'descriptor', label:'descriptor-only', tone:'neutral', x:36, y:120, w:168, h:56, desc:'A fase existe como uma linha no plano, mas ainda não tem arquivo de initiative com tasks.', outs:[{via:'materialize',to:'active'}], rule:'' },
+        { id:'active', label:'active', tone:'info', x:300, y:120, w:130, h:56, desc:'Initiative materializada, com tasks, em execução. split-phase pode dividir uma fase grande demais em sub-fases (preserva proveniência).', outs:[{via:'phase-done',to:'done'}], rule:'' },
+        { id:'done', label:'done', tone:'success', x:520, y:120, w:120, h:56, desc:'Exit-gates verificados + code review obrigatório passaram.', outs:[{via:'archive',to:'archive'},{via:'phase-reopen',to:'active'}], rule:'phase-reopen reverte um phase-done: restaura a initiative para active, limpa metAt dos critérios, reseta tasks para pending.' },
+        { id:'archive', label:'archive', tone:'neutral', x:678, y:120, w:56, h:56, desc:'Movida para archive/. Arquivar um plano cascateia para suas fases.', outs:[], rule:'' },
+      ],
+      edges:[
+        { from:'descriptor', d:'M204,148 L292,148', lx:248, ly:139, label:'materialize' },
+        { from:'active', d:'M430,148 L512,148', lx:471, ly:139, label:'phase-done' },
+        { from:'done', d:'M640,148 L670,148', lx:655, ly:139, label:'' },
+        { from:'done', d:'M560,176 C560,240 365,240 365,178', lx:462, ly:252, label:'phase-reopen' },
+      ],
+    },
+    plano: {
+      note:'dependsOnPlans[] bloqueia · raias: Liberado · Em andamento · Bloqueado · Concluído',
+      noteXY:[380,286],
+      nodes:[
+        { id:'blocked', label:'blocked', sub:'dependsOnPlans[]', tone:'error', x:60, y:118, w:150, h:56, desc:'Bloqueado por um pré-requisito (dependsOnPlans[]). Uma transição que detecta o bloqueio para antes de mudar status — o operador nunca avança seguindo um next-action obsoleto.', outs:[{via:'pré-req resolvido',to:'active'}], rule:'Não se avança um plano bloqueado por um pré-requisito.' },
+        { id:'active', label:'active', tone:'info', x:305, y:118, w:150, h:56, desc:'Em curso. switch pausa este e ativa outro.', outs:[{via:'switch',to:'paused'},{via:'archive',to:'archived'}], rule:'' },
+        { id:'paused', label:'paused', tone:'warning', x:305, y:214, w:150, h:56, desc:'Fora de curso. switch reativa.', outs:[{via:'switch',to:'active'}], rule:'' },
+        { id:'archived', label:'archived', tone:'neutral', x:560, y:118, w:140, h:56, desc:'Terminado, movido para archive/.', outs:[], rule:'' },
+      ],
+      edges:[
+        { from:'blocked', d:'M210,146 L297,146', lx:253, ly:137, label:'resolvido' },
+        { from:'active', d:'M455,146 L552,146', lx:503, ly:137, label:'archive' },
+        { from:'active', d:'M368,174 L368,212', lx:330, ly:196, label:'pausa' },
+        { from:'paused', d:'M392,212 L392,174', lx:430, ly:196, label:'ativa' },
+      ],
+    },
+  };
+  MACHINE_DEFAULT = { task:'active', fase:'active', plano:'active' };
+
+  CANDO = [
+    'Recarrega o frame exato de um projeto multi-dia a cada sessão (qual fase, o que está parkado, por que uma task existe).',
+    'Ancora toda sessão que modifica código a uma initiative ativa.',
+    'Classifica trabalho novo pela emergence ladder antes dele aterrissar (park / emerge / promote).',
+    'Stack frames para investigações laterais sem perder o trabalho principal (push / pop).',
+    'Exit-gates que bloqueiam avanço até os critérios serem cumpridos.',
+    'Detecção de scope-creep e drift estado-vs-código.',
+    'Um comando git-style para todo o ciclo: view, create, mutate, discover, migrate, verify.',
+  ];
+
+  CANNOT = [
+    { lead:'Iron Law: nenhuma implementação sem initiative ancorada', leadColor:'var(--status-error)', body:'Toda sessão que modifica código tem que estar ancorada numa initiative ativa — ou você declara explicitamente "ad-hoc".' },
+    { lead:'Nunca editar .atomic-skills/ à mão', leadColor:'var(--fg-default)', body:'Use os subcomandos: eles setam proveniência e validam. Edição manual é o antipadrão que a Iron Law proíbe.' },
+    { lead:'Não decompor um design que não linta limpo', leadColor:'var(--fg-default)', body:'PLAN nunca começa num plano cujo design.md não passa no lint.' },
+    { lead:'Nenhuma task no implement sem os 4 campos HOW', leadColor:'var(--fg-default)', body:'Files, scopeBoundary, acceptance e um verifier determinístico. Sem os 4, a task não é admitida.' },
+    { lead:'Nenhum placeholder sobrevive ao gate', leadColor:'var(--fg-default)', body:'REPLACE_* / TODO / TBD / FIXME / <path> → HARD-BLOCK, nenhum arquivo escrito.' },
+    { lead:'reconcile é o ÚNICO caminho de mutação de conclusão', leadColor:'var(--fg-default)', body:'Fechar tasks/gates que "parecem prontos" só acontece por ali.' },
+    { lead:'review NUNCA fecha task nem avança fase', leadColor:'var(--fg-default)', body:'Ele só reporta achados — audita e delega para review-plan / review-code.' },
+    { lead:'Não avança fase com um critério de gate pending', leadColor:'var(--fg-default)', body:'Um critério só passa por verificador (ou é deferred com razão explícita).' },
+    { lead:'Não avança um plano bloqueado', leadColor:'var(--fg-default)', body:'Um pré-requisito em dependsOnPlans[] para a transição antes de mudar status.' },
+    { lead:'Arquivo legacy tem que migrar antes de qualquer mutação', leadColor:'var(--fg-default)', body:'Sem schemaVersion → STOP → migrate <slug> primeiro.' },
+    { lead:'Não usar para trabalho trivial', leadColor:'var(--fg-default)', body:'Perguntas one-shot ou trabalho que cabe na sessão atual não precisam da skill.' },
+  ];
+
+  CMD_GROUPS = [
+    { key:'view', label:'View', items:[
+      { name:'status', sig:'[--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]', desc:'ver estado: resumo compacto, dashboard no browser (aiDeck), view completa no terminal, ou tabelas filtradas.' },
+      { name:'verify', sig:'[--fix] [--slug <slug>]', desc:'reconcilia .atomic-skills/ vs. o repo: schema, layout legacy, match de branch, cobertura de escopo, órfãos, coerência com o aiDeck (read-only, exceto --fix).' },
+    ]},
+    { key:'create', label:'Create', items:[
+      { name:'new', sig:'[plan|initiative] <slug>', desc:'cria um Plano (bootstrap multi-fase de 9 estágios) ou uma Initiative (standalone ou ancorada a uma fase); new sozinho imprime o menu.' },
+      { name:'discover', sig:'[--dry-run|--commit] [--scope=<list>] [--scan=<path>]', desc:'varre o repo (git, PRs, docs, roadmaps, memória), agrupa sinais e propõe Planos + Initiatives para aprovar/rejeitar.' },
+      { name:'adopt', sig:'<file.md>', desc:'captura um plano markdown livre em Plano + Initiatives + Tasks estruturados; mostra preview antes de materializar.' },
+    ]},
+    { key:'stack', label:'Stack frames', items:[
+      { name:'push', sig:'<description>', desc:'abre um frame lateral sobre o trabalho atual; o tipo é inferido do verbo.' },
+      { name:'pop', sig:'[--resolve|--park|--emerge]', desc:'fecha o frame do topo com destino: --resolve (descarta), --park (nota), --emerge (follow-up).' },
+    ]},
+    { key:'backlog', label:'Backlog · emergence ladder', items:[
+      { name:'park', sig:'<description>', desc:'arquiva uma nota de baixo compromisso em parked[]; um gate de ratificação força um solves/trigger legível.' },
+      { name:'emerge', sig:'<description> [--target <phaseId>]', desc:'arquiva um follow-up real em emerged[] (mesmo gate); --target aterrissa noutra fase.' },
+      { name:'promote', sig:'<title-or-idx>', desc:'transforma um item parkado numa task real (atribui o próximo T-NNN, carrega o contexto).' },
+      { name:'idea', sig:'[list | promote <n>]', desc:'captura uma ideia crua no inbox ideas.md; idea list é view zero-token; idea promote <n> roteia a ideia pela emergence ladder.' },
+    ]},
+    { key:'tasks', label:'Tasks & fases', items:[
+      { name:'done', sig:'<task-id>', desc:'marca uma task como done e carimba closedAt; se era a última aberta, oferece phase-done ou archive.' },
+      { name:'reconcile', sig:'', desc:'fecha tasks/gates que parecem prontos no repo — o único caminho de mutação de conclusão; verifier-aware.' },
+      { name:'materialize', sig:'<phase-id>', desc:'transforma uma fase descriptor-only num arquivo de initiative completo, capturando a espinha businessIntent num gate HARD.' },
+      { name:'unblock', sig:'<task-id>', desc:'devolve uma task blocked ao estado trabalhável (NÃO a fecha); mostra os blockedBy[] e o status deles antes.' },
+      { name:'phase-done', sig:'', desc:'verifica cada critério do exit-gate pelo seu verificador, roda um code review obrigatório, e avança currentPhase.' },
+      { name:'phase-reopen', sig:'[<phase-id>]', desc:'reverte um phase-done: initiative volta a active, limpa metAt, reseta tasks para pending.' },
+      { name:'split-phase', sig:'<id>', desc:'divide uma fase grande demais em sub-fases (preserva proveniência; arquiva a original como archived).' },
+    ]},
+    { key:'lifecycle', label:'Lifecycle', items:[
+      { name:'finalize', sig:'', desc:'publica o branch do plano como PR (push plan/<slug> + gh pr create); operator-prompted, pré-merge, pré-archive.' },
+      { name:'consolidate', sig:'', desc:'merge-train de ≥2 worktrees prontas numa branch de integração + PR (contraparte 1:N do finalize).' },
+      { name:'archive', sig:'[<slug>]', desc:'move um plano/initiative terminado para archive/ (arquivar plano cascateia para as fases).' },
+      { name:'switch', sig:'<slug>', desc:'pausa o plano/initiative atual e ativa o alvo.' },
+      { name:'migrate', sig:'[<slug>]', desc:'migrate <slug> converte uma initiative legacy para schemaVersion 0.1; migrate sozinho roda o cut-over de layout flat→projects/<id>/<slug>/.' },
+      { name:'re-bootstrap', sig:'<slug>', desc:'depois de migrar: re-articula em lote todo item parkado/emerged que ainda segura um placeholder.' },
+    ]},
+    { key:'context', label:'Context & drift', items:[
+      { name:'why', sig:'<id>', desc:'view read-only profunda de um item: status, solves/trigger/assumptions ratificados, proveniência, staleness.' },
+      { name:'re-ratify', sig:'<id>', desc:'refresca um item stale: re-confirma as premissas (bump da data) ou reescreve solves/trigger/assumptions.' },
+      { name:'scope-creep', sig:'', desc:'relatório read-only de drift: % de crescimento da fase, % de expansão de escopo, zumbis parkados, itens de contexto stale.' },
+      { name:'detect-scope', sig:'', desc:'sugere um scope.paths a partir da atividade git recente, como checklist que você aceita.' },
+    ]},
+    { key:'review', label:'Review', items:[
+      { name:'review', sig:'[<slug>] [--with-code] [--mode=local|both]', desc:'auditoria adversarial mutation-gated — delega para review-plan (e review-code com --with-code); só reporta achados, NUNCA fecha task nem avança fase.' },
+      { name:'review-due', sig:'', desc:'roda um review cross-model (codex) no diff desde o último review e registra o resultado.' },
+    ]},
+    { key:'deps', label:'Dependencies', items:[
+      { name:'depend', sig:'list | add <dep> <prereq> | remove … | resolve … --archived', desc:'gerencia dependências de execução entre planos (dependsOnPlans[]); alimenta as raias Liberado / Em andamento / Bloqueado / Concluído do dashboard.' },
+    ]},
+  ];
+
+  DELEGATION = [
+    { moment:'DESIGN', cycle:'estágio 2 de new plan', skill:'atomic-skills:brainstorm', skillColor:'var(--chart-5)', role:'Produz o design.md aprovado por crítico antes de decompor.' },
+    { moment:'Divergência / painel adversarial', cycle:'debate de design', skill:'atomic-skills:debate', skillColor:'var(--chart-5)', role:'Vozes independentes num debate de design.' },
+    { moment:'Decompose', cycle:'estágio 5', skill:'src/decompose.js', skillColor:'var(--fg-muted)', role:'Interno — quebra o plano em fases + tasks com o gate SPEC.' },
+    { moment:'Execução', cycle:'pós-materialize', skill:'atomic-skills:implement', skillColor:'var(--status-info)', role:'Driver single-threaded que leva as tasks admitidas ao DONE.' },
+    { moment:'Fechamento de task / gate', cycle:'verify-on-done', skill:'atomic-skills:verify-claim', skillColor:'var(--status-success)', role:'Transforma um "done/passa/fixed" num fato verificado de uma execução fresca.' },
+    { moment:'review / phase-done', cycle:'auditoria', skill:'atomic-skills:review-plan · review-code', skillColor:'var(--status-warning)', role:'Auditoria adversarial do plano e do código (self-loop local ou cross-model codex).' },
+    { moment:'Bug encontrado no meio', cycle:'diagnóstico', skill:'atomic-skills:fix', skillColor:'var(--status-error)', role:'Diagnóstico de causa-raiz + fix por TDD.' },
+    { moment:'Estado vivo do projeto', cycle:'status --browser', skill:'aiDeck', skillColor:'var(--status-info)', role:'Dashboard: grafos Mermaid, status dos exit-gates, SSE em tempo real.' },
+  ];
+
+  // ── view models ────────────────────────────────────────────────
+  spineVM(){
+    const sel = this.state.stage;
+    return this.SPINE.map((s, i) => {
+      const isSel = s.key === sel;
+      const base = 'min-width:98px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 14px;border-radius:9px;cursor:pointer;transition:all 120ms var(--ease-out);';
+      const style = isSel
+        ? base + 'background:color-mix(in srgb, var(--status-info) 13%, var(--bg-surface));border:1px solid var(--status-info-line);box-shadow:0 0 0 1px var(--status-info-line), 0 0 26px -8px var(--status-info);'
+        : base + 'background:var(--bg-surface);border:1px solid var(--border-default);box-shadow:var(--shadow-ambient);';
+      return {
+        label:s.key, tier:s.tier, gate:s.gate, hasGate:s.hasGate, notFirst:i>0,
+        gateArrowColor: s.hasGate ? 'var(--status-warning)' : 'var(--border-bright)',
+        labelColor: isSel ? 'var(--status-info)' : 'var(--fg-default)',
+        boxStyle: style,
+        onClick: () => this.setState({ stage: s.key }),
+      };
+    });
+  }
+  stageVM(){
+    const s = this.SPINE.find(x => x.key === this.state.stage) || this.SPINE[0];
+    const i = this.SPINE.indexOf(s);
+    return {
+      label:s.key, tier:s.tier, step:'estágio ' + (i+1) + '/10', what:s.what, cmds:s.cmds,
+      hasGate: s.hasGate && !!s.gateFull, gateFull:s.gateFull,
+      hasProduces: !!s.produces, produces:s.produces,
+      hasDelegates: !!s.delegates, delegates:s.delegates,
+    };
+  }
+  stepsVM(){
+    return this.STEPS.map((st, i) => ({
+      n:String(i+1), title:st.title, note:st.note,
+      numCls: st.gate ? (st.gate==='HARD'||st.gate==='SPEC' ? 'error' : 'warn') : '',
+      hasGate: !!st.gate, gate:st.gate,
+      gateCls: (st.gate==='HARD'||st.gate==='SPEC') ? 's-error' : 's-warn',
+      gateDot: (st.gate==='HARD'||st.gate==='SPEC') ? 't-error' : 't-warn',
+    }));
+  }
+  loopVM(){
+    return this.LOOP.map((l, i) => {
+      const v = this.TVAR[l.tone];
+      return { glyph:l.glyph, cmd:l.cmd, desc:l.desc, color:'var('+v+')', line:'var('+v+'-line)',
+        hasGate:!!l.gate, gate:l.gate, notLast:i<this.LOOP.length-1 };
+    });
+  }
+  machineVM(){
+    const mk = this.state.machine;
+    const m = this.MACHINES[mk];
+    const sel = this.state.sel;
+    const nodes = m.nodes.map(n => {
+      const v = this.TVAR[n.tone];
+      const isSel = n.id === sel;
+      const st = 'position:absolute;left:'+n.x+'px;top:'+n.y+'px;width:'+n.w+'px;height:'+n.h+'px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:9px;cursor:pointer;transition:all 120ms var(--ease-out);'
+        + 'background:color-mix(in srgb, var('+v+') '+(isSel?'20':'11')+'%, var(--bg-surface));'
+        + 'border:1px solid ' + (isSel ? 'var('+v+')' : 'var('+v+'-line)') + ';'
+        + (isSel ? 'box-shadow:0 0 0 1px var('+v+'), 0 0 26px -8px var('+v+');' : 'box-shadow:var(--shadow-ambient);');
+      return { label:n.label, sub:n.sub||'', hasSub:!!n.sub, color:'var('+v+')', style:st, onEnter:() => this.setState({ sel:n.id }) };
+    });
+    const edges = m.edges.map(e => {
+      const src = m.nodes.find(x => x.id === e.from);
+      const v = this.TVAR[src ? src.tone : 'neutral'];
+      const hl = e.from === sel;
+      return { d:e.d, label:e.label,
+        stroke: hl ? 'var('+v+')' : 'var(--border-bright)', w: hl ? '2.4' : '1.4',
+        lx:e.lx, ly:e.ly, lcolor: hl ? 'var('+v+')' : 'var(--fg-subtle)' };
+    });
+    const node = m.nodes.find(x => x.id === sel) || m.nodes[0];
+    const nv = this.TVAR[node.tone];
+    const toneCls = { info:'s-active', success:'s-done', warning:'s-warn', error:'s-error', neutral:'s-pending' }[node.tone];
+    const dotCls = { info:'t-active', success:'t-done', warning:'t-warn', error:'t-error', neutral:'t-pending' }[node.tone];
+    return {
+      nodes, edges,
+      innerStyle: 'width:760px;height:300px;position:relative;flex:none;transform:scale('+(this.state.diagScale||1)+');transform-origin:center center;transition:transform 120ms var(--ease-out)',
+      hasNote: !!m.note,
+      note: m.note,
+      noteStyle: 'position:absolute;left:'+m.noteXY[0]+'px;top:'+m.noteXY[1]+'px;transform:translateX(-50%);font-family:var(--font-mono);font-size:9.5px;color:var(--fg-subtle);white-space:nowrap;font-feature-settings:\'calt\' 0;text-align:center',
+      sel: {
+        label:node.label, chipCls:toneCls, dotCls:dotCls, desc:node.desc,
+        outs:node.outs, hasOuts:node.outs.length>0, noOuts:node.outs.length===0,
+        hasRule:!!node.rule, rule:node.rule,
+      },
+    };
+  }
+  cmdVM(){
+    const q = (this.state.q||'').trim().toLowerCase();
+    const grp = this.state.grp;
+    const facets = [{ key:'all', label:'todos' }].concat(this.CMD_GROUPS.map(g => ({ key:g.key, label:g.label })))
+      .map(f => ({ label:f.label, onCls: (grp===f.key || (grp==null&&f.key==='all')) ? 'on' : '', onClick:() => this.setState({ grp:f.key }) }));
+    const match = (c) => !q || (c.name+' '+c.sig+' '+c.desc).toLowerCase().split(/\s+/).join(' ').includes(q) || q.split(/\s+/).every(t => (c.name+' '+c.sig+' '+c.desc).toLowerCase().includes(t));
+    const groups = this.CMD_GROUPS
+      .filter(g => grp==='all' || grp==null || g.key===grp)
+      .map(g => ({ label:g.label, items: g.items.filter(match).map(c => ({ name:c.name, sig:c.sig, hasSig:!!c.sig, desc:c.desc })) }))
+      .filter(g => g.items.length>0)
+      .map(g => ({ ...g, count: g.items.length + (g.items.length===1?' comando':' comandos') }));
+    const total = groups.reduce((a,g)=>a+g.items.length,0);
+    return { q:this.state.q, onSearch:(e)=>this.setState({ q:e.target.value }), facets, groups, hasResults: total>0, noResults: total===0 };
+  }
+
+  renderVals(){
+    const tabs = [{k:'task',l:'Task'},{k:'fase',l:'Fase'},{k:'plano',l:'Plano'}].map(t => ({
+      label:t.l, onCls: this.state.machine===t.k ? 'on' : '',
+      onClick: () => this.setState({ machine:t.k, sel:this.MACHINE_DEFAULT[t.k] }),
+    }));
+    return {
+      entities:this.ENTITIES, concepts:this.CONCEPTS,
+      spine:this.spineVM(), stage:this.stageVM(),
+      steps:this.stepsVM(), loop:this.loopVM(),
+      machineTabs:tabs, machine:this.machineVM(),
+      canDo:this.CANDO, cannotDo:this.CANNOT,
+      cmd:this.cmdVM(), delegation:this.DELEGATION,
+    };
+  }
+}
+</script>
+</body>
+</html>
