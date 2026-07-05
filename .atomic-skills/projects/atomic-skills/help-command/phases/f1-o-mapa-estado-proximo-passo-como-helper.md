@@ -5,12 +5,11 @@ title: O mapa estado→próximo-passo como helper determinístico
 goal: Construir scripts/compute-help.js (puro-leitura, fail-open) que classifica
   o estado pela lista de precedência e lê nextAction verbatim, coberto por
   fixtures um-por-estado + sobrepostos que provam a ordem.
-status: active
+status: done
 branch: null
 started: 2026-07-05T12:58:58Z
-lastUpdated: 2026-07-05T14:56:13Z
-nextAction: Rodar `phase-done` — as 2 tasks da F1 estão done; verificar o
-  exit-gate G-1 e avançar o plano.
+lastUpdated: 2026-07-05T15:34:11Z
+nextAction: null
 startedCommit: abcf00ce480fab58c569a4565ff76d85d0d95725
 parentPlan: help-command
 phaseId: F1
@@ -180,13 +179,15 @@ _(plan doc, external refs)_
   spawn-fail". (4) Reusei `resolveTargets` de `detect-completion.js` (P3, não
   reimplementei resolução). (5) Plano sem `branch:` → rodei na árvore atual
   (`develop`) em modo worktree-degradado.
-- **Single nextAction:** Rodar `phase-done` — verifica o exit-gate G-1 (mesmo
-  test), roda o review-code gate sobre o diff da F1, distila lições e avança p/ F2.
-- **Verbatim state:** exit-gate F1/G-1 verifier = `node --test tests/help/compute-help.test.js`
-  (última run: exit 0, tests 25, pass 25, fail 0). startedCommit = `abcf00c`.
-  Commits da F1: `0d56faf` feat(T-001) · `99f6df6` test(T-002) · `ccf440c`
-  checkpoint T-001 · (checkpoint T-002 a seguir).
-- **Uncommitted changes:** após o checkpoint T-002 = árvore limpa (esperado).
+- **Single nextAction:** F1 FECHADA (phase-done decline — não avançada). Para
+  continuar o plano: `materialize F2` (rendering do bloco de ensino + `--html`) —
+  passo ratify-gated (businessIntent da F2). currentPhase segue em F1 (done).
+- **Verbatim state:** exit-gate F1/G-1 `met` (evidence 27 tests, exit 0);
+  reviewGate `passed` (mode local, at `c3c2135`) — o pass local achou 1 bug real
+  (finding #1) que foi corrigido em `c3c2135`. startedCommit = `abcf00c`. Commits da
+  F1: `0d56faf` feat(T-001) · `99f6df6` test(T-002) · `ccf440c`/`282e978` checkpoints ·
+  `8122569` G-1 met · `c3c2135` fix(review) · `8a7e8a1` reviewGate · `d59bdd5` lessons.
+- **Uncommitted changes:** após o commit de close da F1 = árvore limpa (esperado).
 
 ## Self-review against code-quality gates
 

@@ -165,7 +165,7 @@ phases:
       at: c3c2135540fd02afb81769c5b88eb0eb385f9473
       mode: local
       verifiedAt: 2026-07-05T15:30:14Z
-    status: active
+    status: done
     businessIntent:
       value: "F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
         compute-help.js que classifica o estado real (projeto/plano/fase, rollups,
