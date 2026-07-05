@@ -7,9 +7,8 @@ goal: Registrar `help` no router, criar o asset detalhe stub e catalogar o
 status: active
 branch: null
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-05T12:11:11Z
-nextAction: "Start T-003: catalogar help em meta/catalog.yaml + regenerar
-  catalog.json/docs"
+lastUpdated: 2026-07-05T12:12:54Z
+nextAction: Run `phase-done` para verificar os 5 exit-gates de F0 e avançar o plano
 parentPlan: help-command
 phaseId: F0
 businessIntent:
@@ -23,11 +22,11 @@ businessIntent:
     aiDeck nem gera o HTML.
   doneWhen: "`help` resolve na dispatch table para `project-help.md`,
     `validate-skills` verde e strip-test de compatibilidade limpo."
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 5
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -131,8 +130,8 @@ tasks:
     description: Entrada em meta/catalog.yaml (grupo View ou novo grupo Guidance)
       com signature [--html], regenerar meta/catalog.json +
       docs/skills/project.md pelo gerador existente.
-    status: pending
-    lastUpdated: 2026-07-05T11:37:28.309Z
+    status: done
+    lastUpdated: 2026-07-05T12:12:54Z
     scopeBoundary:
       - só a entrada de catálogo do help + regeneração; não altera outras
         entradas.
@@ -149,6 +148,13 @@ tasks:
         path: meta/catalog.json
       - kind: file
         path: docs/skills/project.md
+    closedAt: 2026-07-05T12:12:54Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-05T12:12:54Z
+      exitCode: 0
+      passed: true
+      outputSummary: npm run validate-skills → All 15 skills valid (schema_version 0.2)
 parked: []
 emerged: []
 planTitle: Comando `help` — GPS de terminal da skill `project`
