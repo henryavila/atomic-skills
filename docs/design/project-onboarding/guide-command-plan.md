@@ -10,24 +10,26 @@
 
 ---
 
-## O coração: o mapa estado → próximo passo
+## O coração: `nextAction` é o comando; a precedência é a anotação
 
-Esta é a peça load-bearing. O helper mapeia o estado detectado para UM comando concreto. A tabela abaixo tem que espelhar as transições **reais** (senão `guide` mente). Fonte de verdade das transições: `project-transitions.md` + a lógica de `nextAction`.
+**Fonte-da-verdade única do comando (F-001).** O `nextStep.command` vem **exclusivamente** do campo `nextAction` persistido — que `project-transitions.md` step 3b já autora como **exatamente um passo imperativo concreto** a cada `done`/transição. `guide` **nunca** recomputa nem inventa o comando: lê `nextAction` verbatim. Isso garante que `guide` e a linha `NEXT <nextAction>` do no-args **nunca divirjam**.
 
-| Situação detectada | PRÓXIMO PASSO (comando) | POR QUÊ |
-|---|---|---|
-| Sem `.atomic-skills/` | `new plan <slug>` (setup) | Nenhum estado ainda. |
-| Plano ativo · fase atual `descriptor-only` | `materialize <phase>` | Fase é só descritor; precisa do `businessIntent` antes de implementar. |
-| Fase materializada · tasks `pending` | `implement`  (ou `done <first-actionable>`) | Há trabalho admitido pronto para executar. |
-| Task(s) `active` há >24h | `reconcile`  (ou `done`/`unblock` a específica) | Gate de reconciliação: estado pode estar defasado do código. |
-| Só restam tasks `blocked` | `unblock <id>` | Única saída para frente de `blocked`; mostra `blockedBy[]`. |
-| Zero tasks abertas na fase | `phase-done` (in-plan) · `archive <slug>` (standalone) | Fase pronta para fechar; exit-gate + code review. |
-| Todas as fases `done` | `finalize` (PR) → depois `archive` | Plano concluído; publicar. |
-| Plano `blocked` por `dependsOnPlans[]` | `switch <prereq>` | Não se avança um plano bloqueado; resolver o pré-requisito. |
-| Drift detectado (`detect-completion --json` → `drift:true`) | `reconcile` | Itens parecem prontos no código mas não no estado. |
-| Ideias pendentes (`ideas.md`) | `idea list` / `idea promote <n>` | Inbox não-vazio (informativo, não bloqueia). |
+O que o helper computa **além** do comando: a **posição no ciclo** (`spineStage`) e as anotações `reason`/`why`/`escapes`. Para isso ele classifica o estado atual por uma **lista de precedência** — não uma tabela; a ordem É a semântica. A mesma lista serve de **fallback do comando** apenas quando `nextAction` está ausente/vazio, e só então, marcado explicitamente como sugestão.
 
-O helper resolve a **primeira** situação aplicável nessa ordem de prioridade (bloqueios de dependência e reconciliação vêm antes do fluxo feliz). Fail-open: qualquer erro de leitura → emite o que conseguiu e nunca aborta.
+**Lista de precedência (primeira que casar vence; bloqueios antes do fluxo feliz):**
+
+1. **Sem `.atomic-skills/`** → estágio *setup* · fallback `new plan <slug>`.
+2. **Plano `blocked` por `dependsOnPlans[]`** → estágio *blocked* · `switch <prereq>` (`<prereq>` = slug do pré-requisito). *Bloqueio de dependência vem antes de tudo.*
+3. **Drift detectado** (`detect-completion.js --json` → `drift:true`) → estágio *reconcile* · `reconcile`.
+4. **Task(s) `active` há >24h** → estágio *reconcile* · `reconcile`.
+5. **Só restam tasks `blocked`** → estágio *implement* · `unblock <id>` (mostra `blockedBy[]`).
+6. **Fase atual `descriptor-only`** → estágio *materialize* · `materialize <phase>`.
+7. **Fase materializada · tasks `pending`/`active`** → estágio *implement* · `implement`.
+8. **Zero tasks abertas · fase de plano (in-plan)** → estágio *phase-done* · `phase-done`.
+9. **Zero tasks abertas · initiative standalone** → estágio *archive* · `archive <slug>`.
+10. **Todas as fases `done`** → estágio *finalize* · `finalize`.
+
+Cada comando de fallback é **uma string única e invocável** com os argumentos **resolvidos do estado** (`<slug>`/`<phase>`/`<id>`/`<prereq>` viram os valores reais, nunca ficam como placeholder). Ideias pendentes (`ideas.md` não-vazio) **não** entram na precedência do comando — são uma **linha informativa** à parte (`IDEIAS  N pendentes — idea list`), como já faz o no-args. Fail-open: qualquer erro de leitura → emite o que conseguiu e nunca aborta.
 
 ## Formato de saída (bloco de ensino, terminal)
 
@@ -50,7 +52,7 @@ O mini-mapa ASCII da espinha (com "você está aqui") é o análogo de terminal 
 O HTML é construído por outro agente. Para `guide --html` encontrá-lo sem acoplar os dois trabalhos, fixamos **um caminho canônico** que o outro agente deve alvejar e que `guide` procura:
 
 - **Caminho de contrato:** `docs/design/project-onboarding/index.html` (co-locado com o brief que o especifica).
-- **Resolução (na ordem):** (1) o caminho de contrato; (2) fallback opcional `guideHtmlPath` no `manifest.json` do install, se o usuário publicar o HTML noutro lugar; (3) ausente → `guide --html` imprime *"Guia visual ainda não gerado (esperado em `docs/design/project-onboarding/index.html`)."* e sai 0 (**nunca** erro).
+- **Resolução:** (1) o caminho de contrato fixo; (2) ausente → `guide --html` imprime *"Guia visual ainda não gerado (esperado em `docs/design/project-onboarding/index.html`)."* e sai 0 (**nunca** erro). Um único caminho fixo, **sem fallback configurável** (F-005: um `manifest.guideHtmlPath` exigiria path/schema/ownership/fixture próprios — mantemos o contrato enxuto e testável com um caminho só).
 - **Abrir:** reusar o mecanismo de abertura já usado por `status --browser`; para um arquivo local, `open` (macOS) / `xdg-open` (Linux), atrás de uma checagem de existência. Nenhuma dependência de rede.
 - **Bidirecional:** o HTML aponta de volta para `project guide` (rodapé "Estou perdido", F3/T-008); `guide` aponta para o HTML (linha GUIA VISUAL). Um par, dois renderizadores.
 
@@ -82,15 +84,16 @@ Este contrato entra como uma linha no brief do HTML para o outro agente saber o 
 
 ### F1 — O mapa estado→próximo-passo como helper determinístico
 
-- **T-004 — `scripts/compute-guide.js`.** Helper puro-leitura, zero-token, fail-open: resolve projeto/plano/fase ativos (reusa a resolução do `status`/no-args), lê `nextAction`, rollups (`tasksDone/Total`, `gatesMet/Total`), status da fase (`descriptor-only`/`active`), tasks `blocked`, e o flag de drift (`detect-completion.js --json`). Aplica a tabela de prioridade acima. Emite JSON: `{ youAreHere, doneSummary, nextStep:{command,reason,why}, escapes, spineStage:{n,m} }`.
+- **T-004 — `scripts/compute-guide.js`.** Helper puro-leitura, zero-token, fail-open. Resolve projeto/plano/fase ativos (reusa a resolução do `status`/no-args), lê rollups (`tasksDone/Total`, `gatesMet/Total`), status da fase, tasks `blocked`, e classifica o estado pela lista de precedência acima para derivar `spineStage`/`reason`/`why`. **O `nextStep.command` é o `nextAction` persistido lido verbatim** (F-001); a precedência só fornece o comando quando `nextAction` está ausente/vazio, marcado `commandSource: "fallback"` (senão `"persisted"`). Emite JSON: `{ youAreHere, doneSummary, nextStep:{command, commandSource, reason, why}, escapes, spineStage:{n,m} }`.
+  - **Contrato do detector de drift (F-004):** `detect-completion.js --json` sai **1 quando há drift**, 0 sem drift, 2 em bad-args (`scripts/detect-completion.js:57`). Portanto: parsear o **stdout como JSON tanto em exit 0 quanto em exit 1**; tratar como fail-open (sem drift) **somente** stdout não-parseável, exit 2, ou falha de spawn. NUNCA um `execFileSync` que trate exit 1 como erro e descarte o stdout — isso engoliria o `reconcile` exatamente quando há drift.
   - Files: `scripts/compute-guide.js`
-  - scopeBoundary: só leitura + o mapa de decisão; NUNCA escreve estado; reusa `detect-completion.js` para o flag de drift (não reimplementa).
-  - acceptance: (1) para cada situação da tabela existe uma fixture e o helper emite o comando esperado; (2) qualquer erro de I/O → saída parcial, exit 0 (fail-open); (3) zero mutação (nenhum write no state tree).
+  - scopeBoundary: só leitura + classificação + leitura do `nextAction`; NUNCA escreve estado; reusa `detect-completion.js` (não reimplementa).
+  - acceptance: (1) `nextAction` presente → `nextStep.command === nextAction` verbatim e `commandSource: "persisted"`; (2) drift simulado (JSON válido **+ exit 1**) → `spineStage` reconcile e o fallback é `reconcile`; (3) erro de I/O / exit 2 / stdout não-parseável → saída parcial, exit 0 (fail-open); (4) zero mutação (nenhum write no state tree).
   - verifier: `kind test` — `node --test tests/guide/compute-guide.test.js`
 
-- **T-005 — Fixtures dos estados.** Um fixture por linha da tabela (descriptor-only, pending, active>24h, só-blocked, zero-abertas, todas-done, plano-bloqueado, drift, ideias, sem-`.atomic-skills/`).
+- **T-005 — Fixtures dos estados.** Um fixture por item da lista de precedência + **fixtures sobrepostos que provam a ordem** (F-002): `blocked+pending` → `switch` (não `implement`); `drift+pending` → `reconcile` (não `implement`); `active>24h + descriptor-only` → `reconcile` (não `materialize`). Mais um par de fonte-do-comando: um com `nextAction` presente (prova `command === nextAction`) e um sem (prova o fallback pela precedência).
   - Files: `tests/guide/fixtures/*`, `tests/guide/compute-guide.test.js`
-  - acceptance: cada fixture mapeia para o `nextStep.command` esperado; tabela de decisão coberta 100%.
+  - acceptance: cada item da precedência coberto; os 3 fixtures sobrepostos asseguram o comando de MAIOR prioridade; o par presente/ausente cobre as duas `commandSource`.
   - verifier: `kind test` — `node --test tests/guide/compute-guide.test.js`
 
 - **Gate F1:** `node --test tests/guide/compute-guide.test.js` exit 0 (mapa de decisão coberto + fail-open provado).
@@ -102,9 +105,9 @@ Este contrato entra como uma linha no brief do HTML para o outro agente saber o 
   - acceptance: (1) rodar `guide` num projeto real (ex.: `phase-materialization`) imprime o bloco com PRÓXIMO PASSO batendo com o `nextAction` persistido; (2) mini-mapa marca a fase certa; (3) SE TRAVAR lista `why`/`status --browser`/`guide`.
   - verifier: `kind shell` — smoke que roda o fluxo do asset contra um fixture e diffa o bloco renderizado (`manual` NÃO satisfaz o gate; usar um render-harness determinístico).
 
-- **T-006b — Flag `guide --html` (abrir o guia visual).** Implementar a resolução do caminho de contrato + fallback `manifest.guideHtmlPath` + abertura via `open`/`xdg-open` atrás de checagem de existência; fail-open quando ausente (mensagem + exit 0). Imprime a linha GUIA VISUAL no `guide` normal só quando o HTML existe. Reusa o mecanismo de abertura de `status --browser` onde aplicável.
-  - Files: `skills/shared/project-assets/project-guide.md`, `scripts/compute-guide.js` (só a resolução/existência do caminho — a abertura fica no asset via `{{BASH_TOOL}}`)
-  - scopeBoundary: só a resolução do caminho + abertura; NÃO gera nem valida o HTML (isso é do outro agente); nenhuma dependência de rede.
+- **T-006b — Flag `guide --html` (abrir o guia visual).** Implementar a checagem de existência do **caminho de contrato fixo** (`docs/design/project-onboarding/index.html`) + abertura via `open`/`xdg-open`; fail-open quando ausente (mensagem + exit 0). Imprime a linha GUIA VISUAL no `guide` normal só quando o HTML existe. Reusa o mecanismo de abertura de `status --browser` onde aplicável.
+  - Files: `skills/shared/project-assets/project-guide.md`, `scripts/compute-guide.js` (só a checagem de existência do caminho fixo — a abertura fica no asset via `{{BASH_TOOL}}`)
+  - scopeBoundary: só a checagem do caminho fixo + abertura; NÃO gera nem valida o HTML (isso é do outro agente); nenhuma dependência de rede; sem fallback configurável (F-005).
   - acceptance: (1) HTML presente no caminho de contrato → `guide --html` abre no navegador; (2) HTML ausente → mensagem clara apontando o caminho esperado + exit 0 (fail-open); (3) linha GUIA VISUAL aparece no `guide` sem-flag apenas quando o arquivo existe.
   - verifier: `kind test` — `node --test tests/guide/html-resolve.test.js` (presente→resolve o caminho; ausente→sinaliza sem erro; a abertura em si é mockada).
 
@@ -112,9 +115,9 @@ Este contrato entra como uma linha no brief do HTML para o outro agente saber o 
 
 ### F3 — Guarda de fidelidade (guide nunca cita um verbo que não existe)
 
-- **T-007 — Teste guide-vocab ⊆ catalog.** Todo `nextStep.command` que o helper pode emitir tem que ser um subcomando real em `meta/catalog.yaml`. Isso impede o mapa de decisão de driftar dos verbos reais (que mudam — `materialize`/`unblock`/`review`/`depend` entraram recentemente).
+- **T-007 — Teste guide-command ⊆ catalog + forma válida (F-003).** Todo `nextStep.command` do domínio de saída (persistido OU fallback) tem que: (a) ter como verbo um subcomando real em `meta/catalog.yaml`, **E** (b) casar a **signature** declarada daquele subcomando — não basta o primeiro token existir. Ex.: `finalize` sem-arg é válido; `materialize` exige `<phase>` **resolvido**; um comando com placeholder `<…>` não-resolvido **falha**. Impede o mapa de driftar dos verbos reais (que mudam — `materialize`/`unblock`/`review`/`depend` entraram recentemente) e de emitir instruções não-invocáveis.
   - Files: `tests/guide/guide-vocab.test.js`
-  - acceptance: cada comando do domínio de saída do helper existe no catálogo; um comando removido do catálogo quebra este teste.
+  - acceptance: cada comando do domínio de saída existe no catálogo E respeita a signature; um placeholder não-resolvido ou um verbo removido do catálogo quebra o teste.
   - verifier: `kind test` — `node --test tests/guide/guide-vocab.test.js`
 
 - **T-008 — Cross-link do HTML.** No rodapé "Estou perdido" do brief/HTML e no `docs/skills/project.md`, apontar `guide` como o GPS de terminal. Fecha o loop das 3 camadas.
