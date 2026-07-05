@@ -5,7 +5,7 @@ title: Comando `help` — GPS de terminal da skill `project`
 version: "1.0"
 status: active
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-05T12:40:24Z
+lastUpdated: 2026-07-05T12:58:58Z
 currentPhase: F1
 parallelismAllowed: false
 principles:
@@ -140,7 +140,7 @@ phases:
       fixtures um-por-estado + sobrepostos que provam a ordem.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 1 criterion to meet
       criteria:
@@ -153,6 +153,26 @@ phases:
             runner: node --test
             pattern: tests/help/compute-help.test.js
     status: active
+    businessIntent:
+      value: "F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
+        compute-help.js que classifica o estado real (projeto/plano/fase, rollups,
+        drift) em spineStage + próximo-passo. Valor: a resposta \"onde estou / qual o
+        próximo passo\" passa a vir de lógica testável e reutilizável, não de prosa que
+        raciocina do zero — habilitando o render da F2. Valor pro usuário:
+        confiabilidade (lê nextAction verbatim, degrada graciosamente)."
+      workflow: "Retomada de projeto — o dev roda `help` e precisa saber, numa tela, o
+        estágio do ciclo de vida e o comando exato a rodar em seguida."
+      rules: "puro-leitura / zero-mutação / fail-open (P1); nextStep.command =
+        nextAction persistido lido verbatim, precedência só como fallback (P2); reusa
+        o grafo de transições real e detect-completion.js — não reimplementa (P3);
+        contrato de exit-code do detector honrado (parsear JSON em exit 0 e 1;
+        fail-open só em exit 2, stdout não-parseável ou falha de spawn)."
+      outOfScope: "Nenhum rendering do bloco de ensino nem mini-mapa ASCII (isso é
+        F2); não gera nem abre o HTML; não toca aiDeck; não altera o resumo no-args de
+        5 linhas."
+      doneWhen: "compute-help.test.js verde com o mapa de decisão coberto (um fixture
+        por estado da precedência + os 3 sobrepostos que provam a ordem + o par
+        presente/ausente de commandSource) e o fail-open provado."
   - id: F2
     slug: help-command-f2-rendering-do-bloco-de-ensino
     title: Rendering do bloco de ensino
