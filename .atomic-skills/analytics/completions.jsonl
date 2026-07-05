@@ -47,3 +47,4 @@
 {"ts":"2026-07-05T12:13:08.969Z","event":"task-done","projectId":"atomic-skills","planSlug":"help-command","phaseId":"F0","taskId":"T-003","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-05T12:45:22.094Z","event":"phase-done","projectId":"atomic-skills","planSlug":"help-command","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":15,"locAdded":1948,"locRemoved":4,"commits":11}}
 {"ts":"2026-07-05T14:55:32.636Z","event":"task-done","projectId":"atomic-skills","planSlug":"help-command","phaseId":"F1","taskId":"T-001","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-05T14:56:48.538Z","event":"task-done","projectId":"atomic-skills","planSlug":"help-command","phaseId":"F1","taskId":"T-002","weight":1,"weightBasis":"count"}

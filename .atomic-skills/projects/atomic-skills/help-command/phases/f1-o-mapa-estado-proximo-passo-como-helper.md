@@ -8,9 +8,9 @@ goal: Construir scripts/compute-help.js (puro-leitura, fail-open) que classifica
 status: active
 branch: null
 started: 2026-07-05T12:58:58Z
-lastUpdated: 2026-07-05T13:25:35Z
-nextAction: Rodar `done T-002` — fixtures + teste já escritos e verdes em `node
-  --test tests/help/compute-help.test.js`.
+lastUpdated: 2026-07-05T14:56:13Z
+nextAction: Rodar `phase-done` — as 2 tasks da F1 estão done; verificar o
+  exit-gate G-1 e avançar o plano.
 startedCommit: abcf00ce480fab58c569a4565ff76d85d0d95725
 parentPlan: help-command
 phaseId: F1
@@ -34,11 +34,11 @@ businessIntent:
   doneWhen: compute-help.test.js verde com o mapa de decisão coberto (um fixture
     por estado da precedência + os 3 sobrepostos que provam a ordem + o par
     presente/ausente de commandSource) e o fail-open provado.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
-weightDone: 3
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-1
@@ -108,8 +108,9 @@ tasks:
       drift+pending vira reconcile (não implement); active-mais-de-24h +
       descriptor-only vira reconcile (não materialize). Mais um par de
       fonte-do-comando: um com nextAction presente e um sem."
-    status: pending
-    lastUpdated: 2026-07-05T12:58:58Z
+    status: done
+    lastUpdated: 2026-07-05T14:56:13Z
+    closedAt: 2026-07-05T14:56:13Z
     scopeBoundary:
       - só fixtures + o teste do helper; não altera o helper nem outros testes.
     acceptance:
@@ -125,6 +126,13 @@ tasks:
         path: tests/help/fixtures
       - kind: file
         path: tests/help/compute-help.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-05T14:56:13Z
+      exitCode: 0
+      testsCollected: 25
+      passed: true
+      outputSummary: node --test tests/help/compute-help.test.js → tests 25, pass 25, fail 0
 parked: []
 emerged: []
 planTitle: Comando `help` — GPS de terminal da skill `project`
@@ -146,11 +154,26 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F1 materializada a partir do sidecar `f1-…source.json` (2 tasks:
-  T-001 helper `compute-help.js`, T-002 fixtures+teste). businessIntent ratificado
-  pelo usuário. Nenhuma lição de start-gate aplicável. Implementação ainda não
-  começou.
-- **Single nextAction:** Rodar `done T-001` após criar `scripts/compute-help.js`
-  e vê-lo verde em `node --test tests/help/compute-help.test.js`.
-- **Verbatim state:** exit-gate F1/G-1 = `node --test tests/help/compute-help.test.js`.
-  startedCommit = `abcf00c`.
+- **Narrative:** F1 IMPLEMENTADA. As 2 tasks estão `done` com evidence
+  `passed: true` (tasksDone 2/2, weightDone 5/5): T-001 = `scripts/compute-help.js`
+  (classificador puro-leitura estado→próximo-passo) e T-002 =
+  `tests/help/fixtures/states.js` + `tests/help/compute-help.test.js` (25 testes:
+  10 itens de precedência + 3 overlaps + contrato do drift-detector + par
+  commandSource + integração/zero-mutação). Exit-gate G-1 ainda `pending` — o
+  próximo passo é `phase-done`.
+- **Decision log:** (1) T-001/T-002 são um par TDD — o verifier de ambas é o mesmo
+  `tests/help/compute-help.test.js`; escrevi teste (vermelho) → helper (verde),
+  fechei na ordem persistida T-001→T-002. (2) `classify(state)` é puro e recebe
+  estado normalizado — é o que os fixtures alvejam, sem disco/git/spawn. (3)
+  `runDriftDetector` usa `spawnSync` (NUNCA execFileSync) p/ capturar exit 1 sem
+  throw, honrando "parsear JSON em exit 0 E 1; fail-open só em exit 2/unparseável/
+  spawn-fail". (4) Reusei `resolveTargets` de `detect-completion.js` (P3, não
+  reimplementei resolução). (5) Plano sem `branch:` → rodei na árvore atual
+  (`develop`) em modo worktree-degradado.
+- **Single nextAction:** Rodar `phase-done` — verifica o exit-gate G-1 (mesmo
+  test), roda o review-code gate sobre o diff da F1, distila lições e avança p/ F2.
+- **Verbatim state:** exit-gate F1/G-1 verifier = `node --test tests/help/compute-help.test.js`
+  (última run: exit 0, tests 25, pass 25, fail 0). startedCommit = `abcf00c`.
+  Commits da F1: `0d56faf` feat(T-001) · `99f6df6` test(T-002) · `ccf440c`
+  checkpoint T-001 · (checkpoint T-002 a seguir).
+- **Uncommitted changes:** após o checkpoint T-002 = árvore limpa (esperado).
