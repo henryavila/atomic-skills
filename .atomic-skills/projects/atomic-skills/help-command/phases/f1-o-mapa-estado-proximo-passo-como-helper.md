@@ -187,3 +187,24 @@ _(plan doc, external refs)_
   Commits da F1: `0d56faf` feat(T-001) · `99f6df6` test(T-002) · `ccf440c`
   checkpoint T-001 · (checkpoint T-002 a seguir).
 - **Uncommitted changes:** após o checkpoint T-002 = árvore limpa (esperado).
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks fechadas, cada uma com `outputs[]` apontando as
+  linhas-fonte (`scripts/compute-help.js`, `tests/help/*`); cada fix do review citou
+  a linha (`:292`, `:310`) antes da edição.
+- **G2 soft-language**: escaneei `nextAction` + descrições + mensagens de fix pela
+  ban-list (`should`/`probably`/`works`/`looks done`); 0 violações — fechamentos são
+  evidence `passed: true`.
+- **G6 reference-or-strike**: 1 exit-criterion (G-1) `met` com `evidence` populado
+  (27 tests, exit 0); reviewGate literal `at: c3c2135`; nenhum literal vago.
+- **G10 gate-must-be-able-to-fail**: G-1 FALHA quando `compute-help.test.js` tem
+  qualquer fail ou 0 testes coletados — condição vermelha concreta e falsificável.
+- **Codex review**: SKIPPED no phase-done (mode=local; diff aditivo não-destrutivo —
+  `DESTRUCTIVE=false`, sem deleção/schema-drop).
+- **Review gate (G2)**: gravado no descritor da fase como
+  `reviewGate: { status: passed, at: c3c2135, mode: local }`. O pass local achou 1
+  bug real (finding #1 major) que foi corrigido; a prosa e o campo GATE-R3 concordam.
+- **Lessons (G1)**: distiladas 2 lições (2 reusable, 0 local) em
+  `lessons/help-command-f1-*.md`, ratificadas pelo usuário. A start-gate da F2
+  dispositiona-as.
