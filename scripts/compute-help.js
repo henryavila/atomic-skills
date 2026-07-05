@@ -290,6 +290,11 @@ export function resolveState({ dir = process.cwd(), now = Date.now(), driftFn = 
     // (the resolved active initiative belongs to a DIFFERENT phase). Existence of
     // the initiative file is the only materialization proof, never subPhaseCount.
     state.phaseDescriptorOnly = !!(planFm.currentPhase && fm.phaseId && fm.phaseId !== planFm.currentPhase);
+    // When the current phase is descriptor-only, the resolved initiative belongs to
+    // a DIFFERENT (already-materialized) phase — so the phase the user is actually
+    // at, and the one `materialize <phase>` must name, is `currentPhase`, never the
+    // fallen-back `fm.phaseId`.
+    if (state.phaseDescriptorOnly) state.phaseId = planFm.currentPhase;
     state.standalone = phases.length === 0;
     state.allPhasesDone = phases.length > 0 && phases.every((p) => p && p.status === 'done');
 
@@ -306,8 +311,13 @@ export function resolveState({ dir = process.cwd(), now = Date.now(), driftFn = 
       blocked: blockedOpen.length,
     };
 
+    // Scope drift detection by PROJECT only. detect-completion's `--plan` filter
+    // keys on the plan DIRECTORY name, which can diverge from the frontmatter
+    // `slug` (documented repo gotcha) → a mismatch silently matches zero plans and
+    // suppresses a real reconcile signal. `--project` + its default active-plan
+    // resolution resolves the same target compute-help already resolved.
     state.drift = typeof driftFn === 'function'
-      ? !!driftFn({ dir, plan: planFm.slug, project: t.projectId, exec })
+      ? !!driftFn({ dir, project: t.projectId, exec })
       : false;
   } catch {
     // fail-open: return whatever we managed to fill.

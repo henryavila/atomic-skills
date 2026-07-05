@@ -216,3 +216,81 @@ test('computeHelp: fail-open — a missing directory yields a partial object, ne
   assert.ok(json.nextStep, 'still emits a nextStep');
   assert.equal(json.spineStage.name, 'IDEIA'); // no state → setup stage
 });
+
+// --- resolveState frontmatter→flag derivation (integration, not synthetic classify) ---
+// These drive the flag derivation through real plan.md/phase frontmatter, which the
+// synthetic classify fixtures bypass.
+
+/** Plan whose currentPhase (F2) is descriptor-only: F2 has NO initiative file; the
+ *  only initiative on disk is the DONE F1. The next step must name F2 (the phase
+ *  that needs materializing), NOT the resolved-initiative phase F1. */
+function buildDescriptorOnlyTree() {
+  const dir = mkdtempSync(join(tmpdir(), 'compute-help-desc-'));
+  const planDir = join(dir, '.atomic-skills', 'projects', 'demo', 'demo-plan');
+  mkdirSync(join(planDir, 'phases'), { recursive: true });
+  writeFileSync(join(planDir, 'plan.md'), [
+    '---', 'schemaVersion: "0.1"', 'slug: demo-plan', 'status: active',
+    'currentPhase: F2',
+    'phases:',
+    '  - id: F1', '    status: done',
+    '  - id: F2', '    status: active',
+    '---', '# demo', '',
+  ].join('\n'));
+  writeFileSync(join(planDir, 'phases', 'f1.md'), [
+    '---', 'schemaVersion: "0.1"', 'slug: demo-plan-f1', 'status: done',
+    'phaseId: F1', 'parentPlan: demo-plan', 'title: Fase F1 concluída',
+    'tasksDone: 1', 'tasksTotal: 1',
+    'tasks:', '  - id: T-001', '    status: done',
+    '---', '# f1', '',
+  ].join('\n'));
+  return dir;
+}
+
+test('computeHelp: descriptor-only currentPhase → materialize names currentPhase (F2), not the resolved phase', () => {
+  const dir = buildDescriptorOnlyTree();
+  try {
+    const json = computeHelp({ dir, driftFn: () => false });
+    // Fallback path (F1's initiative carries no nextAction), so the precedence command surfaces.
+    assert.equal(json.nextStep.commandSource, 'fallback');
+    assert.equal(json.nextStep.command, 'materialize F2'); // pre-fix bug emitted "materialize F1"
+    assert.equal(json.spineStage.name, 'MATERIALIZE');
+    assert.equal(json.youAreHere.phaseId, 'F2');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/** Plan blocked by an unmet cross-plan dependency. The blocked branch must win and
+ *  name the prerequisite as `switch <prereq>`. */
+function buildBlockedPlanTree() {
+  const dir = mkdtempSync(join(tmpdir(), 'compute-help-blocked-'));
+  const planDir = join(dir, '.atomic-skills', 'projects', 'demo', 'demo-plan');
+  mkdirSync(join(planDir, 'phases'), { recursive: true });
+  writeFileSync(join(planDir, 'plan.md'), [
+    '---', 'schemaVersion: "0.1"', 'slug: demo-plan', 'status: blocked',
+    'currentPhase: F1',
+    'dependsOnPlans:', '  - plan: core-api',
+    'phases:', '  - id: F1', '    status: active',
+    '---', '# demo', '',
+  ].join('\n'));
+  writeFileSync(join(planDir, 'phases', 'f1.md'), [
+    '---', 'schemaVersion: "0.1"', 'slug: demo-plan-f1', 'status: active',
+    'phaseId: F1', 'parentPlan: demo-plan', 'title: Fase F1',
+    'tasksDone: 0', 'tasksTotal: 1',
+    'tasks:', '  - id: T-001', '    status: pending',
+    '---', '# f1', '',
+  ].join('\n'));
+  return dir;
+}
+
+test('computeHelp: blocked plan → switch <prereq> wins over the open-task implement branch', () => {
+  const dir = buildBlockedPlanTree();
+  try {
+    const json = computeHelp({ dir, driftFn: () => false });
+    assert.equal(json.nextStep.commandSource, 'fallback');
+    assert.equal(json.nextStep.command, 'switch core-api');
+    assert.equal(json.spineStage.name, 'PLANO');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
