@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-05T11:36:53Z
+lastUpdated: 2026-07-05T12:40:24Z
 schemaVersion: "0.1"
 activePlans: 1
-activeInitiatives: 1
-archivedCount: 15
+activeInitiatives: 0
+archivedCount: 16
 ---
 
 # Project Status Index
@@ -20,12 +20,12 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| help-command | active | F0 | develop | 2026-07-05 | 0/4 |
+| help-command | active | F1 | develop | 2026-07-05 | 1/4 |
 
 ### help-command
 | Initiative | Phase | Status | Tasks |
 |------------|-------|--------|-------|
-| f0-contrato-esqueleto | F0 | active | 3/3 |
+| _(F1 descriptor-only — run `materialize F1`)_ | F1 | pending | — |
 
 ## Done Plans (not archived)
 
@@ -51,6 +51,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
 | design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
 | worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
@@ -60,7 +61,6 @@ _(none)_
 | skills-restructuring | 2026-06-16 | F4 | 7/7 | Reestruturacao das skills atomic-skills |
 | quick-idea-capture | 2026-06-09 | F1 | 2/2 | Quick Idea Capture |
 | mode2-anthropic-subagent-tier | 2026-06-09 | F0 | 0/1 | Mode 2 - Anthropic subagent executor tier (Sonnet/Haiku) |
-| bmad-porting-research | 2026-06-09 | F0 | 0/1 | Pesquisa: Porting de Modulos BMAD para Atomic Skills |
 
 ## Ad-Hoc Sessions Log (last 5)
 

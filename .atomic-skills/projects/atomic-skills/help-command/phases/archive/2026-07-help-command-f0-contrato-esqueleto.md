@@ -4,11 +4,11 @@ slug: help-command-f0-contrato-esqueleto
 title: Contrato + esqueleto
 goal: Registrar `help` no router, criar o asset detalhe stub e catalogar o
   comando — dispatch + descriptor + no-op verde, sem render completo.
-status: active
+status: archived
 branch: null
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-05T12:12:54Z
-nextAction: Run `phase-done` para verificar os 5 exit-gates de F0 e avançar o plano
+lastUpdated: 2026-07-05T12:40:24Z
+nextAction: null
 parentPlan: help-command
 phaseId: F0
 businessIntent:
@@ -24,49 +24,90 @@ businessIntent:
     `validate-skills` verde e strip-test de compatibilidade limpo."
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 5
 gatesTotal: 5
 weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
     description: validate-skills passa (exit 0)
-    status: pending
+    status: met
+    metAt: 2026-07-05T12:33:53Z
     verifier:
       kind: shell
       command: npm run validate-skills
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-05T12:33:53Z
+      exitCode: 0
+      passed: true
+      outputSummary: npm run validate-skills → All 15 skills valid (schema_version 0.2)
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-07-05
   - id: G-2
     description: strip-test de compatibilidade passa (exit 0)
-    status: pending
+    status: met
+    metAt: 2026-07-05T12:33:53Z
     verifier:
       kind: test
       runner: node --test
       pattern: tests/compatibility.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-05T12:33:53Z
+      exitCode: 0
+      testsCollected: 128
+      passed: true
+      outputSummary: node --test tests/compatibility.test.js → tests 128, pass 128, fail 0
     verifierLabel: "test: node --test tests/compatibility.test.js"
+    evidenceSummary: passed · 128 tests · 2026-07-05
   - id: G-3
     description: uma linha da dispatch table (âncora `|`) casa `help` E resolve para
       project-help.md
-    status: pending
+    status: met
+    metAt: 2026-07-05T12:33:53Z
     verifier:
       kind: shell
       command: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-05T12:33:53Z
+      exitCode: 0
+      passed: true
+      outputSummary: grep dispatch-row help→project-help.md → match (exit 0)
     verifierLabel: "shell: grep -qE '^\\|.*help.*project-help\\.md' skills/core/project.…"
+    evidenceSummary: passed · 2026-07-05
   - id: G-4
     description: o asset project-help.md existe no disco
-    status: pending
+    status: met
+    metAt: 2026-07-05T12:33:53Z
     verifier:
       kind: shell
       command: test -f skills/shared/project-assets/project-help.md
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-05T12:33:53Z
+      exitCode: 0
+      passed: true
+      outputSummary: test -f skills/shared/project-assets/project-help.md → exists (exit 0)
     verifierLabel: "shell: test -f skills/shared/project-assets/project-help.md"
+    evidenceSummary: passed · 2026-07-05
   - id: G-5
     description: "o catálogo tem a entrada `name: help` com signature `--html`"
-    status: pending
+    status: met
+    metAt: 2026-07-05T12:33:53Z
     verifier:
       kind: shell
       command: "awk '/name: help/{f=1} f&&/signature:/{print;exit}' meta/catalog.yaml
         | grep -q -- --html"
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-05T12:33:53Z
+      exitCode: 0
+      passed: true
+      outputSummary: awk name:help → signature matches --html (exit 0)
     verifierLabel: "shell: awk '/name: help/{f=1} f&&/signature:/{print;exit}' meta/ca…"
+    evidenceSummary: passed · 2026-07-05
 stack:
   - id: 1
     title: Contrato + esqueleto
@@ -173,6 +214,15 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks fechadas com evidência `passed:true` (T-001/T-002/T-003), cada uma ligada aos seus `outputs[]`. Fase de contrato/esqueleto (markdown+catálogo), sem asserção sobre código existente não-verificada.
+- **G2 soft-language**: escaneado `nextAction` + descrições de task/critério pela ban-list; 0 ocorrências. `nextAction` nulificado no phase-done.
+- **G6 reference-or-strike**: 5 exit-criteria, **5 met** com `evidence:` populada (todos verifiers determinísticos exit 0; G-2 = 128/128 testes). 0 deferred, 0 bare.
+- **G10 gate-must-be-able-to-fail**: cada critério tem verifier determinístico que fica vermelho quando o alvo falha (grep sem match, teste falhando, `test -f` ausente, `validate-skills` não-zero). Nenhum critério de vaidade.
+- **Review gate (G2)**: `atomic-skills:review-code 11b1543..HEAD --mode=local`, verdict findings_exist, counts `{blocker:0, critical:0, major:0, minor:2}`. Modo `local` escolhido pelo sinal destrutivo=false (diff +54/-0, sem drop-tokens). Finding #1 (spec `--html` citava `xdg-open` cru vs `open_url` WSL-aware) CORRIGIDO em `54bf8a7`; finding #2 (dispatch-row sem teste persistente) diferido p/ F3 (virou lição L-002). Registrado no descritor da fase como `reviewGate: { status: passed, at: 54bf8a7, mode: local }` — GATE-R3 satisfeito.
+- **Lessons (G1)**: distiladas 2 lições em `lessons/help-command-f0-contrato-esqueleto.md` (2 reusable: L-001→F2, L-002→F3), ratificadas pelo usuário. Os start-gates de F2/F3 as dispõem.
 
 ## Session handoff
 

@@ -5,8 +5,8 @@ title: Comando `help` — GPS de terminal da skill `project`
 version: "1.0"
 status: active
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-05T11:37:28.309Z
-currentPhase: F0
+lastUpdated: 2026-07-05T12:40:24Z
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -48,38 +48,79 @@ phases:
       criteria:
         - id: G-1
           description: validate-skills passa (exit 0)
-          status: pending
+          status: met
+          metAt: 2026-07-05T12:33:53Z
           verifier:
             kind: shell
             command: npm run validate-skills
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-05T12:33:53Z
+            exitCode: 0
+            passed: true
+            outputSummary: "npm run validate-skills → All 15 skills valid (schema_version 0.2)"
         - id: G-2
           description: strip-test de compatibilidade passa (exit 0)
-          status: pending
+          status: met
+          metAt: 2026-07-05T12:33:53Z
           verifier:
             kind: test
             runner: node --test
             pattern: tests/compatibility.test.js
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-07-05T12:33:53Z
+            exitCode: 0
+            testsCollected: 128
+            passed: true
+            outputSummary: "node --test tests/compatibility.test.js → tests 128, pass 128, fail 0"
         - id: G-3
           description: uma linha da dispatch table (âncora `|`) casa `help` E resolve para
             project-help.md
-          status: pending
+          status: met
+          metAt: 2026-07-05T12:33:53Z
           verifier:
             kind: shell
             command: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-05T12:33:53Z
+            exitCode: 0
+            passed: true
+            outputSummary: "grep -qE '^\\|.*help.*project-help\\.md' skills/core/project.md → match (exit 0)"
         - id: G-4
           description: o asset project-help.md existe no disco
-          status: pending
+          status: met
+          metAt: 2026-07-05T12:33:53Z
           verifier:
             kind: shell
             command: test -f skills/shared/project-assets/project-help.md
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-05T12:33:53Z
+            exitCode: 0
+            passed: true
+            outputSummary: "test -f skills/shared/project-assets/project-help.md → exists (exit 0)"
         - id: G-5
           description: "o catálogo tem a entrada `name: help` com signature `--html`"
-          status: pending
+          status: met
+          metAt: 2026-07-05T12:33:53Z
           verifier:
             kind: shell
             command: "awk '/name: help/{f=1} f&&/signature:/{print;exit}' meta/catalog.yaml
               | grep -q -- --html"
-    status: active
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-05T12:33:53Z
+            exitCode: 0
+            passed: true
+            outputSummary: "awk name:help → signature line matches --html (exit 0)"
+    status: done
+    reviewGate:
+      status: passed
+      at: 54bf8a7
+      mode: local
+      verifiedAt: 2026-07-05T12:40:24Z
     businessIntent:
       value: Estabelece o contrato do comando `help` (router + asset + catálogo) para
         a camada GPS de terminal existir e ser descoberta, ainda sem renderizar.
@@ -111,7 +152,7 @@ phases:
             kind: test
             runner: node --test
             pattern: tests/help/compute-help.test.js
-    status: pending
+    status: active
   - id: F2
     slug: help-command-f2-rendering-do-bloco-de-ensino
     title: Rendering do bloco de ensino
