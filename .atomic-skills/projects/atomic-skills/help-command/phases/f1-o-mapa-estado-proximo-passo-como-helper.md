@@ -8,42 +8,41 @@ goal: Construir scripts/compute-help.js (puro-leitura, fail-open) que classifica
 status: active
 branch: null
 started: 2026-07-05T12:58:58Z
-lastUpdated: 2026-07-05T12:58:58Z
-nextAction: "Rodar `done T-001` após criar scripts/compute-help.js e vê-lo verde
-  em node --test tests/help/compute-help.test.js."
+lastUpdated: 2026-07-05T13:25:35Z
+nextAction: Rodar `done T-002` — fixtures + teste já escritos e verdes em `node
+  --test tests/help/compute-help.test.js`.
 startedCommit: abcf00ce480fab58c569a4565ff76d85d0d95725
 parentPlan: help-command
 phaseId: F1
 businessIntent:
-  value: "F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
+  value: 'F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
     compute-help.js que classifica o estado real (projeto/plano/fase, rollups,
-    drift) em spineStage + próximo-passo. Valor: a resposta \"onde estou / qual o
-    próximo passo\" passa a vir de lógica testável e reutilizável, não de prosa que
-    raciocina do zero — habilitando o render da F2. Valor pro usuário:
-    confiabilidade (lê nextAction verbatim, degrada graciosamente)."
-  workflow: "Retomada de projeto — o dev roda `help` e precisa saber, numa tela, o
-    estágio do ciclo de vida e o comando exato a rodar em seguida."
-  rules: "puro-leitura / zero-mutação / fail-open (P1); nextStep.command =
-    nextAction persistido lido verbatim, precedência só como fallback (P2); reusa
-    o grafo de transições real e detect-completion.js — não reimplementa (P3);
-    contrato de exit-code do detector honrado (parsear JSON em exit 0 e 1;
-    fail-open só em exit 2, stdout não-parseável ou falha de spawn)."
-  outOfScope: "Nenhum rendering do bloco de ensino nem mini-mapa ASCII (isso é
-    F2); não gera nem abre o HTML; não toca aiDeck; não altera o resumo no-args de
-    5 linhas."
-  doneWhen: "compute-help.test.js verde com o mapa de decisão coberto (um fixture
+    drift) em spineStage + próximo-passo. Valor: a resposta "onde estou / qual o
+    próximo passo" passa a vir de lógica testável e reutilizável, não de prosa
+    que raciocina do zero — habilitando o render da F2. Valor pro usuário:
+    confiabilidade (lê nextAction verbatim, degrada graciosamente).'
+  workflow: Retomada de projeto — o dev roda `help` e precisa saber, numa tela, o
+    estágio do ciclo de vida e o comando exato a rodar em seguida.
+  rules: puro-leitura / zero-mutação / fail-open (P1); nextStep.command =
+    nextAction persistido lido verbatim, precedência só como fallback (P2);
+    reusa o grafo de transições real e detect-completion.js — não reimplementa
+    (P3); contrato de exit-code do detector honrado (parsear JSON em exit 0 e 1;
+    fail-open só em exit 2, stdout não-parseável ou falha de spawn).
+  outOfScope: Nenhum rendering do bloco de ensino nem mini-mapa ASCII (isso é F2);
+    não gera nem abre o HTML; não toca aiDeck; não altera o resumo no-args de 5
+    linhas.
+  doneWhen: compute-help.test.js verde com o mapa de decisão coberto (um fixture
     por estado da precedência + os 3 sobrepostos que provam a ordem + o par
-    presente/ausente de commandSource) e o fail-open provado."
-tasksDone: 0
+    presente/ausente de commandSource) e o fail-open provado.
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 1
-weightDone: 0
+weightDone: 3
 weightTotal: 5
 exitGates:
   - id: G-1
-    description: compute-help.test.js passa (mapa de decisão coberto + fail-open
-      provado)
+    description: compute-help.test.js passa (mapa de decisão coberto + fail-open provado)
     status: pending
     verifier:
       kind: test
@@ -65,23 +64,24 @@ tasks:
     weight: 3
     description: "Helper puro-leitura, zero-token, fail-open. Resolve
       projeto/plano/fase ativos, lê rollups e status da fase, classifica pela
-      lista de precedência para derivar spineStage/reason/why. O nextStep.command
-      é o nextAction persistido lido verbatim (commandSource persisted); a
-      precedência só fornece o comando quando nextAction está ausente/vazio
-      (commandSource fallback). Contrato do detector de drift: detect-completion.js
-      --json sai 1 quando há drift, 0 sem drift, 2 em bad-args — parsear stdout
-      como JSON tanto em exit 0 quanto 1; fail-open só em stdout não-parseável,
-      exit 2 ou falha de spawn."
-    status: pending
-    lastUpdated: 2026-07-05T12:58:58Z
+      lista de precedência para derivar spineStage/reason/why. O
+      nextStep.command é o nextAction persistido lido verbatim (commandSource
+      persisted); a precedência só fornece o comando quando nextAction está
+      ausente/vazio (commandSource fallback). Contrato do detector de drift:
+      detect-completion.js --json sai 1 quando há drift, 0 sem drift, 2 em
+      bad-args — parsear stdout como JSON tanto em exit 0 quanto 1; fail-open só
+      em stdout não-parseável, exit 2 ou falha de spawn."
+    status: done
+    lastUpdated: 2026-07-05T13:25:35Z
+    closedAt: 2026-07-05T13:25:35Z
     scopeBoundary:
-      - só leitura + classificação + leitura do nextAction; NUNCA escreve estado;
-        reusa detect-completion.js (não reimplementa).
+      - só leitura + classificação + leitura do nextAction; NUNCA escreve
+        estado; reusa detect-completion.js (não reimplementa).
     acceptance:
       - nextAction presente vira command igual ao nextAction e commandSource
-        persisted; drift simulado (JSON válido + exit 1) vira spineStage reconcile
-        e fallback reconcile; erro de I/O / exit 2 / stdout não-parseável vira
-        saída parcial exit 0; zero mutação no state tree.
+        persisted; drift simulado (JSON válido + exit 1) vira spineStage
+        reconcile e fallback reconcile; erro de I/O / exit 2 / stdout
+        não-parseável vira saída parcial exit 0; zero mutação no state tree.
     verifier:
       kind: test
       runner: node --test
@@ -89,15 +89,22 @@ tasks:
     outputs:
       - kind: file
         path: scripts/compute-help.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-05T13:25:35Z
+      exitCode: 0
+      testsCollected: 25
+      passed: true
+      outputSummary: node --test tests/help/compute-help.test.js → tests 25, pass 25, fail 0
   - id: T-002
     title: — Fixtures dos estados
-    summary: Um fixture por item da lista de precedência + 3 sobrepostos que
-      provam a ordem (blocked+pending→switch; drift+pending→reconcile;
+    summary: Um fixture por item da lista de precedência + 3 sobrepostos que provam
+      a ordem (blocked+pending→switch; drift+pending→reconcile;
       active-24h+descriptor-only→reconcile) + par presente/ausente de
       commandSource, no teste compute-help.test.js.
     weight: 2
-    description: "Um fixture por item da lista de precedência + fixtures
-      sobrepostos que provam a ordem: blocked+pending vira switch (não implement);
+    description: "Um fixture por item da lista de precedência + fixtures sobrepostos
+      que provam a ordem: blocked+pending vira switch (não implement);
       drift+pending vira reconcile (não implement); active-mais-de-24h +
       descriptor-only vira reconcile (não materialize). Mais um par de
       fonte-do-comando: um com nextAction presente e um sem."
