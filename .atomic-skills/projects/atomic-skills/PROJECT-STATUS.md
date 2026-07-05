@@ -25,7 +25,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 ### help-command
 | Initiative | Phase | Status | Tasks |
 |------------|-------|--------|-------|
-| f0-contrato-esqueleto | F0 | active | 1/3 |
+| f0-contrato-esqueleto | F0 | active | 2/3 |
 
 ## Done Plans (not archived)
 

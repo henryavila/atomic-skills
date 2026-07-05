@@ -7,8 +7,9 @@ goal: Registrar `help` no router, criar o asset detalhe stub e catalogar o
 status: active
 branch: null
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-05T12:07:18Z
-nextAction: "Start T-002: criar o asset project-help.md (stub)"
+lastUpdated: 2026-07-05T12:11:11Z
+nextAction: "Start T-003: catalogar help em meta/catalog.yaml + regenerar
+  catalog.json/docs"
 parentPlan: help-command
 phaseId: F0
 businessIntent:
@@ -22,11 +23,11 @@ businessIntent:
     aiDeck nem gera o HTML.
   doneWhen: "`help` resolve na dispatch table para `project-help.md`,
     `validate-skills` verde e strip-test de compatibilidade limpo."
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 5
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -104,8 +105,8 @@ tasks:
     description: Arquivo com cabeçalho + contrato read-only/fail-open, ainda sem
       render completo. Usa abstração de ferramentas (READ_TOOL, BASH_TOOL) e
       block-form if.
-    status: pending
-    lastUpdated: 2026-07-05T11:37:28.309Z
+    status: done
+    lastUpdated: 2026-07-05T12:11:11Z
     scopeBoundary:
       - só o stub do asset; sem lógica de render nem alteração no helper.
     acceptance:
@@ -117,6 +118,14 @@ tasks:
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-help.md
+    closedAt: 2026-07-05T12:11:11Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-05T12:11:11Z
+      exitCode: 0
+      testsCollected: 128
+      passed: true
+      outputSummary: node --test tests/compatibility.test.js → tests 128, pass 128, fail 0
   - id: T-003
     title: — Catalogar `help`
     description: Entrada em meta/catalog.yaml (grupo View ou novo grupo Guidance)
