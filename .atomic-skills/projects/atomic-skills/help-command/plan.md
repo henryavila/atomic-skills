@@ -155,11 +155,16 @@ phases:
             pattern: tests/help/compute-help.test.js
           evidence:
             verifierKind: test
-            verifiedAt: 2026-07-05T15:21:15Z
+            verifiedAt: 2026-07-05T15:30:14Z
             exitCode: 0
-            testsCollected: 25
+            testsCollected: 27
             passed: true
-            outputSummary: "node --test tests/help/compute-help.test.js → tests 25, pass 25, fail 0"
+            outputSummary: "node --test tests/help/compute-help.test.js → tests 27, pass 27, fail 0 (post review-fix)"
+    reviewGate:
+      status: passed
+      at: c3c2135540fd02afb81769c5b88eb0eb385f9473
+      mode: local
+      verifiedAt: 2026-07-05T15:30:14Z
     status: active
     businessIntent:
       value: "F1 constrói o cérebro determinístico do `help`: o helper puro-leitura

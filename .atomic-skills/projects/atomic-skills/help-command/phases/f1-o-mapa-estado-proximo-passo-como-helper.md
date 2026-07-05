@@ -51,13 +51,14 @@ exitGates:
       pattern: tests/help/compute-help.test.js
     evidence:
       verifierKind: test
-      verifiedAt: 2026-07-05T15:21:15Z
+      verifiedAt: 2026-07-05T15:30:14Z
       exitCode: 0
-      testsCollected: 25
+      testsCollected: 27
       passed: true
-      outputSummary: node --test tests/help/compute-help.test.js → tests 25, pass 25, fail 0
+      outputSummary: node --test tests/help/compute-help.test.js → tests 27, pass 27,
+        fail 0 (post review-fix)
     verifierLabel: "test: node --test tests/help/compute-help.test.js"
-    evidenceSummary: passed · 25 tests · 2026-07-05
+    evidenceSummary: passed · 27 tests · 2026-07-05
 stack:
   - id: 1
     title: O mapa estado→próximo-passo como helper determinístico
