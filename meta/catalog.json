@@ -253,6 +253,11 @@
         "group": "View"
       },
       {
+        "name": "help",
+        "description": "Terminal GPS: where am I + the next concrete step, derived from real state (alias: next; --html opens the visual guide)",
+        "group": "View"
+      },
+      {
         "name": "verify",
         "description": "Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)",
         "group": "View"

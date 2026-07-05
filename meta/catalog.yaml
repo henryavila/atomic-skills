@@ -295,6 +295,11 @@ core:
         signature: '[--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]'
         description: 'View current state: compact summary, browser dashboard, full terminal view, or filtered tables'
         example: '/atomic-skills:project status --browser'
+      - name: help
+        group: 'View'
+        signature: '[--html]'
+        description: 'Terminal GPS: where am I + the next concrete step, derived from real state (alias: next; --html opens the visual guide)'
+        example: '/atomic-skills:project help'
       - name: verify
         group: 'View'
         signature: '[--fix] [--slug <slug>]'

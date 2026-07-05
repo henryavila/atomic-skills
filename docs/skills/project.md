@@ -34,6 +34,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 | Command | Description |
 |---------|-------------|
 | `status [--browser\|--terminal\|--list\|--plan\|--phase\|--stack\|--archived\|--report]` | View current state: compact summary, browser dashboard, full terminal view, or filtered tables |
+| `help [--html]` | Terminal GPS: where am I + the next concrete step, derived from real state (alias: next; --html opens the visual guide) |
 | `verify [--fix] [--slug <slug>]` | Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix) |
 
 *Create*
