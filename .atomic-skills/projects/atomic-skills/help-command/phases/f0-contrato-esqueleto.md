@@ -158,3 +158,11 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+
+- **Narrative:** Plano `help-command` adotado em `.atomic-skills/` (era `guide`, renomeado p/ `help` em tudo — verbo/asset/helper/testes/slug — a pedido do usuário). F0 ativo. T-001 (registrar `help`+`next` no router grammar+dispatch table) FECHADO via `done` com evidência de shell-verifier `passed:true`. Restam T-002 (criar o asset stub `project-help.md`) e T-003 (catalogar).
+- **Decision log:** (1) `guide`→`help` em todo lugar, slug `help-command`; (2) `branch: null` → implement roda direto na árvore `develop`, sem worktree hop; (3) review Codex aplicado: F-001 apertou os verifiers de F0 (G-3 dispatch-row ancorado `grep -qE '^\|.*help.*project-help\.md'`, +G-4 asset-existe, +G-5 catálogo-tem-help-com---html), F-003 apertou o contrato runtime de `help --html` em F2, F-004 especificou local da evidência manual F2/G-3; F-002 (gate de reuse do transition-graph) ACEITO-com-mitigação (o `help-vocab.test.js` do F3 cobre comandos-são-verbos-reais).
+- **Single nextAction:** Implementar T-002 — criar `skills/shared/project-assets/project-help.md` (stub read-only/fail-open, abstração de ferramentas `{{READ_TOOL}}`/`{{BASH_TOOL}}` + block-form `{{#if}}`), rodar o verifier `node --test tests/compatibility.test.js`, commitar, depois `done T-002`.
+- **Verbatim state:** verifier T-001 (passou): `grep -qE '^\|.*help.*project-help\.md' skills/core/project.md` → exit 0, row `54:| \`help\`, \`help --html\`, \`next\` | {{READ_TOOL}} {{ASSETS_PATH}}/project-help.md |`. verifier T-002: `node --test tests/compatibility.test.js`. verifier T-003: `npm run validate-skills`. Router em `skills/core/project.md` (23222 bytes). Commits: adopt `cd90adb` · review+refino `e4de654` · T-001 impl `789db5e` · T-001 checkpoint `28d6ac6`.
+- **Uncommitted changes:** árvore limpa após `28d6ac6`, exceto esta edição do handoff (commitada no snapshot).
