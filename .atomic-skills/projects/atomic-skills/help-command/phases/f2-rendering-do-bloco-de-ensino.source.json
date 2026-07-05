@@ -43,7 +43,7 @@
         "só a checagem do caminho fixo + abertura; NÃO gera nem valida o HTML; nenhuma dependência de rede; sem fallback configurável."
       ],
       "acceptance": [
-        "HTML presente no caminho de contrato vira help --html abre no navegador; HTML ausente vira mensagem clara apontando o caminho esperado + exit 0; linha GUIA VISUAL aparece no help sem-flag apenas quando o arquivo existe."
+        "Contrato runtime de help --html testado (mock do opener): HTML presente no caminho de contrato -> invoca open (macOS) / xdg-open (Linux) atras de checagem de existencia e sai 0; HTML ausente -> imprime mensagem clara apontando o caminho esperado e sai 0 (fail-open); falha do opener -> fail-open (nao propaga erro, sai 0); a linha GUIA VISUAL aparece no help sem-flag apenas quando o arquivo existe. O teste mocka a invocacao do opener (nao abre navegador real, roda headless)."
       ],
       "verifier": {
         "kind": "test",

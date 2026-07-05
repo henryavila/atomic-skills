@@ -44,7 +44,7 @@ phases:
     dependsOn: []
     subPhaseCount: 3
     exitGate:
-      summary: 3 criteria to meet
+      summary: 5 criteria to meet
       criteria:
         - id: G-1
           description: validate-skills passa (exit 0)
@@ -60,11 +60,25 @@ phases:
             runner: node --test
             pattern: tests/compatibility.test.js
         - id: G-3
-          description: a linha da dispatch table resolve help para project-help.md
+          description: uma linha da dispatch table (âncora `|`) casa `help` E resolve
+            para project-help.md
           status: pending
           verifier:
             kind: shell
-            command: grep -q 'project-help.md' skills/core/project.md
+            command: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md
+        - id: G-4
+          description: o asset project-help.md existe no disco
+          status: pending
+          verifier:
+            kind: shell
+            command: test -f skills/shared/project-assets/project-help.md
+        - id: G-5
+          description: "o catálogo tem a entrada `name: help` com signature `--html`"
+          status: pending
+          verifier:
+            kind: shell
+            command: "awk '/name: help/{f=1} f&&/signature:/{print;exit}'
+              meta/catalog.yaml | grep -q -- --html"
     status: active
     businessIntent:
       value: Estabelece o contrato do comando `help` (router + asset + catálogo) para
@@ -125,12 +139,16 @@ phases:
             runner: node --test
             pattern: tests/help/html-resolve.test.js
         - id: G-3
-          description: eyeball num projeto real registrado como evidência
+          description: eyeball num projeto real registrado como evidência (com
+            campos suficientes p/ auditar depois)
           status: pending
           verifier:
             kind: manual
-            description: Rodar help num projeto real, conferir o bloco renderizado e
-              registrar a evidência.
+            description: "Rodar `help` num projeto real e registrar a evidência no
+              phase-done da F2 (initiative evidence/lessons) com estes campos:
+              comando exato rodado, projeto/plano-slug alvo, trecho do bloco
+              renderizado observado, data, e resultado pass/fail. Uma nota sem
+              esses campos NÃO satisfaz o gate."
     status: pending
   - id: F3
     slug: help-command-f3-guarda-de-fidelidade-help-nunca-cita-um
@@ -180,6 +198,7 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 ## Reviews
 
 - internal: 2026-07-05 — self-loop adversarial review, 0 findings de severidade major+. Checks 1–7 aplicados (contradições, deps, ordenação, ambiguidade, schema, file-lists, cobertura de testes), citando frontmatter `phases:` + interior das tasks F0. Alignment note: o verifier de F2/T-001 (`tests/help/render-smoke.test.js`) é criado pela própria task — decisão D4 do design (render-harness determinístico), intencional.
+- codex: 2026-07-05 — cross-model (gpt-5-codex), verdict `needs_changes`, counts finais `{blocker:0, critical:0, major:3, minor:1}` (blind tinha 1 critical, dropado pela constraint do `nextAction`). Arquivo: `.atomic-skills/reviews/2026-07-05-0858-help-command.md`. Majors = precisão dos verifiers (F0 gate/verifiers, reuse do transition-graph em F1, contrato runtime de `help --html` em F2) + minor (local da evidência manual F2/G-3).
 
 ## Self-review against code-quality gates
 

@@ -25,7 +25,7 @@ businessIntent:
 tasksDone: 0
 tasksTotal: 3
 gatesMet: 0
-gatesTotal: 3
+gatesTotal: 5
 exitGates:
   - id: G-1
     description: validate-skills passa (exit 0)
@@ -41,11 +41,25 @@ exitGates:
       runner: node --test
       pattern: tests/compatibility.test.js
   - id: G-3
-    description: a linha da dispatch table resolve help para project-help.md
+    description: uma linha da dispatch table (âncora `|`) casa `help` E resolve para
+      project-help.md
     status: pending
     verifier:
       kind: shell
-      command: grep -q 'project-help.md' skills/core/project.md
+      command: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md
+  - id: G-4
+    description: o asset project-help.md existe no disco
+    status: pending
+    verifier:
+      kind: shell
+      command: test -f skills/shared/project-assets/project-help.md
+  - id: G-5
+    description: "o catálogo tem a entrada `name: help` com signature `--html`"
+    status: pending
+    verifier:
+      kind: shell
+      command: "awk '/name: help/{f=1} f&&/signature:/{print;exit}' meta/catalog.yaml
+        | grep -q -- --html"
 stack:
   - id: 1
     title: Contrato + esqueleto
@@ -62,11 +76,11 @@ tasks:
       - só a gramática + a linha da tabela; nenhuma lógica no router
         (byte-budget).
     acceptance:
-      - help aparece na dispatch table resolvendo para project-help.md; router
-        continua dentro do byte-budget existente.
+      - help aparece numa linha da dispatch table (âncora `|`) resolvendo para
+        project-help.md; router continua dentro do byte-budget existente.
     verifier:
       kind: shell
-      command: grep -q 'project-help.md' skills/core/project.md
+      command: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md
     outputs:
       - kind: file
         path: skills/core/project.md
