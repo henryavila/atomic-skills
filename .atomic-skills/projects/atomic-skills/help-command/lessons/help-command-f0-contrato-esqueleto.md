@@ -15,12 +15,12 @@ lessons:
     scope: reusable
     appliesTo:
       - F2
-    status: open
+    status: closed
     confidence: 2
     evidence: "review-code local finding #1 (phase-done F0); ver bloco Self-review
       da iniciativa arquivada"
     createdAt: 2026-07-05T12:40:24Z
-    validatedAt: 2026-07-05T12:40:24Z
+    validatedAt: 2026-07-07T19:33:21Z
   - id: L-002
     statement: A dispatch-row `help`/`help --html`/`next` → `project-help.md` é
       verificada só pelo grep one-shot do gate G-3, sem asserção persistente na

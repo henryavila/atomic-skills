@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-05T12:40:24Z
+lastUpdated: 2026-07-07T19:33:21Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 0
@@ -20,13 +20,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| help-command | active | F1 | develop | 2026-07-05 | 2/4 |
+| help-command | active | F2 | develop | 2026-07-05 | 2/4 |
 
 ### help-command
 | Initiative | Phase | Status | Tasks |
 |------------|-------|--------|-------|
 | f1-o-mapa-estado-proximo-passo-como-helper | F1 | done | 2/2 |
-| _(F2 descriptor-only — run `materialize F2` to continue)_ | F2 | pending | — |
+| f2-rendering-do-bloco-de-ensino | F2 | active | 0/2 |
 
 ## Done Plans (not archived)
 

@@ -17,11 +17,11 @@ lessons:
     scope: reusable
     appliesTo:
       - F2
-    status: open
+    status: closed
     confidence: 2
     evidence: "review-code local finding #1 (phase-done F1); fix commit c3c2135"
     createdAt: 2026-07-05T15:34:11Z
-    validatedAt: 2026-07-05T15:34:11Z
+    validatedAt: 2026-07-07T19:33:21Z
   - id: L-002
     statement: A lógica dividida em núcleo puro (`classify`) + camada de IO
       (`resolveState`) teve o núcleo bem-coberto por fixtures sintéticos, mas a
@@ -34,12 +34,12 @@ lessons:
     scope: reusable
     appliesTo:
       - F2
-    status: open
+    status: closed
     confidence: 2
     evidence: "review-code local finding #2 (phase-done F1); guardado pelos 2
       fixtures de integração descriptor-only/blocked adicionados no fix c3c2135"
     createdAt: 2026-07-05T15:34:11Z
-    validatedAt: 2026-07-05T15:34:11Z
+    validatedAt: 2026-07-07T19:33:21Z
 ---
 
 # Lessons — F1 (O mapa estado→próximo-passo como helper determinístico)

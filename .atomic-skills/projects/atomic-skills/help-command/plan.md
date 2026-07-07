@@ -5,8 +5,8 @@ title: Comando `help` — GPS de terminal da skill `project`
 version: "1.0"
 status: active
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-05T12:58:58Z
-currentPhase: F1
+lastUpdated: 2026-07-07T19:33:21Z
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -192,9 +192,11 @@ phases:
     goal: O asset chama compute-help.js e formata o bloco de 5 linhas + mini-mapa
       ASCII com "você está aqui"; adicionar a flag help --html que abre o guia
       visual pelo caminho de contrato fixo, fail-open quando ausente.
+    summary: Renderiza o bloco de ensino do `help` no terminal e liga `help --html`
+      ao guia visual fixo.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -223,7 +225,30 @@ phases:
               comando exato rodado, projeto/plano-slug alvo, trecho do bloco
               renderizado observado, data, e resultado pass/fail. Uma nota sem
               esses campos NÃO satisfaz o gate."
-    status: pending
+    status: active
+    businessIntent:
+      value: "Transforma o helper determinístico compute-help.js em uma experiência
+        de retomada legível no terminal: bloco de 5 linhas, mini-mapa com posição
+        atual e comando exato de próximo passo. Para o usuário, reduz ambiguidade ao
+        voltar a um plano e oferece acesso opcional ao guia visual via help --html."
+      workflow: "Retomada de projeto: o dev roda /atomic-skills:project help para
+        entender onde está e qual comando executar; quando precisa do guia visual,
+        roda help --html."
+      rules: "Read-only, zero-mutação e fail-open; o render exibe nextStep.command
+        vindo do helper verbatim, sem recomputar; help --html usa o caminho fixo
+        docs/design/project-onboarding/index.html e o helper canônico open_url de
+        project-view.md; testes não abrem navegador real."
+      outOfScope: Não muda a lógica de classificação do compute-help.js; não altera o
+        resumo no-args; não gera nem valida o HTML do guia; não toca aiDeck.
+      doneWhen: render-smoke.test.js e html-resolve.test.js passam, e o eyeball em
+        projeto real registra comando exato, plano alvo, trecho renderizado, data e
+        resultado pass/fail.
+      derived:
+        - question: Como F0/L-001 altera a F2?
+          answer: F0/L-001 foi aplicado ao contrato do opener canônico em T-002.
+        - question: Como F1/L-001 e F1/L-002 alteram a F2?
+          answer: F1/L-001 e F1/L-002 foram aplicados ao render verbatim e à
+            cobertura da costura IO→render em T-001.
   - id: F3
     slug: help-command-f3-guarda-de-fidelidade-help-nunca-cita-um
     title: Guarda de fidelidade (help nunca cita um verbo que não existe)

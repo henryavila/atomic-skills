@@ -146,7 +146,6 @@ parked: []
 emerged: []
 planTitle: Comando `help` — GPS de terminal da skill `project`
 planActive: true
-current: true
 ---
 
 # Narrative / notes
