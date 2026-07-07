@@ -10,9 +10,9 @@ summary: Renderiza o bloco de ensino do `help` no terminal e liga `help --html`
 status: active
 branch: develop
 started: 2026-07-07T19:33:21Z
-lastUpdated: 2026-07-07T19:33:21Z
-nextAction: Rode `done T-001` depois de adicionar o smoke test de render e ligar
-  project-help.md ao compute-help.js
+lastUpdated: 2026-07-07T19:47:35Z
+nextAction: Rode `done T-002` depois de implementar `help --html` com mock do
+  opener e fail-open.
 startedCommit: dbf9b212267e5a95b803b6e3cc721b56b2539ec1
 parentPlan: help-command
 phaseId: F2
@@ -39,11 +39,11 @@ businessIntent:
     - question: Como F1/L-001 e F1/L-002 alteram a F2?
       answer: F1/L-001 e F1/L-002 foram aplicados ao render verbatim e à cobertura da
         costura IO→render em T-001.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 3
 weightTotal: 5
 exitGates:
   - id: G-1
@@ -93,8 +93,17 @@ tasks:
       Aplica F1/L-001: o render usa nextStep.command vindo do compute-help.js
       verbatim, sem recomputar fase/comando. Aplica F1/L-002: o smoke cobre a
       costura IO→render, não só o formatador puro.'
-    status: pending
-    lastUpdated: 2026-07-07T19:33:21Z
+    status: done
+    lastUpdated: 2026-07-07T19:47:35Z
+    closedAt: 2026-07-07T19:47:35Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-07T19:47:35Z
+      exitCode: 0
+      testsCollected: 3
+      passed: true
+      outputSummary: "node --test tests/help/render-smoke.test.js → tests 3, pass
+        3, fail 0"
     scopeBoundary:
       - só o render do asset + o formatador puro + seu smoke; não altera a
         lógica de classificação do helper.
@@ -176,20 +185,21 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F2 materializada a partir do sidecar
-  `f2-rendering-do-bloco-de-ensino.source.json`; 2 tasks pendentes, 3 gates
-  pendentes, businessIntent ratificado pelo operador. A fase atual é
-  `help-command`/`F2`, e a primeira task pendente é `T-001`.
+- **Narrative:** F2 segue ativa em `help-command`/`F2`; `T-001` foi fechada com
+  evidência `node --test tests/help/render-smoke.test.js → tests 3, pass 3, fail
+  0`. Resta `T-002` pendente para `help --html`, com 3 gates de fase ainda
+  pendentes.
 - **Decision log:** A materialização aplicou F0/L-001 em T-002 e F1/L-001 +
-  F1/L-002 em T-001 antes da ativação; `branch: develop` já coincide com a
-  árvore atual.
-- **Single nextAction:** Implementar `T-001` em
+  F1/L-002 em T-001 antes da ativação; `T-001` manteve o comando vindo de
+  `nextStep.command` verbatim e deixou `help --html` para `T-002`.
+- **Single nextAction:** Implementar `T-002` em
   `skills/shared/project-assets/project-help.md`, `scripts/compute-help.js` e
-  `tests/help/render-smoke.test.js`, começando pelo verifier
-  `node --test tests/help/render-smoke.test.js`.
+  `tests/help/html-resolve.test.js`, começando pelo verifier
+  `node --test tests/help/html-resolve.test.js`.
 - **Verbatim state:** `.atomic-skills/projects/atomic-skills/help-command/phases/f2-rendering-do-bloco-de-ensino.md`;
   `.atomic-skills/projects/atomic-skills/help-command/plan.md`; `git status --porcelain`;
-  `node --test tests/help/render-smoke.test.js`.
+  `node --test tests/help/render-smoke.test.js`; `e0b9bfe feat(T-001): render
+  project help block`.
 - **Uncommitted changes:** clean tree
 
 ## Self-review against code-quality gates
