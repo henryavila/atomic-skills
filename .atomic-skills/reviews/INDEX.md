@@ -72,3 +72,4 @@
 | 2026-07-02 10:14 | [phase-materialization-current](2026-07-02-1014-phase-materialization-codex-current.md) | code/codex | needs_changes→fixed | 0B/0C/1M/0m/0n | 1 fixed |
 | 2026-07-04 16:52 | [guide-command-plan](2026-07-04-1652-guide-command-plan.md) | plan | needs_changes | 0B/1C/4M/0m/0n | 0d/5=/0+ |
 | 2026-07-05 08:58 | [help-command](2026-07-05-0858-help-command.md) | plan | needs_changes | 0B/0C/3M/1m/0n | 1d/4=/0+ |
+| 2026-07-07 19:44 | [code-review-due-8a088d4-dbf9b21](2026-07-07-1944-code-review-due-8a088d4-dbf9b21.md) | code | needs_changes | 0B/1C/2M/0m/0n | 0d/3=/0+ |
