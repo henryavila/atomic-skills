@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
@@ -20,7 +20,7 @@ function makeDir({ withHtml = false, withState = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'help-html-'));
   if (withHtml) {
     const htmlPath = join(dir, HTML_GUIDE_PATH);
-    mkdirSync(join(htmlPath, '..'), { recursive: true });
+    mkdirSync(dirname(htmlPath), { recursive: true });
     writeFileSync(htmlPath, '<!doctype html><title>Project onboarding</title>');
   }
   if (withState) {
@@ -85,6 +85,18 @@ test('resolveHtmlGuide: fixed contract path resolves under the requested repo ro
     assert.equal(guide.exists, true);
     assert.equal(guide.path, join(dir, HTML_GUIDE_PATH));
     assert.match(guide.url, /^file:\/\//);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('resolveHtmlGuide: a directory at the contract path is not treated as HTML', () => {
+  const dir = makeDir();
+  try {
+    mkdirSync(join(dir, HTML_GUIDE_PATH), { recursive: true });
+    const guide = resolveHtmlGuide({ dir });
+    assert.equal(guide.exists, false);
+    assert.equal(htmlGuideExists(dir), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

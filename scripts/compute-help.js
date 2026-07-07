@@ -227,13 +227,17 @@ function isDir(p) {
   try { return statSync(p).isDirectory(); } catch { return false; }
 }
 
+function isFile(p) {
+  try { return statSync(p).isFile(); } catch { return false; }
+}
+
 export function resolveHtmlGuide({ dir = process.cwd() } = {}) {
   const path = resolve(dir, HTML_GUIDE_PATH);
   return {
     contractPath: HTML_GUIDE_PATH,
     path,
     url: pathToFileURL(path).href,
-    exists: existsSync(path),
+    exists: isFile(path),
   };
 }
 
