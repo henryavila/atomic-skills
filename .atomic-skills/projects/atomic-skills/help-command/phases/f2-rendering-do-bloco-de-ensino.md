@@ -10,8 +10,8 @@ summary: Renderiza o bloco de ensino do `help` no terminal e liga `help --html`
 status: active
 branch: develop
 started: 2026-07-07T19:33:21Z
-lastUpdated: 2026-07-07T19:58:17Z
-nextAction: Rode `phase-done` para verificar os exit gates da F2.
+lastUpdated: 2026-07-07T20:02:32Z
+nextAction: Ratificar ou rejeitar a lesson proposta da F2 e decidir se avança F2 para F3 via phase-done.
 startedCommit: dbf9b212267e5a95b803b6e3cc721b56b2539ec1
 parentPlan: help-command
 phaseId: F2
@@ -229,17 +229,32 @@ _(plan doc, external refs)_
   `nextStep.command` verbatim, e `T-002` manteve a abertura do guia atrás do
   contrato `open_url`/fail-open. O review local exigiu `statSync(...).isFile()`
   para não tratar diretório `index.html` como guia presente.
-- **Single nextAction:** Rodar `phase-done` para verificar G-1
-  `node --test tests/help/render-smoke.test.js`, G-2
-  `node --test tests/help/html-resolve.test.js` e registrar o review gate no
-  descriptor da F2.
+- **Single nextAction:** Ratificar ou rejeitar a lesson proposta F2/L-001 e então
+  decidir se avança F2 para F3 via `phase-done`; os gates G-1/G-2/G-3 já estão
+  `met` e o review gate local já está `passed`.
 - **Verbatim state:** `.atomic-skills/projects/atomic-skills/help-command/phases/f2-rendering-do-bloco-de-ensino.md`;
   `.atomic-skills/projects/atomic-skills/help-command/plan.md`; `git status --porcelain`;
   `node --test tests/help/render-smoke.test.js`; `e0b9bfe feat(T-001): render
   project help block`; `node --test tests/help/html-resolve.test.js`; `106570b
-  feat(T-002): open project help html guide`; `1ed2f9e fix(T-002): require html
-  guide file`.
+  feat(T-002): open project help html guide`; `.atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md`;
+  `1ed2f9e fix(T-002): require html guide file`; `61a6601 chore(project): record
+  help-command F2 review gate`.
 - **Uncommitted changes:** clean tree
+
+## Proposed lessons awaiting ratification
+
+- id: F2/L-001
+  statement: O contrato "HTML presente" precisa testar arquivo regular, não só
+    existência de path; um diretório em `docs/design/project-onboarding/index.html`
+    passava pelo render/opener.
+  corrective: Para próximas fases que adicionem recursos por caminho fixo, cobrir
+    "path existe mas não é arquivo" no teste de resolução antes de ativar UI/CTA.
+  scope: reusable
+  appliesTo: []
+  status: open
+  confidence: 2
+  evidence: `.atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md`;
+    fix `1ed2f9e`
 
 ## Self-review against code-quality gates
 
