@@ -10,7 +10,7 @@ summary: Renderiza o bloco de ensino do `help` no terminal e liga `help --html`
 status: active
 branch: develop
 started: 2026-07-07T19:33:21Z
-lastUpdated: 2026-07-07T19:53:10Z
+lastUpdated: 2026-07-07T19:58:17Z
 nextAction: Rode `phase-done` para verificar os exit gates da F2.
 startedCommit: dbf9b212267e5a95b803b6e3cc721b56b2539ec1
 parentPlan: help-command
@@ -72,13 +72,13 @@ exitGates:
       pattern: tests/help/html-resolve.test.js
     evidence:
       verifierKind: test
-      verifiedAt: 2026-07-07T19:54:52Z
+      verifiedAt: 2026-07-07T19:58:17Z
       exitCode: 0
-      testsCollected: 6
+      testsCollected: 7
       passed: true
-      outputSummary: node --test tests/help/html-resolve.test.js → tests 6, pass 6, fail 0
+      outputSummary: node --test tests/help/html-resolve.test.js → tests 7, pass 7, fail 0
     verifierLabel: "test: node --test tests/help/html-resolve.test.js"
-    evidenceSummary: passed · 6 tests · 2026-07-07
+    evidenceSummary: passed · 7 tests · 2026-07-07
   - id: G-3
     description: eyeball num projeto real registrado como evidência
     status: met
@@ -164,15 +164,15 @@ tasks:
       status --browser pelo helper canônico `open_url` em `project-view.md`; não
       chama open/xdg-open diretamente.
     status: done
-    lastUpdated: 2026-07-07T19:53:10Z
+    lastUpdated: 2026-07-07T19:58:17Z
     closedAt: 2026-07-07T19:53:10Z
     evidence:
       verifierKind: test
-      verifiedAt: 2026-07-07T19:53:10Z
+      verifiedAt: 2026-07-07T19:58:17Z
       exitCode: 0
-      testsCollected: 6
+      testsCollected: 7
       passed: true
-      outputSummary: node --test tests/help/html-resolve.test.js → tests 6, pass 6, fail 0
+      outputSummary: node --test tests/help/html-resolve.test.js → tests 7, pass 7, fail 0
     scopeBoundary:
       - só a checagem do caminho fixo + abertura; NÃO gera nem valida o HTML;
         nenhuma dependência de rede; sem fallback configurável.
@@ -221,20 +221,24 @@ _(plan doc, external refs)_
 
 - **Narrative:** F2 segue ativa em `help-command`/`F2`; `T-001` e `T-002` foram
   fechadas com evidência `node --test tests/help/render-smoke.test.js → tests 3,
-  pass 3, fail 0` e `node --test tests/help/html-resolve.test.js → tests 6, pass
-  6, fail 0`. Restam 3 gates de fase pendentes para `phase-done`.
+  pass 3, fail 0` e `node --test tests/help/html-resolve.test.js → tests 7, pass
+  7, fail 0`. Os 3 gates de fase foram verificados; o review gate local encontrou
+  e corrigiu `1ed2f9e fix(T-002): require html guide file`.
 - **Decision log:** A materialização aplicou F0/L-001 em T-002 e F1/L-001 +
   F1/L-002 em T-001 antes da ativação; `T-001` manteve o comando vindo de
   `nextStep.command` verbatim, e `T-002` manteve a abertura do guia atrás do
-  contrato `open_url`/fail-open.
+  contrato `open_url`/fail-open. O review local exigiu `statSync(...).isFile()`
+  para não tratar diretório `index.html` como guia presente.
 - **Single nextAction:** Rodar `phase-done` para verificar G-1
   `node --test tests/help/render-smoke.test.js`, G-2
-  `node --test tests/help/html-resolve.test.js` e registrar o gate manual G-3.
+  `node --test tests/help/html-resolve.test.js` e registrar o review gate no
+  descriptor da F2.
 - **Verbatim state:** `.atomic-skills/projects/atomic-skills/help-command/phases/f2-rendering-do-bloco-de-ensino.md`;
   `.atomic-skills/projects/atomic-skills/help-command/plan.md`; `git status --porcelain`;
   `node --test tests/help/render-smoke.test.js`; `e0b9bfe feat(T-001): render
   project help block`; `node --test tests/help/html-resolve.test.js`; `106570b
-  feat(T-002): open project help html guide`.
+  feat(T-002): open project help html guide`; `1ed2f9e fix(T-002): require html
+  guide file`.
 - **Uncommitted changes:** clean tree
 
 ## Self-review against code-quality gates

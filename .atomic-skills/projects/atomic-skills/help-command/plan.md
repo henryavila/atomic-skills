@@ -226,12 +226,12 @@ phases:
             pattern: tests/help/html-resolve.test.js
           evidence:
             verifierKind: test
-            verifiedAt: 2026-07-07T19:54:52Z
+            verifiedAt: 2026-07-07T19:58:17Z
             exitCode: 0
-            testsCollected: 6
+            testsCollected: 7
             passed: true
-            outputSummary: "node --test tests/help/html-resolve.test.js → tests 6,
-              pass 6, fail 0"
+            outputSummary: "node --test tests/help/html-resolve.test.js → tests 7,
+              pass 7, fail 0"
         - id: G-3
           description: eyeball num projeto real registrado como evidência (com campos
             suficientes p/ auditar depois)
@@ -253,6 +253,12 @@ phases:
               help-command · F2; FEITO tasks 2/2; PRÓXIMO PASSO → Rode
               `phase-done`; GUIA VISUAL present; result: pass"
     status: active
+    reviewGate:
+      status: passed
+      at: 1ed2f9e
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md
+      verifiedAt: 2026-07-07T19:58:17Z
     businessIntent:
       value: "Transforma o helper determinístico compute-help.js em uma experiência
         de retomada legível no terminal: bloco de 5 linhas, mini-mapa com posição

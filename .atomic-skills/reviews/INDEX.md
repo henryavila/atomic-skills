@@ -73,3 +73,4 @@
 | 2026-07-04 16:52 | [guide-command-plan](2026-07-04-1652-guide-command-plan.md) | plan | needs_changes | 0B/1C/4M/0m/0n | 0d/5=/0+ |
 | 2026-07-05 08:58 | [help-command](2026-07-05-0858-help-command.md) | plan | needs_changes | 0B/0C/3M/1m/0n | 1d/4=/0+ |
 | 2026-07-07 19:44 | [code-review-due-8a088d4-dbf9b21](2026-07-07-1944-code-review-due-8a088d4-dbf9b21.md) | code | needs_changes | 0B/1C/2M/0m/0n | 0d/3=/0+ |
+| 2026-07-07 19:58 | [help-command-f2-local](2026-07-07-1958-help-command-f2-local.md) | code (local degraded) | approved_with_remediation | 0B/0C/1M/0m/0n | 1 fixed |
