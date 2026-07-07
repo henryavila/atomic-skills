@@ -35,7 +35,7 @@
 
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { resolveTargets } from './detect-completion.js';
@@ -43,6 +43,8 @@ import { resolveTargets } from './detect-completion.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DETECTOR = join(HERE, 'detect-completion.js');
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const HTML_GUIDE_PATH = 'docs/design/project-onboarding/index.html';
 
 /** The lifecycle spine — the mini-map "você está aqui" axis (m = length). */
 export const SPINE = [
@@ -223,6 +225,63 @@ function stateRootOf(dir) {
 
 function isDir(p) {
   try { return statSync(p).isDirectory(); } catch { return false; }
+}
+
+export function resolveHtmlGuide({ dir = process.cwd() } = {}) {
+  const path = resolve(dir, HTML_GUIDE_PATH);
+  return {
+    contractPath: HTML_GUIDE_PATH,
+    path,
+    url: pathToFileURL(path).href,
+    exists: existsSync(path),
+  };
+}
+
+export function htmlGuideExists(dir = process.cwd()) {
+  return resolveHtmlGuide({ dir }).exists;
+}
+
+export function openUrl(url) {
+  const script = `
+open_url() {
+  url="$1"
+  if command -v wslview >/dev/null 2>&1; then wslview "$url" >/dev/null 2>&1 && return 0; fi
+  if [ "$(uname)" = "Darwin" ] && command -v open >/dev/null 2>&1; then open "$url" && return 0; fi
+  if grep -qi microsoft /proc/version 2>/dev/null; then cmd.exe /c start "" "$url" >/dev/null 2>&1 && return 0; fi
+  if command -v xdg-open >/dev/null 2>&1; then setsid xdg-open "$url" >/dev/null 2>&1 & return 0; fi
+  return 1
+}
+open_url "$1"
+`;
+  const result = spawnSync('sh', ['-c', script, 'open_url', url], { encoding: 'utf8' });
+  return result.status === 0;
+}
+
+export function openHtmlGuide({
+  dir = process.cwd(),
+  openUrl: opener = openUrl,
+  write = (text) => process.stdout.write(text),
+} = {}) {
+  const guide = resolveHtmlGuide({ dir });
+  if (!guide.exists) {
+    write(`GUIA VISUAL indisponível: esperado em ${HTML_GUIDE_PATH}\n`);
+    return { ...guide, exitCode: 0, opened: false, reason: 'missing' };
+  }
+
+  let opened = false;
+  try {
+    opened = opener(guide.url) !== false;
+  } catch {
+    opened = false;
+  }
+
+  if (opened) {
+    write(`GUIA VISUAL → ${guide.url}\n`);
+    return { ...guide, exitCode: 0, opened: true, reason: 'opened' };
+  }
+
+  write(`GUIA VISUAL indisponível: não foi possível abrir.\nOpen manually: ${guide.url}\n`);
+  return { ...guide, exitCode: 0, opened: false, reason: 'opener-failed' };
 }
 
 /** Current git branch of `dir`, or null (fail-soft — used only to disambiguate). */
@@ -422,9 +481,15 @@ export function formatHelp(json = {}, { hasHtmlGuide = false } = {}) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const render = args.includes('--render');
-  const hasHtmlGuide = args.includes('--html-exists');
+  const html = args.includes('--html');
   const dirArg = args.find((arg) => !arg.startsWith('--'));
   const dir = resolve(dirArg || process.cwd());
+  if (html) {
+    openHtmlGuide({ dir });
+    process.exit(0);
+  }
+  const hasHtmlGuide = args.includes('--html-exists')
+    || (!args.includes('--no-html-guide') && htmlGuideExists(dir));
   let json;
   try {
     json = computeHelp({ dir });

@@ -6,7 +6,7 @@ Loaded by the `project` router for: `help`, `help --html`, and the alias `next`.
 
 > **Status desta fase (F2 — render de terminal).** `help` chama
 > `scripts/compute-help.js --render` e imprime o bloco de ensino derivado do
-> estado real. A flag `help --html` ainda fica no contrato abaixo até T-002.
+> estado real. `help --html` abre o guia visual pelo caminho de contrato fixo.
 
 ---
 
@@ -55,6 +55,21 @@ invocação, acrescente uma linha `SE TRAVAR` apontando para `project why`,
 `project status --browser` e `project help`, e mostre o comando que falhou sem
 interromper a sessão.
 
-## `help --html` (esqueleto — implementado em F2)
+## `help --html`
 
-Abre o guia visual pelo **caminho de contrato fixo** `docs/design/project-onboarding/index.html` (a mesma doc que `help` ensina, noutro renderizador). Resolução: caminho fixo presente → abre com o **mesmo helper `open_url` WSL-aware** de `status --browser` (definido em `project-view.md` — prefere `wslview`, cai p/ Windows `start`, e só usa `xdg-open` detached no Linux nativo; NUNCA `xdg-open` cru, que trava no WSL2) atrás de uma checagem de existência; ausente → mensagem clara apontando o caminho esperado + exit `0` (fail-open, nunca erro). Sem fallback configurável, sem dependência de rede. A linha GUIA VISUAL só aparece no `help` sem-flag quando o arquivo existe.
+Para `help --html`, execute com {{BASH_TOOL}} a partir da raiz do repo e imprima
+`stdout` verbatim:
+
+```bash
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-help.js" --html "$PWD"
+```
+
+O caminho é fixo: `docs/design/project-onboarding/index.html`. O helper checa a
+existência antes de abrir; arquivo ausente imprime o caminho esperado e sai `0`.
+Falha do opener também sai `0` e imprime `Open manually: <file-url>`.
+
+A abertura usa o mesmo contrato WSL-aware `open_url()` de `project-view.md`:
+prefere `wslview`, usa `open` no macOS, cai para Windows `start` no WSL e só usa
+`xdg-open` detached no Linux nativo. Não chame opener de plataforma fora desse
+helper. Sem fallback configurável, sem dependência de rede. A linha GUIA VISUAL
+só aparece no `help` sem-flag quando esse arquivo existe.
