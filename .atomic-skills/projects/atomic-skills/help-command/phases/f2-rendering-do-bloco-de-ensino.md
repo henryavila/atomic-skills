@@ -40,30 +40,49 @@ businessIntent:
         costura IO→render em T-001.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-1
     description: smoke de render verde contra fixture
-    status: pending
+    status: met
+    metAt: 2026-07-07T19:54:52Z
     verifier:
       kind: test
       runner: node --test
       pattern: tests/help/render-smoke.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-07T19:54:52Z
+      exitCode: 0
+      testsCollected: 3
+      passed: true
+      outputSummary: node --test tests/help/render-smoke.test.js → tests 3, pass 3, fail 0
     verifierLabel: "test: node --test tests/help/render-smoke.test.js"
+    evidenceSummary: passed · 3 tests · 2026-07-07
   - id: G-2
     description: html-resolve.test.js verde
-    status: pending
+    status: met
+    metAt: 2026-07-07T19:54:52Z
     verifier:
       kind: test
       runner: node --test
       pattern: tests/help/html-resolve.test.js
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-07T19:54:52Z
+      exitCode: 0
+      testsCollected: 6
+      passed: true
+      outputSummary: node --test tests/help/html-resolve.test.js → tests 6, pass 6, fail 0
     verifierLabel: "test: node --test tests/help/html-resolve.test.js"
+    evidenceSummary: passed · 6 tests · 2026-07-07
   - id: G-3
     description: eyeball num projeto real registrado como evidência
-    status: pending
+    status: met
+    metAt: 2026-07-07T19:54:52Z
     verifier:
       kind: manual
       description: "Rodar `help` num projeto real e registrar a evidência no
@@ -71,7 +90,16 @@ exitGates:
         exato rodado, projeto/plano-slug alvo, trecho do bloco renderizado
         observado, data, e resultado pass/fail. Uma nota sem esses campos NÃO
         satisfaz o gate."
+    evidence:
+      verifierKind: manual
+      verifiedAt: 2026-07-07T19:54:52Z
+      passed: true
+      outputSummary: 'command: node scripts/compute-help.js --render "$PWD"; target:
+        atomic-skills/help-command; observed: VOCÊ ESTÁ AQUI help-command · F2;
+        FEITO tasks 2/2; PRÓXIMO PASSO → Rode `phase-done`; GUIA VISUAL present;
+        result: pass'
     verifierLabel: manual
+    evidenceSummary: passed · 2026-07-07
 stack:
   - id: 1
     title: Rendering do bloco de ensino
@@ -101,8 +129,7 @@ tasks:
       exitCode: 0
       testsCollected: 3
       passed: true
-      outputSummary: "node --test tests/help/render-smoke.test.js → tests 3, pass
-        3, fail 0"
+      outputSummary: node --test tests/help/render-smoke.test.js → tests 3, pass 3, fail 0
     scopeBoundary:
       - só o render do asset + o formatador puro + seu smoke; não altera a
         lógica de classificação do helper.
@@ -145,8 +172,7 @@ tasks:
       exitCode: 0
       testsCollected: 6
       passed: true
-      outputSummary: "node --test tests/help/html-resolve.test.js → tests 6, pass
-        6, fail 0"
+      outputSummary: node --test tests/help/html-resolve.test.js → tests 6, pass 6, fail 0
     scopeBoundary:
       - só a checagem do caminho fixo + abertura; NÃO gera nem valida o HTML;
         nenhuma dependência de rede; sem fallback configurável.
