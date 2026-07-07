@@ -354,15 +354,87 @@ export function computeHelp(opts = {}) {
   };
 }
 
+const valueOr = (v, fallback) => (hasText(v) ? String(v).trim() : fallback);
+const oneLine = (v, fallback = '') => valueOr(v, fallback).replace(/\s+/g, ' ');
+const countOrZero = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+
+function label(labelText, value) {
+  return `${labelText.padEnd(15)} ${value}`;
+}
+
+function formatSpineMap(spineStage = {}) {
+  const current = valueOr(spineStage.name, 'IMPLEMENT');
+  return SPINE.map((node) => (
+    node === current ? `[${node}] voce esta aqui` : node
+  )).join(' > ');
+}
+
+function formatEscape(command) {
+  const v = oneLine(command, 'help');
+  return v.startsWith('project ') ? v : `project ${v}`;
+}
+
+/**
+ * formatHelp(json) → terminal teaching block for `project help`.
+ *
+ * Pure formatter: it never reads state and never derives the next command. The
+ * command is printed from `json.nextStep.command` verbatim (P2); only surrounding
+ * labels, counts, mini-map, and escape commands are formatted here.
+ */
+export function formatHelp(json = {}, { hasHtmlGuide = false } = {}) {
+  const you = json.youAreHere || {};
+  const done = json.doneSummary || {};
+  const next = json.nextStep || {};
+  const spineStage = json.spineStage || {};
+
+  const planSlug = oneLine(you.planSlug, 'sem plano ativo');
+  const phaseId = oneLine(you.phaseId, 'sem fase');
+  const phaseSummary = oneLine(you.phaseSummary, 'sem resumo');
+  const stageN = countOrZero(spineStage.n) || '?';
+  const stageM = countOrZero(spineStage.m) || SPINE.length;
+  const command = oneLine(next.command, 'help');
+  const reason = oneLine(next.reason, '');
+  const why = oneLine(next.why, 'Leia o estado atual e escolha o proximo passo seguro.');
+  const escapes = Array.isArray(json.escapes) && json.escapes.length
+    ? json.escapes
+    : ['why', 'status --browser', 'help'];
+
+  const lines = [
+    label('VOCÊ ESTÁ AQUI', `${planSlug} · ${phaseId} (${phaseSummary}) — estágio ${stageN}/${stageM} do ciclo`),
+    label('MAPA', formatSpineMap(spineStage)),
+    label('FEITO', `fases ${countOrZero(done.phasesDone)}/${countOrZero(done.phasesTotal)} · tasks ${countOrZero(done.tasksDone)}/${countOrZero(done.tasksTotal)} · ${countOrZero(done.blocked)} blocked`),
+    label('PRÓXIMO PASSO', `→ ${command}${reason ? `            ${reason}` : ''}`),
+    label('POR QUÊ', why),
+    label('SE TRAVAR', `→ ${escapes.map(formatEscape).join('   ·   ')}`),
+  ];
+
+  if (hasHtmlGuide) {
+    lines.push(label('GUIA VISUAL', '→ project help --html      (abre a doc visual no navegador)'));
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
 // CLI: print the JSON, always exit 0 (fail-open GPS).
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const dir = resolve(process.argv[2] || process.cwd());
+  const args = process.argv.slice(2);
+  const render = args.includes('--render');
+  const hasHtmlGuide = args.includes('--html-exists');
+  const dirArg = args.find((arg) => !arg.startsWith('--'));
+  const dir = resolve(dirArg || process.cwd());
   let json;
   try {
     json = computeHelp({ dir });
   } catch {
     json = { youAreHere: {}, doneSummary: {}, nextStep: { command: 'help', commandSource: 'fallback', reason: '', why: '' }, escapes: ['help'], spineStage: spineStageOf('setup') };
   }
-  process.stdout.write(`${JSON.stringify(json, null, 2)}\n`);
+  if (render) {
+    process.stdout.write(formatHelp(json, { hasHtmlGuide }));
+  } else {
+    process.stdout.write(`${JSON.stringify(json, null, 2)}\n`);
+  }
   process.exit(0);
 }
