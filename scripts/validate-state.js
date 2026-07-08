@@ -562,6 +562,9 @@ export function validateFile(filePath, validators) {
 export function crossValidate(planFrontmatters, initiativeFrontmatters) {
   const errors = [];
   const initBySlug = new Map();
+  const projectScopeId = (fm) => (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
+    ? fm.__projectId
+    : '__legacy';
   for (const [slug, fm] of initiativeFrontmatters) {
     initBySlug.set(slug, fm);
   }
@@ -647,6 +650,7 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
   // plan's initiatives — active phases too, not just done ones — so a new close
   // in the live phase is gated immediately.
   for (const [, plan] of planFrontmatters) {
+    const planProjectId = projectScopeId(plan);
     const hardening = plan?.closedAtHardening;
     if (!hardening || typeof hardening.enforcedFrom !== 'string' || hardening.enforcedFrom.length === 0) continue;
     // A slug-less (malformed) plan owns no initiatives — without this guard a
@@ -656,6 +660,7 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
     const grandfathered = new Set(Array.isArray(hardening.grandfatheredTaskIds) ? hardening.grandfatheredTaskIds : []);
     for (const [slug, init] of initiativeFrontmatters) {
       if (init?.parentPlan !== plan.slug) continue;
+      if (projectScopeId(init) !== planProjectId) continue;
       const closedAtErrors = checkClosedAtHardening(init, grandfathered);
       if (closedAtErrors.length > 0) {
         errors.push({

@@ -30,9 +30,9 @@ import { dirname, join, resolve, sep } from 'node:path';
  * apply args:
  *   { basePath, items: Array<Item>, previous?: { created: string[] } }
  * where Item is one of:
- *   { path, content, mode? }   — write string content (optional chmod)
- *   { path, source, mode? }    — copy a single file from absolute `source` (binary-safe)
- *   { path, sourceTree }       — cpSync a whole tree from absolute `sourceTree` (clobbers)
+ *   { path, content, mode? }   — write string content to an owned target (optional chmod)
+ *   { path, source, mode? }    — copy a single file to an owned target (binary-safe)
+ *   { path, sourceTree }       — cpSync a whole tree from absolute `sourceTree` (owned targets only)
  * `path` is relative to basePath; before-state is { created: string[] }.
  */
 export const createStageRuntimeArtifactsEffect = () => ({
@@ -44,9 +44,14 @@ export const createStageRuntimeArtifactsEffect = () => ({
     for (const item of items) {
       const absPath = resolveWithinBase(basePath, item.path);
       const existedBefore = existsSync(absPath);
+      const ownsTarget = !existedBefore || priorlyOwned.has(item.path);
+
+      if (!ownsTarget) {
+        throw new Error(`stageRuntimeArtifacts conflict: refusing to replace non-owned path "${item.path}"`);
+      }
 
       if ('sourceTree' in item) {
-        if (existsSync(absPath)) rmSync(absPath, { recursive: true, force: true });
+        if (existedBefore) rmSync(absPath, { recursive: true, force: true });
         mkdirSync(dirname(absPath), { recursive: true });
         cpSync(item.sourceTree, absPath, { recursive: true });
       } else if ('source' in item) {
@@ -61,7 +66,7 @@ export const createStageRuntimeArtifactsEffect = () => ({
 
       // Own the path if we created it now, or if a prior install already owned it
       // (the UPDATE case: existedBefore is true but the artifact is still ours).
-      if (!existedBefore || priorlyOwned.has(item.path)) created.push(item.path);
+      if (ownsTarget) created.push(item.path);
     }
     return { created };
   },

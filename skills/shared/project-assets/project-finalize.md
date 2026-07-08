@@ -182,7 +182,7 @@ serial — R-XAGENT-03).
 
 {{#if ide.claude-code}}
 **Accelerator (Claude Code):** dispatch Agent A and Agent B as parallel read-only
-investigation agents (native Agent / `Workflow` fan-out). Parallelism is for READS
+investigation agents via `{{INVESTIGATOR_TOOL}}` fan-out. Parallelism is for READS
 only — nothing the agents do writes any tree.
 {{/if}}
 

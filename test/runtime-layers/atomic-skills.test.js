@@ -76,6 +76,95 @@ test('aiDeck runtime layer — stages artifacts (binary-safe) and reverts to bas
   });
 });
 
+test('stageRuntimeArtifacts sourceTree refuses to replace a pre-existing non-owned directory', () => {
+  withTmp((root) => {
+    const sourceTree = join(root, 'source-tree');
+    const basePath = join(root, 'install');
+    const target = join(basePath, '.atomic-skills', 'dashboard');
+    mkdirSync(sourceTree, { recursive: true });
+    writeFileSync(join(sourceTree, 'index.html'), '<!doctype html><title>new</title>\n');
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(target, 'user-note.txt'), 'user-owned\n');
+
+    const effect = createStageRuntimeArtifactsEffect();
+
+    assert.throws(
+      () => effect.apply({
+        basePath,
+        items: [{ path: '.atomic-skills/dashboard', sourceTree }],
+      }),
+      /conflict/i,
+    );
+    assert.equal(readFileSync(join(target, 'user-note.txt'), 'utf8'), 'user-owned\n');
+    assert.ok(!existsSync(join(target, 'index.html')), 'conflicting sourceTree was not copied over the user directory');
+  });
+});
+
+test('stageRuntimeArtifacts source refuses to replace a pre-existing non-owned file', () => {
+  withTmp((root) => {
+    const source = join(root, 'source-file');
+    const basePath = join(root, 'install');
+    const target = join(basePath, '.atomic-skills', 'bin', 'aideck.mjs');
+    writeFileSync(source, 'new binary shim\n');
+    mkdirSync(join(basePath, '.atomic-skills', 'bin'), { recursive: true });
+    writeFileSync(target, 'user-owned shim\n');
+
+    const effect = createStageRuntimeArtifactsEffect();
+
+    assert.throws(
+      () => effect.apply({
+        basePath,
+        items: [{ path: '.atomic-skills/bin/aideck.mjs', source }],
+      }),
+      /conflict/i,
+    );
+    assert.equal(readFileSync(target, 'utf8'), 'user-owned shim\n');
+  });
+});
+
+test('stageRuntimeArtifacts content refuses to replace a pre-existing non-owned file', () => {
+  withTmp((root) => {
+    const basePath = join(root, 'install');
+    const target = join(basePath, '.atomic-skills', 'package-root');
+    mkdirSync(join(basePath, '.atomic-skills'), { recursive: true });
+    writeFileSync(target, 'user-owned package root\n');
+
+    const effect = createStageRuntimeArtifactsEffect();
+
+    assert.throws(
+      () => effect.apply({
+        basePath,
+        items: [{ path: '.atomic-skills/package-root', content: 'new package root\n' }],
+      }),
+      /conflict/i,
+    );
+    assert.equal(readFileSync(target, 'utf8'), 'user-owned package root\n');
+  });
+});
+
+test('stageRuntimeArtifacts sourceTree replaces a priorly owned directory on update', () => {
+  withTmp((root) => {
+    const sourceTree = join(root, 'source-tree');
+    const basePath = join(root, 'install');
+    const target = join(basePath, '.atomic-skills', 'dashboard');
+    mkdirSync(sourceTree, { recursive: true });
+    writeFileSync(join(sourceTree, 'index.html'), '<!doctype html><title>updated</title>\n');
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(target, 'old.html'), '<!doctype html><title>old</title>\n');
+
+    const effect = createStageRuntimeArtifactsEffect();
+    const beforeState = effect.apply({
+      basePath,
+      previous: { created: ['.atomic-skills/dashboard'] },
+      items: [{ path: '.atomic-skills/dashboard', sourceTree }],
+    });
+
+    assert.deepEqual(beforeState.created, ['.atomic-skills/dashboard']);
+    assert.equal(readFileSync(join(target, 'index.html'), 'utf8'), '<!doctype html><title>updated</title>\n');
+    assert.ok(!existsSync(join(target, 'old.html')), 'owned update should replace stale tree contents');
+  });
+});
+
 test('auto-update runtime layer — jsonMerge SessionStart + executable hook, surgical revert', () => {
   withTmp((root) => {
     const { skillsDir } = makeFixtures(root);
