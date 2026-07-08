@@ -95,6 +95,21 @@ test('nextStepFrom: absent/blank nextAction falls back to the precedence command
   }
 });
 
+test('nextStepFrom: lifecycle-order block overrides a stale archive nextAction', () => {
+  const decision = classify({
+    hasState: true,
+    slug: 'demo-plan',
+    hasOpenTasks: false,
+    allPhasesDone: true,
+    lifecycleOrderBlocked: true,
+    lifecycleRecommendedCommand: 'finalize demo-plan',
+    lifecycleOrderReason: 'archive demo-plan requires finalize before archive',
+  });
+  const step = nextStepFrom('Rode `archive demo-plan`.', decision);
+  assert.equal(step.command, 'finalize demo-plan');
+  assert.equal(step.commandSource, 'fallback');
+});
+
 // ---------------------------------------------------------------------------
 // 4. runDriftDetector() — detect-completion.js exit-code contract
 // ---------------------------------------------------------------------------
@@ -290,6 +305,40 @@ test('computeHelp: blocked plan → switch <prereq> wins over the open-task impl
     assert.equal(json.nextStep.commandSource, 'fallback');
     assert.equal(json.nextStep.command, 'switch core-api');
     assert.equal(json.spineStage.name, 'PLANO');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function buildArchiveBlockedTree() {
+  const dir = mkdtempSync(join(tmpdir(), 'compute-help-archive-blocked-'));
+  const planDir = join(dir, '.atomic-skills', 'projects', 'demo', 'demo-plan');
+  mkdirSync(join(planDir, 'phases'), { recursive: true });
+  writeFileSync(join(planDir, 'plan.md'), [
+    '---', 'schemaVersion: "0.1"', 'slug: demo-plan', 'status: active',
+    'branch: plan/demo-plan',
+    'currentPhase: F1',
+    'phases:', '  - id: F1', '    status: done',
+    '---', '# demo', '',
+  ].join('\n'));
+  writeFileSync(join(planDir, 'phases', 'f1.md'), [
+    '---', 'schemaVersion: "0.1"', 'slug: demo-plan-f1', 'status: done',
+    'phaseId: F1', 'parentPlan: demo-plan', 'title: Fase F1',
+    'nextAction: "Rode `archive demo-plan`."',
+    'tasksDone: 1', 'tasksTotal: 1',
+    'tasks:', '  - id: T-001', '    status: done',
+    '---', '# f1', '',
+  ].join('\n'));
+  return dir;
+}
+
+test('computeHelp: stale archive nextAction is replaced by finalize <slug> when publication proof is missing', () => {
+  const dir = buildArchiveBlockedTree();
+  try {
+    const json = computeHelp({ dir, driftFn: () => false });
+    assert.equal(json.nextStep.commandSource, 'fallback');
+    assert.equal(json.nextStep.command, 'finalize demo-plan');
+    assert.equal(json.spineStage.name, 'FINALIZE');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

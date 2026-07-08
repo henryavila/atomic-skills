@@ -298,7 +298,7 @@ core:
       - name: help
         group: 'View'
         signature: '[--html]'
-        description: 'Terminal GPS: where am I + the next concrete step, derived from real state (alias: next; --html opens the visual guide)'
+        description: 'Terminal GPS: where am I + the next concrete step, derived from real state; lifecycle-order blockers surface predecessor commands before archive/teardown (alias: next; --html opens the visual guide)'
         example: '/atomic-skills:project help'
       - name: verify
         group: 'View'
@@ -387,9 +387,9 @@ core:
         example: '/atomic-skills:project split-phase F2'
       - name: finalize
         group: 'Lifecycle'
-        signature: ''
-        description: 'Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive'
-        example: '/atomic-skills:project finalize'
+        signature: '<slug>'
+        description: 'Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive'
+        example: '/atomic-skills:project finalize v3-redesign'
       - name: consolidate
         group: 'Lifecycle'
         signature: ''
@@ -398,7 +398,7 @@ core:
       - name: archive
         group: 'Lifecycle'
         signature: '[<slug>]'
-        description: 'Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)'
+        description: 'Move a finished plan or initiative to archive/ after lifecycle-order guard confirms finalize/merge/integration; archiving a plan cascades to its child initiatives'
         example: '/atomic-skills:project archive v3-redesign'
       - name: switch
         group: 'Lifecycle'

@@ -34,7 +34,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 | Command | Description |
 |---------|-------------|
 | `status [--browser\|--terminal\|--list\|--plan\|--phase\|--stack\|--archived\|--report]` | View current state: compact summary, browser dashboard, full terminal view, or filtered tables |
-| `help [--html]` | Terminal GPS: operational answer to "onde estou" / where am I + the next concrete step, derived from real state. Shorthand: `project help`; full invocation: `/atomic-skills:project help`; `project help --html` opens the visual guide (alias: next) |
+| `help [--html]` | Terminal GPS: operational answer to "onde estou" / where am I + the next concrete step, derived from real state; lifecycle-order blockers surface predecessor commands before archive/teardown. Shorthand: `project help`; full invocation: `/atomic-skills:project help`; `project help --html` opens the visual guide (alias: next) |
 | `verify [--fix] [--slug <slug>]` | Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix) |
 
 *Create*
@@ -77,9 +77,9 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 | Command | Description |
 |---------|-------------|
-| `finalize` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive |
+| `finalize <slug>` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive |
 | `consolidate` | Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize) |
-| `archive [<slug>]` | Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives) |
+| `archive [<slug>]` | Move a finished plan or initiative to archive/ after lifecycle-order guard confirms finalize/merge/integration; archiving a plan cascades to its child initiatives |
 | `switch <slug>` | Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs |
 | `migrate [<slug>]` | Two modes: `migrate <slug>` converts a legacy (pre-0.1) initiative to schemaVersion 0.1 (field-mapping diff + placeholder flags); bare `migrate` runs the flat→projects/<id>/<slug>/ layout cut-over (deterministic copy-verify-delete behind a tar snapshot) |
 | `re-bootstrap <slug>` | After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context |
@@ -124,6 +124,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 - `/atomic-skills:project status --browser` — Open the aiDeck dashboard
 - `/atomic-skills:project new plan v3-redesign` — Bootstrap a new multi-phase Plan (7-stage flow)
 - `/atomic-skills:project done T-005` — Close a task (triggers phase-completion check if last)
+- `/atomic-skills:project finalize v3-redesign` — Publish the finished plan branch before merge/archive
 - `/atomic-skills:project verify` — Reconcile .atomic-skills/ state against the code
 
 ## Metadata

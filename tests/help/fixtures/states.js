@@ -14,7 +14,7 @@
 //   7. fase materializada · tasks open  → implement   · implement
 //   8. zero tasks abertas · in-plan     → phase-done  · phase-done
 //   9. zero tasks abertas · standalone  → archive     · archive <slug>
-//  10. todas as fases done              → finalize    · finalize
+//  10. todas as fases done              → finalize    · finalize <slug>
 
 /** A fully-normalized state with every flag off; override only what a case needs. */
 export function baseState(over = {}) {
@@ -47,7 +47,7 @@ export const PRECEDENCE = [
   { name: 'implement', state: baseState({ hasOpenTasks: true }), stage: 'implement', command: 'implement' },
   { name: 'phase-done', state: baseState({ hasOpenTasks: false }), stage: 'phase-done', command: 'phase-done' },
   { name: 'archive-standalone', state: baseState({ hasOpenTasks: false, standalone: true, slug: 'oneoff' }), stage: 'archive', command: 'archive oneoff' },
-  { name: 'finalize', state: baseState({ hasOpenTasks: false, allPhasesDone: true }), stage: 'finalize', command: 'finalize' },
+  { name: 'finalize', state: baseState({ hasOpenTasks: false, allPhasesDone: true }), stage: 'finalize', command: 'finalize demo-plan' },
 ];
 
 // Overlap fixtures — multiple conditions true; the higher-priority rule wins.
@@ -69,6 +69,17 @@ export const OVERLAPS = [
     state: baseState({ activeOver24h: true, phaseDescriptorOnly: true, phaseId: 'F2' }),
     stage: 'reconcile',
     command: 'reconcile',
+  },
+  {
+    name: 'stale archive nextAction + all phases done → finalize predecessor',
+    state: baseState({
+      allPhasesDone: true,
+      lifecycleOrderBlocked: true,
+      lifecycleRecommendedCommand: 'finalize demo-plan',
+      lifecycleOrderReason: 'archive demo-plan requires finalize/consolidate publication before archive',
+    }),
+    stage: 'finalize',
+    command: 'finalize demo-plan',
   },
 ];
 
