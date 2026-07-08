@@ -1,10 +1,11 @@
 ---
-lastUpdated: 2026-07-07T19:33:21Z
+lastUpdated: 2026-07-08T01:40:29Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 0
-archivedCount: 16
+archivedCount: 17
 ---
+
 
 # Project Status Index
 
@@ -20,13 +21,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| help-command | active | F2 | develop | 2026-07-05 | 2/4 |
+| help-command | active | F3 | develop | 2026-07-05 | 3/4 |
 
 ### help-command
 | Initiative | Phase | Status | Tasks |
 |------------|-------|--------|-------|
 | f1-o-mapa-estado-proximo-passo-como-helper | F1 | done | 2/2 |
-| f2-rendering-do-bloco-de-ensino | F2 | active | 0/2 |
+| f3-guarda-de-fidelidade-help-nunca-cita-um | F3 | active | 0/2 |
 
 ## Done Plans (not archived)
 
@@ -52,6 +53,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
 | design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
@@ -61,7 +63,6 @@ _(none)_
 | multiplan-focus-resolution | 2026-06-16 | - | 1/1 | Resolucao de foco em camadas + enforcer worktree-por-plano |
 | skills-restructuring | 2026-06-16 | F4 | 7/7 | Reestruturacao das skills atomic-skills |
 | quick-idea-capture | 2026-06-09 | F1 | 2/2 | Quick Idea Capture |
-| mode2-anthropic-subagent-tier | 2026-06-09 | F0 | 0/1 | Mode 2 - Anthropic subagent executor tier (Sonnet/Haiku) |
 
 ## Ad-Hoc Sessions Log (last 5)
 

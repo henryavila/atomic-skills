@@ -6,19 +6,21 @@ parentPlan: help-command
 lessons:
   - id: L-001
     statement: O contrato "HTML presente" precisa testar arquivo regular, não só
-      existência de path; um diretório em `docs/design/project-onboarding/index.html`
-      passava pelo render/opener.
+      existência de path; um diretório em
+      `docs/design/project-onboarding/index.html` passava pelo render/opener.
     corrective: Para próximas fases que adicionem recursos por caminho fixo, cobrir
-      "path existe mas não é arquivo" no teste de resolução antes de ativar UI/CTA.
+      "path existe mas não é arquivo" no teste de resolução antes de ativar
+      UI/CTA.
     scope: reusable
     appliesTo: []
     status: open
     confidence: 2
-    evidence: ".atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md;
-      fix 1ed2f9e"
+    evidence: .atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md; fix
+      1ed2f9e
     createdAt: 2026-07-08T01:22:16Z
-    validatedAt: 2026-07-08T01:22:16Z
+    validatedAt: 2026-07-08T01:40:29Z
 ---
+
 
 # Lessons — F2 (Rendering do bloco de ensino)
 

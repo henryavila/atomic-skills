@@ -7,11 +7,11 @@ goal: O asset chama compute-help.js e formata o bloco de 5 linhas + mini-mapa
   visual pelo caminho de contrato fixo, fail-open quando ausente.
 summary: Renderiza o bloco de ensino do `help` no terminal e liga `help --html`
   ao guia visual fixo.
-status: active
+status: done
 branch: develop
 started: 2026-07-07T19:33:21Z
-lastUpdated: 2026-07-08T01:22:16Z
-nextAction: Decidir se avança F2 para F3 via phase-done.
+lastUpdated: 2026-07-08T01:40:29Z
+nextAction: null
 startedCommit: dbf9b212267e5a95b803b6e3cc721b56b2539ec1
 parentPlan: help-command
 phaseId: F2
@@ -201,8 +201,9 @@ parked: []
 emerged: []
 planTitle: Comando `help` — GPS de terminal da skill `project`
 planActive: true
-current: true
+current: false
 ---
+
 
 # Narrative / notes
 
@@ -261,10 +262,10 @@ _(plan doc, external refs)_
 
 ## Self-review against code-quality gates
 
-- **Lessons review:** Applied F0/L-001, F1/L-001, and F1/L-002 at phase start.
-- **G1 read-before-claim:** materialização baseada no `plan.md`, no sidecar F2 e
-  nas lessons files carregadas antes da escrita.
-- **G2 soft-language:** `nextAction` é um comando concreto de retomada da primeira
-  task; summaries e acceptance evitam promessa sem verifier.
-- **G6 reference-or-strike:** F2 nasce com verifiers/outputs por task e exit-gates
-  com verifiers explícitos.
+- **G1 read-before-claim**: 2 tasks fechadas com outputs declarados (`skills/shared/project-assets/project-help.md`, `scripts/compute-help.js`, `tests/help/render-smoke.test.js`, `tests/help/html-resolve.test.js`) e verifiers registrados nas evidências.
+- **G2 soft-language**: `nextAction`, descrições de tasks e critérios lidos no fechamento; a fase encerrada nulifica `nextAction` e a F3 recebe um próximo passo concreto.
+- **G6 reference-or-strike**: 3 exit criteria, 3 `met` com `evidence:`; 0 `deferred`; 0 critérios sem verificação.
+- **G10 gate-must-be-able-to-fail**: G-1/G-2 falham quando os testes falham; G-3 falha quando o eyeball não registra comando, alvo, trecho observado, data e pass/fail.
+- **Codex review**: SKIPPED at phase-done (cross-model review-due não foi solicitado nesta transição); review local da fase já estava registrado em `.atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md` e corrigiu `1ed2f9e`.
+- **Review gate (G2)**: registrado no descriptor como `reviewGate: { status: passed, at: 1ed2f9e, mode: local }` antes de marcar a fase `done`.
+- **Lessons (G1)**: 1 lesson ratificada em `lessons/help-command-f2-rendering-do-bloco-de-ensino.md`; no start-gate da F3, F0/L-002 foi aplicada e F2/L-001 foi mantida aberta.

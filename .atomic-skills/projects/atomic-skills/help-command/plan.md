@@ -5,8 +5,8 @@ title: Comando `help` — GPS de terminal da skill `project`
 version: "1.0"
 status: active
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-08T01:22:16Z
-currentPhase: F2
+lastUpdated: 2026-07-08T01:40:29Z
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -58,7 +58,7 @@ phases:
             verifiedAt: 2026-07-05T12:33:53Z
             exitCode: 0
             passed: true
-            outputSummary: "npm run validate-skills → All 15 skills valid (schema_version 0.2)"
+            outputSummary: npm run validate-skills → All 15 skills valid (schema_version 0.2)
         - id: G-2
           description: strip-test de compatibilidade passa (exit 0)
           status: met
@@ -73,7 +73,8 @@ phases:
             exitCode: 0
             testsCollected: 128
             passed: true
-            outputSummary: "node --test tests/compatibility.test.js → tests 128, pass 128, fail 0"
+            outputSummary: node --test tests/compatibility.test.js → tests 128, pass 128,
+              fail 0
         - id: G-3
           description: uma linha da dispatch table (âncora `|`) casa `help` E resolve para
             project-help.md
@@ -87,7 +88,8 @@ phases:
             verifiedAt: 2026-07-05T12:33:53Z
             exitCode: 0
             passed: true
-            outputSummary: "grep -qE '^\\|.*help.*project-help\\.md' skills/core/project.md → match (exit 0)"
+            outputSummary: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md →
+              match (exit 0)
         - id: G-4
           description: o asset project-help.md existe no disco
           status: met
@@ -100,7 +102,8 @@ phases:
             verifiedAt: 2026-07-05T12:33:53Z
             exitCode: 0
             passed: true
-            outputSummary: "test -f skills/shared/project-assets/project-help.md → exists (exit 0)"
+            outputSummary: test -f skills/shared/project-assets/project-help.md → exists
+              (exit 0)
         - id: G-5
           description: "o catálogo tem a entrada `name: help` com signature `--html`"
           status: met
@@ -114,7 +117,7 @@ phases:
             verifiedAt: 2026-07-05T12:33:53Z
             exitCode: 0
             passed: true
-            outputSummary: "awk name:help → signature line matches --html (exit 0)"
+            outputSummary: awk name:help → signature line matches --html (exit 0)
     status: done
     reviewGate:
       status: passed
@@ -159,7 +162,8 @@ phases:
             exitCode: 0
             testsCollected: 27
             passed: true
-            outputSummary: "node --test tests/help/compute-help.test.js → tests 27, pass 27, fail 0 (post review-fix)"
+            outputSummary: node --test tests/help/compute-help.test.js → tests 27, pass 27,
+              fail 0 (post review-fix)
     reviewGate:
       status: passed
       at: c3c2135540fd02afb81769c5b88eb0eb385f9473
@@ -167,25 +171,27 @@ phases:
       verifiedAt: 2026-07-05T15:30:14Z
     status: done
     businessIntent:
-      value: "F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
-        compute-help.js que classifica o estado real (projeto/plano/fase, rollups,
-        drift) em spineStage + próximo-passo. Valor: a resposta \"onde estou / qual o
-        próximo passo\" passa a vir de lógica testável e reutilizável, não de prosa que
-        raciocina do zero — habilitando o render da F2. Valor pro usuário:
-        confiabilidade (lê nextAction verbatim, degrada graciosamente)."
-      workflow: "Retomada de projeto — o dev roda `help` e precisa saber, numa tela, o
-        estágio do ciclo de vida e o comando exato a rodar em seguida."
-      rules: "puro-leitura / zero-mutação / fail-open (P1); nextStep.command =
-        nextAction persistido lido verbatim, precedência só como fallback (P2); reusa
-        o grafo de transições real e detect-completion.js — não reimplementa (P3);
-        contrato de exit-code do detector honrado (parsear JSON em exit 0 e 1;
-        fail-open só em exit 2, stdout não-parseável ou falha de spawn)."
-      outOfScope: "Nenhum rendering do bloco de ensino nem mini-mapa ASCII (isso é
-        F2); não gera nem abre o HTML; não toca aiDeck; não altera o resumo no-args de
-        5 linhas."
-      doneWhen: "compute-help.test.js verde com o mapa de decisão coberto (um fixture
+      value: 'F1 constrói o cérebro determinístico do `help`: o helper puro-leitura
+        compute-help.js que classifica o estado real (projeto/plano/fase,
+        rollups, drift) em spineStage + próximo-passo. Valor: a resposta "onde
+        estou / qual o próximo passo" passa a vir de lógica testável e
+        reutilizável, não de prosa que raciocina do zero — habilitando o render
+        da F2. Valor pro usuário: confiabilidade (lê nextAction verbatim,
+        degrada graciosamente).'
+      workflow: Retomada de projeto — o dev roda `help` e precisa saber, numa tela, o
+        estágio do ciclo de vida e o comando exato a rodar em seguida.
+      rules: puro-leitura / zero-mutação / fail-open (P1); nextStep.command =
+        nextAction persistido lido verbatim, precedência só como fallback (P2);
+        reusa o grafo de transições real e detect-completion.js — não
+        reimplementa (P3); contrato de exit-code do detector honrado (parsear
+        JSON em exit 0 e 1; fail-open só em exit 2, stdout não-parseável ou
+        falha de spawn).
+      outOfScope: Nenhum rendering do bloco de ensino nem mini-mapa ASCII (isso é F2);
+        não gera nem abre o HTML; não toca aiDeck; não altera o resumo no-args
+        de 5 linhas.
+      doneWhen: compute-help.test.js verde com o mapa de decisão coberto (um fixture
         por estado da precedência + os 3 sobrepostos que provam a ordem + o par
-        presente/ausente de commandSource) e o fail-open provado."
+        presente/ausente de commandSource) e o fail-open provado.
   - id: F2
     slug: help-command-f2-rendering-do-bloco-de-ensino
     title: Rendering do bloco de ensino
@@ -214,8 +220,8 @@ phases:
             exitCode: 0
             testsCollected: 3
             passed: true
-            outputSummary: "node --test tests/help/render-smoke.test.js → tests 3,
-              pass 3, fail 0"
+            outputSummary: node --test tests/help/render-smoke.test.js → tests 3, pass 3,
+              fail 0
         - id: G-2
           description: html-resolve.test.js verde
           status: met
@@ -230,8 +236,8 @@ phases:
             exitCode: 0
             testsCollected: 7
             passed: true
-            outputSummary: "node --test tests/help/html-resolve.test.js → tests 7,
-              pass 7, fail 0"
+            outputSummary: node --test tests/help/html-resolve.test.js → tests 7, pass 7,
+              fail 0
         - id: G-3
           description: eyeball num projeto real registrado como evidência (com campos
             suficientes p/ auditar depois)
@@ -248,11 +254,11 @@ phases:
             verifierKind: manual
             verifiedAt: 2026-07-07T19:54:52Z
             passed: true
-            outputSummary: "command: node scripts/compute-help.js --render \"$PWD\";
-              target: atomic-skills/help-command; observed: VOCÊ ESTÁ AQUI
-              help-command · F2; FEITO tasks 2/2; PRÓXIMO PASSO → Rode
-              `phase-done`; GUIA VISUAL present; result: pass"
-    status: active
+            outputSummary: 'command: node scripts/compute-help.js --render "$PWD"; target:
+              atomic-skills/help-command; observed: VOCÊ ESTÁ AQUI help-command
+              · F2; FEITO tasks 2/2; PRÓXIMO PASSO → Rode `phase-done`; GUIA
+              VISUAL present; result: pass'
+    status: done
     reviewGate:
       status: passed
       at: 1ed2f9e
@@ -260,28 +266,29 @@ phases:
       reviewFile: .atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md
       verifiedAt: 2026-07-07T19:58:17Z
     businessIntent:
-      value: "Transforma o helper determinístico compute-help.js em uma experiência
-        de retomada legível no terminal: bloco de 5 linhas, mini-mapa com posição
-        atual e comando exato de próximo passo. Para o usuário, reduz ambiguidade ao
-        voltar a um plano e oferece acesso opcional ao guia visual via help --html."
+      value: "Transforma o helper determinístico compute-help.js em uma experiência de
+        retomada legível no terminal: bloco de 5 linhas, mini-mapa com posição
+        atual e comando exato de próximo passo. Para o usuário, reduz
+        ambiguidade ao voltar a um plano e oferece acesso opcional ao guia
+        visual via help --html."
       workflow: "Retomada de projeto: o dev roda /atomic-skills:project help para
-        entender onde está e qual comando executar; quando precisa do guia visual,
-        roda help --html."
-      rules: "Read-only, zero-mutação e fail-open; o render exibe nextStep.command
+        entender onde está e qual comando executar; quando precisa do guia
+        visual, roda help --html."
+      rules: Read-only, zero-mutação e fail-open; o render exibe nextStep.command
         vindo do helper verbatim, sem recomputar; help --html usa o caminho fixo
-        docs/design/project-onboarding/index.html e o helper canônico open_url de
-        project-view.md; testes não abrem navegador real."
+        docs/design/project-onboarding/index.html e o helper canônico open_url
+        de project-view.md; testes não abrem navegador real.
       outOfScope: Não muda a lógica de classificação do compute-help.js; não altera o
         resumo no-args; não gera nem valida o HTML do guia; não toca aiDeck.
       doneWhen: render-smoke.test.js e html-resolve.test.js passam, e o eyeball em
-        projeto real registra comando exato, plano alvo, trecho renderizado, data e
-        resultado pass/fail.
+        projeto real registra comando exato, plano alvo, trecho renderizado,
+        data e resultado pass/fail.
       derived:
         - question: Como F0/L-001 altera a F2?
           answer: F0/L-001 foi aplicado ao contrato do opener canônico em T-002.
         - question: Como F1/L-001 e F1/L-002 alteram a F2?
-          answer: F1/L-001 e F1/L-002 foram aplicados ao render verbatim e à
-            cobertura da costura IO→render em T-001.
+          answer: F1/L-001 e F1/L-002 foram aplicados ao render verbatim e à cobertura da
+            costura IO→render em T-001.
   - id: F3
     slug: help-command-f3-guarda-de-fidelidade-help-nunca-cita-um
     title: Guarda de fidelidade (help nunca cita um verbo que não existe)
@@ -290,7 +297,7 @@ phases:
       terminal).
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -307,11 +314,38 @@ phases:
             kind: test
             runner: node --test
             pattern: tests/help/help-vocab.test.js
-    status: pending
+    status: active
+    businessIntent:
+      value: "Fecha a fidelidade do GPS de terminal: o help passa a ter guardas
+        persistentes que impedem comandos inexistentes ou assinaturas
+        divergentes entre helper, catálogo, docs e guia visual. Para o usuário,
+        reduz regressão silenciosa no comando exato de retomada."
+      workflow: "Manutenção e retomada de projeto: antes de encerrar o plano
+        help-command, a suíte valida que os comandos que o terminal/HTML/docs
+        citam existem no catálogo e continuam roteando para o asset correto."
+      rules: Read-only e zero-mutação continuam valendo para help; todo
+        nextStep.command persistido ou fallback deve apontar para subcomando
+        real em meta/catalog.yaml e casar a signature declarada; aplica F0/L-002
+        com asserção persistente para help/help --html/next -> project-help.md;
+        F2/L-001 permanece aberta para futuras fases que habilitem UI/CTA por
+        caminho fixo.
+      outOfScope: Não redesenha o render do help, não troca o mecanismo de abertura
+        HTML, não muda aiDeck e não gera novo guia visual.
+      doneWhen: help-vocab.test.js passa, npm test passa e os cross-links de docs/HTML
+        citam project help como resposta operacional para onde estou.
+      derived:
+        - question: Como F0/L-002 altera a F3?
+          answer: "F0/L-002 foi aplicada em T-001: além do help-vocab, a fase deve travar
+            em tests/project.test.js a dispatch-row help/help --html/next ->
+            project-help.md."
+        - question: Como F2/L-001 foi dispositionada na F3?
+          answer: "Keep: F3 não habilita novo CTA por caminho fixo; a lesson segue aberta
+            para futuras fases que adicionem recursos por path fixo."
 references: []
 planActive: true
 planTitle: Comando `help` — GPS de terminal da skill `project`
 ---
+
 
 # Comando `help` — GPS de terminal da skill `project`
 
