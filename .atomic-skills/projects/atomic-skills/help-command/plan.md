@@ -5,7 +5,7 @@ title: Comando `help` — GPS de terminal da skill `project`
 version: "1.0"
 status: active
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-07T19:33:21Z
+lastUpdated: 2026-07-08T01:22:16Z
 currentPhase: F2
 parallelismAllowed: false
 principles:

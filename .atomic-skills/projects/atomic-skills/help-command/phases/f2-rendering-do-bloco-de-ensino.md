@@ -10,8 +10,8 @@ summary: Renderiza o bloco de ensino do `help` no terminal e liga `help --html`
 status: active
 branch: develop
 started: 2026-07-07T19:33:21Z
-lastUpdated: 2026-07-07T20:02:32Z
-nextAction: Ratificar ou rejeitar a lesson proposta da F2 e decidir se avança F2 para F3 via phase-done.
+lastUpdated: 2026-07-08T01:22:16Z
+nextAction: Decidir se avança F2 para F3 via phase-done.
 startedCommit: dbf9b212267e5a95b803b6e3cc721b56b2539ec1
 parentPlan: help-command
 phaseId: F2
@@ -228,20 +228,22 @@ _(plan doc, external refs)_
   F1/L-002 em T-001 antes da ativação; `T-001` manteve o comando vindo de
   `nextStep.command` verbatim, e `T-002` manteve a abertura do guia atrás do
   contrato `open_url`/fail-open. O review local exigiu `statSync(...).isFile()`
-  para não tratar diretório `index.html` como guia presente.
-- **Single nextAction:** Ratificar ou rejeitar a lesson proposta F2/L-001 e então
-  decidir se avança F2 para F3 via `phase-done`; os gates G-1/G-2/G-3 já estão
-  `met` e o review gate local já está `passed`.
+  para não tratar diretório `index.html` como guia presente. F2/L-001 foi
+  ratificada pelo usuário e persistida em
+  `lessons/help-command-f2-rendering-do-bloco-de-ensino.md`.
+- **Single nextAction:** Decidir se avança F2 para F3 via `phase-done`; os gates
+  G-1/G-2/G-3 já estão `met`, o review gate local já está `passed`, e F2/L-001 já
+  está ratificada.
 - **Verbatim state:** `.atomic-skills/projects/atomic-skills/help-command/phases/f2-rendering-do-bloco-de-ensino.md`;
   `.atomic-skills/projects/atomic-skills/help-command/plan.md`; `git status --porcelain`;
   `node --test tests/help/render-smoke.test.js`; `e0b9bfe feat(T-001): render
   project help block`; `node --test tests/help/html-resolve.test.js`; `106570b
   feat(T-002): open project help html guide`; `.atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md`;
   `1ed2f9e fix(T-002): require html guide file`; `61a6601 chore(project): record
-  help-command F2 review gate`.
+  help-command F2 review gate`; `.atomic-skills/projects/atomic-skills/help-command/lessons/help-command-f2-rendering-do-bloco-de-ensino.md`.
 - **Uncommitted changes:** clean tree
 
-## Proposed lessons awaiting ratification
+## Ratified lessons
 
 - id: F2/L-001
   statement: O contrato "HTML presente" precisa testar arquivo regular, não só
@@ -255,6 +257,7 @@ _(plan doc, external refs)_
   confidence: 2
   evidence: `.atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md`;
     fix `1ed2f9e`
+  ratifiedAt: 2026-07-08T01:22:16Z
 
 ## Self-review against code-quality gates
 
