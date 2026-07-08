@@ -141,7 +141,10 @@ phases:
       mode: local
       reviewFile: .atomic-skills/reviews/project-lifecycle-order-guards-F0-local-review.md
       verifiedAt: 2026-07-08T13:15:00.466Z
-references: []
+references:
+  - kind: url
+    path: https://github.com/henryavila/atomic-skills/pull/29
+    label: "PR #29"
 planTitle: Guardas de ordem do lifecycle project
 ---
 
@@ -185,4 +188,3 @@ que uma etapa posterior ignore uma etapa obrigatoria anterior sem avisar.
   comportamental.
 - A implementacao deve preferir helper puro para as regras de ordem, consumido
   pelos assets mutaveis e pelos backstops de verify/help.
-
