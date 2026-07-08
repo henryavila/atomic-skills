@@ -34,7 +34,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 | Command | Description |
 |---------|-------------|
 | `status [--browser\|--terminal\|--list\|--plan\|--phase\|--stack\|--archived\|--report]` | View current state: compact summary, browser dashboard, full terminal view, or filtered tables |
-| `help [--html]` | Terminal GPS: operational answer to "onde estou" / where am I + the next concrete step, derived from real state. Shorthand: `project help`; full invocation: `/atomic-skills:project help`; `project help --html` opens the visual guide (alias: next) |
+| `help [--html]` | Terminal GPS: where am I + the next concrete step, derived from real state (alias: next; --html opens the visual guide) |
 | `verify [--fix] [--slug <slug>]` | Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix) |
 
 *Create*
@@ -120,7 +120,6 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 **Examples:**
 - `/atomic-skills:project` — Compact 5-line summary of the active plan/initiative
-- `/atomic-skills:project help` — Operationally `project help`: answer "onde estou" and show the next concrete step; add `--html` to open the visual guide
 - `/atomic-skills:project status --browser` — Open the aiDeck dashboard
 - `/atomic-skills:project new plan v3-redesign` — Bootstrap a new multi-phase Plan (7-stage flow)
 - `/atomic-skills:project done T-005` — Close a task (triggers phase-completion check if last)
