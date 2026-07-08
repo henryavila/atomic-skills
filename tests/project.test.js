@@ -39,7 +39,7 @@ describe('project skill (unified router + lazy assets)', () => {
   }
 
   const ROUTER = '.claude/commands/atomic-skills/project.md';
-  const ASSET = (name) => `.claude/commands/atomic-skills/_assets/${name}`;
+  const ASSET = (name) => `.claude/atomic-skills/_assets/${name}`;
 
   function readRouter() {
     return readFileSync(join(tempDir, ROUTER), 'utf8');
@@ -103,6 +103,16 @@ describe('project skill (unified router + lazy assets)', () => {
     ]) {
       assert.ok(content.includes(f), `dispatch table must reference ${f}`);
     }
+  });
+
+  it('router dispatches help, help --html, and next to project-help.md', () => {
+    install();
+    const content = readRouter();
+    assert.match(
+      content,
+      /\|\s*`help`, `help --html`, `next`\s*\|\s*`Read .*?project-help\.md`\s*\|/,
+      'help dispatch row must route all help aliases to project-help.md'
+    );
   });
 
   it('router stays thin (≤ ~250 lines so the token economy holds)', () => {
@@ -215,6 +225,27 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /\bmigrate\b/);
   });
 
+  it('project-view documents nested-first terminal/status resolution', () => {
+    install();
+    const content = readAsset('project-view.md');
+    assert.match(content, /Nested-first state resolution/);
+    assert.match(content, /projects\/<project-id>\/<plan-slug>\/plan\.md/);
+    assert.match(content, /projects\/<project-id>\/<plan-slug>\/phases/);
+    assert.match(content, /top-level `\.atomic-skills\/PROJECT-STATUS\.md` only when no nested project index exists/);
+    assert.match(content, /legacy `\.atomic-skills\/plans\/archive\/\*\.md`/);
+  });
+
+  it('project-view gates every status refresh/repair write behind explicit approval', () => {
+    install();
+    const content = readAsset('project-view.md');
+    assert.match(content, /## Mutation policy/);
+    assert.match(content, /status.*read-only by default/i);
+    assert.match(content, /Refresh derived dashboard state now\? \(y\/N\)/);
+    assert.match(content, /Do NOT run `compute-rollups\.js` or `reconcile-focus\.js` automatically/);
+    assert.match(content, /Repair STATE_ERROR now\? \(y\/N\)/);
+    assert.match(content, /Terminal, list, plan, phase, stack, archived, and report views never run refresh or repair writers/);
+  });
+
   // ─── Lazy asset: verify (NEW) ───────────────────────────────────────────
 
   it('project-verify defines an explicit contract (NEW command)', () => {
@@ -233,6 +264,32 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /aideck|aiDeck/i);
     // failure messages
     assert.match(content, /FAIL/);
+  });
+
+  it('router and verify detail agree that verify --fix is the only verify mutation path', () => {
+    install();
+    const router = readRouter();
+    const verify = readAsset('project-verify.md');
+    assert.match(router, /project verify \[--fix\]/);
+    assert.match(router, /READ-ONLY unless `--fix`/);
+    assert.match(router, /`verify --fix` exception: its only allowed mutation is the normalization gate in `project-verify\.md`/);
+    assert.match(verify, /`verify --fix` is the explicit mutation gate/);
+    assert.match(verify, /Before any `--fix` write/);
+    assert.match(verify, /print the target scope and the normalization classes/);
+  });
+
+  // ─── Lazy asset: review ─────────────────────────────────────────────────
+
+  it('project-review is honest about delegated review writes and gates them', () => {
+    install();
+    const router = readRouter();
+    const content = readAsset('project-review.md');
+    assert.match(router, /review \[<slug>\].*mutation-gated audit/);
+    assert.match(content, /report-only until a delegated write-capable leg is explicitly approved/);
+    assert.match(content, /Before invoking a delegated leg that can write/);
+    assert.match(content, /ask for explicit approval/);
+    assert.match(content, /If approval is denied or unavailable, SKIP that leg/);
+    assert.match(content, /never closes a task, never meets a gate, never advances a phase/);
   });
 
   // ─── Lazy asset: setup ──────────────────────────────────────────────────
@@ -269,6 +326,117 @@ describe('project skill (unified router + lazy assets)', () => {
     ]) {
       assert.ok(content.includes(stage), `missing stage: ${stage}`);
     }
+  });
+
+  it('project-create-plan collects F0 businessIntent before materializing the active phase', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
+    assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    assert.match(stage6, /Collect the user-written `businessIntent` spine for F0/);
+    assert.match(stage6, /businessIntent: <businessIntent>/);
+    assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
+    assert.doesNotMatch(stage6, /find-missing-business-intent\.js" \.atomic-skills\s/);
+  });
+
+  it('project-create-plan Stage 6 documents lazy outputs and explicit F0 validation', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    assert.notEqual(stage6Start, -1, 'Stage 6 section must exist');
+    assert.notEqual(stage7Start, -1, 'Stage 7 section must exist');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    assert.match(stage6, /f0-<phase-slug>\.md/);
+    assert.match(stage6, /f<N>-<phase-slug>\.source\.json/);
+    assert.match(stage6, /only the materialized F0 initiative/);
+    assert.match(stage6, /phases\/<f0-phase-file>\.md/);
+    assert.doesNotMatch(stage6, /f<N>-<phase-slug>\.md` per phase/);
+    assert.doesNotMatch(stage6, /each phase initiative under it/);
+    assert.doesNotMatch(stage6, /validate-state\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/phases\/\s+# per phase/);
+  });
+
+  it('project-create-plan adopt flow keeps the same F0 businessIntent and lazy validation contract', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const adoptStart = content.indexOf('## `adopt <file.md>`');
+    const gatesStart = content.indexOf('## Code-quality gates');
+    assert.notEqual(adoptStart, -1, 'adopt section must exist');
+    assert.notEqual(gatesStart, -1, 'code-quality section must exist');
+    const adopt = content.slice(adoptStart, gatesStart);
+    assert.match(adopt, /collect the same user-written F0 `businessIntent` spine/);
+    assert.match(adopt, /businessIntent: <businessIntent>/);
+    assert.match(adopt, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
+    assert.doesNotMatch(adopt, /find-missing-business-intent\.js" \.atomic-skills\s/);
+    assert.match(adopt, /phases\/<f0-phase-file>\.md/);
+    assert.match(adopt, /only the materialized F0 initiative/);
+    assert.match(adopt, /source sidecars retained/);
+    assert.doesNotMatch(adopt, /each phase initiative to its plan's group/);
+  });
+
+  it('project-create-plan persists creation gates for new plan and adopt resume/rollback', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const stage6Start = content.indexOf('### Stage 6 — Create Plan + Initiatives');
+    const stage7Start = content.indexOf('### Stage 7 — Activate first phase');
+    const stage6 = content.slice(stage6Start, stage7Start);
+    const adoptStart = content.indexOf('## `adopt <file.md>`');
+    const gatesStart = content.indexOf('## Code-quality gates');
+    const adopt = content.slice(adoptStart, gatesStart);
+
+    assert.match(stage6, /Creation gate run record/);
+    assert.match(stage6, /\.atomic-skills\/status\/creation-gates\/<project-id>-<slug>\.json/);
+    assert.match(stage6, /filesWritten/);
+    assert.match(stage6, /before each canonical file write/);
+    assert.match(stage6, /append the path to `filesWritten` and persist the creation gate, then write the canonical file/);
+    assert.match(stage6, /status: "cancelled"/);
+    assert.match(stage6, /status: "rolled-back"/);
+    assert.match(stage6, /Do not infer a half-created plan by scanning `\.atomic-skills\/projects\/`/);
+    assert.match(adopt, /kind: "adopt"/);
+    assert.match(adopt, /resume boundary for `adopt`/);
+    assert.match(adopt, /rollback deletes exactly `filesWritten`/);
+    assert.match(adopt, /Recording the path before the write makes rollback\/resume safe/);
+  });
+
+  it('project lessons commands stay project and plan scoped', () => {
+    install();
+    const router = readRouter();
+    const transitions = readAsset('project-transitions.md');
+    const createInitiative = readAsset('project-create-initiative.md');
+    const emergence = readAsset('project-emergence.md');
+    const materialize = readAsset('project-materialize.md');
+
+    for (const [name, content] of [
+      ['router', router],
+      ['project-transitions.md', transitions],
+      ['project-create-initiative.md', createInitiative],
+      ['project-emergence.md', emergence],
+      ['project-materialize.md', materialize],
+    ]) {
+      assert.doesNotMatch(
+        content,
+        /list-lessons\.js" --phase <(?:id|phase-id)>/,
+        `${name} must not use an unscoped list-lessons command`
+      );
+    }
+    assert.match(transitions, /list-lessons\.js" --project <project-id> --plan <parentPlan> --phase <next-phase-id>/);
+  });
+
+  it('project-create-plan scopes the Stage 8c receipt gate to the newly materialized plan', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    const start = content.indexOf('**Stage 8c — Receipt gate');
+    const end = content.indexOf('### Stage 9');
+    const stage8c = content.slice(start, end);
+    assert.ok(start >= 0 && end > start, 'Stage 8c block must be present');
+    assert.match(stage8c, /PLAN_PATH="\.atomic-skills\/projects\/<projectId>\/<planSlug>\/plan\.md"/);
+    assert.match(stage8c, /find-unreviewed-plans\.js" "\$PLAN_PATH"/);
+    assert.doesNotMatch(stage8c, /find-unreviewed-plans\.js" \.atomic-skills/);
+    assert.match(stage8c, /only the newly materialized plan/i);
+    assert.match(stage8c, /`project verify`/);
   });
 
   it('project-create-plan references templates via ASSETS_PATH (no raw skills/shared path)', () => {
@@ -336,9 +504,11 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Failure-mode summary/);
   });
 
-  it('router references schemaVersion 0.1', () => {
+  it('router documents schemaVersion 0.1/0.2 coexistence', () => {
     install();
-    assert.match(readRouter(), /schemaVersion.*'0\.1'/);
+    assert.match(readRouter(), /schemaVersion` policy/);
+    assert.match(readRouter(), /'0\.1'/);
+    assert.match(readRouter(), /'0\.2'/);
   });
 
   // ─── Lazy asset: create-initiative ──────────────────────────────────────
@@ -377,6 +547,18 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('project-discover uses discover-run.json as the durable commit authority', () => {
+    install();
+    const content = readAsset('project-discover.md');
+    assert.match(content, /strict `discover-run\.json` is the durable run record/);
+    assert.match(content, /stable `runId`/);
+    assert.match(content, /candidate\.approved === true/);
+    assert.match(content, /Do NOT add ad-hoc top-level fields/);
+    assert.match(content, /Read `\.atomic-skills\/bootstrap-drafts\/discover-run\.json` first/);
+    assert.match(content, /runId.*candidates\[\]/);
+    assert.match(content, /copied into the audit log/);
+  });
+
   // ─── Lazy asset: emergence ──────────────────────────────────────────────
 
   it('project-emergence documents the proposal/ratify/commit pattern + per-rung procedures', () => {
@@ -388,6 +570,23 @@ describe('project skill (unified router + lazy assets)', () => {
     for (const cmd of ['park', 'emerge', 'promote', 'new-task', 'new-phase', 'split-phase']) {
       assert.ok(content.includes(cmd), `emergence must document: ${cmd}`);
     }
+  });
+
+  it('project-emergence new-phase materializes only after lessons and businessIntent gates', () => {
+    install();
+    const content = readAsset('project-emergence.md');
+    const start = content.indexOf('## `new-phase <id>');
+    const end = content.indexOf('## `split-phase <id>`');
+    assert.notEqual(start, -1, 'new-phase section must exist');
+    assert.notEqual(end, -1, 'split-phase section must exist');
+    const block = content.slice(start, end);
+    assert.match(block, /phase-start lessons gate/);
+    assert.match(block, /list-lessons\.js" --project <project-id> --plan <plan-slug> --phase <phase-id>/);
+    assert.match(block, /Collect the user-written `businessIntent` spine/);
+    assert.match(block, /businessIntent: <businessIntent>/);
+    assert.match(block, /set `businessIntent` on the parent plan descriptor/);
+    assert.match(block, /add `businessIntent` to the new initiative frontmatter/);
+    assert.match(block, /find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/);
   });
 
   // ─── Lazy asset: transitions (verifiers, phase-done, archive, switch) ────
@@ -403,6 +602,39 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Plan archival/i);
     assert.match(content, /Plan switch/i);
     assert.match(content, /propagate/i);
+  });
+
+  it('project-transitions requires explicit-path microcommits at task and phase checkpoints', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    assert.match(content, /Microcommit checkpoints/);
+    assert.match(content, /rtk git add <explicit-paths>/);
+    assert.match(content, /rtk git commit -m "chore\(project\): checkpoint <plan> <phase> <task-id>"/);
+    assert.match(content, /rtk git commit -m "chore\(project\): advance <plan> <phase>"/);
+    assert.match(content, /Never use `git add \.` or `git add -A`/);
+  });
+
+  it('project lifecycle posterior commands document lifecycle-order guards before mutation', () => {
+    install();
+    const transitions = readAsset('project-transitions.md');
+    const dependencies = readAsset('project-dependencies.md');
+    const finalize = readAsset('project-finalize.md');
+    const consolidate = readAsset('project-consolidate.md');
+
+    assert.match(transitions, /classifyLifecycleOrder/);
+    assert.match(transitions, /before fork-resume, status flips, moves, or teardown offers/);
+    assert.match(transitions, /recommendedCommand/);
+    assert.match(transitions, /do not resume the parent/);
+
+    assert.match(dependencies, /depend resolve --archived/);
+    assert.match(dependencies, /classifyLifecycleOrder/);
+    assert.match(dependencies, /archived-never-pr/);
+    assert.match(dependencies, /finalize <prerequisite>/);
+
+    assert.match(finalize, /predecessor command/);
+    assert.match(finalize, /phase-done/);
+    assert.match(consolidate, /non-terminal/);
+    assert.match(consolidate, /done <task-id>/);
   });
 
   it('verifier execution patterns live in verifier-exec.md (single source), project-transitions points to it', () => {
@@ -439,6 +671,43 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(blob.includes('fromFrame'));
   });
 
+  it('project-transitions makes pop and reconcile transactional at their write boundaries', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    const popStart = content.indexOf('### `pop [--resolve|--park|--emerge]`');
+    const doneStart = content.indexOf('## `done <task-id>`');
+    const pop = content.slice(popStart, doneStart);
+    const reconcileStart = content.indexOf('## `reconcile`');
+    const phaseStart = content.indexOf('## `phase-done`');
+    const reconcile = content.slice(reconcileStart, phaseStart);
+
+    assert.match(pop, /Transactional pop boundary/);
+    assert.match(pop, /ONLY after the chosen destination reports `applied`/);
+    assert.match(pop, /frame <N> remains on the stack/);
+    assert.match(reconcile, /Fresh-read write token/);
+    assert.match(reconcile, /re-read `candidate\.initiativePath` from disk/);
+    assert.match(reconcile, /Never write back a parsed snapshot captured before the prompt/);
+  });
+
+  it('project-finalize requires an explicit slug and project-consolidate records resume state', () => {
+    install();
+    const router = readRouter();
+    const finalize = readAsset('project-finalize.md');
+    const consolidate = readAsset('project-consolidate.md');
+
+    assert.match(router, /project finalize <slug>/);
+    assert.match(router, /\| `finalize <slug>` \|/);
+    assert.match(finalize, /finalize` requires the operator to pass the target as\s+`finalize <slug>`/);
+    assert.match(finalize, /A bare `finalize` stops before `scripts\/finalize-plan-scope\.js`/);
+    assert.match(finalize, /explicit slug is\s+the resume-safe transaction key/);
+
+    assert.match(consolidate, /\.atomic-skills\/status\/consolidate-run\.json/);
+    assert.match(consolidate, /`runId`, `base`, ordered `branches`, `candidates\[\]`/);
+    assert.match(consolidate, /`status: "blocked"`/);
+    assert.match(consolidate, /--resume/);
+    assert.match(consolidate, /refuses mismatched/);
+  });
+
   // ─── Lazy asset: migrate / re-bootstrap ─────────────────────────────────
 
   it('project-migrate documents migrate + re-bootstrap', () => {
@@ -446,9 +715,23 @@ describe('project skill (unified router + lazy assets)', () => {
     const content = readAsset('project-migrate.md');
     assert.match(content, /## `migrate <slug>`/);
     assert.match(content, /## `re-bootstrap <slug>`/);
+    assert.match(content, /Shared target resolver/);
+    assert.match(content, /projects\/\*\/\*\/phases\/\*\.md/);
+    assert.match(content, /Only when there is no nested match, use legacy `\.atomic-skills\/initiatives\/<slug>\.md`/);
+    assert.match(content, /<resolved-path>/);
     assert.match(content, /migrateLegacyInitiative/);
     assert.match(content, /isMigratedPlaceholder/);
     assert.match(content, /Pasted-edit canonical format/);
+  });
+
+  it('project-dependencies requires project targeting when nested resolution is ambiguous', () => {
+    install();
+    const content = readAsset('project-dependencies.md');
+    assert.match(content, /--project <id>/);
+    assert.match(content, /more than one nested project is a possible target/);
+    assert.match(content, /rerun with `--project <id>`/);
+    assert.match(content, /Do not write/);
+    assert.match(content, /legacy flat `\.atomic-skills\/plans\/<slug>\.md` layout/);
   });
 
   // ─── Lazy asset: drift / codex review ───────────────────────────────────

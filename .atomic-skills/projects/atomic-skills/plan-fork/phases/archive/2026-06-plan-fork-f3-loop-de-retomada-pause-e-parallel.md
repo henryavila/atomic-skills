@@ -16,6 +16,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F3-G1
     description: Aceitar, recusar, sem-TTY e writeback-falho têm semântica

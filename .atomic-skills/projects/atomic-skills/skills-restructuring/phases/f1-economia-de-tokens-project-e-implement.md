@@ -15,6 +15,8 @@ tasksDone: 5
 tasksTotal: 5
 gatesMet: 1
 gatesTotal: 1
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F1-G1
     description: project.md e implement.md encolhem e a suite de validação continua verde.

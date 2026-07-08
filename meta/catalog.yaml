@@ -285,7 +285,7 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: false
-    argument_hint: '[status|verify|reconcile|new|idea|done|push|pop|park|emerge|promote|switch|…]'
+    argument_hint: '[status|new|materialize|done|phase-done|finalize|verify|…]'
     one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'
@@ -295,6 +295,11 @@ core:
         signature: '[--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]'
         description: 'View current state: compact summary, browser dashboard, full terminal view, or filtered tables'
         example: '/atomic-skills:project status --browser'
+      - name: help
+        group: 'View'
+        signature: '[--html]'
+        description: 'Terminal GPS: where am I + the next concrete step, derived from real state; lifecycle-order blockers surface predecessor commands before archive/teardown (alias: next; --html opens the visual guide)'
+        example: '/atomic-skills:project help'
       - name: verify
         group: 'View'
         signature: '[--fix] [--slug <slug>]'
@@ -355,6 +360,16 @@ core:
         signature: ''
         description: 'Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent)'
         example: '/atomic-skills:project reconcile'
+      - name: materialize
+        group: 'Tasks & phases'
+        signature: '<phase-id>'
+        description: 'Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement`'
+        example: '/atomic-skills:project materialize F1'
+      - name: unblock
+        group: 'Tasks & phases'
+        signature: '<task-id>'
+        description: 'Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first'
+        example: '/atomic-skills:project unblock T-006'
       - name: phase-done
         group: 'Tasks & phases'
         signature: ''
@@ -372,13 +387,18 @@ core:
         example: '/atomic-skills:project split-phase F2'
       - name: finalize
         group: 'Lifecycle'
+        signature: '<slug>'
+        description: 'Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive'
+        example: '/atomic-skills:project finalize v3-redesign'
+      - name: consolidate
+        group: 'Lifecycle'
         signature: ''
-        description: 'Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive'
-        example: '/atomic-skills:project finalize'
+        description: 'Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize)'
+        example: '/atomic-skills:project consolidate'
       - name: archive
         group: 'Lifecycle'
         signature: '[<slug>]'
-        description: 'Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)'
+        description: 'Move a finished plan or initiative to archive/ after lifecycle-order guard confirms finalize/merge/integration; archiving a plan cascades to its child initiatives'
         example: '/atomic-skills:project archive v3-redesign'
       - name: switch
         group: 'Lifecycle'
@@ -415,11 +435,21 @@ core:
         signature: ''
         description: 'Suggest a scope.paths value from recent git activity on the branch, as a checklist you accept'
         example: '/atomic-skills:project detect-scope'
+      - name: review
+        group: 'Review'
+        signature: '[<slug>] [--with-code] [--mode=local|both]'
+        description: 'Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases'
+        example: '/atomic-skills:project review v3-redesign --with-code'
       - name: review-due
         group: 'Review'
         signature: ''
         description: 'Run a cross-model codex review on the diff since the last review and record the result for the default view'
         example: '/atomic-skills:project review-due'
+      - name: depend
+        group: 'Dependencies'
+        signature: 'list [<plan>] | add <dependent> <prerequisite> | remove <dependent> <prerequisite> | resolve <dependent> <prerequisite> --archived'
+        description: 'Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido)'
+        example: '/atomic-skills:project depend add p2-api p1-schema'
     args:
       - name: '--browser'
         kind: flag
@@ -976,7 +1006,7 @@ module_meta:
       - 'Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)'
       - 'Briefing templates (plan + code) and consolidated review file template'
       - 'Reviews INDEX.md row template'
-    notes: 'Assets are installed per-IDE at `<ide-namespace>/_assets/` (e.g. `.claude/commands/atomic-skills/_assets/`) and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
+    notes: 'Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
   auto-update:
     title: 'Auto-Update'
     version_added: '1.8.0'

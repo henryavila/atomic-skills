@@ -8,11 +8,21 @@ Loaded by the router for `/atomic-skills:project migrate <slug>` and `/atomic-sk
 - **`migrate <slug>`** — per-file SCHEMA migration of one legacy initiative (legacy → 0.1 frontmatter shape). Section below.
 - **`migrate`** (no slug) — whole-tree LAYOUT cut-over: move the legacy flat `plans/`+`initiatives/` tree into the nested `projects/<id>/<slug>/` layout (R-MIG-20). See **`migrate` (layout cut-over)** below. This is the irreversible D7 step — copy-verify-delete behind a tar snapshot.
 
+## Shared target resolver for `<slug>` commands
+
+Use this resolver for both `migrate <slug>` and `re-bootstrap <slug>`:
+
+1. Search nested phase files first: `.atomic-skills/projects/*/*/phases/*.md` (excluding `phases/archive/`). A file matches when its frontmatter `slug:` equals `<slug>`; as a compatibility fallback, also accept a basename match after stripping `.md`.
+2. If exactly one nested match exists, use that file. This covers post-layout-migration phase initiatives and standalone degenerate one-phase plans.
+3. If multiple nested matches exist, ask the user to choose the `<project-id>/<plan-slug>/<phase-file>` target before reading or writing. Do not fall back to flat just because nested is ambiguous.
+4. Only when there is no nested match, use legacy `.atomic-skills/initiatives/<slug>.md`.
+5. If neither target exists, report `no initiative found for <slug>` and stop without writing.
+
 ## `migrate <slug>`
 
 Explicit migration trigger for a legacy initiative.
 
-1. Load `.atomic-skills/initiatives/<slug>.md`. Parse frontmatter.
+1. Resolve `<slug>` with the shared target resolver above. Load the resolved file and parse frontmatter.
 2. If `schemaVersion === '0.1'`, announce "Already migrated" and exit.
 3. Ask the user (intrusive-actions rule):
    > "This file uses the legacy (pre-0.1) format. Migrate now?
@@ -20,10 +30,10 @@ Explicit migration trigger for a legacy initiative.
    >   (s) standalone — no parentPlan
    >   (p) under existing plan — pick from list
    >   (n) cancel"
-4. On `(s)` or `(p)`: run `src/migrate.js`:`migrateLegacyInitiative(legacy, { parentPlan, phaseId })`. Write the result back.
-5. Report: "Migrated `<slug>` to schemaVersion 0.1. Field mapping summary: ..." (show the diff at a high level).
+4. On `(s)` or `(p)`: run `src/migrate.js`:`migrateLegacyInitiative(legacy, { parentPlan, phaseId })`. For a nested target, default `parentPlan` to the containing plan slug and preserve any existing `phaseId`; for a legacy flat target, use the user's `(s)` or `(p)` selection as before. Write the result back to the resolved file.
+5. Report: "Migrated `<slug>` to schemaVersion 0.1 at `<resolved-path>`. Field mapping summary: ..." (show the diff at a high level).
 6. If the migrated file has any item where `isMigratedPlaceholder(context)` is true, append: **"<N> parked/emerged items carry placeholder context. Run `re-bootstrap <slug>` to re-articulate them in batch, or `atomic-skills:project re-ratify <id>` per item."**
-7. Optionally run `npm run validate-state -- .atomic-skills/initiatives/<slug>.md` to confirm.
+7. Optionally run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" <resolved-path>` to confirm.
 
 ## `migrate` (layout cut-over — flat → `projects/<id>/<slug>/`)
 
@@ -41,20 +51,20 @@ The move logic is the deterministic, idempotent transform `src/migrate.js`:`plan
 
 ### Procedure (intrusive-actions rule — HALT for explicit `y` before the apply step)
 
-1. **Preview.** {{BASH_TOOL}}: `node scripts/migrate-layout.js --project-id <id>` (dry-run is the default — it writes nothing). Always pass `--project-id <id>` explicitly (the repo/project name); on a recovery re-run pass the SAME id the prior run used. Show the user the full move plan, any **warnings**, and especially any **BLOCKERS** — the cut-over refuses `--apply` while any blocker remains (a flat file that does not parse, a plan declaring a phase whose initiative file is missing, an unrecognized nested entity file, a done orphan with unfinished tasks). Resolve every blocker before applying. A pre-existing nested single-file `projects/<id>/<slug>/initiative.md` (the legacy shape) under the target project is auto-ingested as a 1-phase plan; one under a *different* project, or a non-empty `plans/`/`initiatives/` `archive/` (deferred to Inc7), is a blocker/abort — move it aside (inside the snapshot) or wait for Inc7.
+1. **Preview.** {{BASH_TOOL}}: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/migrate-layout.js" --project-id <id>` (dry-run is the default — it writes nothing). Always pass `--project-id <id>` explicitly (the repo/project name); on a recovery re-run pass the SAME id the prior run used. Show the user the full move plan, any **warnings**, and especially any **BLOCKERS** — the cut-over refuses `--apply` while any blocker remains (a flat file that does not parse, a plan declaring a phase whose initiative file is missing, an unrecognized nested entity file, a done orphan with unfinished tasks). Resolve every blocker before applying. A pre-existing nested single-file `projects/<id>/<slug>/initiative.md` (the legacy shape) under the target project is auto-ingested as a 1-phase plan; one under a *different* project, or a non-empty `plans/`/`initiatives/` `archive/` (deferred to Inc7), is a blocker/abort — move it aside (inside the snapshot) or wait for Inc7.
 2. **Snapshot (MANDATORY).** {{BASH_TOOL}}: `tar czf /tmp/atomic-skills-state-$(date -u +%Y%m%dT%H%M%SZ).tgz .atomic-skills/` and report the exact path. Do NOT proceed without it — the live tree is not git-restorable.
 3. **HALT.** Present the preview + snapshot path and ask, via {{ASK_USER_QUESTION_TOOL}}: "Apply the layout cut-over now? It will write the nested copies, validate them, and only then delete the flat originals. `(y)` apply / `(n)` cancel." A generic acknowledgement is not `y`. On `(n)` cancel: stop here — nothing was quiesced or written.
 4. **Apply.** On `y` only: quiesce the hooks for exactly the apply window, run the cut-over, then ALWAYS un-quiesce — even on failure (so a failed/aborted cut-over never leaves the provenance gate + Stop predicate silenced for 24h):
    - {{BASH_TOOL}}: `touch .atomic-skills/status/SKIP`
-   - {{BASH_TOOL}}: `node scripts/migrate-layout.js --project-id <id> --apply` — the CLI: refuses if any blocker remains (nothing written) → writes the nested tree → runs `scripts/validate-state.js` on exactly the written files → **only on GREEN deletes the flat originals** (phases before their parent plan, so a crash mid-delete is recoverable) → re-validates the whole tree.
+   - {{BASH_TOOL}}: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/migrate-layout.js" --project-id <id> --apply` — the CLI: refuses if any blocker remains (nothing written) → writes the nested tree → runs `scripts/validate-state.js` on exactly the written files → **only on GREEN deletes the flat originals** (phases before their parent plan, so a crash mid-delete is recoverable) → re-validates the whole tree.
    - {{BASH_TOOL}}: `rm -f .atomic-skills/status/SKIP` (unconditionally, whether apply succeeded or failed).
    - If the CLI exited non-zero: surface the error and STOP. A pre-delete failure (refusal/verify) left the flat tree intact; a `PARTIAL` exit means inspect and roll back from the snapshot (step 6).
-5. **Confirm.** {{BASH_TOOL}}: `node scripts/validate-state.js .atomic-skills/` and then `atomic-skills:project verify` — both must be GREEN (verify's legacy-layout check should now report a pure nested tree, no flat `plans/`/`initiatives/`).
+5. **Confirm.** {{BASH_TOOL}}: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/` and then `atomic-skills:project verify` — both must be GREEN (verify's legacy-layout check should now report a pure nested tree, no flat `plans/`/`initiatives/`).
 6. **Rollback (only if needed).** If apply exited `PARTIAL` or post-checks fail: `rm -rf .atomic-skills && tar xzf <snapshot-path>` (from the repo root — the snapshot predates SKIP, so the restored tree is SKIP-free), then re-investigate. The snapshot is authoritative.
 
 ### Rehearsal (recommended before the live run)
 
-The CLI honors a redirectable state root (`--root` / `ATOMIC_SKILLS_DIR`), so the whole thing can be rehearsed off the live tree first: `cp -R .atomic-skills /tmp/rehearsal && node scripts/migrate-layout.js --root /tmp/rehearsal --project-id <id> --apply`, then `diff` the result. The live tree stays byte-frozen until step 5.
+The CLI honors a redirectable state root (`--root` / `ATOMIC_SKILLS_DIR`), so the whole thing can be rehearsed off the live tree first: `cp -R .atomic-skills /tmp/rehearsal && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/migrate-layout.js" --root /tmp/rehearsal --project-id <id> --apply`, then `diff` the result. The live tree stays byte-frozen until step 5.
 
 ### Idempotency & coexistence
 
@@ -70,7 +80,7 @@ Re-articulates the `context` of every parked/emerged item still carrying a migra
 
 ### Pre-flight
 
-1. {{READ_TOOL}} `.atomic-skills/initiatives/<slug>.md`. Parse YAML frontmatter.
+1. Resolve `<slug>` with the shared target resolver above, then {{READ_TOOL}} the resolved file and parse YAML frontmatter.
 2. If `schemaVersion !== '0.1'`: abort with "Initiative is legacy. Run `migrate <slug>` first."
 3. **Load excludes config.** {{READ_TOOL}} `.atomic-skills/status/config.json` (treat absent file or missing key as empty). Build the effective excludes list:
    ```js
@@ -179,7 +189,7 @@ assumesStillValid:
      cancelled at: <item id, if any>
    ```
 2. If S > 0: remind "Run `re-bootstrap <slug>` or `atomic-skills:project re-ratify <id>` to handle the remaining <S> items."
-3. If R > 0: bump initiative `lastUpdated` to now. {{WRITE_TOOL}} the updated frontmatter back to `.atomic-skills/initiatives/<slug>.md`.
+3. If R > 0: bump initiative `lastUpdated` to now. {{WRITE_TOOL}} the updated frontmatter back to `<resolved-path>`.
 
 ### Honest limits
 

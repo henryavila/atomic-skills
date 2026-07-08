@@ -416,10 +416,10 @@ Three facts the model hinges on, and that most TODO trackers get wrong:
 
 A team rebuilds its matching engine:
 
-1. **Plan it.** `project new plan rebuild-matcher` points at a spec and decomposes it into a Plan with phases **F0** (Foundation audit), **F1** (New matcher, `dependsOn: [F0]`), **F2** (Cutover). F0's exit criterion *"matcher round-trip test passes"* carries a `{kind: shell, command: "npm test -- matcher"}` verifier. The skill materializes one initiative per phase, activates F0, and runs `review-plan` plus a codex review.
+1. **Plan it.** `project new plan rebuild-matcher` points at a spec and decomposes it into a Plan with phases **F0** (Foundation audit), **F1** (New matcher, `dependsOn: [F0]`), **F2** (Cutover). F0's exit criterion *"matcher round-trip test passes"* carries a `{kind: shell, command: "npm test -- matcher"}` verifier. The skill materializes only the F0 initiative, retains F1/F2 as descriptor-only source sidecars for later activation, activates F0, and runs `review-plan` plus a codex review.
 2. **Work it.** `project status` matches the git branch to the active F0 initiative and shows **3/5 tasks done.**
 3. **Handle emergence.** Mid-work the agent proposes a new task, prints the mutation block with a drafted `context`, and **HALTs.** The developer types `ratify`; `project new-task --target F1 "Add cross-landlord canary"` lands it with `provenance` + ratified `context`. A smaller idea (*"maybe cache the join later"*) gets `park`ed instead.
-4. **Close the phase.** `done T-005` closes the last task; `project phase-done` verifies each exit criterion (stamping `evidence`), runs the `review-code` gate on the phase diff, advances `currentPhase` to F1, archives F0, and seeds the F1 initiative.
+4. **Close the phase.** `done T-005` closes the last task; `project phase-done` verifies each exit criterion (stamping `evidence`), runs the `review-code` gate on the phase diff, collects the F1 `businessIntent`, materializes F1 from its retained sidecar, advances `currentPhase`, and archives F0.
 5. **Watch for drift.** Weeks later, `scope-creep` flags the parked cache idea as a 40-day zombie with stale context; `re-ratify` refreshes it or retires it.
 
 Every command above is documented in [docs/skills/project.md](docs/skills/project.md).
@@ -472,7 +472,7 @@ Shared infrastructure for the codex sub-flow inside `review-plan` and `review-co
 - Briefing templates (plan + code) and consolidated review file template
 - Reviews INDEX.md row template
 
-Assets are installed per-IDE at `<ide-namespace>/_assets/` (e.g. `.claude/commands/atomic-skills/_assets/`) and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
+Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
 
 ### Auto-Update (new in 1.8.0)
 
@@ -550,6 +550,29 @@ The same discipline the skills enforce on your agent, the repo enforces on itsel
 **Generation contract.** The README skills table and per-skill blurbs, the per-skill docs, the IDEs table, the modules section, and the version note are **generated** from `meta/catalog.yaml` + `src/config.js` via `scripts/lib/render-readme.js`; a husky pre-commit regenerates these regions (and the dashboard data) when their inputs are staged. **Never hand-edit inside the marker regions.** To add or change a skill, edit the catalog (`value_pitch`, `one_liner`, args) and the skill body, and use the tool variables from `AGENTS.md` — never hardcoded tool names.
 
 See also [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md) and [docs/kb/skill-frontmatter-spec.md](docs/kb/skill-frontmatter-spec.md).
+
+### aiDeck Development
+
+When developing features in the aiDeck that affect atomic-skills:
+
+```bash
+# Link aiDeck local (build + symlink)
+npm run dev:aideck:link
+
+# Check status
+npm run dev:aideck:status
+
+# Restart dashboard to use local build
+npm run serve
+
+# Verify data routes work
+npm run verify:aideck:smoke
+
+# When done, restore published version
+npm run dev:aideck:unlink
+```
+
+See [docs/aideck-dev-workflow.md](docs/aideck-dev-workflow.md) for troubleshooting and details.
 
 ## License
 

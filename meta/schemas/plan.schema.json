@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atomic-skills.henryavila.com/schemas/plan.schema.json",
-  "title": "atomic-skills Plan frontmatter (schemaVersion 0.1)",
-  "description": "Validates the YAML frontmatter of `.atomic-skills/plans/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
+  "title": "atomic-skills Plan frontmatter (schemaVersion 0.1/0.2)",
+  "description": "Validates the YAML frontmatter of nested `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` files, with legacy flat `.atomic-skills/plans/<slug>.md` accepted during migration. Current plan writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -50,18 +50,6 @@
       "description": "Derived denormalization (scripts/reconcile-focus.js): a copy of `title`, carried by the `phases` dataSource onto each phase row so a repeat-grouped widget can label the group with the human plan title instead of the slug (the dashboard can't join). Never hand-authored."
     },
     "parallelismAllowed": { "type": "boolean" },
-    "spawnedFrom": {
-      "description": "Fork child→parent edge (degrau 7.5): which plan/phase this plan was forked from, and the fork mode. Additive — non-forked plans omit it. Mirrors aideck Plan.spawnedFrom. Migrated inline from the links.json sidecar by F5/T-003 (fork-fields-inline).",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["plan", "phaseId", "mode"],
-      "properties": {
-        "plan": { "type": "string", "minLength": 1 },
-        "phaseId": { "type": "string", "minLength": 1 },
-        "taskId": { "type": "string", "minLength": 1 },
-        "mode": { "type": "string", "enum": ["pause", "parallel"] }
-      }
-    },
     "principles": {
       "type": "array",
       "items": {
@@ -136,13 +124,19 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["plan", "phaseId", "mode"],
-      "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+      "description": "Fork child→parent origin edge (rung 7.5): points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema and the inline field migrated from legacy links.json. Durable edge fields are identity + mode only; fork rationale `context`/`provenance` is not persisted on this edge. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
       "properties": {
         "plan": { "$ref": "common.schema.json#/$defs/slug" },
         "phaseId": { "type": "string", "minLength": 1 },
         "taskId": { "type": "string", "minLength": 1 },
         "mode": { "type": "string", "enum": ["pause", "parallel"] }
       }
+    },
+    "dependsOnPlans": {
+      "description": "Operational plan dependency edges persisted on the blocked plan. Each entry points at a prerequisite plan in the same project. This is separate from `spawnedFrom` / `phases[].spawnedPlans`, which describe origin only.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/planDependency" }
     },
     "references": {
       "type": "array",
@@ -154,6 +148,54 @@
     }
   },
   "$defs": {
+    "planDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "createdBy"],
+      "properties": {
+        "plan": { "$ref": "common.schema.json#/$defs/slug" },
+        "createdBy": { "type": "string", "enum": ["fork-plan", "manual"] },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["phaseId", "mode"],
+          "properties": {
+            "phaseId": { "type": "string", "minLength": 1 },
+            "taskId": { "type": "string", "minLength": 1 },
+            "mode": { "type": "string", "enum": ["pause", "parallel"] }
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["archived"],
+          "properties": {
+            "archived": {
+              "type": "string",
+              "enum": ["blocked", "resolved"],
+              "default": "blocked",
+              "description": "`archived` prerequisites block by default; `resolved` records an explicit decision that archiving satisfied this edge."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "createdBy": { "const": "fork-plan" } },
+            "required": ["createdBy"]
+          },
+          "then": { "required": ["origin"] }
+        },
+        {
+          "if": {
+            "properties": { "createdBy": { "const": "manual" } },
+            "required": ["createdBy"]
+          },
+          "then": { "not": { "required": ["origin"] } }
+        }
+      ]
+    },
     "phaseDescriptor": {
       "type": "object",
       "additionalProperties": false,
@@ -167,12 +209,32 @@
           "type": "string",
           "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
         },
-        "dependsOn": {
-          "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+        "businessIntent": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
+          "required": ["value", "workflow", "rules", "outOfScope", "doneWhen"],
+          "properties": {
+            "value": { "type": "string", "minLength": 1 },
+            "workflow": { "type": "string", "minLength": 1 },
+            "rules": { "type": "string", "minLength": 1 },
+            "outOfScope": { "type": "string", "minLength": 1 },
+            "doneWhen": { "type": "string", "minLength": 1 },
+            "derived": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["question"],
+                "properties": {
+                  "question": { "type": "string", "minLength": 1 },
+                  "answer": { "type": "string" }
+                }
+              }
+            }
+          }
         },
-        "spawnedPlans": {
-          "description": "Fork parent→child edge (degrau 7.5): child plan slugs forked from this phase. Additive — phases without forks omit it. Mirrors aideck PhaseDescriptor.spawnedPlans. Migrated inline from the links.json sidecar by F5/T-003.",
+        "dependsOn": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         },
@@ -211,7 +273,7 @@
         "context": { "$ref": "common.schema.json#/$defs/context" },
         "spawnedPlans": {
           "type": "array",
-          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
+          "description": "Fork parent→child origin edge (rung 7.5): child plan slugs forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans and the inline field migrated from legacy links.json. Durable edge fields are child slugs only; fork rationale `context`/`provenance` is not persisted on this edge.",
           "items": { "$ref": "common.schema.json#/$defs/slug" }
         },
         "reviewGate": {

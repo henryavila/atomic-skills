@@ -1,15 +1,15 @@
 {
   "schemaVersion": "0.1",
-  "branch": "plan/deadline-burnup-forecast",
+  "branch": "develop",
   "lastReviewedCommit": "8a088d4ffc6e922ff788e139d59097f30f841a66",
-  "lastReviewedAt": "2026-06-19T19:53:26Z",
-  "reviewFile": ".atomic-skills/reviews/2026-06-19-1952-code-deadline-burnup-forecast-f4.md",
-  "verdict": "approved_with_remediations",
+  "lastReviewedAt": "2026-07-07T19:44:47.977Z",
+  "reviewFile": ".atomic-skills/reviews/2026-07-07-1944-code-review-due-8a088d4-dbf9b21.md",
+  "verdict": "needs_changes",
   "counts": {
     "blocker": 0,
     "critical": 1,
     "major": 2,
-    "minor": 2,
+    "minor": 0,
     "nit": 0
   }
 }

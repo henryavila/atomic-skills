@@ -24,6 +24,13 @@
     "validate-state": "node scripts/validate-state.js",
     "emit-state": "node scripts/emit-consumer-state.js",
     "validate-aideck-state": "node scripts/validate-aideck-state.js",
+    "verify:aideck-consumer": "node scripts/verify-aideck-consumer.mjs",
+    "verify:aideck": "node scripts/verify-aideck-consumer.mjs",
+    "verify:aideck:smoke": "node scripts/verify-aideck-consumer.mjs --smoke",
+    "dev:aideck": "node scripts/dev-aideck.mjs",
+    "dev:aideck:link": "node scripts/dev-aideck.mjs link",
+    "dev:aideck:unlink": "node scripts/dev-aideck.mjs unlink",
+    "dev:aideck:status": "node scripts/dev-aideck.mjs status",
     "build:aideck-schema": "node scripts/build-aideck-consumer-schema.mjs",
     "build:aideck-widget-registry": "node scripts/build-aideck-widget-registry.mjs",
     "detect-scope": "node scripts/detect-scope.js",
@@ -56,7 +63,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "@henryavila/aideck": "^0.1.0",
+    "@henryavila/aideck": "^0.2.0",
     "@henryavila/minimalist-installer": "^0.1.0",
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",
@@ -76,6 +83,6 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "^22.18.0 || >=24.11.0"
   }
 }

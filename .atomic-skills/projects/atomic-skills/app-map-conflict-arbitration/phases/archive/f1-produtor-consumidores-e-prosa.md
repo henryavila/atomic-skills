@@ -17,6 +17,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F1-G1
     description: A reconstrução end-to-end emite witnesses 0.3 com N≥3 preservado e

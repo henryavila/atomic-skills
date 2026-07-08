@@ -20,6 +20,8 @@ function makeData() {
     // plan-c's current phase initiative has no unblocked task — exercises the
     // scoped no-action path (must NOT leak a different plan's task).
     { slug: 'plan-c', projectId: 'projA', status: 'active', currentPhase: 'f1' },
+    { slug: 'done-plan', projectId: 'projA', status: 'done', currentPhase: 'f1' },
+    { slug: 'plan-child', projectId: 'projA', status: 'active', currentPhase: 'f1' },
   ];
   const phases = [
     { planSlug: 'plan-a', projectId: 'projA', id: 'f1', status: 'active', dependsOn: [] },
@@ -57,9 +59,49 @@ function makeData() {
     { kind: 'intent', operation: 'pop_frame', consumed: true }, // consumed
     { kind: 'decision', verdict: 'approve' }, // not an intent
   ];
+  const planEdges = [
+    {
+      projectId: 'projA',
+      type: 'dependency',
+      id: 'projA:plan-a->plan-c:dependency',
+      fromPlan: 'plan-a',
+      toPlan: 'plan-c',
+      dependentPlan: 'plan-a',
+      prerequisitePlan: 'plan-c',
+      blocked: true,
+      resolved: false,
+      label: 'plan-a depende de plan-c',
+    },
+    {
+      projectId: 'projA',
+      type: 'dependency',
+      id: 'projA:plan-a->done-plan:dependency',
+      fromPlan: 'plan-a',
+      toPlan: 'done-plan',
+      dependentPlan: 'plan-a',
+      prerequisitePlan: 'done-plan',
+      blocked: false,
+      resolved: true,
+      label: 'plan-a depende de done-plan',
+    },
+    {
+      projectId: 'projA',
+      type: 'origin',
+      id: 'projA:plan-a->plan-child:origin',
+      fromPlan: 'plan-a',
+      toPlan: 'plan-child',
+      parentPlan: 'plan-a',
+      childPlan: 'plan-child',
+      phaseId: 'f1',
+      taskId: 't2',
+      mode: 'pause',
+      label: 'plan-child surgiu de plan-a',
+    },
+  ];
   return new Map([
     ['plans', plans], ['phases', phases], ['phaseGates', phaseGates], ['initiatives', initiatives],
     ['tasks', tasks], ['gates', gates], ['stack', stack], ['parked', parked], ['inbox', inbox],
+    ['planEdges', planEdges],
   ]);
 }
 // F-001 fixture: two projects sharing a plan slug ('shared') AND an initiative
@@ -245,8 +287,30 @@ describe('aideck-consumer get_dependencies', () => {
     assert.deepEqual(r.blocking, ['t2']); // t2 still pending
   });
 
+  it('reports plan dependencies and origin edges for scope plan', async () => {
+    const r = await getDependencies({ args: { scope: 'plan', planSlug: 'plan-a' }, data: makeData() });
+    assert.equal(r.scope, 'plan');
+    assert.equal(r.id, 'plan-a');
+    assert.deepEqual(r.blockedBy, ['plan-c', 'done-plan']);
+    assert.deepEqual(r.blocking, ['plan-c']);
+    assert.deepEqual(r.resolved, ['done-plan']);
+    assert.deepEqual(r.origin, []);
+
+    const child = await getDependencies({ args: { scope: 'plan', planSlug: 'plan-child' }, data: makeData() });
+    assert.deepEqual(child.blockedBy, []);
+    assert.deepEqual(child.blocking, []);
+    assert.deepEqual(child.resolved, []);
+    assert.deepEqual(child.origin, [{
+      parentPlan: 'plan-a',
+      phaseId: 'f1',
+      taskId: 't2',
+      mode: 'pause',
+    }]);
+  });
+
   it('throws on unknown plan and on invalid scope', async () => {
     await assert.rejects(() => getDependencies({ args: { scope: 'phase', planSlug: 'nope', phaseId: 'x' }, data: makeData() }), /plan not found/);
+    await assert.rejects(() => getDependencies({ args: { scope: 'plan', planSlug: 'nope' }, data: makeData() }), /plan not found: nope/);
     await assert.rejects(() => getDependencies({ args: { scope: 'bogus' }, data: makeData() }), /invalid scope/);
   });
 });

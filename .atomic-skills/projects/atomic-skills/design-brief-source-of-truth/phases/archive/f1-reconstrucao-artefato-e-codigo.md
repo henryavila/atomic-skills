@@ -16,6 +16,8 @@ tasksDone: 5
 tasksTotal: 5
 gatesMet: 1
 gatesTotal: 1
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: G-1
     description: o catálogo sai com existence, divergências e evidenceHash

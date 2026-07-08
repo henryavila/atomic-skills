@@ -17,6 +17,8 @@ tasksDone: 1
 tasksTotal: 1
 gatesMet: 2
 gatesTotal: 2
+weightDone: 1
+weightTotal: 1
 exitGates:
   - id: G-1
     description: "Fork incondicional na criação: solo agora forka plan/<slug>;

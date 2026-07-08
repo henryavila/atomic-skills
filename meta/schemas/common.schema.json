@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atomic-skills.henryavila.com/schemas/common.schema.json",
   "title": "atomic-skills common primitives (schemaVersion 0.1/0.2)",
-  "description": "Shared types referenced by plan.schema.json and initiative.schema.json. Mirrors aideck/src/schemas/common.ts and the shared subset of aideck/src/schemas/project-status.ts.",
+  "description": "Shared types referenced by plan.schema.json and initiative.schema.json. Mirrors aideck/src/schemas/common.ts and the shared subset of aideck/src/schemas/project-status.ts. Plan/initiative schemas accept 0.1 and 0.2 during the migration window; current plan/initiative writers prefer 0.1 until an explicit writer bump, while migrate01to02 may stamp upgraded files to 0.2.",
   "$defs": {
     "schemaVersion": {
       "type": "string",
       "enum": ["0.1", "0.2"],
-      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). 0.2 is additive-optional over 0.1 (mutation/manual/task.evidence fields); a one-shot src/migrate.js migrate01to02 stamps new files to '0.2'. A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
+      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). Current plan/initiative writers prefer 0.1; 0.2 is accepted for explicitly upgraded files and is additive-optional over 0.1 (mutation/manual/task.evidence fields). A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
     },
     "isoTimestamp": {
       "type": "string",

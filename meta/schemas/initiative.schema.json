@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atomic-skills.henryavila.com/schemas/initiative.schema.json",
-  "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1)",
-  "description": "Validates the YAML frontmatter of `.atomic-skills/initiatives/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives omit `parentPlan` and `phaseId`.",
+  "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1/0.2)",
+  "description": "Validates the YAML frontmatter of nested phase files at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, with legacy flat `.atomic-skills/initiatives/<slug>.md` accepted during migration. Current initiative writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives are represented as a degenerate one-phase plan in the nested layout; legacy flat standalone files omit `parentPlan` and `phaseId`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,12 +27,38 @@
     "title": { "type": "string", "minLength": 1 },
     "goal": { "type": "string", "minLength": 1 },
     "summary": { "type": "string", "description": "Concise one-line human summary of what this phase does (mirrors the plan phase descriptor's `summary`). Authored + user-validated at phase generation; shown on the dashboard Home (Agora callout)." },
+    "businessIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
+      "required": ["value", "workflow", "rules", "outOfScope", "doneWhen"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "workflow": { "type": "string", "minLength": 1 },
+        "rules": { "type": "string", "minLength": 1 },
+        "outOfScope": { "type": "string", "minLength": 1 },
+        "doneWhen": { "type": "string", "minLength": 1 },
+        "derived": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["question"],
+            "properties": {
+              "question": { "type": "string", "minLength": 1 },
+              "answer": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "status": {
       "type": "string",
       "enum": ["pending", "active", "paused", "done", "archived"]
     },
     "branch": { "type": ["string", "null"] },
     "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "startedCommit": { "type": "string", "minLength": 7, "description": "C-3 (earned-value integrity): the immutable git HEAD SHA at phase activation, recorded so phase-done actuals compute from a rebase/squash/amend-proof commit anchor instead of the fragile `started` committer-date heuristic. Optional + additive: absent on legacy phases, which degrade to the date heuristic. Consumed by scripts/append-completion.js computePhaseActuals via `--actuals-since-commit`." },
     "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "nextAction": { "type": ["string", "null"] },
     "parentPlan": { "$ref": "common.schema.json#/$defs/slug" },

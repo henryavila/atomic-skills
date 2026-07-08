@@ -28,7 +28,7 @@ The resolved inbox is the single human-readable `ideas.md` for that project.
 Run immediately with {{BASH_TOOL}}:
 
 ```sh
-node scripts/idea-add.js --title "<título>" --desc "<descrição>"
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/idea-add.js" --title "<título>" --desc "<descrição>"
 ```
 
 No analysis. No extra questions. Do not read project state. Spend no model work beyond collecting the two fields and running the script.
@@ -53,7 +53,7 @@ Use only light analysis:
 4. Run with {{BASH_TOOL}}:
 
 ```sh
-node scripts/idea-add.js --title "<título>" --desc "<descrição refinada>" [--scope "<escopo>"] [--context "<contexto>"]
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/idea-add.js" --title "<título>" --desc "<descrição refinada>" [--scope "<escopo>"] [--context "<contexto>"]
 ```
 
 Echo the script's output line back to the user:
@@ -92,8 +92,8 @@ Promotion turns a cheap inbox record into tracked work. It never classifies by h
 The sibling script owns extraction and marking:
 
 ```sh
-node scripts/idea-mark.js --id <n> --extract            # prints JSON {id, title, date, branch, status, scope?, context?, desc}; no mutation; exit 1 if #n missing/malformed
-node scripts/idea-mark.js --id <n> --dest <target-id>   # flips ONLY #n's meta line status:pending → status:triaged→<target-id>; exit 1 if already triaged
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/idea-mark.js" --id <n> --extract            # prints JSON {id, title, date, branch, status, scope?, context?, desc}; no mutation; exit 1 if #n missing/malformed
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/idea-mark.js" --id <n> --dest <target-id>   # flips ONLY #n's meta line status:pending → status:triaged→<target-id>; exit 1 if already triaged
 ```
 
 Optional `[<root>]` positional and `[--project-id <id>]` exist with the same path resolution as `idea-add.js`; usually omit them.
@@ -101,7 +101,7 @@ Optional `[<root>]` positional and `[--project-id <id>]` exist with the same pat
 1. **Extract deterministically.** Run with {{BASH_TOOL}}:
 
    ```sh
-   node scripts/idea-mark.js --id <n> --extract
+   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/idea-mark.js" --id <n> --extract
    ```
 
    On exit 1, surface the script's error and stop. Missing id, malformed record, and already-triaged records are not recoverable by hand-parsing. Never parse the idea manually when the script is available.
@@ -117,7 +117,7 @@ Optional `[<root>]` positional and `[--project-id <id>]` exist with the same pat
 5. **Materialize, then mark.** Only after the ladder mutation is applied and the target exists — a task id, initiative slug, plan slug, or parked item — run with {{BASH_TOOL}}:
 
    ```sh
-   node scripts/idea-mark.js --id <n> --dest <target-id>
+   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/idea-mark.js" --id <n> --dest <target-id>
    ```
 
    Echo the script's confirmation to the user.

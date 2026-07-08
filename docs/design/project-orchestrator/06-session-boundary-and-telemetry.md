@@ -56,6 +56,12 @@ The **load-bearing premise is well-evidenced**: a tightly-scoped fresh context b
 
 ## F-E2 — Skill telemetry & decision-validation loop (observe-only)
 
+> **Implementation status (2026-07-03, coherence audit follow-up — audit cluster E2#2).** STILL DEFERRED, deliberately. The audit confirmed no `telemetry.jsonl` / `project telemetry` digest ships; this is an accepted sequencing (the section itself defers the telemetry-derived pieces to v2), NOT a coherence defect in what's shipped. Two concrete findings that must shape any future build, so it is not started blind:
+> 1. **A telemetry stream already exists — extend it, don't fork it.** `scripts/append-completion.js` writes an append-only `.atomic-skills/analytics/completions.jsonl` (task/phase/reconcile events with frozen actuals) — the earned-value falsifier is already instrumented there. A second parallel `status/telemetry.jsonl` would duplicate the substrate; the open decision is whether F-E2's remaining event types (`session_cutover`, gate-as-hypothesis, K=4/dispatch) generalize `completions.jsonl` (add an `event`/schema union) or warrant a distinct log. Decide that BEFORE writing the schema.
+> 2. **Empty substrate = dead code.** The value is entirely in the events being emitted at real decision points (session boundary, gate close, dispatch). Shipping the log+digest without the emission wiring adds a maintained-but-empty file — exactly the anti-pattern [[feedback-solutions-at-skill-level]] warns against. Build it as one vertical slice (one falsifier end-to-end: emit → store → digest) or not at all.
+>
+> Recommendation: schedule as its own tracked initiative (one falsifier vertical slice first — `session_cutover` reinvestigation proxy is the highest-signal), not a cram into an unrelated change.
+
 ### Purpose
 Turn every "interpolated-pending-data" / "ship-advisory-and-let-it-falsify" decision into an **empirically graduatable** one. Almost every resolution in `05` and `06` carries a **falsifier**; F-E2 is the substrate that records whether each falsifier **actually fired in real usage**, so the skill can improve *from evidence* rather than intuition — the user's explicit goal ("analisar se as decisões deram certo e, com o tempo, melhorar a própria skill"), and the antidote to "piorar tentando melhorar."
 

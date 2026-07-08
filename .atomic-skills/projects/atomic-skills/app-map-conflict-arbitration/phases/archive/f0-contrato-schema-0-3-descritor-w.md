@@ -16,6 +16,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F0-G1
     description: O schema 0.3 valida o descritor witnesses, rejeita slots proibidos

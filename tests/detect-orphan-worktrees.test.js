@@ -16,6 +16,7 @@ test('findOrphanWorktrees flags a live worktree merged via pr.state MERGED', () 
   });
 
   assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, 'warn');
   assert.equal(findings[0].kind, 'merged-feature-worktree');
   assert.equal(findings[0].branch, 'plan/x');
 });
@@ -28,6 +29,7 @@ test('findOrphanWorktrees flags a live worktree merged via injected isMerged pre
   });
 
   assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, 'warn');
   assert.equal(findings[0].kind, 'merged-feature-worktree');
   assert.equal(findings[0].branch, 'plan/x2');
 });
@@ -39,8 +41,12 @@ test('findOrphanWorktrees flags an archived branch with no PR', () => {
   });
 
   assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, 'fail');
   assert.equal(findings[0].kind, 'archived-never-pr');
   assert.equal(findings[0].branch, 'plan/y');
+  assert.match(findings[0].reason, /has no PR\/integration proof/);
+  assert.match(findings[0].recommendedCommand, /finalize y/);
+  assert.match(findings[0].recommendedCommand, /archive y/);
 });
 
 test('findOrphanWorktrees flags an archived branch with an open unmerged PR', () => {
@@ -49,8 +55,12 @@ test('findOrphanWorktrees flags an archived branch with an open unmerged PR', ()
   });
 
   assert.equal(findings.length, 1);
+  assert.equal(findings[0].severity, 'fail');
   assert.equal(findings[0].kind, 'archived-pr-open-unmerged');
   assert.equal(findings[0].branch, 'plan/z');
+  assert.match(findings[0].reason, /open\/unmerged PR/);
+  assert.match(findings[0].recommendedCommand, /Merge the PR for z/);
+  assert.match(findings[0].recommendedCommand, /archive z/);
 });
 
 test('findOrphanWorktrees returns no findings for clean active and healthy archived states', () => {
@@ -61,6 +71,14 @@ test('findOrphanWorktrees returns no findings for clean active and healthy archi
       { slug: 'done', branch: 'plan/done', status: 'archived', pr: { state: 'MERGED' } },
     ],
     isMerged: () => false,
+  });
+
+  assert.deepEqual(findings, []);
+});
+
+test('findOrphanWorktrees does not block archived plans without their own branch', () => {
+  const findings = findOrphanWorktrees({
+    plans: [{ slug: 'local-only', branch: null, status: 'archived', pr: null }],
   });
 
   assert.deepEqual(findings, []);

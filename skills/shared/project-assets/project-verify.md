@@ -11,7 +11,7 @@ Loaded by the router when the user runs `/atomic-skills:project verify`.
 ### Inputs
 - **Implicit:** the `.atomic-skills/` tree in the CWD, the current git branch + working tree, and (optionally) a running aiDeck instance.
 - **Optional args:**
-  - `--fix` — apply the deterministic, safe repairs the read-only pass identifies (schema normalization via `src/normalize.js`, nothing else). Without `--fix`, `verify` is strictly read-only and mutates nothing.
+  - `--fix` — explicit authorization to apply the deterministic, safe repairs the read-only pass identifies (schema normalization via `src/normalize.js`, nothing else). Without `--fix`, `verify` is strictly read-only and mutates nothing.
   - `--slug <slug>` — scope the verification to one plan/initiative instead of the whole tree.
 
 ### Output
@@ -20,7 +20,16 @@ A sectioned report (PASS / WARN / FAIL per check) printed to the terminal, endin
 Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a mutating command in the same turn — surface the failures and let the user decide.
 
 ### Mutation policy
-`verify` (no flag) is **READ-ONLY**. It runs checks and reports; it writes nothing. The ONLY mutation path is `verify --fix`, and even then it is restricted to the same deterministic normalization the default view's STATE_ERROR auto-repair performs (`src/normalize.js`): gate-status synonyms → `met`/`pending`, `references[]` `kind`/`label` backfill, missing required initiative arrays → `[]`. `--fix` NEVER touches plan files structurally, NEVER advances phases, NEVER closes tasks, NEVER edits the markdown body. Anything beyond normalization is reported as a finding for the user to resolve with the appropriate command (`migrate`, `re-ratify`, `detect-scope`, `phase-done`, …) — `verify` does not perform those itself.
+`verify` (no flag) is **READ-ONLY**. It runs checks and reports; it writes nothing.
+`verify --fix` is the explicit mutation gate. Before any `--fix` write, print the target scope and the normalization classes that may be applied, then run only
+the deterministic normalizer. The allowed repairs are the same normalization the
+status view may offer after a STATE_ERROR gate (`src/normalize.js`): gate-status
+synonyms → `met`/`pending`, `references[]` `kind`/`label` backfill, missing
+required initiative arrays → `[]`. `--fix` NEVER touches plan files
+structurally, NEVER advances phases, NEVER closes tasks, NEVER edits the
+markdown body. Anything beyond normalization is reported as a finding for the
+user to resolve with the appropriate command (`migrate`, `re-ratify`,
+`detect-scope`, `phase-done`, …) — `verify` does not perform those itself.
 
 ---
 
@@ -28,8 +37,13 @@ Exit-style semantics for the agent: on any FAIL, do NOT silently continue into a
 
 `verify` is a thin orchestrator over existing machinery. It does not re-implement any check; it wraps and reports them.
 
+### 0. Runtime resolvability (read-only; diagnoses the `package-root` gotcha — C-8)
+- Every check below runs `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/<x>.js"`. That `|| echo .` fallback only fires when `package-root` is ABSENT; a **stale** file (present but pointing at an old/removed checkout) is read successfully, so the scripts run against a dead path and every detector silently fail-opens (drift/lessons/rollup checks quietly pass) or dies with a cryptic `Cannot find module`. Diagnose it deterministically FIRST: resolve `ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"` and test `[ -f "$ROOT/scripts/validate-state.js" ]`.
+- **PASS:** the resolved `scripts/validate-state.js` exists → the runtime is live.
+- **FAIL (blocks the rest with an actionable message, not a cryptic ENOENT):** `FAIL runtime: package-root resolves to '<ROOT>' but <ROOT>/scripts/ is missing — stale/absent runtime. Fix: re-run \`atomic-skills\` install, or from the repo root the fallback \`.\` is used.` If `ROOT` is the fallback `.` and the repo root also lacks `scripts/`, say so (you are not at the package root).
+
 ### 1. Schema validity (wraps `validate-state`)
-- Run `npm run validate-state .atomic-skills/` (or `--slug`-scoped file paths).
+- Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/` (or `--slug`-scoped file paths).
 - **PASS:** all files valid.
 - **FAIL:** print the validator's errors verbatim. If `--fix` was passed, first run `src/normalize.js` on `.atomic-skills/` (resolve it the same 3-path way the default view does), then re-run `validate-state`. Report what normalization changed. If files still fail after normalization, the failure is structural (not drift) — report it and recommend `migrate <slug>` for legacy files or manual repair.
 - **Failure message (no fix):** `FAIL schema: <file> — <validator message>. Run \`verify --fix\` for safe normalization, or \`migrate <slug>\` if legacy.`
@@ -56,7 +70,7 @@ Two independent legacy conditions, each recommending a different `migrate` mode.
 - Also flag: an active plan whose `currentPhase` initiative `branch:` does not match the current branch → `WARN phase-branch: active plan \`<plan>\` currentPhase \`<id>\` is on branch \`<x>\`, you are on \`<branch>\`.`
 
 ### 4. Scope coverage (read-only; wraps `detect-scope` data, no write)
-- For the active initiative that has a `scope.paths`, compare against recent git activity: run `npm run detect-scope -- --json --branch=<branch> --limit=20`.
+- For the active initiative that has a `scope.paths`, compare against recent git activity: run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-scope.js" --json --branch=<branch> --limit=20`.
 - **WARN** when recent commits touch paths NOT covered by any `scope.paths` glob → `WARN scope: recent commits touch <paths> outside the initiative's declared scope. Run \`detect-scope\` to update, or this may be scope creep — see \`scope-creep\`.`
 - Initiatives without `scope.paths` are skipped (scope is optional), not failed.
 
@@ -66,17 +80,18 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - **Orphan phase reference:** a plan `currentPhase` / phase `dependsOn[]` id that no `phases[]` entry declares (use `src/transition.js`:`unknownDeps(plan)`). → `FAIL orphan: plan \`<plan>\` has dangling phase reference(s): <ids>.`
 - **Stranded active:** an initiative with `status: active` under a plan phase whose `status` is `done`/`archived`. → `WARN stranded: initiative \`<slug>\` is active but its phase \`<id>\` is \`<status>\`. Run \`phase-reopen\` or \`archive\`.`
 - **Untracked PROJECT-STATUS rows:** rows in `PROJECT-STATUS.md` whose slug has no matching file (or vice-versa). → `WARN index: PROJECT-STATUS.md is out of sync (<slug> listed but file missing / file present but unlisted).`
+- **Descriptor-only phases are VALID, not orphans (D1 lazy):** a plan `phases[]` entry with NO matching initiative file in `phases/` (materialized only at activation via `materialize <phase>`) is the descriptor-only state — `verify` MUST NOT FAIL or WARN it as a missing/orphan initiative. The schema check (#1) validates the phase descriptor itself; `crossValidate` only inspects `status: done` phases, so a pending descriptor-only phase is simply absent from the initiative set. The distinction is the initiative FILE's absence, never `subPhaseCount` (`subPhaseCount:0` is an honest "unknown until materialized").
 - `--fix` does NOT auto-resolve orphans (resolution is a judgement call: re-parent, archive, or delete). It only reports.
 
 ### 6. aiDeck coherence (read-only; only if aiDeck reachable)
 - Reuse the ensure-aideck script from `{{ASSETS_PATH}}/project-view.md` to get `AIDECK_URL` and `STATE_ERROR` (this is the only place `verify` touches the AIDECK CONTRACT — it does not duplicate the domain string; it delegates to `project-view.md`).
 - **PASS:** `AIDECK_URL` non-empty AND `STATE_ERROR` empty.
 - **WARN:** `AIDECK_URL` empty → `WARN aideck: dashboard not running; skipped the live-state cross-check. Run \`atomic-skills install\` / \`status --browser\`.`
-- **FAIL:** `STATE_ERROR` non-empty → `FAIL aideck: dashboard would render \`⊘ failed to load\` — <STATE_ERROR>. Run \`verify --fix\` (normalizes) or \`status --browser\` (auto-repairs + opens).`
+- **FAIL:** `STATE_ERROR` non-empty → `FAIL aideck: dashboard would render \`⊘ failed to load\` — <STATE_ERROR>. Run \`verify --fix\` (normalizes) or \`status --browser\` (offers the gated repair/open flow).`
 - When `--fix` is passed and aiDeck reports a STATE_ERROR, run the same normalization as check 1's fix path, then re-check.
 
 ### 7. Completion drift (read-only; wraps `detect-completion`)
-- Run `node scripts/detect-completion.js --json` (the deterministic, zero-token detector — `--project <id>` to disambiguate same-slug plans). It classifies each open task / pending criterion by a *changed-deliverable* signal (`output-exists` / `commit-ref`); a `verifier:`'s presence alone is never a signal, and `acceptance[]` prose is never parsed.
+- Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` (the deterministic, zero-token detector — `--project <id>` to disambiguate same-slug plans). It classifies each open task / pending criterion by a *changed-deliverable* signal (`output-exists` / `commit-ref`); a `verifier:`'s presence alone is never a signal, and `acceptance[]` prose is never parsed.
 - **PASS:** `drift` is false — no open entry looks done in the repo.
 - **WARN** (report-only): `WARN completion: <N> task(s)/gate(s) look done in the repo but are still open — run \`reconcile\`.` — then list each candidate's `kind`, `id`, and `evidence`.
 - This check is **strictly report-only**, consistent with `verify`'s read-only contract. `verify --fix` is **NOT** extended to reconcile — closing tasks/gates is a judgement call (verifier-aware, GATE-R2-gated) owned by the `reconcile` verb. `--fix` stays schema-normalization only.
@@ -84,14 +99,22 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 ### 8. Phase review gate (read-only; G2 backward-compat surface)
 - For each plan phase with `status: done`, check whether it carries a `reviewGate` block (the structured phase-done review outcome).
 - **PASS:** every done phase carries a `reviewGate` (its honesty — `passed`⟹`at`, `skipped`⟹`reason` — is already HARD-enforced by `validate-state` GATE-R3 in check #1, so a malformed one surfaces there as a FAIL).
+- **Mode-aware sub-report (C-7 — do not conflate the two "is it reviewed?" surfaces).** A `reviewGate` records its `mode` (`local` self-loop vs `codex`/`both` cross-model). This check answers "was a review recorded?", NOT "was it cross-model reviewed?" — those are different surfaces, and a `mode: local` phase reads green HERE while the CODEX REVIEW line (`project-drift.md`) independently reports the codex cadence as unrun. So when a done phase's `reviewGate.mode` is `local` (never `codex`/`both`), add: `INFO review-gate: <plan>/<phaseId> reviewed local-only — cross-model review not run (see the CODEX REVIEW line / \`review-due\`)`. This keeps `verify [8] PASS` from implying cross-model review that never happened.
 - **WARN** (report-only): `WARN review-gate: <N> done phase(s) carry no recorded review gate (closed before the gate existed, or review-code was never run) — <plan>/<phaseId>…`. This is the deterministic surface for the legacy/missed case that GATE-R3 deliberately tolerates (absent ≠ malformed); it never mutates and `--fix` does not backfill it (the review must actually run — `phase-done` / `review-due` is the only path that writes a truthful `reviewGate`).
 
 ### 9. Orphan worktrees (read-only; PR→develop lifecycle backstop)
-Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. WARN-only in v1; the topology-aware auto-ordering classifier is DEFERRED.
+Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. `merged-feature-worktree` remains a recoverable WARN; archived plans that skipped publication or merge are lifecycle FAIL findings because the terminal state lost required integration proof.
 - **WARN merged-feature-worktree:** a live worktree whose feature branch is already merged into the integration ref (PR `state: MERGED` or `merge-base` ancestry) → `WARN worktrees: feature \`<branch>\` is merged but its worktree \`<path>\` is still live — teardown pending (run \`archive\` after the PR merge, or \`git worktree remove\`).`
-- **WARN archived-never-pr / archived-pr-open-unmerged:** an archived plan whose branch never reached the integration ref — no PR was opened (`kind: archived-never-pr`), or a PR is still OPEN and never merged (`kind: archived-pr-open-unmerged`). A branch that DID reach it (PR `state: MERGED` **or** `merge-base` ancestry) is the healthy terminal state and is NOT flagged, even when no PR identity was recorded. → `WARN worktrees: archived plan \`<slug>\` branch \`<branch>\` never reached \`<integrationRef>\`.`
+- **FAIL archived-never-pr:** an archived plan with a branch that has no PR/publication proof and never reached the integration ref. A plan with no own branch (`branch: null`/missing) is not blocked by this check; it must carry its local-integration justification through the lifecycle guard before archive. → `FAIL worktrees: archived plan \`<slug>\` branch \`<branch>\` has no PR/integration proof and never reached \`<integrationRef>\` — run \`finalize <slug>\`, merge the PR, then rerun \`archive <slug>\`.`
+- **FAIL archived-pr-open-unmerged:** an archived plan whose PR is still OPEN and whose branch never reached the integration ref. → `FAIL worktrees: archived plan \`<slug>\` branch \`<branch>\` has an open/unmerged PR and never reached \`<integrationRef>\` — merge the PR, then rerun \`archive <slug>\`.`
+- A branch that DID reach the integration ref (PR `state: MERGED` **or** `merge-base` ancestry) is the healthy terminal state and is NOT flagged, even when no PR identity was recorded.
 - A clean/active state (no merged-but-live worktree, no archived-unreached branch) → no finding.
 - `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
+
+### 10. Plan review receipt (read-only; creation-gate backstop)
+Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" .atomic-skills` (deterministic, zero-token — resolve it the same 3-path way the default view resolves `normalize.js`). It reports every non-archived materialized plan whose body lacks a `## Reviews` section carrying a `- internal:` line — i.e. the mandatory adversarial review (project-create-plan.md Stage 8a) either never ran or left no receipt.
+- **PASS:** every plan carries an internal-review receipt.
+- **WARN** (report-only): `WARN review: <N> plan(s) carry no adversarial-review receipt (created before the gate existed, or materialized in a batch that bypassed Stage 8) — <projectId>/<slug>…`. This is the **warn** end of the soft→strict ladder whose **hard** end is `create-plan` Stage 8c (which HARD-BLOCKS a freshly-created plan with no receipt). Like check #8, `--fix` does NOT backfill it — the review must actually run: `atomic-skills:review-plan --mode=internal <plan>` writes a truthful receipt. A batch of plans materialized outside the creation flow (e.g. via `materializeDecomposition` directly) is exactly the case this surfaces.
 
 ---
 
@@ -108,9 +131,10 @@ project verify — <repo-name> @ <branch>
 [6] aideck      WARN   dashboard not running (cross-check skipped)
 [7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
 [8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
-[9] worktrees   WARN   feature merged but worktree live (plan/x) — teardown pending
+[9] worktrees   FAIL   archived plan demo branch plan/demo has no PR/integration proof — run `finalize demo`, merge, then `archive demo`
+[10] review     WARN   2 plan(s) carry no adversarial-review receipt (curta/refatoracao, curta/web-app)
 
-VERIFY: 6 warning(s), 0 failure(s)
+VERIFY: 6 warning(s), 1 failure(s)
 ```
 
 ## Red flags

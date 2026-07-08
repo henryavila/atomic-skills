@@ -15,7 +15,7 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 1
 gatesTotal: 1
-weightDone: 0
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: F4-G1

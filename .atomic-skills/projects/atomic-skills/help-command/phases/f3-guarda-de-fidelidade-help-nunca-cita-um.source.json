@@ -1,0 +1,77 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "help-command-f3-guarda-de-fidelidade-help-nunca-cita-um",
+  "title": "Guarda de fidelidade (help nunca cita um verbo que não existe)",
+  "goal": "Um teste garante que todo comando do domínio de saída existe no catálogo E respeita a signature declarada; fechar o cross-link das 3 camadas (HTML e terminal).",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "— Teste help-command subconjunto do catalog + forma válida",
+      "description": "Todo nextStep.command do domínio de saída (persistido OU fallback) tem que ter como verbo um subcomando real em meta/catalog.yaml E casar a signature declarada daquele subcomando. finalize sem-arg é válido; materialize exige phase resolvido; um comando com placeholder não-resolvido falha.",
+      "scopeBoundary": [
+        "só o teste de vocabulário; não altera o helper nem o catálogo."
+      ],
+      "acceptance": [
+        "cada comando do domínio de saída existe no catálogo E respeita a signature; um placeholder não-resolvido ou um verbo removido do catálogo quebra o teste."
+      ],
+      "verifier": {
+        "kind": "test",
+        "runner": "node --test",
+        "pattern": "tests/help/help-vocab.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/help/help-vocab.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "— Cross-link do HTML",
+      "description": "No rodapé \"Estou perdido\" do brief/HTML e no docs/skills/project.md, apontar help como o GPS de terminal. Fecha o loop das 3 camadas.",
+      "scopeBoundary": [
+        "só as linhas de cross-link nos dois docs; nenhuma mudança de código."
+      ],
+      "acceptance": [
+        "ambos citam project help como a resposta a \"onde estou\"."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "grep -q 'project help' docs/design/project-onboarding/html-design-brief.md"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/design/project-onboarding/html-design-brief.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/skills/project.md"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "suíte cheia verde (npm test)",
+      "verifier": {
+        "kind": "shell",
+        "command": "npm test"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "help-vocab.test.js passa",
+      "verifier": {
+        "kind": "test",
+        "runner": "node --test",
+        "pattern": "tests/help/help-vocab.test.js"
+      },
+      "status": "pending"
+    }
+  ]
+}

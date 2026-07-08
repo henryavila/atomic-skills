@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node scripts/validate-state.js                       # validates ./.atomic-skills/
- *   node scripts/validate-state.js <dir>                 # validates <dir>/plans/*.md + <dir>/initiatives/*.md
+ *   node scripts/validate-state.js <dir>                 # validates nested projects/<project-id>/<plan-slug> plan + phase files; legacy flat plans/*.md + initiatives/*.md also accepted
  *   node scripts/validate-state.js <file.md> [<file>...] # validates specific file(s); kind inferred from path
  *
  * Exit codes:
@@ -19,6 +19,7 @@ import { dirname, join, resolve, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { validateAppMap } from '../src/app-map/validate.js';
+import { validatePlanDependencyGraph } from '../src/plan-dependencies.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -144,10 +145,20 @@ function kindFromPath(filePath) {
   return null;
 }
 
+function projectIdFromPath(filePath) {
+  const parts = resolve(filePath).split('/');
+  const idx = parts.lastIndexOf('projects');
+  if (idx >= 0 && typeof parts[idx + 1] === 'string' && parts[idx + 1].length > 0) {
+    return parts[idx + 1];
+  }
+  return '__legacy';
+}
+
 /**
  * Collect all *.md files to validate from a CLI argv list.
- * Each arg can be a file or a directory; directories are scanned for
- * plans/*.md + initiatives/*.md non-recursively.
+ * Each arg can be a file or a directory; directories are scanned for the
+ * nested projects/<project-id>/<plan-slug> layout plus legacy flat
+ * plans/*.md + initiatives/*.md.
  */
 export function collectTargets(args) {
   const targets = [];
@@ -551,17 +562,24 @@ export function validateFile(filePath, validators) {
 export function crossValidate(planFrontmatters, initiativeFrontmatters) {
   const errors = [];
   const initBySlug = new Map();
+  const projectScopeId = (fm) => (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
+    ? fm.__projectId
+    : '__legacy';
   for (const [slug, fm] of initiativeFrontmatters) {
     initBySlug.set(slug, fm);
   }
 
   for (const [, plan] of planFrontmatters) {
     if (!plan.phases) continue;
+    const projectId = typeof plan.__projectId === 'string' && plan.__projectId.length > 0
+      ? plan.__projectId
+      : null;
     for (const phase of plan.phases) {
       if (phase.status !== 'done') continue;
       if (!phase.slug) continue;
 
-      const init = initBySlug.get(phase.slug);
+      const init = (projectId ? initBySlug.get(`${projectId}/${phase.slug}`) : null)
+        ?? initBySlug.get(phase.slug);
       if (!init) continue;
 
       const phaseErrors = [];
@@ -582,10 +600,36 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
       for (const planCrit of (phase.exitGate?.criteria || [])) {
         if (planCrit.status !== 'met') continue;
         const initCrit = (init.exitGates || []).find((c) => c.id === planCrit.id);
-        if (initCrit && initCrit.status !== 'met') {
+        if (!initCrit) continue;
+        if (initCrit.status !== 'met') {
           phaseErrors.push(
             `plan criterion ${planCrit.id} is 'met' but initiative exitGate is '${initCrit.status}'`
           );
+          continue; // status already divergent — evidence cross-check is moot
+        }
+
+        // C2#2 — GATE-R2 must not be splittable across the plan↔initiative
+        // mirror. checkMetInvariant gates evidence per-FILE, but phase-done
+        // step 8b writes the exit gate on BOTH the plan criterion and the
+        // initiative exitGate. An operator validating one file at a time can be
+        // fooled when a met, deterministically-verified criterion carries its
+        // evidence on only ONE surface, or carries contradicting evidence on
+        // each. Co-validate the evidence here, where both files are in hand.
+        const kind = planCrit.verifier?.kind ?? initCrit.verifier?.kind;
+        if (DETERMINISTIC_VERIFIER_KINDS.has(kind)) {
+          const pe = planCrit.evidence;
+          const ie = initCrit.evidence;
+          const pHas = pe != null && typeof pe === 'object';
+          const iHas = ie != null && typeof ie === 'object';
+          if (pHas !== iHas) {
+            phaseErrors.push(
+              `criterion ${planCrit.id}: evidence block present on only one surface (plan:${pHas ? 'present' : 'absent'}, initiative:${iHas ? 'present' : 'absent'}) — a met ${kind} criterion mirrored across plan and initiative must carry evidence on BOTH (GATE-R2 must not split across files).`
+            );
+          } else if (pHas && iHas && pe.passed !== ie.passed) {
+            phaseErrors.push(
+              `criterion ${planCrit.id}: evidence.passed disagrees across surfaces (plan=${JSON.stringify(pe.passed)}, initiative=${JSON.stringify(ie.passed)}) — the met-invariant must be identical on the plan and the initiative.`
+            );
+          }
         }
       }
 
@@ -606,6 +650,7 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
   // plan's initiatives — active phases too, not just done ones — so a new close
   // in the live phase is gated immediately.
   for (const [, plan] of planFrontmatters) {
+    const planProjectId = projectScopeId(plan);
     const hardening = plan?.closedAtHardening;
     if (!hardening || typeof hardening.enforcedFrom !== 'string' || hardening.enforcedFrom.length === 0) continue;
     // A slug-less (malformed) plan owns no initiatives — without this guard a
@@ -615,6 +660,7 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
     const grandfathered = new Set(Array.isArray(hardening.grandfatheredTaskIds) ? hardening.grandfatheredTaskIds : []);
     for (const [slug, init] of initiativeFrontmatters) {
       if (init?.parentPlan !== plan.slug) continue;
+      if (projectScopeId(init) !== planProjectId) continue;
       const closedAtErrors = checkClosedAtHardening(init, grandfathered);
       if (closedAtErrors.length > 0) {
         errors.push({
@@ -624,6 +670,68 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
           errors: closedAtErrors,
         });
       }
+    }
+  }
+
+  errors.push(...collectPlanDependencyErrors(planFrontmatters));
+
+  return errors;
+}
+
+function formatPlanDependencyError(error) {
+  return `[${error.code}] ${error.message}`;
+}
+
+export function collectPlanDependencyErrors(planFrontmatters) {
+  const plans = [...planFrontmatters.values()]
+    .filter((plan) => plan && typeof plan.slug === 'string' && plan.slug.length > 0);
+  const projectsBySlug = new Map();
+  const plansByProject = new Map();
+
+  for (const plan of plans) {
+    const projectId = typeof plan.__projectId === 'string' && plan.__projectId.length > 0
+      ? plan.__projectId
+      : '__legacy';
+    if (!plansByProject.has(projectId)) plansByProject.set(projectId, []);
+    plansByProject.get(projectId).push(plan);
+    if (!projectsBySlug.has(plan.slug)) projectsBySlug.set(plan.slug, new Set());
+    projectsBySlug.get(plan.slug).add(projectId);
+  }
+
+  const errors = [];
+  for (const [projectId, projectPlans] of plansByProject) {
+    const sameProjectSlugs = new Set(projectPlans.map((plan) => plan.slug));
+    const crossProjectMessages = [];
+
+    for (const plan of projectPlans) {
+      for (const dep of Array.isArray(plan.dependsOnPlans) ? plan.dependsOnPlans : []) {
+        if (!dep || typeof dep.plan !== 'string') continue;
+        if (sameProjectSlugs.has(dep.plan)) continue;
+        const otherProjects = [...(projectsBySlug.get(dep.plan) ?? [])].filter((id) => id !== projectId);
+        if (otherProjects.length === 0) continue;
+        crossProjectMessages.push(
+          `[cross-project-dependency] plan ${plan.slug} in project ${projectId} depends on ${dep.plan}, which exists only in project(s): ${otherProjects.join(', ')}`
+        );
+      }
+    }
+
+    const graphErrors = validatePlanDependencyGraph(projectPlans).filter((error) => {
+      if (error.code !== 'unknown-prerequisite') return true;
+      const otherProjects = [...(projectsBySlug.get(error.prerequisite) ?? [])].filter((id) => id !== projectId);
+      return otherProjects.length === 0;
+    });
+
+    const messages = [
+      ...crossProjectMessages,
+      ...graphErrors.map(formatPlanDependencyError),
+    ];
+    if (messages.length > 0) {
+      errors.push({
+        planSlug: projectId,
+        phaseId: 'dependsOnPlans',
+        initiativeSlug: 'plan-dependencies',
+        errors: messages,
+      });
     }
   }
 
@@ -698,8 +806,13 @@ function main() {
     try { raw = readFileSync(target, 'utf8'); } catch { continue; }
     const parsed = parseFrontmatter(raw);
     if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
-    if (kind === 'plan') planFrontmatters.set(parsed.frontmatter.slug, parsed.frontmatter);
-    if (kind === 'initiative') initiativeFrontmatters.set(parsed.frontmatter.slug, parsed.frontmatter);
+    const projectId = projectIdFromPath(target);
+    if (kind === 'plan') {
+      planFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+    }
+    if (kind === 'initiative') {
+      initiativeFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+    }
   }
 
   const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters);

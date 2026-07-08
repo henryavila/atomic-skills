@@ -34,6 +34,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 | Command | Description |
 |---------|-------------|
 | `status [--browser\|--terminal\|--list\|--plan\|--phase\|--stack\|--archived\|--report]` | View current state: compact summary, browser dashboard, full terminal view, or filtered tables |
+| `help [--html]` | Terminal GPS: where am I + the next concrete step, derived from real state; lifecycle-order blockers surface predecessor commands before archive/teardown (alias: next; --html opens the visual guide) |
 | `verify [--fix] [--slug <slug>]` | Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix) |
 
 *Create*
@@ -66,6 +67,8 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 |---------|-------------|
 | `done <task-id>` | Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive |
 | `reconcile` | Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent) |
+| `materialize <phase-id>` | Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement` |
+| `unblock <task-id>` | Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first |
 | `phase-done` | Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase |
 | `phase-reopen [<phase-id>]` | Reverse a phase-done: restore the initiative to active, clear metAt on criteria, reset tasks to pending |
 | `split-phase <id>` | Split an over-sized phase into sub-phases, moving tasks (preserving provenance); archives the original as archived, not done |
@@ -74,8 +77,9 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 | Command | Description |
 |---------|-------------|
-| `finalize` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive |
-| `archive [<slug>]` | Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives) |
+| `finalize <slug>` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive |
+| `consolidate` | Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize) |
+| `archive [<slug>]` | Move a finished plan or initiative to archive/ after lifecycle-order guard confirms finalize/merge/integration; archiving a plan cascades to its child initiatives |
 | `switch <slug>` | Pause the current plan/initiative and activate the target; offers to switch the plan too if it differs |
 | `migrate [<slug>]` | Two modes: `migrate <slug>` converts a legacy (pre-0.1) initiative to schemaVersion 0.1 (field-mapping diff + placeholder flags); bare `migrate` runs the flat→projects/<id>/<slug>/ layout cut-over (deterministic copy-verify-delete behind a tar snapshot) |
 | `re-bootstrap <slug>` | After migrate: batch re-articulate every parked/emerged item still holding a placeholder into real ratified context |
@@ -93,7 +97,14 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 | Command | Description |
 |---------|-------------|
+| `review [<slug>] [--with-code] [--mode=local\|both]` | Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases |
 | `review-due` | Run a cross-model codex review on the diff since the last review and record the result for the default view |
+
+*Dependencies*
+
+| Command | Description |
+|---------|-------------|
+| `depend list [<plan>] \| add <dependent> <prerequisite> \| remove <dependent> <prerequisite> \| resolve <dependent> <prerequisite> --archived` | Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido) |
 
 **Arguments:**
 

@@ -36,6 +36,16 @@ DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
 
 ---
 
+## Mutation policy
+
+`status` is read-only by default. It may detect stale derived dashboard state,
+missing summaries, or a `STATE_ERROR`, but it does not write unless the user
+explicitly accepts the specific refresh/repair prompt. Terminal, list, plan, phase, stack, archived, and report views never run refresh or repair writers; they render from the current files and report any gaps. `status --browser` and
+default `status` may offer these gated writes before opening the dashboard:
+`Refresh derived dashboard state now? (y/N)`, `Repair missing summaries now?
+(y/N)`, and `Repair STATE_ERROR now? (y/N)`. A no/default answer means no
+write; continue with the best read-only rendering or show the terminal fallback.
+
 ## Default (`status`, no extra flag, structure exists)
 
 > **Note on no-args:** plain `/atomic-skills:project` (no subcommand) does NOT
@@ -49,9 +59,9 @@ The default view opens the **aiDeck dashboard** in the browser. aiDeck is the ca
 
 Steps:
 
-0. **Sync derived dashboard state (idempotent).** Before opening the dashboard, refresh the precomputed fields aiDeck reads (it has no compute engine): rollups + flat gate-evidence, then the focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node scripts/compute-rollups.js && node scripts/reconcile-focus.js`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
+0. **Offer derived dashboard refresh (mutation-gated).** Before opening the dashboard, explain that aiDeck reads precomputed fields and offer: `Refresh derived dashboard state now? (y/N)`. Do NOT run `compute-rollups.js` or `reconcile-focus.js` automatically. Only on `y`, refresh rollups + flat gate-evidence, then focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-rollups.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/reconcile-focus.js"`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
 
-   **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node scripts/find-missing-summaries.js && node scripts/find-missing-task-summaries.js`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), author each summary in the install-configured language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
+   **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), offer `Repair missing summaries now? (y/N)`. Only on `y`, author each summary in the install-configured language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
 
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
@@ -84,11 +94,28 @@ Steps:
        if [ -n "$url" ]; then
          health=$(curl -sf "$url/api/health" 2>/dev/null)
          if echo "$health" | grep -q '"service":"aideck"'; then
-           # Register this project
-           curl -sf -X POST "$url/api/projects/register" \
-             -H 'Content-Type: application/json' \
-             -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
-           AIDECK_URL="$url"
+           # Version gate (upgrade-path fix). A long-lived server started from an
+           # OLDER aiDeck keeps serving its old SPA + manifest schema: serve-mode
+           # scans consumers once at boot and never re-scans, and both `aideck up`
+           # and this loop otherwise reuse ANY healthy process regardless of build.
+           # So after an aiDeck bump (`npm i` + `atomic-skills install` restage the
+           # 0.x bundle) the stale server silently shadows it. Compare the running
+           # build (/api/health .version) to the installed one (`aideck --version`);
+           # on mismatch, stop it and leave AIDECK_URL empty so step 2 boots the
+           # current build. Unknown/equal versions → reuse as before (no regression).
+           srv_ver=$(echo "$health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
+           inst_ver=$(node "$AIDECK_BIN" --version 2>/dev/null | tr -d '[:space:]')
+           if [ -n "$srv_ver" ] && [ -n "$inst_ver" ] && [ "$srv_ver" != "$inst_ver" ]; then
+             echo "aiDeck $srv_ver running but $inst_ver installed — restarting to load the current build." >&2
+             node "$AIDECK_BIN" down >/dev/null 2>&1
+             # AIDECK_URL stays empty → step 2 spawns the current build.
+           else
+             # Register this project
+             curl -sf -X POST "$url/api/projects/register" \
+               -H 'Content-Type: application/json' \
+               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
+             AIDECK_URL="$url"
+           fi
          fi
        fi
      fi
@@ -160,7 +187,7 @@ Steps:
 
    Parse the output: if `AIDECK_URL` is non-empty, aiDeck is running.
 
-2. **Repair on `STATE_ERROR`.** A non-empty `STATE_ERROR=...` line means a dataSource failed to load — under Model-B aiDeck reads are per-dataSource and do **not** strict-validate, so this is an io/YAML-parse error (not a schema reject). Run the normalizer as a best-effort hygiene pass (it also keeps the data clean for `aideck validate` against the consumer `schema.json`), then continue:
+2. **Repair on `STATE_ERROR` (mutation-gated).** A non-empty `STATE_ERROR=...` line means a dataSource failed to load — under Model-B aiDeck reads are per-dataSource and do **not** strict-validate, so this is an io/YAML-parse error (not a schema reject). Offer `Repair STATE_ERROR now? (y/N)` before any file write. On no/default, do not normalize; print the error and fall back to the terminal view. On `y`, run the normalizer as a best-effort hygiene pass (it also keeps the data clean for `aideck validate` against the consumer `schema.json`), then continue:
 
    a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it in this order and run the first that exists:
       ```bash
@@ -217,15 +244,25 @@ Steps:
 
 Full terminal-only view (the previous default). No browser launch.
 
+### Nested-first state resolution
+
+Every terminal/status reader resolves state in this order:
+
+- **Project index:** enumerate `.atomic-skills/projects/*/`; a folder counts as a project once it contains at least one `<plan-slug>/plan.md`. Read `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` first. Use top-level `.atomic-skills/PROJECT-STATUS.md` only when no nested project index exists.
+- **Plan:** enumerate `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` before legacy `.atomic-skills/plans/<slug>.md`. Prefer the active plan whose `branch:` matches the current branch; otherwise pick the most-recent active plan and surface disambiguation when needed.
+- **Phase initiative:** for a nested plan, search only `.atomic-skills/projects/<project-id>/<plan-slug>/phases/*.md` for matching `parentPlan`, `phaseId`, and `status: active`. For a legacy flat plan, search `.atomic-skills/initiatives/*.md` with the same fields.
+- **Standalone plan:** treat standalone work as the nested degenerate one-phase plan shape (`projects/<project-id>/<slug>/plan.md` plus `phases/<slug>.md`). Only if no nested phase matches the current branch, fall back to a legacy flat `.atomic-skills/initiatives/<slug>.md`.
+- **Archive:** list nested `.atomic-skills/projects/*/*/phases/archive/*.md` first, then legacy `.atomic-skills/plans/archive/*.md` and `.atomic-skills/initiatives/archive/*.md`.
+
 If there is an active initiative whose `branch:` matches `git rev-parse --abbrev-ref HEAD`:
-- Read `.atomic-skills/initiatives/<slug>.md`, parse frontmatter YAML
+- Resolve the initiative with the nested-first pattern above, then read that file and parse frontmatter YAML.
 - Render in terminal:
   1. Header: `▸ <slug> · <status> · depth <N> · updated <human-timestamp>`
      - If the initiative has `parentPlan` + `phaseId`, prepend: `<plan-slug>/<phaseId> ▸ <slug>`
   2. STACK (tree with box-drawing): each frame from `stack:` indented; mark last with ` ◉ HERE`
   3. TASKS (table): ID | Title | State-with-icon | Updated | Solves
      - The `Solves` column renders `context.solves` (truncated to fit, e.g. 60 chars + `…`). For original-materialization tasks (no context), render `—`. The column is what makes every row self-explanatory in a listing — without it, the user has to `why <id>` every line to remember what each task is about.
-  4. PARKED + EMERGED side by side (2 columns). Each item renders as:
+  4. PARKED + EMERGED side by side (2 columns). EMERGED lists only entries with `promoted: false` (a `promoted: true` entry is drained-to-a-task lineage, not open backlog — C-1). Each item renders as:
      ```
      ⌂ <truncated title>
         solves: <truncated context.solves>
@@ -260,7 +297,7 @@ The banner is informational — it does not block any command. The user can igno
 
 Every status view (`status` / `--browser` / `--terminal`) ALSO surfaces *completion* drift — entries that look done in the repo but are still open — via the shared deterministic detector. This is distinct from the scope-drift banner above (that is about *where* writes landed; this is about *whether* open work is actually finished).
 
-1. Run `node scripts/detect-completion.js --json` from the repo root (add `--project <id>` when the active project is ambiguous). It is zero-token, pure-read, and fail-open — on any error treat it as "no drift" and render the view normally.
+1. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` from the repo root (add `--project <id>` when the active project is ambiguous). It is zero-token, pure-read, and fail-open — on any error treat it as "no drift" and render the view normally.
 2. If `drift` is true, append a single non-blocking line BELOW the rendered view (never above it; the view content is unchanged):
    `⚠ <N> item(s) look done — reconcile now? (y/N)` — where `<N>` = `candidates.length`.
 3. The y/N is the intrusive-actions gate: on **`y`** route to the `reconcile` verb (`{{ASSETS_PATH}}/project-transitions.md`); on **`N`** / no answer, do nothing. **The view itself writes NOTHING** — rendering and the offer are read-only; only `reconcile` mutates. This preserves the read-only contract of every status view.
@@ -292,7 +329,7 @@ ACTIVE INITIATIVES (standalone)
 Bird's-eye view of an active plan (or the only active plan if no slug given). Render:
 1. Header: `<plan-slug> · v<version> · <status> · currentPhase: <id>`
 2. PRINCIPLES (numbered list, title only)
-3. PHASES (table): ID | Title | Status (icon) | SubPhases | Depends On | Exit Gate Summary
+3. PHASES (table): ID | Title | Status (icon) | SubPhases | Depends On | Exit Gate Summary. **A descriptor-only phase (no initiative file in `phases/` — D1 lazy) renders its Status as `⏳ pendente de materialização`**, distinct from a materialized `pending`/`active` phase; its SubPhases shows `0` (an honest "unknown until materialized"). Never render an empty initiative or a stale `nextAction` for it — point the operator at `atomic-skills:project materialize <phase-id>`.
 4. INTER-PHASE GATES (if present): "from → to: <criteria>"
 5. REFERENCES (count + first 3)
 
@@ -302,7 +339,7 @@ Detail view of the current phase of the active plan (or the given phase id). Ren
 1. Header: `<plan-slug>/<phaseId> — <title> · <status>`
 2. GOAL
 3. EXIT GATE: criteria with status icons; render verifier kind summary
-4. INITIATIVE for this phase (if exists): tasks summary inline
+4. INITIATIVE for this phase. **Descriptor-only** = no initiative file in `phases/` (D1 lazy: the phase was not materialized at `new plan`). Render `⏳ Pendente de materialização — rode \`atomic-skills:project materialize <phase-id>\` para decompor esta fase em tasks.` and skip tasks/rollups/`nextAction` (there are none yet). The distinction is the **absence of the initiative file**, never `subPhaseCount` (a descriptor's `subPhaseCount:0` is an honest "unknown until materialized"). Otherwise (initiative exists): tasks summary inline (`tasksDone`/`tasksTotal`), `nextAction`, and the phase rollup.
 5. CROSS-TASK REFS impacting this phase
 
 ## `--stack`
@@ -362,7 +399,7 @@ Present Structured Options:
 Detected context:
 - Branch: <current-branch>
 - Active plan: <plan-slug> (currentPhase: <id>)   [or "none"]
-- No matching active initiative in .atomic-skills/PROJECT-STATUS.md
+- No matching active initiative in the resolved nested-first PROJECT-STATUS.md
 
 Active initiatives:
   1. <slug-1> (branch <branch-1>, last updated <timestamp>, [under <plan>] or [standalone])
@@ -381,7 +418,7 @@ By choice:
 - (b): load file; `push` new frame for lateral expansion
 - (c): run the `new initiative` flow (`{{ASSETS_PATH}}/project-create-initiative.md`) with `parentPlan` = active plan slug; ask for `phaseId` (suggest plan's `currentPhase`)
 - (d): run the `new initiative` flow with no plan membership
-- (e): append row to "Ad-Hoc Sessions Log" in PROJECT-STATUS.md with timestamp + short description
+- (e): append row to "Ad-Hoc Sessions Log" in the resolved nested-first PROJECT-STATUS.md with timestamp + short description
 
 ## aiDeck integration notes
 
@@ -389,4 +426,4 @@ When [aiDeck](https://github.com/henryavila/aideck) is running alongside this sk
 
 The dashboard surface is read-only: it renders plans, initiatives, tasks, and exit gates, and does not mutate state from the browser. Human/agent input flows through `.atomic-skills/bootstrap-drafts/inbox/*.jsonl` intent records that this skill drains on demand. In short: files are canonical, the dashboard is a projection, and there is no "MCP-or-file" choice for this skill.
 
-**Draining a task-creating intent.** A `promote_parked` intent carries only `{parkedTitle}` (the `mark_task_done` intent mutates an existing task and is exempt). When this skill applies such an intent it MUST run the same author-summary step as the in-skill `promote` path (project-emergence.md → `promote` step 4): author a one-line `summary` in the install-configured communication language onto the new `tasks[].summary`, then run `node scripts/find-missing-task-summaries.js` and require exit 0 before declaring the drain complete. Otherwise a cross-tool consumer's promotion lands a summary-less task that renders bare in the Agora panel — the gap the "skill always generates" guarantee exists to close.
+**Draining a task-creating intent.** A `promote_parked` intent carries only `{parkedTitle}` (the `mark_task_done` intent mutates an existing task and is exempt). When this skill applies such an intent it MUST run the same author-summary step as the in-skill `promote` path (project-emergence.md → `promote` step 4): author a one-line `summary` in the install-configured communication language onto the new `tasks[].summary`, then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` and require exit 0 before declaring the drain complete. Otherwise a cross-tool consumer's promotion lands a summary-less task that renders bare in the Agora panel — the gap the "skill always generates" guarantee exists to close.

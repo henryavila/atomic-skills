@@ -99,6 +99,11 @@ phase in the plan.
 
 ## Closing template
 
+**First — receipt (materialized plans only):** before presenting the summary,
+write the `## Reviews` receipt per § *Review receipt* below (mandatory
+`- internal:` line — what `scripts/find-unreviewed-plans.js` gates on). Skip for a
+non-materialized markdown file.
+
 Present the summary in this format. Sections marked `(local/both)` only
 appear in the corresponding mode; `(codex/both)` likewise.
 
@@ -130,3 +135,37 @@ artifact(s).
 **Reviews saved at:** `.atomic-skills/reviews/<file>.md` (codex/both only)
 **Final status:** Plan approved / with caveats / Escalated to user
 ```
+
+## Review receipt (materialized plans only)
+
+Before presenting the Closing summary, leave a **machine-checkable receipt** —
+but ONLY when `plan_path` is a materialized plan file (nested
+`.atomic-skills/projects/<id>/<slug>/plan.md` or legacy flat
+`.atomic-skills/plans/<slug>.md`). The same-author `## Self-review against
+code-quality gates` block is an attestation, NOT proof the adversarial review
+ran; the receipt is what `scripts/find-unreviewed-plans.js` checks, so an
+internal review that leaves none reads as **not-run** — the gap that let batches
+of plans land unreviewed. Skip this entirely for a non-materialized markdown file
+(a throwaway source plan, or the cleaned plan inside `mode == both` before it is
+materialized).
+
+Maintain a `## Reviews` section in the plan body, appended after `## Self-review
+against code-quality gates` (or at end-of-body if that block is absent). Write ONE
+line per review channel; **re-running a channel UPDATES its existing line, never
+duplicates** (idempotent — match by the `- internal:` / `- codex:` prefix):
+
+```markdown
+## Reviews
+
+- internal: <zero findings | N finding(s) applied> @ <commitSha | uncommitted> (<ISO-8601 UTC>)
+- codex: <PASSED | needs_changes (resolved) | SKIPPED — <reason>> — <reviews/<file>.md | n/a>
+```
+
+- `mode ∈ {local, both}`: write/refresh the `- internal:` line. Stamp the commit
+  with {{BASH_TOOL}} `git rev-parse --short HEAD 2>/dev/null || echo uncommitted`
+  and the time with `date -u +%Y-%m-%dT%H:%M:%SZ`; edit the body with
+  {{REPLACE_TOOL}}. This line is the **mandatory** receipt.
+- `mode ∈ {codex, both}`: write/refresh the `- codex:` line with the verdict and
+  the persisted `reviews/<file>.md` path. Optional — codex is offered, not forced;
+  a plan with only a `- codex:` line and no `- internal:` line still reads as
+  unreviewed by the gate.

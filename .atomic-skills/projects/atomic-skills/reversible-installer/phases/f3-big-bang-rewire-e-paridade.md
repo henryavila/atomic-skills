@@ -26,6 +26,8 @@ tasksDone: 6
 tasksTotal: 6
 gatesMet: 2
 gatesTotal: 3
+weightDone: 6
+weightTotal: 6
 exitGates:
   - id: G-1
     description: "O round-trip parity test mais as três fixtures adversárias passam
@@ -37,7 +39,6 @@ exitGates:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T20:05:00.000Z
@@ -51,6 +52,8 @@ exitGates:
         (CRITICAL A) e uninstall de manifesto LEGADO reverte provados + preserva
         user-editado (CRITICAL B). Tudo byte-a-byte ao baseline com a engine do
         pacote (file: link), src/kernel/ removido."
+    verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
+    evidenceSummary: passed · 2026-06-19
   - id: G-2
     description: A suíte completa passa via o Driver do pacote, com src/kernel/
       in-repo removido e install.js/uninstall.js legados substituídos.
@@ -73,7 +76,6 @@ exitGates:
       kind: shell
       command: npm test
       expectExitCode: 0
-    verifierLabel: "shell: npm test"
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T20:05:00.000Z
@@ -87,6 +89,9 @@ exitGates:
         Ambas ambientais/pré-existentes; zero regressão (pós-fix dos criticals;
         +2 testes update/legacy verdes). G-1 round-trip 9/9 + validate-skills
         14/14 limpos."
+    verifierLabel: "shell: npm test"
+    evidenceSummary: "deferred: npm test → 830 tests, 816 pass, 2 fail (exit 1) no
+      HEAD pós-fix 0a414e3 (era 82…"
   - id: G-3
     description: "Inventário: cada mutação persistente emitida por cada runtime
       layer (aiDeck/hooks/auto-update) está mapeada a um efeito registrado, uma
@@ -96,7 +101,6 @@ exitGates:
     verifier:
       kind: manual
       description: Auditar o inventário de mutações por runtime layer durante phase-done.
-    verifierLabel: manual
     evidence:
       verifierKind: manual
       verifiedAt: 2026-06-19T19:39:58.000Z
@@ -113,6 +117,8 @@ exitGates:
         registerInstall↔unregisterInstall; órfãos legados →
         findLegacyOrphans/removeLegacyOrphans (P3 safelist). Coberto por
         round-trip + 3 fixtures adversárias (7/7). Nenhuma mutação órfã."
+    verifierLabel: manual
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Big-bang rewire e paridade

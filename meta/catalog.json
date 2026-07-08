@@ -253,6 +253,11 @@
         "group": "View"
       },
       {
+        "name": "help",
+        "description": "Terminal GPS: where am I + the next concrete step, derived from real state; lifecycle-order blockers surface predecessor commands before archive/teardown (alias: next; --html opens the visual guide)",
+        "group": "View"
+      },
+      {
         "name": "verify",
         "description": "Reconcile .atomic-skills/ against the repo: schema, legacy-layout, branch match, scope coverage, orphans, aiDeck coherence (read-only unless --fix)",
         "group": "View"
@@ -313,6 +318,16 @@
         "group": "Tasks & phases"
       },
       {
+        "name": "materialize",
+        "description": "Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement`",
+        "group": "Tasks & phases"
+      },
+      {
+        "name": "unblock",
+        "description": "Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first",
+        "group": "Tasks & phases"
+      },
+      {
         "name": "phase-done",
         "description": "Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase",
         "group": "Tasks & phases"
@@ -329,12 +344,17 @@
       },
       {
         "name": "finalize",
-        "description": "Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; operator-prompted, pre-merge, pre-archive",
+        "description": "Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive",
+        "group": "Lifecycle"
+      },
+      {
+        "name": "consolidate",
+        "description": "Merge-train integrate the READY plans across ≥2 live worktrees into ONE integration branch + PR (the 1:N counterpart to finalize): typed-allowlist conflict policy, revert-of-revert for merged-then-reverted heads, eject-and-continue HALT; operator-prompted (<2 live worktrees = no-op → use finalize)",
         "group": "Lifecycle"
       },
       {
         "name": "archive",
-        "description": "Move a finished plan or initiative to archive/ (archiving a plan cascades to its child initiatives)",
+        "description": "Move a finished plan or initiative to archive/ after lifecycle-order guard confirms finalize/merge/integration; archiving a plan cascades to its child initiatives",
         "group": "Lifecycle"
       },
       {
@@ -373,9 +393,19 @@
         "group": "Context & drift"
       },
       {
+        "name": "review",
+        "description": "Mutation-gated adversarial audit of a plan/initiative — delegates to review-plan (and review-code with --with-code); reports findings only, NEVER closes tasks or advances phases",
+        "group": "Review"
+      },
+      {
         "name": "review-due",
         "description": "Run a cross-model codex review on the diff since the last review and record the result for the default view",
         "group": "Review"
+      },
+      {
+        "name": "depend",
+        "description": "Manage cross-plan execution dependencies (dependsOnPlans[]): list edges, add/remove a prerequisite, or resolve one against an archived plan; drives the dashboard Caminho de execucao lanes (Liberado/Em andamento/Bloqueado/Concluido)",
+        "group": "Dependencies"
       }
     ],
     "fields": [

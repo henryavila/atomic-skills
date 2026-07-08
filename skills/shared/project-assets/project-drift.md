@@ -47,7 +47,7 @@ RATIFIED:
   ratifiedAt:     2026-05-19T16:10:00Z (by human)
   lastReviewedAt: 2026-05-19T16:10:00Z
 
-NEXT: blocked on T-002 — run `done T-002` to unblock.
+NEXT: blocked on T-002 — finish the blocker (`done T-002`), then `unblock <this-id>` to resume (closing the blocker does NOT auto-flip this task out of `blocked`).
 ```
 
 The render is read-only. It does not mutate. When `lastReviewedAt` exceeds `staleContextDays` (default 14, configurable), prepend a `⚠ Not re-reviewed in <N> days — premises may have shifted. Run \`re-ratify <id>\`?` banner.
@@ -166,7 +166,15 @@ Steps:
    LEGACY single-pointer shape (so the four pointer readers — CODEX REVIEW line, this
    step's `<base>`, `phase-done`, `transitions` archive-gate — keep working):
    `{ schemaVersion, branch, lastReviewedCommit: <HEAD sha at review start>, lastReviewedAt,
-   reviewFile, verdict, counts }`. **At the flip**, this single write switches to the
+   reviewFile, verdict, counts }`. **Advance `lastReviewedCommit` (the green pointer) ONLY on a
+   CLEAN verdict (C-7 — the pointer means "reviewed AND clean up to here").** A `needs_changes`
+   verdict (or any non-zero blocker/critical count) MUST NOT stamp the reviewed commit green:
+   leave `lastReviewedCommit` at its PRIOR value (so the CODEX REVIEW line keeps showing
+   "N commits behind / attention", not "up to date"), while still recording `lastReviewedAt`,
+   `reviewFile`, `verdict`, and `counts` for the audit trail. Otherwise the just-reviewed
+   FAILING commit would read green until the next commit lands — the review-cadence signal
+   lying about the exact commit it exists to judge. The clean-verdict path advances the pointer
+   as before; after step 6's fixes create a new HEAD, the next `review-due` re-reviews it. **At the flip**, this single write switches to the
    append-only ledger — `recordReview(content, { commitSha, patchId, mode: 'codex',
    reviewedAt, reviewFile })` (`scripts/review-ledger.js`), prior records preserved
    byte-for-byte — IN LOCKSTEP with repointing the four readers to the ledger. The ledger

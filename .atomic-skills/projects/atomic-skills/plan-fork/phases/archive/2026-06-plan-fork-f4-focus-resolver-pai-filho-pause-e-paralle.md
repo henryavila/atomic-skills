@@ -16,6 +16,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F4-G1
     description: Os casos pause(paused+active) e parallel(active+active) resolvem

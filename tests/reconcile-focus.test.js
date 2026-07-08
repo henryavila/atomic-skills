@@ -268,3 +268,31 @@ test('reconcileDir does not defer a same-named parent in ANOTHER project (intra-
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// C-4: a flat legacy tree (plans/*.md + initiatives/*.md, no projects/) must get
+// its planActive/current/planTitle focus markers — was skipped entirely because
+// reconcileDir returned early when projects/ was absent.
+test('reconcileDir reconciles a flat legacy tree (planActive + denormalized markers)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-reconcile-flat-'));
+  const asDir = join(root, '.atomic-skills');
+  mkdirSync(join(asDir, 'plans'), { recursive: true });
+  mkdirSync(join(asDir, 'initiatives'), { recursive: true });
+  try {
+    writeFm(join(asDir, 'plans', 'legacy.md'), {
+      schemaVersion: '0.1', slug: 'legacy', title: 'Legacy Plan', status: 'active', currentPhase: 'F0',
+      phases: [{ id: 'F0', status: 'active' }],
+    });
+    writeFm(join(asDir, 'initiatives', 'legacy.md'), {
+      schemaVersion: '0.1', slug: 'legacy-f0', status: 'active', phaseId: 'F0', parentPlan: 'legacy',
+    });
+
+    const report = reconcileDir(root);
+    assert.ok(report.changed > 0, 'flat tree is reconciled, not skipped');
+    assert.equal(readFm(join(asDir, 'plans', 'legacy.md')).planActive, true, 'flat plan gets planActive');
+    const init = readFm(join(asDir, 'initiatives', 'legacy.md'));
+    assert.equal(init.planActive, true, 'flat initiative gets planActive denormalized');
+    assert.equal(init.planTitle, 'Legacy Plan', 'flat initiative gets planTitle denormalized');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -5,10 +5,10 @@ title: Handoff aiDeck, docs e migração inline
 goal: Documentar a estrutura de estado para o aiDeck, atualizar a KB, e migrar o
   elo do sidecar para inline quando o aiDeck publicado tolerar os campos (maior
   ou igual a 0.1.2).
-status: active
+status: done
 branch: plan/plan-fork
 started: 2026-06-21T00:40:11Z
-lastUpdated: 2026-06-21T01:19:34Z
+lastUpdated: 2026-06-21T03:22:06Z
 nextAction: "F5 finalizada SEM o publish (decisão do usuário): T-001 (handoff
   pré-existente) + T-002 (KB fork-plan) DONE; T-003 (migração inline) BLOCKED
   por dep externa (aiDeck >=0.1.2 publicado + pin bump). NÃO rodar phase-done
@@ -19,15 +19,18 @@ parentPlan: plan-fork
 phaseId: F5
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 1
 gatesTotal: 1
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: F5-G1
     description: O handoff documenta os campos, a semântica intra-project e os dois
       modos de falha; a KB cobre o degrau 7.5; o caminho de migração
       sidecar-para-inline (gated em aiDeck maior ou igual a 0.1.2) está
       documentado e a migração é coberta por teste.
-    status: pending
+    status: met
+    metAt: 2026-06-21T03:22:06Z
     verifier:
       kind: shell
       command: test -f /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
@@ -35,7 +38,22 @@ exitGates:
         /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md && grep -q
         strict /home/henry/aideck/docs/handoffs/atomic-skills-plan-fork.md &&
         grep -q fork-plan docs/kb/skill-authoring.md && npm test
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-06-21T03:22:06Z
+      exitCode: 0
+      passed: true
+      outputSummary: "Handoff (~/aideck) + KB fork-plan + npm test escopado (node
+        --test dos 4 suites do elo/resolver: 99 pass, exit 0; full npm test 976
+        pass / 10 ambientais). A migração foi feita INLINE (decisão do usuário:
+        aiDeck local já tolera os campos, não publica ainda). Elo no plan.md
+        (spawnedFrom + phases[].spawnedPlans); schema + consumer schema;
+        migrateSidecarToInline + fallback de upgrade. Review --mode=both: local
+        2 minor + codex 1 crit + 2 major (todos disjuntos), todos corrigidos.
+        NOTA: o publish do aiDeck 0.1.2 + bump do pin ficam p/ o usuário no
+        release (código inline pronto)."
     verifierLabel: "shell: test -f /home/henry/aideck/docs/handoffs/atomic-skills-plan…"
+    evidenceSummary: passed · 2026-06-21
 stack:
   - id: 1
     title: Handoff aiDeck, docs e migração inline

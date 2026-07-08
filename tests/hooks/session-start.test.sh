@@ -281,6 +281,24 @@ echo "$out" | grep -q "Current Initiative: f0-work" && ok || no "missing initiat
 echo "$out" | grep -q "(migration/F0)" && ok || no "missing plan/phase breadcrumb (nested)"
 cd - >/dev/null; rm -rf "$TMP"
 
+# Test 12b: nested active plan wins before legacy flat branch-match fallback.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feature/x
+mkdir -p .atomic-skills/projects/acme/nested/phases .atomic-skills/plans .atomic-skills/initiatives
+write_plan .atomic-skills/projects/acme/nested/plan.md nested active F0
+write_initiative .atomic-skills/projects/acme/nested/phases/f0-nested.md f0-nested active "" nested F0 "pending"
+write_plan .atomic-skills/plans/flat.md flat active F0 feature/x
+write_initiative .atomic-skills/initiatives/flat-i.md flat-i active feature/x flat F0 "pending"
+run "nested active Plan wins over legacy flat branch match"
+out=$(bash "$HOOK")
+echo "$out" | grep -q "Active Plan: nested" && ok || no "nested plan should win: $out"
+if echo "$out" | grep -q "Active Plan: flat"; then
+  no "legacy flat plan should not win when nested active plan exists: $out"
+else
+  ok
+fi
+cd - >/dev/null; rm -rf "$TMP"
+
 # Test 13: per-project PROJECT-STATUS.md (no top-level) → injected head.
 TMP=$(mktemp -d); cd "$TMP"
 init_git_branch main
@@ -290,6 +308,23 @@ write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
 run "per-project PROJECT-STATUS.md (no top-level) → injected head"
 out=$(bash "$HOOK")
 echo "$out" | grep -q "per-project-index-line" && ok || no "expected per-project index head: $out"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 13b: nested project index wins over legacy top-level index.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch main
+mkdir -p .atomic-skills/projects/acme/migration/phases
+printf "# Project Status Index\n\nlegacy-top-level-line\n" > .atomic-skills/PROJECT-STATUS.md
+printf "# Project Status Index\n\nnested-project-line\n" > .atomic-skills/projects/acme/PROJECT-STATUS.md
+write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
+run "nested PROJECT-STATUS.md wins over legacy top-level index"
+out=$(bash "$HOOK")
+echo "$out" | grep -q "nested-project-line" && ok || no "expected nested project index: $out"
+if echo "$out" | grep -q "legacy-top-level-line"; then
+  no "legacy top-level index should not win when nested index exists: $out"
+else
+  ok
+fi
 cd - >/dev/null; rm -rf "$TMP"
 
 # Test 14: nested standalone (degenerate 1-phase plan) → branch-matched phase.

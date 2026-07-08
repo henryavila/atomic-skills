@@ -19,6 +19,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-1
     description: "Gate determinístico: detecção genérica de comandos, ativa só com
@@ -41,7 +43,7 @@ exitGates:
         Inclui fail-closed (merge-indeterminate / runner-malformed-result) +
         never-throws (crossWtGate(null)) + OR-guard halves isoladas."
     verifierLabel: "test: node tests/cross-wt-gate.test.js"
-    evidenceSummary: passed · 2026-06-17
+    evidenceSummary: passed · 22 tests · 2026-06-17
   - id: G-2
     description: Workflow advisory (agentes A/B read-only ao diff, nunca gateiam,
       fallback portátil) documentado no finalize; skills válidos.
@@ -58,8 +60,8 @@ exitGates:
       verifiedAt: 2026-06-17T20:30:00Z
       exitCode: 0
       passed: true
-      outputSummary: "Full chain exit 0 @ cf07d12: grep -qi 'cross-wt-collision'
-        (2) && grep -qi 'advisory' (7) em project-finalize.md && npm run
+      outputSummary: "Full chain exit 0 @ cf07d12: grep -qi 'cross-wt-collision' (2)
+        && grep -qi 'advisory' (7) em project-finalize.md && npm run
         validate-skills → All 15 skills valid. Step 1.5 documenta o gate
         determinístico (a prova) + agentes advisory A/B."
     verifierLabel: "shell: grep -qi 'cross-wt-collision' skills/shared/project-assets/…"

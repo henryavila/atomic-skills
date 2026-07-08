@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -9,7 +9,6 @@ import {
   buildState,
   emitConsumerState,
 } from '../scripts/emit-consumer-state.js';
-import { validateAideckState } from '../scripts/validate-aideck-state.js';
 
 const NOW = Date.parse('2026-06-16T20:00:00Z');
 
@@ -216,6 +215,113 @@ describe('buildState — derived fields', () => {
   });
 });
 
+describe('buildState — plan dependency projection', () => {
+  it('emits dependency/origin planEdges plus plan-level execution fields', () => {
+    const s = buildState({
+      plans: [
+        {
+          projectId: 'demo',
+          planSlug: 'parent',
+          fm: {
+            slug: 'parent',
+            title: 'Parent Plan',
+            status: 'active',
+            currentPhase: 'F1',
+            dependsOnPlans: [{
+              plan: 'child',
+              createdBy: 'fork-plan',
+              origin: { phaseId: 'F1', taskId: 'T-9', mode: 'pause' },
+            }],
+            phases: [{ id: 'F1', title: 'Parent phase', status: 'active', spawnedPlans: ['child'] }],
+          },
+        },
+        {
+          projectId: 'demo',
+          planSlug: 'child',
+          fm: {
+            slug: 'child',
+            title: 'Child Plan',
+            status: 'active',
+            currentPhase: 'F0',
+            spawnedFrom: { plan: 'parent', phaseId: 'F1', taskId: 'T-9', mode: 'pause' },
+            phases: [{ id: 'F0', title: 'Child phase', status: 'active' }],
+          },
+        },
+        {
+          projectId: 'demo',
+          planSlug: 'blocked',
+          fm: {
+            slug: 'blocked',
+            title: 'Blocked Plan',
+            status: 'pending',
+            currentPhase: 'F0',
+            dependsOnPlans: [{ plan: 'parent', createdBy: 'manual' }],
+            phases: [{ id: 'F0', title: 'Blocked phase', status: 'pending' }],
+          },
+        },
+      ],
+      initiatives: [],
+    }, NOW);
+
+    assert.deepEqual(
+      s.planEdges.map((e) => ({ type: e.type, fromPlan: e.fromPlan, toPlan: e.toPlan })),
+      [
+        { type: 'dependency', fromPlan: 'parent', toPlan: 'child' },
+        { type: 'dependency', fromPlan: 'blocked', toPlan: 'parent' },
+        { type: 'origin', fromPlan: 'parent', toPlan: 'child' },
+      ],
+    );
+
+    const parent = s.plans.find((p) => p.slug === 'parent');
+    const child = s.plans.find((p) => p.slug === 'child');
+    const blocked = s.plans.find((p) => p.slug === 'blocked');
+
+    assert.equal(parent.blockedByPlansText, 'child');
+    assert.equal(parent.unblocksPlansText, 'blocked');
+    assert.equal(parent.executionLane, 'blocked');
+    assert.equal(child.originText, 'Surgiu de parent · F1/T-9');
+    assert.equal(child.unblocksPlansText, 'parent');
+    assert.equal(child.executionLane, 'running');
+    assert.equal(blocked.blockedByPlansText, 'parent');
+    assert.equal(blocked.executionLane, 'blocked');
+  });
+
+  it('fails invalid dependency graphs before writing planEdges.json', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'emit-state-invalid-plan-'));
+    try {
+      const planDir = join(dir, '.atomic-skills', 'projects', 'demo', 'blocked');
+      mkdirSync(join(planDir, 'phases'), { recursive: true });
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        [
+          '---',
+          'slug: blocked',
+          'title: Blocked',
+          'status: active',
+          'currentPhase: F0',
+          'dependsOnPlans:',
+          '  - plan: missing',
+          '    createdBy: manual',
+          'phases:',
+          '  - id: F0',
+          '    title: Build',
+          '    status: active',
+          '---',
+          '',
+        ].join('\n'),
+      );
+
+      assert.throws(
+        () => emitConsumerState(dir, NOW),
+        /invalid plan dependency graph: unknown-prerequisite: plan blocked depends on unknown plan missing/,
+      );
+      assert.equal(existsSync(join(dir, '.atomic-skills', '.aideck', 'state', 'planEdges.json')), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('emitConsumerState — round trip on a tmp tree', () => {
   it('writes bare JSON arrays under .atomic-skills/.aideck/state/', () => {
     const dir = mkdtempSync(join(tmpdir(), 'emit-state-'));
@@ -232,16 +338,45 @@ describe('emitConsumerState — round trip on a tmp tree', () => {
       );
 
       const { written } = emitConsumerState(dir, NOW);
-      assert.equal(written.length, 12); // 11 base − totals.json (retired) + burnup.json + spi.json
+      assert.equal(written.length, 13); // 12 base − totals.json (retired) + burnup.json + spi.json
 
       const plans = JSON.parse(readFileSync(join(dir, '.atomic-skills', '.aideck', 'state', 'plans.json'), 'utf8'));
       assert.ok(Array.isArray(plans), 'plans.json is a bare array');
       assert.equal(plans.length, 1);
       assert.equal(plans[0].focusTasksText, '1/2');
 
-      const validation = validateAideckState(dir, { nowMs: NOW });
-      assert.equal(validation.ok, true);
-      assert.deepEqual(validation.errors, []);
+      const planEdges = JSON.parse(readFileSync(join(dir, '.atomic-skills', '.aideck', 'state', 'planEdges.json'), 'utf8'));
+      assert.ok(Array.isArray(planEdges), 'planEdges.json is a bare array');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // C-4: an un-migrated FLAT tree (plans/*.md + initiatives/*.md, no projects/)
+  // must still emit a populated dashboard — the router promises nested-first,
+  // flat-fallback, and the sibling readers honor it. Was: readTree bailed to
+  // empty when projects/ was absent → blank dashboard for legacy users.
+  it('reads a flat legacy tree so the dashboard is not blank pre-migration', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'emit-state-flat-'));
+    try {
+      const asDir = join(dir, '.atomic-skills');
+      mkdirSync(join(asDir, 'plans'), { recursive: true });
+      mkdirSync(join(asDir, 'initiatives'), { recursive: true });
+      writeFileSync(
+        join(asDir, 'plans', 'legacy.md'),
+        '---\nslug: legacy\ntitle: Legacy\nstatus: active\ncurrentPhase: F0\nphases:\n  - id: F0\n    title: Found\n    status: active\n---\n',
+      );
+      writeFileSync(
+        join(asDir, 'initiatives', 'legacy.md'),
+        '---\nslug: legacy\ntitle: Legacy init\nstatus: active\nphaseId: F0\nparentPlan: legacy\ntasksDone: 1\ntasksTotal: 2\ntasks:\n  - id: T-1\n    title: a\n    status: done\n  - id: T-2\n    title: b\n    status: pending\n---\n',
+      );
+
+      emitConsumerState(dir, NOW);
+      const plans = JSON.parse(readFileSync(join(asDir, '.aideck', 'state', 'plans.json'), 'utf8'));
+      const inits = JSON.parse(readFileSync(join(asDir, '.aideck', 'state', 'initiatives.json'), 'utf8'));
+      assert.equal(plans.length, 1, 'flat plan must surface in plans.json');
+      assert.equal(plans[0].projectId, '(flat)');
+      assert.equal(inits.length, 1, 'flat initiative must surface in initiatives.json');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

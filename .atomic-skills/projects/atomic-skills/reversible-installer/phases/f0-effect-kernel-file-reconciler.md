@@ -16,6 +16,8 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-1
     description: O efeito reconcileFileSet reproduz o comportamento de

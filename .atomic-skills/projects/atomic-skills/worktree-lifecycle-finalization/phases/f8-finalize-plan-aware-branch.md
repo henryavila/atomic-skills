@@ -2,14 +2,13 @@
 schemaVersion: "0.1"
 slug: worktree-lifecycle-finalization-f8-finalize-plan-aware-branch
 title: Finalize plan-aware — branch ≠ plano (Decisão 9)
-goal: >-
-  tornar o `project finalize` correto quando uma branch/worktree carrega MAIS DE
-  UM plano em estágios diferentes: resolver um plano-alvo EXPLÍCITO (nunca o
-  default-silencioso do ponteiro focus), exigir o alvo terminal, emitir WARN dos
-  planos-irmãos não-arquivados que o merge arrastaria, detectar (advisory)
-  regressão de status de plano no merge, e verificar a existência do
+goal: 'tornar o `project finalize` correto quando uma branch/worktree carrega
+  MAIS DE UM plano em estágios diferentes: resolver um plano-alvo EXPLÍCITO
+  (nunca o default-silencioso do ponteiro focus), exigir o alvo terminal, emitir
+  WARN dos planos-irmãos não-arquivados que o merge arrastaria, detectar
+  (advisory) regressão de status de plano no merge, e verificar a existência do
   integrationRef antes de publicar (fecha o "develop silencioso"). Skill
-  genérica; esta WT é a fonte de verdade do finalize.
+  genérica; esta WT é a fonte de verdade do finalize.'
 status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-19T16:20:35Z
@@ -21,15 +20,16 @@ tasksDone: 3
 tasksTotal: 3
 gatesMet: 2
 gatesTotal: 2
+weightDone: 3
+weightTotal: 3
 exitGates:
   - id: G-1
-    description: >-
-      Resolvedor de escopo de plano determinístico
+    description: "Resolvedor de escopo de plano determinístico
       (scripts/finalize-plan-scope.js): enumera os plan.md da branch, classifica
       alvo/outro-ativo/arquivado-não-mergeado, exige alvo terminal, BLOQUEIA
       alvo≠focus-sem-confirmação, WARN nos irmãos não-arquivados; detector de
       regressão de status advisory; puro/never-throws (fail-closed na dúvida);
-      suite verde.
+      suite verde."
     status: met
     metAt: 2026-06-19T18:05:06Z
     verifier:
@@ -44,29 +44,37 @@ exitGates:
       passed: true
       outputSummary: "node --test tests/finalize-plan-scope.test.js @ 00dd0cd
         (phase-done, pós-review both): tests 24, pass 24, fail 0, exit 0.
-        resolveFinalizePlanScope + detectPlanStatusRegression puros/never-throws/
-        fail-closed, com as correções L#1/L#2/L#4 + codex F-001..F-004."
+        resolveFinalizePlanScope + detectPlanStatusRegression
+        puros/never-throws/ fail-closed, com as correções L#1/L#2/L#4 + codex
+        F-001..F-004."
+    verifierLabel: "test: node tests/finalize-plan-scope.test.js"
+    evidenceSummary: passed · 24 tests · 2026-06-19
   - id: G-2
-    description: >-
-      project-finalize.md documenta o guard plan-aware (passo pré-publish:
-      seleção EXPLÍCITA do plano-alvo, terminalidade, WARN de irmãos), a
-      verificação de existência do integrationRef (inclui source:default), e o
-      detect+WARN advisory de regressão de status no merge (reusa a lane do F4);
-      skills válidos.
+    description: "project-finalize.md documenta o guard plan-aware (passo
+      pré-publish: seleção EXPLÍCITA do plano-alvo, terminalidade, WARN de
+      irmãos), a verificação de existência do integrationRef (inclui
+      source:default), e o detect+WARN advisory de regressão de status no merge
+      (reusa a lane do F4); skills válidos."
     status: met
     metAt: 2026-06-19T18:05:06Z
     verifier:
       kind: shell
-      command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills
+      command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md
+        && grep -qi 'finalize-plan-scope'
+        skills/shared/project-assets/project-finalize.md && npm run
+        validate-skills
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T18:05:06Z
       exitCode: 0
       passed: true
-      outputSummary: "grep plan-aware (2) && grep finalize-plan-scope (4) em
-        project-finalize.md && npm run validate-skills → All 15 skills valid, exit 0
-        @ 00dd0cd. Step 1.6 (guard determinístico) + Step 1 (existence-check em origin,
-        cobre source:default; F-004 endureceu o prompt-when-absent) + regressão advisory."
+      outputSummary: grep plan-aware (2) && grep finalize-plan-scope (4) em
+        project-finalize.md && npm run validate-skills → All 15 skills valid,
+        exit 0 @ 00dd0cd. Step 1.6 (guard determinístico) + Step 1
+        (existence-check em origin, cobre source:default; F-004 endureceu o
+        prompt-when-absent) + regressão advisory.
+    verifierLabel: "shell: grep -qi 'plan-aware' skills/shared/project-assets/project-…"
+    evidenceSummary: passed · 2026-06-19
 stack:
   - id: 1
     title: Finalize plan-aware — branch ≠ plano (Decisão 9)
@@ -74,7 +82,8 @@ stack:
     openedAt: 2026-06-19T16:20:35Z
 tasks:
   - id: T-001
-    title: "Resolvedor plan-aware + detector de regressão (scripts/finalize-plan-scope.js)"
+    title: Resolvedor plan-aware + detector de regressão
+      (scripts/finalize-plan-scope.js)
     summary: Função pura que classifica os planos da branch, decide block/warn, e
       detecta regressão de status de plano no merge.
     status: done
@@ -90,17 +99,18 @@ tasks:
         focus + o snapshot do integrationRef); NÃO roda git/gh real no teste
       - NUNCA auto-resolve uma colisão nem muta estado — só classifica e decide
         block/warn (advisory para a regressão)
-      - NÃO publica, NÃO faz merge, NÃO renomeia branch — isso é o consumo (T-003)
+      - NÃO publica, NÃO faz merge, NÃO renomeia branch — isso é o consumo
+        (T-003)
       - "fail-closed: input nulo/malformado/indeterminado BLOQUEIA, nunca passa"
     acceptance:
-      - "`resolveFinalizePlanScope` enumera os plan.md da branch e classifica cada
-        um em {target, other-active, archived-unmerged}"
+      - "`resolveFinalizePlanScope` enumera os plan.md da branch e classifica
+        cada um em {target, other-active, archived-unmerged}"
       - BLOQUEIA quando o alvo não está pronto-para-publicar (nem todas as fases
         `done` e não `archived`)
       - BLOQUEIA quando o alvo ≠ o slug que o focus apontaria sem confirmação
         explícita (branch-name≠plan-slug surfaceado)
-      - "`detectPlanStatusRegression` retorna os slugs cujo status na branch está
-        ATRÁS do integrationRef (advisory, nunca gateia)"
+      - "`detectPlanStatusRegression` retorna os slugs cujo status na branch
+        está ATRÁS do integrationRef (advisory, nunca gateia)"
       - "puro/never-throws sobre input nulo/malformado (fail-closed: BLOQUEIA)"
     verifier:
       kind: test
@@ -113,14 +123,16 @@ tasks:
       testsCollected: 16
       passed: true
       outputSummary: "node --test tests/finalize-plan-scope.test.js na árvore primária
-        MERGEADA (cp da worktree impl/wlf-f8-t001): tests 16, pass 16, fail 0, exit 0.
-        Cobre classificação target/other-active/archived-unmerged, gate de terminalidade
-        (fases done OU archived), gate target≠focus-sem-confirmação (surfaça branch≠plan),
-        WARN de irmãos ativos, fail-closed (null/malformado/target-ausente→block,
-        never-throws/frozen) + detectPlanStatusRegression (behind/equal/ahead, one-sided,
-        unknown-status→behind, never-throws)."
+        MERGEADA (cp da worktree impl/wlf-f8-t001): tests 16, pass 16, fail 0,
+        exit 0. Cobre classificação target/other-active/archived-unmerged, gate
+        de terminalidade (fases done OU archived), gate
+        target≠focus-sem-confirmação (surfaça branch≠plan), WARN de irmãos
+        ativos, fail-closed (null/malformado/target-ausente→block,
+        never-throws/frozen) + detectPlanStatusRegression (behind/equal/ahead,
+        one-sided, unknown-status→behind, never-throws)."
   - id: T-002
-    title: Verificação de existência do integrationRef no consumo (fecha "develop silencioso")
+    title: Verificação de existência do integrationRef no consumo (fecha "develop
+      silencioso")
     summary: finalize confirma que o integrationRef resolvido existe em origin antes
       do PR, inclusive no caso source:default.
     status: done
@@ -132,25 +144,31 @@ tasks:
     scopeBoundary:
       - NÃO mudar o resolvedor da Decisão 2 (scripts/integration-ref.js) nem seu
         contrato — só estende a guarda ao ponto de CONSUMO (o finalize)
-      - "cobre o caso `source: default` (hoje só `not-configured` dispara prompt)"
-      - ref ausente ⇒ prompt-quando-ausente, NUNCA publicar contra ref inexistente
+      - "cobre o caso `source: default` (hoje só `not-configured` dispara
+        prompt)"
+      - ref ausente ⇒ prompt-quando-ausente, NUNCA publicar contra ref
+        inexistente
     acceptance:
-      - "project-finalize.md Step 1 verifica `git show-ref`/`git ls-remote` do ref
-        resolvido em origin ANTES do `gh pr create`, inclusive em source:default"
+      - project-finalize.md Step 1 verifica `git show-ref`/`git ls-remote` do
+        ref resolvido em origin ANTES do `gh pr create`, inclusive em
+        source:default
       - ref ausente cai no prompt-quando-ausente (usar existente OU criar)
       - "`npm run validate-skills` passa"
     verifier:
       kind: shell
-      command: grep -qi 'ls-remote\|show-ref' skills/shared/project-assets/project-finalize.md && npm run validate-skills
+      command: grep -qi 'ls-remote\|show-ref'
+        skills/shared/project-assets/project-finalize.md && npm run
+        validate-skills
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T17:32:29Z
       exitCode: 0
       passed: true
-      outputSummary: "grep -qi 'ls-remote\\|show-ref' project-finalize.md (existence
-        check on origin adicionado ao Step 1, cobre source:default; ref ausente →
-        prompt-when-absent) && npm run validate-skills → All 15 skills valid
-        (schema_version 0.2), exit 0. Guarda no consumidor; integration-ref.js intacto."
+      outputSummary: grep -qi 'ls-remote\|show-ref' project-finalize.md (existence
+        check on origin adicionado ao Step 1, cobre source:default; ref ausente
+        → prompt-when-absent) && npm run validate-skills → All 15 skills valid
+        (schema_version 0.2), exit 0. Guarda no consumidor; integration-ref.js
+        intacto.
   - id: T-003
     title: Fiar o guard plan-aware + WARN de regressão no project-finalize.md
     summary: Novo passo pré-publish no finalize — alvo explícito + terminalidade +
@@ -162,7 +180,8 @@ tasks:
       - kind: file
         path: skills/shared/project-assets/project-finalize.md
     scopeBoundary:
-      - o guard é DETERMINÍSTICO (consome scripts/finalize-plan-scope.js da T-001)
+      - o guard é DETERMINÍSTICO (consome scripts/finalize-plan-scope.js da
+        T-001)
       - o detector de regressão é ADVISORY/READ-ONLY (reusa a lane de agentes do
         F4; NUNCA gateia, NUNCA auto-resolve)
       - âncoras `plan-aware` + `finalize-plan-scope` presentes no doc
@@ -170,32 +189,34 @@ tasks:
       - "project-finalize.md documenta o passo pré-publish: seleção EXPLÍCITA do
         plano-alvo (não o default-silencioso do focus), exigência de
         terminalidade, e WARN dos planos-irmãos não-arquivados"
-      - documenta o detect+WARN advisory de regressão de status no merge, reusando
-        a lane de agentes do F4 (read-only, nunca gateia)
+      - documenta o detect+WARN advisory de regressão de status no merge,
+        reusando a lane de agentes do F4 (read-only, nunca gateia)
       - com as âncoras `plan-aware` e `finalize-plan-scope`
       - "`npm run validate-skills` passa"
     verifier:
       kind: shell
-      command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md && grep -qi 'finalize-plan-scope' skills/shared/project-assets/project-finalize.md && npm run validate-skills
+      command: grep -qi 'plan-aware' skills/shared/project-assets/project-finalize.md
+        && grep -qi 'finalize-plan-scope'
+        skills/shared/project-assets/project-finalize.md && npm run
+        validate-skills
     evidence:
       verifierKind: shell
       verifiedAt: 2026-06-19T17:34:36Z
       exitCode: 0
       passed: true
-      outputSummary: "grep -qi 'plan-aware' (2) && grep -qi 'finalize-plan-scope' (4) em
-        project-finalize.md && npm run validate-skills → All 15 skills valid, exit 0.
-        Step 1.6 documenta o guard determinístico (resolveFinalizePlanScope: alvo
-        explícito, terminalidade, BLOCK target≠focus-sem-confirm, WARN de irmãos) +
-        o detect+WARN advisory de regressão (detectPlanStatusRegression, read-only,
-        reusa a lane do F4 Step 1.5, nunca gateia); bullet de escopo adicionado."
+      outputSummary: "grep -qi 'plan-aware' (2) && grep -qi 'finalize-plan-scope' (4)
+        em project-finalize.md && npm run validate-skills → All 15 skills valid,
+        exit 0. Step 1.6 documenta o guard determinístico
+        (resolveFinalizePlanScope: alvo explícito, terminalidade, BLOCK
+        target≠focus-sem-confirm, WARN de irmãos) + o detect+WARN advisory de
+        regressão (detectPlanStatusRegression, read-only, reusa a lane do F4
+        Step 1.5, nunca gateia); bullet de escopo adicionado."
 parked: []
 emerged: []
-summary: >-
-  Finalize correto sob branch multi-plano: alvo explícito + terminal, WARN de
-  irmãos e de regressão de status, e integrationRef verificado antes do PR.
+summary: "Finalize correto sob branch multi-plano: alvo explícito + terminal,
+  WARN de irmãos e de regressão de status, e integrationRef verificado antes do
+  PR."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
-planActive: true
-current: true
 ---
 
 # Narrative / notes

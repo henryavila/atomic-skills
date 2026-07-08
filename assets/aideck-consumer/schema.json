@@ -7,7 +7,7 @@
         "0.1",
         "0.2"
       ],
-      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). 0.2 is additive-optional over 0.1 (mutation/manual/task.evidence fields); a one-shot src/migrate.js migrate01to02 stamps new files to '0.2'. A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
+      "description": "0.1 and 0.2 coexist during the copy-verify-delete migration window (Decision #13). Current plan/initiative writers prefer 0.1; 0.2 is accepted for explicitly upgraded files and is additive-optional over 0.1 (mutation/manual/task.evidence fields). A bare const would instantly invalidate every live 0.1 file (gitignored, not git-restorable), so the enum is required for coexistence."
     },
     "isoTimestamp": {
       "type": "string",
@@ -375,6 +375,107 @@
         }
       }
     },
+    "planDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan",
+        "createdBy"
+      ],
+      "properties": {
+        "plan": {
+          "$ref": "#/definitions/slug"
+        },
+        "createdBy": {
+          "type": "string",
+          "enum": [
+            "fork-plan",
+            "manual"
+          ]
+        },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "phaseId",
+            "mode"
+          ],
+          "properties": {
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "archived"
+          ],
+          "properties": {
+            "archived": {
+              "type": "string",
+              "enum": [
+                "blocked",
+                "resolved"
+              ],
+              "default": "blocked",
+              "description": "`archived` prerequisites block by default; `resolved` records an explicit decision that archiving satisfied this edge."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "createdBy": {
+                "const": "fork-plan"
+              }
+            },
+            "required": [
+              "createdBy"
+            ]
+          },
+          "then": {
+            "required": [
+              "origin"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "createdBy": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "createdBy"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "origin"
+              ]
+            }
+          }
+        }
+      ]
+    },
     "phaseDescriptor": {
       "type": "object",
       "additionalProperties": false,
@@ -408,18 +509,64 @@
           "type": "string",
           "description": "Concise one-line human summary of what this phase does — distinct from the longer, technical `goal`. Authored + user-validated when phases are generated (post-decompose annotation; decompose.js format stays frozen per R-ORCH-10). Shown on the dashboard Home timeline. Helps a dev recall each phase + validates the AI's interpretation."
         },
+        "businessIntent": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
+          "required": [
+            "value",
+            "workflow",
+            "rules",
+            "outOfScope",
+            "doneWhen"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rules": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outOfScope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "doneWhen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "derived": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "answer": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
         "dependsOn": {
           "type": "array",
           "items": {
             "type": "string",
             "minLength": 1
-          }
-        },
-        "spawnedPlans": {
-          "type": "array",
-          "description": "Slugs of child plans forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans.",
-          "items": {
-            "$ref": "#/definitions/slug"
           }
         },
         "parallelWith": {
@@ -488,6 +635,13 @@
         },
         "context": {
           "$ref": "#/definitions/context"
+        },
+        "spawnedPlans": {
+          "type": "array",
+          "description": "Fork parent→child origin edge (rung 7.5): child plan slugs forked out of THIS phase. Bidirectional with each child's top-level `spawnedFrom`. Additive — phases without forks omit it. Mirrors aideck phaseDescriptorSchema.spawnedPlans and the inline field migrated from legacy links.json. Durable edge fields are child slugs only; fork rationale `context`/`provenance` is not persisted on this edge.",
+          "items": {
+            "$ref": "#/definitions/slug"
+          }
         },
         "reviewGate": {
           "type": "object",
@@ -696,8 +850,8 @@
       }
     },
     "plan": {
-      "title": "atomic-skills Plan frontmatter (schemaVersion 0.1)",
-      "description": "Validates the YAML frontmatter of `.atomic-skills/plans/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
+      "title": "atomic-skills Plan frontmatter (schemaVersion 0.1/0.2)",
+      "description": "Validates the YAML frontmatter of nested `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` files, with legacy flat `.atomic-skills/plans/<slug>.md` accepted during migration. Current plan writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Plan. The `narrative` field of the TypeScript Plan interface lives in the markdown body, NOT frontmatter — so it is not declared here.",
       "type": "object",
       "required": [
         "schemaVersion",
@@ -783,36 +937,6 @@
         },
         "parallelismAllowed": {
           "type": "boolean"
-        },
-        "spawnedFrom": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "plan",
-            "phaseId",
-            "mode"
-          ],
-          "description": "Fork link on a CHILD plan: points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
-          "properties": {
-            "plan": {
-              "$ref": "#/definitions/slug"
-            },
-            "phaseId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "taskId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "mode": {
-              "type": "string",
-              "enum": [
-                "pause",
-                "parallel"
-              ]
-            }
-          }
         },
         "principles": {
           "type": "array",
@@ -954,6 +1078,44 @@
             }
           }
         },
+        "spawnedFrom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "phaseId",
+            "mode"
+          ],
+          "description": "Fork child→parent origin edge (rung 7.5): points at the parent plan + the anchor phase it was extracted from. Bidirectional with the parent phase's `spawnedPlans`. Additive (distinct from `supersedes`, which is replacement): the parent consumes the child's result. Mirrors aideck spawnedFromSchema and the inline field migrated from legacy links.json. Durable edge fields are identity + mode only; fork rationale `context`/`provenance` is not persisted on this edge. `mode`: pause = parent waits for the child; parallel = both active, each in its own worktree.",
+          "properties": {
+            "plan": {
+              "$ref": "#/definitions/slug"
+            },
+            "phaseId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "parallel"
+              ]
+            }
+          }
+        },
+        "dependsOnPlans": {
+          "description": "Operational plan dependency edges persisted on the blocked plan. Each entry points at a prerequisite plan in the same project. This is separate from `spawnedFrom` / `phases[].spawnedPlans`, which describe origin only.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/planDependency"
+          }
+        },
         "references": {
           "type": "array",
           "items": {
@@ -970,8 +1132,8 @@
       }
     },
     "initiative": {
-      "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1)",
-      "description": "Validates the YAML frontmatter of `.atomic-skills/initiatives/<slug>.md`. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives omit `parentPlan` and `phaseId`.",
+      "title": "atomic-skills Initiative frontmatter (schemaVersion 0.1/0.2)",
+      "description": "Validates the YAML frontmatter of nested phase files at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, with legacy flat `.atomic-skills/initiatives/<slug>.md` accepted during migration. Current initiative writers prefer schemaVersion 0.1; 0.2 remains accepted for explicitly upgraded files. Mirrors aideck/src/schemas/project-status.ts:Initiative + Task. The `body` field of the TypeScript Initiative interface lives in the markdown body, NOT frontmatter — so it is not declared here. Standalone initiatives are represented as a degenerate one-phase plan in the nested layout; legacy flat standalone files omit `parentPlan` and `phaseId`.",
       "type": "object",
       "required": [
         "schemaVersion",
@@ -1008,6 +1170,59 @@
           "type": "string",
           "description": "Concise one-line human summary of what this phase does (mirrors the plan phase descriptor's `summary`). Authored + user-validated at phase generation; shown on the dashboard Home (Agora callout)."
         },
+        "businessIntent": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "F0/T-001 (phase-materialization): the load-bearing business spine — value/workflow/rules/outOfScope/doneWhen — authored + user-validated when the phase is materialized (D1 strong-lazy), persisted on both the plan phase descriptor and the initiative file (F-001), and surfaced for the materialize gate (D4). Optional + additive (mirrors `summary`): an absent block means a not-yet-activated/legacy surface. `derived[]` captures open questions + tentative answers (never gated). scripts/find-missing-business-intent.js (T-003) hard-blocks a materialized phase missing any spine field.",
+          "required": [
+            "value",
+            "workflow",
+            "rules",
+            "outOfScope",
+            "doneWhen"
+          ],
+          "properties": {
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rules": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outOfScope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "doneWhen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "derived": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "answer": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
         "status": {
           "type": "string",
           "enum": [
@@ -1026,6 +1241,11 @@
         },
         "started": {
           "$ref": "#/definitions/isoTimestamp"
+        },
+        "startedCommit": {
+          "type": "string",
+          "minLength": 7,
+          "description": "C-3 (earned-value integrity): the immutable git HEAD SHA at phase activation, recorded so phase-done actuals compute from a rebase/squash/amend-proof commit anchor instead of the fragile `started` committer-date heuristic. Optional + additive: absent on legacy phases, which degrade to the date heuristic. Consumed by scripts/append-completion.js computePhaseActuals via `--actuals-since-commit`."
         },
         "lastUpdated": {
           "$ref": "#/definitions/isoTimestamp"
@@ -1281,6 +1501,13 @@
         "roteiroSub",
         "switcherCaption",
         "nextText",
+        "blockedByPlans",
+        "blockedByPlansText",
+        "unblocksPlans",
+        "unblocksPlansText",
+        "originText",
+        "executionLane",
+        "executionIndex",
         "focusTasksText",
         "focusTasksPct",
         "focusMeta",
@@ -1328,6 +1555,39 @@
         },
         "nextText": {
           "type": "string"
+        },
+        "blockedByPlans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blockedByPlansText": {
+          "type": "string"
+        },
+        "unblocksPlans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unblocksPlansText": {
+          "type": "string"
+        },
+        "originText": {
+          "type": "string"
+        },
+        "executionLane": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "running",
+            "blocked",
+            "completed"
+          ]
+        },
+        "executionIndex": {
+          "type": "integer"
         },
         "focusTasksText": {
           "type": "string"
@@ -1894,6 +2154,84 @@
               }
             }
           }
+        }
+      }
+    },
+    "planEdges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "type",
+        "id",
+        "fromPlan",
+        "toPlan",
+        "label"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "dependency",
+            "origin"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "fromPlan": {
+          "type": "string"
+        },
+        "toPlan": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "dependentPlan": {
+          "type": "string"
+        },
+        "prerequisitePlan": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "resolved": {
+          "type": "boolean"
+        },
+        "releaseArchived": {
+          "type": "string"
+        },
+        "originPhaseId": {
+          "type": "string"
+        },
+        "originTaskId": {
+          "type": "string"
+        },
+        "originMode": {
+          "type": "string"
+        },
+        "parentPlan": {
+          "type": "string"
+        },
+        "childPlan": {
+          "type": "string"
+        },
+        "phaseId": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
         }
       }
     },

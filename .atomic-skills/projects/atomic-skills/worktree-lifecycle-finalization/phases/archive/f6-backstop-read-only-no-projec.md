@@ -18,6 +18,8 @@ tasksDone: 1
 tasksTotal: 1
 gatesMet: 2
 gatesTotal: 2
+weightDone: 1
+weightTotal: 1
 exitGates:
   - id: G-1
     description: Backstop sinaliza WARN para worktree de feature mergeada e branch
@@ -34,12 +36,13 @@ exitGates:
       exitCode: 0
       testsCollected: 11
       passed: true
-      outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ bb3183b: tests
-        11, pass 11, fail 0. findOrphanWorktrees puro (isBranchMerged simétrico A/B);
-        read-only, inputs não mutados; cobre ambos sinais merge, ambas formas archived,
-        healthy→[], never-throws (frozen/null/throwing-isMerged/malformed), no-plan, dup-slug."
+      outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ bb3183b:
+        tests 11, pass 11, fail 0. findOrphanWorktrees puro (isBranchMerged
+        simétrico A/B); read-only, inputs não mutados; cobre ambos sinais merge,
+        ambas formas archived, healthy→[], never-throws
+        (frozen/null/throwing-isMerged/malformed), no-plan, dup-slug."
     verifierLabel: "test: node tests/detect-orphan-worktrees.test.js"
-    evidenceSummary: passed · 2026-06-17
+    evidenceSummary: passed · 11 tests · 2026-06-17
   - id: G-2
     description: "project-verify.md lista o check #9 (âncora
       detect-orphan-worktrees) e validate-skills passa."
@@ -107,13 +110,13 @@ tasks:
       testsCollected: 6
       passed: true
       outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ a04b628
-        (merged primary): tests 6, pass 6, fail 0, exit 0 — ambos sinais de merge
-        (pr MERGED + isMerged injetado), ambas formas archived (never-pr / pr-open),
-        healthy-clean → [], pureza+never-throws (frozen/null). G-2: grep
-        detect-orphan-worktrees + validate-skills 15/15 exit 0. Mode 2 Codex
-        (impl/wlf-f6-t-001, ff a04b628); auto-report -o 'tests 1' DESCARTADO per
-        wlf-f0-nascimento L-001 (real 6); função pura sobre inputs injetados, fence
-        respeitado (source-only)."
+        (merged primary): tests 6, pass 6, fail 0, exit 0 — ambos sinais de
+        merge (pr MERGED + isMerged injetado), ambas formas archived (never-pr /
+        pr-open), healthy-clean → [], pureza+never-throws (frozen/null). G-2:
+        grep detect-orphan-worktrees + validate-skills 15/15 exit 0. Mode 2
+        Codex (impl/wlf-f6-t-001, ff a04b628); auto-report -o 'tests 1'
+        DESCARTADO per wlf-f0-nascimento L-001 (real 6); função pura sobre
+        inputs injetados, fence respeitado (source-only)."
 parked: []
 emerged: []
 summary: 9º check read-only no project verify avisa (WARN) órfãos do modelo PR→develop.

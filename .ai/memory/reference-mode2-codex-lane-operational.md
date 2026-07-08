@@ -49,3 +49,14 @@ lossless SÓ em arquivo line-oriented — aplicá-lo a um array JSON pretty-prin
 (`}`+`{` sem vírgula). → um log append-only que mergeia entre worktrees tem que ser
 **NDJSON** (1 registro/linha), nunca array. Surface o mismatch ao operador como ratify-gate;
 emende SPEC+verifier antes de despachar (o executor Mode 2 constrói a SPEC ao pé da letra).
+
+## 6. `-o` pode sair vazio/ausente; certifique pelo diff + verifier, não pelo arquivo
+
+Em dogfood do `phase-materialization` (2026-07-01), execuções Mode 2 com `codex exec -o`
+podiam não materializar um relatório útil no caminho esperado, enquanto o resumo final
+aparecia no stderr/terminal e o trabalho real estava no worktree. Tratamento operacional:
+capture logs quando existirem, mas a fonte de verdade continua sendo o diff produzido no
+worktree mais o verifier determinístico re-rodado pelo orquestrador na primária. Se o
+arquivo `-o` não existir ou vier vazio, não trate isso como certificação nem como falha
+automática da tarefa: classifique pelo estado do worktree, pelo exit observado e pelo
+verifier fresco.

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -408,6 +408,114 @@ test('round-trip: parsed plan passes schema after re-serialization', () => {
   }
 });
 
+function basePlan(overrides = {}) {
+  return {
+    schemaVersion: '0.2',
+    slug: 'parent-plan',
+    title: 'Parent plan',
+    version: '1.0',
+    status: 'active',
+    started: '2026-06-01T00:00:00Z',
+    lastUpdated: '2026-06-01T00:00:00Z',
+    branch: 'plan/parent-plan',
+    currentPhase: 'F0',
+    parallelismAllowed: false,
+    phases: [{
+      id: 'F0',
+      slug: 'parent-plan-f0',
+      title: 'F0',
+      goal: 'Do the first phase',
+      dependsOn: [],
+      subPhaseCount: 1,
+      exitGate: { summary: 'done', criteria: [] },
+      status: 'active',
+    }],
+    ...overrides,
+  };
+}
+
+function planErrorText(errors) {
+  return (errors || [])
+    .map((e) => `${e.instancePath} ${e.message} ${JSON.stringify(e.params)}`)
+    .join('\n');
+}
+
+test('plan schema: dependsOnPlans is optional for legacy plans', () => {
+  const validators = buildValidators();
+  assert.equal(
+    validators.validatePlan(basePlan({ schemaVersion: '0.1' })),
+    true,
+    `legacy plan without dependsOnPlans must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+});
+
+test('plan schema: dependsOnPlans accepts fork-plan and manual dependency edges', () => {
+  const validators = buildValidators();
+  const plan = basePlan({
+    dependsOnPlans: [
+      {
+        plan: 'child-plan',
+        createdBy: 'fork-plan',
+        origin: { phaseId: 'F2', taskId: 'T-004', mode: 'pause' },
+        release: { archived: 'blocked' },
+      },
+      {
+        plan: 'manual-prereq',
+        createdBy: 'manual',
+      },
+    ],
+  });
+  assert.equal(
+    validators.validatePlan(plan),
+    true,
+    `valid dependsOnPlans edges must pass: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+});
+
+test('plan schema: dependsOnPlans rejects malformed edges with named errors', () => {
+  const validators = buildValidators();
+  const cases = [
+    {
+      name: 'missing plan',
+      dependsOnPlans: [{ createdBy: 'manual' }],
+      pattern: /plan/,
+    },
+    {
+      name: 'fork-plan without origin',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'fork-plan' }],
+      pattern: /origin/,
+    },
+    {
+      name: 'invalid origin mode',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'fork-plan', origin: { phaseId: 'F2', mode: 'merge' } }],
+      pattern: /\/origin\/mode/,
+    },
+    {
+      name: 'invalid archived release policy',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'manual', release: { archived: 'complete' } }],
+      pattern: /\/release\/archived/,
+    },
+    {
+      name: 'unknown edge property',
+      dependsOnPlans: [{ plan: 'child-plan', createdBy: 'manual', unexpected: true }],
+      pattern: /additional properties|unexpected/,
+    },
+    {
+      name: 'duplicate exact edge',
+      dependsOnPlans: [
+        { plan: 'child-plan', createdBy: 'manual' },
+        { plan: 'child-plan', createdBy: 'manual' },
+      ],
+      pattern: /uniqueItems|duplicate/,
+    },
+  ];
+
+  for (const c of cases) {
+    assert.equal(validators.validatePlan(basePlan({ dependsOnPlans: c.dependsOnPlans })), false, c.name);
+    assert.match(planErrorText(validators.validatePlan.errors), c.pattern, c.name);
+  }
+});
+
 test('crossValidate: done phase + done initiative with done tasks → no errors', () => {
   const plans = new Map([['p', {
     slug: 'p',
@@ -443,6 +551,31 @@ test('crossValidate: done phase + active initiative with pending tasks → error
   assert.equal(errors[0].phaseId, 'F0');
   assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
   assert.ok(errors[0].errors.some((e) => e.includes('2 initiative task(s) not done')));
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+});
+
+test('crossValidate: nested done phase resolves project-scoped initiative keys', () => {
+  const plans = new Map([['proj/p', {
+    slug: 'p',
+    __projectId: 'proj',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
+    }],
+  }]]);
+  const inits = new Map([['proj/p-f0', {
+    slug: 'p-f0',
+    __projectId: 'proj',
+    status: 'active',
+    tasks: [{ id: 'T-001', status: 'pending' }],
+    exitGates: [{ id: 'F0-G1', status: 'pending' }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].planSlug, 'p');
+  assert.equal(errors[0].initiativeSlug, 'p-f0');
+  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
+  assert.ok(errors[0].errors.some((e) => e.includes('1 initiative task(s) not done')));
   assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
 });
 
@@ -483,6 +616,92 @@ test('crossValidate: met plan criterion + pending initiative gate → error', ()
   assert.ok(errors[0].errors.some((e) => e.includes('F0-G2') && e.includes('pending')));
 });
 
+// C2#2 — GATE-R2 must not be splittable across the plan↔initiative mirror.
+// checkMetInvariant gates evidence per-FILE; phase-done step 8b mirrors the exit
+// gate into initiative.exitGates[]. An operator validating one file at a time
+// (or a model stamping 'met' with evidence on only one surface) can leave the
+// met-invariant divided between two files. crossValidate must co-validate the
+// evidence, not just the status.
+const EV = (passed, testsCollected) => ({ passed, ...(testsCollected != null ? { testsCollected } : {}) });
+
+test('crossValidate: met criterion, deterministic verifier, matching evidence on BOTH → no error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'test' }, evidence: EV(true, 11) },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'test' }, evidence: EV(true, 11) }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
+});
+
+test('crossValidate: met criterion, evidence on initiative mirror ONLY → error (split invariant)', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'test' } },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'test' }, evidence: EV(true, 11) }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1') && /only one surface/.test(e)));
+});
+
+test('crossValidate: met criterion, contradicting evidence.passed across surfaces → error', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'shell' }, evidence: EV(true) },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'shell' }, evidence: EV(false) }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1') && /disagrees/.test(e)));
+});
+
+test('crossValidate: manual verifier (not deterministic) → no evidence cross-check', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [
+        { id: 'F0-G1', status: 'met', verifier: { kind: 'manual' }, evidence: EV(true) },
+      ] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', verifier: { kind: 'manual' } }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 0);
+});
+
 test('crossValidate: pending phase + pending initiative → no cross-check', () => {
   const plans = new Map([['p', {
     slug: 'p',
@@ -498,6 +717,60 @@ test('crossValidate: pending phase + pending initiative → no cross-check', () 
   }]]);
   const errors = crossValidate(plans, inits);
   assert.equal(errors.length, 0);
+});
+
+test('plan dependency validation: legacy plans without dependsOnPlans pass', () => {
+  const plans = new Map([
+    ['parent', { slug: 'parent', __projectId: 'proj', spawnedFrom: { plan: 'root', phaseId: 'F0', mode: 'pause' } }],
+    ['child', { slug: 'child', __projectId: 'proj' }],
+  ]);
+  assert.deepEqual(collectPlanDependencyErrors(plans), []);
+});
+
+test('plan dependency validation rejects self-edge and orphan prerequisite', () => {
+  const plans = new Map([
+    ['parent', {
+      slug: 'parent',
+      __projectId: 'proj',
+      dependsOnPlans: [
+        { plan: 'parent', createdBy: 'manual' },
+        { plan: 'missing', createdBy: 'manual' },
+      ],
+    }],
+  ]);
+  const errors = collectPlanDependencyErrors(plans);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].errors.join('\n'), /self-dependency/);
+  assert.match(errors[0].errors.join('\n'), /unknown-prerequisite/);
+});
+
+test('plan dependency validation rejects direct and transitive cycles', () => {
+  const direct = collectPlanDependencyErrors(new Map([
+    ['a', { slug: 'a', __projectId: 'proj', dependsOnPlans: [{ plan: 'b', createdBy: 'manual' }] }],
+    ['b', { slug: 'b', __projectId: 'proj', dependsOnPlans: [{ plan: 'a', createdBy: 'manual' }] }],
+  ]));
+  assert.match(direct[0].errors.join('\n'), /dependency-cycle/);
+  assert.match(direct[0].errors.join('\n'), /a -> b -> a/);
+
+  const transitive = collectPlanDependencyErrors(new Map([
+    ['a', { slug: 'a', __projectId: 'proj', dependsOnPlans: [{ plan: 'b', createdBy: 'manual' }] }],
+    ['b', { slug: 'b', __projectId: 'proj', dependsOnPlans: [{ plan: 'c', createdBy: 'manual' }] }],
+    ['c', { slug: 'c', __projectId: 'proj', dependsOnPlans: [{ plan: 'a', createdBy: 'manual' }] }],
+  ]));
+  assert.match(transitive[0].errors.join('\n'), /dependency-cycle/);
+  assert.match(transitive[0].errors.join('\n'), /a -> b -> c -> a/);
+});
+
+test('plan dependency validation rejects dependencies that resolve only in another project', () => {
+  const plans = new Map([
+    ['proj-a/parent', { slug: 'parent', __projectId: 'proj-a', dependsOnPlans: [{ plan: 'shared', createdBy: 'manual' }] }],
+    ['proj-b/shared', { slug: 'shared', __projectId: 'proj-b' }],
+  ]);
+  const errors = collectPlanDependencyErrors(plans);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].errors.join('\n'), /cross-project-dependency/);
+  assert.match(errors[0].errors.join('\n'), /proj-a/);
+  assert.match(errors[0].errors.join('\n'), /proj-b/);
 });
 
 // ── R-XAGENT-08: kind inference for the nested projects/<id>/<slug>/ layout ──
@@ -1187,4 +1460,32 @@ test('crossValidate: plan WITHOUT closedAtHardening → soft (no closedAt error)
     tasks: [{ id: 'T-004', status: 'done' }], // no closedAt, but no hardening → not gated
   }]]);
   assert.equal(crossValidate(plans, inits).length, 0);
+});
+
+test('crossValidate: closedAtHardening does not scan same-slug initiatives from another project', () => {
+  const plans = new Map([
+    ['proj-a/p', {
+      slug: 'p',
+      __projectId: 'proj-a',
+      closedAtHardening: { enforcedFrom: '2026-06-19T19:00:00Z', grandfatheredTaskIds: [] },
+      phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+    }],
+    ['proj-b/p', {
+      slug: 'p',
+      __projectId: 'proj-b',
+      phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+    }],
+  ]);
+  const inits = new Map([
+    ['proj-a/p-f4', {
+      slug: 'p-f4', __projectId: 'proj-a', parentPlan: 'p', phaseId: 'F4', status: 'active',
+      tasks: [{ id: 'T-001', status: 'done', closedAt: '2026-06-19T20:00:00Z' }],
+    }],
+    ['proj-b/p-f4', {
+      slug: 'p-f4', __projectId: 'proj-b', parentPlan: 'p', phaseId: 'F4', status: 'active',
+      tasks: [{ id: 'T-002', status: 'done' }],
+    }],
+  ]);
+
+  assert.deepEqual(crossValidate(plans, inits), []);
 });

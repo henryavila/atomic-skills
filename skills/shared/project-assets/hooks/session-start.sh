@@ -19,11 +19,21 @@ PROJECTS_DIR="$ASKILLS_DIR/projects"          # nested layout root: projects/<id
 PLANS_DIR="$ASKILLS_DIR/plans"                # legacy flat layout
 INITIATIVES_DIR="$ASKILLS_DIR/initiatives"    # legacy flat layout
 
-# Project index: prefer the top-level PROJECT-STATUS.md (coexistence fallback);
-# else the first per-project index in the nested tree.
-STATUS_FILE="$ASKILLS_DIR/PROJECT-STATUS.md"
-if [[ ! -f "$STATUS_FILE" && -d "$PROJECTS_DIR" ]]; then
-  STATUS_FILE=$(find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -type f -name 'PROJECT-STATUS.md' 2>/dev/null | sort | head -1)
+# Project index: nested per-project index first; top-level PROJECT-STATUS.md is
+# the legacy flat fallback for un-migrated trees.
+STATUS_FILE=""
+if [[ -d "$PROJECTS_DIR" ]]; then
+  while IFS= read -r project_dir; do
+    [[ -z "$project_dir" ]] && continue
+    [[ -n "$(find "$project_dir" -mindepth 2 -maxdepth 2 -type f -name 'plan.md' -print -quit 2>/dev/null)" ]] || continue
+    if [[ -f "$project_dir/PROJECT-STATUS.md" ]]; then
+      STATUS_FILE="$project_dir/PROJECT-STATUS.md"
+      break
+    fi
+  done < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+fi
+if [[ -z "$STATUS_FILE" && -f "$ASKILLS_DIR/PROJECT-STATUS.md" ]]; then
+  STATUS_FILE="$ASKILLS_DIR/PROJECT-STATUS.md"
 fi
 
 # --- helpers ----------------------------------------------------------------
@@ -65,13 +75,55 @@ plan_slug_of() {
   fi
 }
 
+list_nested_plan_files() {
+  [[ -d "$PROJECTS_DIR" ]] && \
+    find "$PROJECTS_DIR" -mindepth 3 -maxdepth 3 -type f -name 'plan.md' 2>/dev/null | sort
+}
+
+list_legacy_plan_files() {
+  [[ -d "$PLANS_DIR" ]] && \
+    find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null | sort
+}
+
 # list_plan_files  → every plan file across BOTH layouts, one per line:
 # nested `projects/<id>/<slug>/plan.md` first, then legacy flat `plans/*.md`.
 list_plan_files() {
-  [[ -d "$PROJECTS_DIR" ]] && \
-    find "$PROJECTS_DIR" -mindepth 3 -maxdepth 3 -type f -name 'plan.md' 2>/dev/null
-  [[ -d "$PLANS_DIR" ]] && \
-    find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name '*.rendered.md' 2>/dev/null
+  list_nested_plan_files
+  list_legacy_plan_files
+}
+
+# select_active_plan <branch>  → prints two lines: active-plan-count, then the
+# chosen active nested plan if any, otherwise legacy flat fallback. Within the
+# chosen layout, prefer branch match, then newest.
+select_active_plan() {
+  local branch=$1 layout f status pbranch mtime
+  local branch_matched="" newest="" newest_mtime=0 count=0
+  for layout in nested legacy; do
+    branch_matched=""
+    newest=""
+    newest_mtime=0
+    count=0
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      status=$(get_field "$f" status)
+      [[ "$status" != "active" ]] && continue
+      count=$((count + 1))
+      pbranch=$(get_field "$f" branch)
+      if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
+        branch_matched="$f"
+      fi
+      mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+      if (( mtime > newest_mtime )); then
+        newest_mtime=$mtime
+        newest="$f"
+      fi
+    done < <([[ "$layout" == "nested" ]] && list_nested_plan_files || list_legacy_plan_files)
+    if (( count > 0 )); then
+      printf '%s\n%s\n' "$count" "${branch_matched:-$newest}"
+      return 0
+    fi
+  done
+  printf '0\n\n'
 }
 
 # phases_dir_of <plan-file>  → the directory holding that plan's phase
@@ -206,25 +258,10 @@ fi
 active_plan=""
 active_plan_count=0
 if [[ -d "$PROJECTS_DIR" || -d "$PLANS_DIR" ]]; then
-  branch_matched=""
-  newest=""
-  newest_mtime=0
-  while IFS= read -r f; do
-    [[ -z "$f" ]] && continue
-    status=$(get_field "$f" status)
-    [[ "$status" != "active" ]] && continue
-    active_plan_count=$((active_plan_count + 1))
-    pbranch=$(get_field "$f" branch)
-    if [[ -n "$branch" && -n "$pbranch" && "$pbranch" == "$branch" && -z "$branch_matched" ]]; then
-      branch_matched="$f"
-    fi
-    mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
-    if (( mtime > newest_mtime )); then
-      newest_mtime=$mtime
-      newest="$f"
-    fi
-  done < <(list_plan_files)
-  active_plan="${branch_matched:-$newest}"
+  {
+    IFS= read -r active_plan_count
+    IFS= read -r active_plan
+  } < <(select_active_plan "$branch")
 fi
 
 active_initiative=""

@@ -16,6 +16,8 @@ tasksDone: 4
 tasksTotal: 4
 gatesMet: 1
 gatesTotal: 1
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: F0-G1
     description: O elo vive no sidecar; plan.md e frontmatters de fase ficam sem

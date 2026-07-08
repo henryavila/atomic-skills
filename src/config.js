@@ -97,6 +97,29 @@ export function getSkillPath(ideId, skillName) {
   return posix.join(ide.dir, ide.filePattern(skillName));
 }
 
+/**
+ * Project-root-relative directory where the shared `_assets/` (lazy-detail
+ * instruction files + templates) install for a given IDE.
+ *
+ * It is a deliberate SIBLING of the command/skill tree — one level ABOVE
+ * `ide.dir` (e.g. `.claude/atomic-skills/_assets`, not
+ * `.claude/commands/atomic-skills/_assets`). Reason: every IDE recursively scans
+ * its command/skill dir (`.claude/commands/`, `.cursor/skills/`, …) and registers
+ * EVERY `.md` it finds — so assets parked inside that tree leak into the slash
+ * palette as bogus `_assets:*` commands. Hoisting them out of the scanned tree
+ * keeps them inert (readable only by explicit path via {{ASSETS_PATH}}).
+ *
+ * Skills reference this via the {{ASSETS_PATH}} template variable; render.js
+ * prefixes `~/` for user scope so it resolves cross-repo.
+ */
+export function getAssetsDir(ideId) {
+  const ide = IDE_CONFIG[ideId];
+  const parent = posix.dirname(ide.dir);
+  return ide.format === 'toml'
+    ? `${parent}/${SKILL_NAMESPACE}-_assets`   // toml IDEs use the flat name pattern
+    : `${parent}/${SKILL_NAMESPACE}/_assets`;  // markdown/command IDEs use the directory pattern
+}
+
 export function getSkillFormat(ideId) {
   return IDE_CONFIG[ideId].format;
 }

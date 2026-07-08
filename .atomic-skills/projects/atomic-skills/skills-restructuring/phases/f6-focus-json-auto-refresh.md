@@ -16,6 +16,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 1
 gatesTotal: 1
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: F6-G1
     description: O fluxo de transição regenera o focus.json e os verifiers de

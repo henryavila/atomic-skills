@@ -19,6 +19,20 @@ const FORBIDDEN_TERMS = [
   '$ARGUMENTS'
 ];
 
+const HARDCODED_INVESTIGATOR_TOOL_PATTERNS = [
+  { label: 'native Agent', regex: /\bnative Agent\b/ },
+  { label: '`Agent`', regex: /`Agent`/ },
+  { label: 'Agent(', regex: /\bAgent\(/ },
+  { label: '`Workflow`', regex: /`Workflow`/ },
+  { label: 'Workflow(', regex: /\bWorkflow\(/ },
+];
+
+function hardcodedInvestigatorToolViolations(text) {
+  return HARDCODED_INVESTIGATOR_TOOL_PATTERNS
+    .filter(({ regex }) => regex.test(text))
+    .map(({ label }) => label);
+}
+
 /**
  * Helper to get all .md files recursively
  */
@@ -62,7 +76,27 @@ describe('Cross-Agent Compatibility (Lint)', () => {
           assert.ok(!hasHardcoded, `File ${relativePath} contains hardcoded tool name: "${term}". Use the corresponding {{VARIABLE}} instead.`);
         }
       });
+
+      const investigatorViolations = hardcodedInvestigatorToolViolations(content);
+      assert.deepEqual(
+        investigatorViolations,
+        [],
+        `File ${relativePath} hardcodes investigator tool reference(s) [${investigatorViolations.join(', ')}]. Use {{INVESTIGATOR_TOOL}} instead.`,
+      );
     });
+  });
+
+  it('flags hardcoded investigator tool names in source markdown', () => {
+    const bad = 'Use native Agent / `Workflow` fan-out.';
+    assert.deepEqual(
+      hardcodedInvestigatorToolViolations(bad),
+      ['native Agent', '`Workflow`'],
+    );
+  });
+
+  it('allows the investigator abstraction in source markdown', () => {
+    const good = 'Use {{INVESTIGATOR_TOOL}} fan-out.';
+    assert.deepEqual(hardcodedInvestigatorToolViolations(good), []);
   });
 });
 

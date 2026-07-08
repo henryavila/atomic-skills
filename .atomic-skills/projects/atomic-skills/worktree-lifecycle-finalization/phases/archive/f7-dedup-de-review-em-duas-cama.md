@@ -11,16 +11,19 @@ status: done
 branch: plan/worktree-lifecycle-finalization
 started: 2026-06-17T21:45:00Z
 lastUpdated: 2026-06-17T23:00:00Z
-nextAction: "PLANO IMPLEMENTADO — F0–F7 todas done. Próximo (operator-prompted, P2,
-  NÃO auto-rodar): project finalize (push plan/<slug> + abre PR feature→develop) e,
-  após merge do PR, archive. O dedup de review tem follow-up coordenado: flipar o
-  last-review.json pointer→NDJSON migrando os 4 leitores jq em lockstep."
+nextAction: "PLANO IMPLEMENTADO — F0–F7 todas done. Próximo (operator-prompted,
+  P2, NÃO auto-rodar): project finalize (push plan/<slug> + abre PR
+  feature→develop) e, após merge do PR, archive. O dedup de review tem follow-up
+  coordenado: flipar o last-review.json pointer→NDJSON migrando os 4 leitores jq
+  em lockstep."
 parentPlan: worktree-lifecycle-finalization
 phaseId: F7
 tasksDone: 4
 tasksTotal: 4
 gatesMet: 2
 gatesTotal: 2
+weightDone: 4
+weightTotal: 4
 exitGates:
   - id: G-1
     description: Ledger ponteiro→conjunto com migração fail-safe, append,
@@ -38,12 +41,12 @@ exitGates:
       exitCode: 0
       testsCollected: 20
       passed: true
-      outputSummary: "node --test tests/review-ledger.test.js @ 83d2ee1: tests 20, pass
-        20, fail 0. readLedger/recordReview/alreadyReviewed NDJSON fail-safe + oráculo
-        patch-id sob squash + fixes adversariais C1-C4 (byte-preserve, pointer-misclassify,
-        partial-proof, never-throws)."
+      outputSummary: "node --test tests/review-ledger.test.js @ 83d2ee1: tests 20,
+        pass 20, fail 0. readLedger/recordReview/alreadyReviewed NDJSON
+        fail-safe + oráculo patch-id sob squash + fixes adversariais C1-C4
+        (byte-preserve, pointer-misclassify, partial-proof, never-throws)."
     verifierLabel: "test: node tests/review-ledger.test.js"
-    evidenceSummary: passed · 2026-06-17
+    evidenceSummary: passed · 20 tests · 2026-06-17
   - id: G-2
     description: review-code e review-due documentam o dedup (âncora review-dedup,
       fail-para-RE-revisar); work-order ao autor do project review presente
@@ -62,8 +65,9 @@ exitGates:
       verifiedAt: 2026-06-17T23:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: "grep review-dedup (review-code.md + project-drift.md) +
-        project-review-dedup (workorder) && validate-skills 15/15 exit 0 @ 83d2ee1."
+      outputSummary: grep review-dedup (review-code.md + project-drift.md) +
+        project-review-dedup (workorder) && validate-skills 15/15 exit 0 @
+        83d2ee1.
     verifierLabel: "shell: grep -qi 'review-dedup' skills/core/review-code.md && grep …"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -111,13 +115,15 @@ tasks:
       exitCode: 0
       testsCollected: 10
       passed: true
-      outputSummary: "node --test tests/review-ledger.test.js @ 2c4ca99 (merged primary):
-        tests 10, pass 10, fail 0. Módulo puro review-ledger.js (readLedger/recordReview/
-        alreadyReviewed) NDJSON, fail-safe em pointer-legado/ausente/malformado,
-        recordReview preserva prior bytes (union-safe), alreadyReviewed só prova positiva
-        (mode + SHA-ou-patchId squash-safe). Mode 2 Codex (impl/wlf-f7-t-001, ff 2c4ca99);
-        auto-report -o 'tests 1' DESCARTADO per wlf-f0-nascimento L-001 (real 10); fence
-        source-only; last-review.json vivo + merge=union deferidos ao wiring (T-002+)."
+      outputSummary: "node --test tests/review-ledger.test.js @ 2c4ca99 (merged
+        primary): tests 10, pass 10, fail 0. Módulo puro review-ledger.js
+        (readLedger/recordReview/ alreadyReviewed) NDJSON, fail-safe em
+        pointer-legado/ausente/malformado, recordReview preserva prior bytes
+        (union-safe), alreadyReviewed só prova positiva (mode + SHA-ou-patchId
+        squash-safe). Mode 2 Codex (impl/wlf-f7-t-001, ff 2c4ca99); auto-report
+        -o 'tests 1' DESCARTADO per wlf-f0-nascimento L-001 (real 10); fence
+        source-only; last-review.json vivo + merge=union deferidos ao wiring
+        (T-002+)."
   - id: T-002
     title: Dedup em review-code e review-due (por modo, fail-para-RE-revisar)
     status: done
@@ -154,12 +160,13 @@ tasks:
       exitCode: 0
       passed: true
       outputSummary: "grep -ci 'review-dedup' → review-code.md 2, project-drift.md 2;
-        npm run validate-skills → All 15 skills valid, exit 0. review-code.md Step 0.5
-        (review-dedup): fingerprint commitSha+patch-id, skip per-mode só com prova
-        positiva (alreadyReviewed), record após via recordReview; project-drift.md
-        generaliza last-review.json pointer→NDJSON set-ledger (readLedger migra o pointer
-        legado fail-safe) e wira o review-due ao dedup codex + recordReview append.
-        Mode 1 inline (doc auto-referencial), defere ao ledger da T-001. validate-state 0."
+        npm run validate-skills → All 15 skills valid, exit 0. review-code.md
+        Step 0.5 (review-dedup): fingerprint commitSha+patch-id, skip per-mode
+        só com prova positiva (alreadyReviewed), record após via recordReview;
+        project-drift.md generaliza last-review.json pointer→NDJSON set-ledger
+        (readLedger migra o pointer legado fail-safe) e wira o review-due ao
+        dedup codex + recordReview append. Mode 1 inline (doc auto-referencial),
+        defere ao ledger da T-001. validate-state 0."
   - id: T-003
     title: Teste-oráculo de patch-id sob squash
     status: done
@@ -190,12 +197,13 @@ tasks:
       exitCode: 0
       testsCollected: 13
       passed: true
-      outputSummary: "node --test tests/review-ledger.test.js @ HEAD: tests 13, pass 13,
-        fail 0 (10 da T-001 + 3 do oráculo T-003). Oráculo patch-id sob squash: superfície
-        squash-merged com patchId casando → reconhecida (apesar do SHA reescrito); patchId
-        não-casa → RE-revisa; SHA reescrito SEM patch-id usável (query sem patchId, ou
-        record sem patchId) → RE-revisa (fail-safe). Diffs/patch-ids injetados, não roda
-        git real. Mode 1 inline (+= no arquivo de teste da T-001)."
+      outputSummary: "node --test tests/review-ledger.test.js @ HEAD: tests 13, pass
+        13, fail 0 (10 da T-001 + 3 do oráculo T-003). Oráculo patch-id sob
+        squash: superfície squash-merged com patchId casando → reconhecida
+        (apesar do SHA reescrito); patchId não-casa → RE-revisa; SHA reescrito
+        SEM patch-id usável (query sem patchId, ou record sem patchId) →
+        RE-revisa (fail-safe). Diffs/patch-ids injetados, não roda git real.
+        Mode 1 inline (+= no arquivo de teste da T-001)."
   - id: T-004
     title: Work-order ao autor do project review (Camada B)
     status: done
@@ -233,15 +241,16 @@ tasks:
       verifiedAt: 2026-06-17T22:45:00Z
       exitCode: 0
       passed: true
-      outputSummary: "grep -ci 'project-review-dedup' (4) && grep -ci 'append-only' (3) em
-        workorders/project-review-dedup.md, exit 0. Work-order cross-branch (Opus-owned,
-        NÃO edita project-review.md que vive na branch F4-skills): documenta o run-record
-        por-perna do composer ({auditedHead, auditedPlanSha, treeClean, verdict,
-        fingerprint} no MESMO last-review.json via recordReview), o carve-out append-only
-        EXPLÍCITO à política READ-ONLY, reuse-por-perna só com prova de input idêntico (a
-        perna de código defere ao ledger da Camada A), e a guarda absent-set-shape
-        (fail-para-RE-rodar) + guardrails de skill-authoring. Mode 1 (Opus, state-tree).
-        validate-state 65 files valid."
+      outputSummary: "grep -ci 'project-review-dedup' (4) && grep -ci 'append-only'
+        (3) em workorders/project-review-dedup.md, exit 0. Work-order
+        cross-branch (Opus-owned, NÃO edita project-review.md que vive na branch
+        F4-skills): documenta o run-record por-perna do composer ({auditedHead,
+        auditedPlanSha, treeClean, verdict, fingerprint} no MESMO
+        last-review.json via recordReview), o carve-out append-only EXPLÍCITO à
+        política READ-ONLY, reuse-por-perna só com prova de input idêntico (a
+        perna de código defere ao ledger da Camada A), e a guarda
+        absent-set-shape (fail-para-RE-rodar) + guardrails de skill-authoring.
+        Mode 1 (Opus, state-tree). validate-state 65 files valid."
 parked: []
 emerged: []
 summary: "Evita re-revisar o já-revisado: ledger de superfície nas pernas +

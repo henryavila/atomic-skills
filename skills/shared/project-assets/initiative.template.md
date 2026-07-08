@@ -20,7 +20,7 @@ exitGates: []
 
 # scope:
 #   paths:
-#     - .  # narrow once known; use `npm run detect-scope` to suggest
+#     - .  # narrow once known; use `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-scope.js"` to suggest
 
 stack:
   - { id: 1, title: 'REPLACE_INITIATIVE_TITLE', type: task, openedAt: REPLACE_ISO_TIMESTAMP }

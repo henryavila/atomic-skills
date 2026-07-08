@@ -4,14 +4,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
-import { parseWidgetMapKeys, resolveRendererPath } from '../scripts/build-aideck-widget-registry.mjs';
 
 // ── The guardrail that closes the `widget: z.string()` false green ───────────
 // The aiDeck manifest schema accepts ANY string for `widget:`, so a typo or a
 // not-yet-shipped widget parses clean and only fails at render as an "Unknown
 // widget" placeholder. This test gates the shipped consumer manifest against the
-// vendored registry snapshot (meta/aideck-widget-registry.json), and keeps that
-// snapshot honest by drift-checking it against the aiDeck source when reachable.
+// vendored registry snapshot (meta/aideck-widget-registry.json). The snapshot is
+// regenerated from the aiDeck source via `npm run build:aideck-widget-registry`;
+// it is NOT drift-checked here against a local ../aideck checkout (that coupled a
+// unit test to a developer's working clone — false reds when the clone lags).
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const REPO = join(__dirname, '..');
@@ -71,22 +72,5 @@ describe('aiDeck consumer manifest — every widget exists in the aiDeck registr
     };
     const unknown = unknownWidgets(poisoned, REGISTRY);
     assert.deepEqual(unknown, ['totally-not-a-widget'], 'the gate must flag an unknown widget');
-  });
-});
-
-describe('aiDeck widget registry — snapshot has not drifted from the aiDeck source', () => {
-  const rendererPath = resolveRendererPath();
-
-  it('matches the live WidgetRenderer.vue widgetMap (when an aiDeck checkout is reachable)', (t) => {
-    if (!rendererPath) {
-      t.skip('no aiDeck checkout reachable (set AIDECK_SRC or place a sibling ../aideck) — snapshot used as-is');
-      return;
-    }
-    const live = parseWidgetMapKeys(readFileSync(rendererPath, 'utf8'));
-    assert.deepEqual(
-      [...REGISTRY].sort(),
-      live,
-      'meta/aideck-widget-registry.json is stale — run `npm run build:aideck-widget-registry`',
-    );
   });
 });

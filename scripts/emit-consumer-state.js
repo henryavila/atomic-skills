@@ -23,7 +23,7 @@
  *
  * Outputs (under <root>/.aideck/state/):
  *   plans.json · phases.json · initiatives.json · tasks.json · gates.json
- *   phaseGates.json · stack.json · parked.json · emerged.json · projects.json
+ *   phaseGates.json · stack.json · parked.json · emerged.json · projects.json · planEdges.json
  *   burnup.json · spi.json
  *   (totals.json retired — the 4 Panorama totals are read-time source.agg now.)
  *
@@ -35,6 +35,7 @@ import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdirSy
 import { join, resolve } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
 import { verifierLabelFor, evidenceSummaryFor } from './compute-rollups.js';
+import { buildPlanDependencyGraph } from '../src/plan-dependencies.js';
 
 const STATE_DIRNAME = join('.aideck', 'state');
 
@@ -77,6 +78,91 @@ const eventWeightOf = (e) => (Number.isFinite(e?.weight) && e.weight >= 0 ? e.we
 const finiteOrNull = (v) => (Number.isFinite(v) ? v : null);
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
+function planGraphInput(entry) {
+  return {
+    ...entry.fm,
+    slug: entry.fm.slug || entry.planSlug,
+  };
+}
+
+function graphErrorSummary(error) {
+  return `${error.code}: ${error.message}`;
+}
+
+function buildProjectPlanGraphs(planEntries) {
+  const byProject = new Map();
+  for (const entry of planEntries) {
+    if (!byProject.has(entry.projectId)) byProject.set(entry.projectId, []);
+    byProject.get(entry.projectId).push(entry);
+  }
+
+  const out = new Map();
+  for (const [projectId, entries] of byProject) {
+    const graph = buildPlanDependencyGraph(entries.map(planGraphInput));
+    if (graph.errors.length > 0) {
+      throw new Error(`invalid plan dependency graph: ${graph.errors.map(graphErrorSummary).join('; ')}`);
+    }
+    out.set(projectId, graph);
+  }
+  return out;
+}
+
+function executionLaneFor(plan, graph) {
+  const status = plan?.status || 'pending';
+  if (status === 'done' || status === 'archived') return 'completed';
+  if (graph.blockedByPlans[plan.slug]?.length > 0) return 'blocked';
+  if (status === 'active') return 'running';
+  return 'ready';
+}
+
+function originTextFor(edge) {
+  if (!edge) return '';
+  const anchor = [edge.phaseId, edge.taskId].filter(Boolean).join('/');
+  return `Surgiu de ${edge.parent}${anchor ? ` · ${anchor}` : ''}`;
+}
+
+function buildPlanEdges(projectId, graph) {
+  const planEdges = [];
+  for (const edge of graph.dependencyEdges) {
+    const blocked = graph.blockedByPlans[edge.dependent]?.includes(edge.prerequisite) === true;
+    planEdges.push({
+      projectId,
+      type: 'dependency',
+      id: `${projectId}:${edge.dependent}->${edge.prerequisite}:dependency`,
+      fromPlan: edge.dependent,
+      toPlan: edge.prerequisite,
+      dependentPlan: edge.dependent,
+      prerequisitePlan: edge.prerequisite,
+      createdBy: edge.createdBy || '',
+      blocked,
+      resolved: !blocked,
+      releaseArchived: edge.release?.archived || '',
+      originPhaseId: edge.origin?.phaseId || '',
+      originTaskId: edge.origin?.taskId || '',
+      originMode: edge.origin?.mode || '',
+      label: `${edge.dependent} depende de ${edge.prerequisite}`,
+    });
+  }
+
+  for (const edge of graph.originEdges) {
+    planEdges.push({
+      projectId,
+      type: 'origin',
+      id: `${projectId}:${edge.parent}->${edge.child}:origin`,
+      fromPlan: edge.parent,
+      toPlan: edge.child,
+      parentPlan: edge.parent,
+      childPlan: edge.child,
+      phaseId: edge.phaseId || '',
+      taskId: edge.taskId || '',
+      mode: edge.mode || '',
+      label: `${edge.child} surgiu de ${edge.parent}`,
+    });
+  }
+
+  return planEdges;
+}
+
 // ── tree walk ───────────────────────────────────────────────────────────────
 
 /**
@@ -87,6 +173,27 @@ const clamp01 = (v) => Math.min(1, Math.max(0, v));
  */
 export function readTree(root) {
   const out = { plans: [], initiatives: [] };
+
+  // Flat legacy coexistence (C-4): `plans/*.md` + `initiatives/*.md` (+archive).
+  // Without this an un-migrated flat tree emits an empty dashboard even though the
+  // router promises "readers resolve nested first, fall back to flat" and the
+  // sibling compute-rollups/find-* already read flat. Flat records use the
+  // sentinel projectId `(flat)`; a flat initiative joins its plan via parentPlan.
+  const pushFlatMd = (dir, kind) => {
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+    for (const entry of readdirSync(dir).sort()) {
+      if (!entry.endsWith('.md') || entry.startsWith('.')) continue;
+      const parsed = parseFrontmatter(readFileSync(join(dir, entry), 'utf8'));
+      if (parsed.error || !parsed.frontmatter) continue;
+      const fm = parsed.frontmatter;
+      if (kind === 'plan') out.plans.push({ projectId: '(flat)', planSlug: fm.slug || entry.replace(/\.md$/, ''), fm });
+      else out.initiatives.push({ projectId: '(flat)', planSlug: fm.parentPlan || fm.slug || entry.replace(/\.md$/, ''), fm });
+    }
+  };
+  pushFlatMd(join(root, 'plans'), 'plan');
+  pushFlatMd(join(root, 'initiatives'), 'initiative');
+  pushFlatMd(join(root, 'initiatives', 'archive'), 'initiative');
+
   const projectsDir = join(root, 'projects');
   if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) return out;
 
@@ -128,6 +235,21 @@ export function readTree(root) {
  * filtering are left to the manifest's read-time source.agg / array filters.
  */
 export function buildState(tree, nowMs) {
+  const planGraphByProject = buildProjectPlanGraphs(tree.plans);
+  const originByProjectChild = new Map();
+  const executionIndexByProjectPlan = new Map();
+  const planEdges = [];
+
+  for (const [projectId, graph] of planGraphByProject) {
+    for (const edge of graph.originEdges) {
+      originByProjectChild.set(`${projectId}\u0000${edge.child}`, edge);
+    }
+    graph.executionOrder.forEach((slug, index) => {
+      executionIndexByProjectPlan.set(`${projectId}\u0000${slug}`, index);
+    });
+    planEdges.push(...buildPlanEdges(projectId, graph));
+  }
+
   // index initiatives by (projectId, planSlug, phaseId) for plan↔phase joins
   const initByPhase = new Map();
   for (const it of tree.initiatives) {
@@ -148,6 +270,8 @@ export function buildState(tree, nowMs) {
   const emerged = [];
 
   for (const { projectId, planSlug, fm } of tree.plans) {
+    const graph = planGraphByProject.get(projectId);
+    const graphPlan = graph?.planBySlug.get(fm.slug || planSlug) || { ...fm, slug: fm.slug || planSlug };
     const planPhases = arr(fm.phases);
     const phasesTotal = planPhases.length;
     const phasesDone = planPhases.filter((p) => p && p.status === 'done').length;
@@ -177,6 +301,13 @@ export function buildState(tree, nowMs) {
       roteiroSub: `${phasesDone}/${phasesTotal} fases concluídas`,
       switcherCaption: `${fm.status || ''} · ${curPhase ? curPhase.title : fm.currentPhase || ''}`.trim(),
       nextText: curInit ? curInit.nextAction || curInit.summary || '' : curPhase ? curPhase.summary || '' : '',
+      blockedByPlans: graph?.blockedByPlans[graphPlan.slug] || [],
+      blockedByPlansText: (graph?.blockedByPlans[graphPlan.slug] || []).join(', '),
+      unblocksPlans: graph?.unblocksPlans[graphPlan.slug] || [],
+      unblocksPlansText: (graph?.unblocksPlans[graphPlan.slug] || []).join(', '),
+      originText: originTextFor(originByProjectChild.get(`${projectId}\u0000${graphPlan.slug}`)),
+      executionLane: graph ? executionLaneFor(graphPlan, graph) : 'ready',
+      executionIndex: executionIndexByProjectPlan.get(`${projectId}\u0000${graphPlan.slug}`) ?? -1,
       focusTasksText: `${tDone}/${tTotal}`,
       focusTasksPct: tTotal > 0 ? Math.round((100 * tDone) / tTotal) : 0,
       focusMeta: `gates ${gMet}/${gTotal} · ${stackLen} frame${stackLen === 1 ? '' : 's'}`,
@@ -244,7 +375,10 @@ export function buildState(tree, nowMs) {
       planActive: fm.planActive === true,
       current: fm.current === true,
       lastUpdated: fm.lastUpdated || '',
-      nextText: fm.nextAction || '',
+      // A done/archived phase has no "próxima ação" — clear it so the detail
+      // card's PRÓXIMA AÇÃO callout collapses away instead of showing a stale,
+      // already-completed action.
+      nextText: (fm.status === 'done' || fm.status === 'archived') ? '' : (fm.nextAction || ''),
       summary: fm.summary || '',
       tasksDone: tDone,
       tasksTotal: tTotal,
@@ -406,7 +540,7 @@ export function buildState(tree, nowMs) {
     });
   }
 
-  return { plans, phases, initiatives, tasks, gates, phaseGates, stack, parked, emerged, projects };
+  return { plans, phases, initiatives, tasks, gates, phaseGates, stack, parked, emerged, projects, planEdges };
 }
 
 /**

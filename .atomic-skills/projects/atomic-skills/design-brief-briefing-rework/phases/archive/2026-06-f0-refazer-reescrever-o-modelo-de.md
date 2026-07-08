@@ -18,6 +18,8 @@ tasksDone: 5
 tasksTotal: 5
 gatesMet: 2
 gatesTotal: 2
+weightDone: 5
+weightTotal: 5
 exitGates:
   - id: F0-G1
     description: design-brief.md, os quatro assets e o spec canonico aplicam D3-D9 e

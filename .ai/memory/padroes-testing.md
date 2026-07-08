@@ -41,3 +41,104 @@ network):
 3. Adicionar pelo menos um teste que exercita explicitamente o fallback
    (ex.: "LANG vazio + Intl pt → pt") para garantir que o caminho de fallback
    funciona quando o primário falha.
+
+## Novo lazy asset de skill exige contratos de instalação e budget
+
+Quando adicionar um arquivo em `skills/shared/project-assets/` (ou outro asset
+copiado para namespaces das IDEs), atualize os testes que fixam a quantidade de
+arquivos instalados e inclua um spot-check do novo asset. O `npm test` completo
+pega isso via `tests/install.test.js`, mas a suíte focada da feature pode passar
+sem perceber o drift.
+
+Também confira `tests/skill-byte-budget.test.js` quando mexer em
+`skills/core/project.md`: uma nova linha residente de grammar/dispatch pode
+estourar o teto de bytes. Prefira encurtar a superfície residente e deixar o
+detalhe no lazy asset, em vez de aumentar o teto.
+
+## Lifecycle E2E deve afirmar estado pós-transição
+
+Em testes que simulam transições de lifecycle, não basta checar a lista inicial
+de arquivos emitida pelo setup. Depois que a ação sob teste roda, asserte o
+estado mutado no filesystem/frontmatter resultante.
+
+**Why:** Em 2026-07-01, o E2E de materialização lazy checava que F2 continuava
+descriptor-only olhando o array inicial de `materializeDecomposition`. Se o fluxo
+de ativação de F1 escrevesse `phases/f2-*.md` por acidente, o teste continuaria
+verde porque a lista pré-ação não mudaria. A revisão local pegou esse
+falso-verde antes do fechamento da fase.
+
+**How to apply:** Em testes de `phase-done`, `switch`, `phase-reopen`,
+`materialize` ou fluxos similares:
+1. Execute a transição.
+2. Releia o frontmatter ou consulte o filesystem produzido pela transição.
+3. Asserte presença/ausência de arquivos e campos no estado pós-ação, não em
+   estruturas capturadas antes da ação.
+
+## Hooks e testes de ambiente precisam de HOME isolado
+
+Hooks de sessão podem ler arquivos globais do usuário (`~/.atomic-skills/env`,
+`~/.aideck/env`, package-root etc.). Se a suíte usa o HOME real, um estado local
+válido da máquina do Henry pode contaminar um teste que esperava contexto vazio.
+
+**Why:** Em 2026-07-03, `tests/hooks/session-start.test.sh` falhou localmente no
+caso "sem .atomic-skills/" porque o hook injetou "Dashboard running" a partir de
+`~/.atomic-skills/env`. A lógica estava correta; o teste não isolava todas as
+fontes externas.
+
+**How to apply:** Ao rodar ou criar testes de hooks, envolver a suíte com HOME
+temporário quando o teste não quer ler estado global:
+
+```bash
+tmp_home=$(mktemp -d)
+HOME="$tmp_home" npm run test:hooks
+```
+
+Quando um teste precisa exercitar o env global, crie explicitamente o arquivo no
+HOME temporário dentro do próprio caso.
+
+## Runtime artifacts precisam testar recuperação de journals antigos
+
+Efeitos de runtime que usam journal como prova de ownership precisam cobrir não
+só install limpo e update atual, mas também estados históricos defeituosos que
+podem existir no `$HOME` do usuário. Se um journal antigo perdeu ownership
+(`stageRuntimeArtifacts.beforeState.created: []`) mas o arquivo em disco é
+byte-a-byte igual ao artefato desejado, o update pode adotar esse arquivo com
+segurança; se os bytes divergem, continua sendo conflito de usuário.
+
+**Why:** Em 2026-07-08, `node bin/cli.js install` falhou com
+`stageRuntimeArtifacts conflict` para `.atomic-skills/hooks/version-check.sh`.
+O arquivo no disco era idêntico ao source, mas o manifest tinha `created: []`;
+o efeito só aceitava `!existedBefore` ou `previous.created`, então bloqueava a
+recuperação de um artefato nosso deixado por journal antigo.
+
+**How to apply:** Ao alterar efeitos runtime:
+1. Adicionar teste de regressão de integração com manifest antigo realista.
+2. Adicionar teste unitário para adoção byte-idêntica de arquivo único.
+3. Manter teste de conflito para bytes diferentes, provando que user-owned não
+   é sobrescrito.
+4. Não aplicar a adoção a `sourceTree`; árvore precisa continuar exigindo
+   ownership explícito para evitar apagar diretórios de usuário.
+
+## Run records de rollback registram antes da escrita canônica
+
+Fluxos resumíveis que prometem rollback por `filesWritten` precisam persistir o
+alvo antes de tentar escrever o arquivo canônico. Registrar só depois da escrita
+abre uma janela de crash/interrupção em que o arquivo existe mas o run record não
+consegue removê-lo no resume.
+
+**Why:** Em 2026-07-03, o review de `project-create-plan.md` encontrou a
+instrução "write file, then append to filesWritten". Isso contradizia a regra de
+não inferir metade-criada por scan de `.atomic-skills/projects/`.
+
+**How to apply:** Para cada path materializado:
+1. Calcule `filesPlanned`.
+2. Antes da escrita canônica, adicione o path a `filesWritten` e persista o run
+   record.
+3. Escreva o arquivo.
+4. No rollback/resume, delete exatamente `filesWritten`; deletar path
+   registrado mas não criado é no-op aceitável, arquivo criado sem registro é
+   proibido.
+
+Regressão útil: teste textual/estrutural que falha se o skill voltar a instruir
+"write then append". Para scripts executáveis, preferir teste de fault-injection
+entre registro e escrita.

@@ -58,3 +58,46 @@ serving the old manifest. Kill by `lsof -iTCP:7777 -iTCP:7778 -sTCP:LISTEN` pids
 lock-pid read. **Verify the rendered DOM with headless Playwright** (anchors,
 `getComputedStyle(row).cursor`, widget Y-order) — the manifest API and unit tests can
 be green while the browser shows stale/wrong. Use `waitUntil:'load'` (SSE never idles).
+
+## Local aiDeck dev workflow and smoke gotchas (2026-06-25)
+- `scripts/dev-aideck.mjs link` must stage the same launcher shim produced by
+  `src/runtime-layers/aideck.js::buildShim()`. Copying `dist/cli.js` directly into
+  `~/.atomic-skills/bin/aideck.mjs` breaks because the CLI's relative imports
+  resolve beside the staged shim instead of beside the aiDeck package `dist/`.
+  Regression tests must execute the staged shim, not only inspect strings.
+- The v2 consumer dataSources bind to regenerable JSON under
+  `.atomic-skills/.aideck/state/*.json`. Before dashboard serve/register/smoke,
+  run the `refresh-state` chokepoint so `plans.json`, `phases.json`, and
+  `initiatives.json` exist. Missing files surface as REST `io_error` on
+  `/api/consumers/atomic-skills/projects/<projectId>/data/<ds>`.
+- `initiatives` is `root: project`; the smoke route is
+  `/api/consumers/atomic-skills/projects/<projectId>/data/initiatives`, not the
+  old `/api/consumers/atomic-skills/initiatives`.
+- `aideck up` alone starts the API without the staged SPA and `/` returns
+  `not found`. For a browser dashboard either use `atomic-skills serve` or pass
+  `--static-dir=$HOME/.atomic-skills/dashboard`, then register the project.
+
+## aiDeck Home vs project scope (2026-06-25)
+- The aiDeck root `/` is the global dashboard landing. It must render the
+  project-centric consumer's `nav.landingPage` in place; it must NOT redirect to
+  `/:consumerId/:landingPage`, because that makes a cross-project Panorama look
+  scoped to a consumer/project in the URL.
+- In aiDeck code, keep this generic: prefer the registered consumer whose summary
+  has `navStyle: 'projects'`; use its manifest as the rendering/data contract,
+  but keep `router.currentRoute.fullPath === '/'`.
+- On the landing page for `nav.style:'projects'`, `selectedProjectId` must stay
+  `undefined`. The first registered project may appear inside the Panorama card
+  list, but it must not become the page scope. Per-project pages (`foco-agora`,
+  detail routes, or `?project=`) are the only places that expand/select projects.
+
+## Dashboard lifecycle semantics (2026-06-25)
+- Avoid the ambiguous label "frentes vivas" unless it has a single technical
+  predicate. Use explicit lifecycle buckets:
+  - `active`/`paused`/`blocked` = open operational work that can demand attention.
+  - `done` = recently completed work; show it in the project-level Visao geral
+    below the active/paused sections, not in the cold-history page.
+  - `archived` = cold history; show it only in Arquivados, ordered by recency and
+    optimized for regression/search rather than day-to-day focus.
+- Panorama should help choose which project needs attention. Foco agora should
+  show what to act on. Visao geral should explain project health and lifecycle
+  distribution. Arquivados should not compete with operational screens.

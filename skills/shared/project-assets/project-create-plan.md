@@ -52,7 +52,7 @@ Read the source plan (either the file seeded from the approved design, the file 
 **PLAN precondition — refuse without an approved design (R-ORCH-09).** Before decomposing, confirm a committed `design.md` exists for this plan and passes the section lint:
 
 ```bash
-node scripts/lint-design.js projects/<project-id>/<slug>/design.md
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js" projects/<project-id>/<slug>/design.md
 # add --migration when the plan is a one-way-door / migration (requires a Blast radius section)
 ```
 
@@ -61,7 +61,7 @@ A non-zero exit (missing file, or a missing/empty required section) **HARD-BLOCK
 **No-Placeholders precondition — reject authored fill-me markers (R-ORCH-12).** The source plan itself must be free of leftover template/placeholder markers before it can decompose:
 
 ```bash
-node scripts/lint-source.js <source.md>
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source.md>
 ```
 
 A non-zero exit — any `REPLACE_*`, `TODO`/`TBD`/`FIXME` sentinel, fuzzy `<path>`-class placeholder, or "similar to Task N" cross-task hand-waving — **HARD-BLOCKS** decompose: **no file is written**. Fix the source and re-run. The gate is deterministic and zero-token (a pure `node` string scan, no LLM call), so it runs identically on every host. Unlike DESIGN, **no lane is exempt** from this one: even the magnitude-exempt single-task lane runs the No-Placeholders lint (R-ORCH-03 — "single-task runs ZERO gates *only* No-Placeholders lint"). It is intentionally narrow — a documented path *variable* like `projects/<id>/<slug>/` is not flagged; only the fixed fuzzy vocabulary (`<path>`, `<file>`, `<dir>`, `<…>`, …) is.
@@ -82,7 +82,7 @@ Decomposition rules live in the **Markdown decompose** section.
 **SPEC per-task admission gate (R-ORCH-19/23).** After the user confirms the structure and before Stage 6 writes anything, run the per-task gate over the same source. The SPEC gate is **No-Placeholders lint + per-task ambiguity checks, no panel** (R-ORCH-19) — no debate, no critic:
 
 ```bash
-node scripts/lint-source.js <source.md> --spec
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source.md> --spec
 ```
 
 A non-zero exit means at least one `### Tn` task lacks one of its four HOW fields — **exact paths (`Files:`), a `scopeBoundary:`, `acceptance:` criteria, or a DETERMINISTIC `verifier:`** (`kind shell`/`test`/`query`; `manual` does not satisfy the gate). No task is admitted to implement without all four (R-ORCH-23). Fix the source and re-run; the per-task interior carries into the materialized task's existing schema fields (`description`/`acceptance[≤5]`/`scopeBoundary[]`/`verifier`) — **no new schema keys**. Bullet-mode task lists (a `### Tasks` marker + `- **Tn — …**` bullets) cannot express the interior, so the gate requires the verbose `### Tn` form.
@@ -103,6 +103,28 @@ Na criação, todo plano — solo ou concorrente — forka incondicionalmente su
 
 This is the **soft** form — detect + guided choice, never a silent multi-active; **record the chosen isolation verbatim, never default to "proceed".** The **hard** form (block a 2nd active plan that shares a tree with no distinct `branch:`) is `verify`'s `WARN → FAIL` promotion, the same dry-run→strict ladder as the other gates.
 
+**F0 businessIntent gate (active phase cannot start blank).** Collect the user-written `businessIntent` spine for F0 before materializing the active phase. Use {{ASK_USER_QUESTION_TOOL}} to ask for the five required fields (`value`, `workflow`, `rules`, `outOfScope`, `doneWhen`) in the install-configured communication language — the same canonical spine `materialize` collects for F1..N (which may also carry an optional `derived[]` of open-questions, never gated). Reject blank values and `[NEEDS CLARIFICATION]`; if the user cannot answer, stop before writing state. Store the ratified object as `<businessIntent>` and pass it into `materializeDecomposition`, so both the F0 plan descriptor and F0 initiative frontmatter carry the same business intent spine from creation.
+
+**Creation gate run record (resume / cancel boundary).** Before Stage 6 writes any canonical state file, write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with:
+
+```json
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "<slug>",
+  "projectId": "<project-id>",
+  "sourcePath": "<source.md>",
+  "stage": "ready-to-materialize",
+  "businessIntentAccepted": true,
+  "filesPlanned": [],
+  "filesWritten": [],
+  "status": "pending",
+  "updatedAt": "<now>"
+}
+```
+
+Update the record after `materializeDecomposition` returns (`filesPlanned`), before each canonical file write (`filesWritten` gets the path first, then the file is written), after validation (`status: "validated"`), and after the review receipt gate (`status: "ready"`). On `cancel` before the first canonical write, set `status: "cancelled"` and write nothing else. On any failure after a canonical write attempt, delete exactly `filesWritten`, set `status: "rolled-back"` with the verbatim error, and stop. On resume, read this record first: if `status` is `pending` with no `filesWritten`, continue at Stage 6; if `filesWritten` is non-empty and validation/review is incomplete, validate those exact paths or roll them back before continuing. Do not infer a half-created plan by scanning `.atomic-skills/projects/`; the creation gate is the authority.
+
 Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
 ```bash
@@ -110,47 +132,53 @@ node -e "
 import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
   const md = require('node:fs').readFileSync('<source.md>', 'utf8');
   const result = decomposePlan(md, { planSlug: '<slug>' });
-  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: 'plan/<slug>' });
+  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: 'plan/<slug>', businessIntent: <businessIntent> });
   console.log(JSON.stringify(files));
 });"
 ```
 
 The returned `{relativePath, content}[]` resolves to:
 - `.atomic-skills/projects/<project-id>/<slug>/plan.md` (from `{{ASSETS_PATH}}/plan.template.md`)
-- `.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-<phase-slug>.md` per phase (from `{{ASSETS_PATH}}/initiative.template.md`, `parentPlan: <slug>` + `phaseId: <id>` filled, plan-membership block kept)
+- `.atomic-skills/projects/<project-id>/<slug>/phases/f0-<phase-slug>.md` for the initially active F0 initiative (from `{{ASSETS_PATH}}/initiative.template.md`, `parentPlan: <slug>` + `phaseId: F0` filled, plan-membership block kept)
+- `.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-<phase-slug>.source.json` for every descriptor-only F1..N phase retained for future `materialize <phase>`
 
-For each entry, `mkdir -p` its parent dir and write it (plan first, so a failure never orphans phases). Then append rows to that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`) — the Plan in "Active Plans", each phase initiative under it.
+For each entry, `mkdir -p` its parent dir, append the path to `filesWritten` and persist the creation gate, then write the canonical file (plan first, so a failure never orphans phases). Recording the path before the write makes rollback/resume safe if the session is interrupted between write attempts. Then append rows to that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`) — the Plan in "Active Plans" and only the materialized F0 initiative under it. Do not add F1+ rows yet; descriptor-only phases become initiative rows only when `materialize <phase>` writes their `.md` file.
 
 **Phase summaries — author + user-validate (post-decompose annotation; decompose.js stays frozen per R-ORCH-10).** For each materialized phase, write a **concise one-line `summary`** of what it does — distinct from the longer technical `goal` — **in the install-configured communication language** (the `manifest.json` `language`; never an ad-hoc choice) — onto BOTH `plan.phases[].summary` (the descriptor, read by the Home timeline) and the phase's initiative `summary` (read by the Home "Agora"). Then **validate them with the user via {{ASK_USER_QUESTION_TOOL}}** before finalizing — present every phase's summary in the message, then ask (e.g. "Os resumos das fases estão coerentes e claros?") with options `Aprovar todos` / `Ajustar alguns`; on adjust, apply the user's corrections and re-confirm. Do NOT finalize the plan on an assumed-OK. The summary is a dev memory-aid AND a check that your decomposition interpretation matches the user's intent — **treat a correction as a signal the phase may be mis-scoped, not just mis-worded** (re-open the decomposition if so). (This is additive — an optional field authored after materialization; it never changes the decompose source format or heuristics.)
 
-**Task summaries — author in the SAME validation gate (one level down).** For each materialized **task**, also write a **concise one-line `summary`** of what it does — distinct from the label `title` and the longer `description` — onto its `tasks[].summary`, **in the install-configured communication language**. Author these together with the phase summaries and present BOTH in the single {{ASK_USER_QUESTION_TOOL}} message above (e.g. group each phase's summary followed by its tasks' summaries), so the user approves the whole decomposition's wording at once (`Aprovar todos` / `Ajustar alguns`). The task summary is what the dashboard Home (Agora) and Initiative-detail tables show per row — a bare id/title reads as noise, the summary makes it actionable. Same additive, post-decompose, decompose.js-frozen discipline as phase summaries. **Guarantee:** before declaring the plan ready, run `node scripts/find-missing-task-summaries.js` — a non-zero exit means a task slipped through; author + validate the stragglers before finishing.
+**Task summaries — author in the SAME validation gate (one level down).** For each materialized **task**, also write a **concise one-line `summary`** of what it does — distinct from the label `title` and the longer `description` — onto its `tasks[].summary`, **in the install-configured communication language**. Author these together with the phase summaries and present BOTH in the single {{ASK_USER_QUESTION_TOOL}} message above (e.g. group each phase's summary followed by its tasks' summaries), so the user approves the whole decomposition's wording at once (`Aprovar todos` / `Ajustar alguns`). The task summary is what the dashboard Home (Agora) and Initiative-detail tables show per row — a bare id/title reads as noise, the summary makes it actionable. Same additive, post-decompose, decompose.js-frozen discipline as phase summaries. **Guarantee:** before declaring the plan ready, run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` — a non-zero exit means a task slipped through; author + validate the stragglers before finishing.
 
-**Task weight — author in the SAME validation gate (structural proxy).** For each materialized **task**, also write a numeric `weight` (a number ≥ 0; omitted is treated as 1) onto its `tasks[].weight` as a complexity proxy derived from structural signals: number of acceptance items, Files, `scopeBoundary`, and verifier kind. Author these together with the phase/task summaries after decompose output is materialized, and present them in the same validation message so the user approves the decomposition wording and sizing at once. Same additive, post-decompose, decompose.js-frozen (R-ORCH-10) discipline as summaries: do not teach `decompose.js` to infer weight, and do not patch the source format to carry it. **Guarantee:** before declaring the plan ready, run `node scripts/find-unweighted-tasks.js` — a non-zero exit means a task slipped through; author the stragglers before finishing.
+**Task weight — author in the SAME validation gate (structural proxy).** For each materialized **task**, also write a numeric `weight` (a number ≥ 0; omitted is treated as 1) onto its `tasks[].weight` as a complexity proxy derived from structural signals: number of acceptance items, Files, `scopeBoundary`, and verifier kind. Author these together with the phase/task summaries after decompose output is materialized, and present them in the same validation message so the user approves the decomposition wording and sizing at once. Same additive, post-decompose, decompose.js-frozen (R-ORCH-10) discipline as summaries: do not teach `decompose.js` to infer weight, and do not patch the source format to carry it. **Guarantee:** before declaring the plan ready, run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"` — a non-zero exit means a task slipped through; author the stragglers before finishing.
 
-**Completion signal at creation (Component E — soft nudge, raises the detection floor).** A task is auto-detectable as "done in code" only if it carries a deterministic close-signal: a `verifier` OR at least one `outputs[].path`. As you materialize tasks, give each a signal where one is natural (most implementation tasks have an obvious output file or a test). For any task that ends up with **neither**, surface a soft prompt — *"T-00x has no completion signal (verifier or outputs.path); add one so it can be auto-detected as done?"* — and let the user decline (some tasks are genuinely unverifiable; it is a nudge, not a hard gate). **Audit before finishing:** run `node scripts/find-signalless-tasks.js` (zero-token, exits non-zero, lists offenders) — this is the backfill counterpart to `find-missing-task-summaries.js`. Over a plan's life this keeps the undetectable (`none`) blind spot rare, so `detect-completion` sees almost all real completion.
+**Completion signal at creation (Component E — soft nudge, raises the detection floor).** A task is auto-detectable as "done in code" only if it carries a deterministic close-signal: a `verifier` OR at least one `outputs[].path`. As you materialize tasks, give each a signal where one is natural (most implementation tasks have an obvious output file or a test). For any task that ends up with **neither**, surface a soft prompt — *"T-00x has no completion signal (verifier or outputs.path); add one so it can be auto-detected as done?"* — and let the user decline (some tasks are genuinely unverifiable; it is a nudge, not a hard gate). **Audit before finishing:** run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` (zero-token, exits non-zero, lists offenders) — this is the backfill counterpart to `find-missing-task-summaries.js`. Over a plan's life this keeps the undetectable (`none`) blind spot rare, so `detect-completion` sees almost all real completion.
 
 After writing every file, **normalize then validate**:
 
 ```bash
+# 0. Ensure every materialized phase has businessIntent on both state surfaces
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md
+
 # 1. Auto-repair known drift (gate status synonyms, references kind/title,
 #    missing required initiative fields). Idempotent; safe to always run.
 #    Resolve the script the same way the `status` default view does.
 NORM=""
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null)"
 for c in "$PWD/src/normalize.js" \
          "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js" \
-         "$HOME/.atomic-skills/src/normalize.js"; do
+         "$HOME/.atomic-skills/src/normalize.js" \
+         ${PKG_ROOT:+"$PKG_ROOT/src/normalize.js"}; do
   [ -f "$c" ] && NORM="$c" && break
 done
 [ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
 
 # 2. Validate (nested paths; legacy fallback shown in parens).
-npm run validate-state .atomic-skills/projects/<project-id>/<slug>/plan.md         # (legacy: .atomic-skills/plans/<slug>.md)
-npm run validate-state .atomic-skills/projects/<project-id>/<slug>/phases/         # per phase (legacy: .atomic-skills/initiatives/)
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md         # (legacy: .atomic-skills/plans/<slug>.md)
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md         # validate only emitted .md initiatives; .source.json sidecars are capture artifacts
 ```
 
 If `NORM` is empty (script not resolvable in this repo), apply the normalization rules inline before validating — same rules as the `status` default view STATE_ERROR auto-repair: gate `status` synonyms → `met`/`pending` (never `done` on a gate), `references[]` get a `kind` and `label` (not `title`), missing required **initiative** arrays → `[]` and `branch`/`nextAction` → `null` (never touch plan files this way — they are `.strict()`).
 
-If any file still fails schema validation after normalization, surface the errors and roll back (delete the just-written files). Do not leave partial state on disk.
+If any file still fails schema validation after normalization, surface the errors and roll back (delete exactly `creationGate.filesWritten`). Do not leave partial state on disk.
 
 ### Stage 7 — Activate first phase
 
@@ -169,7 +197,7 @@ Invoke `atomic-skills:review-plan --mode=internal` with arg = the plan file path
 - Bare assertions without `verified_by:` or `unverified:` (G6)
 - Internal contradictions, broken dependencies, ambiguous tasks
 
-Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher.
+Apply the findings inline before proceeding to 8b. Re-run `review-plan --mode=internal` until it returns zero findings of severity major or higher. When it returns clean, `review-plan` writes the **internal receipt** — a `- internal:` line in the plan's `## Reviews` section (see `review-plan`'s Closing). That receipt is what Stage 8c's deterministic gate checks; an internal review that left no `- internal:` line is treated as **not run**.
 
 **Stage 8b — Cross-model review with Codex (intrusive-actions rule).**
 
@@ -178,9 +206,20 @@ Announce to the user:
 > The plan is materialized and passed internal review. Run a cross-model adversarial review via Codex (`atomic-skills:review-plan --mode=codex`)? This catches same-model blind spots that internal review misses. Cost: ~$0.50–$1.50 per run, 5–10 minutes wall time. (y/N)
 
 - On `y`: invoke `atomic-skills:review-plan` with args = `<plan path> --mode=codex` (skips the Step 0a mode picker and runs only the codex sub-flow). Apply blocker/critical findings before proceeding. Major findings: at minimum surface them; user decides per item.
-- On `n`: continue, but record the skip in the plan's `## Self-review against code-quality gates` block (new line: `Codex review: SKIPPED — <user reason or "not provided">`).
+- On `n`: continue, but record the skip as a `- codex: SKIPPED — <user reason or "not provided">` line in the plan's `## Reviews` section (the same section that carries the internal receipt). The internal receipt still makes the plan pass Stage 8c; codex is offered, not required.
 
-Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` codex sub-flow contract. The plan body MUST link to it in a `## Reviews` section appended after `## Self-review against code-quality gates`.
+Persistence: the review file goes to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<plan-slug>.md` exactly per the `review-plan` codex sub-flow contract. The plan body MUST link to it from the same `## Reviews` section (appended after `## Self-review against code-quality gates`), as a `- codex:` line.
+
+**Stage 8c — Receipt gate (deterministic, HARD-BLOCK).**
+
+8a/8b are LLM steps; a prose "always runs" is exactly what let a batch of plans land unreviewed before this gate existed (a skill cannot enforce its own invocation). So the close of Stage 8 is a zero-token, deterministic check that the review actually left a receipt on the plan materialized by THIS run — the same kind of gate Stages 4/5 already use:
+
+```bash
+PLAN_PATH=".atomic-skills/projects/<projectId>/<planSlug>/plan.md"
+node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" "$PLAN_PATH"
+```
+
+A non-zero exit means the newly materialized plan lacks a `## Reviews` section with a `- internal:` line — the internal review (8a) either did not run or left no receipt. This **HARD-BLOCKS** declaring that plan ready: re-run 8a so `review-plan` writes the receipt, then re-run the scoped gate. Resolve the script the same 3-path way Stage 6's normalize step does (repo `./scripts`, global npm root, `$HOME/.atomic-skills`). This gate checks only the newly materialized plan; the tree-wide backstop is `project verify` check #10, where pre-existing legacy or batch-created plans already on disk surface as report-only WARNs. Batch/programmatic materialization that bypasses this flow entirely is caught there, not here.
 
 ### Stage 9 — Announce
 
@@ -267,7 +306,7 @@ This section covers Stages 2 and 3 in full. The DESIGN front-half is **owned** b
 
 Invoke `atomic-skills:brainstorm` with the user's goal as the seed and the `<project-id>`/`<slug>` this plan belongs to. brainstorm runs B0–B5 (frame the decision questions → diverge via `atomic-skills:debate --gate` only when ≥2 viable approaches AND the decision is expensive-to-reverse → user ratifies → write `design.md` → critic gate → handoff). It returns a committed `projects/<project-id>/<slug>/design.md` that has passed the section lint, the critic's binary `Approved`, and the user's explicit approval.
 
-If brainstorm was interrupted, or the user already has an approved design, accept an existing `design.md` path instead — it still must pass `node scripts/lint-design.js` before Stage 4 decomposes (the PLAN precondition).
+If brainstorm was interrupted, or the user already has an approved design, accept an existing `design.md` path instead — it still must pass `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js"` before Stage 4 decomposes (the PLAN precondition).
 
 **Optional RENT probe (detect-and-degrade, R-SP-27/28).** superpowers discipline phrasing can enrich the design conversation but is never required. Detect it without blocking, with {{BASH_TOOL}}:
 
@@ -348,35 +387,35 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
    });"
    ```
 
-5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **Advisory No-Placeholders surface (R-ORCH-12):** `adopt` is the pre-lifecycle capture path, so the No-Placeholders lint runs **advisorily, not as a hard gate** — run `node scripts/lint-source.js <source-path>` and surface any `REPLACE_*`/`TODO`/fuzzy-path hits as warnings so the user can decide to clean them before or after capture; never block the capture on them. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
+5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **Advisory No-Placeholders surface (R-ORCH-12):** `adopt` is the pre-lifecycle capture path, so the No-Placeholders lint runs **advisorily, not as a hard gate** — run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source-path>` and surface any `REPLACE_*`/`TODO`/fuzzy-path hits as warnings so the user can decide to clean them before or after capture; never block the capture on them. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
 
-6. **Materialize.** On confirmation, run the pure transform:
+6. **Materialize.** On confirmation, collect the same user-written F0 `businessIntent` spine as the default flow. If the user cannot fill the five required fields, stop before writing state. Then write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with `kind: "adopt"`, `sourcePath: "<source-path>"`, `stage: "ready-to-materialize"`, `businessIntentAccepted: true`, `filesPlanned: []`, `filesWritten: []`, and `status: "pending"`. This is the durable resume boundary for `adopt`: before the first canonical write, `cancel` only marks the gate `cancelled`; after any write, rollback deletes exactly `filesWritten`. Resume reads this record first and never infers progress by scanning the destination tree. Then run the pure transform:
 
    ```bash
    node -e "
    import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
      const md = require('node:fs').readFileSync('<source-path>', 'utf8');
      const result = decomposePlan(md, { planSlug: '<slug>' });
-     const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>' });
+     const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>', businessIntent: <businessIntent> });
      console.log(JSON.stringify(files));
    });"
    ```
 
-   Then for each `{relativePath, content}` in the returned array (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`) and write the file. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
+   Then update the creation gate's `filesPlanned` from the returned `{relativePath, content}[]`. For each returned path (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`), append the path to `filesWritten` and persist the gate, then write the canonical file before proceeding to the next path. Recording the path before the write makes rollback/resume safe if the session is interrupted between write attempts; deleting a recorded-but-never-created path is a no-op, while an unrecorded created file is forbidden. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
-7. **Validate.** Run `npm run validate-state .atomic-skills/projects/<project-id>/<slug>/plan.md` and `npm run validate-state .atomic-skills/projects/<project-id>/<slug>/phases/` (legacy fallback `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/`). On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
+7. **Validate.** First run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<slug>/plan.md`; it must exit `0` because F0 is already materialized. This scoped gate checks the plan and F0 initiative just written without blocking on unrelated legacy plans; tree-wide detector runs remain an audit command, not this creation gate. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md` and `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/phases/<f0-phase-file>.md` (legacy fallback `.atomic-skills/plans/<slug>.md` + the emitted F0 initiative file). Do not validate the `phases/` directory as a proxy for all phases: descriptor-only F1+ entries are not `.md` initiatives yet, and `.source.json` sidecars are capture artifacts. On any validation failure, surface the errors verbatim and **roll back** — delete the files just written. Never leave partial state on disk; the manifest invariant is "every file in `.atomic-skills/` validates against its schema".
 
-8. **Update PROJECT-STATUS.md.** Append rows in that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`): the Plan to "Active Plans", each phase initiative to its plan's group. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
+8. **Update PROJECT-STATUS.md.** Append rows in that project's index `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` (legacy: top-level `.atomic-skills/PROJECT-STATUS.md`): the Plan to "Active Plans" and only the materialized F0 initiative to its plan's group. F1+ descriptor-only phases are visible through `plan.phases[]` and get initiative rows only after `materialize <phase>` writes their `.md` files. (Same content the `status` mutations write — `adopt` does it inline rather than calling out.)
 
 9. **Optional source archive.** Ask: "Archive the source markdown to `docs/archive/<YYYY-MM-DD>-<basename>`? (y/N)". If yes, `git mv` the file (preserves history). If no, leave it in place; the user can repeat `adopt` against an updated copy without conflict because the materialized state is the canonical source from this point forward.
 
 10. **Activate first phase.** Same as Stage 7 of the default flow.
 
-11. **Adversarial review.** Same as Stages 8a + 8b of the default flow — internal review always (apply findings inline), Codex cross-model review prompted to user (y/N). Persist the codex review file to `.atomic-skills/reviews/<…>.md` and link from the plan body's `## Reviews` section.
+11. **Adversarial review.** Same as Stages 8a + 8b + 8c of the default flow — internal review always (apply findings inline; `review-plan` writes the `- internal:` receipt), Codex cross-model review prompted to user (y/N), then the deterministic receipt gate `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" .atomic-skills` HARD-BLOCKS until the adopted plan carries a `## Reviews` receipt. Persist the codex review file to `.atomic-skills/reviews/<…>.md` and link from the plan body's `## Reviews` section.
 
 12. **Announce.** Same as Stage 9 of the default flow:
     - Plan path
-    - N initiatives created
+    - 1 initiative created + N descriptor-only source sidecars retained
     - Active phase: `<F0> — <title>`
     - Reviews: internal (zero findings) + codex (verdict, counts, file) OR (skipped per user)
     - Suggested next: `atomic-skills:project status` to view the bird's-eye
@@ -384,11 +423,16 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 ### Failure-mode summary
 
 - **Decompose throws (zero phases):** the source file does not match the convention. Surface the message verbatim; abort. Suggest the user run the default flow's minimal-template subflow (Stage 3 option `(c)`) and migrate content into it.
-- **Validation fails after materialize:** roll back (delete files), surface schema errors. The decomposer or materialize logic has a bug — file an initiative against atomic-skills, do NOT manually patch the files.
+- **Validation fails after materialize:** read the creation gate, roll back by deleting exactly `filesWritten`, mark it `rolled-back`, and surface schema errors. The decomposer or materialize logic has a bug — file an initiative against atomic-skills, do NOT manually patch the files.
 - **User aborts at step 5:** no files written, no rollback needed. The user can re-run `adopt` with an edited source file.
-- **User aborts during step 6 (rare — fs errors):** roll back any files written so far. The repo state must return to pre-`adopt` state on any failure.
+- **User aborts during step 6 (rare — fs errors):** roll back the creation gate's `filesWritten`. The repo state must return to pre-`adopt` state on any failure.
 
 ## Code-quality gates (plan creation)
+
+**Enforcement honesty (C-6 — what is deterministic vs. discipline).** Be precise about which of these the tooling actually enforces, so the skill never markets self-review as a machine gate:
+- **Deterministic, at authoring time:** the placeholder-literal subset (`REPLACE_*`, sentinel `TODO`/`FIXME`/`TBD`/`WIP`/`HACK`/`XXX`) is caught by `scripts/lint-source.js` (`lintSource`/`lintSpec`), run by this `new plan`/`adopt` flow before the plan is declared ready.
+- **Self-review discipline (NOT a `validate-state` check):** G2 soft-language and G6 reference-or-strike are enforced by the self-review block below + the review pass, not by `validate-state.js`. A plan with `nextAction: "this should probably work"` or an unreferenced exit-criterion passes `validate-state`/`verify`/CI green.
+- **Why SPEC-LINT is not a run-always tree gate:** `materializeDecomposition` intentionally seeds `TODO:` sentinels into descriptor-only F1..N phases (D1 lazy) and into any empty F0 field, so a tree-wide `validate-state` spec-lint would false-fail freshly-created and not-yet-materialized plans. The design once labeled a run-always SPEC-LINT "GATE-R3"; that never landed in `validate-state.js` for this reason, and the `GATE-R3` symbol in `validate-state.js` is a *different*, shipped invariant (the phase review-gate honesty check). Making SPEC-LINT a deterministic tree gate requires first changing decompose's placeholder strategy — an open decision, not shipped.
 
 This flow is bound by the gates in `docs/kb/code-quality-gates.md`. The plan you generate must comply with:
 
@@ -408,6 +452,7 @@ After the plan file is written (Stage 6, or after `adopt` materializes), before 
 - **G1 read-before-claim**: N claims about existing code, all backed by pasted source lines (see §X.Y for each). / N/A — plan describes entirely new work, no existing code referenced.
 - **G2 soft-language**: scanned the plan for the ban list; M occurrences found and rewritten (changelog: <…>). / 0 occurrences.
 - **G6 reference-or-strike**: K assertions, each carries `verified_by:` or `unverified:`. Unverified assertions: <list with reasons>.
+- **G10 gate-must-be-able-to-fail**: each exit-criterion states (or can state) its `FAILS when …` — the concrete defect that makes it red. Vanity criteria (no input makes them red, e.g. "well-structured") rewritten to a falsifiable claim or struck. Criteria without a stateable failure: <list, or "none">.
 ```
 
 If any gate is violated, do NOT close the planning session. Either fix the violation inline or write a follow-up task to address it before implementation begins. Silent application is forbidden — the checkpoint must be in the committed plan file.
@@ -416,13 +461,13 @@ If any gate is violated, do NOT close the planning session. Either fix the viola
 
 > Moved here from the `project` router (resident → lazy): the schema field-reference is consulted when materializing/authoring state, so it lives with the creation flow.
 
-**Plan** (`projects/<project-id>/<plan-slug>/plan.md` frontmatter; legacy flat `plans/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `version`, `status`, `started`, `lastUpdated`, `currentPhase` (string|null), `parallelismAllowed` (bool), `phases[]`. Optional: `branch`, `principles[]`, `glossary[]`, `tracks[]`, `interPhaseGates[]`, `supersedes`, `references[]`, `whatStaysValid[]`. Body = `narrative`.
-- `PhaseDescriptor`: `id`, `slug`, `title`, `goal`, `dependsOn[]`, `subPhaseCount`, `exitGate {summary, criteria[]}`, `status`. Optional: `summary`, `parallelWith[]`, `track`, `audience`, `externalImports[]`, `exitGateType`, `provenance`, `context`.
+**Plan** (`projects/<project-id>/<plan-slug>/plan.md` frontmatter; legacy flat `plans/<slug>.md`) — required: `schemaVersion` (`'0.1'` from current writers/templates; `'0.2'` accepted for explicit upgrades), `slug`, `title`, `version`, `status`, `started`, `lastUpdated`, `currentPhase` (string|null), `parallelismAllowed` (bool), `phases[]`. Optional: `branch`, `principles[]`, `glossary[]`, `tracks[]`, `interPhaseGates[]`, `supersedes`, `references[]`, `whatStaysValid[]`. Body = `narrative`.
+- `PhaseDescriptor`: `id`, `slug`, `title`, `goal`, `dependsOn[]`, `subPhaseCount`, `exitGate {summary, criteria[]}`, `status`. Optional: `summary`, `businessIntent {value, workflow, rules, outOfScope, doneWhen, derived[]}` (the load-bearing spine — authored + gated when the phase materializes; see the F0 businessIntent gate above + `materialize`), `parallelWith[]`, `track`, `audience`, `externalImports[]`, `exitGateType`, `provenance`, `context`.
 - `ExitCriterion`: `id`, `description`, `status` (`pending`/`met`/`deferred`). Optional: `verifier`, `metAt`, `deferredReason`, `evidence`.
 - `ExitCriterionVerifier` (oneOf): `{kind: shell, command, expectExitCode?}` · `{kind: query, sql, expectRowCount?}` · `{kind: test, runner, pattern}` · `{kind: manual, description, demoCommand?, fallbackKind?, steps?, expected?, data?}` (0.2 fields).
 
-**Initiative** (phase file `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`; legacy flat `initiatives/<slug>.md`) — required: `schemaVersion: '0.1'`, `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`, `tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` (skill-precomputed dashboard rollups — keep fresh on every task/gate mutation; see project-transitions.md → Dashboard rollups). Body = `body`.
-- `Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `summary`, `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `scopeBoundary[]`, `acceptance[]` (max 5), `verifier`, `evidence`, `provenance`, `context`.
+**Initiative** (phase file `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`; legacy flat `initiatives/<slug>.md`) — required: `schemaVersion` (`'0.1'` from current writers/templates; `'0.2'` accepted for explicit upgrades), `slug`, `title`, `goal`, `status`, `branch` (string|null), `started`, `lastUpdated`, `nextAction` (string|null), `exitGates[]`, `stack[]`, `tasks[]`, `parked[]`, `emerged[]`. Optional: `parentPlan`, `phaseId` (both-or-neither), `audience`, `scope {paths[]}`, `externalImports[]`, `references[]`, `crossTaskRefs[]`, `tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal` (skill-precomputed dashboard rollups — keep fresh on every task/gate mutation; see project-transitions.md → Dashboard rollups). Body = `body`.
+- `Task`: `id`, `title`, `status` (`pending`/`active`/`done`/`blocked`), `lastUpdated`. Optional: `description`, `summary`, `weight` (number ≥ 0; absent ⇒ treated as 1 — the earned-value complexity proxy authored in the same post-decompose gate as `summary`; see Task weight above), `closedAt`, `blockedBy[]`, `outputs[]`, `tags[]`, `resourceCounts`, `scopeBoundary[]`, `acceptance[]` (max 5), `verifier`, `evidence`, `provenance`, `context`.
 - `StackFrame`: `id` (int ≥ 1), `title`, `type` (`task`/`research`/`validation`/`discussion`), `openedAt`.
 - `CrossTaskRef`: `fromTaskId`, `toInitiativeSlug`, `toTaskId`, `relation` (`depends_on`/`extends`/`unblocks`/`references`). Optional: `note`.
 
@@ -436,11 +481,11 @@ You (LLM) can parse frontmatter YAML directly. For edge cases (nested quotes, mu
 
 > Moved here from the `project` router: these are authored at materialization (Stage 6) and enforced at decompose, so the canonical mechanism lives with the creation flow. Stage 6 above is the inline procedure; this is the full replicable spec.
 
-**Phase summaries (replicable, not ad-hoc).** Every phase carries a concise one-line `summary` of what it does — distinct from the longer technical `goal` — on BOTH the `plan.phases[].summary` descriptor (Home timeline) and the phase initiative's `summary` (Home "Agora"). A summary is a dev memory-aid AND a check that the decomposition was interpreted correctly (a user correction signals possible mis-scoping, not just wording). The mechanism lives in the skill so it repeats in any repo: (1) **new plans** author + user-validate summaries at materialization (project-create-plan.md → Stage 6); (2) **existing/backfill** — run `node scripts/find-missing-summaries.js` (deterministic, zero-token; lists every phase lacking a summary + exits non-zero, AND prints the install-configured language to author in), then author a concise summary for each from its `goal`/`title`, **validate with the user via {{ASK_USER_QUESTION_TOOL}}** (present all summaries, ask `Aprovar todos` / `Ajustar alguns`, apply corrections), and write to the descriptor + initiative. **Language: always the install-configured communication language** (the user/project `manifest.json` `language`, which the renderer already prepends to skill bodies) — never an ad-hoc guess. Never hand-author summaries as a one-off outside this loop — the detector + the configured-language rule + the validate step are what make it reproducible.
+**Phase summaries (replicable, not ad-hoc).** Every phase carries a concise one-line `summary` of what it does — distinct from the longer technical `goal` — on BOTH the `plan.phases[].summary` descriptor (Home timeline) and the phase initiative's `summary` (Home "Agora"). A summary is a dev memory-aid AND a check that the decomposition was interpreted correctly (a user correction signals possible mis-scoping, not just wording). The mechanism lives in the skill so it repeats in any repo: (1) **new plans** author + user-validate summaries at materialization (project-create-plan.md → Stage 6); (2) **existing/backfill** — run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js"` (deterministic, zero-token; lists every phase lacking a summary + exits non-zero, AND prints the install-configured language to author in), then author a concise summary for each from its `goal`/`title`, **validate with the user via {{ASK_USER_QUESTION_TOOL}}** (present all summaries, ask `Aprovar todos` / `Ajustar alguns`, apply corrections), and write to the descriptor + initiative. **Language: always the install-configured communication language** (the user/project `manifest.json` `language`, which the renderer already prepends to skill bodies) — never an ad-hoc guess. Never hand-author summaries as a one-off outside this loop — the detector + the configured-language rule + the validate step are what make it reproducible.
 
-**Task summaries (replicable; the skill ALWAYS generates them).** One level down from phase summaries: every **task** carries a concise one-line `summary` of what it does — distinct from the label `title` and the longer `description` — surfaced on the dashboard Home (Agora task table) and the Initiative-detail tasks table so the focus panel reads as work, not bare ids. The TEXT is semantic (AI-authored), so a script can't write it; the guarantee that the skill *always* produces one is structural, in three layers off one deterministic detector (`node scripts/find-missing-task-summaries.js`, zero-token, exits non-zero, prints the install-configured language): (1) **decompose** — author + user-validate each task's summary at materialization (project-create-plan.md → Stage 6, in the SAME {{ASK_USER_QUESTION_TOOL}} gate as the phase summaries); (2) **mid-execution** — whenever a task is created after decompose, its summary is authored + ratified in the same gate that writes the task: `new-task` and `promote` author it in the `Drafted summary` of the ratify block and re-run the detector (project-emergence.md), and the aiDeck inbox drainer authors it when applying a `promote_parked` intent (project-view.md → "Draining a task-creating intent"); phase-creating paths (`new-phase`, `new initiative`) author the phase summary the same way; (3) **drift/backfill** — run the detector (it lists every task lacking a summary), author each from its `title`/`description`/acceptance, validate with the user via {{ASK_USER_QUESTION_TOOL}} (present all, ask `Aprovar todos` / `Ajustar alguns`, apply corrections), and write onto `tasks[].summary`. **Language: always the install-configured communication language** — never an ad-hoc guess. A correction is a signal the task may be mis-scoped, not just mis-worded. Because a missing summary is a non-zero detector exit, it cannot silently survive a normal skill cycle — that is what "the skill always generates" means.
+**Task summaries (replicable; the skill ALWAYS generates them).** One level down from phase summaries: every **task** carries a concise one-line `summary` of what it does — distinct from the label `title` and the longer `description` — surfaced on the dashboard Home (Agora task table) and the Initiative-detail tasks table so the focus panel reads as work, not bare ids. The TEXT is semantic (AI-authored), so a script can't write it; the guarantee that the skill *always* produces one is structural, in three layers off one deterministic detector (`node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`, zero-token, exits non-zero, prints the install-configured language): (1) **decompose** — author + user-validate each task's summary at materialization (project-create-plan.md → Stage 6, in the SAME {{ASK_USER_QUESTION_TOOL}} gate as the phase summaries); (2) **mid-execution** — whenever a task is created after decompose, its summary is authored + ratified in the same gate that writes the task: `new-task` and `promote` author it in the `Drafted summary` of the ratify block and re-run the detector (project-emergence.md), and the aiDeck inbox drainer authors it when applying a `promote_parked` intent (project-view.md → "Draining a task-creating intent"); phase-creating paths (`new-phase`, `new initiative`) author the phase summary the same way; (3) **drift/backfill** — run the detector (it lists every task lacking a summary), author each from its `title`/`description`/acceptance, validate with the user via {{ASK_USER_QUESTION_TOOL}} (present all, ask `Aprovar todos` / `Ajustar alguns`, apply corrections), and write onto `tasks[].summary`. **Language: always the install-configured communication language** — never an ad-hoc guess. A correction is a signal the task may be mis-scoped, not just mis-worded. Because a missing summary is a non-zero detector exit, it cannot silently survive a normal skill cycle — that is what "the skill always generates" means.
 
-**Level hygiene — a task is not a phase.** The hierarchy is Plan → Phase → Task. A task title must NOT masquerade as a phase-level heading (`Phase A — …`, `Fase 2: …`) — it lies about its level and confuses the dashboard. Enforced in two places off one shared predicate (`levelConfusedTaskTitle` in `scripts/lint-source.js`): the **SPEC gate** (`lintSpec`, run at decompose — project-create-plan.md Stage 5) HARD-BLOCKS a level-confused `### Tn` title in the source; for **materialized state**, `node scripts/lint-task-titles.js` (deterministic, zero-token, exits non-zero) lists offenders to rename — drop the `Phase/Fase <X> —` prefix, keep the descriptive part.
+**Level hygiene — a task is not a phase.** The hierarchy is Plan → Phase → Task. A task title must NOT masquerade as a phase-level heading (`Phase A — …`, `Fase 2: …`) — it lies about its level and confuses the dashboard. Enforced in two places off one shared predicate (`levelConfusedTaskTitle` in `scripts/lint-source.js`): the **SPEC gate** (`lintSpec`, run at decompose — project-create-plan.md Stage 5) HARD-BLOCKS a level-confused `### Tn` title in the source; for **materialized state**, `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-task-titles.js"` (deterministic, zero-token, exits non-zero) lists offenders to rename — drop the `Phase/Fase <X> —` prefix, keep the descriptive part.
 
 ## Red Flags (plan creation)
 

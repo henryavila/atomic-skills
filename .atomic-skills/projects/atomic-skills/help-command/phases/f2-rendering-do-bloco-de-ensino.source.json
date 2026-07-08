@@ -1,0 +1,100 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "help-command-f2-rendering-do-bloco-de-ensino",
+  "title": "Rendering do bloco de ensino",
+  "goal": "O asset chama compute-help.js e formata o bloco de 5 linhas + mini-mapa ASCII com \"você está aqui\"; adicionar a flag help --html que abre o guia visual pelo caminho de contrato fixo, fail-open quando ausente.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "— Render em `project-help.md`",
+      "description": "O asset chama compute-help.js, formata o bloco de 5 linhas + o mini-mapa ASCII com \"você está aqui\" na spineStage. Fail-open: se o helper falhar, cai para o resumo no-args e diz onde travou. A formatação vive numa função pura testável (formatHelp(json)) para o gate ter o que verificar. Documenta a relação com o no-args e os aliases decididos.",
+      "scopeBoundary": [
+        "só o render do asset + o formatador puro + seu smoke; não altera a lógica de classificação do helper."
+      ],
+      "acceptance": [
+        "rodar help num projeto real imprime o bloco com PROXIMO PASSO batendo com o nextAction persistido; mini-mapa marca a fase certa; SE TRAVAR lista why/status --browser/help."
+      ],
+      "verifier": {
+        "kind": "test",
+        "runner": "node --test",
+        "pattern": "tests/help/render-smoke.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-help.md"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/compute-help.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/help/render-smoke.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "— Flag `help --html` (abrir o guia visual)",
+      "description": "Implementar a checagem de existência do caminho de contrato fixo (docs/design/project-onboarding/index.html) + abertura via open/xdg-open; fail-open quando ausente (mensagem + exit 0). Imprime a linha GUIA VISUAL no help normal só quando o HTML existe. Reusa o mecanismo de abertura de status --browser.",
+      "scopeBoundary": [
+        "só a checagem do caminho fixo + abertura; NÃO gera nem valida o HTML; nenhuma dependência de rede; sem fallback configurável."
+      ],
+      "acceptance": [
+        "Contrato runtime de help --html testado (mock do opener): HTML presente no caminho de contrato -> invoca open (macOS) / xdg-open (Linux) atras de checagem de existencia e sai 0; HTML ausente -> imprime mensagem clara apontando o caminho esperado e sai 0 (fail-open); falha do opener -> fail-open (nao propaga erro, sai 0); a linha GUIA VISUAL aparece no help sem-flag apenas quando o arquivo existe. O teste mocka a invocacao do opener (nao abre navegador real, roda headless)."
+      ],
+      "verifier": {
+        "kind": "test",
+        "runner": "node --test",
+        "pattern": "tests/help/html-resolve.test.js"
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-help.md"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/compute-help.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/help/html-resolve.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "smoke de render verde contra fixture",
+      "verifier": {
+        "kind": "test",
+        "runner": "node --test",
+        "pattern": "tests/help/render-smoke.test.js"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "html-resolve.test.js verde",
+      "verifier": {
+        "kind": "test",
+        "runner": "node --test",
+        "pattern": "tests/help/html-resolve.test.js"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-3",
+      "description": "eyeball num projeto real registrado como evidência",
+      "verifier": {
+        "kind": "manual",
+        "description": "Rodar help num projeto real, conferir o bloco renderizado e registrar a evidência."
+      },
+      "status": "pending"
+    }
+  ]
+}

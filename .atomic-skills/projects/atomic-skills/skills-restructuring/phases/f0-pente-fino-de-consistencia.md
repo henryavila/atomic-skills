@@ -15,6 +15,8 @@ tasksDone: 7
 tasksTotal: 7
 gatesMet: 1
 gatesTotal: 1
+weightDone: 7
+weightTotal: 7
 exitGates:
   - id: F0-G1
     description: Suite de validação de skills passa após as correções de pente fino.

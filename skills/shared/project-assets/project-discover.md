@@ -187,7 +187,8 @@ For each cluster:
    - **nextAction** (strong = "Resume T-N: ..."; worth-reviewing = question form; historical = null)
    - **rationale** (1–2 lines citing decisive signals)
    - **Context synthesis** (2–3 paragraphs)
-7. Write a **draft** discover-run JSON to `.atomic-skills/bootstrap-drafts/discover-run.draft.json`. This is a simplified shape — the builder normalizes it into the strict schema. Required fields per candidate: `slug, title, goal, kind, bucket, confidence, started, lastUpdated, rationale, draftPath`. All other fields are optional (builder adds defaults). The builder also:
+7. Write a **draft** discover-run JSON to `.atomic-skills/bootstrap-drafts/discover-run.draft.json`. This is a simplified shape — the builder normalizes it into the strict schema. Required fields per candidate: `slug, title, goal, kind, bucket, confidence, started, lastUpdated, rationale, draftPath`. All other fields are optional (builder adds defaults). The strict `discover-run.json` is the durable run record for this scan: it must carry a stable `runId`, every candidate slug/draftPath, and each candidate's decision in the existing schema field `approved` (`true` = approved/commit-eligible, `false` = rejected or undecided). Do NOT add ad-hoc top-level fields such as `decisions` or `commitEligibility`; aiDeck parses this file in strict mode. Commit eligibility is derived from `candidate.approved === true`, the draft still existing at `draftPath`, and the destination collision check passing.
+   The builder also:
    - Generates `runId` and `generatedAt` if missing
    - Adds `repoPath` from CWD if not in `scanConfig`
    - Converts `sourcesSummary` from `{"git-branch": 3}` to `[{layer, label, signalCount}]`
@@ -205,6 +206,7 @@ For each cluster:
    ```
    - If stdout prints the output path: the JSON is valid. Proceed to step 8.
    - If exit code is non-zero: read the error, fix the **draft** file, and re-run. **Do NOT proceed until the build succeeds.** The builder normalizes most common mistakes automatically — errors at this stage mean the draft is missing critical semantic data (e.g., no `slug` on a candidate).
+7c. **Run-record checkpoint:** after the build succeeds, read `.atomic-skills/bootstrap-drafts/discover-run.json` back, confirm it has `runId` and non-empty `candidates[]`, and leave it on disk before opening the dashboard. If the session is cancelled or context is lost after this point, resume from this file; never rescan merely to remember which candidates existed.
 8. Ensure aiDeck is running:
    ```bash
    AIDECK_URL=$(node ~/.atomic-skills/bin/aideck.mjs up --static-dir ~/.atomic-skills/dashboard 2>/dev/null)
@@ -229,6 +231,7 @@ Algorithm:
 
 ```
 1. If .atomic-skills/bootstrap-drafts/ does not exist: error "nothing to commit".
+1a. Read `.atomic-skills/bootstrap-drafts/discover-run.json` first and capture its `runId` + `candidates[]`. If it is missing, malformed, has no `runId`, or has no candidates, stop with "discover-run.json missing — run `discover` before `discover --commit`." Do not reconstruct the run by globbing drafts alone.
 1b. Read decisions from ALL JSONL files in .atomic-skills/bootstrap-drafts/inbox/*.jsonl
     (glob — decisions may span multiple UTC dates or review sessions).
     Filter lines by kind === 'decision' and target.consumer === 'bootstrap-drafts'.
@@ -236,13 +239,14 @@ Algorithm:
     Build a Map<slug, 'approve'|'reject'>.
     Fallback: if no inbox/ JSONL exists, ask user "Did you review candidates in the browser?"
     If no: proceed without decisions (ask per-candidate in step 3).
-2. List all *.draft.md (initiative) AND *.plan.draft.md (plan), including archive/.
-3. For each draft:
+1c. Update the run record's candidate decisions before materializing: for each candidate slug, set `candidate.approved = true` for the latest `approve`, `false` for the latest `reject`, and leave it `false` for undecided candidates. Persist the updated `discover-run.json` immediately so a crash after one commit can resume from the same decisions. This file's `runId` is copied into the audit log.
+2. Iterate candidates from `discover-run.json` in file order and resolve their `draftPath` (initiative, plan, or archive). Drafts not named by the run record are ignored unless the user explicitly starts a new `discover` run.
+3. For each candidate:
    a. Parse frontmatter YAML.
-   a2. Check decision map from step 1b:
+   a2. Check the persisted decision on the run candidate:
        - If slug has decision 'reject': delete the draft file, skip to next.
        - If slug has decision 'approve': proceed with materialization.
-       - If slug has no decision: ask user "Approve <slug> — <title>? (y/N/skip)".
+       - If slug has no decision: ask user "Approve <slug> — <title>? (y/N/skip)", then immediately update `candidate.approved` in `discover-run.json` before writing any project state.
    b. Validate: slug regex, unique vs the resolved tree (nested `projects/<project-id>/*/`; legacy `plans/**` + `initiatives/**`).
    c. Resolve `<project-id>` (the lone `projects/*/` folder, or ask, or `basename "$PWD"`), then branch on kind:
       - kind=plan → run materializeDecomposition (from src/decompose.js) with `{ planSlug, projectId }` on the
@@ -255,10 +259,10 @@ Algorithm:
         (`.atomic-skills/projects/<project-id>/<slug>/phases/archive/<YYYY-MM>-<slug>.md`; legacy `.atomic-skills/initiatives/archive/`).
    d. Delete the draft.
    e. On name conflict at destination: log, skip, continue.
-4. **Validate.** Run `npm run validate-state .atomic-skills/projects/` (legacy fallback `.atomic-skills/plans/ .atomic-skills/initiatives/`). On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
+4. **Validate.** Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/` (legacy fallback `.atomic-skills/plans/ .atomic-skills/initiatives/`). On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
 5. Update PROJECT-STATUS.md (Active Plans, Active Initiatives, Recently Archived).
 6. Write audit log to .atomic-skills/status/bootstrap.json:
-   { timestamp, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.
+   { timestamp, runId, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.
 7. Report summary: "Committed N (P plans, A active initiatives, H archived), skipped K, errors L".
 8. If bootstrap-drafts/ is empty: ask "Remove bootstrap-drafts/? (y/N)". If drafts remain: skip the question, inform "N drafts remain; fix and re-run".
 ```

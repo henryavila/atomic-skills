@@ -76,7 +76,15 @@ Both `Reasoning` and `Drafted context` are mandatory. The first defends against 
 2. **Ratify gate**: same shape as `park`. HALT until ratify / edited / cancel.
 3. On ratify: append to `emerged:`: `{title: "<description>", surfacedAt: <now>, promoted: false, context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }}`.
 4. Save.
-5. Offer: "Create new initiative now for '<description>'? (run `atomic-skills:project new initiative <slug>`)" — if yes, hand off to the `new initiative` flow (`{{ASSETS_PATH}}/project-create-initiative.md`).
+5. Offer: "Create new initiative now for '<description>'? (run `atomic-skills:project new initiative <slug>`)" — if yes, hand off to the `new initiative` flow (`{{ASSETS_PATH}}/project-create-initiative.md`). **If declined, say so explicitly:** "Kept in `emerged[]` — later `promote "<description>"` turns it into a task, or `emerge <idx> --delete` drops it." (C-1 — the item is not stranded; both the promote and the drop path are named.)
+
+## `park <idx> --delete` / `emerge <idx> --delete` (disposal)
+
+The disposal path the `scope-creep` footer recommends (C-1 / E1#4 — previously referenced but undefined, so parked/emerged zombies could only grow). Drops one stale backlog entry with a light confirm (no ratify gate — dropping a note is not a code mutation, but it IS irreversible for that entry's articulated context, so confirm once).
+
+1. Resolve `<idx>` (or title) in `parked:` (for `park … --delete`) or `emerged:` (for `emerge … --delete`).
+2. Print the entry's `title` + `context.solves` and ask `delete` / `cancel`. A generic "yes" confirms here (this is a discard, not a ratify).
+3. On `delete`: remove the entry from its list and save. On `cancel`: no-op.
 
 ### `emerge --target <phaseId> "<title>"`
 
@@ -86,14 +94,14 @@ Same ratify gate as base `emerge` — the `--target` flag only changes WHERE the
 
 ## `promote <parking-item-title-or-index>` (rung 3)
 
-1. Locate item in `parked:`. Confirm it carries a `context` block (it must — schema requires it for every parked entry).
+1. Locate the item in **`parked:` OR `emerged:`** (C-1 / B2#1 — an `emerge`d item is a promotable backlog entry too; `promote` used to read `parked:` only, stranding every `emerged[]` item forever). Match by title or index across both lists; if the same title exists in both, prefer `parked:` and say so. Confirm it carries a `context` block (schema requires it for both `parked` and `emerged` entries).
 2. Generate next task ID (`T-<NNN+1>` based on the highest existing).
 3. **Re-ratify check** (only if `context.lastReviewedAt` is older than `parkedZombieDays` in config — default 30): print the existing context, ask "Premises still valid? `ratify` to keep, paste edits to update, `cancel` to abort." Fresh items skip this prompt — their context was just ratified.
 4. **Draft + ratify the `summary`** — ALWAYS, fresh or stale (the parked entry never carried one, so it is authored here, NOT inherited). Show a one-line summary (install-configured communication language, derived from the parked title + `context.solves`) and have the user ratify it: fold it into the step-3 prompt when that runs, or show it on its own for fresh items. This step is unconditional — never skip it on the fresh-item path.
 5. Add to `tasks:` (array): `{id: '<id>', title: <parking title>, summary: <ratified one-line>, status: pending, lastUpdated: <now>, provenance: { surfacedAt: <parked surfacedAt>, surfacedDuring: "promote(<current-init>)", surfacedBy: human }, context: { …carried from parked, lastReviewedAt: now …}}`. The carried context's `ratifiedAt` is preserved (proof the human articulated this once); `lastReviewedAt` advances if step 3 ran. **`summary` is mandatory** — a promoted task with no summary renders bare in the dashboard Agora.
-6. Remove item from `parked:`.
-7. **Completion-signal nudge (Component E, soft):** if the promoted task carries neither a `verifier` nor an `outputs[].path`, ask whether to add one so it can be auto-detected as done (decline is allowed — the task just stays invisible to `detect-completion` and must be closed by hand). Same nudge as `new-task` step 10; `node scripts/find-signalless-tasks.js` audits the gap.
-8. Run `node scripts/find-missing-task-summaries.js` (zero-token backstop, same as `new-task`) — a non-zero exit means the summary slipped; author it before announcing. Then announce the new task ID.
+6. **Drain the source entry (C-1 / B2#2):** if the item came from `parked:`, remove it from `parked:`. If it came from `emerged:`, set that entry's `promoted: true` (never left `false` after a promote — the flag was previously write-once-`false` and never flipped, so `emerged[]` grew monotonically and views mis-reported promoted work as pending forever); keep the entry as promoted lineage. Backlog views (`--terminal` EMERGED panel, `scope-creep`) list only `emerged[]` items with `promoted: false`.
+7. **Completion-signal nudge (Component E, soft):** if the promoted task carries neither a `verifier` nor an `outputs[].path`, ask whether to add one so it can be auto-detected as done (decline is allowed — the task just stays invisible to `detect-completion` and must be closed by hand). Same nudge as `new-task` step 10; `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` audits the gap.
+8. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` (zero-token backstop, same as `new-task`) — a non-zero exit means the summary slipped; author it before announcing. Then announce the new task ID.
 
 ## `new-task [--target <phaseId>] "<title>" [options]` (rungs 4-5)
 
@@ -119,11 +127,11 @@ Steps:
 6. **MANDATORY**: set `provenance: { surfacedAt: now, surfacedDuring: "<current-initiative-slug>/<current-frame-or-task-id>", surfacedBy: <human|ai> }`. `surfacedBy: human` when the user typed the command directly; `surfacedBy: ai` when the agent surfaced it and the user only ratified.
 7. **MANDATORY**: set `context: { solves, trigger, assumesStillValid?, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }` — from the ratified block (verbatim if the user typed `ratify`, edited version if they pasted corrections).
 8. **MANDATORY**: set `summary` — the one-line "what this task does" from the ratified `Drafted summary`, in the install-configured communication language. This is the dashboard-visible string (Agora + Initiative-detail); a task created with no summary contradicts the "skill always generates" guarantee (skills/core/project.md → "Task summaries").
-9. Append to `tasks[]`, bump initiative `lastUpdated`. Then run `node scripts/find-missing-task-summaries.js` (zero-token; it scans every initiative in both layouts) — a non-zero exit means a straggler slipped through; author it before declaring the task created. Running it here closes the `--target <non-current-phase>` gap that the view-time *gate* (project-view.md Step 0 only blocks on the active plan's current-phase rows) would not otherwise block on.
+9. Append to `tasks[]`, bump initiative `lastUpdated`. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` (zero-token; it scans every initiative in both layouts) — a non-zero exit means a straggler slipped through; author it before declaring the task created. Running it here closes the `--target <non-current-phase>` gap that the view-time *gate* (project-view.md Step 0 only blocks on the active plan's current-phase rows) would not otherwise block on.
 10. **Cognitive load warnings** (non-blocking):
    - If `description` exceeds `maxTaskDescriptionLines` (default 15 from config.json): warn "Task description is N lines (limit: 15). Consider splitting into sub-tasks or moving detail to the initiative body."
    - If `acceptance[]` exceeds `maxTaskAcceptance` (default 5 from config.json): warn "Task has N acceptance criteria (limit: 5). Focus on the most critical assertions."
-   - **Completion-signal nudge (Component E, soft — never a hard gate):** if the task has **neither** a `verifier` **nor** at least one `outputs[].path`, surface "T-00x has no completion signal (verifier or outputs.path); add one so it can be auto-detected as done? (the alternative is it stays invisible to `detect-completion` and must be closed by hand)." The user MAY decline (some tasks are genuinely unverifiable). This is the mechanism that keeps the `none` blind spot rare; `node scripts/find-signalless-tasks.js` audits the gap for backfill.
+   - **Completion-signal nudge (Component E, soft — never a hard gate):** if the task has **neither** a `verifier` **nor** at least one `outputs[].path`, surface "T-00x has no completion signal (verifier or outputs.path); add one so it can be auto-detected as done? (the alternative is it stays invisible to `detect-completion` and must be closed by hand)." The user MAY decline (some tasks are genuinely unverifiable). This is the mechanism that keeps the `none` blind spot rare; `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` audits the gap for backfill.
    - Warnings do NOT block task creation — the user can proceed after acknowledging.
 11. Validate against schema. Save file.
 12. If `--target` differs from current active initiative, surface a note: "task added to F2 (not the active phase F0)".
@@ -144,14 +152,32 @@ Steps:
 1. Load the active plan. If no active plan, abort with: "new-phase requires an active plan. Run `atomic-skills:project new plan <slug>` to create one first."
 2. **Reconciliation gate**: run the pre-mutation reconciliation gate (router) on the active phase initiative.
 3. Validate `<id>` not in `phases[]`. Validate `--after` references an existing phase id.
-4. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, the drafted `summary` (one-line what-this-phase-does, install-configured language), AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
-5. On ratify (or edited context):
-   - Append phase descriptor to `phases[]` with `summary: <ratified one-line>`, `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }` and `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`.
+4. **Phase-start lessons gate.** Run the phase-start lessons gate before materialization:
+   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>`.
+   Apply, keep, stale, or reject every applicable lesson before the new phase file is created. `--skip-lessons` must record the skip reason; never silently bypass the gate.
+5. **BusinessIntent gate.** Collect the user-written `businessIntent` spine using the same five-field block as `materialize`:
+   ```yaml
+   businessIntent: <businessIntent>
+   value: ""
+   workflow: ""
+   rules: ""
+   outOfScope: ""
+   doneWhen: ""
+   derived: []
+   ```
+   Reject blanks and `[NEEDS CLARIFICATION]`; re-ask rather than inventing content.
+6. **Ratify gate**: print the `Proposed mutation:` block with the drafted phase descriptor, the change to `phases[]` order, the drafted `summary` (one-line what-this-phase-does, install-configured language), the collected `businessIntent: <businessIntent>`, AND the drafted `context` block. HALT until `ratify` / edited context / `cancel`.
+7. On ratify (or edited context):
+   - Append phase descriptor to `phases[]` with `summary: <ratified one-line>`, `provenance: { surfacedAt: now, surfacedDuring: "<current-init>/<task-or-frame>", surfacedBy: <human|ai> }`, `context: { …ratified values…, ratifiedAt: now, ratifiedBy: human, lastReviewedAt: now }`, and the ratified `businessIntent`.
    - Create the phase initiative file at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md` (legacy flat `.atomic-skills/initiatives/<plan-slug>-<id>-<slug>.md`) from the template, with `status: pending`, `parentPlan: <plan-slug>`, `phaseId: <id>`, and the same ratified `summary` (the Home "Agora"/timeline read it from both surfaces — see skills/core/project.md → "Phase summaries").
+   - Parse the initiative frontmatter and add `businessIntent` to the new initiative frontmatter before writing.
+   - set `businessIntent` on the parent plan descriptor in the same write that inserts the phase descriptor.
    - Save plan + initiative.
-   - Validate both files via `npm run validate-state`.
-6. On any validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
-7. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan. Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
+   - Run `scripts/find-missing-business-intent.js` scoped to the parent plan:
+     `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   - Validate both files via `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<id-lower>-<slug>.md`.
+8. On any detector or validation failure: roll back (delete just-written initiative, revert plan body). Surface errors verbatim.
+9. **MANDATORY review**: run `atomic-skills:review-plan --mode=internal` against the updated plan. Surface findings. The user decides on Codex cross-model review per the standard intrusive-actions rule.
 
 ## `split-phase <id>` (rung 7)
 
@@ -175,9 +201,9 @@ A phase of an in-flight plan has grown into work that deserves its **own plan** 
 
 > **Invocation:** `fork-plan` is a **top-level** verb (`/atomic-skills:project fork-plan <child-slug> --from <phaseId> …`), not part of the `new` menu — it ratifies a parent/child link and then hands off to the `new plan` flow.
 
-`fork-plan` does exactly two things: **(1)** ratifies the fork edge on the parent (the `context` gate — `solves`/`trigger`/`assumesStillValid` — like every emergent item), and **(2)** hands off to the `new plan` flow so the child passes the DESIGN gate (R-ORCH-09) and gets its own `design.md` like any plan. The verb never duplicates `new plan`; it only ratifies the edge and delegates.
+`fork-plan` does exactly three things: **(1)** ratifies the fork intent on the parent (the `context` gate — `solves`/`trigger`/`assumesStillValid` — like every emergent item), **(2)** hands off to the `new plan` flow so the child passes the DESIGN gate (R-ORCH-09) and gets its own `design.md` like any plan, and **(3)** records the inline origin edge plus the default operational dependency when the child blocks parent resumption. The verb never duplicates `new plan`; it ratifies the fork, delegates child materialization, then writes the links only after the child exists.
 
-**The link lives INLINE in `plan.md` frontmatter (F5/T-003).** The aiDeck consumer (fork-fields release) declares `spawnedFrom` (on the Plan) and `spawnedPlans` (on the anchor phase descriptor) as optional, additive fields, so they no longer drop the card. `fork-plan` writes the edge inline via the helpers in `src/links-sidecar.js` (`setSpawnedFrom` on the child → its `plan.md` top-level `spawnedFrom`; `addSpawnedPlan` on the parent → `phases[<from>].spawnedPlans`). The legacy `links.json` sidecar is retired for the elo (`migrateSidecarToInline` moves any leftover); the only remaining sidecar use is the transient parallel-state `pendingWriteback` recovery marker (F2). Forking is **intra-project**; the `mode` lives only on the child's `spawnedFrom`.
+**The link lives INLINE in `plan.md` frontmatter (F5/T-003).** The aiDeck consumer (fork-fields release) declares `spawnedFrom` (on the Plan) and `spawnedPlans` (on the anchor phase descriptor) as optional, additive fields, so they no longer drop the card. `fork-plan` writes the origin edge inline via the helpers in `src/links-sidecar.js` (`setSpawnedFrom` on the child → its `plan.md` top-level `spawnedFrom`; `addSpawnedPlan` on the parent → `phases[<from>].spawnedPlans`). When `--mode pause` extracts work that blocks the parent, `fork-plan` also writes the operational edge on the parent plan's top-level `dependsOnPlans[]`, pointing at the child plan; `spawnedPlans` stays historical/origin metadata and is never reused as the blocking source. The legacy `links.json` sidecar is retired for the elo (`migrateSidecarToInline` moves any leftover); the only remaining sidecar use is the transient parallel-state `pendingWriteback` recovery marker (F2). Forking and plan dependencies are **intra-project**; the `mode` lives on `spawnedFrom` and is copied into the dependency `origin` only to explain why the dependency was created.
 
 ### Argument parse
 
@@ -201,12 +227,13 @@ A missing required argument is a malformed invocation: print the usage line and 
    - **On `true`: abort atomically.** Print the offending edge (e.g. "fork rejected — `<child>` is an ancestor of `<parent>`; this would close a cycle (`detecção de ciclo`, D5)") and **write nothing** — the ratify gate is never reached, so no `context` lands and neither `setSpawnedFrom` nor `addSpawnedPlan` runs. The check precedes ratify precisely so a cycle is refused before the human is asked to ratify a fork that cannot exist.
    - On `false`: proceed to the ratify gate.
 5. **Ratify gate.** Print the `Proposed mutation:` block for a fork — magnitude `fork-plan (phase → child plan)` — with the drafted `context` (`solves`/`trigger`/`assumesStillValid`) that justifies the fork, the resolved `--from`/`--mode`/`--task`, and a `Reasoning` line (why rung 7.5, not `split-phase` below or `supersedes` above). HALT until the user replies `ratify` / pastes an edited context block / `cancel`. A generic "ok"/"yes" is **not** ratify. Nothing below this step runs until ratify.
-6. **Pause the parent — BEFORE the handoff (pause mode).** On `ratify`, set the parent plan `P` → `status: paused` and its anchor phase (`--from`, = `currentPhase`) → `status: paused`, then run `node scripts/refresh-state.js` (the paused-plan hygiene invariant + focus markers). Doing this **before** step 7 is mandatory: the `new plan` handoff runs a single-active-plan pre-flight (`{{ASSETS_PATH}}/project-create-plan.md` → Stage 6, R-FOCUS-01) that scans for other `active` plans; if the parent were still active here, that pre-flight would fire its multi-active resolution prompt and contradict the pause this verb owns. Pausing first leaves exactly one active plan (the child, born in step 7).
+6. **Pause the parent — BEFORE the handoff (pause mode).** On `ratify`, set the parent plan `P` → `status: paused` and its anchor phase (`--from`, = `currentPhase`) → `status: paused`, then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` (the paused-plan hygiene invariant + focus markers). Doing this **before** step 7 is mandatory: the `new plan` handoff runs a single-active-plan pre-flight (`{{ASSETS_PATH}}/project-create-plan.md` → Stage 6, R-FOCUS-01) that scans for other `active` plans; if the parent were still active here, that pre-flight would fire its multi-active resolution prompt and contradict the pause this verb owns. Pausing first leaves exactly one active plan (the child, born in step 7).
 7. **Hand off to `new plan` (the child is materialized here).** Delegate to the `new plan` flow (`{{ASSETS_PATH}}/project-create-plan.md`) for `<child-slug>`: the child is a real plan and passes the DESIGN gate (R-ORCH-09). **The handoff can abort** — the DESIGN gate may HARD-BLOCK, or the user may cancel (Stage 5 "does NOT write to `.atomic-skills/`"). If it aborts: **no inline edge exists yet** (the writes are step 8), so the only rollback needed is to re-activate the parent + anchor phase paused in step 6 (un-pause `P`, anchor → `active`, `refresh-state`), then stop. Nothing is half-forked.
-8. **Write the bidirectional edge — only after the child plan exists.** Now that step 7 has materialized the child:
+8. **Write the origin edge and default dependency — only after the child plan exists.** Now that step 7 has materialized the child:
    - Child: `setSpawnedFrom(<childPlanDir>, { plan: <parent-slug>, phaseId: <from>, taskId?: <T>, mode: <mode> })`. (`<childPlanDir>` now holds a real `plan.md`, so this is not an orphan write.)
    - Parent: `addSpawnedPlan(<parentPlanDir>, <from>, <child-slug>)` — idempotent; `spawnedPlans[<from>]` is an array (a phase may fork several children).
-   The ratified `context`/`provenance` is recorded with the edge. Deferring the write to after child materialization is what prevents a dangling parent `spawnedPlans` entry pointing at a child that never materialized when step 7 aborts.
+   - Parent dependency for pause mode: `addPlanDependency(<parentPlanDir>, { plan: <child-slug>, createdBy: 'fork-plan', origin: { phaseId: <from>, taskId?: <T>, mode: <mode> }, release: { archived: 'blocked' } })` — idempotent; the parent depends on the child because the child blocks resuming the extracted phase.
+   Example: if parent plan `P1` forks child plan `P2` from `F2` task `T-004` with `--mode pause`, then `P2` records `spawnedFrom: { plan: P1, phaseId: F2, taskId: T-004, mode: pause }`, `P1.phases[F2].spawnedPlans` includes `P2`, and `P1.dependsOnPlans[]` includes a `fork-plan` edge whose `plan` is `P2`. These durable edge fields store origin/dependency identity only; the ratify gate records the rationale in the operator-reviewed proposal, not as `context`/`provenance` on the edge schema. Deferring these writes to after child materialization is what prevents a dangling parent `spawnedPlans` or `dependsOnPlans` entry pointing at a child that never materialized when step 7 aborts.
 
 ### Mode semantics
 
@@ -214,6 +241,7 @@ A missing required argument is a malformed invocation: print the usage line and 
 
 - **`--mode pause` (fully implemented in F1).** The parent suspends and waits for the child at the anchor phase:
   - Parent plan `P` → `status: paused`, and its anchor phase (`--from <phaseId>`, constrained to be `currentPhase` — see step 1) → `status: paused`. This is the **same effect** `switch`/cascade-pause produces (`{{ASSETS_PATH}}/project-transitions.md` → `switch`, which demotes a paused plan's active phase), but `fork-plan` pauses the **named** `--from` phase explicitly rather than relying on cascade-pause's "demote whatever phase is active" — they coincide only because `--from` is required to be the active phase, and the explicit pause keeps the behavior correct even if that invariant ever loosens. The paused-plan hygiene invariant (`refresh-state` → `reconcile-focus`) then holds: no `active` phase is left under the paused parent.
+  - Parent plan `P` gets a top-level `dependsOnPlans[]` edge pointing at the child. This edge, not `spawnedPlans`, is the canonical blocking source: `done` on the child releases it automatically, while `archived` stays blocked unless an explicit dependency-resolution command records `release.archived: resolved`.
   - This pause happens in **step 6, before the step-7 handoff** — so `new plan`'s single-active-plan pre-flight sees the parent already paused.
   - The child plan is born `active` (via the `new plan` handoff in step 7).
   - The resume — un-pausing `P` and reactivating the anchor phase when the child completes/archives — is **not** part of this rung; it is the archive-propagation loop delivered in a later phase. `fork-plan --mode pause` only establishes the paused parent + active child here.

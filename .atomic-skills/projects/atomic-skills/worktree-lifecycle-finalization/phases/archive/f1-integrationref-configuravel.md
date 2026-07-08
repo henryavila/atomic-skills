@@ -18,6 +18,8 @@ tasksDone: 2
 tasksTotal: 2
 gatesMet: 2
 gatesTotal: 2
+weightDone: 2
+weightTotal: 2
 exitGates:
   - id: G-1
     description: Schema aceita integrationRef e rejeita chave desconhecida;
