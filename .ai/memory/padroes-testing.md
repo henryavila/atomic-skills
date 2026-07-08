@@ -96,6 +96,29 @@ HOME="$tmp_home" npm run test:hooks
 Quando um teste precisa exercitar o env global, crie explicitamente o arquivo no
 HOME temporário dentro do próprio caso.
 
+## Runtime artifacts precisam testar recuperação de journals antigos
+
+Efeitos de runtime que usam journal como prova de ownership precisam cobrir não
+só install limpo e update atual, mas também estados históricos defeituosos que
+podem existir no `$HOME` do usuário. Se um journal antigo perdeu ownership
+(`stageRuntimeArtifacts.beforeState.created: []`) mas o arquivo em disco é
+byte-a-byte igual ao artefato desejado, o update pode adotar esse arquivo com
+segurança; se os bytes divergem, continua sendo conflito de usuário.
+
+**Why:** Em 2026-07-08, `node bin/cli.js install` falhou com
+`stageRuntimeArtifacts conflict` para `.atomic-skills/hooks/version-check.sh`.
+O arquivo no disco era idêntico ao source, mas o manifest tinha `created: []`;
+o efeito só aceitava `!existedBefore` ou `previous.created`, então bloqueava a
+recuperação de um artefato nosso deixado por journal antigo.
+
+**How to apply:** Ao alterar efeitos runtime:
+1. Adicionar teste de regressão de integração com manifest antigo realista.
+2. Adicionar teste unitário para adoção byte-idêntica de arquivo único.
+3. Manter teste de conflito para bytes diferentes, provando que user-owned não
+   é sobrescrito.
+4. Não aplicar a adoção a `sourceTree`; árvore precisa continuar exigindo
+   ownership explícito para evitar apagar diretórios de usuário.
+
 ## Run records de rollback registram antes da escrita canônica
 
 Fluxos resumíveis que prometem rollback por `filesWritten` precisam persistir o
