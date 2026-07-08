@@ -9,28 +9,29 @@ status: active
 branch: plan/project-lifecycle-order-guards
 started: 2026-07-08T10:08:05Z
 startedCommit: 2f9c8bdee197f4204637301b0a83226760046535
-lastUpdated: 2026-07-08T10:08:05Z
-nextAction: Crie `docs/design/project-lifecycle-order-guards.md` com o mapa de
-  transicoes obrigatorias.
+lastUpdated: 2026-07-08T12:47:26.521Z
+nextAction: Implemente T-002 em `scripts/lifecycle-order-guard.js` e
+  `tests/lifecycle-order-guard.test.js`.
 parentPlan: project-lifecycle-order-guards
 phaseId: F0
 businessIntent:
   value: Impede que fluxos essenciais sejam ignorados ao executar uma etapa
     posterior do lifecycle.
-  workflow: Quando o operador roda um comando fora de ordem, o sistema bloqueia
-    ou orienta com a etapa faltante e o comando anterior correto.
+  workflow: Quando o operador roda um comando fora de ordem, o sistema bloqueia ou
+    orienta com a etapa faltante e o comando anterior correto.
   rules: Cada transicao posterior declara suas pre-etapas obrigatorias; excecoes
     como phase archive, split-phase e discover historico sao explicitas;
     mensagens sempre indicam o proximo comando valido.
   outOfScope: Nao automatizar merge, nao remover worktree sem confirmacao e nao
     redesenhar todo o modelo de project.
   doneWhen: archive/finalize/phase-done/help/verify/depend/fork/consolidate
-    impedem ou sinalizam pulos de etapa, com testes cobrindo os fluxos e excecoes.
-tasksDone: 0
+    impedem ou sinalizam pulos de etapa, com testes cobrindo os fluxos e
+    excecoes.
+tasksDone: 1
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 4
-weightDone: 0
+weightDone: 3
 weightTotal: 14
 exitGates:
   - id: G-1
@@ -39,9 +40,11 @@ exitGates:
     status: pending
     verifier:
       kind: shell
-      command: test -f docs/design/project-lifecycle-order-guards.md &&
-        grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md &&
-        grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md
+      command: test -f docs/design/project-lifecycle-order-guards.md && grep -q
+        'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep
+        -q 'depend resolve --archived'
+        docs/design/project-lifecycle-order-guards.md
+    verifierLabel: "shell: test -f docs/design/project-lifecycle-order-guards.md && gr…"
   - id: G-2
     description: Testes cobrem pulos de etapa em archive, finalize, consolidate,
       depend, help e as excecoes legitimas.
@@ -50,14 +53,16 @@ exitGates:
       kind: test
       runner: node --test
       pattern: tests/lifecycle-order-guard.test.js
+    verifierLabel: "test: node --test tests/lifecycle-order-guard.test.js"
   - id: G-3
-    description: project help emite comandos predecessores invocaveis para
-      estados bloqueados do lifecycle.
+    description: project help emite comandos predecessores invocaveis para estados
+      bloqueados do lifecycle.
     status: pending
     verifier:
       kind: test
       runner: node --test
       pattern: tests/help/compute-help.test.js
+    verifierLabel: "test: node --test tests/help/compute-help.test.js"
   - id: G-4
     description: project verify reporta estados archived prematuros como findings
       bloqueantes de lifecycle.
@@ -66,6 +71,7 @@ exitGates:
       kind: test
       runner: node --test
       pattern: tests/detect-orphan-worktrees.test.js
+    verifierLabel: "test: node --test tests/detect-orphan-worktrees.test.js"
 scope:
   paths:
     - skills/shared/project-assets/project-transitions.md
@@ -89,44 +95,66 @@ tasks:
     description: Criar `docs/design/project-lifecycle-order-guards.md` com uma
       tabela de comando posterior, pre-etapa obrigatoria, condicao de bloqueio,
       excecao legitima e comando recomendado.
-    status: pending
-    lastUpdated: 2026-07-08T10:08:05Z
+    status: done
+    lastUpdated: 2026-07-08T12:47:26.521Z
     scopeBoundary:
-      - Nao alterar comportamento ainda; esta tarefa so formaliza o mapa de ordem.
+      - Nao alterar comportamento ainda; esta tarefa so formaliza o mapa de
+        ordem.
       - Nao tratar `archive` como caso unico; mapear tambem finalize,
         consolidate, depend, fork, help, verify, materialize e phase-done.
     acceptance:
-      - O documento lista cada comando posterior relevante e seu predecessor obrigatorio.
-      - O documento distingue archive de plano, archive de fase, split-phase e discover historico.
+      - O documento lista cada comando posterior relevante e seu predecessor
+        obrigatorio.
+      - O documento distingue archive de plano, archive de fase, split-phase e
+        discover historico.
       - Cada bloqueio tem uma mensagem recomendada com comando invocavel.
-      - O caso `archive <slug>` antes de `finalize <slug>`/merge esta documentado.
+      - O caso `archive <slug>` antes de `finalize <slug>`/merge esta
+        documentado.
       - O caso `depend resolve --archived` antes de integracao esta documentado.
     verifier:
       kind: shell
-      command: test -f docs/design/project-lifecycle-order-guards.md &&
-        grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md &&
-        grep -q 'split-phase' docs/design/project-lifecycle-order-guards.md &&
-        grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md
+      command: test -f docs/design/project-lifecycle-order-guards.md && grep -q
+        'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep
+        -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep
+        -q 'depend resolve --archived'
+        docs/design/project-lifecycle-order-guards.md
     outputs:
       - kind: file
         path: docs/design/project-lifecycle-order-guards.md
     weight: 3
+    closedAt: 2026-07-08T12:47:26.521Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-08T12:47:26.521Z
+      exitCode: 0
+      passed: true
+      outputSummary: test -f docs/design/project-lifecycle-order-guards.md && grep -q
+        'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep
+        -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep
+        -q 'depend resolve --archived'
+        docs/design/project-lifecycle-order-guards.md -> exit 0
   - id: T-002
     title: Implementar classificador puro de ordem
     summary: Centraliza as regras de predecessor em helper testavel.
-    description: Criar um helper deterministico para classificar transicoes fora
-      de ordem e retornar allowed/blocked, motivo, excecao aplicada e comando
+    description: Criar um helper deterministico para classificar transicoes fora de
+      ordem e retornar allowed/blocked, motivo, excecao aplicada e comando
       recomendado.
     status: pending
     lastUpdated: 2026-07-08T10:08:05Z
     scopeBoundary:
-      - Nao conectar ainda nos assets mutaveis; manter API pura e coberta por testes.
-      - Nao inferir excecoes por prosa solta; cada excecao precisa de caso nomeado.
+      - Nao conectar ainda nos assets mutaveis; manter API pura e coberta por
+        testes.
+      - Nao inferir excecoes por prosa solta; cada excecao precisa de caso
+        nomeado.
     acceptance:
-      - Bloqueia `archive <slug>` quando falta finalize/consolidate ou merge exigido.
-      - Bloqueia `depend resolve --archived` quando o prerequisito nao esta integrado.
-      - Bloqueia phase-done quando tarefas/gates/review obrigatorios estao abertos.
-      - Permite archive de fase, split-phase e discover historico quando a condicao explicita casa.
+      - Bloqueia `archive <slug>` quando falta finalize/consolidate ou merge
+        exigido.
+      - Bloqueia `depend resolve --archived` quando o prerequisito nao esta
+        integrado.
+      - Bloqueia phase-done quando tarefas/gates/review obrigatorios estao
+        abertos.
+      - Permite archive de fase, split-phase e discover historico quando a
+        condicao explicita casa.
       - Retorna comando recomendado em todos os casos bloqueados.
     verifier:
       kind: test
@@ -147,18 +175,24 @@ tasks:
     lastUpdated: 2026-07-08T10:08:05Z
     scopeBoundary:
       - Nao automatizar merge nem criar PR automaticamente.
-      - Nao remover worktrees; apenas bloquear ou orientar quando a ordem estiver errada.
+      - Nao remover worktrees; apenas bloquear ou orientar quando a ordem
+        estiver errada.
       - Nao quebrar archive interno de fase, split-phase ou discover historico.
     acceptance:
-      - "`archive <slug>` roda o guarda antes de marcar plano/fork como archived."
-      - "`finalize <slug>` e `consolidate <slug>` orientam a etapa anterior quando o plano nao esta terminal."
-      - "`depend resolve --archived` exige dependencia arquivada e integrada ou explica o comando anterior."
-      - Retomada de fork nao ocorre quando o filho ainda nao cumpriu integracao obrigatoria.
+      - "`archive <slug>` roda o guarda antes de marcar plano/fork como
+        archived."
+      - "`finalize <slug>` e `consolidate <slug>` orientam a etapa anterior
+        quando o plano nao esta terminal."
+      - "`depend resolve --archived` exige dependencia arquivada e integrada ou
+        explica o comando anterior."
+      - Retomada de fork nao ocorre quando o filho ainda nao cumpriu integracao
+        obrigatoria.
       - Mensagens de bloqueio incluem o comando anterior recomendado.
     verifier:
       kind: test
       runner: node --test
-      pattern: tests/project.test.js tests/worktree-teardown.test.js tests/finalize-plan-scope.test.js
+      pattern: tests/project.test.js tests/worktree-teardown.test.js
+        tests/finalize-plan-scope.test.js
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-transitions.md
@@ -172,9 +206,9 @@ tasks:
   - id: T-004
     title: Corrigir help e orientacao de proximo passo
     summary: Garante que help e nextAction recomendem predecessores invocaveis.
-    description: Atualizar `compute-help` e artefatos de orientacao para que
-      estados bloqueados apontem para a etapa anterior correta, incluindo
-      `finalize <slug>` com slug explicito.
+    description: Atualizar `compute-help` e artefatos de orientacao para que estados
+      bloqueados apontem para a etapa anterior correta, incluindo `finalize
+      <slug>` com slug explicito.
     status: pending
     lastUpdated: 2026-07-08T10:08:05Z
     scopeBoundary:
@@ -209,9 +243,12 @@ tasks:
       - Nao tornar warn generico em erro sem diferenciar caso recuperavel.
       - Nao bloquear worktree merged/limpa que ja cumpriu integracao.
     acceptance:
-      - "`archived-never-pr` vira finding bloqueante de lifecycle quando deveria ter publicacao."
-      - "`archived-pr-open-unmerged` vira finding bloqueante com recuperacao sugerida."
-      - Casos merged/sem branch propria continuam permitidos ou warning justificado.
+      - "`archived-never-pr` vira finding bloqueante de lifecycle quando deveria
+        ter publicacao."
+      - "`archived-pr-open-unmerged` vira finding bloqueante com recuperacao
+        sugerida."
+      - Casos merged/sem branch propria continuam permitidos ou warning
+        justificado.
       - "`project verify` aponta para finalize/merge/archive na ordem correta."
     verifier:
       kind: test
@@ -251,26 +288,21 @@ Standalone initiative for lifecycle order guards in the `project` skill.
 
 ## Session handoff
 
-- **Narrative:** Plano `project-lifecycle-order-guards` esta ativo na fase F0
-  em `plan/project-lifecycle-order-guards`. A T-001 ainda esta aberta no estado
-  do projeto e o artefato `docs/design/project-lifecycle-order-guards.md` ja
-  existe na arvore para validacao pelo verifier da propria task.
-- **Decision log:** O branch atual foi confirmado por `rtk git symbolic-ref
-  --short HEAD` como `plan/project-lifecycle-order-guards`, igual ao campo
-  `branch:` do plano. O usuario autorizou "faca commit e siga o fluxo do
-  projeto"; por isso o bootstrap de estado sera checkpointado antes do
-  fechamento verificado da T-001.
-- **Single nextAction:** Rode o verifier da T-001 e commite
-  `docs/design/project-lifecycle-order-guards.md`.
-- **Verbatim state:** `rtk git symbolic-ref --short HEAD` -> `plan/project-lifecycle-order-guards`;
-  `rtk git status --porcelain=v1 -uall` -> ` M .atomic-skills/projects/atomic-skills/PROJECT-STATUS.md`
-  / `?? .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`
-  / `?? .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/plan.md`
-  / `?? docs/design/project-lifecycle-order-guards.md`; `rtk git log --oneline -3`
-  -> `2f9c8bd chore(project): checkpoint help-command F3 T-002` /
-  `8911014 docs(T-002): cross-link project help` /
-  `3041a37 chore(project): checkpoint help-command F3 T-001`.
-- **Uncommitted changes:** ` M .atomic-skills/projects/atomic-skills/PROJECT-STATUS.md`;
-  `?? .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`;
-  `?? .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/plan.md`;
-  `?? docs/design/project-lifecycle-order-guards.md`.
+- **Narrative:** F0 esta ativa em
+  `plan/project-lifecycle-order-guards`; T-001 esta fechada com
+  `evidence.passed: true` na iniciativa
+  `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`.
+  O mapa de ordem foi commitado em
+  `docs/design/project-lifecycle-order-guards.md` pelo commit `c4711f0`.
+- **Decision log:** O bootstrap do plano foi checkpointado separadamente no
+  commit `cf4777e` para limpar a retomada antes do fechamento da task. O
+  verifier da T-001 foi executado de novo no fechamento, e a proxima execucao
+  segue para o helper puro da T-002 antes de conectar guardas aos comandos
+  mutaveis.
+- **Single nextAction:** Implemente T-002 em `scripts/lifecycle-order-guard.js`
+  e `tests/lifecycle-order-guard.test.js`.
+- **Verbatim state:** `rtk bash -lc "test -f docs/design/project-lifecycle-order-guards.md && grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md"`
+  -> exit 0; `rtk rg -n "archive <slug>|split-phase|depend resolve --archived" docs/design/project-lifecycle-order-guards.md`
+  -> `68:| `archive <slug>` de plano | Plano ja foi publicado e integrado: PR registrada por `finalize <slug>` ou PR de `consolidate`, merge confirmado no provedor/integracao, e branch chegou ao baseRef. | Plano tem branch publicavel sem PR; PR existe mas nao esta MERGED; baseRef indeterminado; `prIdentity` ausente; branch tem residue alem do head mergeado. | Plano sem branch/worktree propria pode arquivar se houver criterio explicito de integracao local; importacao historica via `discover` e caso separado. | `finalize <slug>`; merge da PR; depois `archive <slug>`. Se archive ja foi feito cedo, usar `verify` para achar `archived-never-pr`/`archived-pr-open-unmerged` e recuperar a publicacao. |`;
+  `86:### `split-phase``; `72:| `depend resolve <dependent> <prerequisite> --archived` | Prerequisite esta `archived` **e** a branch chegou a integracao obrigatoria. | Edge nao existe; prerequisito nao esta `archived`; prerequisito esta `archived-never-pr` ou `archived-pr-open-unmerged`; release ja nao casa com a dependencia. | Planos sem branch propria exigem justificativa explicita de integracao local antes do resolve. | `finalize <prerequisite>`, merge, `archive <prerequisite>`, depois `depend resolve --archived`. |`.
+- **Uncommitted changes:** clean tree.
