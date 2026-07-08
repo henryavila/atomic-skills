@@ -105,6 +105,16 @@ describe('project skill (unified router + lazy assets)', () => {
     }
   });
 
+  it('router dispatches help, help --html, and next to project-help.md', () => {
+    install();
+    const content = readRouter();
+    assert.match(
+      content,
+      /\|\s*`help`, `help --html`, `next`\s*\|\s*`Read .*?project-help\.md`\s*\|/,
+      'help dispatch row must route all help aliases to project-help.md'
+    );
+  });
+
   it('router stays thin (≤ ~250 lines so the token economy holds)', () => {
     install();
     const lineCount = readRouter().split('\n').length;
