@@ -9,9 +9,8 @@ status: active
 branch: plan/project-lifecycle-order-guards
 started: 2026-07-08T10:08:05Z
 startedCommit: 2f9c8bdee197f4204637301b0a83226760046535
-lastUpdated: 2026-07-08T13:02:07.597Z
-nextAction: Implemente T-005 em `scripts/detect-orphan-worktrees.js` e
-  `skills/shared/project-assets/project-verify.md`.
+lastUpdated: 2026-07-08T13:07:02.743Z
+nextAction: Execute `phase-done` para F0.
 parentPlan: project-lifecycle-order-guards
 phaseId: F0
 businessIntent:
@@ -27,11 +26,11 @@ businessIntent:
   doneWhen: archive/finalize/phase-done/help/verify/depend/fork/consolidate
     impedem ou sinalizam pulos de etapa, com testes cobrindo os fluxos e
     excecoes.
-tasksDone: 4
+tasksDone: 5
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 4
-weightDone: 12
+weightDone: 14
 weightTotal: 14
 exitGates:
   - id: G-1
@@ -273,8 +272,8 @@ tasks:
     description: Atualizar os backstops de verify/orphan-worktrees para detectar
       planos arquivados sem PR, com PR aberta nao mergeada ou sem integracao
       declarada, e orientar o caminho de recuperacao.
-    status: pending
-    lastUpdated: 2026-07-08T10:08:05Z
+    status: done
+    lastUpdated: 2026-07-08T13:07:02.743Z
     scopeBoundary:
       - Nao tornar warn generico em erro sem diferenciar caso recuperavel.
       - Nao bloquear worktree merged/limpa que ja cumpriu integracao.
@@ -298,6 +297,15 @@ tasks:
       - kind: test
         path: tests/detect-orphan-worktrees.test.js
     weight: 2
+    closedAt: 2026-07-08T13:07:02.743Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T13:07:02.743Z
+      exitCode: 0
+      testsCollected: 99
+      passed: true
+      outputSummary: node --test tests/detect-orphan-worktrees.test.js
+        tests/validate-state.test.js -> tests 99, pass 99, fail 0
 parked: []
 emerged: []
 planActive: true
@@ -322,47 +330,44 @@ Standalone initiative for lifecycle order guards in the `project` skill.
 - Trigger incident: `project archive` ran before `project finalize`, before PR
   creation and before merge/integration.
 
+## Auto-revisao contra gates de qualidade
+
+- G1 read-before-claim: aplicado - cada task fechada registra o verifier que a
+  fechou em `tasks[].evidence`.
+- G2 soft-language: aplicado - claims de fechamento usam `passed: true` e o
+  handoff foi revisado contra linguagem incerta.
+- G6 reference-or-strike: aplicado - o handoff carrega paths, comandos e saidas
+  verbatim.
+
 ## Session handoff
 
 - **Narrative:** F0 esta ativa em
-  `plan/project-lifecycle-order-guards`; T-001, T-002, T-003 e T-004 estao
-  fechadas com `evidence.passed: true` na iniciativa
+  `plan/project-lifecycle-order-guards`; T-001, T-002, T-003, T-004 e T-005
+  estao fechadas com `evidence.passed: true` na iniciativa
   `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`.
-  O mapa de ordem foi commitado em
-  `docs/design/project-lifecycle-order-guards.md` pelo commit `c4711f0`, e o
-  helper puro foi commitado em `scripts/lifecycle-order-guard.js` pelo commit
-  `ebc4c6d`. Os assets mutaveis de project foram conectados ao guarda pelo
-  commit `51f5c12`. Help/catalogo/docs foram corrigidos em `f253916` e
-  `a4592f0` para emitir `finalize <slug>` e predecessor de lifecycle.
+  A T-005 foi implementada no commit `c95a21c` e transforma
+  `archived-never-pr` / `archived-pr-open-unmerged` em findings `fail` com
+  `recommendedCommand`. O proximo passo de lifecycle e a fronteira de fase:
+  `phase-done`.
 - **Decision log:** O bootstrap do plano foi checkpointado separadamente no
   commit `cf4777e` para limpar a retomada antes do fechamento da task. O
   classificador da T-002 ficou puro e sem conexao aos assets mutaveis; a
   T-003 conectou esse contrato nos assets e adicionou `tests/project.test.js`
   para impedir remocao silenciosa das instrucoes de guarda. A T-004 mudou o
   catalogo para `finalize <slug>` e fez `compute-help` substituir
-  `archive`/teardown stale pelo predecessor indicado pelo guarda.
-- **Single nextAction:** Implemente T-005 em `scripts/detect-orphan-worktrees.js`
-  e `skills/shared/project-assets/project-verify.md`.
-- **Verbatim state:** `rtk bash -lc "test -f docs/design/project-lifecycle-order-guards.md && grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md"`
-  -> exit 0; `rtk rg -n "archive <slug>|split-phase|depend resolve --archived" docs/design/project-lifecycle-order-guards.md`
-  -> `68:| `archive <slug>` de plano | Plano ja foi publicado e integrado: PR registrada por `finalize <slug>` ou PR de `consolidate`, merge confirmado no provedor/integracao, e branch chegou ao baseRef. | Plano tem branch publicavel sem PR; PR existe mas nao esta MERGED; baseRef indeterminado; `prIdentity` ausente; branch tem residue alem do head mergeado. | Plano sem branch/worktree propria pode arquivar se houver criterio explicito de integracao local; importacao historica via `discover` e caso separado. | `finalize <slug>`; merge da PR; depois `archive <slug>`. Se archive ja foi feito cedo, usar `verify` para achar `archived-never-pr`/`archived-pr-open-unmerged` e recuperar a publicacao. |`;
-  `86:### `split-phase``; `72:| `depend resolve <dependent> <prerequisite> --archived` | Prerequisite esta `archived` **e** a branch chegou a integracao obrigatoria. | Edge nao existe; prerequisito nao esta `archived`; prerequisito esta `archived-never-pr` ou `archived-pr-open-unmerged`; release ja nao casa com a dependencia. | Planos sem branch propria exigem justificativa explicita de integracao local antes do resolve. | `finalize <prerequisite>`, merge, `archive <prerequisite>`, depois `depend resolve --archived`. |`;
-  `rtk node --test tests/lifecycle-order-guard.test.js` -> `tests 13`,
-  `pass 13`, `fail 0`; `rtk rg -n "export function classifyLifecycleOrder|function archivePlan|function dependResolveArchived|function phaseDone" scripts/lifecycle-order-guard.js tests/lifecycle-order-guard.test.js`
-  -> `scripts/lifecycle-order-guard.js:121:function archivePlan(input) {`;
-  `scripts/lifecycle-order-guard.js:197:function dependResolveArchived(input) {`;
-  `scripts/lifecycle-order-guard.js:235:function phaseDone(input) {`;
-  `scripts/lifecycle-order-guard.js:300:export function classifyLifecycleOrder(input = {}) {`;
-  `rtk node --test tests/project.test.js tests/worktree-teardown.test.js tests/finalize-plan-scope.test.js`
-  -> `tests 97`, `pass 97`, `fail 0`; `rtk rg -n "classifyLifecycleOrder|before fork-resume|recommendedCommand|predecessor command|non-terminal|depend resolve --archived" skills/shared/project-assets/project-transitions.md skills/shared/project-assets/project-dependencies.md skills/shared/project-assets/project-finalize.md skills/shared/project-assets/project-consolidate.md tests/project.test.js`
-  -> `skills/shared/project-assets/project-transitions.md:283:1a. **Lifecycle-order guard (HARD gate — before fork-resume, status flips, moves, or teardown offers):** call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` on the resolved target.`;
-  `skills/shared/project-assets/project-dependencies.md:106:- Before writing `release.archived: resolved`, call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` with `{ command: 'depend resolve --archived', dependentSlug, prerequisite: <prerequisite plan slice> }`. If it returns `blocked`, print `reason` and `recommendedCommand`, then STOP without changing the edge.`;
-  `skills/shared/project-assets/project-finalize.md:237:non-terminal target, also print the predecessor command: `phase-done` for the`;
-  `skills/shared/project-assets/project-consolidate.md:38:   If a plan is excluded because it is non-terminal, print the predecessor command`;
-  `rtk node --test tests/help/compute-help.test.js tests/help/help-vocab.test.js`
-  -> `tests 34`, `pass 34`, `fail 0`; `rtk rg -n "finalize demo-plan|finalize <slug>|lifecycle-order block|lifecycle-order blockers|archive/teardown|signature: '<slug>'|stale archive nextAction" scripts/compute-help.js tests/help/compute-help.test.js tests/help/fixtures/states.js tests/help/help-vocab.test.js meta/catalog.yaml docs/skills/project.md`
-  -> `scripts/compute-help.js:195:  // 7b — stale posterior nextAction: archive/teardown before publication proof.`;
-  `tests/help/compute-help.test.js:335:test('computeHelp: stale archive nextAction is replaced by finalize <slug> when publication proof is missing', () => {`;
-  `meta/catalog.yaml:390:        signature: '<slug>'`;
-  `docs/skills/project.md:80:| `finalize <slug>` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive |`.
+  `archive`/teardown stale pelo predecessor indicado pelo guarda. A T-005
+  manteve `merged-feature-worktree` como `warn`, elevou archives prematuros a
+  `fail`, e preservou planos arquivados sem branch propria como ausencia de
+  finding nesse detector.
+- **Single nextAction:** Execute `phase-done` para F0.
+- **Verbatim state:** `rtk node --test tests/detect-orphan-worktrees.test.js tests/validate-state.test.js`
+  -> `tests 99`, `pass 99`, `fail 0`; `rtk rg -n "severity: 'fail'|recommendedCommand|archived-never-pr|archived-pr-open-unmerged|FAIL archived|does not block archived plans" scripts/detect-orphan-worktrees.js tests/detect-orphan-worktrees.test.js skills/shared/project-assets/project-verify.md`
+  -> `scripts/detect-orphan-worktrees.js:138:      severity: 'fail',`;
+  `scripts/detect-orphan-worktrees.js:146:      recommendedCommand: missingPublication`;
+  `skills/shared/project-assets/project-verify.md:108:- **FAIL archived-never-pr:** an archived plan with a branch that has no PR/publication proof and never reached the integration ref.`;
+  `skills/shared/project-assets/project-verify.md:109:- **FAIL archived-pr-open-unmerged:** an archived plan whose PR is still OPEN and whose branch never reached the integration ref.`;
+  `tests/detect-orphan-worktrees.test.js:79:test('findOrphanWorktrees does not block archived plans without their own branch', () => {`;
+  `rtk git log --oneline -3` -> `c95a21c fix(T-005): make premature archive findings blocking`;
+  `455203d chore(project): checkpoint project-lifecycle-order-guards F0 T-004`;
+  `a4592f0 docs(T-004): refresh project command docs`.
 - **Uncommitted changes:** clean tree.
