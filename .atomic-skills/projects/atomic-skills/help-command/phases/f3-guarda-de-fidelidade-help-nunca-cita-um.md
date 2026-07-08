@@ -147,5 +147,5 @@ _(plan doc, external refs)_
 - **Narrative:** F3 está ativa em `develop`; a transição F2->F3 foi registrada no commit `9885dec chore(project): advance help-command F2`. A fase fecha a fidelidade do comando `help` com guardas de vocabulário, catálogo, dispatch e cross-link docs/HTML.
 - **Decision log:** F0/L-002 aplicada em T-001; F2/L-001 mantida aberta porque F3 não adiciona novo CTA por caminho fixo.
 - **Single nextAction:** Rode `done T-001` depois de adicionar a cobertura help-vocab e a asserção de dispatch em project.test.
-- **Verbatim state:** `rtk git status --porcelain` -> clean tree; `rtk git show --stat --oneline --decorate -1` -> `9885dec (HEAD -> develop) chore(project): advance help-command F2`; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `tests/help/help-vocab.test.js`; `tests/project.test.js`.
+- **Verbatim state:** `rtk git status --porcelain` -> clean tree; `rtk git show --stat --oneline --decorate 9885dec` -> `9885dec chore(project): advance help-command F2`; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `tests/help/help-vocab.test.js`; `tests/project.test.js`.
 - **Uncommitted changes:** clean tree.
