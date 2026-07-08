@@ -8,10 +8,8 @@ goal: Um teste garante que todo comando do domínio de saída existe no catálog
 status: active
 branch: develop
 started: 2026-07-08T01:40:29Z
-lastUpdated: 2026-07-08T02:03:14.546Z
-nextAction: Rode `done T-002` depois de atualizar
-  docs/design/project-onboarding/html-design-brief.md e docs/skills/project.md
-  com o cross-link `project help`.
+lastUpdated: 2026-07-08T02:09:20.860Z
+nextAction: Rode `phase-done`.
 parentPlan: help-command
 phaseId: F3
 businessIntent:
@@ -39,11 +37,11 @@ businessIntent:
     - question: Como F2/L-001 foi dispositionada na F3?
       answer: "Keep: F3 não habilita novo CTA por caminho fixo; a lesson segue aberta
         para futuras fases que adicionem recursos por path fixo."
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 3
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-1
@@ -112,8 +110,8 @@ tasks:
     description: No rodapé "Estou perdido" do brief/HTML e no
       docs/skills/project.md, apontar help como o GPS de terminal. Fecha o loop
       das 3 camadas.
-    status: pending
-    lastUpdated: 2026-07-08T01:40:29Z
+    status: done
+    lastUpdated: 2026-07-08T02:09:20.860Z
     scopeBoundary:
       - só as linhas de cross-link nos dois docs; nenhuma mudança de código.
     acceptance:
@@ -130,6 +128,14 @@ tasks:
     summary: Atualiza docs/HTML para apontarem project help como GPS de terminal no
       fluxo estou perdido.
     weight: 2
+    closedAt: 2026-07-08T02:09:20.860Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-08T02:09:20.860Z
+      exitCode: 0
+      passed: true
+      outputSummary: grep -q 'project help'
+        docs/design/project-onboarding/html-design-brief.md -> match (exit 0)
 parked: []
 emerged: []
 startedCommit: 61349088f34701cfe7781c41097434cb89247c16
@@ -153,8 +159,8 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F3 está ativa em `develop`; T-001 foi fechada com `evidence.passed: true` depois do verifier `node --test tests/help/help-vocab.test.js`. A fase agora segue para T-002, que é o cross-link docs/HTML para `project help`.
-- **Decision log:** T-001 foi executada via Mode 2 na worktree `/Volumes/External/code/atomic-skills-help-command-t001` e mesclada pelo commit `28f7a2e feat(T-001): add help command vocabulary guard`; a revisão do diff corrigiu o validator para aceitar `implement` como skill core do catálogo, não como subcomando de `project`. `.atomic-skills/status/dispatch-log.json` não foi editado nesta tarefa porque o arquivo existente está em formato misto e o consumidor atual `scripts/append-completion.js` declara JSON array.
-- **Single nextAction:** Rode `done T-002` depois de atualizar docs/design/project-onboarding/html-design-brief.md e docs/skills/project.md com o cross-link `project help`.
-- **Verbatim state:** `rtk node --test tests/help/help-vocab.test.js` -> `tests 4`, `pass 4`, `fail 0`; `rtk node --test tests/project.test.js` -> `tests 51`, `pass 51`, `fail 0`; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `.atomic-skills/analytics/completions.jsonl`; `tests/help/help-vocab.test.js`; `tests/project.test.js`.
+- **Narrative:** F3 está ativa em `develop`; T-001 e T-002 estão fechadas com evidência `passed: true`. A fase não tem tasks abertas e está no boundary de `phase-done`.
+- **Decision log:** T-001 foi executada via Mode 2 na worktree `/Volumes/External/code/atomic-skills-help-command-t001` e mesclada pelo commit `28f7a2e feat(T-001): add help command vocabulary guard`; T-002 foi executada via Mode 2 na worktree `/Volumes/External/code/atomic-skills-help-command-t002` e mesclada pelo commit `8911014 docs(T-002): cross-link project help`. `.atomic-skills/status/dispatch-log.json` não foi editado nesta fase porque o arquivo existente está em formato misto e o consumidor atual `scripts/append-completion.js` declara JSON array.
+- **Single nextAction:** Rode `phase-done`.
+- **Verbatim state:** `rtk node --test tests/help/help-vocab.test.js` -> `tests 4`, `pass 4`, `fail 0`; `rtk node --test tests/project.test.js` -> `tests 51`, `pass 51`, `fail 0`; `rtk grep -q 'project help' docs/design/project-onboarding/html-design-brief.md` -> match, exit 0; `rtk grep -q 'project help' docs/skills/project.md` -> match, exit 0; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `.atomic-skills/analytics/completions.jsonl`; `docs/design/project-onboarding/html-design-brief.md`; `docs/skills/project.md`.
 - **Uncommitted changes:** clean tree.
