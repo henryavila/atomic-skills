@@ -36,6 +36,24 @@ test('blocks archive <slug> before finalize/consolidate publication exists', () 
   assert.match(result.recommendedCommand, /archive order-guards/);
 });
 
+test('blocks archive <slug> with pr.state NONE as missing publication', () => {
+  const result = classifyLifecycleOrder({
+    command: 'archive',
+    targetKind: 'plan',
+    target: {
+      slug: 'order-guards',
+      status: 'done',
+      branch: 'plan/order-guards',
+      integration: { pr: { state: 'NONE' } },
+    },
+  });
+
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'archive-missing-publication');
+  assert.match(result.recommendedCommand, /finalize order-guards/);
+  assert.doesNotMatch(result.recommendedCommand, /Merge the PR/);
+});
+
 test('blocks archive <slug> when publication exists but merge proof is absent', () => {
   const result = classifyLifecycleOrder({
     command: 'archive',

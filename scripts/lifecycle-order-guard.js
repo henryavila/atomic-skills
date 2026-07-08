@@ -90,11 +90,12 @@ function hasPublicationAttempt(value) {
   const entity = object(value);
   const integration = integrationOf(entity);
   const pr = prOf(entity);
+  const prState = text(pr.state).toUpperCase();
   return Boolean(
     bool(entity.finalized) ||
     bool(entity.consolidated) ||
     text(entity.prIdentity) ||
-    text(pr.state) ||
+    (prState && prState !== 'NONE') ||
     text(pr.url) ||
     text(integration.finalizedAt) ||
     text(integration.consolidatedAt),
