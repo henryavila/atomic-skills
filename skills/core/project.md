@@ -6,7 +6,7 @@ This skill implements a 3-level model that matches `@henryavila/aideck`. State l
 - **Initiative** — one phase of a plan, materialized at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`. A **standalone** unit of work is a *degenerate 1-phase plan* (same nested shape — its lone phase carries the work), NOT a separate top-level file.
 - **Task** — atomic action inside a phase initiative (frontmatter `tasks[]`)
 
-Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index. **Legacy / coexistence:** flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + top-level status may still exist; readers resolve nested first, then flat, and `atomic-skills:project migrate` cuts over. Schemas live in `meta/schemas/`; validate with `validate-state.js`. `schemaVersion` policy: writers emit `'0.1'` unless an explicit upgrade stamps `'0.2'`.
+Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index. **Legacy / coexistence:** flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + top-level status may still exist; readers resolve nested first, then flat, and `atomic-skills:project migrate` cuts over. Schemas live in `meta/schemas/`; validate with `validate-state.js`. `schemaVersion` policy: accept `'0.1'`/`'0.2'`; writers emit `'0.1'` unless an explicit upgrade stamps `'0.2'`.
 
 ## Grammar
 
