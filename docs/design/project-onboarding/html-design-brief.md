@@ -15,7 +15,7 @@ Uma **página web única, auto-contida**, que ensina o **modelo mental** da skil
 
 O que a página **NÃO é** (para não competir com o que já existe):
 - **Não é um dashboard.** O estado vivo de um projeto é mostrado pelo aiDeck (`status --browser`). Esta página é conhecimento **estável**, não dados.
-- **Não é um GPS contextual.** "Onde estou / próximo passo" é o comando `guide`/no-args no terminal. Esta página é a **"constituição"** — vale para qualquer projeto, em qualquer momento.
+- **Não é um GPS contextual.** "Onde estou / próximo passo" é o comando `project help` no terminal; `project help --html` abre o guia visual. Esta página é a **"constituição"** — vale para qualquer projeto, em qualquer momento.
 
 ## 2. Público e idioma
 
@@ -238,7 +238,7 @@ A `project` é um orquestrador fino: ela **delega** partes do ciclo para skills 
 4. **Pode / Não pode** (Seção D) — duas colunas; dê peso máximo à coluna "não pode".
 5. **Referência de comandos** (Seção E) — agrupada por função; navegável.
 6. **Skills conectadas** (Seção F) — o mapa de delegação.
-7. **"Estou perdido"** — rodapé que aponta: **`project guide`** (terminal, "onde estou / próximo passo") e `status --browser` (aiDeck, estado vivo). Fecha o loop entre as 3 camadas (aprender aqui → orientar no terminal → agir no dashboard). Cite `project guide` textualmente: o comando de terminal abre **esta mesma página** via `project guide --html`, então os dois são o mesmo guia em superfícies diferentes.
+7. **"Estou perdido"** — rodapé que aponta: **`project help`** (terminal, "onde estou / próximo passo") e `status --browser` (aiDeck, estado vivo). Fecha o loop entre as 3 camadas (aprender aqui → orientar no terminal → agir no dashboard). Cite `project help` textualmente: a invocação completa é `/atomic-skills:project help`, e o comando de terminal abre **esta mesma página** via `project help --html`, então os dois são o mesmo guia em superfícies diferentes.
 
 ---
 
@@ -252,7 +252,7 @@ A `project` é um orquestrador fino: ela **delega** partes do ciclo para skills 
 
 ## 6. Onde salvar (contrato com o comando de terminal)
 
-O comando `project guide --html` abre esta página, então o arquivo final tem um **caminho canônico** que o comando procura:
+O comando `project help --html` abre esta página, então o arquivo final tem um **caminho canônico** que o comando procura:
 
 - **Salve a página em:** `docs/design/project-onboarding/index.html` — arquivo único, auto-contido (todo CSS/JS/assets inline; sem dependência de rede, igual à regra de Artifacts).
 - Se por algum motivo for para outro lugar, o caminho tem que ser registrável em `manifest.json` como `guideHtmlPath`; senão o comando não o encontra e cai no fallback ("guia visual ainda não gerado").
