@@ -1,7 +1,7 @@
 ---
-lastUpdated: 2026-07-08T01:40:29Z
+lastUpdated: 2026-07-08T10:08:05Z
 schemaVersion: "0.1"
-activePlans: 1
+activePlans: 2
 activeInitiatives: 0
 archivedCount: 17
 ---
@@ -22,12 +22,18 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | help-command | active | F3 | develop | 2026-07-05 | 3/4 |
+| project-lifecycle-order-guards | active | F0 | plan/project-lifecycle-order-guards | 2026-07-08 | 0/1 |
 
 ### help-command
 | Initiative | Phase | Status | Tasks |
 |------------|-------|--------|-------|
 | f1-o-mapa-estado-proximo-passo-como-helper | F1 | done | 2/2 |
 | f3-guarda-de-fidelidade-help-nunca-cita-um | F3 | active | 0/2 |
+
+### project-lifecycle-order-guards
+| Initiative | Phase | Status | Tasks |
+|------------|-------|--------|-------|
+| project-lifecycle-order-guards | F0 | active | 0/5 |
 
 ## Done Plans (not archived)
 
