@@ -8,9 +8,10 @@ goal: Um teste garante que todo comando do domínio de saída existe no catálog
 status: active
 branch: develop
 started: 2026-07-08T01:40:29Z
-lastUpdated: 2026-07-08T01:40:29Z
-nextAction: Rode `done T-001` depois de adicionar a cobertura help-vocab e a
-  asserção de dispatch em project.test.
+lastUpdated: 2026-07-08T02:03:14.546Z
+nextAction: Rode `done T-002` depois de atualizar
+  docs/design/project-onboarding/html-design-brief.md e docs/skills/project.md
+  com o cross-link `project help`.
 parentPlan: help-command
 phaseId: F3
 businessIntent:
@@ -38,11 +39,11 @@ businessIntent:
     - question: Como F2/L-001 foi dispositionada na F3?
       answer: "Keep: F3 não habilita novo CTA por caminho fixo; a lesson segue aberta
         para futuras fases que adicionem recursos por path fixo."
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 3
 weightTotal: 5
 exitGates:
   - id: G-1
@@ -75,8 +76,8 @@ tasks:
       não-resolvido falha. Aplica F0/L-002: adicionar em tests/project.test.js
       uma asserção persistente para help/help --html/next -> project-help.md,
       além do domínio de saída em tests/help/help-vocab.test.js."
-    status: pending
-    lastUpdated: 2026-07-08T01:40:29Z
+    status: done
+    lastUpdated: 2026-07-08T02:03:14.546Z
     scopeBoundary:
       - só o teste de vocabulário; não altera o helper nem o catálogo.
     acceptance:
@@ -98,6 +99,14 @@ tasks:
       dispatch-row help/help --html/next -> project-help.md em teste
       persistente.
     weight: 3
+    closedAt: 2026-07-08T02:03:14.546Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T02:03:14.546Z
+      exitCode: 0
+      testsCollected: 4
+      passed: true
+      outputSummary: node --test tests/help/help-vocab.test.js -> tests 4, pass 4, fail 0
   - id: T-002
     title: — Cross-link do HTML
     description: No rodapé "Estou perdido" do brief/HTML e no
@@ -144,8 +153,8 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** F3 está ativa em `develop`; a transição F2->F3 foi registrada no commit `9885dec chore(project): advance help-command F2`. A fase fecha a fidelidade do comando `help` com guardas de vocabulário, catálogo, dispatch e cross-link docs/HTML.
-- **Decision log:** F0/L-002 aplicada em T-001; F2/L-001 mantida aberta porque F3 não adiciona novo CTA por caminho fixo.
-- **Single nextAction:** Rode `done T-001` depois de adicionar a cobertura help-vocab e a asserção de dispatch em project.test.
-- **Verbatim state:** `rtk git status --porcelain` -> clean tree; `rtk git show --stat --oneline --decorate 9885dec` -> `9885dec chore(project): advance help-command F2`; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `tests/help/help-vocab.test.js`; `tests/project.test.js`.
+- **Narrative:** F3 está ativa em `develop`; T-001 foi fechada com `evidence.passed: true` depois do verifier `node --test tests/help/help-vocab.test.js`. A fase agora segue para T-002, que é o cross-link docs/HTML para `project help`.
+- **Decision log:** T-001 foi executada via Mode 2 na worktree `/Volumes/External/code/atomic-skills-help-command-t001` e mesclada pelo commit `28f7a2e feat(T-001): add help command vocabulary guard`; a revisão do diff corrigiu o validator para aceitar `implement` como skill core do catálogo, não como subcomando de `project`. `.atomic-skills/status/dispatch-log.json` não foi editado nesta tarefa porque o arquivo existente está em formato misto e o consumidor atual `scripts/append-completion.js` declara JSON array.
+- **Single nextAction:** Rode `done T-002` depois de atualizar docs/design/project-onboarding/html-design-brief.md e docs/skills/project.md com o cross-link `project help`.
+- **Verbatim state:** `rtk node --test tests/help/help-vocab.test.js` -> `tests 4`, `pass 4`, `fail 0`; `rtk node --test tests/project.test.js` -> `tests 51`, `pass 51`, `fail 0`; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `.atomic-skills/analytics/completions.jsonl`; `tests/help/help-vocab.test.js`; `tests/project.test.js`.
 - **Uncommitted changes:** clean tree.
