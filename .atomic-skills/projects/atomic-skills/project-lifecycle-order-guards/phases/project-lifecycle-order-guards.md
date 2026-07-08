@@ -9,9 +9,9 @@ status: active
 branch: plan/project-lifecycle-order-guards
 started: 2026-07-08T10:08:05Z
 startedCommit: 2f9c8bdee197f4204637301b0a83226760046535
-lastUpdated: 2026-07-08T12:56:11.800Z
-nextAction: Implemente T-004 em `scripts/compute-help.js` e
-  `tests/help/compute-help.test.js`.
+lastUpdated: 2026-07-08T13:02:07.597Z
+nextAction: Implemente T-005 em `scripts/detect-orphan-worktrees.js` e
+  `skills/shared/project-assets/project-verify.md`.
 parentPlan: project-lifecycle-order-guards
 phaseId: F0
 businessIntent:
@@ -27,11 +27,11 @@ businessIntent:
   doneWhen: archive/finalize/phase-done/help/verify/depend/fork/consolidate
     impedem ou sinalizam pulos de etapa, com testes cobrindo os fluxos e
     excecoes.
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 4
-weightDone: 10
+weightDone: 12
 weightTotal: 14
 exitGates:
   - id: G-1
@@ -230,8 +230,8 @@ tasks:
     description: Atualizar `compute-help` e artefatos de orientacao para que estados
       bloqueados apontem para a etapa anterior correta, incluindo `finalize
       <slug>` com slug explicito.
-    status: pending
-    lastUpdated: 2026-07-08T10:08:05Z
+    status: done
+    lastUpdated: 2026-07-08T13:02:07.597Z
     scopeBoundary:
       - Nao redesenhar o render do help.
       - Nao mudar o conceito de read-only/zero-mutacao do help.
@@ -249,9 +249,24 @@ tasks:
         path: scripts/compute-help.js
       - kind: test
         path: tests/help/compute-help.test.js
+      - kind: test
+        path: tests/help/fixtures/states.js
+      - kind: test
+        path: tests/help/help-vocab.test.js
       - kind: file
         path: meta/catalog.yaml
+      - kind: file
+        path: docs/skills/project.md
     weight: 2
+    closedAt: 2026-07-08T13:02:07.597Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T13:02:07.597Z
+      exitCode: 0
+      testsCollected: 34
+      passed: true
+      outputSummary: node --test tests/help/compute-help.test.js
+        tests/help/help-vocab.test.js -> tests 34, pass 34, fail 0
   - id: T-005
     title: Fortalecer verify e recuperacao
     summary: Transforma archived prematuro em finding bloqueante e sugere reparo.
@@ -310,21 +325,24 @@ Standalone initiative for lifecycle order guards in the `project` skill.
 ## Session handoff
 
 - **Narrative:** F0 esta ativa em
-  `plan/project-lifecycle-order-guards`; T-001, T-002 e T-003 estao fechadas com
-  `evidence.passed: true` na iniciativa
+  `plan/project-lifecycle-order-guards`; T-001, T-002, T-003 e T-004 estao
+  fechadas com `evidence.passed: true` na iniciativa
   `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`.
   O mapa de ordem foi commitado em
   `docs/design/project-lifecycle-order-guards.md` pelo commit `c4711f0`, e o
   helper puro foi commitado em `scripts/lifecycle-order-guard.js` pelo commit
   `ebc4c6d`. Os assets mutaveis de project foram conectados ao guarda pelo
-  commit `51f5c12`.
+  commit `51f5c12`. Help/catalogo/docs foram corrigidos em `f253916` e
+  `a4592f0` para emitir `finalize <slug>` e predecessor de lifecycle.
 - **Decision log:** O bootstrap do plano foi checkpointado separadamente no
   commit `cf4777e` para limpar a retomada antes do fechamento da task. O
   classificador da T-002 ficou puro e sem conexao aos assets mutaveis; a
   T-003 conectou esse contrato nos assets e adicionou `tests/project.test.js`
-  para impedir remocao silenciosa das instrucoes de guarda.
-- **Single nextAction:** Implemente T-004 em `scripts/compute-help.js` e
-  `tests/help/compute-help.test.js`.
+  para impedir remocao silenciosa das instrucoes de guarda. A T-004 mudou o
+  catalogo para `finalize <slug>` e fez `compute-help` substituir
+  `archive`/teardown stale pelo predecessor indicado pelo guarda.
+- **Single nextAction:** Implemente T-005 em `scripts/detect-orphan-worktrees.js`
+  e `skills/shared/project-assets/project-verify.md`.
 - **Verbatim state:** `rtk bash -lc "test -f docs/design/project-lifecycle-order-guards.md && grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md"`
   -> exit 0; `rtk rg -n "archive <slug>|split-phase|depend resolve --archived" docs/design/project-lifecycle-order-guards.md`
   -> `68:| `archive <slug>` de plano | Plano ja foi publicado e integrado: PR registrada por `finalize <slug>` ou PR de `consolidate`, merge confirmado no provedor/integracao, e branch chegou ao baseRef. | Plano tem branch publicavel sem PR; PR existe mas nao esta MERGED; baseRef indeterminado; `prIdentity` ausente; branch tem residue alem do head mergeado. | Plano sem branch/worktree propria pode arquivar se houver criterio explicito de integracao local; importacao historica via `discover` e caso separado. | `finalize <slug>`; merge da PR; depois `archive <slug>`. Se archive ja foi feito cedo, usar `verify` para achar `archived-never-pr`/`archived-pr-open-unmerged` e recuperar a publicacao. |`;
@@ -340,5 +358,11 @@ Standalone initiative for lifecycle order guards in the `project` skill.
   -> `skills/shared/project-assets/project-transitions.md:283:1a. **Lifecycle-order guard (HARD gate — before fork-resume, status flips, moves, or teardown offers):** call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` on the resolved target.`;
   `skills/shared/project-assets/project-dependencies.md:106:- Before writing `release.archived: resolved`, call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` with `{ command: 'depend resolve --archived', dependentSlug, prerequisite: <prerequisite plan slice> }`. If it returns `blocked`, print `reason` and `recommendedCommand`, then STOP without changing the edge.`;
   `skills/shared/project-assets/project-finalize.md:237:non-terminal target, also print the predecessor command: `phase-done` for the`;
-  `skills/shared/project-assets/project-consolidate.md:38:   If a plan is excluded because it is non-terminal, print the predecessor command`.
+  `skills/shared/project-assets/project-consolidate.md:38:   If a plan is excluded because it is non-terminal, print the predecessor command`;
+  `rtk node --test tests/help/compute-help.test.js tests/help/help-vocab.test.js`
+  -> `tests 34`, `pass 34`, `fail 0`; `rtk rg -n "finalize demo-plan|finalize <slug>|lifecycle-order block|lifecycle-order blockers|archive/teardown|signature: '<slug>'|stale archive nextAction" scripts/compute-help.js tests/help/compute-help.test.js tests/help/fixtures/states.js tests/help/help-vocab.test.js meta/catalog.yaml docs/skills/project.md`
+  -> `scripts/compute-help.js:195:  // 7b — stale posterior nextAction: archive/teardown before publication proof.`;
+  `tests/help/compute-help.test.js:335:test('computeHelp: stale archive nextAction is replaced by finalize <slug> when publication proof is missing', () => {`;
+  `meta/catalog.yaml:390:        signature: '<slug>'`;
+  `docs/skills/project.md:80:| `finalize <slug>` | Publish the finished plan branch as a PR: push plan/<slug> + gh pr create --base <integrationRef>, record the PR url in plan state; requires explicit slug and runs before merge/archive |`.
 - **Uncommitted changes:** clean tree.
