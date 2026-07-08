@@ -9,9 +9,9 @@ status: active
 branch: plan/project-lifecycle-order-guards
 started: 2026-07-08T10:08:05Z
 startedCommit: 2f9c8bdee197f4204637301b0a83226760046535
-lastUpdated: 2026-07-08T12:52:12.741Z
-nextAction: Implemente T-003 conectando o classificador aos assets mutaveis de
-  project.
+lastUpdated: 2026-07-08T12:56:11.800Z
+nextAction: Implemente T-004 em `scripts/compute-help.js` e
+  `tests/help/compute-help.test.js`.
 parentPlan: project-lifecycle-order-guards
 phaseId: F0
 businessIntent:
@@ -27,11 +27,11 @@ businessIntent:
   doneWhen: archive/finalize/phase-done/help/verify/depend/fork/consolidate
     impedem ou sinalizam pulos de etapa, com testes cobrindo os fluxos e
     excecoes.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 4
-weightDone: 6
+weightDone: 10
 weightTotal: 14
 exitGates:
   - id: G-1
@@ -180,8 +180,8 @@ tasks:
     summary: Aplica o classificador antes de mutacoes posteriores do lifecycle.
     description: Conectar o helper nos assets de transicao para impedir que uma
       etapa posterior mude estado antes da pre-etapa obrigatoria.
-    status: pending
-    lastUpdated: 2026-07-08T10:08:05Z
+    status: done
+    lastUpdated: 2026-07-08T12:56:11.800Z
     scopeBoundary:
       - Nao automatizar merge nem criar PR automaticamente.
       - Nao remover worktrees; apenas bloquear ou orientar quando a ordem
@@ -211,7 +211,19 @@ tasks:
         path: skills/shared/project-assets/project-finalize.md
       - kind: file
         path: skills/shared/project-assets/project-consolidate.md
+      - kind: test
+        path: tests/project.test.js
     weight: 4
+    closedAt: 2026-07-08T12:56:11.800Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T12:56:11.800Z
+      exitCode: 0
+      testsCollected: 97
+      passed: true
+      outputSummary: node --test tests/project.test.js
+        tests/worktree-teardown.test.js tests/finalize-plan-scope.test.js ->
+        tests 97, pass 97, fail 0
   - id: T-004
     title: Corrigir help e orientacao de proximo passo
     summary: Garante que help e nextAction recomendem predecessores invocaveis.
@@ -298,19 +310,21 @@ Standalone initiative for lifecycle order guards in the `project` skill.
 ## Session handoff
 
 - **Narrative:** F0 esta ativa em
-  `plan/project-lifecycle-order-guards`; T-001 e T-002 estao fechadas com
+  `plan/project-lifecycle-order-guards`; T-001, T-002 e T-003 estao fechadas com
   `evidence.passed: true` na iniciativa
   `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`.
   O mapa de ordem foi commitado em
   `docs/design/project-lifecycle-order-guards.md` pelo commit `c4711f0`, e o
   helper puro foi commitado em `scripts/lifecycle-order-guard.js` pelo commit
-  `ebc4c6d`.
+  `ebc4c6d`. Os assets mutaveis de project foram conectados ao guarda pelo
+  commit `51f5c12`.
 - **Decision log:** O bootstrap do plano foi checkpointado separadamente no
   commit `cf4777e` para limpar a retomada antes do fechamento da task. O
   classificador da T-002 ficou puro e sem conexao aos assets mutaveis; a
-  conexao fica na T-003 para preservar o limite de escopo da task.
-- **Single nextAction:** Implemente T-003 conectando o classificador aos assets
-  mutaveis de project.
+  T-003 conectou esse contrato nos assets e adicionou `tests/project.test.js`
+  para impedir remocao silenciosa das instrucoes de guarda.
+- **Single nextAction:** Implemente T-004 em `scripts/compute-help.js` e
+  `tests/help/compute-help.test.js`.
 - **Verbatim state:** `rtk bash -lc "test -f docs/design/project-lifecycle-order-guards.md && grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md"`
   -> exit 0; `rtk rg -n "archive <slug>|split-phase|depend resolve --archived" docs/design/project-lifecycle-order-guards.md`
   -> `68:| `archive <slug>` de plano | Plano ja foi publicado e integrado: PR registrada por `finalize <slug>` ou PR de `consolidate`, merge confirmado no provedor/integracao, e branch chegou ao baseRef. | Plano tem branch publicavel sem PR; PR existe mas nao esta MERGED; baseRef indeterminado; `prIdentity` ausente; branch tem residue alem do head mergeado. | Plano sem branch/worktree propria pode arquivar se houver criterio explicito de integracao local; importacao historica via `discover` e caso separado. | `finalize <slug>`; merge da PR; depois `archive <slug>`. Se archive ja foi feito cedo, usar `verify` para achar `archived-never-pr`/`archived-pr-open-unmerged` e recuperar a publicacao. |`;
@@ -320,5 +334,11 @@ Standalone initiative for lifecycle order guards in the `project` skill.
   -> `scripts/lifecycle-order-guard.js:121:function archivePlan(input) {`;
   `scripts/lifecycle-order-guard.js:197:function dependResolveArchived(input) {`;
   `scripts/lifecycle-order-guard.js:235:function phaseDone(input) {`;
-  `scripts/lifecycle-order-guard.js:300:export function classifyLifecycleOrder(input = {}) {`.
+  `scripts/lifecycle-order-guard.js:300:export function classifyLifecycleOrder(input = {}) {`;
+  `rtk node --test tests/project.test.js tests/worktree-teardown.test.js tests/finalize-plan-scope.test.js`
+  -> `tests 97`, `pass 97`, `fail 0`; `rtk rg -n "classifyLifecycleOrder|before fork-resume|recommendedCommand|predecessor command|non-terminal|depend resolve --archived" skills/shared/project-assets/project-transitions.md skills/shared/project-assets/project-dependencies.md skills/shared/project-assets/project-finalize.md skills/shared/project-assets/project-consolidate.md tests/project.test.js`
+  -> `skills/shared/project-assets/project-transitions.md:283:1a. **Lifecycle-order guard (HARD gate — before fork-resume, status flips, moves, or teardown offers):** call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` on the resolved target.`;
+  `skills/shared/project-assets/project-dependencies.md:106:- Before writing `release.archived: resolved`, call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` with `{ command: 'depend resolve --archived', dependentSlug, prerequisite: <prerequisite plan slice> }`. If it returns `blocked`, print `reason` and `recommendedCommand`, then STOP without changing the edge.`;
+  `skills/shared/project-assets/project-finalize.md:237:non-terminal target, also print the predecessor command: `phase-done` for the`;
+  `skills/shared/project-assets/project-consolidate.md:38:   If a plan is excluded because it is non-terminal, print the predecessor command`.
 - **Uncommitted changes:** clean tree.

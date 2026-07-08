@@ -56,3 +56,4 @@
 {"ts":"2026-07-08T02:09:37.292Z","event":"task-done","projectId":"atomic-skills","planSlug":"help-command","phaseId":"F3","taskId":"T-002","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-07-08T12:48:27.609Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-lifecycle-order-guards","phaseId":"F0","taskId":"T-001","weight":3,"weightBasis":"proxy"}
 {"ts":"2026-07-08T12:52:54.347Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-lifecycle-order-guards","phaseId":"F0","taskId":"T-002","weight":3,"weightBasis":"proxy"}
+{"ts":"2026-07-08T12:57:43.802Z","event":"task-done","projectId":"atomic-skills","planSlug":"project-lifecycle-order-guards","phaseId":"F0","taskId":"T-003","weight":4,"weightBasis":"proxy"}
