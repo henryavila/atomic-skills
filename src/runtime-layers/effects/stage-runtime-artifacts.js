@@ -1,6 +1,6 @@
 import {
   existsSync, mkdirSync, writeFileSync, copyFileSync, cpSync, rmSync,
-  unlinkSync, readdirSync, rmdirSync, statSync, chmodSync,
+  unlinkSync, readdirSync, rmdirSync, statSync, chmodSync, readFileSync,
 } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -44,7 +44,17 @@ export const createStageRuntimeArtifactsEffect = () => ({
     for (const item of items) {
       const absPath = resolveWithinBase(basePath, item.path);
       const existedBefore = existsSync(absPath);
-      const ownsTarget = !existedBefore || priorlyOwned.has(item.path);
+      let matchesDesiredFile = false;
+      if (existedBefore && !priorlyOwned.has(item.path) && !('sourceTree' in item)) {
+        try {
+          if (statSync(absPath).isFile()) {
+            const current = readFileSync(absPath);
+            const desired = 'source' in item ? readFileSync(item.source) : Buffer.from(item.content);
+            matchesDesiredFile = current.equals(desired);
+          }
+        } catch {}
+      }
+      const ownsTarget = !existedBefore || priorlyOwned.has(item.path) || matchesDesiredFile;
 
       if (!ownsTarget) {
         throw new Error(`stageRuntimeArtifacts conflict: refusing to replace non-owned path "${item.path}"`);

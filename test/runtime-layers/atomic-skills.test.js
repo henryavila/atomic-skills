@@ -122,6 +122,28 @@ test('stageRuntimeArtifacts source refuses to replace a pre-existing non-owned f
   });
 });
 
+test('stageRuntimeArtifacts source adopts a pre-existing byte-identical file from an empty prior journal', () => {
+  withTmp((root) => {
+    const source = join(root, 'source-file');
+    const basePath = join(root, 'install');
+    const target = join(basePath, '.atomic-skills', 'hooks', 'version-check.sh');
+    writeFileSync(source, '#!/usr/bin/env bash\necho hi\n');
+    mkdirSync(join(basePath, '.atomic-skills', 'hooks'), { recursive: true });
+    writeFileSync(target, '#!/usr/bin/env bash\necho hi\n');
+
+    const effect = createStageRuntimeArtifactsEffect();
+    const beforeState = effect.apply({
+      basePath,
+      previous: { created: [] },
+      items: [{ path: '.atomic-skills/hooks/version-check.sh', source, mode: 0o755 }],
+    });
+
+    assert.deepEqual(beforeState.created, ['.atomic-skills/hooks/version-check.sh']);
+    assert.equal(readFileSync(target, 'utf8'), '#!/usr/bin/env bash\necho hi\n');
+    assert.equal(statSync(target).mode & 0o777, 0o755, 'adopted hook is restaged executable');
+  });
+});
+
 test('stageRuntimeArtifacts content refuses to replace a pre-existing non-owned file', () => {
   withTmp((root) => {
     const basePath = join(root, 'install');
@@ -139,6 +161,24 @@ test('stageRuntimeArtifacts content refuses to replace a pre-existing non-owned 
       /conflict/i,
     );
     assert.equal(readFileSync(target, 'utf8'), 'user-owned package root\n');
+  });
+});
+
+test('stageRuntimeArtifacts content adopts a pre-existing byte-identical file', () => {
+  withTmp((root) => {
+    const basePath = join(root, 'install');
+    const target = join(basePath, '.atomic-skills', 'package-root');
+    mkdirSync(join(basePath, '.atomic-skills'), { recursive: true });
+    writeFileSync(target, 'package root\n');
+
+    const effect = createStageRuntimeArtifactsEffect();
+    const beforeState = effect.apply({
+      basePath,
+      items: [{ path: '.atomic-skills/package-root', content: 'package root\n' }],
+    });
+
+    assert.deepEqual(beforeState.created, ['.atomic-skills/package-root']);
+    assert.equal(readFileSync(target, 'utf8'), 'package root\n');
   });
 });
 

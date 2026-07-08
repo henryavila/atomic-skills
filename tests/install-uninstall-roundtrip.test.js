@@ -323,6 +323,58 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
+  it('user scope update adopts a byte-identical hook left by an older empty runtime journal', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    const sha = (s) => createHash('sha256').update(s).digest('hex');
+    const writeAbs = (rel, content) => {
+      const abs = join(fakeHome, rel);
+      mkdirSync(join(abs, '..'), { recursive: true });
+      writeFileSync(abs, content);
+    };
+    try {
+      await withHome(fakeHome, async () => {
+        const hookRel = join('.atomic-skills', 'hooks', 'version-check.sh');
+        const hookContent = readFileSync(join(process.cwd(), 'skills', 'shared', 'auto-update-hook', 'version-check.sh'));
+        writeAbs(hookRel, hookContent);
+        writeAbs(join('.atomic-skills', 'manifest.json'), JSON.stringify({
+          version: '2.0.0',
+          language: 'en',
+          ides: ['claude-code'],
+          modules: {},
+          effects: [
+            { type: 'reconcileFileSet', beforeState: [] },
+            { type: 'stageRuntimeArtifacts', beforeState: { created: [] } },
+            {
+              type: 'jsonMerge',
+              beforeState: {
+                path: '.claude/settings.json',
+                fileCreated: false,
+                inserts: [],
+                createdContainers: [],
+              },
+            },
+          ],
+          files: {},
+        }, null, 2) + '\n');
+
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
+
+        const manifest = JSON.parse(readFileSync(join(fakeHome, '.atomic-skills', 'manifest.json'), 'utf8'));
+        const staged = manifest.effects.find((e) => e.type === 'stageRuntimeArtifacts');
+        assert.deepEqual(staged.beforeState.created, [hookRel]);
+        assert.equal(
+          manifest.files[hookRel].installed_hash,
+          sha(hookContent),
+          'adopted hook is restored to the legacy files map for status readers',
+        );
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
   // ─── Legacy-manifest uninstall parity (F3 review CRITICAL B) ───
   // A pre-kernel install (manifest with a `files` map but NO `effects`) uninstalled
   // DIRECTLY through the consumer `uninstall()` — without a prior `install` to
