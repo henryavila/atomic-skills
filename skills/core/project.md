@@ -6,7 +6,7 @@ This skill implements a 3-level model that matches `@henryavila/aideck`. State l
 - **Initiative** — one phase of a plan, materialized at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`. A **standalone** unit of work is a *degenerate 1-phase plan* (same nested shape — its lone phase carries the work), NOT a separate top-level file.
 - **Task** — atomic action inside a phase initiative (frontmatter `tasks[]`)
 
-Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index (Active Plans, Recently Archived, Ad-Hoc Sessions Log). **Legacy / coexistence:** an un-migrated tree may still hold flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + a top-level `.atomic-skills/PROJECT-STATUS.md`; **readers and detection resolve the nested path first and fall back to the flat path**, and `atomic-skills:project migrate` cuts a flat tree over to nested. State files conform to JSON Schemas in `meta/schemas/` (`plan.schema.json`, `initiative.schema.json`, `common.schema.json`). Validate via bundled `validate-state.js`. `schemaVersion` policy: accept `'0.1'`/`'0.2'`; writers emit `'0.1'`; explicit upgrades may stamp `'0.2'`.
+Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index. **Legacy / coexistence:** flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + top-level status may still exist; readers resolve nested first, then flat, and `atomic-skills:project migrate` cuts over. Schemas live in `meta/schemas/`; validate with `validate-state.js`. `schemaVersion` policy: writers emit `'0.1'` unless an explicit upgrade stamps `'0.2'`.
 
 ## Grammar
 
@@ -36,13 +36,7 @@ Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the ind
 
 ## Plan dependency operator model
 
-The dashboard separates execution order from historical lineage. Read **Caminho de execucao**
-to decide what can run now: `dependsOnPlans[]` drives the
-`Liberado agora`, `Em andamento`, `Bloqueado`, and `Concluido` lanes, and a
-blocked lane must name the prerequisite plan that releases the work. Read
-**Surgiu de** only as lineage: if P1/F2/T-004 generated P2, the lineage row is
-`Surgiu de P1 · F2/T-004`; P2 is blocked only when its `dependsOnPlans[]` edge
-also names P1 as a prerequisite.
+The dashboard separates execution from lineage. Read **Caminho de execucao** for what can run now: `dependsOnPlans[]` drives `Liberado agora`, `Em andamento`, `Bloqueado`, and `Concluido`, and blocked rows name the prerequisite. Read **Surgiu de** only as lineage: if P1/F2/T-004 generated P2, show `Surgiu de P1 · F2/T-004`; P2 blocks only when `dependsOnPlans[]` also names P1.
 
 ## Dispatch table — load the detail file BEFORE acting
 
@@ -93,8 +87,7 @@ DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; o
           → /atomic-skills:project status        (dashboard / full view)
 ```
 
-The `IDEAS` line is printed **only when** N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` where the resolved path is `.atomic-skills/projects/<project-id>/ideas.md` (single project dir → use it; otherwise sum across `projects/*/ideas.md`); file absent or any error omits the line and prints the rest (fail-open). It never mutates.
-The `DRIFT` line is printed **only when** `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` reports `drift: true` (zero-token, pure-read, fail-open — on any error omit the line and print the rest). It never mutates; `reconcile` is the only completion-mutation path.
+Print `IDEAS` only when N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` (single project → its ideas.md; otherwise sum `projects/*/ideas.md`; fail-open). Print `DRIFT` only when `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` reports `drift: true` (pure-read, fail-open). Neither mutates; `reconcile` is the only completion-mutation path.
 
 If `.atomic-skills/` is absent: print one line — `No .atomic-skills/ yet — run \`/atomic-skills:project\` and I'll set it up.` — then enter setup mode.
 
