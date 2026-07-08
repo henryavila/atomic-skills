@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-08T10:08:05Z
+lastUpdated: 2026-07-08T13:15:00.466Z
 schemaVersion: "0.1"
-activePlans: 2
+activePlans: 1
 activeInitiatives: 0
-archivedCount: 17
+archivedCount: 18
 ---
 
 
@@ -22,7 +22,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | help-command | active | F3 | develop | 2026-07-05 | 3/4 |
-| project-lifecycle-order-guards | active | F0 | plan/project-lifecycle-order-guards | 2026-07-08 | 0/1 |
 
 ### help-command
 | Initiative | Phase | Status | Tasks |
@@ -30,10 +29,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | f1-o-mapa-estado-proximo-passo-como-helper | F1 | done | 2/2 |
 | f3-guarda-de-fidelidade-help-nunca-cita-um | F3 | active | 0/2 |
 
-### project-lifecycle-order-guards
-| Initiative | Phase | Status | Tasks |
-|------------|-------|--------|-------|
-| project-lifecycle-order-guards | F0 | active | 0/5 |
 
 ## Done Plans (not archived)
 
@@ -44,6 +39,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | reversible-installer | done | F3 | plan/reversible-installer | 2026-06-17 | 4/4 |
 | plan-fork | done | F5 | plan/plan-fork | 2026-06-19 | 6/6 |
 | aideck-dashboard-lifecycle-views | done | F0 | develop | 2026-06-25 | 1/1 |
+| project-lifecycle-order-guards | done | F0 | plan/project-lifecycle-order-guards | 2026-07-08 | 1/1 |
 
 ## Paused Plans
 
@@ -59,6 +55,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |

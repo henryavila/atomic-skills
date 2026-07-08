@@ -5,12 +5,12 @@ title: Guardas de ordem do lifecycle project
 goal: Mapear e aplicar guardas para impedir que comandos posteriores pulem
   etapas obrigatorias anteriores.
 summary: Trava comandos posteriores quando uma etapa obrigatoria anterior foi pulada.
-status: active
+status: done
 branch: plan/project-lifecycle-order-guards
 started: 2026-07-08T10:08:05Z
 startedCommit: 2f9c8bdee197f4204637301b0a83226760046535
-lastUpdated: 2026-07-08T13:07:02.743Z
-nextAction: Execute `phase-done` para F0.
+lastUpdated: 2026-07-08T13:15:00.466Z
+nextAction: null
 parentPlan: project-lifecycle-order-guards
 phaseId: F0
 businessIntent:
@@ -28,7 +28,7 @@ businessIntent:
     excecoes.
 tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 4
 gatesTotal: 4
 weightDone: 14
 weightTotal: 14
@@ -36,41 +36,81 @@ exitGates:
   - id: G-1
     description: O mapa de ordem documenta cada comando posterior, pre-etapa
       obrigatoria, excecao permitida e comando recomendado.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -f docs/design/project-lifecycle-order-guards.md && grep -q
         'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep
         -q 'depend resolve --archived'
         docs/design/project-lifecycle-order-guards.md
+    metAt: 2026-07-08T13:15:00.466Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-08T13:15:00.466Z
+      exitCode: 0
+      passed: true
+      outputSummary: test -f docs/design/project-lifecycle-order-guards.md && grep -q
+        'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep
+        -q 'depend resolve --archived'
+        docs/design/project-lifecycle-order-guards.md -> exit 0
     verifierLabel: "shell: test -f docs/design/project-lifecycle-order-guards.md && gr…"
+    evidenceSummary: passed · 2026-07-08
   - id: G-2
     description: Testes cobrem pulos de etapa em archive, finalize, consolidate,
       depend, help e as excecoes legitimas.
-    status: pending
+    status: met
     verifier:
       kind: test
       runner: node --test
       pattern: tests/lifecycle-order-guard.test.js
+    metAt: 2026-07-08T13:15:00.466Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T13:15:00.466Z
+      exitCode: 0
+      testsCollected: 14
+      passed: true
+      outputSummary: node --test tests/lifecycle-order-guard.test.js -> tests 14, pass
+        14, fail 0
     verifierLabel: "test: node --test tests/lifecycle-order-guard.test.js"
+    evidenceSummary: passed · 14 tests · 2026-07-08
   - id: G-3
     description: project help emite comandos predecessores invocaveis para estados
       bloqueados do lifecycle.
-    status: pending
+    status: met
     verifier:
       kind: test
       runner: node --test
       pattern: tests/help/compute-help.test.js
+    metAt: 2026-07-08T13:15:00.466Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T13:15:00.466Z
+      exitCode: 0
+      testsCollected: 30
+      passed: true
+      outputSummary: node --test tests/help/compute-help.test.js -> tests 30, pass 30, fail 0
     verifierLabel: "test: node --test tests/help/compute-help.test.js"
+    evidenceSummary: passed · 30 tests · 2026-07-08
   - id: G-4
     description: project verify reporta estados archived prematuros como findings
       bloqueantes de lifecycle.
-    status: pending
+    status: met
     verifier:
       kind: test
       runner: node --test
       pattern: tests/detect-orphan-worktrees.test.js
+    metAt: 2026-07-08T13:15:00.466Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T13:15:00.466Z
+      exitCode: 0
+      testsCollected: 12
+      passed: true
+      outputSummary: node --test tests/detect-orphan-worktrees.test.js -> tests 12,
+        pass 12, fail 0
     verifierLabel: "test: node --test tests/detect-orphan-worktrees.test.js"
+    evidenceSummary: passed · 12 tests · 2026-07-08
 scope:
   paths:
     - skills/shared/project-assets/project-transitions.md
@@ -172,8 +212,8 @@ tasks:
       exitCode: 0
       testsCollected: 13
       passed: true
-      outputSummary: node --test tests/lifecycle-order-guard.test.js -> tests
-        13, pass 13, fail 0
+      outputSummary: node --test tests/lifecycle-order-guard.test.js -> tests 13, pass
+        13, fail 0
   - id: T-003
     title: Conectar guardas aos comandos mutaveis
     summary: Aplica o classificador antes de mutacoes posteriores do lifecycle.
@@ -220,9 +260,8 @@ tasks:
       exitCode: 0
       testsCollected: 97
       passed: true
-      outputSummary: node --test tests/project.test.js
-        tests/worktree-teardown.test.js tests/finalize-plan-scope.test.js ->
-        tests 97, pass 97, fail 0
+      outputSummary: node --test tests/project.test.js tests/worktree-teardown.test.js
+        tests/finalize-plan-scope.test.js -> tests 97, pass 97, fail 0
   - id: T-004
     title: Corrigir help e orientacao de proximo passo
     summary: Garante que help e nextAction recomendem predecessores invocaveis.
@@ -313,6 +352,7 @@ current: true
 planTitle: Guardas de ordem do lifecycle project
 ---
 
+
 # Narrative / notes
 
 Standalone initiative for lifecycle order guards in the `project` skill.
@@ -341,14 +381,14 @@ Standalone initiative for lifecycle order guards in the `project` skill.
 
 ## Session handoff
 
-- **Narrative:** F0 esta ativa em
-  `plan/project-lifecycle-order-guards`; T-001, T-002, T-003, T-004 e T-005
-  estao fechadas com `evidence.passed: true` na iniciativa
-  `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`.
-  A T-005 foi implementada no commit `c95a21c` e transforma
-  `archived-never-pr` / `archived-pr-open-unmerged` em findings `fail` com
-  `recommendedCommand`. O proximo passo de lifecycle e a fronteira de fase:
-  `phase-done`.
+- **Narrative:** F0 esta `done` e arquivada em
+  `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/archive/2026-07-project-lifecycle-order-guards.md`.
+  T-001, T-002, T-003, T-004 e T-005 estao fechadas com
+  `evidence.passed: true`, e os quatro exit gates estao `met` com evidencia
+  deterministica. O plano
+  `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/plan.md`
+  esta `status: done`; o proximo predecessor obrigatorio do lifecycle e
+  `finalize project-lifecycle-order-guards`.
 - **Decision log:** O bootstrap do plano foi checkpointado separadamente no
   commit `cf4777e` para limpar a retomada antes do fechamento da task. O
   classificador da T-002 ficou puro e sem conexao aos assets mutaveis; a
@@ -358,16 +398,25 @@ Standalone initiative for lifecycle order guards in the `project` skill.
   `archive`/teardown stale pelo predecessor indicado pelo guarda. A T-005
   manteve `merged-feature-worktree` como `warn`, elevou archives prematuros a
   `fail`, e preservou planos arquivados sem branch propria como ausencia de
-  finding nesse detector.
-- **Single nextAction:** Execute `phase-done` para F0.
-- **Verbatim state:** `rtk node --test tests/detect-orphan-worktrees.test.js tests/validate-state.test.js`
-  -> `tests 99`, `pass 99`, `fail 0`; `rtk rg -n "severity: 'fail'|recommendedCommand|archived-never-pr|archived-pr-open-unmerged|FAIL archived|does not block archived plans" scripts/detect-orphan-worktrees.js tests/detect-orphan-worktrees.test.js skills/shared/project-assets/project-verify.md`
-  -> `scripts/detect-orphan-worktrees.js:138:      severity: 'fail',`;
-  `scripts/detect-orphan-worktrees.js:146:      recommendedCommand: missingPublication`;
-  `skills/shared/project-assets/project-verify.md:108:- **FAIL archived-never-pr:** an archived plan with a branch that has no PR/publication proof and never reached the integration ref.`;
-  `skills/shared/project-assets/project-verify.md:109:- **FAIL archived-pr-open-unmerged:** an archived plan whose PR is still OPEN and whose branch never reached the integration ref.`;
-  `tests/detect-orphan-worktrees.test.js:79:test('findOrphanWorktrees does not block archived plans without their own branch', () => {`;
-  `rtk git log --oneline -3` -> `c95a21c fix(T-005): make premature archive findings blocking`;
-  `455203d chore(project): checkpoint project-lifecycle-order-guards F0 T-004`;
-  `a4592f0 docs(T-004): refresh project command docs`.
+  finding nesse detector. O review local encontrou `pr.state: NONE` sendo
+  tratado como tentativa de publicacao; o fix `5c5167b` trata `NONE` como
+  publicacao ausente e adiciona o teste de regressao.
+- **Single nextAction:** Execute `finalize project-lifecycle-order-guards`.
+- **Verbatim state:** `rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/plan.md .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/archive/2026-07-project-lifecycle-order-guards.md .atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/lessons/project-lifecycle-order-guards.md`
+  -> `All 3 file(s) valid, 1 plan(s) cross-validated`; `rtk node scripts/refresh-state.js`
+  -> `refresh-state: rollups 1 changed, focus 1 changed, digest -> help-command · F3`;
+  `rtk node scripts/append-completion.js --event phase-done --project atomic-skills --plan project-lifecycle-order-guards --phase F0 --actuals-since-commit 2f9c8bdee197f4204637301b0a83226760046535 --actuals-since 2026-07-08T10:08:05Z`
+  -> `append-completion: phase-done atomic-skills/project-lifecycle-order-guards/F0 weight=1(count) ✓`;
+  `rtk node --test tests/lifecycle-order-guard.test.js tests/help/compute-help.test.js tests/detect-orphan-worktrees.test.js tests/help/help-vocab.test.js tests/project.test.js tests/worktree-teardown.test.js tests/finalize-plan-scope.test.js tests/validate-state.test.js`
+  -> `tests 244`, `pass 244`, `fail 0`.
 - **Uncommitted changes:** clean tree.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 5 tasks closed with verifier evidence in `tasks[].evidence`; 4 exit criteria met with evidence blocks populated in `exitGates[]` and `phases[0].exitGate.criteria[]`.
+- **G2 soft-language**: `nextAction` is `null` on the closed initiative; task and criterion completion claims use `passed: true` evidence.
+- **G6 reference-or-strike**: exit-gate evidence records exact commands and pass counts; review evidence is `.atomic-skills/reviews/project-lifecycle-order-guards-F0-local-review.md`.
+- **G10 gate-must-be-able-to-fail**: G-1 fails when the map lacks required lifecycle terms; G-2/G-3/G-4 fail on non-zero test exit or zero collected tests.
+- **Codex review**: local review fallback ran at HEAD `5c5167b17a2b5b012b3b50726b727a54b48fb55a`; verdict `clean_after_fix`, counts `0 blocker / 0 critical / 1 major / 0 minor`, file `.atomic-skills/reviews/project-lifecycle-order-guards-F0-local-review.md`.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: 5c5167b17a2b5b012b3b50726b727a54b48fb55a, mode: local, reviewFile: .atomic-skills/reviews/project-lifecycle-order-guards-F0-local-review.md, verifiedAt: 2026-07-08T13:15:00.466Z }`.
+- **Lessons (G1)**: distilled 1 reusable lesson into `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/lessons/project-lifecycle-order-guards.md`, ratified by the user.
