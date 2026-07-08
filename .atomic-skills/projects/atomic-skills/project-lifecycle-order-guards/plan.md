@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: project-lifecycle-order-guards
 title: Guardas de ordem do lifecycle project
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-08T10:08:05Z
-lastUpdated: 2026-07-08T13:15:00.466Z
+lastUpdated: 2026-07-08T18:31:17Z
 branch: plan/project-lifecycle-order-guards
 currentPhase: F0
 parallelismAllowed: false

@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-08T13:15:00.466Z
+lastUpdated: 2026-07-08T18:31:17Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
-archivedCount: 18
+archivedCount: 19
 ---
 
 # Project Status Index
@@ -31,7 +31,6 @@ _(none)_
 | reversible-installer | done | F3 | plan/reversible-installer | 2026-06-17 | 4/4 |
 | plan-fork | done | F5 | plan/plan-fork | 2026-06-19 | 6/6 |
 | aideck-dashboard-lifecycle-views | done | F0 | develop | 2026-06-25 | 1/1 |
-| project-lifecycle-order-guards | done | F0 | plan/project-lifecycle-order-guards | 2026-07-08 | 1/1 |
 
 ## Paused Plans
 
@@ -47,6 +46,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
@@ -57,7 +57,6 @@ _(none)_
 | app-map-conflict-arbitration | 2026-06-16 | F1 | 2/2 | app-map: descritor de conflito rico + canal de arbitragem |
 | design-brief-source-of-truth | 2026-06-16 | F2 | 3/3 | design-brief: reconstrucao da fonte-de-verdade (catalogo app-map) |
 | multiplan-focus-resolution | 2026-06-16 | - | 1/1 | Resolucao de foco em camadas + enforcer worktree-por-plano |
-| skills-restructuring | 2026-06-16 | F4 | 7/7 | Reestruturacao das skills atomic-skills |
 
 ## Ad-Hoc Sessions Log (last 5)
 
