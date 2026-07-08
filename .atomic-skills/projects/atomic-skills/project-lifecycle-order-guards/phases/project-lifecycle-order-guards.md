@@ -9,9 +9,9 @@ status: active
 branch: plan/project-lifecycle-order-guards
 started: 2026-07-08T10:08:05Z
 startedCommit: 2f9c8bdee197f4204637301b0a83226760046535
-lastUpdated: 2026-07-08T12:47:26.521Z
-nextAction: Implemente T-002 em `scripts/lifecycle-order-guard.js` e
-  `tests/lifecycle-order-guard.test.js`.
+lastUpdated: 2026-07-08T12:52:12.741Z
+nextAction: Implemente T-003 conectando o classificador aos assets mutaveis de
+  project.
 parentPlan: project-lifecycle-order-guards
 phaseId: F0
 businessIntent:
@@ -27,11 +27,11 @@ businessIntent:
   doneWhen: archive/finalize/phase-done/help/verify/depend/fork/consolidate
     impedem ou sinalizam pulos de etapa, com testes cobrindo os fluxos e
     excecoes.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 4
-weightDone: 3
+weightDone: 6
 weightTotal: 14
 exitGates:
   - id: G-1
@@ -139,8 +139,8 @@ tasks:
     description: Criar um helper deterministico para classificar transicoes fora de
       ordem e retornar allowed/blocked, motivo, excecao aplicada e comando
       recomendado.
-    status: pending
-    lastUpdated: 2026-07-08T10:08:05Z
+    status: done
+    lastUpdated: 2026-07-08T12:52:12.741Z
     scopeBoundary:
       - Nao conectar ainda nos assets mutaveis; manter API pura e coberta por
         testes.
@@ -166,6 +166,15 @@ tasks:
       - kind: test
         path: tests/lifecycle-order-guard.test.js
     weight: 3
+    closedAt: 2026-07-08T12:52:12.741Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T12:52:12.741Z
+      exitCode: 0
+      testsCollected: 13
+      passed: true
+      outputSummary: node --test tests/lifecycle-order-guard.test.js -> tests
+        13, pass 13, fail 0
   - id: T-003
     title: Conectar guardas aos comandos mutaveis
     summary: Aplica o classificador antes de mutacoes posteriores do lifecycle.
@@ -289,20 +298,27 @@ Standalone initiative for lifecycle order guards in the `project` skill.
 ## Session handoff
 
 - **Narrative:** F0 esta ativa em
-  `plan/project-lifecycle-order-guards`; T-001 esta fechada com
+  `plan/project-lifecycle-order-guards`; T-001 e T-002 estao fechadas com
   `evidence.passed: true` na iniciativa
   `.atomic-skills/projects/atomic-skills/project-lifecycle-order-guards/phases/project-lifecycle-order-guards.md`.
   O mapa de ordem foi commitado em
-  `docs/design/project-lifecycle-order-guards.md` pelo commit `c4711f0`.
+  `docs/design/project-lifecycle-order-guards.md` pelo commit `c4711f0`, e o
+  helper puro foi commitado em `scripts/lifecycle-order-guard.js` pelo commit
+  `ebc4c6d`.
 - **Decision log:** O bootstrap do plano foi checkpointado separadamente no
   commit `cf4777e` para limpar a retomada antes do fechamento da task. O
-  verifier da T-001 foi executado de novo no fechamento, e a proxima execucao
-  segue para o helper puro da T-002 antes de conectar guardas aos comandos
-  mutaveis.
-- **Single nextAction:** Implemente T-002 em `scripts/lifecycle-order-guard.js`
-  e `tests/lifecycle-order-guard.test.js`.
+  classificador da T-002 ficou puro e sem conexao aos assets mutaveis; a
+  conexao fica na T-003 para preservar o limite de escopo da task.
+- **Single nextAction:** Implemente T-003 conectando o classificador aos assets
+  mutaveis de project.
 - **Verbatim state:** `rtk bash -lc "test -f docs/design/project-lifecycle-order-guards.md && grep -q 'archive <slug>' docs/design/project-lifecycle-order-guards.md && grep -q 'split-phase' docs/design/project-lifecycle-order-guards.md && grep -q 'depend resolve --archived' docs/design/project-lifecycle-order-guards.md"`
   -> exit 0; `rtk rg -n "archive <slug>|split-phase|depend resolve --archived" docs/design/project-lifecycle-order-guards.md`
   -> `68:| `archive <slug>` de plano | Plano ja foi publicado e integrado: PR registrada por `finalize <slug>` ou PR de `consolidate`, merge confirmado no provedor/integracao, e branch chegou ao baseRef. | Plano tem branch publicavel sem PR; PR existe mas nao esta MERGED; baseRef indeterminado; `prIdentity` ausente; branch tem residue alem do head mergeado. | Plano sem branch/worktree propria pode arquivar se houver criterio explicito de integracao local; importacao historica via `discover` e caso separado. | `finalize <slug>`; merge da PR; depois `archive <slug>`. Se archive ja foi feito cedo, usar `verify` para achar `archived-never-pr`/`archived-pr-open-unmerged` e recuperar a publicacao. |`;
-  `86:### `split-phase``; `72:| `depend resolve <dependent> <prerequisite> --archived` | Prerequisite esta `archived` **e** a branch chegou a integracao obrigatoria. | Edge nao existe; prerequisito nao esta `archived`; prerequisito esta `archived-never-pr` ou `archived-pr-open-unmerged`; release ja nao casa com a dependencia. | Planos sem branch propria exigem justificativa explicita de integracao local antes do resolve. | `finalize <prerequisite>`, merge, `archive <prerequisite>`, depois `depend resolve --archived`. |`.
+  `86:### `split-phase``; `72:| `depend resolve <dependent> <prerequisite> --archived` | Prerequisite esta `archived` **e** a branch chegou a integracao obrigatoria. | Edge nao existe; prerequisito nao esta `archived`; prerequisito esta `archived-never-pr` ou `archived-pr-open-unmerged`; release ja nao casa com a dependencia. | Planos sem branch propria exigem justificativa explicita de integracao local antes do resolve. | `finalize <prerequisite>`, merge, `archive <prerequisite>`, depois `depend resolve --archived`. |`;
+  `rtk node --test tests/lifecycle-order-guard.test.js` -> `tests 13`,
+  `pass 13`, `fail 0`; `rtk rg -n "export function classifyLifecycleOrder|function archivePlan|function dependResolveArchived|function phaseDone" scripts/lifecycle-order-guard.js tests/lifecycle-order-guard.test.js`
+  -> `scripts/lifecycle-order-guard.js:121:function archivePlan(input) {`;
+  `scripts/lifecycle-order-guard.js:197:function dependResolveArchived(input) {`;
+  `scripts/lifecycle-order-guard.js:235:function phaseDone(input) {`;
+  `scripts/lifecycle-order-guard.js:300:export function classifyLifecycleOrder(input = {}) {`.
 - **Uncommitted changes:** clean tree.
