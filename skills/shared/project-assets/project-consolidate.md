@@ -35,7 +35,10 @@ semantic conflicts) and never a long-lived Git-Flow `develop`.
      whose feature is already merged.
    - the MERGED/`headRefOid` proof shape from `isTeardownSafe` (`scripts/worktree-teardown.js`)
      for already-published heads.
-   If the derived candidate set is **<2**, degrade to the single-plan `finalize` path.
+   If a plan is excluded because it is non-terminal, print the predecessor command
+   before continuing: `phase-done` for its current open phase, or `done <task-id>`
+   when the active phase still has open tasks. If the derived candidate set is
+   **<2**, degrade to the single-plan `finalize` path.
 
 ## Step 1 — Order + the merge-train loop (`scripts/consolidate.mjs`)
 
