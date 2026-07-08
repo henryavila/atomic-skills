@@ -233,9 +233,12 @@ classifications, warnings, blockReason }`:
 
 A `block` HALTS finalize with the `blockReason`; the operator then picks the right
 explicit target, **confirms** an intentional `branch ≠ plan` finalize, or brings the
-target to terminal first — never a silent focus default. This guard is
-DETERMINISTIC and verify-claim-able (`verified_by: scripts/finalize-plan-scope.js`)
-— it is the **proof**, not advice.
+target to terminal first — never a silent focus default. When the block is a
+non-terminal target, also print the predecessor command: `phase-done` for the
+current open phase, or `done <task-id>` when the active phase still has open
+tasks. This guard is DETERMINISTIC and verify-claim-able
+(`verified_by: scripts/finalize-plan-scope.js`) — it is the **proof**, not
+advice.
 
 ### Status-regression detection is ADVISORY — reuses the F4 (Step 1.5) agent lane
 

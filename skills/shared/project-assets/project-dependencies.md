@@ -103,6 +103,8 @@ Only this form is valid:
 Rules:
 
 - Require an existing matching edge in `dependsOnPlans[]`; do not create a new edge during resolve.
+- Before writing `release.archived: resolved`, call `classifyLifecycleOrder` from `scripts/lifecycle-order-guard.js` with `{ command: 'depend resolve --archived', dependentSlug, prerequisite: <prerequisite plan slice> }`. If it returns `blocked`, print `reason` and `recommendedCommand`, then STOP without changing the edge.
+- The guard must reject a prerequisite that is merely `archived` but lacks integration proof (`archived-never-pr`, open/unmerged PR, or no explicit local-integration justification). The recommended predecessor is `finalize <prerequisite>`, merge, `archive <prerequisite>`, then `depend resolve <dependent> <prerequisite> --archived`.
 - Set `release.archived: resolved` on that edge and preserve every other field.
 - If the edge already has `release.archived: resolved`, print the current state and stop successfully.
 - Do not mark the prerequisite `done` and do not change plan statuses. The transition layer reads `release.archived: resolved` and releases the blocker when the prerequisite status is `archived`.

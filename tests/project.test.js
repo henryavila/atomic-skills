@@ -614,6 +614,29 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /Never use `git add \.` or `git add -A`/);
   });
 
+  it('project lifecycle posterior commands document lifecycle-order guards before mutation', () => {
+    install();
+    const transitions = readAsset('project-transitions.md');
+    const dependencies = readAsset('project-dependencies.md');
+    const finalize = readAsset('project-finalize.md');
+    const consolidate = readAsset('project-consolidate.md');
+
+    assert.match(transitions, /classifyLifecycleOrder/);
+    assert.match(transitions, /before fork-resume, status flips, moves, or teardown offers/);
+    assert.match(transitions, /recommendedCommand/);
+    assert.match(transitions, /do not resume the parent/);
+
+    assert.match(dependencies, /depend resolve --archived/);
+    assert.match(dependencies, /classifyLifecycleOrder/);
+    assert.match(dependencies, /archived-never-pr/);
+    assert.match(dependencies, /finalize <prerequisite>/);
+
+    assert.match(finalize, /predecessor command/);
+    assert.match(finalize, /phase-done/);
+    assert.match(consolidate, /non-terminal/);
+    assert.match(consolidate, /done <task-id>/);
+  });
+
   it('verifier execution patterns live in verifier-exec.md (single source), project-transitions points to it', () => {
     install();
     // T1.4 extracted the Verifier execution patterns to verifier-exec.md as the

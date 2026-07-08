@@ -39,6 +39,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { resolveTargets } from './detect-completion.js';
+import { classifyLifecycleOrder } from './lifecycle-order-guard.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DETECTOR = join(HERE, 'detect-completion.js');
@@ -66,6 +67,59 @@ const STAGE_TO_SPINE = {
 };
 
 const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
+
+function firstProjectCommand(commandLike) {
+  const text = String(commandLike ?? '').trim();
+  const ticked = text.match(/`([^`]+)`/);
+  return (ticked ? ticked[1] : text)
+    .replace(/^\/?atomic-skills:project\s+/, '')
+    .replace(/^project\s+/, '')
+    .trim();
+}
+
+function isArchiveOrTeardownCommand(commandLike) {
+  const command = firstProjectCommand(commandLike);
+  return /^(archive\b|teardown\b|worktree teardown\b|git worktree remove\b)/.test(command);
+}
+
+function finalizeCommand(slug) {
+  return hasText(slug) ? `finalize ${String(slug).trim()}` : 'status --list';
+}
+
+function prIdentityFromReferences(planFm = {}) {
+  const refs = Array.isArray(planFm.references) ? planFm.references : [];
+  const ref = refs.find((item) => item && item.kind === 'url'
+    && hasText(item.path)
+    && (/pr/i.test(String(item.label ?? '')) || /\/pull\/\d+/.test(String(item.path))));
+  return ref ? ref.path : null;
+}
+
+function planGuardTarget(planFm = {}, slug) {
+  return {
+    slug,
+    status: planFm.status,
+    branch: Object.hasOwn(planFm, 'branch') ? planFm.branch : undefined,
+    prIdentity: prIdentityFromReferences(planFm),
+    integration: planFm.integration,
+  };
+}
+
+function lifecycleArchiveBlock(planFm, slug, nextAction) {
+  if (!isArchiveOrTeardownCommand(nextAction)) return null;
+  const decision = classifyLifecycleOrder({
+    command: 'archive',
+    targetKind: 'plan',
+    target: planGuardTarget(planFm, slug),
+  });
+  if (!decision.blocked) return null;
+  const recommended = firstProjectCommand(decision.recommendedCommand);
+  return {
+    reason: decision.reason,
+    command: hasText(recommended) && !recommended.startsWith('archive ')
+      ? recommended
+      : finalizeCommand(slug),
+  };
+}
 
 /**
  * classify(state) → { stage, fallbackCommand, reason, why }.
@@ -138,6 +192,16 @@ export function classify(state = {}) {
       why: 'implement dirige as tasks admitidas até done, uma a uma.',
     };
   }
+  // 7b — stale posterior nextAction: archive/teardown before publication proof.
+  if (state.lifecycleOrderBlocked) {
+    return {
+      stage: 'finalize',
+      fallbackCommand: state.lifecycleRecommendedCommand || finalizeCommand(state.slug),
+      reason: state.lifecycleOrderReason || 'A ordem do lifecycle bloqueia o próximo passo persistido.',
+      why: 'O predecessor precisa rodar antes de archive/teardown.',
+      preferFallback: true,
+    };
+  }
   // 8/9/10 — no open tasks: distinguish the terminal state by structure.
   if (state.standalone) {
     return {
@@ -150,7 +214,7 @@ export function classify(state = {}) {
   if (state.allPhasesDone) {
     return {
       stage: 'finalize',
-      fallbackCommand: 'finalize',
+      fallbackCommand: finalizeCommand(state.slug),
       reason: 'Todas as fases estão done.',
       why: 'finalize encerra o plano.',
     };
@@ -176,7 +240,7 @@ export function spineStageOf(stage) {
  * used only when nextAction is absent/blank (commandSource "fallback").
  */
 export function nextStepFrom(nextAction, decision) {
-  if (hasText(nextAction)) {
+  if (!decision.preferFallback && hasText(nextAction)) {
     return { command: nextAction.trim(), commandSource: 'persisted', reason: decision.reason, why: decision.why };
   }
   return { command: decision.fallbackCommand, commandSource: 'fallback', reason: decision.reason, why: decision.why };
@@ -314,6 +378,7 @@ export function resolveState({ dir = process.cwd(), now = Date.now(), driftFn = 
     onlyBlockedTasks: false, blockedTaskId: null,
     phaseDescriptorOnly: false, phaseId: null,
     hasOpenTasks: false, standalone: false, allPhasesDone: false,
+    lifecycleOrderBlocked: false, lifecycleRecommendedCommand: null, lifecycleOrderReason: null,
     nextAction: '',
     youAreHere: {}, doneSummary: {},
   };
@@ -360,6 +425,14 @@ export function resolveState({ dir = process.cwd(), now = Date.now(), driftFn = 
     if (state.phaseDescriptorOnly) state.phaseId = planFm.currentPhase;
     state.standalone = phases.length === 0;
     state.allPhasesDone = phases.length > 0 && phases.every((p) => p && p.status === 'done');
+    const archiveBlock = state.allPhasesDone
+      ? lifecycleArchiveBlock(planFm, state.slug, state.nextAction)
+      : null;
+    if (archiveBlock) {
+      state.lifecycleOrderBlocked = true;
+      state.lifecycleRecommendedCommand = archiveBlock.command;
+      state.lifecycleOrderReason = archiveBlock.reason;
+    }
 
     state.youAreHere = {
       planSlug: state.slug,

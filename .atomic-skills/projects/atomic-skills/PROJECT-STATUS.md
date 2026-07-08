@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-08T12:06:00Z
+lastUpdated: 2026-07-08T13:15:00.466Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
@@ -20,6 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 _(none)_
 
+
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
@@ -30,6 +31,7 @@ _(none)_
 | reversible-installer | done | F3 | plan/reversible-installer | 2026-06-17 | 4/4 |
 | plan-fork | done | F5 | plan/plan-fork | 2026-06-19 | 6/6 |
 | aideck-dashboard-lifecycle-views | done | F0 | develop | 2026-06-25 | 1/1 |
+| project-lifecycle-order-guards | done | F0 | plan/project-lifecycle-order-guards | 2026-07-08 | 1/1 |
 
 ## Paused Plans
 
@@ -45,6 +47,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |

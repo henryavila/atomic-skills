@@ -64,9 +64,10 @@ function isBranchMerged(branch, plans, isMerged) {
  *   injected ancestry predicate: is <branch> merged into the integration ref.
  *   Optional — when absent, treated as () => false (merge signal then comes only
  *   from a plan's pr.state === 'MERGED').
- * @returns {Array<{severity:'warn', kind:string, branch:(string|null),
- *   path:(string|undefined), slug:(string|undefined), reason:string}>}
- *   WARN findings; [] when the state is clean/active.
+ * @returns {Array<{severity:('warn'|'fail'), kind:string, branch:(string|null),
+ *   path:(string|undefined), slug:(string|undefined), reason:string,
+ *   recommendedCommand:(string|undefined)}>}
+ *   WARN/FAIL findings; [] when the state is clean/active.
  */
 export function findOrphanWorktrees(input = {}) {
   const normalizedInput = input == null || typeof input !== 'object' ? {} : input;
@@ -131,13 +132,20 @@ export function findOrphanWorktrees(input = {}) {
     }
 
     const slug = ownString(plan, 'slug');
+    const commandSlug = slug ?? '<slug>';
+    const missingPublication = kind === 'archived-never-pr';
     findings.push({
-      severity: 'warn',
+      severity: 'fail',
       kind,
       branch,
       path: undefined,
       slug,
-      reason: `archived plan ${slug} branch ${branch} never reached ${integrationRef}`,
+      reason: missingPublication
+        ? `archived plan ${commandSlug} branch ${branch} has no PR/integration proof and never reached ${integrationRef}`
+        : `archived plan ${commandSlug} branch ${branch} has an open/unmerged PR and never reached ${integrationRef}`,
+      recommendedCommand: missingPublication
+        ? `Run \`finalize ${commandSlug}\`, merge the PR, then rerun \`archive ${commandSlug}\`.`
+        : `Merge the PR for ${commandSlug}, then rerun \`archive ${commandSlug}\`.`,
     });
   }
 

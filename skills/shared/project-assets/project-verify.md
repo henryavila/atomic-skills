@@ -103,9 +103,11 @@ Resolve every entity in BOTH layouts: flat (`plans/`, `initiatives/`) and nested
 - **WARN** (report-only): `WARN review-gate: <N> done phase(s) carry no recorded review gate (closed before the gate existed, or review-code was never run) — <plan>/<phaseId>…`. This is the deterministic surface for the legacy/missed case that GATE-R3 deliberately tolerates (absent ≠ malformed); it never mutates and `--fix` does not backfill it (the review must actually run — `phase-done` / `review-due` is the only path that writes a truthful `reviewGate`).
 
 ### 9. Orphan worktrees (read-only; PR→develop lifecycle backstop)
-Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. WARN-only in v1; the topology-aware auto-ordering classifier is DEFERRED.
+Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan status, and flags orphans of the PR→develop model. The detection is a pure function — `scripts/detect-orphan-worktrees.js` (`findOrphanWorktrees`) — that never runs git itself (the orchestrator passes parsed worktrees + plan slices + an injected ancestry predicate) and never mutates or removes anything. `merged-feature-worktree` remains a recoverable WARN; archived plans that skipped publication or merge are lifecycle FAIL findings because the terminal state lost required integration proof.
 - **WARN merged-feature-worktree:** a live worktree whose feature branch is already merged into the integration ref (PR `state: MERGED` or `merge-base` ancestry) → `WARN worktrees: feature \`<branch>\` is merged but its worktree \`<path>\` is still live — teardown pending (run \`archive\` after the PR merge, or \`git worktree remove\`).`
-- **WARN archived-never-pr / archived-pr-open-unmerged:** an archived plan whose branch never reached the integration ref — no PR was opened (`kind: archived-never-pr`), or a PR is still OPEN and never merged (`kind: archived-pr-open-unmerged`). A branch that DID reach it (PR `state: MERGED` **or** `merge-base` ancestry) is the healthy terminal state and is NOT flagged, even when no PR identity was recorded. → `WARN worktrees: archived plan \`<slug>\` branch \`<branch>\` never reached \`<integrationRef>\`.`
+- **FAIL archived-never-pr:** an archived plan with a branch that has no PR/publication proof and never reached the integration ref. A plan with no own branch (`branch: null`/missing) is not blocked by this check; it must carry its local-integration justification through the lifecycle guard before archive. → `FAIL worktrees: archived plan \`<slug>\` branch \`<branch>\` has no PR/integration proof and never reached \`<integrationRef>\` — run \`finalize <slug>\`, merge the PR, then rerun \`archive <slug>\`.`
+- **FAIL archived-pr-open-unmerged:** an archived plan whose PR is still OPEN and whose branch never reached the integration ref. → `FAIL worktrees: archived plan \`<slug>\` branch \`<branch>\` has an open/unmerged PR and never reached \`<integrationRef>\` — merge the PR, then rerun \`archive <slug>\`.`
+- A branch that DID reach the integration ref (PR `state: MERGED` **or** `merge-base` ancestry) is the healthy terminal state and is NOT flagged, even when no PR identity was recorded.
 - A clean/active state (no merged-but-live worktree, no archived-unreached branch) → no finding.
 - `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
 
@@ -129,10 +131,10 @@ project verify — <repo-name> @ <branch>
 [6] aideck      WARN   dashboard not running (cross-check skipped)
 [7] completion  WARN   2 task(s) look done in the repo but still open → run `reconcile`
 [8] review-gate WARN   1 done phase has no recorded reviewGate (aideck-multi-project/F2)
-[9] worktrees   WARN   feature merged but worktree live (plan/x) — teardown pending
+[9] worktrees   FAIL   archived plan demo branch plan/demo has no PR/integration proof — run `finalize demo`, merge, then `archive demo`
 [10] review     WARN   2 plan(s) carry no adversarial-review receipt (curta/refatoracao, curta/web-app)
 
-VERIFY: 7 warning(s), 0 failure(s)
+VERIFY: 6 warning(s), 1 failure(s)
 ```
 
 ## Red flags

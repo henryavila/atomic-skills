@@ -118,11 +118,12 @@ test('persisted nextAction prose validates the first backticked project command'
 test('unresolved placeholder commands are invalid', () => {
   assertInvalid('materialize <phase>');
   assertInvalid('done <task-id>');
+  assertInvalid('finalize');
 });
 
 test('catalog signature matcher accepts concrete help-domain commands and rejects placeholders', () => {
   for (const command of [
-    'finalize',
+    'finalize demo-plan',
     'materialize F2',
     'done T-001',
     'switch core-api',
