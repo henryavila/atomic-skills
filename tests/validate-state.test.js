@@ -1461,3 +1461,31 @@ test('crossValidate: plan WITHOUT closedAtHardening → soft (no closedAt error)
   }]]);
   assert.equal(crossValidate(plans, inits).length, 0);
 });
+
+test('crossValidate: closedAtHardening does not scan same-slug initiatives from another project', () => {
+  const plans = new Map([
+    ['proj-a/p', {
+      slug: 'p',
+      __projectId: 'proj-a',
+      closedAtHardening: { enforcedFrom: '2026-06-19T19:00:00Z', grandfatheredTaskIds: [] },
+      phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+    }],
+    ['proj-b/p', {
+      slug: 'p',
+      __projectId: 'proj-b',
+      phases: [{ id: 'F4', slug: 'p-f4', status: 'active' }],
+    }],
+  ]);
+  const inits = new Map([
+    ['proj-a/p-f4', {
+      slug: 'p-f4', __projectId: 'proj-a', parentPlan: 'p', phaseId: 'F4', status: 'active',
+      tasks: [{ id: 'T-001', status: 'done', closedAt: '2026-06-19T20:00:00Z' }],
+    }],
+    ['proj-b/p-f4', {
+      slug: 'p-f4', __projectId: 'proj-b', parentPlan: 'p', phaseId: 'F4', status: 'active',
+      tasks: [{ id: 'T-002', status: 'done' }],
+    }],
+  ]);
+
+  assert.deepEqual(crossValidate(plans, inits), []);
+});

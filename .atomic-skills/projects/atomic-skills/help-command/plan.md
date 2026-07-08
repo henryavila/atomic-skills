@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: help-command
 title: Comando `help` — GPS de terminal da skill `project`
 version: "1.0"
-status: active
+status: done
 started: 2026-07-05T11:37:28.309Z
-lastUpdated: 2026-07-08T01:40:29Z
+lastUpdated: 2026-07-08T12:06:00Z
 currentPhase: F3
 parallelismAllowed: false
 principles:
@@ -303,18 +303,34 @@ phases:
       criteria:
         - id: G-1
           description: suíte cheia verde (npm test)
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm test
+          metAt: 2026-07-08T12:06:00Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-08T12:06:00Z
+            exitCode: 0
+            passed: true
+            outputSummary: npm test -> tests 1610, pass 1608, fail 0, skipped 2
         - id: G-2
           description: help-vocab.test.js passa
-          status: pending
+          status: met
           verifier:
             kind: test
             runner: node --test
             pattern: tests/help/help-vocab.test.js
-    status: active
+          metAt: 2026-07-08T12:06:00Z
+          evidence:
+            verifierKind: test
+            verifiedAt: 2026-07-08T12:06:00Z
+            exitCode: 0
+            testsCollected: 4
+            passed: true
+            outputSummary: node --test tests/help/help-vocab.test.js -> tests 4, pass 4,
+              fail 0
+    status: done
     businessIntent:
       value: "Fecha a fidelidade do GPS de terminal: o help passa a ter guardas
         persistentes que impedem comandos inexistentes ou assinaturas
@@ -341,8 +357,13 @@ phases:
         - question: Como F2/L-001 foi dispositionada na F3?
           answer: "Keep: F3 não habilita novo CTA por caminho fixo; a lesson segue aberta
             para futuras fases que adicionem recursos por path fixo."
+    reviewGate:
+      status: passed
+      at: 58357c52831158668fd3cc8854f50d34af2c78ba
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-08-1146-help-command-f3-local.md
+      verifiedAt: 2026-07-08T12:06:00Z
 references: []
-planActive: true
 planTitle: Comando `help` — GPS de terminal da skill `project`
 ---
 

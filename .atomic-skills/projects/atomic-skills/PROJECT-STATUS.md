@@ -1,11 +1,10 @@
 ---
 lastUpdated: 2026-07-08T13:15:00.466Z
 schemaVersion: "0.1"
-activePlans: 1
+activePlans: 0
 activeInitiatives: 0
 archivedCount: 18
 ---
-
 
 # Project Status Index
 
@@ -13,27 +12,20 @@ Canonical project index for `atomic-skills`. Read first every session.
 
 This repo follows a 3-level model under `projects/<project-id>/`:
 
-- **Plan** - multi-phase project with narrative, principles, phases, exit gates (`<plan-slug>/plan.md`)
+- **Plan** - multi-phase project with narrative, principles, glossary, phases, exit gates (`<plan-slug>/plan.md`)
 - **Initiative** - one phase of a plan (`<plan-slug>/phases/f<N>-<slug>.md`). A standalone unit of work is a degenerate 1-phase plan.
 - **Task** - atomic action inside a phase initiative (lives in its frontmatter `tasks[]`)
 
 ## Active Plans
 
-| Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|--------|
-| help-command | active | F3 | develop | 2026-07-05 | 3/4 |
-
-### help-command
-| Initiative | Phase | Status | Tasks |
-|------------|-------|--------|-------|
-| f1-o-mapa-estado-proximo-passo-como-helper | F1 | done | 2/2 |
-| f3-guarda-de-fidelidade-help-nunca-cita-um | F3 | active | 0/2 |
+_(none)_
 
 
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| help-command | done | F3 | develop | 2026-07-05 | 4/4 |
 | fix-aideck-dashboard | done | F3 | plan/fix-aideck-dashboard | 2026-06-16 | 4/4 |
 | deadline-burnup-forecast | done | F5 | plan/deadline-burnup-forecast | 2026-06-17 | 6/6 |
 | reversible-installer | done | F3 | plan/reversible-installer | 2026-06-17 | 4/4 |
@@ -56,6 +48,7 @@ _(none)_
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
+| help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
@@ -65,7 +58,6 @@ _(none)_
 | design-brief-source-of-truth | 2026-06-16 | F2 | 3/3 | design-brief: reconstrucao da fonte-de-verdade (catalogo app-map) |
 | multiplan-focus-resolution | 2026-06-16 | - | 1/1 | Resolucao de foco em camadas + enforcer worktree-por-plano |
 | skills-restructuring | 2026-06-16 | F4 | 7/7 | Reestruturacao das skills atomic-skills |
-| quick-idea-capture | 2026-06-09 | F1 | 2/2 | Quick Idea Capture |
 
 ## Ad-Hoc Sessions Log (last 5)
 

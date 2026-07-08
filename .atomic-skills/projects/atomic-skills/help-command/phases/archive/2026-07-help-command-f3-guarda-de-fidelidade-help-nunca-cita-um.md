@@ -5,11 +5,11 @@ title: Guarda de fidelidade (help nunca cita um verbo que não existe)
 goal: Um teste garante que todo comando do domínio de saída existe no catálogo E
   respeita a signature declarada; fechar o cross-link das 3 camadas (HTML e
   terminal).
-status: active
+status: done
 branch: develop
 started: 2026-07-08T01:40:29Z
-lastUpdated: 2026-07-08T02:09:20.860Z
-nextAction: Rode `phase-done`.
+lastUpdated: 2026-07-08T12:06:00Z
+nextAction: null
 parentPlan: help-command
 phaseId: F3
 businessIntent:
@@ -39,26 +39,43 @@ businessIntent:
         para futuras fases que adicionem recursos por path fixo."
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-1
     description: suíte cheia verde (npm test)
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: npm test
+    metAt: 2026-07-08T12:06:00Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-08T12:06:00Z
+      exitCode: 0
+      passed: true
+      outputSummary: npm test -> tests 1610, pass 1608, fail 0, skipped 2
     verifierLabel: "shell: npm test"
+    evidenceSummary: passed · 2026-07-08
   - id: G-2
     description: help-vocab.test.js passa
-    status: pending
+    status: met
     verifier:
       kind: test
       runner: node --test
       pattern: tests/help/help-vocab.test.js
+    metAt: 2026-07-08T12:06:00Z
+    evidence:
+      verifierKind: test
+      verifiedAt: 2026-07-08T12:06:00Z
+      exitCode: 0
+      testsCollected: 4
+      passed: true
+      outputSummary: node --test tests/help/help-vocab.test.js -> tests 4, pass 4, fail 0
     verifierLabel: "test: node --test tests/help/help-vocab.test.js"
+    evidenceSummary: passed · 4 tests · 2026-07-08
 stack:
   - id: 1
     title: Guarda de fidelidade (help nunca cita um verbo que não existe)
@@ -140,8 +157,6 @@ parked: []
 emerged: []
 startedCommit: 61349088f34701cfe7781c41097434cb89247c16
 planTitle: Comando `help` — GPS de terminal da skill `project`
-planActive: true
-current: true
 ---
 
 
@@ -164,3 +179,13 @@ _(plan doc, external refs)_
 - **Single nextAction:** Rode `phase-done`.
 - **Verbatim state:** `rtk node --test tests/help/help-vocab.test.js` -> `tests 4`, `pass 4`, `fail 0`; `rtk node --test tests/project.test.js` -> `tests 51`, `pass 51`, `fail 0`; `rtk grep -q 'project help' docs/design/project-onboarding/html-design-brief.md` -> match, exit 0; `rtk grep -q 'project help' docs/skills/project.md` -> match, exit 0; `.atomic-skills/projects/atomic-skills/help-command/phases/f3-guarda-de-fidelidade-help-nunca-cita-um.md`; `.atomic-skills/analytics/completions.jsonl`; `docs/design/project-onboarding/html-design-brief.md`; `docs/skills/project.md`.
 - **Uncommitted changes:** clean tree.
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 2 tasks closed, each with source outputs in `tasks[].outputs`; review re-read changed source lines before stamping the gate.
+- **G2 soft-language**: scanned `nextAction`, task descriptions, criterion descriptions, review notes, and the phase close text; 0 violations requiring rewrite.
+- **G6 reference-or-strike**: 2 exit criteria, 2 met with `evidence:` populated, 0 deferred, 0 unverified.
+- **G10 gate-must-be-able-to-fail**: both criteria fail concretely on non-zero shell/test exit; `tests/help/help-vocab.test.js` also rejects unresolved placeholders. Criteria without a stateable failure: none.
+- **Codex review**: non-destructive phase diff selected local `review-code` mode; local inline review at HEAD = `58357c52831158668fd3cc8854f50d34af2c78ba`, verdict `clean after fix`, counts before fix `blocker:0 critical:0 major:1 minor:0`, after fix `blocker:0 critical:0 major:0 minor:0`, file `.atomic-skills/reviews/2026-07-08-1146-help-command-f3-local.md`. Isolation degraded because subagent spawning is not permitted by this session's tool policy.
+- **Review gate (G2)**: recorded on the phase descriptor as `reviewGate: { status: passed, at: 58357c52831158668fd3cc8854f50d34af2c78ba, mode: local, reviewFile: .atomic-skills/reviews/2026-07-08-1146-help-command-f3-local.md }`.
+- **Lessons (G1)**: distilled 1 lesson into `lessons/help-command-f3-guarda-de-fidelidade-help-nunca-cita-um.md` (1 reusable, 0 local), ratified by the user.
