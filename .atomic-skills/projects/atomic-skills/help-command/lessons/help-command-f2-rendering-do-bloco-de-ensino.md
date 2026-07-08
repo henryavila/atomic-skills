@@ -14,10 +14,10 @@ lessons:
     appliesTo: []
     status: open
     confidence: 2
-    evidence: `.atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md`;
-      fix `1ed2f9e`
+    evidence: ".atomic-skills/reviews/2026-07-07-1958-help-command-f2-local.md;
+      fix 1ed2f9e"
     createdAt: 2026-07-08T01:22:16Z
-    ratifiedAt: 2026-07-08T01:22:16Z
+    validatedAt: 2026-07-08T01:22:16Z
 ---
 
 # Lessons — F2 (Rendering do bloco de ensino)
