@@ -29,8 +29,8 @@ status: active
 branch: develop
 started: 2026-07-09T11:18:44Z
 startedCommit: a09d1237c72a2a4120932e3f4357510923414acd
-lastUpdated: 2026-07-09T11:47:03.029Z
-nextAction: Run `phase-done`.
+lastUpdated: 2026-07-09T13:21:13Z
+nextAction: Ask user to accept F1 -> F2 advance.
 parentPlan: installer-hooks-cross-ide
 phaseId: F1
 tasksDone: 2
@@ -173,10 +173,19 @@ Initiative for phase **F1 - Setup e documentacao**.
 - Source sidecar: `installer-hooks-cross-ide-f1-setup-e-documentacao.source.json`
 - Lessons aplicadas: `../lessons/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md`
 
+## Self-review against code-quality gates
+
+- **G1 read-before-claim:** T-001 e T-002 foram fechadas somente depois de leitura dos outputs e verifiers gravados na propria fase. A review da fase cita linhas fonte em `skills/shared/project-assets/project-setup.md:11`, `skills/shared/project-assets/hooks/README.md:32` e `tests/project.test.js:325`, com arquivo registrado em `.atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md`.
+- **G2 soft-language:** nextAction, tasks, gates e reviewGate foram conferidos para declaracoes finais sem linguagem de incerteza. O handoff restante e uma acao operacional: pedir aceitacao explicita para avancar para F2.
+- **G6 reference-or-strike:** G-1 e G-2 estao `met` com comando, exit code e resumo de saida. Nao ha gate F1 pendente ou deferred.
+- **G10 gate-must-be-able-to-fail:** G-1 falha se `project-setup.md`, README ou tests removerem a deteccao Codex por `.codex/ || .agents/`, criarem hook config para host sem contrato ou perderem o no-op documentado. G-2 falha se README fonte e instalado divergem ou se `tests/hooks/session-start.test.sh` falha.
+- **Review gate:** review obrigatoria da fase registrada como `passed`, modo `local`, em `0ca27252edf2de326f55f5601b9c656a54c1c596`; arquivo `.atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md`. O modo Codex/cross-model opt-in nao foi executado porque nao houve pedido do usuario para essa revisao extra.
+- **Lessons:** uma licao reutilizavel foi destilada e ratificada pelo usuario em `../lessons/installer-hooks-cross-ide-f1-setup-e-documentacao.md`; reusable 1, local 0.
+
 ## Session handoff
 
-- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; tasks T-001/T-002 e gates G-1/G-2 estao fechados com evidencia, e a review local da fase foi registrada em `.atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md`. A fase esta pronta para a etapa de lessons/self-review e propagacao `phase-done`.
+- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; tasks T-001/T-002, gates G-1/G-2, review local, lesson ratificada e self-review estao fechados com evidencia. Falta aceitacao explicita do usuario para avancar para F2.
 - **Decision log:** Review da fase usou modo local porque o diff `a09d1237c72a2a4120932e3f4357510923414acd..0ca27252edf2de326f55f5601b9c656a54c1c596` nao teve sinal destrutivo: nenhum arquivo deletado, nenhum token drop/truncate e 419 insercoes contra 95 delecoes. O review local rodou inline por restricao da ferramenta de subagente e esta marcado como isolamento degradado no arquivo de review.
-- **Single nextAction:** Append phase-done self-review/lessons, propagate F1 done, archive F1, and activate/materialize F2.
+- **Single nextAction:** Ask user to accept F1 -> F2 advance; on acceptance, propagate F1 done, archive F1, and activate/materialize F2.
 - **Verbatim state:** review range -> `a09d1237c72a2a4120932e3f4357510923414acd..0ca27252edf2de326f55f5601b9c656a54c1c596`; review file -> `.atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md`; reviewGate -> `{ status: passed, at: 0ca27252edf2de326f55f5601b9c656a54c1c596, mode: local }`; validation command -> `rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`.
 - **Uncommitted changes:** clean tree
