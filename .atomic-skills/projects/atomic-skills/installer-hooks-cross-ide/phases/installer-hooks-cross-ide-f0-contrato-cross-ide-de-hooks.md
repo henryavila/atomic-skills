@@ -184,3 +184,46 @@ Initiative for phase **F0 - Contrato cross-IDE de hooks**.
 
 - Plano: `../plan.md`
 - Source: `../source.md`
+
+## Session handoff
+
+- **Narrative:** F0 esta ativa no plano `installer-hooks-cross-ide`. T-001 fechou
+  a matriz host x contrato em
+  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md`
+  com evidencia `passed: true`; T-002 permanece pendente.
+- **Decision log:** O contrato separa compatibilidade de instalacao de skills de
+  compatibilidade de setup de hooks. Hosts sem arquivo/evento de hook
+  documentado neste repositorio recebem no-op de hooks, enquanto Claude Code e
+  Codex ficam em merge-only para preservar entradas de terceiros.
+- **Single nextAction:** Executar T-002 criando
+  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md`,
+  depois rodar `grep -q '@henryavila/minimalist-installer' .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md`.
+- **Verbatim state:**
+  ```text
+  rtk bash -lc 'test -s .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md'
+  exit code: 0
+
+  rtk node scripts/append-completion.js . --event task-done --project atomic-skills --plan installer-hooks-cross-ide --phase F0 --task T-001 --weight 2 --basis proxy
+  append-completion: task-done atomic-skills/installer-hooks-cross-ide/F0/T-001 weight=2(proxy) ✓
+
+  rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
+  ✓ .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md  [plan]
+  ✓ .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md  [initiative]
+
+  ✓ All 2 file(s) valid, 1 plan(s) cross-validated (schemaVersion 0.1/0.2)
+
+  rtk node scripts/refresh-state.js
+  refresh-state: rollups 1 changed, focus 0 changed, digest → installer-hooks-cross-ide · F0
+
+  implementation commit: 44e5541 feat(T-001): add host hook matrix
+  state checkpoint commit: fb1fafd chore(project): checkpoint installer-hooks-cross-ide F0 T-001
+  ```
+- **Uncommitted changes:**
+  ```text
+   M .atomic-skills/projects/atomic-skills/ideas.md
+   M .atomic-skills/status/hooks/README.md
+   M skills/shared/project-assets/hooks/README.md
+   M skills/shared/project-assets/project-setup.md
+   M tests/hooks/session-start.test.sh
+   M tests/project.test.js
+  ```
