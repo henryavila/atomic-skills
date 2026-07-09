@@ -29,7 +29,7 @@ status: active
 branch: develop
 started: 2026-07-09T13:59:23Z
 startedCommit: 8bcf398dd70109eb964ad8e4f1b8d0f5102863b0
-lastUpdated: 2026-07-09T14:30:24Z
+lastUpdated: 2026-07-09T14:36:24Z
 nextAction: Fazer review obrigatorio de fase.
 parentPlan: installer-hooks-cross-ide
 phaseId: F2
@@ -50,16 +50,16 @@ exitGates:
         tests/minimalist-installer-link.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
-    metAt: 2026-07-09T14:30:24Z
+    metAt: 2026-07-09T14:36:24Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-09T14:30:24Z
+      verifiedAt: 2026-07-09T14:36:24Z
       passed: true
       exitCode: 0
       outputSummary: rtk zsh -lc node --test tests/project.test.js
         tests/install-uninstall-roundtrip.test.js
         tests/minimalist-installer-link.test.js -> tests 68, suites 3, pass 68,
-        fail 0, duration_ms 7087.626666
+        fail 0, duration_ms 6012.093666
   - id: G-2
     description: Os testes de hooks cobrem SessionStart e preservacao de hooks
       existentes no setup suportado.
@@ -69,10 +69,10 @@ exitGates:
       command: bash tests/hooks/session-start.test.sh
       expectExitCode: 0
     verifierLabel: "shell: bash tests/hooks/session-start.test.sh"
-    metAt: 2026-07-09T14:30:24Z
+    metAt: 2026-07-09T14:36:24Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-09T14:30:24Z
+      verifiedAt: 2026-07-09T14:36:24Z
       passed: true
       exitCode: 0
       outputSummary: "rtk zsh -lc bash tests/hooks/session-start.test.sh -> RESULT:
@@ -228,5 +228,5 @@ Initiative for phase **F2 - Testes de regressao**.
 - **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`, e os exit gates G-1/G-2 estao `met`. A fase esta pronta para review obrigatorio.
 - **Decision log:** T-001, T-002 e T-003 usaram Mode 2 porque routing estava ligado e as tasks tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array.
 - **Single nextAction:** Fazer review obrigatorio de fase.
-- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 7087.626666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
+- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; review fix commit -> `65e003a test(T-001): bind project host matrix to config`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 6012.093666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
 - **Uncommitted changes:** clean tree

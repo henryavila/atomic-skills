@@ -5,7 +5,7 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T14:30:24Z
+lastUpdated: 2026-07-09T14:36:24Z
 branch: develop
 currentPhase: F2
 parallelismAllowed: false
@@ -222,16 +222,16 @@ phases:
               tests/install-uninstall-roundtrip.test.js
               tests/minimalist-installer-link.test.js
             expectExitCode: 0
-          metAt: 2026-07-09T14:30:24Z
+          metAt: 2026-07-09T14:36:24Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-09T14:30:24Z
+            verifiedAt: 2026-07-09T14:36:24Z
             passed: true
             exitCode: 0
             outputSummary: rtk zsh -lc node --test tests/project.test.js
               tests/install-uninstall-roundtrip.test.js
               tests/minimalist-installer-link.test.js -> tests 68, suites 3,
-              pass 68, fail 0, duration_ms 7087.626666
+              pass 68, fail 0, duration_ms 6012.093666
         - id: G-2
           description: Os testes de hooks cobrem SessionStart e preservacao de hooks
             existentes no setup suportado.
@@ -240,10 +240,10 @@ phases:
             kind: shell
             command: bash tests/hooks/session-start.test.sh
             expectExitCode: 0
-          metAt: 2026-07-09T14:30:24Z
+          metAt: 2026-07-09T14:36:24Z
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-09T14:30:24Z
+            verifiedAt: 2026-07-09T14:36:24Z
             passed: true
             exitCode: 0
             outputSummary: "rtk zsh -lc bash tests/hooks/session-start.test.sh ->
