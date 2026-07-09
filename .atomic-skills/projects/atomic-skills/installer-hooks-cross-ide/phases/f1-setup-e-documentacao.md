@@ -29,17 +29,15 @@ status: active
 branch: develop
 started: 2026-07-09T11:18:44Z
 startedCommit: a09d1237c72a2a4120932e3f4357510923414acd
-lastUpdated: 2026-07-09T11:36:51.549Z
-nextAction: Atualizar skills/shared/project-assets/hooks/README.md,
-  .atomic-skills/status/hooks/README.md e tests/project.test.js para T-002;
-  depois rodar `done T-002`.
+lastUpdated: 2026-07-09T11:40:26.892Z
+nextAction: Run `phase-done`.
 parentPlan: installer-hooks-cross-ide
 phaseId: F1
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 2
+weightDone: 4
 weightTotal: 4
 exitGates:
   - id: G-1
@@ -107,8 +105,8 @@ tasks:
     weight: 2
     description: Alinhar README fonte e README instalado para explicar suporte real,
       wrapper de projeto e no-op por host.
-    status: pending
-    lastUpdated: 2026-07-09T11:18:44Z
+    status: done
+    lastUpdated: 2026-07-09T11:40:26.892Z
     scopeBoundary:
       - nao editar session-start.sh, stop.sh ou pre-write.sh nesta task
     acceptance:
@@ -125,6 +123,14 @@ tasks:
         path: .atomic-skills/status/hooks/README.md
       - kind: file
         path: tests/project.test.js
+    closedAt: 2026-07-09T11:40:26.892Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T11:40:26.892Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk node --test tests/project.test.js -> tests 57, suites 1, pass
+        57, fail 0, duration_ms 4274.667791
 parked: []
 emerged: []
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
@@ -149,8 +155,8 @@ Initiative for phase **F1 - Setup e documentacao**.
 
 ## Session handoff
 
-- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; T-001 esta `done` com `evidence.passed: true` gravado em `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`. O commit de implementacao `d8149c5` alterou `skills/shared/project-assets/project-setup.md` e `tests/project.test.js`, e o verifier de fechamento foi `rtk node --test tests/project.test.js`.
-- **Decision log:** T-001 usou Mode 2 porque `.atomic-skills/status/routing.json` tem `mode2Enabled: true` e `codexLane.enabled: true`; o diff da worktree foi aplicado serialmente na primaria. A self-check da worktree falhou por `ERR_MODULE_NOT_FOUND` para `picocolors`, entao a certificacao valida e somente a execucao na primaria: `rtk node --test tests/project.test.js` com exit 0.
-- **Single nextAction:** Atualizar skills/shared/project-assets/hooks/README.md, .atomic-skills/status/hooks/README.md e tests/project.test.js para T-002; depois rodar `done T-002`.
-- **Verbatim state:** `rtk git commit -m "docs(T-001): separate setup skill and hook contracts"` -> `d8149c5`; `rtk node --test tests/project.test.js` -> `ℹ tests 56` / `ℹ suites 1` / `ℹ pass 56` / `ℹ fail 0` / `ℹ duration_ms 5062.648625`; implementation paths -> `skills/shared/project-assets/project-setup.md`, `tests/project.test.js`; worktree path -> `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f1-t-001`.
+- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; T-001 e T-002 estao `done` com `evidence.passed: true` em `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`. O commit de implementacao `6ef1177` alinhou `skills/shared/project-assets/hooks/README.md`, `.atomic-skills/status/hooks/README.md` e `tests/project.test.js`, e o verifier de fechamento foi `rtk node --test tests/project.test.js`.
+- **Decision log:** T-002 rodou em Mode 1 porque seu output inclui `.atomic-skills/status/hooks/README.md`; o state-tree fence da Mode 2 impede entregar escrita em `.atomic-skills` para Codex. A fase ainda tem exit gates pendentes e deve seguir pelo fluxo `phase-done`, que executa os verifiers de gate e a review de fase.
+- **Single nextAction:** Run `phase-done`.
+- **Verbatim state:** `rtk git commit -m "docs(T-002): document hook host contract"` -> `6ef1177`; `rtk node --test tests/project.test.js` -> `ℹ tests 57` / `ℹ suites 1` / `ℹ pass 57` / `ℹ fail 0` / `ℹ duration_ms 4274.667791`; implementation paths -> `skills/shared/project-assets/hooks/README.md`, `.atomic-skills/status/hooks/README.md`, `tests/project.test.js`; state path -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`.
 - **Uncommitted changes:** clean tree
