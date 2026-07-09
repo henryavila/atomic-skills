@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-09T14:26:54Z
+lastUpdated: 2026-07-09T14:39:17Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
@@ -44,7 +44,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Parent Plan | Phase | Branch | Started | Next |
 |------|-------------|-------|--------|---------|------|
-| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Rodar `phase-done`. |
+| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Ratificar lesson F2 proposta. |
 
 ## Recently Archived (last 10)
 

@@ -5,7 +5,7 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T14:36:24Z
+lastUpdated: 2026-07-09T14:39:17Z
 branch: develop
 currentPhase: F2
 parallelismAllowed: false
@@ -269,6 +269,12 @@ phases:
           answer: Gates e tasks que combinam Node e shell mantem comandos shell
             explicitos com `&& bash <script>.sh`; scripts `.sh` nao sao passados
             para `node --test`.
+    reviewGate:
+      status: passed
+      at: d48f30efd9457d08b6bb9d3dd54c234ebb20f61e
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md
+      verifiedAt: 2026-07-09T14:39:17Z
   - id: F3
     slug: installer-hooks-cross-ide-f3-reparo-local-e-validacao-final
     title: Reparo local e validacao final

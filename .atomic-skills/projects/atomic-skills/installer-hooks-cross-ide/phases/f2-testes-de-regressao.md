@@ -29,8 +29,8 @@ status: active
 branch: develop
 started: 2026-07-09T13:59:23Z
 startedCommit: 8bcf398dd70109eb964ad8e4f1b8d0f5102863b0
-lastUpdated: 2026-07-09T14:36:24Z
-nextAction: Fazer review obrigatorio de fase.
+lastUpdated: 2026-07-09T14:39:17Z
+nextAction: Ratificar lesson F2 proposta.
 parentPlan: installer-hooks-cross-ide
 phaseId: F2
 tasksDone: 3
@@ -49,7 +49,6 @@ exitGates:
         tests/install-uninstall-roundtrip.test.js
         tests/minimalist-installer-link.test.js
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
     metAt: 2026-07-09T14:36:24Z
     evidence:
       verifierKind: shell
@@ -60,6 +59,8 @@ exitGates:
         tests/install-uninstall-roundtrip.test.js
         tests/minimalist-installer-link.test.js -> tests 68, suites 3, pass 68,
         fail 0, duration_ms 6012.093666
+    verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
+    evidenceSummary: passed · 2026-07-09
   - id: G-2
     description: Os testes de hooks cobrem SessionStart e preservacao de hooks
       existentes no setup suportado.
@@ -68,15 +69,16 @@ exitGates:
       kind: shell
       command: bash tests/hooks/session-start.test.sh
       expectExitCode: 0
-    verifierLabel: "shell: bash tests/hooks/session-start.test.sh"
     metAt: 2026-07-09T14:36:24Z
     evidence:
       verifierKind: shell
       verifiedAt: 2026-07-09T14:36:24Z
       passed: true
       exitCode: 0
-      outputSummary: "rtk zsh -lc bash tests/hooks/session-start.test.sh -> RESULT:
-        38 passed, 0 failed"
+      outputSummary: "rtk zsh -lc bash tests/hooks/session-start.test.sh -> RESULT: 38
+        passed, 0 failed"
+    verifierLabel: "shell: bash tests/hooks/session-start.test.sh"
+    evidenceSummary: passed · 2026-07-09
 stack:
   - id: 1
     title: Testes de regressao
@@ -216,6 +218,10 @@ Initiative for phase **F2 - Testes de regressao**.
   `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f2-t-003`;
   o diff foi aplicado serialmente no primario e re-verificado antes do commit
   `6e412b8`. Nenhuma mudanca em scripts fonte foi necessaria.
+- O review local encontrou uma lacuna menor de cobertura: `tests/project.test.js`
+  duplicava a lista de hosts publicos em vez de importar `PUBLIC_IDE_IDS`. O fix
+  esta em `65e003a` e a review final limpa esta registrada em
+  `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`.
 
 ## Links
 
@@ -223,10 +229,31 @@ Initiative for phase **F2 - Testes de regressao**.
 - Source sidecar: `installer-hooks-cross-ide-f2-testes-de-regressao.source.json`
 - Lessons aplicadas: `../lessons/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md`, `../lessons/installer-hooks-cross-ide-f1-setup-e-documentacao.md`
 
+## Self-review against code-quality gates
+
+- **G1 read-before-claim:** tasks, gates e review foram fechados depois de ler os
+  diffs e arquivos finais: `tests/project.test.js`, `tests/install.test.js`,
+  `tests/install-uninstall-roundtrip.test.js`, os tres scripts de teste em
+  `tests/hooks/`, `src/config.js` e `src/runtime-layers/auto-update.js`.
+- **G2 soft-language:** nextAction, gates, reviewGate e handoff foram conferidos
+  para declaracoes operacionais sem linguagem de incerteza.
+- **G6 reference-or-strike:** G-1 e G-2 estao `met` com comando, exit code e
+  resumo de saida. Nao ha gate F2 pendente ou deferred.
+- **G10 gate-must-be-able-to-fail:** G-1 falha se `PUBLIC_IDE_IDS`, skill paths,
+  hook merge ou uninstall/update regredirem; G-2 falha se o hook SessionStart nao
+  resolver por `$PWD` ou se criar arquivo de config de host sem contrato.
+- **Review gate:** review obrigatoria da fase registrada como `passed`, modo
+  `local`, em `d48f30efd9457d08b6bb9d3dd54c234ebb20f61e`; arquivo
+  `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`.
+  O review local rodou inline por restricao da ferramenta de subagente e esta
+  marcado como isolamento degradado no arquivo de review.
+- **Lessons:** uma lesson reutilizavel foi proposta a partir da finding menor de
+  review e aguarda ratificacao do usuario antes de ser gravada.
+
 ## Session handoff
 
-- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`, e os exit gates G-1/G-2 estao `met`. A fase esta pronta para review obrigatorio.
-- **Decision log:** T-001, T-002 e T-003 usaram Mode 2 porque routing estava ligado e as tasks tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array.
-- **Single nextAction:** Fazer review obrigatorio de fase.
-- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; review fix commit -> `65e003a test(T-001): bind project host matrix to config`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 6012.093666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
+- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`, exit gates G-1/G-2 estao `met`, e reviewGate esta `passed`. Falta ratificar a lesson proposta antes de fechar a fase.
+- **Decision log:** T-001, T-002 e T-003 usaram Mode 2 porque routing estava ligado e as tasks tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array. Review final usou modo local porque o diff nao teve arquivo deletado, drop de schema/dados ou churn de remocao; matches `rm -rf` eram cleanup de temp dir nos testes shell.
+- **Single nextAction:** Ratificar lesson F2 proposta.
+- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; review fix commit -> `65e003a test(T-001): bind project host matrix to config`; review file -> `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`; reviewGate -> `{ status: passed, at: d48f30efd9457d08b6bb9d3dd54c234ebb20f61e, mode: local }`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 6012.093666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
 - **Uncommitted changes:** clean tree
