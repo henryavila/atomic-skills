@@ -27,17 +27,15 @@ status: active
 branch: develop
 started: 2026-07-08T22:33:06Z
 startedCommit: cb660ac9c0a3e6d29a94897a18176e23be5cafae
-lastUpdated: 2026-07-09T00:53:40Z
-nextAction: Executar T-003 para sincronizar o backlog F1-F3 com os artefatos de
-  contrato sem implementar mudancas em setup, runtime layer, tests ou
-  .codex/hooks.json.
+lastUpdated: 2026-07-09T00:56:51Z
+nextAction: Rodar `phase-done` para verificar os gates G-1, G-2 e G-3 da F0.
 parentPlan: installer-hooks-cross-ide
 phaseId: F0
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 4
+weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-1
@@ -151,8 +149,9 @@ tasks:
     weight: 1
     description: Revisar as fases F1-F3 contra os artefatos de contrato e registrar
       quais arquivos serao tocados depois da F0.
-    status: pending
-    lastUpdated: 2026-07-09T00:11:43Z
+    status: done
+    lastUpdated: 2026-07-09T00:56:51Z
+    closedAt: 2026-07-09T00:56:51Z
     scopeBoundary:
       - Nao implementar mudancas em setup, runtime layer, tests ou
         .codex/hooks.json.
@@ -166,6 +165,12 @@ tasks:
       command: test -s
         .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T00:56:51Z
+      passed: true
+      exitCode: 0
+      outputSummary: ""
     outputs:
       - kind: file
         path: .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md
