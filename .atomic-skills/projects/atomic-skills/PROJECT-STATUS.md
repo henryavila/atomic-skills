@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-09T14:17:01Z
+lastUpdated: 2026-07-09T14:26:54Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
@@ -44,7 +44,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Parent Plan | Phase | Branch | Started | Next |
 |------|-------------|-------|--------|---------|------|
-| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Implementar T-003 em tests/hooks/session-start.test.sh, tests/hooks/stop.test.sh e tests/hooks/pre-write.test.sh; depois rodar `done T-003`. |
+| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Rodar `phase-done`. |
 
 ## Recently Archived (last 10)
 

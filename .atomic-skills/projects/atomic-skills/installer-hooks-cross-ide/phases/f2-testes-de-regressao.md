@@ -29,17 +29,15 @@ status: active
 branch: develop
 started: 2026-07-09T13:59:23Z
 startedCommit: 8bcf398dd70109eb964ad8e4f1b8d0f5102863b0
-lastUpdated: 2026-07-09T14:17:01Z
-nextAction: Implementar T-003 em tests/hooks/session-start.test.sh,
-  tests/hooks/stop.test.sh e tests/hooks/pre-write.test.sh; depois rodar `done
-  T-003`.
+lastUpdated: 2026-07-09T14:26:54Z
+nextAction: Rodar `phase-done`.
 parentPlan: installer-hooks-cross-ide
 phaseId: F2
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
-weightDone: 4
+weightDone: 6
 weightTotal: 6
 exitGates:
   - id: G-1
@@ -142,8 +140,9 @@ tasks:
     weight: 2
     description: Validar que os hooks do project continuam executando com fallback
       de diretorio e sem acoplamento a host sem contrato.
-    status: pending
-    lastUpdated: 2026-07-09T13:59:23Z
+    status: done
+    lastUpdated: 2026-07-09T14:26:54Z
+    closedAt: 2026-07-09T14:26:54Z
     scopeBoundary:
       - nao registrar hooks locais nesta task
     acceptance:
@@ -153,6 +152,15 @@ tasks:
       command: bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh
         && bash tests/hooks/pre-write.test.sh
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T14:26:54Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk zsh -lc bash tests/hooks/session-start.test.sh && bash
+        tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh ->
+        session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0
+        failed; pre-write RESULT 70 passed, 0 failed
     outputs:
       - kind: file
         path: tests/hooks/session-start.test.sh
@@ -186,6 +194,10 @@ Initiative for phase **F2 - Testes de regressao**.
   `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f2-t-002`;
   o diff foi aplicado serialmente no primario e re-verificado antes do commit
   `fbfb6c4`. Nenhuma mudanca runtime foi necessaria.
+- T-003 rodou por Mode 2 em
+  `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f2-t-003`;
+  o diff foi aplicado serialmente no primario e re-verificado antes do commit
+  `6e412b8`. Nenhuma mudanca em scripts fonte foi necessaria.
 
 ## Links
 
@@ -195,8 +207,8 @@ Initiative for phase **F2 - Testes de regressao**.
 
 ## Session handoff
 
-- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001 e T-002 estao fechadas com evidence `passed: true`. T-003 e a unica task pendente.
-- **Decision log:** T-001 e T-002 usaram Mode 2 porque routing estava ligado e ambas tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array.
-- **Single nextAction:** Implementar T-003 em tests/hooks/session-start.test.sh, tests/hooks/stop.test.sh e tests/hooks/pre-write.test.sh; depois rodar `done T-003`.
-- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-002 weight=1(count) ✓`.
+- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`. A fase esta pronta para `phase-done`.
+- **Decision log:** T-001, T-002 e T-003 usaram Mode 2 porque routing estava ligado e as tasks tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array.
+- **Single nextAction:** Rodar `phase-done`.
+- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
 - **Uncommitted changes:** clean tree
