@@ -267,3 +267,27 @@ Initiative for phase **F0 - Contrato cross-IDE de hooks**.
    M tests/hooks/session-start.test.sh
    M tests/project.test.js
   ```
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim**: 3 tasks closed, each with `outputs[]` pointing to
+  the contract artifact it produced; `src/config.js`, `src/detect.js`,
+  `src/runtime-layers/auto-update.js`, `skills/shared/project-assets/project-setup.md`
+  and `skills/shared/project-assets/hooks/README.md` were read before the
+  host-contract claims were recorded.
+- **G2 soft-language**: scanned `nextAction`, task descriptions and criterion
+  descriptions for soft-language ban terms; 0 violations found.
+- **G6 reference-or-strike**: 3 exit criteria, 3 met with `evidence.passed:
+  true`, 0 deferred and 0 unverified.
+- **G10 gate-must-be-able-to-fail**: each exit criterion has a shell verifier
+  that fails when its required contract artifact is missing or incomplete.
+- **Codex review**: ran review-code/codex and phase-done local follow-up at
+  HEAD = `0f48aa8697c5bb5cd89258dda1c234c906146784`; verdict
+  `needs_changes_fixed`, counts `0B/0C/1M/0m/0n`, file
+  `.atomic-skills/reviews/2026-07-09-0628-installer-hooks-cross-ide.md`.
+- **Review gate (G2)**: recorded on the phase descriptor as
+  `reviewGate: { status: passed, at: 0f48aa8697c5bb5cd89258dda1c234c906146784,
+  mode: both }`.
+- **Lessons (G1)**: distilled 1 reusable lesson into
+  `lessons/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md`,
+  ratified by the user.

@@ -5,7 +5,7 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T10:03:35Z
+lastUpdated: 2026-07-09T11:08:55Z
 branch: develop
 currentPhase: F0
 parallelismAllowed: false
@@ -116,6 +116,12 @@ phases:
             exitCode: 0
             outputSummary: ""
     status: active
+    reviewGate:
+      status: passed
+      mode: both
+      at: 0f48aa8697c5bb5cd89258dda1c234c906146784
+      reviewFile: .atomic-skills/reviews/2026-07-09-0628-installer-hooks-cross-ide.md
+      verifiedAt: 2026-07-09T11:08:55Z
   - id: F1
     slug: installer-hooks-cross-ide-f1-setup-e-documentacao
     title: Setup e documentacao
