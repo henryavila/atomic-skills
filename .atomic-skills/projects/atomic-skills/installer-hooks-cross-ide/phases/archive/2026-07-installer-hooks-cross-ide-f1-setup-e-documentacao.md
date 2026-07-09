@@ -25,12 +25,12 @@ businessIntent:
       answer: O acceptance de T-001 e o gate G-1 exigem detectar Codex por `.codex/ ||
         .agents/` antes da fallback generica e manter path de skills e path de
         hook config no mesmo contrato/teste.
-status: active
+status: done
 branch: develop
 started: 2026-07-09T11:18:44Z
 startedCommit: a09d1237c72a2a4120932e3f4357510923414acd
-lastUpdated: 2026-07-09T13:21:13Z
-nextAction: Ask user to accept F1 -> F2 advance.
+lastUpdated: 2026-07-09T13:59:23Z
+nextAction: null
 parentPlan: installer-hooks-cross-ide
 phaseId: F1
 tasksDone: 2
@@ -155,7 +155,7 @@ parked: []
 emerged: []
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
 planActive: true
-current: true
+current: false
 ---
 
 # Setup e documentacao

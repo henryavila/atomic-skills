@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-09T11:18:44Z
+lastUpdated: 2026-07-09T13:59:23Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
-archivedCount: 20
+archivedCount: 21
 ---
 
 # Project Status Index
@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| installer-hooks-cross-ide | active | F1 | develop | 2026-07-08 | 1/4 |
+| installer-hooks-cross-ide | active | F2 | develop | 2026-07-08 | 2/4 |
 
 
 ## Done Plans (not archived)
@@ -44,12 +44,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Parent Plan | Phase | Branch | Started | Next |
 |------|-------------|-------|--------|---------|------|
-| installer-hooks-cross-ide-f1-setup-e-documentacao | installer-hooks-cross-ide | F1 | develop | 2026-07-09 | Rodar `done T-001` depois de atualizar project-setup.md e tests/project.test.js. |
+| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Rodar `done T-001` depois de adicionar cobertura de regressao da matriz de hosts em tests/project.test.js, tests/install.test.js e tests/minimalist-installer-link.test.js. |
 
 ## Recently Archived (last 10)
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f1-setup-e-documentacao | 2026-07-09 | F1 | 2/4 | Setup e documentacao |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks | 2026-07-09 | F0 | 1/4 | Contrato cross-IDE de hooks |
 | project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
@@ -59,7 +60,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
 | design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
 | worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
-| app-map-conflict-arbitration | 2026-06-16 | F1 | 2/2 | app-map: descritor de conflito rico + canal de arbitragem |
 
 ## Ad-Hoc Sessions Log (last 5)
 

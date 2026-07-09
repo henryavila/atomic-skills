@@ -5,9 +5,9 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T11:47:03.029Z
+lastUpdated: 2026-07-09T13:59:23Z
 branch: develop
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -171,7 +171,7 @@ phases:
             outputSummary: "rtk zsh -lc node --test tests/project.test.js && bash
               tests/hooks/session-start.test.sh -> tests 57, pass 57; RESULT: 35
               passed, 0 failed"
-    status: active
+    status: done
     businessIntent:
       value: Garante que o setup do project skill comunique suporte cross-IDE sem
         prometer hooks para hosts sem contrato, reduzindo configuracao invalida
@@ -208,7 +208,7 @@ phases:
     summary: Adiciona regressao automatica para matriz de hosts e preservacao de hooks.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -230,7 +230,27 @@ phases:
             kind: shell
             command: bash tests/hooks/session-start.test.sh
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Reduz regressao cross-IDE ao transformar a matriz de hosts em testes
+        executaveis que protegem usuarios de Claude Code, Codex, Cursor, Gemini,
+        OpenCode e GitHub Copilot contra hook setup invalido.
+      workflow: O mantenedor roda a suite de regressao de project/install/hooks e
+        recebe falha quando skill path, hook merge ou no-op por host divergem do
+        contrato ratificado.
+      rules: Cobrir skills e hooks como eixos separados; preservar hooks de
+        terceiros em hosts com merge suportado; manter no-op explicito para hosts
+        sem hook contract; executar scripts shell por `bash`, nao por
+        `node --test`.
+      outOfScope: Nao reparar `.codex/hooks.json` local, nao registrar hooks locais
+        e nao alterar documentacao fora do necessario para testes nesta fase.
+      doneWhen: A matriz cross-IDE, a preservacao de hooks existentes e os hooks do
+        project tem cobertura automatica com verifiers deterministas passando.
+      derived:
+        - question: Como L-001 da F1 foi aplicada na F2?
+          answer: Gates e tasks que combinam Node e shell mantem comandos shell
+            explicitos com `&& bash <script>.sh`; scripts `.sh` nao sao passados
+            para `node --test`.
   - id: F3
     slug: installer-hooks-cross-ide-f3-reparo-local-e-validacao-final
     title: Reparo local e validacao final
