@@ -5,7 +5,8 @@ artifact: all (origin/develop...HEAD plus working tree)
 skill: review-code
 reviewer: gpt-5-codex
 codex_version: codex-cli 0.143.0
-final_verdict: needs_changes
+final_verdict: needs_changes_fixed
+post_fix_verdict: fixed
 counts_final: {blocker: 0, critical: 0, major: 1, minor: 0, nit: 0}
 counts_blind: {blocker: 0, critical: 0, major: 1, minor: 0, nit: 0}
 framing_delta: {dropped: 0, maintained: 1, emerged: 0}
@@ -15868,15 +15869,16 @@ Begin reconciliation now.
 
 ## Fixes applied in this session
 
-- Fixed F-001 by adding Codex environment detection (`test -d .agents/` -> Codex) before the generic no-hook fallback in `skills/shared/project-assets/project-setup.md`.
-- Added regression coverage in `tests/project.test.js` to fail when `.codex/hooks.json` is documented without `.agents/` Codex detection before `Otherwise -> generic IDE; skip step 5`.
+- Fixed F-001 by adding Codex environment detection (`test -d .codex/ || test -d .agents/` -> Codex) before the generic no-hook fallback in `skills/shared/project-assets/project-setup.md`.
+- Added regression coverage in `tests/project.test.js` to fail when `.codex/hooks.json` is documented without Codex detection before `Otherwise -> generic IDE; skip step 5`.
+- Local phase-done follow-up tightened the fix from `.agents/` only to `.codex/ || .agents/` because `.codex/hooks.json` is the hook config path while `.agents/` is the skills install path.
 - Verification: `node --test tests/project.test.js`, `npm test`, and `npm run test:hooks` all pass.
 
 ## Self-review against code-quality gates
 
 - G1 read-before-claim: applied — cited source was read before reporting: `skills/shared/project-assets/project-setup.md:7-39`, `src/detect.js:6-12`, `src/config.js:34-39`.
 - G2 soft-language: applied — review summary avoids unverified soft-language claims.
-- G3 anti-tautology: applied — the new test fails if the `.agents/` detection line is removed or moved after the generic no-hook fallback.
+- G3 anti-tautology: applied — the new test fails if the Codex detection line is removed, lacks `.codex/` or `.agents/`, or is moved after the generic no-hook fallback.
 - G4 fixture realism: not-applicable — no new fixtures were created.
 - G5 red phase: applied — `node --test tests/project.test.js` failed before the fix with `AssertionError [ERR_ASSERTION]: setup must detect Codex repos via .agents/`.
 - G7 anti-premature-abstraction: not-applicable — no helper or abstraction was introduced.
