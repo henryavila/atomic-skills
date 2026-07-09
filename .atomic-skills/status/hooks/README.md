@@ -10,6 +10,14 @@
 - `emergent-drift.log` — dry-run decision log emitted by `pre-write.sh` (gitignored). One JSON object per blocked-in-dry-run mutation.
 - `stop.log` — legacy v1 dry-run decision log (kept for backward compatibility on existing installs; no longer written by v2).
 
+## Host hook contract
+
+Skill installation and project-hook setup are separate contracts. This README describes only the project hooks copied to `.atomic-skills/status/hooks/`.
+
+- Claude Code: project-hook setup is supported through merge-only entries in `.claude/settings.local.json`.
+- Codex: project-hook setup is supported through merge-only entries in `.codex/hooks.json`.
+- Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Installing skills for these hosts does not create hook config files and does not register hook events.
+
 ## SessionStart v2 — context layout
 
 The hook composes its `additionalContext` payload in this order, skipping any section whose source isn't present:
@@ -23,12 +31,14 @@ The hook composes its `additionalContext` payload in this order, skipping any se
 
 ### Check if hooks are registered
 
+Run these checks only for hosts with a project-hook contract:
+
 ```bash
 cat .claude/settings.local.json | jq '.hooks'
 cat .codex/hooks.json | jq '.hooks'
 ```
 
-Expected: entries for `SessionStart`, optionally `Stop`, and optionally `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) using these wrappers:
+Expected for Claude Code and Codex: entries for `SessionStart`, optionally `Stop`, and optionally `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) using these wrappers:
 
 ```json
 {
@@ -72,7 +82,7 @@ Auto-expires after 24h. Delete the file to re-enable sooner.
 
 ### Permanent
 
-Remove the hook entry from `.claude/settings.local.json`, or run:
+Remove the hook entry from `.claude/settings.local.json` or `.codex/hooks.json`, or run:
 
 ```bash
 npx atomic-skills uninstall --project  # removes this skill's artifacts

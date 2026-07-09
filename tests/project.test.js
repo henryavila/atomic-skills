@@ -379,6 +379,28 @@ describe('project skill (unified router + lazy assets)', () => {
     );
   });
 
+  it('project hook README source and installed copy document the same host contract', () => {
+    install();
+    const sourceReadme = readAsset('hooks/README.md');
+    const installedReadme = readFileSync(
+      join(__dirname, '..', '.atomic-skills/status/hooks/README.md'),
+      'utf8',
+    );
+
+    assert.equal(installedReadme, sourceReadme, 'installed hooks README must match the source asset');
+    for (const readme of [sourceReadme, installedReadme]) {
+      assert.match(readme, /Skill installation and project-hook setup are separate contracts/);
+      assert.match(readme, /Claude Code: project-hook setup is supported through merge-only entries in `\.claude\/settings\.local\.json`/);
+      assert.match(readme, /Codex: project-hook setup is supported through merge-only entries in `\.codex\/hooks\.json`/);
+      assert.match(readme, /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/);
+      assert.doesNotMatch(
+        readme,
+        /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
+        'hosts without a hook contract must not be listed as approved hook config targets',
+      );
+    }
+  });
+
   // ─── Lazy asset: create-plan (former project-plan bootstrap) ─────────────
 
   it('project-create-plan documents the Iron Law (NO PLAN WITHOUT NARRATIVE)', () => {
