@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-08T18:31:17Z
+lastUpdated: 2026-07-09T00:11:43Z
 schemaVersion: "0.1"
-activePlans: 0
-activeInitiatives: 0
+activePlans: 1
+activeInitiatives: 1
 archivedCount: 19
 ---
 
@@ -18,7 +18,9 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-_(none)_
+| Slug | Status | Current Phase | Branch | Started | Phases |
+|------|--------|---------------|--------|---------|--------|
+| installer-hooks-cross-ide | active | F0 | develop | 2026-07-08 | 0/4 |
 
 
 ## Done Plans (not archived)
@@ -40,7 +42,9 @@ _(none)_
 
 ## Active Initiatives (standalone)
 
-_(none)_
+| Slug | Parent Plan | Phase | Branch | Started | Next |
+|------|-------------|-------|--------|---------|------|
+| installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks | installer-hooks-cross-ide | F0 | develop | 2026-07-08 | Executar T-001 para escrever a matriz host x contrato de hooks antes de alterar docs ou installer. |
 
 ## Recently Archived (last 10)
 

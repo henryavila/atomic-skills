@@ -1,0 +1,121 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "installer-hooks-cross-ide-f2-testes-de-regressao",
+  "title": "Testes de regressao",
+  "goal": "Adicionar cobertura para Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot, incluindo preservacao de hooks existentes e no-op seguro em hosts sem hook contract.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Cobrir matriz de hosts no setup",
+      "description": "Adicionar fixtures ou asserts que exercitam a matriz cross-IDE de skill path e hook behavior.",
+      "scopeBoundary": [
+        "nao mudar comportamento runtime sem teste falhando que descreva a matriz"
+      ],
+      "acceptance": [
+        "cada host declarado tem caso de teste para path de skills e resultado de hooks"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/project.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/install.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/minimalist-installer-link.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Cobrir preservacao de hooks existentes",
+      "description": "Garantir que entradas de terceiros sobrevivem quando o host suporta merge de hooks.",
+      "scopeBoundary": [
+        "nao alterar docs nesta task"
+      ],
+      "acceptance": [
+        "teste prova que hook de terceiro permanece apos install/update/uninstall e que somente a entrada Atomic Skills e removida"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install-uninstall-roundtrip.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/install-uninstall-roundtrip.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/runtime-layers/auto-update.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/installer.js"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Cobrir hooks do project",
+      "description": "Validar que os hooks do project continuam executando com fallback de diretorio e sem acoplamento a host sem contrato.",
+      "scopeBoundary": [
+        "nao registrar hooks locais nesta task"
+      ],
+      "acceptance": [
+        "suite de hooks passa e os testes cobrem ausencia de config como no-op"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/hooks/session-start.test.sh"
+        },
+        {
+          "kind": "file",
+          "path": "tests/hooks/stop.test.sh"
+        },
+        {
+          "kind": "file",
+          "path": "tests/hooks/pre-write.test.sh"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "A suite de project/install cobre a matriz cross-IDE de skills versus hooks.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "Os testes de hooks cobrem SessionStart e preservacao de hooks existentes no setup suportado.",
+      "verifier": {
+        "kind": "shell",
+        "command": "bash tests/hooks/session-start.test.sh",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}
