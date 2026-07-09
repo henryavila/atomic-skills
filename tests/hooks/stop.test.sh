@@ -9,6 +9,12 @@ run() { echo "TEST: $1"; }
 ok()  { PASS=$((PASS+1)); echo "  PASS"; }
 no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 
+assert_no_host_hook_config_files() {
+  local files
+  files=$(find .claude .codex .cursor .gemini .opencode .github -type f 2>/dev/null | sort || true)
+  [[ -z "$files" ]] && ok || no "expected no host hook config files, found: $files"
+}
+
 init_git_branch() {
   local branch=$1
   git init -q --initial-branch="$branch" . 2>/dev/null || {
@@ -345,6 +351,24 @@ rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0"
 [[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing"
 cd - >/dev/null; rm -rf "$TMP" /tmp/t.jsonl
+
+# Test 12: no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback drift check.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+mkdir -p .claude .codex .cursor .gemini .opencode .github
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative .atomic-skills/initiatives/i.md i active feat "" "" "src/"
+TRANSCRIPT="$TMP/t.jsonl"
+write_transcript "$TRANSCRIPT" 2026-05-20T00:00:00Z "$TMP/lib/a.js,$TMP/lib/b.js,$TMP/src/c.js"
+run "no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback, no host config created"
+echo "{\"stop_hook_active\":false,\"transcript_path\":\"$TRANSCRIPT\"}" | (unset CLAUDE_PROJECT_DIR; bash "$HOOK")
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "PWD fallback did not write drift.log"
+grep -q '"out_of_scope": 2' .atomic-skills/status/drift.log && ok || no "expected out_of_scope=2"
+assert_no_host_hook_config_files
+cd - >/dev/null; rm -rf "$TMP"
 
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"

@@ -12,6 +12,12 @@ run() { echo "TEST: $1"; }
 ok()  { PASS=$((PASS+1)); echo "  PASS"; }
 no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 
+assert_no_host_hook_config_files() {
+  local files
+  files=$(find .claude .codex .cursor .gemini .opencode .github -type f 2>/dev/null | sort || true)
+  [[ -z "$files" ]] && ok || no "expected no host hook config files, found: $files"
+}
+
 # Helper: write a frontmatter block for a Plan.
 write_plan() {
   local file=$1 slug=$2 status=$3 phase=$4 branch=${5:-}
@@ -352,6 +358,21 @@ run "no-commit repo + active initiative → emits without hanging"
 out=$(perl -e 'alarm 20; exec @ARGV' -- bash "$HOOK" 2>/dev/null); rc=$?
 [[ "$rc" == "0" ]] && ok || no "hook exited $rc (hang/abort on commit-less repo)"
 echo "$out" | grep -q "Current Initiative: f0-work" && ok || no "no initiative emitted on commit-less repo: $out"
+cd - >/dev/null; rm -rf "$TMP"
+
+# Test 16: no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback, no-op.
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feature/x
+mkdir -p .atomic-skills/projects/acme/migration/phases
+mkdir -p .claude .codex .cursor .gemini .opencode .github
+write_plan .atomic-skills/projects/acme/migration/plan.md migration active F0
+write_initiative .atomic-skills/projects/acme/migration/phases/f0-work.md f0-work active feature/x migration F0 "pending"
+run "no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback, no host config created"
+out=$(unset CLAUDE_PROJECT_DIR; bash "$HOOK")
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+echo "$out" | grep -q "Current Initiative: f0-work" && ok || no "PWD fallback did not resolve initiative: $out"
+assert_no_host_hook_config_files
 cd - >/dev/null; rm -rf "$TMP"
 
 echo ""

@@ -13,6 +13,12 @@ no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 # string contents and corrupts JSON payloads with escaped newlines.
 feed() { printf '%s' "$1" | bash "$HOOK"; }
 
+assert_no_host_hook_config_files() {
+  local files
+  files=$(find .claude .codex .cursor .gemini .opencode .github -type f 2>/dev/null | sort || true)
+  [[ -z "$files" ]] && ok || no "expected no host hook config files, found: $files"
+}
+
 # Initiative skeleton with a single original task.
 write_initiative_one_task() {
   local file=$1
@@ -790,6 +796,24 @@ run "T27: nested phases/archive/*.md is out of scope → exit 0"
 rc=0; feed "$PAYLOAD" || rc=$?
 [[ "$rc" == "0" ]] && ok || no "expected 0 (archive not gated), got $rc"
 [[ ! -f .atomic-skills/status/emergent-drift.log ]] && ok || no "log unexpectedly written for archive"
+cd - >/dev/null; rm -rf "$TMP"
+
+# --- T28: no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback for relative path ---
+TMP=$(mktemp -d); cd "$TMP"
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+mkdir -p .claude .codex .cursor .gemini .opencode .github
+printf '{"emergent_strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative_one_task .atomic-skills/initiatives/i.md
+NEW=$(render_initiative_full 2)
+PAYLOAD=$(jq -n --arg fp ".atomic-skills/initiatives/i.md" --arg ct "$NEW" \
+  '{tool_name:"Write", tool_input:{file_path:$fp, content:$ct}}')
+run "T28: no host hook config + no CLAUDE_PROJECT_DIR → PWD fallback, no host config created"
+printf '%s' "$PAYLOAD" | (unset CLAUDE_PROJECT_DIR; bash "$HOOK")
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/emergent-drift.log ]] && ok || no "PWD fallback did not write emergent-drift.log"
+grep -q 'task:T-002 (no provenance)' .atomic-skills/status/emergent-drift.log && ok || no "missing task:T-002 violation"
+assert_no_host_hook_config_files
 cd - >/dev/null; rm -rf "$TMP"
 
 echo ""
