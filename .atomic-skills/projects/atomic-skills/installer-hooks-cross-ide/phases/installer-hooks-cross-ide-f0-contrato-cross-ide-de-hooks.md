@@ -27,17 +27,17 @@ status: active
 branch: develop
 started: 2026-07-08T22:33:06Z
 startedCommit: cb660ac9c0a3e6d29a94897a18176e23be5cafae
-lastUpdated: 2026-07-09T00:49:18Z
-nextAction: Executar T-002 para registrar a fronteira com
-  @henryavila/minimalist-installer sem modificar dependencias ou mover logica de
-  host.
+lastUpdated: 2026-07-09T00:53:40Z
+nextAction: Executar T-003 para sincronizar o backlog F1-F3 com os artefatos de
+  contrato sem implementar mudancas em setup, runtime layer, tests ou
+  .codex/hooks.json.
 parentPlan: installer-hooks-cross-ide
 phaseId: F0
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 2
+weightDone: 4
 weightTotal: 5
 exitGates:
   - id: G-1
@@ -118,8 +118,9 @@ tasks:
     weight: 2
     description: Mapear o uso atual de @henryavila/minimalist-installer e separar
       motor generico de efeitos da semantica de IDEs e project hooks.
-    status: pending
-    lastUpdated: 2026-07-09T00:11:43Z
+    status: done
+    lastUpdated: 2026-07-09T00:53:40Z
+    closedAt: 2026-07-09T00:53:40Z
     scopeBoundary:
       - Nao modificar package.json, package-lock.json ou a dependencia
         @henryavila/minimalist-installer nesta task.
@@ -134,6 +135,12 @@ tasks:
       command: grep -q '@henryavila/minimalist-installer'
         .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T00:53:40Z
+      passed: true
+      exitCode: 0
+      outputSummary: ""
     outputs:
       - kind: file
         path: .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md
