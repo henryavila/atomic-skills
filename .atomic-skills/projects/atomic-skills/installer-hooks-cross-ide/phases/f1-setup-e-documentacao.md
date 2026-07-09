@@ -29,15 +29,17 @@ status: active
 branch: develop
 started: 2026-07-09T11:18:44Z
 startedCommit: a09d1237c72a2a4120932e3f4357510923414acd
-lastUpdated: 2026-07-09T11:18:44Z
-nextAction: Rodar `done T-001` depois de atualizar project-setup.md e tests/project.test.js.
+lastUpdated: 2026-07-09T11:36:51.549Z
+nextAction: Atualizar skills/shared/project-assets/hooks/README.md,
+  .atomic-skills/status/hooks/README.md e tests/project.test.js para T-002;
+  depois rodar `done T-002`.
 parentPlan: installer-hooks-cross-ide
 phaseId: F1
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 2
 weightTotal: 4
 exitGates:
   - id: G-1
@@ -72,8 +74,8 @@ tasks:
     weight: 2
     description: Atualizar o setup para declarar matriz de skills e matriz de hooks
       como passos separados.
-    status: pending
-    lastUpdated: 2026-07-09T11:18:44Z
+    status: done
+    lastUpdated: 2026-07-09T11:36:51.549Z
     scopeBoundary:
       - nao alterar scripts de hook ou runtime layer nesta task
     acceptance:
@@ -90,6 +92,14 @@ tasks:
         path: skills/shared/project-assets/project-setup.md
       - kind: file
         path: tests/project.test.js
+    closedAt: 2026-07-09T11:36:51.549Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T11:36:51.549Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk node --test tests/project.test.js -> tests 56, suites 1, pass
+        56, fail 0, duration_ms 5062.648625
   - id: T-002
     title: Corrigir README de hooks fonte e instalado
     summary: Alinha README fonte e instalado ao contrato F0 sem prometer hooks fora
@@ -139,8 +149,8 @@ Initiative for phase **F1 - Setup e documentacao**.
 
 ## Session handoff
 
-- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`, com 2 tasks pendentes e businessIntent ratificado pelo usuario em 2026-07-09T11:18:44Z.
-- **Decision log:** Setup e README devem separar instalacao de skills de setup de hooks. Hosts sem contrato documentado recebem no-op de hooks; Claude Code e Codex sao tratados apenas quando houver arquivo de config aprovado, preservando entradas de terceiros.
-- **Single nextAction:** Rodar `done T-001` depois de atualizar project-setup.md e tests/project.test.js.
-- **Verbatim state:** `rtk git status --porcelain` -> clean output; `rtk git log --oneline -3` -> `d03c1b0 chore(project): advance installer-hooks-cross-ide F0` / `a09d123 chore(project): record installer hooks F0 review gate` / `0f48aa8 chore(project): record installer hooks review fix`; `rtk git symbolic-ref --short HEAD` -> `develop`; active plan path `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md`; active phase path `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`; verifier for T-001: `node --test tests/project.test.js`.
+- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; T-001 esta `done` com `evidence.passed: true` gravado em `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`. O commit de implementacao `d8149c5` alterou `skills/shared/project-assets/project-setup.md` e `tests/project.test.js`, e o verifier de fechamento foi `rtk node --test tests/project.test.js`.
+- **Decision log:** T-001 usou Mode 2 porque `.atomic-skills/status/routing.json` tem `mode2Enabled: true` e `codexLane.enabled: true`; o diff da worktree foi aplicado serialmente na primaria. A self-check da worktree falhou por `ERR_MODULE_NOT_FOUND` para `picocolors`, entao a certificacao valida e somente a execucao na primaria: `rtk node --test tests/project.test.js` com exit 0.
+- **Single nextAction:** Atualizar skills/shared/project-assets/hooks/README.md, .atomic-skills/status/hooks/README.md e tests/project.test.js para T-002; depois rodar `done T-002`.
+- **Verbatim state:** `rtk git commit -m "docs(T-001): separate setup skill and hook contracts"` -> `d8149c5`; `rtk node --test tests/project.test.js` -> `ℹ tests 56` / `ℹ suites 1` / `ℹ pass 56` / `ℹ fail 0` / `ℹ duration_ms 5062.648625`; implementation paths -> `skills/shared/project-assets/project-setup.md`, `tests/project.test.js`; worktree path -> `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f1-t-001`.
 - **Uncommitted changes:** clean tree
