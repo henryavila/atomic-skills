@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-09T13:59:23Z
+lastUpdated: 2026-07-09T14:10:49Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
@@ -44,7 +44,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Parent Plan | Phase | Branch | Started | Next |
 |------|-------------|-------|--------|---------|------|
-| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Rodar `done T-001` depois de adicionar cobertura de regressao da matriz de hosts em tests/project.test.js, tests/install.test.js e tests/minimalist-installer-link.test.js. |
+| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Implementar T-002 em tests/install-uninstall-roundtrip.test.js, src/runtime-layers/auto-update.js e src/installer.js; depois rodar `done T-002`. |
 
 ## Recently Archived (last 10)
 
