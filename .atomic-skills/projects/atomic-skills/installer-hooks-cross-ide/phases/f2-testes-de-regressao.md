@@ -29,16 +29,17 @@ status: active
 branch: develop
 started: 2026-07-09T13:59:23Z
 startedCommit: 8bcf398dd70109eb964ad8e4f1b8d0f5102863b0
-lastUpdated: 2026-07-09T14:10:49Z
-nextAction: Implementar T-002 em tests/install-uninstall-roundtrip.test.js,
-  src/runtime-layers/auto-update.js e src/installer.js; depois rodar `done T-002`.
+lastUpdated: 2026-07-09T14:17:01Z
+nextAction: Implementar T-003 em tests/hooks/session-start.test.sh,
+  tests/hooks/stop.test.sh e tests/hooks/pre-write.test.sh; depois rodar `done
+  T-003`.
 parentPlan: installer-hooks-cross-ide
 phaseId: F2
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 2
-weightDone: 2
+weightDone: 4
 weightTotal: 6
 exitGates:
   - id: G-1
@@ -108,8 +109,9 @@ tasks:
     weight: 2
     description: Garantir que entradas de terceiros sobrevivem quando o host suporta
       merge de hooks.
-    status: pending
-    lastUpdated: 2026-07-09T13:59:23Z
+    status: done
+    lastUpdated: 2026-07-09T14:17:01Z
+    closedAt: 2026-07-09T14:17:01Z
     scopeBoundary:
       - nao alterar docs nesta task
     acceptance:
@@ -119,6 +121,13 @@ tasks:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T14:17:01Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk node --test tests/install-uninstall-roundtrip.test.js ->
+        tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291
     outputs:
       - kind: file
         path: tests/install-uninstall-roundtrip.test.js
@@ -173,6 +182,10 @@ Initiative for phase **F2 - Testes de regressao**.
   o diff foi aplicado serialmente no primario e re-verificado antes do commit
   `22f36b7`. `dispatch-log.json` nao foi alterado porque o arquivo existente esta
   em formato misto NDJSON/array e a normalizacao fica fora do boundary de T-001.
+- T-002 rodou por Mode 2 em
+  `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f2-t-002`;
+  o diff foi aplicado serialmente no primario e re-verificado antes do commit
+  `fbfb6c4`. Nenhuma mudanca runtime foi necessaria.
 
 ## Links
 
@@ -182,8 +195,8 @@ Initiative for phase **F2 - Testes de regressao**.
 
 ## Session handoff
 
-- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001 esta fechada com evidence `passed: true` e commit de implementacao `22f36b7`. T-002 e a proxima task pendente.
-- **Decision log:** T-001 usou Mode 2 porque routing estava ligado e a task tinha paths exatos, scopeBoundary, acceptance e verifier shell deterministico. O diff do worktree foi aplicado no primario e re-verificado com o mesmo comando antes de fechar a task; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array.
-- **Single nextAction:** Implementar T-002 em tests/install-uninstall-roundtrip.test.js, src/runtime-layers/auto-update.js e src/installer.js; depois rodar `done T-002`.
-- **Verbatim state:** worktree -> `/Volumes/External/code/.worktrees/atomic-skills-installer-hooks-cross-ide-f2-t-001`; implementation commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js`; verifier result -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-001 weight=1(count) ✓`.
+- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001 e T-002 estao fechadas com evidence `passed: true`. T-003 e a unica task pendente.
+- **Decision log:** T-001 e T-002 usaram Mode 2 porque routing estava ligado e ambas tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array.
+- **Single nextAction:** Implementar T-003 em tests/hooks/session-start.test.sh, tests/hooks/stop.test.sh e tests/hooks/pre-write.test.sh; depois rodar `done T-003`.
+- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-002 weight=1(count) ✓`.
 - **Uncommitted changes:** clean tree
