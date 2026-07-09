@@ -146,7 +146,7 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/project.test.js tests/hooks/session-start.test.sh
+            command: "node --test tests/project.test.js && bash tests/hooks/session-start.test.sh"
             expectExitCode: 0
     status: active
     businessIntent:

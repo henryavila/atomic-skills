@@ -100,7 +100,7 @@ exit_gate:
       verifier: { kind: shell, command: "node --test tests/project.test.js", expectExitCode: 0 }
     - id: G-2
       description: "A documentacao instalada em .atomic-skills/status/hooks/README.md reflete o mesmo contrato da fonte em skills/shared/project-assets/hooks/README.md."
-      verifier: { kind: shell, command: "node --test tests/project.test.js tests/hooks/session-start.test.sh", expectExitCode: 0 }
+      verifier: { kind: shell, command: "node --test tests/project.test.js && bash tests/hooks/session-start.test.sh", expectExitCode: 0 }
 ```
 
 ## F2 - Testes de regressao

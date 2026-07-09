@@ -16,7 +16,7 @@ precisa preservar os dois eixos da matriz.
 | Item | Fase | Arquivos futuros | Regra do contrato | Verifier da fase |
 | --- | --- | --- | --- | --- |
 | Separar matriz de skills da matriz de hooks no setup. | F1 | `skills/shared/project-assets/project-setup.md`, `tests/project.test.js` | Claude Code e Codex podem ter setup de hooks; Cursor, Gemini, OpenCode e GitHub Copilot recebem no-op de hooks mesmo quando recebem skills. | `node --test tests/project.test.js` |
-| Corrigir README de hooks fonte e instalado. | F1 | `skills/shared/project-assets/hooks/README.md`, `.atomic-skills/status/hooks/README.md`, `tests/project.test.js` | O README deve listar arquivos de config aprovados pela matriz e nao prometer hooks para hosts sem contrato. | `node --test tests/project.test.js tests/hooks/session-start.test.sh` |
+| Corrigir README de hooks fonte e instalado. | F1 | `skills/shared/project-assets/hooks/README.md`, `.atomic-skills/status/hooks/README.md`, `tests/project.test.js` | O README deve listar arquivos de config aprovados pela matriz e nao prometer hooks para hosts sem contrato. | `node --test tests/project.test.js && bash tests/hooks/session-start.test.sh` |
 | Documentar a fronteira do pacote. | F1 | `skills/shared/project-assets/project-setup.md`, `skills/shared/project-assets/hooks/README.md` | `@henryavila/minimalist-installer` continua driver generico; `atomic-skills` define providers, runtime layers, deltas de hook, docs e testes. | `node --test tests/project.test.js` |
 
 ## F2 - Testes de regressao
