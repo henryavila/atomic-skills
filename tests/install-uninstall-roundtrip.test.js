@@ -50,6 +50,17 @@ function diffTree(before, after) {
   return { added: added.sort(), removed: removed.sort(), modified: modified.sort() };
 }
 
+function sessionStartCommands(settingsPath) {
+  const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  return (settings.hooks?.SessionStart ?? [])
+    .flatMap((entry) => (entry.hooks ?? []).map((hook) => hook.command))
+    .filter((command) => typeof command === 'string');
+}
+
+function countVersionCheckHooks(commands) {
+  return commands.filter((command) => command.endsWith('version-check.sh')).length;
+}
+
 describe('install→uninstall round-trip', () => {
   it('user scope returns $HOME to its pre-install state (no residue)', async () => {
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
@@ -154,7 +165,7 @@ describe('install→uninstall round-trip', () => {
   // is the parity contract F3's rewire onto json-merge / refcount / legacy-prune
   // must keep green.
 
-  it('preserves a pre-existing THIRD-PARTY SessionStart hook across the round-trip', async () => {
+  it('preserves a pre-existing THIRD-PARTY SessionStart hook across install→UPDATE→uninstall', async () => {
     // json-merge data-safety: revert subtracts ONLY the entry the installer
     // merged, never a snapshot — a hook the user already had must survive.
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
@@ -176,12 +187,20 @@ describe('install→uninstall round-trip', () => {
 
         await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' });
 
-        const merged = JSON.parse(readFileSync(settingsPath, 'utf8'));
-        const mergedCmds = merged.hooks.SessionStart.flatMap((e) => e.hooks.map((h) => h.command));
+        const mergedCmds = sessionStartCommands(settingsPath);
         assert.ok(mergedCmds.includes(thirdPartyCmd), 'third-party hook present after install');
-        assert.ok(
-          mergedCmds.some((c) => c.endsWith('version-check.sh')),
-          'installer merged its own hook alongside the third party',
+        assert.equal(
+          countVersionCheckHooks(mergedCmds), 1,
+          'installer merged exactly one of its own hooks alongside the third party',
+        );
+
+        await install(projectDir, { yes: true, ide: ['claude-code'], lang: 'en' }); // UPDATE
+
+        const updatedCmds = sessionStartCommands(settingsPath);
+        assert.ok(updatedCmds.includes(thirdPartyCmd), 'third-party hook present after update');
+        assert.equal(
+          countVersionCheckHooks(updatedCmds), 1,
+          'update keeps a single Atomic Skills hook entry',
         );
 
         await uninstall(projectDir, { scope: 'user', yes: true });
@@ -190,11 +209,10 @@ describe('install→uninstall round-trip', () => {
         assert.deepEqual(removed, [], `uninstall deleted user files: ${removed.join(', ')}`);
         assert.deepEqual(added, [], `residue after uninstall: ${added.join(', ')}`);
         assert.deepEqual(modified, [], `settings.json must return byte-for-byte: ${modified.join(', ')}`);
-        const after = JSON.parse(readFileSync(settingsPath, 'utf8'));
-        const afterCmds = after.hooks.SessionStart.flatMap((e) => e.hooks.map((h) => h.command));
+        const afterCmds = sessionStartCommands(settingsPath);
         assert.ok(afterCmds.includes(thirdPartyCmd), 'third-party hook survives uninstall');
-        assert.ok(
-          !afterCmds.some((c) => c.endsWith('version-check.sh')),
+        assert.equal(
+          countVersionCheckHooks(afterCmds), 0,
           'installer hook removed on uninstall (only the delta subtracted)',
         );
       });
