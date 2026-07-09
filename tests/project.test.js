@@ -304,6 +304,39 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /mkdir -p \.atomic-skills/);
   });
 
+  it('project-setup registers project hooks with a wrapper-level project-dir fallback', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const hooksReadme = readAsset('hooks/README.md');
+    const combined = `${setup}\n${hooksReadme}`;
+
+    for (const script of ['session-start.sh', 'stop.sh', 'pre-write.sh']) {
+      assert.ok(
+        setup.includes(`"command": "bash \\"\${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/${script}\\""`),
+        `setup must register ${script} with a wrapper-level fallback`,
+      );
+    }
+    assert.ok(
+      !combined.includes('"command": "bash \\"$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/'),
+      'hook docs must not use a bare CLAUDE_PROJECT_DIR path; the wrapper must fall back to $PWD before invoking the script',
+    );
+  });
+
+  it('project-setup detects Codex before the generic no-hook fallback', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const codexDetect = setup.indexOf('`test -d .agents/` → Codex');
+    const genericFallback = setup.indexOf('Otherwise → generic IDE; skip step 5');
+    const codexHooks = setup.indexOf('Codex: `.codex/hooks.json`');
+
+    assert.notEqual(codexHooks, -1, 'setup must document the Codex hook config path');
+    assert.notEqual(codexDetect, -1, 'setup must detect Codex repos via .agents/');
+    assert.ok(
+      codexDetect < genericFallback,
+      'Codex detection must run before the generic no-hook fallback',
+    );
+  });
+
   // ─── Lazy asset: create-plan (former project-plan bootstrap) ─────────────
 
   it('project-create-plan documents the Iron Law (NO PLAN WITHOUT NARRATIVE)', () => {

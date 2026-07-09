@@ -27,3 +27,13 @@ Nota: o finding #1 irmão (atribuição code/artefact por posição alfabética,
 `2026-06-16 · branch:plan/fix-aideck-dashboard · status:pending`
 
 Refazer a documentação do atomic-skills em HTML e publicar numa GitHub Page. O README passa a conter apenas os principais benefícios do atomic-skills, com link para a documentação completa.
+
+## #4 · Reescrever fluxo ad-hoc do project
+`2026-07-08 · branch:develop · status:pending`
+
+O fluxo ad-hoc/new initiative ficou defasado em relacao ao modelo atual de planos: cria uma frente ativa com businessIntent, mas nao passa por DESIGN, source/decompose nem cria tasks em lote. Precisamos redesenhar o ad-hoc para a realidade atual do project, deixando claro quando usar triagem simples, quando promover para plano completo e como evitar initiatives vazias que parecem prontas para implement.
+
+## #5 · Ajustar semantica do mapa do project help
+`2026-07-09 · branch:develop · status:pending`
+
+O comando project help mostra a espinha IDEIA > DESIGN > PLANO > DECOMPOSE > MATERIALIZE > IMPLEMENT como se os estagios anteriores estivessem comprovadamente concluidos. A auditoria mostrou que o helper apenas calcula spineStage=IMPLEMENT por haver tasks abertas na F0; MATERIALIZE e verdadeiro so para a fase ativa F0, enquanto F1-F3 continuam descriptor-only com sidecars source.json. Corrigir o render/copy para explicitar posicao operacional no fluxo, por exemplo MATERIALIZE(F0), e nao sugerir que todo o plano ja foi materializado.

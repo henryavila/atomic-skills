@@ -5,15 +5,15 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T00:11:43Z
+lastUpdated: 2026-07-09T10:03:35Z
 branch: develop
 currentPhase: F0
 parallelismAllowed: false
 principles:
   - id: P1
     title: Separar instalacao de skills de contrato de hooks
-    body: Um host pode receber skills sem ter suporte documentado para hooks; o setup
-      registra essa diferenca como comportamento explicito.
+    body: Um host pode receber skills sem ter suporte documentado para hooks; o
+      setup registra essa diferenca como comportamento explicito.
   - id: P2
     title: Hooks sao opt-in e merge-only
     body: Qualquer configuracao de hook preserva entradas de terceiros e nunca
@@ -35,8 +35,8 @@ glossary:
     definition: Capacidade de registrar eventos de hook em um arquivo de config
       reconhecido pelo host sem apagar configuracao existente.
   - term: minimalist-installer boundary
-    definition: Fronteira entre o pacote generico @henryavila/minimalist-installer
-      e o consumidor atomic-skills que emite providers/runtime layers.
+    definition: Fronteira entre o pacote generico @henryavila/minimalist-installer e
+      o consumidor atomic-skills que emite providers/runtime layers.
 phases:
   - id: F0
     slug: installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks
@@ -50,10 +50,9 @@ phases:
       value: Evita que o Atomic Skills anuncie compatibilidade multi-IDE enquanto o
         fluxo de hooks assume um host especifico, apaga hooks existentes ou
         orienta configuracao invalida.
-      workflow: >-
-        Antes de editar setup, docs ou installer, a fase registra a matriz
+      workflow: "Antes de editar setup, docs ou installer, a fase registra a matriz
         Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot com dois
-        eixos separados: instalacao de skills e setup de hooks.
+        eixos separados: instalacao de skills e setup de hooks."
       rules: Nao hardcodar comportamento Claude/Codex como se valesse para todos;
         preservar hooks de terceiros; diferenciar instalacao de skills de
         instalacao de hooks; manter @henryavila/minimalist-installer como pacote
@@ -69,30 +68,53 @@ phases:
       summary: 3 criteria to meet
       criteria:
         - id: G-1
-          description: A matriz separa suporte de skills e suporte de hooks para
-            Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot.
-          status: pending
+          description: A matriz separa suporte de skills e suporte de hooks para Claude
+            Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot.
+          status: met
           verifier:
             kind: shell
-            command: test -s .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md
+            command: test -s
+              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md
             expectExitCode: 0
+          metAt: 2026-07-09T10:03:35Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-09T10:03:35Z
+            passed: true
+            exitCode: 0
+            outputSummary: ""
         - id: G-2
-          description: A fronteira atomic-skills versus
-            @henryavila/minimalist-installer esta registrada com responsabilidade por
-            arquivo e runtime layer.
-          status: pending
+          description: A fronteira atomic-skills versus @henryavila/minimalist-installer
+            esta registrada com responsabilidade por arquivo e runtime layer.
+          status: met
           verifier:
             kind: shell
-            command: grep -q '@henryavila/minimalist-installer' .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md
+            command: grep -q '@henryavila/minimalist-installer'
+              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md
             expectExitCode: 0
+          metAt: 2026-07-09T10:03:35Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-09T10:03:35Z
+            passed: true
+            exitCode: 0
+            outputSummary: ""
         - id: G-3
-          description: O backlog F1-F3 esta sincronizado com a matriz e nao contem
-            task de implementacao antes do contrato.
-          status: pending
+          description: O backlog F1-F3 esta sincronizado com a matriz e nao contem task de
+            implementacao antes do contrato.
+          status: met
           verifier:
             kind: shell
-            command: test -s .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md
+            command: test -s
+              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md
             expectExitCode: 0
+          metAt: 2026-07-09T10:03:35Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-09T10:03:35Z
+            passed: true
+            exitCode: 0
+            outputSummary: ""
     status: active
   - id: F1
     slug: installer-hooks-cross-ide-f1-setup-e-documentacao
@@ -100,8 +122,7 @@ phases:
     goal: Corrigir project-setup.md, hooks/README.md e textos relacionados para
       separar instalacao de skills de setup de hooks, com no-op explicito para
       hosts sem contrato.
-    summary: Atualiza prosa de setup e README de hooks para refletir a matriz
-      cross-IDE.
+    summary: Atualiza prosa de setup e README de hooks para refletir a matriz cross-IDE.
     dependsOn:
       - F0
     subPhaseCount: 0
@@ -109,8 +130,8 @@ phases:
       summary: 2 criteria to meet
       criteria:
         - id: G-1
-          description: project.test.js valida que setup e README nao prometem hooks
-            para hosts sem contrato.
+          description: project.test.js valida que setup e README nao prometem hooks para
+            hosts sem contrato.
           status: pending
           verifier:
             kind: shell
@@ -118,7 +139,8 @@ phases:
             expectExitCode: 0
         - id: G-2
           description: A documentacao instalada em .atomic-skills/status/hooks/README.md
-            reflete o mesmo contrato da fonte em skills/shared/project-assets/hooks/README.md.
+            reflete o mesmo contrato da fonte em
+            skills/shared/project-assets/hooks/README.md.
           status: pending
           verifier:
             kind: shell
@@ -129,8 +151,8 @@ phases:
     slug: installer-hooks-cross-ide-f2-testes-de-regressao
     title: Testes de regressao
     goal: Adicionar cobertura para Claude Code, Codex, Cursor, Gemini, OpenCode e
-      GitHub Copilot, incluindo preservacao de hooks existentes e no-op seguro em
-      hosts sem hook contract.
+      GitHub Copilot, incluindo preservacao de hooks existentes e no-op seguro
+      em hosts sem hook contract.
     summary: Adiciona regressao automatica para matriz de hosts e preservacao de hooks.
     dependsOn:
       - F1
@@ -144,7 +166,9 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js
+            command: node --test tests/project.test.js
+              tests/install-uninstall-roundtrip.test.js
+              tests/minimalist-installer-link.test.js
             expectExitCode: 0
         - id: G-2
           description: Os testes de hooks cobrem SessionStart e preservacao de hooks
@@ -159,9 +183,10 @@ phases:
     slug: installer-hooks-cross-ide-f3-reparo-local-e-validacao-final
     title: Reparo local e validacao final
     goal: Aplicar o reparo local em .codex/hooks.json por merge quando o contrato
-      disser que Codex tem hook contract neste projeto, rodar a suite relevante e
-      fechar a fase com review.
-    summary: Repara a configuracao local apenas depois do contrato e roda a validacao final.
+      disser que Codex tem hook contract neste projeto, rodar a suite relevante
+      e fechar a fase com review.
+    summary: Repara a configuracao local apenas depois do contrato e roda a
+      validacao final.
     dependsOn:
       - F2
     subPhaseCount: 0
@@ -174,14 +199,18 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js
+            command: node --test tests/project.test.js
+              tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
         - id: G-2
           description: Validacao final de estado e hooks passa apos refresh-state.
           status: pending
           verifier:
             kind: shell
-            command: node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md && bash tests/hooks/session-start.test.sh
+            command: node scripts/validate-state.js
+              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md
+              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
+              && bash tests/hooks/session-start.test.sh
             expectExitCode: 0
     status: pending
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer

@@ -27,13 +27,13 @@ status: active
 branch: develop
 started: 2026-07-08T22:33:06Z
 startedCommit: cb660ac9c0a3e6d29a94897a18176e23be5cafae
-lastUpdated: 2026-07-09T00:56:51Z
+lastUpdated: 2026-07-09T10:03:35Z
 nextAction: Rodar `phase-done` para verificar os gates G-1, G-2 e G-3 da F0.
 parentPlan: installer-hooks-cross-ide
 phaseId: F0
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 5
 weightTotal: 5
@@ -41,33 +41,57 @@ exitGates:
   - id: G-1
     description: A matriz separa suporte de skills e suporte de hooks para Claude
       Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -s
         .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md
       expectExitCode: 0
+    metAt: 2026-07-09T10:03:35Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T10:03:35Z
+      passed: true
+      exitCode: 0
+      outputSummary: ""
     verifierLabel: "shell: test -s .atomic-skills/projects/atomic-skills/installer-hoo…"
+    evidenceSummary: passed · 2026-07-09
   - id: G-2
     description: A fronteira atomic-skills versus @henryavila/minimalist-installer
       esta registrada com responsabilidade por arquivo e runtime layer.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: grep -q '@henryavila/minimalist-installer'
         .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md
       expectExitCode: 0
+    metAt: 2026-07-09T10:03:35Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T10:03:35Z
+      passed: true
+      exitCode: 0
+      outputSummary: ""
     verifierLabel: "shell: grep -q '@henryavila/minimalist-installer' .atomic-skills/p…"
+    evidenceSummary: passed · 2026-07-09
   - id: G-3
     description: O backlog F1-F3 esta sincronizado com a matriz e nao contem task de
       implementacao antes do contrato.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -s
         .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md
       expectExitCode: 0
+    metAt: 2026-07-09T10:03:35Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T10:03:35Z
+      passed: true
+      exitCode: 0
+      outputSummary: ""
     verifierLabel: "shell: test -s .atomic-skills/projects/atomic-skills/installer-hoo…"
+    evidenceSummary: passed · 2026-07-09
 stack:
   - id: 1
     title: Contrato cross-IDE de hooks

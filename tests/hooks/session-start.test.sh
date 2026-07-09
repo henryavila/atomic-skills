@@ -4,6 +4,9 @@ set -euo pipefail
 
 HOOK="$(pwd)/skills/shared/project-assets/hooks/session-start.sh"
 PASS=0; FAIL=0
+TEST_HOME=$(mktemp -d)
+export HOME="$TEST_HOME"
+trap 'rm -rf "$TEST_HOME"' EXIT
 
 run() { echo "TEST: $1"; }
 ok()  { PASS=$((PASS+1)); echo "  PASS"; }

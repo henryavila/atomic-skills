@@ -21,13 +21,24 @@ The hook composes its `additionalContext` payload in this order, skipping any se
 
 ## Debugging
 
-### Check if hooks are registered (Claude Code)
+### Check if hooks are registered
 
 ```bash
 cat .claude/settings.local.json | jq '.hooks'
+cat .codex/hooks.json | jq '.hooks'
 ```
 
-Expected: entries for `SessionStart`, optionally `Stop`, and optionally `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) pointing to `.atomic-skills/status/hooks/*.sh`.
+Expected: entries for `SessionStart`, optionally `Stop`, and optionally `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) using these wrappers:
+
+```json
+{
+  "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
+  "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }],
+  "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+}
+```
+
+Do not use `bash "$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/<script>.sh"` in hook config. That form fails before the script starts when `CLAUDE_PROJECT_DIR` is unset.
 
 ### Simulate a Stop hook call
 

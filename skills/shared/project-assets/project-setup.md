@@ -8,6 +8,7 @@ Announce: "I will configure the `project` skill in this repo."
 - `test -d .claude/` → Claude Code
 - `test -d .cursor/` → Cursor
 - `test -d .gemini/` → Gemini CLI
+- `test -d .agents/` → Codex
 - Otherwise → generic IDE; skip step 5
 
 ## 2. Verify/create CLAUDE.md
@@ -26,14 +27,29 @@ Check if markers `<!-- atomic-skills:status-gate:start -->` already exist:
 - If AGENTS.md exists and references CLAUDE.md: skip
 - If AGENTS.md exists without reference: show suggested diff, ask confirmation (do not force)
 
-## 5. Install hooks (Claude Code only)
+## 5. Install hooks (Claude Code / Codex-compatible)
 Present Structured Options:
 > What enforcement level?
 > (a) Passive — hard-gate in CLAUDE.md only, no hooks
 > (b) Soft (recommended) — hard-gate + SessionStart hook + PreToolUse provenance gate (dry-run)
 > (c) Strict — hard-gate + SessionStart + Stop hook + PreToolUse provenance gate (all dry-run 7d before real strict)
 
-For (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, register them in `.claude/settings.local.json` under `SessionStart`, `Stop`, and `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) respectively.
+For (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register them in the host hook config:
+
+- Claude Code: `.claude/settings.local.json`
+- Codex: `.codex/hooks.json`
+
+Use these exact command wrappers so the hook still runs when the host does not export `CLAUDE_PROJECT_DIR`:
+
+```json
+{
+  "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
+  "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }],
+  "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+}
+```
+
+Never register hooks as `bash "$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/<script>.sh"`: when `CLAUDE_PROJECT_DIR` is unset, the shell expands that to `/.atomic-skills/...` before the script's own fallback can run.
 
 For (b): copy `config.json` with `strict_mode: false`, `emergent_strict_mode: false`, and `dry_run_started: $(date -I)`.
 For (c): same `config.json` shape — both strict knobs default false during the 7-day dry-run window.
