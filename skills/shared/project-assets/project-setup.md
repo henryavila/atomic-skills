@@ -5,11 +5,23 @@ Loaded by the router when `.atomic-skills/` does not exist (any subcommand), or 
 Announce: "I will configure the `project` skill in this repo."
 
 ## 1. Detect environment
-- `test -d .claude/` → Claude Code
-- `test -d .cursor/` → Cursor
-- `test -d .gemini/` → Gemini CLI
-- `test -d .codex/ || test -d .agents/` → Codex
-- Otherwise → generic IDE; skip step 5
+
+Detect two independent axes: skill installation compatibility and project-hook setup eligibility. A host may support skills without supporting project hooks.
+
+### Skill installation host
+- `test -d .claude/` → Claude Code; skills path: `.claude/commands/atomic-skills/<skill>.md`
+- `test -d .cursor/` → Cursor; skills path: `.cursor/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`
+- When Gemini CLI and Codex are both selected, Gemini command shims use `.gemini/commands/atomic-skills-<skill>.toml`
+- Otherwise → generic IDE; no host-specific skills path and no project-hook setup
+
+### Project-hook setup eligibility
+- Claude Code has a project-hook contract: merge-only registration in `.claude/settings.local.json`
+- Codex has a project-hook contract: merge-only registration in `.codex/hooks.json`
+- Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE have no known project-hook contract; hook setup is an explicit no-op for those hosts and must not create or register hook config files
 
 ## 2. Verify/create CLAUDE.md
 - If CLAUDE.md is absent: ask "Create minimal CLAUDE.md with hard-gate? (y/n)" — if yes, create with a title + hard-gate template
@@ -27,14 +39,22 @@ Check if markers `<!-- atomic-skills:status-gate:start -->` already exist:
 - If AGENTS.md exists and references CLAUDE.md: skip
 - If AGENTS.md exists without reference: show suggested diff, ask confirmation (do not force)
 
-## 5. Install hooks (Claude Code / Codex-compatible)
+## 5. Install hooks (Claude Code / Codex only)
+
+Run this step only when the detected/selected host has a known project-hook contract:
+
+- Claude Code: `.claude/settings.local.json`
+- Codex: `.codex/hooks.json`
+
+For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Do not copy project hook scripts for those hosts, do not create hook config files, and do not register hook events.
+
 Present Structured Options:
 > What enforcement level?
 > (a) Passive — hard-gate in CLAUDE.md only, no hooks
 > (b) Soft (recommended) — hard-gate + SessionStart hook + PreToolUse provenance gate (dry-run)
 > (c) Strict — hard-gate + SessionStart + Stop hook + PreToolUse provenance gate (all dry-run 7d before real strict)
 
-For (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register them in the host hook config:
+For eligible hosts only, options (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register them in the host hook config with merge-only changes:
 
 - Claude Code: `.claude/settings.local.json`
 - Codex: `.codex/hooks.json`

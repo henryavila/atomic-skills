@@ -322,18 +322,60 @@ describe('project skill (unified router + lazy assets)', () => {
     );
   });
 
-  it('project-setup detects Codex before the generic no-hook fallback', () => {
+  it('project-setup lists skill install paths for every supported host', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+
+    for (const skillPath of [
+      '.claude/commands/atomic-skills/<skill>.md',
+      '.cursor/skills/atomic-skills/<skill>/SKILL.md',
+      '.gemini/skills/atomic-skills/<skill>/SKILL.md',
+      '.agents/skills/atomic-skills/<skill>/SKILL.md',
+      '.opencode/skills/atomic-skills/<skill>/SKILL.md',
+      '.github/skills/atomic-skills/<skill>/SKILL.md',
+      '.gemini/commands/atomic-skills-<skill>.toml',
+    ]) {
+      assert.ok(setup.includes(skillPath), `setup must list skill install path: ${skillPath}`);
+    }
+  });
+
+  it('project-setup detects Codex before the generic no-hook fallback and documents Codex hooks', () => {
     install();
     const setup = readAsset('project-setup.md');
     const codexDetect = setup.indexOf('`test -d .codex/ || test -d .agents/` → Codex');
-    const genericFallback = setup.indexOf('Otherwise → generic IDE; skip step 5');
+    const genericFallback = setup.indexOf('Otherwise → generic IDE');
     const codexHooks = setup.indexOf('Codex: `.codex/hooks.json`');
 
     assert.notEqual(codexHooks, -1, 'setup must document the Codex hook config path');
     assert.notEqual(codexDetect, -1, 'setup must detect Codex repos via .codex/ or .agents/');
+    assert.notEqual(genericFallback, -1, 'setup must document the generic no-hook fallback');
     assert.ok(
       codexDetect < genericFallback,
       'Codex detection must run before the generic no-hook fallback',
+    );
+  });
+
+  it('project-setup approves hook config only for hosts with a known hook contract', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const eligibleStart = setup.indexOf('Run this step only when the detected/selected host has a known project-hook contract:');
+    const noopStart = setup.indexOf('For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks.');
+
+    assert.notEqual(eligibleStart, -1, 'setup must introduce hook eligibility explicitly');
+    assert.notEqual(noopStart, -1, 'setup must document no-op hooks for hosts without a contract');
+
+    const approvedHookConfigs = setup.slice(eligibleStart, noopStart);
+    assert.match(approvedHookConfigs, /Claude Code: `\.claude\/settings\.local\.json`/);
+    assert.match(approvedHookConfigs, /Codex: `\.codex\/hooks\.json`/);
+    assert.doesNotMatch(approvedHookConfigs, /Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE/);
+
+    for (const host of ['Cursor', 'Gemini CLI', 'OpenCode', 'GitHub Copilot', 'generic IDE']) {
+      assert.match(setup, new RegExp(`${host}.*no-op|no-op.*${host}`, 'i'), `${host} hook setup must be documented as no-op`);
+    }
+    assert.doesNotMatch(
+      setup,
+      /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
+      'hosts without a hook contract must not be listed as approved hook config targets',
     );
   });
 
