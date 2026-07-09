@@ -29,13 +29,13 @@ status: active
 branch: develop
 started: 2026-07-09T11:18:44Z
 startedCommit: a09d1237c72a2a4120932e3f4357510923414acd
-lastUpdated: 2026-07-09T11:40:26.892Z
+lastUpdated: 2026-07-09T11:44:00.384Z
 nextAction: Run `phase-done`.
 parentPlan: installer-hooks-cross-ide
 phaseId: F1
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 4
 weightTotal: 4
@@ -43,22 +43,42 @@ exitGates:
   - id: G-1
     description: project.test.js valida que setup e README nao prometem hooks para
       hosts sem contrato e que Codex e detectado por `.codex/ || .agents/`.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/project.test.js
       expectExitCode: 0
+    metAt: 2026-07-09T11:44:00.384Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T11:44:00.384Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk node --test tests/project.test.js -> tests 57, suites 1, pass
+        57, fail 0, duration_ms 3696.935042
     verifierLabel: "shell: node --test tests/project.test.js"
+    evidenceSummary: passed · 2026-07-09
   - id: G-2
     description: A documentacao instalada em .atomic-skills/status/hooks/README.md
       reflete o mesmo contrato da fonte em
       skills/shared/project-assets/hooks/README.md.
-    status: pending
+    status: met
     verifier:
       kind: shell
-      command: "node --test tests/project.test.js && bash tests/hooks/session-start.test.sh"
+      command: node --test tests/project.test.js && bash
+        tests/hooks/session-start.test.sh
       expectExitCode: 0
-    verifierLabel: "shell: node --test tests/project.test.js tests/hooks/session-start…"
+    metAt: 2026-07-09T11:44:00.384Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-09T11:44:00.384Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk zsh -lc node --test tests/project.test.js && bash
+        tests/hooks/session-start.test.sh -> tests 57, pass 57; RESULT: 35
+        passed, 0 failed"
+    verifierLabel: "shell: node --test tests/project.test.js && bash tests/hooks/sessi…"
+    evidenceSummary: passed · 2026-07-09
 stack:
   - id: 1
     title: Setup e documentacao
@@ -155,8 +175,8 @@ Initiative for phase **F1 - Setup e documentacao**.
 
 ## Session handoff
 
-- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; T-001 e T-002 estao `done` com `evidence.passed: true` em `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`. O commit de implementacao `6ef1177` alinhou `skills/shared/project-assets/hooks/README.md`, `.atomic-skills/status/hooks/README.md` e `tests/project.test.js`, e o verifier de fechamento foi `rtk node --test tests/project.test.js`.
-- **Decision log:** T-002 rodou em Mode 1 porque seu output inclui `.atomic-skills/status/hooks/README.md`; o state-tree fence da Mode 2 impede entregar escrita em `.atomic-skills` para Codex. A fase ainda tem exit gates pendentes e deve seguir pelo fluxo `phase-done`, que executa os verifiers de gate e a review de fase.
-- **Single nextAction:** Run `phase-done`.
-- **Verbatim state:** `rtk git commit -m "docs(T-002): document hook host contract"` -> `6ef1177`; `rtk node --test tests/project.test.js` -> `ℹ tests 57` / `ℹ suites 1` / `ℹ pass 57` / `ℹ fail 0` / `ℹ duration_ms 4274.667791`; implementation paths -> `skills/shared/project-assets/hooks/README.md`, `.atomic-skills/status/hooks/README.md`, `tests/project.test.js`; state path -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`.
+- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; tasks T-001/T-002 estao `done` e exit gates G-1/G-2 estao `met` com `evidence.passed: true`. A fase esta no passo `phase-done` antes da review obrigatoria e do avanco para F2.
+- **Decision log:** G-2 tinha verifier materializado como `node --test tests/project.test.js tests/hooks/session-start.test.sh`, que falhou com `ERR_UNKNOWN_FILE_EXTENSION`; o verifier foi corrigido para `node --test tests/project.test.js && bash tests/hooks/session-start.test.sh` e passou com `RESULT: 35 passed, 0 failed`.
+- **Single nextAction:** Run `atomic-skills:review-code <range> --mode=local` for F1 phase-done review, then record reviewGate before advancing.
+- **Verbatim state:** `rtk node --test tests/project.test.js` -> `ℹ tests 57` / `ℹ pass 57` / `ℹ fail 0`; `rtk zsh -lc 'node --test tests/project.test.js && bash tests/hooks/session-start.test.sh'` -> `ℹ tests 57` / `ℹ pass 57` / `RESULT: 35 passed, 0 failed`; state paths -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md`, `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`.
 - **Uncommitted changes:** clean tree
