@@ -64,3 +64,4 @@
 {"ts":"2026-07-09T00:49:48.599Z","event":"task-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F0","taskId":"T-001","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-07-09T00:54:04.430Z","event":"task-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F0","taskId":"T-002","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-07-09T00:57:11.550Z","event":"task-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F0","taskId":"T-003","weight":1,"weightBasis":"proxy"}
+{"ts":"2026-07-09T11:20:56.843Z","event":"phase-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":21,"locAdded":17267,"locRemoved":11,"commits":13}}

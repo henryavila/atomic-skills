@@ -13,7 +13,8 @@
         "nao alterar scripts de hook ou runtime layer nesta task"
       ],
       "acceptance": [
-        "project-setup.md lista paths de skills por host e registra hooks apenas para hosts com contrato"
+        "project-setup.md lista paths de skills por host e registra hooks apenas para hosts com contrato",
+        "project-setup.md detecta Codex por `.codex/ || .agents/` antes da fallback generica de hosts sem contrato"
       ],
       "verifier": {
         "kind": "shell",
@@ -65,7 +66,7 @@
   "exitGates": [
     {
       "id": "G-1",
-      "description": "project.test.js valida que setup e README nao prometem hooks para hosts sem contrato.",
+      "description": "project.test.js valida que setup e README nao prometem hooks para hosts sem contrato e que Codex e detectado por `.codex/ || .agents/`.",
       "verifier": {
         "kind": "shell",
         "command": "node --test tests/project.test.js",

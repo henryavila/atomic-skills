@@ -3,32 +3,31 @@ schemaVersion: "0.1"
 slug: installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks
 title: Contrato cross-IDE de hooks
 goal: Mapear hosts suportados, paths de skills, contratos de hooks, arquivos de
-  configuracao e comportamento seguro para hosts sem hook contract antes de
-  qualquer correcao de installer.
+  configuracao e comportamento seguro para hosts sem hook contract antes de qualquer
+  correcao de installer.
 summary: Escreve a matriz skills versus hooks e a fronteira com
   @henryavila/minimalist-installer.
 businessIntent:
-  value: Evita que o Atomic Skills anuncie compatibilidade multi-IDE enquanto o
-    fluxo de hooks assume um host especifico, apaga hooks existentes ou orienta
-    configuracao invalida.
-  workflow: "Antes de editar setup, docs ou installer, a fase registra a matriz
-    Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot com dois eixos
-    separados: instalacao de skills e setup de hooks."
-  rules: Nao hardcodar comportamento Claude/Codex como se valesse para todos;
-    preservar hooks de terceiros; diferenciar instalacao de skills de instalacao
-    de hooks; manter @henryavila/minimalist-installer como pacote generico sem
-    semantica de Atomic Skills.
-  outOfScope: Nao implementar a correcao do installer, nao reparar
-    .codex/hooks.json local e nao inventar suporte de hook para host sem
-    contrato conhecido.
-  doneWhen: A matriz host x contrato, a fronteira do minimalist-installer e o
-    backlog F1-F3 estao registrados em artefatos revisaveis.
-status: active
+  value: Evita que o Atomic Skills anuncie compatibilidade multi-IDE enquanto o fluxo de
+    hooks assume um host especifico, apaga hooks existentes ou orienta configuracao
+    invalida.
+  workflow: "Antes de editar setup, docs ou installer, a fase registra a matriz Claude
+    Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot com dois eixos separados:
+    instalacao de skills e setup de hooks."
+  rules: Nao hardcodar comportamento Claude/Codex como se valesse para todos; preservar
+    hooks de terceiros; diferenciar instalacao de skills de instalacao de hooks; manter
+    @henryavila/minimalist-installer como pacote generico sem semantica de Atomic
+    Skills.
+  outOfScope: Nao implementar a correcao do installer, nao reparar .codex/hooks.json local
+    e nao inventar suporte de hook para host sem contrato conhecido.
+  doneWhen: A matriz host x contrato, a fronteira do minimalist-installer e o backlog
+    F1-F3 estao registrados em artefatos revisaveis.
+status: done
 branch: develop
 started: 2026-07-08T22:33:06Z
 startedCommit: cb660ac9c0a3e6d29a94897a18176e23be5cafae
-lastUpdated: 2026-07-09T10:03:35Z
-nextAction: Rodar `phase-done` para verificar os gates G-1, G-2 e G-3 da F0.
+lastUpdated: 2026-07-09T11:18:44Z
+nextAction: null
 parentPlan: installer-hooks-cross-ide
 phaseId: F0
 tasksDone: 3
@@ -39,8 +38,8 @@ weightDone: 5
 weightTotal: 5
 exitGates:
   - id: G-1
-    description: A matriz separa suporte de skills e suporte de hooks para Claude
-      Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot.
+    description: A matriz separa suporte de skills e suporte de hooks para Claude Code,
+      Codex, Cursor, Gemini, OpenCode e GitHub Copilot.
     status: met
     verifier:
       kind: shell
@@ -57,8 +56,8 @@ exitGates:
     verifierLabel: "shell: test -s .atomic-skills/projects/atomic-skills/installer-hoo…"
     evidenceSummary: passed · 2026-07-09
   - id: G-2
-    description: A fronteira atomic-skills versus @henryavila/minimalist-installer
-      esta registrada com responsabilidade por arquivo e runtime layer.
+    description: A fronteira atomic-skills versus @henryavila/minimalist-installer esta
+      registrada com responsabilidade por arquivo e runtime layer.
     status: met
     verifier:
       kind: shell
@@ -100,24 +99,22 @@ stack:
 tasks:
   - id: T-001
     title: Inventariar hosts e contratos reais
-    summary: Produz a matriz Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub
-      Copilot separando path de skills, arquivo de hook e comportamento no-op.
+    summary: Produz a matriz Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot
+      separando path de skills, arquivo de hook e comportamento no-op.
     weight: 2
-    description: Ler configuracao, deteccao, docs e testes existentes para escrever
-      a matriz host x skills x hooks sem alterar installer.
+    description: Ler configuracao, deteccao, docs e testes existentes para escrever a matriz
+      host x skills x hooks sem alterar installer.
     status: done
     lastUpdated: 2026-07-09T00:49:18Z
     closedAt: 2026-07-09T00:49:18Z
     scopeBoundary:
-      - Nao editar src/install.js, src/installer.js,
-        src/runtime-layers/auto-update.js nem arquivos de hook nesta task.
+      - Nao editar src/install.js, src/installer.js, src/runtime-layers/auto-update.js
+        nem arquivos de hook nesta task.
       - Nao reparar .codex/hooks.json local nesta task.
     acceptance:
-      - A matriz lista Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub
-        Copilot com path de skills, suporte de hook, arquivo de config e acao
-        segura.
-      - Cada linha diferencia skill install compatibility de hook setup
-        compatibility.
+      - A matriz lista Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot com
+        path de skills, suporte de hook, arquivo de config e acao segura.
+      - Cada linha diferencia skill install compatibility de hook setup compatibility.
     verifier:
       kind: shell
       command: test -s
@@ -134,12 +131,11 @@ tasks:
         path: .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md
   - id: T-002
     title: Registrar fronteira com minimalist-installer
-    summary: Define quais responsabilidades ficam no pacote
-      @henryavila/minimalist-installer e quais ficam no consumidor
-      atomic-skills.
+    summary: Define quais responsabilidades ficam no pacote @henryavila/minimalist-installer
+      e quais ficam no consumidor atomic-skills.
     weight: 2
-    description: Mapear o uso atual de @henryavila/minimalist-installer e separar
-      motor generico de efeitos da semantica de IDEs e project hooks.
+    description: Mapear o uso atual de @henryavila/minimalist-installer e separar motor
+      generico de efeitos da semantica de IDEs e project hooks.
     status: done
     lastUpdated: 2026-07-09T00:53:40Z
     closedAt: 2026-07-09T00:53:40Z
@@ -148,10 +144,10 @@ tasks:
         @henryavila/minimalist-installer nesta task.
       - Nao mover logica de host para dentro do pacote nesta task.
     acceptance:
-      - O artefato cita @henryavila/minimalist-installer e descreve provider,
-        runtime layer, json merge e ownership de docs/tests.
-      - A fronteira explica que o pacote permanece generico e atomic-skills
-        emite a matriz de hosts.
+      - O artefato cita @henryavila/minimalist-installer e descreve provider, runtime
+        layer, json merge e ownership de docs/tests.
+      - A fronteira explica que o pacote permanece generico e atomic-skills emite a
+        matriz de hosts.
     verifier:
       kind: shell
       command: grep -q '@henryavila/minimalist-installer'
@@ -168,22 +164,21 @@ tasks:
         path: .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md
   - id: T-003
     title: Sincronizar backlog F1-F3 com o contrato
-    summary: Converte a matriz em backlog de docs, testes e reparo local sem iniciar
-      a correcao do installer.
+    summary: Converte a matriz em backlog de docs, testes e reparo local sem iniciar a
+      correcao do installer.
     weight: 1
-    description: Revisar as fases F1-F3 contra os artefatos de contrato e registrar
-      quais arquivos serao tocados depois da F0.
+    description: Revisar as fases F1-F3 contra os artefatos de contrato e registrar quais
+      arquivos serao tocados depois da F0.
     status: done
     lastUpdated: 2026-07-09T00:56:51Z
     closedAt: 2026-07-09T00:56:51Z
     scopeBoundary:
-      - Nao implementar mudancas em setup, runtime layer, tests ou
-        .codex/hooks.json.
+      - Nao implementar mudancas em setup, runtime layer, tests ou .codex/hooks.json.
       - Nao ativar F1, F2 ou F3 nesta task.
     acceptance:
       - O backlog aponta cada ajuste futuro para F1, F2 ou F3.
-      - Nenhuma task futura mistura suporte de skills com suporte de hooks sem
-        citar a matriz.
+      - Nenhuma task futura mistura suporte de skills com suporte de hooks sem citar a
+        matriz.
     verifier:
       kind: shell
       command: test -s
@@ -202,7 +197,7 @@ parked: []
 emerged: []
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
 planActive: true
-current: true
+current: false
 ---
 
 # Contrato cross-IDE de hooks

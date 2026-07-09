@@ -1,9 +1,9 @@
 ---
-lastUpdated: 2026-07-09T00:11:43Z
+lastUpdated: 2026-07-09T11:18:44Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
-archivedCount: 19
+archivedCount: 20
 ---
 
 # Project Status Index
@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
-| installer-hooks-cross-ide | active | F0 | develop | 2026-07-08 | 0/4 |
+| installer-hooks-cross-ide | active | F1 | develop | 2026-07-08 | 1/4 |
 
 
 ## Done Plans (not archived)
@@ -44,12 +44,13 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Parent Plan | Phase | Branch | Started | Next |
 |------|-------------|-------|--------|---------|------|
-| installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks | installer-hooks-cross-ide | F0 | develop | 2026-07-08 | Executar T-001 para escrever a matriz host x contrato de hooks antes de alterar docs ou installer. |
+| installer-hooks-cross-ide-f1-setup-e-documentacao | installer-hooks-cross-ide | F1 | develop | 2026-07-09 | Rodar `done T-001` depois de atualizar project-setup.md e tests/project.test.js. |
 
 ## Recently Archived (last 10)
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks | 2026-07-09 | F0 | 1/4 | Contrato cross-IDE de hooks |
 | project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | project-lifecycle-order-guards/project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
 | help-command/f3-guarda-de-fidelidade-help-nunca-cita-um | 2026-07-08 | F3 | 4/4 | Comando `help` - F3 Guarda de fidelidade (help nunca cita um verbo que não existe) |
@@ -59,8 +60,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
 | worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
 | app-map-conflict-arbitration | 2026-06-16 | F1 | 2/2 | app-map: descritor de conflito rico + canal de arbitragem |
-| design-brief-source-of-truth | 2026-06-16 | F2 | 3/3 | design-brief: reconstrucao da fonte-de-verdade (catalogo app-map) |
-| multiplan-focus-resolution | 2026-06-16 | - | 1/1 | Resolucao de foco em camadas + enforcer worktree-por-plano |
 
 ## Ad-Hoc Sessions Log (last 5)
 
