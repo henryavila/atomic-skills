@@ -325,12 +325,12 @@ describe('project skill (unified router + lazy assets)', () => {
   it('project-setup detects Codex before the generic no-hook fallback', () => {
     install();
     const setup = readAsset('project-setup.md');
-    const codexDetect = setup.indexOf('`test -d .agents/` → Codex');
+    const codexDetect = setup.indexOf('`test -d .codex/ || test -d .agents/` → Codex');
     const genericFallback = setup.indexOf('Otherwise → generic IDE; skip step 5');
     const codexHooks = setup.indexOf('Codex: `.codex/hooks.json`');
 
     assert.notEqual(codexHooks, -1, 'setup must document the Codex hook config path');
-    assert.notEqual(codexDetect, -1, 'setup must detect Codex repos via .agents/');
+    assert.notEqual(codexDetect, -1, 'setup must detect Codex repos via .codex/ or .agents/');
     assert.ok(
       codexDetect < genericFallback,
       'Codex detection must run before the generic no-hook fallback',

@@ -8,7 +8,7 @@ Announce: "I will configure the `project` skill in this repo."
 - `test -d .claude/` → Claude Code
 - `test -d .cursor/` → Cursor
 - `test -d .gemini/` → Gemini CLI
-- `test -d .agents/` → Codex
+- `test -d .codex/ || test -d .agents/` → Codex
 - Otherwise → generic IDE; skip step 5
 
 ## 2. Verify/create CLAUDE.md
