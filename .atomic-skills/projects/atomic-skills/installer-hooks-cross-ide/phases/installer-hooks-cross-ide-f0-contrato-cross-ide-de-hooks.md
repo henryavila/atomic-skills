@@ -199,29 +199,28 @@ Initiative for phase **F0 - Contrato cross-IDE de hooks**.
 
 ## Session handoff
 
-- **Narrative:** F0 esta ativa no plano `installer-hooks-cross-ide`. T-001 e
-  T-002 estao `done` com evidencia `passed: true`; T-003 permanece pendente.
-  Os artefatos de contrato atuais sao
-  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md`
-  e
-  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md`.
+- **Narrative:** F0 esta ativa no plano `installer-hooks-cross-ide` com T-001,
+  T-002 e T-003 `done` e evidencia `passed: true`. Os artefatos de contrato
+  atuais sao
+  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/host-hook-matrix.md`,
+  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md`
+  e `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md`.
 - **Decision log:** O contrato separa compatibilidade de instalacao de skills de
   compatibilidade de setup de hooks. Hosts sem arquivo/evento de hook
   documentado neste repositorio recebem no-op de hooks, enquanto Claude Code e
   Codex ficam em merge-only para preservar entradas de terceiros. A fronteira
   registrada em T-002 mantem `@henryavila/minimalist-installer` como driver
   generico; matriz de hosts, deltas de hook, docs e testes pertencem ao
-  consumidor `atomic-skills`.
-- **Single nextAction:** Executar T-003 criando
-  `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md`,
-  depois rodar `test -s .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md`.
+  consumidor `atomic-skills`. T-003 sincronizou F1-F3 com os dois contratos sem
+  implementar setup, runtime layer, tests ou `.codex/hooks.json`.
+- **Single nextAction:** Rodar `phase-done` para a F0.
 - **Verbatim state:**
   ```text
-  rtk bash -lc "grep -q '@henryavila/minimalist-installer' .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/minimalist-installer-boundary.md"
+  rtk bash -lc 'test -s .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/contracts/implementation-backlog.md'
   exit code: 0
 
-  rtk node scripts/append-completion.js . --event task-done --project atomic-skills --plan installer-hooks-cross-ide --phase F0 --task T-002 --weight 2 --basis proxy
-  append-completion: task-done atomic-skills/installer-hooks-cross-ide/F0/T-002 weight=2(proxy) ✓
+  rtk node scripts/append-completion.js . --event task-done --project atomic-skills --plan installer-hooks-cross-ide --phase F0 --task T-003 --weight 1 --basis proxy
+  append-completion: task-done atomic-skills/installer-hooks-cross-ide/F0/T-003 weight=1(proxy) ✓
 
   rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
   ✓ .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md  [plan]
@@ -232,8 +231,8 @@ Initiative for phase **F0 - Contrato cross-IDE de hooks**.
   rtk node scripts/refresh-state.js
   refresh-state: rollups 1 changed, focus 0 changed, digest → installer-hooks-cross-ide · F0
 
-  implementation commit: aa000de docs(T-002): define minimalist installer boundary
-  state checkpoint commit: 718bb30 chore(project): checkpoint installer-hooks-cross-ide F0 T-002
+  implementation commit: 576fe08 docs(T-003): sync implementation backlog
+  state checkpoint commit: e2cce35 chore(project): checkpoint installer-hooks-cross-ide F0 T-003
   ```
 - **Uncommitted changes:**
   ```text
