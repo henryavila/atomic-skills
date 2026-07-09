@@ -5,7 +5,7 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T11:18:44Z
+lastUpdated: 2026-07-09T11:47:03.029Z
 branch: develop
 currentPhase: F1
 parallelismAllowed: false
@@ -193,6 +193,12 @@ phases:
           answer: O acceptance de T-001 e o gate G-1 exigem detectar Codex por `.codex/ ||
             .agents/` antes da fallback generica e manter path de skills e path
             de hook config no mesmo contrato/teste.
+    reviewGate:
+      status: passed
+      at: 0ca27252edf2de326f55f5601b9c656a54c1c596
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md
+      verifiedAt: 2026-07-09T11:47:03.029Z
   - id: F2
     slug: installer-hooks-cross-ide-f2-testes-de-regressao
     title: Testes de regressao

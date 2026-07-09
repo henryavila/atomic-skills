@@ -29,7 +29,7 @@ status: active
 branch: develop
 started: 2026-07-09T11:18:44Z
 startedCommit: a09d1237c72a2a4120932e3f4357510923414acd
-lastUpdated: 2026-07-09T11:44:00.384Z
+lastUpdated: 2026-07-09T11:47:03.029Z
 nextAction: Run `phase-done`.
 parentPlan: installer-hooks-cross-ide
 phaseId: F1
@@ -175,8 +175,8 @@ Initiative for phase **F1 - Setup e documentacao**.
 
 ## Session handoff
 
-- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; tasks T-001/T-002 estao `done` e exit gates G-1/G-2 estao `met` com `evidence.passed: true`. A fase esta no passo `phase-done` antes da review obrigatoria e do avanco para F2.
-- **Decision log:** G-2 tinha verifier materializado como `node --test tests/project.test.js tests/hooks/session-start.test.sh`, que falhou com `ERR_UNKNOWN_FILE_EXTENSION`; o verifier foi corrigido para `node --test tests/project.test.js && bash tests/hooks/session-start.test.sh` e passou com `RESULT: 35 passed, 0 failed`.
-- **Single nextAction:** Run `atomic-skills:review-code <range> --mode=local` for F1 phase-done review, then record reviewGate before advancing.
-- **Verbatim state:** `rtk node --test tests/project.test.js` -> `ℹ tests 57` / `ℹ pass 57` / `ℹ fail 0`; `rtk zsh -lc 'node --test tests/project.test.js && bash tests/hooks/session-start.test.sh'` -> `ℹ tests 57` / `ℹ pass 57` / `RESULT: 35 passed, 0 failed`; state paths -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md`, `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`.
+- **Narrative:** F1 ativa no plano `installer-hooks-cross-ide`; tasks T-001/T-002 e gates G-1/G-2 estao fechados com evidencia, e a review local da fase foi registrada em `.atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md`. A fase esta pronta para a etapa de lessons/self-review e propagacao `phase-done`.
+- **Decision log:** Review da fase usou modo local porque o diff `a09d1237c72a2a4120932e3f4357510923414acd..0ca27252edf2de326f55f5601b9c656a54c1c596` nao teve sinal destrutivo: nenhum arquivo deletado, nenhum token drop/truncate e 419 insercoes contra 95 delecoes. O review local rodou inline por restricao da ferramenta de subagente e esta marcado como isolamento degradado no arquivo de review.
+- **Single nextAction:** Append phase-done self-review/lessons, propagate F1 done, archive F1, and activate/materialize F2.
+- **Verbatim state:** review range -> `a09d1237c72a2a4120932e3f4357510923414acd..0ca27252edf2de326f55f5601b9c656a54c1c596`; review file -> `.atomic-skills/reviews/2026-07-09-1148-installer-hooks-cross-ide-f1-local.md`; reviewGate -> `{ status: passed, at: 0ca27252edf2de326f55f5601b9c656a54c1c596, mode: local }`; validation command -> `rtk node scripts/validate-state.js .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f1-setup-e-documentacao.md`.
 - **Uncommitted changes:** clean tree
