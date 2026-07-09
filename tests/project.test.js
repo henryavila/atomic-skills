@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { installSkills } from '../src/install.js';
+import { PUBLIC_IDE_IDS } from '../src/config.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
@@ -49,7 +50,6 @@ const HOST_HOOK_MATRIX = [
   },
 ];
 
-const PUBLIC_IDE_IDS = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
 const GENERIC_NO_HOOK_HOST = 'generic IDE';
 
 function escapeRegExp(value) {
