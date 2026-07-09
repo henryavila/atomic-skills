@@ -10,6 +10,52 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
 const META_DIR = join(__dirname, '..', 'meta');
 
+const HOST_HOOK_MATRIX = [
+  {
+    host: 'Claude Code',
+    ideId: 'claude-code',
+    skillPath: '.claude/commands/atomic-skills/<skill>.md',
+    hookConfig: '.claude/settings.local.json',
+  },
+  {
+    host: 'Cursor',
+    ideId: 'cursor',
+    skillPath: '.cursor/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'Gemini CLI',
+    ideId: 'gemini',
+    skillPath: '.gemini/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'Codex',
+    ideId: 'codex',
+    skillPath: '.agents/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: '.codex/hooks.json',
+  },
+  {
+    host: 'OpenCode',
+    ideId: 'opencode',
+    skillPath: '.opencode/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+  {
+    host: 'GitHub Copilot',
+    ideId: 'github-copilot',
+    skillPath: '.github/skills/atomic-skills/<skill>/SKILL.md',
+    hookConfig: null,
+  },
+];
+
+const PUBLIC_IDE_IDS = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
+const GENERIC_NO_HOOK_HOST = 'generic IDE';
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // After the v2.0.0 unification, `project-status` + `project-plan` are a single
 // `project` skill: a thin router (skills/core/project.md) plus lazy detail
 // files (skills/shared/project-assets/project-*.md) installed to _assets/.
@@ -326,17 +372,19 @@ describe('project skill (unified router + lazy assets)', () => {
     install();
     const setup = readAsset('project-setup.md');
 
-    for (const skillPath of [
-      '.claude/commands/atomic-skills/<skill>.md',
-      '.cursor/skills/atomic-skills/<skill>/SKILL.md',
-      '.gemini/skills/atomic-skills/<skill>/SKILL.md',
-      '.agents/skills/atomic-skills/<skill>/SKILL.md',
-      '.opencode/skills/atomic-skills/<skill>/SKILL.md',
-      '.github/skills/atomic-skills/<skill>/SKILL.md',
-      '.gemini/commands/atomic-skills-<skill>.toml',
-    ]) {
-      assert.ok(setup.includes(skillPath), `setup must list skill install path: ${skillPath}`);
+    assert.deepStrictEqual(
+      HOST_HOOK_MATRIX.map(({ ideId }) => ideId),
+      PUBLIC_IDE_IDS,
+      'host matrix must cover every declared public host in order',
+    );
+
+    for (const { host, skillPath } of HOST_HOOK_MATRIX) {
+      assert.ok(setup.includes(skillPath), `${host} setup must list skill install path: ${skillPath}`);
     }
+    assert.ok(
+      setup.includes('.gemini/commands/atomic-skills-<skill>.toml'),
+      'Gemini command shims remain documented only as a Gemini+Codex effective selection',
+    );
   });
 
   it('project-setup detects Codex before the generic no-hook fallback and documents Codex hooks', () => {
@@ -365,11 +413,27 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.notEqual(noopStart, -1, 'setup must document no-op hooks for hosts without a contract');
 
     const approvedHookConfigs = setup.slice(eligibleStart, noopStart);
-    assert.match(approvedHookConfigs, /Claude Code: `\.claude\/settings\.local\.json`/);
-    assert.match(approvedHookConfigs, /Codex: `\.codex\/hooks\.json`/);
-    assert.doesNotMatch(approvedHookConfigs, /Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE/);
+    for (const { host, hookConfig } of HOST_HOOK_MATRIX) {
+      if (hookConfig) {
+        assert.match(
+          approvedHookConfigs,
+          new RegExp(`${escapeRegExp(host)}: \`${escapeRegExp(hookConfig)}\``),
+          `${host} must be approved only for ${hookConfig}`,
+        );
+      } else {
+        assert.doesNotMatch(
+          approvedHookConfigs,
+          new RegExp(escapeRegExp(host)),
+          `${host} must not appear in the approved hook config block`,
+        );
+      }
+    }
+    assert.doesNotMatch(approvedHookConfigs, new RegExp(escapeRegExp(GENERIC_NO_HOOK_HOST)));
 
-    for (const host of ['Cursor', 'Gemini CLI', 'OpenCode', 'GitHub Copilot', 'generic IDE']) {
+    for (const host of [
+      ...HOST_HOOK_MATRIX.filter(({ hookConfig }) => !hookConfig).map(({ host }) => host),
+      GENERIC_NO_HOOK_HOST,
+    ]) {
       assert.match(setup, new RegExp(`${host}.*no-op|no-op.*${host}`, 'i'), `${host} hook setup must be documented as no-op`);
     }
     assert.doesNotMatch(
@@ -390,9 +454,19 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.equal(installedReadme, sourceReadme, 'installed hooks README must match the source asset');
     for (const readme of [sourceReadme, installedReadme]) {
       assert.match(readme, /Skill installation and project-hook setup are separate contracts/);
-      assert.match(readme, /Claude Code: project-hook setup is supported through merge-only entries in `\.claude\/settings\.local\.json`/);
-      assert.match(readme, /Codex: project-hook setup is supported through merge-only entries in `\.codex\/hooks\.json`/);
-      assert.match(readme, /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/);
+      for (const { host, hookConfig } of HOST_HOOK_MATRIX) {
+        if (hookConfig) {
+          assert.match(
+            readme,
+            new RegExp(`${escapeRegExp(host)}: project-hook setup is supported through merge-only entries in \`${escapeRegExp(hookConfig)}\``),
+            `${host} README hook result must point at ${hookConfig}`,
+          );
+        }
+      }
+      assert.match(
+        readme,
+        /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
+      );
       assert.doesNotMatch(
         readme,
         /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,

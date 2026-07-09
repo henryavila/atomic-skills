@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { install, installSkills, resolveProjectScopeTarget, installRuntimeArtifacts } from '../src/install.js';
+import { PUBLIC_IDE_IDS, getSkillPath } from '../src/config.js';
 
 /** Builds a throwaway @henryavila/aideck-shaped package dir (dist/cli.js +
  *  dist/client/index.html) so installRuntimeArtifacts can be exercised without
@@ -21,6 +22,15 @@ function fakeAideckPkg() {
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SKILLS_DIR = join(__dirname, '..', 'skills');
 const META_DIR = join(__dirname, '..', 'meta');
+
+const PUBLIC_HOST_SKILL_MATRIX = [
+  { ideId: 'claude-code', skillPath: '.claude/commands/atomic-skills/fix.md' },
+  { ideId: 'cursor', skillPath: '.cursor/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'gemini', skillPath: '.gemini/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'codex', skillPath: '.agents/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'opencode', skillPath: '.opencode/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'github-copilot', skillPath: '.github/skills/atomic-skills/fix/SKILL.md' },
+];
 
 describe('installSkills', () => {
   let tempDir;
@@ -80,6 +90,43 @@ describe('installSkills', () => {
     const content = readFileSync(geminiFile, 'utf8');
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes('name: fix'));
+  });
+
+  it('installs a representative skill at the declared public host matrix path', () => {
+    assert.deepStrictEqual(
+      PUBLIC_IDE_IDS,
+      PUBLIC_HOST_SKILL_MATRIX.map(({ ideId }) => ideId),
+      'test matrix must cover every declared public host in order',
+    );
+
+    for (const { ideId, skillPath } of PUBLIC_HOST_SKILL_MATRIX) {
+      const projectDir = join(tempDir, ideId);
+      mkdirSync(projectDir, { recursive: true });
+
+      installSkills(projectDir, {
+        language: 'en',
+        ides: [ideId],
+        modules: {},
+        skillsDir: SKILLS_DIR,
+        metaDir: META_DIR,
+        scope: 'project',
+      });
+
+      assert.strictEqual(
+        getSkillPath(ideId, 'fix'),
+        skillPath,
+        `${ideId} getSkillPath() must match the ratified host matrix`,
+      );
+      assert.ok(
+        existsSync(join(projectDir, skillPath)),
+        `${ideId} must install fix at ${skillPath}`,
+      );
+    }
+
+    assert.ok(
+      !PUBLIC_IDE_IDS.includes('gemini-commands'),
+      'gemini-commands remains an effective selection, not a public host',
+    );
   });
 
   it('installs memory module skills when module is enabled', () => {
@@ -291,8 +338,6 @@ describe('installSkills', () => {
     const PACKAGE_ROOT = pjoin(pdirname(fileURLToPath(import.meta.url)), '..');
     const skillsDir = pjoin(PACKAGE_ROOT, 'skills');
     const metaDir = pjoin(PACKAGE_ROOT, 'meta');
-    const { getSkillPath } = await import('../src/config.js');
-
     for (const ideId of ['claude-code', 'cursor', 'codex']) {
       const tmp = mkdtempSync(pjoin(tmpdir(), `install-rwc-${ideId}-`));
       const projectDir = pjoin(tmp, 'project');
