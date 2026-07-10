@@ -18,5 +18,11 @@ Operational notes:
   `node scripts/validate-state.js` with no narrowed path subset before targeted
   suites such as `node --test ...` or `bash tests/hooks/session-start.test.sh`.
   A narrowed final verifier missed the still-active F3 initiative during review.
+- Cross-model review after closure caught that `PROJECT-STATUS.md` can remain
+  stale even when the plan frontmatter is `done`; explicitly reconcile/refresh
+  the project status index when finishing plan phases or closing a plan.
+- Hook config examples must show the host's top-level `"hooks"` object, not only
+  nested event keys. Soft setup is `SessionStart` + `PreToolUse`; Strict adds
+  `Stop`. Keep tests asserting that Soft does not include `stop.sh`.
 - Review evidence for this lesson lives at
   `.atomic-skills/reviews/2026-07-10-1217-installer-hooks-cross-ide-f3-local.md`.
