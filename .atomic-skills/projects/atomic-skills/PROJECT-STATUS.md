@@ -1,9 +1,9 @@
 ---
 lastUpdated: 2026-07-10T10:28:53Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
-archivedCount: 21
+activePlans: 0
+activeInitiatives: 0
+archivedCount: 23
 ---
 
 # Project Status Index
@@ -18,15 +18,14 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-| Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|--------|
-| installer-hooks-cross-ide | active | F2 | develop | 2026-07-08 | 2/4 |
+_(none)_
 
 
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| installer-hooks-cross-ide | done | F3 | develop | 2026-07-08 | 4/4 |
 | help-command | done | F3 | develop | 2026-07-05 | 4/4 |
 | fix-aideck-dashboard | done | F3 | plan/fix-aideck-dashboard | 2026-06-16 | 4/4 |
 | deadline-burnup-forecast | done | F5 | plan/deadline-burnup-forecast | 2026-06-17 | 6/6 |
@@ -42,14 +41,14 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Initiatives (standalone)
 
-| Slug | Parent Plan | Phase | Branch | Started | Next |
-|------|-------------|-------|--------|---------|------|
-| installer-hooks-cross-ide-f2-testes-de-regressao | installer-hooks-cross-ide | F2 | develop | 2026-07-09 | Pedir aceitacao explicita para avancar F2 -> F3. |
+_(none)_
 
 ## Recently Archived (last 10)
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
+| installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f1-setup-e-documentacao | 2026-07-09 | F1 | 2/4 | Setup e documentacao |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks | 2026-07-09 | F0 | 1/4 | Contrato cross-IDE de hooks |
 | project-lifecycle-order-guards | 2026-07-08 | F0 | 1/1 | Guardas de ordem do lifecycle project |
@@ -58,8 +57,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | help-command/f2-rendering-do-bloco-de-ensino | 2026-07-08 | F2 | 3/4 | Comando `help` — F2 Rendering do bloco de ensino |
 | help-command/f0-contrato-esqueleto | 2026-07-05 | F0 | 1/4 | Comando `help` — F0 Contrato + esqueleto |
 | phase-materialization | 2026-07-02 | F5 | 6/6 | Materialização lazy de fases + gate de validação de negócio |
-| design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
-| worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
 
 ## Ad-Hoc Sessions Log (last 5)
 

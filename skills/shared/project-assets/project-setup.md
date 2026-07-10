@@ -54,18 +54,31 @@ Present Structured Options:
 > (b) Soft (recommended) — hard-gate + SessionStart hook + PreToolUse provenance gate (dry-run)
 > (c) Strict — hard-gate + SessionStart + Stop hook + PreToolUse provenance gate (all dry-run 7d before real strict)
 
-For eligible hosts only, options (b) and (c): copy `session-start.sh`, `stop.sh`, and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register them in the host hook config with merge-only changes:
+For eligible hosts only, option (b): copy `session-start.sh` and `pre-write.sh` (from `{{ASSETS_PATH}}/hooks/`) to `.atomic-skills/status/hooks/`, then register only `SessionStart` and `PreToolUse` in the host hook config with merge-only changes. Option (c) does the same and additionally copies/registers `stop.sh` as `Stop`.
 
 - Claude Code: `.claude/settings.local.json`
 - Codex: `.codex/hooks.json`
 
-Use these exact command wrappers so the hook still runs when the host does not export `CLAUDE_PROJECT_DIR`:
+Use these exact command wrappers under the host config's top-level `hooks` object so the hook still runs when the host does not export `CLAUDE_PROJECT_DIR`.
+
+Option (b), Soft:
 
 ```json
 {
-  "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
-  "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }],
-  "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
+    "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+  }
+}
+```
+
+Option (c), Strict: add `Stop` under the same `hooks` object:
+
+```json
+{
+  "hooks": {
+    "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }]
+  }
 }
 ```
 

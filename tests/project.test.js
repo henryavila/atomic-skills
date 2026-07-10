@@ -366,6 +366,34 @@ describe('project skill (unified router + lazy assets)', () => {
       !combined.includes('"command": "bash \\"$CLAUDE_PROJECT_DIR/.atomic-skills/status/hooks/'),
       'hook docs must not use a bare CLAUDE_PROJECT_DIR path; the wrapper must fall back to $PWD before invoking the script',
     );
+    assert.ok(
+      combined.includes('"hooks": {'),
+      'hook config examples must show the host config top-level hooks object',
+    );
+  });
+
+  it('project-setup keeps Soft and Strict hook sets distinct', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+    const softStart = setup.indexOf('Option (b), Soft:');
+    const strictStart = setup.indexOf('Option (c), Strict:');
+    const neverStart = setup.indexOf('Never register hooks as');
+
+    assert.notEqual(softStart, -1, 'setup must label the Soft hook block');
+    assert.notEqual(strictStart, -1, 'setup must label the Strict hook block');
+    assert.notEqual(neverStart, -1, 'setup must keep the invalid-wrapper warning');
+
+    const softBlock = setup.slice(softStart, strictStart);
+    const strictBlock = setup.slice(strictStart, neverStart);
+    assert.ok(softBlock.includes('session-start.sh'), 'Soft must register SessionStart');
+    assert.ok(softBlock.includes('pre-write.sh'), 'Soft must register PreToolUse');
+    assert.ok(!softBlock.includes('stop.sh'), 'Soft must not register Stop');
+    assert.ok(strictBlock.includes('stop.sh'), 'Strict must add Stop');
+    assert.match(
+      setup,
+      /Option \(c\).*additionally copies\/registers `stop\.sh` as `Stop`/,
+      'Strict-only Stop behavior must be explicit',
+    );
   });
 
   it('project-setup lists skill install paths for every supported host', () => {
@@ -467,6 +495,7 @@ describe('project skill (unified router + lazy assets)', () => {
         readme,
         /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
       );
+      assert.match(readme, /"hooks": \{/, 'README hook JSON must include the top-level hooks object');
       assert.doesNotMatch(
         readme,
         /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,

@@ -38,13 +38,15 @@ cat .claude/settings.local.json | jq '.hooks'
 cat .codex/hooks.json | jq '.hooks'
 ```
 
-Expected for Claude Code and Codex: entries for `SessionStart`, optionally `Stop`, and optionally `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`) using these wrappers:
+Expected for Claude Code and Codex: entries under the top-level `hooks` object. Soft setup has `SessionStart` and `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`); Strict additionally has `Stop`. Use these wrappers:
 
 ```json
 {
-  "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
-  "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }],
-  "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }]
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
+    "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }]
+  }
 }
 ```
 
