@@ -25,12 +25,12 @@ businessIntent:
       answer: Gates e tasks que combinam Node e shell mantem comandos shell explicitos
         com `&& bash <script>.sh`; scripts `.sh` nao sao passados para `node
         --test`.
-status: active
+status: done
 branch: develop
 started: 2026-07-09T13:59:23Z
 startedCommit: 8bcf398dd70109eb964ad8e4f1b8d0f5102863b0
-lastUpdated: 2026-07-10T10:28:53Z
-nextAction: Pedir aceitacao explicita para avancar F2 -> F3.
+lastUpdated: 2026-07-10T12:11:11.688Z
+nextAction: null
 parentPlan: installer-hooks-cross-ide
 phaseId: F2
 tasksDone: 3
@@ -192,7 +192,7 @@ parked: []
 emerged: []
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
 planActive: true
-current: true
+current: false
 ---
 
 # Testes de regressao
@@ -254,8 +254,7 @@ Initiative for phase **F2 - Testes de regressao**.
 
 ## Session handoff
 
-- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`, exit gates G-1/G-2 estao `met`, reviewGate esta `passed`, e a lesson F2 foi ratificada. Falta aceitacao explicita do usuario para avancar para F3.
-- **Decision log:** T-001, T-002 e T-003 usaram Mode 2 porque routing estava ligado e as tasks tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array. Review final usou modo local porque o diff nao teve arquivo deletado, drop de schema/dados ou churn de remocao; matches `rm -rf` eram cleanup de temp dir nos testes shell.
-- **Single nextAction:** Pedir aceitacao explicita para avancar F2 -> F3.
-- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; review fix commit -> `65e003a test(T-001): bind project host matrix to config`; review file -> `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`; reviewGate -> `{ status: passed, at: d48f30efd9457d08b6bb9d3dd54c234ebb20f61e, mode: local }`; lesson file -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/lessons/installer-hooks-cross-ide-f2-testes-de-regressao.md`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 6012.093666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
-- **Uncommitted changes:** clean tree
+- **Narrative:** F2 foi encerrada e arquivada depois de 3/3 tasks done, G-1/G-2 met, reviewGate passed e lesson F2 ratificada. O plano `installer-hooks-cross-ide` avancou para F3.
+- **Decision log:** O aceite do usuario para continuar foi usado como aceite explicito de avanco F2 -> F3. As lessons aplicaveis de F1/F2 foram dispositionadas como aplicadas/closed no phase-start de F3.
+- **Single nextAction:** F3 esta ativa; rode `done T-001` depois de aplicar o merge aprovado em `.codex/hooks.json`.
+- **Verbatim state:** F2 archive -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/archive/2026-07-installer-hooks-cross-ide-f2-testes-de-regressao.md`; F3 initiative -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/f3-reparo-local-e-validacao-final.md`; completion event -> `append-completion: phase-done atomic-skills/installer-hooks-cross-ide/F2 weight=1(count) ✓`; F3 startedCommit -> `bdf4085f74d1d663271d92abe6249a861b9f67db`.

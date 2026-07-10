@@ -5,9 +5,9 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-10T10:28:53Z
+lastUpdated: 2026-07-10T12:11:11.688Z
 branch: develop
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -246,9 +246,9 @@ phases:
             verifiedAt: 2026-07-09T14:36:24Z
             passed: true
             exitCode: 0
-            outputSummary: "rtk zsh -lc bash tests/hooks/session-start.test.sh ->
-              RESULT: 38 passed, 0 failed"
-    status: active
+            outputSummary: "rtk zsh -lc bash tests/hooks/session-start.test.sh -> RESULT: 38
+              passed, 0 failed"
+    status: done
     businessIntent:
       value: Reduz regressao cross-IDE ao transformar a matriz de hosts em testes
         executaveis que protegem usuarios de Claude Code, Codex, Cursor, Gemini,
@@ -256,19 +256,18 @@ phases:
       workflow: O mantenedor roda a suite de regressao de project/install/hooks e
         recebe falha quando skill path, hook merge ou no-op por host divergem do
         contrato ratificado.
-      rules: Cobrir skills e hooks como eixos separados; preservar hooks de
-        terceiros em hosts com merge suportado; manter no-op explicito para hosts
-        sem hook contract; executar scripts shell por `bash`, nao por
-        `node --test`.
-      outOfScope: Nao reparar `.codex/hooks.json` local, nao registrar hooks locais
-        e nao alterar documentacao fora do necessario para testes nesta fase.
+      rules: Cobrir skills e hooks como eixos separados; preservar hooks de terceiros
+        em hosts com merge suportado; manter no-op explicito para hosts sem hook
+        contract; executar scripts shell por `bash`, nao por `node --test`.
+      outOfScope: Nao reparar `.codex/hooks.json` local, nao registrar hooks locais e
+        nao alterar documentacao fora do necessario para testes nesta fase.
       doneWhen: A matriz cross-IDE, a preservacao de hooks existentes e os hooks do
         project tem cobertura automatica com verifiers deterministas passando.
       derived:
         - question: Como L-001 da F1 foi aplicada na F2?
-          answer: Gates e tasks que combinam Node e shell mantem comandos shell
-            explicitos com `&& bash <script>.sh`; scripts `.sh` nao sao passados
-            para `node --test`.
+          answer: Gates e tasks que combinam Node e shell mantem comandos shell explicitos
+            com `&& bash <script>.sh`; scripts `.sh` nao sao passados para `node
+            --test`.
     reviewGate:
       status: passed
       at: d48f30efd9457d08b6bb9d3dd54c234ebb20f61e
@@ -285,7 +284,7 @@ phases:
       validacao final.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -305,10 +304,36 @@ phases:
             kind: shell
             command: node scripts/validate-state.js
               .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md
-              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
+              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/archive/2026-07-installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
               && bash tests/hooks/session-start.test.sh
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Garante que usuarios Codex deste repositorio recebam os hooks do project
+        aprovados sem perder hooks locais existentes, fechando a correcao
+        cross-IDE com a configuracao local coerente com o contrato.
+      workflow: O mantenedor inicia F3 depois de F0-F2, aplica merge em
+        `.codex/hooks.json`, preserva o hook Nexus existente, roda
+        validate-state e as suites project/install/hooks, e fecha a fase somente
+        depois do review.
+      rules: Usar `host-hook-matrix.md` como contrato; tratar o reparo como
+        merge-only; preservar hooks de terceiros; adicionar apenas entradas
+        Atomic Skills aprovadas para Codex; manter hosts sem hook contract como
+        no-op; executar scripts shell por `bash`, nao por `node --test`.
+      outOfScope: Nao alterar o contrato cross-IDE, nao adicionar runtime de
+        auto-update para Codex, nao mudar paths de hosts sem contrato e nao
+        remover hooks locais de terceiros.
+      doneWhen: "`.codex/hooks.json` preserva o hook Nexus, contem somente entradas
+        Atomic Skills aprovadas para Codex, validate-state e as suites
+        relevantes passam, e o review da fase fica registrado."
+      derived:
+        - question: Como L-001 da F1 foi aplicada na F3?
+          answer: Os verifiers de F3 mantem comandos shell separados por `&& bash
+            <script>.sh`; nenhum script `.sh` e passado para `node --test`.
+        - question: Como L-001 da F2 foi aplicada na F3?
+          answer: A fase usa `PUBLIC_IDE_IDS`/config canonica nos testes existentes quando
+            tocar matriz de hosts; matrizes locais ficam limitadas a
+            expectations de paths e contratos.
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
 planActive: true
 ---

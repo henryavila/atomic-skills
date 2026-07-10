@@ -8,18 +8,18 @@ lessons:
     statement: Teste de matriz cross-IDE nao pode duplicar lista publica de hosts;
       isso deixa a cobertura de documentacao livre para divergir da configuracao
       runtime.
-    corrective: Quando uma fase cria asserts sobre hosts ou IDEs publicos,
-      importar a fonte canonica (`PUBLIC_IDE_IDS` ou config equivalente) nos
-      testes de docs e runtime, deixando a matriz local apenas para expectations
-      de paths e contratos.
+    corrective: Quando uma fase cria asserts sobre hosts ou IDEs publicos, importar
+      a fonte canonica (`PUBLIC_IDE_IDS` ou config equivalente) nos testes de
+      docs e runtime, deixando a matriz local apenas para expectations de paths
+      e contratos.
     scope: reusable
     appliesTo: []
-    status: open
+    status: closed
     confidence: 2
     evidence: .atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md;
       finding menor corrigida no commit 65e003a
     createdAt: 2026-07-10T10:28:53Z
-    validatedAt: 2026-07-10T10:28:53Z
+    validatedAt: 2026-07-10T12:11:11.688Z
 ---
 
 # Lessons — F2 (Testes de regressao)
