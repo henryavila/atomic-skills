@@ -5,7 +5,7 @@ title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
 status: active
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-09T14:39:17Z
+lastUpdated: 2026-07-10T10:28:53Z
 branch: develop
 currentPhase: F2
 parallelismAllowed: false

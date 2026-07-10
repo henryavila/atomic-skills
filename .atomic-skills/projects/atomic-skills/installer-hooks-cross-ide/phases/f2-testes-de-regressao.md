@@ -29,8 +29,8 @@ status: active
 branch: develop
 started: 2026-07-09T13:59:23Z
 startedCommit: 8bcf398dd70109eb964ad8e4f1b8d0f5102863b0
-lastUpdated: 2026-07-09T14:39:17Z
-nextAction: Ratificar lesson F2 proposta.
+lastUpdated: 2026-07-10T10:28:53Z
+nextAction: Pedir aceitacao explicita para avancar F2 -> F3.
 parentPlan: installer-hooks-cross-ide
 phaseId: F2
 tasksDone: 3
@@ -228,6 +228,7 @@ Initiative for phase **F2 - Testes de regressao**.
 - Plano: `../plan.md`
 - Source sidecar: `installer-hooks-cross-ide-f2-testes-de-regressao.source.json`
 - Lessons aplicadas: `../lessons/installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md`, `../lessons/installer-hooks-cross-ide-f1-setup-e-documentacao.md`
+- Lesson produzida: `../lessons/installer-hooks-cross-ide-f2-testes-de-regressao.md`
 
 ## Self-review against code-quality gates
 
@@ -247,13 +248,14 @@ Initiative for phase **F2 - Testes de regressao**.
   `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`.
   O review local rodou inline por restricao da ferramenta de subagente e esta
   marcado como isolamento degradado no arquivo de review.
-- **Lessons:** uma lesson reutilizavel foi proposta a partir da finding menor de
-  review e aguarda ratificacao do usuario antes de ser gravada.
+- **Lessons:** uma lesson reutilizavel foi destilada e ratificada pelo usuario
+  em `../lessons/installer-hooks-cross-ide-f2-testes-de-regressao.md`; reusable
+  1, local 0.
 
 ## Session handoff
 
-- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`, exit gates G-1/G-2 estao `met`, e reviewGate esta `passed`. Falta ratificar a lesson proposta antes de fechar a fase.
+- **Narrative:** F2 esta ativa no plano `installer-hooks-cross-ide`; T-001, T-002 e T-003 estao fechadas com evidence `passed: true`, exit gates G-1/G-2 estao `met`, reviewGate esta `passed`, e a lesson F2 foi ratificada. Falta aceitacao explicita do usuario para avancar para F3.
 - **Decision log:** T-001, T-002 e T-003 usaram Mode 2 porque routing estava ligado e as tasks tinham paths exatos, scopeBoundary, acceptance e verifier shell deterministico. Os diffs dos worktrees foram aplicados no primario e re-verificados antes dos commits de estado; `dispatch-log.json` nao foi alterado porque o arquivo existente esta em formato misto NDJSON/array. Review final usou modo local porque o diff nao teve arquivo deletado, drop de schema/dados ou churn de remocao; matches `rm -rf` eram cleanup de temp dir nos testes shell.
-- **Single nextAction:** Ratificar lesson F2 proposta.
-- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; review fix commit -> `65e003a test(T-001): bind project host matrix to config`; review file -> `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`; reviewGate -> `{ status: passed, at: d48f30efd9457d08b6bb9d3dd54c234ebb20f61e, mode: local }`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 6012.093666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
+- **Single nextAction:** Pedir aceitacao explicita para avancar F2 -> F3.
+- **Verbatim state:** T-001 commit -> `22f36b7 test(T-001): cover cross-IDE host matrix`; T-001 verifier -> `rtk node --test tests/project.test.js tests/install.test.js tests/minimalist-installer-link.test.js` -> `tests 96, suites 7, pass 96, fail 0, duration_ms 6448.072375`; T-002 commit -> `fbfb6c4 test(T-002): cover hook preservation on update`; T-002 verifier -> `rtk node --test tests/install-uninstall-roundtrip.test.js` -> `tests 10, suites 1, pass 10, fail 0, duration_ms 3404.337291`; T-003 commit -> `6e412b8 test(T-003): cover hook no-op fallback`; T-003 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh'` -> `session-start RESULT 38 passed, 0 failed; stop RESULT 43 passed, 0 failed; pre-write RESULT 70 passed, 0 failed`; review fix commit -> `65e003a test(T-001): bind project host matrix to config`; review file -> `.atomic-skills/reviews/2026-07-09-1439-installer-hooks-cross-ide-f2-local.md`; reviewGate -> `{ status: passed, at: d48f30efd9457d08b6bb9d3dd54c234ebb20f61e, mode: local }`; lesson file -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/lessons/installer-hooks-cross-ide-f2-testes-de-regressao.md`; F2 G-1 verifier -> `rtk zsh -lc 'node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js tests/minimalist-installer-link.test.js'` -> `tests 68, suites 3, pass 68, fail 0, duration_ms 6012.093666`; F2 G-2 verifier -> `rtk zsh -lc 'bash tests/hooks/session-start.test.sh'` -> `RESULT: 38 passed, 0 failed`; completion event -> `append-completion: task-done atomic-skills/installer-hooks-cross-ide/F2/T-003 weight=1(count) ✓`.
 - **Uncommitted changes:** clean tree
