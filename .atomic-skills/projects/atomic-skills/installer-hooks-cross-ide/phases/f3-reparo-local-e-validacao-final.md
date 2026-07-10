@@ -8,8 +8,9 @@ goal: Aplicar o reparo local em .codex/hooks.json por merge quando o contrato
 status: active
 branch: develop
 started: 2026-07-10T12:11:11.688Z
-lastUpdated: 2026-07-10T12:11:11.688Z
-nextAction: Rode `done T-001` depois de aplicar o merge aprovado em `.codex/hooks.json`.
+lastUpdated: 2026-07-10T12:15:01.798Z
+nextAction: Rode `done T-002` depois de executar validate-state, suites
+  relevantes e review da fase.
 parentPlan: installer-hooks-cross-ide
 phaseId: F3
 businessIntent:
@@ -37,11 +38,11 @@ businessIntent:
       answer: A fase usa `PUBLIC_IDE_IDS`/config canonica nos testes existentes quando
         tocar matriz de hosts; matrizes locais ficam limitadas a expectations de
         paths e contratos.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 0
+weightDone: 2
 weightTotal: 4
 exitGates:
   - id: G-1
@@ -75,8 +76,8 @@ tasks:
     title: Reparar .codex/hooks.json por merge
     description: Adicionar somente entradas aprovadas pelo contrato e preservar o
       hook Nexus existente.
-    status: pending
-    lastUpdated: 2026-07-10T12:11:11.688Z
+    status: done
+    lastUpdated: 2026-07-10T12:15:01.798Z
     scopeBoundary:
       - nao sobrescrever .codex/hooks.json inteiro e nao remover hooks de
         terceiros
@@ -94,6 +95,15 @@ tasks:
     summary: Aplica merge em `.codex/hooks.json`, preservando o hook Nexus e
       adicionando apenas hooks do project aprovados para Codex.
     weight: 2
+    closedAt: 2026-07-10T12:15:01.798Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-10T12:15:01.798Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk node --test tests/project.test.js
+        tests/install-uninstall-roundtrip.test.js -> tests 67, suites 2, pass
+        67, fail 0, duration_ms 4387.309542
   - id: T-002
     title: Rodar validacao final e review
     description: Executar validate-state, suite relevante e review da fase antes de fechar.
