@@ -142,3 +142,34 @@ não inferir metade-criada por scan de `.atomic-skills/projects/`.
 Regressão útil: teste textual/estrutural que falha se o skill voltar a instruir
 "write then append". Para scripts executáveis, preferir teste de fault-injection
 entre registro e escrita.
+
+## Round-trip feliz não prova atomicidade do installer
+
+Um installer orientado a effects precisa ser testado em cada boundary, não só no
+caminho em que todos os effects terminam. Se o file-set é aplicado antes de um
+hook/jsonMerge e o manifest só fica durável no final, uma falha tardia deixa
+arquivos sem ownership. Em update, o retry ainda pode confundir bytes já
+atualizados com edição local e perpetuar resíduos.
+
+**Como aplicar:** para fresh install e update, injete falha após cada effect e
+asserte quatro estados:
+
+1. a falha não deixa mutação sem journal recuperável;
+2. reparar a causa e repetir é idempotente;
+3. `currentHash === desiredHash` é re-adotado pelo novo journal;
+4. uninstall após o retry retorna HOME e repo ao baseline byte a byte.
+
+Também faça o contador exibido pelo uninstall derivar das remoções observadas,
+não da quantidade de entradas que existia no manifest.
+
+## Closure renderizado precisa de oracle independente
+
+Contagem fixa de arquivos, spot-check de alguns assets ou "provider novo reproduz
+provider antigo" não provam que a instalação entrega tudo que as skills citam.
+Uma omissão compartilhada pelos dois lados passa verde.
+
+**Como aplicar:** para cada IDE pública e scope, renderize numa instalação
+temporária, extraia todas as referências locais acionáveis e exija que cada uma
+resolva dentro do file-set/runtime instalado. Rode o smoke a partir de um repo
+consumidor sem `skills/`, `src/` ou `node_modules` do checkout atomic-skills.
+Falhe também em destination collisions e em níveis de diretório ignorados.
