@@ -5,11 +5,11 @@ title: Reparo local e validacao final
 goal: Aplicar o reparo local em .codex/hooks.json por merge quando o contrato
   disser que Codex tem hook contract neste projeto, rodar a suite relevante e
   fechar a fase com review.
-status: active
+status: done
 branch: develop
 started: 2026-07-10T12:11:11.688Z
-lastUpdated: 2026-07-10T12:17:41.410Z
-nextAction: Rode `phase-done` para verificar os exit gates e fechar F3.
+lastUpdated: 2026-07-10T14:23:04Z
+nextAction: null
 parentPlan: installer-hooks-cross-ide
 phaseId: F3
 businessIntent:
@@ -39,7 +39,7 @@ businessIntent:
         paths e contratos.
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 4
 weightTotal: 4
@@ -47,21 +47,41 @@ exitGates:
   - id: G-1
     description: .codex/hooks.json local preserva o hook Nexus e adiciona apenas
       entradas aprovadas pelo contrato.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/project.test.js
         tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    metAt: 2026-07-10T14:23:04Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-10T14:23:04Z
+      passed: true
+      exitCode: 0
+      outputSummary: rtk node --test tests/project.test.js
+        tests/install-uninstall-roundtrip.test.js -> tests 67, suites 2, pass
+        67, fail 0, duration_ms 5031.277875
     verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
+    evidenceSummary: passed · 2026-07-10
   - id: G-2
     description: Validacao final de estado e hooks passa apos refresh-state.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/validate-state.js && bash tests/hooks/session-start.test.sh
       expectExitCode: 0
+    metAt: 2026-07-10T14:23:04Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-10T14:23:04Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk node scripts/validate-state.js -> All 162 file(s) valid,
+        25 plan(s) cross-validated, 1 routing config(s) valid; rtk bash
+        tests/hooks/session-start.test.sh -> RESULT: 38 passed, 0 failed"
     verifierLabel: "shell: node scripts/validate-state.js && bash tests/hooks/session-…"
+    evidenceSummary: passed · 2026-07-10
 stack:
   - id: 1
     title: Reparo local e validacao final
@@ -140,8 +160,6 @@ parked: []
 emerged: []
 startedCommit: bdf4085f74d1d663271d92abe6249a861b9f67db
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
-planActive: true
-current: true
 ---
 
 # Reparo local e validacao final
@@ -159,3 +177,38 @@ Initiative for phase **F3 - Reparo local e validacao final**.
 - Plano: `../plan.md`
 - Source sidecar: `installer-hooks-cross-ide-f3-reparo-local-e-validacao-final.source.json`
 - Lessons aplicadas: `../lessons/installer-hooks-cross-ide-f1-setup-e-documentacao.md`, `../lessons/installer-hooks-cross-ide-f2-testes-de-regressao.md`
+- Lesson produzida: `../lessons/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final.md`
+
+## Self-review against code-quality gates
+
+- **G1 read-before-claim:** os gates finais foram registrados depois de ler
+  `.codex/hooks.json`, `plan.md`, esta initiative, a review F3 e a saida fresca
+  dos verifiers.
+- **G2 soft-language:** nextAction, gates, reviewGate e handoff foram escritos
+  como estado operacional, sem linguagem de incerteza.
+- **G6 reference-or-strike:** G-1 e G-2 estao `met` com comando, exit code e
+  resumo de saida. O review local F3 esta registrado em
+  `.atomic-skills/reviews/2026-07-10-1217-installer-hooks-cross-ide-f3-local.md`.
+- **G10 gate-must-be-able-to-fail:** G-1 falha se a matriz project/install
+  regredir ou se o merge de hooks Codex perder preservacao; G-2 falha se o
+  estado completo ou o hook SessionStart regredir.
+- **Review gate:** review obrigatoria da fase registrada como `passed`, modo
+  `local`, em `6c76cee91506c8dfefefa99283cd4e9b30d65270`; arquivo
+  `.atomic-skills/reviews/2026-07-10-1217-installer-hooks-cross-ide-f3-local.md`.
+  O review local rodou inline com isolamento degradado registrado no arquivo; a
+  finding major sobre verifier parcial foi corrigida antes do fechamento.
+- **Lessons:** uma lesson reutilizavel foi destilada e ratificada pelo usuario
+  em `../lessons/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final.md`;
+  reusable 1, local 0.
+
+## Session handoff
+
+- **Narrative:** F3 foi encerrada e arquivada depois de 2/2 tasks done,
+  G-1/G-2 met, reviewGate passed e lesson F3 ratificada. O plano
+  `installer-hooks-cross-ide` foi marcado como done.
+- **Decision log:** O `ratify` do usuario aprovou a lesson sobre verifier final
+  de fase e autorizou fechar F3 antes de salvar para a proxima sessao.
+- **Single nextAction:** Nenhuma acao pendente neste plano; a proxima sessao deve
+  partir do `HANDOFF.md` atualizado.
+- **Verbatim state:** `.codex/hooks.json` permanece reparado localmente e ignorado
+  por git; F3 archive -> `.atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/archive/2026-07-installer-hooks-cross-ide-f3-reparo-local-e-validacao-final.md`; review F3 -> `.atomic-skills/reviews/2026-07-10-1217-installer-hooks-cross-ide-f3-local.md`.

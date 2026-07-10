@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: installer-hooks-cross-ide
 title: Corrigir compatibilidade cross-IDE dos hooks do installer
 version: "1.0"
-status: active
+status: done
 started: 2026-07-08T22:33:06Z
-lastUpdated: 2026-07-10T12:11:11.688Z
+lastUpdated: 2026-07-10T14:23:04Z
 branch: develop
 currentPhase: F3
 parallelismAllowed: false
@@ -291,21 +291,45 @@ phases:
         - id: G-1
           description: .codex/hooks.json local preserva o hook Nexus e adiciona apenas
             entradas aprovadas pelo contrato.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/project.test.js
               tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
+          metAt: 2026-07-10T14:23:04Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-10T14:23:04Z
+            passed: true
+            exitCode: 0
+            outputSummary: rtk node --test tests/project.test.js
+              tests/install-uninstall-roundtrip.test.js -> tests 67, suites 2,
+              pass 67, fail 0, duration_ms 5031.277875
         - id: G-2
           description: Validacao final de estado e hooks passa apos refresh-state.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/validate-state.js && bash
               tests/hooks/session-start.test.sh
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-10T14:23:04Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-10T14:23:04Z
+            passed: true
+            exitCode: 0
+            outputSummary: "rtk node scripts/validate-state.js -> All 162 file(s) valid, 25
+              plan(s) cross-validated, 1 routing config(s) valid; rtk bash
+              tests/hooks/session-start.test.sh -> RESULT: 38 passed, 0 failed"
+    status: done
+    reviewGate:
+      status: passed
+      at: 6c76cee91506c8dfefefa99283cd4e9b30d65270
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-10-1217-installer-hooks-cross-ide-f3-local.md
+      verifiedAt: 2026-07-10T14:23:04Z
     businessIntent:
       value: Garante que usuarios Codex deste repositorio recebam os hooks do project
         aprovados sem perder hooks locais existentes, fechando a correcao
@@ -333,7 +357,6 @@ phases:
             tocar matriz de hosts; matrizes locais ficam limitadas a
             expectations de paths e contratos.
 planTitle: Corrigir compatibilidade cross-IDE dos hooks do installer
-planActive: true
 ---
 
 # Corrigir compatibilidade cross-IDE dos hooks do installer
