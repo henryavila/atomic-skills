@@ -8,9 +8,8 @@ goal: Aplicar o reparo local em .codex/hooks.json por merge quando o contrato
 status: active
 branch: develop
 started: 2026-07-10T12:11:11.688Z
-lastUpdated: 2026-07-10T12:15:01.798Z
-nextAction: Rode `done T-002` depois de executar validate-state, suites
-  relevantes e review da fase.
+lastUpdated: 2026-07-10T12:17:41.410Z
+nextAction: Rode `phase-done` para verificar os exit gates e fechar F3.
 parentPlan: installer-hooks-cross-ide
 phaseId: F3
 businessIntent:
@@ -38,11 +37,11 @@ businessIntent:
       answer: A fase usa `PUBLIC_IDE_IDS`/config canonica nos testes existentes quando
         tocar matriz de hosts; matrizes locais ficam limitadas a expectations de
         paths e contratos.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 2
-weightDone: 2
+weightDone: 4
 weightTotal: 4
 exitGates:
   - id: G-1
@@ -60,12 +59,9 @@ exitGates:
     status: pending
     verifier:
       kind: shell
-      command: node scripts/validate-state.js
-        .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md
-        .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/archive/2026-07-installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
-        && bash tests/hooks/session-start.test.sh
+      command: node scripts/validate-state.js && bash tests/hooks/session-start.test.sh
       expectExitCode: 0
-    verifierLabel: "shell: node scripts/validate-state.js .atomic-skills/projects/atom…"
+    verifierLabel: "shell: node scripts/validate-state.js && bash tests/hooks/session-…"
 stack:
   - id: 1
     title: Reparo local e validacao final
@@ -107,8 +103,8 @@ tasks:
   - id: T-002
     title: Rodar validacao final e review
     description: Executar validate-state, suite relevante e review da fase antes de fechar.
-    status: pending
-    lastUpdated: 2026-07-10T12:11:11.688Z
+    status: done
+    lastUpdated: 2026-07-10T12:17:41.410Z
     scopeBoundary:
       - nao fechar fase com verifier falhando
     acceptance:
@@ -116,10 +112,7 @@ tasks:
         arvore atual
     verifier:
       kind: shell
-      command: node scripts/validate-state.js
-        .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md
-        .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/archive/2026-07-installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
-        && node --test tests/project.test.js
+      command: node scripts/validate-state.js && node --test tests/project.test.js
         tests/install-uninstall-roundtrip.test.js && bash
         tests/hooks/session-start.test.sh
       expectExitCode: 0
@@ -132,6 +125,17 @@ tasks:
     summary: Executa validate-state, suites project/install/hooks e review para
       fechar a fase com evidencia registrada.
     weight: 2
+    closedAt: 2026-07-10T12:17:41.410Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-10T12:17:41.410Z
+      passed: true
+      exitCode: 0
+      outputSummary: "rtk zsh -lc node scripts/validate-state.js && node --test
+        tests/project.test.js tests/install-uninstall-roundtrip.test.js && bash
+        tests/hooks/session-start.test.sh -> validate-state 162 files valid;
+        tests 67, suites 2, pass 67, fail 0; session-start RESULT: 38 passed, 0
+        failed"
 parked: []
 emerged: []
 startedCommit: bdf4085f74d1d663271d92abe6249a861b9f67db
@@ -146,6 +150,7 @@ Initiative for phase **F3 - Reparo local e validacao final**.
 
 ## Decisions
 
+- Review local F3 registrado em `.atomic-skills/reviews/2026-07-10-1217-installer-hooks-cross-ide-f3-local.md`; a finding major sobre verifier parcial foi corrigida antes de fechar T-002.
 - Lessons F1/F2 aplicadas no phase-start: comandos mistos usam `bash` explicitamente e testes de matriz usam fonte canonica para hosts publicos.
 - F3 limita o reparo a `.codex/hooks.json` local por merge; mudancas de contrato, runtime de auto-update e hosts sem hook contract ficam fora do boundary.
 

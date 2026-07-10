@@ -302,10 +302,8 @@ phases:
           status: pending
           verifier:
             kind: shell
-            command: node scripts/validate-state.js
-              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/plan.md
-              .atomic-skills/projects/atomic-skills/installer-hooks-cross-ide/phases/archive/2026-07-installer-hooks-cross-ide-f0-contrato-cross-ide-de-hooks.md
-              && bash tests/hooks/session-start.test.sh
+            command: node scripts/validate-state.js && bash
+              tests/hooks/session-start.test.sh
             expectExitCode: 0
     status: active
     businessIntent:
