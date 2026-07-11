@@ -303,3 +303,11 @@ _(record decisions here as they are made)_
 ## Links
 
 _(plan doc, external refs)_
+
+## Session handoff
+
+- **Narrative:** A fase F0 permanece ativa. A T-001 foi fechada com `evidence.passed: true` após `node --test tests/skill-script-resolution.test.js tests/consumer-runtime-resolution.test.js tests/implement-ready-contract.test.js`; a implementação está em `779246f` e o checkpoint de estado está em `9cffbb2`. Nenhuma tarefa está em voo.
+- **Decision log:** Os entrypoints resolvem módulos pelo package root e preservam o CWD do consumidor. `tests/phase-materialization/implement-backstop.test.js` entrou no escopo após autorização explícita do usuário porque suas asserções codificavam o contrato invertido removido por T-001.
+- **Single nextAction:** Inicie a T-002 escrevendo primeiro os testes vermelhos em `tests/runtime-closure.test.js`.
+- **Verbatim state:** `node --test tests/skill-script-resolution.test.js tests/consumer-runtime-resolution.test.js tests/implement-ready-contract.test.js` → `ℹ tests 72`, `ℹ pass 72`, `ℹ fail 0`; `npm test` → `ℹ tests 1649`, `ℹ pass 1641`, `ℹ fail 0`, `ℹ skipped 8`; paths em jogo: `src/runtime-paths.js`, `scripts/decompose-plan.js`, `scripts/bootstrap-project.js`, `scripts/plan-dependencies.js`, `tests/phase-materialization/implement-backstop.test.js`.
+- **Uncommitted changes:** clean tree after checkpoint commits `779246f` and `9cffbb2`.
