@@ -84,3 +84,4 @@
 | 2026-07-16 15:10 | [grok-build-integration-f4-local](2026-07-16-1510-grok-build-integration-f4-local.md) | code (local) | approved | 0B/0C/0M/0m/0n | F4 |
 | 2026-07-16 15:20 | [grok-build-integration-f4-f5](2026-07-16-1520-grok-build-integration-f4-f5-codex.md) | code/codex | needs_changes→fixed | 0B/0C/4M/1m/0n | F4+F5 |
 | 2026-07-16 15:25 | [grok-build-integration-f5-local](2026-07-16-1525-grok-build-integration-f5-local.md) | code (local) | approved | 0B/0C/0M/0m/0n | F5 |
+| 2026-07-11 14:15 | [integrity-remediation](2026-07-11-1415-integrity-remediation.md) | plan | reject→resolved | 0B/2C/4M/0m/0n | 0d/5=/1+; 6/6 fixed + rechecked |
