@@ -53,12 +53,12 @@ glossary:
     definition: Layout, ferramentas, argumentos, hooks e comportamento observável
       suportados por uma IDE/CLI.
   - term: Support tier
-    definition: "`operational` exige probe no host real com versão, discovery, load e
-      invoke; `layout-only` prova somente a forma dos artefatos e não autoriza declarar
-      suporte operacional."
+    definition: "`operational` exige probe no host real com versão, discovery, load
+      e invoke; `layout-only` prova somente a forma dos artefatos e não autoriza
+      declarar suporte operacional."
   - term: Findings manifest
-    definition: Inventário canônico source-qualified que liga cada finding a reproducer,
-      verifier executado, evidence e candidateSha.
+    definition: Inventário canônico source-qualified que liga cada finding a
+      reproducer, verifier executado, evidence e candidateSha.
 phases:
   - id: F0
     slug: integrity-remediation-f0-runtime-autocontido-e-setup-confiavel
@@ -67,7 +67,8 @@ phases:
       resolver scripts, dependências e assets pelo package root confiável,
       distinguir ledger do installer de um projeto configurado e fornecer o
       bootstrap transacional mínimo que materializa F4 sem estado parcial.
-    summary: Destrava executor, fecha runtime closure e materializa F4 de forma recuperável.
+    summary: Destrava executor, fecha runtime closure e materializa F4 de forma
+      recuperável.
     dependsOn: []
     subPhaseCount: 5
     exitGate:
@@ -75,9 +76,10 @@ phases:
       criteria:
         - id: F0-G1
           description: Admissão SPEC, runtime closure, resolução por package root e
-            bootstrap transacional F0→F4 passam em consumidor sem checkout fonte.
-            FAILS when `implement` exige `Files`, referência resolve fora do tarball
-            ou fault injection deixa descriptor F4 e initiative divergentes.
+            bootstrap transacional F0→F4 passam em consumidor sem checkout
+            fonte. FAILS when `implement` exige `Files`, referência resolve fora
+            do tarball ou fault injection deixa descriptor F4 e initiative
+            divergentes.
           status: pending
           verifier:
             kind: shell
@@ -102,16 +104,18 @@ phases:
         installer mascare setup ausente, criando uma base confiável para toda a
         remediação.
       workflow: Destravar materialização mínima; executar e reconciliar o lifecycle
-        transacional; corrigir o caminho SPEC-implement; então entregar segurança do
-        installer, contratos de host, Gemini/portabilidade e qualificação de release.
+        transacional; corrigir o caminho SPEC-implement; então entregar
+        segurança do installer, contratos de host, Gemini/portabilidade e
+        qualificação de release.
       rules: Nenhuma mutação sem ownership provado; uma autoridade por contrato;
         reprodução vermelha antes de cada correção; execução em consumidor sem
         checkout fonte; falha fechada diante de ambiguidade.
       outOfScope: Fork permanente do installer, banco transacional genérico, redesign
         da interface aiDeck, features não relacionadas e publicação da release.
       doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
-        black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
-        Node 24.11.x ou superior, full suite, docs e skill validation passam.
+        black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node
+        22.18.x, Node 24.11.x ou superior, full suite, docs e skill validation
+        passam.
   - id: F1
     slug: integrity-remediation-f1-installer-v2-e-protecao-de-dados
     title: Installer v2 e proteção de dados
@@ -119,7 +123,8 @@ phases:
       no-follow resistentes a TOCTOU, journal versionado, persistência atômica,
       locks por recurso canônico compartilhado, ownership por hash e recovery
       conservador para install, update e uninstall.
-    summary: Confina races e serializa install, update e uninstall por recurso recuperável.
+    summary: Confina races e serializa install, update e uninstall por recurso
+      recuperável.
     dependsOn:
       - F3
     subPhaseCount: 0
@@ -128,37 +133,40 @@ phases:
       criteria:
         - id: F1-G1
           description: Toda mutação do installer é confinada por no-follow/handle
-            equivalente e preserva conteúdo sem ownership. FAILS when uma barreira
-            determinística troca qualquer componente, inclusive leafs de write,
-            prune, rollback e origem/destino de temp→rename, e a operação altera o
-            sentinel externo, produz efeito parcial ou prossegue sem prova atômica.
+            equivalente e preserva conteúdo sem ownership. FAILS when uma
+            barreira determinística troca qualquer componente, inclusive leafs
+            de write, prune, rollback e origem/destino de temp→rename, e a
+            operação altera o sentinel externo, produz efeito parcial ou
+            prossegue sem prova atômica.
           status: pending
           verifier:
             kind: shell
-            command: node scripts/verify-upstream-receipt.js --task F1/T-006
-              --worktree ../minimalist-installer-integrity-remediation
-              --require-remote && (cd ../minimalist-installer-integrity-remediation
-              && node --test test/path-confinement.test.js
-              test/path-mutation-race.test.js test/transaction-path-race.test.js
+            command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree
+              ../minimalist-installer-integrity-remediation --require-remote &&
+              (cd ../minimalist-installer-integrity-remediation && node --test
+              test/path-confinement.test.js test/path-mutation-race.test.js
+              test/transaction-path-race.test.js
               test/greenfield-conflict.test.js) && node --test
-              tests/installer-data-safety.test.js tests/minimalist-installer-link.test.js
+              tests/installer-data-safety.test.js
+              tests/minimalist-installer-link.test.js
             expectExitCode: 0
         - id: F1-G2
           description: Transações declaram previamente locks por identidade canônica
-            compartilhada, adquirem-nos em ordem total e mantêm-nos até commit/rollback
-            durável. FAILS when roots/scopes/fingerprints concorrentes perdem
-            owner/refcount, divergem manifest/registry/runtime, deadlockam ou permitem
-            aquisição tardia.
+            compartilhada, adquirem-nos em ordem total e mantêm-nos até
+            commit/rollback durável. FAILS when roots/scopes/fingerprints
+            concorrentes perdem owner/refcount, divergem
+            manifest/registry/runtime, deadlockam ou permitem aquisição tardia.
           status: pending
           verifier:
             kind: shell
-            command: node scripts/verify-upstream-receipt.js --task F1/T-006
-              --worktree ../minimalist-installer-integrity-remediation
-              --require-remote && (cd ../minimalist-installer-integrity-remediation
-              && node --test test/concurrency.test.js test/lock-order.test.js
-              test/transaction-path-race.test.js test/inspect-rollback.test.js) &&
-              node --test tests/runtime-lock-concurrency.test.js
-              tests/installer-fault-injection.test.js tests/runtime-refcount.test.js
+            command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree
+              ../minimalist-installer-integrity-remediation --require-remote &&
+              (cd ../minimalist-installer-integrity-remediation && node --test
+              test/concurrency.test.js test/lock-order.test.js
+              test/transaction-path-race.test.js test/inspect-rollback.test.js)
+              && node --test tests/runtime-lock-concurrency.test.js
+              tests/installer-fault-injection.test.js
+              tests/runtime-refcount.test.js
               tests/runtime-registry-recovery.test.js
               tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
             expectExitCode: 0
@@ -176,8 +184,9 @@ phases:
     slug: integrity-remediation-f2-contratos-de-host-runtime-e-observabil
     title: Contratos de host, runtime e observabilidade
     goal: Remover fallbacks silenciosos entre IDEs, classificar cada host como
-      operational ou layout-only, tornar hooks scope-aware e fazer status/install
-      relatarem o estado real de skills, assets, runtime e conflitos.
+      operational ou layout-only, tornar hooks scope-aware e fazer
+      status/install relatarem o estado real de skills, assets, runtime e
+      conflitos.
     summary: Separa tiers de host e expõe hashes, owners e runtime reais.
     dependsOn:
       - F1
@@ -187,8 +196,9 @@ phases:
       criteria:
         - id: F2-G1
           description: Cada host público declara contrato e support tier, renderizando
-            ferramentas e hooks apenas do próprio perfil. FAILS when tokens/config
-            Claude vazam, host sem probe é marcado operational ou tier fica implícito.
+            ferramentas e hooks apenas do próprio perfil. FAILS when
+            tokens/config Claude vazam, host sem probe é marcado operational ou
+            tier fica implícito.
           status: pending
           verifier:
             kind: shell
@@ -206,7 +216,8 @@ phases:
           verifier:
             kind: shell
             command: node --test tests/status-verify.test.js
-              tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js
+              tests/status-runtime-owners.test.js
+              tests/runtime-multiversion.test.js
               tests/runtime-registry-recovery.test.js
             expectExitCode: 0
     status: pending
@@ -246,9 +257,9 @@ phases:
   - id: F4
     slug: integrity-remediation-f4-autoridade-de-estado-e-transicoes-recu
     title: Autoridade de estado e transições recuperáveis
-    goal: Reconciliar o bootstrap F0 e fazer validator, transition helpers e comandos
-      de fechamento compartilharem invariantes estritas e gravarem estado, evidence,
-      eventos, handoff e materialização de forma idempotente.
+    goal: Reconciliar o bootstrap F0 e fazer validator, transition helpers e
+      comandos de fechamento compartilharem invariantes estritas e gravarem
+      estado, evidence, eventos, handoff e materialização de forma idempotente.
     summary: Reconcilia F0 e torna fechamento, eventos e materialização idempotentes.
     dependsOn:
       - F0
@@ -258,8 +269,9 @@ phases:
       criteria:
         - id: F4-G1
           description: Validator rejeita identidades, DAGs, IDs e estados terminais
-            contraditórios e preserva descriptor lazy válido. FAILS when qualquer
-            fixture inválido retorna exit 0 ou descriptor-only pending é rejeitado.
+            contraditórios e preserva descriptor lazy válido. FAILS when
+            qualquer fixture inválido retorna exit 0 ou descriptor-only pending
+            é rejeitado.
           status: pending
           verifier:
             kind: shell
@@ -280,10 +292,10 @@ phases:
             expectExitCode: 0
         - id: F4-G3
           description: Materialize e dispatch-log sobrevivem fault injection, e a
-            reconciliação F0 é não deferível e exigida também ao ativar F3. FAILS
-            when plan/initiative divergem, log deixa de ser NDJSON, defer/skip fecha
-            F4, completion/evidence/closeSha de F0 ficam fora do receipt ou F3 ativa
-            com receipt stale.
+            reconciliação F0 é não deferível e exigida também ao ativar F3.
+            FAILS when plan/initiative divergem, log deixa de ser NDJSON,
+            defer/skip fecha F4, completion/evidence/closeSha de F0 ficam fora
+            do receipt ou F3 ativa com receipt stale.
           status: pending
           verifier:
             kind: shell
@@ -351,21 +363,24 @@ phases:
       criteria:
         - id: F6-G1
           description: Black-box, probes operacionais versionados e fault matrix passam
-            contra o tarball sem checkout fonte; hosts sem probe ficam layout-only.
-            FAILS when suporte operational não executa discovery/load/invoke no host
-            real ou qualquer scope, crash ou retry deixa estado parcial.
+            contra o tarball sem checkout fonte; hosts sem probe ficam
+            layout-only. FAILS when suporte operational não executa
+            discovery/load/invoke no host real ou qualquer scope, crash ou retry
+            deixa estado parcial.
           status: pending
           verifier:
             kind: shell
             command: node --test tests/release-blackbox.test.js
-              tests/release-host-probes.test.js tests/release-fault-matrix.test.js
+              tests/release-host-probes.test.js
+              tests/release-fault-matrix.test.js
             expectExitCode: 0
         - id: F6-G2
           description: Suíte, skills, docs, runtime closure, paridade, manifesto de
-            findings e receipt Linux/macOS/Windows/Gemini/Node 22.18.x/Node 24.11+
-            ficam verdes no candidateSha sem diff de produto posterior. FAILS when
-            finding está ausente/sem evidência, runtime suportado não foi exercitado,
-            instalação diverge ou receipt/job não pertence ao candidato.
+            findings e receipt Linux/macOS/Windows/Gemini/Node 22.18.x/Node
+            24.11+ ficam verdes no candidateSha sem diff de produto posterior.
+            FAILS when finding está ausente/sem evidência, runtime suportado não
+            foi exercitado, instalação diverge ou receipt/job não pertence ao
+            candidato.
           status: pending
           verifier:
             kind: shell
@@ -397,6 +412,8 @@ references:
     path: .atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md
     label: Revisão adversarial Codex em duas passagens
     inside_repo: true
+planActive: true
+planTitle: Remediação integral de segurança, lifecycle e distribuição
 ---
 
 # Remediação integral de segurança, lifecycle e distribuição
