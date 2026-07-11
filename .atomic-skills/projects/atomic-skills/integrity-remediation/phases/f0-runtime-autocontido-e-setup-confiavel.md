@@ -10,8 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-11T22:27:22Z
-nextAction: Inicie a T-002 escrevendo primeiro os testes vermelhos em tests/runtime-closure.test.js.
+lastUpdated: 2026-07-11T23:06:02Z
+nextAction: Inicie a T-003 escrevendo os testes vermelhos em
+  tests/project.test.js e tests/install-uninstall-roundtrip.test.js.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -30,11 +31,11 @@ businessIntent:
   doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
     black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
     Node 24.11.x ou superior, full suite, docs e skill validation passam.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
-weightDone: 5
+weightDone: 9
 weightTotal: 19
 exitGates:
   - id: F0-G1
@@ -141,8 +142,9 @@ tasks:
       referências por `ASSETS_PATH` e rejeitar colisões em vez de descartar a
       segunda origem. verified_by:
       `docs/audits/installer-audit-2026-07-10.md:162-199,352-378`."
-    status: pending
-    lastUpdated: 2026-07-10T20:07:37.544Z
+    status: done
+    lastUpdated: 2026-07-11T23:06:02Z
+    closedAt: 2026-07-11T23:06:02Z
     scopeBoundary:
       - não achatar dois assets no mesmo destino e não manter referências
         runtime para `skills/shared/` no conteúdo instalado
@@ -156,6 +158,13 @@ tasks:
         tests/runtime-closure.test.js && npm pack --dry-run --json
         >/tmp/atomic-skills-pack.json
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-11T23:06:02Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 8 tests, 2 suites, 8 pass, 0 fail; npm pack
+        --dry-run --json: exit 0; duration_ms 1196.2205"
     outputs:
       - kind: file
         path: src/providers/skills-file-set.js
@@ -169,6 +178,8 @@ tasks:
         path: tests/minimalist-installer-link.test.js
       - kind: file
         path: tests/runtime-closure.test.js
+      - kind: file
+        path: tests/install.test.js
       - kind: file
         path: package.json
       - kind: file
