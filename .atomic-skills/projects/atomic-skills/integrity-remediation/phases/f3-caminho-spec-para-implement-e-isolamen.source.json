@@ -1,0 +1,261 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "integrity-remediation-f3-caminho-spec-para-implement-e-isolamen",
+  "title": "Caminho SPEC para implement e isolamento de execução",
+  "goal": "Consumir o lifecycle reconciliado por F4 e fazer tasks admitidas pelo SPEC chegarem a `implement` com targets e exclusões corretos, resolver o plano solicitado antes dos gates e executar cada writer na worktree certa.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Completar o contrato outputs e scopeBoundary",
+      "description": "Expandir o backstop mínimo de F0/T-001 para o contrato completo lintSpec-decompose-schema-implement: `tasks[].outputs[].path` são targets, `scopeBoundary[]` é DO-NOT e verifier/acceptance permanecem materializados. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:70-106`.",
+      "scopeBoundary": [
+        "não introduzir a propriedade inválida `Files` no schema e não interpretar exclusões como allowlist"
+      ],
+      "acceptance": [
+        "fixture lintSpec-decompose-schema produz outputs, exclusions, acceptance e verifier; implement aceita targets dentro de outputs e bloqueia qualquer path listado em scopeBoundary"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/decompose.test.js tests/phase-materialization/implement-backstop.test.js tests/implement-ready-contract.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/decompose.js"
+        },
+        {
+          "kind": "file",
+          "path": "meta/schemas/initiative.schema.json"
+        },
+        {
+          "kind": "file",
+          "path": "tests/decompose.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/phase-materialization/implement-backstop.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/implement-ready-contract.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Resolver target e worktree antes do resume gate",
+      "description": "Interpretar `implement plan-b` e `implement atomic-skills/plan-b`, selecionar initiative/branch/worktree e só então avaliar dirty state; reutilizar branch existente sem `-b`. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:140-153,241-250`.",
+      "scopeBoundary": [
+        "não escrever plan state na árvore chamadora depois de criar outra worktree e não escolher implicitamente outro plano ativo"
+      ],
+      "acceptance": [
+        "repo com dois planos roteia plan-b para sua árvore antes do dirty gate, branch existente é reusada, e materialização escreve somente na worktree declarada no frontmatter"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/implement.test.js tests/worktree-plan-routing.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-create-plan.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/worktree-isolation.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/project-target-resolver.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/implement.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/worktree-plan-routing.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Carregar closure authority e checkpoint completo",
+      "description": "Fazer `implement` carregar explicitamente `project-transitions.md` e `verifier-exec.md`, e preparar handoff antes do único checkpoint de `done`. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:176-185,230-240`.",
+      "scopeBoundary": [
+        "não reimplementar `done` dentro de implement e não deixar handoff dirty após o checkpoint"
+      ],
+      "acceptance": [
+        "skill instalada resolve ambos os assets, closure delega ao fluxo canônico e fixture de done contém status, evidence e handoff no mesmo commit"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/implement.test.js tests/implement-closure-authority.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-transitions.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/verifier-exec.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/implement.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/implement-closure-authority.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-004",
+      "title": "Unificar políticas de verifier, concorrência e resolução",
+      "description": "Exigir executor e expectativa em query, limitar degraded mode a ad-hoc explícito, declarar um writer por worktree com integração serial e compartilhar resolução/gates entre verbos. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:264-273,282-310,317-323`.",
+      "scopeBoundary": [
+        "não admitir query sem runner/expected result, não usar degraded mode para task de plano e não manter listas duplicadas de mutation verbs"
+      ],
+      "acceptance": [
+        "schema/lint rejeitam query incompleta, only-ad-hoc bypass é explícito, todos os verbos resolvem ambiguidades igual, adopt bloqueia placeholders e persiste supersedes"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/validate-state.test.js tests/implement.test.js tests/project.test.js tests/lint-source.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "meta/schemas/common.schema.json"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/implement.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/core/project.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/mode2-codex-lane.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-transitions.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-materialize.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-dependencies.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-create-plan.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/project-target-resolver.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/validate-state.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/implement.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/project.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/lint-source.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-005",
+      "title": "Exercitar o ciclo implement-ready em consumidor temporário",
+      "description": "Executar source lint, decompose, schema, target resolution, verifier, done e resume usando a skill instalada e um Git repo temporário. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:354-383`.",
+      "scopeBoundary": [
+        "não fabricar `evidence.passed` diretamente e não editar state fora dos comandos públicos exercitados"
+      ],
+      "acceptance": [
+        "fixture percorre lintSpec-decompose-implement-done-resume, executa verifier real, grava um evento e termina com worktree limpa"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project-implement-e2e.test.js tests/worktree-plan-routing.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/project-implement-e2e.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/fixtures/implement-ready/source.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/fixtures/implement-ready/package.json"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/decompose-plan.js"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/validate-state.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F3-G1",
+      "description": "SPEC materializado chega a implement com outputs como targets e scopeBoundary como exclusões. FAILS when `Files` é exigido ou uma exclusão vira allowlist.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/implement-ready-contract.test.js tests/project-implement-e2e.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F3-G2",
+      "description": "Argumento explícito seleciona plan, branch e worktree antes de qualquer gate ou write. FAILS when a árvore chamadora governa outro plano.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/worktree-plan-routing.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

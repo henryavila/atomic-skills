@@ -76,3 +76,4 @@
 | 2026-07-07 19:58 | [help-command-f2-local](2026-07-07-1958-help-command-f2-local.md) | code (local degraded) | approved_with_remediation | 0B/0C/1M/0m/0n | 1 fixed |
 | 2026-07-09 06:28 | [installer-hooks-cross-ide](2026-07-09-0628-installer-hooks-cross-ide.md) | code/codex | needs_changes→fixed | 0B/0C/1M/0m/0n | 0d/1=/0+ |
 | 2026-07-10 11:43 | [installer-hooks-cross-ide-review-code](2026-07-10-1143-installer-hooks-cross-ide-review-code.md) | code | needs_changes→all fixed | local 0B/0C/3M/0m · codex 0B/0C/1M/0m | 0d/1=/0+ |
+| 2026-07-11 14:15 | [integrity-remediation](2026-07-11-1415-integrity-remediation.md) | plan | reject→resolved | 0B/2C/4M/0m/0n | 0d/5=/1+; 6/6 fixed + rechecked |
