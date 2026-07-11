@@ -428,7 +428,7 @@ describe('installSkills', () => {
     }
   });
 
-  it('copies codex-bridge and project assets to claude-code namespace', async () => {
+  it('copies the complete shared runtime closure to the claude-code namespace', async () => {
     const { mkdtempSync, existsSync, readdirSync, mkdirSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join: pjoin, dirname: pdirname } = await import('node:path');
@@ -485,6 +485,16 @@ describe('installSkills', () => {
     assert.ok(files.includes('minimal-source.template.md'), 'must include project asset (minimal-source)');
     assert.ok(files.includes('project-materialize.md'), 'must include project lazy detail (project-materialize)');
     assert.ok(files.includes('project-view.md'), 'must include project lazy detail (project-view)');
+    for (const helper of [
+      'worktree-isolation.md',
+      'mode2-codex-lane.md',
+      'implement-antipatterns.md',
+      'debug-techniques.md',
+      'diff-capture.md',
+      'briefing-template.txt',
+    ]) {
+      assert.ok(files.includes(helper), `must include runtime helper ${helper}`);
+    }
   });
 });
 
