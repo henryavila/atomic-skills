@@ -12,7 +12,7 @@ import {
 
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
- * (including one level of subdir recursion, e.g. project-assets/hooks/) and the
+ * (including arbitrary subdir recursion, e.g. project-assets/hooks/) and the
  * per-IDE namespace root — returned as `[{ path, content }]` with project-root-
  * relative paths. This is the declarative file-set domain (P2) the
  * reconcileFileSet effect manages.
@@ -59,14 +59,21 @@ export function computeSkillsFileSet(config) {
   const skillVars = { ...vars, COMMUNICATION_LANGUAGE: language };
 
   const files = [];
-  const seen = new Set();
+  const seen = new Map();
   // `source` tags each file's origin (e.g. `core/fix`, `modules/x/y`, `_assets/...`,
   // `_namespace`) — the same taxonomy the legacy installSkills recorded. It is
   // carried so the install return can classify skills vs assets for the post-install
   // summary; reconcileFileSet ignores it (it consumes only { path, content }).
   const add = (path, content, source) => {
-    if (seen.has(path)) return;
-    seen.add(path);
+    const previous = seen.get(path);
+    if (previous) {
+      if (previous.source === source && previous.content === content) return;
+      throw new Error(
+        `computeSkillsFileSet: destination collision at '${path}' ` +
+        `between '${previous.source}' and '${source}'`,
+      );
+    }
+    seen.set(path, { content, source });
     files.push({ path, content, source });
   };
 
@@ -98,46 +105,25 @@ export function computeSkillsFileSet(config) {
     }
   }
 
-  // Shared assets — an `<name>-assets/` dir installs when `<name>` is a
-  // registered module OR a registered core skill. Recurse ONE level into
-  // subdirs (e.g. hooks/) to match installSkills.
+  // Shared assets — install every standalone helper and every file below a
+  // `<name>-assets/` group. Group names organize the source tree only, so their
+  // contents share the destination root; nested paths remain nested. Building
+  // the complete projection first lets `add` reject ambiguous destinations.
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
-    for (const entry of readdirSync(sharedDir, { withFileTypes: true })) {
-      if (!entry.isDirectory() || !entry.name.endsWith('-assets')) continue;
-      const ownerName = entry.name.slice(0, -'-assets'.length);
-      const isModule = meta.modules && meta.modules[ownerName];
-      const isCoreSkill = meta.core && meta.core[ownerName];
-      if (!isModule && !isCoreSkill) continue;
-
-      const assetsSourceDir = join(sharedDir, entry.name);
-      const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
-
-      for (const ideId of ides) {
-        const destBase = getAssetsDir(ideId);
-
-        for (const f of assetFiles) {
-          if (f.isDirectory()) {
-            const subSrc = join(assetsSourceDir, f.name);
-            for (const sf of readdirSync(subSrc, { withFileTypes: true })) {
-              if (!sf.isFile()) continue;
-              const raw = readFileSync(join(subSrc, sf.name), 'utf8');
-              add(
-                `${destBase}/${f.name}/${sf.name}`,
-                renderTemplate(raw, vars, moduleFlags, ideId, scope),
-                `_assets/${entry.name}/${f.name}/${sf.name}`,
-              );
-            }
-            continue;
-          }
-          if (!f.isFile()) continue;
-          const raw = readFileSync(join(assetsSourceDir, f.name), 'utf8');
-          add(
-            `${destBase}/${f.name}`,
-            renderTemplate(raw, vars, moduleFlags, ideId, scope),
-            `_assets/${entry.name}/${f.name}`,
-          );
-        }
+    const assetSources = collectSharedAssetSources(sharedDir);
+    for (const ideId of ides) {
+      const destBase = getAssetsDir(ideId);
+      for (const sourceRelativePath of assetSources) {
+        const destinationSegments = sourceRelativePath.split('/');
+        if (destinationSegments[0].endsWith('-assets')) destinationSegments.shift();
+        const destinationRelativePath = destinationSegments.join('/');
+        const raw = readFileSync(join(sharedDir, sourceRelativePath), 'utf8');
+        add(
+          `${destBase}/${destinationRelativePath}`,
+          renderTemplate(raw, vars, moduleFlags, ideId, scope),
+          `_assets/${sourceRelativePath}`,
+        );
       }
     }
   }
@@ -150,6 +136,34 @@ export function computeSkillsFileSet(config) {
   }
 
   return files;
+}
+
+function collectSharedAssetSources(sharedDir) {
+  const sources = [];
+
+  const walk = (directory, prefix) => {
+    const entries = readdirSync(directory, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(join(directory, entry.name), relativePath);
+      } else if (entry.isFile()) {
+        sources.push(relativePath);
+      }
+    }
+  };
+
+  for (const entry of readdirSync(sharedDir, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.isFile()) {
+      sources.push(entry.name);
+    } else if (entry.isDirectory() && entry.name.endsWith('-assets')) {
+      walk(join(sharedDir, entry.name), entry.name);
+    }
+  }
+
+  return sources;
 }
 
 // Mirror of install.js generateNamespaceRoot() — duplicated for the strangler-fig

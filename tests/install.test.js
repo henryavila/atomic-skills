@@ -57,7 +57,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 72); // post-consolidation footprint (single IDE, no module): 14 core skills + shared codex/debate assets + project-assets top-level (incl. project-help.md) + 5 hooks + design-brief-assets + namespace root + auto-update hook
+    assert.strictEqual(result.files.length, 78); // complete single-IDE footprint: prior 72 + 6 standalone/local-review helpers required by installed skills
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -139,7 +139,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 73); // post-consolidation footprint (single IDE + 1 module skill): the no-module count (72) + 1 enabled module skill
+    assert.strictEqual(result.files.length, 79); // complete single-IDE footprint (78) + 1 enabled module skill
   });
 
   it('substitutes memory_path variable', () => {
@@ -208,7 +208,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 143); // post-consolidation footprint across 2 IDEs (claude-code + gemini-commands), command/toml formats (no namespace root) + one auto-update hook (incl. project-help.md ×2 IDEs)
+    assert.strictEqual(result.files.length, 155); // complete footprint across 2 IDEs: prior 143 + 6 required helpers per IDE
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -290,7 +290,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
-    assert.strictEqual(result.files.length, 72); // post-consolidation: core skills + shared assets + project-assets (incl. 5 hooks + project-help.md) + design-brief skill+assets + namespace root + auto-update hook, no module skills
+    assert.strictEqual(result.files.length, 78); // core-only footprint plus all standalone/local-review helpers required at runtime
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -365,7 +365,7 @@ describe('installSkills', () => {
     }
   });
 
-  it('copies codex-bridge and project assets to claude-code namespace', async () => {
+  it('copies the complete shared runtime closure to the claude-code namespace', async () => {
     const { mkdtempSync, existsSync, readdirSync, mkdirSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join: pjoin, dirname: pdirname } = await import('node:path');
@@ -391,9 +391,9 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // post-consolidation namespace assets: codex-bridge assets + project-assets top-level + hooks/ subdir + design-brief-assets = 53 entries (incl. project-help.md)
-    assert.strictEqual(files.length, 53,
-      `expected 53 namespace asset entries (codex-bridge + project-assets + hooks/ dir + design-brief-assets), got ${files.length}: ${files.join(', ')}`);
+    // Complete namespace: prior 53 entries + 6 standalone/local-review helpers.
+    assert.strictEqual(files.length, 59,
+      `expected 59 namespace asset entries, got ${files.length}: ${files.join(', ')}`);
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
@@ -406,6 +406,16 @@ describe('installSkills', () => {
     assert.ok(files.includes('minimal-source.template.md'), 'must include project asset (minimal-source)');
     assert.ok(files.includes('project-materialize.md'), 'must include project lazy detail (project-materialize)');
     assert.ok(files.includes('project-view.md'), 'must include project lazy detail (project-view)');
+    for (const helper of [
+      'worktree-isolation.md',
+      'mode2-codex-lane.md',
+      'implement-antipatterns.md',
+      'debug-techniques.md',
+      'diff-capture.md',
+      'briefing-template.txt',
+    ]) {
+      assert.ok(files.includes(helper), `must include runtime helper ${helper}`);
+    }
   });
 });
 

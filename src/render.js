@@ -30,6 +30,14 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '', sco
     }
   );
 
+  // Source-tree references are authoring conveniences only. Shared asset-group
+  // names organize skills/shared/, but their contents install into one inert
+  // _assets namespace. Normalize both literal source references and older
+  // ASSETS_PATH references that still include the source-only group directory.
+  result = result
+    .replace(/skills\/shared\/(?:[\w-]+-assets\/)?/g, '{{ASSETS_PATH}}/')
+    .replace(/{{ASSETS_PATH}}\/[\w-]+-assets\//g, '{{ASSETS_PATH}}/');
+
   // Substitute variables
   const allVars = { ...vars };
   
