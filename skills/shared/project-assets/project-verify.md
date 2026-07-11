@@ -45,7 +45,7 @@ user to resolve with the appropriate command (`migrate`, `re-ratify`,
 ### 1. Schema validity (wraps `validate-state`)
 - Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/` (or `--slug`-scoped file paths).
 - **PASS:** all files valid.
-- **FAIL:** print the validator's errors verbatim. If `--fix` was passed, first run `src/normalize.js` on `.atomic-skills/` (resolve it the same 3-path way the default view does), then re-run `validate-state`. Report what normalization changed. If files still fail after normalization, the failure is structural (not drift) — report it and recommend `migrate <slug>` for legacy files or manual repair.
+- **FAIL:** print the validator's errors verbatim. If `--fix` was passed, first run `node "$ROOT/src/normalize.js" .atomic-skills/`, using the package root already validated by check 0, then re-run `validate-state`. Report what normalization changed. If files still fail after normalization, the failure is structural (not drift) — report it and recommend `migrate <slug>` for legacy files or manual repair.
 - **Failure message (no fix):** `FAIL schema: <file> — <validator message>. Run \`verify --fix\` for safe normalization, or \`migrate <slug>\` if legacy.`
 
 ### 2. Legacy detection (read-only)
@@ -112,7 +112,7 @@ Derives live from `git worktree list --porcelain` + `merge-base` ancestry + plan
 - `--fix` does NOT teardown or remove anything — removal stays operator-prompted and fail-closed (owned by \`archive\` / the teardown guard). This check only reports.
 
 ### 10. Plan review receipt (read-only; creation-gate backstop)
-Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unreviewed-plans.js" .atomic-skills` (deterministic, zero-token — resolve it the same 3-path way the default view resolves `normalize.js`). It reports every non-archived materialized plan whose body lacks a `## Reviews` section carrying a `- internal:` line — i.e. the mandatory adversarial review (project-create-plan.md Stage 8a) either never ran or left no receipt.
+Run `node "$ROOT/scripts/find-unreviewed-plans.js" .atomic-skills` (deterministic, zero-token, using the package root already validated by check 0). It reports every non-archived materialized plan whose body lacks a `## Reviews` section carrying a `- internal:` line — i.e. the mandatory adversarial review (project-create-plan.md Stage 8a) either never ran or left no receipt.
 - **PASS:** every plan carries an internal-review receipt.
 - **WARN** (report-only): `WARN review: <N> plan(s) carry no adversarial-review receipt (created before the gate existed, or materialized in a batch that bypassed Stage 8) — <projectId>/<slug>…`. This is the **warn** end of the soft→strict ladder whose **hard** end is `create-plan` Stage 8c (which HARD-BLOCKS a freshly-created plan with no receipt). Like check #8, `--fix` does NOT backfill it — the review must actually run: `atomic-skills:review-plan --mode=internal <plan>` writes a truthful receipt. A batch of plans materialized outside the creation flow (e.g. via `materializeDecomposition` directly) is exactly the case this surfaces.
 

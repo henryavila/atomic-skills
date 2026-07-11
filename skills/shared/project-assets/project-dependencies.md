@@ -61,12 +61,14 @@ When a plan slug is provided, filter output to that plan as dependent or prerequ
 
 ## `depend add`
 
-Add a manual edge from dependent to prerequisite. Use the idempotent writer in `src/links-sidecar.js`; do not append YAML by hand.
+Add a manual edge from dependent to prerequisite. Use the package-owned CLI
+that delegates to the idempotent writer; do not append YAML by hand.
 
 Run with {{BASH_TOOL}} from the repo root, substituting the resolved dependent plan directory and prerequisite slug:
 
 ```bash
-node --input-type=module -e "import { addPlanDependency } from './src/links-sidecar.js'; addPlanDependency(process.argv[1], { plan: process.argv[2], createdBy: 'manual', release: { archived: 'blocked' } });" "$dependentPlanDir" "$prerequisiteSlug"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/plan-dependencies.js" add "$dependentPlanDir" "$prerequisiteSlug"
 ```
 
 `addPlanDependency` validates the edge against `meta/schemas/plan.schema.json#/$defs/planDependency`, preserves the plan body, and dedupes by `plan + origin.phaseId + origin.taskId + createdBy`. For a manual edge that identity collapses to `prerequisite + manual`, so re-running the command is a no-op.
