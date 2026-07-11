@@ -151,20 +151,18 @@ A single source can produce multiple signals. Each inherits `last_activity` from
 
 ## Phase 2 — Clustering
 
-Use the functions in `src/bootstrap.js` via `node -e`:
+Use the package-owned bootstrap CLI so its modules and dependencies resolve from
+the installed runtime, not from the consuming repository:
 
 ```bash
 # Example: group by exact slug
-node -e "
-import('./src/bootstrap.js').then(({ clusterByExactSlug, mergeFuzzySingletons, pickCanonicalSlug }) => {
-  const signals = JSON.parse(process.argv[1]);
-  const { clusters, unmatched } = clusterByExactSlug(signals);
-  const merged = mergeFuzzySingletons(clusters, unmatched);
-  const withCanonical = merged.clusters.map(c => ({ ...c, canonical: pickCanonicalSlug(c) }));
-  console.log(JSON.stringify({ clusters: withCanonical, remainingOrphans: merged.remainingOrphans }));
-});
-" "$(cat /tmp/signals.json)"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/bootstrap-project.js" cluster --signals /tmp/signals.json
 ```
+
+The CLI preserves the existing pipeline: `clusterByExactSlug` →
+`mergeFuzzySingletons` → `pickCanonicalSlug`; it only moves module resolution
+behind an installed entrypoint.
 
 A cluster's `candidate_shape` is `plan` if ANY of its signals has `candidate_shape: plan` (the plan-shaped signal wins — Plans subsume multiple per-phase signals).
 

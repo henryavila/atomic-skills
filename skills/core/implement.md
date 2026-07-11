@@ -56,18 +56,18 @@ Resolve the active phase before accepting any pending task:
 4. Check the ratified `businessIntent` spine on **both** the parent plan phase descriptor and the initiative frontmatter. The complete required spine fields are: `value`, `workflow`, `rules`, `outOfScope`, `doneWhen`.
 5. If either side is missing `businessIntent`, any required field is absent, blank, empty after trimming, or still contains `[NEEDS CLARIFICATION]`, **refuse execution** (HARD-GATE): stop and instruct `atomic-skills:project materialize <phase-id>` for descriptor-only state, or re-materialize/re-question the `businessIntent` spine before implementation continues. This is not the loose checklist/degraded-mode path.
 
-After that hard pre-check passes, confirm each pending task carries the SPEC interior: exact `Files`, `scopeBoundary[]`, `acceptance[]`, and a deterministic `verifier:` (`kind shell|test|query`). A task missing any of these was not admitted (R-ORCH-23) — surface it and stop; do not improvise the missing spec.
+After that hard pre-check passes, confirm each pending task carries the SPEC interior: one or more exact `outputs[].path` targets, `scopeBoundary[]` explicit exclusions (DO-NOT constraints), `acceptance[]`, and a deterministic `verifier:` (`kind shell|test|query`). A task missing any of these was not admitted (R-ORCH-23) — surface it and stop; do not improvise the missing spec.
 
 ### Step 2 — Execute one task (single-threaded)
 
 For the chosen task, in this order:
 
-1. **Orient.** Read the task's `Files`, `acceptance[]`, and `scopeBoundary[]`. Stay inside the boundary — a change outside `scopeBoundary[]` is a scope exit; stop and report the exact path and reason, do not silently widen. When a task would require a runtime change outside `scopeBoundary[]`, treat this stop-and-report as a `businessIntent` re-question event because execution has drifted from the ratified spine.
+1. **Orient.** Read the task's `outputs[].path`, `acceptance[]`, and `scopeBoundary[]`. Treat `outputs[].path` as the exact implementation targets. Treat `scopeBoundary[]` as explicit exclusions (DO-NOT constraints), never as an allowlist. If implementation requires an unlisted target or would violate an exclusion, stop and report the exact path and reason; do not silently widen. A required violation of `scopeBoundary[]` is a runtime scope exit and a `businessIntent` re-question event because execution has drifted from the ratified spine.
 
    **D6.1 `businessIntent` re-question events (exactly two):**
 
    1. A critic/review reports drift from the original `businessIntent`.
-   2. Implement Step 2.1 reports a runtime `scopeBoundary` exit with the exact path and reason.
+   2. Implement Step 2.1 reports a required violation of a `scopeBoundary` exclusion with the exact path and reason.
 
    These are the only two `businessIntent` re-question points for this plan. `lint-source.js` is explicitly not the D6.1b runtime trigger: it validates admitted `scopeBoundary[]` at admit time, before implementation, and this flow adds no new static detector machinery.
 2. **Distill heavy reads (optional).** If a read would flood context, snapshot first, then delegate a read-only summary to {{INVESTIGATOR_TOOL}}. The subagent never edits.
@@ -164,7 +164,7 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "I'm probably running low on context, let me wrap up."
 - "The handoff narrative reads cleaner if I summarize the error instead of pasting it."
 - "The tree's a little dirty but I know what I was doing — resume anyway."
-- "This change is one line outside the scopeBoundary, I'll just include it."
+- "This change violates one scopeBoundary exclusion, I'll just include it."
 - "This task is roughly specified, but Codex is the default now — it'll figure out the rest."
 - "Codex is the default executor now, so I'll let it edit `.atomic-skills/` state / touch a file outside its `scopeBoundary[]`."
 - "The spec isn't fully settled, but I'll dispatch Codex and let it fill the gaps as it goes."

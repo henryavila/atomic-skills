@@ -29,6 +29,8 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
 const SKILLS_DIR = join(REPO_ROOT, 'skills')
+const PACKAGE_JSON = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'))
+const PRIVATE_PACKAGES = new Set(Object.keys(PACKAGE_JSON.dependencies ?? {}))
 
 // npm scripts that map 1:1 to a bundled scripts/<name>.js and so are only
 // resolvable from this repo (they live in THIS package.json, never the
@@ -40,6 +42,7 @@ const BARE_NODE_SCRIPTS = /\bnode\s+scripts\//
 // Trailing `(?![\w-])` so a longer consumer script (`detect-scope-custom`) is
 // NOT flagged — only our exact names followed by a space / EOL / backtick.
 const BARE_NPM_RUN = new RegExp(`\\bnpm\\s+run\\s+(?:${LOCAL_NPM_SCRIPTS.join('|')})(?![\\w-])`)
+const MODULE_REFERENCE = /(?:import\s*\(\s*|require\s*\(\s*|import\s+[^'"\n]+?\s+from\s+)(['"])([^'"]+)\1/g
 
 function mdFiles(dir) {
   const out = []
@@ -51,6 +54,29 @@ function mdFiles(dir) {
   return out
 }
 
+function findOffenders(lines) {
+  const offenders = []
+  lines.forEach((line, i) => {
+    if (BARE_NODE_SCRIPTS.test(line)) offenders.push(`${i + 1}: ${line.trim()}`)
+    if (BARE_NPM_RUN.test(line)) offenders.push(`${i + 1}: ${line.trim()}`)
+
+    for (const match of line.matchAll(MODULE_REFERENCE)) {
+      const specifier = match[2]
+      if (/^(?:\.\.?\/)+src\//.test(specifier)) {
+        offenders.push(`${i + 1}: cwd-bound module '${specifier}'`)
+        continue
+      }
+      const packageName = specifier.startsWith('@')
+        ? specifier.split('/').slice(0, 2).join('/')
+        : specifier.split('/')[0]
+      if (PRIVATE_PACKAGES.has(packageName)) {
+        offenders.push(`${i + 1}: private package '${specifier}'`)
+      }
+    }
+  })
+  return offenders
+}
+
 describe('skill bodies resolve bundled scripts from the install root', () => {
   const files = mdFiles(SKILLS_DIR)
 
@@ -58,20 +84,31 @@ describe('skill bodies resolve bundled scripts from the install root', () => {
     assert.ok(files.length > 0, 'no skill .md files found under skills/')
   })
 
+  it('detects cwd-bound imports, require calls, and private package imports', () => {
+    const offenders = findOffenders([
+      "await import('./src/decompose.js')",
+      "const x = require('../src/bootstrap.js')",
+      "await import('yaml')",
+      "await import('node:fs')",
+    ])
+
+    assert.deepEqual(offenders, [
+      "1: cwd-bound module './src/decompose.js'",
+      "2: cwd-bound module '../src/bootstrap.js'",
+      "3: private package 'yaml'",
+    ])
+  })
+
   for (const abs of files) {
     const rel = relative(REPO_ROOT, abs)
     it(`${rel} has no cwd-bound script invocation`, () => {
       const lines = readFileSync(abs, 'utf8').split('\n')
-      const offenders = []
-      lines.forEach((line, i) => {
-        if (BARE_NODE_SCRIPTS.test(line)) offenders.push(`${i + 1}: ${line.trim()}`)
-        if (BARE_NPM_RUN.test(line)) offenders.push(`${i + 1}: ${line.trim()}`)
-      })
+      const offenders = findOffenders(lines)
       assert.equal(
         offenders.length,
         0,
-        `${rel} invokes a bundled script as if cwd were the atomic-skills repo — ` +
-          `it fails in any consuming repo. Resolve through the install root instead:\n` +
+        `${rel} resolves package-owned code as if cwd or the consumer's dependencies ` +
+          `belonged to atomic-skills. Resolve through the install root instead:\n` +
           `  node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/<name>.js" ...\n` +
           `Offending lines:\n  ${offenders.join('\n  ')}`
       )
