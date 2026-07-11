@@ -75,3 +75,4 @@
 {"ts":"2026-07-10T12:15:06.097Z","event":"task-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F3","taskId":"T-001","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-07-10T12:17:47.127Z","event":"task-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F3","taskId":"T-002","weight":2,"weightBasis":"proxy"}
 {"ts":"2026-07-10T14:25:00.866Z","event":"phase-done","projectId":"atomic-skills","planSlug":"installer-hooks-cross-ide","phaseId":"F3","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":7,"locAdded":280,"locRemoved":39,"commits":3}}
+{"ts":"2026-07-11T22:27:59.973Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F0","taskId":"T-001","weight":1,"weightBasis":"count"}

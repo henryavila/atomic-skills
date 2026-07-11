@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-11T18:10:30Z
-nextAction: "Executar o bootstrap T-001 por TDD direto; não invocar implement antes do verifier verde"
+lastUpdated: 2026-07-11T22:27:22Z
+nextAction: Inicie a T-002 escrevendo primeiro os testes vermelhos em tests/runtime-closure.test.js.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -20,7 +20,8 @@ businessIntent:
     remediação.
   workflow: Destravar materialização mínima; executar e reconciliar o lifecycle
     transacional; corrigir o caminho SPEC-implement; então entregar segurança do
-    installer, contratos de host, Gemini/portabilidade e qualificação de release.
+    installer, contratos de host, Gemini/portabilidade e qualificação de
+    release.
   rules: Nenhuma mutação sem ownership provado; uma autoridade por contrato;
     reprodução vermelha antes de cada correção; execução em consumidor sem
     checkout fonte; falha fechada diante de ambiguidade.
@@ -29,16 +30,18 @@ businessIntent:
   doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
     black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
     Node 24.11.x ou superior, full suite, docs e skill validation passam.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
+weightDone: 5
+weightTotal: 19
 exitGates:
   - id: F0-G1
     description: Admissão SPEC, runtime closure, resolução por package root e
-      bootstrap transacional F0→F4 passam em consumidor sem checkout fonte. FAILS
-      when `implement` exige `Files`, referência resolve fora do tarball ou fault
-      injection deixa descriptor F4 e initiative divergentes.
+      bootstrap transacional F0→F4 passam em consumidor sem checkout fonte.
+      FAILS when `implement` exige `Files`, referência resolve fora do tarball
+      ou fault injection deixa descriptor F4 e initiative divergentes.
     status: pending
     verifier:
       kind: shell
@@ -48,6 +51,7 @@ exitGates:
         tests/phase-materialization/materialize-bootstrap.test.js
         tests/phase-materialization/e2e-lifecycle.test.js
       expectExitCode: 0
+    verifierLabel: "shell: node --test tests/consumer-runtime-resolution.test.js tests…"
   - id: F0-G2
     description: Project-scope install não mascara ausência de setup canônico. FAILS
       when a pasta do ledger basta para pular setup.
@@ -57,6 +61,7 @@ exitGates:
       command: node --test tests/project.test.js
         tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
 stack:
   - id: 1
     title: Runtime autocontido e setup confiável
@@ -72,8 +77,9 @@ tasks:
       relativos ao CWD por entrypoints que resolvem módulos a partir do package
       root instalado. verified_by: `skills/core/implement.md:51-77` e
       `docs/audits/project-implement-audit-2026-07-10.md:34-106,251-261`."
-    status: pending
-    lastUpdated: 2026-07-10T20:24:00Z
+    status: done
+    lastUpdated: 2026-07-11T22:27:22Z
+    closedAt: 2026-07-11T22:27:22Z
     tags:
       - bootstrap
     scopeBoundary:
@@ -93,6 +99,13 @@ tasks:
         tests/consumer-runtime-resolution.test.js
         tests/implement-ready-contract.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-11T22:27:22Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 72 tests, 3 suites, 72 pass, 0 fail; duration_ms
+        1145.286459"
     outputs:
       - kind: file
         path: src/runtime-paths.js
@@ -118,6 +131,8 @@ tasks:
         path: tests/consumer-runtime-resolution.test.js
       - kind: file
         path: tests/implement-ready-contract.test.js
+      - kind: file
+        path: tests/phase-materialization/implement-backstop.test.js
   - id: T-002
     title: Fechar o grafo de assets e detectar colisões
     summary: Instala o grafo completo de assets, com recursão e colisões explícitas.
@@ -199,7 +214,8 @@ tasks:
     weight: 4
     description: "Criar um E2E em HOME e repo temporários que instala o pacote
       empacotado e carrega scripts, assets e schemas usando apenas a instalação.
-      verified_by: `docs/audits/project-implement-audit-2026-07-10.md:34-69,186-202`."
+      verified_by:
+      `docs/audits/project-implement-audit-2026-07-10.md:34-69,186-202`."
     status: pending
     lastUpdated: 2026-07-10T20:24:00Z
     scopeBoundary:
@@ -236,20 +252,24 @@ tasks:
       descriptor-only→initiative necessário para F4; F4/T-006 amplia o mesmo
       módulo. verified_by:
       `skills/shared/project-assets/project-materialize.md:25-45,105-148` e
-      `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`."
+      `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`\
+      ."
     status: pending
     lastUpdated: 2026-07-11T18:10:30Z
     tags:
       - bootstrap
     scopeBoundary:
       - não criar writer alternativo ou writes sequenciais inline na skill
-      - não generalizar em F0 para reopen, switch ou close; F4/T-006 faz essa hardening
-      - não reescrever o histórico materializado de F0; a reconciliação pertence a F4
+      - não generalizar em F0 para reopen, switch ou close; F4/T-006 faz essa
+        hardening
+      - não reescrever o histórico materializado de F0; a reconciliação pertence
+        a F4
     acceptance:
-      - fault injection após cada rename deixa marker recuperável; retry converge
-        ao par anterior ou completo
+      - fault injection após cada rename deixa marker recuperável; retry
+        converge ao par anterior ou completo
       - validate-state nunca observa F4 active sem initiative correspondente
-      - a transição F0→F4 usa `scripts/materialize-state.js`, sem edição manual do descriptor
+      - a transição F0→F4 usa `scripts/materialize-state.js`, sem edição manual
+        do descriptor
     verifier:
       kind: shell
       command: node --test tests/phase-materialization/materialize-bootstrap.test.js
@@ -267,6 +287,9 @@ tasks:
         path: tests/phase-materialization/e2e-lifecycle.test.js
 parked: []
 emerged: []
+planTitle: Remediação integral de segurança, lifecycle e distribuição
+planActive: true
+current: true
 ---
 
 # Narrative / notes
