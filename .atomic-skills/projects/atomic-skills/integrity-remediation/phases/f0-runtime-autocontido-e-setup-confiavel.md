@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T11:21:21Z
-nextAction: Decida apply, edit ou skip para o finding crítico F-003 do review Codex.
+lastUpdated: 2026-07-12T12:38:24Z
+nextAction: Ratificar, editar ou rejeitar as lessons propostas para o fechamento de F0.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -43,7 +43,7 @@ exitGates:
       FAILS when `implement` exige `Files`, referência resolve fora do tarball
       ou fault injection deixa descriptor F4 e initiative divergentes.
     status: met
-    metAt: 2026-07-12T10:22:40Z
+    metAt: 2026-07-12T12:38:24Z
     verifier:
       kind: shell
       command: node --test tests/consumer-runtime-resolution.test.js
@@ -54,18 +54,19 @@ exitGates:
       expectExitCode: 0
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-12T10:22:40Z
+      verifiedAt: 2026-07-12T12:38:24Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test: 28 tests, 5 suites, 28 pass, 0 fail, 0 skipped;
-        duration_ms 16599.090417; exit 0"
+      outputSummary: "node --test: 32 tests, 5 suites, 32 pass, 0 fail, 0 skipped;
+        duration_ms 15764.135083; exit 0; includes F-003 symlink confinement
+        regressions"
     verifierLabel: "shell: node --test tests/consumer-runtime-resolution.test.js tests…"
     evidenceSummary: passed · 2026-07-12
   - id: F0-G2
     description: Project-scope install não mascara ausência de setup canônico. FAILS
       when a pasta do ledger basta para pular setup.
     status: met
-    metAt: 2026-07-12T10:22:40Z
+    metAt: 2026-07-12T12:38:24Z
     verifier:
       kind: shell
       command: node --test tests/project.test.js
@@ -73,11 +74,11 @@ exitGates:
       expectExitCode: 0
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-12T10:22:40Z
+      verifiedAt: 2026-07-12T12:38:24Z
       passed: true
       exitCode: 0
       outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0 skipped;
-        duration_ms 6215.156917; exit 0"
+        duration_ms 6293.49875; exit 0"
     verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
     evidenceSummary: passed · 2026-07-12
 stack:
@@ -358,11 +359,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas e F0-G1/F0-G2 marcados `met`. O review Codex-only concluiu os passes blind e informed sobre o mesmo patch congelado; ambos passaram validação estrutural. O Pass 2 manteve os seis findings e retornou `reject` com 1 crítico e 5 major. O relatório canônico foi persistido, mas nenhuma correção de source, transição de fase, lesson ou materialização sucessora ocorreu.
-- **Decision log:** O range autoritativo continua `b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`, patch SHA-256 `363a0a1fd37e3881aa0803dd7e52187753a6506d423005681571c9119da98836` e patch-id `d8de3a203e790e2573e7e2c528f89b4ee326c85e`. Pass 1: SHA-256 `6d74fcba66d5599fbe544a2d8d00589ba940660c67fe21d5c2918f03e4b2b2ec`, `reject`, 0B/1C/5M/0m/0n. Pass 2: SHA-256 `4ef603891d7675704caa67b6addddc14fb30796c0b711b3ec6af42e7c8dfbefb`, mesmo verdict/counts, framing delta 0 dropped/6 maintained/0 emerged. O blocker de fechamento é F-003: confinamento lexical em `scripts/materialize-state.js:34-43` não trata symlink escape nem impõe topologia plan/phase. F-001, F-002, F-004, F-005 e F-006 são major e foram somente registrados.
-- **Single nextAction:** Apresente uma correção concreta para F-003 e obtenha decisão explícita `apply`, `edit` ou `skip` antes de alterar source.
-- **Verbatim state:** review → `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md`, SHA-256 `a435674da9007ae21f7dd2cc7453f223195ad455720358aba4b616e1e0e8c6b7`, `826237` bytes; INDEX row → `2026-07-12 11:20`; outputs temporários → `/tmp/codex-output-pass1-20260712-104514.md` e `/tmp/codex-output-pass2-20260712-104514.md`; Codex → `gpt-5-codex`, CLI `0.144.1`.
-- **Uncommitted changes:** relatório canônico, linha do INDEX e este handoff aguardam o commit explícito do checkpoint de review; nenhum arquivo de source foi alterado.
+- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas, F0-G1/F0-G2 novamente comprovados e review gate Codex `passed`. O Pass 2 manteve 1 crítico e 5 major; F-003 foi reproduzido, corrigido por TDD e verificado, enquanto os cinco major ficaram registrados como follow-up não bloqueante. Nenhuma transição de fase, lesson ou materialização sucessora ocorreu.
+- **Decision log:** F-003 era válido: um ancestor symlink redirecionava staging/cleanup para fora de `root` e apagava um diretório sentinela preexistente. A correção canonicaliza `root`, recusa symlinks nos componentes live/journal, impõe initiative sob `plan/phases`, deriva paths do marker, cria txDir exclusivamente e só remove txDir próprio. O focused RED foi 7 pass/3 fail; depois, focused 11/11, verifier proprietário 22/22, F0-G1 32/32, F0-G2 75/75, state 165/26 e full suite 1670 pass/0 fail/8 skips. F-002 continua registrando a janela concorrente TOCTOU; ela não foi ocultada pela correção estática de F-003.
+- **Single nextAction:** Proponha as lessons de F0 e obtenha decisão explícita `ratify`, edição ou rejeição antes de gravá-las.
+- **Verbatim state:** review → `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md`; reviewed SHA → `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; PoC pós-fix → `planPath traverses symbolic link`, `outsideTxDirStillExists=true`, `outsideSentinelStillExists=true`; full suite → `tests 1678`, `pass 1670`, `fail 0`, `skipped 8`, `duration_ms 22131.401417`; runtime local → Node `v24.16.0`.
+- **Uncommitted changes:** nenhum arquivo fora do checkpoint F-003/review/state foi alterado; após o microcommit explícito, a árvore deve ficar limpa.
 
 ## Self-review against code-quality gates
 

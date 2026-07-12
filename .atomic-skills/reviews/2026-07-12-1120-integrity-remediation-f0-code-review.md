@@ -17604,4 +17604,19 @@ Begin reconciliation now.
 
 ## Fixes applied in this session
 
-<!-- Append-only. Triagem step adds lines here as user approves/skips. -->
+- **2026-07-12 — F-003 [critical] applied and verified.**
+  - Vulnerable path reproduced before the patch: a symlinked plan ancestor redirected the transaction directory outside `root`; validation failure then recursively removed that pre-existing directory and its sentinel.
+  - Fix: canonicalize `root`; reject symlink components in live and journal-derived paths; require the initiative to live directly under the supplied plan's `phases/`; derive marker paths from `txId`; create the transaction directory exclusively; clean it only when this invocation created it.
+  - Regression proof: added static symlink escape, recovery-journal symlink, cross-plan initiative path and pre-existing transaction-directory cases to `tests/phase-materialization/materialize-bootstrap.test.js`.
+  - Red run: focused suite collected 10 tests with 7 pass / 3 expected failures before the source fix.
+  - Security closure: `/tmp/repro-materialize-symlink.mjs` now returns `planPath traverses symbolic link`, with both external transaction directory and sentinel preserved.
+  - Green verification: focused materialization 11/11; owning verifier 22/22; F0-G1 32/32; F0-G2 75/75; canonical state 165 files and 26 plans valid; full Node suite 1678 collected, 1670 pass, 0 fail, 8 pre-existing cross-repo skips.
+  - Remaining boundary: concurrent path substitution after validation remains tracked by F-002 [major]; this patch closes the pre-existing repository symlink and unowned-cleanup path without claiming a cross-process lock.
+- **F-001, F-002, F-004, F-005 and F-006 [major] recorded, not applied.** The `review-code` triage contract does not require major findings to block F0 closure.
+
+### Self-review gates
+
+- Input fidelity: both Codex passes reused the frozen patch with SHA-256 `363a0a1fd37e3881aa0803dd7e52187753a6506d423005681571c9119da98836`; no recapture occurred.
+- Security proof: the real vulnerable boundary failed before the source edit and the same PoC plus an alternate recovery-journal bypass passed after it.
+- Preserved behavior: idempotence, fault recovery, rollback, lifecycle E2E, consumer runtime, project setup and install/uninstall parity all passed.
+- Scope: source changes are limited to `scripts/materialize-state.js` and its focused regression test; no unrelated review finding was folded into the patch.

@@ -77,4 +77,4 @@
 | 2026-07-09 06:28 | [installer-hooks-cross-ide](2026-07-09-0628-installer-hooks-cross-ide.md) | code/codex | needs_changes→fixed | 0B/0C/1M/0m/0n | 0d/1=/0+ |
 | 2026-07-10 11:43 | [installer-hooks-cross-ide-review-code](2026-07-10-1143-installer-hooks-cross-ide-review-code.md) | code | needs_changes→all fixed | local 0B/0C/3M/0m · codex 0B/0C/1M/0m | 0d/1=/0+ |
 | 2026-07-11 14:15 | [integrity-remediation](2026-07-11-1415-integrity-remediation.md) | plan | reject→resolved | 0B/2C/4M/0m/0n | 0d/5=/1+; 6/6 fixed + rechecked |
-| 2026-07-12 11:20 | [integrity-remediation-f0-code-review](2026-07-12-1120-integrity-remediation-f0-code-review.md) | code | reject | 0B/1C/5M/0m/0n | 0d/6=/0+ |
+| 2026-07-12 11:20 | [integrity-remediation-f0-code-review](2026-07-12-1120-integrity-remediation-f0-code-review.md) | code | reject→critical fixed; 5M recorded | 0B/1C/5M/0m/0n | 0d/6=/0+ |

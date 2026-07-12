@@ -6,10 +6,11 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stringify as stringifyYaml } from 'yaml';
 import {
@@ -275,6 +276,145 @@ test('repeating the same completed request is idempotent', () => {
     assert.equal(retry.idempotent, true);
     assert.deepEqual(readFileSync(state.planAbs), planAfter);
     assert.deepEqual(readFileSync(join(state.root, state.initiativePath)), initiativeAfter);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('materialization rejects symlinked plan ancestry without touching the external target', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const outside = mkdtempSync(join(tmpdir(), 'as-materialize-state-outside-'));
+  const planDir = dirname(state.planAbs);
+  const txDir = join(outside, '.materialize-state-tx-symlink-escape');
+  const sentinel = join(txDir, 'sentinel.txt');
+  const initiativeOutside = join(outside, 'phases', basename(state.initiativePath));
+  const beforePlan = state.plan.content;
+  try {
+    rmSync(planDir, { recursive: true, force: true });
+    writeFileSync(join(outside, 'plan.md'), beforePlan, 'utf8');
+    mkdirSync(txDir, { recursive: true });
+    writeFileSync(sentinel, 'must survive\n', 'utf8');
+    symlinkSync(outside, planDir, process.platform === 'win32' ? 'junction' : 'dir');
+
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        txId: 'tx-symlink-escape',
+      }),
+      /symbolic link|symlink/i,
+    );
+    assert.equal(readFileSync(join(outside, 'plan.md'), 'utf8'), beforePlan);
+    assert.equal(readFileSync(sentinel, 'utf8'), 'must survive\n');
+    assert.equal(existsSync(initiativeOutside), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('recovery rejects a transaction directory replaced by a symlink', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const outside = mkdtempSync(join(tmpdir(), 'as-materialize-state-recovery-outside-'));
+  const sentinel = join(outside, 'sentinel.txt');
+  const markerPath = join(dirname(state.planAbs), '.materialize-state.json');
+  try {
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        txId: 'tx-recovery-symlink',
+        faultAt: 'after-initiative-rename',
+      }),
+      /fault injection: after-initiative-rename/,
+    );
+    const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+    const txDir = resolve(state.root, marker.paths.txDir);
+    const planBeforeRetry = readFileSync(state.planAbs);
+    const initiativeBeforeRetry = readFileSync(join(state.root, state.initiativePath));
+    rmSync(txDir, { recursive: true, force: true });
+    writeFileSync(sentinel, 'must survive\n', 'utf8');
+    symlinkSync(outside, txDir, process.platform === 'win32' ? 'junction' : 'dir');
+
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+      }),
+      /marker paths\.txDir.*symbolic link/i,
+    );
+    assert.equal(readFileSync(sentinel, 'utf8'), 'must survive\n');
+    assert.deepEqual(readFileSync(state.planAbs), planBeforeRetry);
+    assert.deepEqual(
+      readFileSync(join(state.root, state.initiativePath)),
+      initiativeBeforeRetry,
+    );
+    assert.equal(existsSync(markerPath), true);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('materialization rejects an initiative path outside the supplied plan phases directory', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const beforePlan = readFileSync(state.planAbs);
+  const foreignInitiativePath = join(
+    '.atomic-skills',
+    'projects',
+    'atomic-skills',
+    'other-plan',
+    'phases',
+    basename(state.initiativePath),
+  );
+  try {
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: foreignInitiativePath,
+        ...pair,
+        txId: 'tx-foreign-initiative',
+      }),
+      /initiativePath.*plan.*phases/i,
+    );
+    assert.deepEqual(readFileSync(state.planAbs), beforePlan);
+    assert.equal(existsSync(join(state.root, foreignInitiativePath)), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('materialization never adopts or removes a pre-existing transaction directory', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const beforePlan = readFileSync(state.planAbs);
+  const txDir = join(dirname(state.planAbs), '.materialize-state-tx-preexisting');
+  const sentinel = join(txDir, 'sentinel.txt');
+  try {
+    mkdirSync(txDir, { recursive: true });
+    writeFileSync(sentinel, 'must survive\n', 'utf8');
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        txId: 'tx-preexisting',
+      }),
+      /transaction directory already exists/i,
+    );
+    assert.deepEqual(readFileSync(state.planAbs), beforePlan);
+    assert.equal(readFileSync(sentinel, 'utf8'), 'must survive\n');
+    assert.equal(existsSync(join(state.root, state.initiativePath)), false);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }

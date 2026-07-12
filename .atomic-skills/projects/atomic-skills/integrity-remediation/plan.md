@@ -81,7 +81,7 @@ phases:
             do tarball ou fault injection deixa descriptor F4 e initiative
             divergentes.
           status: met
-          metAt: 2026-07-12T10:22:40Z
+          metAt: 2026-07-12T12:38:24Z
           verifier:
             kind: shell
             command: node --test tests/consumer-runtime-resolution.test.js
@@ -92,16 +92,17 @@ phases:
             expectExitCode: 0
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-12T10:22:40Z
+            verifiedAt: 2026-07-12T12:38:24Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test: 28 tests, 5 suites, 28 pass, 0 fail, 0
-              skipped; duration_ms 16599.090417; exit 0"
+            outputSummary: "node --test: 32 tests, 5 suites, 32 pass, 0 fail, 0
+              skipped; duration_ms 15764.135083; exit 0; includes F-003 symlink
+              confinement regressions"
         - id: F0-G2
           description: Project-scope install não mascara ausência de setup canônico. FAILS
             when a pasta do ledger basta para pular setup.
           status: met
-          metAt: 2026-07-12T10:22:40Z
+          metAt: 2026-07-12T12:38:24Z
           verifier:
             kind: shell
             command: node --test tests/project.test.js
@@ -109,11 +110,17 @@ phases:
             expectExitCode: 0
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-12T10:22:40Z
+            verifiedAt: 2026-07-12T12:38:24Z
             passed: true
             exitCode: 0
             outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0
-              skipped; duration_ms 6215.156917; exit 0"
+              skipped; duration_ms 6293.49875; exit 0"
+    reviewGate:
+      status: passed
+      at: 66c4bba064402c8cb3c6d5a0e1cdf99c845d245a
+      mode: codex
+      reviewFile: .atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md
+      verifiedAt: 2026-07-12T12:38:24Z
     status: active
     businessIntent:
       value: Eliminar dependências do checkout fonte e impedir que o ledger do

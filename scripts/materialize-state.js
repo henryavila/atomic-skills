@@ -4,9 +4,11 @@ import {
   closeSync,
   existsSync,
   fsyncSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   unlinkSync,
@@ -41,6 +43,54 @@ function safeRelativePath(root, input, label) {
     throw new Error(`${label} escapes root`);
   }
   return rel;
+}
+
+function lstatIfExists(path) {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function assertNoSymlinkComponents(root, relativePath, label) {
+  const parts = relativePath.split(sep).filter(Boolean);
+  let current = root;
+  for (let index = 0; index < parts.length; index += 1) {
+    current = join(current, parts[index]);
+    const stat = lstatIfExists(current);
+    if (!stat) return;
+    if (stat.isSymbolicLink()) {
+      throw new Error(`${label} traverses symbolic link at ${relative(root, current)}`);
+    }
+    if (index < parts.length - 1 && !stat.isDirectory()) {
+      throw new Error(`${label} traverses non-directory at ${relative(root, current)}`);
+    }
+  }
+}
+
+function validateMaterializationTopology(planRel, initiativeRel) {
+  if (basename(planRel) !== 'plan.md') {
+    throw new Error('planPath must identify a plan.md file');
+  }
+  if (dirname(initiativeRel) !== join(dirname(planRel), 'phases')) {
+    throw new Error("initiativePath must be inside the supplied plan's phases directory");
+  }
+  if (!basename(initiativeRel).endsWith('.md')) {
+    throw new Error('initiativePath must identify a Markdown file');
+  }
+}
+
+function transactionPaths(planRel, initiativeRel, txId) {
+  const txDir = join(dirname(planRel), `.materialize-state-${txId}`);
+  return {
+    txDir,
+    stagedPlan: join(txDir, 'stage', planRel),
+    stagedInitiative: join(txDir, 'stage', initiativeRel),
+    beforePlan: join(txDir, 'before', planRel),
+    beforeInitiative: join(txDir, 'before', initiativeRel),
+  };
 }
 
 function fsyncPath(path) {
@@ -117,20 +167,29 @@ function validateStagedPair(planPath, initiativePath) {
   if (errors.length > 0) throw new Error(`staged pair validation failed: ${errors.join('; ')}`);
 }
 
-function readMarker(markerPath, root) {
+function readMarker(markerPath, root, planRel, initiativeRel) {
   let marker;
   try {
     marker = JSON.parse(readFileSync(markerPath, 'utf8'));
   } catch (error) {
     throw new Error(`pending materialization marker is unreadable: ${error.message}`);
   }
-  if (marker?.version !== 1 || typeof marker.txId !== 'string') {
+  if (marker?.version !== 1
+      || typeof marker.txId !== 'string'
+      || !/^[A-Za-z0-9._-]+$/.test(marker.txId)) {
     throw new Error('pending materialization marker has an unsupported shape');
   }
   for (const [label, value] of Object.entries(marker.paths ?? {})) {
     marker.paths[label] = safeRelativePath(root, value, `marker paths.${label}`);
   }
-  for (const required of ['plan', 'initiative', 'stagedPlan', 'stagedInitiative', 'beforePlan']) {
+  for (const required of [
+    'txDir',
+    'plan',
+    'initiative',
+    'stagedPlan',
+    'stagedInitiative',
+    'beforePlan',
+  ]) {
     if (!marker.paths?.[required]) throw new Error(`pending materialization marker lacks paths.${required}`);
   }
   for (const kind of ['plan', 'initiative']) {
@@ -139,6 +198,26 @@ function readMarker(markerPath, root) {
     if ((before !== null && !/^[a-f0-9]{64}$/.test(before)) || !/^[a-f0-9]{64}$/.test(after ?? '')) {
       throw new Error(`pending materialization marker has invalid ${kind} hashes`);
     }
+  }
+  if (marker.hashes.initiative.before !== null && !marker.paths.beforeInitiative) {
+    throw new Error('pending materialization marker lacks paths.beforeInitiative');
+  }
+
+  const expected = transactionPaths(planRel, initiativeRel, marker.txId);
+  const expectedPaths = {
+    plan: planRel,
+    initiative: initiativeRel,
+    txDir: expected.txDir,
+    stagedPlan: expected.stagedPlan,
+    stagedInitiative: expected.stagedInitiative,
+    beforePlan: expected.beforePlan,
+  };
+  if (marker.paths.beforeInitiative) expectedPaths.beforeInitiative = expected.beforeInitiative;
+  for (const [label, expectedPath] of Object.entries(expectedPaths)) {
+    if (marker.paths[label] !== expectedPath) {
+      throw new Error(`pending materialization marker has unexpected paths.${label}`);
+    }
+    assertNoSymlinkComponents(root, marker.paths[label], `marker paths.${label}`);
   }
   return marker;
 }
@@ -232,17 +311,22 @@ export function materializeState({
   txId = randomUUID(),
   faultAt = null,
 } = {}) {
-  const absoluteRoot = resolve(root);
+  const absoluteRoot = realpathSync(resolve(root));
   const planRel = safeRelativePath(absoluteRoot, planPath, 'planPath');
   const initiativeRel = safeRelativePath(absoluteRoot, initiativePath, 'initiativePath');
+  validateMaterializationTopology(planRel, initiativeRel);
+  assertNoSymlinkComponents(absoluteRoot, planRel, 'planPath');
+  assertNoSymlinkComponents(absoluteRoot, initiativeRel, 'initiativePath');
   const planLive = resolve(absoluteRoot, planRel);
   const initiativeLive = resolve(absoluteRoot, initiativeRel);
   const markerPath = join(dirname(planLive), MARKER_NAME);
+  const markerRel = relative(absoluteRoot, markerPath);
+  assertNoSymlinkComponents(absoluteRoot, markerRel, 'materialization marker');
 
   // Recovery is deliberately first: after the initiative rename, existence is
   // evidence of an interrupted transaction, not an "already materialized" guard.
   if (existsSync(markerPath)) {
-    const marker = readMarker(markerPath, absoluteRoot);
+    const marker = readMarker(markerPath, absoluteRoot, planRel, initiativeRel);
     if (marker.paths.plan !== planRel || marker.paths.initiative !== initiativeRel) {
       throw new Error('pending materialization marker targets different live paths; refusing writes');
     }
@@ -265,16 +349,22 @@ export function materializeState({
     throw new Error('txId must contain only letters, digits, dot, underscore, or hyphen');
   }
 
-  const txDirRel = join(dirname(planRel), `.materialize-state-${txId}`);
-  const stagedPlanRel = join(txDirRel, 'stage', planRel);
-  const stagedInitiativeRel = join(txDirRel, 'stage', initiativeRel);
-  const beforePlanRel = join(txDirRel, 'before', planRel);
+  const paths = transactionPaths(planRel, initiativeRel, txId);
+  const txDirRel = paths.txDir;
+  const stagedPlanRel = paths.stagedPlan;
+  const stagedInitiativeRel = paths.stagedInitiative;
+  const beforePlanRel = paths.beforePlan;
   const stagedPlan = resolve(absoluteRoot, stagedPlanRel);
   const stagedInitiative = resolve(absoluteRoot, stagedInitiativeRel);
   const beforePlan = resolve(absoluteRoot, beforePlanRel);
   const txDir = resolve(absoluteRoot, txDirRel);
+  assertNoSymlinkComponents(absoluteRoot, txDirRel, 'transaction directory');
+  if (lstatIfExists(txDir)) throw new Error('transaction directory already exists');
 
+  let ownsTxDir = false;
   try {
+    mkdirSync(txDir, { mode: 0o700 });
+    ownsTxDir = true;
     durableWrite(stagedPlan, planContent);
     durableWrite(stagedInitiative, initiativeContent);
     validateStagedPair(stagedPlan, stagedInitiative);
@@ -301,7 +391,7 @@ export function materializeState({
     durableWrite(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'wx');
     return recover(absoluteRoot, markerPath, marker, faultAt);
   } catch (error) {
-    if (!existsSync(markerPath)) rmSync(txDir, { recursive: true, force: true });
+    if (!existsSync(markerPath) && ownsTxDir) rmSync(txDir, { recursive: true, force: true });
     throw error;
   }
 }
