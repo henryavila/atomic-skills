@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T10:25:22Z
-nextAction: Autorize o review local do patch F0 capturado com 383097 bytes.
+lastUpdated: 2026-07-12T10:47:50Z
+nextAction: Aprove, edite ou cancele o briefing selado do review Codex Pass 1.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -358,11 +358,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas e F0-G1/F0-G2 marcados `met` por evidência shell executada. O diff da fase foi capturado uma única vez em `/tmp/integrity-remediation-f0-review.diff`; o reviewer ainda não foi despachado. Nenhuma transição de fase, lesson ou materialização sucessora ocorreu.
-- **Decision log:** O range autoritativo é `b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`. O sinal `DESTRUCTIVE` é `false`: 47 arquivos, 7233 adições, 169 deleções, nenhuma deleção integral e nenhum token drop; `phase-done` seleciona `--mode=local`. O tamanho `383097` bytes excede 50000 bytes, portanto o hard gate de tamanho aguarda autorização informada antes do dispatch.
-- **Single nextAction:** Após autorização para o patch grande, despache o reviewer local selado sobre `/tmp/integrity-remediation-f0-review.diff`.
-- **Verbatim state:** capture → `rtk git diff b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a --output=/tmp/integrity-remediation-f0-review.diff`, exit `0`; tamanho → `383097 /tmp/integrity-remediation-f0-review.diff`; churn capturado → `files=47 additions=7233 deletions=169 exit=0`; gate checkpoint → `66c4bba chore(project): checkpoint integrity-remediation F0 gates`.
-- **Uncommitted changes:** clean tree após o checkpoint deste handoff; o patch capturado está fora da working tree em `/tmp/integrity-remediation-f0-review.diff`.
+- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas e F0-G1/F0-G2 marcados `met` por evidência shell executada. O diff da fase foi capturado uma única vez em `/tmp/integrity-remediation-f0-review.diff`. O usuário selecionou `review-code --mode=codex`; deduplicação e preflight passaram, e o briefing blind do Pass 1 está pronto, mas nenhuma invocação Codex ocorreu. Nenhuma transição de fase, lesson ou materialização sucessora ocorreu.
+- **Decision log:** O range autoritativo é `b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`, com tip revisável `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`, patch SHA-256 `363a0a1fd37e3881aa0803dd7e52187753a6506d423005681571c9119da98836` e patch-id `d8de3a203e790e2573e7e2c528f89b4ee326c85e`. O sinal `DESTRUCTIVE` é `false`: 47 arquivos, 7233 adições, 169 deleções, nenhuma deleção integral e nenhum token drop. O tamanho de `383097` bytes foi aceito pelo usuário, que substituiu o modo local derivado por Codex-only. `alreadyReviewed` retornou `false`; Codex CLI `0.144.1` e wrapper Perl de timeout estão disponíveis. O briefing possui `400462` bytes, overhead de `17365` bytes e SHA-256 `f6c2a7a604d1e55bc228311a6af5325511f8deb3238bfc85b6e830cc23927c56`.
+- **Single nextAction:** Obtenha `aprovar`, `editar` ou `cancelar` para `/tmp/codex-briefing-pass1-20260712-104514.md`; somente após `aprovar`, execute o Pass 1 Codex selado.
+- **Verbatim state:** capture → `rtk git diff b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a --output=/tmp/integrity-remediation-f0-review.diff`, exit `0`; patch → `383097` bytes; briefing blind → `/tmp/codex-briefing-pass1-20260712-104514.md`, `400462` bytes, placeholders do envelope resolvidos, output schema presente e exit `0`; preflight → `/Users/henry/.npm-global/bin/codex`, `codex-cli 0.144.1`; gate checkpoint → `66c4bba chore(project): checkpoint integrity-remediation F0 gates`; briefing handoff base → `791856d chore(project): handoff integrity-remediation F0 review gate`.
+- **Uncommitted changes:** somente este handoff será commitado; patch e briefing capturados permanecem fora da working tree em `/tmp`.
 
 ## Self-review against code-quality gates
 
