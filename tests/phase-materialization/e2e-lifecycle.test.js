@@ -26,6 +26,7 @@ import {
   validateFile,
 } from '../../scripts/validate-state.js';
 import { findMissingBusinessIntent } from '../../scripts/find-missing-business-intent.js';
+import { materializeState } from '../../scripts/materialize-state.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(__dirname, '..', '..');
@@ -110,13 +111,6 @@ function shellEvidence(verifiedAt, outputSummary) {
   };
 }
 
-function addBusinessIntentToInitiative(absPath) {
-  const { frontmatter, body } = readFrontmatterFile(absPath);
-  frontmatter.businessIntent = { ...BUSINESS_INTENT };
-  writeFrontmatterFile(absPath, frontmatter, body);
-  return frontmatter;
-}
-
 function closeF0Initiative(absPath) {
   const { frontmatter, body } = readFrontmatterFile(absPath);
   frontmatter.businessIntent = { ...BUSINESS_INTENT };
@@ -139,7 +133,7 @@ function closeF0Initiative(absPath) {
   return frontmatter;
 }
 
-function advancePlanToF1(absPath) {
+function buildPlanAdvanceToF1(absPath) {
   const { frontmatter, body } = readFrontmatterFile(absPath);
   frontmatter.lastUpdated = ACTIVATED_AT;
   frontmatter.currentPhase = 'F1';
@@ -160,8 +154,11 @@ function advancePlanToF1(absPath) {
       phase.businessIntent = { ...BUSINESS_INTENT };
     }
   }
-  writeFrontmatterFile(absPath, frontmatter, body);
-  return frontmatter;
+  const renderedBody = body.startsWith('\n') ? body : `\n${body}`;
+  return {
+    frontmatter,
+    content: `---\n${stringifyYaml(frontmatter)}---${renderedBody}`,
+  };
 }
 
 function parseInitiativeFrontmatters(paths) {
@@ -211,7 +208,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
       assert.equal('lastUpdated' in initialF1, false, 'phase descriptor starts without timestamp fields');
 
       closeF0Initiative(f0Path);
-      let planFm = advancePlanToF1(planPath);
+      const advancedPlan = buildPlanAdvanceToF1(planPath);
       const f1FromSource = decomposeOnePhase(phaseSource(SOURCE, 'F1'), {
         planSlug: PLAN_SLUG,
         warnings: [],
@@ -247,21 +244,36 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         stateRoot: STATE_ROOT,
         planDir: PLAN_DIR,
         projectId: PROJECT_ID,
+        businessIntent: BUSINESS_INTENT,
         seenSlugs: new Set(),
         seenPaths: new Set(files.filter((file) => file.relativePath.endsWith('.md')).map((file) => file.relativePath)),
       });
       const f1Path = join(tmpRoot, f1File.relativePath);
-      mkdirSync(dirname(f1Path), { recursive: true });
-      writeFileSync(f1Path, f1File.content, 'utf8');
-
-      const beforeGate = findMissingBusinessIntent(tmpRoot);
-      assert.ok(
-        beforeGate.some((entry) => entry.missing.some((missing) => missing.phaseId === 'F1')),
-        'materialized F1 without businessIntent is hard-blocked by the detector',
+      assert.throws(
+        () => materializeState({
+          root: tmpRoot,
+          planPath: planFile.relativePath,
+          initiativePath: f1File.relativePath,
+          planContent: advancedPlan.content,
+          initiativeContent: f1File.content,
+          txId: 'e2e-f0-to-f1',
+          faultAt: 'after-initiative-rename',
+        }),
+        /fault injection: after-initiative-rename/,
       );
+      assert.equal(
+        readFrontmatterFile(planPath).frontmatter.currentPhase,
+        'F0',
+        'fault after initiative publish cannot expose F1 active in the plan first',
+      );
+      materializeState({
+        root: tmpRoot,
+        planPath: planFile.relativePath,
+        initiativePath: f1File.relativePath,
+      });
 
-      const f1Fm = addBusinessIntentToInitiative(f1Path);
-      planFm = readFrontmatterFile(planPath).frontmatter;
+      const f1Fm = readFrontmatterFile(f1Path).frontmatter;
+      const planFm = readFrontmatterFile(planPath).frontmatter;
       const f1Descriptor = planFm.phases.find((phase) => phase.id === 'F1');
       const f2Descriptor = planFm.phases.find((phase) => phase.id === 'F2');
       assert.equal(planFm.currentPhase, 'F1');
