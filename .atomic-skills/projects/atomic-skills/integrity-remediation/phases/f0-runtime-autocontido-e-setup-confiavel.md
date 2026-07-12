@@ -10,7 +10,7 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T10:10:40Z
+lastUpdated: 2026-07-12T10:12:43Z
 nextAction: Execute `phase-done`.
 parentPlan: integrity-remediation
 phaseId: F0
@@ -343,8 +343,8 @@ _(plan doc, external refs)_
 - **Narrative:** A fase F0 permanece ativa com T-001..T-005 fechadas por `evidence.passed: true`; T-005 foi mesclada no commit `cbffd20 merge(T-005): recoverable materialization`. O fluxo `done T-005` executou o verifier próprio na primária e registrou exit 0 com 18/18 testes. Todas as tasks de F0 estão fechadas; `phase-done` aguarda opt-in para verificar F0-G1/F0-G2 e executar o review gate.
 - **Decision log:** O merge Mode 2 preservou `2caf011 feat(T-005): bootstrap recoverable materialization` e trouxe somente `scripts/materialize-state.js`, `skills/shared/project-assets/project-materialize.md`, `tests/phase-materialization/e2e-lifecycle.test.js` e `tests/phase-materialization/materialize-bootstrap.test.js`. A autoridade publica initiative antes do plan, recupera o marker antes do guard de existência e mantém `scripts/validate-state.js` intacto conforme o scopeBoundary. A telemetria T-005 foi acrescentada como uma linha NDJSON em `.atomic-skills/status/dispatch-log.json`; o bloco JSON legado preexistente não foi reparado porque pertence à remediação posterior do contrato de telemetria.
 - **Single nextAction:** Execute `phase-done`.
-- **Verbatim state:** merge → `cbffd20 merge(T-005): recoverable materialization`; verifier de fechamento → `rtk node --test tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js tests/phase-materialization/materialize-verb.test.js`; saída → `ℹ tests 18`, `ℹ pass 18`, `ℹ fail 0`, `ℹ duration_ms 1474.601208`, exit `0`; worktree preservada → `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005` na branch `impl/integrity-remediation-f0-t005`.
-- **Uncommitted changes:** clean tree após o checkpoint `chore(project): checkpoint integrity-remediation F0 T-005`; `git status --porcelain` também retorna saída vazia em `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005`.
+- **Verbatim state:** merge → `cbffd20 merge(T-005): recoverable materialization`; verifier de fechamento → `rtk node --test tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js tests/phase-materialization/materialize-verb.test.js`; saída → `ℹ tests 18`, `ℹ pass 18`, `ℹ fail 0`, `ℹ duration_ms 1474.601208`, exit `0`; checkpoint → `de488f8 chore(project): checkpoint integrity-remediation F0 T-005`; teardown → `rtk git worktree remove /Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005` e `rtk git worktree prune`, ambos exit `0`; branch preservada → `impl/integrity-remediation-f0-t005`.
+- **Uncommitted changes:** clean tree após o checkpoint deste handoff; `git worktree list --porcelain` não contém `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005`.
 
 ## Self-review against code-quality gates
 
