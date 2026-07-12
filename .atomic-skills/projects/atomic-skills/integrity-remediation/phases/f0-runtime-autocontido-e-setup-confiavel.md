@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T10:22:40Z
-nextAction: Execute o review gate obrigatório de F0.
+lastUpdated: 2026-07-12T10:25:22Z
+nextAction: Autorize o review local do patch F0 capturado com 383097 bytes.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -358,11 +358,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas e F0-G1/F0-G2 marcados `met` por evidência shell executada. F0-G1 retornou 28/28 testes e F0-G2 retornou 75/75 testes, ambos com exit `0`. O review gate obrigatório ainda não foi executado; nenhuma transição de fase ou materialização sucessora ocorreu.
-- **Decision log:** O fechamento preserva uma única autoridade em `scripts/materialize-state.js` e não reabre o escopo de T-005. Os critérios autoritativos foram atualizados tanto em `.atomic-skills/projects/atomic-skills/integrity-remediation/plan.md` quanto nesta iniciativa; o estado permanece `active` até o review gate, a ratificação de lessons e a decisão explícita de avanço.
-- **Single nextAction:** Capture o diff da fase F0 e execute o review gate selado no modo determinado pelo sinal destrutivo.
-- **Verbatim state:** F0-G1 → `rtk node --test tests/consumer-runtime-resolution.test.js tests/runtime-closure.test.js tests/consumer-install-e2e.test.js tests/implement-ready-contract.test.js tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js` retornou `ℹ tests 28`, `ℹ pass 28`, `ℹ fail 0`, `ℹ duration_ms 16599.090417`, exit `0`; F0-G2 → `rtk node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js` retornou `ℹ tests 75`, `ℹ pass 75`, `ℹ fail 0`, `ℹ duration_ms 6215.156917`, exit `0`.
-- **Uncommitted changes:** clean tree após o checkpoint pré-review; nenhum path de implementação permanece sujo.
+- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas e F0-G1/F0-G2 marcados `met` por evidência shell executada. O diff da fase foi capturado uma única vez em `/tmp/integrity-remediation-f0-review.diff`; o reviewer ainda não foi despachado. Nenhuma transição de fase, lesson ou materialização sucessora ocorreu.
+- **Decision log:** O range autoritativo é `b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`. O sinal `DESTRUCTIVE` é `false`: 47 arquivos, 7233 adições, 169 deleções, nenhuma deleção integral e nenhum token drop; `phase-done` seleciona `--mode=local`. O tamanho `383097` bytes excede 50000 bytes, portanto o hard gate de tamanho aguarda autorização informada antes do dispatch.
+- **Single nextAction:** Após autorização para o patch grande, despache o reviewer local selado sobre `/tmp/integrity-remediation-f0-review.diff`.
+- **Verbatim state:** capture → `rtk git diff b2a845a5d7e832c88622cb21c89aff6ee33927e1..66c4bba064402c8cb3c6d5a0e1cdf99c845d245a --output=/tmp/integrity-remediation-f0-review.diff`, exit `0`; tamanho → `383097 /tmp/integrity-remediation-f0-review.diff`; churn capturado → `files=47 additions=7233 deletions=169 exit=0`; gate checkpoint → `66c4bba chore(project): checkpoint integrity-remediation F0 gates`.
+- **Uncommitted changes:** clean tree após o checkpoint deste handoff; o patch capturado está fora da working tree em `/tmp/integrity-remediation-f0-review.diff`.
 
 ## Self-review against code-quality gates
 
