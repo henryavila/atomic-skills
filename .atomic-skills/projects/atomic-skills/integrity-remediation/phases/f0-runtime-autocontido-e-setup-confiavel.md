@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T12:38:24Z
-nextAction: Ratificar, editar ou rejeitar as lessons propostas para o fechamento de F0.
+lastUpdated: 2026-07-12T12:48:08Z
+nextAction: Calcular proposeAdvance para F0 e pedir aprovação explícita da próxima fase.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -359,14 +359,18 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas, F0-G1/F0-G2 novamente comprovados e review gate Codex `passed`. O Pass 2 manteve 1 crítico e 5 major; F-003 foi reproduzido, corrigido por TDD e verificado, enquanto os cinco major ficaram registrados como follow-up não bloqueante. Nenhuma transição de fase, lesson ou materialização sucessora ocorreu.
+- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas, F0-G1/F0-G2 novamente comprovados e review gate Codex `passed`. O Pass 2 manteve 1 crítico e 5 major; F-003 foi corrigido e os cinco major ficaram registrados. O usuário ratificou quatro lessons reutilizáveis, agora persistidas para disposition em F1/F2/F4/F5/F6. Nenhuma transição de fase ou materialização sucessora ocorreu.
 - **Decision log:** F-003 era válido: um ancestor symlink redirecionava staging/cleanup para fora de `root` e apagava um diretório sentinela preexistente. A correção canonicaliza `root`, recusa symlinks nos componentes live/journal, impõe initiative sob `plan/phases`, deriva paths do marker, cria txDir exclusivamente e só remove txDir próprio. O focused RED foi 7 pass/3 fail; depois, focused 11/11, verifier proprietário 22/22, F0-G1 32/32, F0-G2 75/75, state 165/26 e full suite 1670 pass/0 fail/8 skips. F-002 continua registrando a janela concorrente TOCTOU; ela não foi ocultada pela correção estática de F-003.
-- **Single nextAction:** Proponha as lessons de F0 e obtenha decisão explícita `ratify`, edição ou rejeição antes de gravá-las.
+- **Single nextAction:** Execute `unknownDeps` e `proposeAdvance(plan, 'F0')`, apresente o resultado e obtenha aprovação explícita antes de mudar status ou materializar a sucessora.
 - **Verbatim state:** review → `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md`; reviewed SHA → `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; PoC pós-fix → `planPath traverses symbolic link`, `outsideTxDirStillExists=true`, `outsideSentinelStillExists=true`; full suite → `tests 1678`, `pass 1670`, `fail 0`, `skipped 8`, `duration_ms 22131.401417`; runtime local → Node `v24.16.0`.
-- **Uncommitted changes:** nenhum arquivo fora do checkpoint F-003/review/state foi alterado; após o microcommit explícito, a árvore deve ficar limpa.
+- **Uncommitted changes:** somente o arquivo de lessons ratificado e este handoff compõem o checkpoint de lessons; nenhum source está pendente.
 
 ## Self-review against code-quality gates
 
 - **G1 read-before-claim:** aplicado — T-001..T-005 possuem `outputs[]` e cada fechamento registra a execução do verifier em `tasks[].evidence`.
 - **G2 soft-language:** aplicado — as claims de fechamento usam `evidence.passed: true`; `nextAction` e o handoff foram varridos sem linguagem especulativa.
 - **G6 reference-or-strike:** aplicado — o handoff preserva literalmente `cbffd20`, o comando do verifier, as contagens e os paths alterados.
+- **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a correção de review.
+- **Codex review:** dois passes em `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; verdict `reject`, 0B/1C/5M/0m/0n; F-003 aplicado e verificado em `4d80308`; relatório `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md`.
+- **Review gate (G2):** registrado no descriptor F0 como `status: passed`, `mode: codex`, `at: 66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; os cinco major permanecem documentados como follow-up.
+- **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.
