@@ -173,3 +173,36 @@ temporária, extraia todas as referências locais acionáveis e exija que cada u
 resolva dentro do file-set/runtime instalado. Rode o smoke a partir de um repo
 consumidor sem `skills/`, `src/` ou `node_modules` do checkout atomic-skills.
 Falhe também em destination collisions e em níveis de diretório ignorados.
+
+## Runtime publicado exige instalar o tarball, não apontar para o checkout
+
+Um teste que grava manualmente `~/.atomic-skills/package-root` com o root do
+checkout só prova que o source funciona com seu próprio `node_modules`. Ele não
+detecta arquivo omitido de `package.json.files`, dependência ausente do pacote,
+asset não renderizado ou import acidental pelo CWD consumidor.
+
+**Why:** Em 2026-07-12, o contrato de consumer executava decompose/discover/
+depend/normalize pelo checkout e o teste de closure usava apenas
+`npm pack --dry-run`. O E2E black-box novo matou a remoção de `src/` do tarball
+em `bin/cli.js → src/install.js`, provando que a instalação física era exercida.
+
+**Como aplicar:** Empacote para um diretório temporário, instale o `.tgz` num
+repo com HOME isolado, execute o bin extraído e exija que o marker resolva dentro
+de `consumer/node_modules`, nunca para o source. Use um módulo sentinela no CWD,
+carregue helpers pelas referências renderizadas e varra marker/saídas por paths
+absolutos do checkout. No macOS, canonicalize `tmpdir()` com `realpathSync` para
+neutralizar o alias `/var` → `/private/var` nos guards de entrypoint.
+
+## Transação plan + initiative publica o lado dependente primeiro
+
+Dois renames não são atomicamente observáveis como uma única operação. Para uma
+materialização descriptor-only, a ordem precisa tornar seguro cada snapshot:
+persistir staging + marker com hashes, renomear a initiative e somente então o
+plan que passa a declará-la active. Plan primeiro cria a janela proibida
+`phase active && initiative ausente`.
+
+O retry lê hashes live contra `{before, after}`: falha após initiative converge
+com o rename do plan; falha após plan apenas valida e limpa. Staging perdido pode
+restaurar o par anterior; hash desconhecido é ambíguo e falha sem sobrescrever.
+O marker só some após o par completo validar, e sua recuperação deve ocorrer
+antes do preflight que normalmente rejeita uma initiative já existente.
