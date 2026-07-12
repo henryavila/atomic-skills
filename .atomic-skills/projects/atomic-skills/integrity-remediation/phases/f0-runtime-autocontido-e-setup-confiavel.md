@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T00:43:00Z
-nextAction: Inicie a T-004 escrevendo o teste vermelho em
-  tests/consumer-install-e2e.test.js.
+lastUpdated: 2026-07-12T02:10:36Z
+nextAction: Inicie a T-005 escrevendo os testes vermelhos de fault injection em
+  tests/phase-materialization/materialize-bootstrap.test.js.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -31,11 +31,11 @@ businessIntent:
   doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
     black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
     Node 24.11.x ou superior, full suite, docs e skill validation passam.
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
-weightDone: 11
+weightDone: 15
 weightTotal: 19
 exitGates:
   - id: F0-G1
@@ -235,8 +235,9 @@ tasks:
       empacotado e carrega scripts, assets e schemas usando apenas a instalação.
       verified_by:
       `docs/audits/project-implement-audit-2026-07-10.md:34-69,186-202`."
-    status: pending
-    lastUpdated: 2026-07-10T20:24:00Z
+    status: done
+    lastUpdated: 2026-07-12T02:10:36Z
+    closedAt: 2026-07-12T02:10:36Z
     scopeBoundary:
       - não usar paths absolutos deste checkout no fixture e não aceitar
         snapshots de presença como substituto de execução
@@ -248,6 +249,13 @@ tasks:
       kind: shell
       command: node --test tests/consumer-install-e2e.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-12T02:10:36Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 4 tests, 1 suite, 4 pass, 0 fail, 0 skipped;
+        duration_ms 8230.782667; commit 845187a"
     outputs:
       - kind: file
         path: tests/consumer-install-e2e.test.js
