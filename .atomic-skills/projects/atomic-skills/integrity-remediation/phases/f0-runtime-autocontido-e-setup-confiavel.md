@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T10:12:43Z
-nextAction: Execute `phase-done`.
+lastUpdated: 2026-07-12T10:22:40Z
+nextAction: Execute o review gate obrigatório de F0.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -32,7 +32,7 @@ businessIntent:
     Node 24.11.x ou superior, full suite, docs e skill validation passam.
 tasksDone: 5
 tasksTotal: 5
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 weightDone: 19
 weightTotal: 19
@@ -42,7 +42,8 @@ exitGates:
       bootstrap transacional F0→F4 passam em consumidor sem checkout fonte.
       FAILS when `implement` exige `Files`, referência resolve fora do tarball
       ou fault injection deixa descriptor F4 e initiative divergentes.
-    status: pending
+    status: met
+    metAt: 2026-07-12T10:22:40Z
     verifier:
       kind: shell
       command: node --test tests/consumer-runtime-resolution.test.js
@@ -51,17 +52,34 @@ exitGates:
         tests/phase-materialization/materialize-bootstrap.test.js
         tests/phase-materialization/e2e-lifecycle.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-12T10:22:40Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 28 tests, 5 suites, 28 pass, 0 fail, 0 skipped;
+        duration_ms 16599.090417; exit 0"
     verifierLabel: "shell: node --test tests/consumer-runtime-resolution.test.js tests…"
+    evidenceSummary: passed · 2026-07-12
   - id: F0-G2
     description: Project-scope install não mascara ausência de setup canônico. FAILS
       when a pasta do ledger basta para pular setup.
-    status: pending
+    status: met
+    metAt: 2026-07-12T10:22:40Z
     verifier:
       kind: shell
       command: node --test tests/project.test.js
         tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-12T10:22:40Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0 skipped;
+        duration_ms 6215.156917; exit 0"
     verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
+    evidenceSummary: passed · 2026-07-12
 stack:
   - id: 1
     title: Runtime autocontido e setup confiável
@@ -340,11 +358,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece ativa com T-001..T-005 fechadas por `evidence.passed: true`; T-005 foi mesclada no commit `cbffd20 merge(T-005): recoverable materialization`. O fluxo `done T-005` executou o verifier próprio na primária e registrou exit 0 com 18/18 testes. Todas as tasks de F0 estão fechadas; `phase-done` aguarda opt-in para verificar F0-G1/F0-G2 e executar o review gate.
-- **Decision log:** O merge Mode 2 preservou `2caf011 feat(T-005): bootstrap recoverable materialization` e trouxe somente `scripts/materialize-state.js`, `skills/shared/project-assets/project-materialize.md`, `tests/phase-materialization/e2e-lifecycle.test.js` e `tests/phase-materialization/materialize-bootstrap.test.js`. A autoridade publica initiative antes do plan, recupera o marker antes do guard de existência e mantém `scripts/validate-state.js` intacto conforme o scopeBoundary. A telemetria T-005 foi acrescentada como uma linha NDJSON em `.atomic-skills/status/dispatch-log.json`; o bloco JSON legado preexistente não foi reparado porque pertence à remediação posterior do contrato de telemetria.
-- **Single nextAction:** Execute `phase-done`.
-- **Verbatim state:** merge → `cbffd20 merge(T-005): recoverable materialization`; verifier de fechamento → `rtk node --test tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js tests/phase-materialization/materialize-verb.test.js`; saída → `ℹ tests 18`, `ℹ pass 18`, `ℹ fail 0`, `ℹ duration_ms 1474.601208`, exit `0`; checkpoint → `de488f8 chore(project): checkpoint integrity-remediation F0 T-005`; teardown → `rtk git worktree remove /Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005` e `rtk git worktree prune`, ambos exit `0`; branch preservada → `impl/integrity-remediation-f0-t005`.
-- **Uncommitted changes:** clean tree após o checkpoint deste handoff; `git worktree list --porcelain` não contém `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005`.
+- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas e F0-G1/F0-G2 marcados `met` por evidência shell executada. F0-G1 retornou 28/28 testes e F0-G2 retornou 75/75 testes, ambos com exit `0`. O review gate obrigatório ainda não foi executado; nenhuma transição de fase ou materialização sucessora ocorreu.
+- **Decision log:** O fechamento preserva uma única autoridade em `scripts/materialize-state.js` e não reabre o escopo de T-005. Os critérios autoritativos foram atualizados tanto em `.atomic-skills/projects/atomic-skills/integrity-remediation/plan.md` quanto nesta iniciativa; o estado permanece `active` até o review gate, a ratificação de lessons e a decisão explícita de avanço.
+- **Single nextAction:** Capture o diff da fase F0 e execute o review gate selado no modo determinado pelo sinal destrutivo.
+- **Verbatim state:** F0-G1 → `rtk node --test tests/consumer-runtime-resolution.test.js tests/runtime-closure.test.js tests/consumer-install-e2e.test.js tests/implement-ready-contract.test.js tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js` retornou `ℹ tests 28`, `ℹ pass 28`, `ℹ fail 0`, `ℹ duration_ms 16599.090417`, exit `0`; F0-G2 → `rtk node --test tests/project.test.js tests/install-uninstall-roundtrip.test.js` retornou `ℹ tests 75`, `ℹ pass 75`, `ℹ fail 0`, `ℹ duration_ms 6215.156917`, exit `0`.
+- **Uncommitted changes:** clean tree após o checkpoint pré-review; nenhum path de implementação permanece sujo.
 
 ## Self-review against code-quality gates
 

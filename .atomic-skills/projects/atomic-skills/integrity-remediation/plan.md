@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-11T18:10:30Z
+lastUpdated: 2026-07-12T10:22:40Z
 branch: plan/integrity-remediation
 currentPhase: F0
 parallelismAllowed: false
@@ -80,7 +80,8 @@ phases:
             fonte. FAILS when `implement` exige `Files`, referência resolve fora
             do tarball ou fault injection deixa descriptor F4 e initiative
             divergentes.
-          status: pending
+          status: met
+          metAt: 2026-07-12T10:22:40Z
           verifier:
             kind: shell
             command: node --test tests/consumer-runtime-resolution.test.js
@@ -89,15 +90,30 @@ phases:
               tests/phase-materialization/materialize-bootstrap.test.js
               tests/phase-materialization/e2e-lifecycle.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-12T10:22:40Z
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test: 28 tests, 5 suites, 28 pass, 0 fail, 0
+              skipped; duration_ms 16599.090417; exit 0"
         - id: F0-G2
           description: Project-scope install não mascara ausência de setup canônico. FAILS
             when a pasta do ledger basta para pular setup.
-          status: pending
+          status: met
+          metAt: 2026-07-12T10:22:40Z
           verifier:
             kind: shell
             command: node --test tests/project.test.js
               tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-12T10:22:40Z
+            passed: true
+            exitCode: 0
+            outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0
+              skipped; duration_ms 6215.156917; exit 0"
     status: active
     businessIntent:
       value: Eliminar dependências do checkout fonte e impedir que o ledger do
