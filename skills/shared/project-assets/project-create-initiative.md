@@ -6,7 +6,11 @@ Creates one standalone Initiative, or one anchored to an active plan's phase.
 
 ## Pre-flight
 
-- `test -d .atomic-skills/` — if absent, run first-time setup (`{{ASSETS_PATH}}/project-setup.md`) first.
+- Apply the resident **Project setup sentinel** from the router that loaded this
+  detail. **Configured** → continue; **Legacy coexistence** → stop creation and
+  read `{{ASSETS_PATH}}/project-migrate.md` for diagnosis/migration; **Setup
+  required** → run `{{ASSETS_PATH}}/project-setup.md` first. Directory,
+  manifest, or hook existence alone never skips this gate.
 - **Resolve `<project-id>`** (the nested top level), same as `new plan` Initial detection: the lone `.atomic-skills/projects/*/` folder, or ask, or default to `basename "$PWD"`.
 
 In the unified nested layout there is no separate top-level `initiatives/` file. A **standalone** initiative is a *degenerate 1-phase plan*; an **in-plan** initiative is a phase file under its parent plan. Both land under `projects/<project-id>/`.

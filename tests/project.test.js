@@ -90,6 +90,13 @@ describe('project skill (unified router + lazy assets)', () => {
   function readRouter() {
     return readFileSync(join(tempDir, ROUTER), 'utf8');
   }
+  function readRouterInitialDetection() {
+    const router = readRouter();
+    return router.slice(
+      router.indexOf('## Initial detection'),
+      router.indexOf('## No-args'),
+    );
+  }
   function readAsset(name) {
     return readFileSync(join(tempDir, ASSET(name)), 'utf8');
   }
@@ -103,6 +110,64 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(!content.includes('{{ARG_VAR}}'), '{{ARG_VAR}} must be rendered');
     assert.ok(!content.includes('{{READ_TOOL}}'), '{{READ_TOOL}} must be rendered');
     assert.ok(!content.includes('{{ASSETS_PATH}}'), '{{ASSETS_PATH}} must be rendered');
+  });
+
+  it('router sends empty and installer-only .atomic-skills roots to setup', () => {
+    install();
+    const detection = readRouterInitialDetection();
+
+    assert.doesNotMatch(detection, /test -d \.atomic-skills\//);
+    assert.match(detection, /already\s+exists or is empty/);
+    assert.match(detection, /manifest\.json.*installer ledger/is);
+    assert.match(detection, /hooks\/version-check\.sh.*installer runtime/is);
+    assert.match(detection, /never\s+count\s+as its sentinel/);
+    assert.match(detection, /setup\s+mode/i);
+  });
+
+  it('router accepts either the setup index or a nested plan as a configured sentinel', () => {
+    install();
+    const detection = readRouterInitialDetection();
+
+    assert.match(detection, /\*\*Configured:\*\*/);
+    assert.match(detection, /\.atomic-skills\/PROJECT-STATUS\.md/);
+    assert.match(detection, /PROJECT-STATUS\.md.*schemaVersion.*# Project Status Index/is);
+    assert.match(
+      detection,
+      /\.atomic-skills\/projects\/<project-id>\/<plan-slug>\/plan\.md/,
+    );
+    assert.match(detection, /nested.*plan\.md.*validate-state/is);
+    assert.match(detection, /OR at least one nested/);
+    assert.match(detection, /Continue with normal resolution/);
+  });
+
+  it('router diagnoses legacy flat state without fresh setup or destructive writes', () => {
+    install();
+    const detection = readRouterInitialDetection();
+
+    assert.match(detection, /\*\*Legacy coexistence:\*\*/);
+    assert.match(detection, /\.atomic-skills\/plans\/\*\.md/);
+    assert.match(detection, /\.atomic-skills\/initiatives\/\*\.md/);
+    assert.match(detection, /Do not run fresh setup over it/);
+    assert.match(detection, /do not\s+delete or overwrite it/);
+    assert.match(detection, /project-migrate\.md/);
+    assert.match(detection, /diagnostic\/migration\s+flow/);
+    assert.match(detection, /even when a configured\s+sentinel also exists/);
+  });
+
+  it('new plan and new initiative reuse the resident Project setup sentinel', () => {
+    install();
+
+    for (const asset of ['project-create-plan.md', 'project-create-initiative.md']) {
+      const content = readAsset(asset);
+      const preflight = content.slice(0, content.indexOf('## Steps') === -1
+        ? content.indexOf('## Default flow')
+        : content.indexOf('## Steps'));
+      assert.doesNotMatch(preflight, /test -d \.atomic-skills\//, asset);
+      assert.match(preflight, /Project setup sentinel/, asset);
+      assert.match(preflight, /Configured.*Legacy coexistence.*Setup\s+required/is, asset);
+      assert.match(preflight, /project-setup\.md/, asset);
+      assert.match(preflight, /project-migrate\.md/, asset);
+    }
   });
 
   it('old skill files are gone (project-status.md / project-plan.md)', () => {
@@ -348,6 +413,18 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(content, /hooks/);
     assert.match(content, /bootstrap-drafts/);
     assert.match(content, /mkdir -p \.atomic-skills/);
+  });
+
+  it('project-setup idempotently creates the structural sentinel without touching the ledger', () => {
+    install();
+    const setup = readAsset('project-setup.md');
+
+    assert.match(setup, /Project setup sentinel.*Setup\s+required/is);
+    assert.doesNotMatch(setup, /when `?\.atomic-skills\/?`? does not exist/i);
+    assert.match(setup, /If .*PROJECT-STATUS\.md.*is absent/is);
+    assert.match(setup, /PROJECT-STATUS\.md.*(?:already exists|preserve)/is);
+    assert.match(setup, /manifest\.json.*hooks\/version-check\.sh/is);
+    assert.match(setup, /never (?:delete|move|overwrite)/i);
   });
 
   it('project-setup registers project hooks with a wrapper-level project-dir fallback', () => {

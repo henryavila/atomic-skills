@@ -1,6 +1,8 @@
 # project — first-time setup (lazy detail)
 
-Loaded by the router when `.atomic-skills/` does not exist (any subcommand), or on explicit `setup`.
+Loaded by the router when the resident **Project setup sentinel** returns **Setup
+required** (including an absent, empty, or installer-ledger-only
+`.atomic-skills/`), or on explicit `setup`.
 
 Announce: "I will configure the `project` skill in this repo."
 
@@ -93,13 +95,32 @@ When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level
 
 ## 6. Create structure
 
+Installer coexistence is non-destructive: `.atomic-skills/manifest.json` and
+`.atomic-skills/hooks/version-check.sh` may already exist. They belong to the
+installer, not the project lifecycle. Never delete, move, or overwrite either
+artifact during setup.
+
 Use {{BASH_TOOL}}:
 ```bash
 mkdir -p .atomic-skills/projects        # nested top level — per-project folders land here
 mkdir -p .atomic-skills/status/hooks
 ```
 
-The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the `<slug>/phases/archive/` dirs) are created with the first plan (`new plan` / `discover --commit`). For coexistence with un-migrated tooling, also seed a top-level fallback index now: copy `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` to `.atomic-skills/PROJECT-STATUS.md`, replacing `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the
+`<slug>/phases/archive/` dirs) are created with the first plan (`new plan` /
+`discover --commit`). The top-level `.atomic-skills/PROJECT-STATUS.md` is the
+structural sentinel for a configured repo that has no plan yet:
+
+- If `.atomic-skills/PROJECT-STATUS.md` is absent, copy
+  `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` there and replace
+  `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+- If `.atomic-skills/PROJECT-STATUS.md` already exists, preserve it byte for
+  byte. Read it and diagnose missing frontmatter/`schemaVersion` or the missing
+  `# Project Status Index` heading; repair only after showing the diff and
+  receiving explicit approval. Never silently overwrite it.
+
+Re-run the Project setup sentinel after this step. It must now classify the
+tree as **Configured** before setup reports success.
 
 ## 7. Update .gitignore
 Append (if not present):
