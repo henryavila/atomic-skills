@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T02:10:36Z
-nextAction: Inicie a T-005 escrevendo os testes vermelhos de fault injection em
-  tests/phase-materialization/materialize-bootstrap.test.js.
+lastUpdated: 2026-07-12T03:41:16Z
+nextAction: Autorize o merge serial do commit 2caf011 da branch
+  impl/integrity-remediation-f0-t005 na branch plan/integrity-remediation.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -333,8 +333,8 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece ativa com T-001..T-004 fechadas e `evidence.passed: true`. A Test List da T-005 foi aprovada, mas nenhuma implementação começou: a próxima sessão entra diretamente no RED da transação recuperável descriptor-only→initiative. T-004 permanece em `845187a`, checkpoint `c8064a1`; nenhuma tarefa está em voo.
-- **Decision log:** T-005 terá uma única autoridade em `scripts/materialize-state.js`. Ela valida plan+initiative em staging no mesmo filesystem, persiste e sincroniza marker imutável com tx id, paths relativos e SHA-256 before/after antes do primeiro rename, publica initiative primeiro e plan por último, e recupera o marker antes de aplicar o guard “initiative já existe”. Fault após cada rename deve convergir por retry; staging perdido restaura o par anterior; hash live fora de `{before, after}` falha fechado sem write. `scripts/validate-state.js` fica intacto nesta task: como `crossValidate` ignora fases active, a garantia observacional vem da ordem dos renames. A Test List aprovada cobre par inválido sem marker, faults após ambos os renames, rollback, ambiguidade, retry idempotente, E2E sem writes manuais e wiring da skill via package root.
-- **Single nextAction:** Crie `tests/phase-materialization/materialize-bootstrap.test.js` com o caso RED “par staged inválido não toca bytes live nem publica marker”.
-- **Verbatim state:** baseline T-005 → `node --test tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js tests/phase-materialization/materialize-verb.test.js` retornou `ℹ tests 11`, `ℹ pass 11`, `ℹ fail 0`, `duration_ms 464.40475` mesmo sem `tests/phase-materialization/materialize-bootstrap.test.js`; root cause → `tests/phase-materialization/e2e-lifecycle.test.js:213-255` grava plan active antes da initiative e `scripts/validate-state.js:577-583` ignora phase active/initiative ausente; outputs T-005 → `scripts/materialize-state.js`, `skills/shared/project-assets/project-materialize.md`, `tests/phase-materialization/materialize-bootstrap.test.js`, `tests/phase-materialization/e2e-lifecycle.test.js`.
-- **Uncommitted changes:** nenhuma após o commit de save; este bloco é o snapshot aprovado para a próxima sessão.
+- **Narrative:** A fase F0 permanece ativa com T-001..T-004 fechadas por `evidence.passed: true`; T-005 continua `pending`. O executor Mode 2 produziu o commit `2caf011 feat(T-005): bootstrap recoverable materialization` na branch `impl/integrity-remediation-f0-t005`, e o verifier isolado retornou exit 0 com 18/18 testes. O merge serial, a reexecução na primária e `done T-005` ainda não ocorreram porque o contrato v1 exige autorização do operador antes do merge.
+- **Decision log:** O gate Mode 2 passou por `.atomic-skills/status/routing.json` com `mode2Enabled: true`, `codexLane.enabled: true`, F1 SPEC-ready e F2 verifier `kind: shell`. A implementação mantém uma única autoridade em `scripts/materialize-state.js`, publica initiative antes do plan, recupera o marker antes do guard de existência e não altera `scripts/validate-state.js`; o diff commitado contém somente os quatro outputs de T-005. A worktree recebeu `node_modules/` ignorado via `rtk npm ci --ignore-scripts --no-audit --no-fund` para eliminar a falha ambiental `ERR_MODULE_NOT_FOUND` do self-check inicial; nenhum arquivo versionado adicional foi alterado.
+- **Single nextAction:** Autorize o merge serial do commit `2caf011` da branch `impl/integrity-remediation-f0-t005` na branch `plan/integrity-remediation`.
+- **Verbatim state:** worktree → `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005`; branch → `impl/integrity-remediation-f0-t005`; commit → `2caf011 feat(T-005): bootstrap recoverable materialization`; verifier executado → `rtk node --test tests/phase-materialization/materialize-bootstrap.test.js tests/phase-materialization/e2e-lifecycle.test.js tests/phase-materialization/materialize-verb.test.js`; saída → `ℹ tests 18`, `ℹ pass 18`, `ℹ fail 0`, `ℹ duration_ms 940.109917`, exit `0`; paths commitados → `scripts/materialize-state.js`, `skills/shared/project-assets/project-materialize.md`, `tests/phase-materialization/e2e-lifecycle.test.js`, `tests/phase-materialization/materialize-bootstrap.test.js`.
+- **Uncommitted changes:** `git status --porcelain` retornou saída vazia tanto em `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation` quanto em `/Volumes/External/code/.worktrees/atomic-skills-integrity-remediation-t005` antes deste checkpoint de handoff.
