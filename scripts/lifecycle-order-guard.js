@@ -267,11 +267,44 @@ function phaseDone(input) {
     );
   }
 
-  if (input.requireReview !== false && !reviewGateComplete(reviewGate)) {
+  if (!reviewGateComplete(reviewGate)) {
     return block(
       'phase-done-review-open',
       'phase-done requires a recorded reviewGate before the phase can advance',
       'Run `atomic-skills:review-code <range>` and record reviewGate, then rerun `phase-done`.',
+    );
+  }
+
+  if (typeof input.worktreeDirty !== 'boolean') {
+    return block(
+      'phase-done-worktree-state-missing',
+      'phase-done requires an explicit boolean worktreeDirty value from git status',
+      'Read `git status --porcelain`, set worktreeDirty explicitly, then rerun `phase-done`.',
+    );
+  }
+
+  if (input.worktreeDirty) {
+    return block(
+      'phase-done-worktree-dirty',
+      'phase-done cannot advance with a dirty worktree after review',
+      'Commit or stash the pending work, rerun the review at the resulting HEAD, then rerun `phase-done`.',
+    );
+  }
+
+  const currentHead = text(input.currentHead);
+  const reviewedHead = text(object(reviewGate).at);
+  if (object(reviewGate).status === 'passed' && !currentHead) {
+    return block(
+      'phase-done-review-head-missing',
+      'phase-done requires currentHead to verify the recorded review SHA',
+      'Read `git rev-parse HEAD`, set currentHead, then rerun `phase-done`.',
+    );
+  }
+  if (object(reviewGate).status === 'passed' && reviewedHead !== currentHead) {
+    return block(
+      'phase-done-review-stale',
+      `phase-done review SHA ${reviewedHead} does not match current HEAD ${currentHead}`,
+      `Rerun \`atomic-skills:review-code <range>\` at ${currentHead}, record the matching reviewGate, then rerun \`phase-done\`.`,
     );
   }
 

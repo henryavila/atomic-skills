@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { parseDispatchLog } from '../scripts/append-completion.js';
 
 // Proves Decisão 5's union-safety for the dispatch-log sidecar. Two guarantees:
 //   (1) .gitattributes WIRES dispatch-log.json to merge=union;
@@ -39,6 +40,20 @@ test('pointwise status JSON is NOT union-merged (default merge)', () => {
     'union',
     'pointwise (overwritten) status files must not be union-merged',
   );
+});
+
+test('tracked dispatch-log is pure NDJSON with all migrated records preserved', () => {
+  const logPath = path.resolve('.atomic-skills/status/dispatch-log.json');
+  const raw = fs.readFileSync(logPath, 'utf8');
+  const records = parseDispatchLog(raw, { source: logPath });
+  const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+  assert.ok(records.length >= 53, 'migration must preserve the 53 historical records before future appends');
+  assert.strictEqual(lines.length, records.length, 'canonical NDJSON has exactly one line per record');
+  lines.forEach((line, index) => {
+    const value = JSON.parse(line);
+    assert.ok(value && typeof value === 'object' && !Array.isArray(value), `line ${index + 1} must be one JSON object`);
+  });
 });
 
 test('git merge=union on NDJSON is lossless for two concurrent appends', () => {

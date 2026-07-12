@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -109,6 +110,10 @@ function shellEvidence(verifiedAt, outputSummary) {
     exitCode: 0,
     outputSummary,
   };
+}
+
+function hashBytes(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 function closeF0Initiative(absPath) {
@@ -237,7 +242,15 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         'retained sidecar matches one-phase decomposition',
       );
 
-      const f1File = writeInitiativeFile(f1FromSource, PLAN_SLUG, {
+      const ratifiedF1 = structuredClone(f1FromSource);
+      for (const task of ratifiedF1.tasks) {
+        if (typeof task.summary !== 'string' || task.summary.trim() === '') {
+          task.summary = `Complete ${task.title}`;
+        }
+        if (!Number.isFinite(task.weight)) task.weight = 1;
+      }
+      ratifiedF1.nextAction = 'Run `done T-002` after creating the handoff checklist fixture.';
+      const f1File = writeInitiativeFile(ratifiedF1, PLAN_SLUG, {
         iso: ACTIVATED_AT,
         branch: BRANCH,
         active: true,
@@ -249,6 +262,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         seenPaths: new Set(files.filter((file) => file.relativePath.endsWith('.md')).map((file) => file.relativePath)),
       });
       const f1Path = join(tmpRoot, f1File.relativePath);
+      const expectedPlanHash = hashBytes(readFileSync(planPath));
       assert.throws(
         () => materializeState({
           root: tmpRoot,
@@ -256,6 +270,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
           initiativePath: f1File.relativePath,
           planContent: advancedPlan.content,
           initiativeContent: f1File.content,
+          expectedPlanHash,
           txId: 'e2e-f0-to-f1',
           faultAt: 'after-initiative-rename',
         }),

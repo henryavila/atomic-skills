@@ -1,15 +1,19 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   closeSync,
   existsSync,
+  fchmodSync,
   fsyncSync,
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   rmSync,
   unlinkSync,
   writeFileSync,
@@ -23,6 +27,11 @@ import { parseFrontmatter, validateFile } from './validate-state.js';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, '..');
 const MARKER_NAME = '.materialize-state.json';
+const LOCK_NAME = '.materialize-state.lock';
+const LOCK_GUARD_SETUP_RETRIES = 3;
+const LOCK_GUARD_RETRIES = 100;
+const LOCK_GUARD_RETRY_MS = 10;
+const LOCK_GUARD_WAIT = new Int32Array(new SharedArrayBuffer(4));
 const REQUIRED_SCHEMAS = ['common.schema.json', 'plan.schema.json', 'initiative.schema.json'];
 
 function hashBytes(bytes) {
@@ -102,10 +111,11 @@ function fsyncPath(path) {
   }
 }
 
-function durableWrite(path, bytes, flag = 'w') {
+function durableWrite(path, bytes, flag = 'w', mode = 0o600) {
   mkdirSync(dirname(path), { recursive: true });
-  const fd = openSync(path, flag, 0o600);
+  const fd = openSync(path, flag, mode);
   try {
+    fchmodSync(fd, mode);
     writeFileSync(fd, bytes);
     fsyncSync(fd);
   } finally {
@@ -122,9 +132,281 @@ function durableRename(from, to) {
 }
 
 function durableUnlink(path) {
-  if (!existsSync(path)) return;
-  unlinkSync(path);
+  try {
+    unlinkSync(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
   fsyncPath(dirname(path));
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === 'EPERM';
+  }
+}
+
+function readProcessIdentity(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  try {
+    if (process.platform === 'linux') {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      const commandEnd = stat.lastIndexOf(')');
+      if (commandEnd < 0) return null;
+      const fieldsAfterCommand = stat.slice(commandEnd + 1).trim().split(/\s+/);
+      const startTicks = fieldsAfterCommand[19];
+      return startTicks ? `linux:${startTicks}` : null;
+    }
+
+    if (process.platform === 'win32') {
+      const executable = process.env.SystemRoot
+        ? join(
+          process.env.SystemRoot,
+          'System32',
+          'WindowsPowerShell',
+          'v1.0',
+          'powershell.exe',
+        )
+        : 'powershell.exe';
+      const output = execFileSync(
+        executable,
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().Ticks`,
+        ],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+      ).trim();
+      return output ? `win32:${output}` : null;
+    }
+
+    const output = execFileSync(
+      '/bin/ps',
+      ['-o', 'lstart=', '-p', String(pid)],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        env: {
+          ...process.env,
+          LANG: 'C',
+          LANGUAGE: 'C',
+          LC_ALL: 'C',
+          TZ: 'UTC',
+        },
+      },
+    ).trim().replace(/\s+/g, ' ');
+    return output ? `${process.platform}:${output}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const SELF_PROCESS_IDENTITY = readProcessIdentity(process.pid);
+
+function isLockOwnerAlive(owner) {
+  if (!isProcessAlive(owner.pid)) return false;
+  if (typeof owner.processIdentity !== 'string') return true;
+  const currentIdentity = owner.pid === process.pid
+    ? SELF_PROCESS_IDENTITY
+    : readProcessIdentity(owner.pid);
+  // Identity lookup failure is ambiguous, so preserve fail-closed behavior.
+  return currentIdentity === null || currentIdentity === owner.processIdentity;
+}
+
+function readLockOwner(lockPath) {
+  try {
+    const owner = JSON.parse(readFileSync(lockPath, 'utf8'));
+    if (owner?.version !== 1
+        || !Number.isInteger(owner.pid)
+        || owner.pid <= 0
+        || typeof owner.token !== 'string'
+        || owner.token.trim() === ''
+        || (owner.processIdentity !== undefined
+          && (typeof owner.processIdentity !== 'string'
+            || owner.processIdentity.trim() === ''))) return null;
+    return owner;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return undefined;
+    return null;
+  }
+}
+
+function ownerBytes(token, extra = {}) {
+  return `${JSON.stringify({
+    version: 1,
+    pid: process.pid,
+    ...(SELF_PROCESS_IDENTITY ? { processIdentity: SELF_PROCESS_IDENTITY } : {}),
+    token,
+    ...extra,
+  })}\n`;
+}
+
+function readGuardClaim(claimPath) {
+  const owner = readLockOwner(claimPath);
+  if (owner == null) return owner;
+  if (typeof owner.choosing !== 'boolean') return null;
+  if (!owner.choosing && (!Number.isSafeInteger(owner.ticket) || owner.ticket <= 0)) return null;
+  return owner;
+}
+
+function liveGuardClaims(guardPath) {
+  const claims = [];
+  for (const entry of readdirSync(guardPath, { withFileTypes: true })) {
+    if (!entry.isFile() || entry.isSymbolicLink() || !entry.name.endsWith('.json')) {
+      throw new Error('materialization lock guard contains an unsupported claim entry');
+    }
+    const path = join(guardPath, entry.name);
+    const owner = readGuardClaim(path);
+    if (owner === undefined) continue;
+    if (owner === null) {
+      throw new Error('materialization lock guard contains an unreadable claim');
+    }
+    if (!isLockOwnerAlive(owner)) {
+      releaseOwnedFile(path, owner.token);
+      continue;
+    }
+    claims.push({ owner, path });
+  }
+  return claims;
+}
+
+function acquireMaterializationLockGuard(guardPath, faultAt = null) {
+  const token = randomUUID();
+  const claimPath = join(guardPath, `${token}.json`);
+  const claimTempPath = `${guardPath}.${token}.tmp`;
+  let claimPublished = false;
+  for (let attempt = 0; attempt < LOCK_GUARD_SETUP_RETRIES; attempt += 1) {
+    try {
+      mkdirSync(guardPath, { recursive: true, mode: 0o700 });
+      injectFault('after-guard-mkdir', faultAt);
+      const guardStat = lstatSync(guardPath);
+      if (!guardStat.isDirectory() || guardStat.isSymbolicLink()) {
+        throw new Error('materialization lock guard path is not a real directory');
+      }
+      durableWrite(claimTempPath, ownerBytes(token, { choosing: true, ticket: null }), 'wx');
+      durableRename(claimTempPath, claimPath);
+      claimPublished = true;
+      break;
+    } catch (error) {
+      if (existsSync(claimTempPath)) durableUnlink(claimTempPath);
+      if (existsSync(claimPath)) releaseOwnedFile(claimPath, token);
+      if (error?.code === 'ENOENT' && attempt < LOCK_GUARD_SETUP_RETRIES - 1) continue;
+      throw error;
+    }
+  }
+  if (!claimPublished) throw new Error('materialization lock guard setup could not stabilize');
+
+  const ticketTempPath = `${guardPath}.${token}.ticket.tmp`;
+  let ticket;
+  try {
+    const claims = liveGuardClaims(guardPath);
+    const maxTicket = claims.reduce((max, claim) => (
+      claim.owner.choosing ? max : Math.max(max, claim.owner.ticket)
+    ), 0);
+    ticket = maxTicket + 1;
+    durableWrite(
+      ticketTempPath,
+      ownerBytes(token, { choosing: false, ticket }),
+      'wx',
+    );
+    durableRename(ticketTempPath, claimPath);
+  } catch (error) {
+    if (existsSync(ticketTempPath)) durableUnlink(ticketTempPath);
+    releaseOwnedFile(claimPath, token);
+    cleanupGuardDirectory(guardPath);
+    throw error;
+  }
+  let blockingPid = null;
+
+  try {
+    for (let attempt = 0; attempt < LOCK_GUARD_RETRIES; attempt += 1) {
+      const claims = liveGuardClaims(guardPath);
+      const ownClaim = claims.find((claim) => claim.owner.token === token);
+      if (!ownClaim) throw new Error('materialization lock guard lost its own claim');
+      const blocker = claims.find((claim) => (
+        claim.owner.token !== token
+        && (claim.owner.choosing
+          || claim.owner.ticket < ticket
+          || (claim.owner.ticket === ticket && claim.owner.token.localeCompare(token) < 0))
+      ));
+      if (!blocker) return { token, claimPath, guardPath };
+      blockingPid = blocker.owner.pid;
+      if (attempt < LOCK_GUARD_RETRIES - 1) {
+        Atomics.wait(LOCK_GUARD_WAIT, 0, 0, LOCK_GUARD_RETRY_MS);
+      }
+    }
+    throw new Error(
+      `materialization lock guard is held by a live process (${blockingPid ?? 'unknown'})`,
+    );
+  } catch (error) {
+    releaseOwnedFile(claimPath, token);
+    cleanupGuardDirectory(guardPath);
+    throw error;
+  }
+}
+
+function releaseOwnedFile(path, token) {
+  const owner = readLockOwner(path);
+  if (owner?.token === token) durableUnlink(path);
+}
+
+function cleanupGuardDirectory(guardPath) {
+  try {
+    rmdirSync(guardPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
+  }
+}
+
+function releaseMaterializationLockGuard(guard) {
+  releaseOwnedFile(guard.claimPath, guard.token);
+  cleanupGuardDirectory(guard.guardPath);
+}
+
+function withMaterializationLockGuard(lockPath, operation, faultAt = null) {
+  const guardPath = `${lockPath}.guard`;
+  const guard = acquireMaterializationLockGuard(guardPath, faultAt);
+  try {
+    return operation();
+  } finally {
+    releaseMaterializationLockGuard(guard);
+  }
+}
+
+function acquireMaterializationLock(lockPath, faultAt = null) {
+  return withMaterializationLockGuard(lockPath, () => {
+    const token = randomUUID();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        durableWrite(lockPath, ownerBytes(token), 'wx');
+        return token;
+      } catch (error) {
+        if (error?.code !== 'EEXIST') throw error;
+        const owner = readLockOwner(lockPath);
+        if (owner === null) {
+          throw new Error('materialization lock is unreadable; refusing to reclaim it');
+        }
+        if (owner === undefined) continue;
+        if (isLockOwnerAlive(owner)) {
+          throw new Error(`materialization lock is held by a live process (${owner.pid})`);
+        }
+        durableUnlink(lockPath);
+      }
+    }
+    throw new Error('materialization lock could not be acquired');
+  }, faultAt);
+}
+
+function releaseMaterializationLock(lockPath, token) {
+  // A legitimate contender never replaces a lock whose owning process is live,
+  // so owner release must not depend on a possibly paused guard contender.
+  releaseOwnedFile(lockPath, token);
 }
 
 function validators() {
@@ -159,11 +441,49 @@ function validateStagedPair(planPath, initiativePath) {
   if (descriptor?.subPhaseCount !== initiative.tasks?.length) {
     errors.push('descriptor subPhaseCount does not match initiative task count');
   }
-  if (!isDeepStrictEqual(descriptor?.businessIntent, initiative.businessIntent)) {
+  if (descriptor && descriptor.businessIntent === undefined) {
+    errors.push('materialized descriptor businessIntent is required');
+  }
+  if (initiative.businessIntent === undefined) {
+    errors.push('materialized initiative businessIntent is required');
+  }
+  if (descriptor?.businessIntent !== undefined
+      && initiative.businessIntent !== undefined
+      && !isDeepStrictEqual(descriptor.businessIntent, initiative.businessIntent)) {
     errors.push('descriptor businessIntent does not match initiative businessIntent');
+  }
+  if (typeof initiative.nextAction !== 'string' || initiative.nextAction.trim() === '') {
+    errors.push('materialized initiative nextAction is required');
+  }
+  for (const task of initiative.tasks ?? []) {
+    const taskId = typeof task?.id === 'string' && task.id.trim() !== '' ? task.id : '<unknown>';
+    if (typeof task?.summary !== 'string' || task.summary.trim() === '') {
+      errors.push(`task ${taskId} summary is required`);
+    }
+    if (!Number.isFinite(task?.weight)) {
+      errors.push(`task ${taskId} weight is required`);
+    }
+    const hasVerifier = typeof task?.verifier?.kind === 'string'
+      && task.verifier.kind.trim() !== '';
+    const hasOutput = Array.isArray(task?.outputs)
+      && task.outputs.some((output) => (
+        typeof output?.path === 'string' && output.path.trim() !== ''
+      ));
+    if (!hasVerifier && !hasOutput) {
+      errors.push(`task ${taskId} completion signal is required`);
+    }
   }
   const current = plan.phases?.find((phase) => phase.id === plan.currentPhase);
   if (!current || current.status !== 'active') errors.push('plan currentPhase is not an active descriptor');
+  if (plan.parallelismAllowed === false) {
+    const activeDescriptors = plan.phases?.filter((phase) => phase.status === 'active') ?? [];
+    if (activeDescriptors.length !== 1) {
+      errors.push(`serial plan must have exactly one active descriptor (found ${activeDescriptors.length})`);
+    }
+    if (plan.currentPhase !== initiative.phaseId) {
+      errors.push('serial plan currentPhase must match initiative phaseId');
+    }
+  }
   if (errors.length > 0) throw new Error(`staged pair validation failed: ${errors.join('; ')}`);
 }
 
@@ -230,6 +550,7 @@ function cleanup(root, markerPath, marker) {
 }
 
 function injectFault(point, selected) {
+  if (typeof selected === 'function') selected(point);
   if (selected === point || process.env.MATERIALIZE_STATE_FAULT === point) {
     throw new Error(`fault injection: ${point}`);
   }
@@ -251,6 +572,11 @@ function recover(root, markerPath, marker, faultAt) {
   }
 
   if (live.plan === marker.hashes.plan.after && live.initiative === marker.hashes.initiative.after) {
+    injectFault('before-complete-cleanup', faultAt);
+    if (hashFile(absolute.plan) !== marker.hashes.plan.after
+        || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+      throw new Error('completed materialization pair changed before cleanup; retaining marker');
+    }
     cleanup(root, markerPath, marker);
     return { status: 'complete', txId: marker.txId, recovered: true };
   }
@@ -263,12 +589,27 @@ function recover(root, markerPath, marker, faultAt) {
 
   if (stagedPlanReady && stagedInitiativeReady) {
     if (initiativeNeedsPublish) {
+      injectFault('before-initiative-rename', faultAt);
+      if (hashFile(absolute.initiative) !== marker.hashes.initiative.before) {
+        throw new Error('live initiative changed before publish; refusing writes');
+      }
       durableRename(absolute.stagedInitiative, absolute.initiative);
       injectFault('after-initiative-rename', faultAt);
     }
     if (planNeedsPublish) {
+      if (hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+        throw new Error('live initiative changed before plan publish; refusing writes');
+      }
+      injectFault('before-plan-rename', faultAt);
+      if (hashFile(absolute.plan) !== marker.hashes.plan.before) {
+        throw new Error('live plan changed before publish; refusing writes');
+      }
       durableRename(absolute.stagedPlan, absolute.plan);
       injectFault('after-plan-rename', faultAt);
+    }
+    if (hashFile(absolute.plan) !== marker.hashes.plan.after
+        || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+      throw new Error('published materialization pair changed before finalize; retaining marker');
     }
     cleanup(root, markerPath, marker);
     return { status: 'complete', txId: marker.txId, recovered: true };
@@ -277,12 +618,18 @@ function recover(root, markerPath, marker, faultAt) {
   // A lost staged file makes roll-forward impossible. Restore the descriptor
   // first so rollback never creates an active-plan-without-initiative window.
   if (live.plan === marker.hashes.plan.after) {
+    if (hashFile(absolute.plan) !== marker.hashes.plan.after) {
+      throw new Error('live plan changed before rollback; refusing writes');
+    }
     if (hashFile(absolute.beforePlan) !== marker.hashes.plan.before) {
       throw new Error('rollback plan backup is missing or corrupt; refusing writes');
     }
     durableRename(absolute.beforePlan, absolute.plan);
   }
   if (live.initiative === marker.hashes.initiative.after) {
+    if (hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+      throw new Error('live initiative changed before rollback; refusing writes');
+    }
     if (marker.hashes.initiative.before === null) {
       durableUnlink(absolute.initiative);
     } else {
@@ -292,6 +639,11 @@ function recover(root, markerPath, marker, faultAt) {
       }
       durableRename(absolute.beforeInitiative, absolute.initiative);
     }
+  }
+  injectFault('before-rollback-cleanup', faultAt);
+  if (hashFile(absolute.plan) !== marker.hashes.plan.before
+      || hashFile(absolute.initiative) !== marker.hashes.initiative.before) {
+    throw new Error('rolled-back materialization pair changed before cleanup; retaining marker');
   }
   cleanup(root, markerPath, marker);
   return { status: 'rolled-back', txId: marker.txId, recovered: true };
@@ -308,6 +660,9 @@ export function materializeState({
   initiativePath,
   planContent,
   initiativeContent,
+  planCandidatePath,
+  initiativeCandidatePath,
+  expectedPlanHash,
   txId = randomUUID(),
   faultAt = null,
 } = {}) {
@@ -322,77 +677,108 @@ export function materializeState({
   const markerPath = join(dirname(planLive), MARKER_NAME);
   const markerRel = relative(absoluteRoot, markerPath);
   assertNoSymlinkComponents(absoluteRoot, markerRel, 'materialization marker');
-
-  // Recovery is deliberately first: after the initiative rename, existence is
-  // evidence of an interrupted transaction, not an "already materialized" guard.
-  if (existsSync(markerPath)) {
-    const marker = readMarker(markerPath, absoluteRoot, planRel, initiativeRel);
-    if (marker.paths.plan !== planRel || marker.paths.initiative !== initiativeRel) {
-      throw new Error('pending materialization marker targets different live paths; refusing writes');
-    }
-    return recover(absoluteRoot, markerPath, marker, faultAt);
-  }
-  if (existsSync(initiativeLive)) {
-    if (typeof planContent === 'string'
-        && typeof initiativeContent === 'string'
-        && hashFile(planLive) === hashBytes(planContent)
-        && hashFile(initiativeLive) === hashBytes(initiativeContent)) {
-      return { status: 'complete', txId: null, recovered: false, idempotent: true };
-    }
-    throw new Error('initiative already exists');
-  }
-  if (!existsSync(planLive)) throw new Error('live plan does not exist');
-  if (typeof planContent !== 'string' || typeof initiativeContent !== 'string') {
-    throw new Error('planContent and initiativeContent are required for a new transaction');
-  }
-  if (typeof txId !== 'string' || !/^[A-Za-z0-9._-]+$/.test(txId)) {
-    throw new Error('txId must contain only letters, digits, dot, underscore, or hyphen');
-  }
-
-  const paths = transactionPaths(planRel, initiativeRel, txId);
-  const txDirRel = paths.txDir;
-  const stagedPlanRel = paths.stagedPlan;
-  const stagedInitiativeRel = paths.stagedInitiative;
-  const beforePlanRel = paths.beforePlan;
-  const stagedPlan = resolve(absoluteRoot, stagedPlanRel);
-  const stagedInitiative = resolve(absoluteRoot, stagedInitiativeRel);
-  const beforePlan = resolve(absoluteRoot, beforePlanRel);
-  const txDir = resolve(absoluteRoot, txDirRel);
-  assertNoSymlinkComponents(absoluteRoot, txDirRel, 'transaction directory');
-  if (lstatIfExists(txDir)) throw new Error('transaction directory already exists');
-
-  let ownsTxDir = false;
+  if (!existsSync(planLive) && !existsSync(markerPath)) throw new Error('live plan does not exist');
+  const lockPath = join(dirname(planLive), LOCK_NAME);
+  const lockRel = relative(absoluteRoot, lockPath);
+  assertNoSymlinkComponents(absoluteRoot, lockRel, 'materialization lock');
+  const guardPath = `${lockPath}.guard`;
+  const guardRel = relative(absoluteRoot, guardPath);
+  assertNoSymlinkComponents(absoluteRoot, guardRel, 'materialization lock guard');
+  const lockToken = acquireMaterializationLock(lockPath, faultAt);
   try {
-    mkdirSync(txDir, { mode: 0o700 });
-    ownsTxDir = true;
-    durableWrite(stagedPlan, planContent);
-    durableWrite(stagedInitiative, initiativeContent);
-    validateStagedPair(stagedPlan, stagedInitiative);
+    // Recovery is deliberately first and does not depend on caller-owned
+    // candidate files, which may be gone after an interrupted invocation.
+    if (existsSync(markerPath)) {
+      const marker = readMarker(markerPath, absoluteRoot, planRel, initiativeRel);
+      if (marker.paths.plan !== planRel || marker.paths.initiative !== initiativeRel) {
+        throw new Error('pending materialization marker targets different live paths; refusing writes');
+      }
+      return recover(absoluteRoot, markerPath, marker, faultAt);
+    }
 
-    const planBeforeBytes = readFileSync(planLive);
-    durableWrite(beforePlan, planBeforeBytes);
-    const marker = {
-      version: 1,
-      operation: 'descriptor-only-to-initiative',
-      txId,
-      paths: {
-        txDir: txDirRel,
-        plan: planRel,
-        initiative: initiativeRel,
-        stagedPlan: stagedPlanRel,
-        stagedInitiative: stagedInitiativeRel,
-        beforePlan: beforePlanRel,
-      },
-      hashes: {
-        plan: { before: hashBytes(planBeforeBytes), after: hashBytes(planContent) },
-        initiative: { before: null, after: hashBytes(initiativeContent) },
-      },
-    };
-    durableWrite(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'wx');
-    return recover(absoluteRoot, markerPath, marker, faultAt);
-  } catch (error) {
-    if (!existsSync(markerPath) && ownsTxDir) rmSync(txDir, { recursive: true, force: true });
-    throw error;
+    const candidatePlanContent = typeof planContent === 'string'
+      ? planContent
+      : (planCandidatePath ? readFileSync(resolve(absoluteRoot, planCandidatePath), 'utf8') : undefined);
+    const candidateInitiativeContent = typeof initiativeContent === 'string'
+      ? initiativeContent
+      : (initiativeCandidatePath
+        ? readFileSync(resolve(absoluteRoot, initiativeCandidatePath), 'utf8')
+        : undefined);
+
+    if (existsSync(initiativeLive)) {
+      if (typeof candidatePlanContent === 'string'
+          && typeof candidateInitiativeContent === 'string'
+          && hashFile(planLive) === hashBytes(candidatePlanContent)
+          && hashFile(initiativeLive) === hashBytes(candidateInitiativeContent)) {
+        return { status: 'complete', txId: null, recovered: false, idempotent: true };
+      }
+      throw new Error('initiative already exists');
+    }
+    if (typeof candidatePlanContent !== 'string'
+        || typeof candidateInitiativeContent !== 'string') {
+      throw new Error('planContent and initiativeContent are required for a new transaction');
+    }
+    if (typeof expectedPlanHash !== 'string' || !/^[a-f0-9]{64}$/.test(expectedPlanHash)) {
+      throw new Error('expectedPlanHash must be a lowercase sha256 hash for a new transaction');
+    }
+    if (hashFile(planLive) !== expectedPlanHash) {
+      throw new Error('stale plan candidate: live plan hash does not match expectedPlanHash');
+    }
+    if (typeof txId !== 'string' || !/^[A-Za-z0-9._-]+$/.test(txId)) {
+      throw new Error('txId must contain only letters, digits, dot, underscore, or hyphen');
+    }
+
+    const paths = transactionPaths(planRel, initiativeRel, txId);
+    const txDirRel = paths.txDir;
+    const stagedPlanRel = paths.stagedPlan;
+    const stagedInitiativeRel = paths.stagedInitiative;
+    const beforePlanRel = paths.beforePlan;
+    const stagedPlan = resolve(absoluteRoot, stagedPlanRel);
+    const stagedInitiative = resolve(absoluteRoot, stagedInitiativeRel);
+    const beforePlan = resolve(absoluteRoot, beforePlanRel);
+    const txDir = resolve(absoluteRoot, txDirRel);
+    const planMode = lstatSync(planLive).mode & 0o7777;
+    assertNoSymlinkComponents(absoluteRoot, txDirRel, 'transaction directory');
+    if (lstatIfExists(txDir)) throw new Error('transaction directory already exists');
+
+    let ownsTxDir = false;
+    try {
+      mkdirSync(txDir, { mode: 0o700 });
+      ownsTxDir = true;
+      durableWrite(stagedPlan, candidatePlanContent, 'w', planMode);
+      durableWrite(stagedInitiative, candidateInitiativeContent);
+      validateStagedPair(stagedPlan, stagedInitiative);
+
+      const planBeforeBytes = readFileSync(planLive);
+      if (hashBytes(planBeforeBytes) !== expectedPlanHash) {
+        throw new Error('stale plan candidate: live plan hash does not match expectedPlanHash');
+      }
+      durableWrite(beforePlan, planBeforeBytes, 'w', planMode);
+      const marker = {
+        version: 1,
+        operation: 'descriptor-only-to-initiative',
+        txId,
+        paths: {
+          txDir: txDirRel,
+          plan: planRel,
+          initiative: initiativeRel,
+          stagedPlan: stagedPlanRel,
+          stagedInitiative: stagedInitiativeRel,
+          beforePlan: beforePlanRel,
+        },
+        hashes: {
+          plan: { before: expectedPlanHash, after: hashBytes(candidatePlanContent) },
+          initiative: { before: null, after: hashBytes(candidateInitiativeContent) },
+        },
+      };
+      durableWrite(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'wx');
+      return recover(absoluteRoot, markerPath, marker, faultAt);
+    } catch (error) {
+      if (!existsSync(markerPath) && ownsTxDir) rmSync(txDir, { recursive: true, force: true });
+      throw error;
+    }
+  } finally {
+    releaseMaterializationLock(lockPath, lockToken);
   }
 }
 
@@ -417,8 +803,9 @@ export function runMaterializeState(args, io = console) {
     root,
     planPath,
     initiativePath,
-    planContent: planCandidate ? readFileSync(resolve(root, planCandidate), 'utf8') : undefined,
-    initiativeContent: initiativeCandidate ? readFileSync(resolve(root, initiativeCandidate), 'utf8') : undefined,
+    planCandidatePath: planCandidate,
+    initiativeCandidatePath: initiativeCandidate,
+    expectedPlanHash: option(args, '--expected-plan-hash'),
     txId: option(args, '--tx-id') ?? randomUUID(),
     faultAt: option(args, '--fault'),
   });

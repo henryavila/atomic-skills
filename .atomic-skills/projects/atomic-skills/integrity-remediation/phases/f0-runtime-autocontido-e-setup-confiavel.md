@@ -10,8 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T12:48:08Z
-nextAction: Calcular proposeAdvance para F0 e pedir aprovação explícita da próxima fase.
+lastUpdated: 2026-07-12T17:08:37Z
+nextAction: Commitar o checkpoint da remediação F0, executar review-code no HEAD
+  limpo e só então recalcular proposeAdvance.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -43,7 +44,7 @@ exitGates:
       FAILS when `implement` exige `Files`, referência resolve fora do tarball
       ou fault injection deixa descriptor F4 e initiative divergentes.
     status: met
-    metAt: 2026-07-12T12:38:24Z
+    metAt: 2026-07-12T17:08:37Z
     verifier:
       kind: shell
       command: node --test tests/consumer-runtime-resolution.test.js
@@ -54,19 +55,20 @@ exitGates:
       expectExitCode: 0
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-12T12:38:24Z
+      verifiedAt: 2026-07-12T17:08:37Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test: 32 tests, 5 suites, 32 pass, 0 fail, 0 skipped;
-        duration_ms 15764.135083; exit 0; includes F-003 symlink confinement
-        regressions"
+      outputSummary: "node --test: 54 tests, 5 suites, 54 pass, 0 fail, 0 skipped;
+        duration_ms 43472.904; exit 0; bakery lock claims, canonical process
+        identity, stale candidate, publish/rollback rechecks, recovery, serial
+        focus, task metadata, businessIntent and mode regressions included"
     verifierLabel: "shell: node --test tests/consumer-runtime-resolution.test.js tests…"
     evidenceSummary: passed · 2026-07-12
   - id: F0-G2
     description: Project-scope install não mascara ausência de setup canônico. FAILS
       when a pasta do ledger basta para pular setup.
     status: met
-    metAt: 2026-07-12T12:38:24Z
+    metAt: 2026-07-12T17:08:37Z
     verifier:
       kind: shell
       command: node --test tests/project.test.js
@@ -74,11 +76,11 @@ exitGates:
       expectExitCode: 0
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-12T12:38:24Z
+      verifiedAt: 2026-07-12T17:08:37Z
       passed: true
       exitCode: 0
       outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0 skipped;
-        duration_ms 6293.49875; exit 0"
+        duration_ms 20675.814625; exit 0"
     verifierLabel: "shell: node --test tests/project.test.js tests/install-uninstall-r…"
     evidenceSummary: passed · 2026-07-12
 stack:
@@ -314,8 +316,8 @@ tasks:
       - fault injection após cada rename deixa marker recuperável; retry
         converge ao par anterior ou completo
       - validate-state nunca observa F4 active sem initiative correspondente
-      - a transição F0→F4 usa `scripts/materialize-state.js`, sem edição manual
-        do descriptor
+      - o caminho descriptor-only que materializará F4 roteia plan e initiative
+        por `scripts/materialize-state.js`, sem edição manual do descriptor
     verifier:
       kind: shell
       command: node --test tests/phase-materialization/materialize-bootstrap.test.js
@@ -359,18 +361,22 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active` com T-001..T-005 fechadas, F0-G1/F0-G2 novamente comprovados e review gate Codex `passed`. O Pass 2 manteve 1 crítico e 5 major; F-003 foi corrigido e os cinco major ficaram registrados. O usuário ratificou quatro lessons reutilizáveis, agora persistidas para disposition em F1/F2/F4/F5/F6. Nenhuma transição de fase ou materialização sucessora ocorreu.
-- **Decision log:** F-003 era válido: um ancestor symlink redirecionava staging/cleanup para fora de `root` e apagava um diretório sentinela preexistente. A correção canonicaliza `root`, recusa symlinks nos componentes live/journal, impõe initiative sob `plan/phases`, deriva paths do marker, cria txDir exclusivamente e só remove txDir próprio. O focused RED foi 7 pass/3 fail; depois, focused 11/11, verifier proprietário 22/22, F0-G1 32/32, F0-G2 75/75, state 165/26 e full suite 1670 pass/0 fail/8 skips. F-002 continua registrando a janela concorrente TOCTOU; ela não foi ocultada pela correção estática de F-003.
-- **Single nextAction:** Execute `unknownDeps` e `proposeAdvance(plan, 'F0')`, apresente o resultado e obtenha aprovação explícita antes de mudar status ou materializar a sucessora.
-- **Verbatim state:** review → `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md`; reviewed SHA → `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; PoC pós-fix → `planPath traverses symbolic link`, `outsideTxDirStillExists=true`, `outsideSentinelStillExists=true`; full suite → `tests 1678`, `pass 1670`, `fail 0`, `skipped 8`, `duration_ms 22131.401417`; runtime local → Node `v24.16.0`.
-- **Uncommitted changes:** somente o arquivo de lessons ratificado e este handoff compõem o checkpoint de lessons; nenhum source está pendente.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e F0-G1/F0-G2 novamente comprovados. Os findings aceitos na revisão desta remediação foram corrigidos por testes RED→GREEN. O `reviewGate` anterior foi removido porque apontava para um SHA rejeitado e já não representa o worktree atual. Nenhuma transição de fase ou materialização sucessora ocorreu.
+- **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. T-005 descreve apenas o seam futuro para F4.
+- **Single nextAction:** Commitar o checkpoint da remediação F0, executar `review-code` no HEAD limpo e só então recalcular `proposeAdvance`; não avançar F0 antes desse review.
+- **Verbatim state:** HEAD base do worktree → `b88fe93370176d3a54cac9218fcb9d7f3e547100`; F0-G1 → `54 tests`, `5 suites`, `54 pass`, `0 fail`, `duration_ms 43472.904`; F0-G2 → `75 tests`, `2 suites`, `75 pass`, `0 fail`, `duration_ms 20675.814625`; full suite → `1719 tests`, `184 suites`, `1711 pass`, `0 fail`, `8 skipped`, `duration_ms 79464.235833`; review histórico rejeitado → `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md` em `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`.
+- **Uncommitted changes:** scripts, documentação de transição/materialização, testes de regressão, plan/initiative/index e dispatch log normalizado compõem o checkpoint atual.
 
 ## Self-review against code-quality gates
 
-- **G1 read-before-claim:** aplicado — T-001..T-005 possuem `outputs[]` e cada fechamento registra a execução do verifier em `tasks[].evidence`.
-- **G2 soft-language:** aplicado — as claims de fechamento usam `evidence.passed: true`; `nextAction` e o handoff foram varridos sem linguagem especulativa.
-- **G6 reference-or-strike:** aplicado — o handoff preserva literalmente `cbffd20`, o comando do verifier, as contagens e os paths alterados.
-- **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a correção de review.
-- **Codex review:** dois passes em `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; verdict `reject`, 0B/1C/5M/0m/0n; F-003 aplicado e verificado em `4d80308`; relatório `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md`.
-- **Review gate (G2):** registrado no descriptor F0 como `status: passed`, `mode: codex`, `at: 66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`; os cinco major permanecem documentados como follow-up.
+- **G1 read-before-claim:** aplicado — os verifiers F0-G1 e F0-G2 foram lidos após execução fresca e suas contagens foram persistidas em plan e initiative.
+- **G2 soft-language:** aplicado — as claims de fechamento usam `evidence.passed: true`; `nextAction` e o handoff descrevem o review pendente sem linguagem especulativa.
+- **G3 mutation accountability:** aplicado — cada mudança comportamental possui regressão que falhou antes do reparo e passou depois dele, incluindo stale candidate, claims/lock/recovery, PID reuse e locale/fuso, writes concorrentes em publish/complete/rollback, metadados de task, foco serial, review stale/omitido, colisão de índice e ordem híbrida/union do dispatch log.
+- **G4 fixture fidelity:** aplicado — os testes exercitam plan/initiative, marker, candidates, lock e índice com fixtures estruturais representativas dos artefatos reais.
+- **G5 RED evidence:** aplicado — os REDs observados falharam nos contratos-alvo antes das mudanças de produção e os mesmos testes passaram no conjunto integrado.
+- **G6 reference-or-strike:** aplicado — o handoff preserva literalmente o HEAD base, o review histórico e as contagens/durações dos gates reexecutados.
+- **G7 abstraction restraint:** aplicado — as correções reutilizam os parsers, transações e helpers existentes; o helper de sincronização do índice permanece privado.
+- **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a remediação.
+- **Codex review:** o review histórico em `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a` permanece `reject`; seus findings aceitos foram remediados, mas o checkpoint atual ainda não foi revisado em HEAD limpo.
+- **Review gate (G2):** aberto — nenhum `reviewGate` está registrado no descriptor F0 até um review fresco e aprovado sobre o HEAD limpo do checkpoint.
 - **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.

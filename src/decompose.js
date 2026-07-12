@@ -780,6 +780,8 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
   const tasks = init.tasks.map((t) => ({
     id: t.id,
     title: t.title || `Task ${t.id}`,
+    ...(typeof t.summary === 'string' && t.summary.trim() !== '' ? { summary: t.summary } : {}),
+    ...(Number.isFinite(t.weight) ? { weight: t.weight } : {}),
     ...(t.description ? { description: t.description } : {}),
     status: 'pending',
     lastUpdated: iso,
@@ -807,7 +809,9 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
     branch: branch || null,
     started: iso,
     lastUpdated: iso,
-    nextAction: tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null,
+    nextAction: typeof init.nextAction === 'string' && init.nextAction.trim() !== ''
+      ? init.nextAction
+      : (tasks[0] ? `Start ${tasks[0].id}: ${tasks[0].title}` : null),
     parentPlan: planSlug,
     phaseId: init.phaseId,
     ...(businessIntent ? { businessIntent } : {}),

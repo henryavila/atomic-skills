@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseFrontmatter } from '../../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DETAIL = join(
@@ -64,6 +65,28 @@ test('T-009 descriptor update names the fields required by the detector and read
     'set `currentPhase` to the phase id;',
     'The detector runs',
   ]);
+});
+
+test('task guarantees and nextAction are frozen into candidates before transactional publication', () => {
+  const taskGate = doc.indexOf('**Task-level guarantees — author + gate');
+  const nextAction = doc.indexOf('set the initiative `nextAction`');
+  const expectedHash = doc.indexOf('expected plan hash');
+  const authority = doc.indexOf('invoke the single materialization authority');
+
+  assert.notEqual(taskGate, -1, 'task guarantee step must exist');
+  assert.notEqual(nextAction, -1, 'nextAction authoring step must exist');
+  assert.notEqual(expectedHash, -1, 'stale-candidate precondition must be documented');
+  assert.notEqual(authority, -1, 'transaction authority invocation must exist');
+  assert.ok(taskGate < authority, 'task summaries/weights/signals must be in the candidate');
+  assert.ok(nextAction < authority, 'nextAction must be in the candidate');
+  assert.ok(expectedHash < authority, 'expected plan hash must be captured before publication');
+
+  const command = doc.split('\n').find((line) => line.includes('/scripts/materialize-state.js')) ?? '';
+  assert.match(command, /--expected-plan-hash <sha256-of-live-plan>/);
+
+  const postPublish = doc.slice(authority, doc.indexOf('## Failure Handling'));
+  assert.doesNotMatch(postPublish, /write them onto the initiative/);
+  assert.doesNotMatch(postPublish, /Then set the initiative `nextAction`/);
 });
 
 test('T-009 detector command uses package-root resolution and scopes to the active plan file', () => {
@@ -130,4 +153,25 @@ test('new-phase cannot create a materialized initiative without businessIntent',
     assert.ok(idx > last, `token out of order: ${token}`);
     last = idx;
   }
+});
+
+test('F0 T-005 acceptance records the verified routing seam, not an unexecuted phase transition', () => {
+  const initiativePath = join(
+    __dirname,
+    '..',
+    '..',
+    '.atomic-skills',
+    'projects',
+    'atomic-skills',
+    'integrity-remediation',
+    'phases',
+    'f0-runtime-autocontido-e-setup-confiavel.md',
+  );
+  const parsed = parseFrontmatter(readFileSync(initiativePath, 'utf8'));
+  assert.equal(parsed.error, undefined);
+  const task = parsed.frontmatter.tasks.find((candidate) => candidate.id === 'T-005');
+  assert.ok(task, 'T-005 must exist');
+  const acceptance = task.acceptance.join('\n');
+  assert.match(acceptance, /caminho descriptor-only que materializará F4/);
+  assert.doesNotMatch(acceptance, /a transição F0→F4 usa/);
 });

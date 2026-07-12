@@ -100,39 +100,146 @@ export function computePhaseActuals(since, { cwd = process.cwd(), sinceCommit } 
   }
 }
 
+function parseJsonAt(text, source, firstLine) {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const relativeLine = Number(error.message.match(/\bline\s+(\d+)\b/i)?.[1] || 1);
+    const line = firstLine + relativeLine - 1;
+    throw new SyntaxError(`${source}:${line}: invalid JSON: ${error.message}`);
+  }
+}
+
+function appendParsedRecords(records, value, source, line) {
+  const values = Array.isArray(value) ? value : [value];
+  for (const record of values) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      throw new TypeError(`${source}:${line}: dispatch record must be a JSON object`);
+    }
+    if (![record.taskId, record.plan, record.phase]
+      .every((field) => typeof field === 'string' && field.trim() !== '')) {
+      throw new TypeError(
+        `${source}:${line}: dispatch record requires non-empty taskId, plan, and phase`,
+      );
+    }
+    records.push(record);
+  }
+}
+
+function dispatchRecordTime(record) {
+  const finished = Date.parse(record.finishedAt);
+  if (Number.isFinite(finished)) return finished;
+  const started = Date.parse(record.startedAt);
+  return Number.isFinite(started) ? started : Number.NEGATIVE_INFINITY;
+}
+
+function newestDispatchRecord(records) {
+  return records.reduce((latest, candidate) => {
+    const latestTime = dispatchRecordTime(latest);
+    const candidateTime = dispatchRecordTime(candidate);
+    if (candidateTime !== latestTime) return candidateTime > latestTime ? candidate : latest;
+    const latestHasFinished = Number.isFinite(Date.parse(latest.finishedAt));
+    const candidateHasFinished = Number.isFinite(Date.parse(candidate.finishedAt));
+    if (candidateHasFinished !== latestHasFinished) {
+      return candidateHasFinished ? candidate : latest;
+    }
+    const latestAttempt = Number.isFinite(latest.attempt) ? latest.attempt : Number.NEGATIVE_INFINITY;
+    const candidateAttempt = Number.isFinite(candidate.attempt)
+      ? candidate.attempt
+      : Number.NEGATIVE_INFINITY;
+    if (candidateAttempt !== latestAttempt) {
+      return candidateAttempt > latestAttempt ? candidate : latest;
+    }
+    const latestEscalations = Number.isFinite(latest.escalationCount)
+      ? latest.escalationCount
+      : Number.NEGATIVE_INFINITY;
+    const candidateEscalations = Number.isFinite(candidate.escalationCount)
+      ? candidate.escalationCount
+      : Number.NEGATIVE_INFINITY;
+    if (candidateEscalations !== latestEscalations) {
+      return candidateEscalations > latestEscalations ? candidate : latest;
+    }
+    const latestStarted = Date.parse(latest.startedAt);
+    const candidateStarted = Date.parse(candidate.startedAt);
+    const latestStartedTime = Number.isFinite(latestStarted)
+      ? latestStarted
+      : Number.NEGATIVE_INFINITY;
+    const candidateStartedTime = Number.isFinite(candidateStarted)
+      ? candidateStarted
+      : Number.NEGATIVE_INFINITY;
+    if (candidateStartedTime !== latestStartedTime) {
+      return candidateStartedTime > latestStartedTime ? candidate : latest;
+    }
+    return candidate;
+  });
+}
+
+/**
+ * Parse the canonical one-object-per-line NDJSON dispatch ledger. During the
+ * repository migration this also accepts the historical pretty-printed JSON
+ * array, including the observed hybrid shape (NDJSON + array + NDJSON), without
+ * dropping or reordering records. A malformed non-empty line fails closed and
+ * identifies its one-based physical line number.
+ */
+export function parseDispatchLog(raw, { source = 'dispatch-log.json' } = {}) {
+  if (typeof raw !== 'string') throw new TypeError('parseDispatchLog: raw must be a string');
+  const lines = raw.split(/\r?\n/);
+  const records = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const text = lines[index].trim();
+    if (!text) continue;
+    const line = index + 1;
+
+    if (text === '[') {
+      let end = index + 1;
+      while (end < lines.length && lines[end].trim() !== ']') end += 1;
+      if (end >= lines.length) {
+        throw new SyntaxError(`${source}:${line}: invalid JSON: unterminated legacy array`);
+      }
+      const value = parseJsonAt(lines.slice(index, end + 1).join('\n'), source, line);
+      if (!Array.isArray(value)) {
+        throw new TypeError(`${source}:${line}: legacy dispatch log must be a JSON array`);
+      }
+      appendParsedRecords(records, value, source, line);
+      index = end;
+      continue;
+    }
+
+    appendParsedRecords(records, parseJsonAt(text, source, line), source, line);
+  }
+
+  return records;
+}
+
 /**
  * Read the Mode-2 dispatch telemetry sidecar and derive this task's execution
- * actuals { attempts, durationMs, escalations }. Reads
- * <root>/.atomic-skills/status/dispatch-log.json (a flat JSON array).
+ * actuals { attempts, durationMs, escalations }. Reads canonical NDJSON and the
+ * legacy array/hybrid forms accepted by `parseDispatchLog`.
  * Returns the actuals object built from ONLY the finite fields it can derive, or
- * `undefined` when the file is absent/unparseable or no record matches
- * (plan+phase+taskId). NEVER throws (graceful — Mode-1 runs have no
- * dispatch-log and that is not an error).
+ * `undefined` when the file is absent or no record matches (plan+phase+taskId).
+ * Malformed present input throws with its physical line; missing Mode-1 telemetry
+ * remains graceful and is not an error.
  */
 export function readDispatchActuals(root, { planSlug, phaseId, taskId } = {}) {
   if (!hasText(taskId)) return undefined;
-  try {
-    const path = join(resolve(root), '.atomic-skills', 'status', 'dispatch-log.json');
-    if (!existsSync(path)) return undefined;
-    const log = JSON.parse(readFileSync(path, 'utf8'));
-    if (!Array.isArray(log)) return undefined;
-    const matching = log.filter((r) => (
-      r && r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
-    ));
-    if (matching.length === 0) return undefined;
-    const rec = matching[matching.length - 1];
-    const out = {};
-    if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
-    if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
-    const a = Date.parse(rec.startedAt);
-    const b = Date.parse(rec.finishedAt);
-    if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
-      out.durationMs = b - a;
-    }
-    return Object.keys(out).length === 0 ? undefined : out;
-  } catch {
-    return undefined;
+  const path = join(resolve(root), '.atomic-skills', 'status', 'dispatch-log.json');
+  if (!existsSync(path)) return undefined;
+  const log = parseDispatchLog(readFileSync(path, 'utf8'), { source: path });
+  const matching = log.filter((r) => (
+    r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
+  ));
+  if (matching.length === 0) return undefined;
+  const rec = newestDispatchRecord(matching);
+  const out = {};
+  if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
+  if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
+  const a = Date.parse(rec.startedAt);
+  const b = Date.parse(rec.finishedAt);
+  if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
+    out.durationMs = b - a;
   }
+  return Object.keys(out).length === 0 ? undefined : out;
 }
 
 /**

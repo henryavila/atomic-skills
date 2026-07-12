@@ -6,6 +6,9 @@ import {
   LIFECYCLE_ORDER_EXCEPTIONS,
 } from '../scripts/lifecycle-order-guard.js';
 
+const CURRENT_REVIEW_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const STALE_REVIEW_SHA = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
 function deepFreeze(value) {
   if (value == null || typeof value !== 'object') return value;
   for (const nested of Object.values(value)) deepFreeze(nested);
@@ -177,6 +180,94 @@ test('blocks phase-done until reviewGate is recorded', () => {
   assert.match(result.recommendedCommand, /review-code/);
 });
 
+test('does not let requireReview:false bypass the auditable skipped review gate', () => {
+  const result = classifyLifecycleOrder({
+    command: 'phase-done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'G-1', status: 'met' }],
+    requireReview: false,
+    worktreeDirty: false,
+  });
+
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'phase-done-review-open');
+  assert.match(result.recommendedCommand, /review-code/);
+});
+
+test('fails closed when the caller omits the worktree state after review', () => {
+  const result = classifyLifecycleOrder({
+    command: 'phase-done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'G-1', status: 'met' }],
+    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    currentHead: CURRENT_REVIEW_SHA,
+  });
+
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'phase-done-worktree-state-missing');
+  assert.match(result.reason, /worktreeDirty/i);
+});
+
+test('fails closed when a passed review has no current HEAD to compare', () => {
+  const result = classifyLifecycleOrder({
+    command: 'phase-done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'G-1', status: 'met' }],
+    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    worktreeDirty: false,
+  });
+
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'phase-done-review-head-missing');
+  assert.match(result.reason, /currentHead/i);
+});
+
+test('blocks phase-done when the recorded review SHA is stale', () => {
+  const result = classifyLifecycleOrder({
+    command: 'phase-done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'G-1', status: 'met' }],
+    reviewGate: { status: 'passed', at: STALE_REVIEW_SHA },
+    currentHead: CURRENT_REVIEW_SHA,
+    worktreeDirty: false,
+  });
+
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'phase-done-review-stale');
+  assert.match(result.reason, /review SHA.*current HEAD/i);
+  assert.match(result.recommendedCommand, /review-code/);
+});
+
+test('blocks phase-done when the worktree is dirty after a matching review', () => {
+  const result = classifyLifecycleOrder({
+    command: 'phase-done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'G-1', status: 'met' }],
+    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    currentHead: CURRENT_REVIEW_SHA,
+    worktreeDirty: true,
+  });
+
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'phase-done-worktree-dirty');
+  assert.match(result.reason, /dirty worktree/i);
+  assert.match(result.recommendedCommand, /commit or stash/i);
+});
+
+test('allows phase-done when the review SHA matches HEAD and the worktree is clean', () => {
+  const result = classifyLifecycleOrder({
+    command: 'phase-done',
+    tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{ id: 'G-1', status: 'met' }],
+    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    currentHead: CURRENT_REVIEW_SHA,
+    worktreeDirty: false,
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.blocked, false);
+});
+
 test('allows phase-done when tasks, gates, and review gate are closed', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
@@ -186,6 +277,7 @@ test('allows phase-done when tasks, gates, and review gate are closed', () => {
       { id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' },
     ],
     reviewGate: { status: 'skipped', reason: 'user requested --skip-review' },
+    worktreeDirty: false,
   });
 
   assert.equal(result.allowed, true);

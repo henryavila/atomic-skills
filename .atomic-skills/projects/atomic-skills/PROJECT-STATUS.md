@@ -1,5 +1,5 @@
 ---
-lastUpdated: 2026-07-11T18:10:30Z
+lastUpdated: 2026-07-12T17:08:37Z
 schemaVersion: "0.1"
 activePlans: 1
 activeInitiatives: 1
@@ -26,7 +26,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Initiative | Phase | Status | Tasks | Gates |
 |------------|-------|--------|-------|-------|
-| integrity-remediation-f0-runtime-autocontido-e-setup-confiavel | F0 | active | 0/5 | 0/2 |
+| integrity-remediation-f0-runtime-autocontido-e-setup-confiavel | F0 | active | 5/5 | 2/2 |
 
 
 ## Done Plans (not archived)

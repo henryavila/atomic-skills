@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T10:22:40Z
+lastUpdated: 2026-07-12T17:08:37Z
 branch: plan/integrity-remediation
 currentPhase: F0
 parallelismAllowed: false
@@ -81,7 +81,7 @@ phases:
             do tarball ou fault injection deixa descriptor F4 e initiative
             divergentes.
           status: met
-          metAt: 2026-07-12T12:38:24Z
+          metAt: 2026-07-12T17:08:37Z
           verifier:
             kind: shell
             command: node --test tests/consumer-runtime-resolution.test.js
@@ -92,17 +92,19 @@ phases:
             expectExitCode: 0
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-12T12:38:24Z
+            verifiedAt: 2026-07-12T17:08:37Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test: 32 tests, 5 suites, 32 pass, 0 fail, 0
-              skipped; duration_ms 15764.135083; exit 0; includes F-003 symlink
-              confinement regressions"
+            outputSummary: "node --test: 54 tests, 5 suites, 54 pass, 0 fail, 0
+              skipped; duration_ms 43472.904; exit 0; bakery lock claims,
+              canonical process identity, stale candidate, publish/rollback
+              rechecks, recovery, serial focus, task metadata, businessIntent
+              and mode regressions included"
         - id: F0-G2
           description: Project-scope install não mascara ausência de setup canônico. FAILS
             when a pasta do ledger basta para pular setup.
           status: met
-          metAt: 2026-07-12T12:38:24Z
+          metAt: 2026-07-12T17:08:37Z
           verifier:
             kind: shell
             command: node --test tests/project.test.js
@@ -110,17 +112,11 @@ phases:
             expectExitCode: 0
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-12T12:38:24Z
+            verifiedAt: 2026-07-12T17:08:37Z
             passed: true
             exitCode: 0
             outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0
-              skipped; duration_ms 6293.49875; exit 0"
-    reviewGate:
-      status: passed
-      at: 66c4bba064402c8cb3c6d5a0e1cdf99c845d245a
-      mode: codex
-      reviewFile: .atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md
-      verifiedAt: 2026-07-12T12:38:24Z
+              skipped; duration_ms 20675.814625; exit 0"
     status: active
     businessIntent:
       value: Eliminar dependências do checkout fonte e impedir que o ledger do

@@ -40,8 +40,10 @@ The command's load-bearing order is fixed:
 3. Collect the user-written `businessIntent` spine.
 4. Reuse `decomposeOnePhase(phaseSource, ctx)` when raw phase body is present;
    otherwise reuse the parsed F2 sidecar capture.
-5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
-6. Write the initiative with `businessIntent` and update the parent plan
+5. Author and ratify every task's `summary`, `weight`, completion signal, and the
+   initiative `nextAction`. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
+6. Capture the live plan bytes and their expected plan hash.
+   Write the initiative with `businessIntent` and update the parent plan
    descriptor atomically. Route that paired publication through
    `scripts/materialize-state.js` (initiative rename first, plan rename last).
 7. Run `scripts/find-missing-business-intent.js`.
@@ -115,11 +117,24 @@ Reject the block when any required field is blank or still contains
    raw `bodyLines`. For the F2 `captureVersion: "0.1"` shape, the sidecar is
    already the parsed per-phase initiative: reuse its `goal`, `tasks`, and
    `exitGates` directly.
-3. Call `writeInitiativeFile(initiative, planSlug, ctx)` with `active: true`,
+3. **Task-level guarantees — author + gate (C-2, B1#1, mirrors `new plan`).**
+   Materializing a phase creates its tasks, so every task must carry a `summary`,
+   a `weight`, and a completion signal (`verifier` or `outputs[].path`). DRAFT the
+   task fields from the sidecar, present them for one ratify/edit, and put the
+   ratified values on the in-memory initiative object. Then set the initiative `nextAction`
+   to the ONE concrete first step — `Run \`done <first-task-id>\`
+   after <its first move>` — before rendering either candidate. Cancellation at
+   this gate writes nothing.
+4. Read the live parent plan bytes once and compute their SHA-256 as the expected
+   plan hash. Build both candidates only from that captured plan version. The
+   cross-platform hash command is:
+   `{{BASH_TOOL}} node -e "const {createHash}=require('node:crypto');const {readFileSync}=require('node:fs');process.stdout.write(createHash('sha256').update(readFileSync(process.argv[1])).digest('hex'))" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   Keep the returned hash for the authority call; a changed live plan must abort
+   without a marker or live write.
+5. Call `writeInitiativeFile(initiative, planSlug, ctx)` with `active: true`,
    the active plan branch, the resolved `projectId`, and the same timestamp used
-   for the descriptor update.
-4. Build the initiative file content and the parent plan descriptor update in
-   memory before publishing either one. Parse the returned initiative frontmatter
+   for the descriptor update. Build the initiative file content and the parent
+   plan descriptor update in memory before publishing either one. Parse the returned initiative frontmatter
    and add `businessIntent` to the initiative frontmatter with the exact
    user-ratified spine before rendering the file content. Also stamp
    `startedCommit` on the initiative frontmatter with the current git HEAD
@@ -129,39 +144,41 @@ Reject the block when any required field is blank or still contains
    not a git repo (legacy phases degrade to the date heuristic). The write target
    must be the resolved phase path only; never write outside the active plan's
    state directory.
-5. Update the parent plan descriptor for the phase in the same mutation:
+6. Update the parent plan descriptor for the phase in the same mutation:
    - set `businessIntent` on the parent plan descriptor;
    - set `subPhaseCount` to `initiative.tasks.length`;
    - set the descriptor `status` to `active`;
    - set `currentPhase` to the phase id;
    - refresh `lastUpdated`.
-6. Put the two candidate byte streams in non-live temporary input files, then
+7. Put the two candidate byte streams in non-live temporary input files, then
    invoke the single materialization authority through the installed package
    root (one command, no sequential live writes):
-   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js" --root . --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-candidate <temporary-plan-candidate> --initiative-candidate <temporary-initiative-candidate> --tx-id <unique-tx-id>`.
+   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js" --root . --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-candidate <temporary-plan-candidate> --initiative-candidate <temporary-initiative-candidate> --expected-plan-hash <sha256-of-live-plan> --tx-id <unique-tx-id>`.
    The script copies both candidates into same-filesystem staging, validates the
    staged pair before any live mutation, persists and fsyncs its immutable
    recovery marker, then renames the initiative first and the plan last. A
    retry invokes the same command shape; marker recovery runs before the
    existing-initiative guard. The detector runs after the command returns
    because it checks the descriptor and materialized initiative together.
-7. Run the detector with `{{BASH_TOOL}}`:
+8. Run the detectors with `{{BASH_TOOL}}`. They are verification-only after
+   publication; no task field or `nextAction` is written here:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
    Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
    A tree root (`.atomic-skills` or repo root) is reserved for explicit audits that
    intentionally scan every materialized phase.
    Exit code `0` is required. Any non-zero exit leaves the initiative and plan
    edits open for repair; do not report the phase as active.
-8. Run schema validation with `{{BASH_TOOL}}`:
+   Then run the tree-scoped task detectors from the repo root. The just-materialized
+   `<resolved-phase-file>` must not appear in their output; unrelated legacy debt
+   remains a separate backfill:
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`;
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"`;
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` (soft nudge only; record why a task is genuinely unverifiable).
+9. Run schema validation with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md`.
    Pass the newly written initiative file explicitly; do not pass the `phases/`
    directory because the validator treats arbitrary directories as discovery
    roots and can skip a bare phase directory.
-9. **Task-level guarantees — author + gate (C-2, B1#1, mirrors `new plan`).** Materializing a phase creates its tasks, so — exactly like the F0 eager path (`project-create-plan.md` → "Summaries & level hygiene") — every materialized task must carry a `summary`, a `weight`, and a completion `signal` (`verifier` or `outputs[].path`). Do NOT leave these to a later accidental backfill: DRAFT each task `summary` (+ `weight`) from the sidecar goal/tasks, present for one ratify/edit, and write them onto the initiative. Then verify with the tree-scoped detectors (`{{BASH_TOOL}}`, run at the repo root — they scan `projects/*/*/phases/*.md`, NOT a single file; passing one phase path returns a vacuous green). The **just-materialized `<resolved-phase-file>` must NOT appear** in their output (unrelated pre-existing debt in other plans is a separate backfill, not a blocker for this phase):
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` — this phase absent from the offender list.
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"` — this phase absent.
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` — soft nudge only (some tasks are genuinely unverifiable; record the reason rather than forcing a fake signal).
-   Then set the initiative `nextAction` (C-5) to the ONE concrete first step — `Run \`done <first-task-id>\` after <its first move>` (G2: a verified imperative, one step) — so a cold session resuming right after materialization reads an accurate pointer, not the template seed.
 10. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
 
 ## Failure Handling
