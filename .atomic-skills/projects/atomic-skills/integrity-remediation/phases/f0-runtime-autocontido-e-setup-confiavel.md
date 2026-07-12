@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-11T23:06:02Z
-nextAction: Inicie a T-003 escrevendo os testes vermelhos em
-  tests/project.test.js e tests/install-uninstall-roundtrip.test.js.
+lastUpdated: 2026-07-12T00:43:00Z
+nextAction: Inicie a T-004 escrevendo o teste vermelho em
+  tests/consumer-install-e2e.test.js.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -31,11 +31,11 @@ businessIntent:
   doneWhen: O manifesto canônico prova todos os findings formais e adicionais;
     black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
     Node 24.11.x ou superior, full suite, docs e skill validation passam.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 5
 gatesMet: 0
 gatesTotal: 2
-weightDone: 9
+weightDone: 11
 weightTotal: 19
 exitGates:
   - id: F0-G1
@@ -191,8 +191,9 @@ tasks:
     description: "Detectar setup por config e índice/projeto válidos, nunca pela
       mera existência de `.atomic-skills/` criada pelo manifest ou hook.
       verified_by: `docs/audits/installer-audit-2026-07-10.md:128-161`."
-    status: pending
-    lastUpdated: 2026-07-10T20:07:37.544Z
+    status: done
+    lastUpdated: 2026-07-12T00:43:00Z
+    closedAt: 2026-07-12T00:43:00Z
     scopeBoundary:
       - não apagar manifests legados e não tratar diretório vazio ou ledger
         isolado como projeto configurado
@@ -204,6 +205,13 @@ tasks:
       command: node --test tests/project.test.js
         tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-12T00:43:00Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0
+        skipped; duration_ms 4878.142458; commit ac6c3af"
     outputs:
       - kind: file
         path: skills/core/project.md
