@@ -1,4 +1,7 @@
-Single entry-point for tracking Plan / Initiative / Task state in `.atomic-skills/`. Git-style subcommand grammar with **lazy detail**: this router holds only the dispatch table, the no-args summary, and the always-resident invariants. Each subcommand's full procedure lives in a detail file under `{{ASSETS_PATH}}/` and is read on demand.
+Single entry-point for Plan / Initiative / Task state in `.atomic-skills/`, with
+Git-style subcommands and **lazy detail**. This router keeps dispatch, the no-args
+summary, and always-resident invariants; full procedures live under
+`{{ASSETS_PATH}}/` and are read on demand.
 
 This skill implements a 3-level model that matches `@henryavila/aideck`. State lives under **`.atomic-skills/projects/<project-id>/`** — the **Project** is a real top level whose folder name IS the `<project-id>` (enumerate `projects/*/` to list them; a folder counts as a project only once it holds ≥1 `<plan-slug>/plan.md`):
 
@@ -48,7 +51,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `help`, `help --html`, `next` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-help.md` |
 | `verify`, `verify --fix` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-verify.md` |
 | `review`, `review <slug>`, `review --with-code`, `review --mode=` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-review.md` |
-| first-time setup (`.atomic-skills/` absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
+| first-time setup (project setup sentinel absent) | `{{READ_TOOL}} {{ASSETS_PATH}}/project-setup.md` |
 | `new plan <slug>`, `adopt <file.md>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-plan.md` |
 | `new initiative <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-create-initiative.md` |
 | `discover` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-discover.md` |
@@ -66,12 +69,29 @@ Lazy-load is NOT optional. For any subcommand above: **STOP. `{{READ_TOOL}}` the
 
 ## Initial detection (run on every invocation)
 
-Run with {{BASH_TOOL}}:
-- `test -d .atomic-skills/` — if absent, enter **setup mode** (read `{{ASSETS_PATH}}/project-setup.md`).
-- If present, locate the project index. Prefer the **nested** layout — enumerate `.atomic-skills/projects/*/` and read each project's `PROJECT-STATUS.md` (a folder is a project once it holds ≥1 `<plan-slug>/plan.md`); fall back to a top-level `.atomic-skills/PROJECT-STATUS.md` on an un-migrated (flat) tree. Then:
-  - Determine the **active Plan** (if any) and its `currentPhase` — its file is `projects/<project-id>/<plan-slug>/plan.md` (nested) or `plans/<slug>.md` (legacy flat).
-  - Determine the **active Initiative** — a phase of the active plan at `projects/<project-id>/<plan-slug>/phases/f<N>-*.md`, or a standalone unit (its own degenerate 1-phase plan); legacy fallback `initiatives/<slug>.md`.
-  - If the current branch matches no active initiative → run the disambiguation flow (in `project-view.md`).
+With {{BASH_TOOL}}, run the **Project setup sentinel**; directory presence is
+never authoritative:
+
+- **Configured:** read `.atomic-skills/PROJECT-STATUS.md` and require
+  `schemaVersion` plus `# Project Status Index`, OR at least one nested
+  `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md` passes
+  `validate-state`. Continue with normal resolution only after one branch passes.
+- **Legacy coexistence:** scan flat `.atomic-skills/plans/*.md` and
+  `.atomic-skills/initiatives/*.md` independently, even when a configured
+  sentinel also exists. Do not run fresh setup over it when legacy-only; do not
+  delete or overwrite it. Read `{{ASSETS_PATH}}/project-migrate.md` and enter its
+  diagnostic/migration flow.
+- **Setup required:** absent/malformed state or a `.atomic-skills/` that already
+  exists or is empty. Enter **setup mode** via
+  `{{ASSETS_PATH}}/project-setup.md`, preserving malformed artifacts for its
+  repair diff. `.atomic-skills/manifest.json` is installer ledger metadata and
+  `.atomic-skills/hooks/version-check.sh` is installer runtime; they never count
+  as its sentinel.
+
+Configured state prefers nested
+`projects/<project-id>/<plan-slug>/{plan.md,phases/f<N>-*.md}`; otherwise use the
+top index with flat `plans/*.md`/`initiatives/*.md`. Resolve plan/phase, then
+branch; no match runs `project-view.md` disambiguation.
 
 ## No-args — compact summary (cheap; does NOT open the browser)
 
@@ -89,7 +109,9 @@ DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; o
 
 Print `IDEAS` only when N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` (single project → its ideas.md; otherwise sum `projects/*/ideas.md`; fail-open). Print `DRIFT` only when `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` reports `drift: true` (pure-read, fail-open). Neither mutates; `reconcile` is the only completion-mutation path.
 
-If `.atomic-skills/` is absent: print one line — `No .atomic-skills/ yet — run \`/atomic-skills:project\` and I'll set it up.` — then enter setup mode.
+On **setup required**, print `No project lifecycle state yet — run
+\`/atomic-skills:project\` and I'll set it up.` and enter setup mode (including a
+ledger-only tree).
 
 ---
 

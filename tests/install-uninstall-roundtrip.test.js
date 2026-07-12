@@ -272,6 +272,73 @@ describe('install→uninstall round-trip', () => {
     }
   });
 
+  it('project-scope install leaves a ledger-only tree that the installed router sends to setup', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      await withHome(fakeHome, async () => {
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+
+        const stateRoot = join(repo, '.atomic-skills');
+        assert.ok(existsSync(join(stateRoot, 'manifest.json')), 'installer ledger exists');
+        assert.ok(existsSync(join(stateRoot, 'hooks', 'version-check.sh')), 'installer hook exists');
+        assert.equal(existsSync(join(stateRoot, 'PROJECT-STATUS.md')), false);
+        assert.equal(existsSync(join(stateRoot, 'projects')), false);
+
+        const router = readFileSync(
+          join(repo, '.claude', 'commands', 'atomic-skills', 'project.md'),
+          'utf8',
+        );
+        const initialDetection = router.slice(
+          router.indexOf('## Initial detection'),
+          router.indexOf('## No-args'),
+        );
+        assert.doesNotMatch(initialDetection, /test -d \.atomic-skills\//);
+        assert.match(initialDetection, /manifest\.json.*(?:ledger|installer)/is);
+        assert.match(initialDetection, /PROJECT-STATUS\.md/);
+        assert.match(initialDetection, /projects\/.+plan\.md/s);
+        assert.match(initialDetection, /setup\s+mode/i);
+
+        await uninstall(repo, { scope: 'project', yes: true });
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('project install→uninstall preserves canonical and legacy lifecycle state byte-for-byte', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const repo = mkdtempSync(join(tmpdir(), 'as-rt-repo-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      const stateRoot = join(repo, '.atomic-skills');
+      mkdirSync(join(stateRoot, 'plans'), { recursive: true });
+      mkdirSync(join(stateRoot, 'initiatives'), { recursive: true });
+      writeFileSync(
+        join(stateRoot, 'PROJECT-STATUS.md'),
+        "---\nschemaVersion: '0.1'\n---\n\n# Project Status Index\n",
+      );
+      writeFileSync(join(stateRoot, 'plans', 'legacy.md'), 'legacy plan bytes\n');
+      writeFileSync(join(stateRoot, 'initiatives', 'legacy.md'), 'legacy initiative bytes\n');
+      const before = snapshotTree(repo);
+
+      await withHome(fakeHome, async () => {
+        await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
+        await uninstall(repo, { scope: 'project', yes: true });
+      });
+
+      const { added, removed, modified } = diffTree(before, snapshotTree(repo));
+      assert.deepEqual(added, [], `installer residue: ${added.join(', ')}`);
+      assert.deepEqual(removed, [], `lifecycle state deleted: ${removed.join(', ')}`);
+      assert.deepEqual(modified, [], `lifecycle state modified: ${modified.join(', ')}`);
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   // ─── Adversarial data-safety matrix (F1 T-004) ───
   // These three fixtures lock in the data-safety contract the installer MUST
   // satisfy — proving the round-trip is not just "clean install/uninstall" but

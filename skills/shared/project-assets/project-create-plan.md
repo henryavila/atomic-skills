@@ -17,7 +17,11 @@ If the user pushes back ("just create empty plan"), produce a `## TODO` skeleton
 
 Run with {{BASH_TOOL}}:
 
-- `test -d .atomic-skills/` — if absent, run first-time setup (`{{ASSETS_PATH}}/project-setup.md`). Plan creation assumes the canonical tree exists.
+- Apply the resident **Project setup sentinel** from the router that loaded this
+  detail. **Configured** → continue; **Legacy coexistence** → stop creation and
+  read `{{ASSETS_PATH}}/project-migrate.md` for diagnosis/migration; **Setup
+  required** → run `{{ASSETS_PATH}}/project-setup.md` first. Directory,
+  manifest, or hook existence alone never skips this gate.
 - **Resolve `<project-id>`** (the nested top level): if exactly one `.atomic-skills/projects/*/` folder exists, use it; if several, ask which project the plan belongs to; if none, default to the repo's basename (`basename "$PWD"`) and create `.atomic-skills/projects/<project-id>/`. The plan materializes under that folder.
 - Pre-flight collision: `test -f .atomic-skills/projects/<project-id>/<slug>/plan.md` (legacy fallback `test -f .atomic-skills/plans/<slug>.md`) — abort early on collision before any work.
 
