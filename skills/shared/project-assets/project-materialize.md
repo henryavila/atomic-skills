@@ -26,7 +26,7 @@ active.
 - One initiative file for the target phase under the resolved `phases/`
   directory, written with the same frontmatter shape as `writeInitiativeFile`
   plus the ratified `businessIntent` spine.
-- The parent plan descriptor updated atomically for that phase:
+- The parent plan descriptor updated through the recoverable pair transaction for that phase:
   `businessIntent`, real `subPhaseCount`, `status`, and `currentPhase`.
 - A detector-backed gate result: `scripts/find-missing-business-intent.js` exits
   `0` before the command reports the phase as active.
@@ -42,7 +42,8 @@ The command's load-bearing order is fixed:
    otherwise reuse the parsed F2 sidecar capture.
 5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
 6. Write the initiative with `businessIntent` and update the parent plan
-   descriptor atomically.
+   descriptor atomically. Route that paired publication through
+   `scripts/materialize-state.js` (initiative rename first, plan rename last).
 7. Run `scripts/find-missing-business-intent.js`.
 8. Run `scripts/validate-state.js`.
 9. Run `scripts/refresh-state.js`.
@@ -64,8 +65,9 @@ The command's load-bearing order is fixed:
    active phase, stop and route through `phase-done`, `switch`, or `phase-reopen`
    so the transition demotes/archives the old phase before materializing the
    target.
-5. If the phase initiative file already exists, stop: the phase is already
-   materialized. Do not overwrite it from the sidecar.
+5. Do not perform an inline "initiative already exists" guard. The materialize
+   authority must recover any pending transaction marker before applying that
+   guard; without a marker, an existing initiative is a hard stop.
 6. Load the retained sidecar for the descriptor. Require
    `captureVersion: "0.1"` and require its `phaseId` to match the descriptor id.
    Treat malformed or missing sidecar data as a hard stop; do not re-parse the
@@ -117,7 +119,7 @@ Reject the block when any required field is blank or still contains
    the active plan branch, the resolved `projectId`, and the same timestamp used
    for the descriptor update.
 4. Build the initiative file content and the parent plan descriptor update in
-   memory before writing either one. Parse the returned initiative frontmatter
+   memory before publishing either one. Parse the returned initiative frontmatter
    and add `businessIntent` to the initiative frontmatter with the exact
    user-ratified spine before rendering the file content. Also stamp
    `startedCommit` on the initiative frontmatter with the current git HEAD
@@ -133,10 +135,16 @@ Reject the block when any required field is blank or still contains
    - set the descriptor `status` to `active`;
    - set `currentPhase` to the phase id;
    - refresh `lastUpdated`.
-6. Write the returned initiative file with `{{WRITE_TOOL}}` and write the parent
-   plan descriptor with the same ratified `businessIntent`. The detector runs
-   after both writes because it checks the descriptor and the materialized
-   initiative together.
+6. Put the two candidate byte streams in non-live temporary input files, then
+   invoke the single materialization authority through the installed package
+   root (one command, no sequential live writes):
+   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js" --root . --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-candidate <temporary-plan-candidate> --initiative-candidate <temporary-initiative-candidate> --tx-id <unique-tx-id>`.
+   The script copies both candidates into same-filesystem staging, validates the
+   staged pair before any live mutation, persists and fsyncs its immutable
+   recovery marker, then renames the initiative first and the plan last. A
+   retry invokes the same command shape; marker recovery runs before the
+   existing-initiative guard. The detector runs after the command returns
+   because it checks the descriptor and materialized initiative together.
 7. Run the detector with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
    Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
@@ -173,4 +181,6 @@ Reject the block when any required field is blank or still contains
 target next phase is descriptor-only. They pass the concrete phase id, then
 return to their own transition flow only after this procedure has produced a
 validated initiative and detector exit `0`. They do not duplicate the gate or
-write their own initiative file.
+write their own initiative file. This F0 authority covers only the
+descriptor-only-to-initiative publication inside `materialize`; reopen,
+switch, and close transaction hardening remains outside this primitive.
