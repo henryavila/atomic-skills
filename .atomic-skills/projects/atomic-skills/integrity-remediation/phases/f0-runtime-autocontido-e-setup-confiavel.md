@@ -424,7 +424,7 @@ _(plan doc, external refs)_
 - **T-006 decision:** O lock principal publica owner completo por temp→rename sob o guard; a autoridade rejeita IDs de fase duplicados; o índice usa temp durável, releitura e retry limitado; células Markdown rejeitam pipe/CR/LF e preservam `$` literal; o dispatch parser rastreia profundidade/string/escape; initiatives rejeitam peso finito negativo antes dos collision guards. A janela final check→rename do índice permanece a fronteira deferida de F-001/F4. Os findings cegos adicionais só entram na implementação após reconciliação informed válida.
 - **Single nextAction:** Reiniciar o envelope Codex blind+informed de `364ce8b` com briefing menor que 300 KB.
 - **Verbatim state:** checkpoint de código → `364ce8b20c055d8e9229d6f7a353f3f2e8f067d2`; checkpoint de estado → `4b9a022`; captura imutável → `/tmp/atomic-skills-364ce8b-review.diff`, `38413 bytes`, SHA-256 `09149811bbe7146b5309f2a23abe0e61fa9e71314f5df8067232c2512f13da30`; Pass 1 temporário → `/tmp/codex-output-pass1-20260714T105929Z.md`, `needs_changes`, `0B/0C/3M/1m`; Pass 2 → exit `1`, nenhum arquivo produzido em duas tentativas; verifier T-006 → `node --test tests/phase-materialization/materialize-bootstrap.test.js tests/refresh-state.test.js tests/append-completion-dispatchlog.test.js tests/decompose.test.js`, `152 pass`, `0 fail`.
-- **Uncommitted changes:** somente esta atualização de decisão/handoff antes do checkpoint de delegação.
+- **Uncommitted changes:** clean tree após o checkpoint de delegação.
 
 ## Self-review against code-quality gates
 
