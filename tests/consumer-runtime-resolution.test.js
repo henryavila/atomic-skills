@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { spawnSync } from 'node:child_process'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -214,7 +215,65 @@ describe('consumer resolves package entrypoints from the installed runtime root'
     assert.match(createPlan, /--started-commit/)
     assert.match(createPlan, /rev-parse HEAD/)
     assert.doesNotMatch(verify, /same 3-path way/)
-    assert.match(verify, /\$ROOT\/src\/normalize\.js/)
+    assert.doesNotMatch(verify, /\$ROOT\//)
+    assert.match(verify, /\$PKG_ROOT\/src\/normalize\.js/)
+    assert.match(verify, /\$PKG_ROOT\/scripts\/find-unreviewed-plans\.js/)
+  })
+
+  it('runs both rendered create-plan materialization recipes outside git without startedCommit', () => {
+    const createPlan = readFileSync(
+      join(PACKAGE_ROOT, 'skills', 'shared', 'project-assets', 'project-create-plan.md'),
+      'utf8'
+    )
+    const recipes = [...createPlan.matchAll(
+      /```bash\n[ \t]*(BUSINESS_INTENT_FILE="<exact-path-printed-above>"[\s\S]*?)\n[ \t]*```/g
+    )].map((match) => match[1])
+    assert.equal(recipes.length, 2, 'new-plan and adopt recipes must both be executable')
+
+    const source = join(consumer, 'source.md')
+    writeFileSync(source, [
+      '# Non-git Plan',
+      '',
+      '## F0 — Bootstrap',
+      '',
+      'Goal: preserve the timestamp fallback outside git.',
+      '',
+      '### T-001 Materialize',
+      '',
+    ].join('\n'))
+
+    recipes.forEach((template, index) => {
+      const slug = index === 0 ? 'non-git-new' : 'non-git-adopt'
+      const businessIntentFile = join(consumer, `${slug}-business-intent.json`)
+      writeFileSync(businessIntentFile, JSON.stringify({
+        value: 'Create canonical state without requiring a git checkout.',
+        workflow: 'Run the installed materializer from a plain consumer directory.',
+        rules: 'Omit the optional commit anchor when git cannot resolve HEAD.',
+        outOfScope: 'Persisting the returned pure-transform files.',
+        doneWhen: 'Both documented recipes return an initiative with no startedCommit.',
+      }))
+
+      const recipe = template
+        .replaceAll('<exact-path-printed-above>', businessIntentFile)
+        .replaceAll('<source.md>', source)
+        .replaceAll('<source-path>', source)
+        .replaceAll('<project-id>', 'consumer')
+        .replaceAll('<branch-or-null>', 'null')
+        .replaceAll('<slug>', slug)
+      const result = spawnSync('bash', ['-c', recipe], {
+        cwd: consumer,
+        env: { ...process.env, HOME: home, PKG_ROOT: PACKAGE_ROOT },
+        encoding: 'utf8',
+      })
+
+      assert.equal(result.status, 0, result.stderr)
+      assert.equal(existsSync(businessIntentFile), false, 'recipe must clean up its input file')
+      const files = JSON.parse(result.stdout)
+      const initiative = parseYaml(
+        files.find((file) => file.kind === 'initiative').content.split('---\n')[1]
+      )
+      assert.equal(initiative.startedCommit, undefined)
+    })
   })
 
   it('rejects missing arguments and invalid signal JSON with actionable errors', () => {

@@ -183,13 +183,17 @@ the guarded cleanup runs on both success and failure:
 
 ```bash
 BUSINESS_INTENT_FILE="<exact-path-printed-above>"
+STARTED_COMMIT_ARGS=()
+if STARTED_COMMIT="$(git rev-parse HEAD 2>/dev/null)"; then
+  STARTED_COMMIT_ARGS=(--started-commit "$STARTED_COMMIT")
+fi
 STATUS=0
 node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
   --source '<source.md>' \
   --slug '<slug>' \
   --project-id '<project-id>' \
   --branch 'plan/<slug>' \
-  --started-commit '<started-commit>' \
+  "${STARTED_COMMIT_ARGS[@]}" \
   --business-intent-file "$BUSINESS_INTENT_FILE" || STATUS=$?
 rm -f "$BUSINESS_INTENT_FILE"
 if [ "$STATUS" -ne 0 ]; then exit "$STATUS"; fi
@@ -458,13 +462,17 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
    ```bash
    BUSINESS_INTENT_FILE="<exact-path-printed-above>"
+   STARTED_COMMIT_ARGS=()
+   if STARTED_COMMIT="$(git rev-parse HEAD 2>/dev/null)"; then
+     STARTED_COMMIT_ARGS=(--started-commit "$STARTED_COMMIT")
+   fi
    STATUS=0
    node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
      --source '<source-path>' \
      --slug '<slug>' \
      --project-id '<project-id>' \
      --branch '<branch-or-null>' \
-     --started-commit '<started-commit>' \
+     "${STARTED_COMMIT_ARGS[@]}" \
      --business-intent-file "$BUSINESS_INTENT_FILE" || STATUS=$?
    rm -f "$BUSINESS_INTENT_FILE"
    if [ "$STATUS" -ne 0 ]; then exit "$STATUS"; fi
