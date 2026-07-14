@@ -162,6 +162,7 @@
     },
     "exitCriterion": {
       "type": "object",
+      "description": "Strict gate shape. It deliberately has no lastUpdated field; reconcile acknowledges a still-open criterion by advancing the containing initiative's lastUpdated detection anchor.",
       "additionalProperties": false,
       "required": ["id", "description", "status"],
       "properties": {

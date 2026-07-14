@@ -156,6 +156,36 @@ test('ExitCriterion accepts the optional evidence block (B.T-006)', () => {
   assert.equal(ok, true, `evidence block should validate: ${JSON.stringify(validators.validateInitiative.errors)}`);
 });
 
+test('ExitCriterion stays strict and rejects a reconcile-only lastUpdated field', () => {
+  const validators = buildValidators();
+  const initiative = {
+    schemaVersion: '0.1',
+    slug: 'strict-gate',
+    title: 'Strict gate',
+    goal: 'Preserve the criterion contract',
+    status: 'active',
+    started: '2026-05-19T10:00:00Z',
+    lastUpdated: '2026-05-19T18:42:00Z',
+    nextAction: null,
+    exitGates: [{
+      id: 'F0-G1',
+      description: 'Remain strict',
+      status: 'pending',
+      lastUpdated: '2026-05-19T18:42:00Z',
+    }],
+    stack: [],
+    tasks: [],
+    parked: [],
+    emerged: [],
+  };
+  assert.equal(validators.validateInitiative(initiative), false);
+  const errors = validators.validateInitiative.errors ?? [];
+  assert.ok(errors.some((error) => (
+    error.keyword === 'additionalProperties'
+    && error.params?.additionalProperty === 'lastUpdated'
+  )));
+});
+
 test('evidence block requires verifierKind + verifiedAt', () => {
   const validators = buildValidators();
   const badInitiative = {

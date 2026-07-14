@@ -145,7 +145,13 @@ task's own `verifier:`. Do NOT consume `verify-claim` output as task evidence.
 
 ## `reconcile`
 
-The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *detect & report* completion drift read-only; `reconcile` is where the user disposes of each candidate. Subject to the standard pre-mutation gates (migration check, reconciliation gate). It NEVER fabricates a close: the detection signal (a changed deliverable) and the close authority (a passing verifier *or* an explicit human ack) are kept separate.
+The **only** completion-drift disposition path (Spec 1, Component B).
+`detect-completion` remains pure read-only; `reconcile` is where the user
+disposes of each candidate, while `done` remains the only task closure
+authority. Subject to the standard pre-mutation gates (migration check,
+reconciliation gate). It NEVER fabricates a close: the detection signal (a
+changed deliverable), the acknowledgement anchor, and the close authority (a
+passing verifier or an explicit human ack routed through `done`) stay separate.
 
 1. Run the deterministic detector: `node "$PKG_ROOT/scripts/detect-completion.js" --json` (add `--project <id>` when more than one project holds the resolved plan-slug; `--slug`/`--plan` to widen within the project). It returns `candidates[]`, each carrying `kind` (`task`|`criterion`), `id`, the resolved `initiativePath` (the **safe write target** — never a bare slug), `evidence` (`output-exists`|`commit-ref`), `paths`/`commit`, and `hasVerifier` + `verifier`.
 2. If `drift` is false → announce "No completion drift — open entries carry no done-signal." and stop.
@@ -154,7 +160,13 @@ The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *
    - **`hasVerifier: true`** → options `Run verifier` / `Still open` / `Skip`. There is **no "mark done" shortcut** — the only close path is running the verifier (the **Verifier execution patterns** below), which writes GATE-R2 `evidence` and, on pass, sets the entry `done`/`met`. A failing verifier leaves it open. This is forced by GATE-R2: an entry with a `shell`/`test`/`query` verifier cannot reach `done`/`met` without `evidence.passed === true`.
    - **`hasVerifier: false`** → options `Mark done` / `Still open` / `Skip`. `Mark done` is the manual-acknowledgement path — for a **task**, run the `done <id>` flow (incl. auto-transition + rollup recompute); for a **criterion**, the "No verifier present → manual ack" path → set `status: met`, `metAt: <now>`, write `evidence` (`verifierKind: manual`, `passed: true`). GATE-R2 does NOT gate verifier-absent entries, so manual ack is valid here.
    - For every reconciled **task** that reaches `done` (verifier-backed or manual `Mark done`), emit exactly one `task-done` completion event through the `done <id>` flow's `appendCompletion` / `append-completion` instruction, carrying `projectId`, `planSlug`, `phaseId`, and `taskId` for that task. Criterion-only acknowledgements do not emit task completion events.
-   - **`Still open`** → bump the entry's `lastUpdated` to now (acknowledges; resets the signal clock so the same candidate doesn't re-surface immediately). No status change.
+   - **`Still open`** → use only a schema-supported detection anchor. For a
+     **task candidate**, bump that task's `lastUpdated` to now. For a
+     **criterion candidate**, bump the initiative's top-level `lastUpdated` to
+     now; the strict `ExitCriterion` shape intentionally does not support
+     `lastUpdated`. Either acknowledgement resets the signal clock used by
+     `detect-completion` so that candidate does not re-surface immediately.
+     Change no status, evidence, `metAt`, `closedAt`, event, or rollup here.
    - **`Skip`** → no change.
 4. After applying dispositions, recompute the initiative's dashboard rollups by running `node "$PKG_ROOT/scripts/refresh-state.js"` (rollups + focus markers + the `focus.json` digest, one pass) and save. If closing the last open task of a phase initiative, the `done` flow's auto-transition fires the `phase-done` offer at the right time — that loop-close is the whole point of making this moment reliably reachable.
 

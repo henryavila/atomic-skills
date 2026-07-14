@@ -388,9 +388,12 @@ function scanInitiative(target, repoRoot, idMatchSafe = true) {
   for (const crit of Array.isArray(fm.exitGates) ? fm.exitGates : []) {
     if (!crit || typeof crit !== 'object') continue;
     if (crit.status !== 'pending') continue; // met / deferred are resolved
-    // Exit-criteria carry NO `outputs` field (common.schema.json exitCriterion is
-    // additionalProperties:false), so a gate is detectable ONLY by its exact id
-    // appearing in a commit subject (commit-ref). No outputs ⇒ no output-exists.
+    // Exit-criteria carry neither `outputs` nor `lastUpdated`
+    // (common.schema.json exitCriterion is additionalProperties:false). A gate
+    // is therefore detectable only by its exact id in a commit subject, and its
+    // supported acknowledgement anchor is the containing initiative's
+    // lastUpdated. `reconcile` advances that parent anchor for Still open; it
+    // must never synthesize a criterion-local field.
     const sig = classifyEntry({ id: crit.id, anchorTs: initAnchor, outputs: undefined, repoRoot, idMatchSafe });
     if (sig.evidence === 'none') continue;
     const c = { kind: 'criterion', id: String(crit.id ?? '?'), description: String(crit.description ?? ''),

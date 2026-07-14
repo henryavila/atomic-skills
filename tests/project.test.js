@@ -1197,6 +1197,20 @@ esac
     assert.match(reconcile, /Never write back a parsed snapshot captured before the prompt/);
   });
 
+  it('reconcile Still open uses schema-supported anchors without becoming close authority', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    const reconcileStart = content.indexOf('## `reconcile`');
+    const phaseStart = content.indexOf('## `phase-done`');
+    const reconcile = content.slice(reconcileStart, phaseStart);
+
+    assert.match(reconcile, /task candidate.*task's `lastUpdated`/s);
+    assert.match(reconcile, /criterion candidate.*initiative's top-level `lastUpdated`/s);
+    assert.match(reconcile, /ExitCriterion.*does not support\s+`lastUpdated`/s);
+    assert.match(reconcile, /`detect-completion` remains pure read-only/);
+    assert.match(reconcile, /`done` remains the only task closure\s+authority/);
+  });
+
   it('project-finalize requires an explicit slug and project-consolidate records resume state', () => {
     install();
     const router = readRouter();

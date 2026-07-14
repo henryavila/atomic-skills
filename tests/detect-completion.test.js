@@ -7,6 +7,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stringify as stringifyYaml } from 'yaml';
 import { detectCompletion } from '../scripts/detect-completion.js';
+import { parseFrontmatter } from '../scripts/validate-state.js';
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'detect-completion.js');
 
@@ -101,6 +102,38 @@ test('detect-completion classifies output-exists / commit-ref and never flags ve
       assert.equal(c.projectId, 'proj');
       assert.equal(c.initiativePath, phase);
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('criterion Still open acknowledgement uses the initiative anchor and suppresses immediate drift', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-detect-criterion-anchor-'));
+  try {
+    gitInit(root);
+    commit(root, 'README.md', '# gate\n', 'satisfy F1-G1', NEW);
+    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'plan.md'), {
+      schemaVersion: '0.1', slug: 'a', status: 'active', currentPhase: 'F1', lastUpdated: OLD,
+      phases: [{ id: 'F1', status: 'active' }],
+    });
+    const initiativePath = join(root, '.atomic-skills', 'projects', 'p', 'a', 'phases', 'f1.md');
+    const initiative = (lastUpdated) => ({
+      schemaVersion: '0.1', slug: 'a-f1', status: 'active', parentPlan: 'a', phaseId: 'F1',
+      started: OLD, lastUpdated, tasks: [],
+      exitGates: [{ id: 'F1-G1', description: 'gate', status: 'pending' }],
+    });
+    writeFm(initiativePath, initiative(OLD));
+    assert.deepEqual(
+      detectCompletion(root, {}).candidates.map((candidate) => candidate.id),
+      ['F1-G1'],
+    );
+
+    writeFm(initiativePath, initiative('2026-06-05T00:00:00Z'));
+    const acknowledged = detectCompletion(root, {});
+    assert.equal(acknowledged.drift, false);
+    assert.deepEqual(acknowledged.candidates, []);
+    const { frontmatter } = parseFrontmatter(readFileSync(initiativePath, 'utf8'));
+    assert.equal('lastUpdated' in frontmatter.exitGates[0], false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

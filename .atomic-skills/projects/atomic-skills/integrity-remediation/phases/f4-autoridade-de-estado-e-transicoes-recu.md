@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T20:28:21Z
-nextAction: Run `done T-008` after preserving the strict ExitCriterion schema during reconcile.
+lastUpdated: 2026-07-14T20:32:57Z
+nextAction: Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 7
+tasksDone: 8
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 23
+weightDone: 24
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -458,8 +458,9 @@ tasks:
       documentar reconcile como único mutation path disparado por detection
       drift, preservando done como closure authority. verified_by:
       `docs/audits/project-implement-audit-2026-07-10.md:274-281,311-315`."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T20:32:57Z
+    closedAt: 2026-07-14T20:32:57Z
     scopeBoundary:
       - não gravar `lastUpdated` em ExitCriterion e não criar uma terceira
         autoridade de fechamento
@@ -472,6 +473,15 @@ tasks:
       command: node --test tests/detect-completion.test.js tests/project.test.js
         tests/validate-state.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T20:32:57Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: exact verifier 177 pass, 0 fail; criterion
+        acknowledgement uses initiative anchor, ExitCriterion rejects
+        lastUpdated, reconcile docs preserve done authority; validate-state
+        167 files, 26 plans"
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-transitions.md
@@ -549,20 +559,25 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   anexa um objeto compacto por linha; o reader mantém arrays/híbridos somente
   como compatibilidade de migração. `append-completion` apenas consome essa
   autoridade para derivar attempts, duration e escalations.
+- **2026-07-14 — T-008:** `detect-completion` continua read-only e `done`
+  continua a única autoridade de fechamento de task. Em `Still open`, task
+  avança seu próprio `lastUpdated`; criterion, cujo schema estrito não aceita
+  esse campo, avança somente o `lastUpdated` da initiative que o detector já
+  usa como anchor, evitando ressinalização sem inventar estado.
 
 ## Session handoff
 
-- **Narrative:** F4 concluiu T-001..T-007. Materialização e dispatch telemetry
-  agora têm autoridades únicas, recuperação explícita e consumidores que não
-  reinterpretam formatos.
-- **Decision log:** leitura de array/híbrido permanece apenas para migração;
-  toda escrita nova passa por `appendDispatchRecord` e é NDJSON validado.
-- **Single nextAction:** Run `done T-008` after preserving the strict ExitCriterion schema during reconcile.
-- **Verbatim state:** exact verifier T-007 → 29 pass, 0 fail; expanded
-  append/schema/union suite → 30 pass, 0 fail; dispatch ledger → 53 records;
+- **Narrative:** F4 concluiu T-001..T-008. Todas as mutações críticas agora têm
+  autoridade única, invariantes estritas, recuperação/idempotência e testes de
+  bypass; falta executar os três gates e a revisão Codex da fase.
+- **Decision log:** acknowledge de criterion usa o anchor da initiative e não
+  altera status/evidence; detection, disposition e closure permanecem três
+  responsabilidades separadas.
+- **Single nextAction:** Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
+- **Verbatim state:** exact verifier T-008 → 177 pass, 0 fail;
   `node scripts/validate-state.js .atomic-skills` → 167 files, 26 plans.
-- **Uncommitted changes:** T-007 authority, consumer refactor, docs, tests,
-  state and completion event are ready for the transaction checkpoint.
+- **Uncommitted changes:** T-008 schema contract, detector clarification,
+  reconcile docs, tests, state and completion event are ready for checkpoint.
 
 ## Links
 
