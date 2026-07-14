@@ -27,6 +27,7 @@ import {
   validateFile,
 } from '../../scripts/validate-state.js';
 import { findMissingBusinessIntent } from '../../scripts/find-missing-business-intent.js';
+import { findMissingSummaries } from '../../scripts/find-missing-summaries.js';
 import { materializeState } from '../../scripts/materialize-state.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -50,6 +51,11 @@ const BUSINESS_INTENT = {
   rules: 'Exactly one downstream phase is activated; descriptor-only phases without initiative files remain valid and ignored by materialized-phase detectors.',
   outOfScope: 'Does not prove that the business gate prevents rubber-stamping; D9 remains a documented hypothesis.',
   doneWhen: 'F1 has a materialized initiative with parsed tasks, matching businessIntent on both state surfaces, and F2 still has no initiative file.',
+};
+const PHASE_SUMMARIES = {
+  F0: 'Establishes the intake baseline for the lazy lifecycle.',
+  F1: 'Activates the customer handoff only after its semantic gates pass.',
+  F2: 'Keeps renewal work descriptor-only until it becomes eligible.',
 };
 
 function buildValidators() {
@@ -178,6 +184,9 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
     const tmpRoot = mkdtempSync(join(tmpdir(), 'as-e2e-lifecycle-'));
     try {
       const decomposition = decomposePlan(SOURCE, { planSlug: PLAN_SLUG });
+      for (const initiative of decomposition.initiatives) {
+        initiative.summary = PHASE_SUMMARIES[initiative.phaseId];
+      }
       const files = materializeDecomposition(decomposition, {
         planSlug: PLAN_SLUG,
         projectId: PROJECT_ID,
@@ -243,6 +252,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
       );
 
       const ratifiedF1 = structuredClone(f1FromSource);
+      ratifiedF1.summary = advancedPlan.frontmatter.phases.find((phase) => phase.id === 'F1').summary;
       for (const task of ratifiedF1.tasks) {
         if (typeof task.summary !== 'string' || task.summary.trim() === '') {
           task.summary = `Complete ${task.title}`;
@@ -296,6 +306,8 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
       assert.equal(f1Descriptor.subPhaseCount, f1Fm.tasks.length);
       assert.deepEqual(f1Descriptor.businessIntent, BUSINESS_INTENT);
       assert.deepEqual(f1Fm.businessIntent, BUSINESS_INTENT);
+      assert.equal(f1Descriptor.summary, PHASE_SUMMARIES.F1);
+      assert.equal(f1Fm.summary, PHASE_SUMMARIES.F1);
       assert.equal('lastUpdated' in f1Descriptor, false, 'F1 descriptor must not receive schema-invalid timestamps');
       assert.equal(f2Descriptor.status, 'pending');
       assert.equal(f2Descriptor.subPhaseCount, 0);
@@ -307,6 +319,11 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
 
       const detectorAfterGate = findMissingBusinessIntent(tmpRoot);
       assert.deepEqual(detectorAfterGate, [], 'detector exits clean after every materialized phase has businessIntent');
+      assert.deepEqual(
+        findMissingSummaries(tmpRoot),
+        [],
+        'phase summary detector exits clean after lazy materialization',
+      );
 
       const validators = buildValidators();
       const targets = collectTargets([tmpRoot]);

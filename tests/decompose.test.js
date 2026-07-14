@@ -304,6 +304,18 @@ describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () 
     assert.equal(parseYaml(mk(false).content.split('---\n')[1]).status, 'pending');
   });
 
+  it('preserves a ratified phase summary on descriptor and initiative surfaces', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    r.initiatives[0].summary = 'Builds the sample phase without losing its concise purpose.';
+
+    const files = materializeDecomposition(r, { planSlug: 'sample', now: FROZEN });
+    const planFm = parseYaml(files.find((file) => file.kind === 'plan').content.split('---\n')[1]);
+    const initiativeFm = parseYaml(files.find((file) => file.kind === 'initiative').content.split('---\n')[1]);
+
+    assert.equal(planFm.phases[0].summary, r.initiatives[0].summary);
+    assert.equal(initiativeFm.summary, r.initiatives[0].summary);
+  });
+
   it('throws on slug/path collision and mutates the shared seenSlugs/seenPaths', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const iso = FROZEN.toISOString();

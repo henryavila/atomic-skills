@@ -27,7 +27,7 @@ active.
   directory, written with the same frontmatter shape as `writeInitiativeFile`
   plus the ratified `businessIntent` spine.
 - The parent plan descriptor updated through the recoverable pair transaction for that phase:
-  `businessIntent`, real `subPhaseCount`, `status`, and `currentPhase`.
+  `summary`, `businessIntent`, real `subPhaseCount`, `status`, and `currentPhase`.
 - A detector-backed gate result: `scripts/find-missing-business-intent.js` exits
   `0` before the command reports the phase as active.
 
@@ -40,8 +40,8 @@ The command's load-bearing order is fixed:
 3. Collect the user-written `businessIntent` spine.
 4. Reuse `decomposeOnePhase(phaseSource, ctx)` when raw phase body is present;
    otherwise reuse the parsed F2 sidecar capture.
-5. Author and ratify every task's `summary`, `weight`, completion signal, and the
-   initiative `nextAction`. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
+5. Author and ratify the phase `summary`, then every task's `summary`, `weight`,
+   completion signal, and the initiative `nextAction`. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
 6. Capture the live plan bytes and their expected plan hash.
    Write the initiative with `businessIntent` and update the parent plan
    descriptor atomically. Route that paired publication through
@@ -118,7 +118,12 @@ Reject the block when any required field is blank or still contains
    already the parsed per-phase initiative: reuse its `goal`, `tasks`, and
    `exitGates` directly.
 3. **Task-level guarantees — author + gate (C-2, B1#1, mirrors `new plan`).**
-   Materializing a phase creates its tasks, so every task must carry a `summary`,
+   First draft the phase's concise one-line `summary` from its title/goal in the
+   install-configured communication language, or reuse the descriptor summary
+   when it is already non-empty. Present that summary in the same ratify/edit
+   gate as the tasks, then put the exact ratified string on BOTH the in-memory
+   initiative and the parent descriptor candidate. Materializing a phase creates
+   its tasks, so every task must carry a `summary`,
    a `weight`, and a completion signal (`verifier` or `outputs[].path`). DRAFT the
    task fields from the sidecar, present them for one ratify/edit, and put the
    ratified values on the in-memory initiative object. Then set the initiative `nextAction`
@@ -145,6 +150,7 @@ Reject the block when any required field is blank or still contains
    must be the resolved phase path only; never write outside the active plan's
    state directory.
 6. Update the parent plan descriptor for the phase in the same mutation:
+   - set `summary` to the exact phase summary ratified for the initiative;
    - set `businessIntent` on the parent plan descriptor;
    - set `subPhaseCount` to `initiative.tasks.length`;
    - set the descriptor `status` to `active`;
@@ -171,6 +177,7 @@ Reject the block when any required field is blank or still contains
    Then run the tree-scoped task detectors from the repo root. The just-materialized
    `<resolved-phase-file>` must not appear in their output; unrelated legacy debt
    remains a separate backfill:
+   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js"` (the target phase must be absent from both descriptor and initiative gaps);
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`;
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"`;
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` (soft nudge only; record why a task is genuinely unverifiable).

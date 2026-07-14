@@ -476,6 +476,13 @@ function validateStagedPair(planPath, initiativePath) {
       && !isDeepStrictEqual(descriptor.businessIntent, initiative.businessIntent)) {
     errors.push('descriptor businessIntent does not match initiative businessIntent');
   }
+  const descriptorSummary = typeof descriptor?.summary === 'string' ? descriptor.summary.trim() : '';
+  const initiativeSummary = typeof initiative.summary === 'string' ? initiative.summary.trim() : '';
+  if (!descriptorSummary) errors.push('materialized descriptor summary is required');
+  if (!initiativeSummary) errors.push('materialized initiative summary is required');
+  if (descriptorSummary && initiativeSummary && descriptorSummary !== initiativeSummary) {
+    errors.push('descriptor summary does not match initiative summary');
+  }
   if (typeof initiative.nextAction !== 'string' || initiative.nextAction.trim() === '') {
     errors.push('materialized initiative nextAction is required');
   }

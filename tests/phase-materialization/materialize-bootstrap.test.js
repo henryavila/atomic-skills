@@ -36,6 +36,7 @@ const BUSINESS_INTENT = {
   outOfScope: 'Does not harden reopen, switch, or close transitions.',
   doneWhen: 'The plan and initiative publish as one recoverable transaction.',
 };
+const F1_SUMMARY = 'Publishes the customer handoff phase as one recoverable state pair.';
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'as-materialize-state-'));
@@ -98,6 +99,7 @@ function candidatePair(state) {
     }
     if (!Number.isFinite(task.weight)) task.weight = 1;
   }
+  ratifiedCapture.summary = F1_SUMMARY;
   ratifiedCapture.nextAction = 'Run `done T-002` after creating the handoff checklist fixture.';
   const parsedPlan = parseFrontmatter(state.plan.content);
   assert.equal(parsedPlan.error, undefined);
@@ -107,6 +109,7 @@ function candidatePair(state) {
   for (const phase of planFm.phases) {
     if (phase.id === 'F0') phase.status = 'done';
     if (phase.id === 'F1') {
+      phase.summary = F1_SUMMARY;
       phase.status = 'active';
       phase.subPhaseCount = capture.tasks.length;
       phase.businessIntent = { ...BUSINESS_INTENT };
@@ -843,6 +846,34 @@ test('staged validation rejects incomplete task metadata and nextAction before t
         assert.match(error.message, new RegExp(`task ${taskId} completion signal is required`));
         return true;
       },
+    );
+    assert.deepEqual(readFileSync(state.planAbs), beforePlan);
+    assert.equal(existsSync(join(state.root, state.initiativePath)), false);
+    assert.equal(existsSync(markerPath), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('staged validation rejects mismatched phase summaries before the marker', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const beforePlan = readFileSync(state.planAbs);
+  const parsed = parseFrontmatter(pair.initiativeContent);
+  parsed.frontmatter.summary = 'A different, unratified phase purpose.';
+  const mismatchedInitiative = renderFrontmatter(parsed.frontmatter, parsed.body);
+  const markerPath = join(dirname(state.planAbs), '.materialize-state.json');
+  try {
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        initiativeContent: mismatchedInitiative,
+        txId: 'tx-mismatched-phase-summary',
+      }),
+      /descriptor summary does not match initiative summary/,
     );
     assert.deepEqual(readFileSync(state.planAbs), beforePlan);
     assert.equal(existsSync(join(state.root, state.initiativePath)), false);

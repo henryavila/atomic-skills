@@ -812,6 +812,7 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
     slug: initSlug,
     title,
     goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
+    ...(typeof init.summary === 'string' && init.summary.trim() !== '' ? { summary: init.summary } : {}),
     status: active ? 'active' : 'pending',
     branch: branch || null,
     started: iso,
@@ -1062,6 +1063,7 @@ export function materializeDecomposition(decompose, opts = {}) {
       slug: init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`,
       title: init.title || init.phaseId,
       goal: init.goal || `TODO: fill goal for ${init.phaseId}`,
+      ...(typeof init.summary === 'string' && init.summary.trim() !== '' ? { summary: init.summary } : {}),
       dependsOn: prevId ? [prevId] : [],
       // D1 lazy: F0 reports its real task count; F1..N stay descriptor-only
       // (subPhaseCount:0 is an honest "unknown until materialized" placeholder,
