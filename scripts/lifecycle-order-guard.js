@@ -5,6 +5,7 @@
  * pass already-parsed slices and receive an allow/block decision with an
  * actionable predecessor command.
  */
+import { collectPhaseGraphViolations } from '../src/state-invariants.js';
 
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
@@ -222,28 +223,48 @@ function dependResolveArchived(input) {
 function reviewGateComplete(reviewGate) {
   const gate = object(reviewGate);
   if (gate.status === 'passed') return Boolean(text(gate.at));
-  if (gate.status === 'skipped') return Boolean(text(gate.reason));
   return false;
 }
 
 function gateComplete(gate) {
   const item = object(gate);
-  if (item.status === 'met') return true;
-  if (item.status === 'deferred') return Boolean(text(item.deferredReason));
-  return false;
+  return item.status === 'met';
 }
 
-function phaseDone(input) {
+export function classifyPhaseDonePreflight(input = {}) {
   const phase = object(input.phase ?? input.initiative);
   const tasks = array(input.tasks ?? phase.tasks);
-  const exitGates = array(input.exitGates ?? phase.exitGates);
-  const reviewGate = input.reviewGate ?? phase.reviewGate;
+  const plan = object(input.plan);
+  const initiative = object(input.initiative ?? input.phase);
 
   if (!Array.isArray(input.tasks ?? phase.tasks)) {
     return block(
       'phase-done-missing-tasks',
       'phase-done requires a parsed tasks array before transition',
       'Load the active phase initiative, then rerun `phase-done`.',
+    );
+  }
+
+  if (text(plan.slug) && text(initiative.parentPlan) && text(plan.slug) !== text(initiative.parentPlan)) {
+    return block(
+      'phase-done-identity-mismatch',
+      `phase-done initiative parentPlan ${text(initiative.parentPlan)} does not match plan ${text(plan.slug)}`,
+      'Reload the project-scoped plan and matching phase initiative, then rerun `phase-done`.',
+    );
+  }
+  if (text(phase.id) && text(initiative.phaseId) && text(phase.id) !== text(initiative.phaseId)) {
+    return block(
+      'phase-done-identity-mismatch',
+      `phase-done initiative phaseId ${text(initiative.phaseId)} does not match descriptor ${text(phase.id)}`,
+      'Reload the descriptor and matching phase initiative, then rerun `phase-done`.',
+    );
+  }
+  const graphViolation = collectPhaseGraphViolations(plan)[0];
+  if (graphViolation) {
+    return block(
+      'phase-done-invalid-graph',
+      `[${graphViolation.code}] ${graphViolation.message}`,
+      'Repair the phase dependency graph, validate state, then rerun `phase-done`.',
     );
   }
 
@@ -257,13 +278,33 @@ function phaseDone(input) {
     );
   }
 
+  return allow();
+}
+
+export function classifyPhaseDoneCommit(input = {}) {
+  const preflight = classifyPhaseDonePreflight(input);
+  if (!preflight.allowed) return preflight;
+  const phase = object(input.phase ?? input.initiative);
+  const exitGates = array(input.exitGates ?? phase.exitGates);
+  const reviewGate = input.reviewGate ?? phase.reviewGate;
+
   const pendingGate = exitGates.find((gate) => !gateComplete(gate));
   if (pendingGate) {
     const id = text(object(pendingGate).id) || '<gate-id>';
     return block(
       'phase-done-open-gate',
-      `phase-done cannot advance while exit gate ${id} is not met or deferred`,
+      `phase-done cannot advance while exit gate ${id} is not met`,
       `Run the verifier for ${id}, then rerun \`phase-done\`.`,
+    );
+  }
+
+  const missingEvidence = exitGates.find((gate) => object(object(gate).evidence).passed !== true);
+  if (missingEvidence) {
+    const id = text(object(missingEvidence).id) || '<gate-id>';
+    return block(
+      'phase-done-gate-evidence-open',
+      `phase-done cannot advance while exit gate ${id} lacks passing evidence`,
+      `Run the verifier for ${id}, record evidence.passed: true, then rerun \`phase-done\`.`,
     );
   }
 
@@ -320,6 +361,12 @@ function phaseDone(input) {
   }
 
   return allow();
+}
+
+function phaseDone(input) {
+  return text(input.stage) === 'preflight'
+    ? classifyPhaseDonePreflight(input)
+    : classifyPhaseDoneCommit(input);
 }
 
 /**

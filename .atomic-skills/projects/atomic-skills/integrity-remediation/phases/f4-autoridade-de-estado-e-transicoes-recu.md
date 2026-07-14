@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T19:47:50Z
-nextAction: Run `done T-003` after adding phase-done preflight and bypass REDs.
+lastUpdated: 2026-07-14T19:54:55Z
+nextAction: Run `done T-004` after anchoring gate evidence and review to the close HEAD.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 6
+weightDone: 10
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -201,8 +201,9 @@ tasks:
       `scripts/lifecycle-order-guard.js:236-289` e
       `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`\
       ."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T19:54:55Z
+    closedAt: 2026-07-14T19:54:55Z
     scopeBoundary:
       - não rodar gate verifier, review, evento, archive ou write quando task
         está aberta e não exigir review completo no preflight inicial
@@ -221,6 +222,13 @@ tasks:
         tests/lifecycle-gate-bypass.test.js tests/transition-emits.test.js
         tests/phase-done-transaction.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T19:54:55Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: exact verifier 36 pass, 0 fail; expanded project
+        contract 110 pass, 0 fail; validate-state 167 files, 26 plans"
     outputs:
       - kind: file
         path: scripts/lifecycle-order-guard.js
@@ -474,6 +482,12 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   quando todas as fases são terminais. Zero elegíveis com fase active, paused,
   dependência desconhecida/self/cíclica retorna `blocked` com códigos estáveis;
   a ordem vem exclusivamente de `dependsOn`, nunca do ID numérico.
+- **2026-07-14 — T-003:** `phase-done` foi dividido em preflight puro e commit
+  guard com fresh-read. O preflight bloqueia identity/DAG/task aberta antes de
+  qualquer efeito; o commit guard só aceita gates `met` com evidence passando,
+  review `passed` no HEAD atual, worktree limpa e lessons respondidas. Não há
+  defer/skip terminal nem bulk-close: cada task fecha e emite no fluxo `done`, e
+  `phase-done` emite apenas o agregado da fase.
 
 ## Links
 

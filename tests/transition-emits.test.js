@@ -44,15 +44,16 @@ test('project-transitions emits are structurally present in all transition block
   assert.deepEqual(result.offenders, []);
 });
 
-test('phase-done prose instructs N task events plus one aggregate phase event', () => {
+test('phase-done prose emits only one aggregate phase event', () => {
   const real = readFileSync(TRANSITIONS, 'utf8');
   const phase = block(real, HEADERS.phase);
 
-  assert.match(phase, /N task events, one per task/);
-  assert.match(phase, /never one shared timestamp/);
+  assert.match(phase, /all tasks were already closed individually/);
+  assert.match(phase, /Emit no `task-done` completion events/);
   assert.match(phase, /exactly one `phase-done` completion event/);
   assert.match(phase, /aggregate actuals once/);
-  assert.match(phase, /do NOT duplicate those aggregate actuals onto the per-task `task-done` lines/);
+  assert.doesNotMatch(phase, /closed by this bulk-close/);
+  assert.doesNotMatch(phase, /Set all `tasks\[\]\.status = ['`]?done/);
 });
 
 test('done prose requires verifier handling before status mutation', () => {
@@ -68,12 +69,14 @@ test('done prose requires verifier handling before status mutation', () => {
   assert.match(done, /Do NOT consume `verify-claim` output as task evidence/);
 });
 
-test('phase-done prose preserves deferred gates instead of bulk-marking them met', () => {
+test('phase-done prose makes deferred/skipped gates non-terminal', () => {
   const real = readFileSync(TRANSITIONS, 'utf8');
   const phase = block(real, HEADERS.phase);
 
-  assert.match(phase, /Never convert `pending` or `deferred` gates to `met`/);
-  assert.match(phase, /set `status: deferred`[\s\S]{0,120}`deferredReason`/);
+  assert.match(phase, /`deferred`[\s\S]{0,120}non-terminal/i);
+  assert.match(phase, /Never offer defer\/skip as a phase-close override/);
+  assert.match(phase, /never convert an unverified gate to `met`/i);
+  assert.doesNotMatch(phase, /set `status: deferred`[\s\S]{0,160}(proceed|continue)/i);
   assert.doesNotMatch(phase, /For each `exitGates\[\]`[\s\S]{0,160}`status !== 'met'`[\s\S]{0,160}set `status: met`/);
 });
 
@@ -118,8 +121,9 @@ test('old phase-done bulk-met propagation is reported', () => {
     assert.equal(result.ok, false);
     assert.deepEqual(result.offenders.map((o) => o.block), [HEADERS.phase]);
     assert.ok(result.offenders[0].missing.includes('no-bulk-met'));
-    assert.ok(result.offenders[0].missing.includes('no-pending-or-deferred-to-met'));
-    assert.ok(result.offenders[0].missing.includes('deferred-status-override'));
+    assert.ok(result.offenders[0].missing.includes('no-unverified-to-met'));
+    assert.ok(result.offenders[0].missing.includes('no-deferred-terminal'));
+    assert.ok(result.offenders[0].missing.includes('no-task-bulk-close'));
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
   }
@@ -184,9 +188,10 @@ test('missing phase-done emit is reported only on the phase-done block', () => {
     assert.equal(result.ok, false);
     assert.deepEqual(result.offenders.map((o) => o.block), [HEADERS.phase]);
     assert.ok(result.offenders[0].missing.includes('completion emit'));
-    assert.ok(result.offenders[0].missing.includes('task-done'));
     assert.ok(result.offenders[0].missing.includes('phase-done'));
     assert.ok(result.offenders[0].missing.includes('actuals'));
+    assert.ok(result.offenders[0].missing.includes('no-task-bulk-close'));
+    assert.ok(result.offenders[0].missing.includes('task-bulk-close-bypass'));
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
   }

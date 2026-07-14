@@ -25,7 +25,7 @@ const DEFAULT_TRANSITIONS = join(PROJECT_ROOT, 'skills', 'shared', 'project-asse
 const REQUIREMENTS = [
   { header: '## `done <task-id>`', events: ['task-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId'] },
   { header: '## `reconcile`', events: ['task-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId'] },
-  { header: '## `phase-done`', events: ['task-done', 'phase-done'], fields: ['projectId', 'planSlug', 'phaseId', 'taskId', 'actuals'] },
+  { header: '## `phase-done`', events: ['phase-done'], fields: ['projectId', 'planSlug', 'phaseId', 'actuals'] },
 ];
 
 function sliceBlock(markdown, header) {
@@ -67,14 +67,23 @@ function checkDoneGateSemantics(block) {
 
 function checkPhaseDoneGateSemantics(block) {
   const missing = [];
+  if (!/Emit no `task-done` completion events/i.test(block)) {
+    missing.push('no-task-bulk-close');
+  }
+  if (/Set all `tasks\[\]\.status = ['`]?done|closed by this bulk-close/i.test(block)) {
+    missing.push('task-bulk-close-bypass');
+  }
   if (/For each `exitGates\[\]`[\s\S]{0,160}`status !== 'met'`[\s\S]{0,160}set `status: met`/.test(block)) {
     missing.push('no-bulk-met');
   }
-  if (!/Never convert `pending` or `deferred` gates to `met`/.test(block)) {
-    missing.push('no-pending-or-deferred-to-met');
+  if (!/never convert an unverified gate to `met`/i.test(block)) {
+    missing.push('no-unverified-to-met');
   }
-  if (!/set `status: deferred`[\s\S]{0,120}`deferredReason`/.test(block)) {
-    missing.push('deferred-status-override');
+  if (!/`deferred`[\s\S]{0,120}non-terminal/i.test(block)) {
+    missing.push('no-deferred-terminal');
+  }
+  if (/Defer the remaining gates and mark phase done|set `status: deferred`[\s\S]{0,160}(proceed|continue)/i.test(block)) {
+    missing.push('deferred-close-bypass');
   }
   return missing;
 }

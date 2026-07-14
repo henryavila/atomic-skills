@@ -1,0 +1,71 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  classifyPhaseDoneCommit,
+  classifyPhaseDonePreflight,
+} from '../scripts/lifecycle-order-guard.js';
+import { executePhaseDoneTransaction } from '../scripts/phase-done-transaction.js';
+
+const SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+function input(overrides = {}) {
+  return {
+    tasks: [{ id: 'T-1', status: 'done' }],
+    exitGates: [{ id: 'F4-G3', status: 'met', evidence: { passed: true } }],
+    reviewGate: { status: 'passed', at: SHA },
+    currentHead: SHA,
+    worktreeDirty: false,
+    lessonsState: 'recorded',
+    requireLessons: true,
+    ...overrides,
+  };
+}
+
+test('preflight checks tasks but intentionally does not require gate/review evidence yet', () => {
+  const result = classifyPhaseDonePreflight(input({
+    exitGates: [{ id: 'F4-G3', status: 'pending' }],
+    reviewGate: undefined,
+  }));
+  assert.equal(result.allowed, true);
+});
+
+test('deferred, skipped, failed and evidence-less gates cannot reach terminal commit', () => {
+  const cases = [
+    { status: 'deferred', deferredReason: 'later' },
+    { status: 'skipped' },
+    { status: 'failed', evidence: { passed: false } },
+    { status: 'met' },
+    { status: 'met', evidence: { passed: false } },
+  ];
+  for (const gate of cases) {
+    const result = classifyPhaseDoneCommit(input({ exitGates: [{ id: 'F4-G3', ...gate }] }));
+    assert.equal(result.allowed, false, JSON.stringify(gate));
+    assert.match(result.code, /phase-done-(open-gate|gate-evidence)/);
+  }
+});
+
+test('skipped review cannot bypass the commit guard', () => {
+  const result = classifyPhaseDoneCommit(input({
+    reviewGate: { status: 'skipped', reason: 'operator override' },
+  }));
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-open');
+});
+
+test('pending F4-G3 produces zero close write, event or successor materialization', async () => {
+  const calls = [];
+  const result = await executePhaseDoneTransaction(input({
+    exitGates: [{ id: 'F4-G3', status: 'pending' }],
+  }), {
+    produceEvidence: async () => ({
+      exitGates: [{ id: 'F4-G3', status: 'pending', evidence: { passed: false } }],
+    }),
+    commit: async () => calls.push('write'),
+    emit: async () => calls.push('event'),
+    materializeSuccessor: async () => calls.push('materialize'),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.stage, 'commit-guard');
+  assert.deepEqual(calls, []);
+});

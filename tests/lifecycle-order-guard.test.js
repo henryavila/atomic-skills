@@ -8,6 +8,7 @@ import {
 
 const CURRENT_REVIEW_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const STALE_REVIEW_SHA = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const metGate = (id = 'G-1') => ({ id, status: 'met', evidence: { passed: true } });
 
 function deepFreeze(value) {
   if (value == null || typeof value !== 'object') return value;
@@ -171,7 +172,7 @@ test('blocks phase-done until reviewGate is recorded', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     reviewGate: { status: 'pending' },
   });
 
@@ -184,7 +185,7 @@ test('does not let requireReview:false bypass the auditable skipped review gate'
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     requireReview: false,
     worktreeDirty: false,
   });
@@ -198,7 +199,7 @@ test('fails closed when the caller omits the worktree state after review', () =>
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
     currentHead: CURRENT_REVIEW_SHA,
   });
@@ -212,7 +213,7 @@ test('fails closed when a passed review has no current HEAD to compare', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
     worktreeDirty: false,
   });
@@ -226,7 +227,7 @@ test('blocks phase-done when the recorded review SHA is stale', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     reviewGate: { status: 'passed', at: STALE_REVIEW_SHA },
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,
@@ -242,7 +243,7 @@ test('blocks phase-done when the worktree is dirty after a matching review', () 
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: true,
@@ -258,7 +259,7 @@ test('allows phase-done when the review SHA matches HEAD and the worktree is cle
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'met' }],
+    exitGates: [metGate()],
     reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,
@@ -268,20 +269,21 @@ test('allows phase-done when the review SHA matches HEAD and the worktree is cle
   assert.equal(result.blocked, false);
 });
 
-test('allows phase-done when tasks, gates, and review gate are closed', () => {
+test('blocks phase-done when any exit gate is deferred, even with a reason', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [
-      { id: 'G-1', status: 'met' },
+      metGate(),
       { id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' },
     ],
-    reviewGate: { status: 'skipped', reason: 'user requested --skip-review' },
+    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,
   });
 
-  assert.equal(result.allowed, true);
-  assert.equal(result.blocked, false);
+  assertBlockedWithCommand(result);
+  assert.equal(result.code, 'phase-done-open-gate');
 });
 
 test('permits named internal exceptions only when their explicit conditions match', () => {
