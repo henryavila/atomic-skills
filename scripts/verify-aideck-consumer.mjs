@@ -141,9 +141,13 @@ head('[running server]');
 if (shouldSmoke) {
   head('[derived state refresh]');
   const refreshed = refreshState(REPO_ROOT);
-  if (refreshed.seriesError) {
+  const refreshErrors = [
+    ...(Array.isArray(refreshed.indexErrors) ? refreshed.indexErrors : []),
+    ...(refreshed.seriesError ? [refreshed.seriesError] : []),
+  ];
+  if (refreshErrors.length > 0) {
     warnings++;
-    console.log(c.warn(`  ⚠ refresh-state had a partial failure: ${refreshed.seriesError}`));
+    console.log(c.warn(`  ⚠ refresh-state had a partial failure: ${refreshErrors.join('; ')}`));
   } else {
     console.log(`  ${c.ok('✓ PASS')}  refreshed ${refreshed.seriesWritten} aiDeck state files`);
   }
