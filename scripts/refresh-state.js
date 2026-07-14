@@ -79,21 +79,31 @@ function markdownCell(value, field) {
 }
 
 function initiativeProjection(filePath) {
-  const parsed = parseFrontmatter(readFileSync(filePath, 'utf8'));
-  if (parsed.error) return null;
+  let raw;
+  try {
+    raw = readFileSync(filePath, 'utf8');
+  } catch (error) {
+    return { error: `${filePath}: read failed: ${error.message}` };
+  }
+  const parsed = parseFrontmatter(raw);
+  if (parsed.error) return { error: `${filePath}: ${parsed.error}` };
   const fm = parsed.frontmatter;
-  if (typeof fm.slug !== 'string' || fm.slug.trim() === '') return null;
+  if (typeof fm.slug !== 'string' || fm.slug.trim() === '') {
+    return { error: `${filePath}: initiative slug must be a non-empty string` };
+  }
   const tasks = Array.isArray(fm.tasks) ? fm.tasks : [];
   const gates = Array.isArray(fm.exitGates) ? fm.exitGates : [];
   return {
-    slug: fm.slug,
-    phaseId: typeof fm.phaseId === 'string' ? fm.phaseId : '',
-    status: typeof fm.status === 'string' ? fm.status : '',
-    tasksDone: tasks.filter((task) => task?.status === 'done').length,
-    tasksTotal: tasks.length,
-    gatesMet: gates.filter((gate) => gate?.status === 'met').length,
-    gatesTotal: gates.length,
-    lastUpdated: typeof fm.lastUpdated === 'string' ? fm.lastUpdated : '',
+    projection: {
+      slug: fm.slug,
+      phaseId: typeof fm.phaseId === 'string' ? fm.phaseId : '',
+      status: typeof fm.status === 'string' ? fm.status : '',
+      tasksDone: tasks.filter((task) => task?.status === 'done').length,
+      tasksTotal: tasks.length,
+      gatesMet: gates.filter((gate) => gate?.status === 'met').length,
+      gatesTotal: gates.length,
+      lastUpdated: typeof fm.lastUpdated === 'string' ? fm.lastUpdated : '',
+    },
   };
 }
 
@@ -203,19 +213,25 @@ function refreshProjectIndex(indexPath, readProjections) {
     }
   }
 
+  let projectionErrors = [];
   for (let attempt = 1; attempt <= INDEX_REFRESH_ATTEMPTS; attempt += 1) {
-    const projections = readProjections();
+    const projectionResult = readProjections();
+    const projections = projectionResult.projections;
+    projectionErrors = projectionResult.errors;
     const raw = readFileSync(publishPath, 'utf8');
     const next = renderProjectIndex(raw, projections);
 
-    if (next === raw) return false;
-    if (publishProjectIndex(publishPath, raw, next)) return true;
+    if (next === raw) return { changed: false, errors: projectionErrors };
+    if (publishProjectIndex(publishPath, raw, next)) {
+      return { changed: true, errors: projectionErrors };
+    }
   }
 
   const error = new Error(
     `${basename(indexPath)} changed during refresh after ${INDEX_REFRESH_ATTEMPTS} attempts`,
   );
   error.code = 'PROJECT_INDEX_CONFLICT';
+  error.projectionErrors = projectionErrors;
   throw error;
 }
 
@@ -232,19 +248,27 @@ function refreshProjectIndexes(dir) {
     if (!existsSync(indexPath)) continue;
     const readProjections = () => {
       const projections = [];
+      const projectionErrors = [];
       for (const planSlug of directories(projectDir)) {
         const phasesDir = join(projectDir, planSlug, 'phases');
         for (const filePath of markdownFiles(phasesDir)) {
-          const projection = initiativeProjection(filePath);
-          if (projection) projections.push({ ...projection, planSlug });
+          const result = initiativeProjection(filePath);
+          if (result.error) projectionErrors.push(result.error);
+          else projections.push({ ...result.projection, planSlug });
         }
       }
-      return projections;
+      return { projections, errors: projectionErrors };
     };
     try {
-      if (refreshProjectIndex(indexPath, readProjections)) changed += 1;
+      const result = refreshProjectIndex(indexPath, readProjections);
+      if (result.changed) changed += 1;
+      errors.push(...result.errors);
+      for (const message of result.errors) {
+        console.error(`refresh-state: project index partial failure — ${message}`);
+      }
     } catch (error) {
       if (error?.code !== 'PROJECT_INDEX_CONFLICT') throw error;
+      errors.push(...(error.projectionErrors ?? []));
       const message = error.message;
       errors.push(message);
       console.error(`refresh-state: project index failed, continuing — ${message}`);

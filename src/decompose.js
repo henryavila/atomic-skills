@@ -748,8 +748,8 @@ export function decomposePlan(markdown, opts = {}) {
 
 function normalizeStartedCommit(value, owner) {
   if (value == null) return null;
-  if (typeof value !== 'string' || value.trim().length < 7) {
-    throw new Error(`${owner}: startedCommit must be a git commit id with at least 7 characters`);
+  if (typeof value !== 'string' || !/^[0-9a-f]{7,64}$/i.test(value.trim())) {
+    throw new Error(`${owner}: startedCommit must be a hexadecimal git commit id (7-64 characters)`);
   }
   return value.trim();
 }

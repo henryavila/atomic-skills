@@ -341,7 +341,16 @@ describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () 
         now: FROZEN,
         startedCommit: 'short',
       }),
-      /startedCommit must be a git commit id with at least 7 characters/,
+      /startedCommit must be a hexadecimal git commit id/,
+    );
+
+    assert.throws(
+      () => materializeDecomposition(r, {
+        planSlug: 'sample',
+        now: FROZEN,
+        startedCommit: 'HEAD~123',
+      }),
+      /startedCommit must be a hexadecimal git commit id/,
     );
   });
 

@@ -226,6 +226,34 @@ describe('refreshState consumer series integration', () => {
     }
   });
 
+  it('surfaces malformed phase frontmatter through the project-index partial-failure channel', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-malformed-phase-'));
+    try {
+      writeSeedState(dir);
+      const phasePath = join(
+        dir,
+        '.atomic-skills',
+        'projects',
+        'projA',
+        'plan-a',
+        'phases',
+        'f1.md',
+      );
+      const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+      writeFileSync(phasePath, '---\nslug: [unterminated\n---\n');
+
+      const summary = refreshState(dir, { nowMs: NOW, branch: null });
+
+      assert.equal(summary.indexesChanged, 0);
+      assert.equal(summary.indexErrors.length, 1);
+      assert.match(summary.indexErrors[0], /f1\.md.*YAML parse error/i);
+      assert.match(readFileSync(indexPath, 'utf8'), /^\| f1 \| F1 \| pending \| 0\/2 \| 0\/0 \|$/m);
+      assert.equal(existsSync(join(dir, '.atomic-skills', 'focus.json')), true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('retries from the latest index snapshot instead of losing a concurrent update after read', () => {
     const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-conflict-'));
     try {
