@@ -82,6 +82,16 @@ test('join authority rejects parentPlan, phaseId and slug mismatches', () => {
   }
 });
 
+test('hardened materialized initiatives require explicit parentPlan and phaseId identity', () => {
+  for (const [code, patch] of [
+    ['parent-plan-missing', { parentPlan: undefined }],
+    ['phase-id-missing', { phaseId: undefined }],
+  ]) {
+    const out = violations(plan(), initiative(patch));
+    assert.ok(out.some((item) => item.code === code), `${code}: ${out.map(formatStateIntegrityViolation).join('\n')}`);
+  }
+});
+
 test('duplicate phase, task and gate identities fail with stable codes', () => {
   const duplicatePhases = violations(plan({
     phases: [
@@ -140,6 +150,33 @@ test('hardened terminal phase rejects deferred gates and met gates without passi
     assert.ok(out.some((v) => v.code === 'terminal-open-plan-gate'), JSON.stringify(gate));
     assert.ok(out.some((v) => v.code === 'terminal-open-initiative-gate'), JSON.stringify(gate));
   }
+});
+
+test('hardened terminal phase requires a bijective plan and initiative gate mirror', () => {
+  const gate = { id: 'G1', status: 'met', evidence: { passed: true } };
+  const missingInitiativeGate = violations(
+    plan({
+      phases: [{
+        id: 'F0', slug: 'demo-f0', status: 'done',
+        reviewGate: { status: 'passed', at: 'a'.repeat(40), mode: 'codex', reviewFile: '.atomic-skills/reviews/r.md' },
+        exitGate: { criteria: [gate] },
+      }],
+    }),
+    initiative({ status: 'done', tasks: [{ id: 'T-1', status: 'done' }], exitGates: [] }),
+  );
+  assert.ok(missingInitiativeGate.some((item) => item.code === 'terminal-gate-mirror-missing'));
+
+  const missingPlanGate = violations(
+    plan({
+      phases: [{
+        id: 'F0', slug: 'demo-f0', status: 'done',
+        reviewGate: { status: 'passed', at: 'a'.repeat(40), mode: 'codex', reviewFile: '.atomic-skills/reviews/r.md' },
+        exitGate: { criteria: [] },
+      }],
+    }),
+    initiative({ status: 'done', tasks: [{ id: 'T-1', status: 'done' }], exitGates: [gate] }),
+  );
+  assert.ok(missingPlanGate.some((item) => item.code === 'terminal-gate-mirror-missing'));
 });
 
 test('legacy terminal phase retains deferred-gate compatibility outside hardening', () => {

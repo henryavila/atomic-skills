@@ -166,6 +166,12 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
       const initiative = candidates[0];
       matchedInitiatives.add(initiative);
       const joined = contextFor(plan, phase, initiative);
+      if (hardened && MATERIALIZED_STATUSES.has(phase?.status) && !text(initiative.parentPlan)) {
+        violations.push(violation('parent-plan-missing', `initiative ${initiative.slug ?? '?'} lacks authoritative parentPlan`, joined));
+      }
+      if (hardened && MATERIALIZED_STATUSES.has(phase?.status) && !text(initiative.phaseId)) {
+        violations.push(violation('phase-id-missing', `initiative ${initiative.slug ?? '?'} lacks authoritative phaseId`, joined));
+      }
       if (text(initiative.parentPlan) && text(initiative.parentPlan) !== text(plan.slug)) {
         violations.push(violation('parent-plan-mismatch', `initiative ${initiative.slug ?? '?'} parentPlan ${JSON.stringify(initiative.parentPlan)} does not match ${plan.slug}`, joined));
       }
@@ -193,6 +199,20 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
       }
       for (const gate of list(initiative.exitGates).filter((item) => !terminalGateComplete(item, hardened))) {
         violations.push(violation('terminal-open-initiative-gate', `terminal phase ${phase?.id ?? '?'} contains open initiative gate ${gate?.id ?? '?'}`, joined));
+      }
+      if (hardened) {
+        const planGateIds = new Set(list(phase?.exitGate?.criteria).map((gate) => text(gate?.id)).filter(Boolean));
+        const initiativeGateIds = new Set(list(initiative.exitGates).map((gate) => text(gate?.id)).filter(Boolean));
+        for (const id of planGateIds) {
+          if (!initiativeGateIds.has(id)) {
+            violations.push(violation('terminal-gate-mirror-missing', `terminal phase ${phase?.id ?? '?'} plan criterion ${id} has no initiative mirror`, joined));
+          }
+        }
+        for (const id of initiativeGateIds) {
+          if (!planGateIds.has(id)) {
+            violations.push(violation('terminal-gate-mirror-missing', `terminal phase ${phase?.id ?? '?'} initiative gate ${id} has no plan mirror`, joined));
+          }
+        }
       }
     }
   }

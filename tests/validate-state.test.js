@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkAnchoredCloseEvidence, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkAnchoredCloseEvidence, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, persistedReviewMatches, collectStateFrontmatters } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -556,7 +556,7 @@ test('crossValidate: done phase + done initiative with done tasks → no errors'
     }],
   }]]);
   const inits = new Map([['p-f0', {
-    slug: 'p-f0', status: 'done',
+    slug: 'p-f0', parentPlan: 'p', phaseId: 'F0', status: 'done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [{ id: 'F0-G1', status: 'met', evidence: { passed: true } }],
   }]]);
@@ -1228,6 +1228,67 @@ test('hardened close evidence requires existing review provenance and matching g
   assert.match(checkAnchoredCloseEvidence(plan, initiative, {
     ...resolvers, reviewFileMatches: () => false,
   }).join('\n'), /reviewFile.*does not exist|reviewFile.*reviewed SHA/i);
+});
+
+test('persisted review provenance requires an approving structured receipt at the requested repository root', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-review-receipt-'));
+  const reviewDir = join(root, '.atomic-skills', 'reviews');
+  const reviewFile = join(reviewDir, 'p-f0.md');
+  const sha = 'a'.repeat(40);
+  try {
+    mkdirSync(reviewDir, { recursive: true });
+    writeFileSync(reviewFile, `---\nartifact: ${'b'.repeat(40)}..${sha}\nskill: review-code\nreviewer: gpt-5-codex\nmode: codex\nfinal_verdict: needs_changes\nschema_version: "1.0"\n---\n\nThe reviewed SHA ${sha} appears in rejecting prose.\n`);
+    assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, root, 'codex'), false);
+
+    writeFileSync(reviewFile, `---\nartifact: ${'b'.repeat(40)}..${sha}\nskill: review-code\nreviewer: gpt-5-codex\nmode: codex\nfinal_verdict: approve\nschema_version: "1.0"\n---\n`);
+    assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, root, 'codex'), true);
+    assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, root, 'both'), false);
+    assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, join(root, 'other'), 'codex'), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('state graph collection infers one repository root for legacy and nested non-git layouts', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-state-root-'));
+  const plan = join(root, 'plans', 'demo.md');
+  const initiative = join(root, 'initiatives', 'demo-f0.md');
+  const nestedPlan = join(root, 'projects', 'proj', 'nested', 'plan.md');
+  try {
+    mkdirSync(dirname(plan), { recursive: true });
+    mkdirSync(dirname(initiative), { recursive: true });
+    mkdirSync(dirname(nestedPlan), { recursive: true });
+    writeFileSync(plan, '---\nslug: demo\n---\n');
+    writeFileSync(initiative, '---\nslug: demo-f0\nparentPlan: demo\nphaseId: F0\n---\n');
+    writeFileSync(nestedPlan, '---\nslug: nested\n---\n');
+
+    const graph = collectStateFrontmatters([plan, initiative, nestedPlan]);
+    assert.equal(graph.planFrontmatters.get('__legacy/demo').__repoRoot, root);
+    assert.equal(graph.initiativeFrontmatters.get('__legacy/demo-f0').__repoRoot, root);
+    assert.equal(graph.planFrontmatters.get('proj/nested').__repoRoot, root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('state graph collection rejects duplicate initiative keys instead of overwriting one file', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-duplicate-state-'));
+  const first = join(root, '.atomic-skills', 'projects', 'proj', 'demo', 'phases', 'demo-f0.md');
+  const second = join(root, '.atomic-skills', 'projects', 'proj', 'demo', 'phases', 'archive', 'demo-f0.md');
+  try {
+    mkdirSync(dirname(first), { recursive: true });
+    mkdirSync(dirname(second), { recursive: true });
+    const content = '---\nschemaVersion: "0.1"\nslug: demo-f0\ntitle: Demo\ngoal: Demo\nstatus: active\nparentPlan: demo\nphaseId: F0\nstarted: 2026-07-14T00:00:00Z\nlastUpdated: 2026-07-14T00:00:00Z\nnextAction: Work\ntasks: []\nexitGates: []\n---\n';
+    writeFileSync(first, content);
+    writeFileSync(second, content.replace('status: active', 'status: archived'));
+    const graph = collectStateFrontmatters([first, second]);
+    assert.equal(graph.initiativeFrontmatters.size, 1);
+    assert.equal(graph.collectionErrors.length, 1);
+    assert.match(graph.collectionErrors[0].errors[0], /duplicate-initiative-identity/);
+    assert.match(graph.collectionErrors[0].errors[0], /demo-f0\.md/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // Lessons file (Spec 2 / G1): a per-initiative lessons file under

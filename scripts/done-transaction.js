@@ -75,6 +75,11 @@ function buildBundle(input) {
   if (!input.root) throw new TypeError('root is required');
   if (!task || typeof task !== 'object') throw new TypeError('task is required');
   if (task.id !== close.taskId) throw new TypeError('task.id must match close.taskId');
+  if (task.status === 'done') {
+    if (!hasText(task.closedAt) || task.closedAt !== close.closedAt) {
+      throw new TypeError('a done task has an immutable closedAt; reuse the original close timestamp');
+    }
+  }
   if (!evidence || typeof evidence !== 'object' || evidence.passed !== true) {
     throw new TypeError('evidence.passed must be true before task close');
   }

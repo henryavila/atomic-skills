@@ -532,11 +532,11 @@ export function checkReviewGate(frontmatter) {
   return violations;
 }
 
-function gitCommitExists(sha) {
+export function gitCommitExists(sha, repositoryRoot = process.cwd()) {
   if (!FULL_GIT_OID.test(sha ?? '')) return false;
   try {
     execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], {
-      cwd: process.cwd(),
+      cwd: repositoryRoot,
       stdio: 'ignore',
     });
     return true;
@@ -545,13 +545,24 @@ function gitCommitExists(sha) {
   }
 }
 
-function persistedReviewMatches(reviewFile, sha) {
+export function persistedReviewMatches(reviewFile, sha, repositoryRoot = process.cwd(), mode) {
   if (typeof reviewFile !== 'string' || !reviewFile.startsWith('.atomic-skills/reviews/')) return false;
-  const root = resolve(process.cwd(), '.atomic-skills', 'reviews');
-  const candidate = resolve(process.cwd(), reviewFile);
+  const root = resolve(repositoryRoot, '.atomic-skills', 'reviews');
+  const candidate = resolve(repositoryRoot, reviewFile);
   if (!candidate.startsWith(`${root}${sep}`) || !existsSync(candidate)) return false;
   try {
-    return readFileSync(candidate, 'utf8').includes(sha);
+    const parsed = parseFrontmatter(readFileSync(candidate, 'utf8'));
+    if (parsed.error) return false;
+    const receipt = parsed.frontmatter;
+    const artifact = typeof receipt.artifact === 'string' ? receipt.artifact.trim() : '';
+    const artifactTip = artifact.includes('..') ? artifact.split('..').at(-1) : artifact;
+    return (receipt.final_verdict === 'approve' || receipt.final_verdict === 'approve_with_nits')
+      && receipt.skill === 'review-code'
+      && typeof receipt.reviewer === 'string'
+      && receipt.reviewer.length > 0
+      && receipt.mode === mode
+      && artifactTip === sha
+      && (receipt.reviewed_commit === undefined || receipt.reviewed_commit === sha);
   } catch {
     return false;
   }
@@ -565,6 +576,7 @@ function persistedReviewMatches(reviewFile, sha) {
 export function checkAnchoredCloseEvidence(plan, initiative, {
   commitExists = () => true,
   reviewFileMatches = () => true,
+  repositoryRoot = plan?.__repoRoot ?? initiative?.__repoRoot ?? process.cwd(),
 } = {}) {
   const violations = [];
   if (typeof plan?.stateIntegrityHardening?.enforcedFrom !== 'string') return violations;
@@ -576,12 +588,12 @@ export function checkAnchoredCloseEvidence(plan, initiative, {
     const label = `phase ${phase.id ?? '?'}`;
     const reviewGate = phase.reviewGate ?? {};
     const reviewedHead = reviewGate.at;
-    if (FULL_GIT_OID.test(reviewedHead ?? '') && !commitExists(reviewedHead)) {
+    if (FULL_GIT_OID.test(reviewedHead ?? '') && !commitExists(reviewedHead, repositoryRoot)) {
       violations.push(`${label}: reviewGate.at ${reviewedHead} does not resolve to a commit.`);
     }
     if (typeof reviewGate.reviewFile === 'string'
       && FULL_GIT_OID.test(reviewedHead ?? '')
-      && !reviewFileMatches(reviewGate.reviewFile, reviewedHead)) {
+      && !reviewFileMatches(reviewGate.reviewFile, reviewedHead, repositoryRoot, reviewGate.mode)) {
       violations.push(`${label}: reviewFile does not exist under .atomic-skills/reviews/ or does not contain the reviewed SHA ${reviewedHead}.`);
     }
     const initiativeGates = new Map(
@@ -682,6 +694,12 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters, {
       if (!init) continue;
 
       const phaseErrors = [];
+      const repositoryRoot = plan.__repoRoot ?? process.cwd();
+      if (plan.__repoRoot && init.__repoRoot && plan.__repoRoot !== init.__repoRoot) {
+        phaseErrors.push(
+          `[cross-repository-join] plan repository ${plan.__repoRoot} differs from initiative repository ${init.__repoRoot}`,
+        );
+      }
 
       if (init.status !== 'done' && init.status !== 'archived') {
         phaseErrors.push(
@@ -735,7 +753,7 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters, {
       phaseErrors.push(...checkAnchoredCloseEvidence(
         { ...plan, phases: [phase] },
         init,
-        { commitExists, reviewFileMatches },
+        { commitExists, reviewFileMatches, repositoryRoot },
       ));
 
       if (phaseErrors.length > 0) {
@@ -815,6 +833,68 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters, {
   errors.push(...collectPlanDependencyErrors(planFrontmatters));
 
   return errors;
+}
+
+function repositoryRootFromStatePath(file) {
+  const absolute = resolve(file);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: dirname(absolute),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    const marker = `${sep}.atomic-skills${sep}`;
+    const index = absolute.indexOf(marker);
+    if (index >= 0) return absolute.slice(0, index);
+
+    // Non-git migration fixtures have no `.atomic-skills/` anchor. Infer the
+    // state root from the nearest supported layout directory so legacy
+    // `plans/` and `initiatives/` files join against the same repository, and
+    // nested `projects/<id>/<slug>/` files resolve to that same root.
+    const layoutDirectories = new Set(['plans', 'initiatives', 'projects']);
+    let cursor = dirname(absolute);
+    while (dirname(cursor) !== cursor) {
+      if (layoutDirectories.has(basename(cursor))) return dirname(cursor);
+      cursor = dirname(cursor);
+    }
+    return dirname(absolute);
+  }
+}
+
+export function collectStateFrontmatters(targets) {
+  const planFrontmatters = new Map();
+  const initiativeFrontmatters = new Map();
+  const collectionErrors = [];
+  for (const target of targets) {
+    const kind = kindFromPath(target);
+    if (kind !== 'plan' && kind !== 'initiative') continue;
+    let raw;
+    try { raw = readFileSync(target, 'utf8'); } catch { continue; }
+    const parsed = parseFrontmatter(raw);
+    if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
+    const projectId = projectIdFromPath(target);
+    const key = `${projectId}/${parsed.frontmatter.slug}`;
+    const map = kind === 'plan' ? planFrontmatters : initiativeFrontmatters;
+    const sourcePath = resolve(target);
+    if (map.has(key)) {
+      const priorPath = map.get(key).__sourcePath;
+      collectionErrors.push({
+        planSlug: parsed.frontmatter.parentPlan ?? parsed.frontmatter.slug,
+        phaseId: parsed.frontmatter.phaseId ?? '?',
+        initiativeSlug: parsed.frontmatter.slug,
+        errors: [`[duplicate-${kind}-identity] ${key} is declared by both ${priorPath} and ${sourcePath}`],
+      });
+      continue;
+    }
+    map.set(key, {
+      ...parsed.frontmatter,
+      __projectId: projectId,
+      __repoRoot: repositoryRootFromStatePath(sourcePath),
+      __sourcePath: sourcePath,
+    });
+  }
+  return { planFrontmatters, initiativeFrontmatters, collectionErrors };
 }
 
 function formatPlanDependencyError(error) {
@@ -937,27 +1017,19 @@ function main() {
     }
   }
 
-  const planFrontmatters = new Map();
-  const initiativeFrontmatters = new Map();
-  for (const target of targets) {
-    const kind = kindFromPath(target);
-    let raw;
-    try { raw = readFileSync(target, 'utf8'); } catch { continue; }
-    const parsed = parseFrontmatter(raw);
-    if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
-    const projectId = projectIdFromPath(target);
-    if (kind === 'plan') {
-      planFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
-    }
-    if (kind === 'initiative') {
-      initiativeFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
-    }
-  }
+  const {
+    planFrontmatters,
+    initiativeFrontmatters,
+    collectionErrors,
+  } = collectStateFrontmatters(targets);
 
   const completeGraph = args.some((arg) => {
     try { return statSync(resolve(arg)).isDirectory(); } catch { return false; }
   });
-  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters, { completeGraph });
+  const crossErrors = [
+    ...collectionErrors,
+    ...crossValidate(planFrontmatters, initiativeFrontmatters, { completeGraph }),
+  ];
   for (const ce of crossErrors) {
     console.error(`\n✖ cross-validation: plan '${ce.planSlug}' phase ${ce.phaseId} ↔ initiative '${ce.initiativeSlug}'`);
     for (const err of ce.errors) {

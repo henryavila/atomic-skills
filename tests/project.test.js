@@ -1116,9 +1116,9 @@ esac
     install();
     const content = readAsset('project-transitions.md');
     assert.match(content, /Microcommit checkpoints/);
-    assert.match(content, /rtk git add <explicit-paths>/);
-    assert.match(content, /rtk git commit -m "chore\(project\): checkpoint <plan> <phase> <task-id>"/);
-    assert.match(content, /rtk git commit -m "chore\(project\): advance <plan> <phase>"/);
+    assert.match(content, /Bash git add <explicit-paths>/);
+    assert.match(content, /Bash git commit -m "chore\(project\): checkpoint <plan> <phase> <task-id>"/);
+    assert.match(content, /Bash git commit -m "chore\(project\): advance <plan> <phase>"/);
     assert.match(content, /Never use `git add \.` or `git add -A`/);
   });
 

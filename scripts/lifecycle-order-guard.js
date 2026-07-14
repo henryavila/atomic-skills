@@ -6,6 +6,7 @@
  * actionable predecessor command.
  */
 import { collectPhaseGraphViolations } from '../src/state-invariants.js';
+import { isDeepStrictEqual } from 'node:util';
 
 const FULL_GIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const REVIEW_MODES = new Set(['local', 'codex', 'both']);
@@ -236,17 +237,9 @@ function gateComplete(gate) {
 
 export function classifyPhaseDonePreflight(input = {}) {
   const phase = object(input.phase ?? input.initiative);
-  const tasks = array(input.tasks ?? phase.tasks);
   const plan = object(input.plan);
   const initiative = object(input.initiative ?? input.phase);
-
-  if (!Array.isArray(input.tasks ?? phase.tasks)) {
-    return block(
-      'phase-done-missing-tasks',
-      'phase-done requires a parsed tasks array before transition',
-      'Load the active phase initiative, then rerun `phase-done`.',
-    );
-  }
+  const tasks = array(initiative.tasks);
 
   const planSlug = text(plan.slug);
   const phaseId = text(phase.id);
@@ -260,6 +253,21 @@ export function classifyPhaseDonePreflight(input = {}) {
       'phase-done-identity-missing',
       'phase-done requires plan, descriptor and initiative identity before transition',
       'Load the project-scoped plan, its unique descriptor and matching initiative, then rerun `phase-done`.',
+    );
+  }
+  if (!Array.isArray(initiative.tasks)) {
+    return block(
+      'phase-done-missing-tasks',
+      'phase-done requires a parsed tasks array before transition',
+      'Load the active phase initiative, then rerun `phase-done`.',
+    );
+  }
+  if (input.tasks !== undefined
+      && (!Array.isArray(input.tasks) || !isDeepStrictEqual(input.tasks, initiative.tasks))) {
+    return block(
+      'phase-done-task-slice-mismatch',
+      'phase-done task input differs from the authoritative initiative tasks',
+      'Reload the active phase initiative and pass its unchanged tasks, then rerun `phase-done`.',
     );
   }
   const descriptors = plan.phases.filter((candidate) => (

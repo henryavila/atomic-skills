@@ -56,6 +56,19 @@ test('phase-done prose emits only one aggregate phase event', () => {
   assert.doesNotMatch(phase, /Set all `tasks\[\]\.status = ['`]?done/);
 });
 
+test('phase-done prose routes every terminal effect through the recoverable coordinator', () => {
+  const real = readFileSync(TRANSITIONS, 'utf8');
+  const phase = block(real, HEADERS.phase);
+  assert.match(phase, /executePhaseDoneTransaction/);
+  for (const effect of ['findCommit', 'commit', 'emit', 'materializeSuccessor', 'assertClean']) {
+    assert.ok(
+      phase.includes(`effects.${effect}`) || phase.includes(`\`${effect}\``),
+      `phase-done documents ${effect}`,
+    );
+  }
+  assert.doesNotMatch(phase, /node "\$PKG_ROOT\/scripts\/append-completion\.js" --event phase-done/);
+});
+
 test('done prose requires verifier handling before status mutation', () => {
   const real = readFileSync(TRANSITIONS, 'utf8');
   const done = block(real, HEADERS.done);

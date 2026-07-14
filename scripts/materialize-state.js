@@ -22,7 +22,6 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import Ajv from 'ajv/dist/2020.js';
-import { stringify as stringifyYaml } from 'yaml';
 import { withCompletionLedgerLock } from './append-completion.js';
 import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
 import { parseFrontmatter, validateFile } from './validate-state.js';
@@ -694,31 +693,52 @@ function recover(root, markerPath, marker, faultAt, {
     || hashFile(absolute.stagedInitiative) === marker.hashes.initiative.after;
 
   if (!forceRollback && stagedPlanReady && stagedInitiativeReady) {
-    if (initiativeNeedsPublish) {
-      injectFault('before-initiative-rename', faultAt);
-      if (hashFile(absolute.initiative) !== marker.hashes.initiative.before) {
-        throw new Error('live initiative changed before publish; refusing writes');
+    const publish = () => {
+      if (initiativeNeedsPublish) {
+        injectFault('before-initiative-rename', faultAt);
+        if (hashFile(absolute.initiative) !== marker.hashes.initiative.before) {
+          throw new Error('live initiative changed before publish; refusing writes');
+        }
+        durableRename(absolute.stagedInitiative, absolute.initiative);
+        injectFault('after-initiative-rename', faultAt);
       }
-      durableRename(absolute.stagedInitiative, absolute.initiative);
-      injectFault('after-initiative-rename', faultAt);
-    }
-    if (planNeedsPublish) {
-      if (hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
-        throw new Error('live initiative changed before plan publish; refusing writes');
+      if (planNeedsPublish) {
+        if (hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+          throw new Error('live initiative changed before plan publish; refusing writes');
+        }
+        injectFault('before-plan-rename', faultAt);
+        if (hashFile(absolute.plan) !== marker.hashes.plan.before) {
+          throw new Error('live plan changed before publish; refusing writes');
+        }
+        durableRename(absolute.stagedPlan, absolute.plan);
+        injectFault('after-plan-rename', faultAt);
       }
-      injectFault('before-plan-rename', faultAt);
-      if (hashFile(absolute.plan) !== marker.hashes.plan.before) {
-        throw new Error('live plan changed before publish; refusing writes');
+      if (hashFile(absolute.plan) !== marker.hashes.plan.after
+          || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+        throw new Error('published materialization pair changed before finalize; retaining marker');
       }
-      durableRename(absolute.stagedPlan, absolute.plan);
-      injectFault('after-plan-rename', faultAt);
+      cleanup(root, markerPath, marker);
+      return { status: 'complete', txId: marker.txId, recovered: true };
+    };
+    if (marker.authorization) {
+      return withCompletionLedgerLock(root, () => {
+        const current = assertSuccessorMaterializationAllowedLocked({
+          root,
+          planPath: marker.paths.plan,
+          targetPhaseId: marker.authorization.targetPhaseId,
+          prerequisitePhaseId: marker.authorization.prerequisitePhaseId,
+          receiptPath: marker.authorization.receiptPath,
+          receiptIdentity: marker.authorization.receiptIdentity,
+          receiptSources: marker.authorization.receiptSources,
+          closeSha: marker.authorization.closeSha,
+        });
+        if (current.receiptDigest !== marker.authorization.receiptDigest) {
+          throw new Error('receipt digest changed immediately before successor publication');
+        }
+        return publish();
+      });
     }
-    if (hashFile(absolute.plan) !== marker.hashes.plan.after
-        || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
-      throw new Error('published materialization pair changed before finalize; retaining marker');
-    }
-    cleanup(root, markerPath, marker);
-    return { status: 'complete', txId: marker.txId, recovered: true };
+    return publish();
   }
 
   // A lost staged file makes roll-forward impossible. Restore the descriptor
@@ -976,8 +996,19 @@ function readMarkdown(path, label) {
   return { ...parsed, raw };
 }
 
-function renderMarkdown(frontmatter, body) {
-  return `---\n${stringifyYaml(frontmatter)}---\n${body}`;
+function reviewReceiptApproves(raw, sha, { mode, requireMode = false } = {}) {
+  const parsed = parseFrontmatter(raw);
+  if (parsed.error) return false;
+  const receipt = parsed.frontmatter;
+  const artifact = typeof receipt.artifact === 'string' ? receipt.artifact.trim() : '';
+  const artifactTip = artifact.includes('..') ? artifact.split('..').at(-1) : artifact;
+  return (receipt.final_verdict === 'approve' || receipt.final_verdict === 'approve_with_nits')
+    && receipt.skill === 'review-code'
+    && typeof receipt.reviewer === 'string'
+    && receipt.reviewer.length > 0
+    && artifactTip === sha
+    && (!requireMode || receipt.mode === mode)
+    && (receipt.reviewed_commit === undefined || receipt.reviewed_commit === sha);
 }
 
 function fullCommitSha(value) {
@@ -1142,8 +1173,11 @@ function loadHistoryProjection({
         `${phaseId} review receipt`,
       );
       if (fullCommitSha(reviewedSha)
-          && !readFileSync(reviewFile.path, 'utf8').includes(reviewedSha)) {
-        problems.push(`${phaseId} review receipt does not contain reviewed commit`);
+          && !reviewReceiptApproves(readFileSync(reviewFile.path, 'utf8'), reviewedSha, {
+            mode: descriptor.reviewGate.mode,
+            requireMode: true,
+          })) {
+        problems.push(`${phaseId} review receipt does not approve the reviewed commit and mode`);
       }
     } catch (error) {
       problems.push(error.message);
@@ -1182,23 +1216,14 @@ function loadHistoryProjection({
       problems.push(`criterion ${planCriterion.id} evidence mirrors disagree`);
     }
     const expectedCommit = reviewedSha;
-    for (const [mirror, criterion] of [
-      ['plan', planCriterion],
-      ['initiative', initiativeCriterion],
-    ]) {
-      if (fullCommitSha(expectedCommit)
-          && criterion.evidence?.verifiedCommit !== expectedCommit) {
-        repairs.push({
-          kind: 'evidence-commit',
-          mirror,
-          criterionId: planCriterion.id,
-          from: criterion.evidence?.verifiedCommit ?? null,
-          to: expectedCommit,
-        });
+    for (const [mirror, criterion] of [['plan', planCriterion], ['initiative', initiativeCriterion]]) {
+      if (fullCommitSha(expectedCommit) && criterion.evidence?.verifiedCommit !== expectedCommit) {
+        problems.push(
+          `criterion ${planCriterion.id} ${mirror} evidence verifiedCommit does not match reviewed commit`,
+        );
       }
     }
     const normalizedEvidence = structuredClone(planCriterion.evidence ?? {});
-    if (fullCommitSha(expectedCommit)) normalizedEvidence.verifiedCommit = expectedCommit;
     evidence.push({
       id: planCriterion.id,
       digest: digestValue(normalizedEvidence),
@@ -1448,43 +1473,6 @@ function reconcileMaterializationHistoryLocked(options = {}, ledger) {
   };
   if (classification === 'ambiguous' || options.apply !== true) return result;
 
-  const planRepairs = initial.repairs.filter((repair) => (
-    repair.kind === 'evidence-commit' && repair.mirror === 'plan'
-  ));
-  const initiativeRepairs = initial.repairs.filter((repair) => (
-    repair.kind === 'evidence-commit' && repair.mirror === 'initiative'
-  ));
-  if (planRepairs.length > 0) {
-    const bytes = Buffer.from(initial.documents.plan.raw);
-    result.backups.plan = backupBytes(initial.files.plan.path, bytes);
-    const frontmatter = structuredClone(initial.documents.plan.frontmatter);
-    for (const repair of planRepairs) {
-      const criterion = frontmatter.phases
-        .find((phase) => phase.id === options.phaseId).exitGate.criteria
-        .find((candidate) => candidate.id === repair.criterionId);
-      criterion.evidence.verifiedCommit = repair.to;
-    }
-    atomicHistoryWrite(
-      initial.files.plan.path,
-      renderMarkdown(frontmatter, initial.documents.plan.body),
-    );
-    result.writes.push(initial.files.plan.rel);
-  }
-  if (initiativeRepairs.length > 0) {
-    const bytes = Buffer.from(initial.documents.initiative.raw);
-    result.backups.initiative = backupBytes(initial.files.initiative.path, bytes);
-    const frontmatter = structuredClone(initial.documents.initiative.frontmatter);
-    for (const repair of initiativeRepairs) {
-      const criterion = frontmatter.exitGates
-        .find((candidate) => candidate.id === repair.criterionId);
-      criterion.evidence.verifiedCommit = repair.to;
-    }
-    atomicHistoryWrite(
-      initial.files.initiative.path,
-      renderMarkdown(frontmatter, initial.documents.initiative.body),
-    );
-    result.writes.push(initial.files.initiative.rel);
-  }
   const duplicateRepairs = initial.repairs.filter((repair) => repair.kind === 'duplicate-completion');
   if (duplicateRepairs.length > 0) {
     if (ledger.readRaw() !== initial.completionLog.raw) {
@@ -1630,7 +1618,7 @@ export function checkHistoryReceipt(options = {}) {
   ));
 }
 
-export function assertSuccessorMaterializationAllowed({
+function assertSuccessorMaterializationAllowedLocked({
   root = process.cwd(),
   planPath,
   targetPhaseId,
@@ -1643,13 +1631,13 @@ export function assertSuccessorMaterializationAllowed({
   if (!receiptIdentity || !receiptSources) {
     throw new Error('successor barrier requires configured receipt identity and sources');
   }
-  const receiptCheck = checkHistoryReceipt({
-    root,
+  const absoluteRoot = realpathSync(resolve(root));
+  const receiptCheck = checkHistoryReceiptLocked({
+    root: absoluteRoot,
     receiptPath,
     expectedIdentity: receiptIdentity,
     expectedSources: receiptSources,
   });
-  const absoluteRoot = realpathSync(resolve(root));
   const planFile = historyPath(absoluteRoot, planPath, 'planPath');
   const currentPlan = readMarkdown(planFile.path, 'plan').frontmatter;
   const prerequisite = (currentPlan.phases ?? [])
@@ -1713,9 +1701,11 @@ export function assertSuccessorMaterializationAllowed({
   } catch (error) {
     throw new Error(`historical ${prerequisitePhaseId} review receipt is absent at closeSha: ${error.message}`);
   }
-  if (!historicalReviewReceipt.includes(historicalReview.at)) {
+  if (!reviewReceiptApproves(historicalReviewReceipt, historicalReview.at, {
+    mode: historicalReview.mode,
+  })) {
     throw new Error(
-      `historical ${prerequisitePhaseId} review receipt at closeSha does not contain its review anchor`,
+      `historical ${prerequisitePhaseId} review receipt at closeSha does not approve its review anchor`,
     );
   }
   const completionLog = historyPath(
@@ -1741,6 +1731,13 @@ export function assertSuccessorMaterializationAllowed({
     closeSha,
     receiptDigest: receiptCheck.projectionDigest,
   };
+}
+
+export function assertSuccessorMaterializationAllowed(options = {}) {
+  const absoluteRoot = realpathSync(resolve(options.root ?? process.cwd()));
+  return withCompletionLedgerLock(absoluteRoot, () => (
+    assertSuccessorMaterializationAllowedLocked({ ...options, root: absoluteRoot })
+  ));
 }
 
 function option(args, name, { required = false } = {}) {

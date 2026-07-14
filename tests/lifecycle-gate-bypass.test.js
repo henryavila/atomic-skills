@@ -52,6 +52,15 @@ test('preflight checks tasks but intentionally does not require gate/review evid
   assert.equal(result.allowed, true);
 });
 
+test('preflight cannot replace authoritative initiative tasks with a detached empty slice', () => {
+  const request = input();
+  request.initiative.tasks = [{ id: 'T-1', status: 'pending' }];
+  request.tasks = [];
+  const result = classifyPhaseDonePreflight(request);
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-task-slice-mismatch');
+});
+
 test('deferred, skipped, failed and evidence-less gates cannot reach terminal commit', () => {
   const cases = [
     { status: 'deferred', deferredReason: 'later' },

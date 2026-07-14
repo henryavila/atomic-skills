@@ -83,6 +83,27 @@ test('appendCompletion allows a phase-done event with no taskId', () => {
   }
 });
 
+test('completion lock ownership includes process-start identity', () => {
+  const root = mkdtempSync(join(tmpdir(), 'completion-lock-identity-'));
+  try {
+    ensureCompletion(root, {
+      event: 'task-done', projectId: 'p', planSlug: 'plan', phaseId: 'F0',
+      taskId: 'T-1', idempotencyKey: 'task-done:p/plan/F0/T-1@close',
+      ts: '2026-07-14T20:00:00Z',
+    }, {
+      beforeAppend: () => {
+        const owner = JSON.parse(readFileSync(
+          join(root, '.atomic-skills', 'analytics', '.completions.lock'),
+          'utf8',
+        ));
+        assert.match(owner.processIdentity, /:/);
+      },
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('appendCompletion rejects an event outside the enum and writes nothing', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
   try {

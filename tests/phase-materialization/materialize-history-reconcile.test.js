@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import {
@@ -33,7 +34,25 @@ test('consistent F0 projection writes a current canonical receipt', () => {
   }
 });
 
-test('uniquely matched stale gate evidence is repairable with byte-identical backups', () => {
+test('rejecting review receipt cannot authenticate a historical projection', () => {
+  const state = createHistoryFixture();
+  try {
+    const reviewPath = join(state.root, '.atomic-skills', 'reviews', 'demo-f0.md');
+    const rejecting = readFileSync(reviewPath, 'utf8').replace(
+      'final_verdict: approve',
+      'final_verdict: needs_changes',
+    );
+    writeFileSync(reviewPath, rejecting);
+    const result = reconcileMaterializationHistory({ ...state.options, apply: true });
+    assert.equal(result.classification, 'ambiguous');
+    assert.match(result.problems.join('\n'), /review receipt.*does not approve/i);
+    assert.equal(result.writes.length, 0);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('mismatched gate evidence anchors are ambiguous and never rewritten', () => {
   const state = createHistoryFixture();
   try {
     const stale = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -46,13 +65,13 @@ test('uniquely matched stale gate evidence is repairable with byte-identical bac
     const beforePlan = readFileSync(state.planPath);
     const beforeInitiative = readFileSync(state.initiativePath);
     const dry = reconcileMaterializationHistory(state.options);
-    assert.equal(dry.classification, 'repairable');
+    assert.equal(dry.classification, 'ambiguous');
     assert.deepEqual(readFileSync(state.planPath), beforePlan);
     const applied = reconcileMaterializationHistory({ ...state.options, apply: true });
-    assert.equal(applied.classification, 'repairable');
-    assert.deepEqual(readFileSync(applied.backups.plan), beforePlan);
-    assert.deepEqual(readFileSync(applied.backups.initiative), beforeInitiative);
-    assert.equal(applied.receipt.evidence[0].verifiedCommit, state.reviewedSha);
+    assert.equal(applied.classification, 'ambiguous');
+    assert.deepEqual(readFileSync(state.planPath), beforePlan);
+    assert.deepEqual(readFileSync(state.initiativePath), beforeInitiative);
+    assert.equal(applied.writes.length, 0);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }
@@ -61,23 +80,22 @@ test('uniquely matched stale gate evidence is repairable with byte-identical bac
 test('history repair rejects a pre-planted symlink at the deterministic backup path', () => {
   const state = createHistoryFixture();
   try {
-    const stale = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-    mutateFrontmatter(state.planPath, (plan) => {
-      plan.phases[0].exitGate.criteria[0].evidence.verifiedCommit = stale;
-    });
-    const beforePlan = readFileSync(state.planPath);
-    const digest = createHash('sha256').update(beforePlan).digest('hex').slice(0, 16);
-    const backup = `${state.planPath}.history-backup-${digest}.bak`;
-    const plantedTarget = `${state.planPath}.planted-target`;
-    writeFileSync(plantedTarget, beforePlan);
+    const duplicate = { ...state.event, ts: '2026-07-14T20:00:01Z' };
+    writeFileSync(state.completionLogPath,
+      `${JSON.stringify(state.event)}\n${JSON.stringify(duplicate)}\n`);
+    const beforeLog = readFileSync(state.completionLogPath);
+    const digest = createHash('sha256').update(beforeLog).digest('hex').slice(0, 16);
+    const backup = `${state.completionLogPath}.history-backup-${digest}.bak`;
+    const plantedTarget = `${state.completionLogPath}.planted-target`;
+    writeFileSync(plantedTarget, beforeLog);
     symlinkSync(plantedTarget, backup);
 
     assert.throws(
       () => reconcileMaterializationHistory({ ...state.options, apply: true }),
       /backup.*symbolic link|symbolic link.*backup/i,
     );
-    assert.deepEqual(readFileSync(state.planPath), beforePlan);
-    assert.deepEqual(readFileSync(plantedTarget), beforePlan);
+    assert.deepEqual(readFileSync(state.completionLogPath), beforeLog);
+    assert.deepEqual(readFileSync(plantedTarget), beforeLog);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }

@@ -59,7 +59,9 @@ function transactionInput(root, overrides = {}) {
 
 test('open task blocks before verifiers, review, writes or events', async () => {
   const calls = [];
-  const input = base({ tasks: [{ id: 'T-1', status: 'pending' }] });
+  const input = base();
+  input.initiative.tasks = [{ id: 'T-1', status: 'pending' }];
+  input.tasks = input.initiative.tasks;
   const result = await executePhaseDoneTransaction(input, {
     produceEvidence: async () => calls.push('evidence'),
     commit: async () => calls.push('commit'),
@@ -198,6 +200,70 @@ test('event failure after commit resumes without recommit or duplicate completio
   }
 });
 
+test('committed recovery resumes after HEAD moves without rerunning the new-close guard', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
+  try {
+    const request = transactionInput(root);
+    let storedCommit;
+    let evidenceCalls = 0;
+    let emitCalls = 0;
+    const effects = {
+      produceEvidence: async () => { evidenceCalls += 1; return {}; },
+      findCommit: async () => storedCommit,
+      commit: async () => {
+        storedCommit = { closeSha: 'b'.repeat(40) };
+        return storedCommit;
+      },
+      emit: async () => {
+        emitCalls += 1;
+        if (emitCalls === 1) throw new Error('injected event failure');
+      },
+      assertClean: async () => true,
+    };
+    await assert.rejects(executePhaseDoneTransaction(request, effects), /injected event failure/);
+    const resumedInput = {
+      ...request,
+      currentHead: storedCommit.closeSha,
+      reviewCommitExists: false,
+      reviewFileMatches: false,
+      exitGates: request.exitGates.map((gate) => ({
+        ...gate,
+        evidence: { ...gate.evidence, verifiedCommit: SHA },
+      })),
+    };
+    const resumed = await executePhaseDoneTransaction(resumedInput, effects);
+    assert.equal(resumed.ok, true);
+    assert.equal(evidenceCalls, 1);
+    assert.equal(emitCalls, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('committed recovery fails closed when findCommit cannot authenticate the stored close', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
+  try {
+    const request = transactionInput(root);
+    const firstEffects = {
+      findCommit: async () => undefined,
+      commit: async () => ({ closeSha: 'b'.repeat(40) }),
+      emit: async () => { throw new Error('injected event failure'); },
+      assertClean: async () => true,
+    };
+    await assert.rejects(executePhaseDoneTransaction(request, firstEffects), /injected event failure/);
+    await assert.rejects(executePhaseDoneTransaction({
+      ...request,
+      currentHead: 'b'.repeat(40),
+    }, {
+      ...firstEffects,
+      findCommit: async () => undefined,
+      emit: async () => assert.fail('unauthenticated recovery must not emit'),
+    }), /stored closeSha could not be authenticated/i);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('successor failure resumes after the durable event without recommit or re-emit', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
@@ -206,11 +272,13 @@ test('successor failure resumes after the durable event without recommit or re-e
     let commitCalls = 0;
     let emitCalls = 0;
     let materializeCalls = 0;
+    let storedCommit;
     const effects = {
-      findCommit: async () => undefined,
+      findCommit: async () => storedCommit,
       commit: async () => {
         commitCalls += 1;
-        return { closeSha: SHA };
+        storedCommit = { closeSha: SHA };
+        return storedCommit;
       },
       emit: async () => { emitCalls += 1; },
       materializeSuccessor: async () => {

@@ -573,21 +573,35 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   faz rollback quando ela fica stale. Backups determinísticos rejeitam symlink,
   e schema/writer compartilham o contrato estrito do tombstone. Nenhum finding
   foi deferido; a aprovação exige um novo review Codex no HEAD corrigido.
+- **2026-07-14 — review Codex F4 r2:** os doze majors foram aceitos e corrigidos
+  na própria fase, sem defer. A task list autoritativa não admite slices
+  destacados; toda terminalização passa pela transação recuperável; retry após
+  commit relê o marker antes do gate de novo fechamento. Review receipt agora é
+  estruturado, approving, mode/artifact-exato e repository-scoped; evidence
+  conflitante é ambígua, nunca reescrita. `closedAt` permanece imutável, o lock
+  do ledger vincula PID à identidade de início do processo e cobre autorização
+  mais publicação do sucessor. Initiative hardened exige identidade explícita,
+  gate mirror é bijetivo e duplicatas são erro antes do join. A inferência de
+  raiz não-Git foi corrigida para layouts flat e nested após regressão vermelha.
+  O receipt r2 permanece `needs_changes`; só um review fresco do novo commit
+  pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1
-  com testes de concorrência, recovery, identidade, terminalidade e barreira de
-  sucessor. A suíte completa está verde; faltam os gates finais no commit
-  corrigido e o novo review Codex da fase.
-- **Decision log:** nenhum finding r1 foi deferido. Duplicatas históricas são
+  e os doze do review r2 com testes de concorrência, recovery, identidade,
+  terminalidade, provenance e barreira de sucessor. A suíte completa está verde;
+  falta o review Codex fresco do checkpoint corrigido.
+- **Decision log:** nenhum finding r1/r2 foi deferido. Duplicatas históricas são
   preservadas fisicamente e neutralizadas por tombstone auditável; recovery só
   avança enquanto receipt, review, gates, evento e close SHA continuam ligados.
+  Provenance conflitante nunca é sintetizada, e publicação permanece sob o lock
+  da autoridade que foi validada.
 - **Single nextAction:** Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
-- **Verbatim state:** review r1 → 0B/0C/8M; remediation direcionada → 93 pass,
-  0 fail; full repository suite → exit 0.
-- **Uncommitted changes:** remediação r1, schemas regenerados, tests, receipt e
-  decisões F4 estão prontos para checkpoint e rereview.
+- **Verbatim state:** review r2 → 0B/0C/12M; remediation → focused gates green;
+  full repository suite → 1,858 pass, 0 fail, 8 skip; canonical state 167/167.
+- **Uncommitted changes:** remediação r2, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r3.
 
 ## Links
 

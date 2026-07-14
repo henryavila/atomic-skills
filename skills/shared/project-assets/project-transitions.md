@@ -88,10 +88,10 @@ Without that edge, the lineage row never blocks execution.
 
 Every mutating transition that closes a task or advances a phase ends with an explicit-path git checkpoint. Run these via {{BASH_TOOL}} and keep unrelated dirty files unstaged:
 
-- Inspect first: `rtk git status --short` and `rtk git diff --name-only`.
-- Stage only the files written by the transition: `rtk git add <explicit-paths>`.
-- For a single task close, commit the state checkpoint as `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`.
-- For a phase boundary, split logical checkpoints when the diff is large (review gate, lessons, archive move, next-phase activation), with the final advance commit shaped as `rtk git commit -m "chore(project): advance <plan> <phase>"`.
+- Inspect first with `{{BASH_TOOL}} git status --short` and `{{BASH_TOOL}} git diff --name-only`.
+- Stage only the files written by the transition with `{{BASH_TOOL}} git add <explicit-paths>`.
+- For a single task close, commit the state checkpoint as `{{BASH_TOOL}} git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`.
+- For a phase boundary, create one coordinator-owned close checkpoint shaped as `{{BASH_TOOL}} git commit -m "chore(project): advance <plan> <phase>"`.
 
 Never use `git add .` or `git add -A`. If `git diff --name-only` includes paths that do not belong to the current transition, leave them unstaged and report them in the `## Session handoff` block instead of sweeping them into the checkpoint.
 
@@ -136,7 +136,7 @@ task's own `verifier:`. Do NOT consume `verify-claim` output as task evidence.
 3. Choose one immutable `closedAt: <now>` and derive `idempotencyKey = buildDoneIdempotencyKey({ projectId, planSlug, phaseId, taskId, closedAt })`. Build one close bundle containing task `status: done`, `closedAt`/`lastUpdated`, the passing evidence, the new `nextAction`, and the complete `## Session handoff` fields. **Advance `nextAction` (C-5)** to exactly one verified imperative: the next unblocked task, the unblock path when only blocked tasks remain, `Run \`phase-done\`` when an in-plan phase has no open tasks, or `Run \`archive <slug>\`` for a standalone initiative.
 4. Execute `executeDoneTransaction(...)` from `scripts/done-transaction.js` with a single writer. It writes a durable recovery marker before the first mutation, then in order: persists the complete close bundle; runs `refresh-state`; calls `ensureCompletion(root, { event: 'task-done', projectId, planSlug, phaseId, taskId, idempotencyKey })`; finds or creates the explicit-path checkpoint containing initiative state, handoff, derived state, and analytics; confirms the task-owned worktree is clean; finally removes the marker. Never append the event before durable close state.
 5. On retry, read the marker and replay each declarative effect against fresh state. `persistClose` and `refresh-state` are idempotent, `ensureCompletion` returns the existing immutable event for the same key, and `findCheckpoint` prevents a second close commit after success. A conflicting event scope under the same key fails closed. The marker remains at `.atomic-skills/status/done-transactions/<sha256>.json` after any failed boundary and is removed only after the complete checkpoint is proven clean.
-6. **Microcommit checkpoint**: the transaction stages only its explicit initiative, handoff, derived-state, and analytics paths and creates `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. The recovery marker is deliberately untracked and excluded from the commit. If unrelated dirty files pre-existed, leave them unstaged and name them in the announcement.
+6. **Microcommit checkpoint**: the transaction stages only its explicit initiative, handoff, derived-state, and analytics paths and creates `{{BASH_TOOL}} git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. The recovery marker is deliberately untracked and excluded from the commit. If unrelated dirty files pre-existed, leave them unstaged and name them in the announcement.
 7. **Auto-transition detection**: count remaining tasks with `status` in `{pending, active, blocked}`. If zero:
    - When the initiative has a `parentPlan`: announce "Last task of `<parentPlan>/<phaseId>` closed. Run `phase-done` to verify exit gates and advance the plan?". The next session's SessionStart hook also surfaces a 🔔 phase-transition reminder via the active-initiative pending-task count.
    - When the initiative is standalone: announce "All tasks of `<slug>` closed. Run `archive <slug>` or open a new initiative?".
@@ -198,8 +198,15 @@ Invoked when the active initiative is the phase initiative of an active plan AND
    Before presenting any of the above, call `src/transition.js`:`unknownDeps(plan)`. If it returns non-empty, surface the typos to the user and abort the advance — the dependency graph is broken.
    Also apply **Plan dependency block guidance (`dependsOnPlans[]`)** before offering the next executable phase: if the current plan is blocked by a prerequisite plan, print the prerequisite, its status, and the resume path, then stop before writing `currentPhase` or phase statuses.
 8. On the user's accept of an advance:
-   - **Propagate completion to the initiative** (BEFORE archiving):
-     a. Assert again that all tasks were already closed individually by `done <task-id>` and that each close emitted its own completion event. `phase-done` never mutates an open task. Emit no `task-done` completion events here; emit exactly one `phase-done` completion event via `appendCompletion(root, { event: 'phase-done', projectId, planSlug, phaseId, taskId: null, actuals: computePhaseActuals(phaseStarted, { cwd: root, sinceCommit: phaseStartedCommit }) })`, where `phaseStartedCommit` is the phase initiative's `startedCommit` field (the immutable git SHA recorded at activation — **preferred**, rebase/squash/amend-proof) and `phaseStarted` is its `started` field (the PHASE timestamp — NOT `plan.started`, NOT the branch — used only as fallback when `startedCommit` is absent on a legacy phase), or `node "$PKG_ROOT/scripts/append-completion.js" --event phase-done --project <projectId> --plan <planSlug> --phase <phaseId> --actuals-since-commit <phase.startedCommit> --actuals-since <phase.started>` with no `--task`, carrying the phase's aggregate actuals once. The helper computes the git diff from the anchor (or, fallback, phase.started) ->HEAD (filesChanged/locAdded/locRemoved/commits) and degrades to actuals OMITTED (no error) when git/diff is unavailable; never invent actuals. Leave `weight`/`weightBasis` absent unless already known so the helper defaults them to `1`/`'count'`.
+   - Call `executePhaseDoneTransaction(...)` from `scripts/phase-done-transaction.js` exactly once with the guarded candidate bundle. Every bullet below is implemented **inside** that coordinator's named effects; none is an independent write path:
+     - `effects.findCommit` authenticates an existing close checkpoint for this derived key.
+     - `effects.commit` atomically persists the mirrored gates, review receipt, lessons, terminal plan/initiative state, archive move, handoff and selected plan advance using explicit paths, then returns the full `closeSha`.
+     - `effects.emit` calls `ensureCompletion(root, { event: 'phase-done', projectId, planSlug, phaseId, taskId: null, idempotencyKey, closeSha, ts: close.closedAt, actuals })`.
+     - `effects.materializeSuccessor` publishes a descriptor-only successor through `materializeState({ prerequisiteCloseSha: closeSha, ... })`; omit this effect when no successor was accepted.
+     - `effects.assertClean` proves that no task-owned bytes remain outside the durable recovery marker.
+     A retry reuses the marker and authenticated `closeSha`; it never reruns the new-close commit guard after the close commit and never performs a terminal effect outside the coordinator.
+   - **Propagate completion to the initiative** (inside `effects.commit`, BEFORE archiving):
+     a. Assert again that all tasks were already closed individually by `done <task-id>` and that each close emitted its own completion event. `phase-done` never mutates an open task. Emit no `task-done` completion events here; `effects.emit` emits exactly one `phase-done` completion event with the derived `idempotencyKey` and `closeSha`, carrying the phase's aggregate actuals once. Compute `actuals` with `computePhaseActuals(phaseStarted, { cwd: root, sinceCommit: phaseStartedCommit })`, where `phaseStartedCommit` is the initiative's immutable `startedCommit` and `phaseStarted` is its phase timestamp fallback. Omit unavailable actuals; never invent them.
      b. Mirror initiative `exitGates[]` from the authoritative phase criteria by `id`. Every matching phase criterion must already be `met` with passing evidence; copy `status`, `metAt`, and `evidence` exactly. A pending/failed/deferred/skipped/evidence-less criterion aborts before archiving and returns to steps 3–5; this is a gate leak. If an initiative-only gate has no matching phase criterion, preserve its current status and never coerce it to `met`.
      c. Set initiative `status: done`, `lastUpdated: <now>`, `nextAction: null`.
      d. Recompute the initiative's dashboard rollups (`tasksDone`/`tasksTotal`/`gatesMet`/`gatesTotal`; now all tasks and gates are closed with passing evidence) + per-gate `verifierLabel`/`evidenceSummary` by running `node "$PKG_ROOT/scripts/refresh-state.js"` (rollups + focus markers + the `focus.json` digest), then save the initiative file.
@@ -214,11 +221,10 @@ Invoked when the active initiative is the phase initiative of an active plan AND
      first pass pre-flight; do not propose `new initiative` for descriptor-only
      phases.
    - Save the plan + PROJECT-STATUS.md.
-   - **Microcommit checkpoints**: stage explicit paths only and commit the phase-boundary state in small logical groups. Use separate commits for review metadata, lessons, archive move, and next-phase activation when those groups exist; the final plan advance commit is `rtk git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
+   - **Microcommit checkpoints**: `effects.commit` stages explicit phase-boundary paths only and creates the single authenticated close checkpoint `{{BASH_TOOL}} git commit -m "chore(project): advance <plan> <phase>"`. Never use `git add .` or `git add -A`.
 9. On user decline (or `plan-done` accept without `currentPhase` change):
-   - **Propagate completion to the initiative** (same steps 8a-d above).
-   - Set the parent plan's phase `status: done` and stop without seeding a successor.
-   - **Microcommit checkpoint**: stage explicit paths only and commit the no-successor close as `rtk git commit -m "chore(project): advance <plan> <phase>"`.
+   - Invoke the same `executePhaseDoneTransaction(...)` boundary with the same `findCommit`, `commit`, `emit`, and `assertClean` effects, but omit `materializeSuccessor` and keep `currentPhase` unchanged.
+   - Inside `effects.commit`, propagate completion using steps 8a-d, set the parent descriptor `status: done`, archive the initiative, and create the no-successor close checkpoint with explicit paths only.
 
 ### Self-review against gates (at phase-done)
 

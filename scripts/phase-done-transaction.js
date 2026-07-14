@@ -114,29 +114,42 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     return { ok: false, stage: 'preflight', decision: preflight };
   }
 
-  const produced = typeof effects.produceEvidence === 'function'
-    ? await effects.produceEvidence(input)
-    : {};
-  const commitInput = {
-    ...input,
-    ...(produced ?? {}),
-    root: input.root,
-    close: input.close,
-  };
-  const commitGuard = classifyPhaseDoneCommit(commitInput);
-  if (!commitGuard.allowed) {
-    return { ok: false, stage: 'commit-guard', decision: commitGuard };
+  let idempotencyKey;
+  let marker = null;
+  if (hasText(input.root) && input.close && typeof input.close === 'object') {
+    idempotencyKey = validateTransactionInput(input);
+    marker = readPhaseDoneRecovery(input.root, idempotencyKey);
+  }
+  if (marker && !isDeepStrictEqual(marker.close, input.close)) {
+    throw new Error(`phase-done transaction close payload conflicts with ${idempotencyKey}`);
   }
 
-  const idempotencyKey = validateTransactionInput(commitInput);
+  let commitInput = input;
+  let commitDecision = null;
+  if (!marker || marker.stage === 'prepared') {
+    const produced = typeof effects.produceEvidence === 'function'
+      ? await effects.produceEvidence(input)
+      : {};
+    commitInput = {
+      ...input,
+      ...(produced ?? {}),
+      root: input.root,
+      close: input.close,
+    };
+    commitDecision = classifyPhaseDoneCommit(commitInput);
+    if (!commitDecision.allowed) {
+      return { ok: false, stage: 'commit-guard', decision: commitDecision };
+    }
+    const validatedKey = validateTransactionInput(commitInput);
+    if (idempotencyKey !== undefined && idempotencyKey !== validatedKey) {
+      throw new Error('phase-done transaction identity changed during evidence production');
+    }
+    idempotencyKey = validatedKey;
+  }
   for (const name of ['findCommit', 'commit', 'emit', 'assertClean']) {
     if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
   }
 
-  let marker = readPhaseDoneRecovery(commitInput.root, idempotencyKey);
-  if (marker && !isDeepStrictEqual(marker.close, commitInput.close)) {
-    throw new Error(`phase-done transaction close payload conflicts with ${idempotencyKey}`);
-  }
   if (!marker) {
     marker = {
       schemaVersion: 1,
@@ -157,6 +170,13 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     writePhaseDoneRecovery(commitInput.root, marker);
   } else {
     validateCommitValue(value);
+    const authenticated = await effects.findCommit(
+      { ...transactionInput, closeSha: value.closeSha },
+      marker,
+    );
+    if (!authenticated || authenticated.closeSha !== value.closeSha) {
+      throw new Error('phase-done transaction stored closeSha could not be authenticated');
+    }
   }
 
   transactionInput = { ...transactionInput, closeSha: value.closeSha };
@@ -185,7 +205,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
   return {
     ok: true,
     stage: 'committed',
-    decision: commitGuard,
+    decision: commitDecision ?? { allowed: true, recovered: true },
     idempotencyKey,
     closeSha: value.closeSha,
     value,

@@ -151,3 +151,23 @@ test('caller cannot alias a different close under an arbitrary idempotency key',
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('an already-done task cannot be closed again under a different timestamp', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
+  try {
+    const request = input(root, {
+      task: {
+        id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
+        weight: 4, weightBasis: 'count',
+      },
+      close: {
+        projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-001',
+        closedAt: '2026-07-14T20:00:00Z', weight: 4, weightBasis: 'count',
+      },
+    });
+    await assert.rejects(executeDoneTransaction(request, harness().effects), /immutable closedAt/i);
+    assert.equal(existsSync(doneRecoveryPath(root, buildDoneIdempotencyKey(request.close))), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -123,6 +123,38 @@ test('single materialization authority cannot bypass a configured successor barr
   }
 });
 
+test('successor publication holds the completion ledger lock through both live renames', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    configureSuccessorBarrier(state);
+    const pair = buildF3Pair(state);
+    const observed = [];
+    const result = materializeState({
+      root: state.root,
+      planPath: state.planRel,
+      initiativePath: '.atomic-skills/projects/proj/demo/phases/f3-demo.md',
+      ...pair,
+      prerequisiteCloseSha: state.closeSha,
+      txId: 'ledger-lock-publication',
+      faultAt: (point) => {
+        if (point === 'before-initiative-rename' || point === 'before-plan-rename') {
+          observed.push(point);
+          assert.equal(
+            existsSync(join(state.root, '.atomic-skills/analytics/.completions.lock')),
+            true,
+            `${point} must execute inside the completion-ledger critical section`,
+          );
+        }
+      },
+    });
+    assert.equal(result.status, 'complete');
+    assert.deepEqual(observed, ['before-initiative-rename', 'before-plan-rename']);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('status-only close commit cannot borrow review and gate evidence from live state', () => {
   const state = createHistoryFixture();
   try {

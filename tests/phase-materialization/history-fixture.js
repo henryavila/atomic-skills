@@ -113,8 +113,9 @@ export function createHistoryFixture() {
   mkdirSync(dirname(join(root, sidecarRel)), { recursive: true });
   writeFileSync(join(root, sidecarRel), '{"captureVersion":"0.1","phaseId":"F3"}\n');
   mkdirSync(join(root, '.atomic-skills', 'reviews'), { recursive: true });
-  writeFileSync(join(root, '.atomic-skills/reviews/demo-f0.md'), `review ${reviewedSha}\n`);
-  writeFileSync(join(root, '.atomic-skills/reviews/demo-f4.md'), `review ${reviewedSha}\n`);
+  const reviewReceipt = (mode) => `---\nartifact: ${'0'.repeat(40)}..${reviewedSha}\nskill: review-code\nreviewer: gpt-5-codex\nmode: ${mode}\nfinal_verdict: approve\nschema_version: "1.0"\n---\n`;
+  writeFileSync(join(root, '.atomic-skills/reviews/demo-f0.md'), reviewReceipt('both'));
+  writeFileSync(join(root, '.atomic-skills/reviews/demo-f4.md'), reviewReceipt('local'));
   mkdirSync(dirname(completionLogPath), { recursive: true });
   const event = {
     ts: '2026-07-14T20:00:00Z', event: 'task-done', projectId: 'proj',

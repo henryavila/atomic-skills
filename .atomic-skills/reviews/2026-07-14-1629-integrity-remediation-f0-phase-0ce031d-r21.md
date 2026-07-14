@@ -4,6 +4,7 @@ topic: integrity-remediation-f0-phase-0ce031d-r21
 artifact: b2a845a5d7e832c88622cb21c89aff6ee33927e1..0ce031d2cebe0a5059a388e99ff6df5432aec4eb
 skill: review-code
 reviewer: gpt-5-codex
+mode: both
 codex_version: 0.144.3
 final_verdict: approve
 counts_final: {blocker: 0, critical: 0, major: 0, minor: 0, nit: 0}

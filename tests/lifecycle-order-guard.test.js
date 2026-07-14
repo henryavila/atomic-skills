@@ -24,6 +24,7 @@ const phaseDoneIdentity = {
   phase: { id: 'F4', slug: 'order-guards-f4', status: 'active' },
   initiative: {
     parentPlan: 'order-guards', phaseId: 'F4', slug: 'order-guards-f4', status: 'active',
+    tasks: [{ id: 'T-001', status: 'done' }],
   },
 };
 
@@ -157,13 +158,15 @@ test('allows depend resolve --archived when archived prerequisite is integrated'
 });
 
 test('blocks phase-done while tasks are open and recommends the task close command', () => {
+  const tasks = [
+    { id: 'T-001', status: 'done' },
+    { id: 'T-002', status: 'pending' },
+  ];
   const result = classifyLifecycleOrder({
     command: 'phase-done',
     ...phaseDoneIdentity,
-    tasks: [
-      { id: 'T-001', status: 'done' },
-      { id: 'T-002', status: 'pending' },
-    ],
+    initiative: { ...phaseDoneIdentity.initiative, tasks },
+    tasks,
     exitGates: [],
     reviewGate: { status: 'passed', at: 'abc123' },
   });

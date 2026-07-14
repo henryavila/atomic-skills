@@ -71,3 +71,48 @@ test('multiprocess retries serialize one idempotency key into one physical line'
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('multiprocess stale-lock reclamation never removes a live replacement owner', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-completion-stale-race-'));
+  const ready = join(root, 'ready');
+  const start = join(root, 'start');
+  const analytics = join(root, '.atomic-skills', 'analytics');
+  mkdirSync(ready);
+  mkdirSync(analytics, { recursive: true });
+  writeFileSync(join(analytics, '.completions.lock'), `${JSON.stringify({
+    version: 1,
+    pid: 2147483647,
+    processIdentity: 'dead:process-start',
+    token: 'stale-owner',
+  })}\n`);
+  try {
+    const script = `
+      import { existsSync, writeFileSync } from 'node:fs';
+      import { join } from 'node:path';
+      import { ensureCompletion } from ${JSON.stringify(MODULE)};
+      const [root, ready, start, worker] = process.argv.slice(1);
+      writeFileSync(join(ready, worker), 'ready');
+      const wait = new Int32Array(new SharedArrayBuffer(4));
+      while (!existsSync(start)) Atomics.wait(wait, 0, 0, 5);
+      ensureCompletion(root, {
+        event: 'task-done', projectId: 'proj', planSlug: 'plan', phaseId: 'F0',
+        taskId: 'T-002', idempotencyKey: 'task-done:proj/plan/F0/T-002@close',
+        ts: '2026-07-14T20:00:01Z',
+      }, { beforeAppend: () => Atomics.wait(wait, 0, 0, 100) });
+    `;
+    const children = Array.from({ length: 8 }, (_, index) => spawn(
+      process.execPath,
+      ['--input-type=module', '-e', script, root, ready, start, String(index)],
+      { stdio: ['ignore', 'ignore', 'inherit'] },
+    ));
+    await waitUntil(() => readdirSync(ready).length === children.length);
+    writeFileSync(start, 'go');
+    await Promise.all(children.map(waitForExit));
+    const records = readFileSync(LOG(root), 'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 1);
+    assert.equal(records[0].taskId, 'T-002');
+    assert.equal(readdirSync(analytics).includes('.completions.lock'), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
