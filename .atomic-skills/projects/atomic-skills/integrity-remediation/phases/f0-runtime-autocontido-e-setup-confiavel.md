@@ -10,9 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T17:08:37Z
-nextAction: Commitar o checkpoint da remediação F0, executar review-code no HEAD
-  limpo e só então recalcular proposeAdvance.
+lastUpdated: 2026-07-14T09:46:39Z
+nextAction: Executar T-006 por TDD e repetir review-code sobre um novo HEAD limpo.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -32,11 +31,11 @@ businessIntent:
     black-box, fault matrix, tiers de host, Linux/macOS/Windows, Node 22.18.x,
     Node 24.11.x ou superior, full suite, docs e skill validation passam.
 tasksDone: 5
-tasksTotal: 5
+tasksTotal: 6
 gatesMet: 2
 gatesTotal: 2
 weightDone: 19
-weightTotal: 19
+weightTotal: 20
 exitGates:
   - id: F0-G1
     description: Admissão SPEC, runtime closure, resolução por package root e
@@ -88,6 +87,10 @@ stack:
     title: Runtime autocontido e setup confiável
     type: task
     openedAt: 2026-07-10T20:07:37.544Z
+  - id: 2
+    title: T-006 — Fechar os achados válidos do review de a3089a4
+    type: task
+    openedAt: 2026-07-14T01:33:28Z
 tasks:
   - id: T-001
     title: Destravar o executor e expor CLIs estáveis
@@ -340,6 +343,51 @@ tasks:
         path: tests/phase-materialization/materialize-bootstrap.test.js
       - kind: file
         path: tests/phase-materialization/e2e-lifecycle.test.js
+  - id: T-006
+    title: Fechar os achados válidos do review de a3089a4
+    summary: Corrige os seis defeitos validados e torna o checkpoint de F0 elegível para nova revisão.
+    description: >-
+      Corrigir F-002..F-007 por TDD, documentar a fronteira operacional de F-001
+      e repetir review-code sobre um novo HEAD limpo. verified_by:
+      `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md:225-447`.
+    status: pending
+    lastUpdated: 2026-07-14T09:46:39Z
+    tags:
+      - review
+      - data-integrity
+    scopeBoundary:
+      - não avançar F0 nem restaurar reviewGate antes de review aprovado
+      - não ampliar F0 para o lock universal de writers planejado para F4
+      - não alterar schemas, dependências, installer ou release
+    acceptance:
+      - lock parcial ou crash converge sem intervenção e IDs duplicados falham antes do marker
+      - refresh usa publicação atômica ou CAS e não corrompe Markdown
+      - arrays JSON legados aninhados preservam completion events
+      - writeInitiativeFile rejeita peso negativo direta e indiretamente
+      - novo checkpoint limpo recebe review-code aprovado
+    verifier:
+      kind: shell
+      command: node --test tests/phase-materialization/materialize-bootstrap.test.js
+        tests/refresh-state.test.js tests/append-completion-dispatchlog.test.js
+        tests/decompose.test.js
+      expectExitCode: 0
+    provenance:
+      surfacedAt: 2026-07-14T01:31:57Z
+      surfacedDuring: integrity-remediation-f0-runtime-autocontido-e-setup-confiavel/review-code-a3089a4
+      surfacedBy: ai
+    context:
+      solves: Elimina defeitos que permitem lock permanente, estado ambíguo ou
+        inválido, perda ou corrupção do índice e falha na emissão de eventos.
+      trigger: O review-code cross-model do commit a3089a4 terminou needs_changes
+        com sete achados major; a triagem validou F-002..F-007 e classificou F-001
+        como fronteira destinada a F4.
+      assumesStillValid:
+        - F-002..F-007 permanecem reproduzíveis no HEAD a3089a4 e pertencem à superfície alterada em F0.
+        - F-001 permanece fora do recorte de F0 e será tratado pela autoridade compartilhada de writers em F4.
+        - F0 somente pode avançar após review aprovado sobre um novo HEAD limpo.
+      ratifiedAt: 2026-07-14T01:31:57Z
+      ratifiedBy: human
+      lastReviewedAt: 2026-07-14T01:31:57Z
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição
@@ -361,11 +409,12 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e F0-G1/F0-G2 novamente comprovados. Os findings aceitos na revisão desta remediação foram corrigidos por testes RED→GREEN. O `reviewGate` anterior foi removido porque apontava para um SHA rejeitado e já não representa o worktree atual. Nenhuma transição de fase ou materialização sucessora ocorreu.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas, T-006 aberta e F0-G1/F0-G2 comprovados. O review de `a3089a4` terminou `needs_changes` com sete achados `major`; F-002..F-007 foram corrigidos por RED→GREEN e F-001 foi explicitamente deferido para a autoridade compartilhada de writers em F4. Nenhuma transição de fase ou materialização sucessora ocorreu.
 - **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. T-005 descreve apenas o seam futuro para F4.
-- **Single nextAction:** Commitar o checkpoint da remediação F0, executar `review-code` no HEAD limpo e só então recalcular `proposeAdvance`; não avançar F0 antes desse review.
-- **Verbatim state:** HEAD base do worktree → `b88fe93370176d3a54cac9218fcb9d7f3e547100`; F0-G1 → `54 tests`, `5 suites`, `54 pass`, `0 fail`, `duration_ms 43472.904`; F0-G2 → `75 tests`, `2 suites`, `75 pass`, `0 fail`, `duration_ms 20675.814625`; full suite → `1719 tests`, `184 suites`, `1711 pass`, `0 fail`, `8 skipped`, `duration_ms 79464.235833`; review histórico rejeitado → `.atomic-skills/reviews/2026-07-12-1120-integrity-remediation-f0-code-review.md` em `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a`.
-- **Uncommitted changes:** scripts, documentação de transição/materialização, testes de regressão, plan/initiative/index e dispatch log normalizado compõem o checkpoint atual.
+- **T-006 decision:** O lock principal publica owner completo por temp→rename sob o guard; a autoridade rejeita IDs de fase duplicados; o índice usa temp durável, releitura e retry limitado; células Markdown rejeitam pipe/CR/LF e preservam `$` literal; o dispatch parser rastreia profundidade/string/escape; initiatives rejeitam peso finito negativo antes dos collision guards. A janela final check→rename do índice permanece a fronteira deferida de F-001/F4.
+- **Single nextAction:** Commitar o checkpoint T-006 e executar `review-code` no novo HEAD limpo; não fechar T-006 nem avançar F0 antes desse review.
+- **Verbatim state:** HEAD revisado → `a3089a4d540b8df1d9866fd73bf53ead1249e140`; review → `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md`, `needs_changes`, `0B/0C/7M`; verifier T-006 → `152 tests`, `15 suites`, `152 pass`, `0 fail`, `duration_ms 10218.639333`; full suite → `1736 tests`, `184 suites`, `1728 pass`, `0 fail`, `8 skipped`, `duration_ms 32640.294584`; skills → `15/15`; state → `166 files`, `26 plans`, `1 routing config` válidos.
+- **Uncommitted changes:** relatório/índice do review, estado T-006, quatro módulos de produção e quatro suítes de regressão compõem o checkpoint atual.
 
 ## Self-review against code-quality gates
 
@@ -377,6 +426,6 @@ _(plan doc, external refs)_
 - **G6 reference-or-strike:** aplicado — o handoff preserva literalmente o HEAD base, o review histórico e as contagens/durações dos gates reexecutados.
 - **G7 abstraction restraint:** aplicado — as correções reutilizam os parsers, transações e helpers existentes; o helper de sincronização do índice permanece privado.
 - **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a remediação.
-- **Codex review:** o review histórico em `66c4bba064402c8cb3c6d5a0e1cdf99c845d245a` permanece `reject`; seus findings aceitos foram remediados, mas o checkpoint atual ainda não foi revisado em HEAD limpo.
+- **Codex review:** o review de `a3089a4` permanece `needs_changes`; F-002..F-007 foram remediados, mas o checkpoint T-006 ainda não foi revisado em HEAD limpo.
 - **Review gate (G2):** aberto — nenhum `reviewGate` está registrado no descriptor F0 até um review fresco e aprovado sobre o HEAD limpo do checkpoint.
 - **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.

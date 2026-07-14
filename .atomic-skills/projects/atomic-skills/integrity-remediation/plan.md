@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-12T17:08:37Z
+lastUpdated: 2026-07-14T01:31:57Z
 branch: plan/integrity-remediation
 currentPhase: F0
 parallelismAllowed: false
@@ -70,7 +70,7 @@ phases:
     summary: Destrava executor, fecha runtime closure e materializa F4 de forma
       recuperável.
     dependsOn: []
-    subPhaseCount: 5
+    subPhaseCount: 6
     exitGate:
       summary: 2 criteria to meet
       criteria:
