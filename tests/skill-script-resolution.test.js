@@ -43,6 +43,7 @@ const BARE_NODE_SCRIPTS = /\bnode\s+scripts\//
 // NOT flagged — only our exact names followed by a space / EOL / backtick.
 const BARE_NPM_RUN = new RegExp(`\\bnpm\\s+run\\s+(?:${LOCAL_NPM_SCRIPTS.join('|')})(?![\\w-])`)
 const MODULE_REFERENCE = /(?:import\s*\(\s*|require\s*\(\s*|import\s+[^'"\n]+?\s+from\s+)(['"])([^'"]+)\1/g
+const SHELL_SOURCE_REFERENCE = /(\$PWD\/src\/[\w.-]+\.js|\$HOME\/\.atomic-skills\/src\/[\w.-]+\.js|\$\(npm root -g[^)]*\)\/@henryavila\/atomic-skills\/src\/[\w.-]+\.js)/g
 
 function mdFiles(dir) {
   const out = []
@@ -59,6 +60,10 @@ function findOffenders(lines) {
   lines.forEach((line, i) => {
     if (BARE_NODE_SCRIPTS.test(line)) offenders.push(`${i + 1}: ${line.trim()}`)
     if (BARE_NPM_RUN.test(line)) offenders.push(`${i + 1}: ${line.trim()}`)
+
+    for (const match of line.matchAll(SHELL_SOURCE_REFERENCE)) {
+      offenders.push(`${i + 1}: shell-bound package source '${match[1]}'`)
+    }
 
     for (const match of line.matchAll(MODULE_REFERENCE)) {
       const specifier = match[2]
@@ -96,6 +101,20 @@ describe('skill bodies resolve bundled scripts from the install root', () => {
       "1: cwd-bound module './src/decompose.js'",
       "2: cwd-bound module '../src/bootstrap.js'",
       "3: private package 'yaml'",
+    ])
+  })
+
+  it('detects package-owned src entrypoints resolved through shell fallbacks', () => {
+    const offenders = findOffenders([
+      'for c in "$PWD/src/normalize.js" \\',
+      '         "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js" \\',
+      '         "$HOME/.atomic-skills/src/normalize.js"; do',
+    ])
+
+    assert.deepEqual(offenders, [
+      '1: shell-bound package source \'$PWD/src/normalize.js\'',
+      "2: shell-bound package source '$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js'",
+      "3: shell-bound package source '$HOME/.atomic-skills/src/normalize.js'",
     ])
   })
 

@@ -93,14 +93,9 @@ Steps:
    ' "$PWD" 2>/dev/null)
 
    # Provision (idempotent) the single ~/.aideck/consumers/atomic-skills/ consumer
-   # from the shipped template. Resolve the provisioner the same way as
-   # normalize.js (PWD → global npm → installed runtime). Safe no-op if unresolved.
-   PROV=""
-   for c in "$PWD/src/provision-consumer.js" \
-            "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/provision-consumer.js" \
-            "$HOME/.atomic-skills/src/provision-consumer.js"; do
-     [ -f "$c" ] && PROV="$c" && break
-   done
+   # from the shipped template through the recorded package runtime.
+   PROV="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/provision-consumer.js"
+   [ -f "$PROV" ] || PROV=""
    [ -n "$PROV" ] && node "$PROV" >/dev/null 2>&1
 
    AIDECK_CONSUMER="atomic-skills"         # ← one fixed consumer; $pid scopes (AIDECK CONTRACT)
@@ -227,14 +222,10 @@ Steps:
 
 2. **Repair on `STATE_ERROR` (mutation-gated).** A non-empty `STATE_ERROR=...` line means a dataSource failed to load — under Model-B aiDeck reads are per-dataSource and do **not** strict-validate, so this is an io/YAML-parse error (not a schema reject). Offer `Repair STATE_ERROR now? (y/N)` before any file write. On no/default, do not normalize; print the error and fall back to the terminal view. On `y`, run the normalizer as a best-effort hygiene pass (it also keeps the data clean for `aideck validate` against the consumer `schema.json`), then continue:
 
-   a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it in this order and run the first that exists:
+   a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it through the recorded package runtime:
       ```bash
-      NORM=""
-      for c in "$PWD/src/normalize.js" \
-               "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js" \
-               "$HOME/.atomic-skills/src/normalize.js"; do
-        [ -f "$c" ] && NORM="$c" && break
-      done
+      NORM="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/normalize.js"
+      [ -f "$NORM" ] || NORM=""
       [ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
       echo "NORM=$NORM"
       ```
