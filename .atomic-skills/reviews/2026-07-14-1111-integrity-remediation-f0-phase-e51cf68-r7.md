@@ -9,7 +9,7 @@ final_verdict: needs_changes
 counts_final: {blocker: 0, critical: 0, major: 1, minor: 0, nit: 0}
 counts_blind: {blocker: 0, critical: 0, major: 3, minor: 0, nit: 0}
 framing_delta: {dropped: 2, maintained: 1, emerged: 0}
-triage_remaining: {blocker: 0, critical: 0, major: 1, minor: 0, nit: 0}
+triage_remaining: {blocker: 0, critical: 0, major: 0, minor: 0, nit: 0}
 schema_version: "1.0"
 ---
 
@@ -32,10 +32,10 @@ schema_version: "1.0"
 
 ## Operator scope triage
 
-- F-001 final major — validated. F0 explicitly qualifies Linux/macOS/Windows, while `fsyncPath` opens directories unconditionally. The same repository already guards this operation in `refresh-state.js` on win32.
+- F-001 final major — validated and remediated in `67e33ec`. `fsyncPath` now skips only unsupported directory fsync on win32; durable file writes, file fsync, atomic renames and recovery remain unchanged.
 - F-001 blind — dismissed by the informed pass: the general schema remains backward-compatible while descriptor-only activation intentionally has a stricter pre-publication contract.
 - F-003 blind — dismissed by the informed pass: the final refresh check→rename authority is explicitly assigned to F4 and is outside F0's minimum bootstrap transaction.
-- Remaining substantive count: 0 blocker, 0 critical, 1 major, 0 minor. Remediation is pending; this review grants no phase approval.
+- Remaining substantive count after remediation: 0 blocker, 0 critical, 0 major, 0 minor. The raw reviewer verdict stays historical; a fresh clean-checkpoint review is still required for phase approval.
 
 ## Pass 1 output
 
@@ -1089,7 +1089,12 @@ Begin reconciliation now.
 
 ## Fixes applied in this session
 
-- F-001 final: remediation pending. The next reviewed checkpoint must include a behavioral win32 regression and the minimum platform guard.
+- F-001 final: fixed in `67e33ec` with an early return in the directory-only `fsyncPath` primitive when `process.platform === 'win32'`.
+- RED: `node --test --test-name-pattern="materialization skips unsupported directory fsync on win32" tests/phase-materialization/materialize-bootstrap.test.js` collected 1 test and failed in `durableUnlink` with `directory descriptors are unsupported on win32`.
+- GREEN: the same focused command collected and passed 1 test; the child completed the real transaction and published both candidate byte streams.
+- Relevant regression: materialize bootstrap, lifecycle and refresh-state suites collected and passed 52 tests.
+- Full regression: `npm test` collected 1,758 tests — 1,750 passed, 8 skipped, 0 failed.
+- Catalog validation: `npm run validate-skills` validated all 15 skills.
 
 ## Self-review against code-quality gates
 
