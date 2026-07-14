@@ -926,12 +926,17 @@ Begin reconciliation now.
 
 ## Fixes applied in this session
 
-- F-001 final: validated against `skills/shared/project-assets/project-view.md:69-71,113-138` and routed to RED→GREEN remediation. The phase remains open; this review grants no approval.
+- F-001 final: validated against `skills/shared/project-assets/project-view.md:69-71,113-138`.
+- RED: the rendered ensure-aiDeck script ran in a `plan-dependencies` worktree containing only `.atomic-skills/projects/atomic-skills/demo/plan.md`; it requested `projectId:"plan-dependencies"` and probed `/projects/plan-dependencies/data/plans`. The focused run collected 1 test and failed exactly on the registration-id assertion.
+- Root cause: the first value in the browser flow was derived unconditionally from the worktree basename, and both registration responses were discarded; the stale candidate therefore reached the data probe and dashboard URL.
+- Fix `6b1ee5c`: resolve a sole nested project folder before registration, preserve the normalized root-id fallback for zero/multiple projects, validate the server-returned id, and reuse that returned id for subsequent probes and links.
+- GREEN: six behavioral partitions passed (sole project, zero projects, multiple projects, collision-resolved response, omitted response id, invalid response id); `tests/project.test.js tests/install-uninstall-roundtrip.test.js` passed 81/81; full suite passed 1,747/1,755 with 8 intentional skips and 0 failures; all 15 skills validated.
+- This review remains historically `needs_changes`; remediation does not grant approval. The next phase-gate review must inspect a fresh capture ending at or after `6b1ee5c`.
 
 ## Self-review against code-quality gates
 
 - G1 read-before-claim: the cited skill, runtime resolver, aiDeck registry and direct tests were read before triage.
 - G2 soft-language: fix description states the observed contract mismatch without speculative qualifiers.
-- G3 anti-tautology: the planned regression must fail on basename-derived registration and pass only when the returned/canonical id is reused.
-- G4 fixture realism: the fixture will mirror a plan worktree basename that differs from its sole nested project id.
+- G3 anti-tautology: removing sole-project resolution breaks the regression; changing the one-project boundary breaks zero/multiple partitions; ignoring or trusting the response unconditionally breaks collision/missing/invalid-response partitions.
+- G4 fixture realism: the fixture mirrors a plan worktree basename that differs from its sole nested project id and executes the rendered shell block with an HTTP boundary double.
 - G7 anti-premature-abstraction: reuse the existing canonical registration response or a single local resolver; add no general helper without three consumers.
