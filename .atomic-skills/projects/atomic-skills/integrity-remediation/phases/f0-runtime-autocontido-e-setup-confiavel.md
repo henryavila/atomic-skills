@@ -10,8 +10,8 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T18:49:28Z
-nextAction: Commitar o recibo histórico R19 e executar o review Codex R20 de
+lastUpdated: 2026-07-14T19:09:08Z
+nextAction: Commitar o recibo histórico R20 e executar o review Codex R21 de
   encerramento da fase sobre o novo checkpoint limpo.
 parentPlan: integrity-remediation
 phaseId: F0
@@ -352,7 +352,7 @@ tasks:
       e repetir review-code sobre um novo HEAD limpo. verified_by:
       `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md:225-447`.
     status: pending
-    lastUpdated: 2026-07-14T18:49:28Z
+    lastUpdated: 2026-07-14T19:09:08Z
     tags:
       - review
       - data-integrity
@@ -530,6 +530,17 @@ Initiative for phase **F0 — Runtime autocontido e setup confiável**.
   independentes falharam antes da correção; o GREEN passou 100/100, a integração
   112/112, runtime closure 7/7 e as 15 skills validaram. A remediação foi
   fechada em `e95550d`; o verdict bruto histórico permanece `needs_changes`.
+- **2026-07-14 — triagem provisória do review `9225131` (R20):** o passe
+  informado descartou o finding markerless por contrariar o contrato das
+  skills instaladas e manteve dois major. O auto-start de aiDeck ignorava
+  `opts.aideckBin` e executava qualquer path via Node; o guard de symlink do
+  índice aceitava `plan.md` ou fase dentro do mesmo projeto. Pela delegação, o
+  launcher agora preserva precedência e classifica apenas `.js`/`.mjs` como
+  entrypoint Node; outros paths executam diretamente. A indirection do índice
+  ficou restrita a `CANONICAL-PROJECT-STATUS.md` no mesmo diretório real. Três
+  REDs falharam antes da correção; o GREEN passou 44/44, a integração 130/130,
+  runtime closure 7/7 e as 15 skills validaram. A remediação foi fechada em
+  `909e7e6`; o verdict bruto histórico permanece `needs_changes`.
 
 ## Links
 
@@ -537,11 +548,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. R19 terminou `needs_changes` após descartar três achados incompatíveis com os contratos informados e emergir um major na identidade lexical da raiz aiDeck. A canonicalização foi corrigida por TDD em `e95550d`; o review bruto permanece histórico. Falta o review Codex R20 fresco e aprovado sobre o checkpoint documental limpo, seguido dos verifiers finais de T-006/F0.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. R20 terminou `needs_changes` após descartar o finding markerless e manter dois major em auto-start aiDeck e autoridade do índice. Ambos foram corrigidos por TDD em `909e7e6`; o review bruto permanece histórico. Falta o review Codex R21 fresco e aprovado sobre o checkpoint documental limpo, seguido dos verifiers finais de T-006/F0.
 - **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade recupera markers antes de candidates e aceita `nextAction: null` somente para fase sem tasks; havendo tasks, exige passo concreto, summaries, weights e sinais. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` preserva linhas confiáveis diante de projeções inválidas; o race final check→rename continua reservado a F4. O dispatch log falha fechado em corrupção/identidade incompleta. Skills package-owned reutilizam `PKG_ROOT`; checkout-fonte exige identidade do pacote e entrypoint, e `businessIntent` usa arquivo temporário. T-005 descreve apenas o seam futuro para F4.
-- **T-006 decision:** O alvo resolvido de symlink deve permanecer no diretório real do projeto; alvo externo e projeto irmão falham antes de acesso. `serve` e verifier agregam os dois canais parciais, inclusive frontmatter de fase ilegível. A janela final check→rename permanece a fronteira deferida de F4. O `startedCommit` inicial é SHA hexadecimal e o par de argumentos é omitido fora de Git nos dois fluxos; se um anchor persistido deixa de ser ancestral, actuals são omitidos, sem fallback heurístico. O runtime instalado permanece a autoridade; checkout-fonte só é aceito após prova explícita. Fases materializadas sem tasks preservam o `null` permitido pelo schema, sem enfraquecer o ponteiro concreto das demais fases. O id de registro devolvido pelo aiDeck substitui o candidato local somente com prova canônica de mesmo `rootDir`; os dois clientes aceitam alias do mesmo repositório, falham fechado diante de raiz ausente/conflitante e preservam apenas a resposta legada de mesmo id sem `rootDir`.
-- **Single nextAction:** Commitar o recibo histórico R19 e executar o envelope Codex R20 de encerramento de F0 sobre o HEAD documental limpo resultante.
-- **Verbatim state:** R19 bruto → `.atomic-skills/reviews/2026-07-14-1549-integrity-remediation-f0-phase-bf755cb-r19.md`, 1 major final após 3 drops/0 maintained/1 emerged; checkpoint de remediação → `e95550d`; RED → 100 total, 98 pass, 2 fail; GREEN focado → 100/100; integração project/serve/paridade → 112/112; runtime closure → 7/7; skill validation → 15/15; gates completos anteriores preservados → verifier T-006 165/165, F0-G1 61/61, F0-G2 83/83, full suite 1769 total/1761 pass/8 skip/0 fail; incertezas preservadas → race final de refresh em F4, path-space preexistente fora do diff e symlink de arquivo real em Windows no gate multiplataforma posterior.
+- **T-006 decision:** O alvo resolvido de symlink deve permanecer no diretório real do projeto; alvo externo, projeto irmão, plano e fase falham antes da publicação; somente `CANONICAL-PROJECT-STATUS.md` é indirection aprovada. `serve` e verifier agregam os dois canais parciais, inclusive frontmatter de fase ilegível. Auto-start aiDeck honra override explícito e executa apenas `.js`/`.mjs` via Node. A janela final check→rename permanece a fronteira deferida de F4. O `startedCommit` inicial é SHA hexadecimal e o par de argumentos é omitido fora de Git nos dois fluxos; se um anchor persistido deixa de ser ancestral, actuals são omitidos, sem fallback heurístico. O runtime instalado permanece a autoridade; checkout-fonte só é aceito após prova explícita. Fases materializadas sem tasks preservam o `null` permitido pelo schema. O id de registro devolvido pelo aiDeck substitui o candidato local somente com prova canônica de mesmo `rootDir`; os dois clientes aceitam alias do mesmo repositório, falham fechado diante de raiz ausente/conflitante e preservam apenas a resposta legada de mesmo id sem `rootDir`.
+- **Single nextAction:** Commitar o recibo histórico R20 e executar o envelope Codex R21 de encerramento de F0 sobre o HEAD documental limpo resultante.
+- **Verbatim state:** R20 bruto → `.atomic-skills/reviews/2026-07-14-1609-integrity-remediation-f0-phase-9225131-r20.md`, 2 major finais após 1 drop/2 maintained/0 emerged; checkpoint de remediação → `909e7e6`; RED → 44 total, 41 pass, 3 fail; GREEN focado → 44/44; integração project/serve/refresh/paridade → 130/130; runtime closure → 7/7; skill validation → 15/15; gates completos anteriores preservados → verifier T-006 165/165, F0-G1 61/61, F0-G2 83/83, full suite 1769 total/1761 pass/8 skip/0 fail; incertezas preservadas → race final de refresh em F4, path-space preexistente fora do diff e symlink de arquivo real em Windows no gate multiplataforma posterior.
 
 ## Self-review against code-quality gates
 
@@ -553,6 +564,6 @@ _(plan doc, external refs)_
 - **G6 reference-or-strike:** aplicado — o handoff preserva literalmente o HEAD base, o review histórico e as contagens/durações dos gates reexecutados.
 - **G7 abstraction restraint:** aplicado — as correções reutilizam os parsers, transações e helpers existentes; o helper de sincronização do índice permanece privado.
 - **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a remediação.
-- **Codex review:** R19 terminou `needs_changes` com um major emergido após reconciliação; ele foi remediado em `e95550d`, mas nenhuma aprovação é inferida nem o verdict bruto é reescrito. R20 fresco continua sendo o gate independente de encerramento de F0 solicitado pelo usuário.
+- **Codex review:** R20 terminou `needs_changes` com dois major mantidos após reconciliação; ambos foram remediados em `909e7e6`, mas nenhuma aprovação é inferida nem o verdict bruto é reescrito. R21 fresco continua sendo o gate independente de encerramento de F0 solicitado pelo usuário.
 - **Review gate (G2):** aberto — nenhum `reviewGate` está registrado no descriptor F0 até um review fresco e aprovado sobre o HEAD limpo do checkpoint.
 - **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.
