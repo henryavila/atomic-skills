@@ -91,13 +91,45 @@ function initiativeProjection(filePath) {
   if (typeof fm.slug !== 'string' || fm.slug.trim() === '') {
     return { error: `${filePath}: initiative slug must be a non-empty string` };
   }
-  const tasks = Array.isArray(fm.tasks) ? fm.tasks : [];
-  const gates = Array.isArray(fm.exitGates) ? fm.exitGates : [];
+  if (typeof fm.phaseId !== 'string' || fm.phaseId.trim() === '') {
+    return { error: `${filePath}: initiative phaseId must be a non-empty string` };
+  }
+  if (typeof fm.status !== 'string') {
+    return { error: `${filePath}: initiative status must be a string` };
+  }
+  markdownCell(fm.slug, 'slug');
+  markdownCell(fm.phaseId, 'phaseId');
+  markdownCell(fm.status, 'status');
+  if (!['pending', 'active', 'paused', 'done', 'archived'].includes(fm.status)) {
+    return { error: `${filePath}: initiative status is invalid` };
+  }
+  if (!Array.isArray(fm.tasks)) {
+    return { error: `${filePath}: initiative tasks must be an array` };
+  }
+  if (!Array.isArray(fm.exitGates)) {
+    return { error: `${filePath}: initiative exitGates must be an array` };
+  }
+  const taskStatuses = new Set(['pending', 'active', 'done', 'blocked']);
+  const invalidTask = fm.tasks.find(
+    (task) => task == null || typeof task !== 'object' || !taskStatuses.has(task.status),
+  );
+  if (invalidTask) {
+    return { error: `${filePath}: initiative task status is invalid` };
+  }
+  const gateStatuses = new Set(['pending', 'met', 'deferred']);
+  const invalidGate = fm.exitGates.find(
+    (gate) => gate == null || typeof gate !== 'object' || !gateStatuses.has(gate.status),
+  );
+  if (invalidGate) {
+    return { error: `${filePath}: initiative exit gate status is invalid` };
+  }
+  const tasks = fm.tasks;
+  const gates = fm.exitGates;
   return {
     projection: {
       slug: fm.slug,
-      phaseId: typeof fm.phaseId === 'string' ? fm.phaseId : '',
-      status: typeof fm.status === 'string' ? fm.status : '',
+      phaseId: fm.phaseId,
+      status: fm.status,
       tasksDone: tasks.filter((task) => task?.status === 'done').length,
       tasksTotal: tasks.length,
       gatesMet: gates.filter((gate) => gate?.status === 'met').length,

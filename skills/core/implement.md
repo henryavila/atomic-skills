@@ -2,6 +2,22 @@ Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that si
 
 If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected.
 
+## Trusted package runtime
+
+Before invoking any package-owned verifier or state helper, resolve the installed
+absolute root with {{BASH_TOOL}} and fail closed when the marker is unavailable:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null)" || {
+  echo "atomic-skills package root unavailable; reinstall atomic-skills" >&2
+  exit 1
+}
+[ -f "$PKG_ROOT/scripts/validate-state.js" ] || {
+  echo "atomic-skills package root is stale: missing scripts/validate-state.js" >&2
+  exit 1
+}
+```
+
 ## Iron Law
 
 CODING STAYS SINGLE-THREADED.
@@ -93,7 +109,7 @@ The handoff lives in the active initiative body (durable `.atomic-skills/` state
 - **Narrative:** where we are, in 2–4 sentences — the phase, what just landed, what is mid-flight.
 - **Decision log:** the load-bearing choices made this session and why (so the next session does not re-litigate them).
 - **Single nextAction:** ONE concrete next step (e.g. "Run `done T-004`, then start T-005 in src/foo.js"). Exactly one — not a list.
-- **Verbatim state:** the exact paths, commands, and error text in play — pasted, not summarized. `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/...`, the failing assertion, the file:line.
+- **Verbatim state:** the exact paths, commands, and error text in play — pasted, not summarized. `node "$PKG_ROOT/scripts/validate-state.js" .atomic-skills/...`, the failing assertion, the file:line.
 - **Uncommitted changes:** the `git status --porcelain` list at snapshot time. Expected value after a healthy task close is "clean tree" or explicitly unrelated pre-existing files; task-owned dirty files mean the microcommit checkpoint was skipped and must be fixed before continuing.
 ```
 

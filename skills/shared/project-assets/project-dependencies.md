@@ -43,7 +43,7 @@ Then resolve project scope:
 After any write, run with {{BASH_TOOL}}:
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"
+node "$PKG_ROOT/scripts/validate-state.js"
 ```
 
 If validation reports an unknown prerequisite, self-dependency, or dependency cycle, revert only the dependency edit made by this command and report the validation error.
@@ -67,13 +67,12 @@ that delegates to the idempotent writer; do not append YAML by hand.
 Run with {{BASH_TOOL}} from the repo root, substituting the resolved dependent plan directory and prerequisite slug:
 
 ```bash
-PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
 node "$PKG_ROOT/scripts/plan-dependencies.js" add "$dependentPlanDir" "$prerequisiteSlug"
 ```
 
 `addPlanDependency` validates the edge against `meta/schemas/plan.schema.json#/$defs/planDependency`, preserves the plan body, and dedupes by `plan + origin.phaseId + origin.taskId + createdBy`. For a manual edge that identity collapses to `prerequisite + manual`, so re-running the command is a no-op.
 
-After the write, run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"`. If it passes, print the edge as:
+After the write, run `node "$PKG_ROOT/scripts/validate-state.js"`. If it passes, print the edge as:
 
 ```text
 plan <dependent> now depends on plan <prerequisite> (release.archived: blocked)
@@ -90,7 +89,7 @@ Rules:
 - Removing an edge never edits `spawnedFrom` or `phases[].spawnedPlans`; origin history remains intact.
 - If removing the final edge, remove `dependsOnPlans` entirely from frontmatter instead of leaving an empty array.
 
-Use the same parser/serializer pattern as `src/links-sidecar.js` (`parseFrontmatter` plus YAML stringify), so the markdown body is preserved. Then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js"`.
+Use the same parser/serializer pattern as `src/links-sidecar.js` (`parseFrontmatter` plus YAML stringify), so the markdown body is preserved. Then run `node "$PKG_ROOT/scripts/validate-state.js"`.
 
 ## `depend resolve`
 

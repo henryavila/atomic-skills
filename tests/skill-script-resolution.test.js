@@ -45,7 +45,7 @@ const BARE_NODE_SCRIPTS = /\bnode\s+scripts\//
 const BARE_NPM_RUN = new RegExp(`\\bnpm\\s+run\\s+(?:${LOCAL_NPM_SCRIPTS.join('|')})(?![\\w-])`)
 const MODULE_REFERENCE = /(?:import\s*\(\s*|require\s*\(\s*|import\s+[^'"\n]+?\s+from\s+)(['"])([^'"]+)\1/g
 const SHELL_SOURCE_REFERENCE = /(\$PWD\/src\/[\w.-]+\.js|\$HOME\/\.atomic-skills\/src\/[\w.-]+\.js|\$\(npm root -g[^)]*\)\/@henryavila\/atomic-skills\/src\/[\w.-]+\.js)/g
-const UNTRUSTED_PACKAGE_FALLBACK = /\$\(cat\s+"\$HOME\/\.atomic-skills\/package-root"[^)]*\|\|\s*echo\s+\.\)\/(?:src\/[\w.-]+\.js|scripts\/materialize-state\.js)/g
+const UNTRUSTED_PACKAGE_FALLBACK = /\$\(cat\s+"\$HOME\/\.atomic-skills\/package-root"[^)]*\|\|\s*echo\s+\.\)\/(?:src|scripts)\/[\w.-]+\.js/g
 
 function mdFiles(dir) {
   const out = []
@@ -128,11 +128,13 @@ describe('skill bodies resolve bundled scripts from the install root', () => {
     const offenders = findOffenders([
       'PROV="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/provision-consumer.js"',
       'node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js"',
+      'node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js"',
     ])
 
     assert.deepEqual(offenders, [
       '1: unchecked package-root fallback \'$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/provision-consumer.js\'',
       '2: unchecked package-root fallback \'$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js\'',
+      '3: unchecked package-root fallback \'$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js\'',
     ])
   })
 

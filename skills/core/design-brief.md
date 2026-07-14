@@ -10,6 +10,22 @@ doc), never a different app. The product intent (promise, philosophy, forbidden 
 is **not** in the code — gather and confirm it with the operator at **CP1** (mandatory
 validation) before generating anything.
 
+## Trusted package runtime
+
+Before invoking package-owned code, resolve the installed absolute root with
+{{BASH_TOOL}} and fail closed when the marker is unavailable:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null)" || {
+  echo "atomic-skills package root unavailable; reinstall atomic-skills" >&2
+  exit 1
+}
+[ -f "$PKG_ROOT/scripts/app-map-reconstruct.js" ] || {
+  echo "atomic-skills package root is stale: missing scripts/app-map-reconstruct.js" >&2
+  exit 1
+}
+```
+
 **Two witnesses.** The existing **code** is one witness — what the app does *today*, often
 the very thing the redesign replaces. The **product intent** is the other — the product's
 verbs, surfaces, and promise, the source of everything the redesign *adds*. Brief the
@@ -94,14 +110,14 @@ does); touching an **object** opens **that object's hub** — never guess a verb
 
 ### 3. Screen inventory + coverage ledger (§7 — no screen left out)
 
-Run reconstruction first with {{BASH_TOOL}}: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/app-map-reconstruct.js" <appRoot> --delta`.
+Run reconstruction first with {{BASH_TOOL}}: `node "$PKG_ROOT/scripts/app-map-reconstruct.js" <appRoot> --delta`.
 This happens before consuming the catalog and before any live route enumeration.
 
 Use the delta as the divergence list that needs operator arbitration. For each delta item,
 ask with {{ASK_USER_QUESTION_TOOL}} over the conflict's full witness set (no value dropped — P1).
 The arbitration is applied **programmatically**: the agent passes the resolved pages to
 `persistReconstruction({ pages })`, which writes the catalog carrying the operator's decisions.
-The CLI flag `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/app-map-reconstruct.js" <appRoot> --persist` is non-interactive
+The CLI flag `node "$PKG_ROOT/scripts/app-map-reconstruct.js" <appRoot> --persist` is non-interactive
 RE-emission of the catalog from the current sources — it does NOT record arbitration; the
 resolved-page channel does.
 

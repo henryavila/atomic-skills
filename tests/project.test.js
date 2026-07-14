@@ -761,6 +761,17 @@ esac
     assert.match(stage6, /businessIntent: <businessIntent>/);
     assert.match(stage6, /scripts\/find-missing-business-intent\.js" \.atomic-skills\/projects\/<project-id>\/<slug>\/plan\.md/);
     assert.doesNotMatch(stage6, /find-missing-business-intent\.js" \.atomic-skills\s/);
+    assert.match(stage6, /--business-intent-file "\$BUSINESS_INTENT_FILE"/);
+    assert.doesNotMatch(stage6, /--business-intent '<businessIntent-json>'/);
+  });
+
+  it('project-create-plan fails closed on an unavailable package runtime', () => {
+    install();
+    const content = readAsset('project-create-plan.md');
+    assert.match(content, /## Trusted package runtime/);
+    assert.match(content, /pkg\.name === "@henryavila\/atomic-skills"/);
+    assert.match(content, /missing scripts\/decompose-plan\.js/);
+    assert.doesNotMatch(content, /package-root[^\n]*\|\| echo \./);
   });
 
   it('project-create-plan Stage 6 documents lazy outputs and explicit F0 validation', () => {

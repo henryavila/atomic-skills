@@ -29,7 +29,7 @@ Para `help` normal e o alias `next`, execute com {{BASH_TOOL}} a partir da raiz
 do repo e imprima `stdout` verbatim:
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-help.js" --render "$PWD"
+node "$PKG_ROOT/scripts/compute-help.js" --render "$PWD"
 ```
 
 Esse comando é read-only, sempre sai `0`, e formata o JSON de
@@ -61,7 +61,7 @@ Para `help --html`, execute com {{BASH_TOOL}} a partir da raiz do repo e imprima
 `stdout` verbatim:
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-help.js" --html "$PWD"
+node "$PKG_ROOT/scripts/compute-help.js" --html "$PWD"
 ```
 
 O caminho é fixo: `docs/design/project-onboarding/index.html`. O helper checa a

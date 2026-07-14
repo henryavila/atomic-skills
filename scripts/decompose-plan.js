@@ -47,12 +47,22 @@ export async function runDecomposePlan(args, io = console) {
   const projectId = option(options, '--project-id', { required: true })
   const branchValue = option(options, '--branch')
   const startedCommit = option(options, '--started-commit')
-  const businessIntentRaw = option(options, '--business-intent', { required: true })
+  const businessIntentInline = option(options, '--business-intent')
+  const businessIntentFile = option(options, '--business-intent-file')
+  if ((businessIntentInline == null) === (businessIntentFile == null)) {
+    throw new Error('pass exactly one of --business-intent or --business-intent-file')
+  }
+  const businessIntentRaw = businessIntentFile == null
+    ? businessIntentInline
+    : readFileSync(resolveConsumerPath(businessIntentFile), 'utf8')
+  const businessIntentSource = businessIntentFile == null
+    ? '--business-intent'
+    : '--business-intent-file'
   let businessIntent
   try {
     businessIntent = JSON.parse(businessIntentRaw)
   } catch (error) {
-    throw new Error(`--business-intent must contain valid JSON: ${error.message}`)
+    throw new Error(`${businessIntentSource} must contain valid JSON: ${error.message}`)
   }
   const branch = branchValue === 'null' ? null : branchValue
   const files = materializeDecomposition(result, {

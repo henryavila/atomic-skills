@@ -156,7 +156,6 @@ the installed runtime, not from the consuming repository:
 
 ```bash
 # Example: group by exact slug
-PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
 node "$PKG_ROOT/scripts/bootstrap-project.js" cluster --signals /tmp/signals.json
 ```
 
@@ -257,7 +256,7 @@ Algorithm:
         (`.atomic-skills/projects/<project-id>/<slug>/phases/archive/<YYYY-MM>-<slug>.md`; legacy `.atomic-skills/initiatives/archive/`).
    d. Delete the draft.
    e. On name conflict at destination: log, skip, continue.
-4. **Validate.** Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/` (legacy fallback `.atomic-skills/plans/ .atomic-skills/initiatives/`). On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
+4. **Validate.** Run `node "$PKG_ROOT/scripts/validate-state.js" .atomic-skills/projects/` (legacy fallback `.atomic-skills/plans/ .atomic-skills/initiatives/`). On any failure, surface errors and roll back the committed files. Do not leave invalid state on disk.
 5. Update PROJECT-STATUS.md (Active Plans, Active Initiatives, Recently Archived).
 6. Write audit log to .atomic-skills/status/bootstrap.json:
    { timestamp, runId, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.

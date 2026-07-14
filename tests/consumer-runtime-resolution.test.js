@@ -70,12 +70,14 @@ describe('consumer resolves package entrypoints from the installed runtime root'
     assert.match(result.stdout, /"phaseId":\s*"F0"/)
 
     const businessIntent = JSON.stringify({
-      value: 'Resolve package-owned code from the installed runtime.',
-      workflow: 'Preview, materialize, then validate the emitted pair.',
+      value: "Resolve the customer's package-owned code from the installed runtime.",
+      workflow: 'Preview $(without shell expansion), materialize, then validate the emitted pair.',
       rules: 'Never import package code from the consumer cwd.',
       outOfScope: 'Writing the returned files in this pure transform test.',
       doneWhen: 'Plan and F0 paths are returned from the installed entrypoint.',
     })
+    const businessIntentFile = join(consumer, 'business-intent.json')
+    writeFileSync(businessIntentFile, businessIntent)
     const materialized = runNode(
       installedEntry('scripts', 'decompose-plan.js'),
       [
@@ -85,7 +87,7 @@ describe('consumer resolves package entrypoints from the installed runtime root'
         '--project-id', 'consumer',
         '--branch', 'plan/consumer-plan',
         '--started-commit', '0123456789abcdef0123456789abcdef01234567',
-        '--business-intent', businessIntent,
+        '--business-intent-file', businessIntentFile,
       ],
       { cwd: consumer, home }
     )
@@ -97,6 +99,7 @@ describe('consumer resolves package entrypoints from the installed runtime root'
     ])
     const f0 = parseYaml(files.find((file) => file.kind === 'initiative').content.split('---\n')[1])
     assert.equal(f0.startedCommit, '0123456789abcdef0123456789abcdef01234567')
+    assert.deepEqual(f0.businessIntent, JSON.parse(businessIntent))
   })
 
   it('clusters normal and empty signal partitions through the bootstrap entrypoint', () => {

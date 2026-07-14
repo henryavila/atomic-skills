@@ -53,7 +53,7 @@ Before the first merge, `scripts/consolidate.mjs` writes
 After every candidate it updates that same file with `merged` / `skipped` /
 `ejected` state and the audit lines. If the process halts for semantic conflicts,
 the file records `status: "blocked"`, `stop.branch`, and the ejected paths. Resume
-with `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/consolidate.mjs" --workdir <dir> --resume`; `--resume` reloads
+with `node "$PKG_ROOT/scripts/consolidate.mjs" --workdir <dir> --resume`; `--resume` reloads
 the original `base` and ordered branches from the run file and refuses mismatched
 `--base` / `--branches` arguments. Do not reconstruct a stopped train from current
 git history alone — git tells what is merged, while the run record tells which

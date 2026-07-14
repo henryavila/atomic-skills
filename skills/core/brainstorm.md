@@ -2,6 +2,22 @@ Turn an open idea into a committed, approved **design doc** — the divergent fr
 
 If {{ARG_VAR}} was provided, use it as the project goal / problem statement. If not, ask the user: "What are we designing? State the problem and the goal in one or two sentences." Then ask for the `<project-id>` and `<plan-slug>` this design belongs to (the design doc lands at `projects/<project-id>/<plan-slug>/design.md`).
 
+## Trusted package runtime
+
+Before invoking package-owned code, resolve the installed absolute root with
+{{BASH_TOOL}} and fail closed when the marker is unavailable:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null)" || {
+  echo "atomic-skills package root unavailable; reinstall atomic-skills" >&2
+  exit 1
+}
+[ -f "$PKG_ROOT/scripts/lint-design.js" ] || {
+  echo "atomic-skills package root is stale: missing scripts/lint-design.js" >&2
+  exit 1
+}
+```
+
 ## Iron Law
 
 NO PLAN WITHOUT AN APPROVED DESIGN.
@@ -44,7 +60,7 @@ Produce an Orchestrator Synthesis of the panel (or of your framed options, if no
 Write `projects/<project-id>/<plan-slug>/design.md` with the sections in **The design doc** below, then commit it (it is a canonical tracked artifact, unlike the throwaway `source.md` draft). Run the section lint before going further:
 
 ```bash
-node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-design.js" projects/<project-id>/<plan-slug>/design.md
+node "$PKG_ROOT/scripts/lint-design.js" projects/<project-id>/<plan-slug>/design.md
 # add --migration when any decision is a one-way door (requires the Blast radius section)
 ```
 

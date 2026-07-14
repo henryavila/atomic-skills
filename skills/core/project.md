@@ -11,6 +11,19 @@ This skill implements a 3-level model that matches `@henryavila/aideck`. State l
 
 Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index. **Legacy / coexistence:** flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + top-level status may still exist; readers resolve nested first, then flat, and `atomic-skills:project migrate` cuts over. Schemas live in `meta/schemas/`; validate with `validate-state.js`. `schemaVersion` policy: accept `'0.1'`/`'0.2'`; writers emit `'0.1'` unless an explicit upgrade stamps `'0.2'`.
 
+## Trusted package runtime
+
+Resolve once with {{BASH_TOOL}}:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || true)"
+[ -n "$PKG_ROOT" ] && [ -f "$PKG_ROOT/package.json" ] || {
+  echo "runtime unavailable" >&2; exit 1
+}
+```
+
+Lazy assets reuse `PKG_ROOT`; view/materialize verify it again.
+
 ## Grammar
 
 ```
@@ -107,7 +120,7 @@ DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; o
           → /atomic-skills:project status        (dashboard / full view)
 ```
 
-Print `IDEAS` only when N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` (single project → its ideas.md; otherwise sum `projects/*/ideas.md`; fail-open). Print `DRIFT` only when `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` reports `drift: true` (pure-read, fail-open). Neither mutates; `reconcile` is the only completion-mutation path.
+Print `IDEAS` only when N>0, computed zero-token via `{{BASH_TOOL}} grep -c '· status:pending' <resolved ideas.md>` (single project → its ideas.md; otherwise sum `projects/*/ideas.md`; fail-open). Print `DRIFT` only when `node "$PKG_ROOT/scripts/detect-completion.js" --json` reports `drift: true` (pure-read, fail-open). Neither mutates; `reconcile` is the only completion-mutation path.
 
 On **setup required**, print `No project lifecycle state yet — run
 \`/atomic-skills:project\` and I'll set it up.` and enter setup mode (including a
@@ -182,19 +195,19 @@ These are reference + procedure, not ambient triggers (P2), so they live with th
 
 In practice tasks/phases are **not** marked done when the work is done: code lands, tasks stay `pending`/`active`, and the drift is only found later by accident. The fix inverts the relationship — verifier-evidence-shaped *signals* actively TRIGGER detection on a forced cadence, while the close authority stays honest (GATE-R2 unchanged). Three rules, always resident:
 
-1. **Detection is deterministic + read-only.** `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" [--project <id>] [--json]` (zero-token, exits non-zero on drift) is the single source of "looks done in the repo, still open in state". It classifies each open task / pending criterion by a *changed-deliverable* signal — `output-exists` (a declared `outputs[].path` exists + changed after the entry's anchor) or `commit-ref` (a commit after the anchor naming the exact id or touching an exact declared output). Timestamps are compared by epoch, not lexically (git's offset vs the `Z` anchors). **Tasks** can match either class; an **exit-criterion** has no `outputs` field in the schema, so a **gate is detected by the id-in-commit half of `commit-ref` only** (never `output-exists`). **A `verifier:`'s mere presence is NEVER a signal** (it is written before work starts — it is the *closing* mechanism, not detection); free-text `acceptance[]` prose is never parsed. The detector NEVER mutates and NEVER runs a verifier.
+1. **Detection is deterministic + read-only.** `node "$PKG_ROOT/scripts/detect-completion.js" [--project <id>] [--json]` (zero-token, exits non-zero on drift) is the single source of "looks done in the repo, still open in state". It classifies each open task / pending criterion by a *changed-deliverable* signal — `output-exists` (a declared `outputs[].path` exists + changed after the entry's anchor) or `commit-ref` (a commit after the anchor naming the exact id or touching an exact declared output). Timestamps are compared by epoch, not lexically (git's offset vs the `Z` anchors). **Tasks** can match either class; an **exit-criterion** has no `outputs` field in the schema, so a **gate is detected by the id-in-commit half of `commit-ref` only** (never `output-exists`). **A `verifier:`'s mere presence is NEVER a signal** (it is written before work starts — it is the *closing* mechanism, not detection); free-text `acceptance[]` prose is never parsed. The detector NEVER mutates and NEVER runs a verifier.
 2. **`status` and `verify` DETECT & REPORT by default.** The no-args summary, every `status` view, and `verify` check #7 surface drift; they do not close tasks/gates. `status` refresh/repair writes require `project-view.md` prompts; `verify --fix` is only the `project-verify.md` normalization gate. SessionStart + Stop use the same detector (fail-open).
 3. **`reconcile` is the ONLY completion-mutation path** (mutating; subject to the pre-mutation gates). It is verifier-aware: a candidate with a `shell`/`test`/`query` verifier offers **`Run verifier` only** (no "mark done" shortcut — GATE-R2 forbids closing it without passing evidence); a verifier-absent candidate offers **`Mark done`** (manual ack). The signal is the *reason to ask*, never the close itself. Detail: `project-transitions.md` → `reconcile`.
 
-**Signal-at-creation (Component E).** Detection can only see tasks that carry a signal, so every task-creating path nudges the author to give one. `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` (zero-token, exits non-zero) lists open tasks with neither a `verifier` nor an `outputs[].path` for backfill — the same replicable-detector pattern as `find-missing-task-summaries.js`. The nudge is soft (some tasks are genuinely unverifiable), but it shrinks the undetectable blind spot toward zero over a project's life.
+**Signal-at-creation (Component E).** Detection can only see tasks that carry a signal, so every task-creating path nudges the author to give one. `node "$PKG_ROOT/scripts/find-signalless-tasks.js"` (zero-token, exits non-zero) lists open tasks with neither a `verifier` nor an `outputs[].path` for backfill — the same replicable-detector pattern as `find-missing-task-summaries.js`. The nudge is soft (some tasks are genuinely unverifiable), but it shrinks the undetectable blind spot toward zero over a project's life.
 
 ## Phase-end lessons consolidation (G1 — RESIDENT: learning must outlive the phase)
 
 A `review-code` finding *generates* learning; without a sink the next phase reads, it evaporates (the lesson dies unless the user happens to ask). The lessons loop closes that — capture at the end of a phase, disposition at the start of the next:
 
 1. **Capture (phase-done).** Distilling lessons is part of the **definition** of phase-done (not optional). The agent drafts lessons from real failure signals (confirmed `review-code` findings — especially a cross-model blocker the local pass missed — reopened/blocked tasks, deferred gates, the diff, user corrections), the user ratifies/edits/rejects (selective, capped, blameless), and the ratified set is written to one file per initiative: `.atomic-skills/projects/<id>/<plan-slug>/lessons/<initiative-slug>.md`, validated against `meta/schemas/lesson.schema.json`. A clean phase records zero lessons *explicitly* — silence ≠ zero. Detail: `project-transitions.md` → `phase-done` (Distill).
-2. **Disposition (phase-start).** On in-plan phase activation, `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>` feeds a HARD gate: each applicable lesson is dispositioned **Apply / Keep / Stale / Reject** before activation (`--skip-lessons` records why). Detail: `project-create-initiative.md` → step 6b.
-3. **Measurement.** `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-lessons.js" --stats` prints the deterministic burndown (identified / open / closed / stale / reusable / recurrence). A non-zero **recurrence** count (a new lesson `recurrenceOf` a prior one) is the signal that learning isn't sticking — the user's success criterion made visible.
+2. **Disposition (phase-start).** On in-plan phase activation, `node "$PKG_ROOT/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>` feeds a HARD gate: each applicable lesson is dispositioned **Apply / Keep / Stale / Reject** before activation (`--skip-lessons` records why). Detail: `project-create-initiative.md` → step 6b.
+3. **Measurement.** `node "$PKG_ROOT/scripts/list-lessons.js" --stats` prints the deterministic burndown (identified / open / closed / stale / reusable / recurrence). A non-zero **recurrence** count (a new lesson `recurrenceOf` a prior one) is the signal that learning isn't sticking — the user's success criterion made visible.
 
 ## Code-quality gates (state files this skill writes)
 

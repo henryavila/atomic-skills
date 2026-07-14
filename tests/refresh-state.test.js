@@ -77,7 +77,7 @@ function writeSeedState(dir, { completions = true } = {}) {
   );
   writeFileSync(
     join(planDir, 'phases', 'f1.md'),
-    '---\nslug: f1\ntitle: Phase 1 work\nstatus: active\nphaseId: F1\nparentPlan: plan-a\nlastUpdated: "2026-01-05T12:00:00Z"\ntasks:\n  - id: T-1\n    title: First\n    status: done\n    weight: 2\n  - id: T-2\n    title: Second\n    status: pending\n    weight: 3\n---\n',
+    '---\nslug: f1\ntitle: Phase 1 work\nstatus: active\nphaseId: F1\nparentPlan: plan-a\nlastUpdated: "2026-01-05T12:00:00Z"\ntasks:\n  - id: T-1\n    title: First\n    status: done\n    weight: 2\n  - id: T-2\n    title: Second\n    status: pending\n    weight: 3\nexitGates: []\n---\n',
   );
   writeFileSync(
     join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md'),
@@ -251,6 +251,59 @@ describe('refreshState consumer series integration', () => {
       assert.equal(existsSync(join(dir, '.atomic-skills', 'focus.json')), true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves the existing index row when required projection fields are invalid', () => {
+    const cases = [
+      { field: 'phaseId', value: '""', expected: /phaseId.*non-empty string/i },
+      { field: 'status', value: 'unknown', expected: /initiative status.*valid/i },
+      { field: 'tasks', value: '{}', expected: /tasks.*array/i },
+      { field: 'exitGates', value: '{}', expected: /exitGates.*array/i },
+      { field: 'tasks', value: '[{status: unknown}]', expected: /task status.*valid/i },
+      { field: 'exitGates', value: '[{status: unknown}]', expected: /exit gate status.*valid/i },
+    ];
+
+    for (const testCase of cases) {
+      const dir = mkdtempSync(join(tmpdir(), `refresh-state-index-invalid-${testCase.field}-`));
+      try {
+        writeSeedState(dir);
+        const phasePath = join(
+          dir,
+          '.atomic-skills',
+          'projects',
+          'projA',
+          'plan-a',
+          'phases',
+          'f1.md',
+        );
+        const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+        const phase = [
+          '---',
+          'slug: f1',
+          `status: ${testCase.field === 'status' ? testCase.value : 'active'}`,
+          `phaseId: ${testCase.field === 'phaseId' ? testCase.value : 'F1'}`,
+          'lastUpdated: "2026-01-05T12:00:00Z"',
+          `tasks: ${testCase.field === 'tasks' ? testCase.value : '[]'}`,
+          `exitGates: ${testCase.field === 'exitGates' ? testCase.value : '[]'}`,
+          '---',
+          '',
+        ].join('\n');
+        writeFileSync(phasePath, phase);
+
+        const summary = refreshState(dir, { nowMs: NOW, branch: null });
+
+        assert.equal(summary.indexesChanged, 0, testCase.field);
+        assert.equal(summary.indexErrors.length, 1, testCase.field);
+        assert.match(summary.indexErrors[0], testCase.expected, testCase.field);
+        assert.match(
+          readFileSync(indexPath, 'utf8'),
+          /^\| f1 \| F1 \| pending \| 0\/2 \| 0\/0 \|$/m,
+          testCase.field,
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     }
   });
 
