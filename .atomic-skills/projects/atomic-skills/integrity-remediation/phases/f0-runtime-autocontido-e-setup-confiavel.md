@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T12:03:39Z
-nextAction: Reiniciar o review Codex de T-006 com envelope menor que 300 KB e
-  corrigir todo finding final validado antes do fechamento.
+lastUpdated: 2026-07-14T12:16:43Z
+nextAction: Reiniciar o review Codex de T-006 com `codex-auto-review` e corrigir
+  todo finding final validado antes do fechamento.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -352,7 +352,7 @@ tasks:
       e repetir review-code sobre um novo HEAD limpo. verified_by:
       `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md:225-447`.
     status: pending
-    lastUpdated: 2026-07-14T12:03:39Z
+    lastUpdated: 2026-07-14T12:16:43Z
     tags:
       - review
       - data-integrity
@@ -412,6 +412,10 @@ Initiative for phase **F0 — Runtime autocontido e setup confiável**.
   Codex blind+informed válido. Falha de transporte ou limite reinicia o envelope
   com o mesmo diff e contexto factual reduzido; nenhum passe parcial concede
   aprovação.
+- **2026-07-14 — modelo de review:** após três timeouts do modelo padrão e duas
+  falhas pré-output no Pass 2, o envelope usa `codex-auto-review`, descrito pelo
+  cache local como `Automatic approval review model for Codex`, com reasoning
+  `high`. A troca altera o reviewer, não o diff, escopo ou templates.
 
 ## Links
 
@@ -419,11 +423,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. O checkpoint de código está em `364ce8b`; o primeiro retry Codex produziu Pass 1 válido (`0B/0C/3M/1m`) e falhou duas vezes antes de produzir Pass 2, portanto não existe veredito final. O usuário delegou provisoriamente as decisões internas do plano e exigiu review Codex ao final de cada fase.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. O checkpoint de código está em `364ce8b`; o modelo padrão produziu um Pass 1 temporário, falhou antes do Pass 2 e voltou a atingir timeout com envelope de 298026 bytes, portanto não existe veredito final. A próxima tentativa usa o reviewer específico `codex-auto-review`.
 - **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. T-005 descreve apenas o seam futuro para F4.
 - **T-006 decision:** O lock principal publica owner completo por temp→rename sob o guard; a autoridade rejeita IDs de fase duplicados; o índice usa temp durável, releitura e retry limitado; células Markdown rejeitam pipe/CR/LF e preservam `$` literal; o dispatch parser rastreia profundidade/string/escape; initiatives rejeitam peso finito negativo antes dos collision guards. A janela final check→rename do índice permanece a fronteira deferida de F-001/F4. Os findings cegos adicionais só entram na implementação após reconciliação informed válida.
-- **Single nextAction:** Reiniciar o envelope Codex blind+informed de `364ce8b` com briefing menor que 300 KB.
-- **Verbatim state:** checkpoint de código → `364ce8b20c055d8e9229d6f7a353f3f2e8f067d2`; checkpoint de estado → `4b9a022`; captura imutável → `/tmp/atomic-skills-364ce8b-review.diff`, `38413 bytes`, SHA-256 `09149811bbe7146b5309f2a23abe0e61fa9e71314f5df8067232c2512f13da30`; Pass 1 temporário → `/tmp/codex-output-pass1-20260714T105929Z.md`, `needs_changes`, `0B/0C/3M/1m`; Pass 2 → exit `1`, nenhum arquivo produzido em duas tentativas; verifier T-006 → `node --test tests/phase-materialization/materialize-bootstrap.test.js tests/refresh-state.test.js tests/append-completion-dispatchlog.test.js tests/decompose.test.js`, `152 pass`, `0 fail`.
+- **Single nextAction:** Executar o envelope blind+informed de `364ce8b` com `--model codex-auto-review`.
+- **Verbatim state:** checkpoint de código → `364ce8b20c055d8e9229d6f7a353f3f2e8f067d2`; captura imutável → `/tmp/atomic-skills-364ce8b-review.diff`, `38413 bytes`, SHA-256 `09149811bbe7146b5309f2a23abe0e61fa9e71314f5df8067232c2512f13da30`; envelope menor → `/tmp/codex-briefing-pass1-20260714T120543Z.md`, `298026 bytes`; execução padrão → exit `142`, nenhum `/tmp/codex-output-pass1-20260714T120543Z.md`; modelo escolhido → `/Users/henry/.codex/models_cache.json`, slug `codex-auto-review`, description `Automatic approval review model for Codex`, context_window `272000`, max_context_window `1000000`; verifier T-006 → `node --test tests/phase-materialization/materialize-bootstrap.test.js tests/refresh-state.test.js tests/append-completion-dispatchlog.test.js tests/decompose.test.js`, `152 pass`, `0 fail`.
 - **Uncommitted changes:** clean tree após o checkpoint de delegação.
 
 ## Self-review against code-quality gates
