@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T12:16:43Z
-nextAction: Reiniciar o review Codex de T-006 com `codex-auto-review` e corrigir
-  todo finding final validado antes do fechamento.
+lastUpdated: 2026-07-14T12:36:19Z
+nextAction: Executar novo envelope Codex blind+informed sobre o checkpoint
+  `555088b` e somente fechar T-006 se o veredito reconciliado aprovar.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -352,7 +352,7 @@ tasks:
       e repetir review-code sobre um novo HEAD limpo. verified_by:
       `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md:225-447`.
     status: pending
-    lastUpdated: 2026-07-14T12:16:43Z
+    lastUpdated: 2026-07-14T12:36:19Z
     tags:
       - review
       - data-integrity
@@ -416,6 +416,10 @@ Initiative for phase **F0 — Runtime autocontido e setup confiável**.
   falhas pré-output no Pass 2, o envelope usa `codex-auto-review`, descrito pelo
   cache local como `Automatic approval review model for Codex`, com reasoning
   `high`. A troca altera o reviewer, não o diff, escopo ou templates.
+- **2026-07-14 — triagem provisória do review `364ce8b`:** o passe informado
+  confirmou quatro findings major. A delegação do usuário foi aplicada pela
+  alternativa conservadora: validar cada mecanismo em fonte, criar quatro REDs
+  independentes e corrigir todos em `555088b`; nenhum finding foi dispensado.
 
 ## Links
 
@@ -423,12 +427,12 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. O checkpoint de código está em `364ce8b`; o modelo padrão produziu um Pass 1 temporário, falhou antes do Pass 2 e voltou a atingir timeout com envelope de 298026 bytes, portanto não existe veredito final. A próxima tentativa usa o reviewer específico `codex-auto-review`.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. O envelope válido de `364ce8b` terminou `needs_changes` com quatro major; todos foram reproduzidos por RED e corrigidos no checkpoint de código `555088b`. O review foi persistido e a convergência exige um novo envelope aprovado sobre o diff cumulativo.
 - **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. T-005 descreve apenas o seam futuro para F4.
-- **T-006 decision:** O lock principal publica owner completo por temp→rename sob o guard; a autoridade rejeita IDs de fase duplicados; o índice usa temp durável, releitura e retry limitado; células Markdown rejeitam pipe/CR/LF e preservam `$` literal; o dispatch parser rastreia profundidade/string/escape; initiatives rejeitam peso finito negativo antes dos collision guards. A janela final check→rename do índice permanece a fronteira deferida de F-001/F4. Os findings cegos adicionais só entram na implementação após reconciliação informed válida.
-- **Single nextAction:** Executar o envelope blind+informed de `364ce8b` com `--model codex-auto-review`.
-- **Verbatim state:** checkpoint de código → `364ce8b20c055d8e9229d6f7a353f3f2e8f067d2`; captura imutável → `/tmp/atomic-skills-364ce8b-review.diff`, `38413 bytes`, SHA-256 `09149811bbe7146b5309f2a23abe0e61fa9e71314f5df8067232c2512f13da30`; envelope menor → `/tmp/codex-briefing-pass1-20260714T120543Z.md`, `298026 bytes`; execução padrão → exit `142`, nenhum `/tmp/codex-output-pass1-20260714T120543Z.md`; modelo escolhido → `/Users/henry/.codex/models_cache.json`, slug `codex-auto-review`, description `Automatic approval review model for Codex`, context_window `272000`, max_context_window `1000000`; verifier T-006 → `node --test tests/phase-materialization/materialize-bootstrap.test.js tests/refresh-state.test.js tests/append-completion-dispatchlog.test.js tests/decompose.test.js`, `152 pass`, `0 fail`.
-- **Uncommitted changes:** clean tree após o checkpoint de delegação.
+- **T-006 decision:** Além dos seis defeitos históricos, o refresh recompõe projeções a cada retry, transforma apenas conflito esgotado em falha parcial tipada, publica pelo alvo real de symlink e evita fsync de diretório em `win32`. A janela final check→rename permanece a fronteira deferida de F-001/F4.
+- **Single nextAction:** Executar o envelope blind+informed cumulativo de `a3089a4..555088b` com `--model codex-auto-review`.
+- **Verbatim state:** review persistido → `.atomic-skills/reviews/2026-07-14-0930-integrity-remediation-f0-364ce8b-r2.md`, veredito `needs_changes`, 4 major; checkpoint de correção → `555088b`; RED focado → 7 pass/4 fail exatamente nos quatro mecanismos; GREEN focado → 11 pass/0 fail; full suite → 1739 total, 1731 pass, 8 skip, 0 fail; validators → 15 skills e 166 arquivos/26 planos/1 routing válidos; diff-check limpo.
+- **Uncommitted changes:** somente review, índice e este handoff aguardam o checkpoint documental.
 
 ## Self-review against code-quality gates
 
@@ -440,6 +444,6 @@ _(plan doc, external refs)_
 - **G6 reference-or-strike:** aplicado — o handoff preserva literalmente o HEAD base, o review histórico e as contagens/durações dos gates reexecutados.
 - **G7 abstraction restraint:** aplicado — as correções reutilizam os parsers, transações e helpers existentes; o helper de sincronização do índice permanece privado.
 - **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a remediação.
-- **Codex review:** o review de `a3089a4` permanece `needs_changes`; F-002..F-007 foram remediados, mas o checkpoint T-006 ainda não foi revisado em HEAD limpo.
+- **Codex review:** o review cumulativo até `364ce8b` terminou `needs_changes`; os quatro findings finais foram corrigidos em `555088b`, que ainda aguarda o envelope de convergência.
 - **Review gate (G2):** aberto — nenhum `reviewGate` está registrado no descriptor F0 até um review fresco e aprovado sobre o HEAD limpo do checkpoint.
 - **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.
