@@ -311,6 +311,15 @@ export function classifyPhaseDoneCommit(input = {}) {
     );
   }
 
+  if (exitGates.some((gate) => text(object(gate).id) === 'F4-G3')
+      && input.historyReceiptCurrent !== true) {
+    return block(
+      'phase-done-history-receipt-stale',
+      'phase-done cannot satisfy F4-G3 without a current materialization history receipt',
+      'Run `materialize-state.js --check-history-receipt <receipt>`, then rerun `phase-done` with the successful check result.',
+    );
+  }
+
   if (!reviewGateComplete(reviewGate)) {
     return block(
       'phase-done-review-open',

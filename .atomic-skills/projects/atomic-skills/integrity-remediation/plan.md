@@ -5,9 +5,13 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T19:36:31Z
+lastUpdated: 2026-07-14T20:24:09Z
 stateIntegrityHardening:
   enforcedFrom: 2026-07-14T19:36:31Z
+  successorBarriers:
+    - phaseId: F3
+      prerequisitePhaseId: F4
+      receiptPath: docs/audits/integrity-remediation-f0-reconciliation.json
 branch: plan/integrity-remediation
 currentPhase: F4
 parallelismAllowed: false

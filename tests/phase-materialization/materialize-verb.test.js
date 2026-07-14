@@ -83,10 +83,18 @@ test('task guarantees and nextAction are frozen into candidates before transacti
 
   const command = doc.split('\n').find((line) => line.includes('node "$PKG_ROOT/scripts/materialize-state.js"')) ?? '';
   assert.match(command, /--expected-plan-hash <sha256-of-live-plan>/);
+  assert.match(command, /--prerequisite-close-sha <full-close-commit-when-configured>/);
 
   const postPublish = doc.slice(authority, doc.indexOf('## Failure Handling'));
   assert.doesNotMatch(postPublish, /write them onto the initiative/);
   assert.doesNotMatch(postPublish, /Then set the initiative `nextAction`/);
+});
+
+test('hardened successor activation delegates receipt and closeSha checks to the authority', () => {
+  assert.match(doc, /stateIntegrityHardening\.successorBarriers\[\]/);
+  assert.match(doc, /checks\s+the configured history receipt/);
+  assert.match(doc, /requires both the live and committed prerequisite to be\s+terminal/);
+  assert.match(doc, /Missing, stale, skipped, or deferred evidence is a hard stop/);
 });
 
 test('T-009 detector command uses package-root resolution and scopes to the active plan file', () => {
@@ -165,6 +173,7 @@ test('F0 T-005 acceptance records the verified routing seam, not an unexecuted p
     'atomic-skills',
     'integrity-remediation',
     'phases',
+    'archive',
     'f0-runtime-autocontido-e-setup-confiavel.md',
   );
   const parsed = parseFrontmatter(readFileSync(initiativePath, 'utf8'));

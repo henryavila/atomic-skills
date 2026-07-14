@@ -31,7 +31,21 @@
       "required": ["enforcedFrom"],
       "description": "Forward-only opt-in for strict project/plan/phase identity, terminality and uniqueness cross-validation. Legacy plans remain readable until migrated and explicitly hardened.",
       "properties": {
-        "enforcedFrom": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+        "enforcedFrom": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+        "successorBarriers": {
+          "type": "array",
+          "description": "Descriptor-only activations that must revalidate a historical receipt and a prerequisite phase close commit through scripts/materialize-state.js.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["phaseId", "prerequisitePhaseId", "receiptPath"],
+            "properties": {
+              "phaseId": { "type": "string", "minLength": 1 },
+              "prerequisitePhaseId": { "type": "string", "minLength": 1 },
+              "receiptPath": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
       }
     },
     "deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" },

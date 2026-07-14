@@ -22,6 +22,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import Ajv from 'ajv/dist/2020.js';
+import { stringify as stringifyYaml } from 'yaml';
 import { parseFrontmatter, validateFile } from './validate-state.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,14 @@ const LOCK_GUARD_RETRIES = 100;
 const LOCK_GUARD_RETRY_MS = 10;
 const LOCK_GUARD_WAIT = new Int32Array(new SharedArrayBuffer(4));
 const REQUIRED_SCHEMAS = ['common.schema.json', 'plan.schema.json', 'initiative.schema.json'];
+
+export const MATERIALIZATION_PUBLISH_FAULTS = Object.freeze([
+  'before-initiative-rename',
+  'after-initiative-rename',
+  'before-plan-rename',
+  'after-plan-rename',
+  'before-complete-cleanup',
+]);
 
 function hashBytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -697,6 +706,7 @@ export function materializeState({
   planCandidatePath,
   initiativeCandidatePath,
   expectedPlanHash,
+  prerequisiteCloseSha,
   txId = randomUUID(),
   faultAt = null,
 } = {}) {
@@ -738,6 +748,36 @@ export function materializeState({
       : (initiativeCandidatePath
         ? readFileSync(resolve(absoluteRoot, initiativeCandidatePath), 'utf8')
         : undefined);
+
+    if (typeof candidateInitiativeContent === 'string') {
+      const livePlanDocument = readMarkdown(planLive, 'live plan');
+      const candidateInitiative = parseFrontmatter(candidateInitiativeContent);
+      if (candidateInitiative.error) {
+        throw new Error(`initiative candidate is invalid: ${candidateInitiative.error}`);
+      }
+      const phaseId = candidateInitiative.frontmatter.phaseId;
+      const barriers = livePlanDocument.frontmatter.stateIntegrityHardening
+        ?.successorBarriers?.filter((barrier) => barrier.phaseId === phaseId) ?? [];
+      if (barriers.length > 1) {
+        throw new Error(`materialization has duplicate successor barriers for ${phaseId}`);
+      }
+      if (barriers.length === 1) {
+        const barrier = barriers[0];
+        if (!fullCommitSha(prerequisiteCloseSha)) {
+          throw new Error(
+            `${phaseId} materialization requires prerequisiteCloseSha from the phase close commit guard`,
+          );
+        }
+        assertSuccessorMaterializationAllowed({
+          root: absoluteRoot,
+          planPath: planRel,
+          targetPhaseId: phaseId,
+          prerequisitePhaseId: barrier.prerequisitePhaseId,
+          receiptPath: barrier.receiptPath,
+          closeSha: prerequisiteCloseSha,
+        });
+      }
+    }
 
     if (existsSync(initiativeLive)) {
       if (typeof candidatePlanContent === 'string'
@@ -816,6 +856,625 @@ export function materializeState({
   }
 }
 
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value).sort().flatMap((key) => (
+        value[key] === undefined ? [] : [[key, canonicalize(value[key])]]
+      )),
+    );
+  }
+  return value;
+}
+
+function stableJson(value) {
+  return JSON.stringify(canonicalize(value));
+}
+
+function digestValue(value) {
+  return hashBytes(stableJson(value));
+}
+
+function historyPath(root, input, label, { mustExist = true } = {}) {
+  const rel = safeRelativePath(root, input, label);
+  assertNoSymlinkComponents(root, rel, label);
+  const path = resolve(root, rel);
+  if (mustExist && !existsSync(path)) throw new Error(`${label} does not exist: ${rel}`);
+  return { rel, path };
+}
+
+function readMarkdown(path, label) {
+  const raw = readFileSync(path, 'utf8');
+  const parsed = parseFrontmatter(raw);
+  if (parsed.error) throw new Error(`${label} is invalid: ${parsed.error}`);
+  return { ...parsed, raw };
+}
+
+function renderMarkdown(frontmatter, body) {
+  return `---\n${stringifyYaml(frontmatter)}---\n${body}`;
+}
+
+function fullCommitSha(value) {
+  return typeof value === 'string' && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
+}
+
+function gitOutput(root, args, label) {
+  try {
+    return execFileSync('git', args, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    const detail = error?.stderr?.trim();
+    throw new Error(`${label}${detail ? `: ${detail}` : ''}`);
+  }
+}
+
+function assertCommitExists(root, sha, label = 'commit') {
+  if (!fullCommitSha(sha)) throw new Error(`${label} must be a full lowercase commit SHA`);
+  gitOutput(root, ['cat-file', '-e', `${sha}^{commit}`], `${label} does not exist`);
+  return sha;
+}
+
+function parseCompletionLog(path) {
+  const raw = readFileSync(path, 'utf8');
+  const records = [];
+  raw.split(/\r?\n/).forEach((line, index) => {
+    if (line.trim() === '') return;
+    let value;
+    try {
+      value = JSON.parse(line);
+    } catch (error) {
+      throw new Error(`completion log line ${index + 1} is invalid JSON: ${error.message}`);
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(`completion log line ${index + 1} is not an object`);
+    }
+    records.push({ line: index + 1, value });
+  });
+  return { raw, records };
+}
+
+function terminalPhaseStatus(status) {
+  return status === 'done' || status === 'archived';
+}
+
+function historyEventIdentity(event) {
+  return `${event.event ?? '<unknown>'}:${event.taskId ?? '<phase>'}`;
+}
+
+function eventReceiptId(event) {
+  return typeof event.idempotencyKey === 'string' && event.idempotencyKey !== ''
+    ? event.idempotencyKey
+    : historyEventIdentity(event);
+}
+
+function projectionDigests(projection) {
+  return {
+    descriptor: digestValue(projection.descriptor),
+    initiative: digestValue(projection.initiative),
+    creationGate: digestValue(projection.creationGate),
+    completionEvents: digestValue(projection.completionEvents),
+    sidecars: digestValue(projection.sidecars),
+  };
+}
+
+function loadHistoryProjection({
+  root,
+  projectId,
+  planSlug,
+  phaseId,
+  planPath,
+  initiativePath,
+  creationGatePath,
+  completionLogPath,
+  sidecarPaths = [],
+  closeSha,
+}) {
+  const absoluteRoot = realpathSync(resolve(root));
+  const planFile = historyPath(absoluteRoot, planPath, 'planPath');
+  const initiativeFile = historyPath(absoluteRoot, initiativePath, 'initiativePath');
+  const creationGateFile = historyPath(absoluteRoot, creationGatePath, 'creationGatePath');
+  const completionLogFile = historyPath(absoluteRoot, completionLogPath, 'completionLogPath');
+  const sidecarFiles = sidecarPaths.map((path, index) => (
+    historyPath(absoluteRoot, path, `sidecarPaths[${index}]`)
+  ));
+  const planDocument = readMarkdown(planFile.path, 'plan');
+  const initiativeDocument = readMarkdown(initiativeFile.path, 'initiative');
+  const plan = planDocument.frontmatter;
+  const initiative = initiativeDocument.frontmatter;
+  const problems = [];
+  const repairs = [];
+  const descriptors = (plan.phases ?? []).filter((phase) => phase?.id === phaseId);
+  if (descriptors.length !== 1) {
+    problems.push(`expected exactly one ${phaseId} descriptor, found ${descriptors.length}`);
+  }
+  const descriptor = descriptors[0] ?? null;
+
+  if (plan.slug !== planSlug) problems.push('plan slug does not match reconciliation identity');
+  if (initiative.parentPlan !== planSlug) problems.push('initiative parentPlan does not match plan slug');
+  if (initiative.phaseId !== phaseId) problems.push('initiative phaseId does not match reconciliation identity');
+  if (descriptor && descriptor.slug !== initiative.slug) {
+    problems.push('descriptor slug does not match initiative slug');
+  }
+  if (descriptor && !terminalPhaseStatus(descriptor.status)) {
+    problems.push(`${phaseId} descriptor is not terminal`);
+  }
+  if (!terminalPhaseStatus(initiative.status)) problems.push(`${phaseId} initiative is not terminal`);
+  if (descriptor?.reviewGate?.status !== 'passed') problems.push(`${phaseId} review gate is not passed`);
+  const reviewedSha = descriptor?.reviewGate?.at;
+  if (!fullCommitSha(reviewedSha)) problems.push(`${phaseId} review gate lacks a full commit SHA`);
+  else {
+    try {
+      assertCommitExists(absoluteRoot, reviewedSha, `${phaseId} reviewed commit`);
+    } catch (error) {
+      problems.push(error.message);
+    }
+  }
+  if (typeof descriptor?.reviewGate?.reviewFile !== 'string') {
+    problems.push(`${phaseId} review gate lacks a review receipt`);
+  } else {
+    try {
+      const reviewFile = historyPath(
+        absoluteRoot,
+        descriptor.reviewGate.reviewFile,
+        `${phaseId} review receipt`,
+      );
+      if (fullCommitSha(reviewedSha)
+          && !readFileSync(reviewFile.path, 'utf8').includes(reviewedSha)) {
+        problems.push(`${phaseId} review receipt does not contain reviewed commit`);
+      }
+    } catch (error) {
+      problems.push(error.message);
+    }
+  }
+
+  const planCriteria = descriptor?.exitGate?.criteria ?? [];
+  const initiativeCriteria = initiative.exitGates ?? [];
+  const planCriterionIds = planCriteria.map((criterion) => criterion?.id);
+  const initiativeCriterionIds = initiativeCriteria.map((criterion) => criterion?.id);
+  if (new Set(planCriterionIds).size !== planCriterionIds.length) {
+    problems.push('plan gate criterion ids are not unique');
+  }
+  if (new Set(initiativeCriterionIds).size !== initiativeCriterionIds.length) {
+    problems.push('initiative gate criterion ids are not unique');
+  }
+  const evidence = [];
+  for (const planCriterion of planCriteria) {
+    const matches = initiativeCriteria.filter((criterion) => criterion?.id === planCriterion?.id);
+    if (matches.length !== 1) {
+      problems.push(`criterion ${planCriterion?.id ?? '<unknown>'} has ${matches.length} initiative matches`);
+      continue;
+    }
+    const initiativeCriterion = matches[0];
+    if (planCriterion.status !== 'met' || initiativeCriterion.status !== 'met') {
+      problems.push(`criterion ${planCriterion.id} is not met in both mirrors`);
+    }
+    if (planCriterion.evidence?.passed !== true || initiativeCriterion.evidence?.passed !== true) {
+      problems.push(`criterion ${planCriterion.id} lacks passing evidence in both mirrors`);
+    }
+    const planComparable = structuredClone(planCriterion.evidence ?? null);
+    const initiativeComparable = structuredClone(initiativeCriterion.evidence ?? null);
+    if (planComparable) delete planComparable.verifiedCommit;
+    if (initiativeComparable) delete initiativeComparable.verifiedCommit;
+    if (!isDeepStrictEqual(canonicalize(planComparable), canonicalize(initiativeComparable))) {
+      problems.push(`criterion ${planCriterion.id} evidence mirrors disagree`);
+    }
+    const expectedCommit = reviewedSha;
+    for (const [mirror, criterion] of [
+      ['plan', planCriterion],
+      ['initiative', initiativeCriterion],
+    ]) {
+      if (fullCommitSha(expectedCommit)
+          && criterion.evidence?.verifiedCommit !== expectedCommit) {
+        repairs.push({
+          kind: 'evidence-commit',
+          mirror,
+          criterionId: planCriterion.id,
+          from: criterion.evidence?.verifiedCommit ?? null,
+          to: expectedCommit,
+        });
+      }
+    }
+    const normalizedEvidence = structuredClone(planCriterion.evidence ?? {});
+    if (fullCommitSha(expectedCommit)) normalizedEvidence.verifiedCommit = expectedCommit;
+    evidence.push({
+      id: planCriterion.id,
+      digest: digestValue(normalizedEvidence),
+      verifiedCommit: normalizedEvidence.verifiedCommit ?? null,
+    });
+  }
+  for (const initiativeCriterion of initiativeCriteria) {
+    if (!planCriteria.some((criterion) => criterion?.id === initiativeCriterion?.id)) {
+      problems.push(`initiative criterion ${initiativeCriterion?.id ?? '<unknown>'} has no plan match`);
+    }
+  }
+
+  let creationGate;
+  try {
+    creationGate = JSON.parse(readFileSync(creationGateFile.path, 'utf8'));
+  } catch (error) {
+    problems.push(`creation gate is invalid JSON: ${error.message}`);
+    creationGate = null;
+  }
+  if (creationGate) {
+    if (creationGate.projectId !== projectId || creationGate.slug !== planSlug) {
+      problems.push('creation gate identity does not match plan');
+    }
+    if (creationGate.status !== 'ready' || creationGate.stage !== 'ready') {
+      problems.push('creation gate is not ready');
+    }
+  }
+
+  const completionLog = parseCompletionLog(completionLogFile.path);
+  const matchingRecords = completionLog.records.filter(({ value }) => (
+    value.projectId === projectId
+    && value.planSlug === planSlug
+    && value.phaseId === phaseId
+  ));
+  if (matchingRecords.length === 0) problems.push(`${phaseId} has no completion events`);
+  const recordsToDrop = new Set();
+  const byIdentity = new Map();
+  for (const record of matchingRecords) {
+    const identity = historyEventIdentity(record.value);
+    const group = byIdentity.get(identity) ?? [];
+    group.push(record);
+    byIdentity.set(identity, group);
+  }
+  for (const [identity, records] of byIdentity) {
+    if (records.length < 2) continue;
+    const idempotencyKeys = new Set(records.map(({ value }) => value.idempotencyKey));
+    const closeShas = new Set(records.map(({ value }) => value.closeSha));
+    const uniquelyRepairable = idempotencyKeys.size === 1
+      && closeShas.size === 1
+      && typeof records[0].value.idempotencyKey === 'string'
+      && records[0].value.idempotencyKey !== ''
+      && records[0].value.closeSha === closeSha;
+    if (!uniquelyRepairable) {
+      problems.push(`completion identity ${identity} is duplicated without one close identity and closeSha`);
+      continue;
+    }
+    records.slice(1).forEach((record) => recordsToDrop.add(record.line));
+    repairs.push({
+      kind: 'duplicate-completion',
+      identity,
+      idempotencyKey: records[0].value.idempotencyKey,
+      closeSha,
+      lines: records.map((record) => record.line),
+    });
+  }
+  for (const record of matchingRecords) {
+    if (record.value.closeSha !== undefined && record.value.closeSha !== closeSha) {
+      problems.push(`completion event ${eventReceiptId(record.value)} has a conflicting closeSha`);
+    }
+  }
+
+  try {
+    assertCommitExists(absoluteRoot, closeSha, 'closeSha');
+    const planAtCloseRaw = gitOutput(
+      absoluteRoot,
+      ['show', `${closeSha}:${planFile.rel}`],
+      `closeSha cannot read ${planFile.rel}`,
+    );
+    const planAtClose = parseFrontmatter(planAtCloseRaw);
+    if (planAtClose.error) problems.push(`closeSha plan is invalid: ${planAtClose.error}`);
+    else {
+      const closedDescriptors = (planAtClose.frontmatter.phases ?? [])
+        .filter((phase) => phase?.id === phaseId);
+      if (closedDescriptors.length !== 1 || !terminalPhaseStatus(closedDescriptors[0].status)) {
+        problems.push(`closeSha does not contain ${phaseId} as done`);
+      }
+    }
+  } catch (error) {
+    problems.push(error.message);
+  }
+
+  const keptMatchingRecords = matchingRecords.filter((record) => !recordsToDrop.has(record.line));
+  const normalizedDescriptor = structuredClone(descriptor);
+  for (const criterion of normalizedDescriptor?.exitGate?.criteria ?? []) {
+    if (fullCommitSha(reviewedSha) && criterion.evidence) {
+      criterion.evidence.verifiedCommit = reviewedSha;
+    }
+  }
+  const normalizedInitiative = structuredClone(initiative);
+  for (const criterion of normalizedInitiative.exitGates ?? []) {
+    if (fullCommitSha(reviewedSha) && criterion.evidence) {
+      criterion.evidence.verifiedCommit = reviewedSha;
+    }
+  }
+  const projection = {
+    version: 1,
+    identity: { projectId, planSlug, phaseId },
+    descriptor: normalizedDescriptor,
+    initiative: {
+      frontmatter: normalizedInitiative,
+      body: initiativeDocument.body,
+    },
+    creationGate: creationGate === null ? null : canonicalize(creationGate),
+    sidecars: sidecarFiles.map((file) => ({
+      path: file.rel,
+      digest: hashFile(file.path),
+    })),
+    evidence,
+    completionEvents: keptMatchingRecords.map(({ value }) => ({
+      id: eventReceiptId(value),
+      digest: digestValue(value),
+      closeSha: value.closeSha ?? null,
+      value: canonicalize(value),
+    })),
+    closeSha,
+  };
+  return {
+    root: absoluteRoot,
+    files: {
+      plan: planFile,
+      initiative: initiativeFile,
+      creationGate: creationGateFile,
+      completionLog: completionLogFile,
+      sidecars: sidecarFiles,
+    },
+    documents: { plan: planDocument, initiative: initiativeDocument },
+    completionLog,
+    recordsToDrop,
+    projection,
+    digests: projectionDigests(projection),
+    projectionDigest: digestValue(projection),
+    problems,
+    repairs,
+  };
+}
+
+function atomicHistoryWrite(path, bytes) {
+  const temp = `${path}.${randomUUID()}.tmp`;
+  durableWrite(temp, bytes, 'wx');
+  durableRename(temp, path);
+}
+
+function backupBytes(path, bytes) {
+  const backup = `${path}.history-backup-${hashBytes(bytes).slice(0, 16)}.bak`;
+  if (existsSync(backup)) {
+    if (hashFile(backup) !== hashBytes(bytes)) throw new Error(`history backup collision at ${backup}`);
+    return backup;
+  }
+  durableWrite(backup, bytes, 'wx');
+  return backup;
+}
+
+function componentHashReceipt(before, after) {
+  return Object.fromEntries(Object.keys(after.digests).map((key) => [key, {
+    before: before.digests[key],
+    after: after.digests[key],
+  }]));
+}
+
+function buildHistoryReceipt(state, initial, classification) {
+  return {
+    version: 1,
+    kind: 'materialization-history-reconciliation',
+    identity: state.projection.identity,
+    classification,
+    sources: {
+      planPath: state.files.plan.rel,
+      initiativePath: state.files.initiative.rel,
+      creationGatePath: state.files.creationGate.rel,
+      completionLogPath: state.files.completionLog.rel,
+      sidecarPaths: state.files.sidecars.map((file) => file.rel),
+    },
+    closeSha: state.projection.closeSha,
+    reconciledCommit: gitOutput(state.root, ['rev-parse', 'HEAD'], 'cannot resolve reconciledCommit'),
+    projectionDigest: state.projectionDigest,
+    hashes: componentHashReceipt(initial, state),
+    evidence: state.projection.evidence,
+    completionEvents: state.projection.completionEvents.map(({ id, digest, closeSha }) => ({
+      id,
+      digest,
+      closeSha,
+    })),
+    creationGate: {
+      path: state.files.creationGate.rel,
+      digest: state.digests.creationGate,
+    },
+    sidecars: state.projection.sidecars,
+  };
+}
+
+/**
+ * Classify and, only when correspondence is unique, repair the historical
+ * descriptor/initiative projection written by the F0 bootstrap.
+ */
+export function reconcileMaterializationHistory(options = {}) {
+  const initial = loadHistoryProjection(options);
+  const classification = initial.problems.length > 0
+    ? 'ambiguous'
+    : (initial.repairs.length > 0 ? 'repairable' : 'consistent');
+  const result = {
+    classification,
+    problems: initial.problems,
+    repairs: initial.repairs,
+    writes: [],
+    backups: {},
+  };
+  if (classification === 'ambiguous' || options.apply !== true) return result;
+
+  const planRepairs = initial.repairs.filter((repair) => (
+    repair.kind === 'evidence-commit' && repair.mirror === 'plan'
+  ));
+  const initiativeRepairs = initial.repairs.filter((repair) => (
+    repair.kind === 'evidence-commit' && repair.mirror === 'initiative'
+  ));
+  if (planRepairs.length > 0) {
+    const bytes = Buffer.from(initial.documents.plan.raw);
+    result.backups.plan = backupBytes(initial.files.plan.path, bytes);
+    const frontmatter = structuredClone(initial.documents.plan.frontmatter);
+    for (const repair of planRepairs) {
+      const criterion = frontmatter.phases
+        .find((phase) => phase.id === options.phaseId).exitGate.criteria
+        .find((candidate) => candidate.id === repair.criterionId);
+      criterion.evidence.verifiedCommit = repair.to;
+    }
+    atomicHistoryWrite(
+      initial.files.plan.path,
+      renderMarkdown(frontmatter, initial.documents.plan.body),
+    );
+    result.writes.push(initial.files.plan.rel);
+  }
+  if (initiativeRepairs.length > 0) {
+    const bytes = Buffer.from(initial.documents.initiative.raw);
+    result.backups.initiative = backupBytes(initial.files.initiative.path, bytes);
+    const frontmatter = structuredClone(initial.documents.initiative.frontmatter);
+    for (const repair of initiativeRepairs) {
+      const criterion = frontmatter.exitGates
+        .find((candidate) => candidate.id === repair.criterionId);
+      criterion.evidence.verifiedCommit = repair.to;
+    }
+    atomicHistoryWrite(
+      initial.files.initiative.path,
+      renderMarkdown(frontmatter, initial.documents.initiative.body),
+    );
+    result.writes.push(initial.files.initiative.rel);
+  }
+  if (initial.recordsToDrop.size > 0) {
+    const bytes = Buffer.from(initial.completionLog.raw);
+    result.backups.completionLog = backupBytes(initial.files.completionLog.path, bytes);
+    const kept = initial.completionLog.records
+      .filter((record) => !initial.recordsToDrop.has(record.line))
+      .map((record) => JSON.stringify(record.value));
+    atomicHistoryWrite(initial.files.completionLog.path, `${kept.join('\n')}\n`);
+    result.writes.push(initial.files.completionLog.rel);
+  }
+
+  const current = loadHistoryProjection(options);
+  if (current.problems.length > 0 || current.repairs.length > 0) {
+    throw new Error(`history repair did not converge: ${[
+      ...current.problems,
+      ...current.repairs.map((repair) => repair.kind),
+    ].join('; ')}`);
+  }
+  const receiptFile = historyPath(current.root, options.receiptPath, 'receiptPath', {
+    mustExist: false,
+  });
+  const receipt = buildHistoryReceipt(current, initial, classification);
+  atomicHistoryWrite(receiptFile.path, `${JSON.stringify(receipt, null, 2)}\n`);
+  result.writes.push(receiptFile.rel);
+  result.receipt = receipt;
+  return result;
+}
+
+export function checkHistoryReceipt({ root = process.cwd(), receiptPath } = {}) {
+  const absoluteRoot = realpathSync(resolve(root));
+  const receiptFile = historyPath(absoluteRoot, receiptPath, 'receiptPath');
+  let receipt;
+  try {
+    receipt = JSON.parse(readFileSync(receiptFile.path, 'utf8'));
+  } catch (error) {
+    throw new Error(`history receipt is stale: invalid JSON (${error.message})`);
+  }
+  try {
+    if (receipt?.version !== 1 || receipt.kind !== 'materialization-history-reconciliation') {
+      throw new Error('unsupported receipt shape');
+    }
+    const { identity, sources } = receipt;
+    if (!identity || !sources) throw new Error('missing identity or sources');
+    assertCommitExists(absoluteRoot, receipt.closeSha, 'receipt closeSha');
+    assertCommitExists(absoluteRoot, receipt.reconciledCommit, 'receipt reconciledCommit');
+    const current = loadHistoryProjection({
+      root: absoluteRoot,
+      projectId: identity.projectId,
+      planSlug: identity.planSlug,
+      phaseId: identity.phaseId,
+      planPath: sources.planPath,
+      initiativePath: sources.initiativePath,
+      creationGatePath: sources.creationGatePath,
+      completionLogPath: sources.completionLogPath,
+      sidecarPaths: sources.sidecarPaths,
+      closeSha: receipt.closeSha,
+    });
+    if (current.problems.length > 0 || current.repairs.length > 0) {
+      throw new Error(`projection is not consistent (${[
+        ...current.problems,
+        ...current.repairs.map((repair) => repair.kind),
+      ].join('; ')})`);
+    }
+    if (current.projectionDigest !== receipt.projectionDigest) {
+      throw new Error('projection digest changed');
+    }
+    if (!isDeepStrictEqual(current.projection.evidence, receipt.evidence)) {
+      throw new Error('evidence digest list changed');
+    }
+    const eventReceipts = current.projection.completionEvents.map(({ id, digest, closeSha }) => ({
+      id,
+      digest,
+      closeSha,
+    }));
+    if (!isDeepStrictEqual(eventReceipts, receipt.completionEvents)) {
+      throw new Error('completion event digest list changed');
+    }
+    if (current.digests.creationGate !== receipt.creationGate?.digest) {
+      throw new Error('creation gate digest changed');
+    }
+    if (!isDeepStrictEqual(current.projection.sidecars, receipt.sidecars)) {
+      throw new Error('sidecar digest list changed');
+    }
+    return { ok: true, receipt, projectionDigest: current.projectionDigest };
+  } catch (error) {
+    throw new Error(`history receipt is stale: ${error.message}`);
+  }
+}
+
+export function assertSuccessorMaterializationAllowed({
+  root = process.cwd(),
+  planPath,
+  targetPhaseId,
+  prerequisitePhaseId,
+  receiptPath,
+  closeSha,
+} = {}) {
+  const receiptCheck = checkHistoryReceipt({ root, receiptPath });
+  const absoluteRoot = realpathSync(resolve(root));
+  const planFile = historyPath(absoluteRoot, planPath, 'planPath');
+  const currentPlan = readMarkdown(planFile.path, 'plan').frontmatter;
+  const prerequisite = (currentPlan.phases ?? [])
+    .filter((phase) => phase?.id === prerequisitePhaseId);
+  if (prerequisite.length !== 1 || !terminalPhaseStatus(prerequisite[0].status)) {
+    throw new Error(`${prerequisitePhaseId} must be terminal before ${targetPhaseId} activation`);
+  }
+  const target = (currentPlan.phases ?? []).filter((phase) => phase?.id === targetPhaseId);
+  if (target.length !== 1) throw new Error(`expected exactly one ${targetPhaseId} descriptor`);
+  if (!(target[0].dependsOn ?? []).includes(prerequisitePhaseId)) {
+    throw new Error(`${targetPhaseId} does not depend on ${prerequisitePhaseId}`);
+  }
+  assertCommitExists(absoluteRoot, closeSha, 'closeSha');
+  let historicalPlan;
+  try {
+    const raw = gitOutput(
+      absoluteRoot,
+      ['show', `${closeSha}:${planFile.rel}`],
+      `closeSha cannot read ${planFile.rel}`,
+    );
+    historicalPlan = parseFrontmatter(raw);
+    if (historicalPlan.error) throw new Error(historicalPlan.error);
+  } catch (error) {
+    throw new Error(`closeSha does not contain ${prerequisitePhaseId} as done: ${error.message}`);
+  }
+  const historicalPrerequisite = (historicalPlan.frontmatter.phases ?? [])
+    .filter((phase) => phase?.id === prerequisitePhaseId);
+  if (historicalPrerequisite.length !== 1
+      || !terminalPhaseStatus(historicalPrerequisite[0].status)) {
+    throw new Error(`closeSha does not contain ${prerequisitePhaseId} as done`);
+  }
+  if (prerequisite[0].reviewGate?.status !== 'passed'
+      || !fullCommitSha(prerequisite[0].reviewGate?.at)) {
+    throw new Error(`${prerequisitePhaseId} lacks a passed commit-anchored review gate`);
+  }
+  return {
+    allowed: true,
+    closeSha,
+    receiptDigest: receiptCheck.projectionDigest,
+  };
+}
+
 function option(args, name, { required = false } = {}) {
   const index = args.indexOf(name);
   if (index === -1) {
@@ -829,6 +1488,12 @@ function option(args, name, { required = false } = {}) {
 
 export function runMaterializeState(args, io = console) {
   const root = option(args, '--root') ?? process.cwd();
+  const receiptToCheck = option(args, '--check-history-receipt');
+  if (receiptToCheck) {
+    const result = checkHistoryReceipt({ root, receiptPath: receiptToCheck });
+    io.log(JSON.stringify(result));
+    return result;
+  }
   const planPath = option(args, '--plan', { required: true });
   const initiativePath = option(args, '--initiative', { required: true });
   const planCandidate = option(args, '--plan-candidate');
@@ -840,6 +1505,7 @@ export function runMaterializeState(args, io = console) {
     planCandidatePath: planCandidate,
     initiativeCandidatePath: initiativeCandidate,
     expectedPlanHash: option(args, '--expected-plan-hash'),
+    prerequisiteCloseSha: option(args, '--prerequisite-close-sha'),
     txId: option(args, '--tx-id') ?? randomUUID(),
     faultAt: option(args, '--fault'),
   });

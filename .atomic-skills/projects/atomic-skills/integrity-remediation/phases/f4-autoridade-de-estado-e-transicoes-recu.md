@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T20:09:41Z
-nextAction: Run `done T-006` after consolidating materialization and reconciling the F0 receipt.
+lastUpdated: 2026-07-14T20:24:09Z
+nextAction: Run `done T-007` after unifying dispatch-log as validated NDJSON.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 5
+tasksDone: 6
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 16
+weightDone: 21
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -350,8 +350,9 @@ tasks:
       `docs/audits/project-implement-audit-2026-07-10.md:219-229` e
       `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`\
       ."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T20:24:09Z
+    closedAt: 2026-07-14T20:24:09Z
     scopeBoundary:
       - não criar um segundo writer/reconciler; bootstrap, hardening, recovery e
         check do receipt usam scripts/materialize-state.js
@@ -382,6 +383,14 @@ tasks:
         --check-history-receipt
         docs/audits/integrity-remediation-f0-reconciliation.json
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T20:24:09Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: exact verifier 29 pass, 0 fail; expanded
+        materialization, lifecycle and fault-injection suite 134 pass, 0 fail;
+        receipt check current; validate-state 167 files, 26 plans"
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-materialize.md
@@ -518,18 +527,28 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   checkpoint. O marker sobrevive a falha após state/event, `ensureCompletion`
   deduplica retries e rejeita colisões, `findCheckpoint` evita segundo commit e
   o consumidor também conta cada chave uma vez como defesa em profundidade.
+- **2026-07-14 — T-006:** a projeção histórica F0 é content-addressed por
+  descriptor, initiative arquivada, creation-gate, sidecars, evidence,
+  completion events e close SHA, sem hashear o plano inteiro. Reparos só
+  ocorrem com correspondência única e backup byte-idêntico; ambiguidade não
+  escreve. F4-G3 exige o receipt atual no commit guard, e a autoridade de
+  materialização exige o close SHA que já contém F4 terminal antes de ativar
+  F3, bloqueando transitivamente a fase destrutiva F1.
 
 ## Session handoff
 
-- **Narrative:** F4 concluiu T-001..T-005. O fechamento de task agora é
-  recuperável e idempotente; T-006 inicia a reconciliação histórica F0 e a
-  barreira que impede ativação prematura de F3.
-- **Decision log:** `closedAt` faz parte da identidade para permitir um novo
-  fechamento após reopen; o recovery marker não entra no commit; state e
-  handoff precedem o evento; analytics e estado entram no mesmo checkpoint.
-- **Single nextAction:** Run `done T-006` after consolidating materialization and reconciling the F0 receipt.
-- **Verbatim state:** `node --test tests/append-completion.test.js tests/emit-on-transition.test.js tests/done-transaction.test.js` → 25 pass, 0 fail; `node scripts/validate-state.js` → 167 files, 26 plans.
-- **Uncommitted changes:** clean tree after the T-005 transaction-owned paths are committed in this checkpoint.
+- **Narrative:** F4 concluiu T-001..T-006. A autoridade de materialização agora
+  recupera o par, reconcilia F0 conservadoramente e impede F3 de ativar sem
+  receipt atual e fechamento terminal de F4.
+- **Decision log:** o receipt cobre apenas a projeção histórica estável, usa
+  `67bd6e4` como close SHA de F0 e `cbede42` como commit de reconciliação; a
+  barreira forward-only vive em `stateIntegrityHardening.successorBarriers`.
+- **Single nextAction:** Run `done T-007` after unifying dispatch-log as validated NDJSON.
+- **Verbatim state:** exact verifier → 29 pass, 0 fail; expanded
+  materialization/lifecycle suite → 134 pass, 0 fail; receipt current;
+  `node scripts/validate-state.js .atomic-skills` → 167 files, 26 plans.
+- **Uncommitted changes:** T-006 implementation, receipt, tests, state and
+  completion event are ready for the transaction checkpoint.
 
 ## Links
 

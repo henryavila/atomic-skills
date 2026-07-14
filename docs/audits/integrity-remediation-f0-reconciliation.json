@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "kind": "materialization-history-reconciliation",
+  "identity": {
+    "projectId": "atomic-skills",
+    "planSlug": "integrity-remediation",
+    "phaseId": "F0"
+  },
+  "classification": "consistent",
+  "sources": {
+    "planPath": ".atomic-skills/projects/atomic-skills/integrity-remediation/plan.md",
+    "initiativePath": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/archive/f0-runtime-autocontido-e-setup-confiavel.md",
+    "creationGatePath": ".atomic-skills/status/creation-gates/atomic-skills-integrity-remediation.json",
+    "completionLogPath": ".atomic-skills/analytics/completions.jsonl",
+    "sidecarPaths": [
+      ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f1-installer-v2-e-protecao-de-dados.source.json",
+      ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f2-contratos-de-host-runtime-e-observabil.source.json",
+      ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f3-caminho-spec-para-implement-e-isolamen.source.json",
+      ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json",
+      ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json",
+      ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f6-qualificacao-de-release-e-fechamento-d.source.json"
+    ]
+  },
+  "closeSha": "67bd6e4a9d63b748321e51565e570514290a81a1",
+  "reconciledCommit": "cbede426600ea0d57667f033e96932eb6acedde5",
+  "projectionDigest": "5aab96705de7231bcceaa9013178d36863a5bf0f86168ab8c86f7ee80628fe9b",
+  "hashes": {
+    "descriptor": {
+      "before": "9c646496c4e2492d1fd7895fd79f8af89420f229db613a082a44598bab5201ca",
+      "after": "9c646496c4e2492d1fd7895fd79f8af89420f229db613a082a44598bab5201ca"
+    },
+    "initiative": {
+      "before": "8dfdaecbcba05a2a1f3ef5d7dbd63400860c21c8f95de5e76124b4be80f81e73",
+      "after": "8dfdaecbcba05a2a1f3ef5d7dbd63400860c21c8f95de5e76124b4be80f81e73"
+    },
+    "creationGate": {
+      "before": "790828ba66a872c25dbc9c7d0658f657b7753fcb3c565ce4a840f86ca262e2f5",
+      "after": "790828ba66a872c25dbc9c7d0658f657b7753fcb3c565ce4a840f86ca262e2f5"
+    },
+    "completionEvents": {
+      "before": "1312d83ee5421953bb2f84c6cbba28ab801ef141667897ac554986e6a518cc3f",
+      "after": "1312d83ee5421953bb2f84c6cbba28ab801ef141667897ac554986e6a518cc3f"
+    },
+    "sidecars": {
+      "before": "d7b82b7f715e91f708b85a411376d8361026d55d0799a5f473b98a9171b1bae2",
+      "after": "d7b82b7f715e91f708b85a411376d8361026d55d0799a5f473b98a9171b1bae2"
+    }
+  },
+  "evidence": [
+    {
+      "id": "F0-G1",
+      "digest": "db0a61f04698d4e44d17a58a5f6e2e11059db4be1a7f4a1e4c37cb691692b57a",
+      "verifiedCommit": "0ce031d2cebe0a5059a388e99ff6df5432aec4eb"
+    },
+    {
+      "id": "F0-G2",
+      "digest": "ff080117e49cd84c41b732d0d443884e1a411426a63df36b7be05a9447546cb5",
+      "verifiedCommit": "0ce031d2cebe0a5059a388e99ff6df5432aec4eb"
+    }
+  ],
+  "completionEvents": [
+    {
+      "id": "task-done:T-001",
+      "digest": "5d2c04bd413694ca73aca244424fe78016acd834c05e6c00a2ab55125cdf8e1a",
+      "closeSha": null
+    },
+    {
+      "id": "task-done:T-002",
+      "digest": "e634b3ba29128c8f07c30459b9b4fe880717c7438d61a17578381df45b439221",
+      "closeSha": null
+    },
+    {
+      "id": "task-done:T-003",
+      "digest": "833b64f2b12286454c41c01c3980b29edd90352085ad9d03e228dc2392815c87",
+      "closeSha": null
+    },
+    {
+      "id": "task-done:T-004",
+      "digest": "33e510ed5056ff06c28d68fd36e9ab420a2362ea5d18003a5beae7a4510c6d27",
+      "closeSha": null
+    },
+    {
+      "id": "task-done:T-005",
+      "digest": "a6a5c4d604386e7142267ecd23409280a4f5dc554b140a60ac63ddd34b98d11c",
+      "closeSha": null
+    },
+    {
+      "id": "task-done:T-006",
+      "digest": "9535a5c8f62d2a5ff764e0a053dd3aaa375fb4bea88b2d6aad7306698776e66a",
+      "closeSha": null
+    },
+    {
+      "id": "phase-done:<phase>",
+      "digest": "a2f586c2b9c0f9d2cdece6febfa8398e85ec630918d65f97baf3fa068f2f0f1a",
+      "closeSha": null
+    }
+  ],
+  "creationGate": {
+    "path": ".atomic-skills/status/creation-gates/atomic-skills-integrity-remediation.json",
+    "digest": "790828ba66a872c25dbc9c7d0658f657b7753fcb3c565ce4a840f86ca262e2f5"
+  },
+  "sidecars": [
+    {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f1-installer-v2-e-protecao-de-dados.source.json",
+      "digest": "c3db0f236c23d8f2808d45db20852cb1a5f384bc326a0ed95d0e2a8d76a7580d"
+    },
+    {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f2-contratos-de-host-runtime-e-observabil.source.json",
+      "digest": "b3ce999f9b85f5cfa64787a6090ea52f36e87b94dd56306e5b3cd8ac4b3cd631"
+    },
+    {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f3-caminho-spec-para-implement-e-isolamen.source.json",
+      "digest": "867a666b94ff0eb81181e5fce12dad24af316b425ac704baf62d1a06c3a8a48e"
+    },
+    {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json",
+      "digest": "a23f3a57f760bc36f3bda04e05555c5c10d26e06711453fb5f928bd5c0e44fc5"
+    },
+    {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json",
+      "digest": "8d2b1c418760da060e34477d46989223c33c6877ce39040e90f4e9b7eeebb430"
+    },
+    {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f6-qualificacao-de-release-e-fechamento-d.source.json",
+      "digest": "50e810e65bdd740410dfa06f2780418e08bab52238215f8f5129be4a76d46c53"
+    }
+  ]
+}

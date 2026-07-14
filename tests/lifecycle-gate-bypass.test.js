@@ -22,6 +22,7 @@ function input(overrides = {}) {
     currentHead: SHA,
     reviewCommitExists: true,
     reviewFileMatches: true,
+    historyReceiptCurrent: true,
     worktreeDirty: false,
     lessonsState: 'recorded',
     requireLessons: true,
@@ -74,5 +75,20 @@ test('pending F4-G3 produces zero close write, event or successor materializatio
   });
   assert.equal(result.ok, false);
   assert.equal(result.stage, 'commit-guard');
+  assert.deepEqual(calls, []);
+});
+
+test('F4-G3 cannot close or activate its successor without a current history receipt', async () => {
+  const calls = [];
+  const result = await executePhaseDoneTransaction(input({
+    historyReceiptCurrent: false,
+  }), {
+    commit: async () => calls.push('write'),
+    emit: async () => calls.push('event'),
+    materializeSuccessor: async () => calls.push('materialize'),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.stage, 'commit-guard');
+  assert.equal(result.decision.code, 'phase-done-history-receipt-stale');
   assert.deepEqual(calls, []);
 });

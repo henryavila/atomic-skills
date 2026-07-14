@@ -25,6 +25,11 @@
       "minLength": 1,
       "description": "Stable logical-close identity. Optional for legacy events; new transactional closes use it to make append retries exactly-once."
     },
+    "closeSha": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+      "description": "Commit that contains the corresponding durable close state. Optional for legacy events; required for uniquely repairable historical duplicates."
+    },
     "weight": {
       "type": "number",
       "minimum": 0,
