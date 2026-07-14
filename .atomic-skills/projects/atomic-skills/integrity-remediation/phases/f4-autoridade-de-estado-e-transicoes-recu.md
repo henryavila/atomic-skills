@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T20:02:12Z
-nextAction: Run `done T-005` after making task close, completion event and handoff idempotent.
+lastUpdated: 2026-07-14T20:09:41Z
+nextAction: Run `done T-006` after consolidating materialization and reconciling the F0 receipt.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 4
+tasksDone: 5
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 12
+weightDone: 16
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -294,8 +294,9 @@ tasks:
     description: "Persistir close state, evidence, nextAction/handoff e completion
       event sob uma idempotency key e um recovery boundary único. verified_by:
       `docs/audits/project-implement-audit-2026-07-10.md:165-185`."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T20:09:41Z
+    closedAt: 2026-07-14T20:09:41Z
     scopeBoundary:
       - não append evento antes de state durável e não criar segundo close
         commit para corrigir handoff
@@ -308,6 +309,14 @@ tasks:
       command: node --test tests/append-completion.test.js
         tests/emit-on-transition.test.js tests/done-transaction.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T20:09:41Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: exact verifier 25 pass, 0 fail; expanded analytics,
+        emitter, transition and project suite 129 pass, 0 fail; validate-state
+        167 files, 26 plans"
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-transitions.md
@@ -317,6 +326,8 @@ tasks:
         path: scripts/append-completion.js
       - kind: file
         path: scripts/emit-consumer-state.js
+      - kind: file
+        path: scripts/done-transaction.js
       - kind: file
         path: meta/schemas/completion-event.schema.json
       - kind: file
@@ -502,6 +513,23 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   Evidence, receipt e lessons permanecem candidatos em memória até o commit de
   fechamento, evitando referência circular ao SHA do próprio commit; qualquer
   fix de review que mova HEAD invalida os gates e força sua reexecução.
+- **2026-07-14 — T-005:** um `closedAt` imutável deriva a chave lógica que une
+  task state, evidence, `nextAction`, handoff, refresh, completion event e
+  checkpoint. O marker sobrevive a falha após state/event, `ensureCompletion`
+  deduplica retries e rejeita colisões, `findCheckpoint` evita segundo commit e
+  o consumidor também conta cada chave uma vez como defesa em profundidade.
+
+## Session handoff
+
+- **Narrative:** F4 concluiu T-001..T-005. O fechamento de task agora é
+  recuperável e idempotente; T-006 inicia a reconciliação histórica F0 e a
+  barreira que impede ativação prematura de F3.
+- **Decision log:** `closedAt` faz parte da identidade para permitir um novo
+  fechamento após reopen; o recovery marker não entra no commit; state e
+  handoff precedem o evento; analytics e estado entram no mesmo checkpoint.
+- **Single nextAction:** Run `done T-006` after consolidating materialization and reconciling the F0 receipt.
+- **Verbatim state:** `node --test tests/append-completion.test.js tests/emit-on-transition.test.js tests/done-transaction.test.js` → 25 pass, 0 fail; `node scripts/validate-state.js` → 167 files, 26 plans.
+- **Uncommitted changes:** clean tree after the T-005 transaction-owned paths are committed in this checkpoint.
 
 ## Links
 

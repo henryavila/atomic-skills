@@ -20,6 +20,11 @@
       "type": ["string", "null"],
       "description": "Task id for task-level events; null for phase-done records."
     },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable logical-close identity. Optional for legacy events; new transactional closes use it to make append retries exactly-once."
+    },
     "weight": {
       "type": "number",
       "minimum": 0,

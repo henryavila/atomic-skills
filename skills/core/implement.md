@@ -90,9 +90,9 @@ For the chosen task, in this order:
 3. **Code the change.** Make the minimum single-threaded edit inside scope; use `atomic-skills:fix` when a failing test needs root-cause work.
 4. **Pre-close check.** Run the deterministic verifier/check before committing implementation code when the task has one, using the cheapest real command available. This is implementation confidence, not closure evidence: `done <task-id>` is the closure authority and reruns the task verifier from `tasks[].verifier`, then writes `tasks[].evidence`. Do not copy a pre-close `verify-claim` transcript into task evidence.
 5. **Commit the implementation diff.** Use `rtk git diff --name-only`, stage only task-owned explicit paths, never `git add .` / `-A`, and commit with a task-scoped subject.
-6. **Close it.** After the implementation commit, run `done <task-id>`. The `done` flow executes the per-task verifier before setting `status: done`, writes evidence and phase-transition signals, refreshes state, and owns the project-state checkpoint commit. GATE-R2 enforces evidence.
+6. **Close it.** After the implementation commit, run `done <task-id>`. The `done` flow executes the per-task verifier, then uses one idempotent transaction to persist `status: done`, evidence, `nextAction`, the complete `## Session handoff`, refreshed state, and exactly one completion event before creating the project-state checkpoint. GATE-R2 enforces evidence; a durable recovery marker resumes any interrupted boundary under the same logical-close key.
 7. **Confirm the close checkpoint.** If `done` reports that its checkpoint commit succeeded, do not create a second close commit. If it reports an uncommitted state diff, stop and resolve only the explicit state paths it names.
-8. **Snapshot.** Refresh `## Session handoff`; after a healthy close it records a clean tree or explicitly unrelated dirty files.
+8. **Snapshot.** Read back the `## Session handoff` committed by `done`; do not create a follow-up handoff commit. After a healthy close it records a clean tree or explicitly unrelated dirty files.
 
 ### Step 3 — Phase boundary
 
@@ -120,7 +120,7 @@ The handoff lives in the active initiative body (durable `.atomic-skills/` state
 Microcommits are part of the execution loop, not an end-of-session cleanup. The smallest healthy unit is:
 
 1. Implementation commit after a real pre-close check: {{BASH_TOOL}} `rtk git add <explicit-paths>` then `rtk git commit -m "feat(T-NNN): <summary>"`.
-2. State close commit is owned by `done <task-id>`: it stages the explicit state paths it writes and commits `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. The implement driver verifies that checkpoint happened instead of creating a duplicate close commit.
+2. State close commit is owned by `done <task-id>`: under one idempotency key it stages the explicit initiative/handoff, derived-state, and analytics paths and commits `rtk git commit -m "chore(project): checkpoint <plan> <phase> <task-id>"`. The untracked recovery marker is cleared only after this checkpoint is found and the task-owned tree is clean. The implement driver verifies that checkpoint happened instead of creating a duplicate close commit.
 3. Phase boundary commit after `phase-done`: {{BASH_TOOL}} `rtk git add <explicit-state-paths>` then `rtk git commit -m "chore(project): advance <plan> <phase>"`.
 
 Never use `git add .` or `git add -A`. If a formatter or generator changes additional files, classify them into the relevant microcommit or stop and explain why they are unrelated.

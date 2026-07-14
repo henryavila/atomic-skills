@@ -38,7 +38,7 @@ function sliceBlock(markdown, header) {
 function missingFor(block, events, fields) {
   if (block == null) return ['block'];
   const missing = [];
-  if (!/(appendCompletion|append-completion)/.test(block)) missing.push('completion emit');
+  if (!/(appendCompletion|append-completion|ensureCompletion)/.test(block)) missing.push('completion emit');
   for (const event of events) {
     if (!block.includes(event)) missing.push(event);
   }
@@ -58,7 +58,7 @@ function checkDoneGateSemantics(block) {
   }
 
   const verifierIdx = block.search(/Verifier handling is the first state-changing gate/);
-  const statusIdx = block.search(/set `status: done`/i);
+  const statusIdx = block.search(/(?:set|containing task) `status: done`/i);
   if (verifierIdx === -1 || statusIdx === -1 || verifierIdx > statusIdx) {
     missing.push('verifier-before-done');
   }

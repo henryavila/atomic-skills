@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendCompletion } from '../scripts/append-completion.js';
+import { buildSeries } from '../scripts/emit-consumer-state.js';
 import { validateCompletionEvent } from '../scripts/validate-aideck-state.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
@@ -42,26 +43,17 @@ test('done transition appends one task-done event', () => {
   }
 });
 
-test('phase-done transition appends one task-done per task plus one phase-done event', () => {
+test('phase-done transition appends only its aggregate after tasks closed individually', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-eot-'));
   try {
-    const taskIds = ['T-201', 'T-202', 'T-203'];
-    for (const taskId of taskIds) {
-      appendCompletion(root, base({ phaseId: 'F2', taskId }));
-    }
-    appendCompletion(root, base({ event: 'phase-done', phaseId: 'F2', taskId: null }));
+    appendCompletion(root, base({
+      event: 'phase-done', phaseId: 'F2', taskId: null,
+      idempotencyKey: 'phase-done:proj/plan/F2@2026-07-14T20:00:00Z',
+    }));
 
     const records = readEvents(root);
-    assert.equal(records.length, taskIds.length + 1);
-    assert.deepEqual(records.map((record) => record.event), [
-      'task-done',
-      'task-done',
-      'task-done',
-      'phase-done',
-    ]);
-
-    const taskDoneRecords = records.filter((record) => record.event === 'task-done');
-    assert.deepEqual(new Set(taskDoneRecords.map((record) => record.taskId)), new Set(taskIds));
+    assert.equal(records.length, 1);
+    assert.deepEqual(records.map((record) => record.event), ['phase-done']);
 
     const phaseDoneRecords = records.filter((record) => record.event === 'phase-done');
     assert.equal(phaseDoneRecords.length, 1);
@@ -85,4 +77,27 @@ test('reconcile transition appends one task-done event for the reconciled task',
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('earned rollup counts a duplicated idempotency key once', () => {
+  const idempotencyKey = 'task-done:proj/plan/F0/T-401@2026-07-14T20:00:00Z';
+  const event = base({
+    taskId: 'T-401', ts: '2026-07-14T20:00:00Z', idempotencyKey,
+    weight: 1, weightBasis: 'count',
+  });
+  const tree = {
+    plans: [{
+      projectId: 'proj', planSlug: 'plan',
+      fm: {
+        started: '2026-07-14T00:00:00Z', deadline: '2026-07-16T00:00:00Z',
+      },
+    }],
+    initiatives: [{
+      projectId: 'proj', planSlug: 'plan', fm: { tasks: [{ id: 'T-401', weight: 1 }] },
+    }],
+  };
+  const series = buildSeries(tree, [event, { ...event, ts: '2026-07-14T20:00:01Z' }],
+    Date.parse('2026-07-15T00:00:00Z'));
+  assert.equal(series.burnup.at(-1).earnedCount, 1);
+  assert.equal(series.spi[0].spiCount, 2);
 });

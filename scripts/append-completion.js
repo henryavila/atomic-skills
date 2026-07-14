@@ -6,13 +6,13 @@
  * This is the SOURCE of the earned-value curve (design.md D1/D2): the tracker
  * records its own event at the instant state changes, into a SINGLE GLOBAL log
  * `.atomic-skills/analytics/completions.jsonl` (one line per completion, never
- * rewritten, never reordered). It is NOT a parallel hand-maintained file — it is
- * the transition writing its own event. Per-plan series are the consumer's job
- * (F3 filters by projectId+planSlug); this helper only appends.
+ * rewritten, never reordered). New transactional closes carry an idempotencyKey;
+ * retries read only to find that exact key and return its immutable prior record
+ * instead of appending again. It is NOT a parallel hand-maintained file — it is
+ * the transition writing its own event. Per-plan series are the consumer's job.
  *
  * Event model (F0/T-003): `event` is one of:
- *   - 'task-done'   one per task closed (a plain `done`, or one per task in a
- *                   `phase-done` bulk-close, or one per reconciled task)
+ *   - 'task-done'   one per task closed by `done` or `reconcile`
  *   - 'phase-done'  one per phase closed, carrying the phase's aggregate actuals
  *                   (F4/T-001) ONCE — never duplicated onto the per-task lines
  *   - 'reconcile'   reserved for reconcile-specific bookkeeping
@@ -28,6 +28,7 @@
  * CLI:
  *   node scripts/append-completion.js [<root>] --event <e> --project <id>
  *        --plan <slug> --phase <id> [--task <id>] [--weight <n>] [--basis <b>]
+ *        [--idempotency-key <logical-close-key>]
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -331,10 +332,68 @@ function normalize(entry) {
     planSlug: entry.planSlug,
     phaseId: entry.phaseId,
     taskId: hasText(entry.taskId) ? entry.taskId : null,
+    ...(hasText(entry.idempotencyKey) ? { idempotencyKey: entry.idempotencyKey } : {}),
     weight,
     weightBasis,
     ...(actuals !== undefined ? { actuals } : {}),
   };
+}
+
+function readCompletionRecords(path) {
+  if (!existsSync(path)) return [];
+  const raw = readFileSync(path, 'utf8');
+  const records = [];
+  for (const [index, line] of raw.split(/\r?\n/).entries()) {
+    if (!line.trim()) continue;
+    try {
+      const record = JSON.parse(line);
+      if (!record || typeof record !== 'object' || Array.isArray(record)) {
+        throw new TypeError('record must be a JSON object');
+      }
+      records.push(record);
+    } catch (error) {
+      throw new SyntaxError(`${path}:${index + 1}: invalid completion JSON: ${error.message}`);
+    }
+  }
+  return records;
+}
+
+function sameLogicalCompletion(existing, candidate) {
+  return ['event', 'projectId', 'planSlug', 'phaseId', 'taskId']
+    .every((field) => existing[field] === candidate[field]);
+}
+
+/**
+ * Ensure exactly one append-only record for a caller-supplied logical close.
+ * Existing legacy events remain untouched; idempotency is forward-only.
+ */
+export function ensureCompletion(root, entry) {
+  if (!hasText(entry?.idempotencyKey)) {
+    throw new TypeError('ensureCompletion: idempotencyKey is required');
+  }
+  let effectiveEntry = entry;
+  if (entry.event === 'task-done' && entry.actuals == null) {
+    const derived = readDispatchActuals(root, {
+      planSlug: entry.planSlug, phaseId: entry.phaseId, taskId: entry.taskId,
+    });
+    if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
+  }
+  const candidate = normalize(effectiveEntry);
+  const dir = join(resolve(root), ...ANALYTICS_DIR);
+  const path = join(dir, LOG_FILE);
+  const existing = readCompletionRecords(path)
+    .find((record) => record.idempotencyKey === candidate.idempotencyKey);
+  if (existing) {
+    if (!sameLogicalCompletion(existing, candidate)) {
+      throw new Error(
+        `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
+      );
+    }
+    return { record: existing, appended: false };
+  }
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  appendFileSync(path, `${JSON.stringify(candidate)}\n`);
+  return { record: candidate, appended: true };
 }
 
 /**
@@ -350,6 +409,7 @@ function normalize(entry) {
  * overwritten; absence of a dispatch-log degrades to no actuals (graceful).
  */
 export function appendCompletion(root, entry) {
+  if (hasText(entry?.idempotencyKey)) return ensureCompletion(root, entry).record;
   let effectiveEntry = entry;
   if (entry && entry.event === 'task-done' && entry.actuals == null) {
     const derived = readDispatchActuals(root, {
@@ -385,6 +445,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       planSlug: flag('plan'),
       phaseId: flag('phase'),
       taskId: flag('task'),
+      idempotencyKey: flag('idempotency-key'),
       weight: flag('weight') != null ? Number(flag('weight')) : undefined,
       weightBasis: flag('basis'),
       ...(actuals !== undefined ? { actuals } : {}),

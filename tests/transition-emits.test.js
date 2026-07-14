@@ -61,7 +61,7 @@ test('done prose requires verifier handling before status mutation', () => {
   const done = block(real, HEADERS.done);
 
   const verifierIdx = done.indexOf('Verifier handling is the first state-changing gate');
-  const statusIdx = done.indexOf('set `status: done`');
+  const statusIdx = done.indexOf('`status: done`');
   assert.notEqual(verifierIdx, -1);
   assert.notEqual(statusIdx, -1);
   assert.ok(verifierIdx < statusIdx, 'verifier handling must precede status:done');

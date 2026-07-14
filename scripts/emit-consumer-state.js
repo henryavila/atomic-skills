@@ -564,12 +564,18 @@ export function buildSeries(tree, completionLines, nowMs) {
 
     const planEvents = arr(completionLines).filter((e) =>
       e?.projectId === plan.projectId && e?.planSlug === plan.planSlug);
-    // Earned value counts each completed TASK once. `done`, `reconcile`, and the
-    // per-task lines of a `phase-done` bulk-close all emit `task-done` events;
-    // the single aggregate `phase-done` event (taskId:null, weight default 1) is
+    // Earned value counts each completed TASK once. `done` and `reconcile` emit
+    // `task-done`; the single aggregate `phase-done` event (taskId:null) is
     // a marker, NOT a per-task earned increment — summing it would double-count
     // earned weight on every phase close. So earned sums `task-done` events only.
-    const earnedEvents = planEvents.filter((e) => e?.event === 'task-done');
+    const seenCloseKeys = new Set();
+    const earnedEvents = planEvents.filter((event) => {
+      if (event?.event !== 'task-done') return false;
+      if (typeof event.idempotencyKey !== 'string' || event.idempotencyKey.length === 0) return true;
+      if (seenCloseKeys.has(event.idempotencyKey)) return false;
+      seenCloseKeys.add(event.idempotencyKey);
+      return true;
+    });
     const started = Date.parse(String(plan.fm?.started || ''));
     const deadline = Date.parse(String(plan.fm?.deadline || ''));
     const hasPlannedWindow = Number.isFinite(started) && Number.isFinite(deadline) && deadline > started;

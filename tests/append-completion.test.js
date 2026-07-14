@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendCompletion, COMPLETION_EVENTS, WEIGHT_BASES } from '../scripts/append-completion.js';
+import {
+  appendCompletion,
+  ensureCompletion,
+  COMPLETION_EVENTS,
+  WEIGHT_BASES,
+} from '../scripts/append-completion.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
 const base = (over = {}) => ({
@@ -173,6 +178,42 @@ test('appendCompletion rejects an unparseable ts and writes nothing', () => {
   try {
     assert.throws(() => appendCompletion(root, base({ ts: 'not-a-date' })), /parseable date-time/);
     assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ensureCompletion retries one idempotency key as one immutable event', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    const first = ensureCompletion(root, base({
+      idempotencyKey: 'task-done:proj/plan/F0/T-001@2026-07-14T20:00:00Z',
+      ts: '2026-07-14T20:00:00Z',
+    }));
+    const retry = ensureCompletion(root, base({
+      idempotencyKey: 'task-done:proj/plan/F0/T-001@2026-07-14T20:00:00Z',
+      ts: '2026-07-14T20:00:01Z',
+    }));
+    const lines = readFileSync(LOG(root), 'utf8').trim().split('\n');
+    assert.equal(lines.length, 1);
+    assert.equal(first.appended, true);
+    assert.equal(retry.appended, false);
+    assert.deepEqual(retry.record, first.record);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ensureCompletion fails closed when one idempotency key changes semantic identity', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    const idempotencyKey = 'task-done:proj/plan/F0/T-001@2026-07-14T20:00:00Z';
+    ensureCompletion(root, base({ idempotencyKey }));
+    assert.throws(
+      () => ensureCompletion(root, base({ idempotencyKey, taskId: 'T-999' })),
+      /idempotency key conflict/i,
+    );
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
