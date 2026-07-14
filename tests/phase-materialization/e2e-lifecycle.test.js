@@ -44,6 +44,7 @@ const STATE_ROOT = '.atomic-skills';
 const PLAN_DIR = `${STATE_ROOT}/projects/${PROJECT_ID}/${PLAN_SLUG}`;
 const BRANCH = 'plan/e2e-lifecycle';
 const STARTED_AT = '2026-07-01T09:00:00.000Z';
+const STARTED_COMMIT = '0123456789abcdef0123456789abcdef01234567';
 const ACTIVATED_AT = '2026-07-01T10:00:00.000Z';
 const BUSINESS_INTENT = {
   value: 'Reduces execution rework by expanding a phase only when the user confirms the business value and customer-facing outcome.',
@@ -192,6 +193,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         projectId: PROJECT_ID,
         branch: BRANCH,
         now: new Date(STARTED_AT),
+        startedCommit: STARTED_COMMIT,
         stateRoot: STATE_ROOT,
         businessIntent: BUSINESS_INTENT,
       });
@@ -213,6 +215,7 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
       const initialF2 = initialPlan.phases.find((phase) => phase.id === 'F2');
       const initialF0Fm = readFrontmatterFile(f0Path).frontmatter;
       assert.equal(initialPlan.currentPhase, 'F0');
+      assert.equal(initialF0Fm.startedCommit, STARTED_COMMIT);
       assert.deepEqual(initialF0.businessIntent, BUSINESS_INTENT);
       assert.deepEqual(initialF0Fm.businessIntent, BUSINESS_INTENT);
       assert.equal(initialF1.status, 'pending');

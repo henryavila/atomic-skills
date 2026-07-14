@@ -46,6 +46,7 @@ export async function runDecomposePlan(args, io = console) {
 
   const projectId = option(options, '--project-id', { required: true })
   const branchValue = option(options, '--branch')
+  const startedCommit = option(options, '--started-commit')
   const businessIntentRaw = option(options, '--business-intent', { required: true })
   let businessIntent
   try {
@@ -58,6 +59,7 @@ export async function runDecomposePlan(args, io = console) {
     planSlug,
     projectId,
     branch,
+    startedCommit,
     businessIntent,
   })
   io.log(JSON.stringify(files, null, 2))

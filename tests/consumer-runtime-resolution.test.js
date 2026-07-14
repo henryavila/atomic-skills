@@ -84,6 +84,7 @@ describe('consumer resolves package entrypoints from the installed runtime root'
         '--slug', 'consumer-plan',
         '--project-id', 'consumer',
         '--branch', 'plan/consumer-plan',
+        '--started-commit', '0123456789abcdef0123456789abcdef01234567',
         '--business-intent', businessIntent,
       ],
       { cwd: consumer, home }
@@ -94,6 +95,8 @@ describe('consumer resolves package entrypoints from the installed runtime root'
       '.atomic-skills/projects/consumer/consumer-plan/plan.md',
       '.atomic-skills/projects/consumer/consumer-plan/phases/f0-bootstrap.md',
     ])
+    const f0 = parseYaml(files.find((file) => file.kind === 'initiative').content.split('---\n')[1])
+    assert.equal(f0.startedCommit, '0123456789abcdef0123456789abcdef01234567')
   })
 
   it('clusters normal and empty signal partitions through the bootstrap entrypoint', () => {
@@ -205,6 +208,8 @@ describe('consumer resolves package entrypoints from the installed runtime root'
 
     assert.doesNotMatch(createPlan, /\$PWD\/src\/normalize\.js/)
     assert.match(createPlan, /\$PKG_ROOT\/src\/normalize\.js/)
+    assert.match(createPlan, /--started-commit/)
+    assert.match(createPlan, /rev-parse HEAD/)
     assert.doesNotMatch(verify, /same 3-path way/)
     assert.match(verify, /\$ROOT\/src\/normalize\.js/)
   })

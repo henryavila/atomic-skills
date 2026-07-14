@@ -746,6 +746,14 @@ export function decomposePlan(markdown, opts = {}) {
   };
 }
 
+function normalizeStartedCommit(value, owner) {
+  if (value == null) return null;
+  if (typeof value !== 'string' || value.trim().length < 7) {
+    throw new Error(`${owner}: startedCommit must be a git commit id with at least 7 characters`);
+  }
+  return value.trim();
+}
+
 /**
  * Build ONE initiative file ({kind, slug, relativePath, content}) for a phase.
  * Extracted from materializeDecomposition's per-phase loop as a strictly
@@ -766,6 +774,7 @@ export function decomposePlan(markdown, opts = {}) {
  * @param {string|null} ctx.projectId — set ⇒ nested layout; null ⇒ flat
  * @param {object|null} [ctx.businessIntent] — ratified businessIntent spine
  *   for active phase materialization
+ * @param {string|null} [ctx.startedCommit] — immutable git HEAD at activation
  * @param {Set<string>} ctx.seenSlugs — collision-guard slug set (mutated in place)
  * @param {Set<string>} ctx.seenPaths — collision-guard path set (mutated in place)
  * @returns {MaterializedFile} the {kind:'initiative', slug, relativePath, content}
@@ -774,8 +783,10 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
   const init = initiative;
   const {
     iso, branch = null, active = false,
-    stateRoot, planDir, projectId, businessIntent = null, seenSlugs, seenPaths,
+    stateRoot, planDir, projectId, businessIntent = null, startedCommit: rawStartedCommit = null,
+    seenSlugs, seenPaths,
   } = ctx;
+  const startedCommit = normalizeStartedCommit(rawStartedCommit, 'writeInitiativeFile');
   const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
   for (const t of init.tasks) {
     if (Number.isFinite(t.weight) && t.weight < 0) {
@@ -816,6 +827,7 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
     status: active ? 'active' : 'pending',
     branch: branch || null,
     started: iso,
+    ...(startedCommit ? { startedCommit } : {}),
     lastUpdated: iso,
     nextAction: typeof init.nextAction === 'string' && init.nextAction.trim() !== ''
       ? init.nextAction
@@ -1036,6 +1048,7 @@ export function materializeDecomposition(decompose, opts = {}) {
   const businessIntent = (opts.businessIntent && typeof opts.businessIntent === 'object' && !Array.isArray(opts.businessIntent))
     ? assertCompleteBusinessIntent(opts.businessIntent)
     : null;
+  const startedCommit = normalizeStartedCommit(opts.startedCommit, 'materializeDecomposition');
   // Nested-layout plan directory (null in flat mode).
   const planDir = projectId ? `${stateRoot}/projects/${projectId}/${planSlug}` : null;
 
@@ -1136,6 +1149,7 @@ export function materializeDecomposition(decompose, opts = {}) {
       planDir,
       projectId,
       businessIntent,
+      startedCommit,
       seenSlugs,
       seenPaths,
     }),

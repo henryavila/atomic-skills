@@ -131,6 +131,11 @@ Update the record after `materializeDecomposition` returns (`filesPlanned`), bef
 
 Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
+Immediately before materialization, resolve the immutable phase-start anchor with
+`{{BASH_TOOL}} git rev-parse HEAD`. When it succeeds, pass the returned SHA as
+`--started-commit`; outside a git repository, omit that option pair silently and
+retain the legacy timestamp fallback.
+
 ```bash
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
 node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
@@ -138,6 +143,7 @@ node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
   --slug '<slug>' \
   --project-id '<project-id>' \
   --branch 'plan/<slug>' \
+  --started-commit '<started-commit>' \
   --business-intent '<businessIntent-json>'
 ```
 
@@ -388,6 +394,10 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 
 6. **Materialize.** On confirmation, collect the same user-written F0 `businessIntent` spine as the default flow. If the user cannot fill the five required fields, stop before writing state. Then write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with `kind: "adopt"`, `sourcePath: "<source-path>"`, `stage: "ready-to-materialize"`, `businessIntentAccepted: true`, `filesPlanned: []`, `filesWritten: []`, and `status: "pending"`. This is the durable resume boundary for `adopt`: before the first canonical write, `cancel` only marks the gate `cancelled`; after any write, rollback deletes exactly `filesWritten`. Resume reads this record first and never infers progress by scanning the destination tree. Then run the pure transform:
 
+   Immediately before the transform, resolve the immutable F0 start anchor with
+   `{{BASH_TOOL}} git rev-parse HEAD`. When it succeeds, pass the SHA as
+   `--started-commit`; outside a git repository, omit that option pair silently.
+
    ```bash
    PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
    node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
@@ -395,6 +405,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
      --slug '<slug>' \
      --project-id '<project-id>' \
      --branch '<branch-or-null>' \
+     --started-commit '<started-commit>' \
      --business-intent '<businessIntent-json>'
    ```
 

@@ -316,6 +316,35 @@ describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () 
     assert.equal(initiativeFm.summary, r.initiatives[0].summary);
   });
 
+  it('persists the immutable start commit on the initially active F0 initiative', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const startedCommit = '0123456789abcdef0123456789abcdef01234567';
+
+    const files = materializeDecomposition(r, {
+      planSlug: 'sample',
+      now: FROZEN,
+      startedCommit,
+    });
+    const initiativeFm = parseYaml(
+      files.find((file) => file.kind === 'initiative').content.split('---\n')[1],
+    );
+
+    assert.equal(initiativeFm.startedCommit, startedCommit);
+  });
+
+  it('rejects an invalid start commit before emitting an initiative', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+
+    assert.throws(
+      () => materializeDecomposition(r, {
+        planSlug: 'sample',
+        now: FROZEN,
+        startedCommit: 'short',
+      }),
+      /startedCommit must be a git commit id with at least 7 characters/,
+    );
+  });
+
   it('throws on slug/path collision and mutates the shared seenSlugs/seenPaths', () => {
     const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
     const iso = FROZEN.toISOString();
