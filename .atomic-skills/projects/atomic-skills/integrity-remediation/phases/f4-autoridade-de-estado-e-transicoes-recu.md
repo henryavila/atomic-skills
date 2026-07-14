@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T19:36:31Z
-nextAction: Run `done T-001` after adding the first failing state-integrity fixtures.
+lastUpdated: 2026-07-14T19:43:49Z
+nextAction: Run `done T-002` after adding DAG fixtures for complete, ready and blocked.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 4
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -92,8 +92,9 @@ tasks:
       `scripts/lint-source.js:178-324`, `src/decompose.js:444-709`,
       `meta/schemas/plan.schema.json:202-262` e
       `projects/atomic-skills/integrity-remediation/design.md:210-224`."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T19:43:49Z
+    closedAt: 2026-07-14T19:43:49Z
     scopeBoundary:
       - não ligar initiative apenas por slug, não exigir initiative de
         descriptor lazy válido, não tolerar gate pending em fase terminal, não
@@ -110,6 +111,13 @@ tasks:
         tests/decompose.test.js tests/validate-state-integrity.test.js
         tests/state-integrity-migration.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T19:43:49Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 221 tests, 18 suites, 221 pass, 0 fail;
+        validate-state full tree: 167 files, 26 plans cross-validated"
     outputs:
       - kind: file
         path: src/state-invariants.js
@@ -448,6 +456,12 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
 - **2026-07-14 — autoridade e escopo:** F4 não cria um segundo reconciler, não
   admite defer/skip terminal, não altera installer/hosts/Gemini/release e não
   executa push, PR ou publicação externa.
+- **2026-07-14 — T-001:** o hardening estrito é forward-only por plano via
+  `stateIntegrityHardening.enforcedFrom`; assim o corpus legado continua
+  legível e diagnosticável, enquanto este plano falha em identidades explícitas
+  conflitantes, IDs duplicados, estado materializado sem initiative e
+  terminalidade aberta. A migração só preenche `parentPlan`/`phaseId` quando há
+  uma correspondência única e cria backup byte-idêntico antes de `--apply`.
 
 ## Links
 

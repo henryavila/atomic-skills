@@ -519,6 +519,7 @@ test('plan schema: dependsOnPlans rejects malformed edges with named errors', ()
 test('crossValidate: done phase + done initiative with done tasks → no errors', () => {
   const plans = new Map([['p', {
     slug: 'p',
+    stateIntegrityHardening: { enforcedFrom: '2026-07-14T19:36:31Z' },
     phases: [{
       id: 'F0', slug: 'p-f0', status: 'done',
       exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
@@ -579,9 +580,10 @@ test('crossValidate: nested done phase resolves project-scoped initiative keys',
   assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
 });
 
-test('crossValidate: done phase + no matching initiative → no errors (graceful skip)', () => {
+test('crossValidate: done phase + no matching initiative → stable missing-initiative error', () => {
   const plans = new Map([['p', {
     slug: 'p',
+    stateIntegrityHardening: { enforcedFrom: '2026-07-14T19:36:31Z' },
     phases: [{
       id: 'F0', slug: 'p-f0', status: 'done',
       exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
@@ -589,7 +591,8 @@ test('crossValidate: done phase + no matching initiative → no errors (graceful
   }]]);
   const inits = new Map();
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 0);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].errors.join('\n'), /\[missing-initiative\]/);
 });
 
 test('crossValidate: met plan criterion + pending initiative gate → error', () => {

@@ -6,6 +6,8 @@ version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
 lastUpdated: 2026-07-14T19:36:31Z
+stateIntegrityHardening:
+  enforcedFrom: 2026-07-14T19:36:31Z
 branch: plan/integrity-remediation
 currentPhase: F4
 parallelismAllowed: false

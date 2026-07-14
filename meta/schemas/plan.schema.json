@@ -25,6 +25,15 @@
     "status": { "type": "string", "enum": ["active", "paused", "done", "archived"] },
     "started": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+    "stateIntegrityHardening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enforcedFrom"],
+      "description": "Forward-only opt-in for strict project/plan/phase identity, terminality and uniqueness cross-validation. Legacy plans remain readable until migrated and explicitly hardened.",
+      "properties": {
+        "enforcedFrom": { "$ref": "common.schema.json#/$defs/isoTimestamp" }
+      }
+    },
     "deadline": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
     "closedAtHardening": {
       "type": "object",

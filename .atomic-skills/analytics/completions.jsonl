@@ -82,3 +82,4 @@
 {"ts":"2026-07-12T10:11:24.500Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F0","taskId":"T-005","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-14T19:33:04.037Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F0","taskId":"T-006","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-14T19:33:08.583Z","event":"phase-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F0","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":97,"locAdded":116878,"locRemoved":748,"commits":75}}
+{"ts":"2026-07-14T19:43:39.319Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F4","taskId":"T-001","weight":4,"weightBasis":"count"}

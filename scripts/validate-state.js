@@ -20,6 +20,10 @@ import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { validateAppMap } from '../src/app-map/validate.js';
 import { validatePlanDependencyGraph } from '../src/plan-dependencies.js';
+import {
+  collectStateIntegrityViolations,
+  formatStateIntegrityViolation,
+} from '../src/state-invariants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -559,7 +563,7 @@ export function validateFile(filePath, validators) {
  * Cross-validate plan↔initiative consistency for done phases.
  * Returns array of { planSlug, phaseId, initiativeSlug, errors: string[] }.
  */
-export function crossValidate(planFrontmatters, initiativeFrontmatters) {
+export function crossValidate(planFrontmatters, initiativeFrontmatters, { completeGraph = true } = {}) {
   const errors = [];
   const initBySlug = new Map();
   const projectScopeId = (fm) => (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
@@ -642,6 +646,40 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters) {
         });
       }
     }
+  }
+
+  const hardenedPlans = new Map(
+    [...planFrontmatters].filter(([, plan]) => (
+      plan?.stateIntegrityHardening
+      && typeof plan.stateIntegrityHardening.enforcedFrom === 'string'
+    )),
+  );
+  const hardenedScopes = [...hardenedPlans.values()].map((plan) => ({
+    projectId: projectScopeId(plan),
+    planSlug: plan.slug,
+    phaseSlugs: new Set((Array.isArray(plan.phases) ? plan.phases : []).map((phase) => phase?.slug)),
+  }));
+  const hardenedInitiatives = new Map(
+    [...initiativeFrontmatters].filter(([, initiative]) => hardenedScopes.some((scope) => (
+      projectScopeId(initiative) === scope.projectId
+      && (initiative?.parentPlan === scope.planSlug || scope.phaseSlugs.has(initiative?.slug))
+    ))),
+  );
+  for (const item of collectStateIntegrityViolations(hardenedPlans, hardenedInitiatives)) {
+    if (!completeGraph && item.code === 'missing-initiative') continue;
+    const planSlug = item.planSlug ?? '?';
+    const phaseId = item.phaseId ?? '?';
+    const initiativeSlug = item.initiativeSlug ?? '?';
+    let group = errors.find((entry) => (
+      entry.planSlug === planSlug
+      && entry.phaseId === phaseId
+      && entry.initiativeSlug === initiativeSlug
+    ));
+    if (!group) {
+      group = { planSlug, phaseId, initiativeSlug, errors: [] };
+      errors.push(group);
+    }
+    group.errors.push(formatStateIntegrityViolation(item));
   }
 
   // closedAt forward-only hard-gate (F4/T-003): when a plan opts in via
@@ -815,7 +853,10 @@ function main() {
     }
   }
 
-  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters);
+  const completeGraph = args.some((arg) => {
+    try { return statSync(resolve(arg)).isDirectory(); } catch { return false; }
+  });
+  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters, { completeGraph });
   for (const ce of crossErrors) {
     console.error(`\n✖ cross-validation: plan '${ce.planSlug}' phase ${ce.phaseId} ↔ initiative '${ce.initiativeSlug}'`);
     for (const err of ce.errors) {
