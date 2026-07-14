@@ -22,7 +22,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -298,7 +298,7 @@ export function listProjects(stateRoot = '.atomic-skills') {
 
 function sameResolvedPath(a, b) {
   try {
-    return resolve(a) === resolve(b)
+    return realpathSync(a) === realpathSync(b)
   } catch {
     return false
   }

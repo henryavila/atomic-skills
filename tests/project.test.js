@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -129,7 +130,7 @@ describe('project skill (unified router + lazy assets)', () => {
     emptyRegistration = false,
   }) {
     const repo = join(tempDir, repoName);
-    const registeredRoot = registrationRoot === 'same-repo' ? '__SAME_REPO__' : registrationRoot;
+    let registeredRoot = registrationRoot === 'same-repo' ? '__SAME_REPO__' : registrationRoot;
     const home = join(tempDir, 'home');
     const fakeBin = join(tempDir, 'bin');
     const curlLog = join(tempDir, 'curl.log');
@@ -142,6 +143,10 @@ describe('project skill (unified router + lazy assets)', () => {
     mkdirSync(join(home, '.atomic-skills', 'bin'), { recursive: true });
     mkdirSync(fakeBin, { recursive: true });
     mkdirSync(repo, { recursive: true });
+    if (registrationRoot === 'same-repo-alias') {
+      registeredRoot = join(tempDir, repoName + '-alias');
+      symlinkSync(repo, registeredRoot, process.platform === 'win32' ? 'junction' : 'dir');
+    }
     writeFileSync(join(home, '.aideck', 'env'), "export AIDECK_URL='http://127.0.0.1:7777'\n");
     writeFileSync(join(home, '.atomic-skills', 'package-root'), `${PACKAGE_ROOT}\n`);
     writeFileSync(join(home, '.atomic-skills', 'bin', 'aideck.mjs'), '');
@@ -471,6 +476,17 @@ esac
     });
     assert.match(calls, /"projectId":"atomic-skills"/, 'request must use the canonical candidate');
     assert.match(calls, /\/projects\/atomic-skills-2\/data\/plans/, 'probe must use the server response');
+  });
+
+  it('project-view accepts a collision-resolved id for a symlinked alias of the same root', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: 'atomic-skills-2',
+      registrationRoot: 'same-repo-alias',
+    });
+    assert.match(calls, /\/projects\/atomic-skills-2\/data\/plans/, 'canonical root identity must accept an alias');
   });
 
   it('project-view fails closed when registration returns a conflicting root', () => {

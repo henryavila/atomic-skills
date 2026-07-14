@@ -185,7 +185,7 @@ Steps:
                -H 'Content-Type: application/json' \
                -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" 2>/dev/null)
              registered_pid=$(printf '%s' "$registration" | node -e '
-               const { resolve } = require("node:path");
+               const { realpathSync } = require("node:fs");
                let s=""; process.stdin.on("data", d => s += d).on("end", () => {
                  try {
                    const project = JSON.parse(s)?.project;
@@ -194,7 +194,10 @@ Steps:
                    const root = project?.rootDir;
                    const sameId = id === process.argv[2];
                    const sameRoot = typeof root === "string" && root.length > 0
-                     && resolve(root) === resolve(process.argv[1]);
+                     && (() => {
+                       try { return realpathSync(root) === realpathSync(process.argv[1]); }
+                       catch (_) { return false; }
+                     })();
                    if ((sameId && root == null) || sameRoot) process.stdout.write(id);
                    else process.stdout.write("__ATOMIC_SKILLS_REGISTRATION_CONFLICT__");
                  } catch (_) {}
@@ -228,7 +231,7 @@ Steps:
                -H 'Content-Type: application/json' \
                -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" 2>/dev/null)
              registered_pid=$(printf '%s' "$registration" | node -e '
-               const { resolve } = require("node:path");
+               const { realpathSync } = require("node:fs");
                let s=""; process.stdin.on("data", d => s += d).on("end", () => {
                  try {
                    const project = JSON.parse(s)?.project;
@@ -237,7 +240,10 @@ Steps:
                    const root = project?.rootDir;
                    const sameId = id === process.argv[2];
                    const sameRoot = typeof root === "string" && root.length > 0
-                     && resolve(root) === resolve(process.argv[1]);
+                     && (() => {
+                       try { return realpathSync(root) === realpathSync(process.argv[1]); }
+                       catch (_) { return false; }
+                     })();
                    if ((sameId && root == null) || sameRoot) process.stdout.write(id);
                    else process.stdout.write("__ATOMIC_SKILLS_REGISTRATION_CONFLICT__");
                  } catch (_) {}
