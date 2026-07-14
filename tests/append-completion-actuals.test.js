@@ -98,10 +98,11 @@ test('computePhaseActuals prefers a commit anchor over the date heuristic', () =
   }
 });
 
-// A commit anchor that is NOT an ancestor of HEAD (wrong branch / rewritten away)
-// is unusable as a range base, so the function falls back to the date heuristic
-// rather than emitting a meaningless diff.
-test('computePhaseActuals falls back to the date heuristic when the anchor is not an ancestor', () => {
+// A recorded commit anchor that is NOT an ancestor of HEAD (wrong branch /
+// rewritten away) is unusable as a range base. Falling back to the date
+// heuristic would silently turn corrupt provenance into plausible-looking
+// metrics, so actuals must be omitted instead.
+test('computePhaseActuals omits actuals when the recorded anchor is not an ancestor', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'as-actuals-nonanc-'));
   try {
     git(cwd, ['init']);
@@ -110,14 +111,21 @@ test('computePhaseActuals falls back to the date heuristic when the anchor is no
 
     writeFileSync(join(cwd, 'base.txt'), 'base\n');
     commit(cwd, 'base before phase', '2026-01-01T00:00:00Z');
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+    const main = execFileSync('git', ['branch', '--show-current'], { cwd, encoding: 'utf8' }).trim();
+
     writeFileSync(join(cwd, 'later.txt'), 'one\ntwo\nthree\n');
     commit(cwd, 'phase work', '2026-03-01T00:00:00Z');
 
-    const bogus = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'; // not an ancestor
-    // Falls back to the date heuristic → same as passing no anchor at all.
-    assert.deepEqual(
-      computePhaseActuals('2026-02-01T00:00:00Z', { cwd, sinceCommit: bogus }),
-      computePhaseActuals('2026-02-01T00:00:00Z', { cwd }),
+    git(cwd, ['checkout', '-b', 'rewritten-anchor', base]);
+    writeFileSync(join(cwd, 'discarded.txt'), 'discarded history\n');
+    commit(cwd, 'discarded phase anchor', '2026-02-01T00:00:00Z');
+    const nonAncestor = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+    git(cwd, ['checkout', main]);
+
+    assert.equal(
+      computePhaseActuals('2026-02-01T00:00:00Z', { cwd, sinceCommit: nonAncestor }),
+      undefined,
     );
   } finally {
     rmSync(cwd, { recursive: true, force: true });

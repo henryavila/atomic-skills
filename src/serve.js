@@ -328,18 +328,15 @@ async function ensureProjectRegistration(baseUrl, rootDir) {
   if (first.status !== 'ok') return first.status
 
   const registered = first.project?.projectId
-  if (!registered || registered === projectId) return 'ok'
-
+  if (!registered) return 'ok'
   const registeredRoot = first.project?.rootDir
-  if (!registeredRoot || !sameResolvedPath(registeredRoot, rootDir)) return 'failed'
+  if (registered === projectId) {
+    return !registeredRoot || sameResolvedPath(registeredRoot, rootDir) ? 'ok' : 'failed'
+  }
 
-  const del = await fetch(`${baseUrl}/api/projects/${encodeURIComponent(registered)}`, { method: 'DELETE' })
-  if (!del.ok && del.status !== 404) return 'failed'
-
-  const second = await postProjectRegistration(baseUrl, rootDir, projectId)
-  if (second.status !== 'ok') return second.status
-  const secondId = second.project?.projectId
-  return !secondId || secondId === projectId ? 'ok' : 'failed'
+  // aiDeck may resolve a project-id collision by returning a different stable
+  // id. That response is authoritative only when it still identifies this root.
+  return registeredRoot && sameResolvedPath(registeredRoot, rootDir) ? 'ok' : 'failed'
 }
 
 /**

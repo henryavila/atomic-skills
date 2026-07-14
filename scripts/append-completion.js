@@ -74,15 +74,15 @@ export function computePhaseActuals(since, { cwd = process.cwd(), sinceCommit } 
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     // Prefer the immutable commit anchor; accept it only when it is a real
-    // ancestor of HEAD, else fall back to the (fragile) date heuristic.
+    // ancestor of HEAD. A recorded-but-unusable anchor is corrupt provenance,
+    // so omit actuals rather than silently substituting the date heuristic.
     let base = '';
     if (hasText(sinceCommit)) {
       try {
         git(['merge-base', '--is-ancestor', sinceCommit, 'HEAD']); // throws unless ancestor
         base = git(['rev-parse', sinceCommit]);
-      } catch { base = ''; }
-    }
-    if (!base && hasText(since)) {
+      } catch { return undefined; }
+    } else if (hasText(since)) {
       base = git(['rev-list', '-1', `--before=${since}`, 'HEAD']);
     }
     const commits = Number(base

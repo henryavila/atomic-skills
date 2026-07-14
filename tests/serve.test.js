@@ -316,7 +316,7 @@ describe('ensureAideck dashboard state freshness', () => {
     }
   })
 
-  it('replaces an existing basename registration for the same rootDir', () => {
+  it('accepts a stable collision-resolved registration for the same rootDir', () => {
     const home = mkdtempSync(join(tmpdir(), 'as-serve-home-'))
     const repo = mkdtempSync(join(tmpdir(), 'as-serve-repo-'))
     try {
@@ -344,11 +344,9 @@ describe('ensureAideck dashboard state freshness', () => {
             registerCalls++;
             const body = JSON.parse(init.body);
             if (body.projectId !== 'demo') throw new Error('registered wrong projectId: ' + body.projectId);
-            const projectId = registerCalls === 1 ? 'plan-dependencies' : 'demo';
-            const status = registerCalls === 1 ? 200 : 201;
-            return new Response(JSON.stringify({ schemaVersion: '0.1', project: { projectId, rootDir: repo } }), { status, headers: { 'content-type': 'application/json' } });
+            return new Response(JSON.stringify({ schemaVersion: '0.1', project: { projectId: 'demo-2', rootDir: repo } }), { status: 200, headers: { 'content-type': 'application/json' } });
           }
-          if (href.endsWith('/api/projects/plan-dependencies') && init.method === 'DELETE') {
+          if (href.endsWith('/api/projects/demo-2') && init.method === 'DELETE') {
             deleteCalls++;
             return new Response(JSON.stringify({ schemaVersion: '0.1', status: 'unregistered' }), { status: 200, headers: { 'content-type': 'application/json' } });
           }
@@ -358,8 +356,8 @@ describe('ensureAideck dashboard state freshness', () => {
         process.chdir(repo);
         const url = await ensureAideck({ timeoutMs: 500 });
         if (url !== 'http://127.0.0.1:7777') throw new Error('unexpected url: ' + url);
-        if (registerCalls !== 2) throw new Error('expected two register calls, saw ' + registerCalls);
-        if (deleteCalls !== 1) throw new Error('expected one delete call, saw ' + deleteCalls);
+        if (registerCalls !== 1) throw new Error('expected one register call, saw ' + registerCalls);
+        if (deleteCalls !== 0) throw new Error('expected no delete calls, saw ' + deleteCalls);
       `
 
       execFileSync(process.execPath, ['--input-type=module', '-e', child], {
