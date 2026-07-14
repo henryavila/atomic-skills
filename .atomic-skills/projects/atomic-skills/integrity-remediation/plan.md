@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T19:33:36Z
+lastUpdated: 2026-07-14T19:36:31Z
 branch: plan/integrity-remediation
 currentPhase: F4
 parallelismAllowed: false
@@ -95,8 +95,8 @@ phases:
             verifiedAt: 2026-07-14T19:33:36Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test: 62 tests, 5 suites, 62 pass, 0 fail, 0
-              skipped; exit 0; fresh closing run on reviewed HEAD 0ce031d"
+            outputSummary: "node --test: 62 tests, 5 suites, 62 pass, 0 fail, 0 skipped;
+              exit 0; fresh closing run on reviewed HEAD 0ce031d"
         - id: F0-G2
           description: Project-scope install não mascara ausência de setup canônico. FAILS
             when a pasta do ledger basta para pular setup.
@@ -112,8 +112,8 @@ phases:
             verifiedAt: 2026-07-14T19:33:36Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test: 86 tests, 2 suites, 86 pass, 0 fail, 0
-              skipped; exit 0; fresh closing run on reviewed HEAD 0ce031d"
+            outputSummary: "node --test: 86 tests, 2 suites, 86 pass, 0 fail, 0 skipped;
+              exit 0; fresh closing run on reviewed HEAD 0ce031d"
     status: done
     reviewGate:
       status: passed
@@ -285,7 +285,7 @@ phases:
     summary: Reconcilia F0 e torna fechamento, eventos e materialização idempotentes.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 8
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -330,6 +330,18 @@ phases:
               docs/audits/integrity-remediation-f0-reconciliation.json
             expectExitCode: 0
     status: active
+    businessIntent:
+      value: Impedir estado parcial, obsoleto ou contraditório e tornar transições
+        críticas recuperáveis sem intervenção manual.
+      workflow: Validar estado, fechar tasks e fases, emitir completion events,
+        reconciliar o bootstrap F0 e materializar sucessoras.
+      rules: Uma autoridade por mutação; nenhuma transição terminal com task ou gate
+        aberto; evidence e review ancorados ao SHA; retries idempotentes;
+        ambiguidade falha fechado.
+      outOfScope: Installer upstream, contratos de host, Gemini, qualificação de
+        release e qualquer push, PR ou publicação externa.
+      doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
+        atual, fechamento idempotente e ativação de F3 protegida contra bypass.
   - id: F5
     slug: integrity-remediation-f5-gemini-portabilidade-e-identidade-de-d
     title: Gemini, portabilidade e identidade de dashboard
@@ -437,6 +449,7 @@ references:
 planActive: true
 planTitle: Remediação integral de segurança, lifecycle e distribuição
 ---
+
 
 # Remediação integral de segurança, lifecycle e distribuição
 
