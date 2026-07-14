@@ -12,9 +12,16 @@ const SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 function input(overrides = {}) {
   return {
     tasks: [{ id: 'T-1', status: 'done' }],
-    exitGates: [{ id: 'F4-G3', status: 'met', evidence: { passed: true } }],
-    reviewGate: { status: 'passed', at: SHA },
+    exitGates: [{
+      id: 'F4-G3', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
+    }],
+    reviewGate: {
+      status: 'passed', at: SHA, mode: 'local',
+      reviewFile: '.atomic-skills/reviews/f4.md',
+    },
     currentHead: SHA,
+    reviewCommitExists: true,
+    reviewFileMatches: true,
     worktreeDirty: false,
     lessonsState: 'recorded',
     requireLessons: true,

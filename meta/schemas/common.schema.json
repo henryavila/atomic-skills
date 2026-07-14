@@ -181,6 +181,11 @@
           "properties": {
             "verifierKind": { "type": "string", "enum": ["shell", "query", "test", "manual"] },
             "verifiedAt": { "$ref": "#/$defs/isoTimestamp" },
+            "verifiedCommit": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+              "description": "Full git object id of the exact HEAD against which this evidence was produced. Optional for legacy records; required at hardened phase-close boundaries."
+            },
             "passed": { "type": "boolean", "description": "True iff the verifier produced the expected result. Stored even when status='met' to disambiguate user-overrides from verified passes." },
             "exitCode": { "type": "integer", "description": "Shell verifier: actual exit code observed." },
             "rowCount": { "type": "integer", "minimum": 0, "description": "Query verifier: row count observed (kind:query is DEFERRED-BY-DESIGN in this line; never reaches met without a real rowCount)." },

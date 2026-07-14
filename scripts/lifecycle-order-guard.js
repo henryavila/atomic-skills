@@ -7,6 +7,9 @@
  */
 import { collectPhaseGraphViolations } from '../src/state-invariants.js';
 
+const FULL_GIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const REVIEW_MODES = new Set(['local', 'codex', 'both']);
+
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
   SPLIT_PHASE: 'split-phase',
@@ -316,6 +319,44 @@ export function classifyPhaseDoneCommit(input = {}) {
     );
   }
 
+  const reviewedHead = text(object(reviewGate).at);
+  if (!FULL_GIT_OID.test(reviewedHead)) {
+    return block(
+      'phase-done-review-sha-invalid',
+      `phase-done review anchor ${JSON.stringify(reviewedHead)} is not a full git object id`,
+      'Rerun review at `git rev-parse HEAD` and record the full reviewed commit, then rerun `phase-done`.',
+    );
+  }
+  if (!REVIEW_MODES.has(text(object(reviewGate).mode))) {
+    return block(
+      'phase-done-review-mode-missing',
+      'phase-done requires the review mode that produced the passed review gate',
+      'Record reviewGate.mode as `local`, `codex`, or `both`, then rerun `phase-done`.',
+    );
+  }
+  const reviewFile = text(object(reviewGate).reviewFile);
+  if (!reviewFile.startsWith('.atomic-skills/reviews/') || reviewFile.split('/').includes('..')) {
+    return block(
+      'phase-done-review-file-invalid',
+      'phase-done requires a repository-local review receipt under .atomic-skills/reviews/',
+      'Persist the review receipt under `.atomic-skills/reviews/`, record reviewGate.reviewFile, then rerun `phase-done`.',
+    );
+  }
+  if (input.reviewCommitExists !== true) {
+    return block(
+      'phase-done-review-commit-missing',
+      `phase-done review anchor ${reviewedHead} does not resolve to a commit`,
+      'Resolve the reviewed commit with `git cat-file -e <sha>^{commit}`, rerun review if needed, then rerun `phase-done`.',
+    );
+  }
+  if (input.reviewFileMatches !== true) {
+    return block(
+      'phase-done-review-file-stale',
+      `phase-done reviewFile does not contain the reviewed SHA ${reviewedHead}`,
+      'Persist a review receipt for the current reviewed HEAD, then rerun `phase-done`.',
+    );
+  }
+
   if (typeof input.worktreeDirty !== 'boolean') {
     return block(
       'phase-done-worktree-state-missing',
@@ -333,7 +374,6 @@ export function classifyPhaseDoneCommit(input = {}) {
   }
 
   const currentHead = text(input.currentHead);
-  const reviewedHead = text(object(reviewGate).at);
   if (object(reviewGate).status === 'passed' && !currentHead) {
     return block(
       'phase-done-review-head-missing',
@@ -346,6 +386,19 @@ export function classifyPhaseDoneCommit(input = {}) {
       'phase-done-review-stale',
       `phase-done review SHA ${reviewedHead} does not match current HEAD ${currentHead}`,
       `Rerun \`atomic-skills:review-code <range>\` at ${currentHead}, record the matching reviewGate, then rerun \`phase-done\`.`,
+    );
+  }
+
+  const staleEvidence = exitGates.find((gate) => (
+    text(object(object(gate).evidence).verifiedCommit) !== currentHead
+  ));
+  if (staleEvidence) {
+    const id = text(object(staleEvidence).id) || '<gate-id>';
+    const anchoredAt = text(object(object(staleEvidence).evidence).verifiedCommit) || '<missing>';
+    return block(
+      'phase-done-gate-evidence-stale',
+      `phase-done exit gate ${id} evidence was verified at ${anchoredAt}, not current HEAD ${currentHead}`,
+      `Rerun the verifier for ${id} at ${currentHead}, record evidence.verifiedCommit, then rerun \`phase-done\`.`,
     );
   }
 

@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T19:54:55Z
-nextAction: Run `done T-004` after anchoring gate evidence and review to the close HEAD.
+lastUpdated: 2026-07-14T20:02:12Z
+nextAction: Run `done T-005` after making task close, completion event and handoff idempotent.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 3
+tasksDone: 4
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 10
+weightDone: 12
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -250,8 +250,9 @@ tasks:
       quando review aplica fixes ou muda HEAD. verified_by:
       `docs/audits/project-implement-audit-2026-07-10.md:154-164` e
       `scripts/validate-state.js:484-506`."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T20:02:12Z
+    closedAt: 2026-07-14T20:02:12Z
     scopeBoundary:
       - não aceitar string arbitrária como SHA e não reutilizar evidence
         anterior a um commit de review
@@ -264,6 +265,13 @@ tasks:
       command: node --test tests/validate-state.test.js
         tests/phase-done-transaction.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T20:02:12Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: exact verifier 95 pass, 0 fail; expanded lifecycle
+        suite 119 pass, 0 fail; validate-state 167 files, 26 plans"
     outputs:
       - kind: file
         path: meta/schemas/common.schema.json
@@ -488,6 +496,12 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   review `passed` no HEAD atual, worktree limpa e lessons respondidas. Não há
   defer/skip terminal nem bulk-close: cada task fecha e emite no fluxo `done`, e
   `phase-done` emite apenas o agregado da fase.
+- **2026-07-14 — T-004:** planos hardened agora exigem SHA git completo e
+  existente, `reviewGate.mode`, receipt local coerente e
+  `evidence.verifiedCommit` igual ao HEAD revisado nos dois espelhos do gate.
+  Evidence, receipt e lessons permanecem candidatos em memória até o commit de
+  fechamento, evitando referência circular ao SHA do próprio commit; qualquer
+  fix de review que mova HEAD invalida os gates e força sua reexecução.
 
 ## Links
 

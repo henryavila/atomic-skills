@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkAnchoredCloseEvidence, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -968,6 +968,24 @@ test('0.2: unknown evidence field still rejected (additionalProperties:false int
   assert.equal(validators.validateInitiative(init), false, 'additionalProperties:false must reject unknown evidence fields');
 });
 
+test('evidence verifiedCommit accepts only a full git object id', () => {
+  const validators = buildValidators();
+  const valid = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+      evidence: {
+        verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true,
+        exitCode: 0, verifiedCommit: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      },
+    }],
+  });
+  assert.equal(validators.validateInitiative(valid), true,
+    JSON.stringify(validators.validateInitiative.errors));
+  valid.exitGates[0].evidence.verifiedCommit = 'latest-working-tree';
+  assert.equal(validators.validateInitiative(valid), false);
+});
+
 // ── GATE-R2: the met-invariant + R-XAGENT-07 paranoid false-green REDs ──
 // checkMetInvariant is the one place a markdown "passed" claim becomes
 // non-self-graded. These prove the three false-green guards plus the
@@ -1141,6 +1159,45 @@ test('GATE-R3 wiring: validateFile REJECTS a schema-valid plan whose done phase 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('hardened close evidence requires existing review provenance and matching gate commits', () => {
+  const sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const plan = {
+    slug: 'p', stateIntegrityHardening: { enforcedFrom: '2026-07-14T19:36:31Z' },
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      reviewGate: {
+        status: 'passed', at: sha, mode: 'both',
+        reviewFile: '.atomic-skills/reviews/p-f0.md',
+      },
+      exitGate: { criteria: [{
+        id: 'F0-G1', status: 'met',
+        evidence: { passed: true, verifiedCommit: sha },
+      }] },
+    }],
+  };
+  const initiative = {
+    slug: 'p-f0', phaseId: 'F0', parentPlan: 'p', status: 'done',
+    exitGates: [{
+      id: 'F0-G1', status: 'met', evidence: { passed: true, verifiedCommit: sha },
+    }],
+  };
+  const resolvers = {
+    commitExists: (value) => value === sha,
+    reviewFileMatches: (path, value) => path === '.atomic-skills/reviews/p-f0.md' && value === sha,
+  };
+  assert.deepEqual(checkAnchoredCloseEvidence(plan, initiative, resolvers), []);
+
+  const stale = structuredClone(initiative);
+  stale.exitGates[0].evidence.verifiedCommit = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  assert.match(checkAnchoredCloseEvidence(plan, stale, resolvers).join('\n'), /verifiedCommit.*reviewed HEAD/i);
+  assert.match(checkAnchoredCloseEvidence(plan, initiative, {
+    ...resolvers, commitExists: () => false,
+  }).join('\n'), /does not resolve to a commit/i);
+  assert.match(checkAnchoredCloseEvidence(plan, initiative, {
+    ...resolvers, reviewFileMatches: () => false,
+  }).join('\n'), /reviewFile.*does not exist|reviewFile.*reviewed SHA/i);
 });
 
 // Lessons file (Spec 2 / G1): a per-initiative lessons file under

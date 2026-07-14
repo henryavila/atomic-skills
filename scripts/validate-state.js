@@ -14,8 +14,9 @@
  *   2 — file/parse/setup error
  */
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve, basename } from 'node:path';
+import { dirname, join, resolve, basename, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { validateAppMap } from '../src/app-map/validate.js';
@@ -30,6 +31,8 @@ const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
 const APP_MAP_FILENAME = 'app-map.json';
 const APP_MAP_MAX_DEPTH = 12;
 const APP_MAP_SKIP_DIRS = new Set(['.git', 'node_modules']);
+const FULL_GIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const REVIEW_MODES = new Set(['local', 'codex', 'both']);
 
 const SCHEMA_FILES = {
   common: 'common.schema.json',
@@ -490,21 +493,109 @@ export function checkReviewGate(frontmatter) {
   if (frontmatter == null || typeof frontmatter !== 'object') return violations;
   const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
   const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
+  const hardened = typeof frontmatter?.stateIntegrityHardening?.enforcedFrom === 'string';
   for (const phase of phases) {
     if (phase?.status !== 'done') continue;
     const rg = phase.reviewGate;
-    if (rg == null || typeof rg !== 'object') continue; // absent ⇒ tolerated (legacy / GATE-R2-consistent)
     const label = `phase ${phase.id ?? '?'}`;
+    if (rg == null || typeof rg !== 'object') {
+      if (hardened) violations.push(`${label}: hardened phase close requires a passed reviewGate.`);
+      continue;
+    }
     if (rg.status === 'passed') {
       if (!hasText(rg.at)) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`at\` sha — a passed review claim must record the commit it concluded against, not just assert it ran.`);
       }
+      if (hardened && !FULL_GIT_OID.test(rg.at ?? '')) {
+        violations.push(`${label}: reviewGate.at must be a full 40- or 64-character lowercase git object id under stateIntegrityHardening.`);
+      }
+      if (hardened && !REVIEW_MODES.has(rg.mode)) {
+        violations.push(`${label}: hardened passed reviewGate requires mode local, codex, or both.`);
+      }
+      if (hardened && (!hasText(rg.reviewFile)
+        || !rg.reviewFile.startsWith('.atomic-skills/reviews/')
+        || rg.reviewFile.split('/').includes('..'))) {
+        violations.push(`${label}: hardened passed reviewGate requires a repository-local reviewFile under .atomic-skills/reviews/.`);
+      }
     } else if (rg.status === 'skipped') {
+      if (hardened) {
+        violations.push(`${label}: hardened phase close cannot skip review.`);
+        continue;
+      }
       if (!hasText(rg.reason)) {
         violations.push(`${label}: reviewGate.status is 'skipped' but carries no \`reason\` — a silent review skip is forbidden (record why, mirroring --skip-review).`);
       }
     } else {
       violations.push(`${label}: reviewGate.status must be 'passed' or 'skipped' (got ${JSON.stringify(rg.status)}).`);
+    }
+  }
+  return violations;
+}
+
+function gitCommitExists(sha) {
+  if (!FULL_GIT_OID.test(sha ?? '')) return false;
+  try {
+    execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], {
+      cwd: process.cwd(),
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function persistedReviewMatches(reviewFile, sha) {
+  if (typeof reviewFile !== 'string' || !reviewFile.startsWith('.atomic-skills/reviews/')) return false;
+  const root = resolve(process.cwd(), '.atomic-skills', 'reviews');
+  const candidate = resolve(process.cwd(), reviewFile);
+  if (!candidate.startsWith(`${root}${sep}`) || !existsSync(candidate)) return false;
+  try {
+    return readFileSync(candidate, 'utf8').includes(sha);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Forward-only close provenance for plans opted into stateIntegrityHardening.
+ * The plan review receipt and every mirrored met gate must point at the same
+ * real commit. Resolver injection keeps the invariant deterministic in tests.
+ */
+export function checkAnchoredCloseEvidence(plan, initiative, {
+  commitExists = () => true,
+  reviewFileMatches = () => true,
+} = {}) {
+  const violations = [];
+  if (typeof plan?.stateIntegrityHardening?.enforcedFrom !== 'string') return violations;
+  const phases = (Array.isArray(plan?.phases) ? plan.phases : []).filter((phase) => (
+    phase?.status === 'done'
+    && (!initiative || phase.id === initiative.phaseId || phase.slug === initiative.slug)
+  ));
+  for (const phase of phases) {
+    const label = `phase ${phase.id ?? '?'}`;
+    const reviewGate = phase.reviewGate ?? {};
+    const reviewedHead = reviewGate.at;
+    if (FULL_GIT_OID.test(reviewedHead ?? '') && !commitExists(reviewedHead)) {
+      violations.push(`${label}: reviewGate.at ${reviewedHead} does not resolve to a commit.`);
+    }
+    if (typeof reviewGate.reviewFile === 'string'
+      && FULL_GIT_OID.test(reviewedHead ?? '')
+      && !reviewFileMatches(reviewGate.reviewFile, reviewedHead)) {
+      violations.push(`${label}: reviewFile does not exist under .atomic-skills/reviews/ or does not contain the reviewed SHA ${reviewedHead}.`);
+    }
+    const initiativeGates = new Map(
+      (Array.isArray(initiative?.exitGates) ? initiative.exitGates : []).map((gate) => [gate?.id, gate]),
+    );
+    for (const criterion of (Array.isArray(phase.exitGate?.criteria) ? phase.exitGate.criteria : [])) {
+      if (criterion?.status !== 'met') continue;
+      if (criterion?.evidence?.verifiedCommit !== reviewedHead) {
+        violations.push(`${label} criterion ${criterion.id ?? '?'}: evidence.verifiedCommit must equal reviewed HEAD ${reviewedHead}.`);
+      }
+      const mirror = initiativeGates.get(criterion?.id);
+      if (mirror && mirror.status === 'met' && mirror?.evidence?.verifiedCommit !== reviewedHead) {
+        violations.push(`${label} initiative criterion ${criterion.id ?? '?'}: evidence.verifiedCommit must equal reviewed HEAD ${reviewedHead}.`);
+      }
     }
   }
   return violations;
@@ -563,7 +654,11 @@ export function validateFile(filePath, validators) {
  * Cross-validate plan↔initiative consistency for done phases.
  * Returns array of { planSlug, phaseId, initiativeSlug, errors: string[] }.
  */
-export function crossValidate(planFrontmatters, initiativeFrontmatters, { completeGraph = true } = {}) {
+export function crossValidate(planFrontmatters, initiativeFrontmatters, {
+  completeGraph = true,
+  commitExists = gitCommitExists,
+  reviewFileMatches = persistedReviewMatches,
+} = {}) {
   const errors = [];
   const initBySlug = new Map();
   const projectScopeId = (fm) => (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
@@ -636,6 +731,12 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters, { comple
           }
         }
       }
+
+      phaseErrors.push(...checkAnchoredCloseEvidence(
+        { ...plan, phases: [phase] },
+        init,
+        { commitExists, reviewFileMatches },
+      ));
 
       if (phaseErrors.length > 0) {
         errors.push({

@@ -12,6 +12,7 @@ The output of every successful (or attempted) verification is stamped into the c
 evidence:
   verifierKind: shell | query | test | manual
   verifiedAt: <ISO8601>
+  verifiedCommit: <full git object id of current HEAD>
   passed: true | false
   exitCode: <integer>          # shell / test — observed process exit code
   testsCollected: <integer>    # test only — number of tests the runner actually ran
@@ -24,7 +25,7 @@ evidence:
     killTranscript: "<≤500-char inject → RED → revert → GREEN excerpt>"
 ```
 
-`evidence` is REQUIRED to set `status: met` when a deterministic verifier (`shell`/`test`/`query`) is present. This is not advisory: **`scripts/validate-state.js` enforces the met-invariant (GATE-R2)** and HARD-FAILS any `met` criterion (or `done` task) whose `shell`/`test`/`query` verifier lacks `evidence.passed === true` — plus, for `kind: test`, `evidence.testsCollected > 0` (a pattern matching 0 tests is **never** `met`), and for `kind: query`, a numeric `evidence.rowCount`. So a verifier result must come from a REAL run, not an assertion. Without passing evidence, the criterion stays `pending` (manual override → `deferred` with `deferredReason`). `kind: manual` and verifier-absent criteria are not gated by GATE-R2 (the manual-acceptance gate and user-overrides govern those).
+`evidence` is REQUIRED to set `status: met` when a deterministic verifier (`shell`/`test`/`query`) is present. This is not advisory: **`scripts/validate-state.js` enforces the met-invariant (GATE-R2)** and HARD-FAILS any `met` criterion (or `done` task) whose `shell`/`test`/`query` verifier lacks `evidence.passed === true` — plus, for `kind: test`, `evidence.testsCollected > 0` (a pattern matching 0 tests is **never** `met`), and for `kind: query`, a numeric `evidence.rowCount`. At a hardened phase-close boundary, every exit-gate result also records `verifiedCommit` from `git rev-parse HEAD`; it must be the same full object id as the passed review and the fresh commit guard. So a verifier result must come from a REAL run, not an assertion. Without passing evidence, the criterion stays `pending` (manual override → `deferred` with `deferredReason`). `kind: manual` and verifier-absent criteria are not gated by GATE-R2 (the manual-acceptance gate and user-overrides govern those).
 
 ### `kind: shell`
 
@@ -32,7 +33,7 @@ evidence:
 2. Ask: "Run this verifier? (y/N)" — intrusive-actions rule applies.
 3. On `y`: execute with {{BASH_TOOL}}, capture exit code AND a tail of stdout (≤500 chars). Compare exit code with `expectExitCode` (default `0`).
 4. Write `evidence`:
-   - `verifierKind: shell`, `verifiedAt: <now>`
+   - `verifierKind: shell`, `verifiedAt: <now>`, `verifiedCommit: <full current HEAD>`
    - `exitCode: <observed>`, `passed: <bool>`
    - `outputSummary: <stdout tail>`
 5. If `passed === true`: set `status: met`, `metAt: <now>`.
@@ -46,7 +47,7 @@ evidence:
 1. Present the criterion `id` + `description` + the verifier's `description`.
 2. Ask: "Confirm this criterion is met? (y/n/defer)".
 3. Write `evidence`:
-   - `verifierKind: manual`, `verifiedAt: <now>`
+   - `verifierKind: manual`, `verifiedAt: <now>`, `verifiedCommit: <full current HEAD>`
    - `passed: <true if y else false>`
    - `outputSummary: <user's note, or empty>`
 4. On `y`: set `status: met`, `metAt: <now>`.
@@ -58,7 +59,7 @@ evidence:
 This repository assumes **no live DB connection**, so `kind: query` is deferred by design — NOT a silent stub. A user-pasted row count must **never** flip a criterion to `met`: that is exactly the fabricated-pass hole the gate system exists to kill (GATE-R2 hard-fails a `met` query criterion that lacks a numeric `evidence.rowCount` from a real run).
 
 1. Present the criterion `id` + `description` + `sql` + `expectRowCount` (if any).
-2. **Escape hatch (only path to `met`):** if — and only if — the caller supplies a real connection command, execute it with {{BASH_TOOL}}, capture the actual `rowCount`, and write `evidence` (`verifierKind: query`, `verifiedAt: <now>`, `rowCount: <observed integer>`, `passed: <rowCount === expectRowCount>`, `outputSummary`). Set `status: met` only when `passed === true`.
+2. **Escape hatch (only path to `met`):** if — and only if — the caller supplies a real connection command, execute it with {{BASH_TOOL}}, capture the actual `rowCount`, and write `evidence` (`verifierKind: query`, `verifiedAt: <now>`, `verifiedCommit: <full current HEAD>`, `rowCount: <observed integer>`, `passed: <rowCount === expectRowCount>`, `outputSummary`). Set `status: met` only when `passed === true`.
 3. **Default (no connection command):** set `status: deferred`, write `deferredReason` (e.g. `"query verifiers run out-of-band; no DB connection in this repo"`), and write `evidence` with `passed: false` and NO fabricated `rowCount`. Do not ask the user to type a row count — a self-reported number is not evidence.
 
 ### `kind: test`
@@ -69,7 +70,7 @@ Mirrors `kind: shell` — the runner is executed for real and its result, not a 
 2. Ask: "Run the test pattern (`<runner> <pattern>`)? (y/N)" — intrusive-actions rule applies.
 3. On `y`: execute `<runner> <pattern>` with {{BASH_TOOL}}, capture the exit code AND a tail of stdout (≤500 chars). **Parse the number of tests the runner actually collected/ran** from its output (e.g. node `# tests N` / `ℹ tests N`; jest `Tests: … total`; pytest `collected N items`). A run is `passed` only when the **exit code is 0 AND `testsCollected > 0`**.
 4. Write `evidence`:
-   - `verifierKind: test`, `verifiedAt: <now>`
+   - `verifierKind: test`, `verifiedAt: <now>`, `verifiedCommit: <full current HEAD>`
    - `exitCode: <observed>`, `testsCollected: <parsed integer>`, `passed: <bool>`
    - `outputSummary: <stdout tail>`
 5. If `passed === true`: set `status: met`, `metAt: <now>`.

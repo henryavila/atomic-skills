@@ -8,7 +8,14 @@ import {
 
 const CURRENT_REVIEW_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const STALE_REVIEW_SHA = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-const metGate = (id = 'G-1') => ({ id, status: 'met', evidence: { passed: true } });
+const REVIEW_FILE = '.atomic-skills/reviews/order-guards.md';
+const metGate = (id = 'G-1') => ({
+  id, status: 'met', evidence: { passed: true, verifiedCommit: CURRENT_REVIEW_SHA },
+});
+const passedReview = (at = CURRENT_REVIEW_SHA) => ({
+  status: 'passed', at, mode: 'local', reviewFile: REVIEW_FILE,
+});
+const reviewProvenance = { reviewCommitExists: true, reviewFileMatches: true };
 
 function deepFreeze(value) {
   if (value == null || typeof value !== 'object') return value;
@@ -200,8 +207,9 @@ test('fails closed when the caller omits the worktree state after review', () =>
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
-    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    reviewGate: passedReview(),
     currentHead: CURRENT_REVIEW_SHA,
+    ...reviewProvenance,
   });
 
   assertBlockedWithCommand(result);
@@ -214,8 +222,9 @@ test('fails closed when a passed review has no current HEAD to compare', () => {
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
-    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    reviewGate: passedReview(),
     worktreeDirty: false,
+    ...reviewProvenance,
   });
 
   assertBlockedWithCommand(result);
@@ -228,9 +237,10 @@ test('blocks phase-done when the recorded review SHA is stale', () => {
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
-    reviewGate: { status: 'passed', at: STALE_REVIEW_SHA },
+    reviewGate: passedReview(STALE_REVIEW_SHA),
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,
+    ...reviewProvenance,
   });
 
   assertBlockedWithCommand(result);
@@ -244,9 +254,10 @@ test('blocks phase-done when the worktree is dirty after a matching review', () 
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
-    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    reviewGate: passedReview(),
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: true,
+    ...reviewProvenance,
   });
 
   assertBlockedWithCommand(result);
@@ -260,9 +271,10 @@ test('allows phase-done when the review SHA matches HEAD and the worktree is cle
     command: 'phase-done',
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
-    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    reviewGate: passedReview(),
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,
+    ...reviewProvenance,
   });
 
   assert.equal(result.allowed, true);
@@ -277,9 +289,10 @@ test('blocks phase-done when any exit gate is deferred, even with a reason', () 
       metGate(),
       { id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' },
     ],
-    reviewGate: { status: 'passed', at: CURRENT_REVIEW_SHA },
+    reviewGate: passedReview(),
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,
+    ...reviewProvenance,
   });
 
   assertBlockedWithCommand(result);

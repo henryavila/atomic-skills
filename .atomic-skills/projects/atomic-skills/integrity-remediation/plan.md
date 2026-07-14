@@ -95,6 +95,7 @@ phases:
           evidence:
             verifierKind: shell
             verifiedAt: 2026-07-14T19:33:36Z
+            verifiedCommit: 0ce031d2cebe0a5059a388e99ff6df5432aec4eb
             passed: true
             exitCode: 0
             outputSummary: "node --test: 62 tests, 5 suites, 62 pass, 0 fail, 0 skipped;
@@ -112,6 +113,7 @@ phases:
           evidence:
             verifierKind: shell
             verifiedAt: 2026-07-14T19:33:36Z
+            verifiedCommit: 0ce031d2cebe0a5059a388e99ff6df5432aec4eb
             passed: true
             exitCode: 0
             outputSummary: "node --test: 86 tests, 2 suites, 86 pass, 0 fail, 0 skipped;
