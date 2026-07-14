@@ -154,6 +154,7 @@ Steps:
    AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
    DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
    AIDECK_URL=""
+   REGISTRATION_CONFLICT=""
 
    # 1. Check env files for an already-running instance
    for envf in "$HOME/.aideck/env" "$HOME/.atomic-skills/env"; do
@@ -184,12 +185,26 @@ Steps:
                -H 'Content-Type: application/json' \
                -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" 2>/dev/null)
              registered_pid=$(printf '%s' "$registration" | node -e '
+               const { resolve } = require("node:path");
                let s=""; process.stdin.on("data", d => s += d).on("end", () => {
-                 try { const id = JSON.parse(s)?.project?.projectId;
-                   if (typeof id === "string" && /^[a-z][a-z0-9-]{0,63}$/.test(id)) process.stdout.write(id);
+                 try {
+                   const project = JSON.parse(s)?.project;
+                   const id = project?.projectId;
+                   if (typeof id !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(id)) return;
+                   const root = project?.rootDir;
+                   const sameId = id === process.argv[2];
+                   const sameRoot = typeof root === "string" && root.length > 0
+                     && resolve(root) === resolve(process.argv[1]);
+                   if ((sameId && root == null) || sameRoot) process.stdout.write(id);
+                   else process.stdout.write("__ATOMIC_SKILLS_REGISTRATION_CONFLICT__");
                  } catch (_) {}
                });
-             ' 2>/dev/null)
+             ' "$PWD" "$pid" 2>/dev/null)
+             if [ "$registered_pid" = "__ATOMIC_SKILLS_REGISTRATION_CONFLICT__" ]; then
+               REGISTRATION_CONFLICT=1
+               echo "aiDeck registration root mismatch; refusing to open a dashboard for another repository." >&2
+               break
+             fi
              [ -n "$registered_pid" ] && pid="$registered_pid"
              AIDECK_URL="$url"
            fi
@@ -199,7 +214,7 @@ Steps:
    done
 
    # 2. If not running, spawn it
-   if [ -z "$AIDECK_URL" ] && [ -f "$AIDECK_BIN" ] && [ -d "$DASHBOARD_DIR" ]; then
+   if [ -z "$AIDECK_URL" ] && [ -z "$REGISTRATION_CONFLICT" ] && [ -f "$AIDECK_BIN" ] && [ -d "$DASHBOARD_DIR" ]; then
      nohup node "$AIDECK_BIN" serve --static-dir "$DASHBOARD_DIR" >/dev/null 2>&1 &
      disown 2>/dev/null
      # Poll until healthy (max 8s)
@@ -213,12 +228,26 @@ Steps:
                -H 'Content-Type: application/json' \
                -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" 2>/dev/null)
              registered_pid=$(printf '%s' "$registration" | node -e '
+               const { resolve } = require("node:path");
                let s=""; process.stdin.on("data", d => s += d).on("end", () => {
-                 try { const id = JSON.parse(s)?.project?.projectId;
-                   if (typeof id === "string" && /^[a-z][a-z0-9-]{0,63}$/.test(id)) process.stdout.write(id);
+                 try {
+                   const project = JSON.parse(s)?.project;
+                   const id = project?.projectId;
+                   if (typeof id !== "string" || !/^[a-z][a-z0-9-]{0,63}$/.test(id)) return;
+                   const root = project?.rootDir;
+                   const sameId = id === process.argv[2];
+                   const sameRoot = typeof root === "string" && root.length > 0
+                     && resolve(root) === resolve(process.argv[1]);
+                   if ((sameId && root == null) || sameRoot) process.stdout.write(id);
+                   else process.stdout.write("__ATOMIC_SKILLS_REGISTRATION_CONFLICT__");
                  } catch (_) {}
                });
-             ' 2>/dev/null)
+             ' "$PWD" "$pid" 2>/dev/null)
+             if [ "$registered_pid" = "__ATOMIC_SKILLS_REGISTRATION_CONFLICT__" ]; then
+               REGISTRATION_CONFLICT=1
+               echo "aiDeck registration root mismatch; refusing to open a dashboard for another repository." >&2
+               break 2
+             fi
              [ -n "$registered_pid" ] && pid="$registered_pid"
              AIDECK_URL="$url"
              break 2

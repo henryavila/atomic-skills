@@ -124,9 +124,12 @@ describe('project skill (unified router + lazy assets)', () => {
     repoName,
     projectIds = [],
     registeredProjectId,
+    registrationRoot = 'same-repo',
+    omitRegistrationRoot = false,
     emptyRegistration = false,
   }) {
     const repo = join(tempDir, repoName);
+    const registeredRoot = registrationRoot === 'same-repo' ? '__SAME_REPO__' : registrationRoot;
     const home = join(tempDir, 'home');
     const fakeBin = join(tempDir, 'bin');
     const curlLog = join(tempDir, 'curl.log');
@@ -150,8 +153,12 @@ case "$*" in
   *'/api/projects/register'*)
     if [ "$EMPTY_REGISTRATION" = 1 ]; then
       printf '%s\\n' '{"project":{}}'
-    else
+    elif [ "$OMIT_REGISTRATION_ROOT" = 1 ]; then
       printf '{"project":{"projectId":"%s"}}\\n' "$REGISTERED_PROJECT_ID"
+    else
+      registration_root="$REGISTERED_ROOT"
+      [ "$registration_root" = "__SAME_REPO__" ] && registration_root="$PWD"
+      printf '{"project":{"projectId":"%s","rootDir":"%s"}}\\n' "$REGISTERED_PROJECT_ID" "$registration_root"
     fi
     ;;
   *'/data/plans'*) printf '%s\\n' '{"records":[]}' ;;
@@ -169,7 +176,9 @@ esac
         CURL_LOG: curlLog,
         EMPTY_REGISTRATION: emptyRegistration ? '1' : '0',
         FAKE_NPM_ROOT: join(tempDir, 'missing-global-root'),
+        OMIT_REGISTRATION_ROOT: omitRegistrationRoot ? '1' : '0',
         REGISTERED_PROJECT_ID: registeredProjectId,
+        REGISTERED_ROOT: registeredRoot,
       },
       encoding: 'utf8',
     });
@@ -462,6 +471,30 @@ esac
     });
     assert.match(calls, /"projectId":"atomic-skills"/, 'request must use the canonical candidate');
     assert.match(calls, /\/projects\/atomic-skills-2\/data\/plans/, 'probe must use the server response');
+  });
+
+  it('project-view fails closed when registration returns a conflicting root', () => {
+    install();
+    const { calls, stdout } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: 'atomic-skills-2',
+      registrationRoot: join(tempDir, 'different-repo'),
+    });
+    assert.match(calls, /"projectId":"atomic-skills"/, 'request must use the canonical candidate');
+    assert.doesNotMatch(calls, /\/data\/plans/, 'a conflicting registration must not probe project data');
+    assert.match(stdout, /^AIDECK_URL=$/m, 'a conflicting registration must disable the browser flow');
+  });
+
+  it('project-view accepts a legacy same-id registration without rootDir', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: 'atomic-skills',
+      omitRegistrationRoot: true,
+    });
+    assert.match(calls, /\/projects\/atomic-skills\/data\/plans/);
   });
 
   it('project-view retains the canonical candidate when registration omits a project id', () => {
