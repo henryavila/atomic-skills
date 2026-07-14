@@ -118,6 +118,12 @@ phases:
             outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0
               skipped; duration_ms 20675.814625; exit 0"
     status: active
+    reviewGate:
+      status: passed
+      at: 0ce031d2cebe0a5059a388e99ff6df5432aec4eb
+      mode: both
+      reviewFile: .atomic-skills/reviews/2026-07-14-1629-integrity-remediation-f0-phase-0ce031d-r21.md
+      verifiedAt: 2026-07-14T16:29:03-03:00
     businessIntent:
       value: Eliminar dependências do checkout fonte e impedir que o ledger do
         installer mascare setup ausente, criando uma base confiável para toda a

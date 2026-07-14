@@ -541,6 +541,14 @@ Initiative for phase **F0 — Runtime autocontido e setup confiável**.
   REDs falharam antes da correção; o GREEN passou 44/44, a integração 130/130,
   runtime closure 7/7 e as 15 skills validaram. A remediação foi fechada em
   `909e7e6`; o verdict bruto histórico permanece `needs_changes`.
+- **2026-07-14 — aprovação do review `0ce031d` (R21):** o passe cego levantou
+  dois major, ambos descartados pelo passe informado por contrariarem contratos
+  explícitos já ratificados: telemetry presente e corrompida falha fechado, e o
+  browser shell instalado usa launcher `.mjs` mais dashboard staged. O diff
+  congelado terminou `approve`, sem findings mantidos ou emergentes. Pela
+  delegação, a decisão conservadora foi preservar os contratos e ratificar a
+  aprovação, apoiada por verifiers frescos no mesmo HEAD limpo: T-006 166/166,
+  F0-G1 62/62, F0-G2 86/86 e full suite 1.769 pass/0 fail/8 skip.
 
 ## Links
 
