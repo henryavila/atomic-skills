@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseDispatchLog } from '../scripts/append-completion.js';
+import { parseDispatchLog } from '../scripts/dispatch-log.js';
 
 // Proves Decisão 5's union-safety for the dispatch-log sidecar. Two guarantees:
 //   (1) .gitattributes WIRES dispatch-log.json to merge=union;

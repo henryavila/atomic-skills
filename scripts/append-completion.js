@@ -35,6 +35,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readDispatchLog } from './dispatch-log.js';
+
+export { parseDispatchLog } from './dispatch-log.js';
 
 /** The closed enum of completion event kinds (mirrors completion-event.schema.json). */
 export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
@@ -101,32 +104,6 @@ export function computePhaseActuals(since, { cwd = process.cwd(), sinceCommit } 
   }
 }
 
-function parseJsonAt(text, source, firstLine) {
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    const relativeLine = Number(error.message.match(/\bline\s+(\d+)\b/i)?.[1] || 1);
-    const line = firstLine + relativeLine - 1;
-    throw new SyntaxError(`${source}:${line}: invalid JSON: ${error.message}`);
-  }
-}
-
-function appendParsedRecords(records, value, source, line) {
-  const values = Array.isArray(value) ? value : [value];
-  for (const record of values) {
-    if (!record || typeof record !== 'object' || Array.isArray(record)) {
-      throw new TypeError(`${source}:${line}: dispatch record must be a JSON object`);
-    }
-    if (![record.taskId, record.plan, record.phase]
-      .every((field) => typeof field === 'string' && field.trim() !== '')) {
-      throw new TypeError(
-        `${source}:${line}: dispatch record requires non-empty taskId, plan, and phase`,
-      );
-    }
-    records.push(record);
-  }
-}
-
 function dispatchRecordTime(record) {
   const finished = Date.parse(record.finishedAt);
   if (Number.isFinite(finished)) return finished;
@@ -176,71 +153,6 @@ function newestDispatchRecord(records) {
 }
 
 /**
- * Parse the canonical one-object-per-line NDJSON dispatch ledger. During the
- * repository migration this also accepts the historical pretty-printed JSON
- * array, including the observed hybrid shape (NDJSON + array + NDJSON), without
- * dropping or reordering records. A malformed non-empty line fails closed and
- * identifies its one-based physical line number.
- */
-export function parseDispatchLog(raw, { source = 'dispatch-log.json' } = {}) {
-  if (typeof raw !== 'string') throw new TypeError('parseDispatchLog: raw must be a string');
-  const lines = raw.split(/\r?\n/);
-  const records = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const text = lines[index].trim();
-    if (!text) continue;
-    const line = index + 1;
-
-    if (text === '[') {
-      let end = -1;
-      let arrayDepth = 0;
-      let inString = false;
-      let escaped = false;
-      for (let cursor = index; cursor < lines.length && end < 0; cursor += 1) {
-        for (const char of lines[cursor]) {
-          if (inString) {
-            if (escaped) {
-              escaped = false;
-            } else if (char === '\\') {
-              escaped = true;
-            } else if (char === '"') {
-              inString = false;
-            }
-            continue;
-          }
-          if (char === '"') {
-            inString = true;
-          } else if (char === '[') {
-            arrayDepth += 1;
-          } else if (char === ']') {
-            arrayDepth -= 1;
-            if (arrayDepth === 0) {
-              end = cursor;
-              break;
-            }
-          }
-        }
-      }
-      if (end < 0) {
-        throw new SyntaxError(`${source}:${line}: invalid JSON: unterminated legacy array`);
-      }
-      const value = parseJsonAt(lines.slice(index, end + 1).join('\n'), source, line);
-      if (!Array.isArray(value)) {
-        throw new TypeError(`${source}:${line}: legacy dispatch log must be a JSON array`);
-      }
-      appendParsedRecords(records, value, source, line);
-      index = end;
-      continue;
-    }
-
-    appendParsedRecords(records, parseJsonAt(text, source, line), source, line);
-  }
-
-  return records;
-}
-
-/**
  * Read the Mode-2 dispatch telemetry sidecar and derive this task's execution
  * actuals { attempts, durationMs, escalations }. Reads canonical NDJSON and the
  * legacy array/hybrid forms accepted by `parseDispatchLog`.
@@ -251,9 +163,7 @@ export function parseDispatchLog(raw, { source = 'dispatch-log.json' } = {}) {
  */
 export function readDispatchActuals(root, { planSlug, phaseId, taskId } = {}) {
   if (!hasText(taskId)) return undefined;
-  const path = join(resolve(root), '.atomic-skills', 'status', 'dispatch-log.json');
-  if (!existsSync(path)) return undefined;
-  const log = parseDispatchLog(readFileSync(path, 'utf8'), { source: path });
+  const log = readDispatchLog(root);
   const matching = log.filter((r) => (
     r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
   ));

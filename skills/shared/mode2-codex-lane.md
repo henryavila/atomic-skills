@@ -180,6 +180,11 @@ unattended serial-rebase is the deferred v2.
 
 Append one record per task to `.atomic-skills/status/dispatch-log.json` (a
 sidecar — do NOT bump the Task schema to 0.2 for this until the lane is proven).
+Do not append or parse this file inline. Serialize exactly one record object to
+a temporary JSON file with `{{WRITE_TOOL}}`, then call the canonical authority:
+`{{BASH_TOOL}} node "$PKG_ROOT/scripts/dispatch-log.js" --root . --append-file <temporary-record.json>`.
+The authority validates the routing identity before touching the ledger and
+emits one compact NDJSON line. Delete the temporary input only after exit `0`.
 
 **Format: NDJSON (newline-delimited JSON).** Each record is ONE compact JSON
 object on its OWN single line; the file is a stream of such lines, NOT a single
@@ -200,7 +205,9 @@ compact object plus a trailing newline. Record shape (written as a single line):
 `plan` + `phase` are REQUIRED match keys, not optional: the task-actuals
 consumer (`scripts/append-completion.js` `readDispatchActuals`, F4/T-002) keys
 on `plan`+`phase`+`taskId` to attach `attempts`/`durationMs`/`escalations` to the
-`task-done` completion event. A record that omits them never matches and silently
+`task-done` completion event. The shared parser and writer live only in
+`scripts/dispatch-log.js`; `append-completion.js` consumes that parser instead
+of maintaining a second format implementation. A record that omits them never matches and silently
 degrades that task to actuals-omitted — so a writer that follows this contract
 MUST emit `plan` and `phase` (taskIds repeat across phases; `taskId` alone is
 ambiguous).

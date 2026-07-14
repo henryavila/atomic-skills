@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendCompletion, parseDispatchLog, readDispatchActuals } from '../scripts/append-completion.js';
+import { appendCompletion, readDispatchActuals } from '../scripts/append-completion.js';
+import { appendDispatchRecord, parseDispatchLog } from '../scripts/dispatch-log.js';
 import { validateCompletionEvent } from '../scripts/validate-aideck-state.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
@@ -20,6 +21,39 @@ function seedRaw(root, raw) {
   mkdirSync(join(root, '.atomic-skills', 'status'), { recursive: true });
   writeFileSync(join(root, '.atomic-skills', 'status', 'dispatch-log.json'), raw);
 }
+
+test('canonical dispatch writer appends one validated compact NDJSON record per line', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-writer-'));
+  try {
+    const first = { taskId: 'T-001', plan: 's', phase: 'F4', attempt: 1 };
+    const second = { taskId: 'T-002', plan: 's', phase: 'F4', attempt: 2 };
+    appendDispatchRecord(root, first);
+    appendDispatchRecord(root, second);
+    const raw = readFileSync(join(root, '.atomic-skills/status/dispatch-log.json'), 'utf8');
+    assert.equal(raw, `${JSON.stringify(first)}\n${JSON.stringify(second)}\n`);
+    assert.deepEqual(parseDispatchLog(raw), [first, second]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('canonical dispatch writer validates before creating or appending the ledger', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-writer-invalid-'));
+  try {
+    assert.throws(
+      () => appendDispatchRecord(root, { taskId: 'T-001', plan: 's' }),
+      /requires non-empty taskId, plan, and phase/,
+    );
+    assert.throws(
+      () => appendDispatchRecord(root, [{ taskId: 'T-001', plan: 's', phase: 'F4' }]),
+      /must be a JSON object/,
+    );
+    const path = join(root, '.atomic-skills/status/dispatch-log.json');
+    assert.throws(() => readFileSync(path), /ENOENT/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('readDispatchActuals returns derived actuals for a matching record', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-dispatch-actuals-'));
