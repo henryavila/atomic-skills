@@ -27,6 +27,7 @@ import { parseFrontmatter } from '../../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MATERIALIZE_SCRIPT = join(__dirname, '..', '..', 'scripts', 'materialize-state.js');
+const MATERIALIZE_URL = new URL('../../scripts/materialize-state.js', import.meta.url).href;
 const SOURCE = readFileSync(join(__dirname, 'fixtures', 'e2e-lifecycle-source.md'), 'utf8');
 const BUSINESS_INTENT = {
   value: 'Prevents a phase transition from exposing only half of its state.',
@@ -129,6 +130,70 @@ function candidatePair(state) {
     expectedPlanHash: hashBytes(state.plan.content),
   };
 }
+
+function runMaterializeWithFsShim(state, pair, shimSource, { platform } = {}) {
+  const fsModuleSource = [
+    "import * as fs from 'node:fs';",
+    "export * from 'node:fs';",
+    shimSource,
+  ].join('\n');
+  const fsModuleUrl = `data:text/javascript,${encodeURIComponent(fsModuleSource)}`;
+  const loaderSource = `
+    export async function resolve(specifier, context, nextResolve) {
+      if (specifier === 'node:fs' && context.parentURL === ${JSON.stringify(MATERIALIZE_URL)}) {
+        return { url: ${JSON.stringify(fsModuleUrl)}, shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    }
+  `;
+  const loaderUrl = `data:text/javascript,${encodeURIComponent(loaderSource)}`;
+  const childSource = `
+    ${platform ? `Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });` : ''}
+    const { materializeState } = await import(${JSON.stringify(MATERIALIZE_URL)});
+    const result = materializeState(${JSON.stringify({
+      root: state.root,
+      planPath: state.plan.relativePath,
+      initiativePath: state.initiativePath,
+      ...pair,
+      txId: 'tx-fs-shim',
+    })});
+    console.log(JSON.stringify(result));
+  `;
+  return spawnSync(
+    process.execPath,
+    ['--no-warnings', '--experimental-loader', loaderUrl, '--input-type=module', '-e', childSource],
+    { cwd: process.cwd(), encoding: 'utf8' },
+  );
+}
+
+test('materialization skips unsupported directory fsync on win32', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  try {
+    const child = runMaterializeWithFsShim(state, pair, `
+      export function openSync(path, ...args) {
+        if (args[0] === 'r' && fs.statSync(path).isDirectory()) {
+          throw new Error('directory descriptors are unsupported on win32');
+        }
+        return fs.openSync(path, ...args);
+      }
+    `, { platform: 'win32' });
+
+    assert.equal(child.status, 0, child.stderr);
+    assert.deepEqual(JSON.parse(child.stdout), {
+      status: 'complete',
+      txId: 'tx-fs-shim',
+      recovered: true,
+    });
+    assert.equal(readFileSync(state.planAbs, 'utf8'), pair.planContent);
+    assert.equal(
+      readFileSync(join(state.root, state.initiativePath), 'utf8'),
+      pair.initiativeContent,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
 
 test('RED: an invalid staged pair touches no live bytes and publishes no marker', () => {
   const { root, plan, planAbs, initiativePath } = fixture();

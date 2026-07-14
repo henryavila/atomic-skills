@@ -103,6 +103,7 @@ function transactionPaths(planRel, initiativeRel, txId) {
 }
 
 function fsyncPath(path) {
+  if (process.platform === 'win32') return;
   const fd = openSync(path, 'r');
   try {
     fsyncSync(fd);
