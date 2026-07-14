@@ -1,15 +1,19 @@
-Single entry-point for Plan / Initiative / Task state in `.atomic-skills/`, with
-Git-style subcommands and **lazy detail**. This router keeps dispatch, the no-args
-summary, and always-resident invariants; full procedures live under
-`{{ASSETS_PATH}}/` and are read on demand.
+Single entry-point for Plan / Initiative / Task state in `.atomic-skills/`.
+This lazy router keeps dispatch, no-args summary, and invariants resident;
+procedures under `{{ASSETS_PATH}}/` are read on demand.
 
-This skill implements a 3-level model that matches `@henryavila/aideck`. State lives under **`.atomic-skills/projects/<project-id>/`** — the **Project** is a real top level whose folder name IS the `<project-id>` (enumerate `projects/*/` to list them; a folder counts as a project only once it holds ≥1 `<plan-slug>/plan.md`):
+State uses three nested levels under `.atomic-skills/projects/<project-id>/`;
+a project folder counts only after it contains a `<plan-slug>/plan.md`:
 
 - **Plan** — multi-phase project with narrative, principles, glossary, phases, exit gates (`.atomic-skills/projects/<project-id>/<plan-slug>/plan.md`)
-- **Initiative** — one phase of a plan, materialized at `.atomic-skills/projects/<project-id>/<plan-slug>/phases/f<N>-<slug>.md`. A **standalone** unit of work is a *degenerate 1-phase plan* (same nested shape — its lone phase carries the work), NOT a separate top-level file.
+- **Initiative** — a materialized plan phase under `<plan-slug>/phases/`; a **standalone** unit is a *degenerate 1-phase plan* in the same nested shape.
 - **Task** — atomic action inside a phase initiative (frontmatter `tasks[]`)
 
-Per project, `.atomic-skills/projects/<project-id>/PROJECT-STATUS.md` is the index. **Legacy / coexistence:** flat `.atomic-skills/plans/<slug>.md` + `.atomic-skills/initiatives/<slug>.md` + top-level status may still exist; readers resolve nested first, then flat, and `atomic-skills:project migrate` cuts over. Schemas live in `meta/schemas/`; validate with `validate-state.js`. `schemaVersion` policy: accept `'0.1'`/`'0.2'`; writers emit `'0.1'` unless an explicit upgrade stamps `'0.2'`.
+Each project index is `projects/<project-id>/PROJECT-STATUS.md`. Legacy flat
+plans/initiatives and the top-level index remain readable until `migrate` cuts
+over. Schemas live in `meta/schemas/`; validate with `validate-state.js`.
+`schemaVersion` policy: accept `'0.1'`/`'0.2'`; writers emit `'0.1'` unless an
+explicit upgrade stamps `'0.2'`.
 
 ## Trusted package runtime
 
@@ -17,12 +21,18 @@ Resolve once with {{BASH_TOOL}}:
 
 ```bash
 PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || true)"
-[ -n "$PKG_ROOT" ] && [ -f "$PKG_ROOT/package.json" ] || {
-  echo "runtime unavailable" >&2; exit 1
-}
+if [ -z "$PKG_ROOT" ]; then
+  CANDIDATE="$PWD"
+  if node -e 'try { const pkg=JSON.parse(require("node:fs").readFileSync(process.argv[1])); process.exit(pkg.name === "@henryavila/atomic-skills" ? 0 : 1); } catch { process.exit(1); }' \
+    "$CANDIDATE/package.json" 2>/dev/null && [ -f "$CANDIDATE/scripts/detect-completion.js" ]; then
+    PKG_ROOT="$CANDIDATE"
+  else echo "runtime unavailable" >&2; exit 1; fi
+fi
+[ -f "$PKG_ROOT/package.json" ] && [ -f "$PKG_ROOT/scripts/detect-completion.js" ] || {
+  echo "runtime unavailable" >&2; exit 1; }
 ```
 
-Lazy assets reuse `PKG_ROOT`; view/materialize verify it again.
+Lazy assets reuse `PKG_ROOT`; high-stakes flows verify their entrypoint again.
 
 ## Grammar
 

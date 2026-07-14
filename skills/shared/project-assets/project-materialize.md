@@ -157,10 +157,11 @@ Reject the block when any required field is blank or still contains
    its tasks, so every task must carry a `summary`,
    a `weight`, and a completion signal (`verifier` or `outputs[].path`). DRAFT the
    task fields from the sidecar, present them for one ratify/edit, and put the
-   ratified values on the in-memory initiative object. Then set the initiative `nextAction`
-   to the ONE concrete first step — `Run \`done <first-task-id>\`
-   after <its first move>` — before rendering either candidate. Cancellation at
-   this gate writes nothing.
+   ratified values on the in-memory initiative object. When tasks exist,
+   set the initiative `nextAction` to the ONE concrete first step — `Run \`done
+   <first-task-id>\` after <its first move>` — before rendering either candidate.
+   A valid zero-task phase has `nextAction: null`. Cancellation at this gate
+   writes nothing.
 4. Read the live parent plan bytes once and compute their SHA-256 as the expected
    plan hash. Build both candidates only from that captured plan version. The
    cross-platform hash command is:

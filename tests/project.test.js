@@ -187,6 +187,33 @@ esac
     assert.ok(!content.includes('{{ASSETS_PATH}}'), '{{ASSETS_PATH}} must be rendered');
   });
 
+  it('router accepts a verified atomic-skills source checkout when the install marker is absent', () => {
+    install();
+    const content = readRouter();
+    const runtime = content.slice(
+      content.indexOf('## Trusted package runtime'),
+      content.indexOf('## Grammar'),
+    );
+
+    assert.match(runtime, /CANDIDATE="\$PWD"/);
+    assert.match(runtime, /pkg\.name === "@henryavila\/atomic-skills"/);
+    assert.match(runtime, /scripts\/detect-completion\.js/);
+    assert.doesNotMatch(runtime, /package-root[^\n]*\|\| echo \./);
+
+    const script = runtime.match(/```bash\n([\s\S]*?)```/)?.[1];
+    assert.ok(script, 'trusted package runtime shell block must exist');
+    const resolved = execFileSync(
+      'bash',
+      ['-c', `${script}\nprintf '%s\\n' "$PKG_ROOT"`],
+      {
+        cwd: PACKAGE_ROOT,
+        env: { ...process.env, HOME: join(tempDir, 'markerless-home') },
+        encoding: 'utf8',
+      },
+    );
+    assert.equal(resolved.trim(), PACKAGE_ROOT);
+  });
+
   it('router sends empty and installer-only .atomic-skills roots to setup', () => {
     install();
     const detection = readRouterInitialDetection();

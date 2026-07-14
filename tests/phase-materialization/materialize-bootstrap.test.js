@@ -855,6 +855,46 @@ test('staged validation rejects incomplete task metadata and nextAction before t
   }
 });
 
+test('materializes a zero-task initiative with the schema-valid null nextAction', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const parsedPlan = parseFrontmatter(pair.planContent);
+  parsedPlan.frontmatter.phases.find((phase) => phase.id === 'F1').subPhaseCount = 0;
+  const parsedInitiative = parseFrontmatter(pair.initiativeContent);
+  parsedInitiative.frontmatter.tasks = [];
+  parsedInitiative.frontmatter.tasksDone = 0;
+  parsedInitiative.frontmatter.tasksTotal = 0;
+  parsedInitiative.frontmatter.weightDone = 0;
+  parsedInitiative.frontmatter.weightTotal = 0;
+  parsedInitiative.frontmatter.nextAction = null;
+  const zeroTaskPlan = renderFrontmatter(parsedPlan.frontmatter, parsedPlan.body);
+  const zeroTaskInitiative = renderFrontmatter(
+    parsedInitiative.frontmatter,
+    parsedInitiative.body,
+  );
+
+  try {
+    const result = materializeState({
+      root: state.root,
+      planPath: state.plan.relativePath,
+      initiativePath: state.initiativePath,
+      ...pair,
+      planContent: zeroTaskPlan,
+      initiativeContent: zeroTaskInitiative,
+      txId: 'tx-zero-task-initiative',
+    });
+
+    assert.equal(result.status, 'complete');
+    const published = parseFrontmatter(
+      readFileSync(join(state.root, state.initiativePath), 'utf8'),
+    ).frontmatter;
+    assert.deepEqual(published.tasks, []);
+    assert.equal(published.nextAction, null);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('staged validation rejects mismatched phase summaries before the marker', () => {
   const state = fixture();
   const pair = candidatePair(state);

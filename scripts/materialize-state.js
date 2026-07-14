@@ -483,7 +483,10 @@ function validateStagedPair(planPath, initiativePath) {
   if (descriptorSummary && initiativeSummary && descriptorSummary !== initiativeSummary) {
     errors.push('descriptor summary does not match initiative summary');
   }
-  if (typeof initiative.nextAction !== 'string' || initiative.nextAction.trim() === '') {
+  const hasConcreteNextAction = typeof initiative.nextAction === 'string'
+    && initiative.nextAction.trim() !== '';
+  const isIdleZeroTaskPhase = initiative.nextAction === null && initiative.tasks.length === 0;
+  if (!hasConcreteNextAction && !isIdleZeroTaskPhase) {
     errors.push('materialized initiative nextAction is required');
   }
   for (const task of initiative.tasks ?? []) {
