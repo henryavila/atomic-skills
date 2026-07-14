@@ -48,6 +48,36 @@ default `status` may offer these gated writes before opening the dashboard:
 (y/N)`, and `Repair STATE_ERROR now? (y/N)`. A no/default answer means no
 write; continue with the best read-only rendering or show the terminal fallback.
 
+## Trusted package runtime
+
+Before any view mode invokes package-owned code, resolve one trusted absolute
+package root. Prefer the install marker. If it is absent, allow the current
+source checkout only after proving both the package identity and a shipped
+entrypoint:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || true)"
+if [ -z "$PKG_ROOT" ]; then
+  CANDIDATE="$PWD"
+  if [ -f "$CANDIDATE/package.json" ] && node -e '
+    const { readFileSync } = require("node:fs");
+    try {
+      const pkg = JSON.parse(readFileSync(process.argv[1], "utf8"));
+      process.exit(pkg.name === "@henryavila/atomic-skills" ? 0 : 1);
+    } catch (_) { process.exit(1); }
+  ' "$CANDIDATE/package.json" && [ -f "$CANDIDATE/src/provision-consumer.js" ]; then
+    PKG_ROOT="$CANDIDATE"
+  else
+    echo "atomic-skills package root unavailable; reinstall atomic-skills before running project status" >&2
+    exit 1
+  fi
+fi
+```
+
+Reuse that exact absolute `PKG_ROOT` across the calls below. When tool calls do
+not share a shell, substitute the resolved absolute value explicitly; never
+recompute it with an unconditional `.` fallback.
+
 ## Default (`status`, no extra flag, structure exists)
 
 > **Note on no-args:** plain `/atomic-skills:project` (no subcommand) does NOT
@@ -61,13 +91,32 @@ The default view opens the **aiDeck dashboard** in the browser. aiDeck is the ca
 
 Steps:
 
-0. **Offer derived dashboard refresh (mutation-gated).** Before opening the dashboard, explain that aiDeck reads precomputed fields and offer: `Refresh derived dashboard state now? (y/N)`. Do NOT run `compute-rollups.js` or `reconcile-focus.js` automatically. Only on `y`, refresh rollups + flat gate-evidence, then focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/compute-rollups.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/reconcile-focus.js"`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
+0. **Offer derived dashboard refresh (mutation-gated).** Before opening the dashboard, explain that aiDeck reads precomputed fields and offer: `Refresh derived dashboard state now? (y/N)`. Do NOT run `compute-rollups.js` or `reconcile-focus.js` automatically. Only on `y`, refresh rollups + flat gate-evidence, then focus markers + plan↔phase status hygiene. Run with {{BASH_TOOL}} from the repo root: `node "$PKG_ROOT/scripts/compute-rollups.js" && node "$PKG_ROOT/scripts/reconcile-focus.js"`. This keeps the Home ("Foco") accurate — current phase, active-plan timeline — and auto-corrects any `active` phase left under a `paused` plan. Both are no-ops when already in sync.
 
-   **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js" && node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), offer `Repair missing summaries now? (y/N)`. Only on `y`, author each summary in the install-configured language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
+   **Then surface missing summaries (the skill always generates them).** Run the two zero-token detectors: `node "$PKG_ROOT/scripts/find-missing-summaries.js" && node "$PKG_ROOT/scripts/find-missing-task-summaries.js"`. Unlike the syncers these can't auto-fill (the text is semantic) — a non-zero exit means the Home panels would render bare titles. When either reports gaps **for the active plan's current phase** (the rows the Foco page actually shows), offer `Repair missing summaries now? (y/N)`. Only on `y`, author each summary in the install-configured communication language and validate via {{ASK_USER_QUESTION_TOOL}} (`Aprovar todos` / `Ajustar alguns`) before opening — see skills/core/project.md → "Phase summaries" / "Task summaries". Long-tail gaps on paused/done plans are non-blocking — note them and move on.
 
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
    ```bash
+   # This block is self-contained: resolve the package runtime again instead of
+   # relying on shell state from the pre-flight prose above.
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || true)"
+   if [ -z "$PKG_ROOT" ]; then
+     CANDIDATE="$PWD"
+     if [ -f "$CANDIDATE/package.json" ] && node -e '
+       const { readFileSync } = require("node:fs");
+       try {
+         const pkg = JSON.parse(readFileSync(process.argv[1], "utf8"));
+         process.exit(pkg.name === "@henryavila/atomic-skills" ? 0 : 1);
+       } catch (_) { process.exit(1); }
+     ' "$CANDIDATE/package.json" && [ -f "$CANDIDATE/src/provision-consumer.js" ]; then
+       PKG_ROOT="$CANDIDATE"
+     else
+       echo "atomic-skills package root unavailable; reinstall atomic-skills before opening the dashboard" >&2
+       exit 1
+     fi
+   fi
+
    # A sole nested project folder is canonical. With zero/multiple projects,
    # fall back to aiDeck's normalized repo-root id. Registration can still return
    # an existing collision-resolved id; that response replaces this candidate.
@@ -94,9 +143,12 @@ Steps:
 
    # Provision (idempotent) the single ~/.aideck/consumers/atomic-skills/ consumer
    # from the shipped template through the recorded package runtime.
-   PROV="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/provision-consumer.js"
-   [ -f "$PROV" ] || PROV=""
-   [ -n "$PROV" ] && node "$PROV" >/dev/null 2>&1
+   PROV="$PKG_ROOT/src/provision-consumer.js"
+   [ -f "$PROV" ] || {
+     echo "atomic-skills package root is stale: missing src/provision-consumer.js" >&2
+     exit 1
+   }
+   node "$PROV" >/dev/null 2>&1
 
    AIDECK_CONSUMER="atomic-skills"         # ← one fixed consumer; $pid scopes (AIDECK CONTRACT)
    AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
@@ -224,7 +276,11 @@ Steps:
 
    a. **Run the normalizer.** It fixes every known drift class deterministically and idempotently — exit-gate `status` synonyms → `met`/`pending`, `references[]` missing `kind` / using `title`, and missing required initiative fields (`stack`, `tasks`, `parked`, `emerged`, `branch`, `nextAction`) backfilled to safe empties. Resolve it through the recorded package runtime:
       ```bash
-      NORM="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/normalize.js"
+      [ -n "$PKG_ROOT" ] || {
+        echo "atomic-skills package root unavailable; reinstall atomic-skills before normalizing state" >&2
+        exit 1
+      }
+      NORM="$PKG_ROOT/src/normalize.js"
       [ -f "$NORM" ] || NORM=""
       [ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
       echo "NORM=$NORM"
@@ -326,7 +382,7 @@ The banner is informational — it does not block any command. The user can igno
 
 Every status view (`status` / `--browser` / `--terminal`) ALSO surfaces *completion* drift — entries that look done in the repo but are still open — via the shared deterministic detector. This is distinct from the scope-drift banner above (that is about *where* writes landed; this is about *whether* open work is actually finished).
 
-1. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/detect-completion.js" --json` from the repo root (add `--project <id>` when the active project is ambiguous). It is zero-token, pure-read, and fail-open — on any error treat it as "no drift" and render the view normally.
+1. Run `node "$PKG_ROOT/scripts/detect-completion.js" --json` from the repo root (add `--project <id>` when the active project is ambiguous). It is zero-token, pure-read, and fail-open — on any error treat it as "no drift" and render the view normally.
 2. If `drift` is true, append a single non-blocking line BELOW the rendered view (never above it; the view content is unchanged):
    `⚠ <N> item(s) look done — reconcile now? (y/N)` — where `<N>` = `candidates.length`.
 3. The y/N is the intrusive-actions gate: on **`y`** route to the `reconcile` verb (`{{ASSETS_PATH}}/project-transitions.md`); on **`N`** / no answer, do nothing. **The view itself writes NOTHING** — rendering and the offer are read-only; only `reconcile` mutates. This preserves the read-only contract of every status view.
@@ -455,4 +511,4 @@ When [aiDeck](https://github.com/henryavila/aideck) is running alongside this sk
 
 The dashboard surface is read-only: it renders plans, initiatives, tasks, and exit gates, and does not mutate state from the browser. Human/agent input flows through `.atomic-skills/bootstrap-drafts/inbox/*.jsonl` intent records that this skill drains on demand. In short: files are canonical, the dashboard is a projection, and there is no "MCP-or-file" choice for this skill.
 
-**Draining a task-creating intent.** A `promote_parked` intent carries only `{parkedTitle}` (the `mark_task_done` intent mutates an existing task and is exempt). When this skill applies such an intent it MUST run the same author-summary step as the in-skill `promote` path (project-emergence.md → `promote` step 4): author a one-line `summary` in the install-configured communication language onto the new `tasks[].summary`, then run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` and require exit 0 before declaring the drain complete. Otherwise a cross-tool consumer's promotion lands a summary-less task that renders bare in the Agora panel — the gap the "skill always generates" guarantee exists to close.
+**Draining a task-creating intent.** A `promote_parked` intent carries only `{parkedTitle}` (the `mark_task_done` intent mutates an existing task and is exempt). When this skill applies such an intent it MUST run the same author-summary step as the in-skill `promote` path (project-emergence.md → `promote` step 4): author a one-line `summary` in the install-configured communication language onto the new `tasks[].summary`, then run `node "$PKG_ROOT/scripts/find-missing-task-summaries.js"` and require exit 0 before declaring the drain complete. Otherwise a cross-tool consumer's promotion lands a summary-less task that renders bare in the Agora panel — the gap the "skill always generates" guarantee exists to close.

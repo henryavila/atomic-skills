@@ -52,6 +52,37 @@ The command's load-bearing order is fixed:
 
 ## Pre-flight
 
+Before invoking any package-owned script, resolve one trusted absolute package
+root and reuse it for the entire flow:
+
+```bash
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || true)"
+if [ -z "$PKG_ROOT" ]; then
+  CANDIDATE="$PWD"
+  if [ -f "$CANDIDATE/package.json" ] && node -e '
+    const { readFileSync } = require("node:fs");
+    try {
+      const pkg = JSON.parse(readFileSync(process.argv[1], "utf8"));
+      process.exit(pkg.name === "@henryavila/atomic-skills" ? 0 : 1);
+    } catch (_) { process.exit(1); }
+  ' "$CANDIDATE/package.json" && [ -f "$CANDIDATE/scripts/materialize-state.js" ]; then
+    PKG_ROOT="$CANDIDATE"
+  else
+    echo "atomic-skills package root unavailable; reinstall atomic-skills before materializing state" >&2
+    exit 1
+  fi
+fi
+[ -f "$PKG_ROOT/scripts/materialize-state.js" ] || {
+  echo "atomic-skills package root is stale: missing scripts/materialize-state.js" >&2
+  exit 1
+}
+```
+
+The source-checkout fallback is allowed only after both package identity and the
+transaction entrypoint are proven. When tool calls do not share a shell, carry
+the exact resolved absolute `PKG_ROOT` into the next call; never recompute it
+with an unconditional `.` fallback.
+
 1. Parse `{{ARG_VAR}}`. If absent, stop and ask for exactly one phase id or slug.
 2. Run the standard project initial detection from `skills/core/project.md`.
    Resolve exactly one active plan and read its `plan.md`.
@@ -75,7 +106,7 @@ The command's load-bearing order is fixed:
    Treat malformed or missing sidecar data as a hard stop; do not re-parse the
    whole source markdown as a fallback.
 7. Run the phase-start lessons gate before activation:
-   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>`.
+   `{{BASH_TOOL}} node "$PKG_ROOT/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>`.
    Apply, keep, stale, or reject every applicable lesson before proceeding, using
    the same disposition semantics as `project-create-initiative.md`.
 
@@ -159,7 +190,7 @@ Reject the block when any required field is blank or still contains
 7. Put the two candidate byte streams in non-live temporary input files, then
    invoke the single materialization authority through the installed package
    root (one command, no sequential live writes):
-   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js" --root . --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-candidate <temporary-plan-candidate> --initiative-candidate <temporary-initiative-candidate> --expected-plan-hash <sha256-of-live-plan> --tx-id <unique-tx-id>`.
+   `{{BASH_TOOL}} node "$PKG_ROOT/scripts/materialize-state.js" --root . --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-candidate <temporary-plan-candidate> --initiative-candidate <temporary-initiative-candidate> --expected-plan-hash <sha256-of-live-plan> --tx-id <unique-tx-id>`.
    The script copies both candidates into same-filesystem staging, validates the
    staged pair before any live mutation, persists and fsyncs its immutable
    recovery marker, then renames the initiative first and the plan last. A
@@ -168,7 +199,7 @@ Reject the block when any required field is blank or still contains
    because it checks the descriptor and materialized initiative together.
 8. Run the detectors with `{{BASH_TOOL}}`. They are verification-only after
    publication; no task field or `nextAction` is written here:
-   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
+   `node "$PKG_ROOT/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
    Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
    A tree root (`.atomic-skills` or repo root) is reserved for explicit audits that
    intentionally scan every materialized phase.
@@ -177,16 +208,16 @@ Reject the block when any required field is blank or still contains
    Then run the tree-scoped task detectors from the repo root. The just-materialized
    `<resolved-phase-file>` must not appear in their output; unrelated legacy debt
    remains a separate backfill:
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-summaries.js"` (the target phase must be absent from both descriptor and initiative gaps);
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"`;
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"`;
-   - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` (soft nudge only; record why a task is genuinely unverifiable).
+   - `node "$PKG_ROOT/scripts/find-missing-summaries.js"` (the target phase must be absent from both descriptor and initiative gaps);
+   - `node "$PKG_ROOT/scripts/find-missing-task-summaries.js"`;
+   - `node "$PKG_ROOT/scripts/find-unweighted-tasks.js"`;
+   - `node "$PKG_ROOT/scripts/find-signalless-tasks.js"` (soft nudge only; record why a task is genuinely unverifiable).
 9. Run schema validation with `{{BASH_TOOL}}`:
-   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md`.
+   `node "$PKG_ROOT/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md`.
    Pass the newly written initiative file explicitly; do not pass the `phases/`
    directory because the validator treats arbitrary directories as discovery
    roots and can skip a bare phase directory.
-10. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
+10. Run `node "$PKG_ROOT/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
 
 ## Failure Handling
 

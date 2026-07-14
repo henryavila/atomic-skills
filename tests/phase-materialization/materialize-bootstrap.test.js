@@ -1502,8 +1502,12 @@ test('materialize skill routes descriptor-only publication through the package-r
     join(__dirname, '..', '..', 'skills', 'shared', 'project-assets', 'project-materialize.md'),
     'utf8',
   );
-  const command = detail.split('\n').find((line) => line.includes('/scripts/materialize-state.js')) ?? '';
-  assert.match(command, /\$HOME\/\.atomic-skills\/package-root/);
+  const command = detail.split('\n').find((line) => line.includes('node "$PKG_ROOT/scripts/materialize-state.js"')) ?? '';
+  assert.match(detail, /PKG_ROOT="\$\(cat "\$HOME\/\.atomic-skills\/package-root" 2>\/dev\/null \|\| true\)"/);
+  assert.match(detail, /pkg\.name === "@henryavila\/atomic-skills"/);
+  assert.match(detail, /\[ -f "\$CANDIDATE\/scripts\/materialize-state\.js" \]/);
+  assert.doesNotMatch(detail, /package-root[^\n]*\|\| echo \./);
+  assert.match(command, /node "\$PKG_ROOT\/scripts\/materialize-state\.js"/);
   assert.match(command, /--plan .*\/plan\.md --initiative .*\/phases\//);
   assert.match(detail, /one command, no sequential live writes/);
   assert.doesNotMatch(detail, /Write the returned initiative file with `\{\{WRITE_TOOL\}\}`/);

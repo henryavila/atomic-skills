@@ -81,7 +81,7 @@ test('task guarantees and nextAction are frozen into candidates before transacti
   assert.ok(nextAction < authority, 'nextAction must be in the candidate');
   assert.ok(expectedHash < authority, 'expected plan hash must be captured before publication');
 
-  const command = doc.split('\n').find((line) => line.includes('/scripts/materialize-state.js')) ?? '';
+  const command = doc.split('\n').find((line) => line.includes('node "$PKG_ROOT/scripts/materialize-state.js"')) ?? '';
   assert.match(command, /--expected-plan-hash <sha256-of-live-plan>/);
 
   const postPublish = doc.slice(authority, doc.indexOf('## Failure Handling'));

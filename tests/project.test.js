@@ -17,6 +17,7 @@ import { installSkills } from '../src/install.js';
 import { PUBLIC_IDE_IDS } from '../src/config.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const PACKAGE_ROOT = join(__dirname, '..');
 const SKILLS_DIR = join(__dirname, '..', 'skills');
 const META_DIR = join(__dirname, '..', 'meta');
 
@@ -139,6 +140,7 @@ describe('project skill (unified router + lazy assets)', () => {
     mkdirSync(fakeBin, { recursive: true });
     mkdirSync(repo, { recursive: true });
     writeFileSync(join(home, '.aideck', 'env'), "export AIDECK_URL='http://127.0.0.1:7777'\n");
+    writeFileSync(join(home, '.atomic-skills', 'package-root'), `${PACKAGE_ROOT}\n`);
     writeFileSync(join(home, '.atomic-skills', 'bin', 'aideck.mjs'), '');
     writeFileSync(join(fakeBin, 'npm'), '#!/bin/sh\nprintf "%s\\n" "$FAKE_NPM_ROOT"\n');
     writeFileSync(join(fakeBin, 'curl'), `#!/bin/sh

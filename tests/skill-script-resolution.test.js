@@ -9,16 +9,17 @@
 // in ~/tital-chordpro-lib reported "scripts/lint-design.js does not exist").
 //
 // The install records the package root (the dir holding scripts/ + its
-// node_modules, with deps intact) at ~/.atomic-skills/package-root. Every
-// script invocation in a skill body must resolve through it:
+// node_modules, with deps intact) at ~/.atomic-skills/package-root. Skill flows
+// resolve that marker to one trusted absolute root and invoke scripts through
+// it:
 //
-//   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/<name>.js" ...
+//   node "$PKG_ROOT/scripts/<name>.js" ...
 //
-// (the `|| echo .` tail keeps it working in this repo's own dev/test runs,
-// where no package-root file exists and cwd IS the checkout). The hooks
-// (session-start.sh / stop.sh) already resolve this way; this test makes the
-// same invariant hold for the skill bodies, so a future edit can't silently
-// re-introduce the cwd-bound form.
+// Source-checkout fallback is allowed only after verifying the cwd package name
+// and the required package entrypoint. An unconditional `.` fallback lets an
+// arbitrary consumer execute a same-named local file. The hooks
+// (session-start.sh / stop.sh) already use the install marker; this test keeps
+// skill bodies from silently re-introducing cwd-bound execution.
 
 import { describe, it } from 'node:test'
 import { strict as assert } from 'node:assert'
@@ -44,6 +45,7 @@ const BARE_NODE_SCRIPTS = /\bnode\s+scripts\//
 const BARE_NPM_RUN = new RegExp(`\\bnpm\\s+run\\s+(?:${LOCAL_NPM_SCRIPTS.join('|')})(?![\\w-])`)
 const MODULE_REFERENCE = /(?:import\s*\(\s*|require\s*\(\s*|import\s+[^'"\n]+?\s+from\s+)(['"])([^'"]+)\1/g
 const SHELL_SOURCE_REFERENCE = /(\$PWD\/src\/[\w.-]+\.js|\$HOME\/\.atomic-skills\/src\/[\w.-]+\.js|\$\(npm root -g[^)]*\)\/@henryavila\/atomic-skills\/src\/[\w.-]+\.js)/g
+const UNTRUSTED_PACKAGE_FALLBACK = /\$\(cat\s+"\$HOME\/\.atomic-skills\/package-root"[^)]*\|\|\s*echo\s+\.\)\/(?:src\/[\w.-]+\.js|scripts\/materialize-state\.js)/g
 
 function mdFiles(dir) {
   const out = []
@@ -63,6 +65,10 @@ function findOffenders(lines) {
 
     for (const match of line.matchAll(SHELL_SOURCE_REFERENCE)) {
       offenders.push(`${i + 1}: shell-bound package source '${match[1]}'`)
+    }
+
+    for (const match of line.matchAll(UNTRUSTED_PACKAGE_FALLBACK)) {
+      offenders.push(`${i + 1}: unchecked package-root fallback '${match[0]}'`)
     }
 
     for (const match of line.matchAll(MODULE_REFERENCE)) {
@@ -118,6 +124,18 @@ describe('skill bodies resolve bundled scripts from the install root', () => {
     ])
   })
 
+  it('detects unchecked cwd fallbacks for package source and the transaction authority', () => {
+    const offenders = findOffenders([
+      'PROV="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/provision-consumer.js"',
+      'node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js"',
+    ])
+
+    assert.deepEqual(offenders, [
+      '1: unchecked package-root fallback \'$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/provision-consumer.js\'',
+      '2: unchecked package-root fallback \'$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js\'',
+    ])
+  })
+
   for (const abs of files) {
     const rel = relative(REPO_ROOT, abs)
     it(`${rel} has no cwd-bound script invocation`, () => {
@@ -128,7 +146,7 @@ describe('skill bodies resolve bundled scripts from the install root', () => {
         0,
         `${rel} resolves package-owned code as if cwd or the consumer's dependencies ` +
           `belonged to atomic-skills. Resolve through the install root instead:\n` +
-          `  node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/<name>.js" ...\n` +
+          `  resolve a verified PKG_ROOT, then run node "$PKG_ROOT/scripts/<name>.js" ...\n` +
           `Offending lines:\n  ${offenders.join('\n  ')}`
       )
     })
