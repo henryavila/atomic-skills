@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T15:46:35Z
-nextAction: Executar o review Codex obrigatório de encerramento da fase sobre o
-  novo checkpoint limpo que inclui a remediação R11 e seu recibo histórico.
+lastUpdated: 2026-07-14T16:14:03Z
+nextAction: Commitar o recibo histórico R12 e executar o review Codex obrigatório
+  de encerramento da fase sobre o novo checkpoint limpo.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -352,7 +352,7 @@ tasks:
       e repetir review-code sobre um novo HEAD limpo. verified_by:
       `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md:225-447`.
     status: pending
-    lastUpdated: 2026-07-14T13:08:42Z
+    lastUpdated: 2026-07-14T16:14:03Z
     tags:
       - review
       - data-integrity
@@ -447,6 +447,18 @@ Initiative for phase **F0 — Runtime autocontido e setup confiável**.
   fail-closed e reparar os dois seams por REDs independentes. Em `6d3f512`,
   falhas de leitura/parse entram no canal parcial sem bloquear projeções válidas,
   e `startedCommit` aceita somente 7–64 caracteres hexadecimais.
+- **2026-07-14 — triagem provisória do review `61bdcd9` (R12):** o passe
+  informado descartou os findings de dispatch-log e smoke parcial por
+  contradizerem contratos F0 já ratificados. Manteve um major nos helpers `src`
+  de `project-view` e emergiu um major na autoridade transacional de
+  `project-materialize`: ambos podiam executar arquivo homônimo do consumidor
+  quando o marker não existia. Pela delegação, foi preservado o fallback de
+  desenvolvimento somente após provar o nome do pacote e o entrypoint
+  necessário; consumidor arbitrário agora falha fechado com erro de
+  reinstalação. Todos os scripts dos dois fluxos reutilizam o `PKG_ROOT`
+  verificado, e um guard estático impede a volta do `|| echo .`. A remediação e
+  os fixtures de instalação foram fechados em `3521ade` sem alterar o verdict
+  bruto.
 
 ## Links
 
@@ -454,11 +466,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. R11 manteve duas lacunas novas após reconciliação e descartou o finding incompatível com o fail-closed do dispatch log. Ambos os findings válidos foram corrigidos por TDD em `6d3f512`; o review bruto permanece `needs_changes` no recibo histórico. Falta um review Codex fresco e aprovado sobre o novo checkpoint limpo, seguido dos verifiers finais de T-006/F0.
-- **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. T-005 descreve apenas o seam futuro para F4.
-- **T-006 decision:** O alvo resolvido de symlink deve permanecer no diretório real do projeto; alvo externo e projeto irmão falham antes de acesso. `serve` e verifier agregam os dois canais parciais, inclusive frontmatter de fase ilegível. A janela final check→rename permanece a fronteira deferida de F4. O `startedCommit` do F0 inicial é obtido imediatamente antes de `new plan`/`adopt`, validado como SHA hexadecimal pelo materializador e omitido somente fora de Git, preservando o fallback legado.
-- **Single nextAction:** Commitar este recibo histórico e executar o envelope Codex de encerramento de F0 sobre o HEAD documental limpo resultante.
-- **Verbatim state:** R11 bruto → `.atomic-skills/reviews/2026-07-14-1246-integrity-remediation-f0-phase-642a2ef-r11.md`, 1 major + 1 minor finais após 1 drop; checkpoint de remediação → `6d3f51284cf4ae4e93082e6544c062ef51ccd21b`; focused integration → 139/139; full suite → 1764 total, 1756 pass, 8 skip, 0 fail; validators → 15 skills e 166 arquivos/26 planos/1 routing válidos; diff-check limpo; incertezas preservadas → race final de refresh em F4, path-space preexistente fora do diff e symlink de arquivo real em Windows no gate multiplataforma posterior.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. R12 manteve duas lacunas de runtime isolation após reconciliação e descartou os findings incompatíveis com os contratos fail-closed do dispatch log e warning parcial do smoke. Ambos os findings válidos foram corrigidos por TDD em `3521ade`; o review bruto permanece `needs_changes` no recibo histórico. Falta um review Codex fresco e aprovado sobre o novo checkpoint limpo, seguido dos verifiers finais de T-006/F0.
+- **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. Todo fallback de checkout-fonte nos fluxos alterados exige identidade do pacote + entrypoint e reutiliza uma raiz absoluta verificada; ausência do marker em consumidor arbitrário falha fechada. T-005 descreve apenas o seam futuro para F4.
+- **T-006 decision:** O alvo resolvido de symlink deve permanecer no diretório real do projeto; alvo externo e projeto irmão falham antes de acesso. `serve` e verifier agregam os dois canais parciais, inclusive frontmatter de fase ilegível. A janela final check→rename permanece a fronteira deferida de F4. O `startedCommit` do F0 inicial é obtido imediatamente antes de `new plan`/`adopt`, validado como SHA hexadecimal pelo materializador e omitido somente fora de Git. O runtime instalado permanece a autoridade; checkout-fonte só é aceito após prova explícita, nunca por `.` incondicional.
+- **Single nextAction:** Commitar este recibo histórico e executar o envelope Codex R13 de encerramento de F0 sobre o HEAD documental limpo resultante.
+- **Verbatim state:** R12 bruto → `.atomic-skills/reviews/2026-07-14-1314-integrity-remediation-f0-phase-61bdcd9-r12.md`, 2 major finais após 2 drops/1 maintained/1 emerged; checkpoint de remediação → `3521adee82611d5d8951fb4ca180773055f58829`; guard GREEN → 65/65; focused integration → 134/134; verifier T-006 → 163/163; full suite → 1765 total, 1757 pass, 8 skip, 0 fail; validators → 15 skills e 166 arquivos/26 planos/1 routing válidos; diff-check limpo; incertezas preservadas → race final de refresh em F4, path-space preexistente fora do diff e symlink de arquivo real em Windows no gate multiplataforma posterior.
 
 ## Self-review against code-quality gates
 
@@ -470,6 +482,6 @@ _(plan doc, external refs)_
 - **G6 reference-or-strike:** aplicado — o handoff preserva literalmente o HEAD base, o review histórico e as contagens/durações dos gates reexecutados.
 - **G7 abstraction restraint:** aplicado — as correções reutilizam os parsers, transações e helpers existentes; o helper de sincronização do índice permanece privado.
 - **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a remediação.
-- **Codex review:** R11 terminou `needs_changes` com um major e um minor causais após reconciliação; ambos foram remediados em `6d3f512`, mas nenhuma aprovação é inferida nem o verdict bruto é reescrito. O próximo review fresco continua sendo o gate independente de encerramento de F0 solicitado pelo usuário.
+- **Codex review:** R12 terminou `needs_changes` com dois major causais após reconciliação; ambos foram remediados em `3521ade`, mas nenhuma aprovação é inferida nem o verdict bruto é reescrito. O próximo review fresco continua sendo o gate independente de encerramento de F0 solicitado pelo usuário.
 - **Review gate (G2):** aberto — nenhum `reviewGate` está registrado no descriptor F0 até um review fresco e aprovado sobre o HEAD limpo do checkpoint.
 - **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.
