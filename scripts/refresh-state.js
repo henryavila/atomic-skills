@@ -15,13 +15,28 @@
  *
  * CLI:  node scripts/refresh-state.js [<dir>]     (defaults to ./)
  */
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import {
+  closeSync,
+  existsSync,
+  fchmodSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { computeRollupsDir } from './compute-rollups.js';
 import { reconcileDir } from './reconcile-focus.js';
 import { emitFocus } from './emit-focus.js';
 import { emitConsumerState } from './emit-consumer-state.js';
 import { parseFrontmatter } from './validate-state.js';
+
+const INDEX_REFRESH_ATTEMPTS = 3;
 
 function directories(path) {
   if (!existsSync(path) || !statSync(path).isDirectory()) return [];
@@ -53,6 +68,14 @@ function laterTimestamp(left, right) {
   return left;
 }
 
+function markdownCell(value, field) {
+  const cell = String(value);
+  if (/[|\r\n]/.test(cell)) {
+    throw new Error(`unsafe Markdown cell ${field}: pipe, CR, and LF are not allowed`);
+  }
+  return cell;
+}
+
 function initiativeProjection(filePath) {
   const parsed = parseFrontmatter(readFileSync(filePath, 'utf8'));
   if (parsed.error) return null;
@@ -72,12 +95,19 @@ function initiativeProjection(filePath) {
   };
 }
 
-function refreshProjectIndex(indexPath, projections) {
-  const raw = readFileSync(indexPath, 'utf8');
+/** Pure projection boundary, rerun against every newer snapshot after a conflict. */
+function renderProjectIndex(raw, projections) {
   let next = raw;
   let latestMatched = '';
 
   for (const projection of projections) {
+    const replacement = [
+      markdownCell(projection.slug, 'slug'),
+      markdownCell(projection.phaseId, 'phaseId'),
+      markdownCell(projection.status, 'status'),
+      markdownCell(`${projection.tasksDone}/${projection.tasksTotal}`, 'tasks'),
+      markdownCell(`${projection.gatesMet}/${projection.gatesTotal}`, 'gates'),
+    ];
     const heading = new RegExp(
       `^###\\s+${escapeRegExp(projection.planSlug)}\\s+phases\\s*$`,
       'm',
@@ -92,14 +122,7 @@ function refreshProjectIndex(indexPath, projections) {
     const section = next.slice(sectionStart, sectionEnd);
     const row = new RegExp(`^\\|\\s*${escapeRegExp(projection.slug)}\\s*\\|[^\\r\\n]*$`, 'm');
     if (!row.test(section)) continue;
-    const replacement = [
-      projection.slug,
-      projection.phaseId,
-      projection.status,
-      `${projection.tasksDone}/${projection.tasksTotal}`,
-      `${projection.gatesMet}/${projection.gatesTotal}`,
-    ];
-    const updatedSection = section.replace(row, `| ${replacement.join(' | ')} |`);
+    const updatedSection = section.replace(row, () => `| ${replacement.join(' | ')} |`);
     next = `${next.slice(0, sectionStart)}${updatedSection}${next.slice(sectionEnd)}`;
     latestMatched = laterTimestamp(latestMatched, projection.lastUpdated);
   }
@@ -109,13 +132,66 @@ function refreshProjectIndex(indexPath, projections) {
     const current = match?.[1]?.trim().replace(/^['"]|['"]$/g, '') ?? '';
     const latest = laterTimestamp(current, latestMatched);
     if (match && latest !== current) {
-      next = next.replace(/^lastUpdated:\s*.+$/m, `lastUpdated: ${latest}`);
+      next = next.replace(/^lastUpdated:\s*.+$/m, () => `lastUpdated: ${latest}`);
     }
   }
 
-  if (next === raw) return false;
-  writeFileSync(indexPath, next, 'utf8');
-  return true;
+  return next;
+}
+
+/** Transaction boundary: durable temp write, stale-snapshot check, atomic rename. */
+function publishProjectIndex(indexPath, expected, next) {
+  const temporaryPath = `${indexPath}.refresh-${process.pid}-${randomUUID()}.tmp`;
+  const mode = statSync(indexPath).mode & 0o777;
+  let fd = null;
+  let published = false;
+
+  try {
+    fd = openSync(temporaryPath, 'wx', mode);
+    fchmodSync(fd, mode);
+    writeFileSync(fd, next, 'utf8');
+    fsyncSync(fd);
+    closeSync(fd);
+    fd = null;
+
+    // Optimistic conflict check for updates made since the snapshot read. This
+    // is intentionally not a complete cross-writer CAS: F-001 defers authority
+    // over the final check→rename window to the shared-writer work in F4.
+    if (readFileSync(indexPath, 'utf8') !== expected) return false;
+
+    renameSync(temporaryPath, indexPath);
+    published = true;
+    const directoryFd = openSync(dirname(indexPath), 'r');
+    try {
+      fsyncSync(directoryFd);
+    } finally {
+      closeSync(directoryFd);
+    }
+    return true;
+  } finally {
+    if (fd !== null) closeSync(fd);
+    if (!published) {
+      try {
+        unlinkSync(temporaryPath);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
+  }
+}
+
+function refreshProjectIndex(indexPath, projections) {
+  for (let attempt = 1; attempt <= INDEX_REFRESH_ATTEMPTS; attempt += 1) {
+    const raw = readFileSync(indexPath, 'utf8');
+    const next = renderProjectIndex(raw, projections);
+
+    if (next === raw) return false;
+    if (publishProjectIndex(indexPath, raw, next)) return true;
+  }
+
+  throw new Error(
+    `${basename(indexPath)} changed during refresh after ${INDEX_REFRESH_ATTEMPTS} attempts`,
+  );
 }
 
 /** Refresh only existing initiative rows in nested per-project indexes. */

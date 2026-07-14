@@ -267,6 +267,96 @@ test('RED: an unreadable existing lock fails closed and is never reclaimed', () 
   }
 });
 
+test('RED: a crash while preparing the lock cannot brick pending marker recovery', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const lockPath = join(dirname(state.planAbs), '.materialize-state.lock');
+  const lockTempPath = `${lockPath}.tmp`;
+  const markerPath = join(dirname(state.planAbs), '.materialize-state.json');
+  try {
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        txId: 'tx-lock-publication-crash',
+        faultAt: 'after-initiative-rename',
+      }),
+      /fault injection: after-initiative-rename/,
+    );
+    assert.equal(existsSync(markerPath), true, 'the fixture must leave recovery pending');
+
+    const childSource = `
+      import { materializeState } from ${JSON.stringify(new URL('../../scripts/materialize-state.js', import.meta.url).href)};
+      materializeState({
+        root: process.env.MATERIALIZE_ROOT,
+        planPath: process.env.MATERIALIZE_PLAN,
+        initiativePath: process.env.MATERIALIZE_INITIATIVE,
+        faultAt(point) {
+          if (point === 'after-lock-temp-open') process.kill(process.pid, 'SIGKILL');
+        },
+      });
+    `;
+    const crashed = spawnSync(process.execPath, ['--input-type=module', '-e', childSource], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MATERIALIZE_ROOT: state.root,
+        MATERIALIZE_PLAN: state.plan.relativePath,
+        MATERIALIZE_INITIATIVE: state.initiativePath,
+      },
+    });
+
+    // Mutation killed: writing the owner directly to lockPath either misses this
+    // crash point or exposes an empty canonical lock instead of an unpublished temp.
+    assert.equal(crashed.signal, 'SIGKILL', crashed.stderr);
+    assert.equal(existsSync(lockPath), false, 'an incomplete owner must never become canonical');
+    assert.equal(existsSync(lockTempPath), true, 'the forced crash must leave its temp artifact');
+    assert.equal(statSync(lockTempPath).size, 0, 'the crash must happen before owner bytes are written');
+    assert.equal(existsSync(markerPath), true, 'lock publication must not consume the marker');
+
+    const recovered = materializeState({
+      root: state.root,
+      planPath: state.plan.relativePath,
+      initiativePath: state.initiativePath,
+    });
+    assert.equal(recovered.status, 'complete');
+    assert.equal(recovered.recovered, true);
+    assert.equal(readFileSync(state.planAbs, 'utf8'), pair.planContent);
+    assert.equal(readFileSync(join(state.root, state.initiativePath), 'utf8'), pair.initiativeContent);
+    assert.equal(existsSync(lockPath), false);
+    assert.equal(existsSync(lockTempPath), false, 'retry must reclaim the unpublished temp');
+    assert.equal(existsSync(markerPath), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('a partial unpublished lock temp is reclaimed before a new owner is published', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const lockPath = join(dirname(state.planAbs), '.materialize-state.lock');
+  const lockTempPath = `${lockPath}.tmp`;
+  writeFileSync(lockTempPath, '{"version":1,"pid":', 'utf8');
+  try {
+    const result = materializeState({
+      root: state.root,
+      planPath: state.plan.relativePath,
+      initiativePath: state.initiativePath,
+      ...pair,
+      txId: 'tx-partial-lock-temp',
+    });
+
+    // Mutation killed: removing orphan-temp cleanup leaves this partial file behind.
+    assert.equal(result.status, 'complete');
+    assert.equal(existsSync(lockPath), false);
+    assert.equal(existsSync(lockTempPath), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('a lock with an invalid owner shape fails closed instead of looking dead', () => {
   const state = fixture();
   const pair = candidatePair(state);
@@ -298,12 +388,19 @@ test('a live reclaim guard serializes stale-lock takeover before either contende
   const pair = candidatePair(state);
   const beforePlan = readFileSync(state.planAbs);
   const lockPath = join(dirname(state.planAbs), '.materialize-state.lock');
+  const lockTempPath = `${lockPath}.tmp`;
   const staleOwner = `${JSON.stringify({
     version: 1,
     pid: 2_147_483_646,
     token: 'dead-owner',
   })}\n`;
+  const liveReclaimerTemp = `${JSON.stringify({
+    version: 1,
+    pid: process.pid,
+    token: 'live-reclaimer',
+  })}\n`;
   writeFileSync(lockPath, staleOwner, 'utf8');
+  writeFileSync(lockTempPath, liveReclaimerTemp, 'utf8');
   seedGuardClaim(lockPath, {
     pid: process.pid,
     token: 'live-reclaimer',
@@ -322,6 +419,9 @@ test('a live reclaim guard serializes stale-lock takeover before either contende
       /materialization lock guard is held by a live process/,
     );
     assert.equal(readFileSync(lockPath, 'utf8'), staleOwner);
+    // Mutation killed: moving temp reclamation outside the acquired guard lets
+    // this losing contender delete the live reclaimer's unpublished owner.
+    assert.equal(readFileSync(lockTempPath, 'utf8'), liveReclaimerTemp);
     assert.deepEqual(readFileSync(state.planAbs), beforePlan);
     assert.equal(existsSync(join(state.root, state.initiativePath)), false);
     assert.equal(
@@ -570,6 +670,78 @@ test('RED: a serial candidate rejects two active descriptors and divergent curre
     assert.deepEqual(readFileSync(state.planAbs), beforePlan);
     assert.equal(existsSync(join(state.root, state.initiativePath)), false);
     assert.equal(existsSync(join(dirname(state.planAbs), '.materialize-state.json')), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('RED: staged validation rejects duplicate ids when only the first descriptor is active', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const beforePlan = readFileSync(state.planAbs);
+  const parsed = parseFrontmatter(pair.planContent);
+  const duplicate = structuredClone(
+    parsed.frontmatter.phases.find((phase) => phase.id === 'F1'),
+  );
+  duplicate.status = 'pending';
+  parsed.frontmatter.phases.push(duplicate);
+  const duplicatePlan = renderFrontmatter(parsed.frontmatter, parsed.body);
+  const markerPath = join(dirname(state.planAbs), '.materialize-state.json');
+  const txDir = join(dirname(state.planAbs), '.materialize-state-tx-duplicate-active-id');
+  try {
+    // Mutation killed: removing the id-set guard lets find() select the first F1
+    // and publishes the ambiguous active/pending pair.
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        planContent: duplicatePlan,
+        txId: 'tx-duplicate-active-id',
+      }),
+      /plan phase id "F1" is duplicated/,
+    );
+    assert.deepEqual(readFileSync(state.planAbs), beforePlan);
+    assert.equal(existsSync(join(state.root, state.initiativePath)), false);
+    assert.equal(existsSync(markerPath), false);
+    assert.equal(existsSync(txDir), false);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('RED: phase ids are globally unique even outside parallel focus', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const beforePlan = readFileSync(state.planAbs);
+  const parsed = parseFrontmatter(pair.planContent);
+  parsed.frontmatter.parallelismAllowed = true;
+  const duplicate = structuredClone(
+    parsed.frontmatter.phases.find((phase) => phase.id === 'F0'),
+  );
+  duplicate.status = 'pending';
+  parsed.frontmatter.phases.push(duplicate);
+  const duplicatePlan = renderFrontmatter(parsed.frontmatter, parsed.body);
+  const markerPath = join(dirname(state.planAbs), '.materialize-state.json');
+  const txDir = join(dirname(state.planAbs), '.materialize-state-tx-duplicate-unfocused-id');
+  try {
+    // Mutation killed: limiting uniqueness to initiative.phaseId misses duplicate F0.
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        planContent: duplicatePlan,
+        txId: 'tx-duplicate-unfocused-id',
+      }),
+      /plan phase id "F0" is duplicated/,
+    );
+    assert.deepEqual(readFileSync(state.planAbs), beforePlan);
+    assert.equal(existsSync(join(state.root, state.initiativePath)), false);
+    assert.equal(existsSync(markerPath), false);
+    assert.equal(existsSync(txDir), false);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }

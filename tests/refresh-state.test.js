@@ -1,12 +1,66 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { refreshState } from '../scripts/refresh-state.js';
 import { validateAideckState } from '../scripts/validate-aideck-state.js';
 
 const NOW = Date.parse('2026-01-06T00:00:00Z');
+const REFRESH_STATE_URL = new URL('../scripts/refresh-state.js', import.meta.url).href;
+
+function runRefreshWithFsShim(dir, shimSource) {
+  const fsModuleSource = [
+    "import * as fs from 'node:fs';",
+    "export * from 'node:fs';",
+    shimSource,
+  ].join('\n');
+  const fsModuleUrl = `data:text/javascript,${encodeURIComponent(fsModuleSource)}`;
+  const loaderSource = `
+    export async function resolve(specifier, context, nextResolve) {
+      if (specifier === 'node:fs' && context.parentURL === ${JSON.stringify(REFRESH_STATE_URL)}) {
+        return { url: ${JSON.stringify(fsModuleUrl)}, shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    }
+  `;
+  const loaderUrl = `data:text/javascript,${encodeURIComponent(loaderSource)}`;
+  const childSource = `
+    import { refreshState } from ${JSON.stringify(REFRESH_STATE_URL)};
+    refreshState(${JSON.stringify(dir)}, { nowMs: ${NOW}, branch: null });
+  `;
+  return spawnSync(
+    process.execPath,
+    ['--no-warnings', '--experimental-loader', loaderUrl, '--input-type=module', '-e', childSource],
+    { cwd: process.cwd(), encoding: 'utf8' },
+  );
+}
+
+function replaceInitiativeField(dir, field, value) {
+  const path = join(
+    dir,
+    '.atomic-skills',
+    'projects',
+    'projA',
+    'plan-a',
+    'phases',
+    'f1.md',
+  );
+  const raw = readFileSync(path, 'utf8');
+  writeFileSync(
+    path,
+    raw.replace(new RegExp(`^${field}:.*$`, 'm'), () => `${field}: ${JSON.stringify(value)}`),
+  );
+}
 
 function writeSeedState(dir, { completions = true } = {}) {
   const planDir = join(dir, '.atomic-skills', 'projects', 'projA', 'plan-a');
@@ -165,6 +219,175 @@ describe('refreshState consumer series integration', () => {
       assert.equal(second.indexesChanged, 0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('retries from the latest index snapshot instead of losing a concurrent update after read', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-conflict-'));
+    try {
+      writeSeedState(dir);
+      const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+      const concurrentRow = '| concurrent-transition | F9 | active | 0/1 | 0/0 |';
+      const child = runRefreshWithFsShim(dir, `
+        let indexReads = 0;
+        export function readFileSync(path, ...args) {
+          const result = fs.readFileSync(path, ...args);
+          if (String(path).endsWith('PROJECT-STATUS.md')) {
+            indexReads += 1;
+            if (indexReads === 1) {
+              const raw = typeof result === 'string' ? result : result.toString('utf8');
+              const concurrent = raw.replace(
+                '| unrelated-row | F9 | paused | 7/9 | 1/3 |',
+                ${JSON.stringify(`${concurrentRow}\n| unrelated-row | F9 | paused | 7/9 | 1/3 |`)},
+              );
+              fs.writeFileSync(path, concurrent, 'utf8');
+            }
+          }
+          return result;
+        }
+      `);
+
+      assert.equal(child.status, 0, child.stderr);
+      const refreshed = readFileSync(indexPath, 'utf8');
+      assert.match(refreshed, /^\| f1 \| F1 \| active \| 1\/2 \| 0\/0 \|$/m);
+      assert.match(refreshed, new RegExp(`^${concurrentRow.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails explicitly after bounded repeated index conflicts without overwriting the latest writer', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-conflict-limit-'));
+    try {
+      writeSeedState(dir);
+      const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+      const child = runRefreshWithFsShim(dir, `
+        let version = 0;
+        export function readFileSync(path, ...args) {
+          const result = fs.readFileSync(path, ...args);
+          if (String(path).endsWith('PROJECT-STATUS.md')) {
+            version += 1;
+            const raw = typeof result === 'string' ? result : result.toString('utf8');
+            fs.writeFileSync(path, raw + '\\n<!-- concurrent-version-' + version + ' -->\\n', 'utf8');
+          }
+          return result;
+        }
+      `);
+
+      assert.notEqual(child.status, 0);
+      assert.match(child.stderr, /PROJECT-STATUS\.md changed during refresh after 3 attempts/);
+      const latest = readFileSync(indexPath, 'utf8');
+      assert.match(latest, /<!-- concurrent-version-/);
+      assert.equal(latest.match(/<!-- concurrent-version-/g)?.length, 6);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the original index intact on temp-write and pre-commit rename failures', () => {
+    for (const scenario of [
+      {
+        label: 'temporary write',
+        error: /injected temporary write failure/,
+        shim: `
+          const temporaryFds = new Set();
+          export function openSync(path, ...args) {
+            const fd = fs.openSync(path, ...args);
+            if (String(path).includes('.refresh-') && String(path).endsWith('.tmp')) temporaryFds.add(fd);
+            return fd;
+          }
+          export function closeSync(fd) {
+            temporaryFds.delete(fd);
+            return fs.closeSync(fd);
+          }
+          export function writeFileSync(path, data, ...args) {
+            if (temporaryFds.has(path)) {
+              fs.writeFileSync(path, String(data).slice(0, 16), ...args);
+              throw new Error('injected temporary write failure');
+            }
+            return fs.writeFileSync(path, data, ...args);
+          }
+        `,
+      },
+      {
+        label: 'rename',
+        error: /injected rename failure/,
+        shim: `
+          export function renameSync(from, to) {
+            if (String(to).endsWith('PROJECT-STATUS.md')) throw new Error('injected rename failure');
+            return fs.renameSync(from, to);
+          }
+        `,
+      },
+    ]) {
+      const dir = mkdtempSync(join(tmpdir(), `refresh-state-index-${scenario.label}-failure-`));
+      try {
+        writeSeedState(dir);
+        const projectDir = join(dir, '.atomic-skills', 'projects', 'projA');
+        const indexPath = join(projectDir, 'PROJECT-STATUS.md');
+        const original = readFileSync(indexPath, 'utf8');
+        const child = runRefreshWithFsShim(dir, scenario.shim);
+
+        assert.notEqual(child.status, 0, scenario.label);
+        assert.match(child.stderr, scenario.error, scenario.label);
+        assert.equal(readFileSync(indexPath, 'utf8'), original, scenario.label);
+        assert.deepEqual(
+          readdirSync(projectDir).filter((name) => name.includes('.refresh-')),
+          [],
+          scenario.label,
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('writes JavaScript replacement tokens as literal Markdown cell content', () => {
+    for (const phaseId of ['$&', '$`', "$'"]) {
+      const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-replacement-'));
+      try {
+        writeSeedState(dir);
+        replaceInitiativeField(dir, 'phaseId', phaseId);
+        const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+
+        const first = refreshState(dir, { nowMs: NOW, branch: null });
+        const once = readFileSync(indexPath, 'utf8');
+        assert.ok(once.includes(`| f1 | ${phaseId} | active | 1/2 | 0/0 |`), phaseId);
+        assert.equal(once.match(/^\| unrelated-row \|/gm)?.length, 1, phaseId);
+        assert.equal(first.indexesChanged, 1, phaseId);
+
+        const second = refreshState(dir, { nowMs: NOW, branch: null });
+        assert.equal(readFileSync(indexPath, 'utf8'), once, phaseId);
+        assert.equal(second.indexesChanged, 0, phaseId);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('rejects Markdown delimiters in projected cells before mutating the index', () => {
+    for (const [field, value] of [
+      ['slug', 'f|extra'],
+      ['status', 'active|extra'],
+      ['phaseId', 'F|EXTRA'],
+      ['phaseId', 'F\nINJECTED'],
+      ['phaseId', 'F\rINJECTED'],
+    ]) {
+      const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-cell-'));
+      try {
+        writeSeedState(dir);
+        replaceInitiativeField(dir, field, value);
+        const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+        const original = readFileSync(indexPath, 'utf8');
+
+        assert.throws(
+          () => refreshState(dir, { nowMs: NOW, branch: null }),
+          new RegExp(`unsafe Markdown cell ${field}`),
+        );
+        assert.equal(readFileSync(indexPath, 'utf8'), original);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     }
   });
 });

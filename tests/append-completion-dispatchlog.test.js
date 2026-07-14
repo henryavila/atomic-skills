@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appendCompletion, readDispatchActuals } from '../scripts/append-completion.js';
+import { appendCompletion, parseDispatchLog, readDispatchActuals } from '../scripts/append-completion.js';
 import { validateCompletionEvent } from '../scripts/validate-aideck-state.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
@@ -138,6 +138,88 @@ test('readDispatchActuals remains backward-compatible with a legacy JSON array',
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('appendCompletion still emits when a pretty legacy record contains a nested array', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-legacy-nested-'));
+  try {
+    // Routing fields mirror records sampled from the tracked dispatch ledger;
+    // metadata is an additive forward-compatible field carrying the regression.
+    const record = {
+      taskId: 'T-002', plan: 's', phase: 'F4', attempt: 2, escalationCount: 1,
+      startedAt: '2026-06-19T18:00:00Z', finishedAt: '2026-06-19T18:00:05Z',
+      metadata: { checks: ['unit', 'integration'] },
+    };
+    seedRaw(root, JSON.stringify([record], null, 2));
+
+    const completion = appendCompletion(root, {
+      event: 'task-done', projectId: 'proj', planSlug: 's', phaseId: 'F4', taskId: 'T-002',
+    });
+
+    // Mutation guard: stopping at the first isolated `]` makes appendCompletion
+    // throw before this observable event and its derived actuals exist.
+    assert.deepEqual(completion.actuals, { attempts: 2, escalations: 1, durationMs: 5000 });
+    const persisted = readFileSync(LOG(root), 'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(persisted.length, 1);
+    assert.deepEqual(persisted[0], completion);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('parseDispatchLog preserves a CRLF hybrid with nested objects, arrays, strings, and escapes', () => {
+  const prefix = { taskId: 'T-001', plan: 's', phase: 'F4' };
+  const legacy = {
+    taskId: 'T-002', plan: 's', phase: 'F4',
+    metadata: {
+      checks: [{ label: 'literal ] plus "quote" and \\ path' }],
+    },
+  };
+  const suffix = { taskId: 'T-003', plan: 's', phase: 'F4' };
+  const raw = `${JSON.stringify(prefix)}\n${JSON.stringify([legacy], null, 2)}\n${JSON.stringify(suffix)}\n`
+    .replace(/\n/g, '\r\n');
+
+  const parsed = parseDispatchLog(raw, { source: 'hybrid.json' });
+
+  // Mutation guard: ignoring nested depth, quoted `]`, escapes, or CRLF breaks
+  // either record order or the exact nested payload below.
+  assert.deepEqual(parsed.map((record) => record.taskId), ['T-001', 'T-002', 'T-003']);
+  assert.deepEqual(parsed[1].metadata, legacy.metadata);
+});
+
+test('parseDispatchLog keeps empty, inline-array, and NDJSON boundaries compatible', () => {
+  const record = {
+    taskId: 'T-002', plan: 's', phase: 'F4', metadata: { checks: ['inline'] },
+  };
+
+  // Mutation guard: restricting the structural scanner to pretty multiline
+  // arrays makes at least one of these established input partitions fail.
+  assert.deepEqual(parseDispatchLog('[]\r\n'), []);
+  assert.deepEqual(parseDispatchLog(`${JSON.stringify([record])}\r\n`), [record]);
+  assert.deepEqual(parseDispatchLog(`${JSON.stringify(record)}\r\n`), [record]);
+});
+
+test('parseDispatchLog reports an unterminated root after a complete nested array', () => {
+  const raw = [
+    '[',
+    '  {',
+    '    "taskId": "T-002",',
+    '    "plan": "s",',
+    '    "phase": "F4",',
+    '    "metadata": {',
+    '      "checks": [',
+    '        "unit"',
+    '      ]',
+    '    }',
+    '  }',
+  ].join('\r\n');
+
+  // Mutation guard: treating the nested close as the root close changes this
+  // stable root-level EOF error into a truncated JSON.parse error.
+  assert.throws(
+    () => parseDispatchLog(raw, { source: 'unterminated.json' }),
+    /unterminated\.json:1: invalid JSON: unterminated legacy array/,
+  );
 });
 
 test('readDispatchActuals recovers all segments of the repository-shaped hybrid log', () => {

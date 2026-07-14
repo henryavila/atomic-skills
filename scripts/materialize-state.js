@@ -382,24 +382,38 @@ function withMaterializationLockGuard(lockPath, operation, faultAt = null) {
 function acquireMaterializationLock(lockPath, faultAt = null) {
   return withMaterializationLockGuard(lockPath, () => {
     const token = randomUUID();
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        durableWrite(lockPath, ownerBytes(token), 'wx');
-        return token;
-      } catch (error) {
-        if (error?.code !== 'EEXIST') throw error;
-        const owner = readLockOwner(lockPath);
-        if (owner === null) {
-          throw new Error('materialization lock is unreadable; refusing to reclaim it');
-        }
-        if (owner === undefined) continue;
-        if (isLockOwnerAlive(owner)) {
-          throw new Error(`materialization lock is held by a live process (${owner.pid})`);
-        }
-        durableUnlink(lockPath);
-      }
+    const lockTempPath = `${lockPath}.tmp`;
+    const owner = readLockOwner(lockPath);
+    if (owner === null) {
+      throw new Error('materialization lock is unreadable; refusing to reclaim it');
     }
-    throw new Error('materialization lock could not be acquired');
+    if (owner !== undefined) {
+      if (isLockOwnerAlive(owner)) {
+        throw new Error(`materialization lock is held by a live process (${owner.pid})`);
+      }
+      durableUnlink(lockPath);
+    }
+
+    // The canonical path is authority only after a complete owner record is
+    // durable. An interrupted temp write is therefore safe to reclaim.
+    durableUnlink(lockTempPath);
+    try {
+      const fd = openSync(lockTempPath, 'wx', 0o600);
+      try {
+        fchmodSync(fd, 0o600);
+        injectFault('after-lock-temp-open', faultAt);
+        writeFileSync(fd, ownerBytes(token));
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+      fsyncPath(dirname(lockTempPath));
+      durableRename(lockTempPath, lockPath);
+      return token;
+    } catch (error) {
+      if (existsSync(lockTempPath)) durableUnlink(lockTempPath);
+      throw error;
+    }
   }, faultAt);
 }
 
@@ -432,6 +446,15 @@ function validateStagedPair(planPath, initiativePath) {
 
   const plan = parseFrontmatter(readFileSync(planPath, 'utf8')).frontmatter;
   const initiative = parseFrontmatter(readFileSync(initiativePath, 'utf8')).frontmatter;
+  const phaseIds = new Set();
+  const duplicatePhaseIds = new Set();
+  for (const phase of plan.phases ?? []) {
+    if (phaseIds.has(phase.id)) duplicatePhaseIds.add(phase.id);
+    phaseIds.add(phase.id);
+  }
+  for (const phaseId of duplicatePhaseIds) {
+    errors.push(`plan phase id "${phaseId}" is duplicated`);
+  }
   const descriptor = plan.phases?.find((phase) => phase.id === initiative.phaseId);
   if (initiative.parentPlan !== plan.slug) errors.push('initiative parentPlan does not match plan slug');
   if (!descriptor) errors.push('plan has no descriptor matching initiative phaseId');

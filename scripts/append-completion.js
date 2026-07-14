@@ -192,9 +192,36 @@ export function parseDispatchLog(raw, { source = 'dispatch-log.json' } = {}) {
     const line = index + 1;
 
     if (text === '[') {
-      let end = index + 1;
-      while (end < lines.length && lines[end].trim() !== ']') end += 1;
-      if (end >= lines.length) {
+      let end = -1;
+      let arrayDepth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let cursor = index; cursor < lines.length && end < 0; cursor += 1) {
+        for (const char of lines[cursor]) {
+          if (inString) {
+            if (escaped) {
+              escaped = false;
+            } else if (char === '\\') {
+              escaped = true;
+            } else if (char === '"') {
+              inString = false;
+            }
+            continue;
+          }
+          if (char === '"') {
+            inString = true;
+          } else if (char === '[') {
+            arrayDepth += 1;
+          } else if (char === ']') {
+            arrayDepth -= 1;
+            if (arrayDepth === 0) {
+              end = cursor;
+              break;
+            }
+          }
+        }
+      }
+      if (end < 0) {
         throw new SyntaxError(`${source}:${line}: invalid JSON: unterminated legacy array`);
       }
       const value = parseJsonAt(lines.slice(index, end + 1).join('\n'), source, line);

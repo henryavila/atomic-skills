@@ -777,6 +777,13 @@ export function writeInitiativeFile(initiative, planSlug, ctx) {
     stateRoot, planDir, projectId, businessIntent = null, seenSlugs, seenPaths,
   } = ctx;
   const initSlug = init.slug || `${planSlug}-${init.phaseId.toLowerCase()}`;
+  for (const t of init.tasks) {
+    if (Number.isFinite(t.weight) && t.weight < 0) {
+      throw new RangeError(
+        `writeInitiativeFile: task ${t.id} weight must be >= 0 (got ${JSON.stringify(t.weight)})`,
+      );
+    }
+  }
   const tasks = init.tasks.map((t) => ({
     id: t.id,
     title: t.title || `Task ${t.id}`,

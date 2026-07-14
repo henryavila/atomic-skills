@@ -322,6 +322,84 @@ describe('writeInitiativeFile (F1/T-005) — single-initiative materialize', () 
       /slug collision/,
     );
   });
+
+  it('rejects a finite negative task weight before mutating collision guards', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    r.initiatives[0].tasks[1].weight = -1;
+    const seenSlugs = new Set();
+    const seenPaths = new Set();
+
+    // Mutation guard: removing the negative-domain check makes assert.throws
+    // fail and allows both collision sets to be mutated by an invalid write.
+    assert.throws(
+      () => writeInitiativeFile(r.initiatives[0], 'sample', {
+        iso: FROZEN.toISOString(), branch: null, active: true,
+        stateRoot: '.atomic-skills', planDir: null, projectId: null, seenSlugs, seenPaths,
+      }),
+      /writeInitiativeFile: task T0\.2 weight must be >= 0 \(got -1\)/,
+    );
+    assert.deepEqual([...seenSlugs], []);
+    assert.deepEqual([...seenPaths], []);
+  });
+
+  it('rejects the smallest finite negative weight through materializeDecomposition', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    r.initiatives[0].tasks[0].weight = -Number.MIN_VALUE;
+
+    // Mutation guard: validating only direct callers leaves this public
+    // materialize path returning schema-invalid initiative bytes.
+    assert.throws(
+      () => materializeDecomposition(r, { planSlug: 'sample', now: FROZEN }),
+      /writeInitiativeFile: task T0\.1 weight must be >= 0/,
+    );
+  });
+
+  it('emits zero, the smallest positive value, and a normal positive weight', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const weights = [0, Number.MIN_VALUE, 2.5];
+    r.initiatives[0].tasks.forEach((task, index) => { task.weight = weights[index]; });
+
+    const file = writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso: FROZEN.toISOString(), branch: null, active: true,
+      stateRoot: '.atomic-skills', planDir: null, projectId: null,
+      seenSlugs: new Set(), seenPaths: new Set(),
+    });
+    const fm = parseYaml(file.content.split('---\n')[1]);
+
+    // Mutation guard: changing the boundary from `< 0` to `<= 0` rejects zero;
+    // dropping finite positive emission changes the exact values below.
+    assert.deepEqual(fm.tasks.map((task) => task.weight), weights);
+    const validators = buildValidators();
+    assert.equal(
+      validators.validateInitiative(fm),
+      true,
+      `expected valid initiative; errors: ${JSON.stringify(validators.validateInitiative.errors)}`,
+    );
+  });
+
+  it('deliberately keeps absent and non-finite weights omitted', () => {
+    const r = decomposePlan(FIXTURE, { planSlug: 'sample' });
+    const base = r.initiatives[0].tasks[0];
+    r.initiatives[0].tasks = [
+      { ...base, id: 'T0.1' },
+      { ...base, id: 'T0.2', weight: Number.NaN },
+      { ...base, id: 'T0.3', weight: Number.POSITIVE_INFINITY },
+      { ...base, id: 'T0.4', weight: Number.NEGATIVE_INFINITY },
+    ];
+
+    const file = writeInitiativeFile(r.initiatives[0], 'sample', {
+      iso: FROZEN.toISOString(), branch: null, active: true,
+      stateRoot: '.atomic-skills', planDir: null, projectId: null,
+      seenSlugs: new Set(), seenPaths: new Set(),
+    });
+    const fm = parseYaml(file.content.split('---\n')[1]);
+
+    // Mutation guard: broadening the new rejection to non-finite values throws;
+    // emitting any such value adds a weight property and fails this assertion.
+    assert.deepEqual(fm.tasks.map((task) => Object.hasOwn(task, 'weight')), [false, false, false, false]);
+    const validators = buildValidators();
+    assert.equal(validators.validateInitiative(fm), true);
+  });
 });
 
 // SPEC interior materialization (T1.5 — H3-mode must carry the per-task SPEC
