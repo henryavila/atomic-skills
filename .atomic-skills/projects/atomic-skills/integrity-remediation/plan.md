@@ -5,9 +5,9 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T01:31:57Z
+lastUpdated: 2026-07-14T19:33:36Z
 branch: plan/integrity-remediation
-currentPhase: F0
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -81,7 +81,7 @@ phases:
             do tarball ou fault injection deixa descriptor F4 e initiative
             divergentes.
           status: met
-          metAt: 2026-07-12T17:08:37Z
+          metAt: 2026-07-14T19:33:36Z
           verifier:
             kind: shell
             command: node --test tests/consumer-runtime-resolution.test.js
@@ -92,19 +92,16 @@ phases:
             expectExitCode: 0
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-12T17:08:37Z
+            verifiedAt: 2026-07-14T19:33:36Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test: 54 tests, 5 suites, 54 pass, 0 fail, 0
-              skipped; duration_ms 43472.904; exit 0; bakery lock claims,
-              canonical process identity, stale candidate, publish/rollback
-              rechecks, recovery, serial focus, task metadata, businessIntent
-              and mode regressions included"
+            outputSummary: "node --test: 62 tests, 5 suites, 62 pass, 0 fail, 0
+              skipped; exit 0; fresh closing run on reviewed HEAD 0ce031d"
         - id: F0-G2
           description: Project-scope install não mascara ausência de setup canônico. FAILS
             when a pasta do ledger basta para pular setup.
           status: met
-          metAt: 2026-07-12T17:08:37Z
+          metAt: 2026-07-14T19:33:36Z
           verifier:
             kind: shell
             command: node --test tests/project.test.js
@@ -112,12 +109,12 @@ phases:
             expectExitCode: 0
           evidence:
             verifierKind: shell
-            verifiedAt: 2026-07-12T17:08:37Z
+            verifiedAt: 2026-07-14T19:33:36Z
             passed: true
             exitCode: 0
-            outputSummary: "node --test: 75 tests, 2 suites, 75 pass, 0 fail, 0
-              skipped; duration_ms 20675.814625; exit 0"
-    status: active
+            outputSummary: "node --test: 86 tests, 2 suites, 86 pass, 0 fail, 0
+              skipped; exit 0; fresh closing run on reviewed HEAD 0ce031d"
+    status: done
     reviewGate:
       status: passed
       at: 0ce031d2cebe0a5059a388e99ff6df5432aec4eb
@@ -332,7 +329,7 @@ phases:
               scripts/materialize-state.js --check-history-receipt
               docs/audits/integrity-remediation-f0-reconciliation.json
             expectExitCode: 0
-    status: pending
+    status: active
   - id: F5
     slug: integrity-remediation-f5-gemini-portabilidade-e-identidade-de-d
     title: Gemini, portabilidade e identidade de dashboard
