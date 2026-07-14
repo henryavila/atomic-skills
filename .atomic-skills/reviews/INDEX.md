@@ -80,3 +80,4 @@
 | 2026-07-12 11:20 | [integrity-remediation-f0-code-review](2026-07-12-1120-integrity-remediation-f0-code-review.md) | code | reject→critical fixed; 5M recorded | 0B/1C/5M/0m/0n | 0d/6=/0+ |
 | 2026-07-13 08:44 | [integrity-remediation-f0-a3089a4](2026-07-13-0844-integrity-remediation-f0-a3089a4.md) | code | needs_changes | 0B/0C/7M/0m/0n | 0d/6=/1+ |
 | 2026-07-14 09:30 | [integrity-remediation-f0-364ce8b-r2](2026-07-14-0930-integrity-remediation-f0-364ce8b-r2.md) | code/codex | needs_changes→fixed | 0B/0C/4M/0m/0n | 0d/3=/1+; 4 corrigidos em `555088b` |
+| 2026-07-14 09:50 | [integrity-remediation-f0-555088b-r3](2026-07-14-0950-integrity-remediation-f0-555088b-r3.md) | code/codex | needs_changes→fixed | 0B/0C/1M/0m/0n | 1d/1=/0+; corrigido em `1f1ca51` |

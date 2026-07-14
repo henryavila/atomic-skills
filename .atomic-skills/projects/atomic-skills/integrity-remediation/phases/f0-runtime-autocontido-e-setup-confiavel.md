@@ -10,9 +10,9 @@ summary: Destrava executor, fecha runtime closure e materializa F4 de forma recu
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T12:36:19Z
-nextAction: Executar novo envelope Codex blind+informed sobre o checkpoint
-  `555088b` e somente fechar T-006 se o veredito reconciliado aprovar.
+lastUpdated: 2026-07-14T12:53:56Z
+nextAction: Executar o terceiro envelope Codex blind+informed sobre o checkpoint
+  `1f1ca51` e somente fechar T-006 se o veredito reconciliado aprovar.
 parentPlan: integrity-remediation
 phaseId: F0
 businessIntent:
@@ -352,7 +352,7 @@ tasks:
       e repetir review-code sobre um novo HEAD limpo. verified_by:
       `.atomic-skills/reviews/2026-07-13-0844-integrity-remediation-f0-a3089a4.md:225-447`.
     status: pending
-    lastUpdated: 2026-07-14T12:36:19Z
+    lastUpdated: 2026-07-14T12:53:56Z
     tags:
       - review
       - data-integrity
@@ -420,6 +420,10 @@ Initiative for phase **F0 — Runtime autocontido e setup confiável**.
   confirmou quatro findings major. A delegação do usuário foi aplicada pela
   alternativa conservadora: validar cada mecanismo em fonte, criar quatro REDs
   independentes e corrigir todos em `555088b`; nenhum finding foi dispensado.
+- **2026-07-14 — triagem provisória do review `555088b`:** F-001 major foi
+  confirmado por execução end-to-end do verifier e corrigido em `1f1ca51`;
+  F-002-blind foi descartado pelo passe informado por não haver contrato de
+  ACL/xattr/hardlink e por conflitar com o gate explícito de publicação atômica.
 
 ## Links
 
@@ -427,11 +431,11 @@ _(plan doc, external refs)_
 
 ## Session handoff
 
-- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. O envelope válido de `364ce8b` terminou `needs_changes` com quatro major; todos foram reproduzidos por RED e corrigidos no checkpoint de código `555088b`. O review foi persistido e a convergência exige um novo envelope aprovado sobre o diff cumulativo.
+- **Narrative:** A fase F0 permanece `active`, com T-001..T-005 fechadas e T-006 aberta. O envelope cumulativo de `555088b` terminou `needs_changes` com um major final: falso verde no verifier aiDeck. O CLI real reproduziu o defeito e a correção foi gravada no checkpoint `1f1ca51`. A convergência exige o terceiro envelope aprovado.
 - **Decision log:** A materialização agora exige `expectedPlanHash`, publica claims completos por temp→rename e serializa contenders por bakery lock (`choosing` + ticket) sobre paths únicos; a identidade do processo é canônica entre locale/fuso, release do lock próprio não depende de contender suspenso e setup tolera cleanup concorrente. Claims/locks mortos são recuperados e todos os caminhos de publish, complete-retry e rollback relêem o par antes de remover o marker. A autoridade também recupera markers antes de carregar candidates, preserva modo do plano e valida `businessIntent`, foco serial, `nextAction`, summaries, weights e sinais antes do marker. `phase-done` exige contexto Git explícito, rejeita worktree sujo/SHA divergente e não aceita `requireReview:false` como bypass. `refresh-state` limita a projeção à tabela `### <plan> phases`, preservando linhas homônimas de planos. O dispatch log aceita NDJSON/array/híbrido, rejeita corrupção ou identidade incompleta e escolhe actuals por ordem semântica determinística, não pela ordem física do merge. T-005 descreve apenas o seam futuro para F4.
-- **T-006 decision:** Além dos seis defeitos históricos, o refresh recompõe projeções a cada retry, transforma apenas conflito esgotado em falha parcial tipada, publica pelo alvo real de symlink e evita fsync de diretório em `win32`. A janela final check→rename permanece a fronteira deferida de F-001/F4.
-- **Single nextAction:** Executar o envelope blind+informed cumulativo de `a3089a4..555088b` com `--model codex-auto-review`.
-- **Verbatim state:** review persistido → `.atomic-skills/reviews/2026-07-14-0930-integrity-remediation-f0-364ce8b-r2.md`, veredito `needs_changes`, 4 major; checkpoint de correção → `555088b`; RED focado → 7 pass/4 fail exatamente nos quatro mecanismos; GREEN focado → 11 pass/0 fail; full suite → 1739 total, 1731 pass, 8 skip, 0 fail; validators → 15 skills e 166 arquivos/26 planos/1 routing válidos; diff-check limpo.
+- **T-006 decision:** Além dos defeitos históricos e das quatro correções de refresh, `verify-aideck-consumer` agora agrega `indexErrors` e `seriesError` num único warning sem falso PASS de refresh. A janela final check→rename permanece a fronteira deferida de F-001/F4.
+- **Single nextAction:** Executar o envelope blind+informed cumulativo de `a3089a4..1f1ca51` com `--model codex-auto-review`.
+- **Verbatim state:** review persistido → `.atomic-skills/reviews/2026-07-14-0950-integrity-remediation-f0-555088b-r3.md`, veredito `needs_changes`, 1 major final/1 minor cego descartado; checkpoint de correção → `1f1ca5166de3dd764f0c1cd45c6fdc3242ba03d6`; RED preciso → 2 pass/1 fail com falso verde real; GREEN focado → 4 pass/0 fail; full suite → 1743 total, 1735 pass, 8 skip, 0 fail; validators → 15 skills e 166 arquivos/26 planos/1 routing válidos; diff-check limpo.
 - **Uncommitted changes:** somente review, índice e este handoff aguardam o checkpoint documental.
 
 ## Self-review against code-quality gates
@@ -444,6 +448,6 @@ _(plan doc, external refs)_
 - **G6 reference-or-strike:** aplicado — o handoff preserva literalmente o HEAD base, o review histórico e as contagens/durações dos gates reexecutados.
 - **G7 abstraction restraint:** aplicado — as correções reutilizam os parsers, transações e helpers existentes; o helper de sincronização do índice permanece privado.
 - **G10 gate-must-be-able-to-fail:** aplicado — F0-G1 e F0-G2 declaram condições `FAILS when` concretas e foram reexecutados após a remediação.
-- **Codex review:** o review cumulativo até `364ce8b` terminou `needs_changes`; os quatro findings finais foram corrigidos em `555088b`, que ainda aguarda o envelope de convergência.
+- **Codex review:** os reviews cumulativos até `364ce8b` e `555088b` terminaram `needs_changes`; todos os findings finais foram corrigidos, e `1f1ca51` aguarda o terceiro envelope de convergência.
 - **Review gate (G2):** aberto — nenhum `reviewGate` está registrado no descriptor F0 até um review fresco e aprovado sobre o HEAD limpo do checkpoint.
 - **Lessons (G1):** quatro lessons reutilizáveis ratificadas pelo usuário e persistidas em `lessons/integrity-remediation-f0-runtime-autocontido-e-setup-confiavel.md` para F1/F2/F4/F5/F6.
