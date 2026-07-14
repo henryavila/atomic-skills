@@ -10,6 +10,57 @@ export function isTerminalStatus(status) {
   return TERMINAL_STATUSES.has(status);
 }
 
+export function collectPhaseGraphViolations(plan = {}) {
+  const phases = list(plan.phases);
+  const byId = new Map(phases.filter((phase) => text(phase?.id)).map((phase) => [phase.id, phase]));
+  const violations = [];
+  for (const phase of phases) {
+    const phaseId = text(phase?.id) ?? '?';
+    for (const dependency of list(phase?.dependsOn)) {
+      if (dependency === phaseId) {
+        violations.push(violation('phase-self-dependency', `phase ${phaseId} depends on itself`, { phaseId }));
+      } else if (!byId.has(dependency)) {
+        violations.push(violation('unknown-phase-dependency', `phase ${phaseId} depends on unknown phase ${dependency}`, { phaseId }));
+      }
+    }
+  }
+
+  const visiting = new Set();
+  const visited = new Set();
+  const stack = [];
+  const cycleKeys = new Set();
+  const visit = (id) => {
+    if (visited.has(id)) return;
+    visiting.add(id);
+    stack.push(id);
+    for (const dependency of list(byId.get(id)?.dependsOn)) {
+      if (dependency === id || !byId.has(dependency)) continue;
+      if (visiting.has(dependency)) {
+        const start = stack.indexOf(dependency);
+        const cycle = [...stack.slice(start), dependency];
+        const nodes = cycle.slice(0, -1);
+        const rotations = nodes.map((_, index) => [...nodes.slice(index), ...nodes.slice(0, index)]);
+        rotations.sort((a, b) => a.join('\0').localeCompare(b.join('\0')));
+        const canonical = [...rotations[0], rotations[0][0]];
+        const key = canonical.join('\0');
+        if (!cycleKeys.has(key)) {
+          cycleKeys.add(key);
+          violations.push(violation('phase-dependency-cycle', `phase dependency cycle: ${canonical.join(' -> ')}`, { phaseId: canonical[0] }));
+        }
+        continue;
+      }
+      visit(dependency);
+    }
+    stack.pop();
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const phase of phases) {
+    if (text(phase?.id)) visit(phase.id);
+  }
+  return violations;
+}
+
 export function stateIdentity(value = {}) {
   return {
     projectId: projectIdOf(value),
@@ -69,6 +120,9 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
   for (const plan of plans) {
     const phases = list(plan.phases);
     const planCtx = contextFor(plan, null, null);
+    for (const item of collectPhaseGraphViolations(plan)) {
+      violations.push({ ...item, ...planCtx, phaseId: item.phaseId ?? '?' });
+    }
     for (const id of duplicates(phases, (phase) => phase?.id)) {
       violations.push(violation('duplicate-phase-id', `plan ${plan.slug ?? '?'} repeats phase id ${id}`, { ...planCtx, phaseId: id }));
     }

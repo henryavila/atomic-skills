@@ -4,6 +4,7 @@
 // should become eligible after the active phase's exit gates are all met.
 // Kept dependency-free and side-effect-free so it can be unit-tested in
 // isolation (see tests/transition.test.js).
+import { collectPhaseGraphViolations, isTerminalStatus } from './state-invariants.js';
 
 /**
  * @typedef {Object} PhaseDescriptor
@@ -104,6 +105,47 @@ export function unknownDeps(plan) {
 }
 
 /**
+ * Distinguish a complete graph from one that merely has no startable phase.
+ * `completedPhaseId` is considered terminal in-memory so phase-done can classify
+ * before writing the close. Graph errors and remaining active/paused/pending
+ * phases are blockers, never implicit plan completion.
+ */
+export function classifyPlanProgress(plan, completedPhaseId) {
+  if (!plan || !Array.isArray(plan.phases)) {
+    return {
+      kind: 'blocked',
+      eligible: [],
+      blockers: [{ code: 'invalid-phase-graph', message: 'plan.phases must be an array' }],
+    };
+  }
+  const graphViolations = collectPhaseGraphViolations(plan);
+  if (graphViolations.length > 0) {
+    return { kind: 'blocked', eligible: [], blockers: graphViolations };
+  }
+  const consideredTerminal = (phase) => (
+    phase?.id === completedPhaseId || isTerminalStatus(phase?.status)
+  );
+  if (plan.phases.every(consideredTerminal)) {
+    return { kind: 'complete', eligible: [], blockers: [] };
+  }
+  const eligible = nextEligiblePhases(plan, completedPhaseId);
+  if (eligible.length > 0) {
+    return { kind: 'ready', eligible, blockers: [] };
+  }
+  return {
+    kind: 'blocked',
+    eligible: [],
+    blockers: plan.phases
+      .filter((phase) => !consideredTerminal(phase))
+      .map((phase) => ({
+        code: 'open-phase',
+        phaseId: phase?.id ?? '?',
+        message: `phase ${phase?.id ?? '?'} remains ${phase?.status ?? 'unknown'} and no successor is startable`,
+      })),
+  };
+}
+
+/**
  * Decides how the plan should advance after the named phase has all its exit
  * gates met. Returns a structured proposal the skill body can present to the
  * user verbatim.
@@ -120,13 +162,18 @@ export function unknownDeps(plan) {
  * @param {string} completedPhaseId
  * @returns {
  *   | { kind: 'plan-done', eligible: [] }
+ *   | { kind: 'blocked', eligible: [], blockers: object[] }
  *   | { kind: 'parallel-choice', eligible: string[] }
  *   | { kind: 'single', next: string, alternatives: string[] }
  * }
  */
 export function proposeAdvance(plan, completedPhaseId) {
-  const eligible = nextEligiblePhases(plan, completedPhaseId);
-  if (eligible.length === 0) return { kind: 'plan-done', eligible: [] };
+  const progress = classifyPlanProgress(plan, completedPhaseId);
+  if (progress.kind === 'complete') return { kind: 'plan-done', eligible: [] };
+  if (progress.kind === 'blocked') {
+    return { kind: 'blocked', eligible: [], blockers: progress.blockers };
+  }
+  const eligible = progress.eligible;
   if (plan && plan.parallelismAllowed === true) {
     return { kind: 'parallel-choice', eligible };
   }

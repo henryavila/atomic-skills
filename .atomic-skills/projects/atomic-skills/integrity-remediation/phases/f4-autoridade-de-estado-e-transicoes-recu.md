@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T19:43:49Z
-nextAction: Run `done T-002` after adding DAG fixtures for complete, ready and blocked.
+lastUpdated: 2026-07-14T19:47:50Z
+nextAction: Run `done T-003` after adding phase-done preflight and bypass REDs.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
     release e qualquer push, PR ou publicação externa.
   doneWhen: Os oito tasks e F4-G1..G3 passam com fault injection, receipt F0
     atual, fechamento idempotente e ativação de F3 protegida contra bypass.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 4
+weightDone: 6
 weightTotal: 24
 exitGates:
   - id: F4-G1
@@ -150,8 +150,9 @@ tasks:
     description: "Validar DAG, self dependency e ciclos e retornar plan completion
       somente quando todas as fases forem terminais. verified_by:
       `src/transition.js:67-79,90-103,127-134`."
-    status: pending
-    lastUpdated: 2026-07-14T19:36:31Z
+    status: done
+    lastUpdated: 2026-07-14T19:47:50Z
+    closedAt: 2026-07-14T19:47:50Z
     scopeBoundary:
       - não converter zero eligible em plan-done e não avançar com dependência
         desconhecida, cíclica ou contraditória
@@ -166,6 +167,13 @@ tasks:
       command: node --test tests/transition.test.js tests/transition-integrity.test.js
         tests/validate-state.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-14T19:47:50Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test: 109 tests, 3 suites, 109 pass, 0 fail;
+        non-numeric DAG advanced F0→F4→F3→F1→F2→F5→F6"
     outputs:
       - kind: file
         path: src/transition.js
@@ -462,6 +470,10 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   conflitantes, IDs duplicados, estado materializado sem initiative e
   terminalidade aberta. A migração só preenche `parentPlan`/`phaseId` quando há
   uma correspondência única e cria backup byte-idêntico antes de `--apply`.
+- **2026-07-14 — T-002:** `proposeAdvance` agora retorna `plan-done` somente
+  quando todas as fases são terminais. Zero elegíveis com fase active, paused,
+  dependência desconhecida/self/cíclica retorna `blocked` com códigos estáveis;
+  a ordem vem exclusivamente de `dependsOn`, nunca do ID numérico.
 
 ## Links
 
