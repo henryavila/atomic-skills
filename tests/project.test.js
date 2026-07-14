@@ -1,6 +1,15 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -99,6 +108,70 @@ describe('project skill (unified router + lazy assets)', () => {
   }
   function readAsset(name) {
     return readFileSync(join(tempDir, ASSET(name)), 'utf8');
+  }
+
+  function readAideckStatusScript() {
+    const content = readAsset('project-view.md');
+    const section = content.indexOf('1. **Ensure aiDeck is running.**');
+    const start = content.indexOf('```bash', section) + '```bash'.length;
+    const end = content.indexOf('```', start);
+    assert.ok(section >= 0 && start >= '```bash'.length && end > start, 'ensure-aiDeck script block missing');
+    return content.slice(start, end);
+  }
+
+  function runAideckStatusScript({
+    repoName,
+    projectIds = [],
+    registeredProjectId,
+    emptyRegistration = false,
+  }) {
+    const repo = join(tempDir, repoName);
+    const home = join(tempDir, 'home');
+    const fakeBin = join(tempDir, 'bin');
+    const curlLog = join(tempDir, 'curl.log');
+    for (const projectId of projectIds) {
+      const planDir = join(repo, '.atomic-skills', 'projects', projectId, 'demo');
+      mkdirSync(planDir, { recursive: true });
+      writeFileSync(join(planDir, 'plan.md'), '---\nslug: demo\n---\n');
+    }
+    mkdirSync(join(home, '.aideck'), { recursive: true });
+    mkdirSync(join(home, '.atomic-skills', 'bin'), { recursive: true });
+    mkdirSync(fakeBin, { recursive: true });
+    mkdirSync(repo, { recursive: true });
+    writeFileSync(join(home, '.aideck', 'env'), "export AIDECK_URL='http://127.0.0.1:7777'\n");
+    writeFileSync(join(home, '.atomic-skills', 'bin', 'aideck.mjs'), '');
+    writeFileSync(join(fakeBin, 'npm'), '#!/bin/sh\nprintf "%s\\n" "$FAKE_NPM_ROOT"\n');
+    writeFileSync(join(fakeBin, 'curl'), `#!/bin/sh
+printf '%s\\n' "$*" >> "$CURL_LOG"
+case "$*" in
+  *'/api/health'*) printf '%s\\n' '{"service":"aideck"}' ;;
+  *'/api/projects/register'*)
+    if [ "$EMPTY_REGISTRATION" = 1 ]; then
+      printf '%s\\n' '{"project":{}}'
+    else
+      printf '{"project":{"projectId":"%s"}}\\n' "$REGISTERED_PROJECT_ID"
+    fi
+    ;;
+  *'/data/plans'*) printf '%s\\n' '{"records":[]}' ;;
+esac
+`);
+    chmodSync(join(fakeBin, 'npm'), 0o755);
+    chmodSync(join(fakeBin, 'curl'), 0o755);
+
+    const stdout = execFileSync('bash', ['-c', readAideckStatusScript()], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        HOME: home,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        CURL_LOG: curlLog,
+        EMPTY_REGISTRATION: emptyRegistration ? '1' : '0',
+        FAKE_NPM_ROOT: join(tempDir, 'missing-global-root'),
+        REGISTERED_PROJECT_ID: registeredProjectId,
+      },
+      encoding: 'utf8',
+    });
+    return { calls: readFileSync(curlLog, 'utf8'), stdout };
   }
 
   // ─── Router: rendering + structure ──────────────────────────────────────
@@ -315,6 +388,75 @@ describe('project skill (unified router + lazy assets)', () => {
     // Separation of produce-data vs deliver-to-aiDeck is documented.
     assert.match(content, /[Pp]roduce the data/);
     assert.match(content, /[Dd]eliver to aiDeck/);
+  });
+
+  it('project-view registers and probes the sole nested project id when the worktree basename differs', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: 'atomic-skills',
+    });
+    assert.match(calls, /"projectId":"atomic-skills"/, 'registration must request the sole nested project id');
+    assert.match(calls, /\/projects\/atomic-skills\/data\/plans/, 'data probe must use the registered project id');
+    assert.doesNotMatch(calls, /"projectId":"plan-dependencies"/);
+  });
+
+  it('project-view falls back to the normalized worktree id when no nested project exists', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: '123-Worktree_Zero',
+      registeredProjectId: 'worktree-zero',
+    });
+    assert.match(calls, /"projectId":"worktree-zero"/);
+    assert.match(calls, /\/projects\/worktree-zero\/data\/plans/);
+  });
+
+  it('project-view keeps one root registration when multiple nested projects exist', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'Shared_Worktree',
+      projectIds: ['alpha', 'beta'],
+      registeredProjectId: 'shared-worktree',
+    });
+    assert.match(calls, /"projectId":"shared-worktree"/);
+    assert.match(calls, /\/projects\/shared-worktree\/data\/plans/);
+    assert.doesNotMatch(calls, /"projectId":"(?:alpha|beta)"/);
+  });
+
+  it('project-view probes the collision-resolved id returned by registration', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: 'atomic-skills-2',
+    });
+    assert.match(calls, /"projectId":"atomic-skills"/, 'request must use the canonical candidate');
+    assert.match(calls, /\/projects\/atomic-skills-2\/data\/plans/, 'probe must use the server response');
+  });
+
+  it('project-view retains the canonical candidate when registration omits a project id', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: 'unused',
+      emptyRegistration: true,
+    });
+    assert.match(calls, /"projectId":"atomic-skills"/);
+    assert.match(calls, /\/projects\/atomic-skills\/data\/plans/);
+  });
+
+  it('project-view rejects an invalid project id returned by registration', () => {
+    install();
+    const { calls } = runAideckStatusScript({
+      repoName: 'plan-dependencies',
+      projectIds: ['atomic-skills'],
+      registeredProjectId: '../outside',
+    });
+    assert.match(calls, /"projectId":"atomic-skills"/);
+    assert.match(calls, /\/projects\/atomic-skills\/data\/plans/);
+    assert.doesNotMatch(calls, /\/projects\/\.\.\/outside/);
   });
 
   it('project-view gates the dashboard open on a legacy flat tree (empty-dashboard guard)', () => {

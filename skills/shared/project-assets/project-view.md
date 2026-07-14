@@ -16,10 +16,12 @@ The aiDeck dashboard is the only external surface this skill talks to, and aiDec
 # aiDeck reads the repo's nested .atomic-skills/ tree IN PLACE via the consumer's
 # root:'project' dataSources (the emitted .aideck/state/*.json) — no copy.
 #
-# Each consuming repo is a separate PROJECT, registered at runtime via
-# POST /api/projects/register (projectId = normalized repo basename = $pid). The
-# dashboard scopes by the :projectId route param, so one consumer serves N repos.
-# AIDECK_CONSUMER is therefore FIXED ("atomic-skills"); $pid scopes the data.
+# Each consuming repo root is a separate PROJECT, registered at runtime via
+# POST /api/projects/register. When the nested tree contains exactly one project,
+# its folder id is canonical; zero/multiple projects use the normalized repo
+# basename because aiDeck registers one root only. The returned registration id
+# is authoritative for probes and links. AIDECK_CONSUMER stays FIXED
+# ("atomic-skills"); $pid scopes the data.
 AIDECK_CONSUMER="atomic-skills"
 AIDECK_BIN="${AIDECK_BIN:-$HOME/.atomic-skills/bin/aideck.mjs}"
 DASHBOARD_DIR="$HOME/.atomic-skills/dashboard"
@@ -66,9 +68,29 @@ Steps:
 1. **Ensure aiDeck is running.** Run this script with {{BASH_TOOL}} — it is self-contained (no imports) and works from any repo because it uses the binaries installed to `~/.atomic-skills/` by `atomic-skills install`. The `AIDECK_BIN` / `DASHBOARD_DIR` values come from the AIDECK CONTRACT block above:
 
    ```bash
-   # projectId = normalized repo basename. The consumer is FIXED (atomic-skills);
-   # $pid is the PROJECT id the data + dashboard are scoped by (AIDECK CONTRACT).
-   pid=$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+   # A sole nested project folder is canonical. With zero/multiple projects,
+   # fall back to aiDeck's normalized repo-root id. Registration can still return
+   # an existing collision-resolved id; that response replaces this candidate.
+   pid=$(node -e '
+     const { existsSync, readdirSync, statSync } = require("node:fs");
+     const { basename, join } = require("node:path");
+     const root = process.argv[1];
+     const projectsDir = join(root, ".atomic-skills", "projects");
+     let ids = [];
+     try {
+       ids = readdirSync(projectsDir).filter((projectId) => {
+         const projectDir = join(projectsDir, projectId);
+         if (!statSync(projectDir).isDirectory()) return false;
+         return readdirSync(projectDir).some((slug) => {
+           const planDir = join(projectDir, slug);
+           return statSync(planDir).isDirectory() && existsSync(join(planDir, "plan.md"));
+         });
+       }).sort();
+     } catch (_) {}
+     let id = ids.length === 1 ? ids[0] : basename(root)
+       .toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^[^a-z]+/, "").slice(0, 64);
+     process.stdout.write(id || "project");
+   ' "$PWD" 2>/dev/null)
 
    # Provision (idempotent) the single ~/.aideck/consumers/atomic-skills/ consumer
    # from the shipped template. Resolve the provisioner the same way as
@@ -111,9 +133,17 @@ Steps:
              # AIDECK_URL stays empty → step 2 spawns the current build.
            else
              # Register this project
-             curl -sf -X POST "$url/api/projects/register" \
+             registration=$(curl -sf -X POST "$url/api/projects/register" \
                -H 'Content-Type: application/json' \
-               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
+               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" 2>/dev/null)
+             registered_pid=$(printf '%s' "$registration" | node -e '
+               let s=""; process.stdin.on("data", d => s += d).on("end", () => {
+                 try { const id = JSON.parse(s)?.project?.projectId;
+                   if (typeof id === "string" && /^[a-z][a-z0-9-]{0,63}$/.test(id)) process.stdout.write(id);
+                 } catch (_) {}
+               });
+             ' 2>/dev/null)
+             [ -n "$registered_pid" ] && pid="$registered_pid"
              AIDECK_URL="$url"
            fi
          fi
@@ -132,9 +162,17 @@ Steps:
          if [ -f "$envf" ]; then
            url=$(grep -o "http://[^ '\"]*" "$envf" 2>/dev/null | head -1)
            if [ -n "$url" ] && curl -sf "$url/api/health" >/dev/null 2>&1; then
-             curl -sf -X POST "$url/api/projects/register" \
+             registration=$(curl -sf -X POST "$url/api/projects/register" \
                -H 'Content-Type: application/json' \
-               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" >/dev/null 2>&1
+               -d "{\"rootDir\":\"$PWD\",\"projectId\":\"$pid\"}" 2>/dev/null)
+             registered_pid=$(printf '%s' "$registration" | node -e '
+               let s=""; process.stdin.on("data", d => s += d).on("end", () => {
+                 try { const id = JSON.parse(s)?.project?.projectId;
+                   if (typeof id === "string" && /^[a-z][a-z0-9-]{0,63}$/.test(id)) process.stdout.write(id);
+                 } catch (_) {}
+               });
+             ' 2>/dev/null)
+             [ -n "$registered_pid" ] && pid="$registered_pid"
              AIDECK_URL="$url"
              break 2
            fi
