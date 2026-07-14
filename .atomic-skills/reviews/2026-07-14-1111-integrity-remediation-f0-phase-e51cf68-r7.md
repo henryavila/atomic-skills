@@ -18,7 +18,7 @@ schema_version: "1.0"
 ## Capture manifest
 
 - Ref: `b2a845a5d7e832c88622cb21c89aff6ee33927e1..e51cf68bce0b1b4f14a1f45466c09db97c7d638c`
-- Captured diff: 5,036,055 bytes / 110,943 lines / 71 files
+- Captured diff: 5,036,055 bytes / 110,943 lines / 72 files
 - SHA-256: `26128cb1c3500db33d6a655f69c4e5ceacbd9f131671a5178307083989ca3394`
 - Patch id: `fb54b4712acda91dde959398cf0e10e53d73f34f`
 - Mode: `codex`; model override: `codex-auto-review`; reasoning: `high`; sandbox: `read-only`
@@ -325,7 +325,7 @@ CAPTURED_DIFF. Do not run `git diff` or substitute another range. Archived
 review files contain duplicated snippets; inspect them as audit artifacts and
 inspect every current executable hunk in the frozen diff exactly once.
 
-### Modified files (71)
+### Modified files (72)
 
 - `.ai/memory/MEMORY.md`
 - `.ai/memory/padroes-testing.md`
@@ -604,7 +604,7 @@ CAPTURED_DIFF. Do not run `git diff` or substitute another range. Archived
 review files contain duplicated snippets; inspect them as audit artifacts and
 inspect every current executable hunk in the frozen diff exactly once.
 
-### Modified files (71)
+### Modified files (72)
 
 - `.ai/memory/MEMORY.md`
 - `.ai/memory/padroes-testing.md`
