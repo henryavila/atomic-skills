@@ -38,11 +38,36 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["phaseId", "prerequisitePhaseId", "receiptPath"],
+            "required": ["phaseId", "prerequisitePhaseId", "receiptPath", "receiptIdentity", "receiptSources"],
             "properties": {
               "phaseId": { "type": "string", "minLength": 1 },
               "prerequisitePhaseId": { "type": "string", "minLength": 1 },
-              "receiptPath": { "type": "string", "minLength": 1 }
+              "receiptPath": { "type": "string", "minLength": 1 },
+              "receiptIdentity": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["projectId", "planSlug", "phaseId"],
+                "properties": {
+                  "projectId": { "type": "string", "minLength": 1 },
+                  "planSlug": { "type": "string", "minLength": 1 },
+                  "phaseId": { "type": "string", "minLength": 1 }
+                }
+              },
+              "receiptSources": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["planPath", "initiativePath", "creationGatePath", "completionLogPath", "sidecarPaths"],
+                "properties": {
+                  "planPath": { "type": "string", "minLength": 1 },
+                  "initiativePath": { "type": "string", "minLength": 1 },
+                  "creationGatePath": { "type": "string", "minLength": 1 },
+                  "completionLogPath": { "type": "string", "minLength": 1 },
+                  "sidecarPaths": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
             }
           }
         }

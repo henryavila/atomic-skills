@@ -10,7 +10,7 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T20:32:57Z
+lastUpdated: 2026-07-14T23:18:56Z
 nextAction: Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
 parentPlan: integrity-remediation
 phaseId: F4
@@ -564,20 +564,30 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   avança seu próprio `lastUpdated`; criterion, cujo schema estrito não aceita
   esse campo, avança somente o `lastUpdated` da initiative que o detector já
   usa como anchor, evitando ressinalização sem inventar estado.
+- **2026-07-14 — review Codex F4 r1:** os oito majors foram aceitos e corrigidos
+  na própria fase. `phase-done` ganhou marker recuperável e commit obrigatório;
+  o ledger global ganhou exclusão multiprocesso e tombstone append-only;
+  preflight e estado terminal hardened agora exigem identidade e evidence
+  completas; e a barreira de F3 vincula receipt F0, review/gates históricos,
+  evento canônico de fechamento e `closeSha`. Recovery relê a autorização e
+  faz rollback quando ela fica stale. Backups determinísticos rejeitam symlink,
+  e schema/writer compartilham o contrato estrito do tombstone. Nenhum finding
+  foi deferido; a aprovação exige um novo review Codex no HEAD corrigido.
 
 ## Session handoff
 
-- **Narrative:** F4 concluiu T-001..T-008. Todas as mutações críticas agora têm
-  autoridade única, invariantes estritas, recuperação/idempotência e testes de
-  bypass; falta executar os três gates e a revisão Codex da fase.
-- **Decision log:** acknowledge de criterion usa o anchor da initiative e não
-  altera status/evidence; detection, disposition e closure permanecem três
-  responsabilidades separadas.
+- **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1
+  com testes de concorrência, recovery, identidade, terminalidade e barreira de
+  sucessor. A suíte completa está verde; faltam os gates finais no commit
+  corrigido e o novo review Codex da fase.
+- **Decision log:** nenhum finding r1 foi deferido. Duplicatas históricas são
+  preservadas fisicamente e neutralizadas por tombstone auditável; recovery só
+  avança enquanto receipt, review, gates, evento e close SHA continuam ligados.
 - **Single nextAction:** Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
-- **Verbatim state:** exact verifier T-008 → 177 pass, 0 fail;
-  `node scripts/validate-state.js .atomic-skills` → 167 files, 26 plans.
-- **Uncommitted changes:** T-008 schema contract, detector clarification,
-  reconcile docs, tests, state and completion event are ready for checkpoint.
+- **Verbatim state:** review r1 → 0B/0C/8M; remediation direcionada → 93 pass,
+  0 fail; full repository suite → exit 0.
+- **Uncommitted changes:** remediação r1, schemas regenerados, tests, receipt e
+  decisões F4 estão prontos para checkpoint e rereview.
 
 ## Links
 

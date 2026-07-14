@@ -253,6 +253,7 @@
     },
     "exitCriterion": {
       "type": "object",
+      "description": "Strict gate shape. It deliberately has no lastUpdated field; reconcile acknowledges a still-open criterion by advancing the containing initiative's lastUpdated detection anchor.",
       "additionalProperties": false,
       "required": [
         "id",
@@ -313,6 +314,11 @@
             },
             "verifiedAt": {
               "$ref": "#/definitions/isoTimestamp"
+            },
+            "verifiedCommit": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+              "description": "Full git object id of the exact HEAD against which this evidence was produced. Optional for legacy records; required at hardened phase-close boundaries."
             },
             "passed": {
               "type": "boolean",
@@ -894,6 +900,107 @@
         },
         "lastUpdated": {
           "$ref": "#/definitions/isoTimestamp"
+        },
+        "stateIntegrityHardening": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enforcedFrom"
+          ],
+          "description": "Forward-only opt-in for strict project/plan/phase identity, terminality and uniqueness cross-validation. Legacy plans remain readable until migrated and explicitly hardened.",
+          "properties": {
+            "enforcedFrom": {
+              "$ref": "#/definitions/isoTimestamp"
+            },
+            "successorBarriers": {
+              "type": "array",
+              "description": "Descriptor-only activations that must revalidate a historical receipt and a prerequisite phase close commit through scripts/materialize-state.js.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "phaseId",
+                  "prerequisitePhaseId",
+                  "receiptPath",
+                  "receiptIdentity",
+                  "receiptSources"
+                ],
+                "properties": {
+                  "phaseId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "prerequisitePhaseId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "receiptPath": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "receiptIdentity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "projectId",
+                      "planSlug",
+                      "phaseId"
+                    ],
+                    "properties": {
+                      "projectId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "planSlug": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "phaseId": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "receiptSources": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "planPath",
+                      "initiativePath",
+                      "creationGatePath",
+                      "completionLogPath",
+                      "sidecarPaths"
+                    ],
+                    "properties": {
+                      "planPath": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "initiativePath": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "creationGatePath": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "completionLogPath": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "sidecarPaths": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
         "deadline": {
           "$ref": "#/definitions/isoTimestamp"

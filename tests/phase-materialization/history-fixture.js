@@ -3,7 +3,15 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+
+const BUSINESS_INTENT = {
+  value: 'Protect the successor transition.',
+  workflow: 'Materialize F3 after the guarded F4 close.',
+  rules: 'Receipt and close authorization must remain current.',
+  outOfScope: 'No installer changes.',
+  doneWhen: 'F3 is published as one validated pair.',
+};
 
 export function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -49,6 +57,9 @@ export function createHistoryFixture() {
     metAt: '2026-07-14T20:00:00Z',
     verifier: { kind: 'shell', command: 'true', expectExitCode: 0 }, evidence,
   };
+  const f4Criterion = {
+    ...structuredClone(criterion), id: 'F4-G1', description: 'authority is complete',
+  };
   const plan = {
     schemaVersion: '0.2', slug: 'demo', title: 'Demo', version: '1', status: 'active',
     started: '2026-07-14T19:00:00Z', lastUpdated: '2026-07-14T20:00:00Z',
@@ -65,7 +76,8 @@ export function createHistoryFixture() {
       },
       {
         id: 'F4', slug: 'f4-demo', title: 'F4', goal: 'authority', dependsOn: ['F0'],
-        subPhaseCount: 0, status: 'done', exitGate: { summary: 'none', criteria: [] },
+        subPhaseCount: 0, status: 'done',
+        exitGate: { summary: 'one', criteria: [f4Criterion] },
         reviewGate: {
           status: 'passed', at: reviewedSha, mode: 'local',
           reviewFile: '.atomic-skills/reviews/demo-f4.md',
@@ -73,7 +85,9 @@ export function createHistoryFixture() {
       },
       {
         id: 'F3', slug: 'f3-demo', title: 'F3', goal: 'successor', dependsOn: ['F4'],
-        subPhaseCount: 1, status: 'pending', exitGate: { summary: 'none', criteria: [] },
+        summary: 'Publish the guarded successor.', subPhaseCount: 1, status: 'pending',
+        businessIntent: structuredClone(BUSINESS_INTENT),
+        exitGate: { summary: 'none', criteria: [] },
       },
     ],
   };
@@ -112,14 +126,19 @@ export function createHistoryFixture() {
   git(root, ['commit', '-qm', 'close F0 and F4']);
   const closeSha = git(root, ['rev-parse', 'HEAD']);
   event.closeSha = closeSha;
-  writeFileSync(completionLogPath, `${JSON.stringify(event)}\n`);
+  const f4Event = {
+    ts: '2026-07-14T20:00:01Z', event: 'phase-done', projectId: 'proj',
+    planSlug: 'demo', phaseId: 'F4', taskId: null, weight: 1, weightBasis: 'count',
+    idempotencyKey: 'phase-done:proj/demo/F4@2026-07-14T20%3A00%3A01Z', closeSha,
+  };
+  writeFileSync(completionLogPath, `${JSON.stringify(event)}\n${JSON.stringify(f4Event)}\n`);
   git(root, ['add', completionLogRel]);
   git(root, ['commit', '-qm', 'record close identity']);
   const reconciledCommit = git(root, ['rev-parse', 'HEAD']);
   return {
     root, planRel, initiativeRel, creationGateRel, completionLogRel, receiptRel, sidecarRel,
     planPath, initiativePath, creationGatePath, completionLogPath, receiptPath,
-    reviewedSha, closeSha, reconciledCommit, event,
+    reviewedSha, closeSha, reconciledCommit, event, f4Event,
     options: {
       root, projectId: 'proj', planSlug: 'demo', phaseId: 'F0', planPath: planRel,
       initiativePath: initiativeRel, creationGatePath: creationGateRel,
@@ -127,4 +146,28 @@ export function createHistoryFixture() {
       sidecarPaths: [sidecarRel],
     },
   };
+}
+
+export function buildF3Pair(state) {
+  const raw = readFileSync(state.planPath, 'utf8');
+  const end = raw.indexOf('\n---', 4);
+  const plan = parseYaml(raw.slice(4, end));
+  plan.currentPhase = 'F3';
+  plan.lastUpdated = '2026-07-14T20:01:00Z';
+  plan.phases.find((phase) => phase.id === 'F3').status = 'active';
+  const planContent = markdown(plan, '# Plan');
+  const initiativeContent = markdown({
+    schemaVersion: '0.2', slug: 'f3-demo', title: 'F3', goal: 'successor',
+    summary: 'Publish the guarded successor.', status: 'active', branch: 'plan/demo',
+    started: '2026-07-14T20:01:00Z', lastUpdated: '2026-07-14T20:01:00Z',
+    nextAction: 'Run `done T-001` after publishing the guarded successor.',
+    parentPlan: 'demo', phaseId: 'F3', businessIntent: structuredClone(BUSINESS_INTENT),
+    tasks: [{
+      id: 'T-001', title: 'Publish successor', summary: 'Publish the successor pair.',
+      status: 'pending', lastUpdated: '2026-07-14T20:01:00Z', weight: 1,
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+    }],
+    exitGates: [], stack: [], parked: [], emerged: [],
+  }, '# Initiative');
+  return { planContent, initiativeContent, expectedPlanHash: sha256(raw) };
 }

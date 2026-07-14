@@ -123,6 +123,38 @@ test('terminal phase rejects a pending gate and any non-done task', () => {
   assert.ok(out.some((v) => v.code === 'terminal-open-task'));
 });
 
+test('hardened terminal phase rejects deferred gates and met gates without passing evidence', () => {
+  for (const gate of [
+    { id: 'G1', status: 'deferred', evidence: { passed: true } },
+    { id: 'G1', status: 'met' },
+    { id: 'G1', status: 'met', evidence: { passed: false } },
+  ]) {
+    const out = violations(
+      plan({
+        phases: [{ id: 'F0', slug: 'demo-f0', status: 'done', exitGate: { criteria: [gate] } }],
+      }),
+      initiative({
+        status: 'done', tasks: [{ id: 'T-1', status: 'done' }], exitGates: [gate],
+      }),
+    );
+    assert.ok(out.some((v) => v.code === 'terminal-open-plan-gate'), JSON.stringify(gate));
+    assert.ok(out.some((v) => v.code === 'terminal-open-initiative-gate'), JSON.stringify(gate));
+  }
+});
+
+test('legacy terminal phase retains deferred-gate compatibility outside hardening', () => {
+  const deferred = { id: 'G1', status: 'deferred' };
+  assert.deepEqual(violations(
+    plan({
+      stateIntegrityHardening: undefined,
+      phases: [{ id: 'F0', slug: 'demo-f0', status: 'done', exitGate: { criteria: [deferred] } }],
+    }),
+    initiative({
+      status: 'done', tasks: [{ id: 'T-1', status: 'done' }], exitGates: [deferred],
+    }),
+  ), []);
+});
+
 test('crossValidate exposes stable integrity codes without losing legacy detail', () => {
   const errors = crossValidate(
     new Map([['proj/demo', plan()]]),

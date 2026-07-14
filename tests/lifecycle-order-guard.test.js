@@ -16,6 +16,16 @@ const passedReview = (at = CURRENT_REVIEW_SHA) => ({
   status: 'passed', at, mode: 'local', reviewFile: REVIEW_FILE,
 });
 const reviewProvenance = { reviewCommitExists: true, reviewFileMatches: true };
+const phaseDoneIdentity = {
+  plan: {
+    slug: 'order-guards',
+    phases: [{ id: 'F4', slug: 'order-guards-f4', status: 'active' }],
+  },
+  phase: { id: 'F4', slug: 'order-guards-f4', status: 'active' },
+  initiative: {
+    parentPlan: 'order-guards', phaseId: 'F4', slug: 'order-guards-f4', status: 'active',
+  },
+};
 
 function deepFreeze(value) {
   if (value == null || typeof value !== 'object') return value;
@@ -149,6 +159,7 @@ test('allows depend resolve --archived when archived prerequisite is integrated'
 test('blocks phase-done while tasks are open and recommends the task close command', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [
       { id: 'T-001', status: 'done' },
       { id: 'T-002', status: 'pending' },
@@ -165,6 +176,7 @@ test('blocks phase-done while tasks are open and recommends the task close comma
 test('blocks phase-done while exit gates are open', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [{ id: 'G-1', status: 'pending' }],
     reviewGate: { status: 'passed', at: 'abc123' },
@@ -178,6 +190,7 @@ test('blocks phase-done while exit gates are open', () => {
 test('blocks phase-done until reviewGate is recorded', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     reviewGate: { status: 'pending' },
@@ -191,6 +204,7 @@ test('blocks phase-done until reviewGate is recorded', () => {
 test('does not let requireReview:false bypass the auditable skipped review gate', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     requireReview: false,
@@ -205,6 +219,7 @@ test('does not let requireReview:false bypass the auditable skipped review gate'
 test('fails closed when the caller omits the worktree state after review', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     reviewGate: passedReview(),
@@ -220,6 +235,7 @@ test('fails closed when the caller omits the worktree state after review', () =>
 test('fails closed when a passed review has no current HEAD to compare', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     reviewGate: passedReview(),
@@ -235,6 +251,7 @@ test('fails closed when a passed review has no current HEAD to compare', () => {
 test('blocks phase-done when the recorded review SHA is stale', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     reviewGate: passedReview(STALE_REVIEW_SHA),
@@ -252,6 +269,7 @@ test('blocks phase-done when the recorded review SHA is stale', () => {
 test('blocks phase-done when the worktree is dirty after a matching review', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     reviewGate: passedReview(),
@@ -269,6 +287,7 @@ test('blocks phase-done when the worktree is dirty after a matching review', () 
 test('allows phase-done when the review SHA matches HEAD and the worktree is clean', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [metGate()],
     reviewGate: passedReview(),
@@ -284,6 +303,7 @@ test('allows phase-done when the review SHA matches HEAD and the worktree is cle
 test('blocks phase-done when any exit gate is deferred, even with a reason', () => {
   const result = classifyLifecycleOrder({
     command: 'phase-done',
+    ...phaseDoneIdentity,
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [
       metGate(),

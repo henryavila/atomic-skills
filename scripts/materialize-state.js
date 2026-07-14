@@ -23,6 +23,8 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import Ajv from 'ajv/dist/2020.js';
 import { stringify as stringifyYaml } from 'yaml';
+import { withCompletionLedgerLock } from './append-completion.js';
+import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
 import { parseFrontmatter, validateFile } from './validate-state.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -565,6 +567,20 @@ function readMarker(markerPath, root, planRel, initiativeRel) {
   if (marker.hashes.initiative.before !== null && !marker.paths.beforeInitiative) {
     throw new Error('pending materialization marker lacks paths.beforeInitiative');
   }
+  if (marker.authorization != null) {
+    const authorization = marker.authorization;
+    for (const field of ['targetPhaseId', 'prerequisitePhaseId', 'receiptPath', 'closeSha']) {
+      if (typeof authorization[field] !== 'string' || authorization[field].length === 0) {
+        throw new Error(`pending materialization marker has invalid authorization.${field}`);
+      }
+    }
+    if (!fullCommitSha(authorization.closeSha)
+        || !/^[a-f0-9]{64}$/.test(authorization.receiptDigest ?? '')
+        || typeof authorization.receiptIdentity !== 'object'
+        || typeof authorization.receiptSources !== 'object') {
+      throw new Error('pending materialization marker has invalid successor authorization');
+    }
+  }
 
   const expected = transactionPaths(planRel, initiativeRel, marker.txId);
   const expectedPaths = {
@@ -599,7 +615,52 @@ function injectFault(point, selected) {
   }
 }
 
-function recover(root, markerPath, marker, faultAt) {
+function revalidateMarkerAuthorization(root, planRel, marker) {
+  if (!marker.authorization) {
+    try {
+      const planPath = existsSync(resolve(root, marker.paths.stagedPlan))
+        ? resolve(root, marker.paths.stagedPlan)
+        : resolve(root, planRel);
+      const initiativePath = existsSync(resolve(root, marker.paths.stagedInitiative))
+        ? resolve(root, marker.paths.stagedInitiative)
+        : resolve(root, marker.paths.initiative);
+      const plan = readMarkdown(planPath, 'marker plan').frontmatter;
+      const initiative = readMarkdown(initiativePath, 'marker initiative').frontmatter;
+      const barrier = plan.stateIntegrityHardening?.successorBarriers
+        ?.find((candidate) => candidate.phaseId === initiative.phaseId);
+      if (barrier) {
+        return { valid: false, error: 'pending successor marker lacks persisted authorization' };
+      }
+      return { valid: true };
+    } catch (error) {
+      return { valid: false, error: `cannot classify pending marker authorization: ${error.message}` };
+    }
+  }
+  try {
+    const authorization = marker.authorization;
+    const current = assertSuccessorMaterializationAllowed({
+      root,
+      planPath: planRel,
+      targetPhaseId: authorization.targetPhaseId,
+      prerequisitePhaseId: authorization.prerequisitePhaseId,
+      receiptPath: authorization.receiptPath,
+      receiptIdentity: authorization.receiptIdentity,
+      receiptSources: authorization.receiptSources,
+      closeSha: authorization.closeSha,
+    });
+    if (current.receiptDigest !== authorization.receiptDigest) {
+      throw new Error('receipt digest changed after transaction preparation');
+    }
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
+}
+
+function recover(root, markerPath, marker, faultAt, {
+  forceRollback = false,
+  authorizationError,
+} = {}) {
   const absolute = Object.fromEntries(
     Object.entries(marker.paths).map(([key, value]) => [key, resolve(root, value)]),
   );
@@ -614,7 +675,9 @@ function recover(root, markerPath, marker, faultAt) {
     }
   }
 
-  if (live.plan === marker.hashes.plan.after && live.initiative === marker.hashes.initiative.after) {
+  if (!forceRollback
+      && live.plan === marker.hashes.plan.after
+      && live.initiative === marker.hashes.initiative.after) {
     injectFault('before-complete-cleanup', faultAt);
     if (hashFile(absolute.plan) !== marker.hashes.plan.after
         || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
@@ -630,7 +693,7 @@ function recover(root, markerPath, marker, faultAt) {
   const stagedInitiativeReady = !initiativeNeedsPublish
     || hashFile(absolute.stagedInitiative) === marker.hashes.initiative.after;
 
-  if (stagedPlanReady && stagedInitiativeReady) {
+  if (!forceRollback && stagedPlanReady && stagedInitiativeReady) {
     if (initiativeNeedsPublish) {
       injectFault('before-initiative-rename', faultAt);
       if (hashFile(absolute.initiative) !== marker.hashes.initiative.before) {
@@ -689,7 +752,12 @@ function recover(root, markerPath, marker, faultAt) {
     throw new Error('rolled-back materialization pair changed before cleanup; retaining marker');
   }
   cleanup(root, markerPath, marker);
-  return { status: 'rolled-back', txId: marker.txId, recovered: true };
+  return {
+    status: 'rolled-back',
+    txId: marker.txId,
+    recovered: true,
+    ...(authorizationError ? { authorizationError } : {}),
+  };
 }
 
 /**
@@ -737,7 +805,11 @@ export function materializeState({
       if (marker.paths.plan !== planRel || marker.paths.initiative !== initiativeRel) {
         throw new Error('pending materialization marker targets different live paths; refusing writes');
       }
-      return recover(absoluteRoot, markerPath, marker, faultAt);
+      const authorization = revalidateMarkerAuthorization(absoluteRoot, planRel, marker);
+      return recover(absoluteRoot, markerPath, marker, faultAt, {
+        forceRollback: !authorization.valid,
+        authorizationError: authorization.error,
+      });
     }
 
     const candidatePlanContent = typeof planContent === 'string'
@@ -749,6 +821,7 @@ export function materializeState({
         ? readFileSync(resolve(absoluteRoot, initiativeCandidatePath), 'utf8')
         : undefined);
 
+    let successorAuthorization = null;
     if (typeof candidateInitiativeContent === 'string') {
       const livePlanDocument = readMarkdown(planLive, 'live plan');
       const candidateInitiative = parseFrontmatter(candidateInitiativeContent);
@@ -768,14 +841,25 @@ export function materializeState({
             `${phaseId} materialization requires prerequisiteCloseSha from the phase close commit guard`,
           );
         }
-        assertSuccessorMaterializationAllowed({
+        const authorization = assertSuccessorMaterializationAllowed({
           root: absoluteRoot,
           planPath: planRel,
           targetPhaseId: phaseId,
           prerequisitePhaseId: barrier.prerequisitePhaseId,
           receiptPath: barrier.receiptPath,
+          receiptIdentity: barrier.receiptIdentity,
+          receiptSources: barrier.receiptSources,
           closeSha: prerequisiteCloseSha,
         });
+        successorAuthorization = {
+          targetPhaseId: phaseId,
+          prerequisitePhaseId: barrier.prerequisitePhaseId,
+          receiptPath: barrier.receiptPath,
+          receiptIdentity: structuredClone(barrier.receiptIdentity),
+          receiptSources: structuredClone(barrier.receiptSources),
+          closeSha: prerequisiteCloseSha,
+          receiptDigest: authorization.receiptDigest,
+        };
       }
     }
 
@@ -844,6 +928,7 @@ export function materializeState({
           plan: { before: expectedPlanHash, after: hashBytes(candidatePlanContent) },
           initiative: { before: null, after: hashBytes(candidateInitiativeContent) },
         },
+        ...(successorAuthorization ? { authorization: successorAuthorization } : {}),
       };
       durableWrite(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'wx');
       return recover(absoluteRoot, markerPath, marker, faultAt);
@@ -945,10 +1030,44 @@ function historyEventIdentity(event) {
   return `${event.event ?? '<unknown>'}:${event.taskId ?? '<phase>'}`;
 }
 
+function completionDigest(event) {
+  return digestValue(event);
+}
+
+function logicalCompletionDigest(event) {
+  const comparable = structuredClone(event);
+  delete comparable.ts;
+  return digestValue(comparable);
+}
+
 function eventReceiptId(event) {
   return typeof event.idempotencyKey === 'string' && event.idempotencyKey !== ''
     ? event.idempotencyKey
     : historyEventIdentity(event);
+}
+
+function canonicalPhaseDoneCloseEvent(event, {
+  projectId,
+  planSlug,
+  phaseId,
+  closeSha,
+}) {
+  if (event?.event !== 'phase-done'
+      || event.projectId !== projectId
+      || event.planSlug !== planSlug
+      || event.phaseId !== phaseId
+      || event.taskId !== null
+      || event.closeSha !== closeSha) return false;
+  try {
+    return event.idempotencyKey === buildPhaseDoneIdempotencyKey({
+      projectId: event.projectId,
+      planSlug: event.planSlug,
+      phaseId: event.phaseId,
+      closedAt: event.ts,
+    });
+  } catch {
+    return false;
+  }
 }
 
 function projectionDigests(projection) {
@@ -1116,8 +1235,12 @@ function loadHistoryProjection({
   ));
   if (matchingRecords.length === 0) problems.push(`${phaseId} has no completion events`);
   const recordsToDrop = new Set();
+  const reconciliationRecords = matchingRecords.filter(({ value }) => (
+    value.event === 'reconcile'
+    && value.reconciliation?.action === 'ignore-duplicate-completion'
+  ));
   const byIdentity = new Map();
-  for (const record of matchingRecords) {
+  for (const record of matchingRecords.filter(({ value }) => value.event !== 'reconcile')) {
     const identity = historyEventIdentity(record.value);
     const group = byIdentity.get(identity) ?? [];
     group.push(record);
@@ -1127,8 +1250,26 @@ function loadHistoryProjection({
     if (records.length < 2) continue;
     const idempotencyKeys = new Set(records.map(({ value }) => value.idempotencyKey));
     const closeShas = new Set(records.map(({ value }) => value.closeSha));
+    const logicalPayloads = new Set(records.map(({ value }) => logicalCompletionDigest(value)));
+    const canonicalDigest = completionDigest(records[0].value);
+    const duplicateDigests = records.slice(1).map(({ value }) => completionDigest(value));
+    const matchingMarkers = reconciliationRecords.filter(({ value }) => (
+      value.closeSha === closeSha
+      && value.reconciliation.eventIdentity === identity
+      && value.reconciliation.canonicalDigest === canonicalDigest
+      && isDeepStrictEqual(value.reconciliation.duplicateDigests, duplicateDigests)
+    ));
+    if (matchingMarkers.length === 1) {
+      records.slice(1).forEach((record) => recordsToDrop.add(record.line));
+      continue;
+    }
+    if (matchingMarkers.length > 1) {
+      problems.push(`completion identity ${identity} has duplicate reconciliation markers`);
+      continue;
+    }
     const uniquelyRepairable = idempotencyKeys.size === 1
       && closeShas.size === 1
+      && logicalPayloads.size === 1
       && typeof records[0].value.idempotencyKey === 'string'
       && records[0].value.idempotencyKey !== ''
       && records[0].value.closeSha === closeSha;
@@ -1136,13 +1277,14 @@ function loadHistoryProjection({
       problems.push(`completion identity ${identity} is duplicated without one close identity and closeSha`);
       continue;
     }
-    records.slice(1).forEach((record) => recordsToDrop.add(record.line));
     repairs.push({
       kind: 'duplicate-completion',
       identity,
       idempotencyKey: records[0].value.idempotencyKey,
       closeSha,
       lines: records.map((record) => record.line),
+      canonicalDigest,
+      duplicateDigests,
     });
   }
   for (const record of matchingRecords) {
@@ -1233,9 +1375,17 @@ function atomicHistoryWrite(path, bytes) {
 }
 
 function backupBytes(path, bytes) {
-  const backup = `${path}.history-backup-${hashBytes(bytes).slice(0, 16)}.bak`;
+  const digest = hashBytes(bytes);
+  const backup = `${path}.history-backup-${digest.slice(0, 16)}.bak`;
   if (existsSync(backup)) {
-    if (hashFile(backup) !== hashBytes(bytes)) throw new Error(`history backup collision at ${backup}`);
+    const stat = lstatSync(backup);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`history backup is a symbolic link: ${backup}`);
+    }
+    if (!stat.isFile() || stat.nlink !== 1) {
+      throw new Error(`history backup is not a private regular file: ${backup}`);
+    }
+    if (hashFile(backup) !== digest) throw new Error(`history backup collision at ${backup}`);
     return backup;
   }
   durableWrite(backup, bytes, 'wx');
@@ -1284,7 +1434,7 @@ function buildHistoryReceipt(state, initial, classification) {
  * Classify and, only when correspondence is unique, repair the historical
  * descriptor/initiative projection written by the F0 bootstrap.
  */
-export function reconcileMaterializationHistory(options = {}) {
+function reconcileMaterializationHistoryLocked(options = {}, ledger) {
   const initial = loadHistoryProjection(options);
   const classification = initial.problems.length > 0
     ? 'ambiguous'
@@ -1335,13 +1485,33 @@ export function reconcileMaterializationHistory(options = {}) {
     );
     result.writes.push(initial.files.initiative.rel);
   }
-  if (initial.recordsToDrop.size > 0) {
+  const duplicateRepairs = initial.repairs.filter((repair) => repair.kind === 'duplicate-completion');
+  if (duplicateRepairs.length > 0) {
+    if (ledger.readRaw() !== initial.completionLog.raw) {
+      throw new Error('completion log changed during history reconciliation; refusing writes');
+    }
     const bytes = Buffer.from(initial.completionLog.raw);
     result.backups.completionLog = backupBytes(initial.files.completionLog.path, bytes);
-    const kept = initial.completionLog.records
-      .filter((record) => !initial.recordsToDrop.has(record.line))
-      .map((record) => JSON.stringify(record.value));
-    atomicHistoryWrite(initial.files.completionLog.path, `${kept.join('\n')}\n`);
+    for (const repair of duplicateRepairs) {
+      ledger.append({
+        ts: new Date().toISOString(),
+        event: 'reconcile',
+        projectId: options.projectId,
+        planSlug: options.planSlug,
+        phaseId: options.phaseId,
+        taskId: null,
+        idempotencyKey: `reconcile:${options.projectId}/${options.planSlug}/${options.phaseId}:${repair.closeSha}:${repair.canonicalDigest}`,
+        closeSha: repair.closeSha,
+        weight: 0,
+        weightBasis: 'count',
+        reconciliation: {
+          action: 'ignore-duplicate-completion',
+          eventIdentity: repair.identity,
+          canonicalDigest: repair.canonicalDigest,
+          duplicateDigests: repair.duplicateDigests,
+        },
+      });
+    }
     result.writes.push(initial.files.completionLog.rel);
   }
 
@@ -1362,7 +1532,35 @@ export function reconcileMaterializationHistory(options = {}) {
   return result;
 }
 
-export function checkHistoryReceipt({ root = process.cwd(), receiptPath } = {}) {
+export function reconcileMaterializationHistory(options = {}) {
+  const absoluteRoot = realpathSync(resolve(options.root ?? process.cwd()));
+  const planRel = safeRelativePath(absoluteRoot, options.planPath, 'planPath');
+  const lockPath = join(dirname(resolve(absoluteRoot, planRel)), LOCK_NAME);
+  const lockToken = acquireMaterializationLock(lockPath);
+  try {
+    return withCompletionLedgerLock(absoluteRoot, (ledger) => (
+      reconcileMaterializationHistoryLocked({ ...options, root: absoluteRoot }, ledger)
+    ));
+  } finally {
+    releaseMaterializationLock(lockPath, lockToken);
+  }
+}
+
+function assertReceiptExpectation(actual, expected, label) {
+  if (expected == null) return;
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    if (!isDeepStrictEqual(actual?.[key], expectedValue)) {
+      throw new Error(`receipt ${label}.${key} does not match configured expectation`);
+    }
+  }
+}
+
+function checkHistoryReceiptLocked({
+  root = process.cwd(),
+  receiptPath,
+  expectedIdentity,
+  expectedSources,
+} = {}) {
   const absoluteRoot = realpathSync(resolve(root));
   const receiptFile = historyPath(absoluteRoot, receiptPath, 'receiptPath');
   let receipt;
@@ -1377,6 +1575,8 @@ export function checkHistoryReceipt({ root = process.cwd(), receiptPath } = {}) 
     }
     const { identity, sources } = receipt;
     if (!identity || !sources) throw new Error('missing identity or sources');
+    assertReceiptExpectation(identity, expectedIdentity, 'identity');
+    assertReceiptExpectation(sources, expectedSources, 'sources');
     assertCommitExists(absoluteRoot, receipt.closeSha, 'receipt closeSha');
     assertCommitExists(absoluteRoot, receipt.reconciledCommit, 'receipt reconciledCommit');
     const current = loadHistoryProjection({
@@ -1423,15 +1623,32 @@ export function checkHistoryReceipt({ root = process.cwd(), receiptPath } = {}) 
   }
 }
 
+export function checkHistoryReceipt(options = {}) {
+  const absoluteRoot = realpathSync(resolve(options.root ?? process.cwd()));
+  return withCompletionLedgerLock(absoluteRoot, () => (
+    checkHistoryReceiptLocked({ ...options, root: absoluteRoot })
+  ));
+}
+
 export function assertSuccessorMaterializationAllowed({
   root = process.cwd(),
   planPath,
   targetPhaseId,
   prerequisitePhaseId,
   receiptPath,
+  receiptIdentity,
+  receiptSources,
   closeSha,
 } = {}) {
-  const receiptCheck = checkHistoryReceipt({ root, receiptPath });
+  if (!receiptIdentity || !receiptSources) {
+    throw new Error('successor barrier requires configured receipt identity and sources');
+  }
+  const receiptCheck = checkHistoryReceipt({
+    root,
+    receiptPath,
+    expectedIdentity: receiptIdentity,
+    expectedSources: receiptSources,
+  });
   const absoluteRoot = realpathSync(resolve(root));
   const planFile = historyPath(absoluteRoot, planPath, 'planPath');
   const currentPlan = readMarkdown(planFile.path, 'plan').frontmatter;
@@ -1464,9 +1681,60 @@ export function assertSuccessorMaterializationAllowed({
       || !terminalPhaseStatus(historicalPrerequisite[0].status)) {
     throw new Error(`closeSha does not contain ${prerequisitePhaseId} as done`);
   }
-  if (prerequisite[0].reviewGate?.status !== 'passed'
-      || !fullCommitSha(prerequisite[0].reviewGate?.at)) {
-    throw new Error(`${prerequisitePhaseId} lacks a passed commit-anchored review gate`);
+  const historicalPhase = historicalPrerequisite[0];
+  const historicalReview = historicalPhase.reviewGate;
+  if (historicalReview?.status !== 'passed' || !fullCommitSha(historicalReview?.at)) {
+    throw new Error(`historical ${prerequisitePhaseId} lacks a passed commit-anchored review gate`);
+  }
+  const historicalGates = historicalPhase.exitGate?.criteria;
+  if (!Array.isArray(historicalGates) || historicalGates.length === 0
+      || historicalGates.some((gate) => (
+        gate?.status !== 'met'
+        || gate?.evidence?.passed !== true
+        || gate?.evidence?.verifiedCommit !== historicalReview.at
+      ))) {
+    throw new Error(`historical ${prerequisitePhaseId} gate evidence is not fully met and review-anchored`);
+  }
+  if (typeof historicalReview.reviewFile !== 'string') {
+    throw new Error(`historical ${prerequisitePhaseId} review receipt is missing`);
+  }
+  const historicalReviewFile = historyPath(
+    absoluteRoot,
+    historicalReview.reviewFile,
+    `historical ${prerequisitePhaseId} review receipt`,
+  );
+  let historicalReviewReceipt;
+  try {
+    historicalReviewReceipt = gitOutput(
+      absoluteRoot,
+      ['show', `${closeSha}:${historicalReviewFile.rel}`],
+      `closeSha cannot read historical ${prerequisitePhaseId} review receipt`,
+    );
+  } catch (error) {
+    throw new Error(`historical ${prerequisitePhaseId} review receipt is absent at closeSha: ${error.message}`);
+  }
+  if (!historicalReviewReceipt.includes(historicalReview.at)) {
+    throw new Error(
+      `historical ${prerequisitePhaseId} review receipt at closeSha does not contain its review anchor`,
+    );
+  }
+  const completionLog = historyPath(
+    absoluteRoot,
+    receiptCheck.receipt.sources.completionLogPath,
+    'completionLogPath',
+  );
+  const closeEvents = parseCompletionLog(completionLog.path).records.filter(({ value }) => (
+    canonicalPhaseDoneCloseEvent(value, {
+      projectId: receiptIdentity.projectId,
+      planSlug: currentPlan.slug,
+      phaseId: prerequisitePhaseId,
+      closeSha,
+    })
+  ));
+  if (closeEvents.length !== 1) {
+    throw new Error(
+      `${prerequisitePhaseId} requires exactly one phase-done event bound to closeSha (found ${closeEvents.length})`,
+    );
   }
   return {
     allowed: true,

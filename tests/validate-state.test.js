@@ -552,13 +552,13 @@ test('crossValidate: done phase + done initiative with done tasks → no errors'
     stateIntegrityHardening: { enforcedFrom: '2026-07-14T19:36:31Z' },
     phases: [{
       id: 'F0', slug: 'p-f0', status: 'done',
-      exitGate: { criteria: [{ id: 'F0-G1', status: 'met' }] },
+      exitGate: { criteria: [{ id: 'F0-G1', status: 'met', evidence: { passed: true } }] },
     }],
   }]]);
   const inits = new Map([['p-f0', {
     slug: 'p-f0', status: 'done',
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'F0-G1', status: 'met' }],
+    exitGates: [{ id: 'F0-G1', status: 'met', evidence: { passed: true } }],
   }]]);
   const errors = crossValidate(plans, inits);
   assert.equal(errors.length, 0);

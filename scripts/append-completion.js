@@ -31,10 +31,23 @@
  *        [--idempotency-key <logical-close-key>]
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  fchmodSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import { readDispatchLog } from './dispatch-log.js';
 
 export { parseDispatchLog } from './dispatch-log.js';
@@ -50,7 +63,12 @@ export const ACTUALS_KEYS = Object.freeze([
 
 const ANALYTICS_DIR = ['.atomic-skills', 'analytics'];
 const LOG_FILE = 'completions.jsonl';
+const LOCK_FILE = '.completions.lock';
+const LOCK_RETRIES = 500;
+const LOCK_RETRY_MS = 10;
+const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 const GIT_EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+const FULL_GIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 const hasText = (v) => typeof v === 'string' && v.length > 0;
 
@@ -203,6 +221,33 @@ function normalizeActuals(actuals) {
   return actuals;
 }
 
+function normalizeReconciliation(event, reconciliation) {
+  if (reconciliation == null) return undefined;
+  if (event !== 'reconcile' || typeof reconciliation !== 'object' || Array.isArray(reconciliation)) {
+    throw new TypeError('appendCompletion: reconciliation is allowed only on a reconcile object');
+  }
+  const keys = Object.keys(reconciliation).sort();
+  const expected = ['action', 'canonicalDigest', 'duplicateDigests', 'eventIdentity'];
+  if (!isDeepStrictEqual(keys, expected)) {
+    throw new TypeError(`appendCompletion: reconciliation fields must be ${expected.join(', ')}`);
+  }
+  if (reconciliation.action !== 'ignore-duplicate-completion') {
+    throw new RangeError('appendCompletion: unsupported reconciliation action');
+  }
+  for (const field of ['eventIdentity', 'canonicalDigest']) {
+    if (!hasText(reconciliation[field])) {
+      throw new TypeError(`appendCompletion: reconciliation.${field} is required`);
+    }
+  }
+  if (!/^[a-f0-9]{64}$/.test(reconciliation.canonicalDigest)
+      || !Array.isArray(reconciliation.duplicateDigests)
+      || reconciliation.duplicateDigests.length === 0
+      || reconciliation.duplicateDigests.some((digest) => !/^[a-f0-9]{64}$/.test(digest))) {
+    throw new TypeError('appendCompletion: reconciliation digests must be lowercase sha256 values');
+  }
+  return structuredClone(reconciliation);
+}
+
 /**
  * Validate + normalize one completion entry into the persisted record shape.
  * Throws (writing nothing) on an invalid enum or a missing required scope field.
@@ -230,11 +275,21 @@ function normalize(entry) {
   if (entry.event === 'task-done' && !hasText(entry.taskId)) {
     throw new TypeError("appendCompletion: a 'task-done' event requires a non-empty taskId");
   }
+  if (entry.event === 'reconcile' && entry.reconciliation == null) {
+    throw new TypeError("appendCompletion: reconciliation metadata is required for a 'reconcile' event");
+  }
+  if (entry.event === 'reconcile' && entry.taskId != null) {
+    throw new TypeError("appendCompletion: a 'reconcile' event requires taskId to be null");
+  }
   // A caller-supplied ts is frozen immutably (P2); reject one a date parser cannot read.
   if (hasText(entry.ts) && Number.isNaN(Date.parse(entry.ts))) {
     throw new RangeError(`appendCompletion: ts must be a parseable date-time (got ${JSON.stringify(entry.ts)})`);
   }
+  if (entry.closeSha != null && !FULL_GIT_OID.test(entry.closeSha)) {
+    throw new TypeError('appendCompletion: closeSha must be a full lowercase git object id');
+  }
   const actuals = normalizeActuals(entry.actuals);
+  const reconciliation = normalizeReconciliation(entry.event, entry.reconciliation);
   return {
     ts: hasText(entry.ts) ? entry.ts : new Date().toISOString(),
     event: entry.event,
@@ -243,9 +298,11 @@ function normalize(entry) {
     phaseId: entry.phaseId,
     taskId: hasText(entry.taskId) ? entry.taskId : null,
     ...(hasText(entry.idempotencyKey) ? { idempotencyKey: entry.idempotencyKey } : {}),
+    ...(hasText(entry.closeSha) ? { closeSha: entry.closeSha } : {}),
     weight,
     weightBasis,
     ...(actuals !== undefined ? { actuals } : {}),
+    ...(reconciliation !== undefined ? { reconciliation } : {}),
   };
 }
 
@@ -269,15 +326,116 @@ function readCompletionRecords(path) {
 }
 
 function sameLogicalCompletion(existing, candidate) {
-  return ['event', 'projectId', 'planSlug', 'phaseId', 'taskId']
-    .every((field) => existing[field] === candidate[field]);
+  const withoutTimestamp = (record) => {
+    const copy = structuredClone(record);
+    delete copy.ts;
+    return copy;
+  };
+  return isDeepStrictEqual(withoutTimestamp(existing), withoutTimestamp(candidate));
+}
+
+function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === 'EPERM';
+  }
+}
+
+function readLockOwner(path) {
+  try {
+    const owner = JSON.parse(readFileSync(path, 'utf8'));
+    if (owner?.version !== 1 || !Number.isInteger(owner.pid) || !hasText(owner.token)) {
+      throw new Error('unsupported owner shape');
+    }
+    return owner;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return undefined;
+    throw new Error(`completion ledger lock is unreadable: ${error.message}`);
+  }
+}
+
+function acquireCompletionLock(dir) {
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const path = join(dir, LOCK_FILE);
+  for (let attempt = 0; attempt < LOCK_RETRIES; attempt += 1) {
+    const token = randomUUID();
+    try {
+      const fd = openSync(path, 'wx', 0o600);
+      try {
+        fchmodSync(fd, 0o600);
+        writeFileSync(fd, `${JSON.stringify({ version: 1, pid: process.pid, token })}\n`);
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+      return { path, token };
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      let owner;
+      try {
+        owner = readLockOwner(path);
+      } catch {
+        // The exclusive pathname becomes visible just before its owner bytes
+        // are complete. Retry the bounded acquisition loop; a permanently
+        // malformed lock remains fail-closed as a timeout.
+        if (attempt < LOCK_RETRIES - 1) Atomics.wait(LOCK_WAIT, 0, 0, LOCK_RETRY_MS);
+        continue;
+      }
+      if (owner && !processAlive(owner.pid)) {
+        const current = readLockOwner(path);
+        if (current?.token === owner.token) unlinkSync(path);
+        continue;
+      }
+      if (attempt < LOCK_RETRIES - 1) Atomics.wait(LOCK_WAIT, 0, 0, LOCK_RETRY_MS);
+    }
+  }
+  throw new Error('completion ledger lock timed out while held by a live process');
+}
+
+function releaseCompletionLock(lock) {
+  const owner = readLockOwner(lock.path);
+  if (owner?.token === lock.token) unlinkSync(lock.path);
+}
+
+/**
+ * Exclusive authority for completion-ledger reads and writes. The callback is
+ * synchronous so the lock cannot escape across an unawaited promise boundary.
+ */
+export function withCompletionLedgerLock(root, operation) {
+  if (typeof operation !== 'function') throw new TypeError('completion ledger operation is required');
+  const dir = join(resolve(root), ...ANALYTICS_DIR);
+  const path = join(dir, LOG_FILE);
+  const lock = acquireCompletionLock(dir);
+  try {
+    const ledger = {
+      path,
+      readRecords: () => readCompletionRecords(path),
+      readRaw: () => (existsSync(path) ? readFileSync(path, 'utf8') : ''),
+      append: (entry) => {
+        const record = normalize(entry);
+        appendFileSync(path, `${JSON.stringify(record)}\n`);
+        return record;
+      },
+      appendRecord: (record) => appendFileSync(path, `${JSON.stringify(record)}\n`),
+    };
+    const result = operation(ledger);
+    if (result && typeof result.then === 'function') {
+      throw new TypeError('completion ledger operation must be synchronous');
+    }
+    return result;
+  } finally {
+    releaseCompletionLock(lock);
+  }
 }
 
 /**
  * Ensure exactly one append-only record for a caller-supplied logical close.
  * Existing legacy events remain untouched; idempotency is forward-only.
  */
-export function ensureCompletion(root, entry) {
+export function ensureCompletion(root, entry, { beforeAppend } = {}) {
   if (!hasText(entry?.idempotencyKey)) {
     throw new TypeError('ensureCompletion: idempotencyKey is required');
   }
@@ -289,21 +447,21 @@ export function ensureCompletion(root, entry) {
     if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
   }
   const candidate = normalize(effectiveEntry);
-  const dir = join(resolve(root), ...ANALYTICS_DIR);
-  const path = join(dir, LOG_FILE);
-  const existing = readCompletionRecords(path)
-    .find((record) => record.idempotencyKey === candidate.idempotencyKey);
-  if (existing) {
-    if (!sameLogicalCompletion(existing, candidate)) {
-      throw new Error(
-        `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
-      );
+  return withCompletionLedgerLock(root, (ledger) => {
+    const existing = ledger.readRecords()
+      .find((record) => record.idempotencyKey === candidate.idempotencyKey);
+    if (existing) {
+      if (!sameLogicalCompletion(existing, candidate)) {
+        throw new Error(
+          `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
+        );
+      }
+      return { record: existing, appended: false };
     }
-    return { record: existing, appended: false };
-  }
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  appendFileSync(path, `${JSON.stringify(candidate)}\n`);
-  return { record: candidate, appended: true };
+    if (typeof beforeAppend === 'function') beforeAppend();
+    ledger.appendRecord(candidate);
+    return { record: candidate, appended: true };
+  });
 }
 
 /**
@@ -328,14 +486,14 @@ export function appendCompletion(root, entry) {
     if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
   }
   const record = normalize(effectiveEntry); // validate BEFORE touching the filesystem
-  const dir = join(resolve(root), ...ANALYTICS_DIR);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
-  return record;
+  return withCompletionLedgerLock(root, (ledger) => {
+    ledger.appendRecord(record);
+    return record;
+  });
 }
 
 // CLI
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const flag = (name) => {
     const i = args.indexOf(`--${name}`);

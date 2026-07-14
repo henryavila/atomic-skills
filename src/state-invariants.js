@@ -95,6 +95,11 @@ function contextFor(plan, phase, initiative) {
   };
 }
 
+function terminalGateComplete(gate, hardened) {
+  if (!hardened) return COMPLETE_GATE_STATUSES.has(gate?.status);
+  return gate?.status === 'met' && gate?.evidence?.passed === true;
+}
+
 /**
  * Pure authority for plan↔phase identity, terminality and local id uniqueness.
  * It intentionally treats a pending descriptor without an initiative as a valid
@@ -119,6 +124,7 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
 
   for (const plan of plans) {
     const phases = list(plan.phases);
+    const hardened = plan.stateIntegrityHardening != null;
     const planCtx = contextFor(plan, null, null);
     for (const item of collectPhaseGraphViolations(plan)) {
       violations.push({ ...item, ...planCtx, phaseId: item.phaseId ?? '?' });
@@ -182,10 +188,10 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
           joined,
         ));
       }
-      for (const gate of list(phase?.exitGate?.criteria).filter((item) => !COMPLETE_GATE_STATUSES.has(item?.status))) {
+      for (const gate of list(phase?.exitGate?.criteria).filter((item) => !terminalGateComplete(item, hardened))) {
         violations.push(violation('terminal-open-plan-gate', `terminal phase ${phase?.id ?? '?'} contains open plan criterion ${gate?.id ?? '?'}`, joined));
       }
-      for (const gate of list(initiative.exitGates).filter((item) => !COMPLETE_GATE_STATUSES.has(item?.status))) {
+      for (const gate of list(initiative.exitGates).filter((item) => !terminalGateComplete(item, hardened))) {
         violations.push(violation('terminal-open-initiative-gate', `terminal phase ${phase?.id ?? '?'} contains open initiative gate ${gate?.id ?? '?'}`, joined));
       }
     }

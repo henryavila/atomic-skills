@@ -248,17 +248,42 @@ export function classifyPhaseDonePreflight(input = {}) {
     );
   }
 
-  if (text(plan.slug) && text(initiative.parentPlan) && text(plan.slug) !== text(initiative.parentPlan)) {
+  const planSlug = text(plan.slug);
+  const phaseId = text(phase.id);
+  const phaseSlug = text(phase.slug);
+  const parentPlan = text(initiative.parentPlan);
+  const initiativePhaseId = text(initiative.phaseId);
+  const initiativeSlug = text(initiative.slug);
+  if (!planSlug || !phaseId || !phaseSlug || !parentPlan || !initiativePhaseId
+      || !initiativeSlug || !Array.isArray(plan.phases)) {
+    return block(
+      'phase-done-identity-missing',
+      'phase-done requires plan, descriptor and initiative identity before transition',
+      'Load the project-scoped plan, its unique descriptor and matching initiative, then rerun `phase-done`.',
+    );
+  }
+  const descriptors = plan.phases.filter((candidate) => (
+    text(object(candidate).id) === phaseId && text(object(candidate).slug) === phaseSlug
+  ));
+  if (descriptors.length !== 1) {
+    return block(
+      'phase-done-identity-mismatch',
+      `phase-done expected one ${phaseId}/${phaseSlug} descriptor and found ${descriptors.length}`,
+      'Repair the plan descriptor identity, validate state, then rerun `phase-done`.',
+    );
+  }
+
+  if (planSlug !== parentPlan) {
     return block(
       'phase-done-identity-mismatch',
       `phase-done initiative parentPlan ${text(initiative.parentPlan)} does not match plan ${text(plan.slug)}`,
       'Reload the project-scoped plan and matching phase initiative, then rerun `phase-done`.',
     );
   }
-  if (text(phase.id) && text(initiative.phaseId) && text(phase.id) !== text(initiative.phaseId)) {
+  if (phaseId !== initiativePhaseId || phaseSlug !== initiativeSlug) {
     return block(
       'phase-done-identity-mismatch',
-      `phase-done initiative phaseId ${text(initiative.phaseId)} does not match descriptor ${text(phase.id)}`,
+      `phase-done initiative ${initiativePhaseId}/${initiativeSlug} does not match descriptor ${phaseId}/${phaseSlug}`,
       'Reload the descriptor and matching phase initiative, then rerun `phase-done`.',
     );
   }

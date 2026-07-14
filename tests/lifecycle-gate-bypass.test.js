@@ -10,8 +10,16 @@ import { executePhaseDoneTransaction } from '../scripts/phase-done-transaction.j
 const SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 function input(overrides = {}) {
-  return {
+  const phase = { id: 'F4', slug: 'demo-f4', status: 'active' };
+  const initiative = {
+    slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4', status: 'active',
     tasks: [{ id: 'T-1', status: 'done' }],
+  };
+  return {
+    plan: { slug: 'demo', phases: [phase] },
+    phase,
+    initiative,
+    tasks: initiative.tasks,
     exitGates: [{
       id: 'F4-G3', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
     }],
@@ -29,6 +37,12 @@ function input(overrides = {}) {
     ...overrides,
   };
 }
+
+test('preflight fails closed when authoritative identity inputs are absent', () => {
+  const result = classifyPhaseDonePreflight({ tasks: [] });
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-identity-missing');
+});
 
 test('preflight checks tasks but intentionally does not require gate/review evidence yet', () => {
   const result = classifyPhaseDonePreflight(input({

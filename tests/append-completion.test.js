@@ -183,6 +183,33 @@ test('appendCompletion rejects an unparseable ts and writes nothing', () => {
   }
 });
 
+test('appendCompletion requires reconcile events to carry a null-task tombstone', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    assert.throws(
+      () => appendCompletion(root, {
+        event: 'reconcile', projectId: 'p', planSlug: 'p', phaseId: 'F0', taskId: null,
+      }),
+      /reconciliation.*required/i,
+    );
+    assert.throws(
+      () => appendCompletion(root, {
+        event: 'reconcile', projectId: 'p', planSlug: 'p', phaseId: 'F0', taskId: 'T-1',
+        reconciliation: {
+          action: 'ignore-duplicate-completion',
+          eventIdentity: 'phase-done:p/p/F0@2026-07-14T20:00:00Z',
+          canonicalDigest: 'a'.repeat(64),
+          duplicateDigests: ['b'.repeat(64)],
+        },
+      }),
+      /taskId.*null/i,
+    );
+    assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('ensureCompletion retries one idempotency key as one immutable event', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
   try {
@@ -211,6 +238,21 @@ test('ensureCompletion fails closed when one idempotency key changes semantic id
     ensureCompletion(root, base({ idempotencyKey }));
     assert.throws(
       () => ensureCompletion(root, base({ idempotencyKey, taskId: 'T-999' })),
+      /idempotency key conflict/i,
+    );
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ensureCompletion rejects payload drift behind one logical close key', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
+  try {
+    const idempotencyKey = 'task-done:proj/plan/F0/T-001@2026-07-14T20:00:00Z';
+    ensureCompletion(root, base({ idempotencyKey, weight: 1 }));
+    assert.throws(
+      () => ensureCompletion(root, base({ idempotencyKey, weight: 9 })),
       /idempotency key conflict/i,
     );
     assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);

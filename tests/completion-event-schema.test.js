@@ -80,6 +80,20 @@ test('completion event schema accepts a phase-done event with null taskId', () =
   assert.equal(result.ok, true, 'phase-done may carry a null taskId');
 });
 
+test('completion event schema binds reconciliation tombstones to reconcile events', () => {
+  const reconciliation = {
+    action: 'ignore-duplicate-completion',
+    eventIdentity: 'phase-done:proj/plan/F0@2026-06-16T12:00:00Z',
+    canonicalDigest: 'a'.repeat(64),
+    duplicateDigests: ['b'.repeat(64)],
+  };
+  assert.equal(validateCompletionEvent(validEvent({ reconciliation })).ok, false);
+  assert.equal(validateCompletionEvent(validEvent({
+    event: 'reconcile', taskId: null, reconciliation,
+  })).ok, true);
+  assert.equal(validateCompletionEvent(validEvent({ event: 'reconcile', taskId: null })).ok, false);
+});
+
 test('completion event validator export is additive to validateAideckState', () => {
   assert.equal(typeof validateAideckState, 'function');
 });

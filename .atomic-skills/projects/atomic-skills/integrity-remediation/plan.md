@@ -5,13 +5,29 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T20:32:57Z
+lastUpdated: 2026-07-14T23:18:56Z
 stateIntegrityHardening:
   enforcedFrom: 2026-07-14T19:36:31Z
   successorBarriers:
     - phaseId: F3
       prerequisitePhaseId: F4
       receiptPath: docs/audits/integrity-remediation-f0-reconciliation.json
+      receiptIdentity:
+        projectId: atomic-skills
+        planSlug: integrity-remediation
+        phaseId: F0
+      receiptSources:
+        planPath: .atomic-skills/projects/atomic-skills/integrity-remediation/plan.md
+        initiativePath: .atomic-skills/projects/atomic-skills/integrity-remediation/phases/archive/f0-runtime-autocontido-e-setup-confiavel.md
+        creationGatePath: .atomic-skills/status/creation-gates/atomic-skills-integrity-remediation.json
+        completionLogPath: .atomic-skills/analytics/completions.jsonl
+        sidecarPaths:
+          - .atomic-skills/projects/atomic-skills/integrity-remediation/phases/f1-installer-v2-e-protecao-de-dados.source.json
+          - .atomic-skills/projects/atomic-skills/integrity-remediation/phases/f2-contratos-de-host-runtime-e-observabil.source.json
+          - .atomic-skills/projects/atomic-skills/integrity-remediation/phases/f3-caminho-spec-para-implement-e-isolamen.source.json
+          - .atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json
+          - .atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json
+          - .atomic-skills/projects/atomic-skills/integrity-remediation/phases/f6-qualificacao-de-release-e-fechamento-d.source.json
 branch: plan/integrity-remediation
 currentPhase: F4
 parallelismAllowed: false
