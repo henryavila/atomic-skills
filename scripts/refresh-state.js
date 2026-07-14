@@ -31,7 +31,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { computeRollupsDir } from './compute-rollups.js';
 import { reconcileDir } from './reconcile-focus.js';
 import { emitFocus } from './emit-focus.js';
@@ -185,9 +185,23 @@ function publishProjectIndex(indexPath, expected, next) {
 }
 
 function refreshProjectIndex(indexPath, readProjections) {
-  const publishPath = lstatSync(indexPath).isSymbolicLink()
+  const isSymlink = lstatSync(indexPath).isSymbolicLink();
+  const publishPath = isSymlink
     ? realpathSync(indexPath)
     : indexPath;
+  if (isSymlink) {
+    const projectPath = realpathSync(dirname(indexPath));
+    const targetRelative = relative(projectPath, publishPath);
+    if (
+      targetRelative === '..'
+      || targetRelative.startsWith(`..${sep}`)
+      || isAbsolute(targetRelative)
+    ) {
+      throw new Error(
+        `${basename(indexPath)} symlink resolves outside its managed project directory`,
+      );
+    }
+  }
 
   for (let attempt = 1; attempt <= INDEX_REFRESH_ATTEMPTS; attempt += 1) {
     const projections = readProjections();

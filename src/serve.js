@@ -220,8 +220,12 @@ function readUrlFromAnyEnvFile() {
 function refreshDashboardState(dir) {
   try {
     const result = refreshState(dir)
-    if (result.seriesError) {
-      process.stderr.write(`atomic-skills serve: refresh-state partial failure — ${result.seriesError}\n`)
+    const refreshErrors = [
+      ...(Array.isArray(result.indexErrors) ? result.indexErrors : []),
+      ...(result.seriesError ? [result.seriesError] : []),
+    ]
+    if (refreshErrors.length > 0) {
+      process.stderr.write(`atomic-skills serve: refresh-state partial failure — ${refreshErrors.join('; ')}\n`)
     }
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause)

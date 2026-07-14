@@ -366,6 +366,62 @@ describe('refreshState consumer series integration', () => {
     }
   });
 
+  it('rejects a project-index symlink that escapes to an external directory before reading or writing it', {
+    skip: process.platform === 'win32',
+  }, () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-escape-'));
+    const outside = mkdtempSync(join(tmpdir(), 'refresh-state-index-outside-'));
+    try {
+      writeSeedState(dir);
+      const projectDir = join(dir, '.atomic-skills', 'projects', 'projA');
+      const indexPath = join(projectDir, 'PROJECT-STATUS.md');
+      const targetPath = join(outside, 'user-file.md');
+      const original = readFileSync(indexPath, 'utf8');
+      writeFileSync(targetPath, original);
+      rmSync(indexPath);
+      symlinkSync(targetPath, indexPath);
+
+      assert.throws(
+        () => refreshState(dir, { nowMs: NOW, branch: null }),
+        /PROJECT-STATUS\.md symlink resolves outside its managed project directory/,
+      );
+      assert.equal(readFileSync(targetPath, 'utf8'), original);
+      assert.equal(lstatSync(indexPath).isSymbolicLink(), true);
+      assert.deepEqual(readdirSync(outside), ['user-file.md']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a project-index symlink into a sibling project before corrupting that index', {
+    skip: process.platform === 'win32',
+  }, () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-sibling-escape-'));
+    try {
+      writeSeedState(dir);
+      const projectsDir = join(dir, '.atomic-skills', 'projects');
+      const projectDir = join(projectsDir, 'projA');
+      const indexPath = join(projectDir, 'PROJECT-STATUS.md');
+      const siblingDir = join(projectsDir, 'projB');
+      const siblingIndexPath = join(siblingDir, 'PROJECT-STATUS.md');
+      const original = readFileSync(indexPath, 'utf8');
+      mkdirSync(siblingDir, { recursive: true });
+      writeFileSync(siblingIndexPath, original);
+      rmSync(indexPath);
+      symlinkSync(siblingIndexPath, indexPath);
+
+      assert.throws(
+        () => refreshState(dir, { nowMs: NOW, branch: null }),
+        /PROJECT-STATUS\.md symlink resolves outside its managed project directory/,
+      );
+      assert.equal(readFileSync(siblingIndexPath, 'utf8'), original);
+      assert.equal(lstatSync(indexPath).isSymbolicLink(), true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('skips the unsupported parent-directory fsync on win32 after publishing the index', () => {
     const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-win32-'));
     try {
