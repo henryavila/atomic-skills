@@ -172,7 +172,7 @@ First use `{{BASH_TOOL}}` to allocate an unpredictable, user-input-free path and
 print it:
 
 ```bash
-BUSINESS_INTENT_FILE="$(mktemp /tmp/atomic-skills-business-intent.XXXXXXXX.json)" || exit 1
+BUSINESS_INTENT_FILE="$(mktemp "${TMPDIR:-/tmp}/atomic-skills-business-intent.XXXXXXXX")" || exit 1
 printf '%s\n' "$BUSINESS_INTENT_FILE"
 ```
 
@@ -451,7 +451,7 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
    and print it:
 
    ```bash
-   BUSINESS_INTENT_FILE="$(mktemp /tmp/atomic-skills-business-intent.XXXXXXXX.json)" || exit 1
+   BUSINESS_INTENT_FILE="$(mktemp "${TMPDIR:-/tmp}/atomic-skills-business-intent.XXXXXXXX")" || exit 1
    printf '%s\n' "$BUSINESS_INTENT_FILE"
    ```
 

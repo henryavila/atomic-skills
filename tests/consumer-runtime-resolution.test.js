@@ -220,14 +220,18 @@ describe('consumer resolves package entrypoints from the installed runtime root'
     assert.match(verify, /\$PKG_ROOT\/scripts\/find-unreviewed-plans\.js/)
   })
 
-  it('runs both rendered create-plan materialization recipes outside git without startedCommit', () => {
+  it('runs both rendered create-plan materialization recipes outside git without startedCommit', (t) => {
     const createPlan = readFileSync(
       join(PACKAGE_ROOT, 'skills', 'shared', 'project-assets', 'project-create-plan.md'),
       'utf8'
     )
+    const allocations = [...createPlan.matchAll(
+      /```bash\n[ \t]*(BUSINESS_INTENT_FILE="\$\(mktemp [^\n]+\)" \|\| exit 1[\s\S]*?)\n[ \t]*```/g
+    )].map((match) => match[1])
     const recipes = [...createPlan.matchAll(
       /```bash\n[ \t]*(BUSINESS_INTENT_FILE="<exact-path-printed-above>"[\s\S]*?)\n[ \t]*```/g
     )].map((match) => match[1])
+    assert.equal(allocations.length, 2, 'new-plan and adopt must both allocate input safely')
     assert.equal(recipes.length, 2, 'new-plan and adopt recipes must both be executable')
 
     const source = join(consumer, 'source.md')
@@ -242,9 +246,20 @@ describe('consumer resolves package entrypoints from the installed runtime root'
       '',
     ].join('\n'))
 
+    const allocatedPaths = []
     recipes.forEach((template, index) => {
       const slug = index === 0 ? 'non-git-new' : 'non-git-adopt'
-      const businessIntentFile = join(consumer, `${slug}-business-intent.json`)
+      const allocation = spawnSync('bash', ['-c', allocations[index]], {
+        cwd: consumer,
+        env: { ...process.env, HOME: home },
+        encoding: 'utf8',
+      })
+      assert.equal(allocation.status, 0, allocation.stderr)
+      const businessIntentFile = allocation.stdout.trim()
+      t.after(() => rmSync(businessIntentFile, { force: true }))
+      assert.doesNotMatch(businessIntentFile, /XXXXXXXX/)
+      assert.equal(existsSync(businessIntentFile), true, 'mktemp must create the allocated file')
+      allocatedPaths.push(businessIntentFile)
       writeFileSync(businessIntentFile, JSON.stringify({
         value: 'Create canonical state without requiring a git checkout.',
         workflow: 'Run the installed materializer from a plain consumer directory.',
@@ -274,6 +289,7 @@ describe('consumer resolves package entrypoints from the installed runtime root'
       )
       assert.equal(initiative.startedCommit, undefined)
     })
+    assert.equal(new Set(allocatedPaths).size, 2, 'concurrent flows need distinct temp paths')
   })
 
   it('rejects missing arguments and invalid signal JSON with actionable errors', () => {
