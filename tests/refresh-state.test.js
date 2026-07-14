@@ -503,6 +503,36 @@ describe('refreshState consumer series integration', () => {
     }
   });
 
+  it('rejects a project-index symlink to authoritative plan or phase state', {
+    skip: process.platform === 'win32',
+  }, () => {
+    for (const relativeTarget of [
+      ['plan-a', 'plan.md'],
+      ['plan-a', 'phases', 'f1.md'],
+    ]) {
+      const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-state-alias-'));
+      try {
+        writeSeedState(dir);
+        const projectDir = join(dir, '.atomic-skills', 'projects', 'projA');
+        const indexPath = join(projectDir, 'PROJECT-STATUS.md');
+        const targetPath = join(projectDir, ...relativeTarget);
+        refreshState(dir, { nowMs: NOW, branch: null });
+        const original = readFileSync(targetPath, 'utf8');
+        rmSync(indexPath);
+        symlinkSync(targetPath, indexPath);
+
+        assert.throws(
+          () => refreshState(dir, { nowMs: NOW, branch: null }),
+          /PROJECT-STATUS\.md symlink target is not an approved project index/,
+        );
+        assert.equal(readFileSync(targetPath, 'utf8'), original);
+        assert.equal(lstatSync(indexPath).isSymbolicLink(), true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
   it('skips the unsupported parent-directory fsync on win32 after publishing the index', () => {
     const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-win32-'));
     try {

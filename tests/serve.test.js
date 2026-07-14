@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -213,6 +213,88 @@ describe('listProjects (Inc2: R-MIG-13 / R-ORCH-26 — folder name = projectId)'
 })
 
 describe('ensureAideck dashboard state freshness', () => {
+  function runFreshSpawnOverride({ launcherName, launcherSource, executable = false }) {
+    const home = mkdtempSync(join(tmpdir(), 'as-serve-home-'))
+    const repo = mkdtempSync(join(tmpdir(), 'as-serve-repo-'))
+    const launcher = join(home, launcherName)
+    const argsLog = join(home, 'launcher-args.json')
+    try {
+      const planDir = join(repo, '.atomic-skills', 'projects', 'demo', 'plan-a')
+      mkdirSync(join(planDir, 'phases'), { recursive: true })
+      writeFileSync(
+        join(planDir, 'plan.md'),
+        '---\nslug: plan-a\ntitle: Plan A\nstatus: active\ncurrentPhase: F0\nphases:\n  - id: F0\n    title: Phase 0\n    status: active\n---\n',
+      )
+      writeFileSync(launcher, launcherSource)
+      if (executable) chmodSync(launcher, 0o755)
+
+      const child = `
+        import { readFileSync } from 'node:fs';
+        const repo = process.env.TEST_REPO;
+        globalThis.fetch = async (url, init = {}) => {
+          const href = String(url);
+          if (href.endsWith('/api/health')) {
+            return new Response(JSON.stringify({ service: 'aideck' }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          if (href.endsWith('/api/projects/register')) {
+            const body = JSON.parse(init.body);
+            return new Response(JSON.stringify({ schemaVersion: '0.1', project: { projectId: body.projectId, rootDir: repo } }), { status: 200, headers: { 'content-type': 'application/json' } });
+          }
+          return new Response(JSON.stringify({}), { status: 404, headers: { 'content-type': 'application/json' } });
+        };
+        const { ensureAideck } = await import('./src/serve.js');
+        process.chdir(repo);
+        const url = await ensureAideck({ aideckBin: process.env.TEST_LAUNCHER, timeoutMs: 2500 });
+        if (url !== 'http://127.0.0.1:7777') throw new Error('unexpected url: ' + url);
+        const args = JSON.parse(readFileSync(process.env.TEST_ARGS_LOG, 'utf8'));
+        if (JSON.stringify(args) !== JSON.stringify(['serve'])) throw new Error('unexpected launcher args: ' + JSON.stringify(args));
+      `
+
+      execFileSync(process.execPath, ['--input-type=module', '-e', child], {
+        cwd: join(import.meta.dirname, '..'),
+        env: {
+          ...process.env,
+          HOME: home,
+          TEST_ARGS_LOG: argsLog,
+          TEST_LAUNCHER: launcher,
+          TEST_REPO: realpathSync(repo),
+        },
+        encoding: 'utf8',
+      })
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+      rmSync(repo, { recursive: true, force: true })
+    }
+  }
+
+  it('auto-starts aiDeck from an explicit JavaScript entrypoint override', () => {
+    runFreshSpawnOverride({
+      launcherName: 'aideck-launcher.mjs',
+      launcherSource: [
+        "import { mkdirSync, writeFileSync } from 'node:fs'",
+        "import { join } from 'node:path'",
+        "writeFileSync(process.env.TEST_ARGS_LOG, JSON.stringify(process.argv.slice(2)))",
+        "mkdirSync(join(process.env.HOME, '.atomic-skills'), { recursive: true })",
+        "writeFileSync(join(process.env.HOME, '.atomic-skills', 'env'), \"export AS_DASHBOARD_URL='http://127.0.0.1:7777'\\n\")",
+      ].join('\n'),
+    })
+  })
+
+  it('auto-starts aiDeck from an explicit direct executable override', {
+    skip: process.platform === 'win32',
+  }, () => {
+    runFreshSpawnOverride({
+      launcherName: 'aideck-launcher',
+      executable: true,
+      launcherSource: [
+        '#!/bin/sh',
+        'printf \'["%s"]\\n\' "$1" > "$TEST_ARGS_LOG"',
+        'mkdir -p "$HOME/.atomic-skills"',
+        "printf \"%s\\n\" \"export AS_DASHBOARD_URL='http://127.0.0.1:7777'\" > \"$HOME/.atomic-skills/env\"",
+      ].join('\n'),
+    })
+  })
+
   it('regenerates the aiDeck project projection before registering a project', () => {
     const home = mkdtempSync(join(tmpdir(), 'as-serve-home-'))
     const repo = mkdtempSync(join(tmpdir(), 'as-serve-repo-'))

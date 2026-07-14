@@ -243,6 +243,11 @@ function refreshProjectIndex(indexPath, readProjections) {
         `${basename(indexPath)} symlink resolves outside its managed project directory`,
       );
     }
+    if (targetRelative !== 'CANONICAL-PROJECT-STATUS.md') {
+      throw new Error(
+        `${basename(indexPath)} symlink target is not an approved project index`,
+      );
+    }
   }
 
   let projectionErrors = [];

@@ -393,15 +393,15 @@ export async function ensureAideck(opts = {}) {
   }
 
   // 2. Start fresh — spawn detached
-  const bin = resolveAideckBin()
+  const bin = opts.aideckBin ?? resolveAideckBin()
   const args = ['serve']
   if (port) args.push(`--port=${port}`)
   const staticDir = resolveStaticDir()
   if (staticDir) args.push('--static-dir', staticDir)
 
-  const isPath = bin.includes('/') || bin.includes('\\')
-  const cmd = isPath ? process.execPath : bin
-  const cmdArgs = isPath ? [bin, ...args] : args
+  const isJavaScript = bin.endsWith('.js') || bin.endsWith('.mjs')
+  const cmd = isJavaScript ? process.execPath : bin
+  const cmdArgs = isJavaScript ? [bin, ...args] : args
 
   const child = spawn(cmd, cmdArgs, {
     detached: true,
