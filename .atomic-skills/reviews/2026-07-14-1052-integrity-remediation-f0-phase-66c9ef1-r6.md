@@ -9,7 +9,7 @@ final_verdict: needs_changes
 counts_final: {blocker: 0, critical: 0, major: 2, minor: 1, nit: 0}
 counts_blind: {blocker: 0, critical: 0, major: 3, minor: 1, nit: 0}
 framing_delta: {dropped: 3, maintained: 1, emerged: 2}
-triage_remaining: {blocker: 0, critical: 0, major: 0, minor: 1, nit: 0}
+triage_remaining: {blocker: 0, critical: 0, major: 0, minor: 0, nit: 0}
 schema_version: "1.0"
 ---
 
@@ -294,8 +294,8 @@ export function listProjects(stateRoot = '.atomic-skills') {
 
 - F-001 final major — dismissed as pre-existing/out-of-diff. The phase diff changes only three lines in `project-transitions.md`: a clean-tree review precondition and the lifecycle-order guard description. The completion-event ordering at lines 190-195 is unchanged; blame dates it to `f0238277`/`6618416b` (2026-07-02/03). No changed hunk causes the claimed window.
 - F-002 final major — dismissed as pre-existing/out-of-diff. The refresh-before-save wording at lines 139/160/195 is unchanged; blame dates it to `c9f748fc`/`6618416b` (2026-06-24/2026-07-02). The captured change to the file is confined to review freshness/commit guarding.
-- F-003 final minor — validated. `src/serve.js` changed in this phase, its contract says a project must contain a plan, but `out.push({ projectId, plans })` is unconditional. Route to RED→GREEN remediation.
-- Remaining substantive count after source/diff triage: 0 blocker, 0 critical, 0 major, 1 minor. The raw reviewer verdict stays historical and grants no phase approval.
+- F-003 final minor — validated and remediated in `756b71a`. `listProjects` now excludes project directories with no `<slug>/plan.md`, keeping the sole-project resolver aligned with the documented nested-state contract.
+- Remaining substantive count after remediation: 0 blocker, 0 critical, 0 major, 0 minor. The raw reviewer verdict stays historical and grants no phase approval; the next clean checkpoint still requires a fresh review.
 
 ## Briefings used
 
@@ -1078,12 +1078,17 @@ Begin reconciliation now.
 
 ## Fixes applied in this session
 
-- F-003 final: remediation pending. The next phase-gate capture must end after its verified checkpoint.
+- F-003 final: fixed in `756b71a` with the minimum in-place guard `plans.length > 0`.
+- RED: `node --test --test-name-pattern="ignores empty project folders|contains only empty project folders" tests/serve.test.js` collected 2 tests and failed both because empty directories were returned.
+- GREEN: the same focused command collected 2 tests and passed both.
+- Relevant regression: `node --test tests/serve.test.js tests/project.test.js tests/install-uninstall-roundtrip.test.js` collected and passed 106 tests.
+- Full regression: `npm test` collected 1,757 tests — 1,749 passed, 8 skipped, 0 failed.
+- Catalog validation: `npm run validate-skills` validated all 15 skills.
 
 ## Self-review against code-quality gates
 
 - G1 read-before-claim: current source, exact hunks and blame were inspected before dismissal or acceptance.
 - G2 soft-language: dismissals state exact out-of-diff evidence; no speculative approval language.
-- G3 anti-tautology: the pending regression must fail only when an empty sibling changes the resolved project id.
+- G3 anti-tautology: the regression failed only while an empty sibling changed the enumerated project set, then passed after the production guard.
 - G4 fixture realism: use one real project plus one empty sibling under the actual nested layout.
 - G7 anti-premature-abstraction: fix the unconditional push in place; no new helper.
