@@ -2,11 +2,13 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   existsSync,
+  lstatSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -18,7 +20,7 @@ import { validateAideckState } from '../scripts/validate-aideck-state.js';
 const NOW = Date.parse('2026-01-06T00:00:00Z');
 const REFRESH_STATE_URL = new URL('../scripts/refresh-state.js', import.meta.url).href;
 
-function runRefreshWithFsShim(dir, shimSource) {
+function runRefreshWithFsShim(dir, shimSource, { platform } = {}) {
   const fsModuleSource = [
     "import * as fs from 'node:fs';",
     "export * from 'node:fs';",
@@ -36,7 +38,9 @@ function runRefreshWithFsShim(dir, shimSource) {
   const loaderUrl = `data:text/javascript,${encodeURIComponent(loaderSource)}`;
   const childSource = `
     import { refreshState } from ${JSON.stringify(REFRESH_STATE_URL)};
-    refreshState(${JSON.stringify(dir)}, { nowMs: ${NOW}, branch: null });
+    ${platform ? `Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });` : ''}
+    const summary = refreshState(${JSON.stringify(dir)}, { nowMs: ${NOW}, branch: null });
+    console.log(JSON.stringify(summary));
   `;
   return spawnSync(
     process.execPath,
@@ -256,7 +260,54 @@ describe('refreshState consumer series integration', () => {
     }
   });
 
-  it('fails explicitly after bounded repeated index conflicts without overwriting the latest writer', () => {
+  it('rebuilds initiative projections after an index conflict instead of publishing stale task state', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-projection-conflict-'));
+    try {
+      writeSeedState(dir);
+      const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+      const initiativePath = join(
+        dir,
+        '.atomic-skills',
+        'projects',
+        'projA',
+        'plan-a',
+        'phases',
+        'f1.md',
+      );
+      const child = runRefreshWithFsShim(dir, `
+        let indexReads = 0;
+        export function readFileSync(path, ...args) {
+          const result = fs.readFileSync(path, ...args);
+          if (String(path).endsWith('PROJECT-STATUS.md')) {
+            indexReads += 1;
+            if (indexReads === 1) {
+              fs.writeFileSync(path, String(result) + '\\n<!-- concurrent-index-update -->\\n', 'utf8');
+              const initiative = fs.readFileSync(${JSON.stringify(initiativePath)}, 'utf8');
+              fs.writeFileSync(
+                ${JSON.stringify(initiativePath)},
+                initiative
+                  .replace(/^lastUpdated:.*$/m, 'lastUpdated: "2026-01-06T12:00:00Z"')
+                  .replace('status: active', 'status: done')
+                  .replace('status: pending', 'status: done'),
+                'utf8',
+              );
+            }
+          }
+          return result;
+        }
+      `);
+
+      assert.equal(child.status, 0, child.stderr);
+      const refreshed = readFileSync(indexPath, 'utf8');
+      assert.match(refreshed, /^lastUpdated: 2026-01-06T12:00:00Z$/m);
+      assert.match(refreshed, /^\| f1 \| F1 \| done \| 2\/2 \| 0\/0 \|$/m);
+      assert.match(refreshed, /<!-- concurrent-index-update -->/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports bounded repeated index conflicts but still emits focus and consumer state', () => {
     const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-conflict-limit-'));
     try {
       writeSeedState(dir);
@@ -274,11 +325,63 @@ describe('refreshState consumer series integration', () => {
         }
       `);
 
-      assert.notEqual(child.status, 0);
+      assert.equal(child.status, 0, child.stderr);
       assert.match(child.stderr, /PROJECT-STATUS\.md changed during refresh after 3 attempts/);
+      const summary = JSON.parse(child.stdout.trim());
+      assert.deepEqual(summary.indexErrors, [
+        'PROJECT-STATUS.md changed during refresh after 3 attempts',
+      ]);
+      assert.equal(summary.indexesChanged, 0);
+      assert.equal(summary.seriesWritten, 13);
+      assert.equal(existsSync(join(dir, '.atomic-skills', 'focus.json')), true);
       const latest = readFileSync(indexPath, 'utf8');
       assert.match(latest, /<!-- concurrent-version-/);
       assert.equal(latest.match(/<!-- concurrent-version-/g)?.length, 6);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves a symlinked project index and publishes through to its target', {
+    skip: process.platform === 'win32',
+  }, () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-symlink-'));
+    try {
+      writeSeedState(dir);
+      const projectDir = join(dir, '.atomic-skills', 'projects', 'projA');
+      const indexPath = join(projectDir, 'PROJECT-STATUS.md');
+      const targetPath = join(projectDir, 'CANONICAL-PROJECT-STATUS.md');
+      writeFileSync(targetPath, readFileSync(indexPath, 'utf8'));
+      rmSync(indexPath);
+      symlinkSync(targetPath, indexPath);
+
+      const summary = refreshState(dir, { nowMs: NOW, branch: null });
+
+      assert.equal(summary.indexesChanged, 1);
+      assert.equal(lstatSync(indexPath).isSymbolicLink(), true);
+      assert.match(readFileSync(targetPath, 'utf8'), /^\| f1 \| F1 \| active \| 1\/2 \| 0\/0 \|$/m);
+      assert.equal(readFileSync(indexPath, 'utf8'), readFileSync(targetPath, 'utf8'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips the unsupported parent-directory fsync on win32 after publishing the index', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'refresh-state-index-win32-'));
+    try {
+      writeSeedState(dir);
+      const indexPath = join(dir, '.atomic-skills', 'projects', 'projA', 'PROJECT-STATUS.md');
+      const child = runRefreshWithFsShim(dir, `
+        export function openSync(path, ...args) {
+          if (String(path).endsWith('projA') && args[0] === 'r') {
+            throw new Error('directory descriptors are unsupported on win32');
+          }
+          return fs.openSync(path, ...args);
+        }
+      `, { platform: 'win32' });
+
+      assert.equal(child.status, 0, child.stderr);
+      assert.match(readFileSync(indexPath, 'utf8'), /^\| f1 \| F1 \| active \| 1\/2 \| 0\/0 \|$/m);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

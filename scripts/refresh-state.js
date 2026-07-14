@@ -21,9 +21,11 @@ import {
   existsSync,
   fchmodSync,
   fsyncSync,
+  lstatSync,
   openSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -161,11 +163,13 @@ function publishProjectIndex(indexPath, expected, next) {
 
     renameSync(temporaryPath, indexPath);
     published = true;
-    const directoryFd = openSync(dirname(indexPath), 'r');
-    try {
-      fsyncSync(directoryFd);
-    } finally {
-      closeSync(directoryFd);
+    if (process.platform !== 'win32') {
+      const directoryFd = openSync(dirname(indexPath), 'r');
+      try {
+        fsyncSync(directoryFd);
+      } finally {
+        closeSync(directoryFd);
+      }
     }
     return true;
   } finally {
@@ -180,18 +184,25 @@ function publishProjectIndex(indexPath, expected, next) {
   }
 }
 
-function refreshProjectIndex(indexPath, projections) {
+function refreshProjectIndex(indexPath, readProjections) {
+  const publishPath = lstatSync(indexPath).isSymbolicLink()
+    ? realpathSync(indexPath)
+    : indexPath;
+
   for (let attempt = 1; attempt <= INDEX_REFRESH_ATTEMPTS; attempt += 1) {
-    const raw = readFileSync(indexPath, 'utf8');
+    const projections = readProjections();
+    const raw = readFileSync(publishPath, 'utf8');
     const next = renderProjectIndex(raw, projections);
 
     if (next === raw) return false;
-    if (publishProjectIndex(indexPath, raw, next)) return true;
+    if (publishProjectIndex(publishPath, raw, next)) return true;
   }
 
-  throw new Error(
+  const error = new Error(
     `${basename(indexPath)} changed during refresh after ${INDEX_REFRESH_ATTEMPTS} attempts`,
   );
+  error.code = 'PROJECT_INDEX_CONFLICT';
+  throw error;
 }
 
 /** Refresh only existing initiative rows in nested per-project indexes. */
@@ -199,23 +210,34 @@ function refreshProjectIndexes(dir) {
   const root = existsSync(join(dir, '.atomic-skills')) ? join(dir, '.atomic-skills') : dir;
   const projectsDir = join(root, 'projects');
   let changed = 0;
+  const errors = [];
 
   for (const projectId of directories(projectsDir)) {
     const projectDir = join(projectsDir, projectId);
     const indexPath = join(projectDir, 'PROJECT-STATUS.md');
     if (!existsSync(indexPath)) continue;
-    const projections = [];
-    for (const planSlug of directories(projectDir)) {
-      const phasesDir = join(projectDir, planSlug, 'phases');
-      for (const filePath of markdownFiles(phasesDir)) {
-        const projection = initiativeProjection(filePath);
-        if (projection) projections.push({ ...projection, planSlug });
+    const readProjections = () => {
+      const projections = [];
+      for (const planSlug of directories(projectDir)) {
+        const phasesDir = join(projectDir, planSlug, 'phases');
+        for (const filePath of markdownFiles(phasesDir)) {
+          const projection = initiativeProjection(filePath);
+          if (projection) projections.push({ ...projection, planSlug });
+        }
       }
+      return projections;
+    };
+    try {
+      if (refreshProjectIndex(indexPath, readProjections)) changed += 1;
+    } catch (error) {
+      if (error?.code !== 'PROJECT_INDEX_CONFLICT') throw error;
+      const message = error.message;
+      errors.push(message);
+      console.error(`refresh-state: project index failed, continuing — ${message}`);
     }
-    if (refreshProjectIndex(indexPath, projections)) changed += 1;
   }
 
-  return { changed };
+  return { changed, errors };
 }
 
 /** Run the derived-state passes for a repo dir. Returns a summary. */
@@ -240,6 +262,7 @@ export function refreshState(dir, opts = {}) {
     rollupsChanged: rollups.changed,
     focusChanged: focus.changed,
     indexesChanged: indexes.changed,
+    indexErrors: indexes.errors,
     digestWritten: emitted.written,
     digest: emitted.digest,
     seriesWritten: series?.written?.length ?? 0,
