@@ -291,7 +291,7 @@ export function listProjects(stateRoot = '.atomic-skills') {
         plans.push(slug)
       }
     }
-    out.push({ projectId, plans })
+    if (plans.length > 0) out.push({ projectId, plans })
   }
   return out
 }

@@ -147,6 +147,34 @@ describe('listProjects (Inc2: R-MIG-13 / R-ORCH-26 — folder name = projectId)'
     }
   })
 
+  it('ignores empty project folders when resolving the sole registered project', () => {
+    const root = mkdtempSync(join(tmpdir(), 'as-listproj-'))
+    try {
+      const stateRoot = join(root, '.atomic-skills')
+      const planDir = join(stateRoot, 'projects', 'real-project', 'plan-a')
+      mkdirSync(planDir, { recursive: true })
+      writeFileSync(join(planDir, 'plan.md'), '---\nslug: plan-a\n---\n')
+      mkdirSync(join(stateRoot, 'projects', 'empty-sibling'), { recursive: true })
+
+      assert.deepEqual(serve.listProjects(stateRoot), [
+        { projectId: 'real-project', plans: ['plan-a'] },
+      ])
+      assert.equal(serve.resolveRegisteredProjectId(root), 'real-project')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('returns [] when projects/ contains only empty project folders', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'as-listproj-'))
+    try {
+      mkdirSync(join(dir, 'projects', 'empty-project'), { recursive: true })
+      assert.deepEqual(serve.listProjects(dir), [])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('enumerates projects/<id>/ folders, each with its plan slugs, sorted', () => {
     const dir = mkdtempSync(join(tmpdir(), 'as-listproj-'))
     try {
