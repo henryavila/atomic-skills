@@ -27,6 +27,23 @@ test('completion event schema requires an explicit-offset ISO timestamp', () => 
   assert.equal(validateCompletionEvent(validEvent({ ts: '2026-07-14T20:00:00-03:00' })).ok, true);
 });
 
+test('completion event parser rejects regex-shaped but impossible timestamps', () => {
+  for (const ts of [
+    '2026-13-16T12:00:00Z',
+    '2026-02-30T12:00:00Z',
+    '2026-06-16T25:00:00Z',
+    '2026-06-16T12:00:00+99:99',
+  ]) {
+    assert.equal(validateCompletionEvent(validEvent({ ts })).ok, false, ts);
+  }
+});
+
+test('completion event schema rejects empty scope and task identities', () => {
+  for (const field of ['projectId', 'planSlug', 'phaseId', 'taskId']) {
+    assert.equal(validateCompletionEvent(validEvent({ [field]: '' })).ok, false, field);
+  }
+});
+
 test('completion event schema accepts a positive close generation', () => {
   assert.equal(validateCompletionEvent(validEvent({ generation: 1 })).ok, true);
   assert.equal(validateCompletionEvent(validEvent({ generation: 0 })).ok, false);

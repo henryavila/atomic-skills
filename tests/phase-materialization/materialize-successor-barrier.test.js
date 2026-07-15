@@ -250,6 +250,49 @@ test('a single exact reconciliation tombstone makes duplicate F4 closes logicall
   }
 });
 
+test('successor barrier selects the phase generation authenticated at closeSha', () => {
+  const state = createHistoryFixture({ f4Generation: 2 });
+  try {
+    const events = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+    const current = events.find((event) => event.event === 'phase-done' && event.phaseId === 'F4');
+    events.splice(events.indexOf(current), 0, {
+      ...structuredClone(current),
+      ts: '2026-07-14T19:30:00Z',
+      generation: 1,
+      idempotencyKey: 'phase-done:proj/demo/F4#1',
+      closeSha: state.reviewedSha,
+    });
+    writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
+
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const result = assertSuccessorMaterializationAllowed(barrierArgs(state));
+    assert.equal(result.allowed, true);
+    assert.equal(result.closeSha, state.closeSha);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('successor barrier rejects history missing the authenticated phase generation event', () => {
+  const state = createHistoryFixture({ f4Generation: 2 });
+  try {
+    const events = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+    const old = events.find((event) => event.event === 'phase-done' && event.phaseId === 'F4');
+    old.generation = 1;
+    old.idempotencyKey = 'phase-done:proj/demo/F4#1';
+    old.closeSha = state.reviewedSha;
+    writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
+
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state)),
+      /generation 2|authenticated phase generation/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('single materialization authority cannot bypass a configured successor barrier', () => {
   const state = createHistoryFixture();
   try {

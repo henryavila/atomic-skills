@@ -17,11 +17,12 @@
       "enum": ["task-done", "phase-done", "reconcile"],
       "description": "Closed completion event kind; downstream series code must never infer unknown event names."
     },
-    "projectId": { "type": "string" },
-    "planSlug": { "type": "string" },
-    "phaseId": { "type": "string" },
+    "projectId": { "type": "string", "minLength": 1 },
+    "planSlug": { "type": "string", "minLength": 1 },
+    "phaseId": { "type": "string", "minLength": 1 },
     "taskId": {
       "type": ["string", "null"],
+      "minLength": 1,
       "description": "Task id for task-level events; null for phase-done records."
     },
     "generation": {
@@ -83,7 +84,7 @@
     {
       "if": { "properties": { "event": { "const": "task-done" } } },
       "then": {
-        "properties": { "taskId": { "type": "string" } },
+        "properties": { "taskId": { "type": "string", "minLength": 1 } },
         "required": ["taskId"]
       }
     },

@@ -30,7 +30,7 @@ export function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-export function createHistoryFixture() {
+export function createHistoryFixture({ f4Generation } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'as-history-'));
   git(root, ['init', '-q']);
   git(root, ['config', 'user.email', 'tests@example.com']);
@@ -79,6 +79,7 @@ export function createHistoryFixture() {
       {
         id: 'F4', slug: 'f4-demo', title: 'F4', goal: 'authority', dependsOn: ['F0'],
         subPhaseCount: 0, status: 'done',
+        ...(f4Generation !== undefined ? { completionGeneration: f4Generation } : {}),
         exitGate: { summary: 'one', criteria: [f4Criterion] },
         reviewGate: {
           status: 'passed', at: reviewedSha, mode: 'local',
@@ -109,6 +110,7 @@ export function createHistoryFixture() {
   writeMarkdown(f4InitiativePath, {
     ...structuredClone(initiative),
     slug: 'f4-demo', title: 'F4', goal: 'authority', phaseId: 'F4',
+    ...(f4Generation !== undefined ? { completionGeneration: f4Generation } : {}),
     exitGates: [structuredClone(f4Criterion)],
     tasks: [{
       id: 'T-001', title: 'authority', status: 'done',
@@ -141,7 +143,11 @@ export function createHistoryFixture() {
   const f4Event = {
     ts: '2026-07-14T20:00:01Z', event: 'phase-done', projectId: 'proj',
     planSlug: 'demo', phaseId: 'F4', taskId: null, weight: 1, weightBasis: 'count',
-    idempotencyKey: 'phase-done:proj/demo/F4@2026-07-14T20%3A00%3A01Z', closeSha,
+    ...(f4Generation !== undefined ? { generation: f4Generation } : {}),
+    idempotencyKey: f4Generation !== undefined
+      ? `phase-done:proj/demo/F4#${f4Generation}`
+      : 'phase-done:proj/demo/F4@2026-07-14T20%3A00%3A01Z',
+    closeSha,
   };
   writeFileSync(completionLogPath, `${JSON.stringify(event)}\n${JSON.stringify(f4Event)}\n`);
   git(root, ['add', completionLogRel]);

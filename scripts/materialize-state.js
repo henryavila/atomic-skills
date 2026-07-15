@@ -1176,6 +1176,11 @@ function assertPhaseInitiativeClosed({ phase, initiative, label }) {
         || typeof task?.closedAt !== 'string' || task.closedAt.trim() === '')) {
     throw new Error(`${label} ${phase.id} initiative contains an open or unclosed task`);
   }
+  if ((phase.completionGeneration !== undefined
+      || initiative.completionGeneration !== undefined)
+      && phase.completionGeneration !== initiative.completionGeneration) {
+    throw new Error(`${label} ${phase.id} completionGeneration mirror disagrees`);
+  }
   const planGates = phase.exitGate?.criteria;
   const initiativeGates = initiative.exitGates;
   if (!Array.isArray(planGates) || !Array.isArray(initiativeGates)) {
@@ -2039,13 +2044,22 @@ function assertSuccessorMaterializationAllowedLocked({
       `${prerequisitePhaseId} phase-done closeSha`,
     );
   }
-  const closeEvents = physicalCloseEvents.length > 1
-      && reconcilesExactDuplicates(physicalCloseEvents, completionRecords)
-    ? [completionDuplicateRepair(physicalCloseEvents).canonicalRecord]
-    : physicalCloseEvents;
+  const historicalGeneration = historicalPhase.completionGeneration;
+  const generationCloseEvents = physicalCloseEvents.filter((event) => (
+    historicalGeneration === undefined
+      ? event.generation === undefined
+      : event.generation === historicalGeneration
+  ));
+  const closeEvents = generationCloseEvents.length > 1
+      && reconcilesExactDuplicates(generationCloseEvents, completionRecords)
+    ? [completionDuplicateRepair(generationCloseEvents).canonicalRecord]
+    : generationCloseEvents;
   if (closeEvents.length !== 1) {
+    const identity = historicalGeneration === undefined
+      ? 'legacy generation'
+      : `authenticated phase generation ${historicalGeneration}`;
     throw new Error(
-      `${prerequisitePhaseId} requires exactly one phase-done event bound to closeSha (found ${closeEvents.length})`,
+      `${prerequisitePhaseId} requires exactly one ${identity} phase-done event bound to closeSha (found ${closeEvents.length})`,
     );
   }
   return {

@@ -345,6 +345,20 @@ describe('buildState — plan dependency projection', () => {
         })}\n`,
         expected: /completion.*line 1.*schema/i,
       },
+      {
+        line: `${JSON.stringify({
+          ts: '2026-06-16T12:00:00Z', event: 'task-done', projectId: 'demo',
+          planSlug: 'big', phaseId: 'F0', taskId: '', weight: 1, weightBasis: 'count',
+        })}\n`,
+        expected: /completion.*line 1.*schema/i,
+      },
+      {
+        line: `${JSON.stringify({
+          ts: '2026-13-40T25:61:61+99:99', event: 'task-done', projectId: 'demo',
+          planSlug: 'big', phaseId: 'F0', taskId: 'T-1', weight: 1, weightBasis: 'count',
+        })}\n`,
+        expected: /completion.*line 1.*schema|timestamp/i,
+      },
     ];
 
     for (const scenario of cases) {

@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T06:55:57Z
-nextAction: Commit the r12 remediation checkpoint, then run the fresh Codex r13 phase review.
+lastUpdated: 2026-07-15T08:05:13-03:00
+nextAction: Commit the r13 remediation checkpoint, then run the fresh Codex r14 phase review.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -713,30 +713,41 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   normalização tardia de phase close e ancestry de closes equivalentes. O
   schema AIDeck gerado foi atualizado. O receipt r12 permanece
   `needs_changes`; somente r13 fresco no checkpoint remediado pode aprovar F4.
+- **2026-07-15 — review Codex F4 r13:** o critical e os cinco majors foram
+  reproduzidos e corrigidos sem defer. Phase close agora bloqueia markers de
+  task incompletos e autentica geração, idempotency key, evento e peso de cada
+  task terminal; repair da mesma task permanece permitido após terminalização,
+  sem admitir novo close. O peso vem do estado autoritativo. Reuso terminal e
+  successor barrier selecionam a geração espelhada, nunca o maior número ou
+  toda a história. Identidades vazias e timestamps semanticamente impossíveis
+  falham no parser compartilhado por producer e projections. O self-review
+  acrescentou a obrigação de evento exato também para task terminal gerada. O
+  receipt r13 permanece `reject` como veredito selado e registra a remediação;
+  somente r14 fresco no novo checkpoint pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
-  dos reviews r1..r12, além dos hardenings proativos e correções de integração.
-  No r12, 3 criticals e 2 majors foram aceitos e corrigidos; 1 finding cego foi
-  descartado conforme o trust boundary. Recovery, close generations,
-  reconciliação cross-branch, dispatch e parsing de completion agora fecham as
-  novas corridas e ambiguidades. Falta o review Codex r13 do novo checkpoint.
-- **Decision log:** nenhum finding válido r1..r12 foi deferido. Recovery segura
-  escopos duráveis autenticados; gerações pertencem ao estado autoritativo;
-  tombstones equivalentes têm identidade estável e colapso lógico; o primeiro
-  read de dispatch ocorre sob lock; timestamps e taskId são validados em todas
-  as fronteiras. Receipts continuam workflow provenance sob Git
-  operator-controlled. O smoke do servidor AIDeck já aberto é ambiental e não
-  bloqueia o checkpoint local; o loader, schema e estado canônico passaram.
-- **Single nextAction:** Commit the r12 remediation checkpoint, then run the fresh Codex r13 phase review.
-- **Verbatim state:** review r12 → blind/informed 0B/3C/2M/0m; 5 findings
-  aceitos + 4 integrações locais reproduzidos e corrigidos; exact gates → 42/42
-  + 62/62 + 76/76 pass; expanded → 185/185; full repository suite → 1,969
-  pass, 0 fail, 8 skip; canonical AIDeck state → 26 planos válidos; receipt F0
-  plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r12, testes, schema consumidor, receipt e
-  decisões F4 estão prontos para checkpoint e review Codex r13.
+  dos reviews r1..r13, além dos hardenings proativos e correções de integração.
+  No r13, 1 critical e 5 majors foram aceitos e corrigidos sob regressões
+  vermelhas. Completeness de task close, peso autoritativo, gerações de phase,
+  successor history e parsing schema/semântico agora fecham as novas lacunas.
+  Falta o review Codex r14 do checkpoint remediado.
+- **Decision log:** nenhum finding válido r1..r13 foi deferido. Marker de task
+  ausente autentica conclusão apenas porque o coordinator o remove depois de
+  evento e checkpoint duráveis; toda task terminal também precisa do evento de
+  sua geração. Reuse e history usam a geração espelhada, e peso é propriedade
+  do estado da task. Identidades vazias e timestamps impossíveis falham em
+  todas as fronteiras. O smoke do servidor AIDeck já aberto é ambiental e não
+  bloqueia o checkpoint local; loader, schema e estado canônico passaram.
+- **Single nextAction:** Commit the r13 remediation checkpoint, then run the fresh Codex r14 phase review.
+- **Verbatim state:** review r13 → blind 0B/1C/4M/0m e informed 0B/1C/5M/0m;
+  6 findings aceitos e corrigidos; focused 125/125; exact gates → 42/42 + 69/69
+  + 78/78 pass; full repository suite → 1,980 pass, 0 fail, 8 skip; canonical
+  AIDeck state → 26 planos válidos; receipt F0 plan-bound → `ok: true` e
+  `consistent`.
+- **Uncommitted changes:** remediação r13, testes, schema, receipt e decisões F4
+  estão prontos para checkpoint e review Codex r14.
 
 ## Links
 

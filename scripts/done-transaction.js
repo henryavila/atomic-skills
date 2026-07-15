@@ -1,19 +1,23 @@
 import {
   existsSync,
   readFileSync,
+  readdirSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
+  completionDuplicateRepair,
   ensureCompletion,
   normalizeCompletionActuals,
   normalizeCompletionRecord,
   readDispatchActuals,
+  reconcilesExactDuplicates,
+  withCompletionLedgerLock,
 } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
 import { durableReplace, durableUnlink } from '../src/durable-file.js';
-import { confinedRepositoryFile } from '../src/confined-path.js';
+import { confinedRepositoryDirectory, confinedRepositoryFile } from '../src/confined-path.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'taskId', 'closedAt'];
 const REQUIRED_HANDOFF_FIELDS = [
@@ -66,10 +70,92 @@ export function readDoneRecovery(root, idempotencyKey) {
   const marker = JSON.parse(readFileSync(path, 'utf8'));
   if (marker?.schemaVersion !== 1 || marker?.idempotencyKey !== idempotencyKey
     || !STAGES.has(marker?.stage) || !marker.bundle
-    || marker.bundleDigest !== digestValue(marker.bundle)) {
+    || marker.bundleDigest !== digestValue(marker.bundle)
+    || buildDoneIdempotencyKey(marker.close) !== idempotencyKey
+    || marker.bundle?.task?.id !== marker.close.taskId) {
     throw new Error(`done transaction recovery marker is invalid: ${path}`);
   }
   return marker;
+}
+
+export function assertPhaseTaskClosesComplete(root, close = {}, tasks = []) {
+  for (const field of ['projectId', 'planSlug', 'phaseId']) requireText(close, field, 'close');
+  const parts = ['.atomic-skills', 'status', 'done-transactions'];
+  const dir = confinedRepositoryDirectory(root, parts);
+  const markerNames = existsSync(dir)
+    ? readdirSync(dir).filter((entry) => entry.endsWith('.json'))
+    : [];
+  for (const name of markerNames) {
+    const path = confinedRepositoryFile(root, parts, name);
+    let candidate;
+    try {
+      candidate = JSON.parse(readFileSync(path, 'utf8'));
+    } catch (error) {
+      throw new Error(`task-close transaction marker is invalid: ${path}: ${error.message}`);
+    }
+    if (!hasText(candidate?.idempotencyKey)
+        || doneRecoveryPath(root, candidate.idempotencyKey) !== path) {
+      throw new Error(`task-close transaction marker path does not match its identity: ${path}`);
+    }
+    const marker = readDoneRecovery(root, candidate.idempotencyKey);
+    const sameScope = ['projectId', 'planSlug', 'phaseId']
+      .every((field) => marker.close[field] === close[field]);
+    if (sameScope) {
+      throw new Error(
+        `phase has an incomplete task-close transaction for ${marker.close.taskId} at stage ${marker.stage}`,
+      );
+    }
+  }
+  const generatedTasks = tasks.filter((task) => task?.status === 'done'
+    && task.completionGeneration !== undefined);
+  if (generatedTasks.length === 0) return;
+  withCompletionLedgerLock(root, (ledger) => {
+    const records = ledger.readRecords();
+    for (const task of generatedTasks) {
+      if (!Number.isInteger(task.completionGeneration) || task.completionGeneration < 1
+          || !hasText(task.id) || !hasText(task.closedAt)) {
+        throw new Error(`task ${task?.id ?? '<unknown>'} has invalid completion generation state`);
+      }
+      const taskClose = {
+        projectId: close.projectId,
+        planSlug: close.planSlug,
+        phaseId: close.phaseId,
+        taskId: task.id,
+        closedAt: task.closedAt,
+        generation: task.completionGeneration,
+      };
+      const idempotencyKey = buildDoneIdempotencyKey(taskClose);
+      const matches = records.filter((record) => (
+        record?.event === 'task-done'
+        && record.projectId === close.projectId
+        && record.planSlug === close.planSlug
+        && record.phaseId === close.phaseId
+        && record.taskId === task.id
+        && record.generation === task.completionGeneration
+        && record.idempotencyKey === idempotencyKey
+      ));
+      if (matches.length === 0) {
+        throw new Error(
+          `task ${task.id} completion generation ${task.completionGeneration} is missing from the completion ledger`,
+        );
+      }
+      let record = matches[0];
+      if (matches.length > 1) {
+        if (!reconcilesExactDuplicates(matches, records)) {
+          throw new Error(
+            `task ${task.id} completion generation ${task.completionGeneration} is duplicated without reconciliation`,
+          );
+        }
+        record = completionDuplicateRepair(matches).canonicalRecord;
+      }
+      const weight = authoritativeTaskWeight(task);
+      if (record.weight !== weight) {
+        throw new Error(
+          `task ${task.id} completion generation ${task.completionGeneration} weight conflicts with authoritative state`,
+        );
+      }
+    }
+  });
 }
 
 function writeDoneRecovery(root, marker) {
@@ -116,15 +202,27 @@ function authoritativeTask(input) {
   if (initiative.phaseId !== input.close.phaseId) {
     throw new TypeError('close.phaseId must match the authoritative initiative phaseId');
   }
-  if (initiative.status !== 'active' && initiative.status !== 'paused') {
-    throw new TypeError('authoritative initiative must remain in a live active or paused state for task close');
-  }
   const matches = (Array.isArray(initiative.tasks) ? initiative.tasks : [])
     .filter((task) => task?.id === input.close.taskId);
   if (matches.length !== 1) {
     throw new TypeError(`authoritative initiative must contain exactly one task ${input.close.taskId}`);
   }
-  return matches[0];
+  const task = matches[0];
+  const live = initiative.status === 'active' || initiative.status === 'paused';
+  const terminalRepair = (initiative.status === 'done' || initiative.status === 'archived')
+    && task.status === 'done';
+  if (!live && !terminalRepair) {
+    throw new TypeError('authoritative initiative must remain live unless repairing an already-done task');
+  }
+  return task;
+}
+
+function authoritativeTaskWeight(task) {
+  const weight = task.weight ?? 1;
+  if (typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0) {
+    throw new TypeError('authoritative task weight must be a finite number >= 0');
+  }
+  return weight;
 }
 
 function taskCloseGeneration(task) {
@@ -201,6 +299,21 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     });
     let transactionInput = { ...input, initiative };
     const currentTask = authoritativeTask(transactionInput);
+    const taskWeight = authoritativeTaskWeight(currentTask);
+    if (input.close.weight !== undefined
+        && (typeof input.close.weight !== 'number'
+          || !Number.isFinite(input.close.weight) || input.close.weight < 0)) {
+      throw new TypeError('close.weight must be a finite number >= 0');
+    }
+    if (input.close.weight !== undefined && input.close.weight !== taskWeight) {
+      throw new Error(
+        `close weight ${input.close.weight} conflicts with authoritative task weight ${taskWeight}`,
+      );
+    }
+    transactionInput = {
+      ...transactionInput,
+      close: { ...transactionInput.close, weight: taskWeight },
+    };
     const generation = taskCloseGeneration(currentTask);
     const reused = currentTask.status === 'done';
     if (currentTask.status === 'done') {

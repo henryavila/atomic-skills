@@ -6,6 +6,10 @@ import { join } from 'node:path';
 
 import { ensureCompletion } from '../scripts/append-completion.js';
 import {
+  buildDoneIdempotencyKey,
+  executeDoneTransaction,
+} from '../scripts/done-transaction.js';
+import {
   buildPhaseDoneIdempotencyKey,
   executePhaseDoneTransaction,
   phaseDoneRecoveryPath,
@@ -94,6 +98,46 @@ function recordPhaseCompletion(root, request, closeSha = SHA) {
   });
 }
 
+async function leaveTaskCloseStatePersisted(root) {
+  const task = { id: 'T-1', status: 'active', weight: 4 };
+  const initiative = {
+    __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
+    status: 'active', tasks: [task],
+  };
+  const request = {
+    root,
+    initiative,
+    close: {
+      projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-1',
+      closedAt: '2026-07-14T19:59:00Z', weight: 4, weightBasis: 'count',
+    },
+    evidence: { verifierKind: 'shell', verifiedAt: '2026-07-14T19:59:00Z', passed: true },
+    nextAction: 'Close the phase after task recovery.',
+    handoff: {
+      narrative: 'Task state persisted before the injected failure.',
+      decisionLog: 'The task marker remains the recovery authority.',
+      singleNextAction: 'Close the phase after task recovery.',
+      verbatimState: 'state-persisted',
+      uncommittedChanges: 'task marker remains',
+    },
+  };
+  let authoritative = structuredClone(initiative);
+  await assert.rejects(executeDoneTransaction(request, {
+    loadInitiative: async () => structuredClone(authoritative),
+    persistClose: async ({ bundle }) => {
+      authoritative.tasks = authoritative.tasks.map((item) => (
+        item.id === bundle.task.id ? structuredClone(bundle.task) : item
+      ));
+    },
+    refresh: async () => {},
+    ensureCompletion: async () => { throw new Error('injected task event failure'); },
+    findCheckpoint: async () => undefined,
+    checkpoint: async () => ({ sha: SHA }),
+    assertClean: async () => true,
+  }), /injected task event failure/);
+  return authoritative;
+}
+
 test('phase close keys bind to authoritative generations instead of branch-local timestamps', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-generation-key-'));
   try {
@@ -145,6 +189,89 @@ test('open task blocks before verifiers, review, writes or events', async () => 
   assert.equal(result.stage, 'preflight');
   assert.equal(result.decision.code, 'phase-done-open-task');
   assert.deepEqual(calls, []);
+});
+
+test('phase close rejects a done task whose task-close transaction is still incomplete', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-incomplete-task-close-'));
+  try {
+    const initiative = await leaveTaskCloseStatePersisted(root);
+    const request = transactionInput(root);
+    request.initiative = { ...initiative, exitGates: structuredClone(request.exitGates) };
+    request.tasks = structuredClone(request.initiative.tasks);
+    let commitCalls = 0;
+    await assert.rejects(executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => { commitCalls += 1; return { closeSha: SHA }; },
+      emit: async () => {},
+      assertClean: async () => true,
+    }), /incomplete task close|task-close transaction/i);
+    assert.equal(commitCalls, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase close rejects a generated done task without its completion event', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-missing-task-completion-'));
+  try {
+    const request = transactionInput(root);
+    request.initiative.tasks[0] = {
+      ...request.initiative.tasks[0],
+      closedAt: '2026-07-14T19:59:00Z',
+      completionGeneration: 1,
+      weight: 4,
+    };
+    request.tasks = structuredClone(request.initiative.tasks);
+    await assert.rejects(executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => ({ closeSha: SHA }),
+      emit: async () => {},
+      assertClean: async () => true,
+    }), /task T-1.*completion generation 1|completion.*T-1.*missing/i);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase close authenticates a generated done task completion before commit', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-auth-task-completion-'));
+  try {
+    const request = transactionInput(root);
+    const task = {
+      ...request.initiative.tasks[0],
+      closedAt: '2026-07-14T19:59:00Z',
+      completionGeneration: 1,
+      weight: 4,
+    };
+    request.initiative.tasks[0] = task;
+    request.tasks = structuredClone(request.initiative.tasks);
+    const taskClose = {
+      projectId: request.close.projectId,
+      planSlug: request.close.planSlug,
+      phaseId: request.close.phaseId,
+      taskId: task.id,
+      closedAt: task.closedAt,
+      generation: task.completionGeneration,
+    };
+    ensureCompletion(root, {
+      event: 'task-done', projectId: taskClose.projectId, planSlug: taskClose.planSlug,
+      phaseId: taskClose.phaseId, taskId: taskClose.taskId,
+      generation: taskClose.generation, weight: task.weight, weightBasis: 'proxy',
+      idempotencyKey: buildDoneIdempotencyKey(taskClose), ts: taskClose.closedAt,
+    });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => ({ closeSha: SHA }),
+      emit: async () => {},
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('invalid transaction envelope fails before evidence production', async () => {
@@ -768,7 +895,7 @@ test('terminal phase reuse binds the canonical completion to the authenticated c
   }
 });
 
-test('terminal phase reuse selects the latest logical close after reopen and reclose', async () => {
+test('terminal phase reuse rejects ambiguous generation-less reopen history', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-reclose-'));
   try {
     const first = terminalTransactionInput(root);
@@ -782,16 +909,47 @@ test('terminal phase reuse selects the latest logical close after reopen and rec
       close: { ...first.close, closedAt: '2026-07-14T22:00:00Z' },
     });
 
-    const result = await executePhaseDoneTransaction(detachedRetry, {
+    await assert.rejects(executePhaseDoneTransaction(detachedRetry, {
       loadState: loadStateFor(detachedRetry),
-      findCommit: async () => ({ closeSha: latestSha }),
+      findCommit: async () => assert.fail('ambiguous legacy history has no authenticated close'),
       commit: async () => assert.fail('terminal reuse must not recommit'),
       emit: async () => assert.fail('terminal reuse must not re-emit'),
       assertClean: async () => true,
+    }), /unambiguous legacy generation.*found 2/i);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal phase reuse selects the generation mirrored by authoritative state', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-terminal-authoritative-generation-'));
+  try {
+    const authoritative = terminalTransactionInput(root);
+    authoritative.phase.completionGeneration = 1;
+    authoritative.plan.phases[0].completionGeneration = 1;
+    authoritative.initiative.completionGeneration = 1;
+    authoritative.close.generation = 1;
+    recordPhaseCompletion(root, authoritative, SHA);
+
+    const stray = terminalTransactionInput(root, {
+      close: {
+        ...authoritative.close,
+        closedAt: '2026-07-14T21:00:00Z',
+        generation: 2,
+      },
+    });
+    recordPhaseCompletion(root, stray, 'b'.repeat(40));
+
+    const result = await executePhaseDoneTransaction(authoritative, {
+      loadState: loadStateFor(authoritative),
+      findCommit: async () => ({ closeSha: SHA }),
+      commit: async () => assert.fail('terminal reuse must not recommit'),
+      emit: async () => assert.fail('terminal reuse must not emit'),
+      assertClean: async () => true,
     });
     assert.equal(result.reused, true);
-    assert.equal(result.idempotencyKey, buildPhaseDoneIdempotencyKey(second.close));
-    assert.equal(result.closeSha, latestSha);
+    assert.equal(result.idempotencyKey, buildPhaseDoneIdempotencyKey(authoritative.close));
+    assert.equal(result.closeSha, SHA);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -819,9 +977,12 @@ test('concurrent phase closes serialize on phase identity instead of closedAt', 
       commit: async (request) => {
         commitCalls += 1;
         await new Promise((resolve) => setTimeout(resolve, 20));
-        state.plan.phases[0].status = 'done';
-        state.phase.status = 'done';
-        state.initiative.status = 'done';
+        state.plan = structuredClone(request.plan);
+        state.phase = { ...structuredClone(request.phase), status: 'done' };
+        state.plan.phases[0] = structuredClone(state.phase);
+        state.initiative = { ...structuredClone(request.initiative), status: 'done' };
+        state.tasks = structuredClone(state.initiative.tasks);
+        state.exitGates = structuredClone(state.phase.exitGate.criteria);
         storedCommit = { closeSha: String(commitCalls).padStart(40, 'a') };
         return storedCommit;
       },

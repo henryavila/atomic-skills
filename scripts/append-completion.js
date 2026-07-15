@@ -48,6 +48,7 @@ import { confinedRepositoryDirectory, confinedRepositoryFile } from '../src/conf
 import { durableAppendFile, fsyncDirectory } from '../src/durable-file.js';
 import {
   parseCompletionEventLog,
+  validCompletionTimestamp,
   validateCompletionEvent,
 } from '../src/completion-event-validator.js';
 import {
@@ -63,7 +64,6 @@ export { parseDispatchLog } from './dispatch-log.js';
 
 /** The closed enum of completion event kinds (mirrors completion-event.schema.json). */
 export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 /** The closed enum of weight bases: 'count' (pre-proxy) vs 'proxy' (post-F2). */
 export const WEIGHT_BASES = Object.freeze(['count', 'proxy']);
 /** The closed set of optional `actuals` numeric fields (mirrors completion-event.schema.json). */
@@ -295,8 +295,7 @@ export function normalizeCompletionRecord(entry) {
     throw new TypeError("appendCompletion: a 'reconcile' event requires taskId to be null");
   }
   // A caller-supplied ts is frozen immutably (P2) under the shared state timestamp contract.
-  if (entry.ts !== undefined && (!hasText(entry.ts)
-      || !ISO_TIMESTAMP.test(entry.ts) || Number.isNaN(Date.parse(entry.ts)))) {
+  if (entry.ts !== undefined && !validCompletionTimestamp(entry.ts)) {
     throw new RangeError(
       `appendCompletion: ts must be an ISO date-time with an explicit offset (got ${JSON.stringify(entry.ts)})`,
     );

@@ -20,6 +20,7 @@ import {
   withCompletionLedgerLock,
 } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
+import { assertPhaseTaskClosesComplete } from './done-transaction.js';
 import { durableReplace, durableUnlink } from '../src/durable-file.js';
 import { confinedRepositoryFile } from '../src/confined-path.js';
 
@@ -66,6 +67,9 @@ function authenticateTerminalCompletion(root, close) {
       && record?.planSlug === close.planSlug
       && record?.phaseId === close.phaseId
       && record?.taskId == null
+      && (close.generation !== undefined
+        ? record.generation === close.generation
+        : record.generation === undefined)
     ));
     const groups = new Map();
     for (const record of matches) {
@@ -83,17 +87,15 @@ function authenticateTerminalCompletion(root, close) {
         ? completionDuplicateRepair(group).canonicalRecord
         : group[0]);
     }
-    if (effective.length === 0) {
-      throw new Error('terminal phase reuse requires a canonical phase-done completion event');
+    if (effective.length !== 1) {
+      const identity = close.generation === undefined
+        ? 'one unambiguous legacy generation'
+        : `authoritative generation ${close.generation}`;
+      throw new Error(
+        `terminal phase reuse requires exactly one canonical phase-done completion event for ${identity} (found ${effective.length})`,
+      );
     }
-    const record = [...effective].sort((left, right) => {
-      const leftGeneration = Number.isInteger(left.generation) ? left.generation : -1;
-      const rightGeneration = Number.isInteger(right.generation) ? right.generation : -1;
-      if (leftGeneration !== rightGeneration) return leftGeneration - rightGeneration;
-      const timestampOrder = Date.parse(left.ts) - Date.parse(right.ts);
-      if (timestampOrder !== 0) return timestampOrder;
-      return String(left.idempotencyKey).localeCompare(String(right.idempotencyKey));
-    }).at(-1);
+    const [record] = effective;
     if (!hasText(record.ts) || !FULL_GIT_OID.test(record.closeSha ?? '')) {
       throw new Error('terminal phase reuse completion event lacks immutable timestamp or closeSha');
     }
@@ -375,6 +377,11 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
         delete authoritativeInput.actuals;
       }
     }
+    assertPhaseTaskClosesComplete(
+      input.root,
+      authoritativeInput.close,
+      authoritativeInput.initiative?.tasks,
+    );
     const authoritativeGeneration = phaseCloseGeneration(authoritativeInput);
     const generation = marker?.close?.generation ?? authoritativeGeneration;
     if (marker?.close?.generation !== undefined

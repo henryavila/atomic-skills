@@ -19,7 +19,7 @@ const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jso
 const firstGenerationKey = (close) => buildDoneIdempotencyKey({ ...close, generation: 1 });
 
 function input(root, overrides = {}) {
-  const task = { id: 'T-005', status: 'active' };
+  const task = { id: 'T-005', status: 'active', weight: 4 };
   return {
     root,
     task,
@@ -118,6 +118,40 @@ test('task close persists its first authoritative completion generation in state
     assert.equal(bundle.task.completionGeneration, 1);
     assert.equal(completion.generation, 1);
     assert.match(result.idempotencyKey, /#1$/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('task close freezes weight from authoritative task state when the caller omits it', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-authoritative-weight-'));
+  try {
+    const request = input(root);
+    delete request.close.weight;
+    const { state, effects } = harness();
+    const result = await executeDoneTransaction(request, effects);
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.equal(result.bundle.task.weight, 4);
+    assert.equal(state.initiative.tasks[0].weight, 4);
+    assert.equal(completion.weight, 4);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('task close rejects caller weight that conflicts with authoritative task state', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-weight-conflict-'));
+  try {
+    const request = input(root, {
+      close: { ...input(root).close, weight: 9 },
+    });
+    const { state, effects } = harness();
+    await assert.rejects(
+      executeDoneTransaction(request, effects),
+      /close weight.*authoritative task weight/i,
+    );
+    assert.equal(state.bundles.size, 0);
+    assert.equal(existsSync(LOG(root)), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -226,6 +260,29 @@ test('failure after state persistence leaves a marker and resumes without duplic
     assert.equal(resumed.ok, true);
     assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
     assert.equal(readDoneRecovery(root, idempotencyKey), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('marker-backed task recovery remains reachable after the initiative becomes terminal', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-terminal-recovery-'));
+  try {
+    const { state, effects } = harness();
+    const request = input(root);
+    const idempotencyKey = firstGenerationKey(request.close);
+    await assert.rejects(executeDoneTransaction(request, {
+      ...effects,
+      ensureCompletion: async () => { throw new Error('injected event failure'); },
+    }), /injected event failure/);
+    assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'state-persisted');
+    state.initiative.status = 'archived';
+
+    const resumed = await executeDoneTransaction(request, effects);
+    assert.equal(resumed.ok, true);
+    assert.equal(resumed.reused, true);
+    assert.equal(readDoneRecovery(root, idempotencyKey), null);
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -616,8 +673,8 @@ test('different task closes serialize on the shared phase initiative identity', 
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-phase-lock-'));
   try {
     const initialTasks = [
-      { id: 'T-005', status: 'active' },
-      { id: 'T-006', status: 'active' },
+      { id: 'T-005', status: 'active', weight: 4 },
+      { id: 'T-006', status: 'active', weight: 4 },
     ];
     let initiative = {
       __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',

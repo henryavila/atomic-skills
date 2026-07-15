@@ -8,6 +8,30 @@ const SCHEMA_PATH = join(HERE, '..', 'meta', 'schemas', 'completion-event.schema
 
 let validator;
 
+const EXPLICIT_OFFSET_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|([+-])(\d{2}):(\d{2}))$/;
+
+function leapYear(year) {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+export function validCompletionTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const match = EXPLICIT_OFFSET_TIMESTAMP.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[7] === 'Z' ? 0 : Number(match[9]);
+  const offsetMinute = match[7] === 'Z' ? 0 : Number(match[10]);
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59
+      || offsetHour > 23 || offsetMinute > 59) return false;
+  const daysInMonth = [31, leapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day >= 1 && day <= daysInMonth[month - 1];
+}
+
 function completionEventValidator() {
   if (!validator) {
     const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
@@ -18,15 +42,24 @@ function completionEventValidator() {
 
 export function validateCompletionEvent(record) {
   const validate = completionEventValidator();
-  const ok = validate(record);
+  const schemaOk = validate(record);
+  const timestampOk = schemaOk && validCompletionTimestamp(record?.ts);
+  const ok = schemaOk && timestampOk;
   return {
     ok,
-    errors: ok ? [] : (validate.errors ?? []).map((error) => ({
-      instancePath: error.instancePath || '(root)',
-      message: error.message,
-      keyword: error.keyword,
-      params: error.params,
-    })),
+    errors: ok ? [] : (schemaOk
+      ? [{
+        instancePath: '/ts',
+        message: 'must be a semantically valid ISO timestamp with an explicit offset',
+        keyword: 'format',
+        params: { format: 'explicit-offset-date-time' },
+      }]
+      : (validate.errors ?? []).map((error) => ({
+        instancePath: error.instancePath || '(root)',
+        message: error.message,
+        keyword: error.keyword,
+        params: error.params,
+      }))),
   };
 }
 
