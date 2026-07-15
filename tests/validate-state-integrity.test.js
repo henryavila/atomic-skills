@@ -70,6 +70,26 @@ test('active, paused, done and archived descriptors require their project-scoped
   }
 });
 
+test('non-terminal descriptors reject a terminal initiative match', () => {
+  for (const descriptorStatus of ['active', 'paused']) {
+    for (const initiativeStatus of ['done', 'archived']) {
+      const out = violations(
+        plan({
+          phases: [{
+            id: 'F0', slug: 'demo-f0', status: descriptorStatus,
+            exitGate: { criteria: [{ id: 'F0-G1', status: 'pending' }] },
+          }],
+        }),
+        initiative({ status: initiativeStatus }),
+      );
+      assert.ok(
+        out.some((item) => item.code === 'nonterminal-status-mismatch'),
+        `${descriptorStatus}/${initiativeStatus}: ${out.map(formatStateIntegrityViolation).join('\n')}`,
+      );
+    }
+  }
+});
+
 test('join authority rejects parentPlan, phaseId and slug mismatches', () => {
   const cases = [
     ['parent-plan-mismatch', { parentPlan: 'other' }],

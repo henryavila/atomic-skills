@@ -1127,19 +1127,53 @@ function historicalPhaseInitiative({
   return matches[0];
 }
 
-function assertHistoricalInitiativeClosed({ phase, initiative }) {
+function currentPhaseInitiative({ root, planRel, planSlug, phase }) {
+  const prefixRel = `${dirname(planRel)}/phases`;
+  const prefix = resolve(root, prefixRel);
+  const matches = [];
+  const visit = (directory) => {
+    if (!existsSync(directory)) return;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) {
+        visit(path);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      let candidate;
+      try {
+        candidate = readMarkdown(path, `current ${phase.id} initiative`).frontmatter;
+      } catch {
+        continue;
+      }
+      if (candidate?.parentPlan === planSlug
+          && candidate?.phaseId === phase.id
+          && candidate?.slug === phase.slug) {
+        matches.push({ path: relative(root, path), initiative: candidate });
+      }
+    }
+  };
+  visit(prefix);
+  if (matches.length !== 1) {
+    throw new Error(`current ${phase.id} initiative must resolve uniquely (found ${matches.length})`);
+  }
+  return matches[0];
+}
+
+function assertPhaseInitiativeClosed({ phase, initiative, label }) {
   if (!terminalPhaseStatus(initiative.status)) {
-    throw new Error(`historical ${phase.id} initiative is not terminal`);
+    throw new Error(`${label} ${phase.id} initiative is not terminal`);
   }
   if (!Array.isArray(initiative.tasks)
       || initiative.tasks.some((task) => task?.status !== 'done'
         || typeof task?.closedAt !== 'string' || task.closedAt.trim() === '')) {
-    throw new Error(`historical ${phase.id} initiative contains an open or unclosed task`);
+    throw new Error(`${label} ${phase.id} initiative contains an open or unclosed task`);
   }
   const planGates = phase.exitGate?.criteria;
   const initiativeGates = initiative.exitGates;
   if (!Array.isArray(planGates) || !Array.isArray(initiativeGates)) {
-    throw new Error(`historical ${phase.id} initiative gate mirror is missing`);
+    throw new Error(`${label} ${phase.id} initiative gate mirror is missing`);
   }
   const planIds = planGates.map((gate) => gate?.id);
   const initiativeIds = initiativeGates.map((gate) => gate?.id);
@@ -1149,7 +1183,7 @@ function assertHistoricalInitiativeClosed({ phase, initiative }) {
       || new Set(initiativeIds).size !== initiativeIds.length
       || planIds.length !== initiativeIds.length
       || planIds.some((id) => !initiativeIds.includes(id))) {
-    throw new Error(`historical ${phase.id} initiative gate mirror is not bijective`);
+    throw new Error(`${label} ${phase.id} initiative gate mirror is not bijective`);
   }
   for (const planGate of planGates) {
     const initiativeGate = initiativeGates.find((gate) => gate.id === planGate.id);
@@ -1158,7 +1192,7 @@ function assertHistoricalInitiativeClosed({ phase, initiative }) {
           canonicalize(initiativeGate.evidence),
           canonicalize(planGate.evidence),
         )) {
-      throw new Error(`historical ${phase.id} initiative gate ${planGate.id} mirror disagrees`);
+      throw new Error(`${label} ${phase.id} initiative gate ${planGate.id} mirror disagrees`);
     }
   }
 }
@@ -1797,6 +1831,17 @@ function assertSuccessorMaterializationAllowedLocked({
   if (prerequisite.length !== 1 || !terminalPhaseStatus(prerequisite[0].status)) {
     throw new Error(`${prerequisitePhaseId} must be terminal before ${targetPhaseId} activation`);
   }
+  const currentInitiative = currentPhaseInitiative({
+    root: absoluteRoot,
+    planRel: planFile.rel,
+    planSlug: currentPlan.slug,
+    phase: prerequisite[0],
+  });
+  assertPhaseInitiativeClosed({
+    phase: prerequisite[0],
+    initiative: currentInitiative.initiative,
+    label: 'current',
+  });
   const target = (currentPlan.phases ?? []).filter((phase) => phase?.id === targetPhaseId);
   if (target.length !== 1) throw new Error(`expected exactly one ${targetPhaseId} descriptor`);
   if (!(target[0].dependsOn ?? []).includes(prerequisitePhaseId)) {
@@ -1846,9 +1891,10 @@ function assertSuccessorMaterializationAllowedLocked({
     planSlug: currentPlan.slug,
     phase: historicalPhase,
   });
-  assertHistoricalInitiativeClosed({
+  assertPhaseInitiativeClosed({
     phase: historicalPhase,
     initiative: historicalInitiative.initiative,
+    label: 'historical',
   });
   assertCommitAncestor(
     absoluteRoot,

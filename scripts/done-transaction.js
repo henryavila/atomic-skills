@@ -101,6 +101,9 @@ function authoritativeTask(input) {
   if (initiative.phaseId !== input.close.phaseId) {
     throw new TypeError('close.phaseId must match the authoritative initiative phaseId');
   }
+  if (initiative.status !== 'active' && initiative.status !== 'paused') {
+    throw new TypeError('authoritative initiative must remain in a live active or paused state for task close');
+  }
   const matches = (Array.isArray(initiative.tasks) ? initiative.tasks : [])
     .filter((task) => task?.id === input.close.taskId);
   if (matches.length !== 1) {
@@ -162,6 +165,7 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     });
     let transactionInput = { ...input, initiative };
     const currentTask = authoritativeTask(transactionInput);
+    const reused = currentTask.status === 'done';
     if (currentTask.status === 'done') {
       if (!hasText(currentTask.closedAt)) {
         throw new TypeError('a done authoritative task must retain its immutable closedAt');
@@ -173,24 +177,13 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     }
     const idempotencyKey = buildDoneIdempotencyKey(transactionInput.close);
     let marker = readDoneRecovery(input.root, idempotencyKey);
-    if (currentTask.status === 'done' && !marker) {
-      return {
-        ok: true,
-        reused: true,
-        idempotencyKey,
-        bundle: null,
-        completion: null,
-        checkpoint: null,
-      };
-    }
-
     let bundle = buildBundle(transactionInput);
     const bundleDigest = digestValue(bundle);
     if (!marker) {
       marker = {
         schemaVersion: 1,
         idempotencyKey,
-        stage: 'prepared',
+        stage: reused ? 'state-persisted' : 'prepared',
         close: structuredClone(transactionInput.close),
         bundle: structuredClone(bundle),
         bundleDigest,
@@ -260,6 +253,6 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
       throw new Error('done transaction checkpoint did not leave a clean task-owned worktree');
     }
     clearDoneRecovery(input.root, idempotencyKey);
-    return { ok: true, reused: false, idempotencyKey, bundle, completion, checkpoint };
+    return { ok: true, reused, idempotencyKey, bundle, completion, checkpoint };
   });
 }

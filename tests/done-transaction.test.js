@@ -164,7 +164,7 @@ test('caller cannot alias a different close under an arbitrary idempotency key',
   }
 });
 
-test('an already-done task reuses its original immutable timestamp without another event', async () => {
+test('an already-done task repairs and authenticates its original event and checkpoint', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
     const request = input(root, {
@@ -184,14 +184,79 @@ test('an already-done task reuses its original immutable timestamp without anoth
         closedAt: '2026-07-14T20:00:00Z', weight: 4, weightBasis: 'count',
       },
     });
-    const result = await executeDoneTransaction(request, harness().effects);
+    const { state, effects } = harness();
+    const result = await executeDoneTransaction(request, effects);
     assert.equal(result.reused, true);
-    assert.equal(result.idempotencyKey, buildDoneIdempotencyKey({
+    const originalKey = buildDoneIdempotencyKey({
       ...request.close,
       closedAt: '2026-07-14T19:00:00Z',
-    }));
-    assert.equal(existsSync(LOG(root)), false);
+    });
+    assert.equal(result.idempotencyKey, originalKey);
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
+    assert.equal(result.completion.record.idempotencyKey, originalKey);
+    assert.deepEqual(result.checkpoint, state.checkpoints.get(originalKey));
+    assert.equal(state.checkpoints.size, 1);
     assert.equal(existsSync(doneRecoveryPath(root, buildDoneIdempotencyKey(request.close))), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a terminal initiative cannot receive a new task close', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-terminal-'));
+  try {
+    const request = input(root, {
+      initiative: {
+        ...input(root).initiative,
+        status: 'archived',
+      },
+    });
+    const { effects } = harness();
+    await assert.rejects(
+      executeDoneTransaction(request, effects),
+      /authoritative initiative.*live|active.*paused/i,
+    );
+    assert.equal(existsSync(LOG(root)), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('already-done repair persists recovery state when event authentication fails', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-reuse-recovery-'));
+  try {
+    const task = {
+      id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
+      weight: 4, weightBasis: 'count',
+    };
+    const request = input(root, {
+      task,
+      initiative: {
+        __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
+        status: 'active', tasks: [task],
+      },
+      close: {
+        projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-001',
+        closedAt: '2026-07-14T20:00:00Z', weight: 4, weightBasis: 'count',
+      },
+    });
+    const originalKey = buildDoneIdempotencyKey({
+      ...request.close,
+      closedAt: task.closedAt,
+    });
+    const { effects } = harness();
+    await assert.rejects(
+      executeDoneTransaction(request, {
+        ...effects,
+        ensureCompletion: async () => { throw new Error('injected reuse event failure'); },
+      }),
+      /injected reuse event failure/,
+    );
+    assert.equal(readDoneRecovery(root, originalKey).stage, 'state-persisted');
+    const resumed = await executeDoneTransaction(request, effects);
+    assert.equal(resumed.ok, true);
+    assert.equal(resumed.reused, true);
+    assert.equal(readDoneRecovery(root, originalKey), null);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

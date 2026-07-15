@@ -182,6 +182,15 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
         violations.push(violation('phase-slug-mismatch', `initiative slug ${JSON.stringify(initiative.slug)} does not match descriptor slug ${JSON.stringify(phase?.slug)}`, joined));
       }
 
+      if (MATERIALIZED_STATUSES.has(phase?.status)
+          && !isTerminalStatus(phase.status)
+          && isTerminalStatus(initiative.status)) {
+        violations.push(violation(
+          'nonterminal-status-mismatch',
+          `non-terminal phase ${phase?.id ?? '?'} has terminal initiative status ${JSON.stringify(initiative.status)}`,
+          joined,
+        ));
+      }
       if (!isTerminalStatus(phase?.status)) continue;
       if (!isTerminalStatus(initiative.status)) {
         violations.push(violation('terminal-status-mismatch', `terminal phase ${phase?.id ?? '?'} has non-terminal initiative status ${JSON.stringify(initiative.status)}`, joined));

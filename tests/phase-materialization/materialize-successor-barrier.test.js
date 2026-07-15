@@ -82,6 +82,37 @@ test('current receipt plus terminal prerequisite at closeSha allows F3', () => {
   }
 });
 
+test('current prerequisite initiative must still resolve uniquely before F3 activation', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    rmSync(state.f4InitiativePath);
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state)),
+      /current F4 initiative.*uniquely|found 0/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('current prerequisite initiative drift blocks F3 even when closeSha remains valid', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    mutateFrontmatter(state.f4InitiativePath, (initiative) => {
+      initiative.tasks[0].status = 'pending';
+      delete initiative.tasks[0].closedAt;
+    });
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state)),
+      /current F4 initiative.*task/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('pending F4 blocks direct F3 activation even with a current receipt', () => {
   const state = createHistoryFixture();
   try {
@@ -312,7 +343,7 @@ test('historical prerequisite initiative must be terminal with closed tasks and 
     bindF4Event(state, closeSha);
     assert.throws(
       () => assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha })),
-      /historical F4 initiative.*terminal|task/i,
+      /(?:current|historical) F4 initiative.*terminal|task/i,
     );
   } finally {
     rmSync(state.root, { recursive: true, force: true });

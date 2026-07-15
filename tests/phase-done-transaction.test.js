@@ -63,6 +63,30 @@ function transactionInput(root, overrides = {}) {
 
 const loadStateFor = (request) => async () => structuredClone(request);
 
+function terminalTransactionInput(root, overrides = {}) {
+  const request = transactionInput(root, overrides);
+  request.phase.status = 'done';
+  request.plan.phases[0].status = 'done';
+  request.initiative.status = 'archived';
+  return request;
+}
+
+function recordPhaseCompletion(root, request, closeSha = SHA) {
+  const idempotencyKey = buildPhaseDoneIdempotencyKey(request.close);
+  return ensureCompletion(root, {
+    event: 'phase-done',
+    projectId: request.close.projectId,
+    planSlug: request.close.planSlug,
+    phaseId: request.close.phaseId,
+    taskId: null,
+    weight: request.close.weight,
+    weightBasis: request.close.weightBasis,
+    idempotencyKey,
+    closeSha,
+    ts: request.close.closedAt,
+  });
+}
+
 test('open task blocks before verifiers, review, writes or events', async () => {
   const calls = [];
   const input = base();
@@ -362,6 +386,108 @@ test('successor recovery rejects a changed or omitted successor manifest', async
   }
 });
 
+test('terminal phase reuse fails closed without its canonical completion event', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-event-'));
+  try {
+    const request = terminalTransactionInput(root);
+    await assert.rejects(
+      executePhaseDoneTransaction(request, {
+        loadState: loadStateFor(request),
+        findCommit: async () => ({ closeSha: SHA }),
+        commit: async () => assert.fail('terminal reuse must not recommit'),
+        emit: async () => assert.fail('terminal reuse must not emit a replacement event'),
+        assertClean: async () => true,
+      }),
+      /canonical phase-done completion|completion event/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal phase reuse authenticates guard, commit and canonical completion identity', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-auth-'));
+  try {
+    const request = terminalTransactionInput(root);
+    recordPhaseCompletion(root, request);
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => ({ closeSha: SHA }),
+      commit: async () => assert.fail('terminal reuse must not recommit'),
+      emit: async () => assert.fail('terminal reuse must not re-emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.reused, true);
+    assert.equal(result.idempotencyKey, buildPhaseDoneIdempotencyKey(request.close));
+    assert.equal(result.closeSha, SHA);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal phase reuse still enforces the close guard', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-guard-'));
+  try {
+    const request = terminalTransactionInput(root, { reviewGate: undefined });
+    recordPhaseCompletion(root, request);
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => ({ closeSha: SHA }),
+      commit: async () => assert.fail('invalid terminal state must not recommit'),
+      emit: async () => assert.fail('invalid terminal state must not emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.match(result.decision.code, /^phase-done-review-/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal phase reuse trusts the persisted descriptor review over a detached caller slice', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-review-authority-'));
+  try {
+    const request = terminalTransactionInput(root);
+    request.phase.reviewGate = { status: 'pending' };
+    request.plan.phases[0].reviewGate = request.phase.reviewGate;
+    recordPhaseCompletion(root, request);
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => ({ closeSha: SHA }),
+      commit: async () => assert.fail('invalid terminal state must not recommit'),
+      emit: async () => assert.fail('invalid terminal state must not emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.match(result.decision.code, /^phase-done-review-/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal phase reuse binds the canonical completion to the authenticated commit', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-close-sha-'));
+  try {
+    const request = terminalTransactionInput(root);
+    recordPhaseCompletion(root, request, SHA);
+    await assert.rejects(
+      executePhaseDoneTransaction(request, {
+        loadState: loadStateFor(request),
+        findCommit: async () => ({ closeSha: 'b'.repeat(40) }),
+        commit: async () => assert.fail('terminal reuse must not recommit'),
+        emit: async () => assert.fail('terminal reuse must not emit'),
+        assertClean: async () => true,
+      }),
+      /completion event does not match.*close commit/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('concurrent phase closes serialize on phase identity instead of closedAt', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-race-'));
   try {
@@ -377,18 +503,22 @@ test('concurrent phase closes serialize on phase identity instead of closedAt', 
       exitGates: structuredClone(first.exitGates),
     };
     let commitCalls = 0;
+    let storedCommit;
     const effects = {
       loadState: async () => structuredClone(state),
-      findCommit: async () => undefined,
+      findCommit: async () => storedCommit,
       commit: async (request) => {
         commitCalls += 1;
         await new Promise((resolve) => setTimeout(resolve, 20));
         state.plan.phases[0].status = 'done';
         state.phase.status = 'done';
         state.initiative.status = 'done';
-        return { closeSha: String(commitCalls).padStart(40, 'a') };
+        storedCommit = { closeSha: String(commitCalls).padStart(40, 'a') };
+        return storedCommit;
       },
-      emit: async () => {},
+      emit: async (request) => {
+        recordPhaseCompletion(root, request, storedCommit.closeSha);
+      },
       assertClean: async () => true,
     };
     const results = await Promise.all([

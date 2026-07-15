@@ -14,6 +14,7 @@ import {
   classifyPhaseDoneCommit,
   classifyPhaseDonePreflight,
 } from './lifecycle-order-guard.js';
+import { withCompletionLedgerLock } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'closedAt'];
@@ -44,6 +45,31 @@ function digestValue(value) {
 
 function terminalStatus(value) {
   return value === 'done' || value === 'archived';
+}
+
+function authenticateTerminalCompletion(root, close) {
+  return withCompletionLedgerLock(root, (ledger) => {
+    const matches = ledger.readRecords().filter((record) => (
+      record?.event === 'phase-done'
+      && record?.projectId === close.projectId
+      && record?.planSlug === close.planSlug
+      && record?.phaseId === close.phaseId
+      && record?.taskId == null
+    ));
+    if (matches.length !== 1) {
+      throw new Error(`terminal phase reuse requires exactly one canonical phase-done completion event (found ${matches.length})`);
+    }
+    const record = matches[0];
+    if (!hasText(record.ts) || !FULL_GIT_OID.test(record.closeSha ?? '')) {
+      throw new Error('terminal phase reuse completion event lacks immutable timestamp or closeSha');
+    }
+    const immutableClose = { ...close, closedAt: record.ts };
+    const idempotencyKey = buildPhaseDoneIdempotencyKey(immutableClose);
+    if (record.idempotencyKey !== idempotencyKey) {
+      throw new Error('terminal phase reuse completion event has a non-canonical close identity');
+    }
+    return { record: structuredClone(record), immutableClose, idempotencyKey };
+  });
 }
 
 function normalizedSuccessor(input) {
@@ -204,14 +230,66 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       if (descriptorTerminal !== initiativeTerminal) {
         throw new Error('authoritative phase terminal state is inconsistent across mirrors');
       }
+      const terminalReviewGate = authoritativeInput.phase?.reviewGate
+        ?? authoritativeInput.reviewGate;
+      const terminalGuardInput = {
+        ...authoritativeInput,
+        reviewGate: terminalReviewGate,
+        currentHead: terminalReviewGate?.at,
+        tasks: authoritativeInput.initiative?.tasks,
+        exitGates: authoritativeInput.phase?.exitGate?.criteria,
+      };
+      const terminalDecision = classifyPhaseDoneCommit(terminalGuardInput);
+      if (!terminalDecision.allowed) {
+        return { ok: false, stage: 'commit-guard', decision: terminalDecision };
+      }
+      const successor = normalizedSuccessor(authoritativeInput);
+      const hasMaterializer = typeof effects.materializeSuccessor === 'function';
+      if ((successor !== null) !== hasMaterializer) {
+        throw new TypeError(successor === null
+          ? 'effects.materializeSuccessor requires a persisted successor manifest'
+          : 'effects.materializeSuccessor is required by the successor manifest');
+      }
+      const completion = authenticateTerminalCompletion(input.root, input.close);
+      const terminalInput = {
+        ...terminalGuardInput,
+        close: completion.immutableClose,
+        closeSha: completion.record.closeSha,
+        idempotencyKey: completion.idempotencyKey,
+        successor,
+      };
+      const value = await effects.findCommit(terminalInput, null);
+      validateCommitValue(value);
+      if (value.closeSha !== completion.record.closeSha) {
+        throw new Error('terminal phase reuse completion event does not match the authenticated close commit');
+      }
+      if (successor !== null) {
+        await effects.materializeSuccessor(terminalInput, value, {
+          schemaVersion: 1,
+          idempotencyKey: completion.idempotencyKey,
+          stage: 'emitted',
+          close: structuredClone(completion.immutableClose),
+          successor: structuredClone(successor),
+          successorDigest: digestValue(successor),
+          value: structuredClone(value),
+        });
+      }
+      const clean = await effects.assertClean({
+        idempotencyKey: completion.idempotencyKey,
+        closeSha: value.closeSha,
+        value,
+      });
+      if (clean !== true) {
+        throw new Error('phase-done terminal reuse did not leave a clean transition-owned worktree');
+      }
       return {
         ok: true,
         reused: true,
         stage: 'committed',
-        decision: { allowed: true, recovered: true },
-        idempotencyKey: null,
-        closeSha: null,
-        value: null,
+        decision: terminalDecision,
+        idempotencyKey: completion.idempotencyKey,
+        closeSha: value.closeSha,
+        value,
       };
     }
 

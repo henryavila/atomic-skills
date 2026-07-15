@@ -604,25 +604,36 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   não-contraditória do capture manifest versionado no `closeSha`. O receipt r3
   permanece `needs_changes`; um checkpoint novo e review r4 fresco continuam
   obrigatórios.
+- **2026-07-14 — review Codex F4 r4:** os cinco majors foram reproduzidos por
+  oito regressões vermelhas e corrigidos sem defer. Descriptor materializado
+  não-terminal não pode mais resolver para initiative terminal, e initiative
+  terminal não aceita novo `done`. Retry de task já fechada reabre recovery no
+  estágio state-persisted e só retorna após autenticar ou reparar seu evento e
+  checkpoint originais. Reuso de phase terminal relê o review persistido no
+  descriptor, o commit e o evento canônico ligados por `closeSha`, além da
+  obrigação de sucessor quando presente. A barrier de F3 agora também resolve
+  exatamente uma initiative F4 atual em live/archive e confere tasks e mirrors
+  antes de usar o histórico. O receipt r4 permanece `needs_changes`; um
+  checkpoint novo e review r5 fresco são obrigatórios para aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1,
-  os doze do r2 e 1 critical/13 majors oficiais do r3, mais cinco hardenings
-  proativos e duas correções de integração. A suíte completa está verde; falta
-  o review Codex r4 do checkpoint.
-- **Decision log:** nenhum finding r1/r2/r3 foi deferido. Duplicatas históricas são
+  os doze do r2, 1 critical/13 majors oficiais do r3 e os cinco majors do r4,
+  além dos hardenings proativos e correções de integração. A suíte completa
+  está verde; falta o review Codex r5 do novo checkpoint.
+- **Decision log:** nenhum finding r1/r2/r3/r4 foi deferido. Duplicatas históricas são
   preservadas fisicamente e neutralizadas por tombstone auditável; recovery só
   avança enquanto receipt, review, gates, evento e close SHA continuam ligados.
-  Provenance conflitante nunca é sintetizada, e publicação permanece sob o lock
-  da autoridade que foi validada.
-- **Single nextAction:** Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
-- **Verbatim state:** review r3 → 0B/1C/13M; remediation → 190/190 regressões
-  r3 e 50/50 hardening final; full repository suite → 1,879 pass, 0 fail,
-  8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
-  plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r3, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r4.
+  Provenance conflitante nunca é sintetizada; estado terminal isolado não prova
+  fechamento; e publicação permanece sob o lock da autoridade validada.
+- **Single nextAction:** Run the fresh Codex r5 phase review on the r4 remediation checkpoint.
+- **Verbatim state:** review r4 → 0B/0C/5M; red regressions → 8 failures;
+  remediation focused → 61/61 + 123/123 pass; full repository suite → 1,889
+  pass, 0 fail, 8 skip; canonical state → 167 arquivos/26 planos válidos;
+  receipt F0 plan-bound → `ok: true`.
+- **Uncommitted changes:** remediação r4, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r5.
 
 ## Links
 
