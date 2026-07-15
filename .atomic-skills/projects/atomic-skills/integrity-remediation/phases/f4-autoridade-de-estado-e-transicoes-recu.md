@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T03:24:37Z
-nextAction: Run the fresh Codex r8 phase review on the r7 remediation checkpoint.
+lastUpdated: 2026-07-15T03:57:57Z
+nextAction: Run the fresh Codex r9 phase review on the r8 remediation checkpoint.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -653,27 +653,38 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   separadamente autenticadas. Self-review também fechou a corrida macOS
   `EINVAL` durante publicação concorrente do lock guard. O receipt r7 permanece
   `needs_changes`; somente r8 fresco no checkpoint remediado pode aprovar F4.
+- **2026-07-15 — review Codex F4 r8:** os quatro majors e o minor informados
+  foram reproduzidos e corrigidos sem defer. Fechamentos de task agora persistem
+  `completionProvenance` schema-backed por task, com next action, handoff e
+  actuals imutáveis; repair sem marker nunca consulta dispatch mais novo nem
+  aceita injeção de actuals ausentes. Reuso terminal de phase virou caminho
+  somente de autenticação e ignora manifesto de sucessor do caller, pois marker
+  removido já prova publicação/clean concluídos. Envelope inválido falha antes
+  de produzir evidence. Self-review também restringiu provenance de task a
+  attempts/duration/escalations e rejeita actuals exclusivos de phase antes de
+  qualquer write. O receipt r8 permanece `needs_changes`; somente r9 fresco no
+  checkpoint remediado pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
-  dos reviews r1..r7, além dos hardenings proativos e correções de integração.
-  No r7, 1 critical/2 majors foram reproduzidos e corrigidos; um major cego foi
-  descartado após verificar as autoridades separadas F0 receipt/F4 close. A
-  suíte completa está verde; falta o review Codex r8 do novo checkpoint.
-- **Decision log:** nenhum finding válido r1..r7 foi deferido. O F-004 cego do
-  r7 foi descartado, não deferido: o close F4 e seu review são autenticados
-  independentemente do receipt reconciliado F0. Aggregate actuals agora são
-  marker-owned; um evento só autoriza avanço depois de fsync; duplicates continuam
-  físicas e somente tombstone exato altera sua leitura lógica.
-- **Single nextAction:** Run the fresh Codex r8 phase review on the r7 remediation checkpoint.
-- **Verbatim state:** review r7 → blind 0B/1C/3M, informed 0B/1C/2M; 3
-  findings válidos reproduzidos e corrigidos, 1 blind descartado; exact gates
-  → 34/34 + 49/49 + 67/67 pass; full repository suite → 1,919 pass, 0
-  fail, 8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
+  dos reviews r1..r8, além dos hardenings proativos e correções de integração.
+  No r8, 4 majors/1 minor foram aceitos e corrigidos. Task close ganhou
+  provenance durável e markerless phase reuse tornou-se read-only. A suíte
+  completa está verde; falta o review Codex r9 do novo checkpoint.
+- **Decision log:** nenhum finding válido r1..r8 foi deferido. A autoridade de
+  repair sem marker fica dentro da task, porque next action/handoff da
+  initiative mudam ao longo do plano. Phase terminal sem marker não reexecuta
+  sucessor: a remoção do marker já autentica publication e clean. Envelope
+  completo precede evidence, e task actuals excluem métricas agregadas de phase.
+- **Single nextAction:** Run the fresh Codex r9 phase review on the r8 remediation checkpoint.
+- **Verbatim state:** review r8 → blind 0B/0C/2M/1m, informed
+  0B/0C/4M/1m; 5 findings válidos reproduzidos e corrigidos; exact gates →
+  34/34 + 54/54 + 67/67 pass; full repository suite → 1,925 pass, 0 fail,
+  8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
   plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r7, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r8.
+- **Uncommitted changes:** remediação r8, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r9.
 
 ## Links
 

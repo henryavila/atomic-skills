@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   classifyPhaseDoneCommit,
@@ -42,6 +45,18 @@ function input(overrides = {}) {
     ...overrides,
     exitGates: structuredClone(exitGates),
   };
+}
+
+function transactionInput(root, overrides = {}) {
+  const request = input(overrides);
+  request.root = root;
+  request.plan.__projectId = 'atomic-skills';
+  request.initiative.__projectId = 'atomic-skills';
+  request.close = {
+    projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4',
+    closedAt: '2026-07-14T20:00:00Z', weight: 1, weightBasis: 'count',
+  };
+  return request;
 }
 
 test('preflight fails closed when authoritative identity inputs are absent', () => {
@@ -112,33 +127,49 @@ test('skipped review cannot bypass the commit guard', () => {
 });
 
 test('pending F4-G3 produces zero close write, event or successor materialization', async () => {
-  const calls = [];
-  const result = await executePhaseDoneTransaction(input({
-    exitGates: [{ id: 'F4-G3', status: 'pending' }],
-  }), {
-    produceEvidence: async () => ({
-      exitGates: [{ id: 'F4-G3', status: 'pending', evidence: { passed: false } }],
-    }),
-    commit: async () => calls.push('write'),
-    emit: async () => calls.push('event'),
-    materializeSuccessor: async () => calls.push('materialize'),
-  });
-  assert.equal(result.ok, false);
-  assert.equal(result.stage, 'commit-guard');
-  assert.deepEqual(calls, []);
+  const root = mkdtempSync(join(tmpdir(), 'as-lifecycle-gate-'));
+  try {
+    const calls = [];
+    const request = transactionInput(root, {
+      exitGates: [{ id: 'F4-G3', status: 'pending' }],
+    });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: async () => structuredClone(request),
+      produceEvidence: async () => ({
+        exitGates: [{ id: 'F4-G3', status: 'pending', evidence: { passed: false } }],
+      }),
+      findCommit: async () => undefined,
+      commit: async () => calls.push('write'),
+      emit: async () => calls.push('event'),
+      materializeSuccessor: async () => calls.push('materialize'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('F4-G3 cannot close or activate its successor without a current history receipt', async () => {
-  const calls = [];
-  const result = await executePhaseDoneTransaction(input({
-    historyReceiptCurrent: false,
-  }), {
-    commit: async () => calls.push('write'),
-    emit: async () => calls.push('event'),
-    materializeSuccessor: async () => calls.push('materialize'),
-  });
-  assert.equal(result.ok, false);
-  assert.equal(result.stage, 'commit-guard');
-  assert.equal(result.decision.code, 'phase-done-history-receipt-stale');
-  assert.deepEqual(calls, []);
+  const root = mkdtempSync(join(tmpdir(), 'as-lifecycle-gate-'));
+  try {
+    const calls = [];
+    const request = transactionInput(root, { historyReceiptCurrent: false });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: async () => structuredClone(request),
+      findCommit: async () => undefined,
+      commit: async () => calls.push('write'),
+      emit: async () => calls.push('event'),
+      materializeSuccessor: async () => calls.push('materialize'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.equal(result.decision.code, 'phase-done-history-receipt-stale');
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

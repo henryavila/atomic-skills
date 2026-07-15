@@ -985,6 +985,32 @@ test('0.2: task.evidence reuses the exitCriterion.evidence shape (verifierKind r
   assert.match(errText, /verifierKind|verifiedAt/);
 });
 
+test('task completionProvenance accepts immutable handoff and task actuals', () => {
+  const validators = buildValidators();
+  const init = baseInitiative({
+    tasks: [{
+      id: 'T-001', title: 't', status: 'done', lastUpdated: '2026-06-01T00:00:00Z',
+      closedAt: '2026-06-01T00:00:00Z',
+      completionProvenance: {
+        nextAction: 'Run the next task.',
+        handoff: {
+          narrative: 'The task is complete.',
+          decisionLog: 'Persist the close inputs with the task.',
+          singleNextAction: 'Run the next task.',
+          verbatimState: 'node --test tests/done-transaction.test.js',
+          uncommittedChanges: 'clean tree',
+        },
+        actuals: { attempts: 1, escalations: 0, durationMs: 5000 },
+      },
+    }],
+  });
+  assert.equal(
+    validators.validateInitiative(init),
+    true,
+    `completionProvenance must validate: ${JSON.stringify(validators.validateInitiative.errors)}`,
+  );
+});
+
 test('0.2: kind:manual gains optional demo/acceptance fields; prose-only manual still validates', () => {
   const validators = buildValidators();
   const withFields = baseInitiative({

@@ -104,6 +104,17 @@ test('open task blocks before verifiers, review, writes or events', async () => 
   assert.deepEqual(calls, []);
 });
 
+test('invalid transaction envelope fails before evidence production', async () => {
+  const calls = [];
+  await assert.rejects(
+    executePhaseDoneTransaction(base(), {
+      produceEvidence: async () => { calls.push('evidence'); },
+    }),
+    /root is required/i,
+  );
+  assert.deepEqual(calls, []);
+});
+
 test('preflight permits evidence production, then commit guard closes exactly once', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   const calls = [];
@@ -620,6 +631,32 @@ test('terminal phase reuse authenticates guard, commit and canonical completion 
   }
 });
 
+test('terminal phase reuse never replays a caller-supplied successor effect', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-read-only-'));
+  try {
+    const request = terminalTransactionInput(root, {
+      successor: {
+        phaseId: 'F3', planPath: 'plan.md', initiativePath: 'phases/f3.md',
+        planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
+      },
+    });
+    recordPhaseCompletion(root, request);
+    let materializeCalls = 0;
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => ({ closeSha: SHA }),
+      commit: async () => assert.fail('terminal reuse must not recommit'),
+      emit: async () => assert.fail('terminal reuse must not re-emit'),
+      materializeSuccessor: async () => { materializeCalls += 1; },
+      assertClean: async () => true,
+    });
+    assert.equal(result.reused, true);
+    assert.equal(materializeCalls, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('terminal phase reuse still enforces the close guard', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-guard-'));
   try {
@@ -756,73 +793,100 @@ test('concurrent phase closes serialize on phase identity instead of closedAt', 
 });
 
 test('commit guard rejects a changed review fingerprint after evidence without terminal effects', async () => {
-  const calls = [];
-  const result = await executePhaseDoneTransaction(base({
-    reviewGate: undefined,
-    exitGates: [{ id: 'F4-G1', status: 'pending' }],
-  }), {
-    produceEvidence: async () => ({
-      exitGates: [{
-        id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
-      }],
-      reviewGate: {
-        status: 'passed', at: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        mode: 'local', reviewFile: REVIEW_FILE,
-      },
-      currentHead: SHA,
-      reviewCommitExists: true,
-      reviewFileMatches: true,
-      worktreeDirty: false,
-      lessonsState: 'recorded',
-    }),
-    commit: async () => calls.push('commit'),
-    emit: async () => calls.push('emit'),
-  });
-  assert.equal(result.ok, false);
-  assert.equal(result.stage, 'commit-guard');
-  assert.equal(result.decision.code, 'phase-done-review-stale');
-  assert.deepEqual(calls, []);
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-guard-'));
+  try {
+    const calls = [];
+    const request = transactionInput(root, {
+      reviewGate: undefined,
+      exitGates: [{ id: 'F4-G1', status: 'pending' }],
+    });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      produceEvidence: async () => ({
+        exitGates: [{
+          id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
+        }],
+        reviewGate: {
+          status: 'passed', at: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          mode: 'local', reviewFile: REVIEW_FILE,
+        },
+        currentHead: SHA,
+        reviewCommitExists: true,
+        reviewFileMatches: true,
+        worktreeDirty: false,
+        lessonsState: 'recorded',
+      }),
+      findCommit: async () => undefined,
+      commit: async () => calls.push('commit'),
+      emit: async () => calls.push('emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.equal(result.decision.code, 'phase-done-review-stale');
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('review fixes that change HEAD invalidate gate evidence until verifiers rerun', async () => {
-  const reviewedHead = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  const calls = [];
-  const result = await executePhaseDoneTransaction(base({
-    exitGates: [{
-      id: 'F4-G1', status: 'met',
-      evidence: { passed: true, verifiedCommit: SHA },
-    }],
-    reviewGate: {
-      status: 'passed', at: reviewedHead, mode: 'local',
-      reviewFile: '.atomic-skills/reviews/f4.md',
-    },
-    currentHead: reviewedHead,
-    reviewCommitExists: true,
-    reviewFileMatches: true,
-  }), {
-    commit: async () => calls.push('commit'),
-    emit: async () => calls.push('emit'),
-  });
-  assert.equal(result.ok, false);
-  assert.equal(result.stage, 'commit-guard');
-  assert.equal(result.decision.code, 'phase-done-gate-evidence-stale');
-  assert.deepEqual(calls, []);
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-guard-'));
+  try {
+    const reviewedHead = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    const calls = [];
+    const request = transactionInput(root, {
+      exitGates: [{
+        id: 'F4-G1', status: 'met',
+        evidence: { passed: true, verifiedCommit: SHA },
+      }],
+      reviewGate: {
+        status: 'passed', at: reviewedHead, mode: 'local',
+        reviewFile: '.atomic-skills/reviews/f4.md',
+      },
+      currentHead: reviewedHead,
+      reviewCommitExists: true,
+      reviewFileMatches: true,
+    });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => calls.push('commit'),
+      emit: async () => calls.push('emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.equal(result.decision.code, 'phase-done-gate-evidence-stale');
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('commit guard rejects arbitrary review identifiers before terminal effects', async () => {
-  const calls = [];
-  const result = await executePhaseDoneTransaction(base({
-    reviewGate: {
-      status: 'passed', at: 'working-tree', mode: 'local',
-      reviewFile: '.atomic-skills/reviews/f4.md',
-    },
-    reviewCommitExists: false,
-    reviewFileMatches: false,
-  }), {
-    commit: async () => calls.push('commit'),
-    emit: async () => calls.push('emit'),
-  });
-  assert.equal(result.ok, false);
-  assert.equal(result.decision.code, 'phase-done-review-sha-invalid');
-  assert.deepEqual(calls, []);
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-guard-'));
+  try {
+    const calls = [];
+    const request = transactionInput(root, {
+      reviewGate: {
+        status: 'passed', at: 'working-tree', mode: 'local',
+        reviewFile: '.atomic-skills/reviews/f4.md',
+      },
+      reviewCommitExists: false,
+      reviewFileMatches: false,
+    });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => calls.push('commit'),
+      emit: async () => calls.push('emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.decision.code, 'phase-done-review-sha-invalid');
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

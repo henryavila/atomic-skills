@@ -43,6 +43,14 @@ function input(root, overrides = {}) {
   };
 }
 
+function persistedCloseProvenance(request, actuals) {
+  return {
+    nextAction: request.nextAction,
+    handoff: structuredClone(request.handoff),
+    ...(actuals !== undefined ? { actuals: structuredClone(actuals) } : {}),
+  };
+}
+
 function harness() {
   const state = { bundles: new Map(), checkpoints: new Map(), initiative: null };
   const effects = {
@@ -56,7 +64,6 @@ function harness() {
         task.id === bundle.task.id ? structuredClone(bundle.task) : task
       ));
       state.initiative.nextAction = bundle.nextAction;
-      state.initiative.__handoff = structuredClone(bundle.handoff);
     },
     refresh: async () => {},
     findCheckpoint: async ({ idempotencyKey }) => state.checkpoints.get(idempotencyKey),
@@ -100,7 +107,30 @@ test('same logical close retries to one event, one checkpoint and one complete b
     assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
     assert.equal(state.checkpoints.size, 1);
     assert.deepEqual(state.bundles.get(idempotencyKey).handoff, request.handoff);
+    assert.deepEqual(
+      state.bundles.get(idempotencyKey).task.completionProvenance,
+      persistedCloseProvenance(request),
+    );
     assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('task close rejects phase-only actuals before creating recovery state', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-task-actuals-'));
+  try {
+    const { state, effects } = harness();
+    const request = input(root, { actuals: { filesChanged: 1 } });
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+
+    await assert.rejects(
+      executeDoneTransaction(request, effects),
+      /task completion actuals cannot contain "filesChanged"/,
+    );
+    assert.equal(state.bundles.size, 0);
+    assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
+    assert.equal(existsSync(LOG(root)), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -234,6 +264,63 @@ test('checkpointed task recovery repairs a missing event with persisted actuals 
   }
 });
 
+test('markerless already-done repair uses schema-backed close actuals after dispatch drift', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-markerless-actuals-'));
+  try {
+    const original = input(root);
+    const frozenActuals = { attempts: 1, escalations: 0, durationMs: 5000 };
+    const task = {
+      id: 'T-005', status: 'done', closedAt: original.close.closedAt,
+      weight: original.close.weight, weightBasis: original.close.weightBasis,
+      evidence: structuredClone(original.evidence),
+      completionProvenance: persistedCloseProvenance(original, frozenActuals),
+    };
+    const request = input(root, {
+      task,
+      initiative: {
+        ...original.initiative,
+        nextAction: original.nextAction,
+        tasks: [task],
+      },
+    });
+    appendTaskDispatch(root, {
+      attempt: 9,
+      escalationCount: 4,
+      startedAt: '2026-07-14T20:01:00Z',
+      finishedAt: '2026-07-14T20:03:00Z',
+    });
+
+    const result = await executeDoneTransaction(request, harness().effects);
+    assert.equal(result.reused, true);
+    assert.deepEqual(JSON.parse(readFileSync(LOG(root), 'utf8')).actuals, frozenActuals);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('markerless already-done repair cannot inject actuals omitted by persisted provenance', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-markerless-no-actuals-'));
+  try {
+    const original = input(root);
+    const task = {
+      id: 'T-005', status: 'done', closedAt: original.close.closedAt,
+      weight: original.close.weight, weightBasis: original.close.weightBasis,
+      evidence: structuredClone(original.evidence),
+      completionProvenance: persistedCloseProvenance(original),
+    };
+    const request = input(root, {
+      task,
+      initiative: { ...original.initiative, nextAction: original.nextAction, tasks: [task] },
+      actuals: { attempts: 99 },
+    });
+
+    await executeDoneTransaction(request, harness().effects);
+    assert.equal(Object.hasOwn(JSON.parse(readFileSync(LOG(root), 'utf8')), 'actuals'), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('failure after event persistence resumes checkpoint with the same event', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
@@ -287,18 +374,17 @@ test('caller cannot alias a different close under an arbitrary idempotency key',
 test('an already-done task repairs and authenticates its original event and checkpoint', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
+    const original = input(root);
+    const task = {
+      id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
+      weight: 4, weightBasis: 'count', evidence: original.evidence,
+      completionProvenance: persistedCloseProvenance(original),
+    };
     const request = input(root, {
-      task: {
-        id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
-        weight: 4, weightBasis: 'count', evidence: input(root).evidence,
-      },
+      task,
       initiative: {
         __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
-        status: 'active', nextAction: input(root).nextAction,
-        __handoff: input(root).handoff, tasks: [{
-          id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
-          weight: 4, weightBasis: 'count', evidence: input(root).evidence,
-        }],
+        status: 'active', nextAction: original.nextAction, tasks: [task],
       },
       close: {
         projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-001',
@@ -346,16 +432,17 @@ test('a terminal initiative cannot receive a new task close', async () => {
 test('already-done repair persists recovery state when event authentication fails', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-reuse-recovery-'));
   try {
+    const original = input(root);
     const task = {
       id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
-      weight: 4, weightBasis: 'count', evidence: input(root).evidence,
+      weight: 4, weightBasis: 'count', evidence: original.evidence,
+      completionProvenance: persistedCloseProvenance(original),
     };
     const request = input(root, {
       task,
       initiative: {
         __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
-        status: 'active', nextAction: input(root).nextAction,
-        __handoff: input(root).handoff, tasks: [task],
+        status: 'active', nextAction: original.nextAction, tasks: [task],
       },
       close: {
         projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-001',
@@ -391,6 +478,7 @@ test('already-done reuse rejects caller provenance that differs from persisted e
     const task = {
       ...original.task,
       status: 'done', closedAt: original.close.closedAt, evidence: structuredClone(original.evidence),
+      completionProvenance: persistedCloseProvenance(original),
     };
     const request = input(root, {
       task,
@@ -398,7 +486,6 @@ test('already-done reuse rejects caller provenance that differs from persisted e
         ...original.initiative,
         tasks: [task],
         nextAction: original.nextAction,
-        __handoff: structuredClone(original.handoff),
       },
       evidence: { ...original.evidence, verifierKind: 'forged' },
       handoff: { ...original.handoff, decisionLog: 'forged retry provenance' },
@@ -474,7 +561,6 @@ test('concurrent closes with different timestamps serialize on authoritative tas
         await new Promise((resolve) => setTimeout(resolve, 20));
         authoritative.tasks[0] = structuredClone(bundle.task);
         authoritative.nextAction = bundle.nextAction;
-        authoritative.__handoff = structuredClone(bundle.handoff);
       },
       refresh: async () => {},
       findCheckpoint: async ({ idempotencyKey }) => checkpoints.get(idempotencyKey),

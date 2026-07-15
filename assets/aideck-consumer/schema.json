@@ -804,6 +804,69 @@
           "$ref": "#/definitions/exitCriterion/properties/evidence",
           "description": "0.2 (F-B4): captured result of running this task's `verifier` on `done <task-id>`, reusing the exact exitCriterion.evidence shape. Replaces the v0.1 description-note string-laundering workaround so per-task verifier results are machine-enforceable (GATE-R2)."
         },
+        "completionProvenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Immutable task-close inputs persisted by the recoverable done transaction. Optional for backward readability; markerless repair fails closed when a historical task lacks this authority.",
+          "required": [
+            "nextAction",
+            "handoff"
+          ],
+          "properties": {
+            "nextAction": {
+              "type": "string",
+              "minLength": 1
+            },
+            "handoff": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "narrative",
+                "decisionLog",
+                "singleNextAction",
+                "verbatimState",
+                "uncommittedChanges"
+              ],
+              "properties": {
+                "narrative": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "decisionLog": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "singleNextAction": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "verbatimState": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uncommittedChanges": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "actuals": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "attempts": {
+                  "type": "number"
+                },
+                "durationMs": {
+                  "type": "number"
+                },
+                "escalations": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
         "provenance": {
           "$ref": "#/definitions/provenance"
         },

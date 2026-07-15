@@ -6,7 +6,11 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
-import { ensureCompletion, readDispatchActuals } from './append-completion.js';
+import {
+  ensureCompletion,
+  normalizeCompletionActuals,
+  readDispatchActuals,
+} from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
 import { durableReplace, durableUnlink } from '../src/durable-file.js';
 
@@ -18,6 +22,7 @@ const REQUIRED_HANDOFF_FIELDS = [
   'verbatimState',
   'uncommittedChanges',
 ];
+const TASK_COMPLETION_ACTUALS_KEYS = new Set(['attempts', 'durationMs', 'escalations']);
 const STAGES = new Set(['prepared', 'state-persisted', 'event-persisted', 'checkpointed']);
 
 function hasText(value) {
@@ -117,6 +122,17 @@ function buildBundle(input) {
   if (handoff.singleNextAction !== input.nextAction) {
     throw new TypeError('handoff.singleNextAction must equal input.nextAction');
   }
+  const actuals = normalizeCompletionActuals(input.actuals);
+  for (const field of Object.keys(actuals ?? {})) {
+    if (!TASK_COMPLETION_ACTUALS_KEYS.has(field)) {
+      throw new RangeError(`task completion actuals cannot contain ${JSON.stringify(field)}`);
+    }
+  }
+  const completionProvenance = {
+    nextAction: input.nextAction,
+    handoff: structuredClone(handoff),
+    ...(actuals !== undefined ? { actuals: structuredClone(actuals) } : {}),
+  };
   return {
     task: {
       ...task,
@@ -126,11 +142,12 @@ function buildBundle(input) {
       weight: close.weight,
       weightBasis: close.weightBasis,
       evidence: structuredClone(evidence),
+      completionProvenance,
     },
     evidence: structuredClone(evidence),
     nextAction: input.nextAction,
     handoff: structuredClone(handoff),
-    ...(input.actuals !== undefined ? { actuals: structuredClone(input.actuals) } : {}),
+    ...(actuals !== undefined ? { actuals: structuredClone(actuals) } : {}),
   };
 }
 
@@ -166,10 +183,14 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
       if (!hasText(currentTask.closedAt)) {
         throw new TypeError('a done authoritative task must retain its immutable closedAt');
       }
+      const completionProvenance = currentTask.completionProvenance;
       const persisted = {
         evidence: currentTask.evidence,
-        nextAction: initiative.nextAction,
-        handoff: initiative.__handoff,
+        nextAction: completionProvenance?.nextAction,
+        handoff: completionProvenance?.handoff,
+        ...(completionProvenance?.actuals !== undefined
+          ? { actuals: normalizeCompletionActuals(completionProvenance.actuals) }
+          : {}),
       };
       if (!persisted.evidence || persisted.evidence.passed !== true
           || !hasText(persisted.nextAction)
@@ -191,6 +212,7 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
         },
         ...structuredClone(persisted),
       };
+      if (persisted.actuals === undefined) delete transactionInput.actuals;
     }
     const idempotencyKey = buildDoneIdempotencyKey(transactionInput.close);
     let marker = readDoneRecovery(input.root, idempotencyKey);
@@ -203,7 +225,7 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
         taskId: transactionInput.close.taskId,
       });
       if (actuals !== undefined) transactionInput.actuals = actuals;
-    } else {
+    } else if (marker) {
       delete transactionInput.actuals;
     }
     let bundle = buildBundle(transactionInput);

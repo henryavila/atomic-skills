@@ -278,15 +278,6 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     return { ok: false, stage: 'preflight', decision: preflight };
   }
 
-  if (!hasText(input.root) || !input.close || typeof input.close !== 'object') {
-    const produced = typeof effects.produceEvidence === 'function'
-      ? await effects.produceEvidence(input)
-      : {};
-    const decision = classifyPhaseDoneCommit({ ...input, ...(produced ?? {}) });
-    if (!decision.allowed) return { ok: false, stage: 'commit-guard', decision };
-    validateTransactionInput(input);
-  }
-
   const requestedKey = validateTransactionInput(input);
   for (const name of ['findCommit', 'commit', 'emit', 'assertClean', 'loadState']) {
     if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
@@ -349,36 +340,22 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       if (!terminalDecision.allowed) {
         return { ok: false, stage: 'commit-guard', decision: terminalDecision };
       }
-      const successor = normalizedSuccessor(authoritativeInput);
-      const hasMaterializer = typeof effects.materializeSuccessor === 'function';
-      if ((successor !== null) !== hasMaterializer) {
-        throw new TypeError(successor === null
-          ? 'effects.materializeSuccessor requires a persisted successor manifest'
-          : 'effects.materializeSuccessor is required by the successor manifest');
-      }
       const completion = authenticateTerminalCompletion(input.root, input.close);
       const terminalInput = {
         ...terminalGuardInput,
         close: completion.immutableClose,
         closeSha: completion.record.closeSha,
         idempotencyKey: completion.idempotencyKey,
-        successor,
       };
+      // A cleared marker proves the original transaction reached successor
+      // publication (when any) and the final clean check. Terminal reuse is
+      // therefore authentication-only: caller successor input is untrusted and
+      // must never be replayed into a materialization effect.
+      delete terminalInput.successor;
       const value = await effects.findCommit(terminalInput, null);
       validateCommitValue(value);
       if (value.closeSha !== completion.record.closeSha) {
         throw new Error('terminal phase reuse completion event does not match the authenticated close commit');
-      }
-      if (successor !== null) {
-        await effects.materializeSuccessor(terminalInput, value, {
-          schemaVersion: 1,
-          idempotencyKey: completion.idempotencyKey,
-          stage: 'emitted',
-          close: structuredClone(completion.immutableClose),
-          successor: structuredClone(successor),
-          successorDigest: digestValue(successor),
-          value: structuredClone(value),
-        });
       }
       const clean = await effects.assertClean({
         idempotencyKey: completion.idempotencyKey,
