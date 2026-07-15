@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T02:52:19Z
-nextAction: Run the fresh Codex r7 phase review on the r6 remediation checkpoint.
+lastUpdated: 2026-07-15T03:24:37Z
+nextAction: Run the fresh Codex r8 phase review on the r7 remediation checkpoint.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -643,28 +643,37 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   crash-durable, impediu emit no-op, reautenticou recovery e resolveu
   reopen/reclose pelo close lógico mais recente. O receipt r6 permanece
   `needs_changes`; somente r7 fresco no checkpoint remediado pode aprovar F4.
+- **2026-07-15 — review Codex F4 r7:** o critical e os dois majors informados
+  foram reproduzidos e corrigidos sem defer. `phase-done` agora valida e congela
+  aggregate actuals no marker antes do commit, usa o mesmo payload no emitter e
+  na autenticação e ignora drift do retry. O ledger fsynca arquivo e diretório
+  antes de avançar recovery, e `done` deriva dispatch actuals uma vez no bundle
+  durável, inclusive para repair depois de drift. O finding cego de ancestry do
+  `receipt.closeSha` foi rejeitado porque F0 receipt e F4 close são autoridades
+  separadamente autenticadas. Self-review também fechou a corrida macOS
+  `EINVAL` durante publicação concorrente do lock guard. O receipt r7 permanece
+  `needs_changes`; somente r8 fresco no checkpoint remediado pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
-  dos reviews r1..r6, além dos hardenings proativos e correções de integração.
-  No r6, 1 critical/4 majors foram reproduzidos e corrigidos; um major informado
-  foi rejeitado por contradizer o contrato F0-receipt + F4-close. A suíte
-  completa está verde; falta o review Codex r7 do novo checkpoint.
-- **Decision log:** nenhum finding válido r1..r6 foi deferido. O F-006 informado
-  do r6 foi descartado, não deferido: `receiptIdentity.phaseId: F0` e
-  `prerequisitePhaseId: F4` são autoridades complementares persistidas no
-  plano. Duplicatas históricas permanecem físicas e só são neutralizadas por
-  tombstone exato; recovery e publicação permanecem sob locks autenticados e
-  estado terminal isolado nunca prova fechamento.
-- **Single nextAction:** Run the fresh Codex r7 phase review on the r6 remediation checkpoint.
-- **Verbatim state:** review r6 → blind 0B/1C/5M, informed 0B/1C/5M; 5
-  findings válidos reproduzidos e corrigidos, 1 emergente descartado pelo
-  contrato explícito; exact gates → 34/34 + 42/42 + 67/67 pass; full
-  repository suite → 1,912 pass, 0 fail, 8 skip; canonical state → 167
-  arquivos/26 planos válidos; receipt F0 plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r6, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r7.
+  dos reviews r1..r7, além dos hardenings proativos e correções de integração.
+  No r7, 1 critical/2 majors foram reproduzidos e corrigidos; um major cego foi
+  descartado após verificar as autoridades separadas F0 receipt/F4 close. A
+  suíte completa está verde; falta o review Codex r8 do novo checkpoint.
+- **Decision log:** nenhum finding válido r1..r7 foi deferido. O F-004 cego do
+  r7 foi descartado, não deferido: o close F4 e seu review são autenticados
+  independentemente do receipt reconciliado F0. Aggregate actuals agora são
+  marker-owned; um evento só autoriza avanço depois de fsync; duplicates continuam
+  físicas e somente tombstone exato altera sua leitura lógica.
+- **Single nextAction:** Run the fresh Codex r8 phase review on the r7 remediation checkpoint.
+- **Verbatim state:** review r7 → blind 0B/1C/3M, informed 0B/1C/2M; 3
+  findings válidos reproduzidos e corrigidos, 1 blind descartado; exact gates
+  → 34/34 + 49/49 + 67/67 pass; full repository suite → 1,919 pass, 0
+  fail, 8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
+  plan-bound → `ok: true`.
+- **Uncommitted changes:** remediação r7, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r8.
 
 ## Links
 

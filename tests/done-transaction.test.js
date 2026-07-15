@@ -12,6 +12,8 @@ import {
   executeDoneTransaction,
   readDoneRecovery,
 } from '../scripts/done-transaction.js';
+import { ensureCompletion } from '../scripts/append-completion.js';
+import { appendDispatchRecord } from '../scripts/dispatch-log.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
 
@@ -72,6 +74,18 @@ function harness() {
   return { state, effects };
 }
 
+function appendTaskDispatch(root, {
+  attempt,
+  escalationCount,
+  startedAt,
+  finishedAt,
+}) {
+  appendDispatchRecord(root, {
+    taskId: 'T-005', plan: 'demo', phase: 'F4',
+    attempt, escalationCount, startedAt, finishedAt,
+  });
+}
+
 test('same logical close retries to one event, one checkpoint and one complete bundle', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
@@ -113,6 +127,108 @@ test('failure after state persistence leaves a marker and resumes without duplic
     assert.equal(resumed.ok, true);
     assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
     assert.equal(readDoneRecovery(root, idempotencyKey), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('completion fsync failure keeps task recovery live until the existing event is durable', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-fsync-'));
+  try {
+    const { effects } = harness();
+    const request = input(root);
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const failing = {
+      ...effects,
+      ensureCompletion: (ledgerRoot, entry) => ensureCompletion(ledgerRoot, entry, {
+        beforeFileSync: () => { throw new Error('injected completion fsync failure'); },
+      }),
+    };
+
+    await assert.rejects(
+      executeDoneTransaction(request, failing),
+      /injected completion fsync failure/,
+    );
+    assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'state-persisted');
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
+
+    const resumed = await executeDoneTransaction(request, effects);
+    // Mutation guard: returning before fsync clears this marker during the failing attempt.
+    assert.equal(resumed.ok, true);
+    assert.equal(readDoneRecovery(root, idempotencyKey), null);
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('task recovery freezes dispatch actuals before its first event attempt', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-actuals-pre-event-'));
+  try {
+    appendTaskDispatch(root, {
+      attempt: 1,
+      escalationCount: 0,
+      startedAt: '2026-07-14T19:59:50Z',
+      finishedAt: '2026-07-14T20:00:00Z',
+    });
+    const { effects } = harness();
+    const request = input(root);
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    await assert.rejects(executeDoneTransaction(request, {
+      ...effects,
+      ensureCompletion: async () => { throw new Error('injected pre-event failure'); },
+    }), /injected pre-event failure/);
+
+    const marker = readDoneRecovery(root, idempotencyKey);
+    assert.equal(marker.stage, 'state-persisted');
+    // Mutation guard: deriving only inside ensureCompletion leaves bundle.actuals absent.
+    assert.deepEqual(marker.bundle.actuals, { attempts: 1, escalations: 0, durationMs: 10000 });
+
+    appendTaskDispatch(root, {
+      attempt: 2,
+      escalationCount: 1,
+      startedAt: '2026-07-14T20:00:01Z',
+      finishedAt: '2026-07-14T20:00:31Z',
+    });
+    const resumed = await executeDoneTransaction(request, effects);
+    assert.equal(resumed.ok, true);
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.deepEqual(completion.actuals, { attempts: 1, escalations: 0, durationMs: 10000 });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('checkpointed task recovery repairs a missing event with persisted actuals after dispatch drift', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-actuals-repair-'));
+  try {
+    appendTaskDispatch(root, {
+      attempt: 1,
+      escalationCount: 0,
+      startedAt: '2026-07-14T19:59:55Z',
+      finishedAt: '2026-07-14T20:00:00Z',
+    });
+    const { effects } = harness();
+    const request = input(root);
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    await assert.rejects(executeDoneTransaction(request, {
+      ...effects,
+      assertClean: async () => false,
+    }), /clean task-owned worktree/);
+    assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'checkpointed');
+
+    appendTaskDispatch(root, {
+      attempt: 3,
+      escalationCount: 2,
+      startedAt: '2026-07-14T20:00:02Z',
+      finishedAt: '2026-07-14T20:01:02Z',
+    });
+    unlinkSync(LOG(root));
+    const resumed = await executeDoneTransaction(request, effects);
+    assert.equal(resumed.ok, true);
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    // Mutation guard: re-deriving during repair would select attempt 3 instead of attempt 1.
+    assert.deepEqual(completion.actuals, { attempts: 1, escalations: 0, durationMs: 5000 });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

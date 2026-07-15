@@ -84,6 +84,7 @@ function recordPhaseCompletion(root, request, closeSha = SHA) {
     idempotencyKey,
     closeSha,
     ts: request.close.closedAt,
+    ...(request.actuals !== undefined ? { actuals: request.actuals } : {}),
   });
 }
 
@@ -139,6 +140,111 @@ test('preflight permits evidence production, then commit guard closes exactly on
     assert.equal(completion.event, 'phase-done');
     assert.equal(completion.idempotencyKey, buildPhaseDoneIdempotencyKey(input.close));
     assert.equal(completion.closeSha, SHA);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase close persists available aggregate actuals when the event effect is a no-op', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-actuals-fallback-'));
+  try {
+    const actuals = { filesChanged: 7, locAdded: 91, locRemoved: 12, commits: 3 };
+    const request = transactionInput(root, { actuals });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => ({ closeSha: SHA }),
+      emit: async () => {},
+      assertClean: async () => true,
+    });
+
+    assert.equal(result.ok, true);
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    // Mutation guard: omitting marker.actuals from the coordinator candidate drops this payload.
+    assert.deepEqual(completion.actuals, actuals);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase close authenticates a compliant emitter carrying aggregate actuals', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-actuals-emitter-'));
+  try {
+    const actuals = { filesChanged: 4, locAdded: 33, locRemoved: 5, commits: 2 };
+    const request = transactionInput(root, { actuals });
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async () => ({ closeSha: SHA }),
+      emit: async (closeInput) => recordPhaseCompletion(root, closeInput),
+      assertClean: async () => true,
+    });
+
+    assert.equal(result.ok, true);
+    const records = readFileSync(LOG(root), 'utf8').trim().split('\n').map(JSON.parse);
+    // Mutation guard: rebuilding the authentication candidate without actuals conflicts here.
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].actuals, actuals);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase recovery retains the original aggregate actuals after the event boundary fails', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-actuals-recovery-'));
+  try {
+    const originalActuals = { filesChanged: 5, locAdded: 44, locRemoved: 6, commits: 2 };
+    const request = transactionInput(root, { actuals: originalActuals });
+    let failAfterAppend = true;
+    const effects = {
+      loadState: loadStateFor(request),
+      findCommit: async () => ({ closeSha: SHA }),
+      commit: async () => ({ closeSha: SHA }),
+      emit: async () => {},
+      ensureCompletion: (ledgerRoot, entry) => {
+        const completion = ensureCompletion(ledgerRoot, entry);
+        if (failAfterAppend) {
+          failAfterAppend = false;
+          throw new Error('injected post-event boundary failure');
+        }
+        return completion;
+      },
+      assertClean: async () => true,
+    };
+
+    await assert.rejects(
+      executePhaseDoneTransaction(request, effects),
+      /injected post-event boundary failure/,
+    );
+    const idempotencyKey = buildPhaseDoneIdempotencyKey(request.close);
+    assert.equal(readPhaseDoneRecovery(root, idempotencyKey).stage, 'committed');
+
+    const resumed = await executePhaseDoneTransaction({
+      ...request,
+      actuals: { filesChanged: 999, locAdded: 999, locRemoved: 999, commits: 999 },
+    }, effects);
+    assert.equal(resumed.ok, true);
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    // Mutation guard: adopting retry input instead of marker.actuals changes immutable telemetry.
+    assert.deepEqual(completion.actuals, originalActuals);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase close rejects malformed aggregate actuals before creating recovery state', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-invalid-actuals-'));
+  try {
+    const request = transactionInput(root, {
+      actuals: { filesChanged: 3, source: 'invented' },
+    });
+    const idempotencyKey = buildPhaseDoneIdempotencyKey(request.close);
+    await assert.rejects(
+      executePhaseDoneTransaction(request, {}),
+      /unknown actuals field/i,
+    );
+    // Mutation guard: delaying validation until ensureCompletion leaves a prepared marker.
+    assert.equal(existsSync(phaseDoneRecoveryPath(root, idempotencyKey)), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

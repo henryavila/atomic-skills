@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
-import { ensureCompletion } from './append-completion.js';
+import { ensureCompletion, readDispatchActuals } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
 import { durableReplace, durableUnlink } from '../src/durable-file.js';
 
@@ -130,6 +130,7 @@ function buildBundle(input) {
     evidence: structuredClone(evidence),
     nextAction: input.nextAction,
     handoff: structuredClone(handoff),
+    ...(input.actuals !== undefined ? { actuals: structuredClone(input.actuals) } : {}),
   };
 }
 
@@ -193,6 +194,18 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     }
     const idempotencyKey = buildDoneIdempotencyKey(transactionInput.close);
     let marker = readDoneRecovery(input.root, idempotencyKey);
+    if (marker?.bundle?.actuals !== undefined) {
+      transactionInput.actuals = structuredClone(marker.bundle.actuals);
+    } else if (!marker && !reused) {
+      const actuals = readDispatchActuals(input.root, {
+        planSlug: transactionInput.close.planSlug,
+        phaseId: transactionInput.close.phaseId,
+        taskId: transactionInput.close.taskId,
+      });
+      if (actuals !== undefined) transactionInput.actuals = actuals;
+    } else {
+      delete transactionInput.actuals;
+    }
     let bundle = buildBundle(transactionInput);
     const bundleDigest = digestValue(bundle);
     if (!marker) {
@@ -236,6 +249,11 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
         weightBasis: transactionInput.close.weightBasis,
         idempotencyKey,
         ts: transactionInput.close.closedAt,
+        ...(bundle.actuals !== undefined
+          ? { actuals: bundle.actuals }
+          : (marker.completion?.record?.actuals !== undefined
+            ? { actuals: marker.completion.record.actuals }
+            : {})),
       });
       if (marker.completion !== undefined
           && (!marker.completion?.record

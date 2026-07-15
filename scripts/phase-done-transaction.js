@@ -13,6 +13,7 @@ import {
 } from './lifecycle-order-guard.js';
 import {
   ensureCompletion,
+  normalizeCompletionActuals,
   reconcilesExactDuplicates,
   withCompletionLedgerLock,
 } from './append-completion.js';
@@ -150,6 +151,7 @@ export function readPhaseDoneRecovery(root, idempotencyKey) {
       || marker.successorDigest !== digestValue(marker.successor)) {
     throw new Error(`phase-done transaction recovery marker is invalid: ${path}`);
   }
+  if (Object.hasOwn(marker, 'actuals')) normalizeCompletionActuals(marker.actuals);
   if (marker.stage !== 'prepared') validateCommitValue(marker.value, path);
   return marker;
 }
@@ -260,6 +262,7 @@ function validateTransactionInput(input) {
       || input.initiative?.__projectId !== input.close.projectId) {
     throw new TypeError('close.projectId must match the authoritative plan and initiative projectId');
   }
+  normalizeCompletionActuals(input.actuals);
   return idempotencyKey;
 }
 
@@ -314,6 +317,13 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       root: input.root,
       close: marker?.close ?? input.close,
     };
+    if (marker) {
+      if (Object.hasOwn(marker, 'actuals')) {
+        authoritativeInput.actuals = structuredClone(marker.actuals);
+      } else {
+        delete authoritativeInput.actuals;
+      }
+    }
     validateTransactionInput(authoritativeInput);
     const freshPreflight = classifyPhaseDonePreflight(authoritativeInput);
     if (!freshPreflight.allowed) {
@@ -427,11 +437,13 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     }
 
     if (!marker) {
+      const actuals = normalizeCompletionActuals(commitInput.actuals);
       marker = {
         schemaVersion: 1,
         idempotencyKey,
         stage: 'prepared',
         close: structuredClone(commitInput.close),
+        ...(actuals !== undefined ? { actuals: structuredClone(actuals) } : {}),
         successor,
         successorDigest: digestValue(successor),
       };
@@ -444,6 +456,11 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       successor: structuredClone(marker.successor),
       idempotencyKey,
     };
+    if (Object.hasOwn(marker, 'actuals')) {
+      transactionInput.actuals = structuredClone(marker.actuals);
+    } else {
+      delete transactionInput.actuals;
+    }
     if (marker.stage === 'prepared') {
       value = await effects.findCommit(transactionInput, marker);
       if (!value) value = await effects.commit(transactionInput, marker);
@@ -468,7 +485,8 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     if (marker.stage === 'committed'
         || marker.stage === 'emitted'
         || marker.stage === 'successor-materialized') {
-      const completion = ensureCompletion(input.root, {
+      const ensure = effects.ensureCompletion ?? ensureCompletion;
+      const completion = await ensure(input.root, {
         event: 'phase-done',
         projectId: marker.close.projectId,
         planSlug: marker.close.planSlug,
@@ -479,6 +497,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
         idempotencyKey,
         closeSha: value.closeSha,
         ts: marker.close.closedAt,
+        ...(marker.actuals !== undefined ? { actuals: marker.actuals } : {}),
       });
       if (marker.completion?.record
           && !isDeepStrictEqual(marker.completion.record, completion.record)) {

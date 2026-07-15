@@ -32,7 +32,6 @@
  */
 
 import {
-  appendFileSync,
   closeSync,
   existsSync,
   fchmodSync,
@@ -49,7 +48,7 @@ import {
 } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { readDispatchLog } from './dispatch-log.js';
@@ -209,7 +208,7 @@ export function readDispatchActuals(root, { planSlug, phaseId, taskId } = {}) {
  * an unknown key or a non-finite value — so the writer can never emit a line that
  * its own schema (completion-event.schema.json) would later reject.
  */
-function normalizeActuals(actuals) {
+export function normalizeCompletionActuals(actuals) {
   if (actuals == null) return undefined;
   if (typeof actuals !== 'object' || Array.isArray(actuals)) {
     throw new TypeError('appendCompletion: actuals must be an object');
@@ -292,7 +291,7 @@ function normalize(entry) {
   if (entry.closeSha != null && !FULL_GIT_OID.test(entry.closeSha)) {
     throw new TypeError('appendCompletion: closeSha must be a full lowercase git object id');
   }
-  const actuals = normalizeActuals(entry.actuals);
+  const actuals = normalizeCompletionActuals(entry.actuals);
   const reconciliation = normalizeReconciliation(entry.event, entry.reconciliation);
   return {
     ts: hasText(entry.ts) ? entry.ts : new Date().toISOString(),
@@ -523,7 +522,10 @@ function acquireCompletionLockGuard(lockPath) {
       published = true;
       break;
     } catch (error) {
-      if (error?.code === 'ENOENT' && attempt < LOCK_RETRIES - 1) continue;
+      // macOS can report EINVAL (instead of ENOENT) when another contender
+      // removes the empty guard directory between lstat and claim rename.
+      if ((error?.code === 'ENOENT' || error?.code === 'EINVAL')
+          && attempt < LOCK_RETRIES - 1) continue;
       throw error;
     }
   }
@@ -592,6 +594,38 @@ function releaseCompletionLock(lock) {
   releaseOwnedFile(lock.path, lock.token);
 }
 
+function fsyncDirectory(path) {
+  const fd = openSync(path, 'r');
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function syncCompletionLog(path, { beforeFileSync } = {}) {
+  const fd = openSync(path, 'r+');
+  try {
+    if (typeof beforeFileSync === 'function') beforeFileSync();
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+  fsyncDirectory(dirname(path));
+}
+
+function appendCompletionRecord(path, record, options = {}) {
+  const fd = openSync(path, 'a', 0o600);
+  try {
+    writeFileSync(fd, `${JSON.stringify(record)}\n`);
+    if (typeof options.beforeFileSync === 'function') options.beforeFileSync();
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+  fsyncDirectory(dirname(path));
+}
+
 /**
  * Exclusive authority for completion-ledger reads and writes. The callback is
  * synchronous so the lock cannot escape across an unawaited promise boundary.
@@ -608,10 +642,11 @@ export function withCompletionLedgerLock(root, operation) {
       readRaw: () => (existsSync(path) ? readFileSync(path, 'utf8') : ''),
       append: (entry) => {
         const record = normalize(entry);
-        appendFileSync(path, `${JSON.stringify(record)}\n`);
+        appendCompletionRecord(path, record);
         return record;
       },
-      appendRecord: (record) => appendFileSync(path, `${JSON.stringify(record)}\n`),
+      appendRecord: (record, options) => appendCompletionRecord(path, record, options),
+      sync: (options) => syncCompletionLog(path, options),
     };
     const result = operation(ledger);
     if (result && typeof result.then === 'function') {
@@ -627,22 +662,20 @@ export function withCompletionLedgerLock(root, operation) {
  * Ensure exactly one append-only record for a caller-supplied logical close.
  * Existing legacy events remain untouched; idempotency is forward-only.
  */
-export function ensureCompletion(root, entry, { beforeAppend } = {}) {
+export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } = {}) {
   if (!hasText(entry?.idempotencyKey)) {
     throw new TypeError('ensureCompletion: idempotencyKey is required');
   }
-  let effectiveEntry = entry;
-  if (entry.event === 'task-done' && entry.actuals == null) {
-    const derived = readDispatchActuals(root, {
-      planSlug: entry.planSlug, phaseId: entry.phaseId, taskId: entry.taskId,
-    });
-    if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
-  }
-  const candidate = normalize(effectiveEntry);
+  const suppliedCandidate = normalize(entry);
   return withCompletionLedgerLock(root, (ledger) => {
     const records = ledger.readRecords();
-    const matches = records.filter((record) => record.idempotencyKey === candidate.idempotencyKey);
+    const matches = records.filter((record) => (
+      record.idempotencyKey === suppliedCandidate.idempotencyKey
+    ));
     if (matches.length > 0) {
+      const candidate = entry.actuals == null && matches[0].actuals !== undefined
+        ? normalize({ ...entry, actuals: matches[0].actuals })
+        : suppliedCandidate;
       if (!sameLogicalCompletion(matches[0], candidate)) {
         throw new Error(
           `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
@@ -653,10 +686,21 @@ export function ensureCompletion(root, entry, { beforeAppend } = {}) {
           `ensureCompletion: duplicate idempotency records require exactly one reconciliation for ${JSON.stringify(candidate.idempotencyKey)}`,
         );
       }
+      // A prior attempt can append the line and fail at fsync. Re-sync both the
+      // file and its parent before authenticating that visible record as durable.
+      ledger.sync({ beforeFileSync });
       return { record: matches[0], appended: false };
     }
+    let effectiveEntry = entry;
+    if (entry.event === 'task-done' && entry.actuals == null) {
+      const derived = readDispatchActuals(root, {
+        planSlug: entry.planSlug, phaseId: entry.phaseId, taskId: entry.taskId,
+      });
+      if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
+    }
+    const candidate = normalize(effectiveEntry);
     if (typeof beforeAppend === 'function') beforeAppend();
-    ledger.appendRecord(candidate);
+    ledger.appendRecord(candidate, { beforeFileSync });
     return { record: candidate, appended: true };
   });
 }
