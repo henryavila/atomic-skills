@@ -9,16 +9,18 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { stringify as stringifyYaml } from 'yaml';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { collectTargets, parseFrontmatter } from './validate-state.js';
 import { collectStateIntegrityViolations } from '../src/state-invariants.js';
@@ -26,6 +28,11 @@ import { collectStateIntegrityViolations } from '../src/state-invariants.js';
 const text = (value) => (typeof value === 'string' && value.length > 0 ? value : null);
 const projectIdOf = (value) => text(value?.__projectId) ?? '__legacy';
 const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
+const MIGRATION_LOCK_NAME = '.state-integrity-migration.lock';
+const MIGRATION_LOCK_RETRIES = 400;
+const MIGRATION_LOCK_RETRY_MS = 25;
+const MIGRATION_LOCK_OWNER_GRACE_MS = 1_000;
+const MIGRATION_LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 function migrationError(code, message, context = {}) {
   return { code, message, ...context };
@@ -146,50 +153,243 @@ function writeExclusiveDurable(path, content) {
   }
 }
 
+function fileDigest(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function copyExclusiveDurable(source, destination) {
+  copyFileSync(source, destination, constants.COPYFILE_EXCL);
+  const fd = openSync(destination, 'r');
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+  fsyncDirectory(dirname(destination));
+  return fileDigest(destination);
+}
+
+function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === 'EPERM';
+  }
+}
+
+function readProcessIdentity(pid) {
+  try {
+    if (process.platform === 'linux') {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      const commandEnd = stat.lastIndexOf(')');
+      if (commandEnd < 0) return null;
+      const fields = stat.slice(commandEnd + 1).trim().split(/\s+/);
+      return fields[19] ? `linux:${fields[19]}` : null;
+    }
+    if (process.platform === 'win32') {
+      const executable = process.env.SystemRoot
+        ? join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+        : 'powershell.exe';
+      const output = execFileSync(executable, [
+        '-NoProfile', '-NonInteractive', '-Command',
+        `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().Ticks`,
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      return output ? `win32:${output}` : null;
+    }
+    const output = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: { ...process.env, LANG: 'C', LANGUAGE: 'C', LC_ALL: 'C', TZ: 'UTC' },
+    }).trim().replace(/\s+/g, ' ');
+    return output ? `${process.platform}:${output}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const SELF_PROCESS_IDENTITY = readProcessIdentity(process.pid);
+
+function migrationLockOwner(lockPath) {
+  try {
+    const owner = JSON.parse(readFileSync(join(lockPath, 'owner.json'), 'utf8'));
+    if (owner?.version !== 1 || !Number.isInteger(owner.pid) || owner.pid <= 0
+        || typeof owner.token !== 'string' || owner.token.length === 0
+        || (owner.processIdentity !== undefined
+          && (typeof owner.processIdentity !== 'string' || owner.processIdentity.length === 0))) {
+      return null;
+    }
+    return owner;
+  } catch {
+    return null;
+  }
+}
+
+function migrationLockOwnerAlive(owner) {
+  if (!processAlive(owner.pid)) return false;
+  if (typeof owner.processIdentity !== 'string') return true;
+  const identity = owner.pid === process.pid ? SELF_PROCESS_IDENTITY : readProcessIdentity(owner.pid);
+  return identity === null || identity === owner.processIdentity;
+}
+
+function removeMigrationLock(lockPath, token) {
+  if (migrationLockOwner(lockPath)?.token !== token) return;
+  const stalePath = `${lockPath}.released.${process.pid}.${randomUUID()}`;
+  try {
+    renameSync(lockPath, stalePath);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  rmSync(stalePath, { recursive: true, force: true });
+  fsyncDirectory(dirname(lockPath));
+}
+
+function acquireMigrationLock(root) {
+  const lockPath = join(root, MIGRATION_LOCK_NAME);
+  for (let attempt = 0; attempt < MIGRATION_LOCK_RETRIES; attempt += 1) {
+    const token = randomUUID();
+    try {
+      mkdirSync(lockPath, { mode: 0o700 });
+      try {
+        writeExclusiveDurable(join(lockPath, 'owner.json'), `${JSON.stringify({
+          version: 1,
+          pid: process.pid,
+          ...(SELF_PROCESS_IDENTITY ? { processIdentity: SELF_PROCESS_IDENTITY } : {}),
+          token,
+        })}\n`);
+        fsyncDirectory(lockPath);
+        fsyncDirectory(root);
+        return { lockPath, token };
+      } catch (error) {
+        rmSync(lockPath, { recursive: true, force: true });
+        throw error;
+      }
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+    }
+
+    let lockStat;
+    try {
+      lockStat = lstatSync(lockPath);
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw error;
+    }
+    if (!lockStat.isDirectory() || lockStat.isSymbolicLink()) {
+      throw new Error(`migration lock path is not a real directory: ${lockPath}`);
+    }
+    const owner = migrationLockOwner(lockPath);
+    const orphaned = owner
+      ? !migrationLockOwnerAlive(owner)
+      : Date.now() - lockStat.mtimeMs >= MIGRATION_LOCK_OWNER_GRACE_MS;
+    if (orphaned) {
+      const stalePath = `${lockPath}.stale.${process.pid}.${randomUUID()}`;
+      try {
+        renameSync(lockPath, stalePath);
+        rmSync(stalePath, { recursive: true, force: true });
+        fsyncDirectory(root);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+      continue;
+    }
+    if (attempt < MIGRATION_LOCK_RETRIES - 1) {
+      Atomics.wait(MIGRATION_LOCK_WAIT, 0, 0, MIGRATION_LOCK_RETRY_MS);
+    }
+  }
+  throw new Error(`state-integrity migration lock timed out: ${lockPath}`);
+}
+
+function withMigrationLock(root, operation) {
+  const lock = acquireMigrationLock(root);
+  try {
+    return operation();
+  } finally {
+    removeMigrationLock(lock.lockPath, lock.token);
+  }
+}
+
 function migrationManifestPath(transactionRoot) {
   return join(resolve(transactionRoot), '.state-integrity-migration-transaction.json');
 }
 
-function pathWithinRoot(root, input, label) {
+function pathEscapesRoot(root, absolute) {
+  const rel = relative(root, absolute);
+  return rel === '..' || rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
+    || isAbsolute(rel);
+}
+
+function pathWithinRoot(root, input, label, rootAlias = root) {
   if (typeof input !== 'string' || input.length === 0) {
     throw new Error(`${label} must be a non-empty path`);
   }
-  const absolute = resolve(input);
+  let absolute = resolve(input);
+  if (pathEscapesRoot(root, absolute)) {
+    const aliasAbsolute = resolve(rootAlias);
+    if (pathEscapesRoot(aliasAbsolute, absolute)) {
+      throw new Error(`${label} escapes the migration transaction root`);
+    }
+    absolute = resolve(root, relative(aliasAbsolute, absolute));
+  }
   const rel = relative(root, absolute);
-  if (rel === '..' || rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
-      || isAbsolute(rel)) {
-    throw new Error(`${label} escapes the migration transaction root`);
+  let cursor = root;
+  for (const component of rel.split(/[\\/]/).filter(Boolean)) {
+    cursor = join(cursor, component);
+    if (!existsSync(cursor)) break;
+    if (lstatSync(cursor).isSymbolicLink()) {
+      throw new Error(`${label} traverses a symbolic link: ${cursor}`);
+    }
   }
   return absolute;
 }
 
-function validatedManifestOperations(root, operations) {
+function validatedManifestOperations(root, operations, rootAlias = root) {
   if (!Array.isArray(operations) || operations.length === 0) {
     throw new Error('migration transaction manifest has no operations');
   }
   return operations.map((operation, index) => {
-    const filePath = pathWithinRoot(root, operation?.filePath, `operations[${index}].filePath`);
-    const backupPath = pathWithinRoot(root, operation?.backupPath, `operations[${index}].backupPath`);
-    const tempPath = pathWithinRoot(root, operation?.tempPath, `operations[${index}].tempPath`);
+    const filePath = pathWithinRoot(
+      root, operation?.filePath, `operations[${index}].filePath`, rootAlias,
+    );
+    const backupPath = pathWithinRoot(
+      root, operation?.backupPath, `operations[${index}].backupPath`, rootAlias,
+    );
+    const tempPath = pathWithinRoot(
+      root, operation?.tempPath, `operations[${index}].tempPath`, rootAlias,
+    );
     if (dirname(backupPath) !== dirname(filePath) || !backupPath.startsWith(`${filePath}.bak`)
         || dirname(tempPath) !== dirname(filePath) || !tempPath.startsWith(`${filePath}.`)) {
       throw new Error(`migration transaction operation ${index} has non-sibling recovery paths`);
     }
-    return { filePath, backupPath, tempPath };
+    if (operation.backupDigest !== undefined
+        && !/^[a-f0-9]{64}$/.test(operation.backupDigest)) {
+      throw new Error(`migration transaction operation ${index} has an invalid backup digest`);
+    }
+    return {
+      filePath,
+      backupPath,
+      tempPath,
+      ...(operation.backupDigest ? { backupDigest: operation.backupDigest } : {}),
+    };
   });
 }
 
-function restoreFromBackup(operation) {
+function restoreFromBackup(root, operation) {
+  operation.filePath = pathWithinRoot(root, operation.filePath, 'restore filePath');
+  operation.backupPath = pathWithinRoot(root, operation.backupPath, 'restore backupPath');
+  if (operation.backupDigest && fileDigest(operation.backupPath) !== operation.backupDigest) {
+    throw new Error(`migration recovery backup digest mismatch: ${operation.backupPath}`);
+  }
   const restore = `${operation.filePath}.${process.pid}.${randomUUID()}.restore`;
-  copyFileSync(operation.backupPath, restore, constants.COPYFILE_EXCL);
-  const fd = openSync(restore, 'r');
-  try { fsyncSync(fd); } finally { closeSync(fd); }
+  pathWithinRoot(root, restore, 'restore tempPath');
+  copyExclusiveDurable(operation.backupPath, restore);
   renameSync(restore, operation.filePath);
   fsyncDirectory(dirname(operation.filePath));
 }
 
-export function recoverMigrationTransaction(transactionRoot) {
-  const root = resolve(transactionRoot);
+function recoverMigrationTransactionLocked(root, rootAlias = root) {
   const manifestPath = migrationManifestPath(root);
   if (!existsSync(manifestPath)) return false;
   const manifestStat = lstatSync(manifestPath);
@@ -197,10 +397,13 @@ export function recoverMigrationTransaction(transactionRoot) {
     throw new Error(`migration transaction manifest is not a real file: ${manifestPath}`);
   }
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (manifest?.version !== 1 || !Array.isArray(manifest.operations)) {
+  if (![1, 2].includes(manifest?.version) || !Array.isArray(manifest.operations)) {
     throw new Error(`invalid state-integrity migration transaction manifest: ${manifestPath}`);
   }
-  const operations = validatedManifestOperations(root, manifest.operations);
+  const operations = validatedManifestOperations(root, manifest.operations, rootAlias);
+  if (manifest.version === 2 && operations.some((operation) => !operation.backupDigest)) {
+    throw new Error(`invalid state-integrity migration transaction backup digest: ${manifestPath}`);
+  }
   for (const operation of operations) {
     if (!existsSync(operation.backupPath)) {
       throw new Error(`migration recovery backup is missing: ${operation.backupPath}`);
@@ -209,12 +412,22 @@ export function recoverMigrationTransaction(transactionRoot) {
     if (!backupStat.isFile() || backupStat.isSymbolicLink()) {
       throw new Error(`migration recovery backup is not a real file: ${operation.backupPath}`);
     }
+    if (operation.backupDigest && fileDigest(operation.backupPath) !== operation.backupDigest) {
+      throw new Error(`migration recovery backup digest mismatch: ${operation.backupPath}`);
+    }
   }
-  for (const operation of operations) restoreFromBackup(operation);
+  for (const operation of operations) restoreFromBackup(root, operation);
   for (const operation of operations) rmSync(operation.tempPath, { force: true });
   unlinkSync(manifestPath);
   fsyncDirectory(dirname(manifestPath));
   return true;
+}
+
+export function recoverMigrationTransaction(transactionRoot) {
+  const requestedRoot = resolve(transactionRoot);
+  mkdirSync(requestedRoot, { recursive: true });
+  const root = realpathSync(requestedRoot);
+  return withMigrationLock(root, () => recoverMigrationTransactionLocked(root, requestedRoot));
 }
 
 export function applyMigrationAtomically(operations, { transactionRoot, faultAt } = {}) {
@@ -222,6 +435,7 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt 
   const normalized = operations.map((operation) => ({
     filePath: resolve(operation.filePath),
     content: operation.content,
+    expectedSourceDigest: operation.expectedSourceDigest,
   }));
   if (new Set(normalized.map((operation) => operation.filePath)).size !== normalized.length) {
     throw new Error('migration operations contain duplicate source paths');
@@ -230,54 +444,86 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt 
     if (typeof operation.content !== 'string' && !Buffer.isBuffer(operation.content)) {
       throw new TypeError('migration operation content must be a string or Buffer');
     }
+    if (operation.expectedSourceDigest !== undefined
+        && !/^[a-f0-9]{64}$/.test(operation.expectedSourceDigest)) {
+      throw new TypeError('migration operation expectedSourceDigest must be a lowercase sha256');
+    }
   }
-  const root = resolve(transactionRoot ?? dirname(normalized[0].filePath));
-  mkdirSync(root, { recursive: true });
+  const requestedRoot = resolve(transactionRoot ?? dirname(normalized[0].filePath));
+  mkdirSync(requestedRoot, { recursive: true });
+  const root = realpathSync(requestedRoot);
   for (const [index, operation] of normalized.entries()) {
-    operation.filePath = pathWithinRoot(root, operation.filePath, `operations[${index}].filePath`);
-    const sourceStat = lstatSync(operation.filePath);
-    if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
-      throw new Error(`migration source is not a real file: ${operation.filePath}`);
-    }
+    operation.filePath = pathWithinRoot(
+      root,
+      operation.filePath,
+      `operations[${index}].filePath`,
+      requestedRoot,
+    );
   }
-  recoverMigrationTransaction(root);
-  const manifestPath = migrationManifestPath(root);
-  const prepared = [];
-  try {
-    for (const operation of normalized) {
-      const backupPath = nextBackupPath(operation.filePath);
-      copyFileSync(operation.filePath, backupPath, constants.COPYFILE_EXCL);
-      const tempPath = `${operation.filePath}.${process.pid}.${randomUUID()}.migration-tmp`;
-      writeExclusiveDurable(tempPath, operation.content);
-      prepared.push({ ...operation, backupPath, tempPath });
+  return withMigrationLock(root, () => {
+    recoverMigrationTransactionLocked(root, requestedRoot);
+    for (const [index, operation] of normalized.entries()) {
+      operation.filePath = pathWithinRoot(root, operation.filePath, `operations[${index}].filePath`);
+      const sourceStat = lstatSync(operation.filePath);
+      if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
+        throw new Error(`migration source is not a real file: ${operation.filePath}`);
+      }
+      if (operation.expectedSourceDigest !== undefined) {
+        const currentDigest = createHash('sha256').update(readFileSync(operation.filePath)).digest('hex');
+        if (currentDigest !== operation.expectedSourceDigest) {
+          throw new Error(`migration source changed after planning: ${operation.filePath}`);
+        }
+      }
     }
-    const manifest = {
-      version: 1,
-      operations: prepared.map(({ filePath, backupPath, tempPath }) => ({
-        filePath, backupPath, tempPath,
-      })),
-    };
-    const manifestTemp = `${manifestPath}.${process.pid}.${randomUUID()}.tmp`;
-    writeExclusiveDurable(manifestTemp, `${JSON.stringify(manifest, null, 2)}\n`);
-    renameSync(manifestTemp, manifestPath);
-    fsyncDirectory(dirname(manifestPath));
-    for (const [index, operation] of prepared.entries()) {
-      renameSync(operation.tempPath, operation.filePath);
-      fsyncDirectory(dirname(operation.filePath));
-      faultAt?.({ point: 'after-publish', index, operation: structuredClone(operation) });
+    const manifestPath = migrationManifestPath(root);
+    const prepared = [];
+    try {
+      for (const operation of normalized) {
+        pathWithinRoot(root, operation.filePath, 'migration source');
+        const backupPath = pathWithinRoot(root, nextBackupPath(operation.filePath), 'migration backup');
+        const backupDigest = copyExclusiveDurable(operation.filePath, backupPath);
+        const tempPath = pathWithinRoot(
+          root,
+          `${operation.filePath}.${process.pid}.${randomUUID()}.migration-tmp`,
+          'migration temp',
+        );
+        writeExclusiveDurable(tempPath, operation.content);
+        prepared.push({ ...operation, backupPath, backupDigest, tempPath });
+      }
+      const manifest = {
+        version: 2,
+        operations: prepared.map(({ filePath, backupPath, backupDigest, tempPath }) => ({
+          filePath, backupPath, backupDigest, tempPath,
+        })),
+      };
+      const manifestTemp = pathWithinRoot(
+        root,
+        `${manifestPath}.${process.pid}.${randomUUID()}.tmp`,
+        'migration manifest temp',
+      );
+      writeExclusiveDurable(manifestTemp, `${JSON.stringify(manifest, null, 2)}\n`);
+      renameSync(manifestTemp, manifestPath);
+      fsyncDirectory(dirname(manifestPath));
+      for (const [index, operation] of prepared.entries()) {
+        pathWithinRoot(root, operation.filePath, 'migration publish source');
+        pathWithinRoot(root, operation.tempPath, 'migration publish temp');
+        renameSync(operation.tempPath, operation.filePath);
+        fsyncDirectory(dirname(operation.filePath));
+        faultAt?.({ point: 'after-publish', index, operation: structuredClone(operation) });
+      }
+      unlinkSync(manifestPath);
+      fsyncDirectory(dirname(manifestPath));
+      return { applied: prepared.length, backups: prepared.map((item) => item.backupPath) };
+    } catch (error) {
+      for (const operation of prepared) {
+        if (existsSync(operation.backupPath)) restoreFromBackup(root, operation);
+        rmSync(operation.tempPath, { force: true });
+      }
+      rmSync(manifestPath, { force: true });
+      fsyncDirectory(dirname(manifestPath));
+      throw error;
     }
-    unlinkSync(manifestPath);
-    fsyncDirectory(dirname(manifestPath));
-    return { applied: prepared.length, backups: prepared.map((item) => item.backupPath) };
-  } catch (error) {
-    for (const operation of prepared) {
-      if (existsSync(operation.backupPath)) restoreFromBackup(operation);
-      rmSync(operation.tempPath, { force: true });
-    }
-    rmSync(manifestPath, { force: true });
-    fsyncDirectory(dirname(manifestPath));
-    throw error;
-  }
+  });
 }
 
 function runCli(argv) {
@@ -332,7 +578,11 @@ function runCli(argv) {
     if (!apply) continue;
     const migrated = { ...change.initiative, ...change.patch };
     delete migrated.__projectId;
-    operations.push({ filePath: source.filePath, content: render(migrated, source.body) });
+    operations.push({
+      filePath: source.filePath,
+      content: render(migrated, source.body),
+      expectedSourceDigest: createHash('sha256').update(source.raw).digest('hex'),
+    });
   }
   if (apply && operations.length > 0) {
     applyMigrationAtomically(operations, { transactionRoot: resolve(root) });

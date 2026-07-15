@@ -352,9 +352,10 @@ function completionDigest(record) {
   return createHash('sha256').update(JSON.stringify(canonicalize(record))).digest('hex');
 }
 
-function reconcilesExactDuplicates(records, allRecords) {
+export function reconcilesExactDuplicates(records, allRecords) {
   if (records.length < 2) return false;
   const canonical = records[0];
+  if (records.some((record) => !sameLogicalCompletion(canonical, record))) return false;
   const eventIdentity = `${canonical.event ?? '<unknown>'}:${canonical.taskId ?? '<phase>'}`;
   const canonicalDigest = completionDigest(canonical);
   const duplicateDigests = records.slice(1).map(completionDigest);

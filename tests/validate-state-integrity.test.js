@@ -60,6 +60,22 @@ test('descriptor-only pending phase remains a valid lazy state', () => {
   }), null), []);
 });
 
+test('pending descriptor rejects every materialized initiative state', () => {
+  for (const initiativeStatus of ['active', 'paused', 'done', 'archived']) {
+    const out = violations(
+      plan({
+        currentPhase: 'F0',
+        phases: [{ id: 'F0', slug: 'demo-f0', status: 'pending', exitGate: { criteria: [] } }],
+      }),
+      initiative({ status: initiativeStatus, exitGates: [] }),
+    );
+    assert.ok(
+      out.some((item) => item.code === 'pending-initiative-mismatch'),
+      `${initiativeStatus}: ${out.map(formatStateIntegrityViolation).join('\n')}`,
+    );
+  }
+});
+
 test('active, paused, done and archived descriptors require their project-scoped initiative', () => {
   for (const status of ['active', 'paused', 'done', 'archived']) {
     const out = violations(plan({

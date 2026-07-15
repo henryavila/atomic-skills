@@ -1,17 +1,14 @@
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
 import { ensureCompletion } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
+import { durableReplace, durableUnlink } from '../src/durable-file.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'taskId', 'closedAt'];
 const REQUIRED_HANDOFF_FIELDS = [
@@ -61,16 +58,12 @@ export function readDoneRecovery(root, idempotencyKey) {
 
 function writeDoneRecovery(root, marker) {
   const path = doneRecoveryPath(root, marker.idempotencyKey);
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify({ ...marker, updatedAt: new Date().toISOString() }, null, 2)}\n`);
-  renameSync(tmp, path);
+  durableReplace(path, `${JSON.stringify({ ...marker, updatedAt: new Date().toISOString() }, null, 2)}\n`);
   return path;
 }
 
 function clearDoneRecovery(root, idempotencyKey) {
-  const path = doneRecoveryPath(root, idempotencyKey);
-  if (existsSync(path)) unlinkSync(path);
+  durableUnlink(doneRecoveryPath(root, idempotencyKey));
 }
 
 function canonicalize(value) {

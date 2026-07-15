@@ -19,6 +19,17 @@ function mutateFrontmatter(path, mutate) {
   writeFileSync(path, `---\n${stringifyYaml(frontmatter)}---${raw.slice(end + 4)}`);
 }
 
+function completionDigest(value) {
+  const canonicalize = (item) => {
+    if (Array.isArray(item)) return item.map(canonicalize);
+    if (item && typeof item === 'object') {
+      return Object.fromEntries(Object.keys(item).sort().map((key) => [key, canonicalize(item[key])]));
+    }
+    return item;
+  };
+  return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+}
+
 test('consistent F0 projection writes a current canonical receipt', () => {
   const state = createHistoryFixture();
   try {
@@ -169,6 +180,37 @@ test('same close identity with payload drift is ambiguous and writes nothing', (
     const before = readFileSync(state.completionLogPath);
     const result = reconcileMaterializationHistory({ ...state.options, apply: true });
     assert.equal(result.classification, 'ambiguous');
+    assert.deepEqual(readFileSync(state.completionLogPath), before);
+    assert.equal(result.writes.length, 0);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('a pre-planted tombstone cannot suppress contradictory completion payloads', () => {
+  const state = createHistoryFixture();
+  try {
+    const canonical = structuredClone(state.event);
+    const conflicting = { ...structuredClone(state.event), ts: '2026-07-14T20:00:01Z', weight: 9 };
+    const tombstone = {
+      ts: '2026-07-14T20:00:02Z', event: 'reconcile', projectId: 'proj',
+      planSlug: 'demo', phaseId: 'F0', taskId: null, weight: 0, weightBasis: 'count',
+      idempotencyKey: 'reconcile:contradictory-payloads', closeSha: state.closeSha,
+      reconciliation: {
+        action: 'ignore-duplicate-completion', eventIdentity: 'task-done:T-001',
+        canonicalDigest: completionDigest(canonical),
+        duplicateDigests: [completionDigest(conflicting)],
+      },
+    };
+    writeFileSync(
+      state.completionLogPath,
+      `${[canonical, conflicting, tombstone].map(JSON.stringify).join('\n')}\n`,
+    );
+    const before = readFileSync(state.completionLogPath);
+
+    const result = reconcileMaterializationHistory({ ...state.options, apply: true });
+    assert.equal(result.classification, 'ambiguous');
+    assert.match(result.problems.join('\n'), /duplicated without one close identity|payload/i);
     assert.deepEqual(readFileSync(state.completionLogPath), before);
     assert.equal(result.writes.length, 0);
   } finally {

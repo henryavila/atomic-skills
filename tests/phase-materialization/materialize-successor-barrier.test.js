@@ -7,10 +7,31 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   assertSuccessorMaterializationAllowed,
   materializeState,
-  reconcileMaterializationHistory,
+  reconcileMaterializationHistory as reconcileHistory,
   runMaterializeState,
 } from '../../scripts/materialize-state.js';
 import { buildF3Pair, createHistoryFixture, git, sha256 } from './history-fixture.js';
+
+function reconcileMaterializationHistory(options) {
+  const result = reconcileHistory(options);
+  if (options.apply === true) {
+    git(options.root, ['add', options.receiptPath]);
+    git(options.root, ['commit', '-qm', 'authenticate reconciliation receipt']);
+  }
+  return result;
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
+}
+
+function completionDigest(event) {
+  return sha256(JSON.stringify(canonicalize(event)));
+}
 
 function setPhaseStatus(path, id, status) {
   const raw = readFileSync(path, 'utf8');
@@ -159,6 +180,49 @@ test('stale F0 receipt blocks successor activation', () => {
     events.find((event) => event.phaseId === 'F0').weight = 9;
     writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
     assert.throws(() => assertSuccessorMaterializationAllowed(barrierArgs(state)), /history receipt is stale/i);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('successor activation rejects a live reconciliation receipt not authenticated by HEAD', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const forged = JSON.parse(readFileSync(state.receiptPath, 'utf8'));
+    forged.classification = forged.classification === 'consistent' ? 'repairable' : 'consistent';
+    writeFileSync(state.receiptPath, `${JSON.stringify(forged, null, 2)}\n`);
+
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state)),
+      /receipt.*(?:HEAD|commit|authenticated)/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('a single exact reconciliation tombstone makes duplicate F4 closes logically singular', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const events = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+    const canonical = events.find((event) => event.event === 'phase-done' && event.phaseId === 'F4');
+    const duplicate = structuredClone(canonical);
+    const digest = completionDigest(canonical);
+    events.push(duplicate, {
+      ts: '2026-07-14T20:00:02Z', event: 'reconcile', projectId: 'proj',
+      planSlug: 'demo', phaseId: 'F4', taskId: null, weight: 0, weightBasis: 'count',
+      idempotencyKey: `reconcile:proj/demo/F4:${state.closeSha}:${digest}`,
+      closeSha: state.closeSha,
+      reconciliation: {
+        action: 'ignore-duplicate-completion', eventIdentity: 'phase-done:<phase>',
+        canonicalDigest: digest, duplicateDigests: [digest],
+      },
+    });
+    writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
+
+    assert.equal(assertSuccessorMaterializationAllowed(barrierArgs(state)).allowed, true);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }

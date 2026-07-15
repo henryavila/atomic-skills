@@ -182,6 +182,15 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
         violations.push(violation('phase-slug-mismatch', `initiative slug ${JSON.stringify(initiative.slug)} does not match descriptor slug ${JSON.stringify(phase?.slug)}`, joined));
       }
 
+      if (phase?.status === 'pending') {
+        violations.push(violation(
+          'pending-initiative-mismatch',
+          `pending phase ${phase?.id ?? '?'} already has materialized initiative status ${JSON.stringify(initiative.status)}`,
+          joined,
+        ));
+        continue;
+      }
+
       if (MATERIALIZED_STATUSES.has(phase?.status)
           && !isTerminalStatus(phase.status)
           && isTerminalStatus(initiative.status)) {

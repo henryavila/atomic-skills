@@ -135,6 +135,10 @@ test('preflight permits evidence production, then commit guard closes exactly on
     assert.equal(result.ok, true);
     assert.deepEqual(calls, ['evidence', 'commit', 'emit']);
     assert.deepEqual(result.value, { closeSha: SHA });
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.equal(completion.event, 'phase-done');
+    assert.equal(completion.idempotencyKey, buildPhaseDoneIdempotencyKey(input.close));
+    assert.equal(completion.closeSha, SHA);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -567,6 +571,35 @@ test('terminal phase reuse binds the canonical completion to the authenticated c
       }),
       /completion event does not match.*close commit/i,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal phase reuse selects the latest logical close after reopen and reclose', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-terminal-reclose-'));
+  try {
+    const first = terminalTransactionInput(root);
+    recordPhaseCompletion(root, first, SHA);
+    const second = terminalTransactionInput(root, {
+      close: { ...first.close, closedAt: '2026-07-14T21:00:00Z' },
+    });
+    const latestSha = 'b'.repeat(40);
+    recordPhaseCompletion(root, second, latestSha);
+    const detachedRetry = terminalTransactionInput(root, {
+      close: { ...first.close, closedAt: '2026-07-14T22:00:00Z' },
+    });
+
+    const result = await executePhaseDoneTransaction(detachedRetry, {
+      loadState: loadStateFor(detachedRetry),
+      findCommit: async () => ({ closeSha: latestSha }),
+      commit: async () => assert.fail('terminal reuse must not recommit'),
+      emit: async () => assert.fail('terminal reuse must not re-emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.reused, true);
+    assert.equal(result.idempotencyKey, buildPhaseDoneIdempotencyKey(second.close));
+    assert.equal(result.closeSha, latestSha);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

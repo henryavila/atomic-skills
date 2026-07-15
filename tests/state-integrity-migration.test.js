@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stringify as stringifyYaml } from 'yaml';
 
 import {
@@ -19,6 +21,26 @@ import {
 import { parseFrontmatter } from '../scripts/validate-state.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+function waitForFile(path, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const poll = () => {
+      if (existsSync(path)) return resolve();
+      if (Date.now() >= deadline) return reject(new Error(`timed out waiting for ${path}`));
+      setTimeout(poll, 10);
+    };
+    poll();
+  });
+}
+
+function waitForChild(child) {
+  return new Promise((resolve) => {
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('close', (status) => resolve({ status, stderr }));
+  });
+}
 
 function plan(overrides = {}) {
   return {
@@ -115,6 +137,79 @@ test('multi-file migration rolls every source back byte-for-byte after a mid-pub
   }
 });
 
+test('migration rejects a source reached through a symlinked parent before any write', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-symlink-'));
+  const outside = mkdtempSync(join(tmpdir(), 'state-integrity-outside-'));
+  try {
+    const outsideFile = join(outside, 'phase.md');
+    writeFileSync(outsideFile, 'outside-original\n');
+    symlinkSync(outside, join(dir, 'escaped'));
+
+    assert.throws(() => applyMigrationAtomically([
+      { filePath: join(dir, 'escaped', 'phase.md'), content: 'forged\n' },
+    ], { transactionRoot: dir }), /symbolic link|symlink/i);
+    assert.equal(readFileSync(outsideFile, 'utf8'), 'outside-original\n');
+    assert.deepEqual(readdirSync(outside), ['phase.md']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('migration serializes concurrent publishers with one owner-authenticated root lock', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-lock-'));
+  try {
+    const source = join(dir, 'phase.md');
+    const signal = join(dir, 'first-publisher.locked');
+    writeFileSync(source, 'original\n');
+    const moduleUrl = pathToFileURL(join(ROOT, 'scripts', 'migrate-state-integrity.js')).href;
+    const program = `
+      import { writeFileSync } from 'node:fs';
+      import { applyMigrationAtomically } from ${JSON.stringify(moduleUrl)};
+      const [source, root, content, signal] = process.argv.slice(1);
+      applyMigrationAtomically([{ filePath: source, content }], {
+        transactionRoot: root,
+        faultAt: ({ point, index }) => {
+          if (signal && point === 'after-publish' && index === 0) {
+            writeFileSync(signal, String(process.pid));
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1_200);
+          }
+        },
+      });
+    `;
+    const first = spawn(process.execPath, [
+      '--input-type=module', '-e', program, source, dir, 'first\n', signal,
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const firstDone = waitForChild(first);
+    await waitForFile(signal);
+
+    const lockPath = join(dir, '.state-integrity-migration.lock');
+    assert.equal(existsSync(lockPath), true, 'publisher must hold the root lock during publish');
+    const lockOwner = JSON.parse(readFileSync(join(lockPath, 'owner.json'), 'utf8'));
+    assert.equal(lockOwner.pid, Number(readFileSync(signal, 'utf8')));
+    assert.equal(typeof lockOwner.token, 'string');
+
+    const second = spawn(process.execPath, [
+      '--input-type=module', '-e', program, source, dir, 'second\n', '',
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const secondDone = waitForChild(second);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    assert.equal(
+      readdirSync(dir).filter((name) => name.startsWith('phase.md.bak')).length,
+      1,
+      'the second publisher must not prepare backups while the first owns the lock',
+    );
+
+    const [firstResult, secondResult] = await Promise.all([firstDone, secondDone]);
+    assert.equal(firstResult.status, 0, firstResult.stderr);
+    assert.equal(secondResult.status, 0, secondResult.stderr);
+    assert.equal(readFileSync(source, 'utf8'), 'second\n');
+    assert.equal(existsSync(lockPath), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('migration startup recovers a persisted partial-publication manifest', () => {
   const dir = mkdtempSync(join(tmpdir(), 'state-integrity-recovery-'));
   try {
@@ -143,6 +238,34 @@ test('migration startup recovers a persisted partial-publication manifest', () =
     assert.equal(readdirSync(dir).some((name) => name.includes('.migration-transaction')), false);
     assert.equal(existsSync(firstTemp), false);
     assert.equal(existsSync(secondTemp), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migration recovery rejects a tampered durable backup before restoring any source', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-tamper-'));
+  try {
+    const source = join(dir, 'phase.md');
+    const backup = `${source}.bak`;
+    const temp = `${source}.migration-tmp`;
+    const original = 'original\n';
+    writeFileSync(source, 'partially-published\n');
+    writeFileSync(backup, original);
+    writeFileSync(temp, 'prepared\n');
+    const backupDigest = createHash('sha256').update(original).digest('hex');
+    writeFileSync(join(dir, '.state-integrity-migration-transaction.json'), `${JSON.stringify({
+      version: 2,
+      operations: [{ filePath: source, backupPath: backup, tempPath: temp, backupDigest }],
+    })}\n`);
+    writeFileSync(backup, 'tampered\n');
+
+    assert.throws(
+      () => recoverMigrationTransaction(dir),
+      /migration recovery backup digest mismatch/i,
+    );
+    assert.equal(readFileSync(source, 'utf8'), 'partially-published\n');
+    assert.equal(existsSync(join(dir, '.state-integrity-migration-transaction.json')), true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

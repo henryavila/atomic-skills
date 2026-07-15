@@ -1,12 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -15,8 +11,13 @@ import {
   classifyPhaseDoneCommit,
   classifyPhaseDonePreflight,
 } from './lifecycle-order-guard.js';
-import { withCompletionLedgerLock } from './append-completion.js';
+import {
+  ensureCompletion,
+  reconcilesExactDuplicates,
+  withCompletionLedgerLock,
+} from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
+import { durableReplace, durableUnlink } from '../src/durable-file.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'closedAt'];
 const STAGES = new Set(['prepared', 'committed', 'emitted', 'successor-materialized']);
@@ -54,17 +55,32 @@ function samePhaseScope(left, right) {
 
 function authenticateTerminalCompletion(root, close) {
   return withCompletionLedgerLock(root, (ledger) => {
-    const matches = ledger.readRecords().filter((record) => (
+    const records = ledger.readRecords();
+    const matches = records.filter((record) => (
       record?.event === 'phase-done'
       && record?.projectId === close.projectId
       && record?.planSlug === close.planSlug
       && record?.phaseId === close.phaseId
       && record?.taskId == null
     ));
-    if (matches.length !== 1) {
-      throw new Error(`terminal phase reuse requires exactly one canonical phase-done completion event (found ${matches.length})`);
+    const groups = new Map();
+    for (const record of matches) {
+      const key = record.idempotencyKey ?? '<missing>';
+      const group = groups.get(key) ?? [];
+      group.push(record);
+      groups.set(key, group);
     }
-    const record = matches[0];
+    const effective = [];
+    for (const group of groups.values()) {
+      if (group.length > 1 && !reconcilesExactDuplicates(group, records)) {
+        throw new Error('terminal phase reuse found an unreconciled duplicate completion identity');
+      }
+      effective.push(group[0]);
+    }
+    if (effective.length === 0) {
+      throw new Error('terminal phase reuse requires a canonical phase-done completion event');
+    }
+    const record = effective.at(-1);
     if (!hasText(record.ts) || !FULL_GIT_OID.test(record.closeSha ?? '')) {
       throw new Error('terminal phase reuse completion event lacks immutable timestamp or closeSha');
     }
@@ -217,20 +233,15 @@ function authenticatedCandidateBundle(authoritative, produced) {
 
 function writePhaseDoneRecovery(root, marker) {
   const path = phaseDoneRecoveryPath(root, marker.idempotencyKey);
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  writeFileSync(
-    tmp,
+  durableReplace(
+    path,
     `${JSON.stringify({ ...marker, updatedAt: new Date().toISOString() }, null, 2)}\n`,
-    { mode: 0o600 },
   );
-  renameSync(tmp, path);
   return path;
 }
 
 function clearPhaseDoneRecovery(root, idempotencyKey) {
-  const path = phaseDoneRecoveryPath(root, idempotencyKey);
-  if (existsSync(path)) unlinkSync(path);
+  durableUnlink(phaseDoneRecoveryPath(root, idempotencyKey));
 }
 
 function validateTransactionInput(input) {
@@ -453,7 +464,31 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     transactionInput = { ...transactionInput, closeSha: value.closeSha };
     if (marker.stage === 'committed') {
       await effects.emit(transactionInput, value, marker);
-      marker = { ...marker, stage: 'emitted' };
+    }
+    if (marker.stage === 'committed'
+        || marker.stage === 'emitted'
+        || marker.stage === 'successor-materialized') {
+      const completion = ensureCompletion(input.root, {
+        event: 'phase-done',
+        projectId: marker.close.projectId,
+        planSlug: marker.close.planSlug,
+        phaseId: marker.close.phaseId,
+        taskId: null,
+        weight: marker.close.weight,
+        weightBasis: marker.close.weightBasis,
+        idempotencyKey,
+        closeSha: value.closeSha,
+        ts: marker.close.closedAt,
+      });
+      if (marker.completion?.record
+          && !isDeepStrictEqual(marker.completion.record, completion.record)) {
+        throw new Error('phase-done transaction stored completion could not be authenticated');
+      }
+      marker = {
+        ...marker,
+        ...(marker.stage === 'committed' ? { stage: 'emitted' } : {}),
+        completion,
+      };
       writePhaseDoneRecovery(commitInput.root, marker);
     }
 

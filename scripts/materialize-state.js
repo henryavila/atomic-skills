@@ -22,7 +22,10 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import Ajv from 'ajv/dist/2020.js';
-import { withCompletionLedgerLock } from './append-completion.js';
+import {
+  reconcilesExactDuplicates,
+  withCompletionLedgerLock,
+} from './append-completion.js';
 import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
 import { parseFrontmatter, validateFile } from './validate-state.js';
 import { reviewArtifactTip } from '../src/review-receipt.js';
@@ -1453,10 +1456,6 @@ function loadHistoryProjection({
       && value.reconciliation.canonicalDigest === canonicalDigest
       && isDeepStrictEqual(value.reconciliation.duplicateDigests, duplicateDigests)
     ));
-    if (matchingMarkers.length === 1) {
-      records.slice(1).forEach((record) => recordsToDrop.add(record.line));
-      continue;
-    }
     if (matchingMarkers.length > 1) {
       problems.push(`completion identity ${identity} has duplicate reconciliation markers`);
       continue;
@@ -1467,8 +1466,12 @@ function loadHistoryProjection({
       && typeof records[0].value.idempotencyKey === 'string'
       && records[0].value.idempotencyKey !== ''
       && records[0].value.closeSha === closeSha;
+    if (matchingMarkers.length === 1 && uniquelyRepairable) {
+      records.slice(1).forEach((record) => recordsToDrop.add(record.line));
+      continue;
+    }
     if (!uniquelyRepairable) {
-      problems.push(`completion identity ${identity} is duplicated without one close identity and closeSha`);
+      problems.push(`completion identity ${identity} is duplicated with contradictory payload or close identity`);
       continue;
     }
     repairs.push({
@@ -1736,12 +1739,14 @@ function checkHistoryReceiptLocked({
   receiptPath,
   expectedIdentity,
   expectedSources,
+  requireCommittedReceipt = false,
 } = {}) {
   const absoluteRoot = realpathSync(resolve(root));
   const receiptFile = historyPath(absoluteRoot, receiptPath, 'receiptPath');
+  const receiptRaw = readFileSync(receiptFile.path, 'utf8');
   let receipt;
   try {
-    receipt = JSON.parse(readFileSync(receiptFile.path, 'utf8'));
+    receipt = JSON.parse(receiptRaw);
   } catch (error) {
     throw new Error(`history receipt is stale: invalid JSON (${error.message})`);
   }
@@ -1755,6 +1760,30 @@ function checkHistoryReceiptLocked({
     assertReceiptExpectation(sources, expectedSources, 'sources');
     assertCommitExists(absoluteRoot, receipt.closeSha, 'receipt closeSha');
     assertCommitExists(absoluteRoot, receipt.reconciledCommit, 'receipt reconciledCommit');
+    let receiptCommit = null;
+    if (requireCommittedReceipt) {
+      receiptCommit = gitOutput(absoluteRoot, ['rev-parse', 'HEAD'], 'cannot resolve receipt commit');
+      let committedReceipt;
+      try {
+        committedReceipt = execFileSync('git', ['show', `${receiptCommit}:${receiptFile.rel}`], {
+          cwd: absoluteRoot,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch (error) {
+        const detail = error?.stderr?.trim();
+        throw new Error(`receipt is not authenticated by HEAD${detail ? `: ${detail}` : ''}`);
+      }
+      if (committedReceipt !== receiptRaw) {
+        throw new Error('receipt bytes are not authenticated by HEAD');
+      }
+      assertCommitAncestor(
+        absoluteRoot,
+        receipt.reconciledCommit,
+        receiptCommit,
+        'receipt reconciledCommit',
+      );
+    }
     const current = loadHistoryProjection({
       root: absoluteRoot,
       projectId: identity.projectId,
@@ -1793,7 +1822,12 @@ function checkHistoryReceiptLocked({
     if (!isDeepStrictEqual(current.projection.sidecars, receipt.sidecars)) {
       throw new Error('sidecar digest list changed');
     }
-    return { ok: true, receipt, projectionDigest: current.projectionDigest };
+    return {
+      ok: true,
+      receipt,
+      projectionDigest: current.projectionDigest,
+      ...(receiptCommit ? { receiptCommit } : {}),
+    };
   } catch (error) {
     throw new Error(`history receipt is stale: ${error.message}`);
   }
@@ -1845,6 +1879,7 @@ function assertSuccessorMaterializationAllowedLocked({
     receiptPath,
     expectedIdentity: receiptIdentity,
     expectedSources: receiptSources,
+    requireCommittedReceipt: true,
   });
   const currentPlan = readMarkdown(planFile.path, 'plan').frontmatter;
   const prerequisite = (currentPlan.phases ?? [])
@@ -1955,7 +1990,8 @@ function assertSuccessorMaterializationAllowedLocked({
     receiptCheck.receipt.sources.completionLogPath,
     'completionLogPath',
   );
-  const closeEvents = parseCompletionLog(completionLog.path).records.filter(({ value }) => (
+  const completionRecords = parseCompletionLog(completionLog.path).records.map(({ value }) => value);
+  const physicalCloseEvents = completionRecords.filter((value) => (
     canonicalPhaseDoneCloseEvent(value, {
       projectId: receiptIdentity.projectId,
       planSlug: currentPlan.slug,
@@ -1963,6 +1999,10 @@ function assertSuccessorMaterializationAllowedLocked({
       closeSha,
     })
   ));
+  const closeEvents = physicalCloseEvents.length > 1
+      && reconcilesExactDuplicates(physicalCloseEvents, completionRecords)
+    ? [physicalCloseEvents[0]]
+    : physicalCloseEvents;
   if (closeEvents.length !== 1) {
     throw new Error(
       `${prerequisitePhaseId} requires exactly one phase-done event bound to closeSha (found ${closeEvents.length})`,

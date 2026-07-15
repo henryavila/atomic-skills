@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T02:15:35Z
-nextAction: Run the fresh Codex r6 phase review on the r5 remediation checkpoint.
+lastUpdated: 2026-07-15T02:52:19Z
+nextAction: Run the fresh Codex r7 phase review on the r6 remediation checkpoint.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -631,26 +631,40 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   ranges com larguras de SHA diferentes e manifesto/backup symlink ou fora da
   raiz. O receipt r5 permanece `needs_changes`; somente r6 fresco no checkpoint
   remediado pode aprovar F4.
+- **2026-07-14 — review Codex F4 r6:** o critical e os quatro majors válidos
+  foram reproduzidos e corrigidos sem defer. Migração agora rejeita symlink em
+  qualquer componente, serializa recovery/publicação sob lock da raiz, relê o
+  source sob o lock e autentica backups duráveis por digest. A barrier exige os
+  bytes exatos do receipt F0 em `HEAD`, reduz closes F4 apenas por tombstone
+  exato e invariants rejeitam initiative junto de descriptor pending. O sexto
+  finding informado foi rejeitado: o contrato persistido separa de propósito o
+  receipt F0 atual do prerequisite close F4, portanto igualar seus phase IDs
+  quebraria a autoridade explícita. Self-review também tornou markers
+  crash-durable, impediu emit no-op, reautenticou recovery e resolveu
+  reopen/reclose pelo close lógico mais recente. O receipt r6 permanece
+  `needs_changes`; somente r7 fresco no checkpoint remediado pode aprovar F4.
 
 ## Session handoff
 
-- **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1,
-  os doze do r2, 1 critical/13 majors oficiais do r3, os cinco majors do r4 e
-  1 critical/10 majors do r5, além dos hardenings proativos e correções de
-  integração. A suíte completa está verde; falta o review Codex r6 do novo
-  checkpoint.
-- **Decision log:** nenhum finding r1/r2/r3/r4/r5 foi deferido. Duplicatas históricas são
-  preservadas fisicamente e neutralizadas por tombstone auditável; recovery só
-  avança enquanto receipt, review, gates, evento e close SHA continuam ligados.
-  Provenance conflitante nunca é sintetizada; estado terminal isolado não prova
-  fechamento; e publicação permanece sob o lock da autoridade validada.
-- **Single nextAction:** Run the fresh Codex r6 phase review on the r5 remediation checkpoint.
-- **Verbatim state:** review r5 → 0B/1C/10M; 11 findings reproduced and fixed;
-  exact gates → 30/30 + 40/40 + 64/64 pass; full repository suite → 1,903
-  pass, 0 fail, 8 skip; focused post-hardening → 143/143 pass; canonical
-  state → 167 arquivos/26 planos válidos; receipt F0 plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r5, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r6.
+- **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
+  dos reviews r1..r6, além dos hardenings proativos e correções de integração.
+  No r6, 1 critical/4 majors foram reproduzidos e corrigidos; um major informado
+  foi rejeitado por contradizer o contrato F0-receipt + F4-close. A suíte
+  completa está verde; falta o review Codex r7 do novo checkpoint.
+- **Decision log:** nenhum finding válido r1..r6 foi deferido. O F-006 informado
+  do r6 foi descartado, não deferido: `receiptIdentity.phaseId: F0` e
+  `prerequisitePhaseId: F4` são autoridades complementares persistidas no
+  plano. Duplicatas históricas permanecem físicas e só são neutralizadas por
+  tombstone exato; recovery e publicação permanecem sob locks autenticados e
+  estado terminal isolado nunca prova fechamento.
+- **Single nextAction:** Run the fresh Codex r7 phase review on the r6 remediation checkpoint.
+- **Verbatim state:** review r6 → blind 0B/1C/5M, informed 0B/1C/5M; 5
+  findings válidos reproduzidos e corrigidos, 1 emergente descartado pelo
+  contrato explícito; exact gates → 34/34 + 42/42 + 67/67 pass; full
+  repository suite → 1,912 pass, 0 fail, 8 skip; canonical state → 167
+  arquivos/26 planos válidos; receipt F0 plan-bound → `ok: true`.
+- **Uncommitted changes:** remediação r6, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r7.
 
 ## Links
 

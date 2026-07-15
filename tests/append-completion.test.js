@@ -334,3 +334,31 @@ test('ensureCompletion accepts exact duplicates only with one exact reconciliati
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('ensureCompletion rejects a tombstone that binds contradictory duplicate payloads', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-contradictory-tombstone-'));
+  try {
+    const idempotencyKey = 'task-done:proj/plan/F0/T-001@2026-07-14T20:00:00Z';
+    const first = ensureCompletion(root, base({
+      idempotencyKey, ts: '2026-07-14T20:00:00Z', weight: 1,
+    }));
+    const conflicting = { ...first.record, ts: '2026-07-14T20:00:01Z', weight: 9 };
+    appendFileSync(LOG(root), `${JSON.stringify(conflicting)}\n`);
+    appendCompletion(root, {
+      event: 'reconcile', projectId: 'proj', planSlug: 'plan', phaseId: 'F0', taskId: null,
+      reconciliation: {
+        action: 'ignore-duplicate-completion',
+        eventIdentity: 'task-done:T-001',
+        canonicalDigest: digest(first.record),
+        duplicateDigests: [digest(conflicting)],
+      },
+    });
+
+    assert.throws(
+      () => ensureCompletion(root, base({ idempotencyKey, ts: '2026-07-14T20:00:00Z', weight: 1 })),
+      /duplicate.*idempotency|idempotency.*duplicate/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
