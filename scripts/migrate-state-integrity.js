@@ -293,6 +293,18 @@ function stateScopeForMigrationOperation(operation) {
   return scope;
 }
 
+function repositoryStateContext(transactionRoot) {
+  let cursor = resolve(transactionRoot);
+  while (true) {
+    if (basename(cursor) === '.atomic-skills') {
+      return { repositoryRoot: dirname(cursor) };
+    }
+    const parent = dirname(cursor);
+    if (parent === cursor) return null;
+    cursor = parent;
+  }
+}
+
 function migrationManifestPath(transactionRoot) {
   return join(resolve(transactionRoot), '.state-integrity-migration-transaction.json');
 }
@@ -354,6 +366,9 @@ function validatedManifestOperations(root, operations, rootAlias = root) {
       filePath,
       backupPath,
       tempPath,
+      ...(operation.stateScope !== undefined
+        ? { stateScope: canonicalStateScopes([operation.stateScope])[0] }
+        : {}),
       ...(operation.backupDigest ? { backupDigest: operation.backupDigest } : {}),
       ...(operation.sourceDigest ? { sourceDigest: operation.sourceDigest } : {}),
       ...(operation.targetDigest ? { targetDigest: operation.targetDigest } : {}),
@@ -361,7 +376,49 @@ function validatedManifestOperations(root, operations, rootAlias = root) {
   });
 }
 
-function restoreFromBackup(root, operation) {
+function readMigrationManifest(root) {
+  const manifestPath = migrationManifestPath(root);
+  if (!existsSync(manifestPath)) return { manifestPath, manifest: null };
+  const manifestStat = lstatSync(manifestPath);
+  if (!manifestStat.isFile() || manifestStat.isSymbolicLink()) {
+    throw new Error(`migration transaction manifest is not a real file: ${manifestPath}`);
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (![1, 2, 3, 4].includes(manifest?.version) || !Array.isArray(manifest.operations)) {
+    throw new Error(`invalid state-integrity migration transaction manifest: ${manifestPath}`);
+  }
+  return { manifestPath, manifest };
+}
+
+function manifestStateScopes(manifest, operations, { repositoryStateTree, manifestPath }) {
+  if (!manifest) return [];
+  if (manifest.version < 4) {
+    if (repositoryStateTree) {
+      throw new Error(
+        `legacy migration transaction version ${manifest.version} has no authenticated phase scopes: ${manifestPath}`,
+      );
+    }
+    return [];
+  }
+  if (!repositoryStateTree
+      && (!Array.isArray(manifest.stateScopes) || manifest.stateScopes.length === 0)
+      && operations.every((operation) => operation.stateScope === undefined)) {
+    return [];
+  }
+  const durableScopes = canonicalStateScopes(manifest.stateScopes ?? []);
+  const operationScopes = canonicalStateScopes(operations.map((operation) => operation.stateScope));
+  if (!isDeepStrictEqual(durableScopes, operationScopes)) {
+    throw new Error(`migration transaction phase scopes do not match its operations: ${manifestPath}`);
+  }
+  for (const operation of operations) {
+    if (operation.stateScope[0] !== projectIdFromPath(operation.filePath)) {
+      throw new Error(`migration transaction phase scope does not match source path: ${operation.filePath}`);
+    }
+  }
+  return durableScopes;
+}
+
+function restoreFromBackup(root, operation, { faultAt, index } = {}) {
   operation.filePath = pathWithinRoot(root, operation.filePath, 'restore filePath');
   operation.backupPath = pathWithinRoot(root, operation.backupPath, 'restore backupPath');
   if (operation.backupDigest && fileDigest(operation.backupPath) !== operation.backupDigest) {
@@ -370,21 +427,27 @@ function restoreFromBackup(root, operation) {
   const restore = `${operation.filePath}.${process.pid}.${randomUUID()}.restore`;
   pathWithinRoot(root, restore, 'restore tempPath');
   copyExclusiveDurable(operation.backupPath, restore);
+  faultAt?.({ point: 'before-restore', index, operation: structuredClone(operation) });
+  const currentDigest = fileDigest(operation.filePath);
+  if (currentDigest !== operation.sourceDigest && currentDigest !== operation.targetDigest) {
+    rmSync(restore, { force: true });
+    throw new Error(`migration recovery source changed before restore rename: ${operation.filePath}`);
+  }
   renameSync(restore, operation.filePath);
   fsyncDirectory(dirname(operation.filePath));
 }
 
-function recoverMigrationTransactionLocked(root, rootAlias = root) {
-  const manifestPath = migrationManifestPath(root);
-  if (!existsSync(manifestPath)) return false;
-  const manifestStat = lstatSync(manifestPath);
-  if (!manifestStat.isFile() || manifestStat.isSymbolicLink()) {
-    throw new Error(`migration transaction manifest is not a real file: ${manifestPath}`);
-  }
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (![1, 2, 3].includes(manifest?.version) || !Array.isArray(manifest.operations)) {
-    throw new Error(`invalid state-integrity migration transaction manifest: ${manifestPath}`);
-  }
+function recoverMigrationTransactionLocked(root, rootAlias = root, {
+  faultAt,
+  manifest: suppliedManifest,
+  manifestPath: suppliedManifestPath,
+  repositoryStateTree = false,
+} = {}) {
+  const loaded = suppliedManifest
+    ? { manifest: suppliedManifest, manifestPath: suppliedManifestPath ?? migrationManifestPath(root) }
+    : readMigrationManifest(root);
+  const { manifestPath, manifest } = loaded;
+  if (!manifest) return false;
   if (manifest.version === 1) {
     throw new Error(`legacy migration transaction version 1 has unauthenticated backup bytes: ${manifestPath}`);
   }
@@ -392,6 +455,7 @@ function recoverMigrationTransactionLocked(root, rootAlias = root) {
     throw new Error(`legacy migration transaction version 2 has unauthenticated current source bytes: ${manifestPath}`);
   }
   const operations = validatedManifestOperations(root, manifest.operations, rootAlias);
+  manifestStateScopes(manifest, operations, { repositoryStateTree, manifestPath });
   if (operations.some((operation) => (
     !operation.backupDigest || !operation.sourceDigest || !operation.targetDigest
     || operation.backupDigest !== operation.sourceDigest
@@ -425,18 +489,37 @@ function recoverMigrationTransactionLocked(root, rootAlias = root) {
       );
     }
   }
-  for (const operation of operations) restoreFromBackup(root, operation);
+  for (const [index, operation] of operations.entries()) {
+    restoreFromBackup(root, operation, { faultAt, index });
+  }
   for (const operation of operations) rmSync(operation.tempPath, { force: true });
   unlinkSync(manifestPath);
   fsyncDirectory(dirname(manifestPath));
   return true;
 }
 
-export function recoverMigrationTransaction(transactionRoot) {
+export function recoverMigrationTransaction(transactionRoot, { faultAt } = {}) {
   const requestedRoot = resolve(transactionRoot);
   mkdirSync(requestedRoot, { recursive: true });
   const root = realpathSync(requestedRoot);
-  return withMigrationLock(root, () => recoverMigrationTransactionLocked(root, requestedRoot));
+  const stateContext = repositoryStateContext(root);
+  return withMigrationLock(root, () => {
+    const { manifestPath, manifest } = readMigrationManifest(root);
+    if (!manifest) return false;
+    const operations = validatedManifestOperations(root, manifest.operations, requestedRoot);
+    const scopes = manifestStateScopes(manifest, operations, {
+      repositoryStateTree: stateContext !== null,
+      manifestPath,
+    });
+    return withStateScopeLocks(stateContext?.repositoryRoot ?? null, scopes, () => (
+      recoverMigrationTransactionLocked(root, requestedRoot, {
+        faultAt,
+        manifest,
+        manifestPath,
+        repositoryStateTree: stateContext !== null,
+      })
+    ));
+  });
 }
 
 export function applyMigrationAtomically(operations, {
@@ -473,33 +556,51 @@ export function applyMigrationAtomically(operations, {
       requestedRoot,
     );
   }
-  const repositoryStateTree = basename(requestedRoot) === '.atomic-skills';
-  const scopes = repositoryStateTree
-    ? canonicalStateScopes(normalized.map(stateScopeForMigrationOperation))
+  const stateContext = repositoryStateContext(root);
+  const incomingScopes = stateContext
+    ? canonicalStateScopes(normalized.map((operation) => {
+      const scope = stateScopeForMigrationOperation(operation);
+      operation.stateScope = scope;
+      return scope;
+    }))
     : [];
-  const stateRepositoryRoot = repositoryStateTree
-    ? realpathSync(repositoryRootForStateTree(requestedRoot))
+  const stateRepositoryRoot = stateContext
+    ? realpathSync(stateContext.repositoryRoot)
     : null;
-  return withMigrationLock(root, () => withStateScopeLocks(stateRepositoryRoot, scopes, () => {
-    recoverMigrationTransactionLocked(root, requestedRoot);
-    for (const [index, operation] of normalized.entries()) {
-      operation.filePath = pathWithinRoot(root, operation.filePath, `operations[${index}].filePath`);
-      const sourceStat = lstatSync(operation.filePath);
-      if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
-        throw new Error(`migration source is not a real file: ${operation.filePath}`);
-      }
-      if (operation.expectedSourceDigest !== undefined) {
-        const currentDigest = createHash('sha256').update(readFileSync(operation.filePath)).digest('hex');
-        if (currentDigest !== operation.expectedSourceDigest) {
-          throw new Error(`migration source changed after planning: ${operation.filePath}`);
+  return withMigrationLock(root, () => {
+    const loaded = readMigrationManifest(root);
+    const recoveryOperations = loaded.manifest
+      ? validatedManifestOperations(root, loaded.manifest.operations, requestedRoot)
+      : [];
+    const recoveryScopes = manifestStateScopes(loaded.manifest, recoveryOperations, {
+      repositoryStateTree: stateContext !== null,
+      manifestPath: loaded.manifestPath,
+    });
+    const scopes = canonicalStateScopes([...incomingScopes, ...recoveryScopes]);
+    return withStateScopeLocks(stateRepositoryRoot, scopes, () => {
+      recoverMigrationTransactionLocked(root, requestedRoot, {
+        manifest: loaded.manifest,
+        manifestPath: loaded.manifestPath,
+        repositoryStateTree: stateContext !== null,
+      });
+      for (const [index, operation] of normalized.entries()) {
+        operation.filePath = pathWithinRoot(root, operation.filePath, `operations[${index}].filePath`);
+        const sourceStat = lstatSync(operation.filePath);
+        if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
+          throw new Error(`migration source is not a real file: ${operation.filePath}`);
+        }
+        if (operation.expectedSourceDigest !== undefined) {
+          const currentDigest = createHash('sha256').update(readFileSync(operation.filePath)).digest('hex');
+          if (currentDigest !== operation.expectedSourceDigest) {
+            throw new Error(`migration source changed after planning: ${operation.filePath}`);
+          }
         }
       }
-    }
-    const manifestPath = migrationManifestPath(root);
-    const prepared = [];
-    let manifestTemp = null;
-    let manifestPublished = false;
-    try {
+      const manifestPath = migrationManifestPath(root);
+      const prepared = [];
+      let manifestTemp = null;
+      let manifestPublished = false;
+      try {
       for (const operation of normalized) {
         pathWithinRoot(root, operation.filePath, 'migration source');
         const backupPath = pathWithinRoot(root, nextBackupPath(operation.filePath), 'migration backup');
@@ -521,11 +622,13 @@ export function applyMigrationAtomically(operations, {
         });
       }
       const manifest = {
-        version: 3,
+        version: 4,
+        stateScopes: incomingScopes,
         operations: prepared.map(({
-          filePath, backupPath, backupDigest, sourceDigest, targetDigest, tempPath,
+          filePath, backupPath, backupDigest, sourceDigest, targetDigest, tempPath, stateScope,
         }) => ({
           filePath, backupPath, backupDigest, sourceDigest, targetDigest, tempPath,
+          ...(stateScope !== undefined ? { stateScope } : {}),
         })),
       };
       manifestTemp = pathWithinRoot(
@@ -560,33 +663,24 @@ export function applyMigrationAtomically(operations, {
       unlinkSync(manifestPath);
       fsyncDirectory(dirname(manifestPath));
       return { applied: prepared.length, backups: prepared.map((item) => item.backupPath) };
-    } catch (error) {
-      if (manifestPublished || existsSync(manifestPath)) {
-        try {
-          recoverMigrationTransactionLocked(root, requestedRoot);
-        } catch (recoveryError) {
-          recoveryError.cause = error;
-          throw recoveryError;
+      } catch (error) {
+        if (manifestPublished || existsSync(manifestPath)) {
+          try {
+            recoverMigrationTransactionLocked(root, requestedRoot, {
+              repositoryStateTree: stateContext !== null,
+            });
+          } catch (recoveryError) {
+            recoveryError.cause = error;
+            throw recoveryError;
+          }
+        } else {
+          for (const operation of prepared) rmSync(operation.tempPath, { force: true });
+          if (manifestTemp) rmSync(manifestTemp, { force: true });
         }
-      } else {
-        for (const operation of prepared) rmSync(operation.tempPath, { force: true });
-        if (manifestTemp) rmSync(manifestTemp, { force: true });
+        throw error;
       }
-      throw error;
-    }
-  }), { faultAt: lockFaultAt });
-}
-
-function repositoryRootForStateTree(stateRoot) {
-  let cursor = resolve(stateRoot);
-  while (basename(cursor) !== '.atomic-skills') {
-    const parent = dirname(cursor);
-    if (parent === cursor) {
-      throw new Error(`migration root is not inside .atomic-skills: ${stateRoot}`);
-    }
-    cursor = parent;
-  }
-  return dirname(cursor);
+    });
+  }, { faultAt: lockFaultAt });
 }
 
 function runCli(argv) {

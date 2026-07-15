@@ -21,6 +21,17 @@ test('completion event schema accepts a well-formed line', () => {
   assert.equal(validateCompletionEvent(validEvent()).ok, true);
 });
 
+test('completion event schema requires an explicit-offset ISO timestamp', () => {
+  assert.equal(validateCompletionEvent(validEvent({ ts: 'July 14, 2026 20:00:00 UTC' })).ok, false);
+  assert.equal(validateCompletionEvent(validEvent({ ts: '2026-07-14T20:00:00' })).ok, false);
+  assert.equal(validateCompletionEvent(validEvent({ ts: '2026-07-14T20:00:00-03:00' })).ok, true);
+});
+
+test('completion event schema accepts a positive close generation', () => {
+  assert.equal(validateCompletionEvent(validEvent({ generation: 1 })).ok, true);
+  assert.equal(validateCompletionEvent(validEvent({ generation: 0 })).ok, false);
+});
+
 test('completion event schema requires ts, event, weight, and weightBasis', () => {
   for (const field of ['ts', 'event', 'weight', 'weightBasis']) {
     const line = validEvent();
@@ -78,6 +89,11 @@ test('completion event schema rejects a task-done event with null taskId', () =>
 test('completion event schema accepts a phase-done event with null taskId', () => {
   const result = validateCompletionEvent(validEvent({ event: 'phase-done', taskId: null }));
   assert.equal(result.ok, true, 'phase-done may carry a null taskId');
+});
+
+test('completion event schema rejects a task-attributed phase-done event', () => {
+  const result = validateCompletionEvent(validEvent({ event: 'phase-done', taskId: 'T-001' }));
+  assert.equal(result.ok, false, 'phase-done must carry a null taskId');
 });
 
 test('completion event schema binds reconciliation tombstones to reconcile events', () => {

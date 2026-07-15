@@ -181,6 +181,15 @@ export function collectStateIntegrityViolations(planFrontmatters, initiativeFron
       if (text(initiative.slug) !== text(phase?.slug)) {
         violations.push(violation('phase-slug-mismatch', `initiative slug ${JSON.stringify(initiative.slug)} does not match descriptor slug ${JSON.stringify(phase?.slug)}`, joined));
       }
+      if ((phase?.completionGeneration !== undefined
+          || initiative.completionGeneration !== undefined)
+          && phase?.completionGeneration !== initiative.completionGeneration) {
+        violations.push(violation(
+          'completion-generation-mismatch',
+          `phase ${phase?.id ?? '?'} completionGeneration ${JSON.stringify(phase?.completionGeneration)} does not match initiative ${JSON.stringify(initiative.completionGeneration)}`,
+          joined,
+        ));
+      }
 
       if (phase?.status === 'pending') {
         violations.push(violation(

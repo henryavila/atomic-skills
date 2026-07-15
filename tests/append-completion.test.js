@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   appendCompletion,
+  canonicalCompletionRecords,
   ensureCompletion,
   COMPLETION_EVENTS,
   WEIGHT_BASES,
@@ -221,7 +222,11 @@ test('appendCompletion writes ONLY under .atomic-skills/analytics/ (never a .md)
   try {
     appendCompletion(root, base());
     const asDir = join(root, '.atomic-skills');
-    assert.deepEqual(readdirSync(asDir), ['analytics'], 'only analytics/ created under .atomic-skills');
+    assert.deepEqual(
+      readdirSync(asDir).sort(),
+      ['analytics', 'status'],
+      'completion stays in analytics while the locked dispatch read owns status',
+    );
     assert.deepEqual(readdirSync(join(asDir, 'analytics')), ['completions.jsonl']);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -279,8 +284,25 @@ test('appendCompletion writes a valid actuals sub-object verbatim', () => {
 test('appendCompletion rejects an unparseable ts and writes nothing', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
   try {
-    assert.throws(() => appendCompletion(root, base({ ts: 'not-a-date' })), /parseable date-time/);
+    assert.throws(() => appendCompletion(root, base({ ts: 'not-a-date' })), /ISO date-time.*explicit offset/i);
     assert.ok(!existsSync(LOG(root)), 'nothing written on rejection');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects parseable non-ISO timestamps and task-attributed phase closes', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-semantic-schema-'));
+  try {
+    assert.throws(
+      () => appendCompletion(root, base({ ts: 'July 14, 2026 20:00:00 UTC' })),
+      /ISO|explicit.*offset/i,
+    );
+    assert.throws(
+      () => appendCompletion(root, base({ event: 'phase-done', taskId: 'T-001' })),
+      /phase-done.*taskId.*null/i,
+    );
+    assert.ok(!existsSync(LOG(root)), 'semantic rejection must write nothing');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -362,6 +384,18 @@ test('ensureCompletion rejects payload drift behind one logical close key', () =
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('canonical completion keeps distinct reopen generations while requiring one identity per generation', () => {
+  const first = {
+    ...base(), ts: '2026-07-14T20:00:00Z', generation: 1,
+    idempotencyKey: 'task-done:proj/plan/F0/T-001#1', weight: 1, weightBasis: 'count',
+  };
+  const reopened = {
+    ...first, ts: '2026-07-14T21:00:00Z', generation: 2,
+    idempotencyKey: 'task-done:proj/plan/F0/T-001#2',
+  };
+  assert.deepEqual(canonicalCompletionRecords([first, reopened]), [first, reopened]);
 });
 
 test('ensureCompletion rejects an unneutralized duplicate for the same idempotency key', () => {

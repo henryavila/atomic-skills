@@ -15,6 +15,7 @@ import {
 const SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const REVIEW_FILE = '.atomic-skills/reviews/demo-f4.md';
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
+const firstGenerationKey = (close) => buildPhaseDoneIdempotencyKey({ ...close, generation: 1 });
 
 function base(overrides = {}) {
   const exitGates = [{
@@ -83,6 +84,7 @@ function recordPhaseCompletion(root, request, closeSha = SHA) {
     planSlug: request.close.planSlug,
     phaseId: request.close.phaseId,
     taskId: null,
+    ...(request.close.generation !== undefined ? { generation: request.close.generation } : {}),
     weight: request.close.weight,
     weightBasis: request.close.weightBasis,
     idempotencyKey,
@@ -91,6 +93,43 @@ function recordPhaseCompletion(root, request, closeSha = SHA) {
     ...(request.actuals !== undefined ? { actuals: request.actuals } : {}),
   });
 }
+
+test('phase close keys bind to authoritative generations instead of branch-local timestamps', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-generation-key-'));
+  try {
+    const close = transactionInput(root).close;
+    const branchA = buildPhaseDoneIdempotencyKey({ ...close, closedAt: '2026-07-14T20:00:00Z', generation: 1 });
+    const branchB = buildPhaseDoneIdempotencyKey({ ...close, closedAt: '2026-07-14T20:05:00Z', generation: 1 });
+    const reopened = buildPhaseDoneIdempotencyKey({ ...close, closedAt: '2026-07-14T21:00:00Z', generation: 2 });
+    assert.equal(branchA, branchB, 'one authoritative generation must have one branch-stable key');
+    assert.notEqual(reopened, branchA, 'a real reopen/reclose generation must remain distinct');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase close persists its first authoritative completion generation in both mirrors and analytics', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-generation-state-'));
+  let committed;
+  try {
+    const request = transactionInput(root);
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      findCommit: async () => undefined,
+      commit: async (candidate) => { committed = structuredClone(candidate); return { closeSha: SHA }; },
+      emit: async () => {},
+      assertClean: async () => true,
+    });
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.equal(committed.phase.completionGeneration, 1);
+    assert.equal(committed.plan.phases[0].completionGeneration, 1);
+    assert.equal(committed.initiative.completionGeneration, 1);
+    assert.equal(completion.generation, 1);
+    assert.match(result.idempotencyKey, /#1$/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('open task blocks before verifiers, review, writes or events', async () => {
   const calls = [];
@@ -158,7 +197,7 @@ test('preflight permits evidence production, then commit guard closes exactly on
     assert.deepEqual(result.value, { closeSha: SHA });
     const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
     assert.equal(completion.event, 'phase-done');
-    assert.equal(completion.idempotencyKey, buildPhaseDoneIdempotencyKey(input.close));
+    assert.equal(completion.idempotencyKey, firstGenerationKey(input.close));
     assert.equal(completion.closeSha, SHA);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -236,7 +275,7 @@ test('phase recovery retains the original aggregate actuals after the event boun
       executePhaseDoneTransaction(request, effects),
       /injected post-event boundary failure/,
     );
-    const idempotencyKey = buildPhaseDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     assert.equal(readPhaseDoneRecovery(root, idempotencyKey).stage, 'committed');
 
     const resumed = await executePhaseDoneTransaction({
@@ -258,7 +297,7 @@ test('phase close rejects malformed aggregate actuals before creating recovery s
     const request = transactionInput(root, {
       actuals: { filesChanged: 3, source: 'invented' },
     });
-    const idempotencyKey = buildPhaseDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(
       executePhaseDoneTransaction(request, {}),
       /unknown actuals field/i,
@@ -320,7 +359,7 @@ test('allowed close rejects a missing commit effect before creating recovery sta
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
     const input = transactionInput(root);
-    const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
+    const idempotencyKey = firstGenerationKey(input.close);
     await assert.rejects(
       executePhaseDoneTransaction(input, {
         findCommit: async () => undefined,
@@ -340,7 +379,7 @@ test('commit without a durable closeSha cannot report success', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
     const input = transactionInput(root);
-    const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
+    const idempotencyKey = firstGenerationKey(input.close);
     await assert.rejects(
       executePhaseDoneTransaction(input, {
         loadState: loadStateFor(input),
@@ -361,7 +400,7 @@ test('event failure after commit resumes without recommit or duplicate completio
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
     const input = transactionInput(root);
-    const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
+    const idempotencyKey = firstGenerationKey(input.close);
     let storedCommit;
     let commitCalls = 0;
     let emitCalls = 0;
@@ -381,6 +420,7 @@ test('event failure after commit resumes without recommit or duplicate completio
           planSlug: closeInput.close.planSlug,
           phaseId: closeInput.close.phaseId,
           taskId: null,
+          generation: closeInput.close.generation,
           weight: closeInput.close.weight,
           weightBasis: closeInput.close.weightBasis,
           idempotencyKey: closeInput.idempotencyKey,
@@ -439,10 +479,10 @@ test('phase recovery is discovered by logical scope when a retry supplies a new 
     });
     const result = await executePhaseDoneTransaction(retry, effects);
     assert.equal(result.ok, true);
-    assert.equal(result.idempotencyKey, buildPhaseDoneIdempotencyKey(first.close));
+    assert.equal(result.idempotencyKey, firstGenerationKey(first.close));
     assert.equal(commitCalls, 1);
     assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
-    assert.equal(readPhaseDoneRecovery(root, buildPhaseDoneIdempotencyKey(first.close)), null);
+    assert.equal(readPhaseDoneRecovery(root, firstGenerationKey(first.close)), null);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -523,7 +563,7 @@ test('successor failure resumes after the durable event without recommit or re-e
         planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
       },
     });
-    const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
+    const idempotencyKey = firstGenerationKey(input.close);
     let commitCalls = 0;
     let emitCalls = 0;
     let materializeCalls = 0;

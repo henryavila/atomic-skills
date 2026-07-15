@@ -135,9 +135,8 @@ export function parseDispatchLog(raw, { source = 'dispatch-log.json' } = {}) {
 }
 
 export function readDispatchLog(root = process.cwd()) {
-  const path = dispatchLogPath(root);
-  if (!existsSync(path)) return [];
   return withDispatchLedgerLock(root, () => {
+    const path = dispatchLogPath(root);
     if (!existsSync(path)) return [];
     return parseDispatchLog(readFileSync(path, 'utf8'), { source: path });
   });

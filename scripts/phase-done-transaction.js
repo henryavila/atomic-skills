@@ -12,8 +12,10 @@ import {
   classifyPhaseDonePreflight,
 } from './lifecycle-order-guard.js';
 import {
+  completionDuplicateRepair,
   ensureCompletion,
   normalizeCompletionActuals,
+  normalizeCompletionRecord,
   reconcilesExactDuplicates,
   withCompletionLedgerLock,
 } from './append-completion.js';
@@ -77,16 +79,29 @@ function authenticateTerminalCompletion(root, close) {
       if (group.length > 1 && !reconcilesExactDuplicates(group, records)) {
         throw new Error('terminal phase reuse found an unreconciled duplicate completion identity');
       }
-      effective.push(group[0]);
+      effective.push(group.length > 1
+        ? completionDuplicateRepair(group).canonicalRecord
+        : group[0]);
     }
     if (effective.length === 0) {
       throw new Error('terminal phase reuse requires a canonical phase-done completion event');
     }
-    const record = effective.at(-1);
+    const record = [...effective].sort((left, right) => {
+      const leftGeneration = Number.isInteger(left.generation) ? left.generation : -1;
+      const rightGeneration = Number.isInteger(right.generation) ? right.generation : -1;
+      if (leftGeneration !== rightGeneration) return leftGeneration - rightGeneration;
+      const timestampOrder = Date.parse(left.ts) - Date.parse(right.ts);
+      if (timestampOrder !== 0) return timestampOrder;
+      return String(left.idempotencyKey).localeCompare(String(right.idempotencyKey));
+    }).at(-1);
     if (!hasText(record.ts) || !FULL_GIT_OID.test(record.closeSha ?? '')) {
       throw new Error('terminal phase reuse completion event lacks immutable timestamp or closeSha');
     }
-    const immutableClose = { ...close, closedAt: record.ts };
+    const immutableClose = {
+      ...close,
+      closedAt: record.ts,
+      ...(record.generation !== undefined ? { generation: record.generation } : {}),
+    };
     const idempotencyKey = buildPhaseDoneIdempotencyKey(immutableClose);
     if (record.idempotencyKey !== idempotencyKey) {
       throw new Error('terminal phase reuse completion event has a non-canonical close identity');
@@ -120,6 +135,12 @@ export function buildPhaseDoneIdempotencyKey(close = {}) {
   const scope = ['projectId', 'planSlug', 'phaseId']
     .map((field) => encodeURIComponent(close[field]))
     .join('/');
+  if (close.generation !== undefined) {
+    if (!Number.isInteger(close.generation) || close.generation < 1) {
+      throw new TypeError('close.generation must be a positive integer');
+    }
+    return `phase-done:${scope}#${close.generation}`;
+  }
   return `phase-done:${scope}@${encodeURIComponent(close.closedAt)}`;
 }
 
@@ -255,10 +276,10 @@ function clearPhaseDoneRecovery(root, idempotencyKey) {
   durableUnlink(phaseDoneRecoveryPath(root, idempotencyKey));
 }
 
-function validateTransactionInput(input) {
+function validateTransactionInput(input, { checkIdentity = true } = {}) {
   if (!hasText(input.root)) throw new TypeError('root is required');
   const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
-  if (input.idempotencyKey != null && input.idempotencyKey !== idempotencyKey) {
+  if (checkIdentity && input.idempotencyKey != null && input.idempotencyKey !== idempotencyKey) {
     throw new TypeError('input.idempotencyKey must equal the derived phase close key');
   }
   if (input.close.planSlug !== input.plan.slug) {
@@ -275,6 +296,40 @@ function validateTransactionInput(input) {
   return idempotencyKey;
 }
 
+function phaseCloseGeneration(input) {
+  const descriptor = input.phase?.completionGeneration;
+  const initiative = input.initiative?.completionGeneration;
+  for (const [label, value] of [['phase', descriptor], ['initiative', initiative]]) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
+      throw new TypeError(`authoritative ${label} completionGeneration must be a positive integer`);
+    }
+  }
+  if ((descriptor !== undefined || initiative !== undefined) && descriptor !== initiative) {
+    throw new Error('authoritative phase completionGeneration is inconsistent across mirrors');
+  }
+  const persisted = descriptor ?? initiative;
+  const terminal = terminalStatus(input.phase?.status) || terminalStatus(input.initiative?.status);
+  return terminal ? (persisted ?? null) : (persisted ?? 0) + 1;
+}
+
+function withPhaseCloseGeneration(input, generation) {
+  if (generation === null) return input;
+  const phase = { ...input.phase, completionGeneration: generation };
+  const plan = {
+    ...input.plan,
+    phases: input.plan.phases.map((item) => (
+      item?.id === phase.id && item?.slug === phase.slug ? structuredClone(phase) : item
+    )),
+  };
+  return {
+    ...input,
+    plan,
+    phase,
+    initiative: { ...input.initiative, completionGeneration: generation },
+    close: { ...input.close, generation },
+  };
+}
+
 /**
  * Recoverable phase-close coordinator. Evidence production is allowed only
  * after the pure preflight. Once the commit guard passes, an atomic recovery
@@ -287,7 +342,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     return { ok: false, stage: 'preflight', decision: preflight };
   }
 
-  const requestedKey = validateTransactionInput(input);
+  const requestedKey = validateTransactionInput(input, { checkIdentity: false });
   for (const name of ['findCommit', 'commit', 'emit', 'assertClean', 'loadState']) {
     if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
   }
@@ -296,10 +351,6 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     const requestedMarker = readPhaseDoneRecovery(input.root, requestedKey);
     const scopeMarker = findPhaseDoneRecoveryByScope(input.root, input.close);
     let marker = requestedMarker ?? scopeMarker;
-    const idempotencyKey = marker?.idempotencyKey ?? requestedKey;
-    if (marker?.idempotencyKey === requestedKey && !isDeepStrictEqual(marker.close, input.close)) {
-      throw new Error(`phase-done transaction close payload conflicts with ${requestedKey}`);
-    }
 
     const loaded = await effects.loadState({
       root: input.root,
@@ -311,7 +362,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     if (!loaded || typeof loaded !== 'object') {
       throw new TypeError('effects.loadState must return authoritative phase state');
     }
-    const authoritativeInput = {
+    let authoritativeInput = {
       ...input,
       ...loaded,
       root: input.root,
@@ -324,7 +375,42 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
         delete authoritativeInput.actuals;
       }
     }
-    validateTransactionInput(authoritativeInput);
+    const authoritativeGeneration = phaseCloseGeneration(authoritativeInput);
+    const generation = marker?.close?.generation ?? authoritativeGeneration;
+    if (marker?.close?.generation !== undefined
+        && authoritativeGeneration !== null && marker.close.generation !== authoritativeGeneration) {
+      throw new Error('phase-done recovery generation conflicts with authoritative phase state');
+    }
+    authoritativeInput = withPhaseCloseGeneration(authoritativeInput, generation);
+    const idempotencyKey = marker?.idempotencyKey
+      ?? buildPhaseDoneIdempotencyKey(authoritativeInput.close);
+    if (input.idempotencyKey != null && input.idempotencyKey !== idempotencyKey) {
+      throw new TypeError('input.idempotencyKey must equal the derived phase close key');
+    }
+    const prospectiveCompletion = normalizeCompletionRecord({
+      event: 'phase-done',
+      projectId: authoritativeInput.close.projectId,
+      planSlug: authoritativeInput.close.planSlug,
+      phaseId: authoritativeInput.close.phaseId,
+      taskId: null,
+      ...(authoritativeInput.close.generation !== undefined
+        ? { generation: authoritativeInput.close.generation }
+        : {}),
+      weight: authoritativeInput.close.weight,
+      weightBasis: authoritativeInput.close.weightBasis,
+      idempotencyKey,
+      ts: authoritativeInput.close.closedAt,
+      ...(authoritativeInput.actuals !== undefined ? { actuals: authoritativeInput.actuals } : {}),
+    });
+    authoritativeInput = {
+      ...authoritativeInput,
+      close: {
+        ...authoritativeInput.close,
+        weight: prospectiveCompletion.weight,
+        weightBasis: prospectiveCompletion.weightBasis,
+      },
+    };
+    validateTransactionInput({ ...authoritativeInput, idempotencyKey });
     const freshPreflight = classifyPhaseDonePreflight(authoritativeInput);
     if (!freshPreflight.allowed) {
       return { ok: false, stage: 'preflight', decision: freshPreflight };
@@ -349,7 +435,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       if (!terminalDecision.allowed) {
         return { ok: false, stage: 'commit-guard', decision: terminalDecision };
       }
-      const completion = authenticateTerminalCompletion(input.root, input.close);
+      const completion = authenticateTerminalCompletion(input.root, authoritativeInput.close);
       const terminalInput = {
         ...terminalGuardInput,
         close: completion.immutableClose,
@@ -478,6 +564,9 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
         planSlug: marker.close.planSlug,
         phaseId: marker.close.phaseId,
         taskId: null,
+        ...(marker.close.generation !== undefined
+          ? { generation: marker.close.generation }
+          : {}),
         weight: marker.close.weight,
         weightBasis: marker.close.weightBasis,
         idempotencyKey,

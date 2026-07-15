@@ -309,6 +309,11 @@
           "type": "string",
           "enum": ["pending", "active", "paused", "done", "archived"]
         },
+        "completionGeneration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Monotonic authoritative phase-close generation retained across reopen/reclose cycles."
+        },
         "externalImports": {
           "type": "array",
           "items": { "$ref": "common.schema.json#/$defs/artifactRef" }

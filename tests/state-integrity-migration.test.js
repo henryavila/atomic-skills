@@ -453,6 +453,50 @@ test('migration recovery preserves third-party bytes that match neither side of 
   }
 });
 
+test('repository recovery authenticates durable phase scopes and rechecks source at each restore rename', () => {
+  const root = mkdtempSync(join(tmpdir(), 'state-integrity-recovery-scope-cas-'));
+  try {
+    const stateRoot = join(root, '.atomic-skills');
+    const source = join(stateRoot, 'projects', 'proj', 'demo', 'phases', 'f0.md');
+    const backup = `${source}.bak`;
+    const temp = `${source}.migration-tmp`;
+    const manifest = join(stateRoot, '.state-integrity-migration-transaction.json');
+    const original = 'original\n';
+    const target = `---\nparentPlan: demo\nphaseId: F0\nslug: demo-f0\n---\n`;
+    const ordinaryWrite = 'ordinary-transition-after-validation\n';
+    const digest = (value) => createHash('sha256').update(value).digest('hex');
+    mkdirSync(dirname(source), { recursive: true });
+    writeFileSync(source, target);
+    writeFileSync(backup, original);
+    writeFileSync(temp, target);
+    writeFileSync(manifest, `${JSON.stringify({
+      version: 4,
+      stateScopes: [['proj', 'demo', 'F0']],
+      operations: [{
+        filePath: source, backupPath: backup, tempPath: temp,
+        stateScope: ['proj', 'demo', 'F0'],
+        backupDigest: digest(original), sourceDigest: digest(original), targetDigest: digest(target),
+      }],
+    })}\n`);
+    const expectedLock = scopeTransactionLockPath(root, 'phase-state', ['proj', 'demo', 'F0']);
+
+    assert.throws(
+      () => recoverMigrationTransaction(stateRoot, {
+        faultAt: ({ point }) => {
+          if (point !== 'before-restore') return;
+          assert.equal(existsSync(expectedLock), true, 'durable scope lock must cover recovery');
+          writeFileSync(source, ordinaryWrite);
+        },
+      }),
+      /source changed.*restore|restore.*source changed/i,
+    );
+    assert.equal(readFileSync(source, 'utf8'), ordinaryWrite);
+    assert.equal(existsSync(manifest), true, 'failed CAS must preserve durable recovery authority');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('in-process migration rollback also refuses to overwrite a concurrent third-party edit', () => {
   const dir = mkdtempSync(join(tmpdir(), 'state-integrity-rollback-cas-'));
   try {

@@ -16,6 +16,7 @@ import { ensureCompletion } from '../scripts/append-completion.js';
 import { appendDispatchRecord } from '../scripts/dispatch-log.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
+const firstGenerationKey = (close) => buildDoneIdempotencyKey({ ...close, generation: 1 });
 
 function input(root, overrides = {}) {
   const task = { id: 'T-005', status: 'active' };
@@ -93,12 +94,41 @@ function appendTaskDispatch(root, {
   });
 }
 
+test('task close keys bind to authoritative generations instead of branch-local timestamps', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-generation-key-'));
+  try {
+    const close = input(root).close;
+    const branchA = buildDoneIdempotencyKey({ ...close, closedAt: '2026-07-14T20:00:00Z', generation: 1 });
+    const branchB = buildDoneIdempotencyKey({ ...close, closedAt: '2026-07-14T20:05:00Z', generation: 1 });
+    const reopened = buildDoneIdempotencyKey({ ...close, closedAt: '2026-07-14T21:00:00Z', generation: 2 });
+    assert.equal(branchA, branchB, 'one authoritative generation must have one branch-stable key');
+    assert.notEqual(reopened, branchA, 'a real reopen/reclose generation must remain distinct');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('task close persists its first authoritative completion generation in state and analytics', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-generation-state-'));
+  try {
+    const { state, effects } = harness();
+    const result = await executeDoneTransaction(input(root), effects);
+    const bundle = state.bundles.get(result.idempotencyKey);
+    const completion = JSON.parse(readFileSync(LOG(root), 'utf8').trim());
+    assert.equal(bundle.task.completionGeneration, 1);
+    assert.equal(completion.generation, 1);
+    assert.match(result.idempotencyKey, /#1$/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('same logical close retries to one event, one checkpoint and one complete bundle', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
     const { state, effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     const first = await executeDoneTransaction(request, effects);
     const retry = await executeDoneTransaction(request, effects);
     assert.equal(first.ok, true);
@@ -127,7 +157,7 @@ test('task close rejects phase-only actuals before creating recovery state', asy
   try {
     const { state, effects } = harness();
     const request = input(root, { actuals: { filesChanged: 1 } });
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
 
     await assert.rejects(
       executeDoneTransaction(request, effects),
@@ -146,7 +176,7 @@ test('invalid completion weight is rejected before task state or recovery author
   try {
     const { state, effects } = harness();
     const request = input(root, { close: { ...input(root).close, weight: -1 } });
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
 
     await assert.rejects(executeDoneTransaction(request, effects), /weight.*finite.*>= 0/i);
     assert.equal(state.bundles.size, 0);
@@ -164,7 +194,7 @@ test('invalid completion basis is rejected before task state or recovery authori
     const request = input(root, {
       close: { ...input(root).close, weightBasis: 'estimate' },
     });
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
 
     await assert.rejects(executeDoneTransaction(request, effects), /weightBasis.*count.*proxy/i);
     assert.equal(state.bundles.size, 0);
@@ -188,7 +218,7 @@ test('failure after state persistence leaves a marker and resumes without duplic
       },
     };
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, failing), /injected event failure/);
     assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'state-persisted');
     assert.equal(attempts, 1);
@@ -206,7 +236,7 @@ test('completion fsync failure keeps task recovery live until the existing event
   try {
     const { effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     const failing = {
       ...effects,
       ensureCompletion: (ledgerRoot, entry) => ensureCompletion(ledgerRoot, entry, {
@@ -242,7 +272,7 @@ test('task recovery freezes dispatch actuals before its first event attempt', as
     });
     const { effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, {
       ...effects,
       ensureCompletion: async () => { throw new Error('injected pre-event failure'); },
@@ -279,7 +309,7 @@ test('checkpointed task recovery repairs a missing event with persisted actuals 
     });
     const { effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, {
       ...effects,
       assertClean: async () => false,
@@ -373,7 +403,7 @@ test('failure after event persistence resumes checkpoint with the same event', a
       },
     };
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, failing), /injected checkpoint failure/);
     assert.equal(failed, true);
     assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'event-persisted');
@@ -391,7 +421,7 @@ test('incomplete handoff fails before creating a recovery marker', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
     const request = input(root, { handoff: { narrative: 'missing required fields' } });
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, harness().effects), /handoff.*decisionLog/i);
     assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
   } finally {
@@ -544,7 +574,7 @@ test('checkpointed recovery repairs a missing completion event before clearing i
   try {
     const { effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, {
       ...effects,
       assertClean: async () => false,
@@ -564,7 +594,7 @@ test('checkpointed recovery rejects a malformed stored completion instead of tru
   try {
     const { effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, {
       ...effects,
       assertClean: async () => false,
@@ -702,7 +732,7 @@ test('checkpointed recovery reauthenticates the stored checkpoint before clearin
   try {
     const { state, effects } = harness();
     const request = input(root);
-    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    const idempotencyKey = firstGenerationKey(request.close);
     await assert.rejects(executeDoneTransaction(request, {
       ...effects,
       assertClean: async () => false,

@@ -63,6 +63,7 @@ export { parseDispatchLog } from './dispatch-log.js';
 
 /** The closed enum of completion event kinds (mirrors completion-event.schema.json). */
 export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 /** The closed enum of weight bases: 'count' (pre-proxy) vs 'proxy' (post-F2). */
 export const WEIGHT_BASES = Object.freeze(['count', 'proxy']);
 /** The closed set of optional `actuals` numeric fields (mirrors completion-event.schema.json). */
@@ -284,15 +285,25 @@ export function normalizeCompletionRecord(entry) {
   if (entry.event === 'task-done' && !hasText(entry.taskId)) {
     throw new TypeError("appendCompletion: a 'task-done' event requires a non-empty taskId");
   }
+  if (entry.event === 'phase-done' && entry.taskId != null) {
+    throw new TypeError("appendCompletion: a 'phase-done' event requires taskId to be null");
+  }
   if (entry.event === 'reconcile' && entry.reconciliation == null) {
     throw new TypeError("appendCompletion: reconciliation metadata is required for a 'reconcile' event");
   }
   if (entry.event === 'reconcile' && entry.taskId != null) {
     throw new TypeError("appendCompletion: a 'reconcile' event requires taskId to be null");
   }
-  // A caller-supplied ts is frozen immutably (P2); reject one a date parser cannot read.
-  if (hasText(entry.ts) && Number.isNaN(Date.parse(entry.ts))) {
-    throw new RangeError(`appendCompletion: ts must be a parseable date-time (got ${JSON.stringify(entry.ts)})`);
+  // A caller-supplied ts is frozen immutably (P2) under the shared state timestamp contract.
+  if (entry.ts !== undefined && (!hasText(entry.ts)
+      || !ISO_TIMESTAMP.test(entry.ts) || Number.isNaN(Date.parse(entry.ts)))) {
+    throw new RangeError(
+      `appendCompletion: ts must be an ISO date-time with an explicit offset (got ${JSON.stringify(entry.ts)})`,
+    );
+  }
+  if (entry.generation !== undefined
+      && (!Number.isInteger(entry.generation) || entry.generation < 1)) {
+    throw new TypeError('appendCompletion: generation must be a positive integer');
   }
   if (entry.closeSha != null && !FULL_GIT_OID.test(entry.closeSha)) {
     throw new TypeError('appendCompletion: closeSha must be a full lowercase git object id');
@@ -306,6 +317,7 @@ export function normalizeCompletionRecord(entry) {
     planSlug: entry.planSlug,
     phaseId: entry.phaseId,
     taskId: hasText(entry.taskId) ? entry.taskId : null,
+    ...(entry.generation !== undefined ? { generation: entry.generation } : {}),
     ...(hasText(entry.idempotencyKey) ? { idempotencyKey: entry.idempotencyKey } : {}),
     ...(hasText(entry.closeSha) ? { closeSha: entry.closeSha } : {}),
     weight,
@@ -320,10 +332,13 @@ function readCompletionRecords(path) {
   return parseCompletionEventLog(readFileSync(path, 'utf8'), { source: path });
 }
 
-function sameLogicalCompletion(existing, candidate) {
+export function sameLogicalCompletion(existing, candidate) {
   const withoutTimestamp = (record) => {
     const copy = structuredClone(record);
     delete copy.ts;
+    if (Number.isInteger(copy.generation) && copy.generation > 0 && copy.event !== 'reconcile') {
+      delete copy.closeSha;
+    }
     return copy;
   };
   return isDeepStrictEqual(withoutTimestamp(existing), withoutTimestamp(candidate));
@@ -339,38 +354,91 @@ function canonicalize(value) {
   return value;
 }
 
-function completionDigest(record) {
+export function completionDigest(record) {
   return createHash('sha256').update(JSON.stringify(canonicalize(record))).digest('hex');
+}
+
+function completionEventIdentity(record) {
+  const generation = Number.isInteger(record?.generation) && record.generation > 0
+    ? `#${record.generation}`
+    : '';
+  return `${record?.event ?? '<unknown>'}:${record?.taskId ?? '<phase>'}${generation}`;
+}
+
+export function completionDuplicateRepair(records) {
+  if (!Array.isArray(records) || records.length < 2) return null;
+  if (records.some((record) => !sameLogicalCompletion(records[0], record))) return null;
+  const ordered = records.map((record) => ({ record, digest: completionDigest(record) }))
+    .sort((left, right) => left.digest.localeCompare(right.digest));
+  return {
+    identity: completionEventIdentity(ordered[0].record),
+    canonicalRecord: ordered[0].record,
+    canonicalDigest: ordered[0].digest,
+    duplicateDigests: ordered.slice(1).map(({ digest }) => digest),
+  };
+}
+
+function legacyDuplicateRepair(records) {
+  return {
+    identity: `${records[0]?.event ?? '<unknown>'}:${records[0]?.taskId ?? '<phase>'}`,
+    canonicalDigest: completionDigest(records[0]),
+    duplicateDigests: records.slice(1).map(completionDigest),
+  };
+}
+
+function canonicalReconciliationRecords(records) {
+  const selected = new Set();
+  const keyed = new Map();
+  for (const record of records.filter((candidate) => candidate?.event === 'reconcile')) {
+    if (!validateCompletionEvent(record).ok) {
+      throw new Error('completion ledger contains a schema-invalid reconciliation tombstone');
+    }
+    if (!hasText(record.idempotencyKey)) {
+      selected.add(record);
+      continue;
+    }
+    const group = keyed.get(record.idempotencyKey) ?? [];
+    group.push(record);
+    keyed.set(record.idempotencyKey, group);
+  }
+  for (const [idempotencyKey, group] of keyed) {
+    if (group.some((record) => !sameLogicalCompletion(group[0], record))) {
+      throw new Error(`completion ledger has conflicting reconciliation payloads for ${idempotencyKey}`);
+    }
+    const canonical = [...group].sort((left, right) => (
+      completionDigest(left).localeCompare(completionDigest(right))
+    ))[0];
+    selected.add(canonical);
+  }
+  return selected;
+}
+
+function markerMatchesRepair(record, canonical, repair) {
+  return record?.event === 'reconcile'
+    && record?.projectId === canonical.projectId
+    && record?.planSlug === canonical.planSlug
+    && record?.phaseId === canonical.phaseId
+    && record?.reconciliation?.action === 'ignore-duplicate-completion'
+    && record.reconciliation.eventIdentity === repair.identity
+    && record.reconciliation.canonicalDigest === repair.canonicalDigest
+    && isDeepStrictEqual(record.reconciliation.duplicateDigests, repair.duplicateDigests);
 }
 
 export function reconcilesExactDuplicates(records, allRecords) {
   if (records.length < 2) return false;
-  const canonical = records[0];
-  if (records.some((record) => !sameLogicalCompletion(canonical, record))) return false;
-  const eventIdentity = `${canonical.event ?? '<unknown>'}:${canonical.taskId ?? '<phase>'}`;
-  const canonicalDigest = completionDigest(canonical);
-  const duplicateDigests = records.slice(1).map(completionDigest);
-  for (const record of allRecords.filter((candidate) => candidate?.event === 'reconcile')) {
-    if (!validateCompletionEvent(record).ok) {
-      throw new Error('completion ledger contains a schema-invalid reconciliation tombstone');
-    }
-  }
-  const tombstones = allRecords.filter((record) => (
-    record?.event === 'reconcile'
-    && record?.projectId === canonical.projectId
-    && record?.planSlug === canonical.planSlug
-    && record?.phaseId === canonical.phaseId
-    && record?.closeSha === canonical.closeSha
-    && record?.reconciliation?.action === 'ignore-duplicate-completion'
-    && record.reconciliation.eventIdentity === eventIdentity
-    && record.reconciliation.canonicalDigest === canonicalDigest
-    && isDeepStrictEqual(record.reconciliation.duplicateDigests, duplicateDigests)
+  const stable = completionDuplicateRepair(records);
+  if (!stable) return false;
+  const legacy = legacyDuplicateRepair(records);
+  const tombstones = canonicalReconciliationRecords(allRecords);
+  return [...tombstones].some((record) => (
+    markerMatchesRepair(record, stable.canonicalRecord, stable)
+    || markerMatchesRepair(record, records[0], legacy)
   ));
-  return tombstones.length === 1;
 }
 
 export function canonicalCompletionRecords(records) {
   if (!Array.isArray(records)) throw new TypeError('completion records must be an array');
+  const canonicalTombstones = canonicalReconciliationRecords(records);
   const grouped = new Map();
   for (const record of records) {
     if (record?.event === 'reconcile' || !hasText(record?.idempotencyKey)) continue;
@@ -383,12 +451,14 @@ export function canonicalCompletionRecords(records) {
       throw new Error(`completion ledger has an unneutralized duplicate idempotency key: ${idempotencyKey}`);
     }
   }
-  const emitted = new Set();
+  const canonicalByKey = new Map([...grouped].map(([idempotencyKey, group]) => [
+    idempotencyKey,
+    group.length > 1 ? completionDuplicateRepair(group).canonicalRecord : group[0],
+  ]));
   return records.filter((record) => {
-    if (record?.event === 'reconcile' || !hasText(record?.idempotencyKey)) return true;
-    if (emitted.has(record.idempotencyKey)) return false;
-    emitted.add(record.idempotencyKey);
-    return true;
+    if (record?.event === 'reconcile') return canonicalTombstones.has(record);
+    if (!hasText(record?.idempotencyKey)) return true;
+    return canonicalByKey.get(record.idempotencyKey) === record;
   });
 }
 
@@ -470,6 +540,7 @@ export function withCompletionLedgerLock(root, operation) {
       appendRecord: (record, options) => appendCompletionRecord(path, record, options),
       sync: (options) => syncCompletionLog(path, options),
     };
+    ledger.ensure = (entry, options) => ensureCompletionLocked(root, entry, ledger, options);
     const result = operation(ledger);
     if (result && typeof result.then === 'function') {
       throw new TypeError('completion ledger operation must be synchronous');
@@ -484,7 +555,7 @@ export function withCompletionLedgerLock(root, operation) {
  * Ensure exactly one append-only record for a caller-supplied logical close.
  * Existing legacy events remain untouched; idempotency is forward-only.
  */
-export function ensureCompletion(root, entry, {
+function ensureCompletionLocked(root, entry, ledger, {
   beforeAppend,
   beforeFileSync,
   appendFaultAt,
@@ -493,42 +564,48 @@ export function ensureCompletion(root, entry, {
     throw new TypeError('ensureCompletion: idempotencyKey is required');
   }
   const suppliedCandidate = normalizeCompletionRecord(entry);
-  return withCompletionLedgerLock(root, (ledger) => {
-    const records = ledger.readRecords();
-    const matches = records.filter((record) => (
-      record.idempotencyKey === suppliedCandidate.idempotencyKey
-    ));
-    if (matches.length > 0) {
-      const candidate = entry.actuals == null && matches[0].actuals !== undefined
-        ? normalizeCompletionRecord({ ...entry, actuals: matches[0].actuals })
-        : suppliedCandidate;
-      if (!sameLogicalCompletion(matches[0], candidate)) {
-        throw new Error(
-          `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
-        );
-      }
-      if (matches.length > 1 && !reconcilesExactDuplicates(matches, records)) {
-        throw new Error(
-          `ensureCompletion: duplicate idempotency records require exactly one reconciliation for ${JSON.stringify(candidate.idempotencyKey)}`,
-        );
-      }
-      // A prior attempt can append the line and fail at fsync. Re-sync both the
-      // file and its parent before authenticating that visible record as durable.
-      ledger.sync({ beforeFileSync });
-      return { record: matches[0], appended: false };
+  const records = ledger.readRecords();
+  const matches = records.filter((record) => (
+    record.idempotencyKey === suppliedCandidate.idempotencyKey
+  ));
+  if (matches.length > 0) {
+    const candidate = entry.actuals == null && matches[0].actuals !== undefined
+      ? normalizeCompletionRecord({ ...entry, actuals: matches[0].actuals })
+      : suppliedCandidate;
+    if (!sameLogicalCompletion(matches[0], candidate)) {
+      throw new Error(
+        `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
+      );
     }
-    let effectiveEntry = entry;
-    if (entry.event === 'task-done' && entry.actuals == null) {
-      const derived = readDispatchActuals(root, {
-        planSlug: entry.planSlug, phaseId: entry.phaseId, taskId: entry.taskId,
-      });
-      if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
+    if (matches.length > 1 && candidate.event === 'reconcile') {
+      canonicalReconciliationRecords(records);
+    } else if (matches.length > 1 && !reconcilesExactDuplicates(matches, records)) {
+      throw new Error(
+        `ensureCompletion: duplicate idempotency records require exactly one reconciliation for ${JSON.stringify(candidate.idempotencyKey)}`,
+      );
     }
-    const candidate = normalizeCompletionRecord(effectiveEntry);
-    if (typeof beforeAppend === 'function') beforeAppend();
-    ledger.appendRecord(candidate, { beforeFileSync, appendFaultAt });
-    return { record: candidate, appended: true };
-  });
+    // A prior attempt can append the line and fail at fsync. Re-sync both the
+    // file and its parent before authenticating that visible record as durable.
+    ledger.sync({ beforeFileSync });
+    return { record: matches[0], appended: false };
+  }
+  let effectiveEntry = entry;
+  if (entry.event === 'task-done' && entry.actuals == null) {
+    const derived = readDispatchActuals(root, {
+      planSlug: entry.planSlug, phaseId: entry.phaseId, taskId: entry.taskId,
+    });
+    if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
+  }
+  const candidate = normalizeCompletionRecord(effectiveEntry);
+  if (typeof beforeAppend === 'function') beforeAppend();
+  ledger.appendRecord(candidate, { beforeFileSync, appendFaultAt });
+  return { record: candidate, appended: true };
+}
+
+export function ensureCompletion(root, entry, options = {}) {
+  return withCompletionLedgerLock(root, (ledger) => (
+    ensureCompletionLocked(root, entry, ledger, options)
+  ));
 }
 
 /**

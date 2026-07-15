@@ -42,6 +42,12 @@ export function buildDoneIdempotencyKey(close = {}) {
   const scope = ['projectId', 'planSlug', 'phaseId', 'taskId']
     .map((field) => encodeURIComponent(close[field]))
     .join('/');
+  if (close.generation !== undefined) {
+    if (!Number.isInteger(close.generation) || close.generation < 1) {
+      throw new TypeError('close.generation must be a positive integer');
+    }
+    return `task-done:${scope}#${close.generation}`;
+  }
   return `task-done:${scope}@${encodeURIComponent(close.closedAt)}`;
 }
 
@@ -121,6 +127,15 @@ function authoritativeTask(input) {
   return matches[0];
 }
 
+function taskCloseGeneration(task) {
+  const persisted = task.completionGeneration;
+  if (persisted !== undefined && (!Number.isInteger(persisted) || persisted < 1)) {
+    throw new TypeError('authoritative task completionGeneration must be a positive integer');
+  }
+  if (task.status === 'done') return persisted ?? null;
+  return (persisted ?? 0) + 1;
+}
+
 function buildBundle(input) {
   const { close, evidence, handoff } = input;
   const task = authoritativeTask(input);
@@ -150,6 +165,7 @@ function buildBundle(input) {
       status: 'done',
       closedAt: close.closedAt,
       lastUpdated: close.closedAt,
+      ...(close.generation !== undefined ? { completionGeneration: close.generation } : {}),
       weight: close.weight,
       evidence: structuredClone(evidence),
       completionProvenance,
@@ -167,10 +183,7 @@ function buildBundle(input) {
  * marker durability, and the exactly-once completion append.
  */
 export async function executeDoneTransaction(input = {}, effects = {}) {
-  const requestedKey = buildDoneIdempotencyKey(input.close);
-  if (input.idempotencyKey != null && input.idempotencyKey !== requestedKey) {
-    throw new TypeError('input.idempotencyKey must equal the derived close key');
-  }
+  buildDoneIdempotencyKey(input.close);
   for (const name of [
     'loadInitiative', 'persistClose', 'refresh', 'findCheckpoint', 'checkpoint', 'assertClean',
   ]) {
@@ -188,6 +201,7 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     });
     let transactionInput = { ...input, initiative };
     const currentTask = authoritativeTask(transactionInput);
+    const generation = taskCloseGeneration(currentTask);
     const reused = currentTask.status === 'done';
     if (currentTask.status === 'done') {
       if (!hasText(currentTask.closedAt)) {
@@ -217,13 +231,22 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
         close: {
           ...input.close,
           closedAt: currentTask.closedAt,
+          ...(generation !== null ? { generation } : {}),
           ...(currentTask.weight !== undefined ? { weight: currentTask.weight } : {}),
         },
         ...structuredClone(persisted),
       };
       if (persisted.actuals === undefined) delete transactionInput.actuals;
+    } else {
+      transactionInput = {
+        ...transactionInput,
+        close: { ...transactionInput.close, generation },
+      };
     }
     const idempotencyKey = buildDoneIdempotencyKey(transactionInput.close);
+    if (input.idempotencyKey != null && input.idempotencyKey !== idempotencyKey) {
+      throw new TypeError('input.idempotencyKey must equal the derived close key');
+    }
     let marker = readDoneRecovery(input.root, idempotencyKey);
     if (marker?.bundle?.actuals !== undefined) {
       transactionInput.actuals = structuredClone(marker.bundle.actuals);
@@ -243,6 +266,9 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
       planSlug: transactionInput.close.planSlug,
       phaseId: transactionInput.close.phaseId,
       taskId: transactionInput.close.taskId,
+      ...(transactionInput.close.generation !== undefined
+        ? { generation: transactionInput.close.generation }
+        : {}),
       weight: transactionInput.close.weight,
       weightBasis: transactionInput.close.weightBasis,
       idempotencyKey,
@@ -296,6 +322,9 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
         planSlug: transactionInput.close.planSlug,
         phaseId: transactionInput.close.phaseId,
         taskId: transactionInput.close.taskId,
+        ...(transactionInput.close.generation !== undefined
+          ? { generation: transactionInput.close.generation }
+          : {}),
         weight: transactionInput.close.weight,
         weightBasis: transactionInput.close.weightBasis,
         idempotencyKey,

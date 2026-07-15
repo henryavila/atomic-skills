@@ -7,7 +7,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendCompletion, readDispatchActuals } from '../scripts/append-completion.js';
-import { appendDispatchRecord, parseDispatchLog } from '../scripts/dispatch-log.js';
+import { appendDispatchRecord, parseDispatchLog, readDispatchLog } from '../scripts/dispatch-log.js';
 import { validateCompletionEvent } from '../scripts/validate-aideck-state.js';
 
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
@@ -57,6 +57,64 @@ test('canonical dispatch writer holds its shared lock through durable publicatio
     );
     assert.equal(observedLock, true, 'writer must publish inside the shared dispatch lock');
     assert.equal(reachedFileSync, true, 'writer must cross the explicit file fsync boundary');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('first dispatch reader blocks behind an unpublished writer instead of observing absence', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-first-record-race-'));
+  const signal = join(root, 'writer-locked');
+  const moduleUrl = new URL('../scripts/dispatch-log.js', import.meta.url).href;
+  const writerProgram = `
+    import { writeFileSync } from 'node:fs';
+    import { appendDispatchRecord } from ${JSON.stringify(moduleUrl)};
+    const [root, signal] = process.argv.slice(1);
+    appendDispatchRecord(root, { taskId: 'T-001', plan: 's', phase: 'F4', attempt: 1 }, {
+      faultAt: ({ point }) => {
+        if (point !== 'after-lock-acquired') return;
+        writeFileSync(signal, 'locked');
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 600);
+      },
+    });
+  `;
+  const readerProgram = `
+    import { readDispatchLog } from ${JSON.stringify(moduleUrl)};
+    process.stdout.write(JSON.stringify(readDispatchLog(process.argv[1])));
+  `;
+  const waitForSignal = async () => {
+    const deadline = Date.now() + 2_000;
+    while (!existsSync(signal)) {
+      if (Date.now() >= deadline) throw new Error('timed out waiting for dispatch writer lock');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+  const collect = (child) => new Promise((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => { stdout += chunk; });
+    child.stderr?.on('data', (chunk) => { stderr += chunk; });
+    child.on('close', (status) => resolve({ status, stdout, stderr }));
+  });
+  try {
+    const writer = spawn(process.execPath, [
+      '--input-type=module', '-e', writerProgram, root, signal,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const writerDone = collect(writer);
+    await waitForSignal();
+    const reader = spawn(process.execPath, [
+      '--input-type=module', '-e', readerProgram, root,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const readerDone = collect(reader);
+    let readerExited = false;
+    reader.once('close', () => { readerExited = true; });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(readerExited, false, 'reader must wait for the first writer publication');
+    const [writerResult, readerResult] = await Promise.all([writerDone, readerDone]);
+    assert.equal(writerResult.status, 0, writerResult.stderr);
+    assert.equal(readerResult.status, 0, readerResult.stderr);
+    assert.deepEqual(JSON.parse(readerResult.stdout), readDispatchLog(root));
+    assert.equal(JSON.parse(readerResult.stdout)[0].taskId, 'T-001');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

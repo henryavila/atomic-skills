@@ -186,6 +186,34 @@ test('duplicate completion is repairable only with one close identity and closeS
   }
 });
 
+test('history treats repeated equivalent branch-local tombstones as one logical reconciliation', () => {
+  const state = createHistoryFixture();
+  try {
+    const duplicate = { ...state.event, ts: '2026-07-14T20:00:01Z' };
+    writeFileSync(
+      state.completionLogPath,
+      `${JSON.stringify(state.event)}\n${JSON.stringify(duplicate)}\n`,
+    );
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const records = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+    const marker = records.find((record) => record.event === 'reconcile');
+    writeFileSync(
+      state.completionLogPath,
+      `${records.map(JSON.stringify).join('\n')}\n${JSON.stringify({
+        ...marker,
+        ts: '2026-07-14T20:02:00Z',
+      })}\n`,
+    );
+
+    const result = reconcileMaterializationHistory(state.options);
+    assert.equal(result.classification, 'consistent');
+    assert.equal(result.problems.length, 0);
+    assert.equal(result.repairs.length, 0);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('same close identity with payload drift is ambiguous and writes nothing', () => {
   const state = createHistoryFixture();
   try {

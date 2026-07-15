@@ -63,6 +63,11 @@
     "nextAction": { "type": ["string", "null"] },
     "parentPlan": { "$ref": "common.schema.json#/$defs/slug" },
     "phaseId": { "type": "string", "minLength": 1 },
+    "completionGeneration": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic authoritative phase-close generation mirrored by the plan descriptor and retained across reopen/reclose cycles."
+    },
     "audience": { "type": "string" },
     "tasksDone": {
       "type": "integer",
@@ -214,6 +219,11 @@
         },
         "lastUpdated": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
         "closedAt": { "$ref": "common.schema.json#/$defs/isoTimestamp" },
+        "completionGeneration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Monotonic authoritative task-close generation retained across reopen/reclose cycles."
+        },
         "blockedBy": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }

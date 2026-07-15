@@ -138,7 +138,7 @@ The smallest tracked unit; an atomic action inside an initiative.
 
 - **Required:** `id` (`T-NNN`), `title`, `status` (`pending` | `active` | `done` |
   `blocked`), `lastUpdated`.
-- **Optional:** `description`, `closedAt`, `blockedBy[]`, `outputs[]` (kind ∈ `command` |
+- **Optional:** `description`, `closedAt`, `completionGeneration` (monotonic close generation retained across reopen), `blockedBy[]`, `outputs[]` (kind ∈ `command` |
   `file` | `migration` | `json` | `test`), `tags[]`, `resourceCounts`, `scopeBoundary[]`
   (explicit "must NOT do" exclusions — drift defence at the task level), `acceptance[]`
   (≤ 5 `it()`-style assertions), `verifier`, and — only when added *mid-execution* —

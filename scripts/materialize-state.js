@@ -23,7 +23,9 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import Ajv from 'ajv/dist/2020.js';
 import {
+  completionDuplicateRepair,
   reconcilesExactDuplicates,
+  sameLogicalCompletion,
   withCompletionLedgerLock,
 } from './append-completion.js';
 import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
@@ -1214,17 +1216,14 @@ function terminalPhaseStatus(status) {
 }
 
 function historyEventIdentity(event) {
-  return `${event.event ?? '<unknown>'}:${event.taskId ?? '<phase>'}`;
+  const generation = Number.isInteger(event?.generation) && event.generation > 0
+    ? `#${event.generation}`
+    : '';
+  return `${event.event ?? '<unknown>'}:${event.taskId ?? '<phase>'}${generation}`;
 }
 
 function completionDigest(event) {
   return digestValue(event);
-}
-
-function logicalCompletionDigest(event) {
-  const comparable = structuredClone(event);
-  delete comparable.ts;
-  return digestValue(comparable);
 }
 
 function eventReceiptId(event) {
@@ -1237,20 +1236,20 @@ function canonicalPhaseDoneCloseEvent(event, {
   projectId,
   planSlug,
   phaseId,
-  closeSha,
 }) {
   if (event?.event !== 'phase-done'
       || event.projectId !== projectId
       || event.planSlug !== planSlug
       || event.phaseId !== phaseId
       || event.taskId !== null
-      || event.closeSha !== closeSha) return false;
+      || !fullCommitSha(event.closeSha)) return false;
   try {
     return event.idempotencyKey === buildPhaseDoneIdempotencyKey({
       projectId: event.projectId,
       planSlug: event.planSlug,
       phaseId: event.phaseId,
       closedAt: event.ts,
+      ...(event.generation !== undefined ? { generation: event.generation } : {}),
     });
   } catch {
     return false;
@@ -1422,10 +1421,30 @@ function loadHistoryProjection({
   ));
   if (matchingRecords.length === 0) problems.push(`${phaseId} has no completion events`);
   const recordsToDrop = new Set();
-  const reconciliationRecords = matchingRecords.filter(({ value }) => (
+  const physicalReconciliationRecords = matchingRecords.filter(({ value }) => (
     value.event === 'reconcile'
     && value.reconciliation?.action === 'ignore-duplicate-completion'
   ));
+  const reconciliationRecords = [];
+  const reconciliationByKey = new Map();
+  for (const record of physicalReconciliationRecords) {
+    const key = record.value.idempotencyKey ?? `legacy-line:${record.line}`;
+    const group = reconciliationByKey.get(key) ?? [];
+    group.push(record);
+    reconciliationByKey.set(key, group);
+  }
+  for (const [key, group] of reconciliationByKey) {
+    if (group.some((record) => !sameLogicalCompletion(group[0].value, record.value))) {
+      problems.push(`reconciliation identity ${key} has conflicting payloads`);
+      continue;
+    }
+    const canonical = [...group].sort((left, right) => (
+      completionDigest(left.value).localeCompare(completionDigest(right.value))
+    ))[0];
+    reconciliationRecords.push(canonical);
+    group.filter((record) => record !== canonical)
+      .forEach((record) => recordsToDrop.add(record.line));
+  }
   const byIdentity = new Map();
   for (const record of matchingRecords.filter(({ value }) => value.event !== 'reconcile')) {
     const identity = historyEventIdentity(record.value);
@@ -1437,27 +1456,30 @@ function loadHistoryProjection({
     if (records.length < 2) continue;
     const idempotencyKeys = new Set(records.map(({ value }) => value.idempotencyKey));
     const closeShas = new Set(records.map(({ value }) => value.closeSha));
-    const logicalPayloads = new Set(records.map(({ value }) => logicalCompletionDigest(value)));
-    const canonicalDigest = completionDigest(records[0].value);
-    const duplicateDigests = records.slice(1).map(({ value }) => completionDigest(value));
+    const stableRepair = completionDuplicateRepair(records.map(({ value }) => value));
+    const canonicalDigest = stableRepair?.canonicalDigest;
+    const duplicateDigests = stableRepair?.duplicateDigests;
     const matchingMarkers = reconciliationRecords.filter(({ value }) => (
-      value.closeSha === closeSha
-      && value.reconciliation.eventIdentity === identity
-      && value.reconciliation.canonicalDigest === canonicalDigest
-      && isDeepStrictEqual(value.reconciliation.duplicateDigests, duplicateDigests)
+      (value.reconciliation.eventIdentity === identity
+        && value.reconciliation.canonicalDigest === canonicalDigest
+        && isDeepStrictEqual(value.reconciliation.duplicateDigests, duplicateDigests))
+      || (value.reconciliation.eventIdentity === `${records[0].value.event}:${records[0].value.taskId ?? '<phase>'}`
+        && value.reconciliation.canonicalDigest === completionDigest(records[0].value)
+        && isDeepStrictEqual(
+          value.reconciliation.duplicateDigests,
+          records.slice(1).map(({ value: event }) => completionDigest(event)),
+        ))
     ));
-    if (matchingMarkers.length > 1) {
-      problems.push(`completion identity ${identity} has duplicate reconciliation markers`);
-      continue;
-    }
-    const uniquelyRepairable = idempotencyKeys.size === 1
-      && closeShas.size === 1
-      && logicalPayloads.size === 1
+    const generation = records[0].value.generation;
+    const generatedIdentity = Number.isInteger(generation) && generation > 0;
+    const uniquelyRepairable = stableRepair !== null
+      && idempotencyKeys.size === 1
       && typeof records[0].value.idempotencyKey === 'string'
       && records[0].value.idempotencyKey !== ''
-      && records[0].value.closeSha === closeSha;
-    if (matchingMarkers.length === 1 && uniquelyRepairable) {
-      records.slice(1).forEach((record) => recordsToDrop.add(record.line));
+      && (generatedIdentity || (closeShas.size === 1 && records[0].value.closeSha === closeSha));
+    if (matchingMarkers.length >= 1 && uniquelyRepairable) {
+      records.filter(({ value }) => value !== stableRepair.canonicalRecord)
+        .forEach((record) => recordsToDrop.add(record.line));
       continue;
     }
     if (!uniquelyRepairable) {
@@ -1476,7 +1498,20 @@ function loadHistoryProjection({
   }
   for (const record of matchingRecords) {
     if (record.value.closeSha !== undefined && record.value.closeSha !== closeSha) {
-      problems.push(`completion event ${eventReceiptId(record.value)} has a conflicting closeSha`);
+      if (Number.isInteger(record.value.generation) && record.value.generation > 0) {
+        try {
+          assertCommitAncestor(
+            absoluteRoot,
+            record.value.closeSha,
+            closeSha,
+            `completion event ${eventReceiptId(record.value)} closeSha`,
+          );
+        } catch (error) {
+          problems.push(error.message);
+        }
+      } else {
+        problems.push(`completion event ${eventReceiptId(record.value)} has a conflicting closeSha`);
+      }
     }
   }
 
@@ -1643,23 +1678,25 @@ function reconcileMaterializationHistoryLocked(options = {}, ledger) {
     const bytes = Buffer.from(initial.completionLog.raw);
     result.backups.completionLog = backupBytes(initial.files.completionLog.path, bytes);
     for (const repair of duplicateRepairs) {
-      ledger.append({
+      const reconciliation = {
+        action: 'ignore-duplicate-completion',
+        eventIdentity: repair.identity,
+        canonicalDigest: repair.canonicalDigest,
+        duplicateDigests: repair.duplicateDigests,
+      };
+      const scope = [options.projectId, options.planSlug, options.phaseId]
+        .map(encodeURIComponent).join('/');
+      ledger.ensure({
         ts: new Date().toISOString(),
         event: 'reconcile',
         projectId: options.projectId,
         planSlug: options.planSlug,
         phaseId: options.phaseId,
         taskId: null,
-        idempotencyKey: `reconcile:${options.projectId}/${options.planSlug}/${options.phaseId}:${repair.closeSha}:${repair.canonicalDigest}`,
-        closeSha: repair.closeSha,
+        idempotencyKey: `reconcile:${scope}#${digestValue(reconciliation)}`,
         weight: 0,
         weightBasis: 'count',
-        reconciliation: {
-          action: 'ignore-duplicate-completion',
-          eventIdentity: repair.identity,
-          canonicalDigest: repair.canonicalDigest,
-          duplicateDigests: repair.duplicateDigests,
-        },
+        reconciliation,
       });
     }
     result.writes.push(initial.files.completionLog.rel);
@@ -1992,12 +2029,19 @@ function assertSuccessorMaterializationAllowedLocked({
       projectId: receiptIdentity.projectId,
       planSlug: currentPlan.slug,
       phaseId: prerequisitePhaseId,
-      closeSha,
     })
   ));
+  for (const event of physicalCloseEvents) {
+    assertCommitAncestor(
+      absoluteRoot,
+      event.closeSha,
+      closeSha,
+      `${prerequisitePhaseId} phase-done closeSha`,
+    );
+  }
   const closeEvents = physicalCloseEvents.length > 1
       && reconcilesExactDuplicates(physicalCloseEvents, completionRecords)
-    ? [physicalCloseEvents[0]]
+    ? [completionDuplicateRepair(physicalCloseEvents).canonicalRecord]
     : physicalCloseEvents;
   if (closeEvents.length !== 1) {
     throw new Error(

@@ -118,6 +118,24 @@ test('join authority rejects parentPlan, phaseId and slug mismatches', () => {
   }
 });
 
+test('phase close generation must be absent on both mirrors or match exactly', () => {
+  for (const [phaseGeneration, initiativeGeneration] of [[1, undefined], [undefined, 1], [1, 2]]) {
+    const out = violations(
+      plan({
+        phases: [{
+          id: 'F0', slug: 'demo-f0', status: 'active', completionGeneration: phaseGeneration,
+          exitGate: { criteria: [{ id: 'F0-G1', status: 'pending' }] },
+        }],
+      }),
+      initiative({ completionGeneration: initiativeGeneration }),
+    );
+    assert.ok(
+      out.some((item) => item.code === 'completion-generation-mismatch'),
+      `${phaseGeneration}/${initiativeGeneration}: ${out.map(formatStateIntegrityViolation).join('\n')}`,
+    );
+  }
+});
+
 test('hardened materialized initiatives require explicit parentPlan and phaseId identity', () => {
   for (const [code, patch] of [
     ['parent-plan-missing', { parentPlan: undefined }],
