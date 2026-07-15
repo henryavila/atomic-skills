@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
-  appendFileSync, mkdtempSync, rmSync, readFileSync, existsSync, readdirSync,
+  appendFileSync, mkdirSync, mkdtempSync, rmSync, readFileSync, existsSync, readdirSync,
+  symlinkSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,6 +71,39 @@ test('analytics/ created idempotently; appends never rewrite/reorder prior lines
     assert.deepEqual(lines.map((l) => JSON.parse(l).taskId), ['T-001', 'T-002', 'T-003'], 'order preserved');
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects a symlinked state root before writing outside the repository', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-symlink-'));
+  const outside = mkdtempSync(join(tmpdir(), 'as-ac-outside-'));
+  try {
+    symlinkSync(outside, join(root, '.atomic-skills'));
+    assert.throws(
+      () => appendCompletion(root, base()),
+      /symbolic link|symlink|confined/i,
+    );
+    assert.equal(existsSync(join(outside, 'analytics')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion rejects a symlinked analytics directory before writing outside the repository', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-analytics-symlink-'));
+  const outside = mkdtempSync(join(tmpdir(), 'as-ac-analytics-outside-'));
+  try {
+    mkdirSync(join(root, '.atomic-skills'));
+    symlinkSync(outside, join(root, '.atomic-skills', 'analytics'));
+    assert.throws(
+      () => appendCompletion(root, base()),
+      /symbolic link|symlink|confined/i,
+    );
+    assert.deepEqual(readdirSync(outside), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   }
 });
 

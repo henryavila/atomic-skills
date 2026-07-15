@@ -12,13 +12,15 @@ import {
 } from 'node:fs';
 import { dirname } from 'node:path';
 
-function fsyncDirectory(path) {
+export function fsyncDirectory(path) {
+  if (process.platform === 'win32') return false;
   const fd = openSync(path, 'r');
   try {
     fsyncSync(fd);
   } finally {
     closeSync(fd);
   }
+  return true;
 }
 
 export function durableReplace(path, content, { mode = 0o600 } = {}) {

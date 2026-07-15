@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T03:57:57Z
-nextAction: Run the fresh Codex r9 phase review on the r8 remediation checkpoint.
+lastUpdated: 2026-07-15T04:38:17Z
+nextAction: Run the fresh Codex r10 phase review on the r9 remediation checkpoint.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -664,27 +664,38 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   attempts/duration/escalations e rejeita actuals exclusivos de phase antes de
   qualquer write. O receipt r8 permanece `needs_changes`; somente r9 fresco no
   checkpoint remediado pode aprovar F4.
+- **2026-07-15 — review Codex F4 r9:** os três criticals e quatro majors
+  informados foram reproduzidos e corrigidos sem defer. Locks de migration,
+  transaction e completion agora compartilham um guard process-owned; stale
+  transaction reclaim relê inode/token, e migration não expõe mais a janela
+  entre criar o diretório e publicar owner. Paths de ledger/lock/marker são
+  confinados componente a componente e rejeitam symlink; fsync de diretório é
+  pulado somente no Windows. Projeções aceitam duplicata apenas sob tombstone
+  exato, manifest v1 não restaura backup sem digest, e task/phase close usam o
+  mesmo lock `phase-state` por initiative. O receipt r9 permanece
+  `needs_changes`; somente r10 fresco no checkpoint remediado pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
-  dos reviews r1..r8, além dos hardenings proativos e correções de integração.
-  No r8, 4 majors/1 minor foram aceitos e corrigidos. Task close ganhou
-  provenance durável e markerless phase reuse tornou-se read-only. A suíte
-  completa está verde; falta o review Codex r9 do novo checkpoint.
-- **Decision log:** nenhum finding válido r1..r8 foi deferido. A autoridade de
-  repair sem marker fica dentro da task, porque next action/handoff da
-  initiative mudam ao longo do plano. Phase terminal sem marker não reexecuta
-  sucessor: a remoção do marker já autentica publication e clean. Envelope
-  completo precede evidence, e task actuals excluem métricas agregadas de phase.
-- **Single nextAction:** Run the fresh Codex r9 phase review on the r8 remediation checkpoint.
-- **Verbatim state:** review r8 → blind 0B/0C/2M/1m, informed
-  0B/0C/4M/1m; 5 findings válidos reproduzidos e corrigidos; exact gates →
-  34/34 + 54/54 + 67/67 pass; full repository suite → 1,925 pass, 0 fail,
+  dos reviews r1..r9, além dos hardenings proativos e correções de integração.
+  No r9, 3 criticals/4 majors foram aceitos e corrigidos. Locks concorrentes
+  compartilham guard e aggregate phase scope; state paths são confinados;
+  durability é portátil; ledger/migration falham fechado. Falta o review Codex
+  r10 do novo checkpoint.
+- **Decision log:** nenhum finding válido r1..r9 foi deferido. Reclaim de lock
+  é serializado e vinculado ao objeto observado; writers rejeitam qualquer
+  symlink sob o state root; Windows preserva file fsync e omite apenas directory
+  fsync; duplicata só conta sob tombstone exato; manifest v1 requer recovery
+  manual; task e phase close serializam pelo aggregate `phase-state`.
+- **Single nextAction:** Run the fresh Codex r10 phase review on the r9 remediation checkpoint.
+- **Verbatim state:** review r9 → blind 0B/2C/4M/0m, informed
+  0B/3C/4M/0m; 7 findings válidos reproduzidos e corrigidos; exact gates →
+  35/35 + 55/55 + 67/67 pass; full repository suite → 1,934 pass, 0 fail,
   8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
   plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r8, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r9.
+- **Uncommitted changes:** remediação r9, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r10.
 
 ## Links
 

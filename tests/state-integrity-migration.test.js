@@ -210,7 +210,49 @@ test('migration serializes concurrent publishers with one owner-authenticated ro
   }
 });
 
-test('migration startup recovers a persisted partial-publication manifest', () => {
+test('migration lock guard protects a creator paused before owner publication', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-lock-publish-'));
+  try {
+    const source = join(dir, 'phase.md');
+    const signal = join(dir, 'creator-before-owner.signal');
+    writeFileSync(source, 'original\n');
+    const moduleUrl = pathToFileURL(join(ROOT, 'scripts', 'migrate-state-integrity.js')).href;
+    const program = `
+      import { writeFileSync } from 'node:fs';
+      import { applyMigrationAtomically } from ${JSON.stringify(moduleUrl)};
+      const [source, root, content, signal] = process.argv.slice(1);
+      applyMigrationAtomically([{ filePath: source, content }], {
+        transactionRoot: root,
+        lockFaultAt: signal ? ({ point }) => {
+          if (point === 'after-lock-directory') {
+            writeFileSync(signal, String(process.pid));
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1_300);
+          }
+        } : undefined,
+      });
+    `;
+    const first = spawn(process.execPath, [
+      '--input-type=module', '-e', program, source, dir, 'first\n', signal,
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const firstDone = waitForChild(first);
+    await waitForFile(signal);
+
+    const second = spawn(process.execPath, [
+      '--input-type=module', '-e', program, source, dir, 'second\n', '',
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const secondDone = waitForChild(second);
+
+    const [firstResult, secondResult] = await Promise.all([firstDone, secondDone]);
+    assert.equal(firstResult.status, 0, firstResult.stderr);
+    assert.equal(secondResult.status, 0, secondResult.stderr);
+    assert.equal(readFileSync(source, 'utf8'), 'second\n');
+    assert.equal(existsSync(join(dir, '.state-integrity-migration.lock')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migration startup fails closed on a legacy manifest without authenticated backups', () => {
   const dir = mkdtempSync(join(tmpdir(), 'state-integrity-recovery-'));
   try {
     const first = join(dir, 'first.md');
@@ -232,12 +274,15 @@ test('migration startup recovers a persisted partial-publication manifest', () =
         { filePath: second, backupPath: secondBackup, tempPath: secondTemp },
       ],
     })}\n`);
-    assert.equal(recoverMigrationTransaction(dir), true);
-    assert.equal(readFileSync(first, 'utf8'), 'first-original\n');
+    assert.throws(
+      () => recoverMigrationTransaction(dir),
+      /version 1|legacy|backup digest|unauthenticated/i,
+    );
+    assert.equal(readFileSync(first, 'utf8'), 'partially-published\n');
     assert.equal(readFileSync(second, 'utf8'), 'second-original\n');
-    assert.equal(readdirSync(dir).some((name) => name.includes('.migration-transaction')), false);
-    assert.equal(existsSync(firstTemp), false);
-    assert.equal(existsSync(secondTemp), false);
+    assert.equal(existsSync(join(dir, '.state-integrity-migration-transaction.json')), true);
+    assert.equal(existsSync(firstTemp), true);
+    assert.equal(existsSync(secondTemp), true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

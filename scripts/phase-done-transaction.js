@@ -4,7 +4,7 @@ import {
   readFileSync,
   readdirSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
@@ -19,6 +19,7 @@ import {
 } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
 import { durableReplace, durableUnlink } from '../src/durable-file.js';
+import { confinedRepositoryFile } from '../src/confined-path.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'closedAt'];
 const STAGES = new Set(['prepared', 'committed', 'emitted', 'successor-materialized']);
@@ -124,11 +125,9 @@ export function buildPhaseDoneIdempotencyKey(close = {}) {
 
 export function phaseDoneRecoveryPath(root, idempotencyKey) {
   const digest = createHash('sha256').update(idempotencyKey).digest('hex');
-  return join(
-    resolve(root),
-    '.atomic-skills',
-    'status',
-    'phase-done-transactions',
+  return confinedRepositoryFile(
+    root,
+    ['.atomic-skills', 'status', 'phase-done-transactions'],
     `${digest}.json`,
   );
 }
@@ -161,7 +160,11 @@ function findPhaseDoneRecoveryByScope(root, close) {
   if (!existsSync(dir)) return null;
   const matches = [];
   for (const name of readdirSync(dir).filter((entry) => entry.endsWith('.json'))) {
-    const path = join(dir, name);
+    const path = confinedRepositoryFile(
+      root,
+      ['.atomic-skills', 'status', 'phase-done-transactions'],
+      name,
+    );
     let candidate;
     try {
       candidate = JSON.parse(readFileSync(path, 'utf8'));
@@ -234,7 +237,13 @@ function authenticatedCandidateBundle(authoritative, produced) {
 }
 
 function writePhaseDoneRecovery(root, marker) {
-  const path = phaseDoneRecoveryPath(root, marker.idempotencyKey);
+  const digest = createHash('sha256').update(marker.idempotencyKey).digest('hex');
+  const path = confinedRepositoryFile(
+    root,
+    ['.atomic-skills', 'status', 'phase-done-transactions'],
+    `${digest}.json`,
+    { createParents: true },
+  );
   durableReplace(
     path,
     `${JSON.stringify({ ...marker, updatedAt: new Date().toISOString() }, null, 2)}\n`,
@@ -283,7 +292,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
   }
   const scope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
-  return withScopeTransactionLock(input.root, 'phase-done', scope, async () => {
+  return withScopeTransactionLock(input.root, 'phase-state', scope, async () => {
     const requestedMarker = readPhaseDoneRecovery(input.root, requestedKey);
     const scopeMarker = findPhaseDoneRecoveryByScope(input.root, input.close);
     let marker = requestedMarker ?? scopeMarker;

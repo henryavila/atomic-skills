@@ -36,6 +36,7 @@ import { join, resolve } from 'node:path';
 import { parseFrontmatter } from './validate-state.js';
 import { verifierLabelFor, evidenceSummaryFor } from './compute-rollups.js';
 import { buildPlanDependencyGraph } from '../src/plan-dependencies.js';
+import { canonicalCompletionRecords } from './append-completion.js';
 
 const STATE_DIRNAME = join('.aideck', 'state');
 
@@ -550,6 +551,7 @@ export function buildState(tree, nowMs) {
 export function buildSeries(tree, completionLines, nowMs) {
   const burnup = [];
   const spi = [];
+  const canonicalCompletions = canonicalCompletionRecords(arr(completionLines));
 
   for (const plan of arr(tree.plans)) {
     const planInits = arr(tree.initiatives).filter((it) =>
@@ -562,20 +564,13 @@ export function buildSeries(tree, completionLines, nowMs) {
       weightTotal += tasks.reduce((sum, task) => sum + weightOf(task), 0);
     }
 
-    const planEvents = arr(completionLines).filter((e) =>
+    const planEvents = canonicalCompletions.filter((e) =>
       e?.projectId === plan.projectId && e?.planSlug === plan.planSlug);
     // Earned value counts each completed TASK once. `done` and `reconcile` emit
     // `task-done`; the single aggregate `phase-done` event (taskId:null) is
     // a marker, NOT a per-task earned increment — summing it would double-count
     // earned weight on every phase close. So earned sums `task-done` events only.
-    const seenCloseKeys = new Set();
-    const earnedEvents = planEvents.filter((event) => {
-      if (event?.event !== 'task-done') return false;
-      if (typeof event.idempotencyKey !== 'string' || event.idempotencyKey.length === 0) return true;
-      if (seenCloseKeys.has(event.idempotencyKey)) return false;
-      seenCloseKeys.add(event.idempotencyKey);
-      return true;
-    });
+    const earnedEvents = planEvents.filter((event) => event?.event === 'task-done');
     const started = Date.parse(String(plan.fm?.started || ''));
     const deadline = Date.parse(String(plan.fm?.deadline || ''));
     const hasPlannedWindow = Number.isFinite(started) && Number.isFinite(deadline) && deadline > started;

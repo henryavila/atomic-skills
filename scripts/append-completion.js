@@ -34,24 +34,27 @@
 import {
   closeSync,
   existsSync,
-  fchmodSync,
   fsyncSync,
-  lstatSync,
-  mkdirSync,
   openSync,
   readFileSync,
-  readdirSync,
-  renameSync,
-  rmdirSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { readDispatchLog } from './dispatch-log.js';
+import { confinedRepositoryDirectory, confinedRepositoryFile } from '../src/confined-path.js';
+import { fsyncDirectory } from '../src/durable-file.js';
+import {
+  currentProcessOwner,
+  isProcessOwnerAlive,
+  readOwnedFile,
+  releaseOwnedFile,
+  withProcessClaimGuard,
+  writeOwnedFileAtomically,
+} from '../src/process-lock-guard.js';
 
 export { parseDispatchLog } from './dispatch-log.js';
 
@@ -372,217 +375,47 @@ export function reconcilesExactDuplicates(records, allRecords) {
   return tombstones.length === 1;
 }
 
-function processAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
+export function canonicalCompletionRecords(records) {
+  if (!Array.isArray(records)) throw new TypeError('completion records must be an array');
+  const grouped = new Map();
+  for (const record of records) {
+    if (record?.event === 'reconcile' || !hasText(record?.idempotencyKey)) continue;
+    const group = grouped.get(record.idempotencyKey) ?? [];
+    group.push(record);
+    grouped.set(record.idempotencyKey, group);
+  }
+  for (const [idempotencyKey, group] of grouped) {
+    if (group.length > 1 && !reconcilesExactDuplicates(group, records)) {
+      throw new Error(`completion ledger has an unneutralized duplicate idempotency key: ${idempotencyKey}`);
+    }
+  }
+  const emitted = new Set();
+  return records.filter((record) => {
+    if (record?.event === 'reconcile' || !hasText(record?.idempotencyKey)) return true;
+    if (emitted.has(record.idempotencyKey)) return false;
+    emitted.add(record.idempotencyKey);
     return true;
-  } catch (error) {
-    return error?.code === 'EPERM';
-  }
-}
-
-function readProcessIdentity(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return null;
-  try {
-    if (process.platform === 'linux') {
-      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-      const commandEnd = stat.lastIndexOf(')');
-      if (commandEnd < 0) return null;
-      const fields = stat.slice(commandEnd + 1).trim().split(/\s+/);
-      return fields[19] ? `linux:${fields[19]}` : null;
-    }
-    if (process.platform === 'win32') {
-      const executable = process.env.SystemRoot
-        ? join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-        : 'powershell.exe';
-      const output = execFileSync(executable, [
-        '-NoProfile', '-NonInteractive', '-Command',
-        `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().Ticks`,
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-      return output ? `win32:${output}` : null;
-    }
-    const output = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: { ...process.env, LANG: 'C', LANGUAGE: 'C', LC_ALL: 'C', TZ: 'UTC' },
-    }).trim().replace(/\s+/g, ' ');
-    return output ? `${process.platform}:${output}` : null;
-  } catch {
-    return null;
-  }
-}
-
-const SELF_PROCESS_IDENTITY = readProcessIdentity(process.pid);
-
-function lockOwnerAlive(owner) {
-  if (!processAlive(owner.pid)) return false;
-  if (typeof owner.processIdentity !== 'string') return true;
-  const current = owner.pid === process.pid
-    ? SELF_PROCESS_IDENTITY
-    : readProcessIdentity(owner.pid);
-  return current === null || current === owner.processIdentity;
+  });
 }
 
 function readLockOwner(path) {
-  try {
-    const owner = JSON.parse(readFileSync(path, 'utf8'));
-    if (owner?.version !== 1 || !Number.isInteger(owner.pid) || owner.pid <= 0
-        || !hasText(owner.token)
-        || (owner.processIdentity !== undefined && !hasText(owner.processIdentity))) {
-      throw new Error('unsupported owner shape');
-    }
-    return owner;
-  } catch (error) {
-    if (error?.code === 'ENOENT') return undefined;
-    throw new Error(`completion ledger lock is unreadable: ${error.message}`);
-  }
-}
-
-function ownerBytes(token, extra = {}) {
-  return `${JSON.stringify({
-    version: 1,
-    pid: process.pid,
-    ...(SELF_PROCESS_IDENTITY ? { processIdentity: SELF_PROCESS_IDENTITY } : {}),
-    token,
-    ...extra,
-  })}\n`;
-}
-
-function writeOwnerAtomically(path, bytes, temporaryBase = path) {
-  const temporary = `${temporaryBase}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    const fd = openSync(temporary, 'wx', 0o600);
-    try {
-      fchmodSync(fd, 0o600);
-      writeFileSync(fd, bytes);
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
-    }
-    renameSync(temporary, path);
-  } catch (error) {
-    if (existsSync(temporary)) unlinkSync(temporary);
-    throw error;
-  }
-}
-
-function releaseOwnedFile(path, token) {
-  const owner = readLockOwner(path);
-  if (owner?.token === token) unlinkSync(path);
-}
-
-function readGuardClaims(guardPath) {
-  const claims = [];
-  for (const entry of readdirSync(guardPath, { withFileTypes: true })) {
-    if (!entry.isFile() || entry.isSymbolicLink() || !entry.name.endsWith('.json')) {
-      throw new Error('completion ledger lock guard contains an unsupported entry');
-    }
-    const path = join(guardPath, entry.name);
-    const owner = readLockOwner(path);
-    if (owner === undefined) continue;
-    if (typeof owner.choosing !== 'boolean'
-        || (!owner.choosing && (!Number.isSafeInteger(owner.ticket) || owner.ticket <= 0))) {
-      throw new Error('completion ledger lock guard contains an unreadable claim');
-    }
-    if (!lockOwnerAlive(owner)) {
-      releaseOwnedFile(path, owner.token);
-      continue;
-    }
-    claims.push({ owner, path });
-  }
-  return claims;
-}
-
-function cleanupGuardDirectory(guardPath) {
-  try {
-    rmdirSync(guardPath);
-  } catch (error) {
-    if (error?.code !== 'ENOENT' && error?.code !== 'ENOTEMPTY') throw error;
-  }
-}
-
-function acquireCompletionLockGuard(lockPath) {
-  const guardPath = `${lockPath}.guard`;
-  const token = randomUUID();
-  const claimPath = join(guardPath, `${token}.json`);
-  let published = false;
-  for (let attempt = 0; attempt < LOCK_RETRIES; attempt += 1) {
-    try {
-      mkdirSync(guardPath, { recursive: true, mode: 0o700 });
-      const stat = lstatSync(guardPath);
-      if (!stat.isDirectory() || stat.isSymbolicLink()) {
-        throw new Error('completion ledger lock guard path is not a real directory');
-      }
-      writeOwnerAtomically(
-        claimPath,
-        ownerBytes(token, { choosing: true, ticket: null }),
-        guardPath,
-      );
-      published = true;
-      break;
-    } catch (error) {
-      // macOS can report EINVAL (instead of ENOENT) when another contender
-      // removes the empty guard directory between lstat and claim rename.
-      if ((error?.code === 'ENOENT' || error?.code === 'EINVAL')
-          && attempt < LOCK_RETRIES - 1) continue;
-      throw error;
-    }
-  }
-  if (!published) throw new Error('completion ledger lock guard setup could not stabilize');
-  let ticket;
-  try {
-    const claims = readGuardClaims(guardPath);
-    ticket = claims.reduce((maximum, claim) => (
-      claim.owner.choosing ? maximum : Math.max(maximum, claim.owner.ticket)
-    ), 0) + 1;
-    writeOwnerAtomically(
-      claimPath,
-      ownerBytes(token, { choosing: false, ticket }),
-      guardPath,
-    );
-    for (let attempt = 0; attempt < LOCK_RETRIES; attempt += 1) {
-      const current = readGuardClaims(guardPath);
-      const own = current.find((claim) => claim.owner.token === token);
-      if (!own) throw new Error('completion ledger lock guard lost its own claim');
-      const blocker = current.find((claim) => (
-        claim.owner.token !== token
-        && (claim.owner.choosing
-          || claim.owner.ticket < ticket
-          || (claim.owner.ticket === ticket && claim.owner.token.localeCompare(token) < 0))
-      ));
-      if (!blocker) return { token, claimPath, guardPath };
-      if (attempt < LOCK_RETRIES - 1) Atomics.wait(LOCK_WAIT, 0, 0, LOCK_RETRY_MS);
-    }
-    throw new Error('completion ledger lock guard timed out');
-  } catch (error) {
-    releaseOwnedFile(claimPath, token);
-    cleanupGuardDirectory(guardPath);
-    throw error;
-  }
-}
-
-function withCompletionLockGuard(lockPath, operation) {
-  const guard = acquireCompletionLockGuard(lockPath);
-  try {
-    return operation();
-  } finally {
-    releaseOwnedFile(guard.claimPath, guard.token);
-    cleanupGuardDirectory(guard.guardPath);
-  }
+  return readOwnedFile(path, 'completion ledger lock');
 }
 
 function acquireCompletionLock(dir) {
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const path = join(dir, LOCK_FILE);
   for (let attempt = 0; attempt < LOCK_RETRIES; attempt += 1) {
-    const lock = withCompletionLockGuard(path, () => {
+    const lock = withProcessClaimGuard(`${path}.guard`, () => {
       const owner = readLockOwner(path);
-      if (owner && lockOwnerAlive(owner)) return null;
-      if (owner) releaseOwnedFile(path, owner.token);
+      if (owner && isProcessOwnerAlive(owner)) return null;
+      if (owner) releaseOwnedFile(path, owner.token, 'completion ledger lock');
       const token = randomUUID();
-      writeOwnerAtomically(path, ownerBytes(token));
+      writeOwnedFileAtomically(path, currentProcessOwner(token));
       return { path, token };
+    }, {
+      label: 'completion ledger lock guard',
+      retries: LOCK_RETRIES,
+      retryMs: LOCK_RETRY_MS,
     });
     if (lock) return lock;
     if (attempt < LOCK_RETRIES - 1) Atomics.wait(LOCK_WAIT, 0, 0, LOCK_RETRY_MS);
@@ -591,16 +424,13 @@ function acquireCompletionLock(dir) {
 }
 
 function releaseCompletionLock(lock) {
-  releaseOwnedFile(lock.path, lock.token);
-}
-
-function fsyncDirectory(path) {
-  const fd = openSync(path, 'r');
-  try {
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
+  withProcessClaimGuard(`${lock.path}.guard`, () => {
+    releaseOwnedFile(lock.path, lock.token, 'completion ledger lock');
+  }, {
+    label: 'completion ledger lock guard',
+    retries: LOCK_RETRIES,
+    retryMs: LOCK_RETRY_MS,
+  });
 }
 
 function syncCompletionLog(path, { beforeFileSync } = {}) {
@@ -632,8 +462,8 @@ function appendCompletionRecord(path, record, options = {}) {
  */
 export function withCompletionLedgerLock(root, operation) {
   if (typeof operation !== 'function') throw new TypeError('completion ledger operation is required');
-  const dir = join(resolve(root), ...ANALYTICS_DIR);
-  const path = join(dir, LOG_FILE);
+  const dir = confinedRepositoryDirectory(root, ANALYTICS_DIR, { create: true });
+  const path = confinedRepositoryFile(root, ANALYTICS_DIR, LOG_FILE, { createParents: true });
   const lock = acquireCompletionLock(dir);
   try {
     const ledger = {

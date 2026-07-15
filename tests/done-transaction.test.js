@@ -543,6 +543,77 @@ test('checkpointed recovery rejects a malformed stored completion instead of tru
   }
 });
 
+test('different task closes serialize on the shared phase initiative identity', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-phase-lock-'));
+  try {
+    const initialTasks = [
+      { id: 'T-005', status: 'active' },
+      { id: 'T-006', status: 'active' },
+    ];
+    let initiative = {
+      __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
+      status: 'active', tasks: structuredClone(initialTasks),
+    };
+    let activeLoads = 0;
+    let maxConcurrentLoads = 0;
+    const checkpoints = new Map();
+    const effects = {
+      loadInitiative: async () => {
+        activeLoads += 1;
+        maxConcurrentLoads = Math.max(maxConcurrentLoads, activeLoads);
+        const snapshot = structuredClone(initiative);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        activeLoads -= 1;
+        return snapshot;
+      },
+      persistClose: async ({ bundle }) => {
+        initiative.tasks = initiative.tasks.map((task) => (
+          task.id === bundle.task.id ? structuredClone(bundle.task) : task
+        ));
+        initiative.nextAction = bundle.nextAction;
+      },
+      refresh: async () => {},
+      findCheckpoint: async ({ idempotencyKey }) => checkpoints.get(idempotencyKey),
+      checkpoint: async ({ idempotencyKey }) => {
+        const checkpoint = { sha: 'a'.repeat(40) };
+        checkpoints.set(idempotencyKey, checkpoint);
+        return checkpoint;
+      },
+      assertClean: async () => true,
+    };
+    const requestFor = (taskId, index) => {
+      const nextAction = index === 0 ? 'Run `done T-006`.' : 'Run `phase-done`.';
+      const original = input(root);
+      return input(root, {
+        task: structuredClone(initialTasks[index]),
+        initiative: structuredClone(initiative),
+        close: {
+          ...original.close,
+          taskId,
+          closedAt: `2026-07-14T20:00:0${index}Z`,
+        },
+        nextAction,
+        handoff: {
+          ...original.handoff,
+          singleNextAction: nextAction,
+          narrative: `${taskId} closed under the phase mutation lock.`,
+        },
+      });
+    };
+
+    await Promise.all([
+      executeDoneTransaction(requestFor('T-005', 0), effects),
+      executeDoneTransaction(requestFor('T-006', 1), effects),
+    ]);
+
+    assert.equal(maxConcurrentLoads, 1);
+    assert.deepEqual(initiative.tasks.map((task) => task.status), ['done', 'done']);
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('concurrent closes with different timestamps serialize on authoritative task identity', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-race-'));
   try {

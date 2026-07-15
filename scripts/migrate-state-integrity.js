@@ -15,7 +15,6 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
@@ -24,6 +23,13 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import { collectTargets, parseFrontmatter } from './validate-state.js';
 import { collectStateIntegrityViolations } from '../src/state-invariants.js';
+import { fsyncDirectory } from '../src/durable-file.js';
+import {
+  currentProcessOwner,
+  isProcessOwnerAlive,
+  readOwnedFile,
+  withProcessClaimGuard,
+} from '../src/process-lock-guard.js';
 
 const text = (value) => (typeof value === 'string' && value.length > 0 ? value : null);
 const projectIdOf = (value) => text(value?.__projectId) ?? '__legacy';
@@ -134,15 +140,6 @@ function render(frontmatter, body) {
   return `---\n${stringifyYaml(frontmatter)}---\n${body ? `\n${body}` : ''}`;
 }
 
-function fsyncDirectory(path) {
-  const fd = openSync(path, 'r');
-  try {
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
-}
-
 function writeExclusiveDurable(path, content) {
   const fd = openSync(path, 'wx', 0o600);
   try {
@@ -169,68 +166,13 @@ function copyExclusiveDurable(source, destination) {
   return fileDigest(destination);
 }
 
-function processAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error?.code === 'EPERM';
-  }
-}
-
-function readProcessIdentity(pid) {
-  try {
-    if (process.platform === 'linux') {
-      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-      const commandEnd = stat.lastIndexOf(')');
-      if (commandEnd < 0) return null;
-      const fields = stat.slice(commandEnd + 1).trim().split(/\s+/);
-      return fields[19] ? `linux:${fields[19]}` : null;
-    }
-    if (process.platform === 'win32') {
-      const executable = process.env.SystemRoot
-        ? join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-        : 'powershell.exe';
-      const output = execFileSync(executable, [
-        '-NoProfile', '-NonInteractive', '-Command',
-        `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().Ticks`,
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-      return output ? `win32:${output}` : null;
-    }
-    const output = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env: { ...process.env, LANG: 'C', LANGUAGE: 'C', LC_ALL: 'C', TZ: 'UTC' },
-    }).trim().replace(/\s+/g, ' ');
-    return output ? `${process.platform}:${output}` : null;
-  } catch {
-    return null;
-  }
-}
-
-const SELF_PROCESS_IDENTITY = readProcessIdentity(process.pid);
-
 function migrationLockOwner(lockPath) {
   try {
-    const owner = JSON.parse(readFileSync(join(lockPath, 'owner.json'), 'utf8'));
-    if (owner?.version !== 1 || !Number.isInteger(owner.pid) || owner.pid <= 0
-        || typeof owner.token !== 'string' || owner.token.length === 0
-        || (owner.processIdentity !== undefined
-          && (typeof owner.processIdentity !== 'string' || owner.processIdentity.length === 0))) {
-      return null;
-    }
-    return owner;
-  } catch {
+    return readOwnedFile(join(lockPath, 'owner.json'), 'migration lock owner');
+  } catch (error) {
+    if (/symbolic link|real regular file/.test(error.message)) throw error;
     return null;
   }
-}
-
-function migrationLockOwnerAlive(owner) {
-  if (!processAlive(owner.pid)) return false;
-  if (typeof owner.processIdentity !== 'string') return true;
-  const identity = owner.pid === process.pid ? SELF_PROCESS_IDENTITY : readProcessIdentity(owner.pid);
-  return identity === null || identity === owner.processIdentity;
 }
 
 function removeMigrationLock(lockPath, token) {
@@ -246,45 +188,37 @@ function removeMigrationLock(lockPath, token) {
   fsyncDirectory(dirname(lockPath));
 }
 
-function acquireMigrationLock(root) {
+function acquireMigrationLock(root, { faultAt } = {}) {
   const lockPath = join(root, MIGRATION_LOCK_NAME);
   for (let attempt = 0; attempt < MIGRATION_LOCK_RETRIES; attempt += 1) {
-    const token = randomUUID();
-    try {
-      mkdirSync(lockPath, { mode: 0o700 });
+    const lock = withProcessClaimGuard(`${lockPath}.guard`, () => {
+      const token = randomUUID();
       try {
-        writeExclusiveDurable(join(lockPath, 'owner.json'), `${JSON.stringify({
-          version: 1,
-          pid: process.pid,
-          ...(SELF_PROCESS_IDENTITY ? { processIdentity: SELF_PROCESS_IDENTITY } : {}),
-          token,
-        })}\n`);
+        mkdirSync(lockPath, { mode: 0o700 });
+        faultAt?.({ point: 'after-lock-directory', lockPath });
+        writeExclusiveDurable(
+          join(lockPath, 'owner.json'),
+          `${JSON.stringify(currentProcessOwner(token))}\n`,
+        );
         fsyncDirectory(lockPath);
         fsyncDirectory(root);
         return { lockPath, token };
       } catch (error) {
-        rmSync(lockPath, { recursive: true, force: true });
-        throw error;
+        if (error?.code !== 'EEXIST') {
+          rmSync(lockPath, { recursive: true, force: true });
+          throw error;
+        }
       }
-    } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
-    }
 
-    let lockStat;
-    try {
-      lockStat = lstatSync(lockPath);
-    } catch (error) {
-      if (error?.code === 'ENOENT') continue;
-      throw error;
-    }
-    if (!lockStat.isDirectory() || lockStat.isSymbolicLink()) {
-      throw new Error(`migration lock path is not a real directory: ${lockPath}`);
-    }
-    const owner = migrationLockOwner(lockPath);
-    const orphaned = owner
-      ? !migrationLockOwnerAlive(owner)
-      : Date.now() - lockStat.mtimeMs >= MIGRATION_LOCK_OWNER_GRACE_MS;
-    if (orphaned) {
+      const lockStat = lstatSync(lockPath);
+      if (!lockStat.isDirectory() || lockStat.isSymbolicLink()) {
+        throw new Error(`migration lock path is not a real directory: ${lockPath}`);
+      }
+      const owner = migrationLockOwner(lockPath);
+      const orphaned = owner
+        ? !isProcessOwnerAlive(owner)
+        : Date.now() - lockStat.mtimeMs >= MIGRATION_LOCK_OWNER_GRACE_MS;
+      if (!orphaned) return null;
       const stalePath = `${lockPath}.stale.${process.pid}.${randomUUID()}`;
       try {
         renameSync(lockPath, stalePath);
@@ -293,8 +227,9 @@ function acquireMigrationLock(root) {
       } catch (error) {
         if (error?.code !== 'ENOENT') throw error;
       }
-      continue;
-    }
+      return null;
+    }, { label: 'migration lock guard' });
+    if (lock) return lock;
     if (attempt < MIGRATION_LOCK_RETRIES - 1) {
       Atomics.wait(MIGRATION_LOCK_WAIT, 0, 0, MIGRATION_LOCK_RETRY_MS);
     }
@@ -302,12 +237,14 @@ function acquireMigrationLock(root) {
   throw new Error(`state-integrity migration lock timed out: ${lockPath}`);
 }
 
-function withMigrationLock(root, operation) {
-  const lock = acquireMigrationLock(root);
+function withMigrationLock(root, operation, { faultAt } = {}) {
+  const lock = acquireMigrationLock(root, { faultAt });
   try {
     return operation();
   } finally {
-    removeMigrationLock(lock.lockPath, lock.token);
+    withProcessClaimGuard(`${lock.lockPath}.guard`, () => {
+      removeMigrationLock(lock.lockPath, lock.token);
+    }, { label: 'migration lock guard' });
   }
 }
 
@@ -400,6 +337,9 @@ function recoverMigrationTransactionLocked(root, rootAlias = root) {
   if (![1, 2].includes(manifest?.version) || !Array.isArray(manifest.operations)) {
     throw new Error(`invalid state-integrity migration transaction manifest: ${manifestPath}`);
   }
+  if (manifest.version === 1) {
+    throw new Error(`legacy migration transaction version 1 has unauthenticated backup bytes: ${manifestPath}`);
+  }
   const operations = validatedManifestOperations(root, manifest.operations, rootAlias);
   if (manifest.version === 2 && operations.some((operation) => !operation.backupDigest)) {
     throw new Error(`invalid state-integrity migration transaction backup digest: ${manifestPath}`);
@@ -430,7 +370,7 @@ export function recoverMigrationTransaction(transactionRoot) {
   return withMigrationLock(root, () => recoverMigrationTransactionLocked(root, requestedRoot));
 }
 
-export function applyMigrationAtomically(operations, { transactionRoot, faultAt } = {}) {
+export function applyMigrationAtomically(operations, { transactionRoot, faultAt, lockFaultAt } = {}) {
   if (!Array.isArray(operations) || operations.length === 0) return { applied: 0, backups: [] };
   const normalized = operations.map((operation) => ({
     filePath: resolve(operation.filePath),
@@ -523,7 +463,7 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt 
       fsyncDirectory(dirname(manifestPath));
       throw error;
     }
-  });
+  }, { faultAt: lockFaultAt });
 }
 
 function runCli(argv) {
