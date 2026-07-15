@@ -273,6 +273,15 @@ export function classifyPhaseDonePreflight(input = {}) {
   const descriptors = plan.phases.filter((candidate) => (
     text(object(candidate).id) === phaseId && text(object(candidate).slug) === phaseSlug
   ));
+  const phaseIds = plan.phases.map((candidate) => text(object(candidate).id)).filter(Boolean);
+  const phaseSlugs = plan.phases.map((candidate) => text(object(candidate).slug)).filter(Boolean);
+  if (new Set(phaseIds).size !== phaseIds.length || new Set(phaseSlugs).size !== phaseSlugs.length) {
+    return block(
+      'phase-done-identity-duplicate',
+      'phase-done requires unique phase ids and slugs before selecting an authoritative descriptor',
+      'Repair duplicate phase identities, validate state, then rerun `phase-done`.',
+    );
+  }
   if (descriptors.length !== 1) {
     return block(
       'phase-done-identity-mismatch',
@@ -321,7 +330,63 @@ export function classifyPhaseDoneCommit(input = {}) {
   const preflight = classifyPhaseDonePreflight(input);
   if (!preflight.allowed) return preflight;
   const phase = object(input.phase ?? input.initiative);
-  const exitGates = array(input.exitGates ?? phase.exitGates);
+  const plan = object(input.plan);
+  const initiative = object(input.initiative ?? input.phase);
+  const descriptors = array(plan.phases).filter((candidate) => (
+    text(object(candidate).id) === text(phase.id)
+    && text(object(candidate).slug) === text(phase.slug)
+  ));
+  const descriptor = object(descriptors[0]);
+  const authoritativeGates = descriptor.exitGate?.criteria;
+  if (!Array.isArray(authoritativeGates)) {
+    return block(
+      'phase-done-gates-missing',
+      'phase-done requires the authoritative plan descriptor gate list',
+      'Reload the plan descriptor and its exitGate.criteria, then rerun `phase-done`.',
+    );
+  }
+  if (input.exitGates !== undefined
+      && (!Array.isArray(input.exitGates) || !isDeepStrictEqual(input.exitGates, authoritativeGates))) {
+    return block(
+      'phase-done-gate-slice-mismatch',
+      'phase-done gate input differs from the authoritative plan descriptor gates',
+      'Reload the plan descriptor and pass its unchanged criteria, then rerun `phase-done`.',
+    );
+  }
+  const initiativeGates = initiative.exitGates;
+  if (!Array.isArray(initiativeGates)) {
+    return block(
+      'phase-done-gate-mirror-missing',
+      'phase-done requires the authoritative initiative gate mirror',
+      'Reload the initiative exitGates and rerun `phase-done`.',
+    );
+  }
+  const planGateIds = authoritativeGates.map((gate) => text(object(gate).id));
+  const initiativeGateIds = initiativeGates.map((gate) => text(object(gate).id));
+  if (planGateIds.some((id) => !id)
+      || initiativeGateIds.some((id) => !id)
+      || new Set(planGateIds).size !== planGateIds.length
+      || new Set(initiativeGateIds).size !== initiativeGateIds.length
+      || planGateIds.length !== initiativeGateIds.length
+      || planGateIds.some((id) => !initiativeGateIds.includes(id))) {
+    return block(
+      'phase-done-gate-mirror-mismatch',
+      'phase-done requires a bijective gate-id mirror between plan and initiative',
+      'Repair the plan and initiative gate mirrors, validate state, then rerun `phase-done`.',
+    );
+  }
+  for (const gate of authoritativeGates) {
+    const mirror = initiativeGates.find((candidate) => text(object(candidate).id) === text(gate.id));
+    if (object(mirror).status !== object(gate).status
+        || !isDeepStrictEqual(object(mirror).evidence, object(gate).evidence)) {
+      return block(
+        'phase-done-gate-mirror-mismatch',
+        `phase-done gate ${text(gate.id)} status or evidence differs across mirrors`,
+        'Copy authoritative status and evidence to both mirrors, then rerun `phase-done`.',
+      );
+    }
+  }
+  const exitGates = authoritativeGates;
   const reviewGate = input.reviewGate ?? phase.reviewGate;
 
   const pendingGate = exitGates.find((gate) => !gateComplete(gate));

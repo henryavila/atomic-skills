@@ -36,11 +36,12 @@ exitGates:
       exitCode: 0
       testsCollected: 11
       passed: true
-      outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ bb3183b:
-        tests 11, pass 11, fail 0. findOrphanWorktrees puro (isBranchMerged
-        simétrico A/B); read-only, inputs não mutados; cobre ambos sinais merge,
-        ambas formas archived, healthy→[], never-throws
-        (frozen/null/throwing-isMerged/malformed), no-plan, dup-slug."
+      outputSummary: "node --test tests/detect-orphan-worktrees.test.js @ bb3183b
+        (merged primary, post review-gate fixes): tests 11, pass 11, fail 0.
+        Função pura findOrphanWorktrees (isBranchMerged simétrico A/B) — ambos
+        sinais de merge, ambas formas archived, healthy→[], pureza+never-throws
+        (frozen/null/throwing-isMerged/malformed), no-matching-plan, duplo-plano
+        slug. read-only, inputs não mutados."
     verifierLabel: "test: node tests/detect-orphan-worktrees.test.js"
     evidenceSummary: passed · 11 tests · 2026-06-17
   - id: G-2
@@ -58,8 +59,9 @@ exitGates:
       verifiedAt: 2026-06-17T21:30:00Z
       exitCode: 0
       passed: true
-      outputSummary: "grep detect-orphan-worktrees project-verify.md (check #9, kinds
-        reais) && validate-skills → All 15 skills valid, exit 0 @ bb3183b."
+      outputSummary: "grep -q 'detect-orphan-worktrees' project-verify.md (check #9
+        documentado, kinds reais nomeados) && npm run validate-skills → All 15
+        skills valid, exit 0 @ bb3183b."
     verifierLabel: "shell: grep -q 'detect-orphan-worktrees' skills/shared/project-ass…"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -124,6 +126,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

@@ -37,7 +37,7 @@ exitGates:
       exitCode: 0
       outputSummary: "project.md=20396B implement.md=16107B (ambos <22000); grep
         mode2-codex-lane (implement.md) + verifier-exec (project-transitions.md)
-        OK; validate-skills: All 15 skills valid (schema_version 0.2)"
+        OK; validate-skills: All 15 skills valid"
     verifierLabel: "shell: test $(wc -c < skills/core/project.md) -lt 22000 && test $(…"
     evidenceSummary: passed · 2026-06-16
 stack:
@@ -264,6 +264,7 @@ summary: Enxuga o router project e o driver implement movendo conteúdo
   não-ambiente para lazy.
 planTitle: Reestruturação das skills atomic-skills
 ---
+
 
 # Narrative / notes
 

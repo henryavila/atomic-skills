@@ -50,8 +50,7 @@ exitGates:
       verifiedAt: 2026-06-09T20:35:00Z
       passed: true
       exitCode: 0
-      outputSummary: "Final tree: validate-skills ✓ All 14 skills valid; compatibility
-        tests 84, pass 84, fail 0."
+      outputSummary: "Final tree: validate-skills ✓ 14 skills; compatibility 84/84."
     verifierLabel: "shell: npm run validate-skills && node --test tests/compatibility.…"
     evidenceSummary: passed · 2026-06-09
   - id: F0-G3
@@ -69,8 +68,7 @@ exitGates:
       verifiedAt: 2026-06-09T20:35:00Z
       passed: true
       exitCode: 0
-      outputSummary: "Final tree: roundtrip tests 4, pass 4, fail 0; grep
-        project-idea.md in skills/core/project.md exit 0."
+      outputSummary: "Final tree: roundtrip 4/4; grep project-idea.md exit 0."
     verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js && gr…"
     evidenceSummary: passed · 2026-06-09
 stack:
@@ -187,6 +185,7 @@ summary: "O inbox barato: script de append, detail file com o fork Analisar/Só
   salvar, idea list, wiring e paridade de install."
 planTitle: Quick Idea Capture
 ---
+
 
 # Narrative / notes
 

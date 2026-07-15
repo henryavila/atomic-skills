@@ -40,8 +40,8 @@ exitGates:
       testsCollected: 94
       outputSummary: G-1 5-test chain on reviewed+remediated HEAD 8a088d4 — 94 pass
         (actuals 4 + dispatchlog 8 + validate-state 75 + harden 6 + schema-drift
-        1), 0 fail, exit 0. Review --mode=both APROVADO (local 2 minor + codex 1
-        critical/2 major, todos remediados). Suíte 953/939/8 PRÉ-EXISTENTES.
+        1), 0 fail, exit 0. Suíte completa 953/939/8 PRÉ-EXISTENTES
+        (install/detect drift skills-restructuring).
     verifierLabel: "shell: node --test tests/append-completion-actuals.test.js && node…"
     evidenceSummary: passed · 94 tests · 2026-06-19
 stack:
@@ -133,6 +133,7 @@ planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

@@ -41,10 +41,12 @@ exitGates:
       exitCode: 0
       testsCollected: 20
       passed: true
-      outputSummary: "node --test tests/review-ledger.test.js @ 83d2ee1: tests 20,
-        pass 20, fail 0. readLedger/recordReview/alreadyReviewed NDJSON
-        fail-safe + oráculo patch-id sob squash + fixes adversariais C1-C4
-        (byte-preserve, pointer-misclassify, partial-proof, never-throws)."
+      outputSummary: "node --test tests/review-ledger.test.js @ 83d2ee1 (post
+        review-gate fixes): tests 20, pass 20, fail 0. readLedger (NDJSON,
+        migração fail-safe de pointer/ausente/malformado), recordReview (append
+        byte-preservante, union-safe), alreadyReviewed (prova positiva só com
+        record completo isValidRecord, never-throws), oráculo patch-id sob
+        squash + os fixes adversariais C1-C4."
     verifierLabel: "test: node tests/review-ledger.test.js"
     evidenceSummary: passed · 20 tests · 2026-06-17
   - id: G-2
@@ -65,9 +67,10 @@ exitGates:
       verifiedAt: 2026-06-17T23:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: grep review-dedup (review-code.md + project-drift.md) +
-        project-review-dedup (workorder) && validate-skills 15/15 exit 0 @
-        83d2ee1.
+      outputSummary: grep review-dedup (review-code.md Step 0.5 + project-drift.md) +
+        project-review-dedup (workorder Camada B) && validate-skills → All 15
+        skills valid, exit 0 @ 83d2ee1. Dedup documentado fail-para-RE-revisar
+        com o flip de formato como follow-up coordenado deferido.
     verifierLabel: "shell: grep -qi 'review-dedup' skills/core/review-code.md && grep …"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -259,6 +262,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

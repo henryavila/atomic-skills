@@ -93,6 +93,15 @@ test('phase-done prose makes deferred/skipped gates non-terminal', () => {
   assert.doesNotMatch(phase, /For each `exitGates\[\]`[\s\S]{0,160}`status !== 'met'`[\s\S]{0,160}set `status: met`/);
 });
 
+test('archive prose cannot bulk-close tasks or defer gates for plan-anchored initiatives', () => {
+  const real = readFileSync(TRANSITIONS, 'utf8');
+  const archive = block(real, '## `archive [<slug>]`');
+  assert.match(archive, /plan-anchored[\s\S]{0,260}already (?:been )?closed.*`done`/i);
+  assert.match(archive, /plan-anchored[\s\S]{0,420}gates.*`met`.*passing evidence/i);
+  assert.doesNotMatch(archive, /plan-anchored[\s\S]{0,500}set all tasks `done`/i);
+  assert.doesNotMatch(archive, /plan-anchored[\s\S]{0,500}mirror exitGate `met`\/`deferred`/i);
+});
+
 test('old done ordering is reported as verifier-before-done', () => {
   const fixture = tempMarkdown(minimalFixture({
     done: [

@@ -677,13 +677,34 @@ function recover(root, markerPath, marker, faultAt, {
   if (!forceRollback
       && live.plan === marker.hashes.plan.after
       && live.initiative === marker.hashes.initiative.after) {
-    injectFault('before-complete-cleanup', faultAt);
-    if (hashFile(absolute.plan) !== marker.hashes.plan.after
-        || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
-      throw new Error('completed materialization pair changed before cleanup; retaining marker');
+    const finalizeCompletedPair = () => {
+      injectFault('before-complete-cleanup', faultAt);
+      if (hashFile(absolute.plan) !== marker.hashes.plan.after
+          || hashFile(absolute.initiative) !== marker.hashes.initiative.after) {
+        throw new Error('completed materialization pair changed before cleanup; retaining marker');
+      }
+      cleanup(root, markerPath, marker);
+      return { status: 'complete', txId: marker.txId, recovered: true };
+    };
+    if (marker.authorization) {
+      return withCompletionLedgerLock(root, () => {
+        const current = assertSuccessorMaterializationAllowedLocked({
+          root,
+          planPath: marker.paths.plan,
+          targetPhaseId: marker.authorization.targetPhaseId,
+          prerequisitePhaseId: marker.authorization.prerequisitePhaseId,
+          receiptPath: marker.authorization.receiptPath,
+          receiptIdentity: marker.authorization.receiptIdentity,
+          receiptSources: marker.authorization.receiptSources,
+          closeSha: marker.authorization.closeSha,
+        });
+        if (current.receiptDigest !== marker.authorization.receiptDigest) {
+          throw new Error('receipt digest changed immediately before completed-pair cleanup');
+        }
+        return finalizeCompletedPair();
+      });
     }
-    cleanup(root, markerPath, marker);
-    return { status: 'complete', txId: marker.txId, recovered: true };
+    return finalizeCompletedPair();
   }
 
   const planNeedsPublish = live.plan === marker.hashes.plan.before;
@@ -1002,12 +1023,21 @@ function reviewReceiptApproves(raw, sha, { mode, requireMode = false } = {}) {
   const receipt = parsed.frontmatter;
   const artifact = typeof receipt.artifact === 'string' ? receipt.artifact.trim() : '';
   const artifactTip = artifact.includes('..') ? artifact.split('..').at(-1) : artifact;
+  const captureSection = parsed.body.match(/(?:^|\n)## Capture manifest\s*\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? '';
+  const captureModes = [...captureSection.matchAll(/^- Mode:\s*(local|codex|both)(?:;|\s*$)/gm)]
+    .map((match) => match[1]);
+  const declaredMode = typeof receipt.mode === 'string' ? receipt.mode : null;
+  const legacyMode = captureModes.length === 1 ? captureModes[0] : null;
+  const receiptMode = declaredMode ?? legacyMode;
+  const modeContradiction = declaredMode != null
+    && captureModes.some((captureMode) => captureMode !== declaredMode);
   return (receipt.final_verdict === 'approve' || receipt.final_verdict === 'approve_with_nits')
     && receipt.skill === 'review-code'
     && typeof receipt.reviewer === 'string'
     && receipt.reviewer.length > 0
     && artifactTip === sha
-    && (!requireMode || receipt.mode === mode)
+    && !modeContradiction
+    && (!requireMode || receiptMode === mode)
     && (receipt.reviewed_commit === undefined || receipt.reviewed_commit === sha);
 }
 
@@ -1032,6 +1062,105 @@ function assertCommitExists(root, sha, label = 'commit') {
   if (!fullCommitSha(sha)) throw new Error(`${label} must be a full lowercase commit SHA`);
   gitOutput(root, ['cat-file', '-e', `${sha}^{commit}`], `${label} does not exist`);
   return sha;
+}
+
+function assertCommitAncestor(root, ancestor, descendant, label) {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+      cwd: root,
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+  } catch {
+    throw new Error(`${label} is not an ancestor of closeSha`);
+  }
+}
+
+function gitPathsAtCommit(root, sha, prefix, label) {
+  try {
+    const raw = execFileSync(
+      'git',
+      ['ls-tree', '-r', '-z', '--name-only', sha, '--', prefix],
+      { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    return raw.split('\0').filter(Boolean);
+  } catch (error) {
+    const detail = error?.stderr?.trim();
+    throw new Error(`${label}${detail ? `: ${detail}` : ''}`);
+  }
+}
+
+function historicalPhaseInitiative({
+  root,
+  closeSha,
+  planRel,
+  planSlug,
+  phase,
+}) {
+  const prefix = `${dirname(planRel)}/phases`;
+  const matches = [];
+  for (const path of gitPathsAtCommit(
+    root,
+    closeSha,
+    prefix,
+    `closeSha cannot enumerate historical ${phase.id} initiatives`,
+  ).filter((candidate) => candidate.endsWith('.md'))) {
+    let parsed;
+    try {
+      parsed = parseFrontmatter(gitOutput(
+        root,
+        ['show', `${closeSha}:${path}`],
+        `closeSha cannot read historical initiative ${path}`,
+      ));
+    } catch {
+      continue;
+    }
+    const candidate = parsed.error ? null : parsed.frontmatter;
+    if (candidate?.parentPlan === planSlug
+        && candidate?.phaseId === phase.id
+        && candidate?.slug === phase.slug) {
+      matches.push({ path, initiative: candidate });
+    }
+  }
+  if (matches.length !== 1) {
+    throw new Error(`historical ${phase.id} initiative must resolve uniquely at closeSha (found ${matches.length})`);
+  }
+  return matches[0];
+}
+
+function assertHistoricalInitiativeClosed({ phase, initiative }) {
+  if (!terminalPhaseStatus(initiative.status)) {
+    throw new Error(`historical ${phase.id} initiative is not terminal`);
+  }
+  if (!Array.isArray(initiative.tasks)
+      || initiative.tasks.some((task) => task?.status !== 'done'
+        || typeof task?.closedAt !== 'string' || task.closedAt.trim() === '')) {
+    throw new Error(`historical ${phase.id} initiative contains an open or unclosed task`);
+  }
+  const planGates = phase.exitGate?.criteria;
+  const initiativeGates = initiative.exitGates;
+  if (!Array.isArray(planGates) || !Array.isArray(initiativeGates)) {
+    throw new Error(`historical ${phase.id} initiative gate mirror is missing`);
+  }
+  const planIds = planGates.map((gate) => gate?.id);
+  const initiativeIds = initiativeGates.map((gate) => gate?.id);
+  if (planIds.some((id) => typeof id !== 'string' || id === '')
+      || initiativeIds.some((id) => typeof id !== 'string' || id === '')
+      || new Set(planIds).size !== planIds.length
+      || new Set(initiativeIds).size !== initiativeIds.length
+      || planIds.length !== initiativeIds.length
+      || planIds.some((id) => !initiativeIds.includes(id))) {
+    throw new Error(`historical ${phase.id} initiative gate mirror is not bijective`);
+  }
+  for (const planGate of planGates) {
+    const initiativeGate = initiativeGates.find((gate) => gate.id === planGate.id);
+    if (initiativeGate.status !== planGate.status
+        || !isDeepStrictEqual(
+          canonicalize(initiativeGate.evidence),
+          canonicalize(planGate.evidence),
+        )) {
+      throw new Error(`historical ${phase.id} initiative gate ${planGate.id} mirror disagrees`);
+    }
+  }
 }
 
 function parseCompletionLog(path) {
@@ -1171,9 +1300,15 @@ function loadHistoryProjection({
         absoluteRoot,
         descriptor.reviewGate.reviewFile,
         `${phaseId} review receipt`,
+        { mustExist: false },
+      );
+      const reviewRaw = gitOutput(
+        absoluteRoot,
+        ['show', `${closeSha}:${reviewFile.rel}`],
+        `closeSha cannot read ${phaseId} review receipt`,
       );
       if (fullCommitSha(reviewedSha)
-          && !reviewReceiptApproves(readFileSync(reviewFile.path, 'utf8'), reviewedSha, {
+          && !reviewReceiptApproves(reviewRaw, reviewedSha, {
             mode: descriptor.reviewGate.mode,
             requireMode: true,
           })) {
@@ -1543,6 +1678,25 @@ function assertReceiptExpectation(actual, expected, label) {
   }
 }
 
+function assertConfiguredReceiptContract(identity, sources, label = 'successor barrier') {
+  for (const field of ['projectId', 'planSlug', 'phaseId']) {
+    if (typeof identity?.[field] !== 'string' || identity[field].trim() === '') {
+      throw new Error(`${label} requires receiptIdentity.${field}`);
+    }
+  }
+  for (const field of [
+    'planPath', 'initiativePath', 'creationGatePath', 'completionLogPath',
+  ]) {
+    if (typeof sources?.[field] !== 'string' || sources[field].trim() === '') {
+      throw new Error(`${label} requires receiptSources.${field}`);
+    }
+  }
+  if (!Array.isArray(sources.sidecarPaths)
+      || sources.sidecarPaths.some((path) => typeof path !== 'string' || path.trim() === '')) {
+    throw new Error(`${label} requires receiptSources.sidecarPaths`);
+  }
+}
+
 function checkHistoryReceiptLocked({
   root = process.cwd(),
   receiptPath,
@@ -1628,9 +1782,7 @@ function assertSuccessorMaterializationAllowedLocked({
   receiptSources,
   closeSha,
 } = {}) {
-  if (!receiptIdentity || !receiptSources) {
-    throw new Error('successor barrier requires configured receipt identity and sources');
-  }
+  assertConfiguredReceiptContract(receiptIdentity, receiptSources);
   const absoluteRoot = realpathSync(resolve(root));
   const receiptCheck = checkHistoryReceiptLocked({
     root: absoluteRoot,
@@ -1663,6 +1815,10 @@ function assertSuccessorMaterializationAllowedLocked({
   } catch (error) {
     throw new Error(`closeSha does not contain ${prerequisitePhaseId} as done: ${error.message}`);
   }
+  if (historicalPlan.frontmatter.slug !== currentPlan.slug
+      || currentPlan.slug !== receiptIdentity.planSlug) {
+    throw new Error('historical, current, and receipt plan identities do not match');
+  }
   const historicalPrerequisite = (historicalPlan.frontmatter.phases ?? [])
     .filter((phase) => phase?.id === prerequisitePhaseId);
   if (historicalPrerequisite.length !== 1
@@ -1683,6 +1839,23 @@ function assertSuccessorMaterializationAllowedLocked({
       ))) {
     throw new Error(`historical ${prerequisitePhaseId} gate evidence is not fully met and review-anchored`);
   }
+  const historicalInitiative = historicalPhaseInitiative({
+    root: absoluteRoot,
+    closeSha,
+    planRel: planFile.rel,
+    planSlug: currentPlan.slug,
+    phase: historicalPhase,
+  });
+  assertHistoricalInitiativeClosed({
+    phase: historicalPhase,
+    initiative: historicalInitiative.initiative,
+  });
+  assertCommitAncestor(
+    absoluteRoot,
+    historicalReview.at,
+    closeSha,
+    `historical ${prerequisitePhaseId} reviewed commit`,
+  );
   if (typeof historicalReview.reviewFile !== 'string') {
     throw new Error(`historical ${prerequisitePhaseId} review receipt is missing`);
   }
@@ -1690,6 +1863,7 @@ function assertSuccessorMaterializationAllowedLocked({
     absoluteRoot,
     historicalReview.reviewFile,
     `historical ${prerequisitePhaseId} review receipt`,
+    { mustExist: false },
   );
   let historicalReviewReceipt;
   try {
@@ -1703,9 +1877,10 @@ function assertSuccessorMaterializationAllowedLocked({
   }
   if (!reviewReceiptApproves(historicalReviewReceipt, historicalReview.at, {
     mode: historicalReview.mode,
+    requireMode: true,
   })) {
     throw new Error(
-      `historical ${prerequisitePhaseId} review receipt at closeSha does not approve its review anchor`,
+      `historical ${prerequisitePhaseId} review receipt at closeSha does not approve its review anchor and mode`,
     );
   }
   const completionLog = historyPath(
@@ -1755,7 +1930,39 @@ export function runMaterializeState(args, io = console) {
   const root = option(args, '--root') ?? process.cwd();
   const receiptToCheck = option(args, '--check-history-receipt');
   if (receiptToCheck) {
-    const result = checkHistoryReceipt({ root, receiptPath: receiptToCheck });
+    const planPath = option(args, '--plan', { required: true });
+    const absoluteRoot = realpathSync(resolve(root));
+    const planFile = historyPath(absoluteRoot, planPath, 'planPath');
+    const receiptFile = historyPath(absoluteRoot, receiptToCheck, 'receiptPath');
+    const plan = readMarkdown(planFile.path, 'configured plan').frontmatter;
+    const barriers = (plan.stateIntegrityHardening?.successorBarriers ?? []).filter((barrier) => {
+      try {
+        return safeRelativePath(
+          absoluteRoot,
+          barrier?.receiptPath,
+          'configured successor barrier receiptPath',
+        ) === receiptFile.rel;
+      } catch {
+        return false;
+      }
+    });
+    if (barriers.length !== 1) {
+      throw new Error(
+        `configured plan must contain exactly one successor barrier for ${receiptFile.rel}`,
+      );
+    }
+    const barrier = barriers[0];
+    assertConfiguredReceiptContract(
+      barrier.receiptIdentity,
+      barrier.receiptSources,
+      'configured plan successor barrier',
+    );
+    const result = checkHistoryReceipt({
+      root: absoluteRoot,
+      receiptPath: receiptFile.rel,
+      expectedIdentity: barrier.receiptIdentity,
+      expectedSources: barrier.receiptSources,
+    });
     io.log(JSON.stringify(result));
     return result;
   }

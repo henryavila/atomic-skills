@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -716,6 +716,29 @@ test('crossValidate: met criterion, contradicting evidence.passed across surface
   assert.ok(errors[0].errors.some((e) => e.includes('F0-G1') && /disagrees/.test(e)));
 });
 
+test('crossValidate: equal passed flags cannot hide contradictory verifier evidence fields', () => {
+  const plans = new Map([['p', {
+    slug: 'p',
+    phases: [{
+      id: 'F0', slug: 'p-f0', status: 'done',
+      exitGate: { criteria: [{
+        id: 'F0-G1', status: 'met', verifier: { kind: 'shell' },
+        evidence: { passed: true, exitCode: 0, verifiedAt: '2026-07-14T20:00:00Z' },
+      }] },
+    }],
+  }]]);
+  const inits = new Map([['p-f0', {
+    slug: 'p-f0', status: 'done', tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [{
+      id: 'F0-G1', status: 'met', verifier: { kind: 'shell' },
+      evidence: { passed: true, exitCode: 1, verifiedAt: '2026-07-14T20:00:01Z' },
+    }],
+  }]]);
+  const errors = crossValidate(plans, inits);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].errors.join('\n'), /evidence.*disagree/i);
+});
+
 test('crossValidate: manual verifier (not deterministic) → no evidence cross-check', () => {
   const plans = new Map([['p', {
     slug: 'p',
@@ -1165,6 +1188,13 @@ test('GATE-R3: a non-done phase is never gated even with a malformed reviewGate'
   assert.deepEqual(checkReviewGate(plan), [], 'only a DONE phase is gated on review honesty');
 });
 
+test('GATE-R3: archived is terminal and cannot bypass hardened review provenance', () => {
+  const plan = donePlan(undefined);
+  plan.stateIntegrityHardening = { enforcedFrom: '2026-07-14T19:36:31Z' };
+  plan.phases[0].status = 'archived';
+  assert.match(checkReviewGate(plan).join('\n'), /requires a passed reviewGate/i);
+});
+
 test('GATE-R3 wiring: validateFile REJECTS a schema-valid plan whose done phase claims passed without an `at`', () => {
   const dir = mkdtempSync(join(tmpdir(), 'atomic-skills-r3-'));
   try {
@@ -1246,6 +1276,26 @@ test('persisted review provenance requires an approving structured receipt at th
     assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, join(root, 'other'), 'codex'), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('persisted review provenance rejects symlinks that escape the repository reviews directory', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-review-symlink-'));
+  const outside = mkdtempSync(join(tmpdir(), 'as-review-outside-'));
+  const reviewDir = join(root, '.atomic-skills', 'reviews');
+  const sha = 'a'.repeat(40);
+  try {
+    mkdirSync(reviewDir, { recursive: true });
+    const externalReceipt = join(outside, 'external.md');
+    writeFileSync(externalReceipt, `---\nartifact: ${'b'.repeat(40)}..${sha}\nskill: review-code\nreviewer: gpt-5-codex\nmode: codex\nfinal_verdict: approve\nschema_version: "1.0"\n---\n`);
+    symlinkSync(externalReceipt, join(reviewDir, 'linked.md'));
+    assert.equal(
+      persistedReviewMatches('.atomic-skills/reviews/linked.md', sha, root, 'codex'),
+      false,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   }
 });
 

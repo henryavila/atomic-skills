@@ -52,8 +52,7 @@ exitGates:
       verifiedAt: 2026-06-09T21:35:00Z
       passed: true
       exitCode: 0
-      outputSummary: "Final tree: tests 3, pass 3, fail 0 (extração estruturada,
-        handoff confinado à meta line, CLI round-trip)."
+      outputSummary: "Final tree: tests 3, pass 3, fail 0."
     verifierLabel: "shell: node --test tests/idea-promote.test.js"
     evidenceSummary: passed · 2026-06-09
 stack:
@@ -150,6 +149,7 @@ summary: "O verbo idea promote: extrai a ideia e roteia pela emergence ladder
   com ratify, marcando-a como triaged."
 planTitle: Quick Idea Capture
 ---
+
 
 # Narrative / notes
 

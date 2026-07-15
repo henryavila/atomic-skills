@@ -74,7 +74,8 @@ exitGates:
       verifiedAt: 2026-07-05T12:33:53Z
       exitCode: 0
       passed: true
-      outputSummary: grep dispatch-row help→project-help.md → match (exit 0)
+      outputSummary: grep -qE '^\|.*help.*project-help\.md' skills/core/project.md →
+        match (exit 0)
     verifierLabel: "shell: grep -qE '^\\|.*help.*project-help\\.md' skills/core/project.…"
     evidenceSummary: passed · 2026-07-05
   - id: G-4
@@ -105,7 +106,7 @@ exitGates:
       verifiedAt: 2026-07-05T12:33:53Z
       exitCode: 0
       passed: true
-      outputSummary: awk name:help → signature matches --html (exit 0)
+      outputSummary: awk name:help → signature line matches --html (exit 0)
     verifierLabel: "shell: awk '/name: help/{f=1} f&&/signature:/{print;exit}' meta/ca…"
     evidenceSummary: passed · 2026-07-05
 stack:
@@ -202,6 +203,7 @@ planTitle: Comando `help` — GPS de terminal da skill `project`
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 

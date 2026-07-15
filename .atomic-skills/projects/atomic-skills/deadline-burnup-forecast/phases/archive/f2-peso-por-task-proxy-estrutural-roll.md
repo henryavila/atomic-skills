@@ -33,10 +33,12 @@ exitGates:
         tests/emit-consumer-state.test.js
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-06-19T12:33:22Z
+      verifiedAt: 2026-06-19T12:24:41Z
       passed: true
       exitCode: 0
-      outputSummary: "G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0 fail, exit 0"
+      outputSummary: G-1 3-test chain on reviewed+remediated HEAD ee960c9 — 20 pass
+        (schema-drift 1 + compute-rollups 4 + emit-consumer-state 15), 0 fail,
+        exit 0
     verifierLabel: "shell: node --test tests/schema-drift.test.js && node --test tests…"
     evidenceSummary: passed · 2026-06-19
 stack:
@@ -104,6 +106,7 @@ planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 

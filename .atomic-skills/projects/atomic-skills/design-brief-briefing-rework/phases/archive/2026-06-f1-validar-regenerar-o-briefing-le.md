@@ -37,9 +37,8 @@ exitGates:
       verifiedAt: 2026-06-19T20:06:21.000Z
       passed: true
       exitCode: 0
-      outputSummary: EXIT=0 — veredito v2 NAO-REINCIDENTE em f1/recurrence-verdict.md;
-        nenhum dos 4 contaminantes reaparece como requisito vinculante (regen
-        cego valido + critico adversarial).
+      outputSummary: EXIT=0 — veredito v2 NAO-REINCIDENTE; nenhum dos 4 contaminantes
+        reaparece como requisito vinculante
     verifierLabel: "shell: grep -q 'NAO-REINCIDENTE' .atomic-skills/projects/atomic-sk…"
     evidenceSummary: passed · 2026-06-19
   - id: F1-G2
@@ -56,8 +55,8 @@ exitGates:
       verifiedAt: 2026-06-19T20:06:21.000Z
       passed: true
       exitCode: 0
-      outputSummary: EXIT=0 — F1-D10-RESOLVED presente no design.md (open-question a);
-        D10 resolvido = modelo leve D3-D8 basta, sem tag R10.
+      outputSummary: EXIT=0 — F1-D10-RESOLVED no design.md; D10 resolvido = modelo
+        leve D3-D8 basta, sem tag R10
     verifierLabel: "shell: grep -q 'F1-D10-RESOLVED' .atomic-skills/projects/atomic-sk…"
     evidenceSummary: passed · 2026-06-19
 stack:
@@ -287,6 +286,7 @@ planTitle: design-brief — repensar o modelo de autoridade do briefing
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 

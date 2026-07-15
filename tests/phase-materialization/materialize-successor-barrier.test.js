@@ -8,6 +8,7 @@ import {
   assertSuccessorMaterializationAllowed,
   materializeState,
   reconcileMaterializationHistory,
+  runMaterializeState,
 } from '../../scripts/materialize-state.js';
 import { buildF3Pair, createHistoryFixture, git, sha256 } from './history-fixture.js';
 
@@ -17,6 +18,20 @@ function setPhaseStatus(path, id, status) {
   const plan = parseYaml(raw.slice(4, end));
   plan.phases.find((phase) => phase.id === id).status = status;
   writeFileSync(path, `---\n${stringifyYaml(plan)}---${raw.slice(end + 4)}`);
+}
+
+function mutateFrontmatter(path, mutate) {
+  const raw = readFileSync(path, 'utf8');
+  const end = raw.indexOf('\n---', 4);
+  const frontmatter = parseYaml(raw.slice(4, end));
+  mutate(frontmatter);
+  writeFileSync(path, `---\n${stringifyYaml(frontmatter)}---${raw.slice(end + 4)}`);
+}
+
+function bindF4Event(state, closeSha) {
+  const events = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+  events.find((event) => event.phaseId === 'F4').closeSha = closeSha;
+  writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
 }
 
 function receiptContract(state) {
@@ -155,6 +170,41 @@ test('successor publication holds the completion ledger lock through both live r
   }
 });
 
+test('completed-pair recovery holds the completion ledger lock through authorization cleanup', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    configureSuccessorBarrier(state);
+    const pair = buildF3Pair(state);
+    assert.throws(() => materializeState({
+      root: state.root,
+      planPath: state.planRel,
+      initiativePath: '.atomic-skills/projects/proj/demo/phases/f3-demo.md',
+      ...pair,
+      prerequisiteCloseSha: state.closeSha,
+      txId: 'ledger-lock-complete-recovery',
+      faultAt: 'after-plan-rename',
+    }), /fault injection/);
+    const result = materializeState({
+      root: state.root,
+      planPath: state.planRel,
+      initiativePath: '.atomic-skills/projects/proj/demo/phases/f3-demo.md',
+      faultAt: (point) => {
+        if (point === 'before-complete-cleanup') {
+          assert.equal(
+            existsSync(join(state.root, '.atomic-skills/analytics/.completions.lock')),
+            true,
+            'final authorization and cleanup must share the ledger lock',
+          );
+        }
+      },
+    });
+    assert.equal(result.status, 'complete');
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('status-only close commit cannot borrow review and gate evidence from live state', () => {
   const state = createHistoryFixture();
   try {
@@ -202,6 +252,124 @@ test('close authorization requires the review receipt to exist at closeSha', () 
       })),
       /review receipt.*closeSha|closeSha.*review receipt/i,
     );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('historical review receipt mode must equal the persisted reviewGate mode', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const reviewPath = join(state.root, '.atomic-skills/reviews/demo-f4.md');
+    writeFileSync(reviewPath, readFileSync(reviewPath, 'utf8').replace('mode: local', 'mode: both'));
+    git(state.root, ['add', '.atomic-skills/reviews/demo-f4.md']);
+    git(state.root, ['commit', '-qm', 'mismatched historical review mode']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    bindF4Event(state, closeSha);
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha })),
+      /review.*mode|mode.*review/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('legacy historical receipt may authenticate mode from its immutable capture manifest', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const reviewPath = join(state.root, '.atomic-skills/reviews/demo-f4.md');
+    const legacyReceipt = readFileSync(reviewPath, 'utf8')
+      .replace('mode: local\n', '')
+      .concat('\n## Capture manifest\n\n- Mode: local; legacy sealed-envelope capture\n');
+    writeFileSync(reviewPath, legacyReceipt);
+    git(state.root, ['add', '.atomic-skills/reviews/demo-f4.md']);
+    git(state.root, ['commit', '-qm', 'legacy review mode in capture manifest']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    bindF4Event(state, closeSha);
+
+    const result = assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha }));
+    assert.equal(result.allowed, true);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('historical prerequisite initiative must be terminal with closed tasks and mirrored gates', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    mutateFrontmatter(state.f4InitiativePath, (initiative) => {
+      initiative.status = 'active';
+      initiative.tasks[0].status = 'pending';
+      delete initiative.tasks[0].closedAt;
+    });
+    git(state.root, ['add', state.f4InitiativeRel]);
+    git(state.root, ['commit', '-qm', 'contradictory F4 initiative']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    bindF4Event(state, closeSha);
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha })),
+      /historical F4 initiative.*terminal|task/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('reviewed commit must be an ancestor of the prerequisite close commit', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const branch = git(state.root, ['branch', '--show-current']);
+    git(state.root, ['checkout', '-qb', 'unrelated-review']);
+    git(state.root, ['commit', '--allow-empty', '-qm', 'unrelated review commit']);
+    const unrelatedReview = git(state.root, ['rev-parse', 'HEAD']);
+    git(state.root, ['checkout', '-q', branch]);
+
+    mutateFrontmatter(state.planPath, (plan) => {
+      const f4 = plan.phases.find((phase) => phase.id === 'F4');
+      f4.reviewGate.at = unrelatedReview;
+      f4.exitGate.criteria[0].evidence.verifiedCommit = unrelatedReview;
+    });
+    mutateFrontmatter(state.f4InitiativePath, (initiative) => {
+      initiative.exitGates[0].evidence.verifiedCommit = unrelatedReview;
+    });
+    const reviewPath = join(state.root, '.atomic-skills/reviews/demo-f4.md');
+    writeFileSync(reviewPath, readFileSync(reviewPath, 'utf8').replace(state.reviewedSha, unrelatedReview));
+    git(state.root, ['add', state.planRel, state.f4InitiativeRel, '.atomic-skills/reviews/demo-f4.md']);
+    git(state.root, ['commit', '-qm', 'forge unrelated review ancestry']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    bindF4Event(state, closeSha);
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha })),
+      /review.*ancestor|ancestor.*review/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('CLI history-receipt check must bind expectations from a configured plan barrier', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    configureSuccessorBarrier(state);
+    const io = { log: () => {} };
+    assert.throws(
+      () => runMaterializeState([
+        '--root', state.root,
+        '--check-history-receipt', state.receiptRel,
+      ], io),
+      /--plan|configured plan/i,
+    );
+    assert.equal(runMaterializeState([
+      '--root', state.root,
+      '--check-history-receipt', state.receiptRel,
+      '--plan', state.planRel,
+    ], io).ok, true);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }

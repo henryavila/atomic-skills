@@ -54,6 +54,35 @@ test('migration leaves complete identities byte-neutral', () => {
   assert.deepEqual(result, { changes: [], errors: [] });
 });
 
+test('migration copies authoritative deterministic gate evidence from plan to initiative', () => {
+  const authoritativeEvidence = {
+    verifierKind: 'shell', verifiedAt: '2026-01-02T00:00:00Z', passed: true,
+    exitCode: 0, outputSummary: 'authoritative plan receipt',
+  };
+  const result = planStateIntegrityMigration(
+    new Map([['proj/demo', plan({
+      phases: [{
+        id: 'F0', slug: 'demo-f0', status: 'done',
+        exitGate: { criteria: [{
+          id: 'G-1', status: 'met', verifier: { kind: 'shell', command: 'true' },
+          evidence: authoritativeEvidence,
+        }] },
+      }],
+    })]]),
+    new Map([['proj/demo-f0', initiative({
+      parentPlan: 'demo', phaseId: 'F0', status: 'done',
+      exitGates: [{
+        id: 'G-1', status: 'met', verifier: { kind: 'shell', command: 'true' },
+        evidence: { ...authoritativeEvidence, outputSummary: 'stale initiative receipt' },
+      }],
+    })]]),
+  );
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.changes.length, 1);
+  assert.deepEqual(result.changes[0].patch.exitGates[0].evidence, authoritativeEvidence);
+});
+
 test('CLI dry-run writes nothing; --apply creates a byte-identical backup and fills only identity fields', () => {
   const dir = mkdtempSync(join(tmpdir(), 'state-integrity-migration-'));
   try {
@@ -82,6 +111,48 @@ test('CLI dry-run writes nothing; --apply creates a byte-identical backup and fi
     assert.equal(migrated.parentPlan, 'demo');
     assert.equal(migrated.phaseId, 'F0');
     assert.equal(migrated.slug, 'demo-f0');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI aborts before writes when duplicate initiative identities resolve to two files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-duplicate-'));
+  try {
+    const stateRoot = join(dir, '.atomic-skills');
+    const planDir = join(stateRoot, 'projects', 'proj', 'demo');
+    const phasesDir = join(planDir, 'phases');
+    const archiveDir = join(phasesDir, 'archive');
+    mkdirSync(archiveDir, { recursive: true });
+    const planPath = join(planDir, 'plan.md');
+    const livePath = join(phasesDir, 'demo-f0.md');
+    const archivedPath = join(archiveDir, '2026-07-demo-f0.md');
+    const planBytes = `---\n${stringifyYaml({
+      schemaVersion: '0.1', slug: 'demo', title: 'Demo', version: '1', status: 'active',
+      started: '2026-01-01T00:00:00Z', lastUpdated: '2026-01-01T00:00:00Z',
+      phases: [{
+        id: 'F0', slug: 'demo-f0', title: 'F0', goal: 'g', dependsOn: [],
+        subPhaseCount: 0, exitGate: { summary: 's', criteria: [] }, status: 'active',
+      }],
+    })}---\n`;
+    const initiativeBytes = `---\n${stringifyYaml({
+      schemaVersion: '0.1', slug: 'demo-f0', title: 'F0', goal: 'g', status: 'active',
+      started: '2026-01-01T00:00:00Z', lastUpdated: '2026-01-01T00:00:00Z',
+      nextAction: null, exitGates: [], stack: [], tasks: [], parked: [], emerged: [],
+    })}---\n`;
+    writeFileSync(planPath, planBytes);
+    writeFileSync(livePath, initiativeBytes);
+    writeFileSync(archivedPath, initiativeBytes);
+
+    const result = spawnSync(process.execPath, [
+      join(ROOT, 'scripts', 'migrate-state-integrity.js'), stateRoot, '--apply',
+    ], { encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /duplicate.*initiative.*demo-f0/i);
+    assert.equal(readFileSync(livePath, 'utf8'), initiativeBytes);
+    assert.equal(readFileSync(archivedPath, 'utf8'), initiativeBytes);
+    assert.equal(readdirSync(phasesDir).some((name) => name.includes('.bak')), false);
+    assert.equal(readdirSync(archiveDir).some((name) => name.includes('.bak')), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

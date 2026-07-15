@@ -13,10 +13,18 @@
  *   1 — one or more validation errors
  *   2 — file/parse/setup error
  */
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  statSync,
+  lstatSync,
+  realpathSync,
+  readdirSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, basename, sep } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { validateAppMap } from '../src/app-map/validate.js';
@@ -33,6 +41,7 @@ const APP_MAP_MAX_DEPTH = 12;
 const APP_MAP_SKIP_DIRS = new Set(['.git', 'node_modules']);
 const FULL_GIT_OID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const REVIEW_MODES = new Set(['local', 'codex', 'both']);
+const terminalPhaseStatus = (status) => status === 'done' || status === 'archived';
 
 const SCHEMA_FILES = {
   common: 'common.schema.json',
@@ -495,7 +504,7 @@ export function checkReviewGate(frontmatter) {
   const phases = Array.isArray(frontmatter.phases) ? frontmatter.phases : [];
   const hardened = typeof frontmatter?.stateIntegrityHardening?.enforcedFrom === 'string';
   for (const phase of phases) {
-    if (phase?.status !== 'done') continue;
+    if (!terminalPhaseStatus(phase?.status)) continue;
     const rg = phase.reviewGate;
     const label = `phase ${phase.id ?? '?'}`;
     if (rg == null || typeof rg !== 'object') {
@@ -551,6 +560,18 @@ export function persistedReviewMatches(reviewFile, sha, repositoryRoot = process
   const candidate = resolve(repositoryRoot, reviewFile);
   if (!candidate.startsWith(`${root}${sep}`) || !existsSync(candidate)) return false;
   try {
+    let cursor = resolve(repositoryRoot);
+    for (const part of reviewFile.split('/')) {
+      if (!part || part === '.' || part === '..') return false;
+      cursor = join(cursor, part);
+      const stat = lstatSync(cursor);
+      if (stat.isSymbolicLink()) return false;
+    }
+    const candidateStat = lstatSync(candidate);
+    if (!candidateStat.isFile()) return false;
+    const realRoot = realpathSync(root);
+    const realCandidate = realpathSync(candidate);
+    if (!realCandidate.startsWith(`${realRoot}${sep}`)) return false;
     const parsed = parseFrontmatter(readFileSync(candidate, 'utf8'));
     if (parsed.error) return false;
     const receipt = parsed.frontmatter;
@@ -581,7 +602,7 @@ export function checkAnchoredCloseEvidence(plan, initiative, {
   const violations = [];
   if (typeof plan?.stateIntegrityHardening?.enforcedFrom !== 'string') return violations;
   const phases = (Array.isArray(plan?.phases) ? plan.phases : []).filter((phase) => (
-    phase?.status === 'done'
+    terminalPhaseStatus(phase?.status)
     && (!initiative || phase.id === initiative.phaseId || phase.slug === initiative.slug)
   ));
   for (const phase of phases) {
@@ -686,7 +707,7 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters, {
       ? plan.__projectId
       : null;
     for (const phase of plan.phases) {
-      if (phase.status !== 'done') continue;
+      if (!terminalPhaseStatus(phase.status)) continue;
       if (!phase.slug) continue;
 
       const init = (projectId ? initBySlug.get(`${projectId}/${phase.slug}`) : null)
@@ -742,9 +763,9 @@ export function crossValidate(planFrontmatters, initiativeFrontmatters, {
             phaseErrors.push(
               `criterion ${planCrit.id}: evidence block present on only one surface (plan:${pHas ? 'present' : 'absent'}, initiative:${iHas ? 'present' : 'absent'}) — a met ${kind} criterion mirrored across plan and initiative must carry evidence on BOTH (GATE-R2 must not split across files).`
             );
-          } else if (pHas && iHas && pe.passed !== ie.passed) {
+          } else if (pHas && iHas && !isDeepStrictEqual(pe, ie)) {
             phaseErrors.push(
-              `criterion ${planCrit.id}: evidence.passed disagrees across surfaces (plan=${JSON.stringify(pe.passed)}, initiative=${JSON.stringify(ie.passed)}) — the met-invariant must be identical on the plan and the initiative.`
+              `criterion ${planCrit.id}: full evidence disagrees across surfaces — the deterministic met-invariant must be identical on the plan and the initiative.`
             );
           }
         }

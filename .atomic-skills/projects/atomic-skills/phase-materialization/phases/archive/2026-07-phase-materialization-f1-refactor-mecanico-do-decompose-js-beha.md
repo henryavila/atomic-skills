@@ -37,12 +37,10 @@ exitGates:
       verifiedAt: 2026-06-30T22:49:23.000Z
       passed: true
       exitCode: 0
-      outputSummary: "npm test → exit 0; ℹ tests 1479 / ℹ pass 1471 / ℹ fail 0 / ℹ
-        skipped 8 (177 suites). Byte-identidade R-ORCH-10 do refactor de
-        decompose.js confirmada (tests/decompose.test.js 82/82 verde:
-        flat+nested + novos deepEqual vs
-        decomposePlan/materializeDecomposition); as 6 falhas pré-existentes de
-        install/refresh-state corrigidas em 9b5e645."
+      outputSummary: npm test → exit 0; ℹ tests 1479 / pass 1471 / fail 0 / skipped 8
+        (177 suites). Byte-identidade R-ORCH-10 confirmada
+        (tests/decompose.test.js 82/82); 6 falhas pré-existentes de
+        install/refresh-state corrigidas em 9b5e645.
     verifierLabel: "shell: npm test"
     evidenceSummary: passed · 2026-06-30
   - id: F1-G2
@@ -61,9 +59,9 @@ exitGates:
       verifiedAt: 2026-06-30T22:49:23.000Z
       passed: true
       exitCode: 0
-      outputSummary: node -e exports guard → exit 0; o guard process.exit(1) NÃO
-        disparou, confirmando que decomposeOnePhase e writeInitiativeFile são
-        ambas funções exportadas de src/decompose.js (reutilizáveis por F2/F3).
+      outputSummary: node -e exports guard → exit 0; o guard process.exit(1) não
+        disparou — decomposeOnePhase e writeInitiativeFile ambas exportadas de
+        src/decompose.js (reutilizáveis por F2/F3).
     verifierLabel: 'shell: node -e "import(\"./src/decompose.js\").then(m => { if (typ…'
     evidenceSummary: passed · 2026-06-30
 stack:
@@ -176,6 +174,7 @@ summary: Extrai decomposeOnePhase e writeInitiativeFile do decompose.js num
 planTitle: Materialização lazy de fases + gate de validação de negócio
 planActive: true
 ---
+
 
 # Narrative / notes
 

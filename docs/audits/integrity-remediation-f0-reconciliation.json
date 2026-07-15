@@ -22,8 +22,8 @@
     ]
   },
   "closeSha": "67bd6e4a9d63b748321e51565e570514290a81a1",
-  "reconciledCommit": "cbede426600ea0d57667f033e96932eb6acedde5",
-  "projectionDigest": "5aab96705de7231bcceaa9013178d36863a5bf0f86168ab8c86f7ee80628fe9b",
+  "reconciledCommit": "2dc5dcfd668c4341f616acb4835f5c8c3dfd3b3d",
+  "projectionDigest": "f0311471a5b7e6f8db07f7bdaa48f2cf78de7a3909b89be4277d57ebac186477",
   "hashes": {
     "descriptor": {
       "before": "9c646496c4e2492d1fd7895fd79f8af89420f229db613a082a44598bab5201ca",
@@ -42,8 +42,8 @@
       "after": "1312d83ee5421953bb2f84c6cbba28ab801ef141667897ac554986e6a518cc3f"
     },
     "sidecars": {
-      "before": "d7b82b7f715e91f708b85a411376d8361026d55d0799a5f473b98a9171b1bae2",
-      "after": "d7b82b7f715e91f708b85a411376d8361026d55d0799a5f473b98a9171b1bae2"
+      "before": "d693a45052d93dee121384829deb8d42f22221b2066ad55120bd887f2c23d630",
+      "after": "d693a45052d93dee121384829deb8d42f22221b2066ad55120bd887f2c23d630"
     }
   },
   "evidence": [
@@ -114,7 +114,7 @@
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json",
-      "digest": "a23f3a57f760bc36f3bda04e05555c5c10d26e06711453fb5f928bd5c0e44fc5"
+      "digest": "e2814c93eb8c187f0d0685c8ac75699e19eb0be7cefae1a3fbedc85383737ae8"
     },
     {
       "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json",

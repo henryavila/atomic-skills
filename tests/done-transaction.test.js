@@ -14,9 +14,14 @@ import {
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
 
 function input(root, overrides = {}) {
+  const task = { id: 'T-005', status: 'active' };
   return {
     root,
-    task: { id: 'T-005', status: 'active' },
+    task,
+    initiative: {
+      __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
+      status: 'active', tasks: [task],
+    },
     close: {
       projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-005',
       closedAt: '2026-07-14T20:00:00Z', weight: 4, weightBasis: 'count',
@@ -35,10 +40,17 @@ function input(root, overrides = {}) {
 }
 
 function harness() {
-  const state = { bundles: new Map(), checkpoints: new Map() };
+  const state = { bundles: new Map(), checkpoints: new Map(), initiative: null };
   const effects = {
+    loadInitiative: async ({ candidate }) => {
+      if (!state.initiative) state.initiative = structuredClone(candidate);
+      return structuredClone(state.initiative);
+    },
     persistClose: async ({ idempotencyKey, bundle }) => {
       state.bundles.set(idempotencyKey, structuredClone(bundle));
+      state.initiative.tasks = state.initiative.tasks.map((task) => (
+        task.id === bundle.task.id ? structuredClone(bundle.task) : task
+      ));
     },
     refresh: async () => {},
     findCheckpoint: async ({ idempotencyKey }) => state.checkpoints.get(idempotencyKey),
@@ -152,7 +164,7 @@ test('caller cannot alias a different close under an arbitrary idempotency key',
   }
 });
 
-test('an already-done task cannot be closed again under a different timestamp', async () => {
+test('an already-done task reuses its original immutable timestamp without another event', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-'));
   try {
     const request = input(root, {
@@ -160,13 +172,132 @@ test('an already-done task cannot be closed again under a different timestamp', 
         id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
         weight: 4, weightBasis: 'count',
       },
+      initiative: {
+        __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
+        status: 'active', tasks: [{
+          id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
+          weight: 4, weightBasis: 'count',
+        }],
+      },
       close: {
         projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-001',
         closedAt: '2026-07-14T20:00:00Z', weight: 4, weightBasis: 'count',
       },
     });
-    await assert.rejects(executeDoneTransaction(request, harness().effects), /immutable closedAt/i);
+    const result = await executeDoneTransaction(request, harness().effects);
+    assert.equal(result.reused, true);
+    assert.equal(result.idempotencyKey, buildDoneIdempotencyKey({
+      ...request.close,
+      closedAt: '2026-07-14T19:00:00Z',
+    }));
+    assert.equal(existsSync(LOG(root)), false);
     assert.equal(existsSync(doneRecoveryPath(root, buildDoneIdempotencyKey(request.close))), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('concurrent closes with different timestamps serialize on authoritative task identity', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-race-'));
+  try {
+    const first = input(root);
+    const second = input(root, {
+      close: { ...first.close, closedAt: '2026-07-14T20:00:01Z' },
+      task: structuredClone(first.task),
+      initiative: structuredClone(first.initiative),
+    });
+    let authoritative = structuredClone(first.initiative);
+    let checkpointCalls = 0;
+    const checkpoints = new Map();
+    const effects = {
+      loadInitiative: async () => structuredClone(authoritative),
+      persistClose: async ({ bundle }) => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        authoritative.tasks[0] = structuredClone(bundle.task);
+      },
+      refresh: async () => {},
+      findCheckpoint: async ({ idempotencyKey }) => checkpoints.get(idempotencyKey),
+      checkpoint: async ({ idempotencyKey }) => {
+        checkpointCalls += 1;
+        const value = { sha: String(checkpointCalls).padStart(40, 'a') };
+        checkpoints.set(idempotencyKey, value);
+        return value;
+      },
+      assertClean: async () => true,
+    };
+
+    const results = await Promise.all([
+      executeDoneTransaction(first, effects),
+      executeDoneTransaction(second, effects),
+    ]);
+    const lines = readFileSync(LOG(root), 'utf8').trim().split('\n');
+    assert.equal(lines.length, 1);
+    assert.equal(checkpointCalls, 1);
+    assert.equal(results.filter((result) => result.reused === true).length, 1);
+    assert.equal(authoritative.tasks[0].closedAt, first.close.closedAt);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('checkpointed recovery reauthenticates the stored checkpoint before clearing its marker', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-checkpoint-'));
+  try {
+    const { state, effects } = harness();
+    const request = input(root);
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    await assert.rejects(executeDoneTransaction(request, {
+      ...effects,
+      assertClean: async () => false,
+    }), /clean task-owned worktree/);
+    assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'checkpointed');
+    state.checkpoints.delete(idempotencyKey);
+    await assert.rejects(
+      executeDoneTransaction(request, effects),
+      /stored checkpoint could not be authenticated/i,
+    );
+    assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'checkpointed');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('recovery rejects evidence and handoff drift from the prepared close bundle', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-drift-'));
+  try {
+    const { effects } = harness();
+    const request = input(root);
+    const failing = {
+      ...effects,
+      ensureCompletion: async () => { throw new Error('injected event failure'); },
+    };
+    await assert.rejects(executeDoneTransaction(request, failing), /injected event failure/);
+    const drifted = {
+      ...request,
+      handoff: { ...request.handoff, decisionLog: 'A different recovery payload.' },
+    };
+    await assert.rejects(
+      executeDoneTransaction(drifted, effects),
+      /prepared close bundle conflicts/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('task close scope must match the authoritative initiative identity', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-scope-'));
+  try {
+    const request = input(root, {
+      initiative: {
+        ...input(root).initiative,
+        __projectId: 'other-project',
+      },
+    });
+    await assert.rejects(
+      executeDoneTransaction(request, harness().effects),
+      /projectId.*authoritative initiative/i,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

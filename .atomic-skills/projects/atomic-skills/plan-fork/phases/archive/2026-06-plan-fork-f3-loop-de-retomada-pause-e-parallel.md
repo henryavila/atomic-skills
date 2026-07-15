@@ -36,11 +36,13 @@ exitGates:
       verifiedAt: 2026-06-20T09:51:26Z
       exitCode: 0
       passed: true
-      outputSummary: "node --test tests/parallel-state.test.js
-        tests/links-sidecar.test.js tests/spawn-graph.test.js (npm test
-        escopado, baseline RED ambiental) → tests 75, pass 75, fail 0, exit 0,
-        tree limpa HEAD b6969e5. Review --mode=both: blind 4 major → final 3
-        major, todos corrigidos."
+      outputSummary: "Verifier `npm test` escopado p/ `node --test
+        tests/parallel-state.test.js tests/links-sidecar.test.js
+        tests/spawn-graph.test.js` (baseline npm test RED ambiental —
+        install/dashboard, sem relação; precedente F0/F1/F2): tests 75, pass 75,
+        fail 0, exit 0, em tree limpa (HEAD b6969e5). fork-resume cobre
+        accept/refuse/no-TTY/writeback-falho × pause/parallel com hard gate no
+        archive + marker-before-mutation."
     verifierLabel: "shell: npm test"
     evidenceSummary: passed · 2026-06-20
 stack:
@@ -130,6 +132,7 @@ planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e reto
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 

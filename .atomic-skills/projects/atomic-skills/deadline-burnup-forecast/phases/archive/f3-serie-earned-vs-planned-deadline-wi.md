@@ -34,7 +34,8 @@ exitGates:
       passed: true
       exitCode: 0
       outputSummary: G-1 2-test chain on reviewed+remediated HEAD 12edc01 —
-        emit-series 2 + refresh-state 2 = 4 pass, 0 fail, exit 0.
+        emit-series 2 + refresh-state 2 = 4 pass, 0 fail, exit 0; suíte 913 pass
+        / 8 fail PRÉ-EXISTENTES.
     verifierLabel: "shell: node --test tests/emit-series.test.js && node --test tests/…"
     evidenceSummary: passed · 2026-06-19
 stack:
@@ -112,6 +113,7 @@ planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 

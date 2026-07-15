@@ -39,8 +39,8 @@ exitGates:
       testsCollected: 22
       passed: true
       outputSummary: "node --test tests/cross-wt-gate.test.js @ cf07d12 (post
-        review-gate fixes, merged primary): tests 22, pass 22, fail 0, exit 0.
-        Inclui fail-closed (merge-indeterminate / runner-malformed-result) +
+        review-gate fixes): tests 22, pass 22, fail 0, exit 0. Inclui
+        fail-closed (merge-indeterminate / runner-malformed-result) +
         never-throws (crossWtGate(null)) + OR-guard halves isoladas."
     verifierLabel: "test: node tests/cross-wt-gate.test.js"
     evidenceSummary: passed · 22 tests · 2026-06-17
@@ -235,6 +235,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

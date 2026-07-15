@@ -38,8 +38,9 @@ exitGates:
       verifiedAt: 2026-06-17T18:26:30Z
       exitCode: 0
       passed: true
-      outputSummary: grep project-finalize + gh pr create matched; npm run
-        validate-skills → ✓ All 15 skills valid (schema_version 0.2), exit 0.
+      outputSummary: grep -q 'project-finalize' project.md + grep -qi 'gh pr create'
+        project-finalize.md matched; npm run validate-skills → ✓ All 15 skills
+        valid (schema_version 0.2), exit 0.
     verifierLabel: "shell: grep -q 'project-finalize' skills/core/project.md && grep -…"
     evidenceSummary: passed · 2026-06-17
   - id: G-2
@@ -57,9 +58,9 @@ exitGates:
       verifiedAt: 2026-06-17T18:26:30Z
       exitCode: 0
       passed: true
-      outputSummary: grep integration-ref matched in project-finalize.md
-        (scripts/integration-ref.js); npm run validate-skills → ✓ All 15 skills
-        valid, exit 0.
+      outputSummary: grep -qi 'integration-ref' matched in project-finalize.md
+        (scripts/integration-ref.js ref); npm run validate-skills → ✓ All 15
+        skills valid, exit 0.
     verifierLabel: "shell: grep -qi 'integration-ref' skills/shared/project-assets/pro…"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -118,6 +119,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

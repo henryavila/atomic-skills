@@ -39,12 +39,14 @@ export function createHistoryFixture() {
   const reviewedSha = git(root, ['rev-parse', 'HEAD']);
   const planRel = '.atomic-skills/projects/proj/demo/plan.md';
   const initiativeRel = '.atomic-skills/projects/proj/demo/phases/archive/f0-demo.md';
+  const f4InitiativeRel = '.atomic-skills/projects/proj/demo/phases/archive/f4-demo.md';
   const creationGateRel = '.atomic-skills/status/creation-gates/proj-demo.json';
   const completionLogRel = '.atomic-skills/analytics/completions.jsonl';
   const receiptRel = 'docs/audits/demo-f0-reconciliation.json';
   const sidecarRel = '.atomic-skills/projects/proj/demo/phases/f3-demo.source.json';
   const planPath = join(root, planRel);
   const initiativePath = join(root, initiativeRel);
+  const f4InitiativePath = join(root, f4InitiativeRel);
   const creationGatePath = join(root, creationGateRel);
   const completionLogPath = join(root, completionLogRel);
   const receiptPath = join(root, receiptRel);
@@ -104,6 +106,15 @@ export function createHistoryFixture() {
   };
   writeMarkdown(planPath, plan, '# Plan');
   writeMarkdown(initiativePath, initiative, '# Initiative');
+  writeMarkdown(f4InitiativePath, {
+    ...structuredClone(initiative),
+    slug: 'f4-demo', title: 'F4', goal: 'authority', phaseId: 'F4',
+    exitGates: [structuredClone(f4Criterion)],
+    tasks: [{
+      id: 'T-001', title: 'authority', status: 'done',
+      lastUpdated: '2026-07-14T20:00:00Z', closedAt: '2026-07-14T20:00:00Z',
+    }],
+  }, '# F4 Initiative');
   mkdirSync(dirname(creationGatePath), { recursive: true });
   writeFileSync(creationGatePath, `${JSON.stringify({
     schemaVersion: '0.1', kind: 'new-plan', slug: 'demo', projectId: 'proj',
@@ -137,8 +148,8 @@ export function createHistoryFixture() {
   git(root, ['commit', '-qm', 'record close identity']);
   const reconciledCommit = git(root, ['rev-parse', 'HEAD']);
   return {
-    root, planRel, initiativeRel, creationGateRel, completionLogRel, receiptRel, sidecarRel,
-    planPath, initiativePath, creationGatePath, completionLogPath, receiptPath,
+    root, planRel, initiativeRel, f4InitiativeRel, creationGateRel, completionLogRel, receiptRel, sidecarRel,
+    planPath, initiativePath, f4InitiativePath, creationGatePath, completionLogPath, receiptPath,
     reviewedSha, closeSha, reconciledCommit, event, f4Event,
     options: {
       root, projectId: 'proj', planSlug: 'demo', phaseId: 'F0', planPath: planRel,

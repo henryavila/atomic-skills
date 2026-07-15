@@ -36,7 +36,7 @@ exitGates:
       testsCollected: 9
       passed: true
       outputSummary: "node --test tests/plan-branch-policy.test.js @ 01c2455: tests 9,
-        pass 9, fail 0."
+        pass 9, fail 0 (incl. tightened Stage-6 doc-test)."
     verifierLabel: "test: node tests/plan-branch-policy.test.js"
     evidenceSummary: passed · 9 tests · 2026-06-17
   - id: G-2
@@ -51,8 +51,8 @@ exitGates:
       verifiedAt: 2026-06-17T12:26:23Z
       exitCode: 0
       passed: true
-      outputSummary: focus-digest 11/11 (emit-focus intact) && validate-skills 15/15 @
-        01c2455.
+      outputSummary: "focus-digest 11/11 (emit-focus intact) && validate-skills: All
+        15 skills valid @ 01c2455."
     verifierLabel: "shell: node --test tests/focus-digest.test.js && npm run validate-…"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -109,6 +109,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

@@ -35,7 +35,7 @@ exitGates:
       exitCode: 0
       testsCollected: 4
       outputSummary: node --test test/kernel/reconciler.test.js — tests 4, pass 4,
-        fail 0 (inclui path-containment do review gate).
+        fail 0 (inclui o teste de path-containment do review gate).
     verifierLabel: "test: node --test test/kernel/reconciler.test.js"
     evidenceSummary: passed · 4 tests · 2026-06-17
   - id: G-2
@@ -171,6 +171,7 @@ summary: "Funda o kernel: contrato de efeito reversível, journal e o reconciler
   de arquivos (porta do 3-hash)."
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
 ---
+
 
 # Narrative / notes
 

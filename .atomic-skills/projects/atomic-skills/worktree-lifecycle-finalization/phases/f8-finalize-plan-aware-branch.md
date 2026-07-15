@@ -44,9 +44,13 @@ exitGates:
       passed: true
       outputSummary: "node --test tests/finalize-plan-scope.test.js @ 00dd0cd
         (phase-done, pós-review both): tests 24, pass 24, fail 0, exit 0.
-        resolveFinalizePlanScope + detectPlanStatusRegression
-        puros/never-throws/ fail-closed, com as correções L#1/L#2/L#4 + codex
-        F-001..F-004."
+        resolveFinalizePlanScope (classifica
+        target/other-active/archived-unmerged,
+        terminal=archived|done|active-todas-fases-done com phases NÃO-vazio,
+        BLOCK alvo≠focus-sem-confirm, BLOCK slug ambíguo, WARN irmãos
+        não-arquivados) + detectPlanStatusRegression (rank
+        active|paused<done<archived; advisory) puros/never-throws/fail-closed.
+        Inclui as correções de review L#1/L#2/L#4 + codex F-001..F-004."
     verifierLabel: "test: node tests/finalize-plan-scope.test.js"
     evidenceSummary: passed · 24 tests · 2026-06-19
   - id: G-2
@@ -68,11 +72,12 @@ exitGates:
       verifiedAt: 2026-06-19T18:05:06Z
       exitCode: 0
       passed: true
-      outputSummary: grep plan-aware (2) && grep finalize-plan-scope (4) em
-        project-finalize.md && npm run validate-skills → All 15 skills valid,
-        exit 0 @ 00dd0cd. Step 1.6 (guard determinístico) + Step 1
-        (existence-check em origin, cobre source:default; F-004 endureceu o
-        prompt-when-absent) + regressão advisory.
+      outputSummary: grep -qi 'plan-aware' (2) && grep -qi 'finalize-plan-scope' (4)
+        em project-finalize.md && npm run validate-skills → All 15 skills valid,
+        exit 0 @ 00dd0cd. Step 1.6 documenta o guard determinístico + Step 1 a
+        existence-check do integrationRef em origin (ls-remote/show-ref, cobre
+        source:default; F-004 endureceu prompt-when-absent p/ exigir ref em
+        origin) + o detect+WARN advisory de regressão (reusa a lane do F4).
     verifierLabel: "shell: grep -qi 'plan-aware' skills/shared/project-assets/project-…"
     evidenceSummary: passed · 2026-06-19
 stack:
@@ -218,6 +223,7 @@ summary: "Finalize correto sob branch multi-plano: alvo explícito + terminal,
   PR."
 planTitle: Finalização do ciclo de vida da worktree-do-plano
 ---
+
 
 # Narrative / notes
 

@@ -9,7 +9,7 @@ import {
   checkHistoryReceipt,
   reconcileMaterializationHistory,
 } from '../../scripts/materialize-state.js';
-import { createHistoryFixture } from './history-fixture.js';
+import { createHistoryFixture, git } from './history-fixture.js';
 
 function mutateFrontmatter(path, mutate) {
   const raw = readFileSync(path, 'utf8');
@@ -37,15 +37,53 @@ test('consistent F0 projection writes a current canonical receipt', () => {
 test('rejecting review receipt cannot authenticate a historical projection', () => {
   const state = createHistoryFixture();
   try {
+    const reviewRel = '.atomic-skills/reviews/demo-f0.md';
     const reviewPath = join(state.root, '.atomic-skills', 'reviews', 'demo-f0.md');
     const rejecting = readFileSync(reviewPath, 'utf8').replace(
       'final_verdict: approve',
       'final_verdict: needs_changes',
     );
     writeFileSync(reviewPath, rejecting);
-    const result = reconcileMaterializationHistory({ ...state.options, apply: true });
+    git(state.root, ['add', reviewRel]);
+    git(state.root, ['commit', '-qm', 'reject F0 review at close']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    const events = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+    events.find((event) => event.phaseId === 'F0').closeSha = closeSha;
+    writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
+    const result = reconcileMaterializationHistory({
+      ...state.options,
+      closeSha,
+      apply: true,
+    });
     assert.equal(result.classification, 'ambiguous');
     assert.match(result.problems.join('\n'), /review receipt.*does not approve/i);
+    assert.equal(result.writes.length, 0);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('a review receipt created after closeSha cannot retroactively authenticate history', () => {
+  const state = createHistoryFixture();
+  try {
+    const reviewRel = '.atomic-skills/reviews/demo-f0.md';
+    const reviewPath = join(state.root, reviewRel);
+    const approving = readFileSync(reviewPath, 'utf8');
+    git(state.root, ['rm', '-q', reviewRel]);
+    git(state.root, ['commit', '-qm', 'close without F0 review receipt']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    writeFileSync(reviewPath, approving);
+    const events = readFileSync(state.completionLogPath, 'utf8').trim().split('\n').map(JSON.parse);
+    events.find((event) => event.phaseId === 'F0').closeSha = closeSha;
+    writeFileSync(state.completionLogPath, `${events.map(JSON.stringify).join('\n')}\n`);
+
+    const result = reconcileMaterializationHistory({
+      ...state.options,
+      closeSha,
+      apply: true,
+    });
+    assert.equal(result.classification, 'ambiguous');
+    assert.match(result.problems.join('\n'), /review receipt.*closeSha|closeSha.*review receipt/i);
     assert.equal(result.writes.length, 0);
   } finally {
     rmSync(state.root, { recursive: true, force: true });

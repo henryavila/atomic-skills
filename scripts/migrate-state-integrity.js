@@ -7,12 +7,14 @@ import {
 } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import { stringify as stringifyYaml } from 'yaml';
 
 import { collectTargets, parseFrontmatter } from './validate-state.js';
 
 const text = (value) => (typeof value === 'string' && value.length > 0 ? value : null);
 const projectIdOf = (value) => text(value?.__projectId) ?? '__legacy';
+const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
 
 function migrationError(code, message, context = {}) {
   return { code, message, ...context };
@@ -26,7 +28,6 @@ export function planStateIntegrityMigration(planFrontmatters, initiativeFrontmat
   for (const [key, initiative] of initiativeFrontmatters) {
     const missingParent = !text(initiative?.parentPlan);
     const missingPhase = !text(initiative?.phaseId);
-    if (!missingParent && !missingPhase) continue;
     const candidates = [];
     for (const plan of plans) {
       if (projectIdOf(plan) !== projectIdOf(initiative)) continue;
@@ -37,7 +38,7 @@ export function planStateIntegrityMigration(planFrontmatters, initiativeFrontmat
         candidates.push({ plan, phase });
       }
     }
-    if (candidates.length !== 1) {
+    if ((missingParent || missingPhase) && candidates.length !== 1) {
       errors.push(migrationError(
         candidates.length === 0 ? 'unresolved-initiative-identity' : 'ambiguous-initiative-identity',
         `initiative ${initiative?.slug ?? key} has ${candidates.length} identity candidate(s)`,
@@ -45,14 +46,37 @@ export function planStateIntegrityMigration(planFrontmatters, initiativeFrontmat
       ));
       continue;
     }
+    if (candidates.length !== 1) continue;
+
     const [{ plan, phase }] = candidates;
+    const patch = {
+      ...(missingParent ? { parentPlan: plan.slug } : {}),
+      ...(missingPhase ? { phaseId: phase.id } : {}),
+    };
+    let evidenceChanged = false;
+    const exitGates = (initiative.exitGates || []).map((gate) => {
+      const criterion = (phase.exitGate?.criteria || []).find((candidate) => candidate.id === gate.id);
+      const verifierKind = criterion?.verifier?.kind ?? gate?.verifier?.kind;
+      if (
+        criterion?.status !== 'met'
+        || gate?.status !== 'met'
+        || !DETERMINISTIC_VERIFIER_KINDS.has(verifierKind)
+        || criterion.evidence == null
+        || typeof criterion.evidence !== 'object'
+        || isDeepStrictEqual(criterion.evidence, gate.evidence)
+      ) {
+        return gate;
+      }
+      evidenceChanged = true;
+      return { ...gate, evidence: structuredClone(criterion.evidence) };
+    });
+    if (evidenceChanged) patch.exitGates = exitGates;
+    if (Object.keys(patch).length === 0) continue;
+
     changes.push({
       key,
       initiative,
-      patch: {
-        ...(missingParent ? { parentPlan: plan.slug } : {}),
-        ...(missingPhase ? { phaseId: phase.id } : {}),
-      },
+      patch,
     });
   }
   return { changes, errors };
@@ -90,7 +114,9 @@ function runCli(argv) {
   const root = argv.find((arg) => !arg.startsWith('--')) ?? '.atomic-skills';
   const plans = new Map();
   const initiatives = new Map();
-  const paths = new Map();
+  const planPaths = new Map();
+  const initiativePaths = new Map();
+  const duplicateErrors = [];
 
   for (const filePath of collectTargets([root])) {
     const kind = kindFromFile(filePath);
@@ -100,9 +126,23 @@ function runCli(argv) {
     if (parsed.error) throw new Error(`${filePath}: ${parsed.error}`);
     const frontmatter = { ...parsed.frontmatter, __projectId: projectIdFromPath(filePath) };
     const key = `${frontmatter.__projectId}/${frontmatter.slug}`;
-    if (kind === 'plan') plans.set(key, frontmatter);
-    else initiatives.set(key, frontmatter);
+    const values = kind === 'plan' ? plans : initiatives;
+    const paths = kind === 'plan' ? planPaths : initiativePaths;
+    if (values.has(key)) {
+      duplicateErrors.push(migrationError(
+        `duplicate-${kind}-identity`,
+        `duplicate ${kind} identity ${key} resolves to ${paths.get(key).filePath} and ${filePath}`,
+        { key, kind, paths: [paths.get(key).filePath, filePath] },
+      ));
+      continue;
+    }
+    values.set(key, frontmatter);
     paths.set(key, { filePath, raw, body: parsed.body });
+  }
+
+  if (duplicateErrors.length > 0) {
+    for (const error of duplicateErrors) console.error(`[${error.code}] ${error.message}`);
+    return 1;
   }
 
   const result = planStateIntegrityMigration(plans, initiatives);
@@ -112,7 +152,7 @@ function runCli(argv) {
   }
   console.log(`${apply ? 'APPLY' : 'DRY-RUN'}: ${result.changes.length} change(s)`);
   for (const change of result.changes) {
-    const source = paths.get(change.key);
+    const source = initiativePaths.get(change.key);
     if (!source) throw new Error(`missing source path for ${change.key}`);
     console.log(`${source.filePath}: ${JSON.stringify(change.patch)}`);
     if (!apply) continue;

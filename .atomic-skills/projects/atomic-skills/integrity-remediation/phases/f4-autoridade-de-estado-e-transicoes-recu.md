@@ -10,7 +10,7 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-14T23:18:56Z
+lastUpdated: 2026-07-15T01:15:24Z
 nextAction: Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
 parentPlan: integrity-remediation
 phaseId: F4
@@ -72,6 +72,7 @@ exitGates:
         tests/append-completion-dispatchlog.test.js && node
         scripts/materialize-state.js --check-history-receipt
         docs/audits/integrity-remediation-f0-reconciliation.json
+        --plan .atomic-skills/projects/atomic-skills/integrity-remediation/plan.md
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/phase-materialization/materialize-transac…"
 stack:
@@ -585,23 +586,43 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   raiz não-Git foi corrigida para layouts flat e nested após regressão vermelha.
   O receipt r2 permanece `needs_changes`; só um review fresco do novo commit
   pode aprovar F4.
+- **2026-07-14 — review Codex F4 r3:** o critical e os treze majors oficiais
+  foram aceitos e corrigidos sem defer, junto de cinco defects adicionais
+  válidos do audit local/tentativa expirada. Fechamentos agora serializam pela
+  identidade autoritativa de task/fase, relêem estado sob lock, autenticam
+  checkpoints e persistem bundle/manifesto imutáveis. Gates vêm do descriptor
+  único; receipts são vinculados à barrier configurada, ao modo, à ancestry e
+  ao `closeSha`; a initiative histórica também precisa estar terminal com
+  tasks e mirrors fechados. Recovery finaliza sob o lock do ledger, migration
+  rejeita duplicatas, `archived` mantém provenance, symlinks externos falham e
+  archive não fecha nem defere trabalho plan-anchored. Decisão adicional do
+  self-review: exigir manifesto do sucessor completo (identity/paths/hashes),
+  vincular também o `projectId` do phase close aos dois espelhos autoritativos
+  e rejeitar contrato CLI parcial. Na integração final, 28 mirrors históricos
+  de evidence foram migrados a partir do descriptor autoritativo, e receipts
+  legados sem `mode` no frontmatter só podem usar a declaração única e
+  não-contraditória do capture manifest versionado no `closeSha`. O receipt r3
+  permanece `needs_changes`; um checkpoint novo e review r4 fresco continuam
+  obrigatórios.
 
 ## Session handoff
 
-- **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1
-  e os doze do review r2 com testes de concorrência, recovery, identidade,
-  terminalidade, provenance e barreira de sucessor. A suíte completa está verde;
-  falta o review Codex fresco do checkpoint corrigido.
-- **Decision log:** nenhum finding r1/r2 foi deferido. Duplicatas históricas são
+- **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1,
+  os doze do r2 e 1 critical/13 majors oficiais do r3, mais cinco hardenings
+  proativos e duas correções de integração. A suíte completa está verde; falta
+  o review Codex r4 do checkpoint.
+- **Decision log:** nenhum finding r1/r2/r3 foi deferido. Duplicatas históricas são
   preservadas fisicamente e neutralizadas por tombstone auditável; recovery só
   avança enquanto receipt, review, gates, evento e close SHA continuam ligados.
   Provenance conflitante nunca é sintetizada, e publicação permanece sob o lock
   da autoridade que foi validada.
 - **Single nextAction:** Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
-- **Verbatim state:** review r2 → 0B/0C/12M; remediation → focused gates green;
-  full repository suite → 1,858 pass, 0 fail, 8 skip; canonical state 167/167.
-- **Uncommitted changes:** remediação r2, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r3.
+- **Verbatim state:** review r3 → 0B/1C/13M; remediation → 190/190 regressões
+  r3 e 50/50 hardening final; full repository suite → 1,879 pass, 0 fail,
+  8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
+  plan-bound → `ok: true`.
+- **Uncommitted changes:** remediação r3, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r4.
 
 ## Links
 

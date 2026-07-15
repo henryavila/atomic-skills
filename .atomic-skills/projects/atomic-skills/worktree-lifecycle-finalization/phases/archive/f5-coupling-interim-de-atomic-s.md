@@ -38,10 +38,11 @@ exitGates:
       verifiedAt: 2026-06-17T21:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: "Full chain exit 0 @ 9bde0c9: grep focus.json + grep merge=union
-        + node --test dispatch-log-merge-union (3/3: wired strictEqual('union'),
-        pointwise-not-union, NDJSON union lossless) + round-trip 4/4; check-attr
-        prova dispatch-log→union, last-review→unspecified."
+      outputSummary: "Full chain exit 0 @ 9bde0c9: grep focus.json (.gitignore) + grep
+        merge=union (.gitattributes) + node --test dispatch-log-merge-union
+        (3/3: wired/strictEqual('union'), pointwise-not-union, NDJSON union
+        lossless) + round-trip 4/4. git check-attr prova dispatch-log→union,
+        last-review→unspecified."
     verifierLabel: "shell: grep -q 'focus.json' .gitignore && grep -qi 'merge=union' .…"
     evidenceSummary: passed · 2026-06-17
   - id: G-2
@@ -56,8 +57,8 @@ exitGates:
       verifiedAt: 2026-06-17T21:00:00Z
       exitCode: 0
       passed: true
-      outputSummary: npm run validate-skills → All 15 skills valid (0.2), exit 0 @
-        9bde0c9 (§9 NDJSON edit válido).
+      outputSummary: npm run validate-skills → All 15 skills valid (schema_version
+        0.2), exit 0 @ 9bde0c9 (mode2-codex-lane.md §9 NDJSON edit válido).
     verifierLabel: "shell: npm run validate-skills"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -137,6 +138,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

@@ -32,13 +32,13 @@ exitGates:
     metAt: 2026-06-16T20:51:13.900Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-06-16T20:51:13.900Z
+      verifiedAt: 2026-06-16T20:08:50.818Z
       passed: true
       exitCode: 0
       outputSummary: "Compound gate exit 0: project-review.md exists, project.md cites
         'project review', project-review.md cites
         review-plan/review-code/verify, and npm run validate-skills → 'All 15
-        skills valid'. (Copied from plan criterion F4-G1.)"
+        skills valid'."
     verifierLabel: "shell: test -f skills/shared/project-assets/project-review.md && g…"
     evidenceSummary: passed · 2026-06-16
 stack:
@@ -149,6 +149,7 @@ emerged: []
 summary: Subcomando project review que audita plano/iniciativa materializados.
 planTitle: Reestruturação das skills atomic-skills
 ---
+
 
 # Narrative / notes
 

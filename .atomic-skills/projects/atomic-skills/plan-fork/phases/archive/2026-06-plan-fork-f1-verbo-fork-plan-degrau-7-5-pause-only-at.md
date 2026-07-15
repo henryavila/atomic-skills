@@ -31,9 +31,10 @@ exitGates:
       verifiedAt: 2026-06-19T19:56:59Z
       exitCode: 0
       passed: true
-      outputSummary: 4 greps (fork-plan + ciclo + parallel) → exit 0; gate escopado
-        (sem && npm test, RED ambiental, precedente F0); review local
-        achou+corrigiu 5 findings (4e23baf) antes do met.
+      outputSummary: 4 greps (fork-plan em project-emergence.md + project.md; ciclo +
+        parallel em project-emergence.md) → exit 0. Gate escopado removendo o &&
+        npm test (RED ambiental, decisão do usuário, precedente F0). Review gate
+        local achou+corrigiu 5 findings (4e23baf) antes do met.
     verifier:
       kind: shell
       command: grep -q fork-plan skills/shared/project-assets/project-emergence.md &&
@@ -170,6 +171,7 @@ summary: Verbo fork-plan, degrau 7.5, cycle-check pré-ratify; pause-only até a
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
 ---
+
 
 # Narrative / notes
 

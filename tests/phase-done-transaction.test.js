@@ -17,20 +17,24 @@ const REVIEW_FILE = '.atomic-skills/reviews/demo-f4.md';
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
 
 function base(overrides = {}) {
-  const phase = { id: 'F4', slug: 'demo-f4', status: 'active' };
+  const exitGates = [{
+    id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
+  }];
+  const phase = {
+    id: 'F4', slug: 'demo-f4', status: 'active',
+    exitGate: { criteria: structuredClone(exitGates) },
+  };
   const initiative = {
-    slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4', status: 'active',
+    __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4', status: 'active',
     tasks: [{ id: 'T-1', status: 'done' }],
-    exitGates: [{
-      id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
-    }],
+    exitGates: structuredClone(exitGates),
   };
   return {
-    plan: { slug: 'demo', phases: [phase] },
+    plan: { __projectId: 'atomic-skills', slug: 'demo', phases: [phase] },
     phase,
     initiative,
     tasks: initiative.tasks,
-    exitGates: initiative.exitGates,
+    exitGates: structuredClone(exitGates),
     reviewGate: { status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE },
     currentHead: SHA,
     reviewCommitExists: true,
@@ -56,6 +60,8 @@ function transactionInput(root, overrides = {}) {
     ...overrides,
   });
 }
+
+const loadStateFor = (request) => async () => structuredClone(request);
 
 test('open task blocks before verifiers, review, writes or events', async () => {
   const calls = [];
@@ -96,6 +102,7 @@ test('preflight permits evidence production, then commit guard closes exactly on
           lessonsState: 'recorded',
         };
       },
+      loadState: loadStateFor(input),
       findCommit: async () => undefined,
       commit: async () => { calls.push('commit'); return { closeSha: SHA }; },
       emit: async () => calls.push('emit'),
@@ -119,6 +126,7 @@ test('allowed close rejects a missing commit effect before creating recovery sta
         findCommit: async () => undefined,
         emit: async () => {},
         assertClean: async () => true,
+        loadState: loadStateFor(input),
       }),
       /effects\.commit is required/,
     );
@@ -135,6 +143,7 @@ test('commit without a durable closeSha cannot report success', async () => {
     const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
     await assert.rejects(
       executePhaseDoneTransaction(input, {
+        loadState: loadStateFor(input),
         findCommit: async () => undefined,
         commit: async () => undefined,
         emit: async () => assert.fail('emit must remain unreachable'),
@@ -157,6 +166,7 @@ test('event failure after commit resumes without recommit or duplicate completio
     let commitCalls = 0;
     let emitCalls = 0;
     const effects = {
+      loadState: loadStateFor(input),
       findCommit: async () => storedCommit,
       commit: async () => {
         commitCalls += 1;
@@ -208,6 +218,7 @@ test('committed recovery resumes after HEAD moves without rerunning the new-clos
     let evidenceCalls = 0;
     let emitCalls = 0;
     const effects = {
+      loadState: loadStateFor(request),
       produceEvidence: async () => { evidenceCalls += 1; return {}; },
       findCommit: async () => storedCommit,
       commit: async () => {
@@ -245,6 +256,7 @@ test('committed recovery fails closed when findCommit cannot authenticate the st
   try {
     const request = transactionInput(root);
     const firstEffects = {
+      loadState: loadStateFor(request),
       findCommit: async () => undefined,
       commit: async () => ({ closeSha: 'b'.repeat(40) }),
       emit: async () => { throw new Error('injected event failure'); },
@@ -267,13 +279,19 @@ test('committed recovery fails closed when findCommit cannot authenticate the st
 test('successor failure resumes after the durable event without recommit or re-emit', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
-    const input = transactionInput(root);
+    const input = transactionInput(root, {
+      successor: {
+        phaseId: 'F3', planPath: 'plan.md', initiativePath: 'phases/f3.md',
+        planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
+      },
+    });
     const idempotencyKey = buildPhaseDoneIdempotencyKey(input.close);
     let commitCalls = 0;
     let emitCalls = 0;
     let materializeCalls = 0;
     let storedCommit;
     const effects = {
+      loadState: loadStateFor(input),
       findCommit: async () => storedCommit,
       commit: async () => {
         commitCalls += 1;
@@ -300,6 +318,85 @@ test('successor failure resumes after the durable event without recommit or re-e
     assert.equal(emitCalls, 1);
     assert.equal(materializeCalls, 2);
     assert.equal(readPhaseDoneRecovery(root, idempotencyKey), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('successor recovery rejects a changed or omitted successor manifest', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-successor-drift-'));
+  try {
+    const successor = {
+      phaseId: 'F3', planPath: 'plan.md', initiativePath: 'phases/f3.md',
+      planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
+    };
+    const request = transactionInput(root, { successor });
+    let storedCommit;
+    const effects = {
+      loadState: async () => ({
+        plan: request.plan, phase: request.phase, initiative: request.initiative,
+        tasks: request.tasks, exitGates: request.exitGates,
+      }),
+      findCommit: async () => storedCommit,
+      commit: async () => {
+        storedCommit = { closeSha: SHA };
+        return storedCommit;
+      },
+      emit: async () => {},
+      materializeSuccessor: async () => { throw new Error('injected successor failure'); },
+      assertClean: async () => true,
+    };
+    await assert.rejects(executePhaseDoneTransaction(request, effects), /injected successor failure/);
+    await assert.rejects(
+      executePhaseDoneTransaction({
+        ...request,
+        successor: { ...successor, phaseId: 'F5' },
+      }, {
+        ...effects,
+        materializeSuccessor: async () => {},
+      }),
+      /successor manifest conflicts/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('concurrent phase closes serialize on phase identity instead of closedAt', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-race-'));
+  try {
+    const first = transactionInput(root);
+    const second = transactionInput(root, {
+      close: { ...first.close, closedAt: '2026-07-14T20:00:01Z' },
+    });
+    let state = {
+      plan: structuredClone(first.plan),
+      phase: structuredClone(first.phase),
+      initiative: structuredClone(first.initiative),
+      tasks: structuredClone(first.tasks),
+      exitGates: structuredClone(first.exitGates),
+    };
+    let commitCalls = 0;
+    const effects = {
+      loadState: async () => structuredClone(state),
+      findCommit: async () => undefined,
+      commit: async (request) => {
+        commitCalls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        state.plan.phases[0].status = 'done';
+        state.phase.status = 'done';
+        state.initiative.status = 'done';
+        return { closeSha: String(commitCalls).padStart(40, 'a') };
+      },
+      emit: async () => {},
+      assertClean: async () => true,
+    };
+    const results = await Promise.all([
+      executePhaseDoneTransaction(first, effects),
+      executePhaseDoneTransaction(second, effects),
+    ]);
+    assert.equal(commitCalls, 1);
+    assert.equal(results.filter((result) => result.reused === true).length, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

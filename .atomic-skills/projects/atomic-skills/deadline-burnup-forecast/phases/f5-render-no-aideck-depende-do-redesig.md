@@ -34,14 +34,14 @@ exitGates:
       command: node --test tests/aideck-consumer-manifest.test.js
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-06-20T01:38:33Z
+      verifiedAt: 2026-06-20T10:14:59Z
       passed: true
       exitCode: 0
       testsCollected: 30
-      outputSummary: "F5 verifier on HEAD 54560eb — 30 pass / 0 fail (4 novos asserts
-        F5: dataSources burnup/spi, seção Ritmo, line-chart 3 séries scoped por
-        plano, SPI via gauge, todo widget no registry publicado). Guardrail de
-        widgets 4/0. Manifest refeito presente via merge 8ab9c8a."
+      outputSummary: "F5 verifier 30 pass/0 fail (4 asserts F5: dataSources
+        burnup/spi, seção Ritmo, line-chart 3 séries scoped, SPI via gauge,
+        widgets no registry publicado). Sobre o manifest refeito (merge
+        8ab9c8a)."
     verifierLabel: "shell: node --test tests/aideck-consumer-manifest.test.js"
     evidenceSummary: passed · 30 tests · 2026-06-20
 externalImports:
@@ -67,6 +67,7 @@ summary: Renderiza o burn-up/SPI no dashboard — bloqueada até o redesign do
   dashboard aterrissar.
 planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 ---
+
 
 # Narrative / notes
 

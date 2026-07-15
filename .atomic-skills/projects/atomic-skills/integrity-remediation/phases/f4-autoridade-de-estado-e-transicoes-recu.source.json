@@ -270,7 +270,7 @@
       ],
       "verifier": {
         "kind": "shell",
-        "command": "node --test tests/phase-materialization/materialize-verb.test.js tests/phase-materialization/materialize-transaction.test.js tests/phase-materialization/materialize-history-reconcile.test.js tests/phase-materialization/materialize-successor-barrier.test.js tests/lifecycle-gate-bypass.test.js && node scripts/materialize-state.js --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json",
+        "command": "node --test tests/phase-materialization/materialize-verb.test.js tests/phase-materialization/materialize-transaction.test.js tests/phase-materialization/materialize-history-reconcile.test.js tests/phase-materialization/materialize-successor-barrier.test.js tests/lifecycle-gate-bypass.test.js && node scripts/materialize-state.js --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json --plan .atomic-skills/projects/atomic-skills/integrity-remediation/plan.md",
         "expectExitCode": 0
       },
       "outputs": [
@@ -415,7 +415,7 @@
       "description": "Materialize e dispatch-log sobrevivem fault injection, e a reconciliação F0 é não deferível e exigida também ao ativar F3. FAILS when plan/initiative divergem, log deixa de ser NDJSON, defer/skip fecha F4, completion/evidence/closeSha de F0 ficam fora do receipt ou F3 ativa com receipt stale.",
       "verifier": {
         "kind": "shell",
-        "command": "node --test tests/phase-materialization/materialize-transaction.test.js tests/phase-materialization/materialize-history-reconcile.test.js tests/phase-materialization/materialize-successor-barrier.test.js tests/lifecycle-gate-bypass.test.js tests/append-completion-dispatchlog.test.js && node scripts/materialize-state.js --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json",
+        "command": "node --test tests/phase-materialization/materialize-transaction.test.js tests/phase-materialization/materialize-history-reconcile.test.js tests/phase-materialization/materialize-successor-barrier.test.js tests/lifecycle-gate-bypass.test.js tests/append-completion-dispatchlog.test.js && node scripts/materialize-state.js --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json --plan .atomic-skills/projects/atomic-skills/integrity-remediation/plan.md",
         "expectExitCode": 0
       },
       "status": "pending"

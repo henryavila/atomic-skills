@@ -31,10 +31,11 @@ exitGates:
       verifiedAt: 2026-06-20T01:33:14Z
       exitCode: 0
       passed: true
-      outputSummary: "node --test (parallel-state+links-sidecar+spawn-graph) → tests
-        64, pass 64, fail 0, exit 0. Gate escopado (node --test; RED ambiental,
-        precedente F0/F1). Review --mode=both: 11 findings (6 local + 5 codex, 2
-        disjuntos) corrigidos em 1f24eb3 antes do met."
+      outputSummary: node --test (parallel-state + links-sidecar + spawn-graph) →
+        tests 64, pass 64, fail 0, exit 0. Gate escopado (npm test → node
+        --test; RED ambiental, decisão do usuário, precedente F0/F1). Review
+        --mode=both achou+corrigiu 11 findings (6 local + 5 codex, 2 disjuntos
+        só do codex) em 1f24eb3 antes do met.
     verifier:
       kind: shell
       command: node --test tests/parallel-state.test.js tests/links-sidecar.test.js
@@ -136,6 +137,7 @@ summary: Protocolo de estado parallel com concorrência otimista (revisão,
 planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e retomada
 planActive: true
 ---
+
 
 # Narrative / notes
 

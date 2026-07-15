@@ -35,10 +35,8 @@ exitGates:
       verifiedAt: 2026-06-16T16:50:35Z
       passed: true
       exitCode: 0
-      outputSummary: grep refresh-state (project-transitions.md) OK; node --test
-        tests/install-uninstall-roundtrip.test.js → tests 8, pass 8, fail 0
-        (após os 3 fixes do review gate); validate-skills → '✓ All 15 skills
-        valid (schema_version 0.2)'; exit 0.
+      outputSummary: grep refresh-state OK; round-trip test 8/8 pass (após os 3 fixes
+        do review gate); validate-skills 15 skills válidas; exit 0.
     verifierLabel: "shell: grep -q 'refresh-state' skills/shared/project-assets/projec…"
     evidenceSummary: passed · 2026-06-16
 stack:
@@ -168,6 +166,7 @@ summary: "Fecha o gap do focus.json stale: transição usa refresh-state + insta
   conecta os hooks (com paridade uninstall)."
 planTitle: Reestruturação das skills atomic-skills
 ---
+
 
 # Narrative / notes
 

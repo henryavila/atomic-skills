@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-14T23:18:56Z
+lastUpdated: 2026-07-15T01:15:24Z
 stateIntegrityHardening:
   enforcedFrom: 2026-07-14T19:36:31Z
   successorBarriers:
@@ -352,6 +352,7 @@ phases:
               tests/append-completion-dispatchlog.test.js && node
               scripts/materialize-state.js --check-history-receipt
               docs/audits/integrity-remediation-f0-reconciliation.json
+              --plan .atomic-skills/projects/atomic-skills/integrity-remediation/plan.md
             expectExitCode: 0
     status: active
     businessIntent:

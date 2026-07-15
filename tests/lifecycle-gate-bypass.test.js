@@ -10,19 +10,24 @@ import { executePhaseDoneTransaction } from '../scripts/phase-done-transaction.j
 const SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 function input(overrides = {}) {
-  const phase = { id: 'F4', slug: 'demo-f4', status: 'active' };
+  const exitGates = structuredClone(overrides.exitGates ?? [{
+    id: 'F4-G3', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
+  }]);
+  const phase = {
+    id: 'F4', slug: 'demo-f4', status: 'active',
+    exitGate: { criteria: structuredClone(exitGates) },
+  };
   const initiative = {
     slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4', status: 'active',
     tasks: [{ id: 'T-1', status: 'done' }],
+    exitGates: structuredClone(exitGates),
   };
   return {
     plan: { slug: 'demo', phases: [phase] },
     phase,
     initiative,
     tasks: initiative.tasks,
-    exitGates: [{
-      id: 'F4-G3', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
-    }],
+    exitGates: structuredClone(exitGates),
     reviewGate: {
       status: 'passed', at: SHA, mode: 'local',
       reviewFile: '.atomic-skills/reviews/f4.md',
@@ -35,6 +40,7 @@ function input(overrides = {}) {
     lessonsState: 'recorded',
     requireLessons: true,
     ...overrides,
+    exitGates: structuredClone(exitGates),
   };
 }
 
@@ -59,6 +65,27 @@ test('preflight cannot replace authoritative initiative tasks with a detached em
   const result = classifyPhaseDonePreflight(request);
   assert.equal(result.allowed, false);
   assert.equal(result.code, 'phase-done-task-slice-mismatch');
+});
+
+test('commit guard cannot replace authoritative plan gates with a detached empty slice', () => {
+  const request = input();
+  request.plan.phases[0].exitGate = {
+    criteria: [{ id: 'F4-G3', status: 'pending' }],
+  };
+  request.phase = request.plan.phases[0];
+  request.initiative.exitGates = [{ id: 'F4-G3', status: 'pending' }];
+  request.exitGates = [];
+  const result = classifyPhaseDoneCommit(request);
+  assert.equal(result.allowed, false);
+  assert.match(result.code, /phase-done-(gate-slice-mismatch|open-gate)/);
+});
+
+test('preflight rejects duplicate phase ids even when one id/slug pair is unique', () => {
+  const request = input();
+  request.plan.phases.push({ id: 'F4', slug: 'other-f4', status: 'pending' });
+  const result = classifyPhaseDonePreflight(request);
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-identity-duplicate');
 });
 
 test('deferred, skipped, failed and evidence-less gates cannot reach terminal commit', () => {

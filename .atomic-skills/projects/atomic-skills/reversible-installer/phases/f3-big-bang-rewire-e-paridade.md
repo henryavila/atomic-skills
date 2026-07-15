@@ -44,14 +44,9 @@ exitGates:
       verifiedAt: 2026-06-19T20:05:00.000Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test tests/install-uninstall-roundtrip.test.js — tests 9,
-        pass 9, fail 0 (exit 0) no HEAD pós-fix 0a414e3. As 7 originais
-        (round-trip + 3 fixtures adversárias: third-party hook via jsonMerge,
-        refcount 2-owners + crash-retry, legado não-assinado P3) MAIS os 2 casos
-        novos que o review gate exigiu: install→UPDATE→uninstall sem resíduo
-        (CRITICAL A) e uninstall de manifesto LEGADO reverte provados + preserva
-        user-editado (CRITICAL B). Tudo byte-a-byte ao baseline com a engine do
-        pacote (file: link), src/kernel/ removido."
+      outputSummary: "round-trip 9/9 (exit 0) no HEAD pós-fix 0a414e3 — 7 originais +
+        os casos update→uninstall e legacy→uninstall que o review gate exigiu;
+        engine do pacote (file: link), src/kernel/ removido."
     verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
     evidenceSummary: passed · 2026-06-19
   - id: G-2
@@ -439,6 +434,7 @@ summary: Religa atomic-skills sobre o kernel do pacote (SkillsProvider +
   prova paridade atravessando a dependência.
 planTitle: Reversible Installer — motor de instalação reversível e reutilizável
 ---
+
 
 # Narrative / notes
 

@@ -32,10 +32,14 @@ exitGates:
       verifiedAt: 2026-06-21T00:40:11Z
       exitCode: 0
       passed: true
-      outputSummary: "node --test tests/focus-digest.test.js
-        tests/reconcile-focus.test.js (npm test escopado, baseline RED
-        ambiental) → 26 pass, exit 0, HEAD 9b96ab2. Review --mode=both: local 6
-        + codex blind 5→final 6, todos corrigidos."
+      outputSummary: "Verifier npm test escopado p/ `node --test
+        tests/focus-digest.test.js tests/reconcile-focus.test.js` (baseline RED
+        ambiental — install/dashboard): tests 26, pass 26, fail 0, exit 0, tree
+        limpa HEAD 9b96ab2. Full npm test: 10 fails, todos ambientais, 0 novos
+        (964 pass). emit-focus colapsa fork pai→filho (foco no filho, ⧉ limpa) e
+        reconcile defere o current do pai; ambos intra-project, robustos a
+        ciclo/torn-sidecar. Review --mode=both: local 6 + codex blind 5→final 6,
+        todos corrigidos."
     verifierLabel: "shell: npm test"
     evidenceSummary: passed · 2026-06-21
 stack:
@@ -122,6 +126,7 @@ planTitle: plan-fork — fases que viram planos-filho, com pausa/paralelo e reto
 planActive: true
 current: true
 ---
+
 
 # Narrative / notes
 

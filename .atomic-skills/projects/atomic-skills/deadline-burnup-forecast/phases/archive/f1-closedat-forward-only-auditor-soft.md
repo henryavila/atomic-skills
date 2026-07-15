@@ -35,7 +35,8 @@ exitGates:
       verifiedAt: 2026-06-19T09:15:51Z
       passed: true
       exitCode: 0
-      outputSummary: G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit 0
+      outputSummary: G-1 3-test chain on HEAD 5a735b9 — 19 pass (4+14+1), 0 fail, exit
+        0; auditor also green on live tree (every done task has closedAt)
     verifierLabel: "shell: node --test tests/find-unclosed-done.test.js && node --test…"
     evidenceSummary: passed · 2026-06-19
 stack:
@@ -100,6 +101,7 @@ planTitle: Deadline Burn-up Forecast (Earned Value / SPI)
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

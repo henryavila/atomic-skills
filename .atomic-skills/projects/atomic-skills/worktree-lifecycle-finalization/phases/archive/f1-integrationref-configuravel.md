@@ -38,7 +38,9 @@ exitGates:
       testsCollected: 6
       passed: true
       outputSummary: "node --test tests/integration-ref.test.js @ af6c934: tests 6,
-        pass 6, fail 0."
+        pass 6, fail 0. Resolvedor (T-002) aplica default develop + sinaliza
+        not-configured sem assumir; schema (T-001) aceita integrationRef e
+        rejeita chave desconhecida."
     verifierLabel: "test: node tests/integration-ref.test.js"
     evidenceSummary: passed · 6 tests · 2026-06-17
   - id: G-2
@@ -53,7 +55,8 @@ exitGates:
       verifiedAt: 2026-06-17T13:56:08Z
       exitCode: 0
       passed: true
-      outputSummary: routing-schema 4/4 && validate-skills All 15 valid @ af6c934, exit 0.
+      outputSummary: node --test tests/routing-schema.test.js (tests 4, pass 4) && npm
+        run validate-skills (All 15 skills valid) @ af6c934, exit 0.
     verifierLabel: "shell: node --test tests/routing-schema.test.js && npm run validat…"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -150,6 +153,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

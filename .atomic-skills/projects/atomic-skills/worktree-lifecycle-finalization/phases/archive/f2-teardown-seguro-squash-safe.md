@@ -38,8 +38,11 @@ exitGates:
       testsCollected: 21
       passed: true
       outputSummary: "node --test tests/worktree-teardown.test.js @ 2a69940: tests 21,
-        pass 21, fail 0 (2 oráculos de squash + G9 mutation-kill + 4 testes de
-        hardening)."
+        pass 21, fail 0. resolveBaseRef consome resolveIntegrationRef; liveness
+        gh (MERGED+baseRefName+headRefOid) + veto squash-safe (HEAD==headRefOid
+        OU ancestor; residue-beyond-head BLOQUEIA); indeterminação BLOQUEIA; sem
+        -D/--force/rm -rf. Inclui 2 oráculos de squash + G9 mutation-kill + 4
+        testes de hardening do review-gate."
     verifierLabel: "test: node tests/worktree-teardown.test.js"
     evidenceSummary: passed · 21 tests · 2026-06-17
   - id: G-2
@@ -54,7 +57,8 @@ exitGates:
       verifiedAt: 2026-06-17T16:51:02Z
       exitCode: 0
       passed: true
-      outputSummary: "npm run validate-skills @ 2a69940: All 15 skills valid, exit 0."
+      outputSummary: "npm run validate-skills @ 2a69940: All 15 skills valid
+        (schema_version 0.2), exit 0."
     verifierLabel: "shell: npm run validate-skills"
     evidenceSummary: passed · 2026-06-17
 stack:
@@ -133,6 +137,7 @@ planTitle: Finalização do ciclo de vida da worktree-do-plano
 planActive: true
 current: false
 ---
+
 
 # Narrative / notes
 

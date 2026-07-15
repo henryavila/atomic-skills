@@ -19,14 +19,29 @@ const reviewProvenance = { reviewCommitExists: true, reviewFileMatches: true };
 const phaseDoneIdentity = {
   plan: {
     slug: 'order-guards',
-    phases: [{ id: 'F4', slug: 'order-guards-f4', status: 'active' }],
+    phases: [{
+      id: 'F4', slug: 'order-guards-f4', status: 'active',
+      exitGate: { criteria: [metGate()] },
+    }],
   },
-  phase: { id: 'F4', slug: 'order-guards-f4', status: 'active' },
+  phase: {
+    id: 'F4', slug: 'order-guards-f4', status: 'active',
+    exitGate: { criteria: [metGate()] },
+  },
   initiative: {
     parentPlan: 'order-guards', phaseId: 'F4', slug: 'order-guards-f4', status: 'active',
     tasks: [{ id: 'T-001', status: 'done' }],
+    exitGates: [metGate()],
   },
 };
+
+function phaseDoneIdentityWithGates(gates) {
+  const identity = structuredClone(phaseDoneIdentity);
+  identity.plan.phases[0].exitGate.criteria = structuredClone(gates);
+  identity.phase.exitGate.criteria = structuredClone(gates);
+  identity.initiative.exitGates = structuredClone(gates);
+  return identity;
+}
 
 function deepFreeze(value) {
   if (value == null || typeof value !== 'object') return value;
@@ -177,11 +192,12 @@ test('blocks phase-done while tasks are open and recommends the task close comma
 });
 
 test('blocks phase-done while exit gates are open', () => {
+  const gates = [{ id: 'G-1', status: 'pending' }];
   const result = classifyLifecycleOrder({
     command: 'phase-done',
-    ...phaseDoneIdentity,
+    ...phaseDoneIdentityWithGates(gates),
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [{ id: 'G-1', status: 'pending' }],
+    exitGates: gates,
     reviewGate: { status: 'passed', at: 'abc123' },
   });
 
@@ -304,14 +320,15 @@ test('allows phase-done when the review SHA matches HEAD and the worktree is cle
 });
 
 test('blocks phase-done when any exit gate is deferred, even with a reason', () => {
+  const gates = [
+    metGate(),
+    { id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' },
+  ];
   const result = classifyLifecycleOrder({
     command: 'phase-done',
-    ...phaseDoneIdentity,
+    ...phaseDoneIdentityWithGates(gates),
     tasks: [{ id: 'T-001', status: 'done' }],
-    exitGates: [
-      metGate(),
-      { id: 'G-2', status: 'deferred', deferredReason: 'operator accepted non-blocking follow-up' },
-    ],
+    exitGates: gates,
     reviewGate: passedReview(),
     currentHead: CURRENT_REVIEW_SHA,
     worktreeDirty: false,

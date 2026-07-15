@@ -14,6 +14,7 @@ import {
   classifyPhaseDoneCommit,
   classifyPhaseDonePreflight,
 } from './lifecycle-order-guard.js';
+import { withScopeTransactionLock } from './transaction-lock.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'closedAt'];
 const STAGES = new Set(['prepared', 'committed', 'emitted', 'successor-materialized']);
@@ -25,6 +26,41 @@ function hasText(value) {
 
 function requireText(record, field, label) {
   if (!hasText(record?.[field])) throw new TypeError(`${label}.${field} is required`);
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().flatMap((key) => (
+      value[key] === undefined ? [] : [[key, canonicalize(value[key])]]
+    )));
+  }
+  return value;
+}
+
+function digestValue(value) {
+  return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+}
+
+function terminalStatus(value) {
+  return value === 'done' || value === 'archived';
+}
+
+function normalizedSuccessor(input) {
+  if (input?.successor == null) return null;
+  const successor = input.successor;
+  if (!successor || typeof successor !== 'object' || Array.isArray(successor)) {
+    throw new TypeError('successor manifest must be an object');
+  }
+  for (const field of ['phaseId', 'planPath', 'initiativePath']) {
+    requireText(successor, field, 'successor');
+  }
+  for (const field of ['planHash', 'initiativeHash']) {
+    if (typeof successor[field] !== 'string' || !/^[0-9a-f]{64}$/.test(successor[field])) {
+      throw new TypeError(`successor.${field} must be a lowercase sha256 digest`);
+    }
+  }
+  return structuredClone(successor);
 }
 
 export function buildPhaseDoneIdempotencyKey(close = {}) {
@@ -62,7 +98,9 @@ export function readPhaseDoneRecovery(root, idempotencyKey) {
   const marker = JSON.parse(readFileSync(path, 'utf8'));
   if (marker?.schemaVersion !== 1 || marker?.idempotencyKey !== idempotencyKey
       || !STAGES.has(marker?.stage)
-      || buildPhaseDoneIdempotencyKey(marker?.close) !== idempotencyKey) {
+      || buildPhaseDoneIdempotencyKey(marker?.close) !== idempotencyKey
+      || !Object.hasOwn(marker, 'successor')
+      || marker.successorDigest !== digestValue(marker.successor)) {
     throw new Error(`phase-done transaction recovery marker is invalid: ${path}`);
   }
   if (marker.stage !== 'prepared') validateCommitValue(marker.value, path);
@@ -99,6 +137,10 @@ function validateTransactionInput(input) {
   if (input.close.phaseId !== input.phase.id) {
     throw new TypeError('close.phaseId must match phase.id');
   }
+  if (input.plan.__projectId !== input.close.projectId
+      || input.initiative?.__projectId !== input.close.projectId) {
+    throw new TypeError('close.projectId must match the authoritative plan and initiative projectId');
+  }
   return idempotencyKey;
 }
 
@@ -114,100 +156,167 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     return { ok: false, stage: 'preflight', decision: preflight };
   }
 
-  let idempotencyKey;
-  let marker = null;
-  if (hasText(input.root) && input.close && typeof input.close === 'object') {
-    idempotencyKey = validateTransactionInput(input);
-    marker = readPhaseDoneRecovery(input.root, idempotencyKey);
-  }
-  if (marker && !isDeepStrictEqual(marker.close, input.close)) {
-    throw new Error(`phase-done transaction close payload conflicts with ${idempotencyKey}`);
-  }
-
-  let commitInput = input;
-  let commitDecision = null;
-  if (!marker || marker.stage === 'prepared') {
+  if (!hasText(input.root) || !input.close || typeof input.close !== 'object') {
     const produced = typeof effects.produceEvidence === 'function'
       ? await effects.produceEvidence(input)
       : {};
-    commitInput = {
+    const decision = classifyPhaseDoneCommit({ ...input, ...(produced ?? {}) });
+    if (!decision.allowed) return { ok: false, stage: 'commit-guard', decision };
+    validateTransactionInput(input);
+  }
+
+  const requestedKey = validateTransactionInput(input);
+  for (const name of ['findCommit', 'commit', 'emit', 'assertClean', 'loadState']) {
+    if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
+  }
+  const scope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
+  return withScopeTransactionLock(input.root, 'phase-done', scope, async () => {
+    let marker = readPhaseDoneRecovery(input.root, requestedKey);
+    if (marker && !isDeepStrictEqual(marker.close, input.close)) {
+      throw new Error(`phase-done transaction close payload conflicts with ${requestedKey}`);
+    }
+
+    const loaded = await effects.loadState({
+      root: input.root,
+      projectId: input.close.projectId,
+      planSlug: input.close.planSlug,
+      phaseId: input.close.phaseId,
+      candidate: input,
+    });
+    if (!loaded || typeof loaded !== 'object') {
+      throw new TypeError('effects.loadState must return authoritative phase state');
+    }
+    const authoritativeInput = {
       ...input,
-      ...(produced ?? {}),
+      ...loaded,
       root: input.root,
       close: input.close,
     };
-    commitDecision = classifyPhaseDoneCommit(commitInput);
-    if (!commitDecision.allowed) {
-      return { ok: false, stage: 'commit-guard', decision: commitDecision };
+    validateTransactionInput(authoritativeInput);
+    const freshPreflight = classifyPhaseDonePreflight(authoritativeInput);
+    if (!freshPreflight.allowed) {
+      return { ok: false, stage: 'preflight', decision: freshPreflight };
     }
-    const validatedKey = validateTransactionInput(commitInput);
-    if (idempotencyKey !== undefined && idempotencyKey !== validatedKey) {
-      throw new Error('phase-done transaction identity changed during evidence production');
-    }
-    idempotencyKey = validatedKey;
-  }
-  for (const name of ['findCommit', 'commit', 'emit', 'assertClean']) {
-    if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
-  }
 
-  if (!marker) {
-    marker = {
-      schemaVersion: 1,
-      idempotencyKey,
-      stage: 'prepared',
-      close: structuredClone(commitInput.close),
+    const descriptorTerminal = terminalStatus(authoritativeInput.phase?.status);
+    const initiativeTerminal = terminalStatus(authoritativeInput.initiative?.status);
+    if (!marker && (descriptorTerminal || initiativeTerminal)) {
+      if (descriptorTerminal !== initiativeTerminal) {
+        throw new Error('authoritative phase terminal state is inconsistent across mirrors');
+      }
+      return {
+        ok: true,
+        reused: true,
+        stage: 'committed',
+        decision: { allowed: true, recovered: true },
+        idempotencyKey: null,
+        closeSha: null,
+        value: null,
+      };
+    }
+
+    let commitInput = authoritativeInput;
+    let commitDecision = null;
+    if (!marker || marker.stage === 'prepared') {
+      const produced = typeof effects.produceEvidence === 'function'
+        ? await effects.produceEvidence(authoritativeInput)
+        : {};
+      commitInput = {
+        ...authoritativeInput,
+        ...(produced ?? {}),
+        root: input.root,
+        close: input.close,
+        plan: authoritativeInput.plan,
+        phase: authoritativeInput.phase,
+        initiative: authoritativeInput.initiative,
+        tasks: authoritativeInput.initiative?.tasks,
+      };
+      commitDecision = classifyPhaseDoneCommit(commitInput);
+      if (!commitDecision.allowed) {
+        return { ok: false, stage: 'commit-guard', decision: commitDecision };
+      }
+      if (validateTransactionInput(commitInput) !== requestedKey) {
+        throw new Error('phase-done transaction identity changed during evidence production');
+      }
+    }
+
+    const successor = normalizedSuccessor(commitInput);
+    const hasMaterializer = typeof effects.materializeSuccessor === 'function';
+    if ((successor !== null) !== hasMaterializer) {
+      throw new TypeError(successor === null
+        ? 'effects.materializeSuccessor requires a persisted successor manifest'
+        : 'effects.materializeSuccessor is required by the successor manifest');
+    }
+    if (marker && !isDeepStrictEqual(marker.successor, successor)) {
+      throw new Error(`phase-done successor manifest conflicts with ${requestedKey}`);
+    }
+
+    if (!marker) {
+      marker = {
+        schemaVersion: 1,
+        idempotencyKey: requestedKey,
+        stage: 'prepared',
+        close: structuredClone(commitInput.close),
+        successor,
+        successorDigest: digestValue(successor),
+      };
+      writePhaseDoneRecovery(commitInput.root, marker);
+    }
+
+    let value = marker.value;
+    let transactionInput = {
+      ...commitInput,
+      successor: structuredClone(marker.successor),
+      idempotencyKey: requestedKey,
     };
-    writePhaseDoneRecovery(commitInput.root, marker);
-  }
-
-  let value = marker.value;
-  let transactionInput = { ...commitInput, idempotencyKey };
-  if (marker.stage === 'prepared') {
-    value = await effects.findCommit(transactionInput, marker);
-    if (!value) value = await effects.commit(transactionInput, marker);
-    validateCommitValue(value);
-    marker = { ...marker, stage: 'committed', value };
-    writePhaseDoneRecovery(commitInput.root, marker);
-  } else {
-    validateCommitValue(value);
-    const authenticated = await effects.findCommit(
-      { ...transactionInput, closeSha: value.closeSha },
-      marker,
-    );
-    if (!authenticated || authenticated.closeSha !== value.closeSha) {
-      throw new Error('phase-done transaction stored closeSha could not be authenticated');
+    if (marker.stage === 'prepared') {
+      value = await effects.findCommit(transactionInput, marker);
+      if (!value) value = await effects.commit(transactionInput, marker);
+      validateCommitValue(value);
+      marker = { ...marker, stage: 'committed', value };
+      writePhaseDoneRecovery(commitInput.root, marker);
+    } else {
+      validateCommitValue(value);
+      const authenticated = await effects.findCommit(
+        { ...transactionInput, closeSha: value.closeSha },
+        marker,
+      );
+      if (!authenticated || authenticated.closeSha !== value.closeSha) {
+        throw new Error('phase-done transaction stored closeSha could not be authenticated');
+      }
     }
-  }
 
-  transactionInput = { ...transactionInput, closeSha: value.closeSha };
-  if (marker.stage === 'committed') {
-    await effects.emit(transactionInput, value, marker);
-    marker = { ...marker, stage: 'emitted' };
-    writePhaseDoneRecovery(commitInput.root, marker);
-  }
+    transactionInput = { ...transactionInput, closeSha: value.closeSha };
+    if (marker.stage === 'committed') {
+      await effects.emit(transactionInput, value, marker);
+      marker = { ...marker, stage: 'emitted' };
+      writePhaseDoneRecovery(commitInput.root, marker);
+    }
 
-  if (marker.stage === 'emitted' && typeof effects.materializeSuccessor === 'function') {
-    await effects.materializeSuccessor(transactionInput, value, marker);
-    marker = { ...marker, stage: 'successor-materialized' };
-    writePhaseDoneRecovery(commitInput.root, marker);
-  }
+    if (marker.stage === 'emitted' && marker.successor !== null) {
+      await effects.materializeSuccessor(transactionInput, value, marker);
+      marker = { ...marker, stage: 'successor-materialized' };
+      writePhaseDoneRecovery(commitInput.root, marker);
+    }
 
-  const clean = await effects.assertClean({
-    idempotencyKey,
-    ignorePath: phaseDoneRecoveryPath(commitInput.root, idempotencyKey),
-    closeSha: value.closeSha,
-    value,
+    const clean = await effects.assertClean({
+      idempotencyKey: requestedKey,
+      ignorePath: phaseDoneRecoveryPath(commitInput.root, requestedKey),
+      closeSha: value.closeSha,
+      value,
+    });
+    if (clean !== true) {
+      throw new Error('phase-done transaction did not leave a clean transition-owned worktree');
+    }
+    clearPhaseDoneRecovery(commitInput.root, requestedKey);
+    return {
+      ok: true,
+      reused: false,
+      stage: 'committed',
+      decision: commitDecision ?? { allowed: true, recovered: true },
+      idempotencyKey: requestedKey,
+      closeSha: value.closeSha,
+      value,
+    };
   });
-  if (clean !== true) {
-    throw new Error('phase-done transaction did not leave a clean transition-owned worktree');
-  }
-  clearPhaseDoneRecovery(commitInput.root, idempotencyKey);
-  return {
-    ok: true,
-    stage: 'committed',
-    decision: commitDecision ?? { allowed: true, recovered: true },
-    idempotencyKey,
-    closeSha: value.closeSha,
-    value,
-  };
 }
