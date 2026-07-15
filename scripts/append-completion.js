@@ -47,7 +47,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -338,6 +338,40 @@ function sameLogicalCompletion(existing, candidate) {
   return isDeepStrictEqual(withoutTimestamp(existing), withoutTimestamp(candidate));
 }
 
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().flatMap((key) => (
+      value[key] === undefined ? [] : [[key, canonicalize(value[key])]]
+    )));
+  }
+  return value;
+}
+
+function completionDigest(record) {
+  return createHash('sha256').update(JSON.stringify(canonicalize(record))).digest('hex');
+}
+
+function reconcilesExactDuplicates(records, allRecords) {
+  if (records.length < 2) return false;
+  const canonical = records[0];
+  const eventIdentity = `${canonical.event ?? '<unknown>'}:${canonical.taskId ?? '<phase>'}`;
+  const canonicalDigest = completionDigest(canonical);
+  const duplicateDigests = records.slice(1).map(completionDigest);
+  const tombstones = allRecords.filter((record) => (
+    record?.event === 'reconcile'
+    && record?.projectId === canonical.projectId
+    && record?.planSlug === canonical.planSlug
+    && record?.phaseId === canonical.phaseId
+    && record?.closeSha === canonical.closeSha
+    && record?.reconciliation?.action === 'ignore-duplicate-completion'
+    && record.reconciliation.eventIdentity === eventIdentity
+    && record.reconciliation.canonicalDigest === canonicalDigest
+    && isDeepStrictEqual(record.reconciliation.duplicateDigests, duplicateDigests)
+  ));
+  return tombstones.length === 1;
+}
+
 function processAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
@@ -605,15 +639,20 @@ export function ensureCompletion(root, entry, { beforeAppend } = {}) {
   }
   const candidate = normalize(effectiveEntry);
   return withCompletionLedgerLock(root, (ledger) => {
-    const existing = ledger.readRecords()
-      .find((record) => record.idempotencyKey === candidate.idempotencyKey);
-    if (existing) {
-      if (!sameLogicalCompletion(existing, candidate)) {
+    const records = ledger.readRecords();
+    const matches = records.filter((record) => record.idempotencyKey === candidate.idempotencyKey);
+    if (matches.length > 0) {
+      if (!sameLogicalCompletion(matches[0], candidate)) {
         throw new Error(
           `ensureCompletion: idempotency key conflict for ${JSON.stringify(candidate.idempotencyKey)}`,
         );
       }
-      return { record: existing, appended: false };
+      if (matches.length > 1 && !reconcilesExactDuplicates(matches, records)) {
+        throw new Error(
+          `ensureCompletion: duplicate idempotency records require exactly one reconciliation for ${JSON.stringify(candidate.idempotencyKey)}`,
+        );
+      }
+      return { record: matches[0], appended: false };
     }
     if (typeof beforeAppend === 'function') beforeAppend();
     ledger.appendRecord(candidate);

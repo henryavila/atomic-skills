@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T01:15:24Z
-nextAction: Run `phase-done` after verifying F4-G1..F4-G3 and completing the Codex phase review.
+lastUpdated: 2026-07-15T02:15:35Z
+nextAction: Run the fresh Codex r6 phase review on the r5 remediation checkpoint.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -615,25 +615,42 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   exatamente uma initiative F4 atual em live/archive e confere tasks e mirrors
   antes de usar o histórico. O receipt r4 permanece `needs_changes`; um
   checkpoint novo e review r5 fresco são obrigatórios para aprovar F4.
+- **2026-07-14 — review Codex F4 r5:** o critical e os dez majors foram
+  reproduzidos e corrigidos sem defer. Evidence de fase agora é um bundle
+  candidato autenticado que atualiza os dois mirrors sem permitir drift fora
+  de gate/review; recovery descobre um único marker pela identidade lógica e
+  preserva o close original mesmo quando o retry muda `closedAt`. Task reuse
+  usa evidence, next action e handoff persistidos e reautentica/repara o ledger
+  em todos os estágios. O lock publica owner completo por hard link atômico.
+  Barrier de sucessor vincula receipt ao path canônico do projeto, e ranges de
+  review usam um parser compartilhado para `..`/`...`. A migração aceita paths
+  Windows, rejeita IDs duplicados antes de writes e publica o conjunto sob
+  manifesto durável com rollback/recovery integral e paths confinados à raiz.
+  O ledger só tolera duplicata com um tombstone exato sobre digests ordenados.
+  Decisões adicionais do self-review: rejeitar completion malformada no marker,
+  ranges com larguras de SHA diferentes e manifesto/backup symlink ou fora da
+  raiz. O receipt r5 permanece `needs_changes`; somente r6 fresco no checkpoint
+  remediado pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou os oito majors do review r1,
-  os doze do r2, 1 critical/13 majors oficiais do r3 e os cinco majors do r4,
-  além dos hardenings proativos e correções de integração. A suíte completa
-  está verde; falta o review Codex r5 do novo checkpoint.
-- **Decision log:** nenhum finding r1/r2/r3/r4 foi deferido. Duplicatas históricas são
+  os doze do r2, 1 critical/13 majors oficiais do r3, os cinco majors do r4 e
+  1 critical/10 majors do r5, além dos hardenings proativos e correções de
+  integração. A suíte completa está verde; falta o review Codex r6 do novo
+  checkpoint.
+- **Decision log:** nenhum finding r1/r2/r3/r4/r5 foi deferido. Duplicatas históricas são
   preservadas fisicamente e neutralizadas por tombstone auditável; recovery só
   avança enquanto receipt, review, gates, evento e close SHA continuam ligados.
   Provenance conflitante nunca é sintetizada; estado terminal isolado não prova
   fechamento; e publicação permanece sob o lock da autoridade validada.
-- **Single nextAction:** Run the fresh Codex r5 phase review on the r4 remediation checkpoint.
-- **Verbatim state:** review r4 → 0B/0C/5M; red regressions → 8 failures;
-  remediation focused → 61/61 + 123/123 pass; full repository suite → 1,889
-  pass, 0 fail, 8 skip; canonical state → 167 arquivos/26 planos válidos;
-  receipt F0 plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r4, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r5.
+- **Single nextAction:** Run the fresh Codex r6 phase review on the r5 remediation checkpoint.
+- **Verbatim state:** review r5 → 0B/1C/10M; 11 findings reproduced and fixed;
+  exact gates → 30/30 + 40/40 + 64/64 pass; full repository suite → 1,903
+  pass, 0 fail, 8 skip; focused post-hardening → 143/143 pass; canonical
+  state → 167 arquivos/26 planos válidos; receipt F0 plan-bound → `ok: true`.
+- **Uncommitted changes:** remediação r5, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r6.
 
 ## Links
 

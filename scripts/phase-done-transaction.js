@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   renameSync,
   unlinkSync,
   writeFileSync,
@@ -45,6 +46,10 @@ function digestValue(value) {
 
 function terminalStatus(value) {
   return value === 'done' || value === 'archived';
+}
+
+function samePhaseScope(left, right) {
+  return ['projectId', 'planSlug', 'phaseId'].every((field) => left?.[field] === right?.[field]);
 }
 
 function authenticateTerminalCompletion(root, close) {
@@ -133,6 +138,83 @@ export function readPhaseDoneRecovery(root, idempotencyKey) {
   return marker;
 }
 
+function findPhaseDoneRecoveryByScope(root, close) {
+  const dir = dirname(phaseDoneRecoveryPath(root, buildPhaseDoneIdempotencyKey(close)));
+  if (!existsSync(dir)) return null;
+  const matches = [];
+  for (const name of readdirSync(dir).filter((entry) => entry.endsWith('.json'))) {
+    const path = join(dir, name);
+    let candidate;
+    try {
+      candidate = JSON.parse(readFileSync(path, 'utf8'));
+    } catch (error) {
+      throw new Error(`phase-done transaction recovery marker is invalid: ${path}: ${error.message}`);
+    }
+    if (!samePhaseScope(candidate?.close, close)) continue;
+    if (phaseDoneRecoveryPath(root, candidate.idempotencyKey) !== path) {
+      throw new Error(`phase-done transaction recovery marker path does not match its identity: ${path}`);
+    }
+    matches.push(readPhaseDoneRecovery(root, candidate.idempotencyKey));
+  }
+  if (matches.length > 1) {
+    throw new Error('phase-done transaction has multiple recovery markers for one logical phase scope');
+  }
+  return matches[0] ?? null;
+}
+
+function withoutKeys(value, keys) {
+  const copy = structuredClone(value);
+  for (const key of keys) delete copy[key];
+  return copy;
+}
+
+function authenticatedCandidateBundle(authoritative, produced) {
+  const supplied = ['plan', 'phase', 'initiative'].filter((field) => produced?.[field] !== undefined);
+  if (supplied.length === 0) {
+    return {
+      plan: authoritative.plan,
+      phase: authoritative.phase,
+      initiative: authoritative.initiative,
+    };
+  }
+  if (supplied.length !== 3) {
+    throw new TypeError('evidence production must return plan, phase and initiative as one candidate state bundle');
+  }
+  const candidate = {
+    plan: produced.plan,
+    phase: produced.phase,
+    initiative: produced.initiative,
+  };
+  validateTransactionInput({ ...authoritative, ...candidate });
+  const candidateDescriptors = candidate.plan.phases.filter((item) => (
+    item?.id === candidate.phase.id && item?.slug === candidate.phase.slug
+  ));
+  if (candidateDescriptors.length !== 1 || !isDeepStrictEqual(candidateDescriptors[0], candidate.phase)) {
+    throw new Error('candidate phase must be the exact value persisted in the candidate plan descriptor');
+  }
+  const authoritativeDescriptor = authoritative.plan.phases.find((item) => (
+    item?.id === authoritative.phase.id && item?.slug === authoritative.phase.slug
+  ));
+  const normalizedPlan = structuredClone(candidate.plan);
+  normalizedPlan.phases = normalizedPlan.phases.map((item) => (
+    item?.id === candidate.phase.id && item?.slug === candidate.phase.slug
+      ? structuredClone(authoritativeDescriptor)
+      : item
+  ));
+  if (!isDeepStrictEqual(normalizedPlan, authoritative.plan)
+      || !isDeepStrictEqual(
+        withoutKeys(candidate.phase, ['exitGate', 'reviewGate']),
+        withoutKeys(authoritative.phase, ['exitGate', 'reviewGate']),
+      )
+      || !isDeepStrictEqual(
+        withoutKeys(candidate.initiative, ['exitGates']),
+        withoutKeys(authoritative.initiative, ['exitGates']),
+      )) {
+    throw new Error('evidence production candidate changed fields outside gate and review evidence');
+  }
+  return candidate;
+}
+
 function writePhaseDoneRecovery(root, marker) {
   const path = phaseDoneRecoveryPath(root, marker.idempotencyKey);
   mkdirSync(dirname(path), { recursive: true });
@@ -197,8 +279,11 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
   }
   const scope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
   return withScopeTransactionLock(input.root, 'phase-done', scope, async () => {
-    let marker = readPhaseDoneRecovery(input.root, requestedKey);
-    if (marker && !isDeepStrictEqual(marker.close, input.close)) {
+    const requestedMarker = readPhaseDoneRecovery(input.root, requestedKey);
+    const scopeMarker = findPhaseDoneRecoveryByScope(input.root, input.close);
+    let marker = requestedMarker ?? scopeMarker;
+    const idempotencyKey = marker?.idempotencyKey ?? requestedKey;
+    if (marker?.idempotencyKey === requestedKey && !isDeepStrictEqual(marker.close, input.close)) {
       throw new Error(`phase-done transaction close payload conflicts with ${requestedKey}`);
     }
 
@@ -216,7 +301,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       ...input,
       ...loaded,
       root: input.root,
-      close: input.close,
+      close: marker?.close ?? input.close,
     };
     validateTransactionInput(authoritativeInput);
     const freshPreflight = classifyPhaseDonePreflight(authoritativeInput);
@@ -299,21 +384,22 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       const produced = typeof effects.produceEvidence === 'function'
         ? await effects.produceEvidence(authoritativeInput)
         : {};
+      const candidate = authenticatedCandidateBundle(authoritativeInput, produced ?? {});
       commitInput = {
         ...authoritativeInput,
         ...(produced ?? {}),
         root: input.root,
-        close: input.close,
-        plan: authoritativeInput.plan,
-        phase: authoritativeInput.phase,
-        initiative: authoritativeInput.initiative,
-        tasks: authoritativeInput.initiative?.tasks,
+        close: authoritativeInput.close,
+        ...candidate,
+        tasks: candidate.initiative?.tasks,
+        exitGates: candidate.phase?.exitGate?.criteria,
+        reviewGate: produced?.reviewGate ?? candidate.phase?.reviewGate ?? authoritativeInput.reviewGate,
       };
       commitDecision = classifyPhaseDoneCommit(commitInput);
       if (!commitDecision.allowed) {
         return { ok: false, stage: 'commit-guard', decision: commitDecision };
       }
-      if (validateTransactionInput(commitInput) !== requestedKey) {
+      if (validateTransactionInput(commitInput) !== idempotencyKey) {
         throw new Error('phase-done transaction identity changed during evidence production');
       }
     }
@@ -326,13 +412,13 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
         : 'effects.materializeSuccessor is required by the successor manifest');
     }
     if (marker && !isDeepStrictEqual(marker.successor, successor)) {
-      throw new Error(`phase-done successor manifest conflicts with ${requestedKey}`);
+      throw new Error(`phase-done successor manifest conflicts with ${idempotencyKey}`);
     }
 
     if (!marker) {
       marker = {
         schemaVersion: 1,
-        idempotencyKey: requestedKey,
+        idempotencyKey,
         stage: 'prepared',
         close: structuredClone(commitInput.close),
         successor,
@@ -345,7 +431,7 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     let transactionInput = {
       ...commitInput,
       successor: structuredClone(marker.successor),
-      idempotencyKey: requestedKey,
+      idempotencyKey,
     };
     if (marker.stage === 'prepared') {
       value = await effects.findCommit(transactionInput, marker);
@@ -378,21 +464,21 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     }
 
     const clean = await effects.assertClean({
-      idempotencyKey: requestedKey,
-      ignorePath: phaseDoneRecoveryPath(commitInput.root, requestedKey),
+      idempotencyKey,
+      ignorePath: phaseDoneRecoveryPath(commitInput.root, idempotencyKey),
       closeSha: value.closeSha,
       value,
     });
     if (clean !== true) {
       throw new Error('phase-done transaction did not leave a clean transition-owned worktree');
     }
-    clearPhaseDoneRecovery(commitInput.root, requestedKey);
+    clearPhaseDoneRecovery(commitInput.root, idempotencyKey);
     return {
       ok: true,
       reused: false,
       stage: 'committed',
       decision: commitDecision ?? { allowed: true, recovered: true },
-      idempotencyKey: requestedKey,
+      idempotencyKey,
       closeSha: value.closeSha,
       value,
     };

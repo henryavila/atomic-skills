@@ -1272,6 +1272,8 @@ test('persisted review provenance requires an approving structured receipt at th
 
     writeFileSync(reviewFile, `---\nartifact: ${'b'.repeat(40)}..${sha}\nskill: review-code\nreviewer: gpt-5-codex\nmode: codex\nfinal_verdict: approve\nschema_version: "1.0"\n---\n`);
     assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, root, 'codex'), true);
+    writeFileSync(reviewFile, `---\nartifact: ${'b'.repeat(40)}...${sha}\nskill: review-code\nreviewer: gpt-5-codex\nmode: codex\nfinal_verdict: approve\nschema_version: "1.0"\n---\n`);
+    assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, root, 'codex'), true);
     assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, root, 'both'), false);
     assert.equal(persistedReviewMatches('.atomic-skills/reviews/p-f0.md', sha, join(root, 'other'), 'codex'), false);
   } finally {

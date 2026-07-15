@@ -1,13 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stringify as stringifyYaml } from 'yaml';
 
-import { planStateIntegrityMigration } from '../scripts/migrate-state-integrity.js';
+import {
+  applyMigrationAtomically,
+  kindFromFile,
+  planStateIntegrityMigration,
+  projectIdFromPath,
+  recoverMigrationTransaction,
+} from '../scripts/migrate-state-integrity.js';
 import { parseFrontmatter } from '../scripts/validate-state.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +60,92 @@ test('migration leaves complete identities byte-neutral', () => {
     new Map([['proj/demo-f0', initiative({ parentPlan: 'demo', phaseId: 'F0' })]]),
   );
   assert.deepEqual(result, { changes: [], errors: [] });
+});
+
+test('migration path classification accepts Windows separators', () => {
+  const windowsPlan = String.raw`C:\repo\.atomic-skills\projects\proj\demo\plan.md`;
+  const windowsInitiative = String.raw`C:\repo\.atomic-skills\projects\proj\demo\phases\demo-f0.md`;
+  assert.equal(projectIdFromPath(windowsPlan), 'proj');
+  assert.equal(kindFromFile(windowsPlan), 'plan');
+  assert.equal(kindFromFile(windowsInitiative), 'initiative');
+});
+
+test('migration refuses duplicate phase, task and gate ids before planning writes', () => {
+  const result = planStateIntegrityMigration(
+    new Map([['proj/demo', plan({
+      phases: [
+        { id: 'F0', slug: 'demo-f0', status: 'active', exitGate: { criteria: [
+          { id: 'G1' }, { id: 'G1' },
+        ] } },
+        { id: 'F0', slug: 'demo-f1', status: 'pending' },
+      ],
+    })]]),
+    new Map([['proj/demo-f0', initiative({
+      parentPlan: 'demo', phaseId: 'F0', tasks: [{ id: 'T1' }, { id: 'T1' }],
+      exitGates: [{ id: 'G1' }, { id: 'G1' }],
+    })]]),
+  );
+  assert.deepEqual(result.changes, []);
+  assert.deepEqual(
+    new Set(result.errors.map((error) => error.code)),
+    new Set(['duplicate-phase-id', 'duplicate-task-id', 'duplicate-plan-gate-id', 'duplicate-initiative-gate-id']),
+  );
+});
+
+test('multi-file migration rolls every source back byte-for-byte after a mid-publish fault', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-atomic-'));
+  try {
+    const first = join(dir, 'first.md');
+    const second = join(dir, 'second.md');
+    writeFileSync(first, 'first-original\n');
+    writeFileSync(second, 'second-original\n');
+    assert.throws(() => applyMigrationAtomically([
+      { filePath: first, content: 'first-new\n' },
+      { filePath: second, content: 'second-new\n' },
+    ], {
+      faultAt: ({ point, index }) => {
+        if (point === 'after-publish' && index === 0) throw new Error('injected publish fault');
+      },
+    }), /injected publish fault/);
+    assert.equal(readFileSync(first, 'utf8'), 'first-original\n');
+    assert.equal(readFileSync(second, 'utf8'), 'second-original\n');
+    assert.equal(readdirSync(dir).some((name) => name.includes('.migration-transaction')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migration startup recovers a persisted partial-publication manifest', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-recovery-'));
+  try {
+    const first = join(dir, 'first.md');
+    const second = join(dir, 'second.md');
+    const firstBackup = `${first}.bak`;
+    const secondBackup = `${second}.bak`;
+    const firstTemp = `${first}.migration-tmp`;
+    const secondTemp = `${second}.migration-tmp`;
+    writeFileSync(first, 'partially-published\n');
+    writeFileSync(second, 'second-original\n');
+    writeFileSync(firstBackup, 'first-original\n');
+    writeFileSync(secondBackup, 'second-original\n');
+    writeFileSync(firstTemp, 'unused-first-temp\n');
+    writeFileSync(secondTemp, 'unused-second-temp\n');
+    writeFileSync(join(dir, '.state-integrity-migration-transaction.json'), `${JSON.stringify({
+      version: 1,
+      operations: [
+        { filePath: first, backupPath: firstBackup, tempPath: firstTemp },
+        { filePath: second, backupPath: secondBackup, tempPath: secondTemp },
+      ],
+    })}\n`);
+    assert.equal(recoverMigrationTransaction(dir), true);
+    assert.equal(readFileSync(first, 'utf8'), 'first-original\n');
+    assert.equal(readFileSync(second, 'utf8'), 'second-original\n');
+    assert.equal(readdirSync(dir).some((name) => name.includes('.migration-transaction')), false);
+    assert.equal(existsSync(firstTemp), false);
+    assert.equal(existsSync(secondTemp), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('migration copies authoritative deterministic gate evidence from plan to initiative', () => {

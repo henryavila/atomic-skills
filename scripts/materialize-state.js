@@ -25,6 +25,7 @@ import Ajv from 'ajv/dist/2020.js';
 import { withCompletionLedgerLock } from './append-completion.js';
 import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
 import { parseFrontmatter, validateFile } from './validate-state.js';
+import { reviewArtifactTip } from '../src/review-receipt.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, '..');
@@ -1021,8 +1022,7 @@ function reviewReceiptApproves(raw, sha, { mode, requireMode = false } = {}) {
   const parsed = parseFrontmatter(raw);
   if (parsed.error) return false;
   const receipt = parsed.frontmatter;
-  const artifact = typeof receipt.artifact === 'string' ? receipt.artifact.trim() : '';
-  const artifactTip = artifact.includes('..') ? artifact.split('..').at(-1) : artifact;
+  const artifactTip = reviewArtifactTip(receipt.artifact);
   const captureSection = parsed.body.match(/(?:^|\n)## Capture manifest\s*\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? '';
   const captureModes = [...captureSection.matchAll(/^- Mode:\s*(local|codex|both)(?:;|\s*$)/gm)]
     .map((match) => match[1]);
@@ -1818,13 +1818,34 @@ function assertSuccessorMaterializationAllowedLocked({
 } = {}) {
   assertConfiguredReceiptContract(receiptIdentity, receiptSources);
   const absoluteRoot = realpathSync(resolve(root));
+  const planFile = historyPath(absoluteRoot, planPath, 'planPath');
+  const planParts = planFile.rel.split(/[\\/]/);
+  if (planParts.length !== 5
+      || planParts[0] !== '.atomic-skills'
+      || planParts[1] !== 'projects'
+      || planParts[4] !== 'plan.md') {
+    throw new Error('successor planPath must use the canonical project-scoped plan layout');
+  }
+  if (planParts[2] !== receiptIdentity.projectId) {
+    throw new Error('planPath owning project does not match receiptIdentity.projectId');
+  }
+  if (planParts[3] !== receiptIdentity.planSlug) {
+    throw new Error('planPath owning plan does not match receiptIdentity.planSlug');
+  }
+  const configuredPlanRel = safeRelativePath(
+    absoluteRoot,
+    receiptSources.planPath,
+    'receiptSources.planPath',
+  );
+  if (configuredPlanRel !== planFile.rel) {
+    throw new Error('receiptSources.planPath does not match the successor planPath');
+  }
   const receiptCheck = checkHistoryReceiptLocked({
     root: absoluteRoot,
     receiptPath,
     expectedIdentity: receiptIdentity,
     expectedSources: receiptSources,
   });
-  const planFile = historyPath(absoluteRoot, planPath, 'planPath');
   const currentPlan = readMarkdown(planFile.path, 'plan').frontmatter;
   const prerequisite = (currentPlan.phases ?? [])
     .filter((phase) => phase?.id === prerequisitePhaseId);

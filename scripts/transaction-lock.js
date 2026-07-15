@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   lstatSync,
+  linkSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -62,7 +63,7 @@ const SELF_PROCESS_IDENTITY = readProcessIdentity(process.pid);
 
 function readOwner(lockPath) {
   try {
-    const owner = JSON.parse(readFileSync(join(lockPath, 'owner.json'), 'utf8'));
+    const owner = JSON.parse(readFileSync(lockPath, 'utf8'));
     if (owner?.version !== 1 || !Number.isInteger(owner.pid) || owner.pid <= 0
         || !hasText(owner.token)
         || (owner.processIdentity !== undefined && !hasText(owner.processIdentity))) {
@@ -108,21 +109,20 @@ async function acquireScopeTransactionLock(root, kind, scope) {
   mkdirSync(dirname(lockPath), { recursive: true });
   for (let attempt = 0; attempt < LOCK_RETRIES; attempt += 1) {
     const token = randomUUID();
+    const ownerTemp = `${lockPath}.${process.pid}.${token}.owner`;
     try {
-      mkdirSync(lockPath, { mode: 0o700 });
-      writeFileSync(join(lockPath, 'owner.json'), `${JSON.stringify({
+      writeFileSync(ownerTemp, `${JSON.stringify({
         version: 1,
         pid: process.pid,
         ...(SELF_PROCESS_IDENTITY ? { processIdentity: SELF_PROCESS_IDENTITY } : {}),
         token,
       })}\n`, { flag: 'wx', mode: 0o600 });
+      linkSync(ownerTemp, lockPath);
+      rmSync(ownerTemp, { force: true });
       return { lockPath, token };
     } catch (error) {
+      rmSync(ownerTemp, { force: true });
       if (error?.code !== 'EEXIST') {
-        // If owner publication failed after mkdir, remove only our unpublished
-        // directory. No replacement can occupy the path until this rename.
-        const owner = readOwner(lockPath);
-        if (!owner) quarantine(lockPath);
         throw error;
       }
       let stat;
@@ -132,8 +132,8 @@ async function acquireScopeTransactionLock(root, kind, scope) {
         if (statError?.code === 'ENOENT') continue;
         throw statError;
       }
-      if (!stat.isDirectory() || stat.isSymbolicLink()) {
-        throw new Error(`transaction lock path is not a real directory: ${lockPath}`);
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        throw new Error(`transaction lock path is not a real regular file: ${lockPath}`);
       }
       const owner = readOwner(lockPath);
       const orphaned = owner ? !ownerAlive(owner) : Date.now() - stat.mtimeMs >= OWNER_GRACE_MS;

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -51,6 +53,8 @@ function harness() {
       state.initiative.tasks = state.initiative.tasks.map((task) => (
         task.id === bundle.task.id ? structuredClone(bundle.task) : task
       ));
+      state.initiative.nextAction = bundle.nextAction;
+      state.initiative.__handoff = structuredClone(bundle.handoff);
     },
     refresh: async () => {},
     findCheckpoint: async ({ idempotencyKey }) => state.checkpoints.get(idempotencyKey),
@@ -170,13 +174,14 @@ test('an already-done task repairs and authenticates its original event and chec
     const request = input(root, {
       task: {
         id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
-        weight: 4, weightBasis: 'count',
+        weight: 4, weightBasis: 'count', evidence: input(root).evidence,
       },
       initiative: {
         __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
-        status: 'active', tasks: [{
+        status: 'active', nextAction: input(root).nextAction,
+        __handoff: input(root).handoff, tasks: [{
           id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
-          weight: 4, weightBasis: 'count',
+          weight: 4, weightBasis: 'count', evidence: input(root).evidence,
         }],
       },
       close: {
@@ -227,13 +232,14 @@ test('already-done repair persists recovery state when event authentication fail
   try {
     const task = {
       id: 'T-001', status: 'done', closedAt: '2026-07-14T19:00:00Z',
-      weight: 4, weightBasis: 'count',
+      weight: 4, weightBasis: 'count', evidence: input(root).evidence,
     };
     const request = input(root, {
       task,
       initiative: {
         __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4',
-        status: 'active', tasks: [task],
+        status: 'active', nextAction: input(root).nextAction,
+        __handoff: input(root).handoff, tasks: [task],
       },
       close: {
         projectId: 'atomic-skills', planSlug: 'demo', phaseId: 'F4', taskId: 'T-001',
@@ -262,6 +268,78 @@ test('already-done repair persists recovery state when event authentication fail
   }
 });
 
+test('already-done reuse rejects caller provenance that differs from persisted evidence and handoff', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-reuse-provenance-'));
+  try {
+    const original = input(root);
+    const task = {
+      ...original.task,
+      status: 'done', closedAt: original.close.closedAt, evidence: structuredClone(original.evidence),
+    };
+    const request = input(root, {
+      task,
+      initiative: {
+        ...original.initiative,
+        tasks: [task],
+        nextAction: original.nextAction,
+        __handoff: structuredClone(original.handoff),
+      },
+      evidence: { ...original.evidence, verifierKind: 'forged' },
+      handoff: { ...original.handoff, decisionLog: 'forged retry provenance' },
+    });
+    await assert.rejects(
+      executeDoneTransaction(request, harness().effects),
+      /persisted.*provenance|caller.*provenance/i,
+    );
+    assert.equal(existsSync(LOG(root)), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('checkpointed recovery repairs a missing completion event before clearing its marker', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-event-repair-'));
+  try {
+    const { effects } = harness();
+    const request = input(root);
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    await assert.rejects(executeDoneTransaction(request, {
+      ...effects,
+      assertClean: async () => false,
+    }), /clean task-owned worktree/);
+    assert.equal(readDoneRecovery(root, idempotencyKey).stage, 'checkpointed');
+    unlinkSync(LOG(root));
+    const resumed = await executeDoneTransaction(request, effects);
+    assert.equal(resumed.ok, true);
+    assert.equal(JSON.parse(readFileSync(LOG(root), 'utf8')).idempotencyKey, idempotencyKey);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('checkpointed recovery rejects a malformed stored completion instead of trusting it', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-completion-marker-'));
+  try {
+    const { effects } = harness();
+    const request = input(root);
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+    await assert.rejects(executeDoneTransaction(request, {
+      ...effects,
+      assertClean: async () => false,
+    }), /clean task-owned worktree/);
+    const markerPath = doneRecoveryPath(root, idempotencyKey);
+    const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+    marker.completion = { forged: true };
+    writeFileSync(markerPath, `${JSON.stringify(marker, null, 2)}\n`);
+    await assert.rejects(
+      executeDoneTransaction(request, effects),
+      /stored completion could not be authenticated/i,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('concurrent closes with different timestamps serialize on authoritative task identity', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-done-tx-race-'));
   try {
@@ -279,6 +357,8 @@ test('concurrent closes with different timestamps serialize on authoritative tas
       persistClose: async ({ bundle }) => {
         await new Promise((resolve) => setTimeout(resolve, 20));
         authoritative.tasks[0] = structuredClone(bundle.task);
+        authoritative.nextAction = bundle.nextAction;
+        authoritative.__handoff = structuredClone(bundle.handoff);
       },
       refresh: async () => {},
       findCheckpoint: async ({ idempotencyKey }) => checkpoints.get(idempotencyKey),
@@ -343,7 +423,7 @@ test('recovery rejects evidence and handoff drift from the prepared close bundle
     };
     await assert.rejects(
       executeDoneTransaction(drifted, effects),
-      /prepared close bundle conflicts/i,
+      /prepared close bundle conflicts|caller provenance conflicts/i,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

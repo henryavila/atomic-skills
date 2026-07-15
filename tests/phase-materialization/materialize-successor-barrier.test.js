@@ -82,6 +82,21 @@ test('current receipt plus terminal prerequisite at closeSha allows F3', () => {
   }
 });
 
+test('successor receipt identity must own the project-scoped plan path', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state, {
+        receiptIdentity: { projectId: 'other-project', planSlug: 'demo', phaseId: 'F0' },
+      })),
+      /planPath.*project|owning project/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('current prerequisite initiative must still resolve uniquely before F3 activation', () => {
   const state = createHistoryFixture();
   try {
@@ -323,6 +338,26 @@ test('legacy historical receipt may authenticate mode from its immutable capture
 
     const result = assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha }));
     assert.equal(result.allowed, true);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('historical review receipt accepts a triple-dot review range', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const reviewPath = join(state.root, '.atomic-skills/reviews/demo-f4.md');
+    const ranged = readFileSync(reviewPath, 'utf8').replace(
+      `artifact: ${'0'.repeat(40)}..${state.reviewedSha}`,
+      `artifact: ${'b'.repeat(40)}...${state.reviewedSha}`,
+    );
+    writeFileSync(reviewPath, ranged);
+    git(state.root, ['add', '.atomic-skills/reviews/demo-f4.md']);
+    git(state.root, ['commit', '-qm', 'triple-dot review receipt']);
+    const closeSha = git(state.root, ['rev-parse', 'HEAD']);
+    bindF4Event(state, closeSha);
+    assert.equal(assertSuccessorMaterializationAllowed(barrierArgs(state, { closeSha })).allowed, true);
   } finally {
     rmSync(state.root, { recursive: true, force: true });
   }

@@ -130,6 +130,8 @@ function buildBundle(input) {
       status: 'done',
       closedAt: close.closedAt,
       lastUpdated: close.closedAt,
+      weight: close.weight,
+      weightBasis: close.weightBasis,
       evidence: structuredClone(evidence),
     },
     evidence: structuredClone(evidence),
@@ -170,9 +172,30 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
       if (!hasText(currentTask.closedAt)) {
         throw new TypeError('a done authoritative task must retain its immutable closedAt');
       }
+      const persisted = {
+        evidence: currentTask.evidence,
+        nextAction: initiative.nextAction,
+        handoff: initiative.__handoff,
+      };
+      if (!persisted.evidence || persisted.evidence.passed !== true
+          || !hasText(persisted.nextAction)
+          || !persisted.handoff || typeof persisted.handoff !== 'object') {
+        throw new TypeError('already-done reuse requires complete persisted close provenance');
+      }
+      if (!isDeepStrictEqual(input.evidence, persisted.evidence)
+          || input.nextAction !== persisted.nextAction
+          || !isDeepStrictEqual(input.handoff, persisted.handoff)) {
+        throw new Error('caller provenance conflicts with persisted close provenance');
+      }
       transactionInput = {
         ...transactionInput,
-        close: { ...input.close, closedAt: currentTask.closedAt },
+        close: {
+          ...input.close,
+          closedAt: currentTask.closedAt,
+          ...(currentTask.weight !== undefined ? { weight: currentTask.weight } : {}),
+          ...(currentTask.weightBasis !== undefined ? { weightBasis: currentTask.weightBasis } : {}),
+        },
+        ...structuredClone(persisted),
       };
     }
     const idempotencyKey = buildDoneIdempotencyKey(transactionInput.close);
@@ -206,9 +229,11 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
       writeDoneRecovery(input.root, marker);
     }
 
-    if (marker.stage === 'state-persisted') {
+    if (marker.stage === 'state-persisted'
+        || marker.stage === 'event-persisted'
+        || marker.stage === 'checkpointed') {
       const ensure = effects.ensureCompletion ?? ensureCompletion;
-      completion = await ensure(input.root, {
+      const authenticatedCompletion = await ensure(input.root, {
         event: 'task-done',
         projectId: transactionInput.close.projectId,
         planSlug: transactionInput.close.planSlug,
@@ -219,8 +244,16 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
         idempotencyKey,
         ts: transactionInput.close.closedAt,
       });
-      marker = { ...marker, stage: 'event-persisted', completion };
-      writeDoneRecovery(input.root, marker);
+      if (marker.completion !== undefined
+          && (!marker.completion?.record
+            || !isDeepStrictEqual(marker.completion.record, authenticatedCompletion?.record))) {
+        throw new Error('done transaction stored completion could not be authenticated');
+      }
+      completion = authenticatedCompletion;
+      if (marker.stage === 'state-persisted') {
+        marker = { ...marker, stage: 'event-persisted', completion };
+        writeDoneRecovery(input.root, marker);
+      }
     }
 
     if (marker.stage === 'event-persisted') {

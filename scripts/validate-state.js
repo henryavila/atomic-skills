@@ -33,6 +33,7 @@ import {
   collectStateIntegrityViolations,
   formatStateIntegrityViolation,
 } from '../src/state-invariants.js';
+import { reviewArtifactTip } from '../src/review-receipt.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -575,8 +576,7 @@ export function persistedReviewMatches(reviewFile, sha, repositoryRoot = process
     const parsed = parseFrontmatter(readFileSync(candidate, 'utf8'));
     if (parsed.error) return false;
     const receipt = parsed.frontmatter;
-    const artifact = typeof receipt.artifact === 'string' ? receipt.artifact.trim() : '';
-    const artifactTip = artifact.includes('..') ? artifact.split('..').at(-1) : artifact;
+    const artifactTip = reviewArtifactTip(receipt.artifact);
     return (receipt.final_verdict === 'approve' || receipt.final_verdict === 'approve_with_nits')
       && receipt.skill === 'review-code'
       && typeof receipt.reviewer === 'string'

@@ -140,6 +140,52 @@ test('preflight permits evidence production, then commit guard closes exactly on
   }
 });
 
+test('evidence production may return an authenticated candidate state bundle for both gate mirrors', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-candidate-'));
+  try {
+    const pending = [{ id: 'F4-G1', status: 'pending' }];
+    const request = transactionInput(root);
+    request.phase.exitGate.criteria = structuredClone(pending);
+    request.plan.phases[0] = structuredClone(request.phase);
+    request.initiative.exitGates = structuredClone(pending);
+    request.exitGates = structuredClone(pending);
+    delete request.reviewGate;
+    let commitCalls = 0;
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      produceEvidence: async (authoritative) => {
+        const gates = [{
+          id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
+        }];
+        const phase = {
+          ...structuredClone(authoritative.phase),
+          exitGate: { criteria: structuredClone(gates) },
+          reviewGate: { status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE },
+        };
+        return {
+          plan: { ...structuredClone(authoritative.plan), phases: [phase] },
+          phase,
+          initiative: { ...structuredClone(authoritative.initiative), exitGates: structuredClone(gates) },
+          reviewGate: phase.reviewGate,
+          currentHead: SHA,
+          reviewCommitExists: true,
+          reviewFileMatches: true,
+          worktreeDirty: false,
+          lessonsState: 'recorded',
+        };
+      },
+      findCommit: async () => undefined,
+      commit: async () => { commitCalls += 1; return { closeSha: SHA }; },
+      emit: async () => {},
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(commitCalls, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('allowed close rejects a missing commit effect before creating recovery state', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
@@ -229,6 +275,44 @@ test('event failure after commit resumes without recommit or duplicate completio
     assert.equal(emitCalls, 2);
     assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
     assert.equal(readPhaseDoneRecovery(root, idempotencyKey), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('phase recovery is discovered by logical scope when a retry supplies a new timestamp', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-scope-recovery-'));
+  try {
+    const first = transactionInput(root);
+    let storedCommit;
+    let commitCalls = 0;
+    let emitCalls = 0;
+    const effects = {
+      loadState: async ({ candidate }) => structuredClone(candidate),
+      findCommit: async () => storedCommit,
+      commit: async () => {
+        commitCalls += 1;
+        storedCommit = { closeSha: SHA };
+        return storedCommit;
+      },
+      emit: async (request) => {
+        emitCalls += 1;
+        if (emitCalls === 1) throw new Error('injected post-event failure');
+        recordPhaseCompletion(root, request, SHA);
+      },
+      assertClean: async () => true,
+    };
+    await assert.rejects(executePhaseDoneTransaction(first, effects), /injected post-event failure/);
+
+    const retry = terminalTransactionInput(root, {
+      close: { ...first.close, closedAt: '2026-07-14T21:00:00Z' },
+    });
+    const result = await executePhaseDoneTransaction(retry, effects);
+    assert.equal(result.ok, true);
+    assert.equal(result.idempotencyKey, buildPhaseDoneIdempotencyKey(first.close));
+    assert.equal(commitCalls, 1);
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 1);
+    assert.equal(readPhaseDoneRecovery(root, buildPhaseDoneIdempotencyKey(first.close)), null);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
