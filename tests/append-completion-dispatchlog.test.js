@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import {
+  existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendCompletion, readDispatchActuals } from '../scripts/append-completion.js';
@@ -34,6 +37,78 @@ test('canonical dispatch writer appends one validated compact NDJSON record per 
     assert.deepEqual(parseDispatchLog(raw), [first, second]);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('canonical dispatch writer holds its shared lock through durable publication', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-lock-durable-'));
+  try {
+    let observedLock = false;
+    let reachedFileSync = false;
+    appendDispatchRecord(
+      root,
+      { taskId: 'T-001', plan: 's', phase: 'F4', attempt: 1 },
+      {
+        faultAt: ({ point, lockPath }) => {
+          if (point === 'after-lock-acquired') observedLock = existsSync(lockPath);
+        },
+        beforeFileSync: () => { reachedFileSync = true; },
+      },
+    );
+    assert.equal(observedLock, true, 'writer must publish inside the shared dispatch lock');
+    assert.equal(reachedFileSync, true, 'writer must cross the explicit file fsync boundary');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('multiprocess dispatch writers preserve every record under atomic replacement', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-multiprocess-'));
+  const moduleUrl = new URL('../scripts/dispatch-log.js', import.meta.url).href;
+  const records = Array.from({ length: 8 }, (_, index) => ({
+    taskId: `T-${index}`, plan: 's', phase: 'F4', attempt: index + 1,
+  }));
+  const program = `
+    import { appendDispatchRecord } from ${JSON.stringify(moduleUrl)};
+    const [root, payload] = process.argv.slice(1);
+    appendDispatchRecord(root, JSON.parse(payload));
+  `;
+  try {
+    const results = await Promise.all(records.map((record) => new Promise((resolveChild) => {
+      const child = spawn(process.execPath, [
+        '--input-type=module', '-e', program, root, JSON.stringify(record),
+      ], { stdio: ['ignore', 'ignore', 'pipe'] });
+      let stderr = '';
+      child.stderr.on('data', (chunk) => { stderr += chunk; });
+      child.on('close', (status) => resolveChild({ status, stderr }));
+    })));
+    results.forEach((result) => assert.equal(result.status, 0, result.stderr));
+    const persisted = parseDispatchLog(
+      readFileSync(join(root, '.atomic-skills/status/dispatch-log.json'), 'utf8'),
+    );
+    assert.deepEqual(
+      new Set(persisted.map((record) => record.taskId)),
+      new Set(records.map((record) => record.taskId)),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('canonical dispatch writer rejects a symlinked status directory before writing outside', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-dispatch-confined-'));
+  const outside = mkdtempSync(join(tmpdir(), 'as-dispatch-outside-'));
+  try {
+    mkdirSync(join(root, '.atomic-skills'), { recursive: true });
+    symlinkSync(outside, join(root, '.atomic-skills', 'status'));
+    assert.throws(
+      () => appendDispatchRecord(root, { taskId: 'T-001', plan: 's', phase: 'F4' }),
+      /symbolic link|confined/i,
+    );
+    assert.equal(existsSync(join(outside, 'dispatch-log.json')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   }
 });
 

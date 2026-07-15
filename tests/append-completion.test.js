@@ -58,6 +58,40 @@ test('appendCompletion writes exactly one valid JSON line with defaults', () => 
   }
 });
 
+test('a partial staged completion append cannot corrupt the durable ledger tail', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-partial-tail-'));
+  try {
+    const first = appendCompletion(root, base({
+      idempotencyKey: 'task-done:proj/plan/F0/T-001@2026-07-14T20%3A00%3A00Z',
+      ts: '2026-07-14T20:00:00Z',
+    }));
+    const before = readFileSync(LOG(root), 'utf8');
+    const second = base({
+      taskId: 'T-002',
+      idempotencyKey: 'task-done:proj/plan/F0/T-002@2026-07-14T20%3A00%3A01Z',
+      ts: '2026-07-14T20:00:01Z',
+    });
+
+    assert.throws(
+      () => ensureCompletion(root, second, {
+        appendFaultAt: ({ point }) => {
+          if (point === 'after-partial-append') throw new Error('injected partial append crash');
+        },
+      }),
+      /injected partial append crash/,
+    );
+    assert.equal(readFileSync(LOG(root), 'utf8'), before, 'old complete ledger must remain visible');
+    assert.deepEqual(JSON.parse(before.trim()), first);
+
+    const retried = ensureCompletion(root, second);
+    assert.equal(retried.appended, true);
+    const records = readFileSync(LOG(root), 'utf8').trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map((record) => record.taskId), ['T-001', 'T-002']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('analytics/ created idempotently; appends never rewrite/reorder prior lines', () => {
   const root = mkdtempSync(join(tmpdir(), 'as-ac-'));
   try {
@@ -396,7 +430,7 @@ test('ensureCompletion rejects a matching reconciliation tombstone that violates
       () => ensureCompletion(root, base({
         idempotencyKey, ts: '2026-07-14T20:00:00Z', closeSha: 'a'.repeat(40),
       })),
-      /schema-invalid.*reconciliation|reconciliation.*schema-invalid/i,
+      /completion line 3 is schema-invalid/i,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

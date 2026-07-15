@@ -6,22 +6,37 @@
  * rewritten without losing records, but no writer can emit that legacy shape.
  */
 import {
-  appendFileSync,
   existsSync,
-  mkdirSync,
   readFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { confinedRepositoryFile } from '../src/confined-path.js';
+import { durableAppendFile } from '../src/durable-file.js';
+import {
+  scopeTransactionLockPath,
+  withScopeTransactionLockSync,
+} from './transaction-lock.js';
 
 export const DISPATCH_LOG_RELATIVE_PATH = Object.freeze([
   '.atomic-skills',
   'status',
   'dispatch-log.json',
 ]);
+const DISPATCH_DIRECTORY = DISPATCH_LOG_RELATIVE_PATH.slice(0, -1);
+const DISPATCH_LOG_FILE = DISPATCH_LOG_RELATIVE_PATH.at(-1);
+const DISPATCH_LOCK_SCOPE = Object.freeze(['global']);
 
 export function dispatchLogPath(root = process.cwd()) {
-  return join(resolve(root), ...DISPATCH_LOG_RELATIVE_PATH);
+  return confinedRepositoryFile(root, DISPATCH_DIRECTORY, DISPATCH_LOG_FILE);
+}
+
+function withDispatchLedgerLock(root, operation, { faultAt } = {}) {
+  const lockPath = scopeTransactionLockPath(root, 'dispatch-ledger', DISPATCH_LOCK_SCOPE);
+  return withScopeTransactionLockSync(root, 'dispatch-ledger', DISPATCH_LOCK_SCOPE, () => {
+    faultAt?.({ point: 'after-lock-acquired', lockPath });
+    return operation();
+  });
 }
 
 export function validateDispatchRecord(record, {
@@ -122,22 +137,37 @@ export function parseDispatchLog(raw, { source = 'dispatch-log.json' } = {}) {
 export function readDispatchLog(root = process.cwd()) {
   const path = dispatchLogPath(root);
   if (!existsSync(path)) return [];
-  return parseDispatchLog(readFileSync(path, 'utf8'), { source: path });
+  return withDispatchLedgerLock(root, () => {
+    if (!existsSync(path)) return [];
+    return parseDispatchLog(readFileSync(path, 'utf8'), { source: path });
+  });
 }
 
 /** Append one validated record in the only canonical persisted shape. */
-export function appendDispatchRecord(root, record) {
-  const path = dispatchLogPath(root);
-  validateDispatchRecord(record, { source: path, line: 1 });
+export function appendDispatchRecord(root, record, options = {}) {
+  validateDispatchRecord(record, { source: 'dispatch-log.json', line: 1 });
   let line;
   try {
     line = `${JSON.stringify(record)}\n`;
   } catch (error) {
-    throw new TypeError(`${path}:1: dispatch record is not JSON serializable: ${error.message}`);
+    throw new TypeError(`dispatch-log.json:1: dispatch record is not JSON serializable: ${error.message}`);
   }
-  mkdirSync(join(resolve(root), '.atomic-skills', 'status'), { recursive: true });
-  appendFileSync(path, line, { encoding: 'utf8', flag: 'a', mode: 0o600 });
-  return record;
+  return withDispatchLedgerLock(root, () => {
+    const path = confinedRepositoryFile(
+      root,
+      DISPATCH_DIRECTORY,
+      DISPATCH_LOG_FILE,
+      { createParents: true },
+    );
+    const raw = existsSync(path) ? readFileSync(path, 'utf8') : '';
+    if (raw !== '') parseDispatchLog(raw, { source: path });
+    const separator = raw !== '' && !raw.endsWith('\n') ? '\n' : '';
+    durableAppendFile(path, `${separator}${line}`, {
+      faultAt: options.appendFaultAt,
+      beforeFileSync: options.beforeFileSync,
+    });
+    return record;
+  }, { faultAt: options.faultAt });
 }
 
 function option(args, name) {

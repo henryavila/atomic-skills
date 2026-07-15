@@ -18,6 +18,7 @@ import {
   projectIdFromPath,
   recoverMigrationTransaction,
 } from '../scripts/migrate-state-integrity.js';
+import { scopeTransactionLockPath } from '../scripts/transaction-lock.js';
 import { parseFrontmatter } from '../scripts/validate-state.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -134,6 +135,59 @@ test('multi-file migration rolls every source back byte-for-byte after a mid-pub
     assert.equal(readdirSync(dir).some((name) => name.includes('.migration-transaction')), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migration holds the phase-state lock and preserves an ordinary write detected at publish', () => {
+  const root = mkdtempSync(join(tmpdir(), 'state-integrity-publish-cas-'));
+  try {
+    const stateRoot = join(root, '.atomic-skills');
+    const source = join(stateRoot, 'projects', 'proj', 'demo', 'phases', 'f0.md');
+    mkdirSync(dirname(source), { recursive: true });
+    const original = 'original\n';
+    const ordinaryWrite = 'ordinary-transition\n';
+    const target = `---\nparentPlan: demo\nphaseId: F0\nslug: f0\n---\n`;
+    writeFileSync(source, original);
+    const stateScope = ['proj', 'demo', 'F0'];
+    const expectedLock = scopeTransactionLockPath(root, 'phase-state', stateScope);
+
+    assert.throws(() => applyMigrationAtomically([{
+      filePath: source,
+      content: target,
+      expectedSourceDigest: createHash('sha256').update(original).digest('hex'),
+    }], {
+      transactionRoot: stateRoot,
+      faultAt: ({ point }) => {
+        if (point !== 'before-publish') return;
+        assert.equal(existsSync(expectedLock), true, 'phase-state lock must cover publication');
+        writeFileSync(source, ordinaryWrite);
+      },
+    }), /source changed.*publish|publish.*source changed/i);
+
+    assert.equal(readFileSync(source, 'utf8'), ordinaryWrite);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('repository state migration cannot bypass derived phase-state scope coordination through the API', () => {
+  const root = mkdtempSync(join(tmpdir(), 'state-integrity-scope-required-'));
+  try {
+    const stateRoot = join(root, '.atomic-skills');
+    const source = join(stateRoot, 'projects', 'proj', 'demo', 'phases', 'f0.md');
+    mkdirSync(dirname(source), { recursive: true });
+    writeFileSync(source, 'original\n');
+
+    assert.throws(
+      () => applyMigrationAtomically(
+        [{ filePath: source, content: 'migration-target\n' }],
+        { transactionRoot: stateRoot },
+      ),
+      /cannot derive.*phase-state scope/i,
+    );
+    assert.equal(readFileSync(source, 'utf8'), 'original\n');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

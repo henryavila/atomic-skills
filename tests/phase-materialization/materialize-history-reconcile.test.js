@@ -30,6 +30,21 @@ function completionDigest(value) {
   return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
 }
 
+test('history reconciliation rejects a schema-invalid completion object with its physical line', () => {
+  const state = createHistoryFixture();
+  try {
+    const invalid = { ...state.event, weightBasis: 'estimate' };
+    writeFileSync(state.completionLogPath, `${JSON.stringify(invalid)}\n`);
+
+    assert.throws(
+      () => reconcileMaterializationHistory(state.options),
+      /completion line 1 is schema-invalid.*weightBasis|weightBasis.*schema-invalid/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('consistent F0 projection writes a current canonical receipt', () => {
   const state = createHistoryFixture();
   try {

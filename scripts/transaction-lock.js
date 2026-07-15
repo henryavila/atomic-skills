@@ -17,6 +17,7 @@ import {
 const LOCK_RETRIES = 400;
 const LOCK_RETRY_MS = 25;
 const OWNER_GRACE_MS = 1_000;
+const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
 
 function hasText(value) {
   return typeof value === 'string' && value.length > 0;
@@ -62,48 +63,68 @@ export function scopeTransactionLockPath(root, kind, scope) {
   );
 }
 
-async function acquireScopeTransactionLock(root, kind, scope, options = {}) {
-  const lockPath = confinedRepositoryFile(
+function transactionLockPath(root, kind, scope) {
+  return confinedRepositoryFile(
     root,
     ['.atomic-skills', 'status', 'transaction-locks'],
     `${createHash('sha256').update(JSON.stringify({ kind, scope })).digest('hex')}.lock`,
     { createParents: true },
   );
+}
+
+function tryAcquireScopeTransactionLock(lockPath, options = {}) {
+  return withProcessClaimGuard(`${lockPath}.guard`, () => {
+    const token = randomUUID();
+    const ownerTemp = `${lockPath}.${process.pid}.${token}.owner`;
+    try {
+      writeOwnedFileAtomically(ownerTemp, currentProcessOwner(token));
+      linkSync(ownerTemp, lockPath);
+      rmSync(ownerTemp, { force: true });
+      return { lockPath, token };
+    } catch (error) {
+      rmSync(ownerTemp, { force: true });
+      if (error?.code !== 'EEXIST') throw error;
+    }
+
+    const stat = lstatSync(lockPath);
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error(`transaction lock path is not a real regular file: ${lockPath}`);
+    }
+    const owner = readOwner(lockPath);
+    const orphaned = owner ? !isProcessOwnerAlive(owner) : Date.now() - stat.mtimeMs >= OWNER_GRACE_MS;
+    if (!orphaned) return null;
+    options.faultAt?.({ point: 'before-stale-reclaim', lockPath, owner: structuredClone(owner) });
+    const currentStat = lstatSync(lockPath);
+    const currentOwner = readOwner(lockPath);
+    if (currentStat.dev !== stat.dev || currentStat.ino !== stat.ino
+        || currentOwner?.token !== owner?.token) return null;
+    quarantine(lockPath, owner?.token);
+    return null;
+  }, { label: 'transaction lock guard' });
+}
+
+async function acquireScopeTransactionLock(root, kind, scope, options = {}) {
+  const lockPath = transactionLockPath(root, kind, scope);
   const maxAttempts = options.maxAttempts ?? LOCK_RETRIES;
   const retryMs = options.retryMs ?? LOCK_RETRY_MS;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const lock = withProcessClaimGuard(`${lockPath}.guard`, () => {
-      const token = randomUUID();
-      const ownerTemp = `${lockPath}.${process.pid}.${token}.owner`;
-      try {
-        writeOwnedFileAtomically(ownerTemp, currentProcessOwner(token));
-        linkSync(ownerTemp, lockPath);
-        rmSync(ownerTemp, { force: true });
-        return { lockPath, token };
-      } catch (error) {
-        rmSync(ownerTemp, { force: true });
-        if (error?.code !== 'EEXIST') throw error;
-      }
-
-      const stat = lstatSync(lockPath);
-      if (!stat.isFile() || stat.isSymbolicLink()) {
-        throw new Error(`transaction lock path is not a real regular file: ${lockPath}`);
-      }
-      const owner = readOwner(lockPath);
-      const orphaned = owner ? !isProcessOwnerAlive(owner) : Date.now() - stat.mtimeMs >= OWNER_GRACE_MS;
-      if (!orphaned) return null;
-      options.faultAt?.({ point: 'before-stale-reclaim', lockPath, owner: structuredClone(owner) });
-      const currentStat = lstatSync(lockPath);
-      const currentOwner = readOwner(lockPath);
-      if (currentStat.dev !== stat.dev || currentStat.ino !== stat.ino
-          || currentOwner?.token !== owner?.token) return null;
-      quarantine(lockPath, owner?.token);
-      return null;
-    }, { label: 'transaction lock guard' });
+    const lock = tryAcquireScopeTransactionLock(lockPath, options);
     if (lock) return lock;
     if (attempt < maxAttempts - 1) {
       await new Promise((resolveWait) => setTimeout(resolveWait, retryMs));
     }
+  }
+  throw new Error(`transaction lock timed out: ${lockPath}`);
+}
+
+function acquireScopeTransactionLockSync(root, kind, scope, options = {}) {
+  const lockPath = transactionLockPath(root, kind, scope);
+  const maxAttempts = options.maxAttempts ?? LOCK_RETRIES;
+  const retryMs = options.retryMs ?? LOCK_RETRY_MS;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const lock = tryAcquireScopeTransactionLock(lockPath, options);
+    if (lock) return lock;
+    if (attempt < maxAttempts - 1) Atomics.wait(LOCK_WAIT, 0, 0, retryMs);
   }
   throw new Error(`transaction lock timed out: ${lockPath}`);
 }
@@ -120,6 +141,20 @@ export async function withScopeTransactionLock(root, kind, scope, operation, opt
   const lock = await acquireScopeTransactionLock(root, kind, scope, options);
   try {
     return await operation();
+  } finally {
+    releaseScopeTransactionLock(lock);
+  }
+}
+
+export function withScopeTransactionLockSync(root, kind, scope, operation, options = {}) {
+  if (typeof operation !== 'function') throw new TypeError('transaction lock operation is required');
+  const lock = acquireScopeTransactionLockSync(root, kind, scope, options);
+  try {
+    const result = operation();
+    if (result && typeof result.then === 'function') {
+      throw new TypeError('synchronous transaction lock operation must not return a promise');
+    }
+    return result;
   } finally {
     releaseScopeTransactionLock(lock);
   }

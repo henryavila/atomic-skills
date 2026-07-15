@@ -5,8 +5,8 @@
  *
  * This is the SOURCE of the earned-value curve (design.md D1/D2): the tracker
  * records its own event at the instant state changes, into a SINGLE GLOBAL log
- * `.atomic-skills/analytics/completions.jsonl` (one line per completion, never
- * rewritten, never reordered). New transactional closes carry an idempotencyKey;
+ * `.atomic-skills/analytics/completions.jsonl` (one line per completion; prior
+ * bytes are preserved as an immutable ordered prefix). New transactional closes carry an idempotencyKey;
  * retries read only to find that exact key and return its immutable prior record
  * instead of appending again. It is NOT a parallel hand-maintained file — it is
  * the transition writing its own event. Per-plan series are the consumer's job.
@@ -37,7 +37,6 @@ import {
   fsyncSync,
   openSync,
   readFileSync,
-  writeFileSync,
 } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -46,8 +45,11 @@ import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { readDispatchLog } from './dispatch-log.js';
 import { confinedRepositoryDirectory, confinedRepositoryFile } from '../src/confined-path.js';
-import { fsyncDirectory } from '../src/durable-file.js';
-import { validateCompletionEvent } from '../src/completion-event-validator.js';
+import { durableAppendFile, fsyncDirectory } from '../src/durable-file.js';
+import {
+  parseCompletionEventLog,
+  validateCompletionEvent,
+} from '../src/completion-event-validator.js';
 import {
   currentProcessOwner,
   isProcessOwnerAlive,
@@ -315,21 +317,7 @@ export function normalizeCompletionRecord(entry) {
 
 function readCompletionRecords(path) {
   if (!existsSync(path)) return [];
-  const raw = readFileSync(path, 'utf8');
-  const records = [];
-  for (const [index, line] of raw.split(/\r?\n/).entries()) {
-    if (!line.trim()) continue;
-    try {
-      const record = JSON.parse(line);
-      if (!record || typeof record !== 'object' || Array.isArray(record)) {
-        throw new TypeError('record must be a JSON object');
-      }
-      records.push(record);
-    } catch (error) {
-      throw new SyntaxError(`${path}:${index + 1}: invalid completion JSON: ${error.message}`);
-    }
-  }
-  return records;
+  return parseCompletionEventLog(readFileSync(path, 'utf8'), { source: path });
 }
 
 function sameLogicalCompletion(existing, candidate) {
@@ -451,15 +439,13 @@ function syncCompletionLog(path, { beforeFileSync } = {}) {
 }
 
 function appendCompletionRecord(path, record, options = {}) {
-  const fd = openSync(path, 'a', 0o600);
-  try {
-    writeFileSync(fd, `${JSON.stringify(record)}\n`);
-    if (typeof options.beforeFileSync === 'function') options.beforeFileSync();
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
-  fsyncDirectory(dirname(path));
+  const raw = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  if (raw !== '') readCompletionRecords(path);
+  const separator = raw !== '' && !raw.endsWith('\n') ? '\n' : '';
+  durableAppendFile(path, `${separator}${JSON.stringify(record)}\n`, {
+    faultAt: options.appendFaultAt,
+    beforeFileSync: options.beforeFileSync,
+  });
 }
 
 /**
@@ -498,7 +484,11 @@ export function withCompletionLedgerLock(root, operation) {
  * Ensure exactly one append-only record for a caller-supplied logical close.
  * Existing legacy events remain untouched; idempotency is forward-only.
  */
-export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } = {}) {
+export function ensureCompletion(root, entry, {
+  beforeAppend,
+  beforeFileSync,
+  appendFaultAt,
+} = {}) {
   if (!hasText(entry?.idempotencyKey)) {
     throw new TypeError('ensureCompletion: idempotencyKey is required');
   }
@@ -536,7 +526,7 @@ export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } =
     }
     const candidate = normalizeCompletionRecord(effectiveEntry);
     if (typeof beforeAppend === 'function') beforeAppend();
-    ledger.appendRecord(candidate, { beforeFileSync });
+    ledger.appendRecord(candidate, { beforeFileSync, appendFaultAt });
     return { record: candidate, appended: true };
   });
 }
@@ -544,7 +534,9 @@ export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } =
 /**
  * Append exactly one completion event to `<root>/.atomic-skills/analytics/completions.jsonl`,
  * creating the `analytics/` dir idempotently. Returns the written record.
- * Append-only: existing lines are never read, rewritten, or reordered.
+ * Logically append-only: the exact existing byte prefix is preserved and a
+ * complete replacement is atomically published, so prior lines are never
+ * changed/reordered and a crash cannot expose a partial final JSON record.
  *
  * Task-actuals auto-capture (F4/T-002): a `task-done` entry with no explicit
  * `actuals` derives them from the dispatch-log sidecar here, so BOTH callers —

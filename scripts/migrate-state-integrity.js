@@ -15,7 +15,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { stringify as stringifyYaml } from 'yaml';
@@ -24,6 +24,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { collectTargets, parseFrontmatter } from './validate-state.js';
 import { collectStateIntegrityViolations } from '../src/state-invariants.js';
 import { fsyncDirectory } from '../src/durable-file.js';
+import { withScopeTransactionLockSync } from './transaction-lock.js';
 import {
   currentProcessOwner,
   isProcessOwnerAlive,
@@ -248,6 +249,50 @@ function withMigrationLock(root, operation, { faultAt } = {}) {
   }
 }
 
+function withStateScopeLocks(repositoryRoot, scopes, operation, index = 0) {
+  if (index >= scopes.length) return operation();
+  return withScopeTransactionLockSync(
+    repositoryRoot,
+    'phase-state',
+    scopes[index],
+    () => withStateScopeLocks(repositoryRoot, scopes, operation, index + 1),
+  );
+}
+
+function canonicalStateScopes(scopes) {
+  const unique = new Map();
+  for (const scope of scopes) {
+    if (!Array.isArray(scope) || scope.length !== 3
+        || scope.some((part) => typeof part !== 'string' || part.length === 0)) {
+      throw new TypeError('migration stateScopes must contain projectId/planSlug/phaseId tuples');
+    }
+    unique.set(JSON.stringify(scope), [...scope]);
+  }
+  return [...unique.entries()].sort(([left], [right]) => left.localeCompare(right))
+    .map(([, scope]) => scope);
+}
+
+function stateScopeForMigrationOperation(operation) {
+  if (kindFromFile(operation.filePath) !== 'initiative') {
+    throw new TypeError(`migration cannot derive a phase-state scope from ${operation.filePath}`);
+  }
+  const parsed = parseFrontmatter(Buffer.isBuffer(operation.content)
+    ? operation.content.toString('utf8')
+    : operation.content);
+  if (parsed.error) {
+    throw new TypeError(`migration cannot derive a phase-state scope: ${parsed.error}`);
+  }
+  const scope = [
+    projectIdFromPath(operation.filePath),
+    parsed.frontmatter?.parentPlan,
+    parsed.frontmatter?.phaseId,
+  ];
+  if (scope.some((part) => typeof part !== 'string' || part.length === 0 || part === '__legacy')) {
+    throw new TypeError(`migration cannot derive a complete phase-state scope from ${operation.filePath}`);
+  }
+  return scope;
+}
+
 function migrationManifestPath(transactionRoot) {
   return join(resolve(transactionRoot), '.state-integrity-migration-transaction.json');
 }
@@ -394,7 +439,11 @@ export function recoverMigrationTransaction(transactionRoot) {
   return withMigrationLock(root, () => recoverMigrationTransactionLocked(root, requestedRoot));
 }
 
-export function applyMigrationAtomically(operations, { transactionRoot, faultAt, lockFaultAt } = {}) {
+export function applyMigrationAtomically(operations, {
+  transactionRoot,
+  faultAt,
+  lockFaultAt,
+} = {}) {
   if (!Array.isArray(operations) || operations.length === 0) return { applied: 0, backups: [] };
   const normalized = operations.map((operation) => ({
     filePath: resolve(operation.filePath),
@@ -424,7 +473,14 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt,
       requestedRoot,
     );
   }
-  return withMigrationLock(root, () => {
+  const repositoryStateTree = basename(requestedRoot) === '.atomic-skills';
+  const scopes = repositoryStateTree
+    ? canonicalStateScopes(normalized.map(stateScopeForMigrationOperation))
+    : [];
+  const stateRepositoryRoot = repositoryStateTree
+    ? realpathSync(repositoryRootForStateTree(requestedRoot))
+    : null;
+  return withMigrationLock(root, () => withStateScopeLocks(stateRepositoryRoot, scopes, () => {
     recoverMigrationTransactionLocked(root, requestedRoot);
     for (const [index, operation] of normalized.entries()) {
       operation.filePath = pathWithinRoot(root, operation.filePath, `operations[${index}].filePath`);
@@ -482,6 +538,18 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt,
       manifestTemp = null;
       fsyncDirectory(dirname(manifestPath));
       manifestPublished = true;
+      faultAt?.({
+        point: 'before-publish',
+        operations: prepared.map((operation) => structuredClone(operation)),
+      });
+      const changed = prepared.find((operation) => fileDigest(operation.filePath) !== operation.sourceDigest);
+      if (changed) {
+        for (const operation of prepared) rmSync(operation.tempPath, { force: true });
+        unlinkSync(manifestPath);
+        fsyncDirectory(dirname(manifestPath));
+        manifestPublished = false;
+        throw new Error(`migration source changed before publish: ${changed.filePath}`);
+      }
       for (const [index, operation] of prepared.entries()) {
         pathWithinRoot(root, operation.filePath, 'migration publish source');
         pathWithinRoot(root, operation.tempPath, 'migration publish temp');
@@ -506,7 +574,19 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt,
       }
       throw error;
     }
-  }, { faultAt: lockFaultAt });
+  }), { faultAt: lockFaultAt });
+}
+
+function repositoryRootForStateTree(stateRoot) {
+  let cursor = resolve(stateRoot);
+  while (basename(cursor) !== '.atomic-skills') {
+    const parent = dirname(cursor);
+    if (parent === cursor) {
+      throw new Error(`migration root is not inside .atomic-skills: ${stateRoot}`);
+    }
+    cursor = parent;
+  }
+  return dirname(cursor);
 }
 
 function runCli(argv) {
@@ -568,7 +648,9 @@ function runCli(argv) {
     });
   }
   if (apply && operations.length > 0) {
-    applyMigrationAtomically(operations, { transactionRoot: resolve(root) });
+    applyMigrationAtomically(operations, {
+      transactionRoot: resolve(root),
+    });
   }
   return 0;
 }

@@ -29,6 +29,7 @@ import {
 import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
 import { parseFrontmatter, validateFile } from './validate-state.js';
 import { reviewArtifactTip } from '../src/review-receipt.js';
+import { parseCompletionEventLogEntries } from '../src/completion-event-validator.js';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, '..');
@@ -1202,21 +1203,10 @@ function assertPhaseInitiativeClosed({ phase, initiative, label }) {
 
 function parseCompletionLog(path) {
   const raw = readFileSync(path, 'utf8');
-  const records = [];
-  raw.split(/\r?\n/).forEach((line, index) => {
-    if (line.trim() === '') return;
-    let value;
-    try {
-      value = JSON.parse(line);
-    } catch (error) {
-      throw new Error(`completion log line ${index + 1} is invalid JSON: ${error.message}`);
-    }
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new Error(`completion log line ${index + 1} is not an object`);
-    }
-    records.push({ line: index + 1, value });
-  });
-  return { raw, records };
+  return {
+    raw,
+    records: parseCompletionEventLogEntries(raw, { source: path }),
+  };
 }
 
 function terminalPhaseStatus(status) {

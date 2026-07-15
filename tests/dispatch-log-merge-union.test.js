@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseDispatchLog } from '../scripts/dispatch-log.js';
+import { parseCompletionEventLog } from '../src/completion-event-validator.js';
 
 // Proves Decisão 5's union-safety for the dispatch-log sidecar. Two guarantees:
 //   (1) .gitattributes WIRES dispatch-log.json to merge=union;
@@ -31,6 +32,14 @@ test('dispatch-log.json is wired to merge=union via .gitattributes', () => {
     mergeAttr('.atomic-skills/status/dispatch-log.json'),
     'union',
     'dispatch-log.json must resolve to the built-in union merge driver',
+  );
+});
+
+test('completions.jsonl is wired to merge=union via .gitattributes', () => {
+  assert.strictEqual(
+    mergeAttr('.atomic-skills/analytics/completions.jsonl'),
+    'union',
+    'completions.jsonl must resolve to the built-in union merge driver',
   );
 });
 
@@ -75,6 +84,53 @@ test('git merge=union on NDJSON is lossless for two concurrent appends', () => {
     assert.ok(ids.includes('A'), 'branch A append was lost in union merge');
     assert.ok(ids.includes('B'), 'branch B append was lost in union merge');
     assert.strictEqual(ids.length, 3, `expected 3 records, got ${ids.length}: ${merged}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an actual Git merge preserves both branch-local canonical completion events', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'completion-git-union-'));
+  const run = (args) => {
+    const result = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+    if (result.status !== 0) {
+      throw result.error ?? new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+    }
+    return result.stdout.trim();
+  };
+  const event = (taskId, second) => ({
+    ts: `2026-07-14T20:00:0${second}Z`, event: 'task-done', projectId: 'proj',
+    planSlug: 'plan', phaseId: 'F0', taskId, weight: 1, weightBasis: 'count',
+    idempotencyKey: `task-done:proj/plan/F0/${taskId}@2026-07-14T20%3A00%3A0${second}Z`,
+  });
+  const relative = '.atomic-skills/analytics/completions.jsonl';
+  const ledger = path.join(dir, relative);
+  try {
+    run(['init', '-q']);
+    run(['config', 'user.email', 'tests@example.com']);
+    run(['config', 'user.name', 'Atomic Tests']);
+    fs.mkdirSync(path.dirname(ledger), { recursive: true });
+    fs.copyFileSync(path.resolve('.gitattributes'), path.join(dir, '.gitattributes'));
+    fs.writeFileSync(ledger, `${JSON.stringify(event('T-000', 0))}\n`);
+    run(['add', '.']);
+    run(['commit', '-qm', 'base']);
+    const baseBranch = run(['branch', '--show-current']);
+
+    run(['checkout', '-qb', 'branch-a']);
+    fs.appendFileSync(ledger, `${JSON.stringify(event('T-A', 1))}\n`);
+    run(['commit', '-qam', 'append A']);
+
+    run(['checkout', '-qb', 'branch-b', baseBranch]);
+    fs.appendFileSync(ledger, `${JSON.stringify(event('T-B', 2))}\n`);
+    run(['commit', '-qam', 'append B']);
+    run(['checkout', '-q', 'branch-a']);
+    run(['merge', '-q', '--no-edit', 'branch-b']);
+
+    const records = parseCompletionEventLog(fs.readFileSync(ledger, 'utf8'), { source: ledger });
+    assert.deepEqual(
+      new Set(records.map((record) => record.taskId)),
+      new Set(['T-000', 'T-A', 'T-B']),
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

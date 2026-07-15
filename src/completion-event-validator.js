@@ -30,7 +30,7 @@ export function validateCompletionEvent(record) {
   };
 }
 
-export function parseCompletionEventLog(raw, { source = 'completions.jsonl' } = {}) {
+export function parseCompletionEventLogEntries(raw, { source = 'completions.jsonl' } = {}) {
   if (typeof raw !== 'string') throw new TypeError('completion log bytes must be a string');
   const records = [];
   for (const [index, line] of raw.split(/\r?\n/).entries()) {
@@ -51,9 +51,13 @@ export function parseCompletionEventLog(raw, { source = 'completions.jsonl' } = 
         `${source}: completion line ${lineNumber} is schema-invalid: ${first?.instancePath ?? '(root)'} ${first?.message ?? 'unknown error'}`,
       );
     }
-    records.push(record);
+    records.push({ line: lineNumber, value: record });
   }
   return records;
+}
+
+export function parseCompletionEventLog(raw, options = {}) {
+  return parseCompletionEventLogEntries(raw, options).map(({ value }) => value);
 }
 
 export function readCompletionEventLog(path) {
