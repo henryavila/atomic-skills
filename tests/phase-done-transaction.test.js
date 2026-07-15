@@ -20,9 +20,13 @@ function base(overrides = {}) {
   const exitGates = [{
     id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
   }];
+  const reviewGate = Object.hasOwn(overrides, 'reviewGate')
+    ? overrides.reviewGate
+    : { status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE };
   const phase = {
     id: 'F4', slug: 'demo-f4', status: 'active',
     exitGate: { criteria: structuredClone(exitGates) },
+    ...(reviewGate !== undefined ? { reviewGate: structuredClone(reviewGate) } : {}),
   };
   const initiative = {
     __projectId: 'atomic-skills', slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4', status: 'active',
@@ -35,7 +39,7 @@ function base(overrides = {}) {
     initiative,
     tasks: initiative.tasks,
     exitGates: structuredClone(exitGates),
-    reviewGate: { status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE },
+    ...(reviewGate !== undefined ? { reviewGate: structuredClone(reviewGate) } : {}),
     currentHead: SHA,
     reviewCommitExists: true,
     reviewFileMatches: true,
@@ -124,13 +128,18 @@ test('preflight permits evidence production, then commit guard closes exactly on
       reviewGate: undefined,
     });
     const result = await executePhaseDoneTransaction(input, {
-      produceEvidence: async () => {
+      produceEvidence: async (authoritative) => {
         calls.push('evidence');
+        const reviewGate = {
+          status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE,
+        };
+        const phase = { ...structuredClone(authoritative.phase), reviewGate };
         return {
-          exitGates: [{
-            id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
-          }],
-          reviewGate: { status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE },
+          plan: { ...structuredClone(authoritative.plan), phases: [phase] },
+          phase,
+          initiative: structuredClone(authoritative.initiative),
+          exitGates: structuredClone(phase.exitGate.criteria),
+          reviewGate,
           currentHead: SHA,
           reviewCommitExists: true,
           reviewFileMatches: true,
@@ -671,7 +680,7 @@ test('terminal phase reuse still enforces the close guard', async () => {
     });
     assert.equal(result.ok, false);
     assert.equal(result.stage, 'commit-guard');
-    assert.match(result.decision.code, /^phase-done-review-/);
+    assert.equal(result.decision.code, 'phase-done-review-open');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -802,13 +811,49 @@ test('commit guard rejects a changed review fingerprint after evidence without t
     });
     const result = await executePhaseDoneTransaction(request, {
       loadState: loadStateFor(request),
-      produceEvidence: async () => ({
-        exitGates: [{
-          id: 'F4-G1', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
-        }],
-        reviewGate: {
+      produceEvidence: async (authoritative) => {
+        const reviewGate = {
           status: 'passed', at: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
           mode: 'local', reviewFile: REVIEW_FILE,
+        };
+        const phase = { ...structuredClone(authoritative.phase), reviewGate };
+        return {
+          plan: { ...structuredClone(authoritative.plan), phases: [phase] },
+          phase,
+          initiative: structuredClone(authoritative.initiative),
+          exitGates: structuredClone(phase.exitGate.criteria),
+          reviewGate,
+          currentHead: SHA,
+          reviewCommitExists: true,
+          reviewFileMatches: true,
+          worktreeDirty: false,
+          lessonsState: 'recorded',
+        };
+      },
+      findCommit: async () => undefined,
+      commit: async () => calls.push('commit'),
+      emit: async () => calls.push('emit'),
+      assertClean: async () => true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.stage, 'commit-guard');
+    assert.equal(result.decision.code, 'phase-done-review-stale');
+    assert.deepEqual(calls, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('active close cannot inject a detached review absent from the candidate descriptor', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-detached-review-'));
+  try {
+    const request = transactionInput(root, { reviewGate: undefined });
+    const calls = [];
+    const result = await executePhaseDoneTransaction(request, {
+      loadState: loadStateFor(request),
+      produceEvidence: async () => ({
+        reviewGate: {
+          status: 'passed', at: SHA, mode: 'local', reviewFile: REVIEW_FILE,
         },
         currentHead: SHA,
         reviewCommitExists: true,
@@ -821,9 +866,10 @@ test('commit guard rejects a changed review fingerprint after evidence without t
       emit: async () => calls.push('emit'),
       assertClean: async () => true,
     });
+
     assert.equal(result.ok, false);
     assert.equal(result.stage, 'commit-guard');
-    assert.equal(result.decision.code, 'phase-done-review-stale');
+    assert.match(result.decision.code, /^phase-done-review-/);
     assert.deepEqual(calls, []);
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -111,6 +111,11 @@ test('same logical close retries to one event, one checkpoint and one complete b
       state.bundles.get(idempotencyKey).task.completionProvenance,
       persistedCloseProvenance(request),
     );
+    assert.equal(
+      Object.hasOwn(state.bundles.get(idempotencyKey).task, 'weightBasis'),
+      false,
+      'weightBasis belongs only to the completion event, not strict task state',
+    );
     assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -128,6 +133,40 @@ test('task close rejects phase-only actuals before creating recovery state', asy
       executeDoneTransaction(request, effects),
       /task completion actuals cannot contain "filesChanged"/,
     );
+    assert.equal(state.bundles.size, 0);
+    assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
+    assert.equal(existsSync(LOG(root)), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('invalid completion weight is rejected before task state or recovery authority advances', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-invalid-weight-'));
+  try {
+    const { state, effects } = harness();
+    const request = input(root, { close: { ...input(root).close, weight: -1 } });
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+
+    await assert.rejects(executeDoneTransaction(request, effects), /weight.*finite.*>= 0/i);
+    assert.equal(state.bundles.size, 0);
+    assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
+    assert.equal(existsSync(LOG(root)), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('invalid completion basis is rejected before task state or recovery authority advances', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-done-tx-invalid-basis-'));
+  try {
+    const { state, effects } = harness();
+    const request = input(root, {
+      close: { ...input(root).close, weightBasis: 'estimate' },
+    });
+    const idempotencyKey = buildDoneIdempotencyKey(request.close);
+
+    await assert.rejects(executeDoneTransaction(request, effects), /weightBasis.*count.*proxy/i);
     assert.equal(state.bundles.size, 0);
     assert.equal(existsSync(doneRecoveryPath(root, idempotencyKey)), false);
     assert.equal(existsSync(LOG(root)), false);

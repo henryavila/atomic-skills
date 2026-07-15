@@ -16,9 +16,16 @@ function input(overrides = {}) {
   const exitGates = structuredClone(overrides.exitGates ?? [{
     id: 'F4-G3', status: 'met', evidence: { passed: true, verifiedCommit: SHA },
   }]);
+  const reviewGate = Object.hasOwn(overrides, 'reviewGate')
+    ? overrides.reviewGate
+    : {
+      status: 'passed', at: SHA, mode: 'local',
+      reviewFile: '.atomic-skills/reviews/f4.md',
+    };
   const phase = {
     id: 'F4', slug: 'demo-f4', status: 'active',
     exitGate: { criteria: structuredClone(exitGates) },
+    ...(reviewGate !== undefined ? { reviewGate: structuredClone(reviewGate) } : {}),
   };
   const initiative = {
     slug: 'demo-f4', parentPlan: 'demo', phaseId: 'F4', status: 'active',
@@ -31,10 +38,7 @@ function input(overrides = {}) {
     initiative,
     tasks: initiative.tasks,
     exitGates: structuredClone(exitGates),
-    reviewGate: {
-      status: 'passed', at: SHA, mode: 'local',
-      reviewFile: '.atomic-skills/reviews/f4.md',
-    },
+    ...(reviewGate !== undefined ? { reviewGate: structuredClone(reviewGate) } : {}),
     currentHead: SHA,
     reviewCommitExists: true,
     reviewFileMatches: true,
@@ -124,6 +128,32 @@ test('skipped review cannot bypass the commit guard', () => {
   }));
   assert.equal(result.allowed, false);
   assert.equal(result.code, 'phase-done-review-open');
+});
+
+test('detached passed review cannot replace a missing authoritative descriptor review', () => {
+  const request = input();
+  delete request.plan.phases[0].reviewGate;
+  request.phase = request.plan.phases[0];
+  request.reviewGate = {
+    status: 'passed', at: SHA, mode: 'local',
+    reviewFile: '.atomic-skills/reviews/forged-f4.md',
+  };
+
+  const result = classifyPhaseDoneCommit(request);
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-open');
+});
+
+test('detached review drift is rejected when the authoritative descriptor has a review', () => {
+  const request = input();
+  request.reviewGate = {
+    ...request.reviewGate,
+    at: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  };
+
+  const result = classifyPhaseDoneCommit(request);
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'phase-done-review-slice-mismatch');
 });
 
 test('pending F4-G3 produces zero close write, event or successor materialization', async () => {

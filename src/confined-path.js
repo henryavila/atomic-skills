@@ -4,6 +4,7 @@ import {
   realpathSync,
 } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fsyncDirectory } from './durable-file.js';
 
 function pathEscapesRoot(root, candidate) {
   const rel = relative(root, candidate);
@@ -37,11 +38,14 @@ function confinedDirectoryFromRoot(root, parts, create) {
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
       if (!create) return join(current, ...parts.slice(index));
+      let created = false;
       try {
         mkdirSync(candidate, { mode: 0o700 });
+        created = true;
       } catch (mkdirError) {
         if (mkdirError?.code !== 'EEXIST') throw mkdirError;
       }
+      if (created) fsyncDirectory(current);
       stat = lstatSync(candidate);
     }
     if (!stat.isDirectory() || stat.isSymbolicLink()) {

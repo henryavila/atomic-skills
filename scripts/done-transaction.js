@@ -8,6 +8,7 @@ import { isDeepStrictEqual } from 'node:util';
 import {
   ensureCompletion,
   normalizeCompletionActuals,
+  normalizeCompletionRecord,
   readDispatchActuals,
 } from './append-completion.js';
 import { withScopeTransactionLock } from './transaction-lock.js';
@@ -150,7 +151,6 @@ function buildBundle(input) {
       closedAt: close.closedAt,
       lastUpdated: close.closedAt,
       weight: close.weight,
-      weightBasis: close.weightBasis,
       evidence: structuredClone(evidence),
       completionProvenance,
     },
@@ -218,7 +218,6 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
           ...input.close,
           closedAt: currentTask.closedAt,
           ...(currentTask.weight !== undefined ? { weight: currentTask.weight } : {}),
-          ...(currentTask.weightBasis !== undefined ? { weightBasis: currentTask.weightBasis } : {}),
         },
         ...structuredClone(persisted),
       };
@@ -238,6 +237,26 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     } else if (marker) {
       delete transactionInput.actuals;
     }
+    const prospectiveCompletion = normalizeCompletionRecord({
+      event: 'task-done',
+      projectId: transactionInput.close.projectId,
+      planSlug: transactionInput.close.planSlug,
+      phaseId: transactionInput.close.phaseId,
+      taskId: transactionInput.close.taskId,
+      weight: transactionInput.close.weight,
+      weightBasis: transactionInput.close.weightBasis,
+      idempotencyKey,
+      ts: transactionInput.close.closedAt,
+      ...(transactionInput.actuals !== undefined ? { actuals: transactionInput.actuals } : {}),
+    });
+    transactionInput = {
+      ...transactionInput,
+      close: {
+        ...transactionInput.close,
+        weight: prospectiveCompletion.weight,
+        weightBasis: prospectiveCompletion.weightBasis,
+      },
+    };
     let bundle = buildBundle(transactionInput);
     const bundleDigest = digestValue(bundle);
     if (!marker) {

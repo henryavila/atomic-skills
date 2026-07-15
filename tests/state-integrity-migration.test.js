@@ -288,6 +288,40 @@ test('migration startup fails closed on a legacy manifest without authenticated 
   }
 });
 
+test('migration startup preserves version-2 recovery state with unauthenticated current bytes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-recovery-v2-'));
+  try {
+    const source = join(dir, 'phase.md');
+    const backup = `${source}.bak`;
+    const temp = `${source}.migration-tmp`;
+    const manifest = join(dir, '.state-integrity-migration-transaction.json');
+    const original = 'original\n';
+    const current = 'unknown-current-bytes\n';
+    writeFileSync(source, current);
+    writeFileSync(backup, original);
+    writeFileSync(temp, 'prepared\n');
+    writeFileSync(manifest, `${JSON.stringify({
+      version: 2,
+      operations: [{
+        filePath: source,
+        backupPath: backup,
+        tempPath: temp,
+        backupDigest: createHash('sha256').update(original).digest('hex'),
+      }],
+    })}\n`);
+
+    assert.throws(
+      () => recoverMigrationTransaction(dir),
+      /version 2.*unauthenticated current source bytes/i,
+    );
+    assert.equal(readFileSync(source, 'utf8'), current);
+    assert.equal(existsSync(manifest), true);
+    assert.equal(existsSync(temp), true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('migration recovery rejects a tampered durable backup before restoring any source', () => {
   const dir = mkdtempSync(join(tmpdir(), 'state-integrity-tamper-'));
   try {
@@ -297,11 +331,20 @@ test('migration recovery rejects a tampered durable backup before restoring any 
     const original = 'original\n';
     writeFileSync(source, 'partially-published\n');
     writeFileSync(backup, original);
-    writeFileSync(temp, 'prepared\n');
+    const target = 'prepared\n';
+    writeFileSync(temp, target);
     const backupDigest = createHash('sha256').update(original).digest('hex');
+    const targetDigest = createHash('sha256').update(target).digest('hex');
     writeFileSync(join(dir, '.state-integrity-migration-transaction.json'), `${JSON.stringify({
-      version: 2,
-      operations: [{ filePath: source, backupPath: backup, tempPath: temp, backupDigest }],
+      version: 3,
+      operations: [{
+        filePath: source,
+        backupPath: backup,
+        tempPath: temp,
+        backupDigest,
+        sourceDigest: backupDigest,
+        targetDigest,
+      }],
     })}\n`);
     writeFileSync(backup, 'tampered\n');
 
@@ -311,6 +354,72 @@ test('migration recovery rejects a tampered durable backup before restoring any 
     );
     assert.equal(readFileSync(source, 'utf8'), 'partially-published\n');
     assert.equal(existsSync(join(dir, '.state-integrity-migration-transaction.json')), true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('migration recovery preserves third-party bytes that match neither side of the transaction', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-recovery-cas-'));
+  try {
+    const source = join(dir, 'phase.md');
+    const backup = `${source}.bak`;
+    const temp = `${source}.migration-tmp`;
+    const manifest = join(dir, '.state-integrity-migration-transaction.json');
+    const original = 'original\n';
+    const target = 'migration-target\n';
+    const thirdParty = 'post-crash-third-party-edit\n';
+    const digest = (value) => createHash('sha256').update(value).digest('hex');
+
+    writeFileSync(source, thirdParty);
+    writeFileSync(backup, original);
+    writeFileSync(temp, target);
+    writeFileSync(manifest, `${JSON.stringify({
+      version: 3,
+      operations: [{
+        filePath: source,
+        backupPath: backup,
+        tempPath: temp,
+        backupDigest: digest(original),
+        sourceDigest: digest(original),
+        targetDigest: digest(target),
+      }],
+    })}\n`);
+
+    assert.throws(
+      () => recoverMigrationTransaction(dir),
+      /current source digest|outside.*transaction|neither.*source.*target/i,
+    );
+    assert.equal(readFileSync(source, 'utf8'), thirdParty);
+    assert.equal(readFileSync(backup, 'utf8'), original);
+    assert.equal(readFileSync(temp, 'utf8'), target);
+    assert.equal(existsSync(manifest), true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('in-process migration rollback also refuses to overwrite a concurrent third-party edit', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'state-integrity-rollback-cas-'));
+  try {
+    const source = join(dir, 'phase.md');
+    const manifest = join(dir, '.state-integrity-migration-transaction.json');
+    const thirdParty = 'concurrent-third-party-edit\n';
+    writeFileSync(source, 'original\n');
+
+    assert.throws(() => applyMigrationAtomically([
+      { filePath: source, content: 'migration-target\n' },
+    ], {
+      transactionRoot: dir,
+      faultAt: ({ point }) => {
+        if (point !== 'after-publish') return;
+        writeFileSync(source, thirdParty);
+        throw new Error('injected failure after concurrent edit');
+      },
+    }), /current source digest.*neither source nor target/i);
+
+    assert.equal(readFileSync(source, 'utf8'), thirdParty);
+    assert.equal(existsSync(manifest), true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

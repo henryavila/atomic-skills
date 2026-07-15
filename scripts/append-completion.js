@@ -47,6 +47,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { readDispatchLog } from './dispatch-log.js';
 import { confinedRepositoryDirectory, confinedRepositoryFile } from '../src/confined-path.js';
 import { fsyncDirectory } from '../src/durable-file.js';
+import { validateCompletionEvent } from '../src/completion-event-validator.js';
 import {
   currentProcessOwner,
   isProcessOwnerAlive,
@@ -258,7 +259,7 @@ function normalizeReconciliation(event, reconciliation) {
  * Validate + normalize one completion entry into the persisted record shape.
  * Throws (writing nothing) on an invalid enum or a missing required scope field.
  */
-function normalize(entry) {
+export function normalizeCompletionRecord(entry) {
   if (entry == null || typeof entry !== 'object') {
     throw new TypeError('appendCompletion: entry must be an object');
   }
@@ -361,6 +362,11 @@ export function reconcilesExactDuplicates(records, allRecords) {
   const eventIdentity = `${canonical.event ?? '<unknown>'}:${canonical.taskId ?? '<phase>'}`;
   const canonicalDigest = completionDigest(canonical);
   const duplicateDigests = records.slice(1).map(completionDigest);
+  for (const record of allRecords.filter((candidate) => candidate?.event === 'reconcile')) {
+    if (!validateCompletionEvent(record).ok) {
+      throw new Error('completion ledger contains a schema-invalid reconciliation tombstone');
+    }
+  }
   const tombstones = allRecords.filter((record) => (
     record?.event === 'reconcile'
     && record?.projectId === canonical.projectId
@@ -471,7 +477,7 @@ export function withCompletionLedgerLock(root, operation) {
       readRecords: () => readCompletionRecords(path),
       readRaw: () => (existsSync(path) ? readFileSync(path, 'utf8') : ''),
       append: (entry) => {
-        const record = normalize(entry);
+        const record = normalizeCompletionRecord(entry);
         appendCompletionRecord(path, record);
         return record;
       },
@@ -496,7 +502,7 @@ export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } =
   if (!hasText(entry?.idempotencyKey)) {
     throw new TypeError('ensureCompletion: idempotencyKey is required');
   }
-  const suppliedCandidate = normalize(entry);
+  const suppliedCandidate = normalizeCompletionRecord(entry);
   return withCompletionLedgerLock(root, (ledger) => {
     const records = ledger.readRecords();
     const matches = records.filter((record) => (
@@ -504,7 +510,7 @@ export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } =
     ));
     if (matches.length > 0) {
       const candidate = entry.actuals == null && matches[0].actuals !== undefined
-        ? normalize({ ...entry, actuals: matches[0].actuals })
+        ? normalizeCompletionRecord({ ...entry, actuals: matches[0].actuals })
         : suppliedCandidate;
       if (!sameLogicalCompletion(matches[0], candidate)) {
         throw new Error(
@@ -528,7 +534,7 @@ export function ensureCompletion(root, entry, { beforeAppend, beforeFileSync } =
       });
       if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
     }
-    const candidate = normalize(effectiveEntry);
+    const candidate = normalizeCompletionRecord(effectiveEntry);
     if (typeof beforeAppend === 'function') beforeAppend();
     ledger.appendRecord(candidate, { beforeFileSync });
     return { record: candidate, appended: true };
@@ -556,7 +562,7 @@ export function appendCompletion(root, entry) {
     });
     if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
   }
-  const record = normalize(effectiveEntry); // validate BEFORE touching the filesystem
+  const record = normalizeCompletionRecord(effectiveEntry); // validate BEFORE touching the filesystem
   return withCompletionLedgerLock(root, (ledger) => {
     ledger.appendRecord(record);
     return record;

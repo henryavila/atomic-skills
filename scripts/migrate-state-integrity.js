@@ -300,15 +300,18 @@ function validatedManifestOperations(root, operations, rootAlias = root) {
         || dirname(tempPath) !== dirname(filePath) || !tempPath.startsWith(`${filePath}.`)) {
       throw new Error(`migration transaction operation ${index} has non-sibling recovery paths`);
     }
-    if (operation.backupDigest !== undefined
-        && !/^[a-f0-9]{64}$/.test(operation.backupDigest)) {
-      throw new Error(`migration transaction operation ${index} has an invalid backup digest`);
+    for (const field of ['backupDigest', 'sourceDigest', 'targetDigest']) {
+      if (operation[field] !== undefined && !/^[a-f0-9]{64}$/.test(operation[field])) {
+        throw new Error(`migration transaction operation ${index} has an invalid ${field}`);
+      }
     }
     return {
       filePath,
       backupPath,
       tempPath,
       ...(operation.backupDigest ? { backupDigest: operation.backupDigest } : {}),
+      ...(operation.sourceDigest ? { sourceDigest: operation.sourceDigest } : {}),
+      ...(operation.targetDigest ? { targetDigest: operation.targetDigest } : {}),
     };
   });
 }
@@ -334,15 +337,21 @@ function recoverMigrationTransactionLocked(root, rootAlias = root) {
     throw new Error(`migration transaction manifest is not a real file: ${manifestPath}`);
   }
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (![1, 2].includes(manifest?.version) || !Array.isArray(manifest.operations)) {
+  if (![1, 2, 3].includes(manifest?.version) || !Array.isArray(manifest.operations)) {
     throw new Error(`invalid state-integrity migration transaction manifest: ${manifestPath}`);
   }
   if (manifest.version === 1) {
     throw new Error(`legacy migration transaction version 1 has unauthenticated backup bytes: ${manifestPath}`);
   }
+  if (manifest.version === 2) {
+    throw new Error(`legacy migration transaction version 2 has unauthenticated current source bytes: ${manifestPath}`);
+  }
   const operations = validatedManifestOperations(root, manifest.operations, rootAlias);
-  if (manifest.version === 2 && operations.some((operation) => !operation.backupDigest)) {
-    throw new Error(`invalid state-integrity migration transaction backup digest: ${manifestPath}`);
+  if (operations.some((operation) => (
+    !operation.backupDigest || !operation.sourceDigest || !operation.targetDigest
+    || operation.backupDigest !== operation.sourceDigest
+  ))) {
+    throw new Error(`invalid state-integrity migration transaction digests: ${manifestPath}`);
   }
   for (const operation of operations) {
     if (!existsSync(operation.backupPath)) {
@@ -354,6 +363,21 @@ function recoverMigrationTransactionLocked(root, rootAlias = root) {
     }
     if (operation.backupDigest && fileDigest(operation.backupPath) !== operation.backupDigest) {
       throw new Error(`migration recovery backup digest mismatch: ${operation.backupPath}`);
+    }
+  }
+  for (const operation of operations) {
+    if (!existsSync(operation.filePath)) {
+      throw new Error(`migration recovery source is missing: ${operation.filePath}`);
+    }
+    const sourceStat = lstatSync(operation.filePath);
+    if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) {
+      throw new Error(`migration recovery source is not a real file: ${operation.filePath}`);
+    }
+    const currentDigest = fileDigest(operation.filePath);
+    if (currentDigest !== operation.sourceDigest && currentDigest !== operation.targetDigest) {
+      throw new Error(
+        `migration recovery current source digest matches neither source nor target: ${operation.filePath}`,
+      );
     }
   }
   for (const operation of operations) restoreFromBackup(root, operation);
@@ -417,6 +441,8 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt,
     }
     const manifestPath = migrationManifestPath(root);
     const prepared = [];
+    let manifestTemp = null;
+    let manifestPublished = false;
     try {
       for (const operation of normalized) {
         pathWithinRoot(root, operation.filePath, 'migration source');
@@ -428,22 +454,34 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt,
           'migration temp',
         );
         writeExclusiveDurable(tempPath, operation.content);
-        prepared.push({ ...operation, backupPath, backupDigest, tempPath });
+        const targetDigest = fileDigest(tempPath);
+        prepared.push({
+          ...operation,
+          backupPath,
+          backupDigest,
+          sourceDigest: backupDigest,
+          targetDigest,
+          tempPath,
+        });
       }
       const manifest = {
-        version: 2,
-        operations: prepared.map(({ filePath, backupPath, backupDigest, tempPath }) => ({
-          filePath, backupPath, backupDigest, tempPath,
+        version: 3,
+        operations: prepared.map(({
+          filePath, backupPath, backupDigest, sourceDigest, targetDigest, tempPath,
+        }) => ({
+          filePath, backupPath, backupDigest, sourceDigest, targetDigest, tempPath,
         })),
       };
-      const manifestTemp = pathWithinRoot(
+      manifestTemp = pathWithinRoot(
         root,
         `${manifestPath}.${process.pid}.${randomUUID()}.tmp`,
         'migration manifest temp',
       );
       writeExclusiveDurable(manifestTemp, `${JSON.stringify(manifest, null, 2)}\n`);
       renameSync(manifestTemp, manifestPath);
+      manifestTemp = null;
       fsyncDirectory(dirname(manifestPath));
+      manifestPublished = true;
       for (const [index, operation] of prepared.entries()) {
         pathWithinRoot(root, operation.filePath, 'migration publish source');
         pathWithinRoot(root, operation.tempPath, 'migration publish temp');
@@ -455,12 +493,17 @@ export function applyMigrationAtomically(operations, { transactionRoot, faultAt,
       fsyncDirectory(dirname(manifestPath));
       return { applied: prepared.length, backups: prepared.map((item) => item.backupPath) };
     } catch (error) {
-      for (const operation of prepared) {
-        if (existsSync(operation.backupPath)) restoreFromBackup(root, operation);
-        rmSync(operation.tempPath, { force: true });
+      if (manifestPublished || existsSync(manifestPath)) {
+        try {
+          recoverMigrationTransactionLocked(root, requestedRoot);
+        } catch (recoveryError) {
+          recoveryError.cause = error;
+          throw recoveryError;
+        }
+      } else {
+        for (const operation of prepared) rmSync(operation.tempPath, { force: true });
+        if (manifestTemp) rmSync(manifestTemp, { force: true });
       }
-      rmSync(manifestPath, { force: true });
-      fsyncDirectory(dirname(manifestPath));
       throw error;
     }
   }, { faultAt: lockFaultAt });

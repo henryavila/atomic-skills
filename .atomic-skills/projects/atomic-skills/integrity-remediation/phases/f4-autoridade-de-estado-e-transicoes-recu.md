@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T04:38:17Z
-nextAction: Run the fresh Codex r10 phase review on the r9 remediation checkpoint.
+lastUpdated: 2026-07-15T05:23:27Z
+nextAction: Commit the r10 remediation checkpoint, then run the fresh Codex r11 phase review.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -674,28 +674,43 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   exato, manifest v1 não restaura backup sem digest, e task/phase close usam o
   mesmo lock `phase-state` por initiative. O receipt r9 permanece
   `needs_changes`; somente r10 fresco no checkpoint remediado pode aprovar F4.
+- **2026-07-15 — review Codex F4 r10:** três criticals e três majors do review
+  informado, mais um critical conservador retido pelo operador, foram
+  reproduzidos e corrigidos sem defer. Review autoritativo vem exclusivamente
+  do descriptor; `closeSha` prerequisite deve pertencer à ancestry do HEAD que
+  autentica o receipt; e task close valida o completion prospectivo antes de
+  qualquer write, sem persistir `weightBasis` fora do ledger. Producer,
+  projection e reconciliation agora compartilham validação estrita do schema de
+  completion. Cada novo componente de diretório confinado é sincronizado no
+  parent, e migration manifest v3 autentica backup, bytes de origem e target;
+  v1/v2 e bytes concorrentes desconhecidos falham fechado. O alias explícito
+  `gpt-5-codex` não estava disponível na conta, então o mesmo briefing selado
+  rodou no default efetivamente reportado pelo CLI 0.144.3, `gpt-5.6-sol`, em
+  high/read-only. O receipt r10 permanece `needs_changes`; somente r11 fresco
+  no checkpoint remediado pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
-  dos reviews r1..r9, além dos hardenings proativos e correções de integração.
-  No r9, 3 criticals/4 majors foram aceitos e corrigidos. Locks concorrentes
-  compartilham guard e aggregate phase scope; state paths são confinados;
-  durability é portátil; ledger/migration falham fechado. Falta o review Codex
-  r10 do novo checkpoint.
-- **Decision log:** nenhum finding válido r1..r9 foi deferido. Reclaim de lock
-  é serializado e vinculado ao objeto observado; writers rejeitam qualquer
-  symlink sob o state root; Windows preserva file fsync e omite apenas directory
-  fsync; duplicata só conta sob tombstone exato; manifest v1 requer recovery
-  manual; task e phase close serializam pelo aggregate `phase-state`.
-- **Single nextAction:** Run the fresh Codex r10 phase review on the r9 remediation checkpoint.
-- **Verbatim state:** review r9 → blind 0B/2C/4M/0m, informed
-  0B/3C/4M/0m; 7 findings válidos reproduzidos e corrigidos; exact gates →
-  35/35 + 55/55 + 67/67 pass; full repository suite → 1,934 pass, 0 fail,
-  8 skip; canonical state → 167 arquivos/26 planos válidos; receipt F0
-  plan-bound → `ok: true`.
-- **Uncommitted changes:** remediação r9, testes, receipt e decisões F4 estão
-  prontos para checkpoint e review Codex r10.
+  dos reviews r1..r10, além dos hardenings proativos e correções de integração.
+  No r10, 3 criticals/3 majors informados e 1 critical conservador do blind
+  foram aceitos e corrigidos. Autoridade de review/ancestry/completion foi
+  estreitada, novos diretórios são duráveis e recovery de migration usa CAS
+  autenticado. Falta o review Codex r11 do novo checkpoint.
+- **Decision log:** nenhum finding válido r1..r10 foi deferido. Descriptor é a
+  única autoridade de review; prerequisite close pertence à ancestry do HEAD;
+  completion prospectivo é validado antes de writes e `weightBasis` fica só no
+  evento; todo leitor estrutural do ledger usa o schema canônico; tombstone
+  inválido não reconcilia; criação confinada fsynca cada parent; manifest v3
+  autentica before/after e v1/v2 exigem recovery manual.
+- **Single nextAction:** Commit the r10 remediation checkpoint, then run the fresh Codex r11 phase review.
+- **Verbatim state:** review r10 → blind 0B/4C/2M/0m, informed
+  0B/3C/3M/0m; 6 findings informados + 1 blind conservador reproduzidos e
+  corrigidos; exact gates → 38/38 + 58/58 + 70/70 pass; full repository suite
+  → 1,946 pass, 0 fail, 8 skip; canonical AIDeck state → 26 planos válidos;
+  receipt F0 plan-bound → `ok: true`.
+- **Uncommitted changes:** remediação r10, testes, receipt e decisões F4 estão
+  prontos para checkpoint e review Codex r11.
 
 ## Links
 

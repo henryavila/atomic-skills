@@ -1074,7 +1074,7 @@ function assertCommitAncestor(root, ancestor, descendant, label) {
       stdio: ['ignore', 'ignore', 'pipe'],
     });
   } catch {
-    throw new Error(`${label} is not an ancestor of closeSha`);
+    throw new Error(`${label} is not an ancestor of ${descendant}`);
   }
 }
 
@@ -1904,6 +1904,12 @@ function assertSuccessorMaterializationAllowedLocked({
     throw new Error(`${targetPhaseId} does not depend on ${prerequisitePhaseId}`);
   }
   assertCommitExists(absoluteRoot, closeSha, 'closeSha');
+  assertCommitAncestor(
+    absoluteRoot,
+    closeSha,
+    receiptCheck.receiptCommit,
+    'closeSha',
+  );
   let historicalPlan;
   try {
     const raw = gitOutput(

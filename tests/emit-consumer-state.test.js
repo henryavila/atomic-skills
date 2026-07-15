@@ -320,6 +320,40 @@ describe('buildState — plan dependency projection', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('fails closed on malformed or schema-invalid completion lines before overwriting projections', () => {
+    const cases = [
+      { line: '{not-json}\n', expected: /completion.*line 1.*invalid JSON/i },
+      {
+        line: `${JSON.stringify({
+          ts: '2026-06-16T12:00:00Z', event: 'task-done', projectId: 'demo',
+          planSlug: 'big', phaseId: 'F0', taskId: 'T-1',
+        })}\n`,
+        expected: /completion.*line 1.*schema/i,
+      },
+    ];
+
+    for (const scenario of cases) {
+      const dir = mkdtempSync(join(tmpdir(), 'emit-state-invalid-completion-'));
+      try {
+        const stateRoot = join(dir, '.atomic-skills');
+        const analytics = join(stateRoot, 'analytics');
+        const projection = join(stateRoot, '.aideck', 'state');
+        mkdirSync(analytics, { recursive: true });
+        mkdirSync(projection, { recursive: true });
+        writeFileSync(join(analytics, 'completions.jsonl'), scenario.line);
+        writeFileSync(join(projection, 'burnup.json'), '[{"sentinel":true}]\n');
+
+        assert.throws(() => emitConsumerState(dir, NOW), scenario.expected);
+        assert.equal(
+          readFileSync(join(projection, 'burnup.json'), 'utf8'),
+          '[{"sentinel":true}]\n',
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
 });
 
 describe('emitConsumerState — round trip on a tmp tree', () => {

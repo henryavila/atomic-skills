@@ -23,43 +23,17 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import Ajv from 'ajv';
 import { readTree, buildState, buildSeries } from './emit-consumer-state.js';
+import { validateCompletionEvent } from '../src/completion-event-validator.js';
+
+export { validateCompletionEvent } from '../src/completion-event-validator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
 const SCHEMA_PATH = join(PROJECT_ROOT, 'assets', 'aideck-consumer', 'schema.json');
-const COMPLETION_EVENT_SCHEMA_PATH = join(PROJECT_ROOT, 'meta', 'schemas', 'completion-event.schema.json');
 const CATALOG_JSON = join(PROJECT_ROOT, 'meta', 'catalog.json');
 
 // Deterministic clock so buildState's relative-time fields are stable in CI.
 const FIXED_NOW = Date.parse('2026-06-16T00:00:00Z');
-
-let completionEventValidator;
-
-function getCompletionEventValidator() {
-  if (!completionEventValidator) {
-    const schema = JSON.parse(readFileSync(COMPLETION_EVENT_SCHEMA_PATH, 'utf8'));
-    const ajv = new Ajv({ strict: false, allErrors: false });
-    completionEventValidator = ajv.compile(schema);
-  }
-  return completionEventValidator;
-}
-
-/**
- * Validate one parsed completion-event JSONL record. Returns { ok, errors }.
- */
-export function validateCompletionEvent(obj) {
-  const validate = getCompletionEventValidator();
-  const ok = validate(obj);
-  return {
-    ok,
-    errors: ok ? [] : (validate.errors ?? []).map((e) => ({
-      instancePath: e.instancePath || '(root)',
-      message: e.message,
-      keyword: e.keyword,
-      params: e.params,
-    })),
-  };
-}
 
 /**
  * Validate the emitted projection of `<dir>/.atomic-skills` + meta/catalog.json

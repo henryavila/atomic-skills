@@ -172,6 +172,28 @@ test('a commit before F4 became done is not a coherent closeSha', () => {
   }
 });
 
+test('a structurally valid close on a detached branch cannot authorize the current plan history', () => {
+  const state = createHistoryFixture();
+  try {
+    reconcileMaterializationHistory({ ...state.options, apply: true });
+    const branch = git(state.root, ['branch', '--show-current']);
+    git(state.root, ['checkout', '-qb', 'detached-valid-close']);
+    git(state.root, ['commit', '--allow-empty', '-qm', 'detached but structurally valid close']);
+    const detachedCloseSha = git(state.root, ['rev-parse', 'HEAD']);
+    git(state.root, ['checkout', '-q', branch]);
+    bindF4Event(state, detachedCloseSha);
+
+    assert.throws(
+      () => assertSuccessorMaterializationAllowed(barrierArgs(state, {
+        closeSha: detachedCloseSha,
+      })),
+      /closeSha.*ancestor|ancestor.*closeSha/i,
+    );
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
 test('stale F0 receipt blocks successor activation', () => {
   const state = createHistoryFixture();
   try {

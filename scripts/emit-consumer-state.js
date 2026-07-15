@@ -37,6 +37,7 @@ import { parseFrontmatter } from './validate-state.js';
 import { verifierLabelFor, evidenceSummaryFor } from './compute-rollups.js';
 import { buildPlanDependencyGraph } from '../src/plan-dependencies.js';
 import { canonicalCompletionRecords } from './append-completion.js';
+import { readCompletionEventLog } from '../src/completion-event-validator.js';
 
 const STATE_DIRNAME = join('.aideck', 'state');
 
@@ -690,15 +691,7 @@ export function emitConsumerState(dir, nowMs) {
   const tree = readTree(root);
   const state = buildState(tree, nowMs);
   const logPath = join(root, 'analytics', 'completions.jsonl');
-  let lines = [];
-  if (existsSync(logPath)) {
-    lines = readFileSync(logPath, 'utf8').split('\n')
-      .map((s) => s.trim()).filter(Boolean)
-      .map((s) => {
-        try { return JSON.parse(s); } catch { return null; }
-      })
-      .filter(Boolean);
-  }
+  const lines = existsSync(logPath) ? readCompletionEventLog(logPath) : [];
   const series = buildSeries(tree, lines, nowMs);
   const fullState = { ...state, ...series };
   const written = writeState(root, fullState);

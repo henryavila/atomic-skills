@@ -110,7 +110,8 @@ test('earned rollup counts an exactly reconciled duplicate idempotency key once'
   };
   const duplicate = { ...event, ts: '2026-07-14T20:00:01Z' };
   const tombstone = {
-    event: 'reconcile', projectId: 'proj', planSlug: 'plan', phaseId: 'F0', taskId: null,
+    ts: '2026-07-14T20:00:02Z', event: 'reconcile', projectId: 'proj',
+    planSlug: 'plan', phaseId: 'F0', taskId: null, weight: 0, weightBasis: 'count',
     reconciliation: {
       action: 'ignore-duplicate-completion',
       eventIdentity: 'task-done:T-401',

@@ -387,7 +387,18 @@ export function classifyPhaseDoneCommit(input = {}) {
     }
   }
   const exitGates = authoritativeGates;
-  const reviewGate = input.reviewGate ?? phase.reviewGate;
+  const reviewGate = descriptor.reviewGate;
+  if (reviewGate !== undefined
+      && ((input.reviewGate !== undefined
+        && !isDeepStrictEqual(input.reviewGate, reviewGate))
+      || (phase.reviewGate !== undefined
+        && !isDeepStrictEqual(phase.reviewGate, reviewGate)))) {
+    return block(
+      'phase-done-review-slice-mismatch',
+      'phase-done review input differs from the authoritative plan descriptor review gate',
+      'Reload the plan descriptor and persist reviewGate there before rerunning `phase-done`.',
+    );
+  }
 
   const pendingGate = exitGates.find((gate) => !gateComplete(gate));
   if (pendingGate) {
