@@ -44,15 +44,17 @@ test('project-transitions emits are structurally present in all transition block
   assert.deepEqual(result.offenders, []);
 });
 
-test('phase-done prose instructs N task events plus one aggregate phase event', () => {
+test('phase-done prose emits one aggregate phase event and forbids bulk task-done close', () => {
   const real = readFileSync(TRANSITIONS, 'utf8');
   const phase = block(real, HEADERS.phase);
 
-  assert.match(phase, /N task events, one per task/);
-  assert.match(phase, /never one shared timestamp/);
   assert.match(phase, /exactly one `phase-done` completion event/);
   assert.match(phase, /aggregate actuals once/);
-  assert.match(phase, /do NOT duplicate those aggregate actuals onto the per-task `task-done` lines/);
+  assert.match(phase, /do NOT duplicate those aggregate actuals onto prior per-task `task-done` lines/i);
+  assert.match(phase, /Do \*\*not\*\* emit per-task `task-done` here|do \*\*not\*\* emit per-task `task-done`/i);
+  assert.match(phase, /no bulk-close|Do \*\*not\*\* set open tasks to `done`/i);
+  // Prior task-done path is still referenced (done flow ownership)
+  assert.match(phase, /task-done/);
 });
 
 test('done prose requires verifier handling before status mutation', () => {
@@ -68,13 +70,17 @@ test('done prose requires verifier handling before status mutation', () => {
   assert.match(done, /Do NOT consume `verify-claim` output as task evidence/);
 });
 
-test('phase-done prose preserves deferred gates instead of bulk-marking them met', () => {
+test('phase-done prose forbids defer/skip terminal and bulk-met coercion', () => {
   const real = readFileSync(TRANSITIONS, 'utf8');
   const phase = block(real, HEADERS.phase);
 
   assert.match(phase, /Never convert `pending` or `deferred` gates to `met`/);
-  assert.match(phase, /set `status: deferred`[\s\S]{0,120}`deferredReason`/);
+  assert.match(phase, /Do not offer defer\/skip as a terminal path|defer\/skip of exit gates as a terminal path/i);
+  assert.match(phase, /preflightPhaseDone|Stage A — pure preflight/);
+  assert.match(phase, /commitGuardPhaseDone|Commit guard \(HARD/);
+  assert.match(phase, /fingerprint/);
   assert.doesNotMatch(phase, /For each `exitGates\[\]`[\s\S]{0,160}`status !== 'met'`[\s\S]{0,160}set `status: met`/);
+  assert.doesNotMatch(phase, /Defer the remaining gates and mark phase done anyway/);
 });
 
 test('old done ordering is reported as verifier-before-done', () => {
@@ -100,7 +106,7 @@ test('old done ordering is reported as verifier-before-done', () => {
   }
 });
 
-test('old phase-done bulk-met propagation is reported', () => {
+test('old phase-done bulk-met and missing preflight/commit guard are reported', () => {
   const fixture = tempMarkdown(minimalFixture({
     phase: [
       HEADERS.phase,
@@ -119,7 +125,11 @@ test('old phase-done bulk-met propagation is reported', () => {
     assert.deepEqual(result.offenders.map((o) => o.block), [HEADERS.phase]);
     assert.ok(result.offenders[0].missing.includes('no-bulk-met'));
     assert.ok(result.offenders[0].missing.includes('no-pending-or-deferred-to-met'));
-    assert.ok(result.offenders[0].missing.includes('deferred-status-override'));
+    assert.ok(result.offenders[0].missing.includes('no-bulk-close'));
+    assert.ok(result.offenders[0].missing.includes('no-defer-skip-terminal'));
+    assert.ok(result.offenders[0].missing.includes('phase-done-preflight'));
+    assert.ok(result.offenders[0].missing.includes('phase-done-commit-guard'));
+    assert.ok(result.offenders[0].missing.includes('phase-done-fingerprint'));
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
   }

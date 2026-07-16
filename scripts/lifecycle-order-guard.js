@@ -4,7 +4,16 @@
  * This module does not read git, call gh, or mutate .atomic-skills state. Callers
  * pass already-parsed slices and receive an allow/block decision with an
  * actionable predecessor command.
+ *
+ * phase-done is split into two pure stages (F4/T-003):
+ *   - preflightPhaseDone  — identity / DAG / open tasks (before gates/review)
+ *   - commitGuardPhaseDone — re-reads gates (must be met), review, lessons,
+ *     HEAD fingerprint before any terminal write/archive
+ * decidePhaseDoneTerminal is the pure transaction decision used by tests:
+ * blocked paths return zero writes/events/commits.
  */
+
+import { validatePhaseDag } from '../src/transition.js';
 
 const EXCEPTIONS = Object.freeze({
   PHASE_ARCHIVE: 'phase-archive',
@@ -226,20 +235,97 @@ function reviewGateComplete(reviewGate) {
   return false;
 }
 
-function gateComplete(gate) {
-  const item = object(gate);
-  if (item.status === 'met') return true;
-  if (item.status === 'deferred') return Boolean(text(item.deferredReason));
-  return false;
+/**
+ * Exit gate is terminal-pass only when status is `met`.
+ * deferred / pending / failed / declined are NOT terminal paths (F4/T-003).
+ * @param {unknown} gate
+ * @returns {boolean}
+ */
+export function gatePassed(gate) {
+  return object(gate).status === 'met';
 }
 
-function phaseDone(input) {
-  const phase = object(input.phase ?? input.initiative);
-  const tasks = array(input.tasks ?? phase.tasks);
-  const exitGates = array(input.exitGates ?? phase.exitGates);
-  const reviewGate = input.reviewGate ?? phase.reviewGate;
+function phaseSlice(input) {
+  return object(input.phase ?? input.initiative);
+}
 
-  if (!Array.isArray(input.tasks ?? phase.tasks)) {
+function tasksOf(input) {
+  const phase = phaseSlice(input);
+  return input.tasks ?? phase.tasks;
+}
+
+function exitGatesOf(input) {
+  const phase = phaseSlice(input);
+  return array(input.exitGates ?? phase.exitGates);
+}
+
+function reviewGateOf(input) {
+  const phase = phaseSlice(input);
+  return input.reviewGate ?? phase.reviewGate;
+}
+
+/**
+ * Identity for phase-done: initiative must carry parentPlan + phaseId (or
+ * callers pass them explicitly). Optional plan slice checks the phase exists.
+ * @param {object} input
+ * @returns {{allowed:boolean, blocked:boolean, code:string|null, reason:string|null,
+ *   exception:string|null, recommendedCommand:string|null}}
+ */
+function checkPhaseDoneIdentity(input) {
+  const phase = phaseSlice(input);
+  const parentPlan = text(input.parentPlan) || text(phase.parentPlan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId);
+
+  if (!parentPlan || !phaseId) {
+    return block(
+      'phase-done-missing-identity',
+      'phase-done requires parentPlan + phaseId identity before any gate or write',
+      'Load the active phase initiative with parentPlan and phaseId, then rerun `phase-done`.',
+    );
+  }
+
+  const plan = object(input.plan);
+  if (Array.isArray(plan.phases) && plan.phases.length > 0) {
+    const match = plan.phases.find((p) => object(p).id === phaseId || object(p).slug === phaseId);
+    if (!match) {
+      return block(
+        'phase-done-identity-mismatch',
+        `phase-done identity ${parentPlan}/${phaseId} is not present on the parent plan phases[]`,
+        `Fix parentPlan/phaseId or load the correct plan for ${parentPlan}, then rerun \`phase-done\`.`,
+      );
+    }
+  }
+
+  return allow();
+}
+
+/**
+ * Optional DAG validation when a plan slice is provided.
+ * @param {object} input
+ */
+function checkPhaseDoneDag(input) {
+  const plan = object(input.plan);
+  if (!Array.isArray(plan.phases) || plan.phases.length === 0) {
+    return allow();
+  }
+  const dag = validatePhaseDag(plan);
+  if (dag.ok) return allow();
+  const first = array(dag.errors)[0] || {};
+  const code = text(first.code) || 'phase-done-dag-invalid';
+  return block(
+    `phase-done-dag-${code}`,
+    `phase-done cannot proceed while the phase DAG is invalid: ${text(first.message) || code}`,
+    'Fix dependsOn (unknown ids, self-loops, cycles), then rerun `phase-done`.',
+  );
+}
+
+/**
+ * Open-task check. Missing tasks array is a hard block (cannot bulk-close).
+ * @param {object} input
+ */
+function checkPhaseDoneTasks(input) {
+  const rawTasks = tasksOf(input);
+  if (!Array.isArray(rawTasks)) {
     return block(
       'phase-done-missing-tasks',
       'phase-done requires a parsed tasks array before transition',
@@ -247,7 +333,7 @@ function phaseDone(input) {
     );
   }
 
-  const openTask = tasks.find((task) => object(task).status !== 'done');
+  const openTask = rawTasks.find((task) => object(task).status !== 'done');
   if (openTask) {
     const id = text(object(openTask).id) || '<task-id>';
     return block(
@@ -257,17 +343,76 @@ function phaseDone(input) {
     );
   }
 
-  const pendingGate = exitGates.find((gate) => !gateComplete(gate));
-  if (pendingGate) {
-    const id = text(object(pendingGate).id) || '<gate-id>';
+  return allow();
+}
+
+/**
+ * Pure preflight for phase-done — runs BEFORE exit-gate verifiers / review.
+ *
+ * Validates identity (parentPlan+phaseId), optional plan DAG, and that every
+ * task is already done. Does NOT require gates, reviewGate, lessons, or
+ * fingerprint — so evidence production may proceed after a green preflight.
+ *
+ * On block: callers must produce zero gate-verifier runs, review, events,
+ * archive moves, status writes, or commits.
+ *
+ * @param {object} [input]
+ * @returns {{allowed:boolean, blocked:boolean, code:string|null, reason:string|null,
+ *   exception:string|null, recommendedCommand:string|null}}
+ */
+export function preflightPhaseDone(input = {}) {
+  const safe = object(input);
+  const identity = checkPhaseDoneIdentity(safe);
+  if (identity.blocked) return identity;
+  const dag = checkPhaseDoneDag(safe);
+  if (dag.blocked) return dag;
+  return checkPhaseDoneTasks(safe);
+}
+
+/**
+ * Pure commit guard for phase-done — runs AFTER evidence / review / lessons.
+ *
+ * Re-checks preflight, then requires:
+ *   - every exit gate status === `met` (deferred/pending/failed/declined block)
+ *   - reviewGate recorded (passed+at or skipped+reason when requireReview)
+ *   - lessons recorded or explicitly none when requireLessons
+ *   - HEAD fingerprint matches the fingerprint captured at evidence time
+ *
+ * Deferred / skip of exit gates is NEVER a terminal path.
+ *
+ * @param {object} [input]
+ * @param {string} [input.fingerprint] current HEAD (or content) fingerprint
+ * @param {string} [input.expectedFingerprint] fingerprint recorded with evidence
+ * @param {boolean} [input.requireReview=true]
+ * @param {boolean} [input.requireLessons=true]
+ * @param {boolean} [input.requireFingerprint=true]
+ */
+export function commitGuardPhaseDone(input = {}) {
+  const safe = object(input);
+  const pre = preflightPhaseDone(safe);
+  if (pre.blocked) return pre;
+
+  const exitGates = exitGatesOf(safe);
+  const openGate = exitGates.find((gate) => !gatePassed(gate));
+  if (openGate) {
+    const item = object(openGate);
+    const id = text(item.id) || '<gate-id>';
+    const status = text(item.status) || 'pending';
+    if (status === 'deferred') {
+      return block(
+        'phase-done-gate-deferred',
+        `phase-done cannot advance while exit gate ${id} is deferred — defer is not a terminal path`,
+        `Run the verifier for ${id} until status is met, or leave the phase active/paused. Do not close via defer.`,
+      );
+    }
     return block(
       'phase-done-open-gate',
-      `phase-done cannot advance while exit gate ${id} is not met or deferred`,
-      `Run the verifier for ${id}, then rerun \`phase-done\`.`,
+      `phase-done cannot advance while exit gate ${id} is ${status} (must be met)`,
+      `Run the verifier for ${id} until it is met with current evidence, then rerun \`phase-done\`.`,
     );
   }
 
-  if (input.requireReview !== false && !reviewGateComplete(reviewGate)) {
+  if (safe.requireReview !== false && !reviewGateComplete(reviewGateOf(safe))) {
     return block(
       'phase-done-review-open',
       'phase-done requires a recorded reviewGate before the phase can advance',
@@ -275,8 +420,9 @@ function phaseDone(input) {
     );
   }
 
-  if (input.requireLessons === true) {
-    const lessonsState = text(input.lessonsState ?? phase.lessonsState);
+  if (safe.requireLessons !== false) {
+    const phase = phaseSlice(safe);
+    const lessonsState = text(safe.lessonsState ?? phase.lessonsState);
     if (lessonsState !== 'recorded' && lessonsState !== 'none') {
       return block(
         'phase-done-lessons-open',
@@ -286,7 +432,92 @@ function phaseDone(input) {
     }
   }
 
+  if (safe.requireFingerprint !== false) {
+    const current = text(safe.fingerprint ?? safe.headSha ?? safe.currentFingerprint);
+    const expected = text(safe.expectedFingerprint ?? safe.evidenceFingerprint ?? safe.recordedFingerprint);
+    if (!current) {
+      return block(
+        'phase-done-fingerprint-missing',
+        'phase-done commit guard requires the current HEAD fingerprint',
+        'Capture `git rev-parse HEAD` as fingerprint and rerun the commit guard.',
+      );
+    }
+    if (!expected) {
+      return block(
+        'phase-done-fingerprint-unanchored',
+        'phase-done commit guard requires the fingerprint recorded with gate evidence',
+        'Re-run exit-gate verifiers against the current HEAD, record the fingerprint, then rerun the commit guard.',
+      );
+    }
+    if (current !== expected) {
+      return block(
+        'phase-done-fingerprint-stale',
+        `phase-done commit guard fingerprint mismatch: evidence at ${expected}, HEAD is ${current}`,
+        'Re-run exit-gate verifiers and review against the current HEAD, then rerun `phase-done`.',
+      );
+    }
+  }
+
   return allow();
+}
+
+/**
+ * Pure transaction decision for phase-done terminal mutation.
+ *
+ * When blocked: terminal=false and writes/events/commits are empty arrays
+ * (zero terminal side effects). When allowed: describes the intended terminal
+ * effects without performing I/O. Callers (and unit tests) use this as the
+ * single gate before any close write, completion event, archive, or commit.
+ *
+ * Bypass attempts (defer, skip, status-edit to done, direct advance) with an
+ * open/deferred/pending gate all resolve to the blocked empty-effect shape.
+ *
+ * @param {object} [input]
+ * @returns {{
+ *   allowed:boolean, blocked:boolean, terminal:boolean,
+ *   code:string|null, reason:string|null, exception:string|null,
+ *   recommendedCommand:string|null,
+ *   writes:string[], events:string[], commits:string[],
+ * }}
+ */
+export function decidePhaseDoneTerminal(input = {}) {
+  const safe = object(input);
+  const stage = text(safe.stage) || 'commit';
+  const decision = stage === 'preflight'
+    ? preflightPhaseDone(safe)
+    : commitGuardPhaseDone(safe);
+
+  if (decision.blocked) {
+    return {
+      ...decision,
+      terminal: false,
+      writes: [],
+      events: [],
+      commits: [],
+    };
+  }
+
+  const phase = phaseSlice(safe);
+  const phaseId = text(safe.phaseId) || text(phase.phaseId) || '<phase-id>';
+  return {
+    ...decision,
+    terminal: true,
+    // No bulk-close: tasks must already be done. Terminal surfaces only.
+    writes: ['initiative:status:done', 'plan:phase:status:done', 'archive:move', 'project-status'],
+    events: [`phase-done:${phaseId}`],
+    commits: [`chore(project): advance <plan> ${phaseId}`],
+  };
+}
+
+/**
+ * Legacy single-shot phase-done classifier.
+ * Defaults to commit-guard semantics. Pass stage:'preflight' for preflight only.
+ * @param {object} input
+ */
+function phaseDone(input) {
+  const stage = text(input.stage) || 'commit';
+  if (stage === 'preflight') return preflightPhaseDone(input);
+  return commitGuardPhaseDone(input);
 }
 
 /**
@@ -295,6 +526,7 @@ function phaseDone(input) {
  * @param {object} input
  * @param {string} input.command command family, e.g. archive, phase-done,
  *   split-phase, discover, depend resolve --archived
+ * @param {string} [input.stage] for phase-done: 'preflight' | 'commit' (default commit)
  * @returns {{allowed:boolean, blocked:boolean, code:string|null, reason:string|null,
  *   exception:string|null, recommendedCommand:string|null}}
  */
