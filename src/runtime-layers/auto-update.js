@@ -1,29 +1,39 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { AUTO_UPDATE_HOST_CAPABILITIES } from '../config.js';
 
 /**
  * Auto-update runtime layer — a pure planner (Provider) that re-expresses
- * installAutoUpdateHook (src/install.js:584-645) over the kernel, reverting
- * through the journal (removeAutoUpdateHook equivalent):
+ * installAutoUpdateHook over the kernel, reverting through the journal:
  *
  *   1. stageRuntimeArtifacts — copy version-check.sh to
- *      <basePath>/.atomic-skills/hooks/ with mode 0o755 (the hook must be
- *      executable; reconcileFileSet would write it 0o644).
+ *      <basePath>/.atomic-skills/hooks/ with mode 0o755 (only when at least
+ *      one selected host has session-start-hook capability).
  *   2. Per-IDE SessionStart registration (additive, surgically reversed):
  *      - Claude Code → jsonMerge into <basePath>/.claude/settings.json
  *      - Grok Build → jsonMerge into <basePath>/.grok/hooks/atomic-skills-auto-update.json
  *        (user/global auto-update only — never project Soft/Strict scripts)
  *
- * Host selection follows config.ides when present. When ides is omitted
- * (legacy unit callers), Claude-only registration is preserved. When both
- * claude-code and grok are selected, BOTH surfaces receive the SessionStart
- * entry without either clobbering the other.
+ * Host selection is capability-driven (AUTO_UPDATE_HOST_CAPABILITIES +
+ * config.ides). Codex-only / layout-only hosts produce zero Claude or Grok
+ * mutations. When ides is omitted (legacy unit callers), Claude-only
+ * registration is preserved.
  *
  * Sources come from config.skillsDir (the skills/ source tree).
  */
 
 /** Dedicated Grok hook file — owns only Atomic Skills auto-update SessionStart. */
 export const GROK_AUTO_UPDATE_HOOK_REL = '.grok/hooks/atomic-skills-auto-update.json';
+
+/**
+ * Scope-aware install command recommended by version-check.sh.
+ * @param {'user'|'project'|string} scope
+ * @returns {string}
+ */
+export function buildUpdateCommand(scope) {
+  const base = 'npx -y @henryavila/atomic-skills@latest install --yes';
+  return scope === 'project' ? `${base} --project` : base;
+}
 
 /**
  * @param {object} config
@@ -35,9 +45,15 @@ export function resolveAutoUpdateHosts(config = {}) {
   if (!Array.isArray(config.ides)) {
     return { registerClaude: true, registerGrok: false };
   }
+  const hasClaude =
+    config.ides.includes('claude-code')
+    && AUTO_UPDATE_HOST_CAPABILITIES['claude-code']?.capability === 'session-start-hook';
+  const hasGrok =
+    config.ides.includes('grok')
+    && AUTO_UPDATE_HOST_CAPABILITIES.grok?.capability === 'session-start-hook';
   return {
-    registerClaude: config.ides.includes('claude-code'),
-    registerGrok: config.ides.includes('grok'),
+    registerClaude: hasClaude,
+    registerGrok: hasGrok,
   };
 }
 
@@ -76,9 +92,13 @@ export function createAutoUpdateRuntimeProvider() {
       const sourceScript = join(skillsDir, 'shared', 'auto-update-hook', 'version-check.sh');
       if (!existsSync(sourceScript)) return [];
 
+      const { registerClaude, registerGrok } = resolveAutoUpdateHosts(config);
+      // Zero capable hosts → plan nothing (Codex-only must not leave residue
+      // under .atomic-skills/hooks or mutate other hosts' settings).
+      if (!registerClaude && !registerGrok) return [];
+
       const destRel = '.atomic-skills/hooks/version-check.sh';
       const destAbs = join(basePath, destRel);
-      const { registerClaude, registerGrok } = resolveAutoUpdateHosts(config);
 
       const effects = [
         {
