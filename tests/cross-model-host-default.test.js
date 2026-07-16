@@ -131,6 +131,24 @@ describe('resolveReviewRoute — happy paths per host matrix row', () => {
     assert.equal(r.action, 'run');
     assert.deepEqual(r.externalProviders, ['codex', 'grok']);
   });
+
+  it('external-both on codex host drops the same-family codex leg', () => {
+    const r = resolveReviewRoute({ hostFamily: 'codex', mode: 'external-both' });
+    assert.equal(r.action, 'run');
+    assert.deepEqual(r.externalProviders, ['grok']);
+  });
+
+  it('external-both on grok host drops the same-family grok leg', () => {
+    const r = resolveReviewRoute({ hostFamily: 'grok', mode: 'external-both' });
+    assert.equal(r.action, 'run');
+    assert.deepEqual(r.externalProviders, ['codex']);
+  });
+
+  it('unknown mode aborts (no silent local)', () => {
+    const r = resolveReviewRoute({ hostFamily: 'claude', mode: 'not-a-mode' });
+    assert.equal(r.action, 'abort');
+    assert.match(r.message, /unknown review mode/i);
+  });
 });
 
 describe('resolveReviewRoute — same-family interactive', () => {

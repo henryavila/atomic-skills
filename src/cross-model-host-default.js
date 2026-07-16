@@ -23,6 +23,17 @@ export const HOST_EXTERNAL_DEFAULT = Object.freeze({
 
 const EXTERNAL_PROVIDERS = new Set(['codex', 'grok']);
 
+/** Modes accepted by resolveReviewRoute — unknown values abort (no silent local). */
+export const REVIEW_MODES = Object.freeze([
+  'local',
+  'codex',
+  'grok',
+  'both',
+  'both-codex',
+  'both-grok',
+  'external-both',
+]);
+
 /**
  * Normalize a free-form host label into a HostFamily.
  * @param {string | null | undefined} raw
@@ -111,7 +122,7 @@ export function externalProviderForMode(mode, hostFamily) {
   if (m === 'grok' || m === 'both-grok') return 'grok';
   if (m === 'both') return defaultExternalProvider(hostFamily);
   if (m === 'external-both') return 'codex'; // first leg; second is always grok
-  return null;
+  return undefined; // unknown mode — callers must abort (do not treat as local)
 }
 
 /**
@@ -153,11 +164,23 @@ export function resolveReviewRoute(input) {
     env,
   });
 
+  if (!REVIEW_MODES.includes(mode)) {
+    return {
+      action: 'abort',
+      message:
+        `HARD ABORT: unknown review mode "${mode}". ` +
+        `Valid modes: ${REVIEW_MODES.join(', ')}.`,
+      hostFamily,
+      mode,
+      externalProvider: null,
+    };
+  }
+
   const includesLocal = mode === 'both' || mode === 'both-codex' || mode === 'both-grok';
   const externalProvider = externalProviderForMode(mode, hostFamily);
   const crossFamilyAlternative = defaultExternalProvider(hostFamily);
 
-  if (mode === 'local' || externalProvider == null) {
+  if (mode === 'local') {
     return {
       action: 'run',
       provider: 'local',
@@ -169,16 +192,62 @@ export function resolveReviewRoute(input) {
     };
   }
 
-  // external-both: never same-family with a single host of codex/grok alone for both legs;
-  // Claude/cursor/unknown hosts use two externals. No same-family abort on the mode itself.
+  // external-both: filter same-family legs (Codex host drops codex; Grok drops grok).
   if (mode === 'external-both') {
+    const legs = ['codex', 'grok'].filter((p) => !isSameFamilyExternal(hostFamily, p));
+    if (legs.length === 0) {
+      if (interactive && (input.sameFamilyDecision == null || input.sameFamilyDecision === '')) {
+        return {
+          action: 'confirm-same-family',
+          message:
+            'external-both has no family-different provider for this host. Confirm sealed local, or abort.',
+          crossFamilyAlternative,
+          hostFamily,
+          mode,
+          externalProvider: null,
+          externalProviders: [],
+        };
+      }
+      if (interactive && input.sameFamilyDecision === 'confirm') {
+        return {
+          action: 'run',
+          provider: 'local',
+          sameFamilyRemap: true,
+          includesLocal: true,
+          externalProvider: null,
+          hostFamily,
+          mode,
+        };
+      }
+      if (acceptFlag) {
+        return {
+          action: 'run',
+          provider: 'local',
+          sameFamilyRemap: true,
+          includesLocal: true,
+          externalProvider: null,
+          hostFamily,
+          mode,
+        };
+      }
+      return {
+        action: 'abort',
+        message:
+          'HARD ABORT: external-both has no family-different provider for this host. ' +
+          'Use --accept-same-family-as-local for sealed local, or pick a single cross-family mode.',
+        crossFamilyAlternative,
+        hostFamily,
+        mode,
+        externalProvider: null,
+      };
+    }
     return {
       action: 'run',
-      provider: 'codex',
+      provider: legs[0],
       sameFamilyRemap: false,
       includesLocal: false,
-      externalProvider: 'codex',
-      externalProviders: ['codex', 'grok'],
+      externalProvider: legs[0],
+      externalProviders: legs,
       hostFamily,
       mode,
     };

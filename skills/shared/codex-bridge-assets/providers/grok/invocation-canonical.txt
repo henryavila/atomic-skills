@@ -15,8 +15,22 @@ stdout contamination.
 
 - `<BRIEFING_PATH>`: path to briefing markdown file (input; use `--prompt-file`)
 - `<OUTPUT_PATH>`: path to output markdown file (stdout redirect; Grok has no `-o`)
+- `<STDERR_PATH>`: path to stderr log (must live under a private `mktemp -d` dir)
 - `<TIMEOUT_SECONDS>`: integer seconds (default 600 = 10 min)
 - `<MODEL_FLAG>`: empty by default. If user passed `--model X`, set to `--model X`.
+
+## Pre-step: private work directory (symlink-safe)
+
+Never write stderr/output to a predictable shared `/tmp/…-<ts>` path. Create a
+private dir first:
+
+```bash
+umask 077
+REVIEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/as-grok-review.XXXXXX") || exit 1
+trap 'rm -rf "$REVIEW_TMP"' EXIT
+# Bind: <OUTPUT_PATH>=$REVIEW_TMP/out.md  <STDERR_PATH>=$REVIEW_TMP/stderr.log
+#        <BRIEFING_PATH> may stay outside if already sealed by the caller
+```
 
 ## Pre-step: portable timeout wrapper
 
@@ -50,11 +64,11 @@ All three branches expose the same shell function with COMPATIBLE call shape:
 run_with_timeout <TIMEOUT_SECONDS> grok \
   <MODEL_FLAG> \
   --sandbox read-only \
-  --disallowed-tools "search_replace,write,run_terminal_cmd,Agent" \
+  --disallowed-tools "search_replace,write,run_terminal_cmd,Agent,web_search,open_page,open_page_with_find,use_tool,search_tool,image_gen,image_edit,image_to_video,reference_to_video,spawn_subagent,monitor" \
   --no-memory \
   --output-format plain \
   --prompt-file <BRIEFING_PATH> \
-  > <OUTPUT_PATH> 2>/tmp/grok-review-stderr-<ts>.log
+  > <OUTPUT_PATH> 2> <STDERR_PATH>
 ```
 
 Notes:
@@ -74,12 +88,12 @@ Notes:
 |------|-----|
 | `run_with_timeout <N>` | External kill. Portable across Linux/macOS/WSL via the function above. |
 | `--sandbox read-only` | OS-level FS sandbox: read everywhere, write only `~/.grok/` + temp; child network blocked on Linux. Reviewer must never write project files. |
-| `--disallowed-tools "search_replace,write,run_terminal_cmd,Agent"` | Defense-in-depth denylist of mutating / shell / subagent tools. Headless tool ids (see Grok 14-headless-mode): shell is `run_terminal_cmd` (not `bash`). |
+| `--disallowed-tools "…"` | Defense-in-depth denylist: mutating tools, shell, subagents, **web/browse**, MCP `use_tool`/`search_tool`, and media generators. Headless shell id is `run_terminal_cmd`. Re-smoke after CLI upgrades. |
 | `--no-memory` | Do not inject cross-session memory into the sealed envelope. |
 | `--output-format plain` | Markdown-friendly final text on stdout (matches sealed review parse). |
 | `--prompt-file <BRIEFING_PATH>` | Prompt from file; headless single-turn. |
-| `> <OUTPUT_PATH>` | Persist the response for Pass validation. |
-| `2>…log` | Keep banner/auth errors out of the review file. |
+| `> <OUTPUT_PATH>` | Persist the response for Pass validation (private dir). |
+| `2> <STDERR_PATH>` | Keep banner/auth errors out of the review file (private dir; never predictable `/tmp/…-<ts>`). |
 
 ## Optional / overrides
 
