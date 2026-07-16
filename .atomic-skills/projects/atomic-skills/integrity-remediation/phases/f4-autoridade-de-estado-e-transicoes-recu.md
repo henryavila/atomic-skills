@@ -7,8 +7,8 @@ summary: Reconcili a F0 e torna fechamento, eventos e materialização idempoten
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T16:49:55.611Z
-nextAction: "Start F4/T-004: anchor gates and review to closed HEAD SHA"
+lastUpdated: 2026-07-16T16:54:40.798Z
+nextAction: "Start F4/T-006: consolidate materialize + F0 reconciliation receipt + F3 barrier"
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -17,11 +17,11 @@ businessIntent:
   rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
   outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
-tasksDone: 3
+tasksDone: 5
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 3
+weightDone: 5
 weightTotal: 8
 exitGates:
   - id: F4-G1
@@ -179,8 +179,8 @@ tasks:
     summary: Ancorar gates e review ao HEAD fechado
     weight: 1
     description: "Gravar SHA verificável em evidence/reviewGate e rerodar exit gates quando review aplica fixes ou muda HEAD. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:154-164` e `scripts/validate-state.js:484-506`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:54:40.798Z
     scopeBoundary:
       - não aceitar string arbitrária como SHA e não reutilizar evidence anterior a um commit de review
     acceptance:
@@ -204,13 +204,20 @@ tasks:
         path: tests/validate-state.test.js
       - kind: file
         path: tests/phase-done-transaction.test.js
+    closedAt: 2026-07-16T16:54:40.798Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:54:40.798Z
+      passed: true
+      exitCode: 0
+      outputSummary: validate-state + phase-done-transaction green
   - id: T-005
     title: Tornar done, evento e handoff idempotentes
     summary: Tornar done, evento e handoff idempotentes
     weight: 1
     description: "Persistir close state, evidence, nextAction/handoff e completion event sob uma idempotency key e um recovery boundary único. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:165-185`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:54:40.798Z
     scopeBoundary:
       - não append evento antes de state durável e não criar segundo close commit para corrigir handoff
     acceptance:
@@ -236,6 +243,13 @@ tasks:
         path: tests/emit-on-transition.test.js
       - kind: file
         path: tests/done-transaction.test.js
+    closedAt: 2026-07-16T16:54:40.798Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:54:40.798Z
+      passed: true
+      exitCode: 0
+      outputSummary: "append-completion + done-transaction + emit: green"
   - id: T-006
     title: Consolidar materialização e reconciliar o bootstrap F0
     summary: Consolidar materialização e reconciliar o bootstrap F0
