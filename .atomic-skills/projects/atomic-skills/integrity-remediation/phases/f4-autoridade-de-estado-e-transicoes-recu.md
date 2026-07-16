@@ -7,8 +7,8 @@ summary: Reconcili a F0 e torna fechamento, eventos e materialização idempoten
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T16:59:22.728Z
-nextAction: Start F4/T-008 then close F4 gates
+lastUpdated: 2026-07-16T17:01:57.760Z
+nextAction: Run F4-G1..G3 verifiers and phase-done
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -17,11 +17,11 @@ businessIntent:
   rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
   outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
-tasksDone: 7
+tasksDone: 8
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 7
+weightDone: 8
 weightTotal: 8
 exitGates:
   - id: F4-G1
@@ -331,8 +331,8 @@ tasks:
     summary: Corrigir reconcile e nomenclatura de closure
     weight: 1
     description: "Manter ExitCriterion strict ao reconhecer `Still open` e documentar reconcile como único mutation path disparado por detection drift, preservando done como closure authority. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:274-281,311-315`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T17:01:57.760Z
     scopeBoundary:
       - não gravar `lastUpdated` em ExitCriterion e não criar uma terceira autoridade de fechamento
     acceptance:
@@ -354,6 +354,13 @@ tasks:
         path: tests/project.test.js
       - kind: file
         path: tests/validate-state.test.js
+    closedAt: 2026-07-16T17:01:57.760Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:01:57.760Z
+      passed: true
+      exitCode: 0
+      outputSummary: "detect-completion + project + validate-state: 172 pass"
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição
