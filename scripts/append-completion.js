@@ -204,9 +204,105 @@ function normalize(entry) {
 }
 
 /**
+ * Logical identity for one completion event (F4/T-005 idempotency / dedupe key).
+ *
+ * Key = event + projectId + planSlug + phaseId + taskId (empty string when null).
+ * Weight/ts/actuals are intentionally excluded so a retry of the same close does
+ * not mint a second line with a different timestamp. Returns null when the entry
+ * lacks the fields required to form a stable identity (incomplete/legacy lines).
+ *
+ * @param {object|null|undefined} entry
+ * @returns {string|null}
+ */
+export function completionEventKey(entry) {
+  if (entry == null || typeof entry !== 'object') return null;
+  const event = entry.event;
+  const projectId = entry.projectId;
+  const planSlug = entry.planSlug;
+  const phaseId = entry.phaseId;
+  if (!hasText(event) || !hasText(projectId) || !hasText(planSlug) || !hasText(phaseId)) {
+    return null;
+  }
+  if (event === 'task-done' && !hasText(entry.taskId)) return null;
+  const taskPart = hasText(entry.taskId) ? entry.taskId : '';
+  return `${event}\0${projectId}\0${planSlug}\0${phaseId}\0${taskPart}`;
+}
+
+/**
+ * Read completions.jsonl as parsed objects (skips blank/corrupt lines).
+ * Pure-ish boundary helper used by dedupe and by pure done-transaction decisions.
+ *
+ * @param {string} root
+ * @returns {object[]}
+ */
+export function readCompletionLog(root) {
+  const path = join(resolve(root), ...ANALYTICS_DIR, LOG_FILE);
+  if (!existsSync(path)) return [];
+  try {
+    const raw = readFileSync(path, 'utf8');
+    if (!raw.trim()) return [];
+    const out = [];
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) out.push(obj);
+      } catch {
+        // Skip corrupt lines — never throw from a read path used by idempotent retry.
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * First log line whose logical identity matches `entry` (or key), else undefined.
+ *
+ * @param {string} root
+ * @param {object|string} entryOrKey entry fields or a precomputed completionEventKey
+ * @returns {object|undefined}
+ */
+export function findCompletionByKey(root, entryOrKey) {
+  const key = typeof entryOrKey === 'string' ? entryOrKey : completionEventKey(entryOrKey);
+  if (!hasText(key)) return undefined;
+  for (const rec of readCompletionLog(root)) {
+    if (completionEventKey(rec) === key) return rec;
+  }
+  return undefined;
+}
+
+/**
+ * Collapse an array of completion records to the first occurrence of each
+ * logical identity. Records with no stable key are kept (not collapsed).
+ * Used by analytics consumers so historical duplicate lines cannot double-count.
+ *
+ * @param {object[]} records
+ * @returns {object[]}
+ */
+export function dedupeCompletionEvents(records) {
+  if (!Array.isArray(records)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const rec of records) {
+    const key = completionEventKey(rec);
+    if (key != null) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(rec);
+  }
+  return out;
+}
+
+/**
  * Append exactly one completion event to `<root>/.atomic-skills/analytics/completions.jsonl`,
- * creating the `analytics/` dir idempotently. Returns the written record.
- * Append-only: existing lines are never read, rewritten, or reordered.
+ * creating the `analytics/` dir idempotently. Returns the written (or prior) record.
+ *
+ * Idempotent (F4/T-005): a second call with the same event identity
+ * (`completionEventKey`) returns the existing line and writes nothing. Prior
+ * lines are never rewritten or reordered — only scanned for the dedupe key.
  *
  * Task-actuals auto-capture (F4/T-002): a `task-done` entry with no explicit
  * `actuals` derives them from the dispatch-log sidecar here, so BOTH callers —
@@ -214,6 +310,10 @@ function normalize(entry) {
  * transition prose also offers — capture attempts/durationMs/escalations. An
  * explicit `actuals` (e.g. phase actuals on a phase-done event) is never
  * overwritten; absence of a dispatch-log degrades to no actuals (graceful).
+ *
+ * Non-enumerable metadata on the return value:
+ *   - `appended`   {boolean} true iff a new line was written
+ *   - `idempotent` {boolean} true iff an existing identity was reused
  */
 export function appendCompletion(root, entry) {
   let effectiveEntry = entry;
@@ -224,10 +324,21 @@ export function appendCompletion(root, entry) {
     if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
   }
   const record = normalize(effectiveEntry); // validate BEFORE touching the filesystem
+  const key = completionEventKey(record);
+  const existing = key != null ? findCompletionByKey(root, key) : undefined;
+  if (existing !== undefined) {
+    return Object.defineProperties({ ...existing }, {
+      appended: { value: false, enumerable: false },
+      idempotent: { value: true, enumerable: false },
+    });
+  }
   const dir = join(resolve(root), ...ANALYTICS_DIR);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
-  return record;
+  return Object.defineProperties({ ...record }, {
+    appended: { value: true, enumerable: false },
+    idempotent: { value: false, enumerable: false },
+  });
 }
 
 // CLI
@@ -255,7 +366,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       weightBasis: flag('basis'),
       ...(actuals !== undefined ? { actuals } : {}),
     });
-    console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ✓`);
+    const tag = rec.idempotent ? 'idempotent' : 'appended';
+    console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ${tag} ✓`);
   } catch (err) {
     console.error(`append-completion: ${err.message}`);
     process.exit(1);

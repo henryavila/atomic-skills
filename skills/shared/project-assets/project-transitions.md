@@ -144,6 +144,37 @@ task's own `verifier:`. Do NOT consume `verify-claim` output as task evidence.
    - Do NOT automatically run `phase-done` or `archive` — the user opts in (intrusive-actions rule).
 8. Announce the task closure and the checkpoint commit sha.
 
+## Idempotency
+
+Task/phase close, completion events, and session handoff share one recovery
+boundary (F4/T-005). Retry must not duplicate analytics or leave stale
+evidence/handoff.
+
+1. **Event identity.** `appendCompletion` / `append-completion` is idempotent on
+   the logical key `event + projectId + planSlug + phaseId + taskId` (see
+   `completionEventKey` in `scripts/append-completion.js`). A second call with
+   the same identity returns the existing line and writes **zero** additional
+   JSONL rows. Consumers (`buildSeries` / `emit-consumer-state`) also collapse
+   duplicate identities so historical double-appends cannot inflate earned value.
+2. **Done transaction.** Before mutating, call pure `decideDoneTerminal` from
+   `scripts/done-transaction.js` with the parsed task, identity, verifier result,
+   current HEAD fingerprint, prior completion keys, and any recovery marker.
+   - Fresh close (verifier passed, task open): terminal writes are
+     `status`/`closedAt`/`evidence`/`nextAction`/**handoff**/`lastUpdated`, then
+     one `task-done` event, then **one** checkpoint commit.
+   - Second run with the same close fingerprint and an already-durable done +
+     event: `idempotent: true` and **zero** additional terminal writes/events/commits.
+   - Partial failure: a recovery marker resumes only remaining steps (missing
+     event without rewrites, or missing state without re-emitting).
+3. **Ordering (HARD).** Durable state (including `## Session handoff` +
+   `nextAction`) is written **before** `appendCompletion`. Never append the
+   event before state is durable. Never create a **second** close commit solely
+   to repair handoff — handoff is part of the first `chore(project): checkpoint
+   …` commit owned by `done`.
+4. **Phase-done** keeps its own preflight/commit-guard fingerprint gate
+   (`decidePhaseDoneTerminal`); its single `phase-done` event is likewise
+   identity-deduped by `appendCompletion`.
+
 ## `reconcile`
 
 The **only** completion-mutation path (Spec 1, Component B). `status`/`verify` *detect & report* completion drift read-only; `reconcile` is where the user disposes of each candidate. Subject to the standard pre-mutation gates (migration check, reconciliation gate). It NEVER fabricates a close: the detection signal (a changed deliverable) and the close authority (a passing verifier *or* an explicit human ack) are kept separate.
