@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderTemplate, renderForIDE } from '../src/render.js';
 
 describe('renderTemplate', () => {
@@ -81,13 +83,42 @@ describe('renderTemplate', () => {
   });
 
   it('handles conditional IDE blocks', () => {
-    const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}';
+    const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}\n{{#if ide.grok}}\nGrok only\n{{/if}}';
 
     const resultGemini = renderTemplate(input, {}, {}, 'gemini');
     assert.strictEqual(resultGemini, 'Common\nGemini only\n');
 
     const resultClaude = renderTemplate(input, {}, {}, 'claude-code');
     assert.strictEqual(resultClaude, 'Common\nClaude only\n');
+
+    const resultGrok = renderTemplate(input, {}, {}, 'grok');
+    assert.strictEqual(resultGrok, 'Common\nGrok only\n');
+  });
+
+  it('renders ide.grok conditionals from hot skill bodies', () => {
+    const implement = readFileSync(join(process.cwd(), 'skills/core/implement.md'), 'utf8');
+    const parallel = readFileSync(join(process.cwd(), 'skills/core/parallel-dispatch.md'), 'utf8');
+    const project = readFileSync(join(process.cwd(), 'skills/core/project.md'), 'utf8');
+
+    assert.match(implement, /\{\{#if ide\.grok\}\}/);
+    assert.match(parallel, /\{\{#if ide\.grok\}\}/);
+    assert.match(project, /\{\{#if ide\.grok\}\}/);
+
+    const implGrok = renderTemplate(implement, {}, {}, 'grok');
+    const implClaude = renderTemplate(implement, {}, {}, 'claude-code');
+    assert.match(implGrok, /spawn_subagent/);
+    assert.doesNotMatch(
+      implClaude,
+      /Prefer one focused read-only subagent unless the host clearly supports parallel spawn/,
+    );
+
+    const parGrok = renderTemplate(parallel, {}, {}, 'grok');
+    assert.match(parGrok, /spawn_subagent.*\(explore\)/);
+    assert.match(parGrok, /custom plugin agent types/);
+
+    const projGrok = renderTemplate(project, {}, {}, 'grok');
+    assert.match(projGrok, /ask_user_question/);
+    assert.match(projGrok, /fail-open/);
   });
 
   it('substitutes ASSETS_PATH for claude-code IDE', () => {

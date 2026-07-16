@@ -107,6 +107,9 @@ Run these in order on the active initiative BEFORE executing a mutating command 
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
+{{#if ide.grok}}
+   On Grok Build, use native `ask_user_question` for those structured options. Soft project hooks require folder/hooks trust; when untrusted they fail-open (no SessionStart digest / PreToolUse gate) — not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
+{{/if}}
 
 ## Gate-status invariant
 
