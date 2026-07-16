@@ -28,6 +28,7 @@ import {
 } from './runtime-layers/grok-plugin-host.js';
 import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
+import { verifyInstall, decisionsByState } from './status-verify.js';
 
 export { resolveProjectScopeTarget } from './scope.js';
 
@@ -406,7 +407,14 @@ export function installSkills(projectDir, options, callbacks = {}) {
   });
 
   if (onFileWritten) for (const f of createdFiles) onFileWritten(f.path);
-  return { files: createdFiles };
+
+  // Hash-classify the post-install filesystem (F2/T-003). Exposes preserved/
+  // modified/unchanged decisions instead of only the desired set size.
+  const finalManifest = readManifest(projectDir);
+  const verification = verifyInstall(projectDir, finalManifest);
+  const decisions = decisionsByState(verification);
+
+  return { files: createdFiles, decisions, verification };
 }
 
 /**
