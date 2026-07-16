@@ -74,6 +74,27 @@ falso-verde antes do fechamento da fase.
 3. Asserte presença/ausência de arquivos e campos no estado pós-ação, não em
    estruturas capturadas antes da ação.
 
+## Multiplataforma: install não pode ser Linux-only
+
+O engine (`@henryavila/minimalist-installer`) e o produto reclamam Linux + macOS +
+Windows. Regressões `/proc/self/fd`-only só aparecem no macOS se a suíte Linux
+nunca forçar o backend portátil.
+
+**Enforcers:**
+- `tests/multiplatform-contract.test.js` — static ban de `/proc/self/fd` fora de
+  `path-safety.js`, ban da mensagem Linux-only fail-closed, CLI
+  install/status/detect/uninstall sob `MINIMALIST_INSTALLER_PATH_BACKEND=path`,
+  e assert de job CI multiplatform.
+- Job CI `multiplatform-path-nofollow` em `.github/workflows/test.yml` com
+  `MINIMALIST_INSTALLER_PATH_BACKEND: path` + round-trip de install.
+- Upstream `test/multiplatform-backends.test.js` (matrix path/proc + guards
+  estáticos no package).
+
+**How to apply:** Qualquer mutação de filesystem do installer deve passar por
+`entryPath` / `*NoFollow` do engine. Nunca hardcodar `/proc/self/fd` em effects
+ou no produto. Se adicionar um comando CLI mutante, estenda o ciclo
+install→status→detect→uninstall do contrato multiplatform.
+
 ## Hooks e testes de ambiente precisam de HOME isolado
 
 Hooks de sessão podem ler arquivos globais do usuário (`~/.atomic-skills/env`,

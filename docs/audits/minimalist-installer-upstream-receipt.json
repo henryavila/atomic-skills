@@ -7,9 +7,9 @@
     "integrity": "sha512-XeZYy924Ps5jblp+YJuhBrXQlKXrPSKqwwozxVWheCLZadotqehv2nMoLB0Ferk45+ZfHtzYXjxuFbTRUUBYIw=="
   },
   "integrated": {
-    "resolved": "git+ssh://git@github.com/henryavila/minimalist-installer.git#7182a350c9288557534f68417ee83673eba4fb73",
-    "integrity": "sha512-UINVVnOKL3vQiNsOPd4xpwIhFkD/H+nB3iUyW4BXPx180WrxgLu7XIHmL03c1cKs1kNfzibGC/PPZoEdt4VsCg==",
-    "note": "Consumer package-lock pins this git SHA (no npm publish). dist.integrity remains the 0.1.0 baseline tarball. 7182a35 adds portable path-nofollow for macOS."
+    "resolved": "git+ssh://git@github.com/henryavila/minimalist-installer.git#f1984e9e176cb35dd62f848fcd423e97640dc4fc",
+    "integrity": "sha512-8V7GOoT/X+kOBPrGfP2cTQCElFGUE+IL6ee6IxApDyMqhPkK4bzyeIBm0+ANjY9HpCFgLgWv9OJRy/Al55Kfhg==",
+    "note": "Consumer package-lock pins this git SHA (no npm publish). dist.integrity remains the 0.1.0 baseline tarball. f1984e9 multiplatform path backends + win32 O_NOFOLLOW."
   },
   "baseSha": "66c8e940812deaa0012debd713051cecd662acc5",
   "origin": "git@github.com:henryavila/minimalist-installer.git",
@@ -54,8 +54,13 @@
       "status": "local",
       "resultSha": "7182a350c9288557534f68417ee83673eba4fb73",
       "note": "Portable no-follow: path-nofollow backend for macOS (no /proc/self/fd)."
+    },
+    "F1/T-008": {
+      "status": "local",
+      "resultSha": "f1984e9e176cb35dd62f848fcd423e97640dc4fc",
+      "note": "Multiplatform backend suite + path-nofollow on any host with O_NOFOLLOW (incl. win32)."
     }
   },
-  "resultSha": "7182a350c9288557534f68417ee83673eba4fb73",
+  "resultSha": "f1984e9e176cb35dd62f848fcd423e97640dc4fc",
   "remotePublished": true
 }
