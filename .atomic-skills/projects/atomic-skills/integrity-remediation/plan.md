@@ -5,9 +5,9 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:10:12.567Z
+lastUpdated: 2026-07-16T17:10:28.512Z
 branch: plan/integrity-remediation
-currentPhase: F3
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -98,7 +98,7 @@ phases:
     summary: Confina races e serializa install, update e uninstall por recurso recuperável.
     dependsOn:
       - F3
-    subPhaseCount: 0
+    subPhaseCount: 6
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -116,7 +116,7 @@ phases:
             kind: shell
             command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/concurrency.test.js test/lock-order.test.js test/transaction-path-race.test.js test/inspect-rollback.test.js) && node --test tests/runtime-lock-concurrency.test.js tests/installer-fault-injection.test.js tests/runtime-refcount.test.js tests/runtime-registry-recovery.test.js tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
             expectExitCode: 0
-    status: pending
+    status: active
     externalImports:
       - kind: url
         path: https://github.com/henryavila/minimalist-installer
@@ -126,6 +126,12 @@ phases:
         path: package-lock.json
         label: Tarball 0.1.0 e integridade do baseline instalado
         inside_repo: true
+    businessIntent:
+      value: Installer mutations are no-follow, journaled, locked, ownership-safe for install/update/uninstall.
+      workflow: Upstream engine worktree + consumer receipts; pin SHA; no clobber unowned content.
+      rules: P1 integrity before compatibility; fail closed; no automatic destructive recovery without proof.
+      outOfScope: Host tiers F2, Gemini F5, npm publish release.
+      doneWhen: F1-G1 and F1-G2 green with upstream receipts when environment allows.
   - id: F2
     slug: integrity-remediation-f2-contratos-de-host-runtime-e-observabil
     title: Contratos de host, runtime e observabilidade
