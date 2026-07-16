@@ -4,11 +4,11 @@ slug: integrity-remediation-f5-gemini-portabilidade-e-identidade-de-d
 title: Gemini, portabilidade e identidade de dashboard
 goal: Tornar os contratos Gemini observáveis no CLI real, remover suposições POSIX e registrar o projectId canônico em worktrees.
 summary: Gemini + Windows + projectId
-status: active
+status: done
 branch: plan/integrity-remediation
 started: 2026-07-16T17:30:58.028Z
-lastUpdated: 2026-07-16T17:30:58.028Z
-nextAction: F5/T-001
+lastUpdated: 2026-07-16T17:46:08.845Z
+nextAction: F5 complete — materialize F6
 parentPlan: integrity-remediation
 phaseId: F5
 businessIntent:
@@ -17,34 +17,58 @@ businessIntent:
   rules: Native canonical; no POSIX-only splits; projectId from folder not basename of worktree.
   outOfScope: Full multi-OS CI F6.
   doneWhen: F5-G1..G3 green (G1 may mock CLI if gemini absent).
-tasksDone: 0
+tasksDone: 6
 tasksTotal: 6
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
-weightDone: 0
+weightDone: 6
 weightTotal: 6
 exitGates:
   - id: F5-G1
     description: Gemini CLI suportado descobre e invoca todas as skills native e todos os commands habilitados. FAILS when um artifact está ausente, inválido ou recebe argumentos errados.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/gemini-cli-contract.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
+      outputSummary: gemini-cli-contract
   - id: F5-G2
     description: Validator e normalizer classificam paths Windows e POSIX com o mesmo contrato. FAILS when path.win32 retorna kind ou projectId incorreto.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/windows-path-contract.test.js tests/validate-state.test.js tests/normalize.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
+      outputSummary: windows-path + validate-state + normalize
   - id: F5-G3
     description: Dashboard registra o projectId canônico com JSON válido em qualquer worktree. FAILS when basename ou caracteres do root alteram a identidade.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/project-registration.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
+      outputSummary: project-registration
 stack:
   - id: 1
     title: Gemini, portabilidade e identidade de dashboard
@@ -56,8 +80,8 @@ tasks:
     summary: Instalar Gemini native no discovery depth suportado
     weight: 1
     description: "Materializar cada skill diretamente em `.gemini/skills/atomic-skills-*/SKILL.md` ou outra forma de primeiro nível provada pelo CLI e migrar o layout antigo pelo journal. verified_by: `src/config.js:20-31,127-130` e `projects/atomic-skills/integrity-remediation/design.md:110-125`."
-    status: pending
-    lastUpdated: 2026-07-16T17:30:58.028Z
+    status: done
+    lastUpdated: 2026-07-16T17:46:08.845Z
     scopeBoundary:
       - não manter skills funcionais dois níveis abaixo do scanner e não remover layout legado fora de ownership provado
     acceptance:
@@ -79,13 +103,20 @@ tasks:
         path: tests/install-uninstall-roundtrip.test.js
       - kind: file
         path: tests/gemini-cli-contract.test.js
+    closedAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      outputSummary: F5 T-001
   - id: T-002
     title: Serializar TOML e argumentos Gemini pelo contrato nativo
     summary: Serializar TOML e argumentos Gemini pelo contrato nativo
     weight: 1
     description: "Substituir interpolação manual por serializer, usar `{{args}}` em commands e eliminar `$ARGUMENTS` do profile Gemini. verified_by: `src/render.js:37-50,112-115` e `projects/atomic-skills/integrity-remediation/design.md:110-125`."
-    status: pending
-    lastUpdated: 2026-07-16T17:30:58.028Z
+    status: done
+    lastUpdated: 2026-07-16T17:46:08.845Z
     scopeBoundary:
       - não escapar TOML por replace parcial e não duplicar argumentos por append implícito mais placeholder
     acceptance:
@@ -109,13 +140,20 @@ tasks:
         path: tests/help/render-smoke.test.js
       - kind: file
         path: tests/gemini-cli-contract.test.js
+    closedAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      outputSummary: F5 T-002
   - id: T-003
     title: Qualificar native, commands e seleção Gemini mais Codex
     summary: Qualificar native, commands e seleção Gemini mais Codex
     weight: 1
     description: "Manter native como canônico e habilitar commands/normalização dual somente após discovery e invocation completos. verified_by: `src/config.js:80-90` e `projects/atomic-skills/integrity-remediation/design.md:144-159`."
-    status: pending
-    lastUpdated: 2026-07-16T17:30:58.028Z
+    status: done
+    lastUpdated: 2026-07-16T17:46:08.845Z
     scopeBoundary:
       - não redirecionar Gemini para fallback quebrado e não anunciar suporte a artifact que apenas parseia sem ser invocável
     acceptance:
@@ -139,13 +177,20 @@ tasks:
         path: tests/gemini-cli-contract.test.js
       - kind: file
         path: tests/host-profile-contract.test.js
+    closedAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      outputSummary: F5 T-003
   - id: T-004
     title: Tornar classificação de paths portátil
     summary: Tornar classificação de paths portátil
     weight: 1
     description: "Extrair utilitário baseado em `dirname`, `basename` e segmentos normalizados, removendo `split('/')` de validator e normalizer. verified_by: `scripts/validate-state.js:122-154` e `src/normalize.js:205-214`."
-    status: pending
-    lastUpdated: 2026-07-16T17:30:58.028Z
+    status: done
+    lastUpdated: 2026-07-16T17:46:08.845Z
     scopeBoundary:
       - não substituir por split de outro separador e não limitar CI contratual a Ubuntu
     acceptance:
@@ -169,13 +214,20 @@ tasks:
         path: tests/windows-path-contract.test.js
       - kind: file
         path: .github/workflows/test.yml
+    closedAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      outputSummary: F5 T-004
   - id: T-005
     title: Usar projectId canônico e payload JSON seguro
     summary: Usar projectId canônico e payload JSON seguro
     weight: 1
     description: "Compartilhar `resolveRegisteredProjectId`, respeitar único folder de projeto em plan worktree e serializar register payload sem interpolação shell. verified_by: `skills/shared/project-assets/project-view.md:69-71,113-137` e `src/serve.js:246-257`."
-    status: pending
-    lastUpdated: 2026-07-16T17:30:58.028Z
+    status: done
+    lastUpdated: 2026-07-16T17:46:08.845Z
     scopeBoundary:
       - não derivar id do basename quando há um projeto canônico e não montar JSON com concatenação de `$PWD`
     acceptance:
@@ -197,13 +249,20 @@ tasks:
         path: tests/project.test.js
       - kind: file
         path: tests/project-registration.test.js
+    closedAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      outputSummary: F5 T-005
   - id: T-006
     title: Alinhar documentação e catálogo ao contrato novo
     summary: Alinhar documentação e catálogo ao contrato novo
     weight: 1
     description: "Remover layout flat como modelo recomendado, declarar Mode 2 e network corretamente e registrar a distinção entre closure authority e drift reconcile. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:311-315,324-330`."
-    status: pending
-    lastUpdated: 2026-07-16T17:30:58.028Z
+    status: done
+    lastUpdated: 2026-07-16T17:46:08.845Z
     scopeBoundary:
       - não apagar documentação de migração legacy e não editar catálogo gerado sem atualizar a fonte YAML
     acceptance:
@@ -227,6 +286,13 @@ tasks:
         path: tests/generate-catalog-json.test.js
       - kind: file
         path: tests/project.test.js
+    closedAt: 2026-07-16T17:46:08.845Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:46:08.845Z
+      passed: true
+      exitCode: 0
+      outputSummary: F5 T-006
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição

@@ -5,9 +5,9 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:30:58.028Z
+lastUpdated: 2026-07-16T17:46:08.845Z
 branch: plan/integrity-remediation
-currentPhase: F5
+currentPhase: F6
 parallelismAllowed: false
 principles:
   - id: P1
@@ -320,26 +320,50 @@ phases:
       criteria:
         - id: F5-G1
           description: Gemini CLI suportado descobre e invoca todas as skills native e todos os commands habilitados. FAILS when um artifact está ausente, inválido ou recebe argumentos errados.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/gemini-cli-contract.test.js
             expectExitCode: 0
+          metAt: 2026-07-16T17:46:08.845Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:46:08.845Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
+            outputSummary: gemini-cli-contract
         - id: F5-G2
           description: Validator e normalizer classificam paths Windows e POSIX com o mesmo contrato. FAILS when path.win32 retorna kind ou projectId incorreto.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/windows-path-contract.test.js tests/validate-state.test.js tests/normalize.test.js
             expectExitCode: 0
+          metAt: 2026-07-16T17:46:08.845Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:46:08.845Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
+            outputSummary: windows-path + validate-state + normalize
         - id: F5-G3
           description: Dashboard registra o projectId canônico com JSON válido em qualquer worktree. FAILS when basename ou caracteres do root alteram a identidade.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/project-registration.test.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-16T17:46:08.845Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:46:08.845Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: a73bf2d64ae5429dc08f3cdd38afaf0fdf33e547
+            outputSummary: project-registration
+    status: done
     businessIntent:
       value: Gemini contracts observable; Windows paths portable; dashboard projectId canonical.
       workflow: Gemini native depth + TOML + Windows path + projectId.
@@ -353,7 +377,7 @@ phases:
     summary: Qualifica o tarball sob hosts, sistemas, concorrência e fault injection.
     dependsOn:
       - F5
-    subPhaseCount: 0
+    subPhaseCount: 5
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -371,7 +395,13 @@ phases:
             kind: shell
             command: npm test && npm run validate-skills && npm run check-docs && node scripts/verify-installed-runtime.js --check && node scripts/verify-ci-candidate.js --receipt docs/audits/release-candidate-ci.json --require-os linux,macos,windows --require-node '22.18.x,>=24.11.0' --require-host-manifest meta/host-qualification.json --no-product-diff && node scripts/verify-findings-manifest.js --manifest docs/audits/integrity-remediation-findings.json --receipt docs/audits/release-candidate-ci.json
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Qualify packaged product under hosts, systems, concurrency, faults; close audits.
+      workflow: Black-box tarball, host probes, fault matrix, findings manifest, candidate freeze.
+      rules: No operational claim without probe; candidateSha freeze; no product diff after freeze.
+      outOfScope: npm publish production tag.
+      doneWhen: Local gates green; multi-OS only if CI receipts available.
 references:
   - kind: repo-path
     path: docs/audits/installer-audit-2026-07-10.md
