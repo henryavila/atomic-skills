@@ -30,6 +30,28 @@ const TERMINAL_PHASE = new Set(['done', 'archived']);
 const isObject = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const hasText = (v) => typeof v === 'string' && v.length > 0;
 
+/** Set of phase statuses that count as terminal for advance/completion. */
+export const TERMINAL_PHASE_STATUSES = TERMINAL_PHASE;
+
+/**
+ * True when a phase status is terminal (`done` or `archived`).
+ * Shared by transition advance and integrity collectors (F4/T-001 + T-002).
+ * @param {unknown} status
+ * @returns {boolean}
+ */
+export function isTerminalPhaseStatus(status) {
+  return typeof status === 'string' && TERMINAL_PHASE.has(status);
+}
+
+/**
+ * True when a phase descriptor is terminal by status.
+ * @param {unknown} phase
+ * @returns {boolean}
+ */
+export function isTerminalPhase(phase) {
+  return isObject(phase) && isTerminalPhaseStatus(phase.status);
+}
+
 export function projectScopeId(fm) {
   return (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
     ? fm.__projectId
