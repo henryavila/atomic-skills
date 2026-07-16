@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1",
+  "status": "partial",
+  "candidateSha": "170d8d743aa40e5e76b5b4170b61402a3b1753bc",
+  "generatedAt": "2026-07-16T17:53:38.687Z",
+  "platformCoverage": {
+    "linux": true,
+    "macos": false,
+    "windows": false
+  },
+  "nodeCoverage": [
+    {
+      "version": "v24.15.0",
+      "requirement": ">=24.11.0",
+      "satisfied": true,
+      "source": "local process.version"
+    }
+  ],
+  "local": {
+    "os": "linux",
+    "nodeVersion": "v24.15.0",
+    "arch": "x64"
+  },
+  "jobs": [
+    {
+      "name": "local-linux-f6-g1",
+      "os": "linux",
+      "nodeVersion": "v24.15.0",
+      "status": "success",
+      "sha": "170d8d743aa40e5e76b5b4170b61402a3b1753bc",
+      "commands": [
+        "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/release-fault-matrix.test.js"
+      ]
+    },
+    {
+      "name": "local-linux-product-suite",
+      "os": "linux",
+      "nodeVersion": "v24.15.0",
+      "status": "success",
+      "sha": "170d8d743aa40e5e76b5b4170b61402a3b1753bc",
+      "commands": [
+        "npm test",
+        "npm run validate-skills",
+        "npm run check-docs"
+      ]
+    }
+  ],
+  "hostManifest": "meta/host-qualification.json",
+  "hostReceipt": "docs/audits/host-contract-receipt.json",
+  "environmentLimit": "Multi-OS (macos/windows) and dual Node-axis CI jobs are declared in .github/workflows/test.yml release-matrix but were not executed in this Linux-only implementer environment. Receipt is partial; use --allow-partial for F6-G2 multi-OS half.",
+  "workflow": ".github/workflows/test.yml",
+  "freeze": {
+    "allowOnlyAfterCandidate": [
+      "docs/audits/",
+      ".atomic-skills/"
+    ],
+    "productFrozenAt": "170d8d743aa40e5e76b5b4170b61402a3b1753bc"
+  }
+}
