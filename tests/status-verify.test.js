@@ -5,9 +5,9 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-  mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, unlinkSync, existsSync,
+  mkdtempSync, rmSync, writeFileSync, readFileSync, unlinkSync,
 } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { installSkills } from '../src/install.js';
 import { readManifest } from '../src/manifest.js';
