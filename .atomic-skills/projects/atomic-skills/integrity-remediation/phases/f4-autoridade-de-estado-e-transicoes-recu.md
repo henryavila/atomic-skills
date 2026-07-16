@@ -7,8 +7,8 @@ summary: Reconcili a F0 e torna fechamento, eventos e materialização idempoten
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T16:43:33.878Z
-nextAction: "Start F4/T-002: separate complete/ready/blocked in transition DAG"
+lastUpdated: 2026-07-16T16:46:09.921Z
+nextAction: "Start F4/T-003: phase-done preflight + commit guard without bypass"
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -17,11 +17,11 @@ businessIntent:
   rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
   outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 1
+weightDone: 2
 weightTotal: 8
 exitGates:
   - id: F4-G1
@@ -106,8 +106,8 @@ tasks:
     summary: Separar complete, ready e blocked no grafo
     weight: 1
     description: "Validar DAG, self dependency e ciclos e retornar plan completion somente quando todas as fases forem terminais. verified_by: `src/transition.js:67-79,90-103,127-134`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:46:09.921Z
     scopeBoundary:
       - não converter zero eligible em plan-done e não avançar com dependência desconhecida, cíclica ou contraditória
     acceptance:
@@ -130,6 +130,13 @@ tasks:
         path: tests/transition-integrity.test.js
       - kind: file
         path: tests/validate-state.test.js
+    closedAt: 2026-07-16T16:46:09.921Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:46:09.921Z
+      passed: true
+      exitCode: 0
+      outputSummary: "transition + transition-integrity + validate-state: 122 pass"
   - id: T-003
     title: Dividir phase-done em preflight e commit guard sem bypass
     summary: Dividir phase-done em preflight e commit guard sem bypass
