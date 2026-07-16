@@ -6,9 +6,13 @@ import { join } from 'node:path';
 
 import {
   GROK_AGENTS_ATOMIC_SKILLS_IGNORE,
+  GROK_FOREIGN_ATOMIC_SKILLS_IGNORES,
   ensureSkillsIgnoreEntry,
+  ensureAllForeignSkillsIgnores,
   removeSkillsIgnoreEntry,
+  removeAllForeignSkillsIgnores,
   skillsIgnoreContains,
+  skillsIgnoreContainsAll,
   applyGrokAgentsIsolation,
   revertGrokAgentsIsolation,
   resolveGrokUserConfigPath,
@@ -58,6 +62,25 @@ test('ensureSkillsIgnoreEntry inserts ignore under existing [skills] without ign
   assert.match(text, /paths\s*=\s*\["~\/x"\]/);
 });
 
+test('ensureAllForeignSkillsIgnores covers agents+cursor+claude roots', () => {
+  const { text, changed } = ensureAllForeignSkillsIgnores('');
+  assert.equal(changed, true);
+  assert.ok(skillsIgnoreContainsAll(text));
+  for (const entry of GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+    assert.ok(skillsIgnoreContains(text, entry), `missing ${entry}`);
+  }
+  // Cursor path is the live duplicate source (user:project)
+  assert.ok(GROK_FOREIGN_ATOMIC_SKILLS_IGNORES.some((e) => e.includes('.cursor/skills/')));
+});
+
+test('ensureAllForeignSkillsIgnores upgrades agents-only config to full set', () => {
+  const partial = `[skills]\nignore = ["${GROK_AGENTS_ATOMIC_SKILLS_IGNORE}"]\n`;
+  const { text, changed } = ensureAllForeignSkillsIgnores(partial);
+  assert.equal(changed, true);
+  assert.ok(skillsIgnoreContainsAll(text));
+  assert.ok(skillsIgnoreContains(text, GROK_AGENTS_ATOMIC_SKILLS_IGNORE));
+});
+
 test('removeSkillsIgnoreEntry is surgical — keeps other ignores and sections', () => {
   const src = `[cli]\ninstaller = "internal"\n\n[skills]\nignore = ["~/other", "${GROK_AGENTS_ATOMIC_SKILLS_IGNORE}"]\npaths = ["~/x"]\n`;
   const { text, changed } = removeSkillsIgnoreEntry(src, GROK_AGENTS_ATOMIC_SKILLS_IGNORE);
@@ -76,17 +99,41 @@ test('removeSkillsIgnoreEntry drops empty ignore and empty [skills]', () => {
   assert.equal(text.trim(), '');
 });
 
-test('applyGrokAgentsIsolation writes user config under HOME', () => {
+test('removeAllForeignSkillsIgnores is surgical — keeps unrelated ignore entries', () => {
+  const full = ensureAllForeignSkillsIgnores(`[skills]\nignore = ["~/other"]\n`).text;
+  const { text, changed } = removeAllForeignSkillsIgnores(full);
+  assert.equal(changed, true);
+  assert.ok(!skillsIgnoreContainsAll(text));
+  assert.ok(skillsIgnoreContains(text, '~/other'));
+  for (const entry of GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+    assert.ok(!skillsIgnoreContains(text, entry), `still has ${entry}`);
+  }
+});
+
+test('applyGrokAgentsIsolation writes all foreign roots under HOME', () => {
   withTmp((home) => {
     const result = applyGrokAgentsIsolation({ ides: ['grok'], home });
     assert.equal(result.status, 'applied');
     const cfg = resolveGrokUserConfigPath({ home });
     assert.ok(existsSync(cfg));
     const body = readFileSync(cfg, 'utf8');
+    assert.ok(skillsIgnoreContainsAll(body));
     assert.ok(skillsIgnoreContains(body, GROK_AGENTS_ATOMIC_SKILLS_IGNORE));
+    assert.ok(skillsIgnoreContains(body, `~/.cursor/skills/atomic-skills`));
 
     const again = applyGrokAgentsIsolation({ ides: ['grok'], home });
     assert.equal(again.status, 'already');
+  });
+});
+
+test('applyGrokAgentsIsolation upgrades partial (agents-only) isolation', () => {
+  withTmp((home) => {
+    const cfg = resolveGrokUserConfigPath({ home });
+    mkdirSync(join(home, '.grok'), { recursive: true });
+    writeFileSync(cfg, `[skills]\nignore = ["${GROK_AGENTS_ATOMIC_SKILLS_IGNORE}"]\n`);
+    const result = applyGrokAgentsIsolation({ ides: ['grok'], home });
+    assert.equal(result.status, 'applied');
+    assert.ok(skillsIgnoreContainsAll(readFileSync(cfg, 'utf8')));
   });
 });
 
@@ -98,7 +145,7 @@ test('applyGrokAgentsIsolation skips when grok not selected', () => {
   });
 });
 
-test('revertGrokAgentsIsolation removes entry when no other grok install', () => {
+test('revertGrokAgentsIsolation removes all foreign entries when no other grok install', () => {
   withTmp((home) => {
     applyGrokAgentsIsolation({ ides: ['grok'], home });
     // Pre-seed unrelated config so we prove surgical edit
@@ -113,7 +160,10 @@ test('revertGrokAgentsIsolation removes entry when no other grok install', () =>
     });
     assert.equal(result.status, 'removed');
     const body = readFileSync(cfg, 'utf8');
-    assert.ok(!skillsIgnoreContains(body, GROK_AGENTS_ATOMIC_SKILLS_IGNORE));
+    assert.ok(!skillsIgnoreContainsAll(body));
+    for (const entry of GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+      assert.ok(!skillsIgnoreContains(body, entry));
+    }
     assert.match(body, /installer\s*=\s*"internal"/);
   });
 });
@@ -140,6 +190,6 @@ test('revertGrokAgentsIsolation keeps ignore when another install still has grok
     });
     assert.equal(result.status, 'kept');
     const body = readFileSync(resolveGrokUserConfigPath({ home }), 'utf8');
-    assert.ok(skillsIgnoreContains(body, GROK_AGENTS_ATOMIC_SKILLS_IGNORE));
+    assert.ok(skillsIgnoreContainsAll(body));
   });
 });

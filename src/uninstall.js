@@ -120,9 +120,9 @@ export async function uninstall(projectDir, options = {}) {
   // Mirrors install.js, which migrates before its own Driver call.
   migrateLegacyInstall(basePath, MANIFEST_DIR);
 
-  // Host plugin registry + agents isolation first (outside journal): drop Grok's
-  // native registration and optionally clear [skills].ignore before the
-  // filesystem package is removed. Fail-open if `grok` is absent.
+  // Host plugin registry + foreign-skills isolation first (outside journal):
+  // drop Grok's native registration and clear managed [skills].ignore entries
+  // before the filesystem package is removed. Fail-open if `grok` is absent.
   if (wantsGrokPluginHost(manifest.ides)) {
     const host = unregisterGrokPluginHost({ ides: manifest.ides });
     if (host.status === 'unregistered' || host.status === 'absent') {
@@ -135,9 +135,9 @@ export async function uninstall(projectDir, options = {}) {
 
     const iso = revertGrokAgentsIsolation({ basePath, ides: manifest.ides });
     if (iso.status === 'removed') {
-      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento .agents removido.' : 'Grok: .agents isolation removed.')}`);
+      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento foreign-skills removido.' : 'Grok: foreign-skills isolation removed.')}`);
     } else if (iso.status === 'kept') {
-      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento .agents mantido (outra install com grok).' : 'Grok: .agents isolation kept (another grok install remains).')}`);
+      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento foreign-skills mantido (outra install com grok).' : 'Grok: foreign-skills isolation kept (another grok install remains).')}`);
     }
   }
 

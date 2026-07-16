@@ -408,9 +408,9 @@ export function installSkills(projectDir, options, callbacks = {}) {
  * After the journal materialises `.grok/plugins/atomic-skills/`:
  *  1. Register the package with the Grok host plugin system
  *     (`grok plugin install --trust`) — fail-open.
- *  2. Hide Codex's `.agents/skills/atomic-skills` from Grok's skill scanner
- *     (`~/.grok/config.toml` → `[skills].ignore`) so multi-IDE installs do
- *     not surface Codex-rendered tool names inside Grok.
+ *  2. Hide foreign Atomic Skills trees (agents/cursor/claude) from Grok's
+ *     skill scanner (`~/.grok/config.toml` → `[skills].ignore`) so multi-IDE
+ *     installs do not surface `user:project` next to `atomic-skills:project`.
  *
  * @param {string} basePath
  * @param {string[]} ides
@@ -436,15 +436,15 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') 
     );
   }
 
-  // Isolation always targets user ~/.grok/config.toml (Codex user skills path).
+  // Isolation always targets user ~/.grok/config.toml (foreign vendor skill roots).
   const iso = applyGrokAgentsIsolation({ ides });
   if (iso.status === 'applied') {
     console.log(
-      `  ${pc.dim(isPt ? 'Grok: isolado de .agents/skills/atomic-skills (Codex).' : 'Grok: isolated from .agents/skills/atomic-skills (Codex).')}`,
+      `  ${pc.dim(isPt ? 'Grok: isolado de skills estrangeiras (agents/cursor/claude atomic-skills).' : 'Grok: isolated from foreign atomic-skills trees (agents/cursor/claude).')}`,
     );
   } else if (iso.status === 'already') {
     console.log(
-      `  ${pc.dim(isPt ? 'Grok: isolamento .agents já presente.' : 'Grok: .agents isolation already present.')}`,
+      `  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills já presente.' : 'Grok: foreign-skills isolation already present.')}`,
     );
   }
 }
