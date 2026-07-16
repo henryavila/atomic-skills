@@ -127,7 +127,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 
 ## Metadata
 
-**Output artifacts:** `.atomic-skills/PROJECT-STATUS.md`, `.atomic-skills/plans/<slug>.md`, `.atomic-skills/initiatives/<slug>.md`, `.atomic-skills/status/config.json`, `.atomic-skills/bootstrap-drafts/ (discover output)`
+**Output artifacts:** `.atomic-skills/PROJECT-STATUS.md`, `.atomic-skills/projects/<project-id>/<slug>/plan.md (nested canonical)`, `.atomic-skills/projects/<project-id>/<slug>/phases/f<N>-*.md (phase initiatives)`, `.atomic-skills/status/config.json`, `.atomic-skills/bootstrap-drafts/ (discover output)`, `legacy flat plans/ + initiatives/ remain readable during migration`
 
 **Dependencies:** `git`
 
