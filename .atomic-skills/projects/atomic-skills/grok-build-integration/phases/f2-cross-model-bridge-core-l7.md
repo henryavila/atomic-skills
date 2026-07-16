@@ -9,8 +9,8 @@ goal: Rename or alias codex-bridge to cross-model-bridge with pluggable codex
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:29:05.000Z
-lastUpdated: 2026-07-16T14:29:05.000Z
-nextAction: "Start T-001: Module layout and codex-bridge alias"
+lastUpdated: 2026-07-16T14:32:48.000Z
+nextAction: "Start T-002: Grok provider preflight and invocation"
 parentPlan: grok-build-integration
 phaseId: F2
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
   outOfScope: Marketplace publish, MCP project-state server, Mode-2 execution via
     Grok, auto-apply external findings without human triage.
   doneWhen: Phase F2 exit gates green with deterministic verifiers.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -74,8 +74,9 @@ tasks:
       cross-model-review-assets (or restructure codex-bridge-assets) with
       providers/codex and providers/grok; keep codex-bridge as compatibility
       alias in catalog and install.
-    status: pending
-    lastUpdated: 2026-07-16T14:29:05.000Z
+    status: done
+    lastUpdated: 2026-07-16T14:32:48.000Z
+    closedAt: 2026-07-16T14:32:48.000Z
     scopeBoundary:
       - do not change review-code or review-plan mode UX in this task beyond
         asset path references if required
@@ -87,6 +88,14 @@ tasks:
       kind: shell
       command: node --test tests/validate-skills.test.js && npm run validate-skills
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:32:48.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: validate-skills.test.js 53 pass; npm run validate-skills ✓
+        All 15 skills valid; install.test.js footprints updated (providers/codex
+        recursive install)
     outputs:
       - kind: file
         path: skills/modules/cross-model-bridge/module.yaml
@@ -95,9 +104,17 @@ tasks:
       - kind: file
         path: skills/shared/codex-bridge-assets/envelope-orchestration.md
       - kind: file
+        path: skills/shared/codex-bridge-assets/providers/codex/preflight-checks.txt
+      - kind: file
+        path: skills/shared/codex-bridge-assets/providers/codex/invocation-canonical.txt
+      - kind: file
         path: meta/catalog.yaml
       - kind: file
-        path: tests/validate-skills.test.js
+        path: src/providers/skills-file-set.js
+      - kind: file
+        path: tests/install.test.js
+      - kind: file
+        path: README.md
   - id: T-002
     title: Grok provider preflight and invocation
     description: Add providers/grok preflight-checks and invocation-canonical proven
@@ -168,6 +185,11 @@ Initiative for phase **F2 — cross-model-bridge core (L7)**.
 
 ## Session handoff
 
-- **Narrative:** Previous phase archived. F2 active.
-- **Single nextAction:** Start T-001.
-- **Uncommitted changes:** phase advance checkpoint next
+- **Narrative:** T-001 done. `cross-model-bridge` module + catalog; `codex-bridge`
+  alias; assets stay under `codex-bridge-assets/` with `providers/codex/`; asset
+  install is recursive; envelope skeleton has `«PROVIDER»` slot.
+- **Decision log:** Keep on-disk `codex-bridge-assets/` (install owner key) rather
+  than rename tree; logical name is cross-model-bridge. Root preflight/invocation
+  retained as Codex legacy paths; provider leaves are canonical for new orchestration.
+- **Single nextAction:** Start T-002 — Grok provider preflight + invocation.
+- **Uncommitted changes:** none after T-001 checkpoint.

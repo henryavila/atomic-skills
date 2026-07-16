@@ -16,10 +16,10 @@ const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
- * (including one level of subdir recursion, e.g. project-assets/hooks/) and the
- * per-IDE namespace root — returned as `[{ path, content }]` with project-root-
- * relative paths. This is the declarative file-set domain (P2) the
- * reconcileFileSet effect manages.
+ * (recursive under each `*-assets/` tree, e.g. project-assets/hooks/ and
+ * codex-bridge-assets/providers/{codex,grok}/) and the per-IDE namespace root —
+ * returned as `[{ path, content }]` with project-root-relative paths. This is
+ * the declarative file-set domain (P2) the reconcileFileSet effect manages.
  *
  * It reproduces the footprint that installSkills (src/install.js) writes for the
  * same config, WITHOUT writing and WITHOUT the runtime-layer artifacts
@@ -29,9 +29,7 @@ const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * NOTE (strangler-fig): the catalog walk + generateNamespaceRoot are
  * intentionally duplicated from installSkills/preRenderFiles for now. The flip
  * (T-F3-4) removes the legacy in-repo walk and leaves this module as the single
- * source. preRenderFiles omits the asset subdir recursion that installSkills
- * performs; this module matches installSkills (the ground truth), not the
- * incomplete preRenderFiles view.
+ * source.
  *
  * @param {object} config
  * @param {string} config.language - communication language code (e.g. 'en')
@@ -103,8 +101,23 @@ export function computeSkillsFileSet(config) {
   }
 
   // Shared assets — an `<name>-assets/` dir installs when `<name>` is a
-  // registered module OR a registered core skill. Recurse ONE level into
-  // subdirs (e.g. hooks/) to match installSkills.
+  // registered module OR a registered core skill. Walk the asset tree
+  // recursively so nested leaves (hooks/, providers/codex/, providers/grok/)
+  // are staged with the same relative path under the IDE assets dir.
+  const walkAssetFiles = (dir, relParts = []) => {
+    const out = [];
+    for (const f of readdirSync(dir, { withFileTypes: true })) {
+      const nextRel = [...relParts, f.name];
+      if (f.isDirectory()) {
+        out.push(...walkAssetFiles(join(dir, f.name), nextRel));
+        continue;
+      }
+      if (!f.isFile()) continue;
+      out.push({ abs: join(dir, f.name), rel: nextRel.join('/') });
+    }
+    return out;
+  };
+
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
     for (const entry of readdirSync(sharedDir, { withFileTypes: true })) {
@@ -115,31 +128,17 @@ export function computeSkillsFileSet(config) {
       if (!isModule && !isCoreSkill) continue;
 
       const assetsSourceDir = join(sharedDir, entry.name);
-      const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
+      const assetFiles = walkAssetFiles(assetsSourceDir);
 
       for (const ideId of ides) {
         const destBase = getAssetsDir(ideId);
 
-        for (const f of assetFiles) {
-          if (f.isDirectory()) {
-            const subSrc = join(assetsSourceDir, f.name);
-            for (const sf of readdirSync(subSrc, { withFileTypes: true })) {
-              if (!sf.isFile()) continue;
-              const raw = readFileSync(join(subSrc, sf.name), 'utf8');
-              add(
-                `${destBase}/${f.name}/${sf.name}`,
-                renderTemplate(raw, vars, moduleFlags, ideId, scope),
-                `_assets/${entry.name}/${f.name}/${sf.name}`,
-              );
-            }
-            continue;
-          }
-          if (!f.isFile()) continue;
-          const raw = readFileSync(join(assetsSourceDir, f.name), 'utf8');
+        for (const { abs, rel } of assetFiles) {
+          const raw = readFileSync(abs, 'utf8');
           add(
-            `${destBase}/${f.name}`,
+            `${destBase}/${rel}`,
             renderTemplate(raw, vars, moduleFlags, ideId, scope),
-            `_assets/${entry.name}/${f.name}`,
+            `_assets/${entry.name}/${rel}`,
           );
         }
       }

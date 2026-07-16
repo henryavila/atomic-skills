@@ -58,7 +58,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 72); // post-consolidation footprint (single IDE, no module): 14 core skills + shared codex/debate assets + project-assets top-level (incl. project-help.md) + 5 hooks + design-brief-assets + namespace root + auto-update hook
+    assert.strictEqual(result.files.length, 74); // single IDE, no module: core skills + shared assets (incl. providers/codex leaves) + project-assets + hooks + design-brief-assets + namespace root + auto-update hook
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -196,7 +196,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 73); // post-consolidation footprint (single IDE + 1 module skill): the no-module count (72) + 1 enabled module skill
+    assert.strictEqual(result.files.length, 75); // single IDE + 1 module skill: no-module count (74) + 1 enabled module skill
   });
 
   it('substitutes memory_path variable', () => {
@@ -265,7 +265,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 143); // post-consolidation footprint across 2 IDEs (claude-code + gemini-commands), command/toml formats (no namespace root) + one auto-update hook (incl. project-help.md ×2 IDEs)
+    assert.strictEqual(result.files.length, 147); // 2 IDEs (claude-code + gemini-commands) + recursive providers/codex leaves per IDE + one auto-update hook
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -347,7 +347,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
-    assert.strictEqual(result.files.length, 72); // post-consolidation: core skills + shared assets + project-assets (incl. 5 hooks + project-help.md) + design-brief skill+assets + namespace root + auto-update hook, no module skills
+    assert.strictEqual(result.files.length, 74); // includes recursive providers/codex leaves under codex-bridge-assets
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -448,15 +448,25 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // post-consolidation namespace assets: codex-bridge assets + project-assets top-level + hooks/ subdir + design-brief-assets = 53 entries (incl. project-help.md)
-    assert.strictEqual(files.length, 53,
-      `expected 53 namespace asset entries (codex-bridge + project-assets + hooks/ dir + design-brief-assets), got ${files.length}: ${files.join(', ')}`);
+    // namespace assets: codex-bridge + providers/ + project-assets top-level + hooks/ + design-brief-assets
+    assert.strictEqual(files.length, 54,
+      `expected 54 namespace asset entries (codex-bridge + providers/ + project-assets + hooks/ + design-brief), got ${files.length}: ${files.join(', ')}`);
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
     for (const h of ['session-start.sh', 'stop.sh', 'pre-write.sh', 'config.json']) {
       assert.ok(existsSync(pjoin(hooksDir, h)), `_assets/hooks/${h} must be installed`);
     }
+    // F2: nested provider leaves must install (recursive walk, not one-level only)
+    assert.ok(files.includes('providers'), 'must include providers/ dir for cross-model leaves');
+    assert.ok(
+      existsSync(pjoin(assetsDir, 'providers', 'codex', 'invocation-canonical.txt')),
+      'providers/codex/invocation-canonical.txt must be installed',
+    );
+    assert.ok(
+      existsSync(pjoin(assetsDir, 'providers', 'codex', 'preflight-checks.txt')),
+      'providers/codex/preflight-checks.txt must be installed',
+    );
     // Spot-check one from each origin
     assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');
     assert.ok(files.includes('CLAUDE.md-gate.template.md'), 'must include project-status asset');
