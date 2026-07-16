@@ -1,4 +1,4 @@
-import { IDE_CONFIG, getAssetsDir } from './config.js';
+import { IDE_CONFIG, getAssetsDir, getHostToolProfile } from './config.js';
 
 /**
  * Process template variables and conditional blocks.
@@ -41,11 +41,8 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '', sco
   // Substitute variables
   const allVars = { ...vars };
 
-  // IDE-specific tool names. Profiles must never free-ride Claude names for
-  // hosts that have their own tool surface (Gemini, Grok, Codex).
-  const noNativeAskTool =
-    'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)';
-  Object.assign(allVars, toolProfileFor(ideId, noNativeAskTool));
+  // Explicit per-host tool profiles (F2/T-001) — no silent Claude freeride.
+  Object.assign(allVars, getHostToolProfile(ideId));
 
   // Add IDE-specific ASSETS_PATH (where shared assets live for this IDE).
   // User scope: the install base is $HOME, so the path must be ~/-anchored —
@@ -83,72 +80,6 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '', sco
   result = result.replace(/\n{3,}/g, '\n\n');
 
   return result.trim() + '\n';
-}
-
-/**
- * Resolve the tool-name substitution map for an IDE.
- * @param {string} ideId
- * @param {string} noNativeAskTool
- * @returns {Record<string, string>}
- */
-function toolProfileFor(ideId, noNativeAskTool) {
-  const isGemini = ideId === 'gemini' || ideId === 'gemini-commands';
-  if (isGemini) {
-    return {
-      BASH_TOOL: 'run_shell_command',
-      READ_TOOL: 'read_file',
-      WRITE_TOOL: 'write_file',
-      REPLACE_TOOL: 'replace',
-      GREP_TOOL: 'grep_search',
-      GLOB_TOOL: 'glob',
-      INVESTIGATOR_TOOL: 'codebase_investigator',
-      ARG_VAR: '$ARGUMENTS',
-      ASK_USER_QUESTION_TOOL: noNativeAskTool,
-    };
-  }
-  if (ideId === 'grok') {
-    // Provisional Grok Build map (design D2). Locked by render tests; F2 may
-    // adjust if headless CLI tool ids differ from the interactive surface.
-    return {
-      BASH_TOOL: 'run_terminal_command',
-      READ_TOOL: 'read_file',
-      WRITE_TOOL: 'write',
-      REPLACE_TOOL: 'search_replace',
-      GREP_TOOL: 'grep',
-      GLOB_TOOL: 'list_dir',
-      INVESTIGATOR_TOOL: 'spawn_subagent',
-      ARG_VAR: '$ARGUMENTS',
-      ASK_USER_QUESTION_TOOL: 'ask_user_question',
-    };
-  }
-  if (ideId === 'codex') {
-    // Codex CLI agent tools — not Claude names (Bash / Read tool).
-    return {
-      BASH_TOOL: 'shell',
-      READ_TOOL: 'read_file',
-      WRITE_TOOL: 'apply_patch',
-      REPLACE_TOOL: 'apply_patch',
-      GREP_TOOL: 'grep_files',
-      GLOB_TOOL: 'list_dir',
-      INVESTIGATOR_TOOL: 'spawn_agent',
-      ARG_VAR: '$ARGUMENTS',
-      ASK_USER_QUESTION_TOOL: noNativeAskTool,
-    };
-  }
-  // Default: Claude Code style (also free-ride baseline for hosts without a
-  // dedicated profile: cursor, opencode, github-copilot, unknown).
-  const isClaudeCode = ideId === 'claude-code';
-  return {
-    BASH_TOOL: 'Bash',
-    READ_TOOL: 'Read tool',
-    WRITE_TOOL: 'Write tool',
-    REPLACE_TOOL: 'Edit tool',
-    GREP_TOOL: 'Grep',
-    GLOB_TOOL: 'Glob',
-    INVESTIGATOR_TOOL: 'Agent',
-    ARG_VAR: '$ARGUMENTS',
-    ASK_USER_QUESTION_TOOL: isClaudeCode ? 'AskUserQuestion tool' : noNativeAskTool,
-  };
 }
 
 /**

@@ -1,6 +1,164 @@
-import { posix } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
+import { dirname, join, posix } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const SKILL_NAMESPACE = 'atomic-skills';
+
+/**
+ * Explicit tool-name adapters per PUBLIC_IDE_ID (F2/T-001).
+ * No host free-rides Claude names. gemini-commands reuses the gemini profile.
+ * Unknown hosts fall back to HOST_TOOL_PROFILE_UNKNOWN (non-Claude).
+ */
+export const HOST_TOOL_PROFILES = {
+  'claude-code': {
+    BASH_TOOL: 'Bash',
+    READ_TOOL: 'Read tool',
+    WRITE_TOOL: 'Write tool',
+    REPLACE_TOOL: 'Edit tool',
+    GREP_TOOL: 'Grep',
+    GLOB_TOOL: 'Glob',
+    INVESTIGATOR_TOOL: 'Agent',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL: 'AskUserQuestion tool',
+  },
+  cursor: {
+    BASH_TOOL: 'Shell',
+    READ_TOOL: 'Read',
+    WRITE_TOOL: 'Write',
+    REPLACE_TOOL: 'StrReplace',
+    GREP_TOOL: 'Grep',
+    GLOB_TOOL: 'Glob',
+    INVESTIGATOR_TOOL: 'Task',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL:
+      'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+  },
+  gemini: {
+    BASH_TOOL: 'run_shell_command',
+    READ_TOOL: 'read_file',
+    WRITE_TOOL: 'write_file',
+    REPLACE_TOOL: 'replace',
+    GREP_TOOL: 'grep_search',
+    GLOB_TOOL: 'glob',
+    INVESTIGATOR_TOOL: 'codebase_investigator',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL:
+      'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+  },
+  codex: {
+    BASH_TOOL: 'shell',
+    READ_TOOL: 'read_file',
+    WRITE_TOOL: 'apply_patch',
+    REPLACE_TOOL: 'apply_patch',
+    GREP_TOOL: 'grep_files',
+    GLOB_TOOL: 'list_dir',
+    INVESTIGATOR_TOOL: 'spawn_agent',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL:
+      'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+  },
+  opencode: {
+    BASH_TOOL: 'bash',
+    READ_TOOL: 'read',
+    WRITE_TOOL: 'write',
+    REPLACE_TOOL: 'edit',
+    GREP_TOOL: 'grep',
+    GLOB_TOOL: 'glob',
+    INVESTIGATOR_TOOL: 'task',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL:
+      'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+  },
+  'github-copilot': {
+    BASH_TOOL: 'run_in_terminal',
+    READ_TOOL: 'read_file',
+    WRITE_TOOL: 'create_file',
+    REPLACE_TOOL: 'replace_string_in_file',
+    GREP_TOOL: 'grep_search',
+    GLOB_TOOL: 'file_search',
+    INVESTIGATOR_TOOL: 'agent',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL:
+      'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+  },
+  grok: {
+    BASH_TOOL: 'run_terminal_command',
+    READ_TOOL: 'read_file',
+    WRITE_TOOL: 'write',
+    REPLACE_TOOL: 'search_replace',
+    GREP_TOOL: 'grep',
+    GLOB_TOOL: 'list_dir',
+    INVESTIGATOR_TOOL: 'spawn_subagent',
+    ARG_VAR: '$ARGUMENTS',
+    ASK_USER_QUESTION_TOOL: 'ask_user_question',
+  },
+};
+
+/** Non-Claude fallback when ideId is unknown — never freerides Claude tokens. */
+export const HOST_TOOL_PROFILE_UNKNOWN = {
+  BASH_TOOL: 'shell',
+  READ_TOOL: 'read_file',
+  WRITE_TOOL: 'write_file',
+  REPLACE_TOOL: 'edit_file',
+  GREP_TOOL: 'search',
+  GLOB_TOOL: 'find_files',
+  INVESTIGATOR_TOOL: 'delegate',
+  ARG_VAR: '$ARGUMENTS',
+  ASK_USER_QUESTION_TOOL:
+    'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
+};
+
+/**
+ * Resolve the tool-name map for an IDE id (including gemini-commands → gemini).
+ * @param {string} ideId
+ * @returns {Record<string, string>}
+ */
+export function getHostToolProfile(ideId) {
+  if (ideId === 'gemini-commands') return { ...HOST_TOOL_PROFILES.gemini };
+  if (HOST_TOOL_PROFILES[ideId]) return { ...HOST_TOOL_PROFILES[ideId] };
+  return { ...HOST_TOOL_PROFILE_UNKNOWN };
+}
+
+/**
+ * Hosts that own a SessionStart auto-update surface (capability matrix F2/T-002).
+ * Derived from meta/host-qualification.json when present; safe defaults otherwise.
+ */
+export const AUTO_UPDATE_HOST_CAPABILITIES = {
+  'claude-code': { capability: 'session-start-hook', surface: '.claude/settings.json' },
+  grok: {
+    capability: 'session-start-hook',
+    surface: '.grok/hooks/atomic-skills-auto-update.json',
+  },
+};
+
+/**
+ * Read support tiers from meta/host-qualification.json (lazy, cached).
+ * @returns {Record<string, 'operational'|'layout-only'>}
+ */
+let _supportTierCache = null;
+export function getHostSupportTier() {
+  if (_supportTierCache) return { ..._supportTierCache };
+  const here = dirname(fileURLToPath(import.meta.url));
+  const manifestPath = join(here, '..', 'meta', 'host-qualification.json');
+  const tiers = {};
+  if (existsSync(manifestPath)) {
+    try {
+      const doc = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      for (const host of doc.hosts || []) {
+        if (host?.id && host.supportTier) tiers[host.id] = host.supportTier;
+      }
+    } catch {
+      /* fall through to empty — callers treat missing as unknown */
+    }
+  }
+  _supportTierCache = tiers;
+  return { ...tiers };
+}
+
+/** @internal test helper */
+export function _resetHostSupportTierCache() {
+  _supportTierCache = null;
+}
 
 export const IDE_CONFIG = {
   'claude-code': {
