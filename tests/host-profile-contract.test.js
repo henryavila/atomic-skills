@@ -67,11 +67,21 @@ describe('host profile contract (F2/T-001)', () => {
   it('leaves no unsubstituted tool template variables for any public host', () => {
     for (const id of PUBLIC_IDE_IDS) {
       const rendered = renderTemplate(TEMPLATE, {}, {}, id);
-      assert.ok(!rendered.includes('{{'), `unsubstituted token in ${id}: ${rendered}`);
+      // Gemini's ARG_VAR intentionally emits the host placeholder `{{args}}`
+      // (Gemini CLI command/skill argument contract — F5/T-002). Strip that
+      // known host token before asserting no leftover Atomic Skills template vars.
+      const stripped = rendered.replaceAll('{{args}}', '<GEMINI_ARGS>');
+      assert.ok(!stripped.includes('{{'), `unsubstituted token in ${id}: ${rendered}`);
       for (const key of TOOL_KEYS) {
         assert.ok(!rendered.includes(`{{${key}}}`), `${id} left {{${key}}}`);
       }
     }
+  });
+
+  it('gemini ARG_VAR renders the host {{args}} placeholder (not $ARGUMENTS)', () => {
+    const rendered = renderTemplate('x={{ARG_VAR}}', {}, {}, 'gemini').trim();
+    assert.equal(rendered, 'x={{args}}');
+    assert.ok(!rendered.includes('$ARGUMENTS'));
   });
 
   it('getHostSupportTier mirrors host-qualification.json tiers', () => {

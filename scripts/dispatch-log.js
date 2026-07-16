@@ -134,8 +134,8 @@ export function appendDispatchLog(root, record) {
   return valid;
 }
 
-// CLI
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// CLI (guard argv[1]: node -e leaves it undefined and pathToFileURL throws)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const flag = (name) => {
     const i = args.indexOf(`--${name}`);

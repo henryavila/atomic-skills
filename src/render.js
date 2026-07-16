@@ -1,3 +1,4 @@
+import TOML from '@iarna/toml';
 import { IDE_CONFIG, getAssetsDir, getHostToolProfile } from './config.js';
 
 /**
@@ -94,8 +95,10 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '', sco
  */
 export function renderForIDE(format, name, description, body, opts = {}) {
   if (format === 'toml') {
-    const escaped = description.replace(/"/g, '\\"');
-    return `description = "${escaped}"\nprompt = """\n${body}\n"""\n`;
+    // Real TOML serializer (not raw string interpolation) so descriptions with
+    // quotes/backslashes and prompt bodies with triple-quotes round-trip.
+    const prompt = body.endsWith('\n') ? body : `${body}\n`;
+    return TOML.stringify({ description, prompt });
   }
 
   if (format === 'command') {

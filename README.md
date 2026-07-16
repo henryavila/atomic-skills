@@ -274,7 +274,7 @@ Ask one model for "the architect''s view and the QA view" and both collapse towa
 
 ---
 
-### ⚙️ `implement` — Mode 1 Execution Driver
+### ⚙️ `implement` — Mode 2-aware Execution Driver
 
 **Iron Law:** `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).`
 
@@ -439,7 +439,7 @@ Atomic Skills uses a polyglot rendering layer that detects your agent and rewrit
 |-----|---------|-----------|--------|
 | Claude Code | `claude-code` | `.claude/commands/atomic-skills/` | Command (slash) |
 | Cursor | `cursor` | `.cursor/skills/atomic-skills/` | Markdown |
-| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills/` | Markdown |
+| Gemini CLI (Skills) | `gemini` | `.gemini/skills/atomic-skills-<skill>/` | Markdown |
 | Gemini CLI (Commands) | `gemini-commands` | `.gemini/commands/` | TOML (Slash commands) |
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |

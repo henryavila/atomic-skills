@@ -457,10 +457,11 @@
     ],
     "outputs": [
       ".atomic-skills/PROJECT-STATUS.md",
-      ".atomic-skills/plans/<slug>.md",
-      ".atomic-skills/initiatives/<slug>.md",
+      ".atomic-skills/projects/<project-id>/<slug>/plan.md (nested canonical)",
+      ".atomic-skills/projects/<project-id>/<slug>/phases/f<N>-*.md (phase initiatives)",
       ".atomic-skills/status/config.json",
-      ".atomic-skills/bootstrap-drafts/ (discover output)"
+      ".atomic-skills/bootstrap-drafts/ (discover output)",
+      "legacy flat plans/ + initiatives/ remain readable during migration"
     ],
     "refs": [
       "/atomic-skills:fix",

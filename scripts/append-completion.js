@@ -341,7 +341,7 @@ export function appendCompletion(root, entry) {
 }
 
 // CLI
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const flag = (name) => {
     const i = args.indexOf(`--${name}`);
