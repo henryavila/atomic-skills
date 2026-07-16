@@ -45,7 +45,7 @@ const REPO_ROOT = resolve(__dirname, '..')
 
 // [relative path under skills/, hard ceiling in bytes, provenance]
 const BUDGETS = [
-  ['core/project.md', 23000, 'F1 — thin router (raised 22000→23000 2026-06-26: depend verb added resident grammar+dispatch+gate-list surface + operator-model block mandated resident by validate-skills.test.js)'],
+  ['core/project.md', 23500, 'F1 — thin router (raised 22000→23000 2026-06-26; 23000→23500 2026-07-16: integrity F0 setup sentinel docs + T-003 structural setup rules)'],
   ['core/implement.md', 22000, 'F1 — lean driver'],
   // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
   // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW

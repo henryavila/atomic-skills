@@ -71,8 +71,8 @@ pipeline. Same-family headless is **not** labeled CROSS-MODEL REVIEW.
 When the route resolves to an external provider `P ∈ {codex, grok}`:
 
 1. Bind `«PROVIDER»` = `P` in `envelope-orchestration.md`
-2. Preflight: `{{ASSETS_PATH}}/providers/P/preflight-checks.txt`
-3. Invoke: `{{ASSETS_PATH}}/providers/P/invocation-canonical.txt`
+2. Preflight: pick `{{ASSETS_PATH}}/providers/codex/preflight-checks.txt` or `{{ASSETS_PATH}}/providers/grok/preflight-checks.txt` for the external provider
+3. Invoke: same provider dir — `invocation-canonical.txt` under that providers leaf
 4. Persist review receipt with `provider: P` (never claim cross-model when
    `sameFamilyRemap: true`)
 
