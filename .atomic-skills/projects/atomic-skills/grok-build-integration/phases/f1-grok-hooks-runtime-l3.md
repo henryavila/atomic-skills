@@ -7,8 +7,8 @@ goal: Soft and Strict project hooks plus auto-update register on Grok via plugin
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:07:05.000Z
-lastUpdated: 2026-07-16T14:07:05.000Z
-nextAction: "Start T-001: Auto-update runtime layer for Grok"
+lastUpdated: 2026-07-16T14:16:33.000Z
+nextAction: "Start T-002: Plugin hooks Soft and Strict for project"
 parentPlan: grok-build-integration
 phaseId: F1
 businessIntent:
@@ -27,11 +27,11 @@ businessIntent:
     Mode-2 Grok execution.
   doneWhen: "F1 gates green: round-trip hooks reverse; project tests list Grok
     Soft/Strict; session-start/pre-write/stop fixtures pass dual-vocab."
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 1
 weightTotal: 2
 exitGates:
   - id: G-1
@@ -73,8 +73,9 @@ tasks:
     description: Extend createAutoUpdateRuntimeProvider (or sibling) to stage
       SessionStart version-check into Grok hook surface when grok is installed,
       without removing Claude behavior when both ides are selected.
-    status: pending
-    lastUpdated: 2026-07-16T14:07:05.000Z
+    status: done
+    lastUpdated: 2026-07-16T14:16:33.000Z
+    closedAt: 2026-07-16T14:16:33.000Z
     scopeBoundary:
       - do not rewrite project Soft/Strict scripts logic beyond env/tool name
         dual support if required for this task
@@ -86,6 +87,13 @@ tasks:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:16:33.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/install-uninstall-roundtrip.test.js — 12
+        pass, 0 fail, duration_ms 1237
     outputs:
       - kind: file
         path: src/runtime-layers/auto-update.js
@@ -100,7 +108,7 @@ tasks:
       hooks README to list Grok as a hook host; dual-vocab in pre-write/stop if
       they parse tool names.
     status: pending
-    lastUpdated: 2026-07-16T14:07:05.000Z
+    lastUpdated: 2026-07-16T14:16:33.000Z
     scopeBoundary:
       - do not implement cross-model bridge or review-code mode flags
     acceptance:
@@ -144,8 +152,13 @@ Initiative for phase **F1 — Grok hooks runtime (L3)**.
 
 ## Session handoff
 
-- **Narrative:** F0 archived after Codex review triage. F1 active — hooks Soft/Strict + auto-update for Grok.
-- **Decision log:** F0 F-001 deferred to F2; Grok WRITE stays write (live tools).
-- **Single nextAction:** Start T-001 — Auto-update runtime layer for Grok (src/runtime-layers/auto-update.js).
-- **Verbatim state:** plan currentPhase=F1; initiative f1-grok-hooks-runtime-l3.md
-- **Uncommitted changes:** phase-done state (checkpoint next)
+- **Narrative:** F1 T-001 done — auto-update stages Grok SessionStart under
+  `.grok/hooks/atomic-skills-auto-update.json` when `ides` includes `grok`,
+  keeps Claude when `claude-code` selected, skips Soft/Strict scripts. T-002
+  next (plugin Soft/Strict + dual-vocab).
+- **Decision log:** F0 F-001 deferred to F2; Grok WRITE stays write (live tools);
+  auto-update Grok file omits SessionStart matcher (lifecycle events reject it).
+- **Single nextAction:** Start T-002 — Plugin hooks Soft and Strict for project.
+- **Verbatim state:** plan currentPhase=F1; initiative f1-grok-hooks-runtime-l3.md;
+  tasksDone=1/2.
+- **Uncommitted changes:** none after T-001 checkpoint.
