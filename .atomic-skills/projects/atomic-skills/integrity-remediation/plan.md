@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:03:25.265Z
+lastUpdated: 2026-07-16T17:10:12.567Z
 branch: plan/integrity-remediation
 currentPhase: F3
 parallelismAllowed: false
@@ -165,19 +165,35 @@ phases:
       criteria:
         - id: F3-G1
           description: SPEC materializado chega a implement com outputs como targets e scopeBoundary como exclusões. FAILS when `Files` é exigido ou uma exclusão vira allowlist.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/implement-ready-contract.test.js tests/project-implement-e2e.test.js
             expectExitCode: 0
+          metAt: 2026-07-16T17:10:12.567Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:10:12.567Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 01e81e0fa00ced582d4a9bb877f4d68bd1aa1123
+            outputSummary: implement-ready-contract + project-implement-e2e
         - id: F3-G2
           description: Argumento explícito seleciona plan, branch e worktree antes de qualquer gate ou write. FAILS when a árvore chamadora governa outro plano.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/worktree-plan-routing.test.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-16T17:10:12.567Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:10:12.567Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 01e81e0fa00ced582d4a9bb877f4d68bd1aa1123
+            outputSummary: worktree-plan-routing
+    status: done
     businessIntent:
       value: Levar tasks SPEC-admitted ao implement com targets e exclusões corretos na worktree certa.
       workflow: SPEC materializado → implement targets from outputs; scopeBoundary as DO-NOT; worktree routing before gates.
