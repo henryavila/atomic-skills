@@ -7,8 +7,8 @@ summary: Reconcili a F0 e torna fechamento, eventos e materialização idempoten
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T16:54:40.798Z
-nextAction: "Start F4/T-006: consolidate materialize + F0 reconciliation receipt + F3 barrier"
+lastUpdated: 2026-07-16T16:59:22.728Z
+nextAction: Start F4/T-008 then close F4 gates
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -17,11 +17,11 @@ businessIntent:
   rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
   outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
-tasksDone: 5
+tasksDone: 7
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 5
+weightDone: 7
 weightTotal: 8
 exitGates:
   - id: F4-G1
@@ -255,8 +255,8 @@ tasks:
     summary: Consolidar materialização e reconciliar o bootstrap F0
     weight: 1
     description: "Ampliar a única autoridade `scripts/materialize-state.js` criada em F0/T-005 para todos os fault points, recovery por creation-gate e reconciliação conservadora; gerar um receipt versionado da projeção F0 incluindo gate evidence, completion events e close SHA, e fazer a ativação/materialização de F3 reler esse receipt e o fechamento não deferido de F4. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:219-229` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:59:22.728Z
     scopeBoundary:
       - não criar um segundo writer/reconciler; bootstrap, hardening, recovery e check do receipt usam scripts/materialize-state.js
       - não reparar estado ambíguo e não hashear o plan.md inteiro; o digest cobre descriptor F0, initiative F0, sidecars esperados, creation-gate, gate evidence, completion events e close SHA
@@ -286,13 +286,20 @@ tasks:
         path: tests/phase-materialization/materialize-successor-barrier.test.js
       - kind: file
         path: docs/audits/integrity-remediation-f0-reconciliation.json
+    closedAt: 2026-07-16T16:59:22.728Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:59:22.728Z
+      passed: true
+      exitCode: 0
+      outputSummary: materialize reconcile+barrier
   - id: T-007
     title: Unificar dispatch-log em NDJSON
     summary: Unificar dispatch-log em NDJSON
     weight: 1
     description: "Usar um writer/parser de linha único, validar cada record e recuperar actuals sem anexar array JSON ao log. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:203-218`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:59:22.728Z
     scopeBoundary:
       - não parsear o arquivo inteiro como array e não ignorar silenciosamente linha inválida
     acceptance:
@@ -312,6 +319,13 @@ tasks:
         path: tests/append-completion-dispatchlog.test.js
       - kind: file
         path: tests/append-completion-actuals.test.js
+    closedAt: 2026-07-16T16:59:22.728Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:59:22.728Z
+      passed: true
+      exitCode: 0
+      outputSummary: dispatch-log NDJSON
   - id: T-008
     title: Corrigir reconcile e nomenclatura de closure
     summary: Corrigir reconcile e nomenclatura de closure

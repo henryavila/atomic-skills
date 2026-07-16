@@ -108,3 +108,5 @@
 {"ts":"2026-07-16T16:49:55.611Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F4","taskId":"T-003","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-16T16:54:40.798Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F4","taskId":"T-004","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-16T16:54:40.798Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F4","taskId":"T-005","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-16T16:59:22.728Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F4","taskId":"T-006","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-16T16:59:22.728Z","event":"task-done","projectId":"atomic-skills","planSlug":"integrity-remediation","phaseId":"F4","taskId":"T-007","weight":1,"weightBasis":"count"}
