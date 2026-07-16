@@ -27,6 +27,7 @@ import {
   wantsGrokPluginHost,
 } from './runtime-layers/grok-plugin-host.js';
 import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
+import { withSharedRuntimeLocks } from './runtime-locks.js';
 
 export { resolveProjectScopeTarget } from './scope.js';
 
@@ -152,12 +153,14 @@ function installsRegistryPath() {
  * a project install.
  */
 export function registerInstall(basePath) {
-  const p = installsRegistryPath();
-  let list = [];
-  try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
-  if (!list.includes(basePath)) list.push(basePath);
-  mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(list, null, 2) + '\n');
+  return withSharedRuntimeLocks({ basePath }, () => {
+    const p = installsRegistryPath();
+    let list = [];
+    try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
+    if (!list.includes(basePath)) list.push(basePath);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify(list, null, 2) + '\n');
+  });
 }
 
 /**
@@ -167,16 +170,18 @@ export function registerInstall(basePath) {
  * artifacts only when this returns 0 (F-003).
  */
 export function unregisterInstall(basePath) {
-  const p = installsRegistryPath();
-  let list = [];
-  try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
-  const next = list.filter((b) => b !== basePath);
-  if (next.length === 0) {
-    try { unlinkSync(p); } catch {}
-    return 0;
-  }
-  try { writeFileSync(p, JSON.stringify(next, null, 2) + '\n'); } catch {}
-  return next.length;
+  return withSharedRuntimeLocks({ basePath }, () => {
+    const p = installsRegistryPath();
+    let list = [];
+    try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
+    const next = list.filter((b) => b !== basePath);
+    if (next.length === 0) {
+      try { unlinkSync(p); } catch {}
+      return 0;
+    }
+    try { writeFileSync(p, JSON.stringify(next, null, 2) + '\n'); } catch {}
+    return next.length;
+  });
 }
 
 /**
