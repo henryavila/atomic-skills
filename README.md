@@ -444,6 +444,7 @@ Atomic Skills uses a polyglot rendering layer that detects your agent and rewrit
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown |
+| Grok Build | `grok` | `.grok/plugins/atomic-skills/skills/atomic-skills/` | Markdown |
 [IDES_TABLE_END]: #
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).

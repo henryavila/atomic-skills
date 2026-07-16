@@ -30,6 +30,7 @@ const PUBLIC_HOST_SKILL_MATRIX = [
   { ideId: 'codex', skillPath: '.agents/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'opencode', skillPath: '.opencode/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'github-copilot', skillPath: '.github/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'grok', skillPath: '.grok/plugins/atomic-skills/skills/fix/SKILL.md' },
 ];
 
 describe('installSkills', () => {
