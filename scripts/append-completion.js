@@ -34,6 +34,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { dispatchLogPath, readDispatchLog } from './dispatch-log.js';
 
 /** The closed enum of completion event kinds (mirrors completion-event.schema.json). */
 export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
@@ -103,36 +104,34 @@ export function computePhaseActuals(since, { cwd = process.cwd(), sinceCommit } 
 /**
  * Read the Mode-2 dispatch telemetry sidecar and derive this task's execution
  * actuals { attempts, durationMs, escalations }. Reads
- * <root>/.atomic-skills/status/dispatch-log.json (a flat JSON array).
+ * <root>/.atomic-skills/status/dispatch-log.json as NDJSON (one object per line)
+ * via `scripts/dispatch-log.js` — never as a whole-file JSON array.
+ *
  * Returns the actuals object built from ONLY the finite fields it can derive, or
- * `undefined` when the file is absent/unparseable or no record matches
- * (plan+phase+taskId). NEVER throws (graceful — Mode-1 runs have no
- * dispatch-log and that is not an error).
+ * `undefined` when the file is absent or no record matches (plan+phase+taskId).
+ * Absent file is graceful (Mode-1 has no dispatch-log). Malformed NDJSON fails
+ * closed with a line-numbered error from `readDispatchLog` (F4/T-007) — corruption
+ * is never silently swallowed into "no actuals".
  */
 export function readDispatchActuals(root, { planSlug, phaseId, taskId } = {}) {
   if (!hasText(taskId)) return undefined;
-  try {
-    const path = join(resolve(root), '.atomic-skills', 'status', 'dispatch-log.json');
-    if (!existsSync(path)) return undefined;
-    const log = JSON.parse(readFileSync(path, 'utf8'));
-    if (!Array.isArray(log)) return undefined;
-    const matching = log.filter((r) => (
-      r && r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
-    ));
-    if (matching.length === 0) return undefined;
-    const rec = matching[matching.length - 1];
-    const out = {};
-    if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
-    if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
-    const a = Date.parse(rec.startedAt);
-    const b = Date.parse(rec.finishedAt);
-    if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
-      out.durationMs = b - a;
-    }
-    return Object.keys(out).length === 0 ? undefined : out;
-  } catch {
-    return undefined;
+  const path = dispatchLogPath(root);
+  if (!existsSync(path)) return undefined;
+  const log = readDispatchLog(root); // throws on corrupt line (fail-closed)
+  const matching = log.filter((r) => (
+    r && r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
+  ));
+  if (matching.length === 0) return undefined;
+  const rec = matching[matching.length - 1];
+  const out = {};
+  if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
+  if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
+  const a = Date.parse(rec.startedAt);
+  const b = Date.parse(rec.finishedAt);
+  if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
+    out.durationMs = b - a;
   }
+  return Object.keys(out).length === 0 ? undefined : out;
 }
 
 /**
