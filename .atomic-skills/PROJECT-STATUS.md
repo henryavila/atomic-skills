@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-16T13:00:32.380Z
+lastUpdated: 2026-07-16T16:20:00.000Z
 schemaVersion: '0.1'
-activePlans: 1
-activeInitiatives: 1
+activePlans: 0
+activeInitiatives: 0
 archivedCount: 14
 ---
 
@@ -18,15 +18,14 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
+_(none)_
 
-| Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|--------|
-| grok-build-integration | active | F0 | plan/grok-build-integration | 2026-07-16 | 1/6 |
 
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| grok-build-integration | done | F5 | plan/grok-build-integration | 2026-07-16 | 6/6 |
 | fix-aideck-dashboard | done | F3 | plan/fix-aideck-dashboard | 2026-06-16 | 4/4 |
 | deadline-burnup-forecast | done | F5 | plan/deadline-burnup-forecast | 2026-06-17 | 6/6 |
 | reversible-installer | done | F3 | plan/reversible-installer | 2026-06-17 | 4/4 |

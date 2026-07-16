@@ -76,3 +76,11 @@
 | 2026-07-07 19:58 | [help-command-f2-local](2026-07-07-1958-help-command-f2-local.md) | code (local degraded) | approved_with_remediation | 0B/0C/1M/0m/0n | 1 fixed |
 | 2026-07-09 06:28 | [installer-hooks-cross-ide](2026-07-09-0628-installer-hooks-cross-ide.md) | code/codex | needs_changes→fixed | 0B/0C/1M/0m/0n | 0d/1=/0+ |
 | 2026-07-10 11:43 | [installer-hooks-cross-ide-review-code](2026-07-10-1143-installer-hooks-cross-ide-review-code.md) | code | needs_changes→all fixed | local 0B/0C/3M/0m · codex 0B/0C/1M/0m | 0d/1=/0+ |
+| 2026-07-16 10:13 | [grok-build-integration](2026-07-16-1013-grok-build-integration.md) | plan | needs_changes | 0B/0C/8M/0m/0n | plan review (codex) |
+| 2026-07-16 14:06 | [grok-build-integration-f0](2026-07-16-1406-grok-build-integration-f0-codex.md) | code/codex | needs_changes→fixed | 0B/0C/4M/1m/0n | F0 |
+| 2026-07-16 14:28 | [grok-build-integration-f1](2026-07-16-1428-grok-build-integration-f1-codex.md) | code/codex | needs_changes→fixed | 0B/0C/5M/0m/0n | F1 |
+| 2026-07-16 14:45 | [grok-build-integration-f2](2026-07-16-1445-grok-build-integration-f2-codex.md) | code/codex | needs_changes→fixed | 0B/1C/4M/1m/0n | F2 |
+| 2026-07-16 15:05 | [grok-build-integration-f3](2026-07-16-1505-grok-build-integration-f3-codex.md) | code/codex | needs_changes→fixed | 0B/0C/5M/2m/0n | F3 |
+| 2026-07-16 15:10 | [grok-build-integration-f4-local](2026-07-16-1510-grok-build-integration-f4-local.md) | code (local) | approved | 0B/0C/0M/0m/0n | F4 |
+| 2026-07-16 15:20 | [grok-build-integration-f4-f5](2026-07-16-1520-grok-build-integration-f4-f5-codex.md) | code/codex | needs_changes→fixed | 0B/0C/4M/1m/0n | F4+F5 |
+| 2026-07-16 15:25 | [grok-build-integration-f5-local](2026-07-16-1525-grok-build-integration-f5-local.md) | code (local) | approved | 0B/0C/0M/0m/0n | F5 |

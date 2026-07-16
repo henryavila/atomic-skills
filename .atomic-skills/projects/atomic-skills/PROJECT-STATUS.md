@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-16T13:00:32.380Z
+lastUpdated: 2026-07-16T16:20:00.000Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
+activePlans: 0
+activeInitiatives: 0
 archivedCount: 23
 ---
 
@@ -18,14 +18,14 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-| Slug | Status | Current Phase | Branch | Started | Phases |
-|------|--------|---------------|--------|---------|--------|
-| grok-build-integration | active | F0 | plan/grok-build-integration | 2026-07-16 | 1/6 |
+_(none)_
+
 
 ## Done Plans (not archived)
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| grok-build-integration | done | F5 | plan/grok-build-integration | 2026-07-16 | 6/6 |
 | installer-hooks-cross-ide | done | F3 | develop | 2026-07-08 | 4/4 |
 | help-command | done | F3 | develop | 2026-07-05 | 4/4 |
 | fix-aideck-dashboard | done | F3 | plan/fix-aideck-dashboard | 2026-06-16 | 4/4 |
