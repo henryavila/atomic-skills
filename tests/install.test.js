@@ -123,7 +123,23 @@ describe('installSkills', () => {
     const hooks = JSON.parse(
       readFileSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json'), 'utf8'),
     );
-    assert.deepStrictEqual(hooks, { hooks: {} });
+    // Plugin Soft/Strict envelope is filled in T-002; auto-update is separate.
+    assert.ok(hooks.hooks, 'plugin hooks envelope must exist');
+
+    // Grok auto-update SessionStart under .grok/hooks/ (D3) — not Claude settings.
+    assert.ok(
+      existsSync(join(tempDir, '.atomic-skills/hooks/version-check.sh')),
+      'version-check.sh staged',
+    );
+    const grokAutoUpdatePath = join(tempDir, '.grok/hooks/atomic-skills-auto-update.json');
+    assert.ok(existsSync(grokAutoUpdatePath), 'Grok auto-update hook file staged');
+    const grokAuto = JSON.parse(readFileSync(grokAutoUpdatePath, 'utf8'));
+    assert.ok(grokAuto.hooks?.SessionStart?.length >= 1, 'auto-update SessionStart present');
+    assert.equal(grokAuto.hooks.PreToolUse, undefined, 'auto-update must not register Soft PreToolUse');
+    assert.ok(
+      !existsSync(join(tempDir, '.claude/settings.json')),
+      'grok-only must not create Claude settings.json',
+    );
   });
 
   it('installs a representative skill at the declared public host matrix path', () => {

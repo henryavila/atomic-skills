@@ -154,11 +154,65 @@ describe('install→uninstall round-trip', () => {
           'must not create .grok/skills/atomic-skills dual tree',
         );
 
+        // Auto-update SessionStart on Grok surface (D3) — not Claude settings.
+        const versionCheck = join(fakeHome, '.atomic-skills/hooks/version-check.sh');
+        const grokAutoUpdate = join(fakeHome, '.grok/hooks/atomic-skills-auto-update.json');
+        assert.ok(existsSync(versionCheck), 'version-check.sh staged for auto-update');
+        assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update hook file must exist');
+        assert.ok(
+          !existsSync(join(fakeHome, '.claude/settings.json')),
+          'grok-only install must not create .claude/settings.json',
+        );
+        const autoUpdate = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
+        assert.ok(autoUpdate.hooks?.SessionStart?.length >= 1, 'SessionStart registered');
+        assert.equal(
+          autoUpdate.hooks.SessionStart[0].matcher,
+          undefined,
+          'Grok SessionStart must not set matcher',
+        );
+        assert.equal(autoUpdate.hooks.PreToolUse, undefined, 'auto-update must not ship Soft PreToolUse');
+        assert.equal(autoUpdate.hooks.Stop, undefined, 'auto-update must not ship Strict Stop');
+
         await uninstall(projectDir, { scope: 'user', yes: true });
         const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
         assert.deepEqual(added, [], `residue after grok uninstall: ${added.join(', ')}`);
         assert.deepEqual(removed, [], `grok uninstall deleted pre-existing paths: ${removed.join(', ')}`);
         assert.deepEqual(modified, [], `grok uninstall modified pre-existing files: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('user-scope claude+grok install registers both auto-update surfaces and uninstalls cleanly', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['claude-code', 'grok'], lang: 'en' });
+
+        const versionCheck = join(fakeHome, '.atomic-skills/hooks/version-check.sh');
+        const claudeSettings = join(fakeHome, '.claude/settings.json');
+        const grokAutoUpdate = join(fakeHome, '.grok/hooks/atomic-skills-auto-update.json');
+        assert.ok(existsSync(versionCheck));
+        assert.ok(existsSync(claudeSettings), 'Claude auto-update registration present');
+        assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update registration present');
+
+        const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+        const claudeCmds = (claude.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
+        assert.ok(claudeCmds.some((h) => h.command === versionCheck));
+
+        const grok = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
+        const grokCmds = (grok.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
+        assert.ok(grokCmds.some((h) => h.command === versionCheck));
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after dual-ides uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `dual-ides uninstall deleted pre-existing: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `dual-ides uninstall modified pre-existing: ${modified.join(', ')}`);
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });

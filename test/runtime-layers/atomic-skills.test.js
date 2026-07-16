@@ -9,7 +9,11 @@ import { join } from 'node:path';
 import { defineInstaller } from '@henryavila/minimalist-installer';
 import { createStageRuntimeArtifactsEffect } from '../../src/runtime-layers/effects/stage-runtime-artifacts.js';
 import { createAideckRuntimeProvider } from '../../src/runtime-layers/aideck.js';
-import { createAutoUpdateRuntimeProvider } from '../../src/runtime-layers/auto-update.js';
+import {
+  createAutoUpdateRuntimeProvider,
+  GROK_AUTO_UPDATE_HOOK_REL,
+  resolveAutoUpdateHosts,
+} from '../../src/runtime-layers/auto-update.js';
 
 function withTmp(fn) {
   const dir = mkdtempSync(join(tmpdir(), 'runtime-layers-'));
@@ -205,6 +209,26 @@ test('stageRuntimeArtifacts sourceTree replaces a priorly owned directory on upd
   });
 });
 
+test('resolveAutoUpdateHosts — legacy omit, claude-only, grok-only, both', () => {
+  assert.deepEqual(resolveAutoUpdateHosts({}), { registerClaude: true, registerGrok: false });
+  assert.deepEqual(resolveAutoUpdateHosts({ ides: ['claude-code'] }), {
+    registerClaude: true,
+    registerGrok: false,
+  });
+  assert.deepEqual(resolveAutoUpdateHosts({ ides: ['grok'] }), {
+    registerClaude: false,
+    registerGrok: true,
+  });
+  assert.deepEqual(resolveAutoUpdateHosts({ ides: ['claude-code', 'grok'] }), {
+    registerClaude: true,
+    registerGrok: true,
+  });
+  assert.deepEqual(resolveAutoUpdateHosts({ ides: ['codex'] }), {
+    registerClaude: false,
+    registerGrok: false,
+  });
+});
+
 test('auto-update runtime layer — jsonMerge SessionStart + executable hook, surgical revert', () => {
   withTmp((root) => {
     const { skillsDir } = makeFixtures(root);
@@ -240,6 +264,81 @@ test('auto-update runtime layer — jsonMerge SessionStart + executable hook, su
 
     assert.ok(!existsSync(hookPath), 'hook removed on uninstall');
     assert.equal(readFileSync(settingsPath, 'utf8'), baselineStr, 'settings.json restored to baseline (surgical)');
+  });
+});
+
+test('auto-update runtime layer — grok-only stages Grok hook file, not Claude settings', () => {
+  withTmp((root) => {
+    const { skillsDir } = makeFixtures(root);
+    const projectDir = join(root, 'install');
+
+    const installer = defineInstaller({
+      effects: [createStageRuntimeArtifactsEffect()],
+      providers: [createAutoUpdateRuntimeProvider()],
+      config: { manifestDir: '.atomic-skills', skillsDir, ides: ['grok'] },
+    });
+
+    installer.install({ projectDir });
+
+    const hookPath = join(projectDir, '.atomic-skills', 'hooks', 'version-check.sh');
+    const grokHookPath = join(projectDir, GROK_AUTO_UPDATE_HOOK_REL);
+    const claudeSettings = join(projectDir, '.claude', 'settings.json');
+
+    assert.ok(existsSync(hookPath), 'version-check.sh staged');
+    assert.ok(existsSync(grokHookPath), 'Grok auto-update hook file staged');
+    assert.ok(!existsSync(claudeSettings), 'grok-only must not create Claude settings.json');
+
+    const grokHook = JSON.parse(readFileSync(grokHookPath, 'utf8'));
+    const starts = grokHook.hooks.SessionStart;
+    assert.ok(Array.isArray(starts) && starts.length >= 1, 'SessionStart registered');
+    assert.equal(starts[0].matcher, undefined, 'Grok SessionStart must omit matcher');
+    assert.ok(
+      starts.flatMap((e) => e.hooks).some((h) => h.command === hookPath),
+      'SessionStart command is absolute version-check path',
+    );
+    // Auto-update only — no Soft/Strict project scripts.
+    assert.equal(grokHook.hooks.PreToolUse, undefined, 'must not register PreToolUse');
+    assert.equal(grokHook.hooks.Stop, undefined, 'must not register Stop');
+
+    installer.uninstall({ projectDir });
+    assert.ok(!existsSync(hookPath), 'hook script removed');
+    assert.ok(!existsSync(grokHookPath), 'Grok hook file removed on uninstall');
+  });
+});
+
+test('auto-update runtime layer — claude+grok registers both surfaces', () => {
+  withTmp((root) => {
+    const { skillsDir } = makeFixtures(root);
+    const projectDir = join(root, 'install');
+
+    const installer = defineInstaller({
+      effects: [createStageRuntimeArtifactsEffect()],
+      providers: [createAutoUpdateRuntimeProvider()],
+      config: { manifestDir: '.atomic-skills', skillsDir, ides: ['claude-code', 'grok'] },
+    });
+
+    installer.install({ projectDir });
+
+    const hookPath = join(projectDir, '.atomic-skills', 'hooks', 'version-check.sh');
+    const settingsPath = join(projectDir, '.claude', 'settings.json');
+    const grokHookPath = join(projectDir, GROK_AUTO_UPDATE_HOOK_REL);
+
+    assert.ok(existsSync(hookPath));
+    assert.ok(existsSync(settingsPath), 'Claude settings created when claude-code selected');
+    assert.ok(existsSync(grokHookPath), 'Grok hook file created when grok selected');
+
+    const claudeHooks = JSON.parse(readFileSync(settingsPath, 'utf8'))
+      .hooks.SessionStart.flatMap((e) => e.hooks);
+    assert.ok(claudeHooks.some((h) => h.command === hookPath));
+
+    const grokHooks = JSON.parse(readFileSync(grokHookPath, 'utf8'))
+      .hooks.SessionStart.flatMap((e) => e.hooks);
+    assert.ok(grokHooks.some((h) => h.command === hookPath));
+
+    installer.uninstall({ projectDir });
+    assert.ok(!existsSync(hookPath));
+    assert.ok(!existsSync(settingsPath));
+    assert.ok(!existsSync(grokHookPath));
   });
 });
 
