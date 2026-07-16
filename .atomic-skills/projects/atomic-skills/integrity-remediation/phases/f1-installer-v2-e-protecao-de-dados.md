@@ -46,14 +46,14 @@ exitGates:
       kind: shell
       command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/concurrency.test.js test/lock-order.test.js test/transaction-path-race.test.js test/inspect-rollback.test.js) && node --test tests/runtime-lock-concurrency.test.js tests/installer-fault-injection.test.js tests/runtime-refcount.test.js tests/runtime-registry-recovery.test.js tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
       expectExitCode: 0
-    metAt: 2026-07-16T17:23:24.067Z
+    metAt: 2026-07-16T18:11:30.411Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-16T17:23:24.067Z
+      verifiedAt: 2026-07-16T18:11:30.411Z
       passed: true
       exitCode: 0
-      verifiedCommit: e9423886b259f3dc879bd55c71f2175969f02c80
-      outputSummary: locks + concurrency + roundtrip + registry
+      verifiedCommit: d4736ee8c073e0671ca63ff2cd2a8c7f4832c2fa
+      outputSummary: upstream concurrency/locks + runtime-lock + install-uninstall-roundtrip 0 residue; log phase-f1-gates.log / f1-g2-green.log
 stack:
   - id: 1
     title: Installer v2 e proteção de dados
