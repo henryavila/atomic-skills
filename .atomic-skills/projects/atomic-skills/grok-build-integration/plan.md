@@ -5,9 +5,9 @@ title: Grok Build native integration + cross-model review
 version: "1.0"
 status: active
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T15:07:33.000Z
+lastUpdated: 2026-07-16T15:10:00.000Z
 branch: plan/grok-build-integration
-currentPhase: F4
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -387,16 +387,40 @@ phases:
       criteria:
         - id: G-1
           description: Plugin.json contract is tested and package keywords include grok.
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:10:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:10:00.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "install.test 39 pass; keywords include grok"
           verifier:
             kind: shell
             command: node --test tests/install.test.js && node -e "const
               p=require('./package.json'); if(!p.keywords.includes('grok'))
               process.exit(1)"
             expectExitCode: 0
-    status: active
+    status: done
+    reviewGate:
+      status: passed
+      at: 8d19341
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-16-1510-grok-build-integration-f4-local.md
+      verifiedAt: 2026-07-16T15:10:00.000Z
 
   - id: F5
+    businessIntent:
+      value: Operators can triage dual-provider (Codex+Grok) review findings with a
+        deterministic merge contract and finish Grok integration with green suites.
+      workflow: external-both runs Codex then Grok envelopes on one artifact → merge
+        helper ranks findings → hot skills carry ide.grok quirks → final regression.
+      rules: "merge key file:line + claim; higher severity wins with dual provenance;
+        partial provider failure keeps the good half; human triage mandatory; skill
+        bodies stay tool-abstract."
+      outOfScope: auto-apply of external findings; marketplace publish; MCP state server.
+      doneWhen: "F5 gates green: external-both documented + merge unit tests + final
+        config/install/round-trip/render/project suites and validate-skills."
     slug: grok-build-integration-f5-polish-external-both-merge-final-veri
     title: Polish, external-both merge, final verify
     goal: external-both merges findings for triage with a deterministic contract; L5
@@ -437,7 +461,7 @@ phases:
             kind: shell
             command: node --test tests/external-both-merge.test.js
             expectExitCode: 0
-    status: pending
+    status: active
 references: []
 planActive: true
 planTitle: Grok Build native integration + cross-model review
