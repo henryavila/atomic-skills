@@ -44,6 +44,7 @@ function parseArgs(argv) {
     base: null,
     scope: null,
     forceModified: false,
+    includeUser: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -56,6 +57,7 @@ function parseArgs(argv) {
     } else if (a === '--base') out.base = resolve(argv[++i]);
     else if (a === '--scope') out.scope = argv[++i];
     else if (a === '--force-modified') out.forceModified = true;
+    else if (a === '--include-user') out.includeUser = true;
     else if (a === '--help' || a === '-h') out.help = true;
     else throw new Error(`unknown argument: ${a}`);
   }
@@ -226,17 +228,27 @@ export function repairInstalledRuntime(report, opts = {}) {
 }
 
 /**
- * Discover install bases: project cwd and user home when manifests exist.
+ * Discover install bases for verification.
+ *
+ * Default (release/CI): only a project-scope manifest under cwd. A developer's
+ * long-lived user-scope install under $HOME is often intentionally stale relative
+ * to HEAD and must not fail release gates — pass --include-user or --base $HOME
+ * to opt in.
+ *
+ * @param {string} [cwd]
+ * @param {{ includeUser?: boolean }} [opts]
  */
-export function discoverInstallBases(cwd = process.cwd()) {
+export function discoverInstallBases(cwd = process.cwd(), opts = {}) {
   const bases = [];
   const projectManifest = join(cwd, '.atomic-skills', 'manifest.json');
   if (existsSync(projectManifest)) {
     bases.push({ base: cwd, scope: 'project' });
   }
-  const userBase = homedir();
-  if (existsSync(join(userBase, '.atomic-skills', 'manifest.json'))) {
-    bases.push({ base: userBase, scope: 'user' });
+  if (opts.includeUser) {
+    const userBase = homedir();
+    if (existsSync(join(userBase, '.atomic-skills', 'manifest.json'))) {
+      bases.push({ base: userBase, scope: 'user' });
+    }
   }
   return bases;
 }
@@ -253,13 +265,17 @@ if (isMain) {
     }
 
     const targets = args.base
-      ? [{ base: args.base, scope: args.scope || 'project' }]
-      : discoverInstallBases(process.cwd());
+      ? [{ base: args.base, scope: args.scope || (args.base === homedir() ? 'user' : 'project') }]
+      : discoverInstallBases(process.cwd(), { includeUser: args.includeUser });
 
     if (targets.length === 0) {
-      // No install in cwd/home — still OK for --check in CI of the source repo
-      // when the product is not installed into the checkout.
-      console.log('No installed runtime found under cwd or $HOME — nothing to verify.');
+      // No project install in cwd — OK for --check in CI/source checkout.
+      // User-scope $HOME is opt-in via --include-user (see discoverInstallBases).
+      console.log(
+        args.includeUser
+          ? 'No installed runtime found under cwd or $HOME — nothing to verify.'
+          : 'No project-scope install under cwd — nothing to verify (pass --include-user for $HOME).',
+      );
       process.exit(0);
     }
 
