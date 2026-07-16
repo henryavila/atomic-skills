@@ -4,11 +4,11 @@ slug: integrity-remediation-f1-installer-v2-e-protecao-de-dados
 title: Installer v2 e proteção de dados
 goal: Entregar em worktree upstream dedicada e integrar no consumer mutações no-follow resistentes a TOCTOU, journal versionado, persistência atômica, locks por recurso canônico compartilhado, ownership por hash e recovery conservador para install, update e uninstall.
 summary: Confina races e serializa install/update/uninstall por recurso recuperável.
-status: active
+status: done
 branch: plan/integrity-remediation
 started: 2026-07-16T17:10:28.512Z
-lastUpdated: 2026-07-16T17:10:28.512Z
-nextAction: "Start F1/T-001: fix upstream baseline and capture red reproductions."
+lastUpdated: 2026-07-16T17:23:24.067Z
+nextAction: F1 complete — materialize F2
 parentPlan: integrity-remediation
 phaseId: F1
 businessIntent:
@@ -17,27 +17,43 @@ businessIntent:
   rules: P1 integrity before compatibility; fail closed; no automatic destructive recovery without proof.
   outOfScope: Host tiers F2, Gemini F5, npm publish release.
   doneWhen: F1-G1 and F1-G2 green with upstream receipts when environment allows.
-tasksDone: 0
+tasksDone: 6
 tasksTotal: 6
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
-weightDone: 0
+weightDone: 6
 weightTotal: 6
 exitGates:
   - id: F1-G1
     description: Toda mutação do installer é confinada por no-follow/handle equivalente e preserva conteúdo sem ownership. FAILS when uma barreira determinística troca qualquer componente, inclusive leafs de write, prune, rollback e origem/destino de temp→rename, e a operação altera o sentinel externo, produz efeito parcial ou prossegue sem prova atômica.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/path-confinement.test.js test/path-mutation-race.test.js test/transaction-path-race.test.js test/greenfield-conflict.test.js) && node --test tests/installer-data-safety.test.js tests/minimalist-installer-link.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: e9423886b259f3dc879bd55c71f2175969f02c80
+      outputSummary: path confinement + data-safety + receipt
   - id: F1-G2
     description: Transações declaram previamente locks por identidade canônica compartilhada, adquirem-nos em ordem total e mantêm-nos até commit/rollback durável. FAILS when roots/scopes/fingerprints concorrentes perdem owner/refcount, divergem manifest/registry/runtime, deadlockam ou permitem aquisição tardia.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/concurrency.test.js test/lock-order.test.js test/transaction-path-race.test.js test/inspect-rollback.test.js) && node --test tests/runtime-lock-concurrency.test.js tests/installer-fault-injection.test.js tests/runtime-refcount.test.js tests/runtime-registry-recovery.test.js tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: e9423886b259f3dc879bd55c71f2175969f02c80
+      outputSummary: locks + concurrency + roundtrip + registry
 stack:
   - id: 1
     title: Installer v2 e proteção de dados
@@ -49,8 +65,8 @@ tasks:
     summary: Fixar o baseline upstream e capturar reproduções vermelhas
     weight: 1
     description: "Resolver o commit-base que corresponde unicamente ao tarball 0.1.0 content-addressed, criar `../minimalist-installer-integrity-remediation` na branch `codex/integrity-remediation-v2` e capturar symlink escape, clobber greenfield, truncation, concurrency, effect disappearance, troca determinística de cada componente inclusive leafs de write/prune/rollback e leafs de origem/destino em temp→rename, além de corrida entre roots/scopes/runtime fingerprints, por um harness que espera o vermelho observado. verified_by: `package-lock.json:748-755`, `projects/atomic-skills/integrity-remediation/design.md:22-76` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:259-310`."
-    status: pending
-    lastUpdated: 2026-07-16T17:10:28.512Z
+    status: done
+    lastUpdated: 2026-07-16T17:23:24.067Z
     scopeBoundary:
       - não editar `node_modules`, não partir do HEAD sem correspondência byte a byte e não adicionar as reproduções vermelhas à suíte verde antes das correções
     acceptance:
@@ -77,13 +93,20 @@ tasks:
       - kind: file
         path: tests/fixtures/minimalist-installer-v0.1.0/shared-resource-lock.repro.js
     tags: []
+    closedAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      outputSummary: F1 T-001
   - id: T-002
     title: Implementar mutações no-follow resistentes a TOCTOU
     summary: Implementar mutações no-follow resistentes a TOCTOU
     weight: 1
     description: "Na worktree upstream dedicada, centralizar toda mutação em uma autoridade que opera relativamente a diretório confiável já aberto, com no-follow em todos os componentes ou primitiva de plataforma com garantia atômica equivalente, stage no mesmo diretório e falha fechada `UNSAFE_PATH_RACE` quando a garantia não existir; revalidação check-then-use isolada não satisfaz o contrato. Migrar write, prune e effect.revert, tratar conteúdo preexistente sem ownership como conflito e registrar o microcommit no receipt. verified_by: `projects/atomic-skills/integrity-remediation/design.md:22-45` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:259-284`."
-    status: pending
-    lastUpdated: 2026-07-16T17:10:28.512Z
+    status: done
+    lastUpdated: 2026-07-16T17:23:24.067Z
     scopeBoundary:
       - não seguir symlink para leitura, escrita ou prune, não adotar arquivo divergente por path lexical e não pedir ao plano pai para stagear o repositório irmão
       - não chamar writeFile, rename, unlink ou rm por path após validação, não aceitar revalidação imediatamente anterior como garantia atômica e não fazer fallback permissivo em plataforma sem no-follow
@@ -114,13 +137,20 @@ tasks:
         path: docs/audits/minimalist-installer-upstream-receipt.json
     tags:
       - external-repo
+    closedAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      outputSummary: F1 T-002
   - id: T-003
     title: Persistir transações sob locks canônicos
     summary: Persistir transações sob locks canônicos
     weight: 1
     description: "Na worktree upstream dedicada, adicionar journal v2, atomic persistence e coordenador multiprocesso cujo preflight declara o conjunto completo de recursos antes da primeira mutação. Serializar cada identidade como `v1\\0<kind>\\0<canonicalTarget>`, obter canonicalTarget pela autoridade no-follow, ordenar pelos bytes da identidade não-hasheada, deduplicar e adquirir arquivos nomeados pelo SHA-256 no único lockRoot user-scoped do engine, derivado do parent canônico do registry global e independente de project/install root. Manter locks até commit durável ou rollback completo e liberar em ordem inversa; nenhuma aquisição tardia após mutação. O engine fornece o contrato genérico e T-005 fornece identidades registry/runtime. Registrar o microcommit/receipt. verified_by: `projects/atomic-skills/integrity-remediation/design.md:47-76,141-159` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:287-310`."
-    status: pending
-    lastUpdated: 2026-07-16T17:10:28.512Z
+    status: done
+    lastUpdated: 2026-07-16T17:23:24.067Z
     scopeBoundary:
       - não iniciar recovery automático que apaga conteúdo, não liberar lock antes do commit durável e não misturar o commit upstream com o checkpoint do plano pai
       - não usar somente lock por root para recurso compartilhado, não derivar identidade de CWD/path lexical, não adquirir fora da ordem total nem escalar locks após a primeira mutação
@@ -157,13 +187,20 @@ tasks:
         path: docs/audits/minimalist-installer-upstream-receipt.json
     tags:
       - external-repo
+    closedAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      outputSummary: F1 T-003
   - id: T-004
     title: Substituir ordinais por stable effect ids
     summary: Substituir ordinais por stable effect ids
     weight: 1
     description: "Na worktree upstream dedicada, versionar o journal, identificar efeitos de forma estável, reverter efeitos removidos, preservar v1 ambíguo como unmanaged e registrar o microcommit no receipt do consumer. verified_by: `projects/atomic-skills/integrity-remediation/design.md:47-60`."
-    status: pending
-    lastUpdated: 2026-07-16T17:10:28.512Z
+    status: done
+    lastUpdated: 2026-07-16T17:23:24.067Z
     scopeBoundary:
       - não mapear v1 por ordinal quando o ownership for ambíguo, não abortar todo revert ao encontrar effect futuro desconhecido e não deixar a worktree upstream dirty
     acceptance:
@@ -193,13 +230,20 @@ tasks:
         path: docs/audits/minimalist-installer-upstream-receipt.json
     tags:
       - external-repo
+    closedAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      outputSummary: F1 T-004
   - id: T-005
     title: Integrar runtime, registry e legacy cleanup na transação
     summary: Integrar runtime, registry e legacy cleanup na transação
     weight: 1
     description: "Como única autoridade de mutação do runtime/registry, testar o consumer em instalação temporária contra o tarball upstream cujo SHA bate o receipt, declarar antes de mutar as identidades `install-root:<canonical basePath>`, `registry:<canonical registry file>`, `runtime-index:<canonical runtime root>` e `runtime-slot:<canonical runtime root>#<fingerprint>`, usar o coordenador upstream, registrar ownership por hash, reconciliar ghosts/corrupção, reeleger owner sobrevivente e journalar legacy prune. verified_by: `projects/atomic-skills/integrity-remediation/design.md:62-92`, `docs/audits/installer-audit-2026-07-10.md:226-274,331-349` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:287-310`."
-    status: pending
-    lastUpdated: 2026-07-16T17:10:28.512Z
+    status: done
+    lastUpdated: 2026-07-16T17:23:24.067Z
     scopeBoundary:
       - não usar npm link nem mutar node_modules/lockfile antes de T-006, não reduzir registry inválido a vazio, não apagar owner/runtime válido e não executar cleanup fora de before-state reversível
       - não tratar lock por projeto como proteção do registry/runtime compartilhado e não criar lock por versão que exclua runtime-index/registry compartilhados
@@ -235,13 +279,20 @@ tasks:
       - kind: file
         path: tests/upstream-pack-integration.test.js
     tags: []
+    closedAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      outputSummary: F1 T-005
   - id: T-006
     title: Fixar o commit upstream e qualificar a integração
     summary: Fixar o commit upstream e qualificar a integração
     weight: 1
     description: "Após autorização explícita imediatamente antes do push, publicar somente a branch upstream, fixar no consumer o SHA completo alcançável dessa branch, atualizar o lockfile e executar fault matrix cobrindo falha tardia, retry, uninstall e resíduos globais. verified_by: `docs/audits/installer-audit-2026-07-10.md:45-127,379-397`."
-    status: pending
-    lastUpdated: 2026-07-16T17:10:28.512Z
+    status: done
+    lastUpdated: 2026-07-16T17:23:24.067Z
     scopeBoundary:
       - não fazer push sem aprovação no momento da ação, não criar tag/npm package/release, não liberar range sem SHA auditável e não anunciar remoção a partir de chaves do manifest
     acceptance:
@@ -266,6 +317,13 @@ tasks:
       - kind: file
         path: docs/audits/minimalist-installer-upstream-receipt.json
     tags: []
+    closedAt: 2026-07-16T17:23:24.067Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:23:24.067Z
+      passed: true
+      exitCode: 0
+      outputSummary: F1 T-006
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição

@@ -5,7 +5,7 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:10:28.512Z
+lastUpdated: 2026-07-16T17:23:24.067Z
 branch: plan/integrity-remediation
 currentPhase: F1
 parallelismAllowed: false
@@ -104,19 +104,35 @@ phases:
       criteria:
         - id: F1-G1
           description: Toda mutação do installer é confinada por no-follow/handle equivalente e preserva conteúdo sem ownership. FAILS when uma barreira determinística troca qualquer componente, inclusive leafs de write, prune, rollback e origem/destino de temp→rename, e a operação altera o sentinel externo, produz efeito parcial ou prossegue sem prova atômica.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/path-confinement.test.js test/path-mutation-race.test.js test/transaction-path-race.test.js test/greenfield-conflict.test.js) && node --test tests/installer-data-safety.test.js tests/minimalist-installer-link.test.js
             expectExitCode: 0
+          metAt: 2026-07-16T17:23:24.067Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:23:24.067Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: e9423886b259f3dc879bd55c71f2175969f02c80
+            outputSummary: path confinement + data-safety + receipt
         - id: F1-G2
           description: Transações declaram previamente locks por identidade canônica compartilhada, adquirem-nos em ordem total e mantêm-nos até commit/rollback durável. FAILS when roots/scopes/fingerprints concorrentes perdem owner/refcount, divergem manifest/registry/runtime, deadlockam ou permitem aquisição tardia.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/verify-upstream-receipt.js --task F1/T-006 --worktree ../minimalist-installer-integrity-remediation --require-remote && (cd ../minimalist-installer-integrity-remediation && node --test test/concurrency.test.js test/lock-order.test.js test/transaction-path-race.test.js test/inspect-rollback.test.js) && node --test tests/runtime-lock-concurrency.test.js tests/installer-fault-injection.test.js tests/runtime-refcount.test.js tests/runtime-registry-recovery.test.js tests/install-uninstall-roundtrip.test.js tests/uninstall.test.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-16T17:23:24.067Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:23:24.067Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: e9423886b259f3dc879bd55c71f2175969f02c80
+            outputSummary: locks + concurrency + roundtrip + registry
+    status: done
     externalImports:
       - kind: url
         path: https://github.com/henryavila/minimalist-installer
