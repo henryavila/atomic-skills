@@ -420,6 +420,20 @@ export function validateAppMapFile(appMapPath) {
 }
 
 const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
+const REVIEW_GATE_MODES = new Set(['local', 'codex', 'both']);
+/** Full or abbreviated git SHA (lowercase preferred; case-insensitive match). */
+const GIT_SHA_RE = /^[0-9a-f]{7,40}$/i;
+
+/**
+ * True when `value` is a full or abbreviated git commit SHA (7–40 hex).
+ * Arbitrary non-SHA strings (labels, fingerprints, prose) return false.
+ * Pure: no I/O.
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isGitSha(value) {
+  return typeof value === 'string' && GIT_SHA_RE.test(value.trim());
+}
 
 /**
  * GATE-R2 — the machine-checked met-invariant (F-B2 / Inc1 linchpin).
@@ -435,7 +449,10 @@ const DETERMINISTIC_VERIFIER_KINDS = new Set(['shell', 'test', 'query']);
  *   - kind:test additionally requires a parsed evidence.testsCollected > 0
  *     (a pattern that matched 0 tests must NOT be 'met' — R-XAGENT-07),
  *   - kind:query additionally requires a numeric evidence.rowCount
- *     (query is deferred-by-design; never 'met' without a real rowCount — F-B1).
+ *     (query is deferred-by-design; never 'met' without a real rowCount — F-B1),
+ *   - when evidence.verifiedCommit is present it MUST be a real git SHA
+ *     (F4/T-004 — arbitrary non-SHA strings are rejected; absent is tolerated
+ *     on legacy met criteria that predate the anchor field).
  * manual verifiers and verifier-absent items are intentionally NOT gated here
  * (the manual-acceptance gate and user-overrides live elsewhere).
  *
@@ -466,6 +483,13 @@ export function checkMetInvariant(frontmatter) {
     }
     if (kind === 'query' && typeof evidence.rowCount !== 'number') {
       violations.push(`${label}: kind:query closed without a numeric evidence.rowCount — query is deferred-by-design and never 'met' without a real rowCount.`);
+    }
+    // F4/T-004: when verifiedCommit is stamped it must be a real SHA — never a label.
+    if (Object.prototype.hasOwnProperty.call(evidence, 'verifiedCommit')) {
+      const vc = evidence.verifiedCommit;
+      if (vc == null || vc === '' || !isGitSha(vc)) {
+        violations.push(`${label}: evidence.verifiedCommit must be a git SHA (7–40 hex), got ${JSON.stringify(vc)} — arbitrary non-SHA strings cannot anchor gate evidence.`);
+      }
     }
   };
 
@@ -532,15 +556,19 @@ export function checkClosedAtHardening(frontmatter, grandfatheredTaskIds) {
 }
 
 /**
- * GATE-R3 — the machine-checked review-gate invariant (G2).
+ * GATE-R3 — the machine-checked review-gate invariant (G2 / F4/T-004).
  *
  * The review-code phase gate is a hard precondition for closing a phase. A
  * markdown self-review block can CLAIM "review ran" without it having; the
  * `reviewGate` block on a plan phase makes that claim machine-checkable. This
  * pure predicate enforces, for a plan phase with status:'done' that CARRIES a
  * reviewGate block, that the claim is HONEST:
- *   - status:'passed' must carry an `at` sha (the commit the review concluded
- *     against) — a passed claim with no anchor is not evidence, it is a boast,
+ *   - status:'passed' must carry:
+ *       • `at` as a real git SHA (7–40 hex) — the commit the review concluded
+ *         against; arbitrary non-SHA strings are rejected (F4/T-004),
+ *       • `mode` in {local, codex, both} — which review surface ran,
+ *       • `reviewFile` coherent when present (non-empty path; optional when no
+ *         file was written — blank/whitespace is not coherent),
  *   - status:'skipped' must carry a `reason` (mirrors --skip-review's recorded
  *     reason; a silent skip is forbidden).
  * An ABSENT reviewGate on a 'done' phase is NOT gated here — consistent with
@@ -568,6 +596,18 @@ export function checkReviewGate(frontmatter) {
     if (rg.status === 'passed') {
       if (!hasText(rg.at)) {
         violations.push(`${label}: reviewGate.status is 'passed' but has no \`at\` sha — a passed review claim must record the commit it concluded against, not just assert it ran.`);
+      } else if (!isGitSha(rg.at)) {
+        violations.push(`${label}: reviewGate.at must be a git SHA (7–40 hex), got ${JSON.stringify(rg.at)} — arbitrary non-SHA strings cannot anchor a passed review.`);
+      }
+      if (!hasText(rg.mode)) {
+        violations.push(`${label}: reviewGate.status is 'passed' but has no \`mode\` — record which surface ran (local|codex|both).`);
+      } else if (!REVIEW_GATE_MODES.has(rg.mode)) {
+        violations.push(`${label}: reviewGate.mode must be one of local|codex|both (got ${JSON.stringify(rg.mode)}).`);
+      }
+      // reviewFile is optional (not every local pass writes a file), but when
+      // present it must be a coherent non-empty path — blank is not evidence.
+      if (Object.prototype.hasOwnProperty.call(rg, 'reviewFile') && !hasText(rg.reviewFile)) {
+        violations.push(`${label}: reviewGate.reviewFile is present but empty/blank — omit the field or record a real path.`);
       }
     } else if (rg.status === 'skipped') {
       if (!hasText(rg.reason)) {

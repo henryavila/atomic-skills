@@ -19,6 +19,11 @@
       "pattern": "^[a-z][a-z0-9-]{1,63}$",
       "description": "kebab-case identifier. Lowercase, starts with letter, 2-64 chars."
     },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "Git commit SHA — full (40) or abbreviated (≥7) lowercase hex. Used to anchor gate evidence (verifiedCommit) and reviewGate.at to a closed HEAD; arbitrary non-SHA strings are rejected."
+    },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
@@ -186,6 +191,10 @@
             "rowCount": { "type": "integer", "minimum": 0, "description": "Query verifier: row count observed (kind:query is DEFERRED-BY-DESIGN in this line; never reaches met without a real rowCount)." },
             "testsCollected": { "type": "integer", "minimum": 0, "description": "0.2 (test verifier): number of tests the runner actually collected/ran, parsed from output. A pattern that matched 0 tests must NOT reach status:met (R-XAGENT-07 false-green guard)." },
             "outputSummary": { "type": "string", "description": "Brief excerpt of verifier output (truncated to ~500 chars). For manual verifier, the user's confirmation note." },
+            "verifiedCommit": {
+              "$ref": "#/$defs/gitSha",
+              "description": "F4/T-004: git HEAD SHA at the moment this verifier ran (`git rev-parse HEAD`). Anchors gate evidence to a closed tree. When review applies fixes and HEAD moves, prior evidence is stale — re-run verifiers and refresh verifiedCommit before the phase-done commit guard accepts. Optional on legacy met criteria (absent is tolerated); when present it MUST be a real SHA (schema + validate-state reject arbitrary strings)."
+            },
             "mutation": {
               "type": "object",
               "additionalProperties": false,

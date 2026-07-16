@@ -16,7 +16,7 @@ import {
 } from '../scripts/lifecycle-order-guard.js';
 import { proposeAdvance } from '../src/transition.js';
 
-const FP = 'head-fingerprint-001';
+const FP = 'a1b2c3d4e5f6789012345678abcdef0123456789';
 
 function f4Slice(overrides = {}) {
   return {
@@ -58,7 +58,7 @@ function f4Slice(overrides = {}) {
       { id: 'F4-G2', status: 'met' },
       { id: 'F4-G3', status: 'pending' },
     ],
-    reviewGate: { status: 'passed', at: FP },
+    reviewGate: { status: 'passed', at: FP, mode: 'local' },
     lessonsState: 'recorded',
     fingerprint: FP,
     expectedFingerprint: FP,

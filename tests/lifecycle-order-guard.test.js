@@ -26,7 +26,7 @@ function assertBlockedWithCommand(result) {
   assert.equal(result.exception, null);
 }
 
-const FP = 'abc123deadbeef';
+const FP = 'abc123deadbeef01';
 
 function happyCommitInput(overrides = {}) {
   return {
@@ -53,7 +53,7 @@ function happyCommitInput(overrides = {}) {
     },
     tasks: [{ id: 'T-001', status: 'done' }],
     exitGates: [{ id: 'F4-G3', status: 'met' }],
-    reviewGate: { status: 'passed', at: FP },
+    reviewGate: { status: 'passed', at: FP, mode: 'local' },
     fingerprint: FP,
     expectedFingerprint: FP,
     ...overrides,
@@ -252,7 +252,7 @@ test('blocks phase-done while tasks are open and recommends the task close comma
       { id: 'T-002', status: 'pending' },
     ],
     exitGates: [],
-    reviewGate: { status: 'passed', at: 'abc123' },
+    reviewGate: { status: 'passed', at: 'abc1234', mode: 'local' },
   });
 
   assertBlockedWithCommand(result);
@@ -301,12 +301,31 @@ test('commit guard requires lessons and matching fingerprint', () => {
   assertBlockedWithCommand(lessons);
   assert.equal(lessons.code, 'phase-done-lessons-open');
 
+  const newHead = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const oldHead = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   const stale = commitGuardPhaseDone(happyCommitInput({
-    fingerprint: 'new-head',
-    expectedFingerprint: 'old-head',
+    fingerprint: newHead,
+    expectedFingerprint: oldHead,
+    // Keep reviewGate.at aligned so the failure is the fingerprint gate, not review-stale.
+    reviewGate: { status: 'passed', at: newHead, mode: 'local' },
   }));
   assertBlockedWithCommand(stale);
   assert.equal(stale.code, 'phase-done-fingerprint-stale');
+});
+
+test('commit guard rejects passed reviewGate without real SHA or mode', () => {
+  assert.equal(
+    commitGuardPhaseDone(happyCommitInput({
+      reviewGate: { status: 'passed', at: 'not-a-sha', mode: 'local' },
+    })).code,
+    'phase-done-review-open',
+  );
+  assert.equal(
+    commitGuardPhaseDone(happyCommitInput({
+      reviewGate: { status: 'passed', at: FP },
+    })).code,
+    'phase-done-review-open',
+  );
 });
 
 test('allows phase-done commit when tasks, gates met, review, lessons, and fingerprint match', () => {

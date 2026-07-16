@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting } from '../scripts/validate-state.js';
+import { parseFrontmatter, validateFile, crossValidate, collectPlanDependencyErrors, checkMetInvariant, checkReviewGate, checkClosedAtHardening, collectTargets, collectRoutingConfigs, validateRouting, isGitSha } from '../scripts/validate-state.js';
 import Ajv from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1080,9 +1080,10 @@ test('GATE-R2 (plan level): met phase criterion with a verifier but no evidence 
   assert.match(checkMetInvariant(plan).join('\n'), /phase F0 criterion F0-G1/);
 });
 
-// checkReviewGate (GATE-R3): the review-code phase gate is a hard precondition
-// for closing a phase. A 'done' phase carrying a reviewGate block must be HONEST
-// — a 'passed' claim needs an `at` sha anchor; a 'skipped' needs a `reason`.
+// checkReviewGate (GATE-R3 / F4/T-004): the review-code phase gate is a hard
+// precondition for closing a phase. A 'done' phase carrying a reviewGate block
+// must be HONEST — a 'passed' claim needs a real `at` git SHA + coherent `mode`
+// (+ non-blank `reviewFile` when present); a 'skipped' needs a `reason`.
 // Like GATE-R2, the conditional lives in JS (not the schema) to keep the aiDeck
 // mirror additive; an ABSENT block on a legacy 'done' phase is tolerated.
 
@@ -1091,11 +1092,38 @@ const donePlan = (reviewGate) => ({
   phases: [{ id: 'F0', slug: 'p-f0', status: 'done', exitGate: { criteria: [] }, ...(reviewGate ? { reviewGate } : {}) }],
 });
 
+test('isGitSha accepts full/abbrev hex and rejects labels', () => {
+  assert.equal(isGitSha('a3f1c2d'), true);
+  assert.equal(isGitSha('a3f1c2d4e5f6789012345678abcdef0123456789'), true);
+  assert.equal(isGitSha('not-a-sha'), false);
+  assert.equal(isGitSha('phase-done-fp-aaa'), false);
+  assert.equal(isGitSha(''), false);
+  assert.equal(isGitSha(null), false);
+});
+
 test('GATE-R3 RED (a): done phase with reviewGate status:passed but NO `at` sha violates', () => {
-  const v = checkReviewGate(donePlan({ status: 'passed' }));
+  const v = checkReviewGate(donePlan({ status: 'passed', mode: 'local' }));
   assert.ok(v.length >= 1, 'a passed review claim with no reviewed-sha anchor must violate');
   assert.match(v.join('\n'), /phase F0/);
   assert.match(v.join('\n'), /at/);
+});
+
+test('GATE-R3 RED (a2): passed with arbitrary non-SHA `at` violates (F4/T-004)', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed', at: 'reviewed-ok', mode: 'local' }));
+  assert.ok(v.length >= 1, 'arbitrary non-SHA strings must not anchor a passed review');
+  assert.match(v.join('\n'), /git SHA|at/);
+});
+
+test('GATE-R3 RED (a3): passed without mode violates (F4/T-004)', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d' }));
+  assert.ok(v.length >= 1, 'passed review must record mode');
+  assert.match(v.join('\n'), /mode/);
+});
+
+test('GATE-R3 RED (a4): passed with blank reviewFile violates (incoherent)', () => {
+  const v = checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d', mode: 'local', reviewFile: '   ' }));
+  assert.ok(v.length >= 1, 'blank reviewFile is not coherent');
+  assert.match(v.join('\n'), /reviewFile/);
 });
 
 test('GATE-R3 RED (b): done phase with reviewGate status:skipped but NO reason violates', () => {
@@ -1104,8 +1132,14 @@ test('GATE-R3 RED (b): done phase with reviewGate status:skipped but NO reason v
   assert.match(v.join('\n'), /reason/);
 });
 
-test('GATE-R3 GREEN: passed+at and skipped+reason both pass', () => {
+test('GATE-R3 GREEN: passed+SHA+mode(+reviewFile) and skipped+reason both pass', () => {
   assert.deepEqual(checkReviewGate(donePlan({ status: 'passed', at: 'a3f1c2d', mode: 'both' })), []);
+  assert.deepEqual(checkReviewGate(donePlan({
+    status: 'passed',
+    at: 'a3f1c2d4e5f6789012345678abcdef0123456789',
+    mode: 'local',
+    reviewFile: '.atomic-skills/reviews/sample.md',
+  })), []);
   assert.deepEqual(checkReviewGate(donePlan({ status: 'skipped', reason: 'docs-only phase, no code diff' })), []);
 });
 
@@ -1145,6 +1179,101 @@ test('GATE-R3 wiring: validateFile REJECTS a schema-valid plan whose done phase 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('GATE-R2 / F4-T-004: evidence.verifiedCommit rejects arbitrary non-SHA strings', () => {
+  const bad = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    {
+      verifierKind: 'shell',
+      verifiedAt: '2026-06-01T00:00:00Z',
+      passed: true,
+      exitCode: 0,
+      verifiedCommit: 'not-a-real-sha',
+    },
+  );
+  const v = checkMetInvariant(bad);
+  assert.ok(v.length >= 1, 'non-SHA verifiedCommit must violate');
+  assert.match(v.join('\n'), /verifiedCommit/);
+  assert.match(v.join('\n'), /git SHA/);
+});
+
+test('GATE-R2 / F4-T-004: evidence.verifiedCommit accepts real SHA; absent tolerated on legacy', () => {
+  const withSha = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    {
+      verifierKind: 'shell',
+      verifiedAt: '2026-06-01T00:00:00Z',
+      passed: true,
+      exitCode: 0,
+      verifiedCommit: 'a3f1c2d4e5f6789012345678abcdef0123456789',
+    },
+  );
+  assert.deepEqual(checkMetInvariant(withSha), []);
+
+  const legacyNoAnchor = metGate(
+    { kind: 'shell', command: 'true', expectExitCode: 0 },
+    {
+      verifierKind: 'shell',
+      verifiedAt: '2026-06-01T00:00:00Z',
+      passed: true,
+      exitCode: 0,
+    },
+  );
+  assert.deepEqual(checkMetInvariant(legacyNoAnchor), [], 'absent verifiedCommit on legacy met is tolerated');
+});
+
+test('schema: evidence.verifiedCommit pattern rejects non-SHA; accepts hex', () => {
+  const validators = buildValidators();
+  const good = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+      evidence: {
+        verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true,
+        verifiedCommit: 'deadbeef',
+      },
+    }],
+  });
+  assert.equal(validators.validateInitiative(good), true,
+    `valid verifiedCommit must pass schema: ${JSON.stringify(validators.validateInitiative.errors)}`);
+
+  const bad = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'met', metAt: '2026-06-01T00:00:00Z',
+      verifier: { kind: 'shell', command: 'true', expectExitCode: 0 },
+      evidence: {
+        verifierKind: 'shell', verifiedAt: '2026-06-01T00:00:00Z', passed: true,
+        verifiedCommit: 'HEAD-at-close',
+      },
+    }],
+  });
+  assert.equal(validators.validateInitiative(bad), false, 'non-SHA verifiedCommit must fail schema pattern');
+});
+
+test('schema: reviewGate.at must be gitSha (not arbitrary string)', () => {
+  const validators = buildValidators();
+  const planGood = {
+    schemaVersion: '0.2', slug: 'sample', title: 'Sample', version: '1', status: 'active',
+    started: '2026-06-01T00:00:00Z', lastUpdated: '2026-06-01T00:00:00Z',
+    currentPhase: 'F0', parallelismAllowed: false,
+    phases: [{
+      id: 'F0', slug: 'sample-f0', title: 'F0', goal: 'do a thing', dependsOn: [], subPhaseCount: 0,
+      status: 'done', exitGate: { summary: 's', criteria: [] },
+      reviewGate: { status: 'passed', at: 'a3f1c2d', mode: 'local' },
+    }],
+  };
+  assert.equal(validators.validatePlan(planGood), true,
+    `SHA reviewGate.at must pass: ${JSON.stringify(validators.validatePlan.errors)}`);
+
+  const planBad = {
+    ...planGood,
+    phases: [{
+      ...planGood.phases[0],
+      reviewGate: { status: 'passed', at: 'reviewed-ok', mode: 'local' },
+    }],
+  };
+  assert.equal(validators.validatePlan(planBad), false, 'non-SHA reviewGate.at must fail schema');
 });
 
 // Lessons file (Spec 2 / G1): a per-initiative lessons file under

@@ -38,6 +38,30 @@ function bool(value) {
   return value === true;
 }
 
+/** Full or abbreviated git SHA (7–40 hex). Labels / prose are rejected. */
+const GIT_SHA_RE = /^[0-9a-f]{7,40}$/i;
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export function isGitSha(value) {
+  return typeof value === 'string' && GIT_SHA_RE.test(value.trim());
+}
+
+/**
+ * Compare full vs abbreviated SHAs (either side may be short).
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+export function shaMatches(a, b) {
+  const x = text(a).toLowerCase();
+  const y = text(b).toLowerCase();
+  if (!x || !y) return false;
+  return x === y || x.startsWith(y) || y.startsWith(x);
+}
+
 function slugOf(...values) {
   for (const value of values) {
     const slug = text(object(value).slug);
@@ -230,9 +254,31 @@ function dependResolveArchived(input) {
 
 function reviewGateComplete(reviewGate) {
   const gate = object(reviewGate);
-  if (gate.status === 'passed') return Boolean(text(gate.at));
+  if (gate.status === 'passed') {
+    // F4/T-004: passed requires a real SHA + mode; reviewFile optional but coherent.
+    if (!isGitSha(gate.at)) return false;
+    if (!text(gate.mode)) return false;
+    if (Object.prototype.hasOwnProperty.call(gate, 'reviewFile') && !text(gate.reviewFile)) {
+      return false;
+    }
+    return true;
+  }
   if (gate.status === 'skipped') return Boolean(text(gate.reason));
   return false;
+}
+
+/**
+ * Collect verifiedCommit anchors from exit-gate evidence (F4/T-004).
+ * @param {unknown[]} exitGates
+ * @returns {string[]}
+ */
+function evidenceCommitsOf(exitGates) {
+  const commits = [];
+  for (const gate of array(exitGates)) {
+    const vc = text(object(object(gate).evidence).verifiedCommit);
+    if (vc) commits.push(vc);
+  }
+  return commits;
 }
 
 /**
@@ -374,9 +420,12 @@ export function preflightPhaseDone(input = {}) {
  *
  * Re-checks preflight, then requires:
  *   - every exit gate status === `met` (deferred/pending/failed/declined block)
- *   - reviewGate recorded (passed+at or skipped+reason when requireReview)
+ *   - reviewGate recorded (passed+real SHA+mode or skipped+reason when requireReview)
  *   - lessons recorded or explicitly none when requireLessons
- *   - HEAD fingerprint matches the fingerprint captured at evidence time
+ *   - HEAD fingerprint matches evidence anchors:
+ *       expectedFingerprint / evidence.verifiedCommit / reviewGate.at
+ *     A HEAD change after review fixes invalidates prior gate evidence — re-run
+ *     verifiers before the guard accepts (F4/T-004).
  *
  * Deferred / skip of exit gates is NEVER a terminal path.
  *
@@ -416,7 +465,7 @@ export function commitGuardPhaseDone(input = {}) {
     return block(
       'phase-done-review-open',
       'phase-done requires a recorded reviewGate before the phase can advance',
-      'Run `atomic-skills:review-code <range>` and record reviewGate, then rerun `phase-done`.',
+      'Run `atomic-skills:review-code <range>` and record reviewGate (passed + SHA + mode), then rerun `phase-done`.',
     );
   }
 
@@ -434,7 +483,6 @@ export function commitGuardPhaseDone(input = {}) {
 
   if (safe.requireFingerprint !== false) {
     const current = text(safe.fingerprint ?? safe.headSha ?? safe.currentFingerprint);
-    const expected = text(safe.expectedFingerprint ?? safe.evidenceFingerprint ?? safe.recordedFingerprint);
     if (!current) {
       return block(
         'phase-done-fingerprint-missing',
@@ -442,14 +490,45 @@ export function commitGuardPhaseDone(input = {}) {
         'Capture `git rev-parse HEAD` as fingerprint and rerun the commit guard.',
       );
     }
+
+    // F4/T-004: evidence.verifiedCommit is the durable anchor. A review that
+    // mutates HEAD leaves prior verifiedCommit values pointing at the old tree
+    // — the guard refuses to close until verifiers re-run against current HEAD.
+    const evidenceCommits = evidenceCommitsOf(exitGates);
+    for (const vc of evidenceCommits) {
+      if (!shaMatches(vc, current)) {
+        return block(
+          'phase-done-fingerprint-stale',
+          `phase-done commit guard: gate evidence verifiedCommit ${vc} does not match HEAD ${current} — review fixes (or any HEAD change) invalidate prior gate evidence`,
+          'Re-run exit-gate verifiers against the current HEAD, stamp evidence.verifiedCommit, then rerun `phase-done`.',
+        );
+      }
+    }
+
+    const rg = object(reviewGateOf(safe));
+    if (rg.status === 'passed') {
+      const at = text(rg.at);
+      if (at && !shaMatches(at, current)) {
+        return block(
+          'phase-done-review-stale',
+          `phase-done commit guard: reviewGate.at ${at} does not match HEAD ${current}`,
+          'Re-run review against the current HEAD after fixes, record reviewGate.at to the closed HEAD, then rerun `phase-done`.',
+        );
+      }
+    }
+
+    let expected = text(safe.expectedFingerprint ?? safe.evidenceFingerprint ?? safe.recordedFingerprint);
+    if (!expected && evidenceCommits.length > 0) {
+      expected = evidenceCommits[0];
+    }
     if (!expected) {
       return block(
         'phase-done-fingerprint-unanchored',
-        'phase-done commit guard requires the fingerprint recorded with gate evidence',
-        'Re-run exit-gate verifiers against the current HEAD, record the fingerprint, then rerun the commit guard.',
+        'phase-done commit guard requires the fingerprint recorded with gate evidence (expectedFingerprint or evidence.verifiedCommit)',
+        'Re-run exit-gate verifiers against the current HEAD, record verifiedCommit / fingerprint, then rerun the commit guard.',
       );
     }
-    if (current !== expected) {
+    if (!shaMatches(current, expected)) {
       return block(
         'phase-done-fingerprint-stale',
         `phase-done commit guard fingerprint mismatch: evidence at ${expected}, HEAD is ${current}`,
