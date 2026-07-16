@@ -370,6 +370,27 @@ grep -q '"out_of_scope": 2' .atomic-skills/status/drift.log && ok || no "expecte
 assert_no_host_hook_config_files
 cd - >/dev/null; rm -rf "$TMP"
 
+# Test 13: dual-vocab Grok write/search_replace tool names in transcript
+TMP=$(mktemp -d); cd "$TMP"
+init_git_branch feat
+mkdir -p .atomic-skills/initiatives .atomic-skills/status
+echo '{"strict_mode":false}' > .atomic-skills/status/config.json
+write_initiative .atomic-skills/initiatives/i.md i active feat "" "" "src/"
+cat > /tmp/t-grok.jsonl <<JSONL
+{"type":"user","timestamp":"2026-05-20T00:00:00Z","message":{"content":"go"}}
+{"type":"assistant","timestamp":"2026-05-20T00:00:11Z","message":{"content":[{"type":"tool_use","name":"search_replace","input":{"file_path":"$TMP/lib/bad-1.js"}}]}}
+{"type":"assistant","timestamp":"2026-05-20T00:00:12Z","message":{"content":[{"type":"tool_use","name":"write","input":{"file_path":"$TMP/lib/bad-2.js"}}]}}
+{"type":"assistant","timestamp":"2026-05-20T00:00:13Z","message":{"content":[{"type":"tool_use","name":"search_replace","input":{"file_path":"$TMP/src/ok.js"}}]}}
+JSONL
+run "dual-vocab: Grok write/search_replace names count toward drift"
+echo '{"stop_hook_active":false,"transcript_path":"/tmp/t-grok.jsonl"}' | bash "$HOOK"
+rc=$?
+[[ "$rc" == "0" ]] && ok || no "expected 0, got $rc"
+[[ -f .atomic-skills/status/drift.log ]] && ok || no "drift.log missing for Grok tool names"
+grep -q '"total_files": 3' .atomic-skills/status/drift.log && ok || no "expected total_files=3 for Grok tools"
+grep -q '"out_of_scope": 2' .atomic-skills/status/drift.log && ok || no "expected out_of_scope=2 for Grok tools"
+cd - >/dev/null; rm -rf "$TMP" /tmp/t-grok.jsonl
+
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"
 [[ "$FAIL" == "0" ]]

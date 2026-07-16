@@ -123,8 +123,15 @@ describe('installSkills', () => {
     const hooks = JSON.parse(
       readFileSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json'), 'utf8'),
     );
-    // Plugin Soft/Strict envelope is filled in T-002; auto-update is separate.
-    assert.ok(hooks.hooks, 'plugin hooks envelope must exist');
+    // Soft envelope: SessionStart + PreToolUse; Stop is Strict-only (setup).
+    assert.ok(hooks.hooks?.SessionStart?.length >= 1, 'plugin Soft SessionStart');
+    assert.ok(hooks.hooks?.PreToolUse?.length >= 1, 'plugin Soft PreToolUse');
+    assert.equal(hooks.hooks?.Stop, undefined, 'plugin Soft must omit Stop');
+    assert.match(
+      hooks.hooks.PreToolUse[0].matcher || '',
+      /search_replace\|write/,
+      'PreToolUse matcher includes Grok write tools',
+    );
 
     // Grok auto-update SessionStart under .grok/hooks/ (D3) — not Claude settings.
     assert.ok(

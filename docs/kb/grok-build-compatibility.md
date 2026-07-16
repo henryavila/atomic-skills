@@ -21,7 +21,7 @@ Layout:
 | `plugin.json` | Package manifest (name `atomic-skills`, version, skills/hooks paths) |
 | `skills/<name>/SKILL.md` | Rendered skills (no nested `atomic-skills/` namespace segment) |
 | `_assets/` | Lazy detail + templates (`{{ASSETS_PATH}}`) |
-| `hooks/hooks.json` | Project Soft/Strict hooks (filled in a later phase) |
+| `hooks/hooks.json` | Project Soft hooks (SessionStart + PreToolUse dual-vocab); Strict adds Stop at setup |
 
 `IDE_CONFIG.grok.delivery === 'plugin'`. Detection uses `.grok` (`IDE_DETECT_DIRS`).
 

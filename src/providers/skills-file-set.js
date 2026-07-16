@@ -153,9 +153,9 @@ export function computeSkillsFileSet(config) {
     add(rootPath, generateNamespaceRoot(), '_namespace');
   }
 
-  // Plugin-delivery hosts (Grok Build): package root owns plugin.json + hooks
-  // stub. Skills/assets already land under the plugin tree via getSkillPath /
-  // getAssetsDir. F0 ships an empty hooks envelope; Soft/Strict fill in later.
+  // Plugin-delivery hosts (Grok Build): package root owns plugin.json + Soft
+  // project hooks. Skills/assets already land under the plugin tree via
+  // getSkillPath / getAssetsDir. Strict (Stop) is opt-in at project setup.
   for (const ideId of ides) {
     const ide = IDE_CONFIG[ideId];
     if (!ide || ide.delivery !== 'plugin') continue;
@@ -168,7 +168,7 @@ export function computeSkillsFileSet(config) {
     );
     add(
       `${pluginRoot}/hooks/hooks.json`,
-      generatePluginHooksStub(),
+      generatePluginHooksSoft(),
       `_plugin/${ideId}/hooks.json`,
     );
   }
@@ -211,7 +211,32 @@ function generatePluginJson() {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
-/** Empty hooks envelope — F1 registers Soft/Strict events. */
-function generatePluginHooksStub() {
-  return `${JSON.stringify({ hooks: {} }, null, 2)}\n`;
+/**
+ * Soft project hooks for plugin-delivery hosts (Grok Build).
+ * Soft = SessionStart + PreToolUse; Strict adds Stop at project setup (not
+ * installed by default). Matchers dual-vocab: Claude Edit|Write|MultiEdit and
+ * Grok search_replace|write (Grok also aliases Claude names). Commands use the
+ * same CLAUDE_PROJECT_DIR:-$PWD wrapper as Claude/Codex so scripts under
+ * .atomic-skills/status/hooks/ resolve when the host injects CLAUDE_PROJECT_DIR
+ * (Grok does) or when only $PWD is available.
+ */
+function generatePluginHooksSoft() {
+  const cmd = (script) =>
+    `bash "\${CLAUDE_PROJECT_DIR:-\$PWD}/.atomic-skills/status/hooks/${script}"`;
+  const envelope = {
+    hooks: {
+      SessionStart: [
+        {
+          hooks: [{ type: 'command', command: cmd('session-start.sh') }],
+        },
+      ],
+      PreToolUse: [
+        {
+          matcher: 'Edit|Write|MultiEdit|search_replace|write',
+          hooks: [{ type: 'command', command: cmd('pre-write.sh') }],
+        },
+      ],
+    },
+  };
+  return `${JSON.stringify(envelope, null, 2)}\n`;
 }
