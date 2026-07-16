@@ -164,6 +164,13 @@ phases:
           description: Auto-update and project hook registration for Grok reverse cleanly
             in round-trip tests.
           status: met
+          metAt: 2026-07-16T14:29:32.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T14:29:32.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F1 phase-done gates re-verified"
           verifier:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js
@@ -172,6 +179,13 @@ phases:
           description: Docs and tests list Grok as a hook-capable host with Soft versus
             Strict semantics.
           status: met
+          metAt: 2026-07-16T14:29:32.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T14:29:32.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F1 phase-done gates re-verified"
           verifier:
             kind: shell
             command: node --test tests/project.test.js
@@ -180,6 +194,13 @@ phases:
           description: Fixture-driven tests fire Soft (SessionStart+PreToolUse) and Strict
             (+Stop) with dual-vocab write matchers for Grok tool names.
           status: met
+          metAt: 2026-07-16T14:29:32.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T14:29:32.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F1 phase-done gates re-verified"
           verifier:
             kind: shell
             command: node --test tests/project.test.js && bash
@@ -287,7 +308,7 @@ phases:
               skills/shared/codex-bridge-assets/review-file-template.txt && node
               --test tests/review-provider-field.test.js
             expectExitCode: 0
-    status: active
+    status: pending
   - id: F4
     slug: grok-build-integration-f4-plugin-harden-l4
     title: Plugin harden (L4)
