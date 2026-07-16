@@ -7,8 +7,8 @@ goal: Soft and Strict project hooks plus auto-update register on Grok via plugin
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:07:05.000Z
-lastUpdated: 2026-07-16T14:16:33.000Z
-nextAction: "Start T-002: Plugin hooks Soft and Strict for project"
+lastUpdated: 2026-07-16T14:19:25.000Z
+nextAction: "Run phase-done for F1 — execute exit-gate verifiers G-1..G-3, then review-code and archive"
 parentPlan: grok-build-integration
 phaseId: F1
 businessIntent:
@@ -27,11 +27,11 @@ businessIntent:
     Mode-2 Grok execution.
   doneWhen: "F1 gates green: round-trip hooks reverse; project tests list Grok
     Soft/Strict; session-start/pre-write/stop fixtures pass dual-vocab."
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 2
 gatesMet: 0
 gatesTotal: 3
-weightDone: 1
+weightDone: 2
 weightTotal: 2
 exitGates:
   - id: G-1
@@ -107,8 +107,9 @@ tasks:
       PreToolUse (Grok write tools), and optional Stop; update project-setup and
       hooks README to list Grok as a hook host; dual-vocab in pre-write/stop if
       they parse tool names.
-    status: pending
-    lastUpdated: 2026-07-16T14:16:33.000Z
+    status: done
+    lastUpdated: 2026-07-16T14:19:25.000Z
+    closedAt: 2026-07-16T14:19:25.000Z
     scopeBoundary:
       - do not implement cross-model bridge or review-code mode flags
     acceptance:
@@ -120,6 +121,13 @@ tasks:
       command: bash tests/hooks/session-start.test.sh && bash
         tests/hooks/pre-write.test.sh && bash tests/hooks/stop.test.sh
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:19:25.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "session-start 38 pass; pre-write 76 pass; stop 47 pass;
+        project.test.js 59 pass — all exit 0"
     outputs:
       - kind: file
         path: skills/shared/project-assets/hooks/README.md
@@ -152,13 +160,13 @@ Initiative for phase **F1 — Grok hooks runtime (L3)**.
 
 ## Session handoff
 
-- **Narrative:** F1 T-001 done — auto-update stages Grok SessionStart under
-  `.grok/hooks/atomic-skills-auto-update.json` when `ides` includes `grok`,
-  keeps Claude when `claude-code` selected, skips Soft/Strict scripts. T-002
-  next (plugin Soft/Strict + dual-vocab).
-- **Decision log:** F0 F-001 deferred to F2; Grok WRITE stays write (live tools);
-  auto-update Grok file omits SessionStart matcher (lifecycle events reject it).
-- **Single nextAction:** Start T-002 — Plugin hooks Soft and Strict for project.
+- **Narrative:** F1 tasks complete. T-001 auto-update Grok SessionStart;
+  T-002 Soft plugin hooks + dual-vocab pre-write/stop + setup/README host
+  matrix. Ready for phase-done (orchestrator owns G-1..G-3 + archive).
+- **Decision log:** F0 F-001 deferred to F2; Grok WRITE stays write;
+  auto-update omits SessionStart matcher; plugin ships Soft only (Strict Stop
+  merge-only at setup); dual-vocab matcher Edit|Write|MultiEdit|search_replace|write.
+- **Single nextAction:** Run `phase-done` for F1 — exit gates G-1..G-3, review-code, archive.
 - **Verbatim state:** plan currentPhase=F1; initiative f1-grok-hooks-runtime-l3.md;
-  tasksDone=1/2.
-- **Uncommitted changes:** none after T-001 checkpoint.
+  tasksDone=2/2; gatesMet=0/3 (gates owned by phase-done).
+- **Uncommitted changes:** none after T-002 checkpoint.
