@@ -232,3 +232,15 @@ Gates’ shell verifiers are green and the pure authorities are a real upgrade o
 2. F-005 (isMain) — one-line hardening  
 3. F-003 + F-004 (anchor / terminal honesty)  
 4. Stamp plan F4 `reviewGate` to this file after disposition  
+
+## Remediation note (F-001 + F-002)
+
+**Date:** 2026-07-16  
+**Commit message:** `fix(F4): harden commit guard and default successor barrier`
+
+| Finding | Disposition | Change |
+|---------|-------------|--------|
+| **F-001** | **FIXED** | `exitGatesOf` in `scripts/lifecycle-order-guard.js` unions `plan.phases[phaseId].exitGate.criteria` with initiative `exitGates` (plan authoritative on id conflict). Empty initiative gates no longer vacuous-pass while plan criteria remain open. Tests: `tests/lifecycle-gate-bypass.test.js` — empty exitGates + plan pending F4-G3 → zero terminal; plan pending overrides dishonest initiative `met`. |
+| **F-002** | **FIXED** | `materializePair` runs `enforceSuccessorBarrierIfNeeded`: when staged initiative `phaseId` transitively depends on F4, `assertSuccessorBarrier` is **default-on** (receipt via `historyReceiptPath` or `docs/audits/integrity-remediation-f0-reconciliation.json` under `rootDir`). Explicit `successorBarrier` still supported; tests only may pass `successorBarrier: { skip: true }`. Tests: `tests/phase-materialization/materialize-successor-barrier.test.js` — F3 without barrier opts + pending F4-G3 → throw, zero writes; auto-pass when F4 done/G3 met/receipt ok; skip opt-out. |
+
+Remaining majors (not in this commit): F-003 (verifiedCommit / fingerprint honesty), F-004 (terminal non-met gates + reviewGate), F-005 (dispatch-log isMain).  

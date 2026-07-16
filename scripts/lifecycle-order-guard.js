@@ -300,9 +300,60 @@ function tasksOf(input) {
   return input.tasks ?? phase.tasks;
 }
 
+/**
+ * Resolve exit gates for commit-guard / terminal decisions.
+ *
+ * When `input.plan` is present, union plan.phases[phaseId].exitGate.criteria
+ * with initiative `exitGates`. Plan criteria are authoritative on id conflict
+ * so empty / omitted initiative exitGates cannot vacuous-authorize a close
+ * while plan still has open criteria (F4 review F-001).
+ *
+ * @param {object} input
+ * @returns {unknown[]}
+ */
 function exitGatesOf(input) {
   const phase = phaseSlice(input);
-  return array(input.exitGates ?? phase.exitGates);
+  const initiativeGates = array(input.exitGates ?? phase.exitGates);
+  const plan = object(input.plan);
+  const phaseId = text(input.phaseId) || text(phase.phaseId);
+
+  if (!Array.isArray(plan.phases) || plan.phases.length === 0 || !phaseId) {
+    return initiativeGates;
+  }
+
+  const planPhase = plan.phases.find(
+    (p) => object(p).id === phaseId || object(p).slug === phaseId,
+  );
+  if (!planPhase) return initiativeGates;
+
+  const planCriteria = array(object(object(planPhase).exitGate).criteria);
+  // Some slices may put gates on phase.exitGates (initiative shape on plan).
+  const planExitGates = array(object(planPhase).exitGates);
+  const planGates = planCriteria.length > 0 ? planCriteria : planExitGates;
+
+  if (planGates.length === 0) {
+    return initiativeGates;
+  }
+
+  // Union by id: initiative first, plan overwrites (plan authoritative).
+  const byId = new Map();
+  for (const gate of initiativeGates) {
+    const id = text(object(gate).id);
+    if (id) byId.set(id, gate);
+    else byId.set(`__anon_init_${byId.size}`, gate);
+  }
+  for (const gate of planGates) {
+    const id = text(object(gate).id);
+    if (id) byId.set(id, gate);
+    else byId.set(`__anon_plan_${byId.size}`, gate);
+  }
+
+  const merged = Array.from(byId.values());
+  // Fail closed: plan declared criteria but merge produced nothing usable.
+  if (merged.length === 0) {
+    return planGates;
+  }
+  return merged;
 }
 
 function reviewGateOf(input) {
@@ -419,7 +470,10 @@ export function preflightPhaseDone(input = {}) {
  * Pure commit guard for phase-done — runs AFTER evidence / review / lessons.
  *
  * Re-checks preflight, then requires:
- *   - every exit gate status === `met` (deferred/pending/failed/declined block)
+ *   - every exit gate status === `met` (deferred/pending/failed/declined block).
+ *     Gates are the union of initiative exitGates and plan.phases[].exitGate.criteria
+ *     when a plan slice is present (plan authoritative on conflict). Empty initiative
+ *     exitGates do not vacuous-pass while plan criteria remain open (F-001).
  *   - reviewGate recorded (passed+real SHA+mode or skipped+reason when requireReview)
  *   - lessons recorded or explicitly none when requireLessons
  *   - HEAD fingerprint matches evidence anchors:

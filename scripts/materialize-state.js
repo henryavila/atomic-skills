@@ -10,11 +10,14 @@
  * "initiative already exists" guard.
  *
  * API:
- *   materializePair({ planPath, initiativePath, planContent, initiativeContent, markerPath?, faultHooks?, successorBarrier? })
+ *   materializePair({ planPath, initiativePath, planContent, initiativeContent, markerPath?, faultHooks?, successorBarrier?, historyReceiptPath?, rootDir? })
  *   recoverMaterialize(markerPath)
  *   defaultMarkerPath(planPath)
  *   buildHistoryReceipt(opts) / checkHistoryReceipt(path, opts) / classifyHistoryReconcile(...)
  *   assertSuccessorBarrier({ plan, f4ReceiptPath, targetPhaseId, rootDir? })
+ *
+ * Successor barrier (F4-G3): default-on when the target initiative phase
+ * transitively depends on F4. Pass successorBarrier: { skip: true } only in tests.
  *
  * CLI:
  *   node scripts/materialize-state.js --plan <path> --initiative <path> \
@@ -345,6 +348,70 @@ function restoreOneSide(liveAbs, beforeBackup, beforeHash, afterHash) {
 }
 
 /**
+ * Run successor barrier when publishing a phase that depends on F4.
+ *
+ * - successorBarrier: { skip: true } — explicit test opt-out
+ * - successorBarrier: { targetPhaseId, ... } — explicit assert opts
+ * - otherwise auto-detect from staged plan+initiative; if target depends on F4
+ *   (transitively), assertSuccessorBarrier always runs (fail closed).
+ *
+ * @param {object} opts
+ */
+function enforceSuccessorBarrierIfNeeded(opts) {
+  const {
+    successorBarrier = null,
+    historyReceiptPath = null,
+    planPath,
+    planContent,
+    initiativeContent,
+    rootDir = process.cwd(),
+  } = opts;
+
+  if (successorBarrier != null && typeof successorBarrier === 'object' && successorBarrier.skip === true) {
+    return;
+  }
+
+  if (successorBarrier != null && typeof successorBarrier === 'object') {
+    assertSuccessorBarrier(successorBarrier);
+    return;
+  }
+
+  // Auto path: parse staged content; leave unparseable content to validateStagedPair.
+  let planFm;
+  try {
+    planFm = parsePlanInput(planContent);
+  } catch {
+    return;
+  }
+  if (!planFm || !Array.isArray(planFm.phases)) return;
+
+  let targetPhaseId = null;
+  try {
+    const parsed = parseFrontmatter(initiativeContent);
+    if (!parsed.error && parsed.frontmatter && typeof parsed.frontmatter.phaseId === 'string') {
+      const id = parsed.frontmatter.phaseId.trim();
+      if (id) targetPhaseId = id;
+    }
+  } catch {
+    /* ignore — validateStagedPair will reject later */
+  }
+  if (!targetPhaseId) return;
+
+  if (!phaseDependsOn(planFm, targetPhaseId, DEFAULT_BARRIER_PHASE)) {
+    return;
+  }
+
+  // F4 successor: refuse without successful barrier (receipt + F4-G3 met + F4 done).
+  assertSuccessorBarrier({
+    plan: planFm,
+    planPath,
+    targetPhaseId,
+    f4ReceiptPath: historyReceiptPath ?? undefined,
+    rootDir,
+  });
+}
+
+/**
  * Publish planContent + initiativeContent via recoverable two-rename transaction.
  *
  * @param {object} opts
@@ -354,7 +421,9 @@ function restoreOneSide(liveAbs, beforeBackup, beforeHash, afterHash) {
  * @param {string} opts.initiativeContent
  * @param {string} [opts.markerPath]
  * @param {object} [opts.faultHooks]
- * @param {object} [opts.successorBarrier] when set, assertSuccessorBarrier runs first
+ * @param {object} [opts.successorBarrier] explicit barrier opts, or `{ skip: true }` for tests
+ * @param {string} [opts.historyReceiptPath] receipt path for auto barrier (else default under rootDir)
+ * @param {string} [opts.rootDir] root for auto barrier receipt discovery (default cwd)
  * @returns {{ ok: true, recovered?: boolean, idempotent?: boolean, txId?: string }}
  */
 export function materializePair(opts) {
@@ -365,6 +434,8 @@ export function materializePair(opts) {
     initiativeContent,
     faultHooks = {},
     successorBarrier = null,
+    historyReceiptPath = null,
+    rootDir = process.cwd(),
   } = opts ?? {};
 
   if (!planPath || !initiativePath) {
@@ -374,9 +445,14 @@ export function materializePair(opts) {
     throw new Error('materializePair requires planContent and initiativeContent strings');
   }
 
-  if (successorBarrier) {
-    assertSuccessorBarrier(successorBarrier);
-  }
+  enforceSuccessorBarrierIfNeeded({
+    successorBarrier,
+    historyReceiptPath,
+    planPath,
+    planContent,
+    initiativeContent,
+    rootDir,
+  });
 
   const planAbs = resolve(planPath);
   const initAbs = resolve(initiativePath);

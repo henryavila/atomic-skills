@@ -5,6 +5,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -398,6 +399,175 @@ describe('F4/T-006 successor barrier', () => {
         /successor barrier|F4-G3|refuse/i,
       );
       assert.equal(readFileSync(fx.planPath, 'utf8'), planBefore);
+    } finally {
+      fx.cleanup();
+    }
+  });
+
+  it('F-002: materialize F3-like phase without barrier opts fails when F4-G3 pending (zero writes)', () => {
+    // Default-on barrier: dependsOn includes F4 + pending F4-G3 → refuse even
+    // when caller omits successorBarrier entirely.
+    const fx = seed({ f4Status: 'active', g3Status: 'pending' });
+    try {
+      const initiativePath = join(
+        fx.root,
+        '.atomic-skills',
+        'projects',
+        'atomic-skills',
+        'integrity-remediation',
+        'phases',
+        'f3-next.md',
+      );
+      const planBefore = readFileSync(fx.planPath, 'utf8');
+      const planAfter = renderMd({
+        ...fx.fm,
+        currentPhase: 'F3',
+        phases: fx.fm.phases.map((p) => (
+          p.id === 'F3' ? { ...p, status: 'active', subPhaseCount: 1 } : p
+        )),
+      });
+      const initiativeAfter = renderMd({
+        schemaVersion: '0.1',
+        slug: 'f3-next',
+        title: 'F3',
+        status: 'active',
+        phaseId: 'F3',
+        parentPlan: 'integrity-remediation',
+        tasks: [{ id: 'T-001', status: 'pending' }],
+        exitGates: [],
+        businessIntent: {
+          value: 'v', workflow: 'w', rules: 'r', outOfScope: 'o', doneWhen: 'd',
+        },
+      });
+
+      assert.throws(
+        () => materializePair({
+          planPath: fx.planPath,
+          initiativePath,
+          planContent: planAfter,
+          initiativeContent: initiativeAfter,
+          rootDir: fx.root,
+          historyReceiptPath: fx.receiptPath,
+          // deliberately no successorBarrier
+        }),
+        /successor barrier|F4-G3|refuse|pending|non-deferrable|status/i,
+      );
+      assert.equal(readFileSync(fx.planPath, 'utf8'), planBefore);
+      assert.equal(existsSync(initiativePath), false);
+    } finally {
+      fx.cleanup();
+    }
+  });
+
+  it('F-002: materializePair auto-barrier allows F3 when F4 done, G3 met, receipt ok', () => {
+    const fx = seed({ f4Status: 'done', g3Status: 'met' });
+    try {
+      const initiativePath = join(
+        fx.root,
+        '.atomic-skills',
+        'projects',
+        'atomic-skills',
+        'integrity-remediation',
+        'phases',
+        'f3-next.md',
+      );
+      const planAfter = renderMd({
+        ...fx.fm,
+        currentPhase: 'F3',
+        phases: fx.fm.phases.map((p) => (
+          p.id === 'F3'
+            ? {
+              ...p,
+              status: 'active',
+              subPhaseCount: 1,
+              businessIntent: {
+                value: 'v', workflow: 'w', rules: 'r', outOfScope: 'o', doneWhen: 'd',
+              },
+            }
+            : p
+        )),
+      });
+      const initiativeAfter = renderMd({
+        schemaVersion: '0.1',
+        slug: 'f3-next',
+        title: 'F3',
+        status: 'active',
+        phaseId: 'F3',
+        parentPlan: 'integrity-remediation',
+        tasks: [{ id: 'T-001', status: 'pending' }],
+        exitGates: [],
+        businessIntent: {
+          value: 'v', workflow: 'w', rules: 'r', outOfScope: 'o', doneWhen: 'd',
+        },
+      });
+
+      const res = materializePair({
+        planPath: fx.planPath,
+        initiativePath,
+        planContent: planAfter,
+        initiativeContent: initiativeAfter,
+        rootDir: fx.root,
+        historyReceiptPath: fx.receiptPath,
+      });
+      assert.equal(res.ok, true);
+      assert.equal(readFileSync(fx.planPath, 'utf8'), planAfter);
+      assert.equal(readFileSync(initiativePath, 'utf8'), initiativeAfter);
+    } finally {
+      fx.cleanup();
+    }
+  });
+
+  it('F-002: successorBarrier skip:true opts out of auto barrier for tests', () => {
+    const fx = seed({ f4Status: 'active', g3Status: 'pending' });
+    try {
+      const initiativePath = join(
+        fx.root,
+        '.atomic-skills',
+        'projects',
+        'atomic-skills',
+        'integrity-remediation',
+        'phases',
+        'f3-next.md',
+      );
+      const planAfter = renderMd({
+        ...fx.fm,
+        currentPhase: 'F3',
+        phases: fx.fm.phases.map((p) => (
+          p.id === 'F3'
+            ? {
+              ...p,
+              status: 'active',
+              subPhaseCount: 1,
+              businessIntent: {
+                value: 'v', workflow: 'w', rules: 'r', outOfScope: 'o', doneWhen: 'd',
+              },
+            }
+            : p
+        )),
+      });
+      const initiativeAfter = renderMd({
+        schemaVersion: '0.1',
+        slug: 'f3-next',
+        title: 'F3',
+        status: 'active',
+        phaseId: 'F3',
+        parentPlan: 'integrity-remediation',
+        tasks: [{ id: 'T-001', status: 'pending' }],
+        exitGates: [],
+        businessIntent: {
+          value: 'v', workflow: 'w', rules: 'r', outOfScope: 'o', doneWhen: 'd',
+        },
+      });
+
+      const res = materializePair({
+        planPath: fx.planPath,
+        initiativePath,
+        planContent: planAfter,
+        initiativeContent: initiativeAfter,
+        successorBarrier: { skip: true },
+      });
+      assert.equal(res.ok, true);
+      assert.equal(existsSync(initiativePath), true);
     } finally {
       fx.cleanup();
     }

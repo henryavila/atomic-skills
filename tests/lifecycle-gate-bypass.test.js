@@ -179,3 +179,89 @@ test('happy path: all gates met authorizes terminal effects without bulk task-do
   assert.ok(ok.events.includes('phase-done:F4'));
   assert.ok(!ok.events.some((e) => e.startsWith('task-done:')));
 });
+
+test('F-001: empty initiative exitGates + plan pending F4-G3 blocks commit (zero terminal)', () => {
+  // Agent omitted initiative exitGates (or loaded empty surface) while plan still
+  // has open F4-G3 — must NOT vacuous-authorize terminal close.
+  const planWithPendingG3 = {
+    currentPhase: 'F4',
+    parallelismAllowed: false,
+    phases: [
+      phase('F0', [], 'done'),
+      {
+        ...phase('F4', ['F0'], 'active'),
+        exitGate: {
+          summary: 'F4 gates',
+          criteria: [
+            { id: 'F4-G1', status: 'met' },
+            { id: 'F4-G2', status: 'met' },
+            { id: 'F4-G3', status: 'pending' },
+          ],
+        },
+      },
+      phase('F3', ['F4'], 'pending'),
+      phase('F1', ['F3'], 'pending'),
+    ],
+  };
+
+  const emptyGates = f4Slice({
+    exitGates: [],
+    plan: planWithPendingG3,
+    phase: {
+      parentPlan: 'integrity-remediation',
+      phaseId: 'F4',
+      status: 'active',
+      lessonsState: 'recorded',
+      tasks: [
+        { id: 'T-001', status: 'done' },
+        { id: 'T-002', status: 'done' },
+        { id: 'T-003', status: 'done' },
+      ],
+      exitGates: [],
+    },
+  });
+
+  const guard = commitGuardPhaseDone(emptyGates);
+  assert.equal(guard.blocked, true);
+  assert.equal(guard.allowed, false);
+  assert.equal(guard.code, 'phase-done-open-gate');
+  assert.match(guard.reason, /F4-G3/);
+
+  const decision = decidePhaseDoneTerminal(emptyGates);
+  assertZeroTerminal(decision);
+  assert.equal(decision.code, 'phase-done-open-gate');
+});
+
+test('F-001: plan criteria authoritative when initiative claims met but plan still pending', () => {
+  const input = f4Slice({
+    exitGates: [
+      { id: 'F4-G1', status: 'met' },
+      { id: 'F4-G2', status: 'met' },
+      { id: 'F4-G3', status: 'met' }, // dishonest initiative surface
+    ],
+    plan: {
+      currentPhase: 'F4',
+      parallelismAllowed: false,
+      phases: [
+        phase('F0', [], 'done'),
+        {
+          ...phase('F4', ['F0'], 'active'),
+          exitGate: {
+            summary: 'F4 gates',
+            criteria: [
+              { id: 'F4-G1', status: 'met' },
+              { id: 'F4-G2', status: 'met' },
+              { id: 'F4-G3', status: 'pending' },
+            ],
+          },
+        },
+        phase('F3', ['F4'], 'pending'),
+      ],
+    },
+  });
+
+  const decision = decidePhaseDoneTerminal(input);
+  assertZeroTerminal(decision);
+  assert.equal(decision.code, 'phase-done-open-gate');
+  assert.match(decision.reason, /F4-G3/);
+});
