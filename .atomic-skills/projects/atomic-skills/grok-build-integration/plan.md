@@ -5,9 +5,9 @@ title: Grok Build native integration + cross-model review
 version: "1.0"
 status: active
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T13:20:00.000Z
+lastUpdated: 2026-07-16T14:12:41.000Z
 branch: plan/grok-build-integration
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -65,7 +65,14 @@ phases:
         - id: G-1
           description: IDE_CONFIG and detect include grok with plugin delivery shape and
             assets path under the plugin package.
-          status: pending
+          status: met
+          metAt: 2026-07-16T13:56:15.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T13:56:15.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "config.test 16 pass"
           verifier:
             kind: shell
             command: node --test tests/config.test.js
@@ -73,7 +80,14 @@ phases:
         - id: G-2
           description: Render snapshots lock grok and codex tool profiles without Claude
             default names for those ides.
-          status: pending
+          status: met
+          metAt: 2026-07-16T13:56:15.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T13:56:15.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "render.test 34 pass"
           verifier:
             kind: shell
             command: node --test tests/render.test.js
@@ -81,12 +95,25 @@ phases:
         - id: G-3
           description: Install/uninstall round-trip for grok plugin tree is clean and
             forbids dual .grok/skills/atomic-skills tree.
-          status: pending
+          status: met
+          metAt: 2026-07-16T13:56:15.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T13:56:15.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "roundtrip 11 pass"
           verifier:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js
             expectExitCode: 0
-    status: active
+    status: done
+    reviewGate:
+      status: passed
+      at: 27c2e453008e44e28406c71ff4276f1ba9f13eb8
+      mode: codex
+      reviewFile: .atomic-skills/reviews/2026-07-16-1406-grok-build-integration-f0-codex.md
+      verifiedAt: 2026-07-16T14:07:05.000Z
     businessIntent:
       value: Atomic Skills installs and runs as a first-class Grok Build plugin
         (skills + hooks), and adversarial review always uses a different model
@@ -108,6 +135,21 @@ phases:
         Soft/Strict on Grok; F2 providers smoke; F3 CROSS-MODEL REVIEW UX; F4
         plugin harden; F5 external-both + final suites green.
   - id: F1
+    businessIntent:
+      value: Atomic Skills installs and runs as a first-class Grok Build plugin (skills + hooks),
+        and adversarial review always uses a different model family than the host session so self-preference
+        bias is reduced.
+      workflow: "Install selects grok \u2192 plugin package materializes under .grok/plugins/atomic-skills\
+        \ \u2192 agents invoke skills with correct tool names \u2192 project Soft/Strict hooks\
+        \ fire on Grok with dual-vocab matchers \u2192 auto-update SessionStart registers on Grok\
+        \ hook surface."
+      rules: Plugin is the only Grok skill root; Soft = SessionStart+PreToolUse and Strict adds
+        Stop; dual-vocab matchers accept Grok write tools; install/uninstall journal parity; auto-update
+        must not drop Claude when both ides selected.
+      outOfScope: Cross-model bridge, review-code mode flags, marketplace publish, Mode-2 Grok
+        execution.
+      doneWhen: 'F1 gates green: round-trip hooks reverse; project tests list Grok Soft/Strict;
+        session-start/pre-write/stop fixtures pass dual-vocab.'
     slug: grok-build-integration-f1-grok-hooks-runtime-l3
     title: Grok hooks runtime (L3)
     goal: Soft and Strict project hooks plus auto-update register on Grok via plugin
@@ -144,7 +186,7 @@ phases:
               tests/hooks/session-start.test.sh && bash tests/hooks/pre-write.test.sh
               && bash tests/hooks/stop.test.sh
             expectExitCode: 0
-    status: pending
+    status: active
   - id: F2
     slug: grok-build-integration-f2-cross-model-bridge-core-l7
     title: cross-model-bridge core (L7)
@@ -187,7 +229,7 @@ phases:
             kind: shell
             command: node --test tests/cross-model-host-default.test.js
             expectExitCode: 0
-    status: pending
+    status: active
   - id: F3
     slug: grok-build-integration-f3-review-skill-ux-and-cross-model-revie
     title: Review skill UX and CROSS-MODEL REVIEW surfaces

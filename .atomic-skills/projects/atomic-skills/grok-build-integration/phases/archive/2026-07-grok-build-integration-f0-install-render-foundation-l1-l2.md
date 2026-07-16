@@ -4,11 +4,11 @@ slug: grok-build-integration-f0-install-render-foundation-l1-l2
 title: Install + render foundation (L1+L2)
 goal: Grok is a first-class install IDE that materializes only the plugin
   package with correct tool names for Grok and Codex renders.
-status: active
+status: done
 branch: plan/grok-build-integration
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T13:55:00.000Z
-nextAction: "Run phase-done for F0: verify exit gates G-1..G-3, review-code on phase diff, then materialize F1"
+lastUpdated: 2026-07-16T14:07:05.000Z
+nextAction: null
 parentPlan: grok-build-integration
 phaseId: F0
 businessIntent:
@@ -33,7 +33,7 @@ businessIntent:
     harden; F5 external-both + final suites green.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 3
 weightTotal: 3
@@ -41,30 +41,54 @@ exitGates:
   - id: G-1
     description: IDE_CONFIG and detect include grok with plugin delivery shape and
       assets path under the plugin package.
-    status: pending
+    status: met
+    metAt: 2026-07-16T13:56:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T13:56:15.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/config.test.js — 16 pass, 0 fail
     verifier:
       kind: shell
       command: node --test tests/config.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/config.test.js"
+    evidenceSummary: passed · 2026-07-16
   - id: G-2
     description: Render snapshots lock grok and codex tool profiles without Claude
       default names for those ides.
-    status: pending
+    status: met
+    metAt: 2026-07-16T13:56:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T13:56:15.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/render.test.js — 34 pass, 0 fail
     verifier:
       kind: shell
       command: node --test tests/render.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/render.test.js"
+    evidenceSummary: passed · 2026-07-16
   - id: G-3
     description: Install/uninstall round-trip for grok plugin tree is clean and
       forbids dual .grok/skills/atomic-skills tree.
-    status: pending
+    status: met
+    metAt: 2026-07-16T13:56:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T13:56:15.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: node --test tests/install-uninstall-roundtrip.test.js — 11 pass, 0 fail
     verifier:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
+    evidenceSummary: passed · 2026-07-16
 stack:
   - id: 1
     title: Install + render foundation (L1+L2)
@@ -96,7 +120,8 @@ tasks:
       verifiedAt: 2026-07-16T13:49:36.000Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test tests/config.test.js tests/install.test.js — 54 pass, 0 fail, duration_ms 1193"
+      outputSummary: node --test tests/config.test.js tests/install.test.js — 54 pass,
+        0 fail, duration_ms 1193
     outputs:
       - kind: file
         path: src/config.js
@@ -130,7 +155,7 @@ tasks:
       verifiedAt: 2026-07-16T13:52:00.000Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test tests/render.test.js — 34 pass, 0 fail, duration_ms 85"
+      outputSummary: node --test tests/render.test.js — 34 pass, 0 fail, duration_ms 85
     outputs:
       - kind: file
         path: src/render.js
@@ -164,7 +189,8 @@ tasks:
       verifiedAt: 2026-07-16T13:55:00.000Z
       passed: true
       exitCode: 0
-      outputSummary: "node --test tests/install-uninstall-roundtrip.test.js — 11 pass (incl. grok plugin-only + ALL public IDEs), 0 fail"
+      outputSummary: node --test tests/install-uninstall-roundtrip.test.js — 11 pass
+        (incl. grok plugin-only + ALL public IDEs), 0 fail
     outputs:
       - kind: file
         path: src/providers/skills-file-set.js
@@ -219,3 +245,10 @@ Initiative for phase **F0 — Install + render foundation (L1+L2)**.
 - G1 read-before-claim: applied — T-001/T-002/T-003 closed with verifier run evidence
 - G2 soft-language: applied — completion claims are passed:true evidence
 - G6 reference-or-strike: applied — handoff uses verbatim paths/commands
+
+
+## Phase-done
+
+- Exit gates G-1..G-3 met with shell evidence.
+- Codex review: `.atomic-skills/reviews/2026-07-16-1406-grok-build-integration-f0-codex.md` at HEAD `27c2e453008e44e28406c71ff4276f1ba9f13eb8` (mode=codex). Triage: F-003/4/5 applied; F-002 dismissed; F-001 deferred F2.
+- Lessons: zero — clean after triage.
