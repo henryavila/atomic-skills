@@ -15,13 +15,14 @@ Detect two independent axes: skill installation compatibility and project-hook s
 - `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .grok/` → Grok Build; skills path: `.grok/plugins/atomic-skills/skills/<skill>/SKILL.md` (plugin package only)
 - When Gemini CLI and Codex are both selected, Gemini command shims use `.gemini/commands/atomic-skills-<skill>.toml`
 - Otherwise → generic IDE; no host-specific skills path and no project-hook setup
 
 ### Project-hook setup eligibility
 - Claude Code has a project-hook contract: merge-only registration in `.claude/settings.local.json`
 - Codex has a project-hook contract: merge-only registration in `.codex/hooks.json`
-- Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE have no known project-hook contract; hook setup is an explicit no-op for those hosts and must not create or register hook config files
+- Cursor, Gemini CLI, OpenCode, GitHub Copilot, Grok Build, and generic IDE have no known project-hook contract; hook setup is an explicit no-op for those hosts and must not create or register hook config files
 
 ## 2. Verify/create CLAUDE.md
 - If CLAUDE.md is absent: ask "Create minimal CLAUDE.md with hard-gate? (y/n)" — if yes, create with a title + hard-gate template
@@ -46,7 +47,7 @@ Run this step only when the detected/selected host has a known project-hook cont
 - Claude Code: `.claude/settings.local.json`
 - Codex: `.codex/hooks.json`
 
-For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Do not copy project hook scripts for those hosts, do not create hook config files, and do not register hook events.
+For Cursor, Gemini CLI, OpenCode, GitHub Copilot, Grok Build, and generic IDE: no-op for hooks. Do not copy project hook scripts for those hosts, do not create hook config files, and do not register hook events.
 
 Present Structured Options:
 > What enforcement level?

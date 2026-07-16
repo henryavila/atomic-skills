@@ -16,7 +16,7 @@ Skill installation and project-hook setup are separate contracts. This README de
 
 - Claude Code: project-hook setup is supported through merge-only entries in `.claude/settings.local.json`.
 - Codex: project-hook setup is supported through merge-only entries in `.codex/hooks.json`.
-- Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Installing skills for these hosts does not create hook config files and does not register hook events.
+- Cursor, Gemini CLI, OpenCode, GitHub Copilot, Grok Build, and generic IDE: no-op for hooks. Installing skills for these hosts does not create hook config files and does not register hook events.
 
 ## SessionStart v2 — context layout
 

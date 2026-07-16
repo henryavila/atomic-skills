@@ -48,6 +48,13 @@ const HOST_HOOK_MATRIX = [
     skillPath: '.github/skills/atomic-skills/<skill>/SKILL.md',
     hookConfig: null,
   },
+  {
+    host: 'Grok Build',
+    ideId: 'grok',
+    skillPath: '.grok/plugins/atomic-skills/skills/<skill>/SKILL.md',
+    // Project Soft/Strict registration lands in F1 via plugin hooks; F0 is no-op.
+    hookConfig: null,
+  },
 ];
 
 const GENERIC_NO_HOOK_HOST = 'generic IDE';
@@ -435,7 +442,7 @@ describe('project skill (unified router + lazy assets)', () => {
     install();
     const setup = readAsset('project-setup.md');
     const eligibleStart = setup.indexOf('Run this step only when the detected/selected host has a known project-hook contract:');
-    const noopStart = setup.indexOf('For Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks.');
+    const noopStart = setup.indexOf('For Cursor, Gemini CLI, OpenCode, GitHub Copilot, Grok Build, and generic IDE: no-op for hooks.');
 
     assert.notEqual(eligibleStart, -1, 'setup must introduce hook eligibility explicitly');
     assert.notEqual(noopStart, -1, 'setup must document no-op hooks for hosts without a contract');
@@ -493,7 +500,7 @@ describe('project skill (unified router + lazy assets)', () => {
       }
       assert.match(
         readme,
-        /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
+        /Cursor, Gemini CLI, OpenCode, GitHub Copilot, Grok Build, and generic IDE: no-op for hooks/,
       );
       assert.match(readme, /"hooks": \{/, 'README hook JSON must include the top-level hooks object');
       assert.doesNotMatch(
