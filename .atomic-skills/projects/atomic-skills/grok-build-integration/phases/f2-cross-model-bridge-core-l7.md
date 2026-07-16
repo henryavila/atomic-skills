@@ -9,8 +9,8 @@ goal: Rename or alias codex-bridge to cross-model-bridge with pluggable codex
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:29:05.000Z
-lastUpdated: 2026-07-16T14:40:00.000Z
-nextAction: "Start T-003: Envelope orchestration + host matrix helper"
+lastUpdated: 2026-07-16T14:48:00.000Z
+nextAction: "Run phase-done for F2 (orchestrator owns Codex review + advance)"
 parentPlan: grok-build-integration
 phaseId: F2
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
   outOfScope: Marketplace publish, MCP project-state server, Mode-2 execution via
     Grok, auto-apply external findings without human triage.
   doneWhen: Phase F2 exit gates green with deterministic verifiers.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -162,8 +162,9 @@ tasks:
       invocation; document host default external matrix and same-family
       interactive confirm plus non-interactive abort/accept-as-local; extract
       pure host-default helper with unit tests.
-    status: pending
-    lastUpdated: 2026-07-16T14:29:05.000Z
+    status: done
+    lastUpdated: 2026-07-16T14:48:00.000Z
+    closedAt: 2026-07-16T14:48:00.000Z
     scopeBoundary:
       - do not rewrite full review-plan body modes list until F3
     acceptance:
@@ -174,6 +175,14 @@ tasks:
       kind: shell
       command: node --test tests/cross-model-host-default.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:48:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: cross-model-host-default.test.js 32 pass (all HOST_FAMILIES
+        matrix rows + interactive confirm/decline/offer + non-interactive HARD
+        ABORT and --accept-same-family-as-local)
     outputs:
       - kind: file
         path: skills/shared/codex-bridge-assets/envelope-orchestration.md
@@ -183,6 +192,8 @@ tasks:
         path: src/cross-model-host-default.js
       - kind: file
         path: tests/cross-model-host-default.test.js
+      - kind: file
+        path: tests/install.test.js
 parked: []
 emerged: []
 planTitle: Grok Build native integration + cross-model review
@@ -196,11 +207,13 @@ Initiative for phase **F2 — cross-model-bridge core (L7)**.
 
 ## Session handoff
 
-- **Narrative:** T-001+T-002 done. Grok provider leaves locked against
-  grok 0.2.101 (`--sandbox read-only`, portable timeout, `--prompt-file`,
-  stdout capture). Next: host matrix helper + host-default-external.md.
-- **Decision log:** Headless denylist uses `run_terminal_cmd` (docs); skill-body
-  BASH remains `run_terminal_command` (F0) — documented as possible divergence.
-  No `--yolo` for review. Auth probe message: `Not signed in` / device-code / XAI_API_KEY.
-- **Single nextAction:** Start T-003 — host-default + same-family helper.
-- **Uncommitted changes:** none after T-002 checkpoint.
+- **Narrative:** F2 tasks T-001..T-003 complete. cross-model-bridge module +
+  providers/{codex,grok} + host-default matrix helper. Exit gates G-1..G-3 are
+  for phase-done (orchestrator). Do **not** run phase-done here.
+- **Decision log:** Recursive asset install for providers/; same-family
+  confirm→local interactive; HARD ABORT non-interactive unless
+  --accept-same-family-as-local; headless denylist `run_terminal_cmd` vs
+  skill-body `run_terminal_command` documented.
+- **Single nextAction:** Orchestrator runs phase-done (G-1..G-3 + Codex review +
+  advance F3).
+- **Uncommitted changes:** none after T-003 checkpoint.

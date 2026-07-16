@@ -12,6 +12,13 @@ alias). On-disk assets live under `skills/shared/codex-bridge-assets/`
 `{{ASSETS_PATH}}/providers/«PROVIDER»/`. Shared templates (anti-framing, Pass 1/2
 outputs, review file) stay provider-agnostic at the assets root.
 
+**Before binding `«PROVIDER»`:** resolve host vs requested mode with
+`{{ASSETS_PATH}}/host-default-external.md` and the pure helper
+`src/cross-model-host-default.js` (`resolveReviewRoute`). Same-family interactive
+→ confirm→`local`; non-interactive → **HARD ABORT** unless
+`--accept-same-family-as-local`. Never invoke a provider leaf when the route
+resolved to `local`.
+
 Do NOT inline-rewrite the leaf assets; reference them and substitute
 placeholders. Do NOT re-inline this skeleton back into a caller — one definition,
 two callers.
