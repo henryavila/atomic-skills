@@ -66,7 +66,7 @@ function classifyLive(live, before, after) {
 /**
  * Lightweight staged-pair validation (does not mutate validate-state.js).
  * Requires parseable frontmatter; plan must carry a phases[] array; initiative
- * must carry phaseId (or slug). Throws on invalid input.
+ * must carry phaseId that matches a plan phase id. Throws on invalid input.
  */
 export function validateStagedPair(planContent, initiativeContent) {
   const plan = parseFrontmatter(planContent);
@@ -83,14 +83,12 @@ export function validateStagedPair(planContent, initiativeContent) {
     throw new Error('invalid staged plan: missing phases[]');
   }
   const phaseId = initFm.phaseId ?? null;
-  if (!phaseId && !initFm.slug) {
-    throw new Error('invalid staged initiative: missing phaseId/slug');
+  if (!phaseId || typeof phaseId !== 'string' || phaseId.trim() === '') {
+    throw new Error('invalid staged initiative: missing phaseId');
   }
-  if (phaseId) {
-    const match = planFm.phases.find((p) => p && p.id === phaseId);
-    if (!match) {
-      throw new Error(`invalid staged pair: plan has no phase ${phaseId}`);
-    }
+  const match = planFm.phases.find((p) => p && p.id === phaseId);
+  if (!match) {
+    throw new Error(`invalid staged pair: plan has no phase ${phaseId}`);
   }
   return { planFm, initFm };
 }

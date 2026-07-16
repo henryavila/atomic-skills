@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { spawnSync } from 'node:child_process'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -10,8 +11,9 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
+import { resolvePackagePath } from '../src/runtime-paths.js'
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -227,5 +229,126 @@ describe('consumer resolves package entrypoints from the installed runtime root'
     )
     assert.notEqual(invalid.status, 0)
     assert.match(invalid.stderr, /bootstrap-project:.*valid JSON/i)
+  })
+
+  it('F-002: materialize-state resolves via package-root and runs from consumer cwd', async () => {
+    // Path is package-owned (not cwd-relative). Residual: full tarball e2e is F6 if needed.
+    const materializeAbs = resolvePackagePath('scripts', 'materialize-state.js')
+    assert.equal(existsSync(materializeAbs), true)
+    assert.equal(materializeAbs, join(PACKAGE_ROOT, 'scripts', 'materialize-state.js'))
+    assert.equal(materializeAbs, installedEntry('scripts', 'materialize-state.js'))
+
+    const { validateStagedPair, materializePair } = await import(
+      pathToFileURL(materializeAbs).href
+    )
+
+    const planContent = [
+      '---',
+      'schemaVersion: "0.1"',
+      'slug: consumer-mat',
+      'title: Consumer materialize',
+      'status: active',
+      'currentPhase: F0',
+      'phases:',
+      '  - id: F0',
+      '    slug: f0-bootstrap',
+      '    title: Bootstrap',
+      '    status: active',
+      '    subPhaseCount: 0',
+      '---',
+      '',
+      '# Plan',
+      '',
+    ].join('\n')
+    const initiativeContent = [
+      '---',
+      'schemaVersion: "0.1"',
+      'slug: f0-bootstrap',
+      'title: Bootstrap',
+      'status: active',
+      'phaseId: F0',
+      'parentPlan: consumer-mat',
+      'tasks: []',
+      'exitGates: []',
+      '---',
+      '',
+      '# Initiative',
+      '',
+    ].join('\n')
+
+    const validated = validateStagedPair(planContent, initiativeContent)
+    assert.equal(validated.initFm.phaseId, 'F0')
+    const unboundInitiative = [
+      '---',
+      'schemaVersion: "0.1"',
+      'slug: only-slug',
+      'title: Bootstrap',
+      'status: active',
+      'parentPlan: consumer-mat',
+      'tasks: []',
+      'exitGates: []',
+      '---',
+      '',
+      '# Initiative without phaseId',
+      '',
+    ].join('\n')
+    assert.throws(
+      () => validateStagedPair(planContent, unboundInitiative),
+      /missing phaseId/i,
+    )
+
+    const planDir = join(consumer, '.atomic-skills', 'projects', 'consumer', 'consumer-mat')
+    const phasesDir = join(planDir, 'phases')
+    mkdirSync(phasesDir, { recursive: true })
+    const planPath = join(planDir, 'plan.md')
+    const initiativePath = join(phasesDir, 'f0-bootstrap.md')
+    const planBefore = planContent.replace('status: active', 'status: pending')
+      .replace('currentPhase: F0', 'currentPhase: null')
+      .replace('status: active\n    subPhaseCount: 0', 'status: pending\n    subPhaseCount: 0')
+    writeFileSync(planPath, planBefore, 'utf8')
+
+    // Import was package-root absolute; exercise publish under consumer cwd (no monorepo checkout).
+    const prevCwd = process.cwd()
+    try {
+      process.chdir(consumer)
+      const result = materializePair({
+        planPath,
+        initiativePath,
+        planContent,
+        initiativeContent,
+      })
+      assert.equal(result.ok, true)
+      assert.equal(readFileSync(planPath, 'utf8'), planContent)
+      assert.equal(readFileSync(initiativePath, 'utf8'), initiativeContent)
+      assert.equal(existsSync(`${planPath}.materialize-tx.json`), false)
+    } finally {
+      process.chdir(prevCwd)
+    }
+
+    // CLI entrypoint also works with cwd = consumer and HOME package-root.
+    const planFile = join(consumer, 'staged-plan.md')
+    const initFile = join(consumer, 'staged-init.md')
+    const plan2Dir = join(consumer, '.atomic-skills', 'projects', 'consumer', 'cli-mat')
+    mkdirSync(join(plan2Dir, 'phases'), { recursive: true })
+    const plan2 = join(plan2Dir, 'plan.md')
+    const init2 = join(plan2Dir, 'phases', 'f0-bootstrap.md')
+    writeFileSync(plan2, planBefore, 'utf8')
+    writeFileSync(planFile, planContent, 'utf8')
+    writeFileSync(initFile, initiativeContent, 'utf8')
+
+    const cli = runNode(
+      installedEntry('scripts', 'materialize-state.js'),
+      [
+        '--plan', plan2,
+        '--initiative', init2,
+        '--plan-file', planFile,
+        '--initiative-file', initFile,
+      ],
+      { cwd: consumer, home },
+    )
+    assert.equal(cli.status, 0, cli.stderr)
+    assert.match(cli.stdout, /"ok"\s*:\s*true/)
+    assert.equal(readFileSync(plan2, 'utf8'), planContent)
+    assert.equal(readFileSync(init2, 'utf8'), initiativeContent)
   })
 })

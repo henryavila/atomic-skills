@@ -16,6 +16,7 @@ import {
   materializePair,
   recoverMaterialize,
   defaultMarkerPath,
+  validateStagedPair,
 } from '../../scripts/materialize-state.js';
 import { parseFrontmatter } from '../../scripts/validate-state.js';
 
@@ -172,6 +173,34 @@ describe('T-005 materialize-state bootstrap', () => {
       assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planBefore);
       assert.equal(existsSync(defaultMarkerPath(fx.planPath)), false);
       assert.equal(existsSync(fx.initiativePath), false);
+
+      // F-003: phaseId is required (slug alone is not enough); must match a plan phase.
+      assert.throws(
+        () => validateStagedPair(
+          fx.planAfter,
+          renderMd(baseInitiative({ phaseId: undefined, slug: 'totally-wrong-phase' })),
+        ),
+        /missing phaseId/i,
+      );
+      assert.throws(
+        () => materializePair({
+          planPath: fx.planPath,
+          initiativePath: fx.initiativePath,
+          planContent: fx.planAfter,
+          initiativeContent: renderMd(baseInitiative({ phaseId: undefined, slug: 'orphan-slug' })),
+        }),
+        /missing phaseId/i,
+      );
+      assert.throws(
+        () => validateStagedPair(
+          fx.planAfter,
+          renderMd(baseInitiative({ phaseId: 'F9' })),
+        ),
+        /plan has no phase F9/i,
+      );
+      assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planBefore);
+      assert.equal(existsSync(fx.initiativePath), false);
+      assert.equal(existsSync(defaultMarkerPath(fx.planPath)), false);
     } finally {
       fx.cleanup();
     }
@@ -363,6 +392,108 @@ describe('T-005 materialize-state bootstrap', () => {
       assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planBefore);
       assert.equal(existsSync(fx.initiativePath), false);
       assert.equal(existsSync(defaultMarkerPath(fx.planPath)), false);
+    } finally {
+      fx.cleanup();
+    }
+  });
+
+  it('F-001: plan staging lost after initiative rename restores before (drops initiative)', () => {
+    const fx = setupFixture();
+    try {
+      assert.throws(
+        () => materializePair({
+          planPath: fx.planPath,
+          initiativePath: fx.initiativePath,
+          planContent: fx.planAfter,
+          initiativeContent: fx.initiativeAfter,
+          faultHooks: {
+            afterInitiativeRename: () => {
+              // Initiative published; plan still before. Wipe plan staging so recovery
+              // cannot complete-from-staging and must restoreBeforePair.
+              const marker = JSON.parse(readFileSync(defaultMarkerPath(fx.planPath), 'utf8'));
+              const baseDir = dirname(fx.planPath);
+              const stagePlan = join(baseDir, marker.staging.plan);
+              assert.equal(existsSync(stagePlan), true);
+              rmSync(stagePlan, { force: true });
+              // Initiative staging residue should already be gone (renamed to live).
+              throw new Error('stop-after-init-plan-staging-gone');
+            },
+          },
+        }),
+        /stop-after-init-plan-staging-gone/,
+      );
+
+      assert.equal(existsSync(defaultMarkerPath(fx.planPath)), true);
+      assert.equal(readFileSync(fx.initiativePath, 'utf8'), fx.initiativeAfter);
+      assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planBefore);
+      assert.equal(existsSync(`${fx.planPath}.materialize-stage`), false);
+
+      const recovered = recoverMaterialize(defaultMarkerPath(fx.planPath));
+      assert.equal(recovered.ok, true);
+      assert.equal(recovered.status, 'restored-before');
+      assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planBefore);
+      // before === null for initiative → published after bytes are unlinked.
+      assert.equal(existsSync(fx.initiativePath), false);
+      assert.equal(existsSync(defaultMarkerPath(fx.planPath)), false);
+      assert.equal(readPlanPhaseStatus(fx.planPath, 'F1'), 'pending');
+
+      // Retry after restore completes a clean materialize (proves gate is not stuck).
+      const retry = materializePair({
+        planPath: fx.planPath,
+        initiativePath: fx.initiativePath,
+        planContent: fx.planAfter,
+        initiativeContent: fx.initiativeAfter,
+      });
+      assert.equal(retry.ok, true);
+      assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planAfter);
+      assert.equal(readFileSync(fx.initiativePath, 'utf8'), fx.initiativeAfter);
+      assert.equal(existsSync(defaultMarkerPath(fx.planPath)), false);
+    } finally {
+      fx.cleanup();
+    }
+  });
+
+  it('F-001: plan staging lost after initiative rename fails closed when before-backup missing', () => {
+    const fx = setupFixture();
+    try {
+      // Craft mid-flight state: initiative at after, plan at before, staging gone.
+      // Initiative before was non-null (replacement) but its before-backup is absent,
+      // so restoreBeforePair cannot undo the published after bytes.
+      const priorInitiative = renderMd(baseInitiative({ title: 'prior-before-content' }));
+      writeFileSync(fx.initiativePath, fx.initiativeAfter, 'utf8');
+      const markerPath = defaultMarkerPath(fx.planPath);
+      const marker = {
+        version: 1,
+        txId: 'test-fail-closed-no-backup',
+        createdAt: new Date().toISOString(),
+        plan: {
+          path: 'plan.md',
+          before: sha256(fx.planBefore),
+          after: sha256(fx.planAfter),
+        },
+        initiative: {
+          path: 'phases/f1-next.md',
+          before: sha256(priorInitiative),
+          after: sha256(fx.initiativeAfter),
+        },
+        staging: {
+          plan: 'plan.md.materialize-stage',
+          initiative: 'phases/f1-next.md.materialize-stage',
+          planBefore: null,
+          initiativeBefore: null,
+        },
+      };
+      writeFileSync(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'utf8');
+
+      assert.throws(
+        () => recoverMaterialize(markerPath),
+        /plan staging lost after initiative rename|before-pair backup unavailable|fail closed/i,
+      );
+
+      // Live state left for operator inspection; marker retained (no destructive cleanup).
+      assert.equal(existsSync(markerPath), true);
+      assert.equal(readFileSync(fx.initiativePath, 'utf8'), fx.initiativeAfter);
+      assert.equal(readFileSync(fx.planPath, 'utf8'), fx.planBefore);
     } finally {
       fx.cleanup();
     }

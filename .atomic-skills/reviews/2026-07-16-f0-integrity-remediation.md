@@ -193,3 +193,13 @@ Publish path correctly uses `renameSync` for live mutation; restore path does no
 ## Verdict rationale
 
 No critical clobber/fail-open found in the materialize ownership model or install asset projection. Three majors are **coverage and validation completeness**, not “delete user data” defects. Per review rules: **PASS_WITH_FINDINGS** (not FAIL). Recommend fixing F-001 and F-003 before relying on this primitive for production F4 materialization; F-002 before claiming F0-G1 isolation for the full bootstrap surface.
+
+## Remediation
+
+Addressed majors in commit `fix(F0): address F0 review majors on materialize recovery and validation` (see git log on `plan/integrity-remediation`):
+
+- **F-001:** Fault matrix covers plan-staging-lost after initiative rename → `restored-before` + retry completes; fail-closed when initiative before-backup is missing (`tests/phase-materialization/materialize-bootstrap.test.js`).
+- **F-002:** `resolvePackagePath('scripts','materialize-state.js')` import + consumer-cwd `materializePair` + CLI via package-root (`tests/consumer-runtime-resolution.test.js`). Residual: full tarball e2e still deferred to F6 if needed.
+- **F-003:** `validateStagedPair` requires non-empty `phaseId` matching a plan phase id (slug alone rejected).
+
+Minors F-004..F-008 not in this remediation pass.
