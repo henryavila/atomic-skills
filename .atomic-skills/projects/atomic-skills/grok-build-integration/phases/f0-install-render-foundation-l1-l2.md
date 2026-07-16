@@ -7,8 +7,8 @@ goal: Grok is a first-class install IDE that materializes only the plugin
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T13:52:00.000Z
-nextAction: "Start T-003: Install materializes Grok plugin package (plugin.json + skills/_assets journal; round-trip; no .grok/skills/atomic-skills residue)"
+lastUpdated: 2026-07-16T13:55:00.000Z
+nextAction: "Run phase-done for F0: verify exit gates G-1..G-3, review-code on phase diff, then materialize F1"
 parentPlan: grok-build-integration
 phaseId: F0
 businessIntent:
@@ -31,11 +31,11 @@ businessIntent:
   doneWhen: F0 install+render plugin tree green with tool maps; F1 hooks
     Soft/Strict on Grok; F2 providers smoke; F3 CROSS-MODEL REVIEW UX; F4 plugin
     harden; F5 external-both + final suites green.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -144,8 +144,9 @@ tasks:
       plugin.json, skills/* /SKILL.md, and _assets under the plugin root only;
       journal records effects; uninstall removes them; assert zero residual
       under .grok/skills/atomic-skills.
-    status: pending
-    lastUpdated: 2026-07-16T13:00:21.670Z
+    status: done
+    lastUpdated: 2026-07-16T13:55:00.000Z
+    closedAt: 2026-07-16T13:55:00.000Z
     scopeBoundary:
       - do not implement Soft/Strict project hooks content beyond empty
         hooks/hooks.json stub; do not touch cross-model review skills
@@ -158,6 +159,12 @@ tasks:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T13:55:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/install-uninstall-roundtrip.test.js — 11 pass (incl. grok plugin-only + ALL public IDEs), 0 fail"
     outputs:
       - kind: file
         path: src/providers/skills-file-set.js
@@ -186,6 +193,7 @@ Initiative for phase **F0 — Install + render foundation (L1+L2)**.
 
 - T-001: plugin delivery places skills at `.grok/plugins/atomic-skills/skills/<name>/SKILL.md` with no nested `atomic-skills/` namespace segment; `getAssetsDir('grok')` → `.grok/plugins/atomic-skills/_assets`; `getNamespaceRootPath('grok')` is null (plugin.json is the package root).
 - T-002: Grok tool map = D2 provisional (`run_terminal_command`, `read_file`, `write`, `search_replace`, `grep`, `list_dir`, `spawn_subagent`, `ask_user_question`). Codex map uses `shell`/`read_file`/`apply_patch`/… (never Claude `Bash`/`Read tool`).
+- T-003: `computeSkillsFileSet` emits `plugin.json` + empty `hooks/hooks.json` for `delivery: 'plugin'`; skills/assets already path to plugin tree; round-trip includes grok and asserts no dual `.grok/skills/atomic-skills`.
 
 ## Links
 
@@ -195,17 +203,19 @@ Initiative for phase **F0 — Install + render foundation (L1+L2)**.
 
 ## Session handoff
 
-- **Narrative:** F0 active. T-001 and T-002 closed (config+detect+render tool profiles). Remaining F0 work is T-003: materialize `plugin.json` + journal effects for the Grok plugin package and round-trip uninstall without dual `.grok/skills` tree.
-- **Decision log:** Plugin-only skill root; render profiles extracted via `toolProfileFor()`; Grok ASK is native `ask_user_question`; Codex ASK stays no-native descriptive string.
-- **Single nextAction:** Start T-003 — wire `src/providers/skills-file-set.js` / installer so `ides` including `grok` writes `plugin.json`, skills, `_assets`, hooks stub; assert zero residue under `.grok/skills/atomic-skills`; green `tests/install-uninstall-roundtrip.test.js`.
+- **Narrative:** F0 tasks T-001..T-003 are all done (install+detect+render+plugin package). Exit gates G-1..G-3 still pending formal `phase-done` verification. Tree should be clean after T-003 checkpoint.
+- **Decision log:** Plugin package is sole Grok skill root; hooks stub is `{ "hooks": {} }` for F0; Soft/Strict is F1; auto-update still Claude settings-only (F1 expands).
+- **Single nextAction:** Run `phase-done` for F0 — execute exit-gate verifiers G-1 (`tests/config.test.js`), G-2 (`tests/render.test.js`), G-3 (`tests/install-uninstall-roundtrip.test.js`), then `review-code` on the phase diff, archive F0, materialize F1.
 - **Verbatim state:**
   - Initiative: `.atomic-skills/projects/atomic-skills/grok-build-integration/phases/f0-install-render-foundation-l1-l2.md`
-  - T-001 evidence: `node --test tests/config.test.js tests/install.test.js` → exit 0, 54 pass · commit `2a06efd`
-  - T-002 evidence: `node --test tests/render.test.js` → exit 0, 34 pass · commit `e4858c9`
-- **Uncommitted changes:** initiative state close for T-002 (checkpoint next)
+  - T-001: `2a06efd` · config+install tests 54 pass
+  - T-002: `e4858c9` · render tests 34 pass
+  - T-003: `8322807` · round-trip tests (incl. grok plugin-only) pass
+  - F0 gate pre-check (config+render+roundtrip): 61 pass, 0 fail
+- **Uncommitted changes:** initiative state close for T-003 (checkpoint next)
 
 ## Self-review against code-quality gates
 
-- G1 read-before-claim: applied — T-001/T-002 closed with verifier run evidence
+- G1 read-before-claim: applied — T-001/T-002/T-003 closed with verifier run evidence
 - G2 soft-language: applied — completion claims are passed:true evidence
 - G6 reference-or-strike: applied — handoff uses verbatim paths/commands
