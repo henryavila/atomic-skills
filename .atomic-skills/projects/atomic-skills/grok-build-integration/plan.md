@@ -291,6 +291,12 @@ phases:
             command: node --test tests/cross-model-host-default.test.js
             expectExitCode: 0
     status: done
+    reviewGate:
+      status: passed
+      at: d056141
+      mode: codex
+      reviewFile: .atomic-skills/reviews/2026-07-16-1445-grok-build-integration-f2-codex.md
+      verifiedAt: 2026-07-16T14:46:00.000Z
   - id: F3
     businessIntent:
       value: Atomic Skills installs and runs as a first-class Grok Build plugin (skills + hooks),
