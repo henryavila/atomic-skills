@@ -20,6 +20,13 @@ import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
 import { validateAppMap } from '../src/app-map/validate.js';
 import { validatePlanDependencyGraph } from '../src/plan-dependencies.js';
+import {
+  collectStateIntegrityErrors,
+  formatIntegrityError,
+  resolvePhaseInitiative,
+  projectScopeId as integrityProjectScopeId,
+  sidecarKey,
+} from '../src/state-invariants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_DIR = join(__dirname, '..', 'meta', 'schemas');
@@ -119,7 +126,7 @@ export function parseFrontmatter(raw) {
  * The flat checks run FIRST and the loop returns at the segment closest to the
  * file, so adding the nested checks cannot change any flat-tree result.
  */
-function kindFromPath(filePath) {
+export function kindFromPath(filePath) {
   const parts = resolve(filePath).split('/');
   // NESTED layout plan FIRST: `plan.md` directly under a projects/<id>/<slug>/
   // tree. Checked before the segment scan so a slug literally named `phases`,
@@ -145,13 +152,80 @@ function kindFromPath(filePath) {
   return null;
 }
 
-function projectIdFromPath(filePath) {
+export function projectIdFromPath(filePath) {
   const parts = resolve(filePath).split('/');
   const idx = parts.lastIndexOf('projects');
   if (idx >= 0 && typeof parts[idx + 1] === 'string' && parts[idx + 1].length > 0) {
     return parts[idx + 1];
   }
   return '__legacy';
+}
+
+/**
+ * Discover lazy phase source sidecars (`*.source.json`) for integrity checks.
+ * Returns a Set of keys from `sidecarKey(projectId, planSlug, phaseSlug)` plus
+ * short-name aliases used by nested materialize (planSlug-stripped basename).
+ *
+ * Directory args are scanned like collectTargets; file args are ignored unless
+ * they end with `.source.json`.
+ *
+ * @param {string[]} args
+ * @returns {Set<string>}
+ */
+export function collectSidecars(args) {
+  const keys = new Set();
+  const addFromDir = (dir, projectId, planSlug) => {
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+    for (const entry of readdirSync(dir)) {
+      if (!entry.endsWith('.source.json')) continue;
+      const base = entry.slice(0, -'.source.json'.length);
+      // Nested writers strip `<planSlug>-` prefix from the filename; register
+      // both the file base and the full phase slug form.
+      keys.add(sidecarKey(projectId, planSlug, base));
+      if (planSlug && !base.startsWith(`${planSlug}-`)) {
+        keys.add(sidecarKey(projectId, planSlug, `${planSlug}-${base}`));
+      }
+    }
+  };
+
+  for (const arg of args) {
+    const absPath = resolve(arg);
+    if (!existsSync(absPath)) continue;
+    const st = statSync(absPath);
+    if (st.isFile()) {
+      if (!absPath.endsWith('.source.json')) continue;
+      // Best-effort: projects/<id>/<plan>/phases/<file>.source.json
+      const parts = absPath.split('/');
+      const phasesIdx = parts.lastIndexOf('phases');
+      const projectsIdx = parts.lastIndexOf('projects');
+      if (phasesIdx > 0 && projectsIdx >= 0 && parts[projectsIdx + 1] && parts[projectsIdx + 2]) {
+        const projectId = parts[projectsIdx + 1];
+        const planSlug = parts[projectsIdx + 2];
+        const base = basename(absPath).slice(0, -'.source.json'.length);
+        keys.add(sidecarKey(projectId, planSlug, base));
+        if (!base.startsWith(`${planSlug}-`)) {
+          keys.add(sidecarKey(projectId, planSlug, `${planSlug}-${base}`));
+        }
+      }
+      continue;
+    }
+    if (!st.isDirectory()) continue;
+    // Flat: <root>/initiatives/*.source.json → planSlug unknown; use '__flat__'
+    addFromDir(join(absPath, 'initiatives'), '__legacy', '__flat__');
+    const projectsDir = join(absPath, 'projects');
+    if (existsSync(projectsDir) && statSync(projectsDir).isDirectory()) {
+      for (const projId of readdirSync(projectsDir)) {
+        const projPath = join(projectsDir, projId);
+        if (!statSync(projPath).isDirectory()) continue;
+        for (const planSlug of readdirSync(projPath)) {
+          const planPath = join(projPath, planSlug);
+          if (!statSync(planPath).isDirectory()) continue;
+          addFromDir(join(planPath, 'phases'), projId, planSlug);
+        }
+      }
+    }
+  }
+  return keys;
 }
 
 /**
@@ -556,31 +630,44 @@ export function validateFile(filePath, validators) {
 }
 
 /**
- * Cross-validate plan↔initiative consistency for done phases.
+ * Cross-validate plan↔initiative consistency: identity/terminality/uniqueness
+ * (F4/T-001 authority) plus done-phase status/task/gate/evidence co-checks.
  * Returns array of { planSlug, phaseId, initiativeSlug, errors: string[] }.
+ *
+ * @param {Map<string, object>} planFrontmatters
+ * @param {Map<string, object>} initiativeFrontmatters
+ * @param {{ sidecars?: Set<string> }} [options]
  */
-export function crossValidate(planFrontmatters, initiativeFrontmatters) {
+export function crossValidate(planFrontmatters, initiativeFrontmatters, options = {}) {
   const errors = [];
-  const initBySlug = new Map();
-  const projectScopeId = (fm) => (typeof fm?.__projectId === 'string' && fm.__projectId.length > 0)
-    ? fm.__projectId
-    : '__legacy';
-  for (const [slug, fm] of initiativeFrontmatters) {
-    initBySlug.set(slug, fm);
+  const projectScopeId = integrityProjectScopeId;
+
+  // F4/T-001 — identity join, unique IDs, terminal pending gates, lazy descriptors.
+  const integrity = collectStateIntegrityErrors(
+    planFrontmatters,
+    initiativeFrontmatters,
+    { sidecars: options.sidecars },
+  );
+  for (const ie of integrity) {
+    errors.push({
+      planSlug: ie.planSlug ?? '?',
+      phaseId: ie.phaseId ?? '?',
+      initiativeSlug: ie.initiativeSlug ?? '?',
+      errors: [formatIntegrityError(ie)],
+    });
   }
 
   for (const [, plan] of planFrontmatters) {
     if (!plan.phases) continue;
-    const projectId = typeof plan.__projectId === 'string' && plan.__projectId.length > 0
-      ? plan.__projectId
-      : null;
     for (const phase of plan.phases) {
       if (phase.status !== 'done') continue;
       if (!phase.slug) continue;
 
-      const init = (projectId ? initBySlug.get(`${projectId}/${phase.slug}`) : null)
-        ?? initBySlug.get(phase.slug);
-      if (!init) continue;
+      // Identity-aware join (projectId+plan+phase). Missing/collision already
+      // reported by collectStateIntegrityErrors — skip consistency co-checks.
+      const resolved = resolvePhaseInitiative(plan, phase, initiativeFrontmatters);
+      if (resolved.kind !== 'matched') continue;
+      const init = resolved.initiative;
 
       const phaseErrors = [];
 
@@ -815,7 +902,8 @@ function main() {
     }
   }
 
-  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters);
+  const sidecars = collectSidecars(args);
+  const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters, { sidecars });
   for (const ce of crossErrors) {
     console.error(`\n✖ cross-validation: plan '${ce.planSlug}' phase ${ce.phaseId} ↔ initiative '${ce.initiativeSlug}'`);
     for (const err of ce.errors) {

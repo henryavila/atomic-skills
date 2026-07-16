@@ -547,11 +547,12 @@ test('crossValidate: done phase + active initiative with pending tasks → error
     exitGates: [{ id: 'F0-G1', status: 'pending' }],
   }]]);
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].phaseId, 'F0');
-  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
-  assert.ok(errors[0].errors.some((e) => e.includes('2 initiative task(s) not done')));
-  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+  // F4/T-001 also emits terminal-pending-gate; still require the legacy consistency messages.
+  assert.ok(errors.length >= 1);
+  const flat = errors.flatMap((e) => e.errors).join('\n');
+  assert.match(flat, /initiative status/);
+  assert.match(flat, /2 initiative task\(s\) not done/);
+  assert.match(flat, /F0-G1/);
 });
 
 test('crossValidate: nested done phase resolves project-scoped initiative keys', () => {
@@ -571,15 +572,16 @@ test('crossValidate: nested done phase resolves project-scoped initiative keys',
     exitGates: [{ id: 'F0-G1', status: 'pending' }],
   }]]);
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 1);
-  assert.equal(errors[0].planSlug, 'p');
-  assert.equal(errors[0].initiativeSlug, 'p-f0');
-  assert.ok(errors[0].errors.some((e) => e.includes('initiative status')));
-  assert.ok(errors[0].errors.some((e) => e.includes('1 initiative task(s) not done')));
-  assert.ok(errors[0].errors.some((e) => e.includes('F0-G1')));
+  // F4/T-001 also emits terminal-pending-gate alongside status/task consistency.
+  assert.ok(errors.length >= 1);
+  assert.ok(errors.some((e) => e.planSlug === 'p' && e.initiativeSlug === 'p-f0'));
+  const flat = errors.flatMap((e) => e.errors).join('\n');
+  assert.match(flat, /initiative status/);
+  assert.match(flat, /1 initiative task\(s\) not done/);
+  assert.match(flat, /F0-G1/);
 });
 
-test('crossValidate: done phase + no matching initiative → no errors (graceful skip)', () => {
+test('crossValidate: done phase + no matching initiative → missing-initiative (F4/T-001 closes false-green skip)', () => {
   const plans = new Map([['p', {
     slug: 'p',
     phases: [{
@@ -589,7 +591,11 @@ test('crossValidate: done phase + no matching initiative → no errors (graceful
   }]]);
   const inits = new Map();
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 0);
+  assert.ok(errors.length >= 1, 'must reject done phase without initiative');
+  assert.ok(
+    errors.some((ce) => ce.errors.some((e) => String(e).includes('missing-initiative'))),
+    `expected missing-initiative, got ${JSON.stringify(errors)}`,
+  );
 });
 
 test('crossValidate: met plan criterion + pending initiative gate → error', () => {
@@ -612,8 +618,9 @@ test('crossValidate: met plan criterion + pending initiative gate → error', ()
     ],
   }]]);
   const errors = crossValidate(plans, inits);
-  assert.equal(errors.length, 1);
-  assert.ok(errors[0].errors.some((e) => e.includes('F0-G2') && e.includes('pending')));
+  // F4/T-001 also emits terminal-pending-gate for the pending initiative exitGate.
+  assert.ok(errors.length >= 1);
+  assert.ok(errors.some((ce) => ce.errors.some((e) => e.includes('F0-G2') && e.includes('pending'))));
 });
 
 // C2#2 — GATE-R2 must not be splittable across the plan↔initiative mirror.
