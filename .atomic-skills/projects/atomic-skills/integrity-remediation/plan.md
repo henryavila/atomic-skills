@@ -5,9 +5,9 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:23:24.067Z
+lastUpdated: 2026-07-16T17:23:53.684Z
 branch: plan/integrity-remediation
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -155,7 +155,7 @@ phases:
     summary: Separa tiers de host e expõe hashes, owners e runtime reais.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 4
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -173,7 +173,13 @@ phases:
             kind: shell
             command: node --test tests/status-verify.test.js tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js tests/runtime-registry-recovery.test.js
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Hosts declare operational vs layout-only tiers; status reports real hashes/owners.
+      workflow: Host profiles + status observability.
+      rules: No silent Claude token leak; no operational without probe.
+      outOfScope: Gemini layout depth F5, multi-OS release F6.
+      doneWhen: F2-G1 and F2-G2 green.
   - id: F3
     slug: integrity-remediation-f3-caminho-spec-para-implement-e-isolamen
     title: Caminho SPEC para implement e isolamento de execução
