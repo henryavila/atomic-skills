@@ -60,7 +60,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `finalize <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-finalize.md` |
 | `consolidate` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-consolidate.md` |
 | `migrate` (bare = cut-over), `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
-| `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
+| `scope-creep`, `why`, `re-ratify`, `review-due`, CROSS-MODEL REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
 
 Lazy-load is NOT optional. For any subcommand above: **STOP. `{{READ_TOOL}}` the listed file before you act.** Acting from memory of a similar command is the failure mode this architecture exists to prevent.
 
@@ -81,7 +81,7 @@ Plain `/atomic-skills:project` with no subcommand prints a 5-line summary and st
 PLAN     <plan-slug> · phase <id> — <title>            (or "none — standalone only")
 INIT     <init-slug> · <N/M tasks done>, <B blocked>   (active initiative)
 NEXT     <nextAction>
-CODEX    <CODEX REVIEW line — see project-drift.md>
+XMODEL   <CROSS-MODEL REVIEW line — see project-drift.md>
 IDEAS    <N> pending — `idea list`   (ONLY when N>0; omit the line otherwise)
 DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; omit the line otherwise)
           → /atomic-skills:project status        (dashboard / full view)

@@ -7,14 +7,14 @@ Path: `.atomic-skills/reviews/INDEX.md`
 ```markdown
 # Reviews Index
 
-| Date | Topic | Skill | Verdict | Counts (final) | Framing Δ |
-|------|-------|-------|---------|----------------|-----------|
+| Date | Topic | Skill | Provider | Verdict | Counts (final) | Framing Δ |
+|------|-------|-------|----------|---------|----------------|-----------|
 ```
 
 ## Row to append per review
 
 ```markdown
-| {{DATE_HHMM}} | [{{SLUG}}]({{FILENAME}}) | {{SKILL_SHORT}} | {{VERDICT}} | {{COUNTS_COMPACT}} | {{DELTA_COMPACT}} |
+| {{DATE_HHMM}} | [{{SLUG}}]({{FILENAME}}) | {{SKILL_SHORT}} | {{PROVIDER}} | {{VERDICT}} | {{COUNTS_COMPACT}} | {{DELTA_COMPACT}} |
 ```
 
 ## Placeholder formats
@@ -25,6 +25,15 @@ Path: `.atomic-skills/reviews/INDEX.md`
 | `{{SLUG}}` | kebab-case slug |
 | `{{FILENAME}}` | `YYYY-MM-DD-HHMM-<slug>.md` (relative link from INDEX.md) |
 | `{{SKILL_SHORT}}` | `plan` or `code` |
+| `{{PROVIDER}}` | `codex` \| `grok` \| `local` (from review frontmatter; legacy rows without Provider column: treat as `codex` when reading only) |
 | `{{VERDICT}}` | from review frontmatter |
 | `{{COUNTS_COMPACT}}` | `<B>B/<C>C/<M>M/<m>m/<n>n` e.g. `1B/1C/3M/1m/0n` |
 | `{{DELTA_COMPACT}}` | `<d>d/<=>=/<+>+` e.g. `2d/4=/1+` (dropped/maintained/emerged) |
+
+### Migration note (old INDEX rows)
+
+Pre-F3 INDEX headers lack the **Provider** column (6 columns). When appending
+new rows, rewrite the header to the 7-column form above if missing Provider.
+When *reading* a 6-column legacy row, assume `provider: codex` for display
+only; do not rewrite historical rows in place unless the operator requests a
+one-shot INDEX rewrite.

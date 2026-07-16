@@ -1,6 +1,6 @@
-# project — drift, context & codex review tracking (lazy detail)
+# project — drift, context & CROSS-MODEL REVIEW tracking (lazy detail)
 
-Loaded by the router for: `scope-creep`, `why`, `re-ratify`, `review-due`, and the CODEX REVIEW line rendered in the default/terminal view.
+Loaded by the router for: `scope-creep`, `why`, `re-ratify`, `review-due`, and the CROSS-MODEL REVIEW line rendered in the default/terminal view.
 
 ## `scope-creep` (view command, read-only)
 
@@ -69,9 +69,15 @@ The original `ratifiedAt` is replaced — that's intentional. The audit trail of
 
 > For batch re-articulation of migration placeholders, use `re-bootstrap <slug>` (`{{ASSETS_PATH}}/project-migrate.md`).
 
-## Codex review tracking
+## CROSS-MODEL REVIEW tracking
 
-`review-code --mode=codex` (or `--mode=both`) is the cross-model adversarial review gate (see `atomic-skills:review-code` — the codex sub-flow inside `review-code`). This skill tracks when it was last run against the current branch so the user knows whether the in-flight work is reviewed or accumulating un-reviewed surface.
+`review-code` with a family-different external provider (`--mode=codex`,
+`--mode=grok`, `--mode=both` → host external default, `both-*`, or
+`external-both`) is the CROSS-MODEL REVIEW gate (see `atomic-skills:review-code`
+external sealed-envelope sub-flow). This skill tracks when it was last run
+against the current branch so the user knows whether the in-flight work is
+reviewed or accumulating un-reviewed surface. Same-family remaps to `local`
+(`provider: local`) **do not** count as CROSS-MODEL REVIEW.
 
 ### State file
 
@@ -84,10 +90,15 @@ The original `ratifiedAt` is replaced — that's intentional. The audit trail of
   "lastReviewedCommit": "a3f1c2d",
   "lastReviewedAt": "2026-05-20T13:38:06Z",
   "reviewFile": ".atomic-skills/reviews/2026-05-20T13-38-06Z-phase-e.md",
+  "provider": "codex",
+  "providerVersion": "0.x",
   "verdict": "needs_changes",
   "counts": { "blocker": 0, "critical": 1, "major": 3, "minor": 0, "nit": 0 }
 }
 ```
+
+`provider` enum: `codex` | `grok` | `local`. Only `codex`/`grok` (family-different
+from the host) advance the CROSS-MODEL REVIEW cadence green pointer.
 
 If the file is absent, treat as "never reviewed".
 
@@ -101,7 +112,7 @@ an absent/malformed file) **fail-safe to "nothing reviewed"**, `recordReview` ap
 
 > ⚠️ **Format flip is a COORDINATED, DEFERRED follow-up — not yet live.** Four readers
 > still parse `last-review.json` as the legacy single pointer via `jq -r
-> '.lastReviewedCommit'`: (1) the default-view CODEX REVIEW line below, (2) `review-due`
+> '.lastReviewedCommit'`: (1) the default-view CROSS-MODEL REVIEW line below, (2) `review-due`
 > step 1 (`<base>` derivation), (3) the `phase-done` integration, and (4)
 > `project-transitions.md` archive-gate. An NDJSON record has **no** top-level
 > `lastReviewedCommit`, so flipping the file's format WITHOUT migrating all four readers
@@ -113,7 +124,7 @@ an absent/malformed file) **fail-safe to "nothing reviewed"**, `recordReview` ap
 > AND repoints the four readers to the ledger (last record's `commitSha` for the
 > up-to-date check) together.
 
-### Default view — CODEX REVIEW line
+### Default view — CROSS-MODEL REVIEW line
 
 Run with {{BASH_TOOL}}:
 
@@ -122,13 +133,13 @@ last_review_commit=$(jq -r '.lastReviewedCommit // empty' .atomic-skills/status/
 head_commit=$(git rev-parse HEAD)
 branch=$(git rev-parse --abbrev-ref HEAD)
 if [ -z "$last_review_commit" ]; then
-  echo "CODEX REVIEW: never run on this repo"
+  echo "CROSS-MODEL REVIEW: never run on this repo"
 elif [ "$last_review_commit" = "$head_commit" ]; then
-  echo "CODEX REVIEW: up to date (HEAD reviewed at $(jq -r '.lastReviewedAt' .atomic-skills/status/last-review.json))"
+  echo "CROSS-MODEL REVIEW: up to date (HEAD reviewed at $(jq -r '.lastReviewedAt' .atomic-skills/status/last-review.json))"
 else
   commits_behind=$(git rev-list --count "$last_review_commit..HEAD")
   lines_diff=$(git diff --stat "$last_review_commit..HEAD" | tail -1 | grep -oE '[0-9]+ insertions' | grep -oE '[0-9]+' || echo 0)
-  echo "CODEX REVIEW: $commits_behind commit(s) behind · $lines_diff lines un-reviewed"
+  echo "CROSS-MODEL REVIEW: $commits_behind commit(s) behind · $lines_diff lines un-reviewed"
 fi
 ```
 
@@ -163,13 +174,13 @@ Steps:
      per mode: a `local` review never discharges the `codex` leg.
 5. On completion (review skill returned a verdict): update `last-review.json`. **Until the
    coordinated format flip lands** (see the ⚠️ note under "State file"), keep writing the
-   LEGACY single-pointer shape (so the four pointer readers — CODEX REVIEW line, this
+   LEGACY single-pointer shape (so the four pointer readers — CROSS-MODEL REVIEW line, this
    step's `<base>`, `phase-done`, `transitions` archive-gate — keep working):
    `{ schemaVersion, branch, lastReviewedCommit: <HEAD sha at review start>, lastReviewedAt,
    reviewFile, verdict, counts }`. **Advance `lastReviewedCommit` (the green pointer) ONLY on a
    CLEAN verdict (C-7 — the pointer means "reviewed AND clean up to here").** A `needs_changes`
    verdict (or any non-zero blocker/critical count) MUST NOT stamp the reviewed commit green:
-   leave `lastReviewedCommit` at its PRIOR value (so the CODEX REVIEW line keeps showing
+   leave `lastReviewedCommit` at its PRIOR value (so the CROSS-MODEL REVIEW line keeps showing
    "N commits behind / attention", not "up to date"), while still recording `lastReviewedAt`,
    `reviewFile`, `verdict`, and `counts` for the audit trail. Otherwise the just-reviewed
    FAILING commit would read green until the next commit lands — the review-cadence signal
@@ -202,4 +213,4 @@ This makes the codex review part of the natural phase-close ceremony rather than
 | "Show me ALL the drift across the whole plan" | `scope-creep` (read-only) |
 | "This item's premises shifted — re-articulate it" | `re-ratify <id>` (mutates one) |
 | "Batch-fix every migration placeholder" | `re-bootstrap <slug>` (mutates many) |
-| "Is my in-flight work reviewed?" | the CODEX REVIEW line / `review-due` |
+| "Is my in-flight work reviewed?" | the CROSS-MODEL REVIEW line / `review-due` |
