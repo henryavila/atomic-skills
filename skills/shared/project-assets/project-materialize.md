@@ -28,6 +28,8 @@ active.
   plus the ratified `businessIntent` spine.
 - The parent plan descriptor updated atomically for that phase:
   `businessIntent`, real `subPhaseCount`, `status`, and `currentPhase`.
+- Publish goes through the single authority `scripts/materialize-state.js`
+  (recoverable staging + marker; initiative rename first, plan last).
 - A detector-backed gate result: `scripts/find-missing-business-intent.js` exits
   `0` before the command reports the phase as active.
 
@@ -42,7 +44,7 @@ The command's load-bearing order is fixed:
    otherwise reuse the parsed F2 sidecar capture.
 5. Reuse `writeInitiativeFile(initiative, planSlug, ctx)`.
 6. Write the initiative with `businessIntent` and update the parent plan
-   descriptor atomically.
+   descriptor atomically via `scripts/materialize-state.js`.
 7. Run `scripts/find-missing-business-intent.js`.
 8. Run `scripts/validate-state.js`.
 9. Run `scripts/refresh-state.js`.
@@ -127,16 +129,36 @@ Reject the block when any required field is blank or still contains
    not a git repo (legacy phases degrade to the date heuristic). The write target
    must be the resolved phase path only; never write outside the active plan's
    state directory.
-5. Update the parent plan descriptor for the phase in the same mutation:
+5. Update the parent plan descriptor for the phase in the same in-memory mutation:
    - set `businessIntent` on the parent plan descriptor;
    - set `subPhaseCount` to `initiative.tasks.length`;
    - set the descriptor `status` to `active`;
    - set `currentPhase` to the phase id;
    - refresh `lastUpdated`.
-6. Write the returned initiative file with `{{WRITE_TOOL}}` and write the parent
-   plan descriptor with the same ratified `businessIntent`. The detector runs
-   after both writes because it checks the descriptor and the materialized
-   initiative together.
+   Do **not** write either file with sequential `{{WRITE_TOOL}}` calls. The atomic
+   publish path is step 6.
+6. **Atomic publish via `scripts/materialize-state.js` (single authority).** Write
+   the rendered initiative content and the updated plan content to temporary
+   staging files on the same filesystem (e.g. under `/tmp` or next to the targets),
+   then call the primitive — never sequential live writes:
+
+   `{{BASH_TOOL}} PACKAGE_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)" && node "$PACKAGE_ROOT/scripts/materialize-state.js" --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-file <staged-plan.md> --initiative-file <staged-initiative.md>`
+
+   Contract of the primitive (do not reimplement inline):
+   - validates the staged pair before publishing a marker;
+   - persists a durable marker (`plan.md.materialize-tx.json`) with tx id and
+     SHA-256 before/after digests, fsynced before the first rename;
+   - renames **initiative first**, **plan last** (no snapshot can show the phase
+     `active` without the initiative file);
+   - on incomplete tx (marker present), recovers before applying the
+     "initiative already exists" guard; retry is safe;
+   - fail closed when a live hash is outside `{before, after}` (external write).
+
+   Exit code `0` is required. On non-zero, leave state for recovery (re-run the
+   same command or `node "$PACKAGE_ROOT/scripts/materialize-state.js" --recover
+   --plan <plan.md>`); do not hand-edit the pair and do not report the phase active.
+   The detector runs after a successful publish because it checks the descriptor
+   and the materialized initiative together.
 7. Run the detector with `{{BASH_TOOL}}`:
    `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.
    Pass the parent `plan.md` so unrelated legacy plans cannot block this materialization.
@@ -149,11 +171,11 @@ Reject the block when any required field is blank or still contains
    Pass the newly written initiative file explicitly; do not pass the `phases/`
    directory because the validator treats arbitrary directories as discovery
    roots and can skip a bare phase directory.
-9. **Task-level guarantees — author + gate (C-2, B1#1, mirrors `new plan`).** Materializing a phase creates its tasks, so — exactly like the F0 eager path (`project-create-plan.md` → "Summaries & level hygiene") — every materialized task must carry a `summary`, a `weight`, and a completion `signal` (`verifier` or `outputs[].path`). Do NOT leave these to a later accidental backfill: DRAFT each task `summary` (+ `weight`) from the sidecar goal/tasks, present for one ratify/edit, and write them onto the initiative. Then verify with the tree-scoped detectors (`{{BASH_TOOL}}`, run at the repo root — they scan `projects/*/*/phases/*.md`, NOT a single file; passing one phase path returns a vacuous green). The **just-materialized `<resolved-phase-file>` must NOT appear** in their output (unrelated pre-existing debt in other plans is a separate backfill, not a blocker for this phase):
+9. **Task-level guarantees — author + gate (C-2, B1#1, mirrors `new plan`).** Materializing a phase creates its tasks, so — exactly like the F0 eager path (`project-create-plan.md` → "Summaries & level hygiene") — every materialized task must carry a `summary`, a `weight`, and a completion `signal` (`verifier` or `outputs[].path`). Do NOT leave these to a later accidental backfill: DRAFT each task `summary` (+ `weight`) from the sidecar goal/tasks, present for one ratify/edit, and write them onto the initiative content **before** the atomic publish in step 6 (or re-publish via `materialize-state.js` if summaries are ratified after a first publish that omitted them — never sequential dual WRITE of plan+initiative). Then verify with the tree-scoped detectors (`{{BASH_TOOL}}`, run at the repo root — they scan `projects/*/*/phases/*.md`, NOT a single file; passing one phase path returns a vacuous green). The **just-materialized `<resolved-phase-file>` must NOT appear** in their output (unrelated pre-existing debt in other plans is a separate backfill, not a blocker for this phase):
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-missing-task-summaries.js"` — this phase absent from the offender list.
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-unweighted-tasks.js"` — this phase absent.
    - `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/find-signalless-tasks.js"` — soft nudge only (some tasks are genuinely unverifiable; record the reason rather than forcing a fake signal).
-   Then set the initiative `nextAction` (C-5) to the ONE concrete first step — `Run \`done <first-task-id>\` after <its first move>` (G2: a verified imperative, one step) — so a cold session resuming right after materialization reads an accurate pointer, not the template seed.
+   Then set the initiative `nextAction` (C-5) to the ONE concrete first step — `Run \`done <first-task-id>\` after <its first move>` (G2: a verified imperative, one step) — so a cold session resuming right after materialization reads an accurate pointer, not the template seed. Prefer stamping `nextAction` into the in-memory initiative content before step 6.
 10. Run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/refresh-state.js"` so rollups, focus markers, and the statusline digest match the new active phase.
 
 ## Failure Handling
@@ -161,7 +183,13 @@ Reject the block when any required field is blank or still contains
 - Missing or malformed sidecar: stop and report the exact path. The fix belongs
   to the source-retention flow, not to `materialize`.
 - Existing initiative file: stop and report that the phase is already
-  materialized. Use `phase-reopen` for a closed materialized phase.
+  materialized. Use `phase-reopen` for a closed materialized phase. When a
+  `plan.md.materialize-tx.json` marker is present, re-run
+  `scripts/materialize-state.js` (or `--recover`) first — recovery runs before
+  the exists guard.
+- `materialize-state.js` non-zero (invalid staged pair, ambiguous live hash,
+  incomplete recovery): print the script error verbatim; do not sequential-WRITE
+  around the primitive.
 - Detector failure: print the detector output verbatim, keep the task unclosed,
   and ask the user to correct the `businessIntent` block.
 - Validation failure: print the validator output verbatim and do not advance to
