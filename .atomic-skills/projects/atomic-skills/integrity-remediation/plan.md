@@ -5,9 +5,9 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:23:53.684Z
+lastUpdated: 2026-07-16T17:30:58.028Z
 branch: plan/integrity-remediation
-currentPhase: F2
+currentPhase: F5
 parallelismAllowed: false
 principles:
   - id: P1
@@ -161,19 +161,35 @@ phases:
       criteria:
         - id: F2-G1
           description: Cada host público declara contrato e support tier, renderizando ferramentas e hooks apenas do próprio perfil. FAILS when tokens/config Claude vazam, host sem probe é marcado operational ou tier fica implícito.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/validate-host-qualification.js --manifest meta/host-qualification.json && node --test tests/host-qualification-manifest.test.js tests/host-profile-contract.test.js tests/auto-update-host-matrix.test.js
             expectExitCode: 0
+          metAt: 2026-07-16T17:30:52.087Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:30:52.087Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
+            outputSummary: host qualification + profiles + auto-update matrix
         - id: F2-G2
           description: Status e install observam hashes, decisões e runtime real. FAILS when stale, modified, preserved ou runtime mismatch aparece como up-to-date.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/status-verify.test.js tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js tests/runtime-registry-recovery.test.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-16T17:30:52.087Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T17:30:52.087Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
+            outputSummary: status hash + runtime owners
+    status: done
     businessIntent:
       value: Hosts declare operational vs layout-only tiers; status reports real hashes/owners.
       workflow: Host profiles + status observability.
@@ -298,7 +314,7 @@ phases:
     summary: Valida Gemini no CLI real e remove suposições POSIX e de basename.
     dependsOn:
       - F2
-    subPhaseCount: 0
+    subPhaseCount: 6
     exitGate:
       summary: 3 criteria to meet
       criteria:
@@ -323,7 +339,13 @@ phases:
             kind: shell
             command: node --test tests/project-registration.test.js
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Gemini contracts observable; Windows paths portable; dashboard projectId canonical.
+      workflow: Gemini native depth + TOML + Windows path + projectId.
+      rules: Native canonical; no POSIX-only splits; projectId from folder not basename of worktree.
+      outOfScope: Full multi-OS CI F6.
+      doneWhen: F5-G1..G3 green (G1 may mock CLI if gemini absent).
   - id: F6
     slug: integrity-remediation-f6-qualificacao-de-release-e-fechamento-d
     title: Qualificação de release e fechamento das auditorias

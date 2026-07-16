@@ -4,11 +4,11 @@ slug: integrity-remediation-f2-contratos-de-host-runtime-e-observabil
 title: Contratos de host, runtime e observabilidade
 goal: Remover fallbacks silenciosos entre IDEs, classificar cada host como operational ou layout-only, tornar hooks scope-aware e fazer status/install relatarem o estado real de skills, assets, runtime e conflitos.
 summary: Remover fallbacks silenciosos entre IDEs, classificar cada host como operational ou layout-only, tor
-status: active
+status: done
 branch: plan/integrity-remediation
 started: 2026-07-16T17:23:53.684Z
-lastUpdated: 2026-07-16T17:23:53.684Z
-nextAction: Start F2/T-001
+lastUpdated: 2026-07-16T17:30:52.087Z
+nextAction: F2 complete — materialize F5
 parentPlan: integrity-remediation
 phaseId: F2
 businessIntent:
@@ -17,27 +17,43 @@ businessIntent:
   rules: No silent Claude token leak; no operational without probe.
   outOfScope: Gemini layout depth F5, multi-OS release F6.
   doneWhen: F2-G1 and F2-G2 green.
-tasksDone: 0
+tasksDone: 4
 tasksTotal: 4
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
-weightDone: 0
+weightDone: 4
 weightTotal: 4
 exitGates:
   - id: F2-G1
     description: Cada host público declara contrato e support tier, renderizando ferramentas e hooks apenas do próprio perfil. FAILS when tokens/config Claude vazam, host sem probe é marcado operational ou tier fica implícito.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node scripts/validate-host-qualification.js --manifest meta/host-qualification.json && node --test tests/host-qualification-manifest.test.js tests/host-profile-contract.test.js tests/auto-update-host-matrix.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:30:52.087Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:30:52.087Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
+      outputSummary: host qualification + profiles + auto-update matrix
   - id: F2-G2
     description: Status e install observam hashes, decisões e runtime real. FAILS when stale, modified, preserved ou runtime mismatch aparece como up-to-date.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/status-verify.test.js tests/status-runtime-owners.test.js tests/runtime-multiversion.test.js tests/runtime-registry-recovery.test.js
       expectExitCode: 0
+    metAt: 2026-07-16T17:30:52.087Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:30:52.087Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 7b1ccea3815c3bd6fc4694a09eb4f60845bc9697
+      outputSummary: status hash + runtime owners
 stack:
   - id: 1
     title: Contratos de host, runtime e observabilidade
@@ -49,8 +65,8 @@ tasks:
     summary: Definir perfis explícitos para cada host público
     weight: 1
     description: "Substituir o fallback Claude por adapters declarados para Claude Code, Codex, Cursor, Gemini, OpenCode e GitHub Copilot e manter um manifesto canônico com um support tier por PUBLIC_IDE_ID. `operational` exige adapter versionado e operações discovery/load/invoke no CLI real; `layout-only` exige `supportDeclared: false` e justificativa, sem alegação operacional. verified_by: `docs/audits/installer-audit-2026-07-10.md:202-225` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:313-345`."
-    status: pending
-    lastUpdated: 2026-07-16T17:23:53.684Z
+    status: done
+    lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
       - não reutilizar nomes de ferramentas Claude fora do perfil Claude, não deixar template variable sem substituição e não promover host sem receipt de probe real a operational
     acceptance:
@@ -79,13 +95,20 @@ tasks:
       - kind: file
         path: tests/host-qualification-manifest.test.js
     tags: []
+    closedAt: 2026-07-16T17:30:52.087Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:30:52.087Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 T-001
   - id: T-002
     title: Tornar auto-update condicional por capability e scope
     summary: Tornar auto-update condicional por capability e scope
     weight: 1
     description: "Planejar hooks somente para hosts com contrato e emitir comando de atualização correspondente ao scope que disparou o alerta. verified_by: `docs/audits/installer-audit-2026-07-10.md:276-302`."
-    status: pending
-    lastUpdated: 2026-07-16T17:23:53.684Z
+    status: done
+    lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
       - não escrever `.claude/settings.json` em instalação sem Claude e não remover hooks de terceiros
     acceptance:
@@ -106,13 +129,20 @@ tasks:
       - kind: file
         path: tests/install-uninstall-roundtrip.test.js
     tags: []
+    closedAt: 2026-07-16T17:30:52.087Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:30:52.087Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 T-002
   - id: T-003
     title: Classificar status e decisões do reconciler por hash
     summary: Classificar status e decisões do reconciler por hash
     weight: 1
     description: "Comparar todo o manifest e runtime por hash/fingerprint e expor `unchanged`, `updated`, `missing`, `modified`, `stale`, `preserved`, `conflict` e `runtime-mismatch`. verified_by: `docs/audits/installer-audit-2026-07-10.md:303-330`."
-    status: pending
-    lastUpdated: 2026-07-16T17:23:53.684Z
+    status: done
+    lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
       - não inferir up-to-date apenas de semver ou presença e não contar desired paths como removidos sem observar o filesystem
     acceptance:
@@ -137,13 +167,20 @@ tasks:
       - kind: file
         path: tests/install-uninstall-roundtrip.test.js
     tags: []
+    closedAt: 2026-07-16T17:30:52.087Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:30:52.087Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 T-003
   - id: T-004
     title: Observar runtime versionado e owners sobreviventes
     summary: Observar runtime versionado e owners sobreviventes
     weight: 1
     description: "Consumir de forma read-only a autoridade de mutação entregue por F1/T-005 e expor no status o registry versionado, o owner selecionado por fingerprint, ghosts, corrupção e runtime mismatch. verified_by: `docs/audits/installer-audit-2026-07-10.md:226-274,303-349`."
-    status: pending
-    lastUpdated: 2026-07-16T17:23:53.684Z
+    status: done
+    lastUpdated: 2026-07-16T17:30:52.087Z
     scopeBoundary:
       - não mutar/reconciliar registry ou runtime nesta fase, não apontar `package-root` para cache inexistente e não reduzir registry corrompido a lista vazia
     acceptance:
@@ -162,6 +199,13 @@ tasks:
       - kind: file
         path: tests/status-verify.test.js
     tags: []
+    closedAt: 2026-07-16T17:30:52.087Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:30:52.087Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 T-004
 parked: []
 emerged: []
 planTitle: Remediação integral de segurança, lifecycle e distribuição
