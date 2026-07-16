@@ -46,8 +46,15 @@ describe('verify-ci-candidate (F6/T-003)', () => {
       allowPartial: false,
     });
     assert.equal(report.ok, false);
-    assert.ok(report.errors.some((e) => /missing OS coverage: macos/i.test(e)));
-    assert.ok(report.errors.some((e) => /missing OS coverage: windows/i.test(e)));
+    // Full status requires OS×Node product (Codex F-008); accept either shape.
+    assert.ok(
+      report.errors.some((e) => /missing OS(?:×Node)? coverage:.*macos/i.test(e)),
+      report.errors.join('\n'),
+    );
+    assert.ok(
+      report.errors.some((e) => /missing OS(?:×Node)? coverage:.*windows/i.test(e)),
+      report.errors.join('\n'),
+    );
   });
 
   it('accepts partial with --allow-partial when linux covered and node real', () => {
@@ -134,9 +141,10 @@ describe('verify-ci-candidate (F6/T-003)', () => {
     assert.ok(POST_FREEZE_ALLOWLIST.some((p) => p.startsWith('.atomic-skills')));
   });
 
-  it('checkNoProductDiff runs against HEAD (same sha → empty diff)', () => {
+  it('checkNoProductDiff runs against HEAD (same sha → empty committed diff)', () => {
     const sha = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
-    const report = checkNoProductDiff(sha);
+    // Unit test ignores working-tree dirt (checked by CLI path with default true).
+    const report = checkNoProductDiff(sha, process.cwd(), { checkWorkingTree: false });
     assert.equal(report.ok, true, report.errors.join('\n'));
     assert.deepEqual(report.blocked, []);
   });

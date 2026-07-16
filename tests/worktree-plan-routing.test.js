@@ -76,26 +76,56 @@ describe('selectPlanFromInventory', () => {
 });
 
 describe('composePlanWorktreeAdd', () => {
-  it('reuses existing branch without -b', () => {
-    const cmd = composePlanWorktreeAdd({
+  it('reuses existing branch without -b (argv, not shell)', () => {
+    const inv = composePlanWorktreeAdd({
       slug: 'plan-b',
       branch: 'plan/plan-b',
       branchExists: true,
     });
-    assert.match(cmd, /git worktree add \.worktrees\/plan-b plan\/plan-b/);
+    assert.equal(inv.executable, 'git');
+    assert.deepEqual(inv.argv, ['worktree', 'add', '.worktrees/plan-b', 'plan/plan-b']);
+    assert.equal(inv.command, 'git worktree add .worktrees/plan-b plan/plan-b');
     // Flag form is ` -b <branch>`; do not confuse with slug substring `plan-b`
-    assert.doesNotMatch(cmd, /\s-b\s/);
+    assert.doesNotMatch(inv.command, /\s-b\s/);
   });
 
   it('creates new branch with -b when absent', () => {
-    const cmd = composePlanWorktreeAdd({
+    const inv = composePlanWorktreeAdd({
       slug: 'plan-b',
       branch: 'plan/plan-b',
       branchExists: false,
       baseRef: 'main',
     });
-    assert.match(cmd, /\s-b\s+plan\/plan-b/);
-    assert.match(cmd, /main/);
+    assert.deepEqual(inv.argv, ['worktree', 'add', '-b', 'plan/plan-b', '.worktrees/plan-b', 'main']);
+    assert.match(inv.command, /\s-b\s+plan\/plan-b/);
+    assert.match(inv.command, /main/);
+  });
+
+  it('rejects shell metacharacters in branch/path (command injection)', () => {
+    assert.throws(
+      () => composePlanWorktreeAdd({
+        slug: 'plan-b',
+        branch: 'x; rm -rf /',
+        branchExists: true,
+      }),
+      /forbidden characters/,
+    );
+    assert.throws(
+      () => composePlanWorktreeAdd({
+        slug: 'plan-b',
+        path: '.worktrees/x;evil',
+        branchExists: true,
+      }),
+      /forbidden characters/,
+    );
+    assert.throws(
+      () => composePlanWorktreeAdd({
+        slug: 'plan-b',
+        branch: '--upload-pack=evil',
+        branchExists: true,
+      }),
+      /must not look like a flag/,
+    );
   });
 });
 
@@ -157,8 +187,11 @@ describe('resolveImplementTarget — order before resume gate', () => {
     assert.equal(decision.resumeGateAllowed, false);
     assert.equal(decision.writeAllowed, false);
     assert.equal(decision.action.type, 'create-worktree');
-    assert.doesNotMatch(decision.action.command, /\s-b\s/);
-    assert.match(decision.action.command, /plan\/plan-b/);
+    const inv = decision.action.command;
+    assert.equal(inv.executable, 'git');
+    assert.doesNotMatch(inv.command, /\s-b\s/);
+    assert.match(inv.command, /plan\/plan-b/);
+    assert.deepEqual(inv.argv, ['worktree', 'add', '.worktrees/plan-b', 'plan/plan-b']);
   });
 
   it('proceeds with resume gate only when already home on the plan branch', () => {

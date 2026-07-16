@@ -15,13 +15,14 @@
 
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
   unlinkSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { hashContent } from '../src/hash.js';
@@ -179,6 +180,33 @@ export function verifyInstalledRuntime(basePath, opts = {}) {
 }
 
 /**
+ * Resolve install-relative path strictly under basePath (Codex F-011).
+ * Rejects absolute segments, traversal, and existing symlink destinations.
+ */
+export function confinedInstallPath(basePath, relPath) {
+  if (typeof relPath !== 'string' || !relPath || isAbsolute(relPath) || relPath.includes('\0')) {
+    throw new Error(`unsafe install path: ${JSON.stringify(relPath)}`);
+  }
+  const base = resolve(basePath);
+  const abs = resolve(base, relPath);
+  const rel = relative(base, abs);
+  if (rel.startsWith(`..${sep}`) || rel === '..' || isAbsolute(rel)) {
+    throw new Error(`path escapes install root: ${relPath}`);
+  }
+  // Walk components; reject if any existing component is a symlink.
+  let cursor = base;
+  for (const part of rel.split(sep).filter(Boolean)) {
+    cursor = join(cursor, part);
+    if (!existsSync(cursor)) break;
+    const st = lstatSync(cursor);
+    if (st.isSymbolicLink()) {
+      throw new Error(`refusing to repair through symlink: ${relPath}`);
+    }
+  }
+  return abs;
+}
+
+/**
  * Repair stale/missing paths to desired content. Modified paths require force.
  * @param {ReturnType<typeof verifyInstalledRuntime>} report
  * @param {{ forceModified?: boolean }} [opts]
@@ -207,7 +235,13 @@ export function repairInstalledRuntime(report, opts = {}) {
       continue;
     }
 
-    const abs = join(report.basePath, f.path);
+    let abs;
+    try {
+      abs = confinedInstallPath(report.basePath, f.path);
+    } catch (err) {
+      skipped.push({ path: f.path, state: f.state, reason: err.message });
+      continue;
+    }
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, f.desiredContent);
     const hash = hashContent(f.desiredContent);

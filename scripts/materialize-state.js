@@ -146,6 +146,9 @@ export function validateStagedPair(planContent, initiativeContent) {
   }
   const planFm = plan.frontmatter;
   const initFm = init.frontmatter;
+  if (!planFm.slug || typeof planFm.slug !== 'string') {
+    throw new Error('invalid staged plan: missing slug');
+  }
   if (!Array.isArray(planFm.phases) || planFm.phases.length === 0) {
     throw new Error('invalid staged plan: missing phases[]');
   }
@@ -156,6 +159,23 @@ export function validateStagedPair(planContent, initiativeContent) {
   const match = planFm.phases.find((p) => p && p.id === phaseId);
   if (!match) {
     throw new Error(`invalid staged pair: plan has no phase ${phaseId}`);
+  }
+  // Identity join (Codex F-012): parentPlan + slug must agree with plan/phase.
+  if (initFm.parentPlan != null && initFm.parentPlan !== planFm.slug) {
+    throw new Error(
+      `invalid staged pair: initiative.parentPlan '${initFm.parentPlan}' !== plan.slug '${planFm.slug}'`,
+    );
+  }
+  if (initFm.slug != null && match.slug != null && initFm.slug !== match.slug) {
+    throw new Error(
+      `invalid staged pair: initiative.slug '${initFm.slug}' !== phase.slug '${match.slug}'`,
+    );
+  }
+  if (!initFm.schemaVersion) {
+    throw new Error('invalid staged initiative: missing schemaVersion');
+  }
+  if (!planFm.schemaVersion) {
+    throw new Error('invalid staged plan: missing schemaVersion');
   }
   return { planFm, initFm };
 }
@@ -193,9 +213,38 @@ function relTo(baseDir, absPath) {
   return rel === '' ? '.' : rel;
 }
 
+/**
+ * Resolve a marker-relative path strictly under baseDir.
+ * Rejects absolute paths, null bytes, and any traversal outside baseDir (Codex F-002).
+ * @param {string} baseDir
+ * @param {string|null|undefined} maybeRel
+ * @param {string} [label]
+ * @returns {string|null}
+ */
+export function confinedPath(baseDir, maybeRel, label = 'path') {
+  if (maybeRel == null || maybeRel === '') return null;
+  if (typeof maybeRel !== 'string') {
+    throw new Error(`materialize marker ${label}: must be a relative string`);
+  }
+  if (maybeRel.includes('\0')) {
+    throw new Error(`materialize marker ${label}: null byte rejected`);
+  }
+  if (isAbsolute(maybeRel)) {
+    throw new Error(`materialize marker ${label}: absolute path rejected (${maybeRel})`);
+  }
+  const base = resolve(baseDir);
+  // resolve() still collapses .. ; relative() then detects escape.
+  const abs = resolve(base, maybeRel);
+  const rel = relative(base, abs);
+  if (rel.startsWith(`..${sep}`) || rel === '..' || isAbsolute(rel)) {
+    throw new Error(`materialize marker ${label}: escapes transaction root (${maybeRel})`);
+  }
+  return abs;
+}
+
+/** @deprecated use confinedPath — kept as alias for call-site clarity */
 function absFrom(baseDir, maybeRel) {
-  if (!maybeRel) return null;
-  return isAbsolute(maybeRel) ? maybeRel : join(baseDir, maybeRel);
+  return confinedPath(baseDir, maybeRel);
 }
 
 function readMarker(markerPath) {
@@ -209,6 +258,14 @@ function readMarker(markerPath) {
   if (!marker || marker.version !== MARKER_VERSION || !marker.txId) {
     throw new Error(`unsupported or corrupt materialize marker at ${markerPath}`);
   }
+  // Fail closed on absolute/escaping staging paths before any unlink/rename.
+  const baseDir = dirname(resolve(markerPath));
+  confinedPath(baseDir, marker.plan?.path, 'plan.path');
+  confinedPath(baseDir, marker.initiative?.path, 'initiative.path');
+  const staging = marker.staging || {};
+  for (const key of ['plan', 'initiative', 'planBefore', 'initiativeBefore']) {
+    if (staging[key] != null) confinedPath(baseDir, staging[key], `staging.${key}`);
+  }
   return marker;
 }
 
@@ -216,8 +273,12 @@ function cleanupTx(markerPath, marker) {
   const baseDir = dirname(resolve(markerPath));
   const staging = marker.staging || {};
   for (const key of ['plan', 'initiative', 'planBefore', 'initiativeBefore']) {
-    const p = absFrom(baseDir, staging[key]);
-    if (p) safeUnlink(p);
+    try {
+      const p = confinedPath(baseDir, staging[key], `staging.${key}`);
+      if (p) safeUnlink(p);
+    } catch {
+      // Skip unsafe paths — never unlink outside the transaction root.
+    }
   }
   safeUnlink(markerPath);
 }
@@ -368,6 +429,14 @@ function enforceSuccessorBarrierIfNeeded(opts) {
   } = opts;
 
   if (successorBarrier != null && typeof successorBarrier === 'object' && successorBarrier.skip === true) {
+    // Test-only opt-out (Codex F-015). Production callers cannot bypass F4-G3.
+    const testRuntime = process.env.NODE_TEST_CONTEXT != null
+      || process.env.ATOMIC_SKILLS_TEST === '1';
+    if (!testRuntime) {
+      throw new Error(
+        'successorBarrier.skip is test-only; F4-G3 barrier cannot be bypassed in production',
+      );
+    }
     return;
   }
 
@@ -499,10 +568,13 @@ export function materializePair(opts) {
   // If plan already after but initiative missing — unusual; still proceed to write pair.
   // If initiative missing (before null) and plan is before → normal materialize path.
 
-  const stagePlanAbs = `${planAbs}${STAGE_SUFFIX}`;
-  const stageInitAbs = `${initAbs}${STAGE_SUFFIX}`;
-  const beforePlanAbs = planBeforeHash !== null ? `${planAbs}${BEFORE_SUFFIX}` : null;
-  const beforeInitAbs = initBeforeHash !== null ? `${initAbs}${BEFORE_SUFFIX}` : null;
+  // Tx-specific staging/backup names (Codex F-009) so concurrent materializations
+  // cannot overwrite each other's prepared bytes.
+  const txId = randomBytes(16).toString('hex');
+  const stagePlanAbs = `${planAbs}${STAGE_SUFFIX}.${txId}`;
+  const stageInitAbs = `${initAbs}${STAGE_SUFFIX}.${txId}`;
+  const beforePlanAbs = planBeforeHash !== null ? `${planAbs}${BEFORE_SUFFIX}.${txId}` : null;
+  const beforeInitAbs = initBeforeHash !== null ? `${initAbs}${BEFORE_SUFFIX}.${txId}` : null;
 
   // 5. Write staging (after content) + before backups on same filesystem.
   writeFileDurable(stagePlanAbs, planContent);
@@ -520,7 +592,6 @@ export function materializePair(opts) {
     throw new Error('materialize staging hash mismatch before marker publish');
   }
 
-  const txId = randomBytes(16).toString('hex');
   const marker = {
     version: MARKER_VERSION,
     txId,

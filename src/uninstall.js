@@ -3,7 +3,7 @@ import { join, dirname, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import pc from 'picocolors';
 import { readManifest, MANIFEST_DIR } from './manifest.js';
-import { removeRuntimeArtifacts, unregisterInstall } from './install.js';
+import { unregisterAndMaybeReclaimRuntime } from './install.js';
 import { buildInstaller } from './installer.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
@@ -157,8 +157,8 @@ export async function uninstall(projectDir, options = {}) {
   // journal (replayReverse cannot express a conditional, refcounted reclaim, F-003).
   // Removing them on any single uninstall would strand every other install that
   // still depends on the shared dashboard/provisioner runtime.
-  const remainingInstalls = unregisterInstall(basePath);
-  if (remainingInstalls === 0) removeRuntimeArtifacts();
+  // Single lock spans unregister + conditional reclaim (Codex F-004).
+  unregisterAndMaybeReclaimRuntime(basePath);
 
   // The Driver removed the manifest; for a user-scope uninstall the .atomic-skills/
   // dir also held the shared runtime (reclaimed just above), so prune it if the

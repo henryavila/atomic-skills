@@ -917,6 +917,8 @@ function main() {
 
   const planFrontmatters = new Map();
   const initiativeFrontmatters = new Map();
+  /** @type {string[]} */
+  const duplicateAuthorityErrors = [];
   for (const target of targets) {
     const kind = kindFromPath(target);
     let raw;
@@ -924,16 +926,40 @@ function main() {
     const parsed = parseFrontmatter(raw);
     if (!parsed.frontmatter || !parsed.frontmatter.slug) continue;
     const projectId = projectIdFromPath(target);
+    const mapKey = `${projectId}/${parsed.frontmatter.slug}`;
     if (kind === 'plan') {
-      planFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+      if (planFrontmatters.has(mapKey)) {
+        const prev = planFrontmatters.get(mapKey);
+        duplicateAuthorityErrors.push(
+          `duplicate plan authority for ${mapKey}: ${prev.__sourcePath || '(prior)'} and ${target}`,
+        );
+      }
+      planFrontmatters.set(mapKey, {
+        ...parsed.frontmatter,
+        __projectId: projectId,
+        __sourcePath: target,
+      });
     }
     if (kind === 'initiative') {
-      initiativeFrontmatters.set(`${projectId}/${parsed.frontmatter.slug}`, { ...parsed.frontmatter, __projectId: projectId });
+      if (initiativeFrontmatters.has(mapKey)) {
+        const prev = initiativeFrontmatters.get(mapKey);
+        duplicateAuthorityErrors.push(
+          `duplicate initiative authority for ${mapKey}: ${prev.__sourcePath || '(prior)'} and ${target}`,
+        );
+      }
+      initiativeFrontmatters.set(mapKey, {
+        ...parsed.frontmatter,
+        __projectId: projectId,
+        __sourcePath: target,
+      });
     }
   }
 
   const sidecars = collectSidecars(args);
   const crossErrors = crossValidate(planFrontmatters, initiativeFrontmatters, { sidecars });
+  for (const err of duplicateAuthorityErrors) {
+    console.error(`\n✖ authority: ${err}`);
+  }
   for (const ce of crossErrors) {
     console.error(`\n✖ cross-validation: plan '${ce.planSlug}' phase ${ce.phaseId} ↔ initiative '${ce.initiativeSlug}'`);
     for (const err of ce.errors) {
@@ -959,7 +985,13 @@ function main() {
     }
   }
 
-  if (failed === 0 && crossErrors.length === 0 && routingFailed === 0 && appMapFailed === 0) {
+  if (
+    failed === 0
+    && crossErrors.length === 0
+    && routingFailed === 0
+    && appMapFailed === 0
+    && duplicateAuthorityErrors.length === 0
+  ) {
     const routingNote = routingConfigs.length ? `, ${routingConfigs.length} routing config(s) valid` : '';
     const appMapNote = appMaps.length ? `, ${appMaps.length} app-map catalog(s) valid` : '';
     console.log(`\n✓ All ${targets.length} file(s) valid, ${planFrontmatters.size} plan(s) cross-validated${routingNote}${appMapNote} (schemaVersion 0.1/0.2)`);
@@ -967,6 +999,9 @@ function main() {
   }
   if (failed > 0) {
     console.error(`\n✖ ${failed} of ${targets.length} file(s) failed schema validation`);
+  }
+  if (duplicateAuthorityErrors.length > 0) {
+    console.error(`\n✖ ${duplicateAuthorityErrors.length} duplicate-authority error(s)`);
   }
   if (crossErrors.length > 0) {
     console.error(`✖ ${crossErrors.length} cross-validation error(s)`);

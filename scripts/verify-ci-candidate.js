@@ -137,22 +137,6 @@ export function validateJobMatrix(receipt, { requireOs, requireNode }) {
     }
   }
 
-  const osCovered = new Set(jobs.map((j) => normalizeOs(j.os)).filter(Boolean));
-  // Also accept platformCoverage when jobs are local-only
-  if (receipt.platformCoverage && typeof receipt.platformCoverage === 'object') {
-    for (const [os, covered] of Object.entries(receipt.platformCoverage)) {
-      if (covered === true) osCovered.add(normalizeOs(os));
-    }
-  }
-
-  for (const os of requireOs) {
-    if (!osCovered.has(normalizeOs(os))) {
-      errors.push(`missing OS coverage: ${os}`);
-    }
-  }
-
-  // Node axis: every requirement must be satisfied by at least one job's real version
-  // OR by receipt.nodeCoverage entries with real versions.
   const recordedVersions = [
     ...jobs.map((j) => j.nodeVersion).filter(Boolean),
     ...(Array.isArray(receipt.nodeCoverage)
@@ -161,10 +145,47 @@ export function validateJobMatrix(receipt, { requireOs, requireNode }) {
   ];
   if (receipt.local?.nodeVersion) recordedVersions.push(receipt.local.nodeVersion);
 
-  for (const req of requireNode) {
-    const hit = recordedVersions.some((v) => nodeSatisfies(v, req));
-    if (!hit) {
-      errors.push(`missing Node coverage for requirement ${req} (recorded: ${recordedVersions.join(', ') || 'none'})`);
+  const osCovered = new Set(jobs.map((j) => normalizeOs(j.os)).filter(Boolean));
+  // Also accept platformCoverage when jobs are local-only / partial
+  if (receipt.platformCoverage && typeof receipt.platformCoverage === 'object') {
+    for (const [os, covered] of Object.entries(receipt.platformCoverage)) {
+      if (covered === true) osCovered.add(normalizeOs(os));
+    }
+  }
+
+  // Full receipts require the Cartesian product OS × Node (Codex F-008).
+  // Partial receipts keep union-axis coverage (allow-partial softens gaps later).
+  if (receipt.status === 'full') {
+    const successJobs = jobs.filter(
+      (j) => j
+        && (!j.status || ['success', 'passed', 'green'].includes(j.status))
+        && j.status !== 'skipped'
+        && j.status !== 'failed',
+    );
+    for (const os of requireOs) {
+      for (const req of requireNode) {
+        const hit = successJobs.some(
+          (j) => normalizeOs(j.os) === normalizeOs(os)
+            && j.nodeVersion
+            && nodeSatisfies(j.nodeVersion, req)
+            && (!receipt.candidateSha || !j.sha || j.sha === receipt.candidateSha),
+        );
+        if (!hit) {
+          errors.push(`missing OS×Node coverage: ${os} × ${req}`);
+        }
+      }
+    }
+  } else {
+    for (const os of requireOs) {
+      if (!osCovered.has(normalizeOs(os))) {
+        errors.push(`missing OS coverage: ${os}`);
+      }
+    }
+    for (const req of requireNode) {
+      const hit = recordedVersions.some((v) => nodeSatisfies(v, req));
+      if (!hit) {
+        errors.push(`missing Node coverage for requirement ${req} (recorded: ${recordedVersions.join(', ') || 'none'})`);
+      }
     }
   }
 
@@ -185,7 +206,13 @@ function normalizeOs(os) {
  * @param {string} candidateSha
  * @param {string} [cwd]
  */
-export function checkNoProductDiff(candidateSha, cwd = ROOT) {
+/**
+ * @param {string} candidateSha
+ * @param {string} [cwd]
+ * @param {{ checkWorkingTree?: boolean }} [opts]
+ */
+export function checkNoProductDiff(candidateSha, cwd = ROOT, opts = {}) {
+  const { checkWorkingTree = true } = opts;
   const errors = [];
   if (!candidateSha || !/^[0-9a-f]{7,40}$/i.test(candidateSha)) {
     return { ok: false, errors: ['candidateSha required for --no-product-diff'] };
@@ -220,6 +247,35 @@ export function checkNoProductDiff(candidateSha, cwd = ROOT) {
       `product paths changed after candidateSha (not in allowlist docs/audits|.atomic-skills): ${blocked.join(', ')}`,
     );
   }
+
+  // Also reject dirty working tree product paths (Codex F-014).
+  if (checkWorkingTree) {
+    const porcelain = spawnSync('git', ['status', '--porcelain', '-uall'], {
+      cwd,
+      encoding: 'utf8',
+    });
+    if (porcelain.status === 0) {
+      const dirty = porcelain.stdout
+        .split('\n')
+        .map((l) => l.trimEnd())
+        .filter(Boolean)
+        .map((line) => {
+          // XY PATH or XY ORIG -> PATH
+          const rest = line.slice(3);
+          const arrow = rest.indexOf(' -> ');
+          return arrow >= 0 ? rest.slice(arrow + 4) : rest;
+        })
+        .filter((path) => path && !POST_FREEZE_ALLOWLIST.some(
+          (prefix) => path === prefix.replace(/\/$/, '') || path.startsWith(prefix),
+        ));
+      if (dirty.length > 0) {
+        errors.push(
+          `product paths dirty in working tree (not in allowlist): ${[...new Set(dirty)].join(', ')}`,
+        );
+      }
+    }
+  }
+
   return { ok: errors.length === 0, errors, changed, blocked };
 }
 

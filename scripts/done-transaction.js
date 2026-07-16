@@ -116,10 +116,40 @@ function hasVerifier(input) {
   return false;
 }
 
+function shaMatches(a, b) {
+  if (!a || !b) return false;
+  return a === b || a.startsWith(b) || b.startsWith(a);
+}
+
+/**
+ * Fresh close must not trust stale stored evidence alone (Codex F-006).
+ * Explicit verifierPassed:false always wins.
+ */
 function verifierOk(input) {
+  // Current explicit failure overrides any stored evidence.
+  if (input.verifierPassed === false) return false;
   if (input.verifierPassed === true || input.manualAck === true) return true;
+
   const evidence = evidenceOf(input);
-  if (evidence.passed === true) return true;
+  const status = text(taskSlice(input).status);
+  const fingerprint = currentFingerprintOf(input);
+  const verifiedCommit = text(evidence.verifiedCommit);
+
+  // Retry of an already-done task may reuse recorded evidence (idempotent path).
+  if (status === 'done' && evidence.passed === true) return true;
+
+  // Fresh close: stored evidence.passed only counts when anchored to current HEAD.
+  if (evidence.passed === true) {
+    if (fingerprint && verifiedCommit && shaMatches(fingerprint, verifiedCommit)) {
+      return true;
+    }
+    // No fingerprint context in pure unit tests — require explicit verifierPassed
+    // when requireCurrentVerifier is set; otherwise allow only with verifiedCommit absent
+    // AND allowLegacyStaleEvidence (default false for security).
+    if (input.allowLegacyStaleEvidence === true && !fingerprint) return true;
+    return false;
+  }
+
   // No verifier (or manual-only) may close via explicit manualAck / passed evidence.
   if (!hasVerifier(input) && (input.allowManual === true || evidence.verifierKind === 'manual')) {
     return evidence.passed === true || input.manualAck === true;

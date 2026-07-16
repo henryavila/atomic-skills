@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, copyFileSync, cpSync, mkdirSync, existsSync, unlinkSync, rmSync, rmdirSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, cpSync, mkdirSync, existsSync, unlinkSync, rmSync, rmdirSync, readdirSync, statSync, renameSync } from 'node:fs';
 import { join, dirname, relative, basename, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -146,6 +146,69 @@ function installsRegistryPath() {
 }
 
 /**
+ * Strict parse of the installs registry (Codex F-005).
+ * Supports legacy string[] and versioned `{ owners: [{ basePath, ... }] }`.
+ * Fail-closed on corrupt JSON or unknown shapes — never treat as empty owners.
+ *
+ * @param {string} [filePath]
+ * @returns {{ format: 'empty'|'legacy-array'|'versioned', list: string[], raw: unknown }}
+ */
+export function readInstallsRegistry(filePath = installsRegistryPath()) {
+  if (!existsSync(filePath)) {
+    return { format: 'empty', list: [], raw: null };
+  }
+  let rawText;
+  try {
+    rawText = readFileSync(filePath, 'utf8');
+  } catch (err) {
+    const e = new Error(`installs registry unreadable: ${err.message}`);
+    e.code = 'REGISTRY_IO';
+    throw e;
+  }
+  let v;
+  try {
+    v = JSON.parse(rawText);
+  } catch (err) {
+    const e = new Error(`installs registry corrupt JSON: ${err.message}`);
+    e.code = 'REGISTRY_CORRUPT';
+    throw e;
+  }
+  if (Array.isArray(v)) {
+    const list = v.filter((x) => typeof x === 'string' && x.length > 0);
+    return { format: 'legacy-array', list, raw: v };
+  }
+  if (v && typeof v === 'object' && Array.isArray(v.owners)) {
+    const list = v.owners
+      .map((o) => (typeof o === 'string' ? o : o?.basePath))
+      .filter((x) => typeof x === 'string' && x.length > 0);
+    return { format: 'versioned', list, raw: v };
+  }
+  const e = new Error('installs registry unknown format');
+  e.code = 'REGISTRY_UNKNOWN';
+  throw e;
+}
+
+function writeInstallsRegistryAtomic(filePath, list, prior) {
+  mkdirSync(dirname(filePath), { recursive: true });
+  let payload;
+  if (prior?.format === 'versioned' && prior.raw && typeof prior.raw === 'object') {
+    const owners = list.map((basePath) => {
+      const prev = Array.isArray(prior.raw.owners)
+        ? prior.raw.owners.find((o) => (typeof o === 'string' ? o : o?.basePath) === basePath)
+        : null;
+      if (prev && typeof prev === 'object') return { ...prev, basePath };
+      return { basePath };
+    });
+    payload = { ...prior.raw, owners };
+  } else {
+    payload = list;
+  }
+  const tmp = `${filePath}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`);
+  renameSync(tmp, filePath);
+}
+
+/**
  * Record an install base path in the shared runtime registry (idempotent). The
  * global runtime artifacts under ~/.atomic-skills/ are shared across every
  * install (user + each project), so they must only be reclaimed once the LAST
@@ -156,11 +219,10 @@ function installsRegistryPath() {
 export function registerInstall(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const p = installsRegistryPath();
-    let list = [];
-    try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
+    const prior = readInstallsRegistry(p);
+    const list = [...prior.list];
     if (!list.includes(basePath)) list.push(basePath);
-    mkdirSync(dirname(p), { recursive: true });
-    writeFileSync(p, JSON.stringify(list, null, 2) + '\n');
+    writeInstallsRegistryAtomic(p, list, prior);
   });
 }
 
@@ -169,18 +231,55 @@ export function registerInstall(basePath) {
  * still registered AFTER removal. When it drops to 0 the registry file itself is
  * deleted (so $HOME returns to baseline). The caller reclaims the shared runtime
  * artifacts only when this returns 0 (F-003).
+ *
+ * Fail-closed on corrupt/unknown registry (Codex F-005) — never pretend zero owners.
  */
 export function unregisterInstall(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const p = installsRegistryPath();
-    let list = [];
-    try { const v = JSON.parse(readFileSync(p, 'utf8')); if (Array.isArray(v)) list = v; } catch {}
-    const next = list.filter((b) => b !== basePath);
+    const prior = readInstallsRegistry(p);
+    const next = prior.list.filter((b) => b !== basePath);
     if (next.length === 0) {
       try { unlinkSync(p); } catch {}
       return 0;
     }
-    try { writeFileSync(p, JSON.stringify(next, null, 2) + '\n'); } catch {}
+    writeInstallsRegistryAtomic(p, next, prior);
+    return next.length;
+  });
+}
+
+/**
+ * Publish runtime artifacts and register ownership under one lock (Codex F-004).
+ * Avoids nested withSharedRuntimeLocks (would deadlock on O_EXCL).
+ * @param {string} basePath
+ */
+export function publishRuntimeAndRegister(basePath) {
+  return withSharedRuntimeLocks({ basePath }, () => {
+    installRuntimeArtifacts();
+    const p = installsRegistryPath();
+    const prior = readInstallsRegistry(p);
+    const list = [...prior.list];
+    if (!list.includes(basePath)) list.push(basePath);
+    writeInstallsRegistryAtomic(p, list, prior);
+  });
+}
+
+/**
+ * Unregister and optionally reclaim runtime under one lock (Codex F-004).
+ * @param {string} basePath
+ * @returns {number} remaining installs
+ */
+export function unregisterAndMaybeReclaimRuntime(basePath) {
+  return withSharedRuntimeLocks({ basePath }, () => {
+    const p = installsRegistryPath();
+    const prior = readInstallsRegistry(p);
+    const next = prior.list.filter((b) => b !== basePath);
+    if (next.length === 0) {
+      try { unlinkSync(p); } catch {}
+      removeRuntimeArtifacts();
+      return 0;
+    }
+    writeInstallsRegistryAtomic(p, next, prior);
     return next.length;
   });
 }
@@ -599,8 +698,7 @@ export async function install(projectDir, options = {}) {
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
     syncGrokPluginHostAfterInstall(basePath, ides, language);
 
-    installRuntimeArtifacts();
-    registerInstall(basePath);
+    publishRuntimeAndRegister(basePath);
     showNonInteractiveResult(result, ides, language);
     return;
   }

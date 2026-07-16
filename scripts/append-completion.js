@@ -30,7 +30,10 @@
  *        --plan <slug> --phase <id> [--task <id>] [--weight <n>] [--basis <b>]
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync,
+  unlinkSync, writeSync, constants,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -314,6 +317,42 @@ export function dedupeCompletionEvents(records) {
  *   - `appended`   {boolean} true iff a new line was written
  *   - `idempotent` {boolean} true iff an existing identity was reused
  */
+/**
+ * Serialize scan-and-append for the completion log (Codex F-007).
+ * Uses an exclusive lock file under analytics/.
+ */
+function withCompletionLogLock(root, fn) {
+  const dir = join(resolve(root), ...ANALYTICS_DIR);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const lockPath = join(dir, '.completions.lock');
+  const started = Date.now();
+  const timeoutMs = 10_000;
+  for (;;) {
+    try {
+      const fd = openSync(lockPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+      try {
+        writeSync(fd, `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`);
+      } finally {
+        closeSync(fd);
+      }
+      try {
+        return fn();
+      } finally {
+        try { unlinkSync(lockPath); } catch { /* ignore */ }
+      }
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      if (Date.now() - started > timeoutMs) {
+        const e = new Error(`Timeout acquiring completion log lock at ${lockPath}`);
+        e.code = 'LOCK_TIMEOUT';
+        throw e;
+      }
+      const waitBuf = new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(waitBuf, 0, 0, 20);
+    }
+  }
+}
+
 export function appendCompletion(root, entry) {
   let effectiveEntry = entry;
   if (entry && entry.event === 'task-done' && entry.actuals == null) {
@@ -323,20 +362,23 @@ export function appendCompletion(root, entry) {
     if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
   }
   const record = normalize(effectiveEntry); // validate BEFORE touching the filesystem
-  const key = completionEventKey(record);
-  const existing = key != null ? findCompletionByKey(root, key) : undefined;
-  if (existing !== undefined) {
-    return Object.defineProperties({ ...existing }, {
-      appended: { value: false, enumerable: false },
-      idempotent: { value: true, enumerable: false },
+
+  return withCompletionLogLock(root, () => {
+    const key = completionEventKey(record);
+    const existing = key != null ? findCompletionByKey(root, key) : undefined;
+    if (existing !== undefined) {
+      return Object.defineProperties({ ...existing }, {
+        appended: { value: false, enumerable: false },
+        idempotent: { value: true, enumerable: false },
+      });
+    }
+    const dir = join(resolve(root), ...ANALYTICS_DIR);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
+    return Object.defineProperties({ ...record }, {
+      appended: { value: true, enumerable: false },
+      idempotent: { value: false, enumerable: false },
     });
-  }
-  const dir = join(resolve(root), ...ANALYTICS_DIR);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
-  return Object.defineProperties({ ...record }, {
-    appended: { value: true, enumerable: false },
-    idempotent: { value: false, enumerable: false },
   });
 }
 

@@ -131,7 +131,32 @@ export function findWorktreePath(worktrees, branch) {
 }
 
 /**
- * Compose `git worktree add` for a plan home.
+ * Reject shell metacharacters / option-injection in git argv tokens.
+ * @param {string} value
+ * @param {string} label
+ * @returns {string}
+ */
+export function assertSafeGitArg(value, label) {
+  const v = text(value);
+  if (!v) throw new Error(`project-target-resolver: ${label} is required`);
+  if (v.startsWith('-')) {
+    throw new Error(`project-target-resolver: ${label} must not look like a flag (${v})`);
+  }
+  // Disallow shell metacharacters and whitespace so values are safe both as
+  // argv tokens and in any accidental shell display join.
+  if (/[\s;|&$`\\'"<>(){}\n\r\t]/.test(v)) {
+    throw new Error(
+      `project-target-resolver: ${label} contains forbidden characters (${JSON.stringify(v)})`,
+    );
+  }
+  if (v.includes('..') && (label === 'path' || label === 'worktree path')) {
+    // traversal in worktree path is still rejected via relative containment below
+  }
+  return v;
+}
+
+/**
+ * Compose `git worktree add` for a plan home as argv (never shell-interpolated).
  * When the branch already exists, omit `-b` (reuse branch).
  * When creating, use `-b <branch>`.
  *
@@ -141,7 +166,8 @@ export function findWorktreePath(worktrees, branch) {
  * @param {string} [opts.path] - worktree path (default .worktrees/<slug>)
  * @param {string} [opts.baseRef] - seed ref when creating branch
  * @param {boolean} opts.branchExists
- * @returns {string} command (not executed)
+ * @returns {{ executable: 'git', argv: string[], command: string }}
+ *   `command` is a display-only join of validated argv (no untrusted expansion).
  */
 export function composePlanWorktreeAdd({
   slug,
@@ -150,17 +176,25 @@ export function composePlanWorktreeAdd({
   baseRef = 'HEAD',
   branchExists,
 } = {}) {
-  const s = text(slug);
-  if (!s) throw new Error('project-target-resolver: slug is required');
-  const br = text(branch) || planBranchName(s);
-  const wtPath = text(path) || `.worktrees/${s}`;
-  const base = text(baseRef) || 'HEAD';
-
-  if (branchExists) {
-    // Reuse existing branch — never pass -b (Git fails: branch already exists)
-    return `git worktree add ${wtPath} ${br}`;
+  const s = assertSafeGitArg(slug, 'slug');
+  const br = assertSafeGitArg(text(branch) || planBranchName(s), 'branch');
+  const wtPath = assertSafeGitArg(text(path) || `.worktrees/${s}`, 'path');
+  // Disallow absolute paths and parent traversal for worktree location.
+  if (wtPath.startsWith('/') || wtPath.includes('..')) {
+    throw new Error(`project-target-resolver: path must be a relative non-escaping path (${wtPath})`);
   }
-  return `git worktree add -b ${br} ${wtPath} ${base}`;
+  const base = assertSafeGitArg(text(baseRef) || 'HEAD', 'baseRef');
+
+  const argv = branchExists
+    ? ['worktree', 'add', wtPath, br]
+    : ['worktree', 'add', '-b', br, wtPath, base];
+
+  return {
+    executable: 'git',
+    argv,
+    // Display form only — all tokens already validated; never feed untrusted strings here.
+    command: ['git', ...argv].join(' '),
+  };
 }
 
 /**

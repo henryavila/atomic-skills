@@ -153,13 +153,19 @@ export function withSharedRuntimeLocks({ basePath, fingerprint }, fn) {
     return fn();
   } finally {
     locks.release();
-    // Uninstall round-trips require $HOME baseline: drop empty lock files and
-    // the locks/ directory when no locks remain (journal ownership is gone).
+    // Only remove *empty* lock root / dead-pid orphans. Never sweep live locks
+    // held by concurrent installers (Codex F-003).
     pruneEmptyLockRoot(lockRoot);
   }
 }
 
-/** Best-effort: remove free lock files and the locks directory if empty. */
+/**
+ * Best-effort hygiene for the lock directory after *this* process released.
+ * - Removes empty (0-byte) lock files
+ * - Removes lock files whose recorded pid is dead (stale crash leftovers)
+ * - Removes the locks/ directory only when it is already empty
+ * NEVER unlinks a lock file still owned by a live process.
+ */
 export function pruneEmptyLockRoot(lockRoot = join(homedir(), '.atomic-skills', 'locks')) {
   try {
     if (!existsSync(lockRoot)) return;
@@ -167,22 +173,26 @@ export function pruneEmptyLockRoot(lockRoot = join(homedir(), '.atomic-skills', 
       const abs = join(lockRoot, name);
       try {
         const st = statSync(abs);
-        if (st.isFile() && st.size === 0) unlinkSync(abs);
+        if (!st.isFile()) continue;
+        if (st.size === 0) {
+          unlinkSync(abs);
+          continue;
+        }
+        try {
+          const meta = JSON.parse(readFileSync(abs, 'utf8'));
+          if (Number.isInteger(meta.pid) && !isPidAlive(meta.pid)) {
+            unlinkSync(abs);
+          }
+          // Live pid or unreadable ownership → leave alone.
+        } catch {
+          // Partial/corrupt lock while another process may be writing — leave it.
+        }
       } catch {
-        // ignore races
-      }
-    }
-    // Remove any leftover lock files that are not held (best-effort: delete all
-    // after release — acquire holds only for the critical section above).
-    for (const name of readdirSync(lockRoot)) {
-      try {
-        unlinkSync(join(lockRoot, name));
-      } catch {
-        // still held or not a file — leave it
+        // race with concurrent acquirer
       }
     }
     try {
-      rmdirSync(lockRoot);
+      if (readdirSync(lockRoot).length === 0) rmdirSync(lockRoot);
     } catch {
       // non-empty or concurrent acquire
     }
