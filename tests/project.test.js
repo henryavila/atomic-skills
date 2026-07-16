@@ -972,13 +972,13 @@ describe('project skill (unified router + lazy assets)', () => {
 
   // ─── Lazy asset: drift / codex review ───────────────────────────────────
 
-  it('project-drift documents scope-creep / why / re-ratify / codex review tracking', () => {
+  it('project-drift documents scope-creep / why / re-ratify / CROSS-MODEL REVIEW tracking', () => {
     install();
     const content = readAsset('project-drift.md');
     assert.match(content, /## `scope-creep`/);
     assert.match(content, /## `why <id>`/);
     assert.match(content, /## `re-ratify <id>`/);
-    assert.match(content, /Codex review tracking/);
+    assert.match(content, /CROSS-MODEL REVIEW tracking/);
     assert.match(content, /last-review\.json/);
     assert.match(content, /review-due/);
   });
