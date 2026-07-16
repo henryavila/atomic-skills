@@ -5,9 +5,9 @@ title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
 status: active
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:02:11.032Z
+lastUpdated: 2026-07-16T17:03:25.265Z
 branch: plan/integrity-remediation
-currentPhase: F4
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -159,7 +159,7 @@ phases:
     summary: Leva o SPEC materializado ao implement na worktree e no escopo corretos.
     dependsOn:
       - F4
-    subPhaseCount: 0
+    subPhaseCount: 5
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -177,7 +177,13 @@ phases:
             kind: shell
             command: node --test tests/worktree-plan-routing.test.js
             expectExitCode: 0
-    status: pending
+    status: active
+    businessIntent:
+      value: Levar tasks SPEC-admitted ao implement com targets e exclusões corretos na worktree certa.
+      workflow: SPEC materializado → implement targets from outputs; scopeBoundary as DO-NOT; worktree routing before gates.
+      rules: No Files property; exclusions never allowlist; explicit plan/worktree before write; F4 barrier satisfied.
+      outOfScope: Installer safety F1, host tiers F2, Gemini F5, release F6.
+      doneWhen: F3-G1 and F3-G2 verifiers green; implement-ready E2E in temp consumer.
   - id: F4
     slug: integrity-remediation-f4-autoridade-de-estado-e-transicoes-recu
     title: Autoridade de estado e transições recuperáveis
