@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-10T10:28:53Z
+lastUpdated: 2026-07-16T13:00:32.380Z
 schemaVersion: "0.1"
-activePlans: 0
-activeInitiatives: 0
+activePlans: 1
+activeInitiatives: 1
 archivedCount: 23
 ---
 
@@ -18,8 +18,9 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-_(none)_
-
+| Slug | Status | Current Phase | Branch | Started | Phases |
+|------|--------|---------------|--------|---------|--------|
+| grok-build-integration | active | F0 | plan/grok-build-integration | 2026-07-16 | 1/6 |
 
 ## Done Plans (not archived)
 
