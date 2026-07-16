@@ -8,8 +8,8 @@ goal: review-code and review-plan expose provider modes; product cadence uses
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:46:44.000Z
-lastUpdated: 2026-07-16T15:35:00.000Z
-nextAction: "Start T-003: review-due and provider field persistence"
+lastUpdated: 2026-07-16T15:50:00.000Z
+nextAction: "Orchestrator: phase-done (G-1..G-3 + CROSS-MODEL REVIEW + advance F4)"
 parentPlan: grok-build-integration
 phaseId: F3
 businessIntent:
@@ -24,11 +24,11 @@ businessIntent:
   outOfScope: external-both merge (F5), marketplace, Mode-2 Grok execution.
   doneWhen: "F3 gates green: validate-skills, no CODEX REVIEW product strings,
     provider field round-trip."
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 2
+weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -156,6 +156,14 @@ tasks:
       kind: shell
       command: node --test tests/review-provider-field.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T15:50:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: review-provider-field.test.js 11 pass; review-due/create-plan
+        use hostDefaultExternalMode; buildProviderFields forces local on
+        sameFamilyRemap; no CODEX REVIEW product strings remain
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-create-plan.md
@@ -164,11 +172,16 @@ tasks:
       - kind: file
         path: skills/shared/project-assets/project-review.md
       - kind: file
+        path: skills/shared/project-assets/project-transitions.md
+      - kind: file
         path: skills/shared/codex-bridge-assets/review-file-template.txt
       - kind: file
+        path: src/review-provider-field.js
+      - kind: file
         path: tests/review-provider-field.test.js
-    status: pending
-    lastUpdated: 2026-07-16T14:46:44.000Z
+    status: done
+    lastUpdated: 2026-07-16T15:50:00.000Z
+    closedAt: 2026-07-16T15:50:00.000Z
 parked: []
 emerged: []
 planTitle: Grok Build native integration + cross-model review
@@ -179,7 +192,12 @@ current: true
 # F3 initiative
 
 ## Session handoff
-- **Narrative:** T-001+T-002 done — multi-provider modes; product label is
-  CROSS-MODEL REVIEW with provider field on review template/INDEX.
-- **Single nextAction:** Start T-003 — review-due host default + provider field
-  round-trip test
+- **Narrative:** F3 tasks T-001..T-003 complete. Multi-provider modes,
+  CROSS-MODEL REVIEW product label, host-default review-due, provider field
+  round-trip. Exit gates G-1..G-3 are for phase-done (orchestrator). Do **not**
+  run phase-done here.
+- **Decision log:** external-both sequential only (merge in F5); review-due uses
+  hostDefaultExternalMode not hardcoded codex; sameFamilyRemap → provider:local.
+- **Single nextAction:** Orchestrator runs phase-done (G-1..G-3 + CROSS-MODEL
+  REVIEW + advance F4).
+- **Uncommitted changes:** none after T-003 checkpoint.
