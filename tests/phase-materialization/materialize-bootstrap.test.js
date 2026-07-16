@@ -23,6 +23,7 @@ import {
   writeInitiativeFile,
 } from '../../src/decompose.js';
 import { materializeState } from '../../scripts/materialize-state.js';
+import { withScopeTransactionLock } from '../../scripts/transaction-lock.js';
 import { parseFrontmatter } from '../../scripts/validate-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -134,6 +135,17 @@ function candidatePair(state) {
   };
 }
 
+function successorManifest(state, pair, overrides = {}) {
+  return {
+    phaseId: 'F1',
+    planPath: state.plan.relativePath,
+    initiativePath: state.initiativePath,
+    planHash: hashBytes(pair.planContent),
+    initiativeHash: hashBytes(pair.initiativeContent),
+    ...overrides,
+  };
+}
+
 function runMaterializeWithFsShim(state, pair, shimSource, { platform } = {}) {
   const fsModuleSource = [
     "import * as fs from 'node:fs';",
@@ -194,6 +206,158 @@ test('materialization skips unsupported directory fsync on win32', () => {
       pair.initiativeContent,
     );
   } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('successor manifest binds both canonical paths, phase identity, and exact candidate bytes', () => {
+  const mutations = [
+    ['planPath', '.atomic-skills/projects/atomic-skills/other/plan.md'],
+    ['initiativePath', '.atomic-skills/projects/atomic-skills/e2e-lifecycle/phases/other.md'],
+    ['phaseId', 'F2'],
+    ['planHash', '0'.repeat(64)],
+    ['initiativeHash', '1'.repeat(64)],
+  ];
+  for (const [field, value] of mutations) {
+    const state = fixture();
+    const pair = candidatePair(state);
+    try {
+      assert.throws(
+        () => materializeState({
+          root: state.root,
+          planPath: state.plan.relativePath,
+          initiativePath: state.initiativePath,
+          ...pair,
+          successor: successorManifest(state, pair, { [field]: value }),
+          txId: `tx-successor-${field}`,
+        }),
+        /successor manifest/i,
+        `${field} must be bound before any live write`,
+      );
+      assert.equal(existsSync(join(state.root, state.initiativePath)), false);
+      assert.equal(readFileSync(state.planAbs, 'utf8'), state.plan.content);
+    } finally {
+      rmSync(state.root, { recursive: true, force: true });
+    }
+  }
+});
+
+test('an exact successor manifest is persisted through recovery and returned as publication evidence', () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  const successor = successorManifest(state, pair);
+  const markerPath = join(dirname(state.planAbs), '.materialize-state.json');
+  try {
+    assert.throws(
+      () => materializeState({
+        root: state.root,
+        planPath: state.plan.relativePath,
+        initiativePath: state.initiativePath,
+        ...pair,
+        successor,
+        txId: 'tx-bound-successor',
+        faultAt: 'after-initiative-rename',
+      }),
+      /fault injection/,
+    );
+    const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+    assert.deepEqual(marker.successor, successor);
+    assert.match(marker.successorDigest, /^[a-f0-9]{64}$/);
+
+    const recovered = materializeState({
+      root: state.root,
+      planPath: state.plan.relativePath,
+      initiativePath: state.initiativePath,
+      successor,
+    });
+    assert.equal(recovered.status, 'complete');
+    assert.deepEqual(recovered.publication.successor, successor);
+    assert.equal(recovered.publication.successorDigest, marker.successorDigest);
+
+    const retry = materializeState({
+      root: state.root,
+      planPath: state.plan.relativePath,
+      initiativePath: state.initiativePath,
+      ...pair,
+      successor,
+    });
+    assert.equal(retry.idempotent, true);
+    assert.deepEqual(retry.publication.successor, successor);
+    assert.equal(retry.publication.successorDigest, marker.successorDigest);
+  } finally {
+    rmSync(state.root, { recursive: true, force: true });
+  }
+});
+
+test('a coordinated plan writer invalidates a materialization candidate without being overwritten', async () => {
+  const state = fixture();
+  const pair = candidatePair(state);
+  let child;
+  let childExit;
+  let coordinatedPlanContent;
+  try {
+    await withScopeTransactionLock(
+      state.root,
+      'plan-state',
+      ['atomic-skills', 'e2e-lifecycle'],
+      async () => {
+        const source = `
+          const { materializeState } = await import(${JSON.stringify(MATERIALIZE_URL)});
+          console.log('ready');
+          const result = materializeState(${JSON.stringify({
+            root: state.root,
+            planPath: state.plan.relativePath,
+            initiativePath: state.initiativePath,
+            ...pair,
+            txId: 'tx-plan-lock',
+          })});
+          console.log(JSON.stringify(result));
+        `;
+        child = spawn(process.execPath, ['--input-type=module', '-e', source], {
+          cwd: process.cwd(),
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (chunk) => { stdout += chunk; });
+        child.stderr.on('data', (chunk) => { stderr += chunk; });
+        childExit = new Promise((resolveExit) => {
+          child.once('exit', (code, signal) => resolveExit({ code, signal, stdout, stderr }));
+        });
+        await new Promise((resolveReady, rejectReady) => {
+          const timeout = setTimeout(
+            () => rejectReady(new Error('materialization child did not become ready')),
+            2_000,
+          );
+          child.stdout.on('data', (chunk) => {
+            if (!String(chunk).includes('ready')) return;
+            clearTimeout(timeout);
+            resolveReady();
+          });
+        });
+        const outcome = await Promise.race([
+          childExit.then(() => 'published'),
+          new Promise((resolveWait) => setTimeout(() => resolveWait('lock-held'), 1_000)),
+        ]);
+        assert.equal(outcome, 'lock-held', 'materializer crossed an active plan-state lock');
+        assert.equal(existsSync(join(state.root, state.initiativePath)), false);
+        assert.equal(readFileSync(state.planAbs, 'utf8'), state.plan.content);
+        const coordinatedPlan = parseFrontmatter(state.plan.content);
+        coordinatedPlan.frontmatter.lastUpdated = '2026-07-01T09:30:00.000Z';
+        coordinatedPlanContent = renderFrontmatter(
+          coordinatedPlan.frontmatter,
+          coordinatedPlan.body,
+        );
+        writeFileSync(state.planAbs, coordinatedPlanContent, 'utf8');
+      },
+    );
+    const result = await childExit;
+    assert.notEqual(result.code, 0, result.stderr);
+    assert.match(result.stderr, /stale plan candidate/i);
+    assert.equal(existsSync(join(state.root, state.initiativePath)), false);
+    assert.equal(readFileSync(state.planAbs, 'utf8'), coordinatedPlanContent);
+  } finally {
+    if (child && child.exitCode == null) child.kill('SIGKILL');
     rmSync(state.root, { recursive: true, force: true });
   }
 });
@@ -666,8 +830,9 @@ test('RED: process identity is stable across contender locale and timezone', {
         root: state.root,
         planPath: state.plan.relativePath,
         initiativePath: state.initiativePath,
+        planLockOptions: { maxAttempts: 2, retryMs: 0 },
       }),
-      /materialization lock is held by a live process/,
+      /transaction lock timed out/,
     );
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');

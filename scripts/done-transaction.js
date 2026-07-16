@@ -287,8 +287,10 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
   ]) {
     if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
   }
-  const scope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
-  return withScopeTransactionLock(input.root, 'phase-state', scope, async () => {
+  const phaseScope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
+  const planScope = ['projectId', 'planSlug'].map((field) => input.close[field]);
+  return withScopeTransactionLock(input.root, 'plan-state', planScope, async () => (
+    withScopeTransactionLock(input.root, 'phase-state', phaseScope, async () => {
     const initiative = await effects.loadInitiative({
       root: input.root,
       projectId: input.close.projectId,
@@ -491,5 +493,6 @@ export async function executeDoneTransaction(input = {}, effects = {}) {
     }
     clearDoneRecovery(input.root, idempotencyKey);
     return { ok: true, reused, idempotencyKey, bundle, completion, checkpoint };
-  });
+    })
+  ));
 }

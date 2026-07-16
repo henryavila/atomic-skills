@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,11 +18,32 @@ import {
   phaseDoneRecoveryPath,
   readPhaseDoneRecovery,
 } from '../scripts/phase-done-transaction.js';
+import { successorPublicationEvidence } from '../scripts/successor-manifest.js';
 
 const SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const REVIEW_FILE = '.atomic-skills/reviews/demo-f4.md';
 const LOG = (root) => join(root, '.atomic-skills', 'analytics', 'completions.jsonl');
 const firstGenerationKey = (close) => buildPhaseDoneIdempotencyKey({ ...close, generation: 1 });
+
+function successorFixture(root) {
+  const planContent = 'published successor plan\n';
+  const initiativeContent = 'published successor initiative\n';
+  const successor = {
+    phaseId: 'F3',
+    planPath: 'plan.md',
+    initiativePath: 'phases/f3.md',
+    planHash: createHash('sha256').update(planContent).digest('hex'),
+    initiativeHash: createHash('sha256').update(initiativeContent).digest('hex'),
+  };
+  return {
+    successor,
+    publish() {
+      mkdirSync(join(root, 'phases'), { recursive: true });
+      writeFileSync(join(root, successor.planPath), planContent, 'utf8');
+      writeFileSync(join(root, successor.initiativePath), initiativeContent, 'utf8');
+    },
+  };
+}
 
 function base(overrides = {}) {
   const exitGates = [{
@@ -684,11 +708,9 @@ test('committed recovery fails closed when findCommit cannot authenticate the st
 test('successor failure resumes after the durable event without recommit or re-emit', async () => {
   const root = mkdtempSync(join(tmpdir(), 'as-phase-done-tx-'));
   try {
+    const publication = successorFixture(root);
     const input = transactionInput(root, {
-      successor: {
-        phaseId: 'F3', planPath: 'plan.md', initiativePath: 'phases/f3.md',
-        planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
-      },
+      successor: publication.successor,
     });
     const idempotencyKey = firstGenerationKey(input.close);
     let commitCalls = 0;
@@ -707,6 +729,8 @@ test('successor failure resumes after the durable event without recommit or re-e
       materializeSuccessor: async () => {
         materializeCalls += 1;
         if (materializeCalls === 1) throw new Error('injected successor failure');
+        publication.publish();
+        return { publication: successorPublicationEvidence(input.successor) };
       },
       assertClean: async () => true,
     };
@@ -723,6 +747,68 @@ test('successor failure resumes after the durable event without recommit or re-e
     assert.equal(emitCalls, 1);
     assert.equal(materializeCalls, 2);
     assert.equal(readPhaseDoneRecovery(root, idempotencyKey), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('successor publication without authenticated evidence retains the emitted recovery marker', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-successor-evidence-'));
+  try {
+    const successor = {
+      phaseId: 'F3', planPath: 'plan.md', initiativePath: 'phases/f3.md',
+      planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
+    };
+    const request = transactionInput(root, { successor });
+    const idempotencyKey = firstGenerationKey(request.close);
+    let storedCommit;
+    await assert.rejects(
+      executePhaseDoneTransaction(request, {
+        loadState: loadStateFor(request),
+        findCommit: async () => storedCommit,
+        commit: async () => {
+          storedCommit = { closeSha: SHA };
+          return storedCommit;
+        },
+        emit: async () => {},
+        materializeSuccessor: async () => undefined,
+        assertClean: async () => true,
+      }),
+      /authenticated successor publication evidence/i,
+    );
+    assert.equal(readPhaseDoneRecovery(root, idempotencyKey).stage, 'emitted');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('exact-shape forged successor evidence without live publication retains the emitted marker', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-successor-forged-'));
+  try {
+    const successor = {
+      phaseId: 'F3', planPath: 'plan.md', initiativePath: 'phases/f3.md',
+      planHash: 'b'.repeat(64), initiativeHash: 'c'.repeat(64),
+    };
+    const request = transactionInput(root, { successor });
+    const idempotencyKey = firstGenerationKey(request.close);
+    let storedCommit;
+    await assert.rejects(
+      executePhaseDoneTransaction(request, {
+        loadState: loadStateFor(request),
+        findCommit: async () => storedCommit,
+        commit: async () => {
+          storedCommit = { closeSha: SHA };
+          return storedCommit;
+        },
+        emit: async () => {},
+        materializeSuccessor: async () => ({
+          publication: successorPublicationEvidence(successor),
+        }),
+        assertClean: async () => true,
+      }),
+      /authenticated successor publication evidence/i,
+    );
+    assert.equal(readPhaseDoneRecovery(root, idempotencyKey).stage, 'emitted');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -997,6 +1083,54 @@ test('concurrent phase closes serialize on phase identity instead of closedAt', 
     ]);
     assert.equal(commitCalls, 1);
     assert.equal(results.filter((result) => result.reused === true).length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('different phase scopes in one parallel plan serialize on the shared plan identity', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-phase-done-plan-race-'));
+  try {
+    const first = transactionInput(root);
+    const second = structuredClone(first);
+    second.close = { ...second.close, phaseId: 'F5', closedAt: '2026-07-14T20:00:01Z' };
+    second.phase = { ...second.phase, id: 'F5', slug: 'demo-f5' };
+    second.initiative = {
+      ...second.initiative,
+      slug: 'demo-f5',
+      phaseId: 'F5',
+    };
+    const parallelPlan = {
+      ...first.plan,
+      parallelismAllowed: true,
+      phases: [structuredClone(first.phase), structuredClone(second.phase)],
+    };
+    first.plan = structuredClone(parallelPlan);
+    second.plan = structuredClone(parallelPlan);
+
+    let activeLoads = 0;
+    let maximumConcurrentLoads = 0;
+    const effects = {
+      loadState: async ({ candidate }) => {
+        activeLoads += 1;
+        maximumConcurrentLoads = Math.max(maximumConcurrentLoads, activeLoads);
+        await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+        activeLoads -= 1;
+        return structuredClone(candidate);
+      },
+      findCommit: async () => undefined,
+      commit: async (request) => ({
+        closeSha: request.close.phaseId === 'F4' ? 'b'.repeat(40) : 'c'.repeat(40),
+      }),
+      emit: async () => {},
+      assertClean: async () => true,
+    };
+    const results = await Promise.all([
+      executePhaseDoneTransaction(first, effects),
+      executePhaseDoneTransaction(second, effects),
+    ]);
+    assert.equal(results.every((result) => result.ok), true);
+    assert.equal(maximumConcurrentLoads, 1, 'different phase locks exposed concurrent plan snapshots');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

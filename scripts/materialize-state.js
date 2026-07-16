@@ -30,6 +30,12 @@ import {
 } from './append-completion.js';
 import { buildPhaseDoneIdempotencyKey } from './phase-done-transaction.js';
 import { parseFrontmatter, validateFile } from './validate-state.js';
+import { withScopeTransactionLockSync } from './transaction-lock.js';
+import {
+  normalizeSuccessorManifest,
+  successorManifestDigest,
+  successorPublicationEvidence,
+} from './successor-manifest.js';
 import { reviewArtifactTip } from '../src/review-receipt.js';
 import { parseCompletionEventLogEntries } from '../src/completion-event-validator.js';
 
@@ -106,6 +112,71 @@ function validateMaterializationTopology(planRel, initiativeRel) {
   if (!basename(initiativeRel).endsWith('.md')) {
     throw new Error('initiativePath must identify a Markdown file');
   }
+}
+
+function planStateScope(planRel) {
+  const parts = planRel.split(sep).filter(Boolean);
+  if (parts.length === 5
+      && parts[0] === '.atomic-skills'
+      && parts[1] === 'projects'
+      && parts[4] === 'plan.md') {
+    return [parts[2], parts[3]];
+  }
+  const planDirectory = dirname(planRel);
+  return ['__legacy', planDirectory === '.' ? '__root-plan' : planDirectory];
+}
+
+function bindSuccessorManifest({
+  root,
+  successor,
+  planRel,
+  initiativeRel,
+  planContent,
+  initiativeContent,
+}) {
+  const bound = normalizeSuccessorManifest(successor, { nullable: false });
+  const successorPlanRel = safeRelativePath(root, bound.planPath, 'successor manifest planPath');
+  const successorInitiativeRel = safeRelativePath(
+    root,
+    bound.initiativePath,
+    'successor manifest initiativePath',
+  );
+  if (successorPlanRel !== planRel) {
+    throw new Error('successor manifest planPath does not match the canonical materialization path');
+  }
+  if (successorInitiativeRel !== initiativeRel) {
+    throw new Error('successor manifest initiativePath does not match the canonical materialization path');
+  }
+  if (bound.planHash !== hashBytes(planContent)) {
+    throw new Error('successor manifest planHash does not match the exact plan candidate bytes');
+  }
+  if (bound.initiativeHash !== hashBytes(initiativeContent)) {
+    throw new Error('successor manifest initiativeHash does not match the exact initiative candidate bytes');
+  }
+  const plan = parseFrontmatter(planContent);
+  const initiative = parseFrontmatter(initiativeContent);
+  if (plan.error || initiative.error) {
+    throw new Error('successor manifest candidates must contain valid frontmatter');
+  }
+  const scope = planStateScope(planRel);
+  if (scope[0] !== '__legacy' && plan.frontmatter.slug !== scope[1]) {
+    throw new Error('successor manifest plan identity does not match its canonical path');
+  }
+  if (initiative.frontmatter.parentPlan !== plan.frontmatter.slug
+      || initiative.frontmatter.phaseId !== bound.phaseId
+      || !plan.frontmatter.phases?.some((phase) => phase.id === bound.phaseId)) {
+    throw new Error('successor manifest phase identity does not match the candidate pair');
+  }
+  return bound;
+}
+
+function completeResult(marker, result) {
+  return {
+    ...result,
+    ...(marker.successor ? {
+      publication: successorPublicationEvidence(marker.successor, { txId: marker.txId }),
+    } : {}),
+  };
 }
 
 function transactionPaths(planRel, initiativeRel, txId) {
@@ -587,6 +658,19 @@ function readMarker(markerPath, root, planRel, initiativeRel) {
       throw new Error('pending materialization marker has invalid successor authorization');
     }
   }
+  if (marker.successor != null) {
+    let successor;
+    try {
+      successor = normalizeSuccessorManifest(marker.successor, { nullable: false });
+    } catch (error) {
+      throw new Error(`pending materialization marker has invalid successor manifest: ${error.message}`);
+    }
+    if (marker.successorDigest !== successorManifestDigest(successor)) {
+      throw new Error('pending materialization marker has invalid successor manifest digest');
+    }
+  } else if (marker.successorDigest != null) {
+    throw new Error('pending materialization marker has a successor digest without a manifest');
+  }
 
   const expected = transactionPaths(planRel, initiativeRel, marker.txId);
   const expectedPaths = {
@@ -691,7 +775,7 @@ function recover(root, markerPath, marker, faultAt, {
         throw new Error('completed materialization pair changed before cleanup; retaining marker');
       }
       cleanup(root, markerPath, marker);
-      return { status: 'complete', txId: marker.txId, recovered: true };
+      return completeResult(marker, { status: 'complete', txId: marker.txId, recovered: true });
     };
     if (marker.authorization) {
       return withCompletionLedgerLock(root, () => {
@@ -746,7 +830,7 @@ function recover(root, markerPath, marker, faultAt, {
         throw new Error('published materialization pair changed before finalize; retaining marker');
       }
       cleanup(root, markerPath, marker);
-      return { status: 'complete', txId: marker.txId, recovered: true };
+      return completeResult(marker, { status: 'complete', txId: marker.txId, recovered: true });
     };
     if (marker.authorization) {
       return withCompletionLedgerLock(root, () => {
@@ -823,6 +907,9 @@ export function materializeState({
   initiativeCandidatePath,
   expectedPlanHash,
   prerequisiteCloseSha,
+  successor,
+  planLockCapability,
+  planLockOptions,
   txId = randomUUID(),
   faultAt = null,
 } = {}) {
@@ -844,14 +931,24 @@ export function materializeState({
   const guardPath = `${lockPath}.guard`;
   const guardRel = relative(absoluteRoot, guardPath);
   assertNoSymlinkComponents(absoluteRoot, guardRel, 'materialization lock guard');
-  const lockToken = acquireMaterializationLock(lockPath, faultAt);
-  try {
+  const requestedSuccessor = normalizeSuccessorManifest(successor);
+  return withScopeTransactionLockSync(
+    absoluteRoot,
+    'plan-state',
+    planStateScope(planRel),
+    () => {
+      const lockToken = acquireMaterializationLock(lockPath, faultAt);
+      try {
     // Recovery is deliberately first and does not depend on caller-owned
     // candidate files, which may be gone after an interrupted invocation.
     if (existsSync(markerPath)) {
       const marker = readMarker(markerPath, absoluteRoot, planRel, initiativeRel);
       if (marker.paths.plan !== planRel || marker.paths.initiative !== initiativeRel) {
         throw new Error('pending materialization marker targets different live paths; refusing writes');
+      }
+      if (requestedSuccessor !== null
+          && !isDeepStrictEqual(marker.successor ?? null, requestedSuccessor)) {
+        throw new Error('successor manifest conflicts with the pending materialization marker');
       }
       const authorization = revalidateMarkerAuthorization(absoluteRoot, planRel, marker);
       return recover(absoluteRoot, markerPath, marker, faultAt, {
@@ -868,6 +965,14 @@ export function materializeState({
       : (initiativeCandidatePath
         ? readFileSync(resolve(absoluteRoot, initiativeCandidatePath), 'utf8')
         : undefined);
+    const boundSuccessor = requestedSuccessor === null ? null : bindSuccessorManifest({
+      root: absoluteRoot,
+      successor: requestedSuccessor,
+      planRel,
+      initiativeRel,
+      planContent: candidatePlanContent,
+      initiativeContent: candidateInitiativeContent,
+    });
 
     let successorAuthorization = null;
     if (typeof candidateInitiativeContent === 'string') {
@@ -916,7 +1021,10 @@ export function materializeState({
           && typeof candidateInitiativeContent === 'string'
           && hashFile(planLive) === hashBytes(candidatePlanContent)
           && hashFile(initiativeLive) === hashBytes(candidateInitiativeContent)) {
-        return { status: 'complete', txId: null, recovered: false, idempotent: true };
+        return completeResult(
+          { successor: boundSuccessor, txId: null },
+          { status: 'complete', txId: null, recovered: false, idempotent: true },
+        );
       }
       throw new Error('initiative already exists');
     }
@@ -976,6 +1084,10 @@ export function materializeState({
           plan: { before: expectedPlanHash, after: hashBytes(candidatePlanContent) },
           initiative: { before: null, after: hashBytes(candidateInitiativeContent) },
         },
+        ...(boundSuccessor ? {
+          successor: boundSuccessor,
+          successorDigest: successorManifestDigest(boundSuccessor),
+        } : {}),
         ...(successorAuthorization ? { authorization: successorAuthorization } : {}),
       };
       durableWrite(markerPath, `${JSON.stringify(marker, null, 2)}\n`, 'wx');
@@ -984,9 +1096,12 @@ export function materializeState({
       if (!existsSync(markerPath) && ownsTxDir) rmSync(txDir, { recursive: true, force: true });
       throw error;
     }
-  } finally {
-    releaseMaterializationLock(lockPath, lockToken);
-  }
+      } finally {
+        releaseMaterializationLock(lockPath, lockToken);
+      }
+    },
+    { ...planLockOptions, capability: planLockCapability },
+  );
 }
 
 function canonicalize(value) {

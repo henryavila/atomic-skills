@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import {
   scopeTransactionLockPath,
   withScopeTransactionLock,
+  withScopeTransactionLockSync,
 } from '../scripts/transaction-lock.js';
 
 test('a scope lock publishes one complete owner record as one atomic regular file', async () => {
@@ -26,6 +27,46 @@ test('a scope lock publishes one complete owner record as one atomic regular fil
       assert.equal(owner.pid, process.pid);
       assert.match(owner.token, /^[0-9a-f-]+$/i);
     });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an explicit active capability permits only the exact nested lock scope', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-transaction-lock-capability-'));
+  const scope = ['proj', 'plan'];
+  let expiredCapability;
+  try {
+    await withScopeTransactionLock(root, 'plan-state', scope, async (capability) => {
+      expiredCapability = capability;
+      assert.equal(withScopeTransactionLockSync(
+        root,
+        'plan-state',
+        scope,
+        () => 'nested',
+        { capability },
+      ), 'nested');
+      assert.throws(
+        () => withScopeTransactionLockSync(
+          root,
+          'plan-state',
+          ['proj', 'other-plan'],
+          () => assert.fail('wrong-scope capability must not enter'),
+          { capability },
+        ),
+        /capability.*scope|scope.*capability/i,
+      );
+    });
+    assert.throws(
+      () => withScopeTransactionLockSync(
+        root,
+        'plan-state',
+        scope,
+        () => assert.fail('expired capability must not enter'),
+        { capability: expiredCapability },
+      ),
+      /capability.*active|active.*capability/i,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

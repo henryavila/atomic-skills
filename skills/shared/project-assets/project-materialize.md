@@ -201,7 +201,9 @@ Reject the block when any required field is blank or still contains
    root (one command, no sequential live writes):
    `{{BASH_TOOL}} node "$PKG_ROOT/scripts/materialize-state.js" --root . --plan .atomic-skills/projects/<project-id>/<plan-slug>/plan.md --initiative .atomic-skills/projects/<project-id>/<plan-slug>/phases/<resolved-phase-file>.md --plan-candidate <temporary-plan-candidate> --initiative-candidate <temporary-initiative-candidate> --expected-plan-hash <sha256-of-live-plan> --prerequisite-close-sha <full-close-commit-when-configured> --tx-id <unique-tx-id>`.
    The script copies both candidates into same-filesystem staging, validates the
-   staged pair before any live mutation, persists and fsyncs its immutable
+   staged pair before any live mutation, acquires the canonical
+   `plan-state(project-id/plan-slug)` lock before its per-plan materialization
+   lock, persists and fsyncs its immutable
    recovery marker, then renames the initiative first and the plan last. A
    retry invokes the same command shape; marker recovery runs before the
    existing-initiative guard. The detector runs after the command returns
@@ -210,6 +212,12 @@ Reject the block when any required field is blank or still contains
    successor barrier; supplying a reviewed commit instead of the prerequisite's
    actual close commit fails because that commit must already contain the
    prerequisite as `done` or `archived`.
+   Internal phase-close callers additionally pass the coordinator-owned
+   `successor` manifest and explicit `planLockCapability` to `materializeState`.
+   The authority binds both canonical paths, the target phase/plan identity and
+   the SHA-256 of both exact candidate byte streams, persists that binding in
+   the marker, and returns `publication` evidence. The phase coordinator must
+   authenticate that evidence before clearing its own recovery marker.
 8. Run the detectors with `{{BASH_TOOL}}`. They are verification-only after
    publication; no task field or `nextAction` is written here:
    `node "$PKG_ROOT/scripts/find-missing-business-intent.js" .atomic-skills/projects/<project-id>/<plan-slug>/plan.md`.

@@ -249,22 +249,30 @@ function withMigrationLock(root, operation, { faultAt } = {}) {
   }
 }
 
-function withStateScopeLocks(repositoryRoot, scopes, operation, index = 0) {
+function withTransactionScopeLocks(repositoryRoot, kind, scopes, operation, index = 0) {
   if (index >= scopes.length) return operation();
   return withScopeTransactionLockSync(
     repositoryRoot,
-    'phase-state',
+    kind,
     scopes[index],
-    () => withStateScopeLocks(repositoryRoot, scopes, operation, index + 1),
+    () => withTransactionScopeLocks(repositoryRoot, kind, scopes, operation, index + 1),
   );
 }
 
-function canonicalStateScopes(scopes) {
+function withStateScopeLocks(repositoryRoot, scopes, operation) {
+  const planScopes = canonicalStateScopes(scopes.map((scope) => scope.slice(0, 2)), 2);
+  return withTransactionScopeLocks(repositoryRoot, 'plan-state', planScopes, () => (
+    withTransactionScopeLocks(repositoryRoot, 'phase-state', scopes, operation)
+  ));
+}
+
+function canonicalStateScopes(scopes, size = 3) {
   const unique = new Map();
   for (const scope of scopes) {
-    if (!Array.isArray(scope) || scope.length !== 3
+    if (!Array.isArray(scope) || scope.length !== size
         || scope.some((part) => typeof part !== 'string' || part.length === 0)) {
-      throw new TypeError('migration stateScopes must contain projectId/planSlug/phaseId tuples');
+      const label = size === 2 ? 'projectId/planSlug' : 'projectId/planSlug/phaseId';
+      throw new TypeError(`migration stateScopes must contain ${label} tuples`);
     }
     unique.set(JSON.stringify(scope), [...scope]);
   }

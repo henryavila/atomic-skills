@@ -18,6 +18,7 @@ const LOCK_RETRIES = 400;
 const LOCK_RETRY_MS = 25;
 const OWNER_GRACE_MS = 1_000;
 const LOCK_WAIT = new Int32Array(new SharedArrayBuffer(4));
+const ACTIVE_LOCK_CAPABILITIES = new WeakSet();
 
 function hasText(value) {
   return typeof value === 'string' && value.length > 0;
@@ -136,26 +137,58 @@ function releaseScopeTransactionLock(lock) {
   }, { label: 'transaction lock guard' });
 }
 
+function assertActiveCapability(root, kind, scope, capability) {
+  if (!capability || typeof capability !== 'object'
+      || !ACTIVE_LOCK_CAPABILITIES.has(capability)) {
+    throw new Error('transaction lock capability is not active');
+  }
+  const expectedPath = scopeTransactionLockPath(root, kind, scope);
+  if (capability.lockPath !== expectedPath) {
+    throw new Error('transaction lock capability does not authorize this scope');
+  }
+  const owner = readOwner(capability.lockPath);
+  if (owner?.token !== capability.token) {
+    throw new Error('transaction lock capability is no longer owned by this process');
+  }
+  return capability;
+}
+
 export async function withScopeTransactionLock(root, kind, scope, operation, options = {}) {
   if (typeof operation !== 'function') throw new TypeError('transaction lock operation is required');
+  if (options.capability !== undefined) {
+    const capability = assertActiveCapability(root, kind, scope, options.capability);
+    return operation(capability);
+  }
   const lock = await acquireScopeTransactionLock(root, kind, scope, options);
+  ACTIVE_LOCK_CAPABILITIES.add(lock);
   try {
-    return await operation();
+    return await operation(lock);
   } finally {
+    ACTIVE_LOCK_CAPABILITIES.delete(lock);
     releaseScopeTransactionLock(lock);
   }
 }
 
 export function withScopeTransactionLockSync(root, kind, scope, operation, options = {}) {
   if (typeof operation !== 'function') throw new TypeError('transaction lock operation is required');
+  if (options.capability !== undefined) {
+    const capability = assertActiveCapability(root, kind, scope, options.capability);
+    const nestedResult = operation(capability);
+    if (nestedResult && typeof nestedResult.then === 'function') {
+      throw new TypeError('synchronous transaction lock operation must not return a promise');
+    }
+    return nestedResult;
+  }
   const lock = acquireScopeTransactionLockSync(root, kind, scope, options);
+  ACTIVE_LOCK_CAPABILITIES.add(lock);
   try {
-    const result = operation();
+    const result = operation(lock);
     if (result && typeof result.then === 'function') {
       throw new TypeError('synchronous transaction lock operation must not return a promise');
     }
     return result;
   } finally {
+    ACTIVE_LOCK_CAPABILITIES.delete(lock);
     releaseScopeTransactionLock(lock);
   }
 }

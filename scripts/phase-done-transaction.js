@@ -23,6 +23,10 @@ import { withScopeTransactionLock } from './transaction-lock.js';
 import { assertPhaseTaskClosesComplete } from './done-transaction.js';
 import { durableReplace, durableUnlink } from '../src/durable-file.js';
 import { confinedRepositoryFile } from '../src/confined-path.js';
+import {
+  assertSuccessorPublicationEvidence,
+  normalizeSuccessorManifest,
+} from './successor-manifest.js';
 
 const REQUIRED_CLOSE_FIELDS = ['projectId', 'planSlug', 'phaseId', 'closedAt'];
 const STAGES = new Set(['prepared', 'committed', 'emitted', 'successor-materialized']);
@@ -113,20 +117,7 @@ function authenticateTerminalCompletion(root, close) {
 }
 
 function normalizedSuccessor(input) {
-  if (input?.successor == null) return null;
-  const successor = input.successor;
-  if (!successor || typeof successor !== 'object' || Array.isArray(successor)) {
-    throw new TypeError('successor manifest must be an object');
-  }
-  for (const field of ['phaseId', 'planPath', 'initiativePath']) {
-    requireText(successor, field, 'successor');
-  }
-  for (const field of ['planHash', 'initiativeHash']) {
-    if (typeof successor[field] !== 'string' || !/^[0-9a-f]{64}$/.test(successor[field])) {
-      throw new TypeError(`successor.${field} must be a lowercase sha256 digest`);
-    }
-  }
-  return structuredClone(successor);
+  return normalizeSuccessorManifest(input?.successor);
 }
 
 export function buildPhaseDoneIdempotencyKey(close = {}) {
@@ -348,8 +339,10 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
   for (const name of ['findCommit', 'commit', 'emit', 'assertClean', 'loadState']) {
     if (typeof effects[name] !== 'function') throw new TypeError(`effects.${name} is required`);
   }
-  const scope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
-  return withScopeTransactionLock(input.root, 'phase-state', scope, async () => {
+  const phaseScope = ['projectId', 'planSlug', 'phaseId'].map((field) => input.close[field]);
+  const planScope = ['projectId', 'planSlug'].map((field) => input.close[field]);
+  return withScopeTransactionLock(input.root, 'plan-state', planScope, async (planLockCapability) => (
+    withScopeTransactionLock(input.root, 'phase-state', phaseScope, async () => {
     const requestedMarker = readPhaseDoneRecovery(input.root, requestedKey);
     const scopeMarker = findPhaseDoneRecoveryByScope(input.root, input.close);
     let marker = requestedMarker ?? scopeMarker;
@@ -594,7 +587,13 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
     }
 
     if (marker.stage === 'emitted' && marker.successor !== null) {
-      await effects.materializeSuccessor(transactionInput, value, marker);
+      const publication = await effects.materializeSuccessor(
+        transactionInput,
+        value,
+        marker,
+        { planLockCapability },
+      );
+      assertSuccessorPublicationEvidence(publication, marker.successor, { root: input.root });
       marker = { ...marker, stage: 'successor-materialized' };
       writePhaseDoneRecovery(commitInput.root, marker);
     }
@@ -618,5 +617,6 @@ export async function executePhaseDoneTransaction(input = {}, effects = {}) {
       closeSha: value.closeSha,
       value,
     };
-  });
+    })
+  ));
 }

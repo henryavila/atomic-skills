@@ -10,8 +10,8 @@ status: active
 branch: plan/integrity-remediation
 started: 2026-07-14T19:36:31Z
 startedCommit: 67bd6e4a9d63b748321e51565e570514290a81a1
-lastUpdated: 2026-07-15T08:05:13-03:00
-nextAction: Commit the r13 remediation checkpoint, then run the fresh Codex r14 phase review.
+lastUpdated: 2026-07-16T07:02:38-03:00
+nextAction: Commit the r14 remediation checkpoint, then run the fresh Codex r15 phase review.
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -724,30 +724,39 @@ Initiative for phase **F4 — Autoridade de estado e transições recuperáveis*
   acrescentou a obrigação de evento exato também para task terminal gerada. O
   receipt r13 permanece `reject` como veredito selado e registra a remediação;
   somente r14 fresco no novo checkpoint pode aprovar F4.
+- **2026-07-16 — review Codex F4 r14:** os dois criticals informados foram
+  reproduzidos e corrigidos sem defer. Task close, phase close, migration e
+  materialização agora compartilham lock por plano com ordem explícita e
+  capability inforjável para o uso aninhado; fases paralelas não leem snapshots
+  concorrentes e um writer coordenado não é sobrescrito pelo materializador.
+  O manifesto sucessor fica ligado aos paths canônicos, identidade e hashes dos
+  bytes candidatos, persiste no marker e gera evidence autenticada contra os
+  arquivos vivos antes do coordinator avançar. No-op e evidence forjada sem
+  publicação preservam recovery. O receipt
+  r14 permanece `needs_changes` como veredito selado e registra a remediação;
+  somente r15 fresco no novo checkpoint pode aprovar F4.
 
 ## Session handoff
 
 - **Narrative:** F4 concluiu T-001..T-008 e remediou todos os findings válidos
-  dos reviews r1..r13, além dos hardenings proativos e correções de integração.
-  No r13, 1 critical e 5 majors foram aceitos e corrigidos sob regressões
-  vermelhas. Completeness de task close, peso autoritativo, gerações de phase,
-  successor history e parsing schema/semântico agora fecham as novas lacunas.
-  Falta o review Codex r14 do checkpoint remediado.
-- **Decision log:** nenhum finding válido r1..r13 foi deferido. Marker de task
-  ausente autentica conclusão apenas porque o coordinator o remove depois de
-  evento e checkpoint duráveis; toda task terminal também precisa do evento de
-  sua geração. Reuse e history usam a geração espelhada, e peso é propriedade
-  do estado da task. Identidades vazias e timestamps impossíveis falham em
-  todas as fronteiras. O smoke do servidor AIDeck já aberto é ambiental e não
-  bloqueia o checkpoint local; loader, schema e estado canônico passaram.
-- **Single nextAction:** Commit the r13 remediation checkpoint, then run the fresh Codex r14 phase review.
-- **Verbatim state:** review r13 → blind 0B/1C/4M/0m e informed 0B/1C/5M/0m;
-  6 findings aceitos e corrigidos; focused 125/125; exact gates → 42/42 + 69/69
-  + 78/78 pass; full repository suite → 1,980 pass, 0 fail, 8 skip; canonical
+  dos reviews r1..r14, além dos hardenings proativos e correções de integração.
+  No r14, 2 criticals foram aceitos e corrigidos sob regressões vermelhas. Lock
+  por plano e provenance do manifesto sucessor fecham as novas lacunas. Falta o
+  review Codex r15 do checkpoint remediado.
+- **Decision log:** nenhum finding válido r1..r14 foi deferido. A ordem comum é
+  plan-state → phase-state → materialização/completion; reentrada existe apenas
+  por capability explícita, ativa e de escopo exato. O manifesto sucessor é
+  autoridade somente quando paths, identidade e hashes dos bytes candidatos
+  coincidem e o coordinator autentica a publication evidence. O servidor
+  AIDeck existente não foi reiniciado; loader, schema e estado canônico passaram.
+- **Single nextAction:** Commit the r14 remediation checkpoint, then run the fresh Codex r15 phase review.
+- **Verbatim state:** review r14 → blind 0B/2C/1M/0m e informed 0B/2C/0M/0m;
+  2 findings aceitos e corrigidos; focused 85/85; exact gates → 42/42 + 72/72 +
+  78/78 pass; full repository suite → 1,987 pass, 0 fail, 8 skip; canonical
   AIDeck state → 26 planos válidos; receipt F0 plan-bound → `ok: true` e
   `consistent`.
-- **Uncommitted changes:** remediação r13, testes, schema, receipt e decisões F4
-  estão prontos para checkpoint e review Codex r14.
+- **Uncommitted changes:** remediação r14, testes, docs, receipt e decisões F4
+  estão prontos para checkpoint e review Codex r15.
 
 ## Links
 
