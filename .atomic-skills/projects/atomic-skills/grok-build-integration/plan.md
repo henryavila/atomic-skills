@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: grok-build-integration
 title: Grok Build native integration + cross-model review
 version: "1.0"
-status: active
+status: done
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T15:10:00.000Z
+lastUpdated: 2026-07-16T15:25:00.000Z
 branch: plan/grok-build-integration
 currentPhase: F5
 parallelismAllowed: false
@@ -434,7 +434,14 @@ phases:
         - id: G-1
           description: external-both merge contract is documented in review-code and
             review-plan (identity, severity conflict, partial failure).
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:25:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:25:00.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "validate-skills + external-both docs greps ok"
           verifier:
             kind: shell
             command: npm run validate-skills && grep -q 'external-both'
@@ -446,7 +453,14 @@ phases:
         - id: G-2
           description: Final regression includes config, install, round-trip, render,
             project suites and validate-skills.
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:25:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:25:00.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "config+install+roundtrip+render+project 161 pass; validate-skills ok"
           verifier:
             kind: shell
             command: node --test tests/config.test.js tests/install.test.js
@@ -456,14 +470,27 @@ phases:
         - id: G-3
           description: external-both merge helper unit tests cover duplicate identity and
             severity conflict.
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:25:00.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:25:00.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "external-both-merge.test 13 pass"
           verifier:
             kind: shell
             command: node --test tests/external-both-merge.test.js
             expectExitCode: 0
-    status: active
+    status: done
+    reviewGate:
+      status: passed
+      at: 912fa67
+      mode: local
+      reviewFile: .atomic-skills/reviews/2026-07-16-1525-grok-build-integration-f5-local.md
+      verifiedAt: 2026-07-16T15:25:00.000Z
 references: []
-planActive: true
+planActive: false
 planTitle: Grok Build native integration + cross-model review
 ---
 
@@ -538,3 +565,6 @@ Grok headless flag ids: unverified: until F2 smoke against installed `grok` CLI.
 - internal: 2026-07-16 — structural OK (6 phases, F0 active with businessIntent + 3 tasks + 3 gates; F1–F5 descriptor-only). Receipt for Stage 8c.
 - codex: 2026-07-16 — `needs_changes` | major:8 | [review file](../../../reviews/2026-07-16-1013-grok-build-integration.md)
 - codex-triage: 2026-07-16 — **all 8 majors applied** to plan gates/principles/body + design D7 non-interactive; source.md + sidecars aligned. No re-run of codex envelope in this triage pass.
+
+- internal: F5 final suites green @ 912fa67 (2026-07-16T15:25:00Z)
+- local: PASSED — F5 external-both merge + final verify — .atomic-skills/reviews/2026-07-16-1525-grok-build-integration-f5-local.md
