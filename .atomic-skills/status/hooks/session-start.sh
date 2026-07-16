@@ -13,7 +13,7 @@
 #     removeEnvFile on shutdown — see aideck/src/server/env-file.ts)
 set -euo pipefail
 
-PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJ_DIR="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
 PROJECTS_DIR="$ASKILLS_DIR/projects"          # nested layout root: projects/<id>/<slug>/
 PLANS_DIR="$ASKILLS_DIR/plans"                # legacy flat layout

@@ -42,16 +42,28 @@ export function resolveAutoUpdateHosts(config = {}) {
 }
 
 /**
+ * POSIX-safe single-quote wrap for embedding a path in a shell command field.
+ * Prevents injection when install roots contain spaces, `$()`, or `;`.
+ * @param {string} value
+ * @returns {string}
+ */
+export function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+/**
  * SessionStart entry shared by Claude settings and the Grok hook file.
  * Claude accepts matcher:'*'; Grok lifecycle events reject matchers — omit
  * matcher when registering on the Grok surface.
+ *
+ * `command` is always a shell-quoted absolute path (hosts execute via shell).
  *
  * @param {string} destAbs absolute path to version-check.sh
  * @param {{ withMatcher?: boolean }} [opts]
  */
 function sessionStartEntry(destAbs, { withMatcher = true } = {}) {
   const entry = {
-    hooks: [{ type: 'command', command: destAbs }],
+    hooks: [{ type: 'command', command: shellQuote(destAbs) }],
   };
   if (withMatcher) entry.matcher = '*';
   return entry;

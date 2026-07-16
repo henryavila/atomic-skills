@@ -221,8 +221,11 @@ function generatePluginJson() {
  * (Grok does) or when only $PWD is available.
  */
 function generatePluginHooksSoft() {
+  // Prefer scripts bundled under the plugin package (always present after install).
+  // Fall back to project-status copy + CLAUDE_PROJECT_DIR for dual-host wrappers.
+  // GROK_PLUGIN_ROOT is set by Grok for plugin-owned hooks.
   const cmd = (script) =>
-    `bash "\${CLAUDE_PROJECT_DIR:-\$PWD}/.atomic-skills/status/hooks/${script}"`;
+    `bash "\${GROK_PLUGIN_ROOT:-\${CLAUDE_PROJECT_DIR:-\$PWD}/.grok/plugins/atomic-skills}/_assets/hooks/${script}"`;
   const envelope = {
     hooks: {
       SessionStart: [

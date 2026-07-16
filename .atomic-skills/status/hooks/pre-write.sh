@@ -25,7 +25,7 @@
 # The threat model is honest mistakes; users disable via SKIP-EMERGENT.
 set -euo pipefail
 
-PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJ_DIR="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
 CONFIG="$ASKILLS_DIR/status/config.json"
 LOG="$ASKILLS_DIR/status/emergent-drift.log"

@@ -61,7 +61,8 @@ For eligible hosts only, option (b): copy `session-start.sh` and `pre-write.sh` 
 
 - Claude Code: `.claude/settings.local.json`
 - Codex: `.codex/hooks.json`
-- Grok Build: `.grok/plugins/atomic-skills/hooks/hooks.json` (Soft already ships with the plugin package on install; re-merge if the file was wiped, and for Strict merge-add `Stop`)
+- Grok Build Soft: plugin package `hooks/hooks.json` (installer-owned Soft envelope under `GROK_PLUGIN_ROOT`; do not hand-edit for Strict)
+- Grok Build Strict: separate merge-only file `.grok/hooks/atomic-skills-strict.json` (Stop only) — never mutate the installer-owned plugin `hooks/hooks.json` for Strict (avoids hash-preserve / uninstall residue)
 
 Use these exact command wrappers under the host config's top-level `hooks` object so the hook still runs when the host does not export `CLAUDE_PROJECT_DIR`.
 

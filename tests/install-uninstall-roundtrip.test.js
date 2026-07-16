@@ -57,8 +57,18 @@ function sessionStartCommands(settingsPath) {
     .filter((command) => typeof command === 'string');
 }
 
+/** Match version-check commands whether shell-quoted or raw paths. */
+function isVersionCheckCommand(command, absPath = null) {
+  if (typeof command !== 'string') return false;
+  const unquoted = command.replace(/^'|'$/g, '').replace(/'\\''/g, "'");
+  if (absPath && (command === absPath || unquoted === absPath || command === `'${absPath}'`)) {
+    return true;
+  }
+  return /version-check\.sh'?$/.test(command) || unquoted.endsWith('version-check.sh');
+}
+
 function countVersionCheckHooks(commands) {
-  return commands.filter((command) => command.endsWith('version-check.sh')).length;
+  return commands.filter((command) => isVersionCheckCommand(command)).length;
 }
 
 describe('install→uninstall round-trip', () => {
@@ -202,11 +212,17 @@ describe('install→uninstall round-trip', () => {
 
         const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
         const claudeCmds = (claude.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
-        assert.ok(claudeCmds.some((h) => h.command === versionCheck));
+        assert.ok(
+          claudeCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
+          'Claude SessionStart must register shell-safe version-check command',
+        );
 
         const grok = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
         const grokCmds = (grok.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
-        assert.ok(grokCmds.some((h) => h.command === versionCheck));
+        assert.ok(
+          grokCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
+          'Grok SessionStart must register shell-safe version-check command',
+        );
 
         await uninstall(projectDir, { scope: 'user', yes: true });
         const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
