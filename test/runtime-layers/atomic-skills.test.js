@@ -13,7 +13,16 @@ import {
   createAutoUpdateRuntimeProvider,
   GROK_AUTO_UPDATE_HOOK_REL,
   resolveAutoUpdateHosts,
+  shellQuote,
 } from '../../src/runtime-layers/auto-update.js';
+
+/** Match version-check commands whether shell-quoted or raw paths. */
+function isVersionCheckCommand(command, absPath) {
+  if (typeof command !== 'string') return false;
+  return command === absPath
+    || command === shellQuote(absPath)
+    || command.replace(/^'|'$/g, '') === absPath;
+}
 
 function withTmp(fn) {
   const dir = mkdtempSync(join(tmpdir(), 'runtime-layers-'));
@@ -258,7 +267,10 @@ test('auto-update runtime layer — jsonMerge SessionStart + executable hook, su
     assert.equal(merged.theme, 'dark', 'unrelated setting preserved');
     const allHooks = merged.hooks.SessionStart.flatMap((e) => e.hooks);
     assert.ok(allHooks.some((h) => h.command === thirdParty.command), 'third-party hook preserved');
-    assert.ok(allHooks.some((h) => h.command === hookPath), 'our hook command added (absolute path)');
+    assert.ok(
+      allHooks.some((h) => isVersionCheckCommand(h.command, hookPath)),
+      'our hook command added (shell-quoted absolute path)',
+    );
 
     installer.uninstall({ projectDir });
 
@@ -293,8 +305,8 @@ test('auto-update runtime layer — grok-only stages Grok hook file, not Claude 
     assert.ok(Array.isArray(starts) && starts.length >= 1, 'SessionStart registered');
     assert.equal(starts[0].matcher, undefined, 'Grok SessionStart must omit matcher');
     assert.ok(
-      starts.flatMap((e) => e.hooks).some((h) => h.command === hookPath),
-      'SessionStart command is absolute version-check path',
+      starts.flatMap((e) => e.hooks).some((h) => isVersionCheckCommand(h.command, hookPath)),
+      'SessionStart command is shell-quoted absolute version-check path',
     );
     // Auto-update only — no Soft/Strict project scripts.
     assert.equal(grokHook.hooks.PreToolUse, undefined, 'must not register PreToolUse');
@@ -329,11 +341,11 @@ test('auto-update runtime layer — claude+grok registers both surfaces', () => 
 
     const claudeHooks = JSON.parse(readFileSync(settingsPath, 'utf8'))
       .hooks.SessionStart.flatMap((e) => e.hooks);
-    assert.ok(claudeHooks.some((h) => h.command === hookPath));
+    assert.ok(claudeHooks.some((h) => isVersionCheckCommand(h.command, hookPath)));
 
     const grokHooks = JSON.parse(readFileSync(grokHookPath, 'utf8'))
       .hooks.SessionStart.flatMap((e) => e.hooks);
-    assert.ok(grokHooks.some((h) => h.command === hookPath));
+    assert.ok(grokHooks.some((h) => isVersionCheckCommand(h.command, hookPath)));
 
     installer.uninstall({ projectDir });
     assert.ok(!existsSync(hookPath));

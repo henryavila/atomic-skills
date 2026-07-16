@@ -4,15 +4,65 @@ How Atomic Skills targets **Grok Build** as a first-class install host (plugin
 package + tool map) and how that relates to the **Codex** tool profile (same
 renderer fix — Codex must not free-ride Claude tool names).
 
-## 1. Install surface (plugin package)
+## 1. Install surface (plugin package + host registry)
 
-Grok is **not** installed under `.grok/skills/atomic-skills/`. The only durable
-skill/asset root is the **plugin package**:
+Grok is **not** installed under `.grok/skills/atomic-skills/` and **never**
+under Codex's `.agents/skills/` tree. Delivery is a **plugin package** outside
+Codex's reach, then registered with the host plugin system so Grok treats it as
+native:
 
-| Scope | Plugin root |
-|-------|-------------|
+| Scope | Plugin root (journal-owned) |
+|-------|-----------------------------|
 | user | `~/.grok/plugins/atomic-skills/` |
 | project | `<repo>/.grok/plugins/atomic-skills/` |
+
+**Why this path:** Codex renders skills into `.agents/skills/` with Codex tool
+names (`shell`, `spawn_agent`). Grok also scans `.agents/` for compat. Putting
+Atomic Skills for Grok only under `.grok/plugins/` keeps a Grok-rendered body
+(`run_terminal_command`, `spawn_subagent`) and avoids the Codex collision.
+
+**Install steps (when `--ide` includes `grok`):**
+
+1. **Journal** — materialise the plugin package (skills, `_assets`, Soft
+   `hooks/hooks.json`, `plugin.json`) under `.grok/plugins/atomic-skills/`.
+2. **Host registry** (outside the journal, fail-open) —
+   `grok plugin install --trust <absPluginRoot>` so `grok plugin list` shows
+   `atomic-skills`. Re-install tries `grok plugin update atomic-skills` when
+   already registered.
+3. **Agents isolation** (outside the journal, user `~/.grok/config.toml`) —
+   add `~/.agents/skills/atomic-skills` to `[skills].ignore` so Grok does
+   **not** list Codex-rendered Atomic Skills (wrong tool names). Surgical:
+   other `ignore` entries and unrelated config keys are preserved.
+
+**Uninstall steps:**
+
+1. `grok plugin uninstall atomic-skills --confirm` (host registry).
+2. Remove the `[skills].ignore` entry **only if** no remaining install
+   (user or project) still lists `grok` in its manifest.
+3. Journal reverse — removes the package tree + auto-update surface.
+
+If the `grok` binary is missing, host registry steps are skipped; the
+filesystem package and agents isolation still install/uninstall cleanly.
+Set `ATOMIC_SKILLS_SKIP_GROK_HOST=1` to force-skip only the host CLI bridge
+(hermetic tests); isolation still runs.
+
+### Multi-IDE: Codex vs Grok (no shared skill body)
+
+| Host | Skill root | Tool map |
+|------|------------|----------|
+| Codex | `.agents/skills/atomic-skills/` | `shell`, `spawn_agent`, … |
+| Grok | `.grok/plugins/atomic-skills/` (+ host plugin) | `run_terminal_command`, `spawn_subagent`, … |
+
+Grok also scans `.agents/` for harness compat — without isolation it would
+surface the Codex tree. The installer therefore writes:
+
+```toml
+# ~/.grok/config.toml  (managed surgically by atomic-skills)
+[skills]
+ignore = ["~/.agents/skills/atomic-skills"]
+```
+
+Codex does **not** scan `.grok/plugins/`; no reverse isolation is required.
 
 Layout:
 
@@ -87,9 +137,17 @@ Never place assets under a recursively scanned skills tree.
 
 ## 6. Plugin inspect / list smoke
 
-After `npx @henryavila/atomic-skills install --ides grok` (project or user
-scope), verify the plugin package is the only skill root and that the manifest
-is complete.
+After `npx @henryavila/atomic-skills install --ide grok` (project or user
+scope), verify the plugin package is the only skill root, the host registry
+lists the plugin (when `grok` is on PATH), and the manifest is complete.
+
+```bash
+# Host registry (after install with grok binary present)
+grok plugin list
+# expect a row for atomic-skills pointing at ~/.grok/plugins/atomic-skills
+#   or <repo>/.grok/plugins/atomic-skills
+grok plugin validate ~/.grok/plugins/atomic-skills   # or project path
+```
 
 **Filesystem contract (always available):**
 

@@ -22,6 +22,11 @@ import {
   promptLanguageSelection, promptModuleConfig, promptInstallScope,
   showPostInstall, showNonInteractiveResult, msg,
 } from './ui.js';
+import {
+  registerGrokPluginHost,
+  wantsGrokPluginHost,
+} from './runtime-layers/grok-plugin-host.js';
+import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
 
 export { resolveProjectScopeTarget } from './scope.js';
 
@@ -399,6 +404,51 @@ export function installSkills(projectDir, options, callbacks = {}) {
   return { files: createdFiles };
 }
 
+/**
+ * After the journal materialises `.grok/plugins/atomic-skills/`:
+ *  1. Register the package with the Grok host plugin system
+ *     (`grok plugin install --trust`) — fail-open.
+ *  2. Hide Codex's `.agents/skills/atomic-skills` from Grok's skill scanner
+ *     (`~/.grok/config.toml` → `[skills].ignore`) so multi-IDE installs do
+ *     not surface Codex-rendered tool names inside Grok.
+ *
+ * @param {string} basePath
+ * @param {string[]} ides
+ * @param {string} [language]
+ */
+export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') {
+  if (!wantsGrokPluginHost(ides)) return;
+  const isPt = language === 'pt';
+
+  const result = registerGrokPluginHost({ basePath, ides });
+  if (result.status === 'registered' || result.status === 'updated' || result.status === 'already') {
+    console.log(
+      `  ${pc.dim(isPt ? 'Grok plugin host: registrado (nativo).' : 'Grok plugin host: registered (native).')}`,
+    );
+  } else if (result.status === 'skipped') {
+    console.log(
+      `  ${pc.dim(isPt ? `Grok plugin host: omitido (${result.detail || 'skip'}).` : `Grok plugin host: skipped (${result.detail || 'skip'}).`)}`,
+    );
+  } else {
+    // failed — package on disk still valid for filesystem discovery
+    console.log(
+      `  ${pc.yellow(isPt ? `Grok plugin host: falhou (${result.detail || 'erro'}); package em .grok/plugins/ permanece.` : `Grok plugin host: failed (${result.detail || 'error'}); .grok/plugins/ package remains.`)}`,
+    );
+  }
+
+  // Isolation always targets user ~/.grok/config.toml (Codex user skills path).
+  const iso = applyGrokAgentsIsolation({ ides });
+  if (iso.status === 'applied') {
+    console.log(
+      `  ${pc.dim(isPt ? 'Grok: isolado de .agents/skills/atomic-skills (Codex).' : 'Grok: isolated from .agents/skills/atomic-skills (Codex).')}`,
+    );
+  } else if (iso.status === 'already') {
+    console.log(
+      `  ${pc.dim(isPt ? 'Grok: isolamento .agents já presente.' : 'Grok: .agents isolation already present.')}`,
+    );
+  }
+}
+
 export function getPackageVersion() {
   const pkg = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
   return pkg.version;
@@ -532,6 +582,9 @@ export async function install(projectDir, options = {}) {
     // user modified survive) and removes unmodified orphans — what the bespoke
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
     const result = installSkills(basePath, { language, ides, modules, skillsDir, metaDir, scope });
+
+    // Host plugin registry (outside journal): native Grok plugin, outside Codex.
+    syncGrokPluginHostAfterInstall(basePath, ides, language);
 
     installRuntimeArtifacts();
     registerInstall(basePath);
@@ -669,6 +722,9 @@ export async function install(projectDir, options = {}) {
   } finally {
     process.removeListener('SIGINT', cleanup);
   }
+
+  // Host plugin registry (outside journal): native Grok plugin, outside Codex.
+  syncGrokPluginHostAfterInstall(basePath, config.ides, config.lang);
 
   // Install aideck bundle + dashboard to ~/.atomic-skills/
   installRuntimeArtifacts();
