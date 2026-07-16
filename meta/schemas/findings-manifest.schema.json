@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atomic-skills.local/schemas/findings-manifest.schema.json",
+  "title": "Integrity remediation findings manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "findings"],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "planSlug": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "sources": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "source",
+          "localId",
+          "ownerTask",
+          "status",
+          "reproducer",
+          "verifier",
+          "candidateSha",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(installer|project-implement|codex-review)/.+$"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["installer", "project-implement", "codex-review"]
+          },
+          "localId": { "type": "string", "minLength": 1 },
+          "title": { "type": "string" },
+          "ownerTask": { "type": "string", "minLength": 1 },
+          "status": {
+            "type": "string",
+            "enum": ["resolved", "mitigated", "accepted", "open"]
+          },
+          "reproducer": { "type": "string", "minLength": 1 },
+          "verifier": {
+            "type": "object",
+            "required": ["command", "passed"],
+            "properties": {
+              "command": { "type": "string" },
+              "passed": { "const": true },
+              "exitCode": { "type": "integer" },
+              "verifiedAt": { "type": "string" }
+            },
+            "additionalProperties": true
+          },
+          "candidateSha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{7,40}$"
+          },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "digest": { "type": "string", "minLength": 8 },
+              "job": { "type": "string" },
+              "url": { "type": "string" },
+              "notes": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}
