@@ -98,7 +98,7 @@ Every skill is built from the same enforcement primitives. This is the full voca
 | 💡 | [`brainstorm`](docs/skills/brainstorm.md) | Diverge, decide, then write a critic-gated design.md before any plan | `NO PLAN WITHOUT AN APPROVED DESIGN.` |
 | 🎨 | [`design-brief`](docs/skills/design-brief.md) | Generate DS + screens prompts for a design agent, contamination-free | `NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.` |
 | 🎭 | [`debate`](docs/skills/debate.md) | Roundtable of independent subagent personas for divergent thinking | `NO SYNTHESIS WITHOUT INDEPENDENT VOICES.` |
-| ⚙️ | [`implement`](docs/skills/implement.md) | Drive decomposed tasks to done, one at a time, verifier-gated | `CODING STAYS SINGLE-THREADED.` |
+| ⚙️ | [`implement`](docs/skills/implement.md) | Drive decomposed tasks to done, one at a time, verifier-gated | `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).` |
 | ✅ | [`verify-claim`](docs/skills/verify-claim.md) | No success claim without fresh verification — run it, cite it | `NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.` |
 | 🧠 | [`init-memory`](docs/skills/init-memory.md) | Consolidate scattered memory into .ai/memory/ and wire it to the IDE | `NO DELETION WITHOUT CONFIRMED BACKUP.` |
 [SKILLS_TABLE_END]: #
@@ -276,7 +276,7 @@ Ask one model for "the architect''s view and the QA view" and both collapse towa
 
 ### ⚙️ `implement` — Mode 1 Execution Driver
 
-**Iron Law:** `CODING STAYS SINGLE-THREADED.`
+**Iron Law:** `CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).`
 
 The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.
 

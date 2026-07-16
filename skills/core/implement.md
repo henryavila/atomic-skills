@@ -1,19 +1,20 @@
 Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that sits at the tail of the lifecycle (DESIGN → PLAN → DECOMPOSE+SPEC → **IMPLEMENT** → VERIFY). You read the materialized Tasks `project` produced (each already carrying exact paths + `scopeBoundary[]` + `acceptance[]` + a deterministic `verifier:` the SPEC gate admitted), code them one at a time, and close each only through verify-on-done. Microcommits anchor the recovered tree; durable `.atomic-skills/` state plus the `## Session handoff` block is how the next session resumes.
 
-If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected.
+If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected. **The explicit arg selects plan, branch, and worktree before any resume gate or write** — see Step 0.
 
 ## Iron Law
 
-CODING STAYS SINGLE-THREADED.
+CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).
 MICROCOMMITS ARE THE SNAPSHOT.
 
-One writer touches the working tree at a time — never two concurrent agents editing files in the same tree. Subagents are for read-only investigation, never parallel coding. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor never self-certifies. After every verified task close, create explicit-path microcommits for the implementation diff and the project-state close diff; a handoff over dirty task-owned work is an emergency note, not a checkpoint.
+One writer touches a given working tree at a time — never two concurrent agents editing files in the same tree. Concurrent Mode 2 worktrees are allowed only when each has exactly one writer and merge-back is serial through the primary. Subagents are for read-only investigation, never parallel coding in the same tree. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor never self-certifies. After every verified task close, create explicit-path microcommits for the implementation diff and the project-state close diff; a handoff over dirty task-owned work is an emergency note, not a checkpoint.
 
 <HARD-GATE>
 If you are about to mark a task `done` because it *looks* finished, without running its verifier through the `done` / verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.
 If a verified task changed files and you are about to continue without committing those exact paths: STOP. Run `git diff --name-only`, classify the paths, then use {{BASH_TOOL}} with `rtk git add <explicit-paths>` and a microcommit. Never use `git add .` or `git add -A`.
 If you are RESUMING and `git status` is dirty/stale OR the `## Session handoff` block has an unfilled `TODO`/`REPLACE_*` placeholder: STOP. Refuse to execute. Surface the missing pieces and resolve them (commit/stash, fill the handoff) before any task runs — a resume over an inconsistent snapshot corrupts the work.
 If you are about to dispatch a read-only subagent or hand off a token-heavy read: STOP and write the snapshot FIRST (the handoff is the pre-dispatch checkpoint).
+If the caller's tree already governs another plan than the one requested (`caller-governs-other-plan`): STOP. Do not run the resume gate or write plan state here — re-enter the plan's worktree first.
 </HARD-GATE>
 
 ## Mindset
@@ -24,27 +25,28 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 
 ## Process
 
-### Step 0 — Resume gate (every start)
+### Step 0 — Resolve target (plan / branch / worktree)
 
-Before touching any task, establish whether this is a fresh start or a resume, and refuse a broken resume:
+**Before any resume gate, dirty check, or write**, select the plan the user asked for and bind its worktree. The pure helper is `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`). Skill prose must follow the same order.
 
-1. Run `git status --porcelain` and `git log --oneline -3` via {{BASH_TOOL}}. A dirty or unexpectedly-advanced tree on resume means the prior session left uncommitted or unrecorded work — **refuse** (HARD-GATE): surface the diff, have the user commit/stash, then retry.
-2. Read the active initiative's `## Session handoff` block (if present). If it contains an unfilled `TODO`/`REPLACE_*`/`<…>` placeholder, the prior session did not finish writing it — **refuse** and surface which field is unfilled. A handoff with placeholders is not a handoff.
+1. **Parse the arg.** `{{ARG_VAR}}` is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`). If missing, ask which plan; do not silently pick a different active plan when more than one is open.
+2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
+3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
+   - Already on the plan branch → home; continue to Step 0.5 (resume gate) on **this** tree.
+   - Plan worktree exists elsewhere → **HALT**. Tell the user to re-run `implement` inside that worktree. Do **not** run the resume gate or write plan state in the caller tree.
+   - Worktree absent → create inside the repo (`.worktrees/<slug>`). If the branch **already exists**, reuse it **without `-b`** (`git worktree add .worktrees/<slug> <plan-branch>`). Only use `-b <plan-branch>` when the branch does not exist. Then **HALT** and re-enter.
+   - **`caller-governs-other-plan`:** if the caller's branch is already the home of a *different* plan, **FAIL** (HARD-GATE). Do not evaluate dirty state for plan-b while sitting on plan-a's tree; do not write plan-b state into the caller tree.
+4. **Legacy `branch:` null** — no worktree binding; record degraded and continue only when a single plan is clearly intended.
+
+Reuse `skills/shared/worktree-isolation.md` § *Step 0 — detect existing isolation BEFORE creating one*; never nest. Materialization and implement writes land **only** in the worktree declared by the plan frontmatter `branch:`.
+
+### Step 0.5 — Resume gate (after target is home)
+
+Run **only after** Step 0 reports home (`resumeGateAllowed`). The gate is authoritative for the **resolved** plan tree, not the tree you happened to invoke from:
+
+1. Run `git status --porcelain` and `git log --oneline -3` via {{BASH_TOOL}} **in the plan worktree**. A dirty or unexpectedly-advanced tree on resume means the prior session left uncommitted or unrecorded work — **refuse** (HARD-GATE): surface the diff, have the user commit/stash, then retry.
+2. Read the selected plan's active initiative `## Session handoff` block (if present). If it contains an unfilled `TODO`/`REPLACE_*`/`<…>` placeholder, the prior session did not finish writing it — **refuse** and surface which field is unfilled. A handoff with placeholders is not a handoff.
 3. On a clean resume: the handoff IS your re-orientation — read its narrative + decision log + `nextAction`; do NOT cold-re-investigate. Any residual heavy read goes to a read-only subagent (below), never the main coding context.
-
-### Step 0.5 — Resolve the plan-worktree (lazy)
-
-The plan worktree is the durable home: Mode 1 codes here, Mode 2 seeds per-task worktrees from here. Bind by **branch, not path**, before loading tasks; reuse `skills/shared/worktree-isolation.md` § *Step 0 — detect existing isolation BEFORE creating one*; never nest.
-
-1. Read the active plan's `branch:` field (`.atomic-skills/projects/<id>/<slug>/plan.md`) and the current tree's branch via `git symbolic-ref --short HEAD`.
-2. **`branch:` null / unset (legacy plan)** — no worktree binding; run in the current tree (degraded). Record the reason; never invent a branch.
-3. **`branch:` equals the current tree's branch** — already home; **no-op**, proceed to Step 1. (The common resume case.)
-4. **`branch:` differs from the current tree** — the work belongs in the plan's home, not here:
-   a. Resolve by branch with `git worktree list --porcelain`; reuse an existing `plan/<slug>` worktree.
-   b. If absent, ask via {{ASK_USER_QUESTION_TOOL}} before `git worktree add .worktrees/<slug> -b <plan-branch> <base-ref>`; keep it inside the repo.
-   c. **HALT** and tell the user to re-run `implement` inside that worktree. Do not write across trees.
-
-The Step 0 resume gate's `git status --porcelain` is authoritative for the resolved tree; if Step 0.5 halts, re-run the resume gate after re-entry.
 
 ### Step 1 — Load the admitted tasks
 
