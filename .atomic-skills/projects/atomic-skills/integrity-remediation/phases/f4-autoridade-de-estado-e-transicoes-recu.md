@@ -4,11 +4,11 @@ slug: integrity-remediation-f4-autoridade-de-estado-e-transicoes-recu
 title: Autoridade de estado e transições recuperáveis
 goal: Reconciliar o bootstrap F0 e fazer validator, transition helpers e comandos de fechamento compartilharem invariantes estritas e gravarem estado, evidence, eventos, handoff e materialização de forma idempotente.
 summary: Reconcili a F0 e torna fechamento, eventos e materialização idempotentes.
-status: active
+status: done
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T17:01:57.760Z
-nextAction: Run F4-G1..G3 verifiers and phase-done
+lastUpdated: 2026-07-16T17:02:11.032Z
+nextAction: F4 complete — materialize F3 via materialize-state with F4 barrier
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -19,35 +19,59 @@ businessIntent:
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
 tasksDone: 8
 tasksTotal: 8
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 8
 weightTotal: 8
 exitGates:
   - id: F4-G1
     description: Validator rejeita identidades, DAGs, IDs e estados terminais contraditórios e preserva descriptor lazy válido. FAILS when qualquer fixture inválido retorna exit 0 ou descriptor-only pending é rejeitado.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/validate-state-integrity.test.js tests/state-integrity-migration.test.js tests/transition-integrity.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/validate-state-integrity.test.js tests/sta…"
+    metAt: 2026-07-16T17:02:11.032Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:02:11.032Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 7906f69d8f60ae4078bdb9073391e57a0475bcdf
+      outputSummary: "validate-state-integrity + state-integrity-migration + transition-integrity: 41 pass"
   - id: F4-G2
     description: Task e phase close são idempotentes e não deixam writes, eventos ou evidence stale. FAILS when retry duplica analytics ou review muda HEAD sem rerun.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/phase-done-transaction.test.js tests/done-transaction.test.js tests/append-completion-actuals.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/phase-done-transaction.test.js tests/done-…"
+    metAt: 2026-07-16T17:02:11.032Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:02:11.032Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 7906f69d8f60ae4078bdb9073391e57a0475bcdf
+      outputSummary: "phase-done-transaction + done-transaction + append-completion-actuals: 25 pass"
   - id: F4-G3
     description: Materialize e dispatch-log sobrevivem fault injection, e a reconciliação F0 é não deferível e exigida também ao ativar F3. FAILS when plan/initiative divergem, log deixa de ser NDJSON, defer/skip fecha F4, completion/evidence/closeSha de F0 ficam fora do receipt ou F3 ativa com receipt stale.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: node --test tests/phase-materialization/materialize-transaction.test.js tests/phase-materialization/materialize-history-reconcile.test.js tests/phase-materialization/materialize-successor-barrier.test.js tests/lifecycle-gate-bypass.test.js tests/append-completion-dispatchlog.test.js && node scripts/materialize-state.js --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/phase-materialization/materialize-transact…"
+    metAt: 2026-07-16T17:02:11.032Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T17:02:11.032Z
+      passed: true
+      exitCode: 0
+      verifiedCommit: 7906f69d8f60ae4078bdb9073391e57a0475bcdf
+      outputSummary: "materialize-transaction/history/barrier + lifecycle-gate-bypass + dispatchlog: 40 pass; history receipt consistent"
 stack:
   - id: 1
     title: Autoridade de estado e transições recuperáveis

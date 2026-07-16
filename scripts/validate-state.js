@@ -188,28 +188,51 @@ export function collectSidecars(args) {
     }
   };
 
+  const registerNestedPhases = (phasesDir, projectId, planSlug) => {
+    addFromDir(phasesDir, projectId, planSlug);
+  };
+
+  const nestedIdsFromPath = (absPath) => {
+    const parts = absPath.split('/');
+    const projectsIdx = parts.lastIndexOf('projects');
+    if (projectsIdx < 0 || !parts[projectsIdx + 1] || !parts[projectsIdx + 2]) return null;
+    return { projectId: parts[projectsIdx + 1], planSlug: parts[projectsIdx + 2] };
+  };
+
   for (const arg of args) {
     const absPath = resolve(arg);
     if (!existsSync(absPath)) continue;
     const st = statSync(absPath);
     if (st.isFile()) {
-      if (!absPath.endsWith('.source.json')) continue;
-      // Best-effort: projects/<id>/<plan>/phases/<file>.source.json
-      const parts = absPath.split('/');
-      const phasesIdx = parts.lastIndexOf('phases');
-      const projectsIdx = parts.lastIndexOf('projects');
-      if (phasesIdx > 0 && projectsIdx >= 0 && parts[projectsIdx + 1] && parts[projectsIdx + 2]) {
-        const projectId = parts[projectsIdx + 1];
-        const planSlug = parts[projectsIdx + 2];
+      const nested = nestedIdsFromPath(absPath);
+      if (absPath.endsWith('.source.json') && nested) {
         const base = basename(absPath).slice(0, -'.source.json'.length);
-        keys.add(sidecarKey(projectId, planSlug, base));
-        if (!base.startsWith(`${planSlug}-`)) {
-          keys.add(sidecarKey(projectId, planSlug, `${planSlug}-${base}`));
+        keys.add(sidecarKey(nested.projectId, nested.planSlug, base));
+        if (!base.startsWith(`${nested.planSlug}-`)) {
+          keys.add(sidecarKey(nested.projectId, nested.planSlug, `${nested.planSlug}-${base}`));
+        }
+      }
+      // plan.md or phase initiative under nested layout → scan sibling/own phases/
+      if (nested) {
+        const phasesIdx = absPath.split('/').lastIndexOf('phases');
+        if (basename(absPath) === 'plan.md') {
+          registerNestedPhases(join(dirname(absPath), 'phases'), nested.projectId, nested.planSlug);
+        } else if (phasesIdx > 0) {
+          registerNestedPhases(dirname(absPath), nested.projectId, nested.planSlug);
         }
       }
       continue;
     }
     if (!st.isDirectory()) continue;
+    // Direct phases/ directory under nested layout
+    const asPhases = nestedIdsFromPath(absPath);
+    if (asPhases && basename(absPath) === 'phases') {
+      registerNestedPhases(absPath, asPhases.projectId, asPhases.planSlug);
+    }
+    // Plan directory: projects/<id>/<slug>/
+    if (asPhases && existsSync(join(absPath, 'plan.md'))) {
+      registerNestedPhases(join(absPath, 'phases'), asPhases.projectId, asPhases.planSlug);
+    }
     // Flat: <root>/initiatives/*.source.json → planSlug unknown; use '__flat__'
     addFromDir(join(absPath, 'initiatives'), '__legacy', '__flat__');
     const projectsDir = join(absPath, 'projects');
