@@ -70,6 +70,9 @@ worktrees may run concurrently:
 - Pairwise scope-independent tasks (reuse `parallel-dispatch` §1.3 pairwise
   {{GREP_TOOL}} disjointness) may have their Codex worktrees dispatched
   concurrently; coupled tasks are still coded one at a time.
+- **One writer per worktree** (Iron Law): each worktree has exactly one coding
+  agent; never two concurrent writers in the same tree. Concurrency is across
+  isolated worktrees only.
 - Merge-back is serial regardless (§8) — the single-threaded law holds at the
   merge even when execution fanned out.
 
@@ -188,22 +191,36 @@ parallel feature worktrees append to it concurrently, so it carries `merge=union
 in `.gitattributes`. git's union driver is lossless ONLY for line-oriented files —
 a multi-line JSON array would union-merge into invalid JSON (a `}` directly
 followed by `{` with no separating comma). One-object-per-line keeps every
-concurrent append a self-contained, individually-valid JSON line. Read it back by
-parsing each non-empty line as JSON
-(`raw.split('\n').filter(Boolean).map(JSON.parse)`); append by writing the
-compact object plus a trailing newline. Record shape (written as a single line):
+concurrent append a self-contained, individually-valid JSON line.
+
+**Single writer/parser (F4/T-007):** always use `scripts/dispatch-log.js` via the
+install root — never hand-rewrite the file as a JSON array, never `JSON.parse`
+the whole file. Resolve the package root the same way other skills do:
+
+`PKG="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"`
+
+- Append: `node "$PKG/scripts/dispatch-log.js" [<root>] append --json '<compact-object>'`
+  (or programmatic `appendDispatchLog(root, record)`). Writes ONE compact line +
+  `\n` via `appendFileSync` only.
+- Read / validate: `node "$PKG/scripts/dispatch-log.js" [<root>] read|validate` (or
+  `readDispatchLog` / `validateDispatchLog`). Parses line-by-line; a malformed
+  line **fails closed** with its 1-based line number — corruption is never
+  silently skipped.
+- Actuals consumer: `node "$PKG/scripts/append-completion.js"` / `readDispatchActuals`
+  through the same module (F4/T-002).
+
+Record shape (written as a single line):
 
 ```json
 {"taskId":"T-101","plan":"<plan-slug>","phase":"<phaseId>","executorTier":"cheap | standard","executor":"codex | subagent","attempt":1,"verifierKind":"test | shell","verifierPassed":true,"escalatedTo":null,"escalationCount":0,"startedAt":"<isoTimestamp>","finishedAt":"<isoTimestamp>","codexWorktreeRef":"<branch-or-path>","routingReason":"<why this task routed here>"}
 ```
 
 `plan` + `phase` are REQUIRED match keys, not optional: the task-actuals
-consumer (`scripts/append-completion.js` `readDispatchActuals`, F4/T-002) keys
-on `plan`+`phase`+`taskId` to attach `attempts`/`durationMs`/`escalations` to the
-`task-done` completion event. A record that omits them never matches and silently
-degrades that task to actuals-omitted — so a writer that follows this contract
-MUST emit `plan` and `phase` (taskIds repeat across phases; `taskId` alone is
-ambiguous).
+consumer (`readDispatchActuals`) keys on `plan`+`phase`+`taskId` to attach
+`attempts`/`durationMs`/`escalations` to the `task-done` completion event. A
+record that omits them never matches and silently degrades that task to
+actuals-omitted — so a writer that follows this contract MUST emit `plan` and
+`phase` (taskIds repeat across phases; `taskId` alone is ambiguous).
 
 Plus the persisted routing decision + reason (no "satisfied lever" — the
 scarce-resource trigger was dropped in §3; record simply that the task cleared

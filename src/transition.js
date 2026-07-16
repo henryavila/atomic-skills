@@ -3,7 +3,12 @@
 // The skill body's `phase-done` flow consults these to decide which phase(s)
 // should become eligible after the active phase's exit gates are all met.
 // Kept dependency-free and side-effect-free so it can be unit-tested in
-// isolation (see tests/transition.test.js).
+// isolation (see tests/transition.test.js, tests/transition-integrity.test.js).
+//
+// F4/T-002: plan-done only when every phase is terminal; zero-eligible with
+// open work is blocked; self-loops / cycles / unknown deps fail closed.
+
+import { isTerminalPhaseStatus } from './state-invariants.js';
 
 /**
  * @typedef {Object} PhaseDescriptor
@@ -21,7 +26,16 @@
  * @property {PhaseDescriptor[]} phases
  */
 
-const TERMINAL_STATUSES = new Set(['done', 'archived']);
+/**
+ * @typedef {{ code: string, message: string, phaseId?: string, missing?: string[], cycle?: string[] }} PhaseDagError
+ */
+
+export const PHASE_DAG_CODES = Object.freeze({
+  UNKNOWN_DEP: 'unknown-dep',
+  SELF_LOOP: 'self-loop',
+  CYCLE: 'cycle',
+});
+
 // A phase becomes eligible to be the NEXT active phase only when it hasn't
 // started yet. `active` and `paused` phases are already in progress (or
 // deliberately suspended) — advancing into them would seed a duplicate
@@ -29,6 +43,197 @@ const TERMINAL_STATUSES = new Set(['done', 'archived']);
 // phase status enum is {pending, active, paused, done, archived} per
 // meta/schemas/plan.schema.json $defs.phaseDescriptor.properties.status.
 const STARTABLE_STATUS = 'pending';
+
+/**
+ * @param {PlanLike|null|undefined} plan
+ * @returns {PhaseDescriptor[]}
+ */
+function phasesOf(plan) {
+  if (!plan || !Array.isArray(plan.phases)) return [];
+  return plan.phases.filter((p) => p && typeof p.id === 'string');
+}
+
+/**
+ * @param {PlanLike|null|undefined} plan
+ * @returns {Map<string, PhaseDescriptor>}
+ */
+function phaseMap(plan) {
+  const map = new Map();
+  for (const p of phasesOf(plan)) map.set(p.id, p);
+  return map;
+}
+
+/**
+ * Ids considered terminal for advance computation: existing terminal statuses
+ * plus the just-completed phase id (treated as done for this call).
+ * @param {PlanLike|null|undefined} plan
+ * @param {string} [completedPhaseId]
+ * @returns {Set<string>}
+ */
+function doneIdsFor(plan, completedPhaseId) {
+  const byId = phaseMap(plan);
+  const doneIds = new Set();
+  for (const [id, p] of byId) {
+    if (isTerminalPhaseStatus(p.status)) doneIds.add(id);
+  }
+  if (completedPhaseId && byId.has(completedPhaseId)) {
+    doneIds.add(completedPhaseId);
+  }
+  return doneIds;
+}
+
+/**
+ * True when every phase is terminal after treating `completedPhaseId` as done.
+ * Vacuously true for empty/malformed plans (nothing open remains).
+ *
+ * @param {PlanLike|null|undefined} plan
+ * @param {string} [completedPhaseId]
+ * @returns {boolean}
+ */
+export function allPhasesTerminal(plan, completedPhaseId) {
+  const phases = phasesOf(plan);
+  if (phases.length === 0) return true;
+  const doneIds = doneIdsFor(plan, completedPhaseId);
+  return phases.every((p) => doneIds.has(p.id));
+}
+
+/**
+ * Non-terminal phase ids after treating `completedPhaseId` as done.
+ * Declaration order preserved.
+ *
+ * @param {PlanLike|null|undefined} plan
+ * @param {string} [completedPhaseId]
+ * @returns {string[]}
+ */
+export function openPhaseIds(plan, completedPhaseId) {
+  const doneIds = doneIdsFor(plan, completedPhaseId);
+  return phasesOf(plan).filter((p) => !doneIds.has(p.id)).map((p) => p.id);
+}
+
+/**
+ * Find directed cycles in the phase `dependsOn` graph (edge: phase → dep).
+ * Self-loops are reported as single-node cycles. Returns each cycle once as
+ * a closed id list `[a, b, a]` or `[a, a]` for a self-loop. Pure.
+ *
+ * @param {PlanLike|null|undefined} plan
+ * @returns {string[][]}
+ */
+export function findPhaseCycles(plan) {
+  const byId = phaseMap(plan);
+  if (byId.size === 0) return [];
+
+  /** @type {Map<string, string[]>} */
+  const adj = new Map();
+  for (const [id, p] of byId) {
+    const deps = Array.isArray(p.dependsOn) ? p.dependsOn : [];
+    // Only known ids participate in cycle detection; unknown deps are separate errors.
+    adj.set(id, deps.filter((d) => byId.has(d)));
+  }
+
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  /** @type {Map<string, number>} */
+  const color = new Map();
+  /** @type {string[]} */
+  const stack = [];
+  /** @type {string[][]} */
+  const cycles = [];
+  /** @type {Set<string>} */
+  const seenCycleKeys = new Set();
+
+  function recordCycle(fromIdx) {
+    const cycle = [...stack.slice(fromIdx), stack[fromIdx]];
+    const body = cycle.slice(0, -1);
+    const key = body.slice().sort().join('\0');
+    if (seenCycleKeys.has(key)) return;
+    seenCycleKeys.add(key);
+    cycles.push(cycle);
+  }
+
+  function visit(node) {
+    color.set(node, GRAY);
+    stack.push(node);
+    for (const next of adj.get(node) ?? []) {
+      if (next === node) {
+        // Self-loop: explicit single-node cycle.
+        const key = node;
+        if (!seenCycleKeys.has(key)) {
+          seenCycleKeys.add(key);
+          cycles.push([node, node]);
+        }
+        continue;
+      }
+      const c = color.get(next) ?? WHITE;
+      if (c === GRAY) {
+        const idx = stack.indexOf(next);
+        if (idx !== -1) recordCycle(idx);
+        continue;
+      }
+      if (c === WHITE) visit(next);
+    }
+    stack.pop();
+    color.set(node, BLACK);
+  }
+
+  for (const id of byId.keys()) {
+    if ((color.get(id) ?? WHITE) === WHITE) visit(id);
+  }
+  return cycles;
+}
+
+/**
+ * Structural validation of the phase dependency DAG.
+ * Reports unknown deps, self-loops, and multi-node cycles. Does not consult
+ * phase status — pure graph shape.
+ *
+ * @param {PlanLike|null|undefined} plan
+ * @returns {{ ok: true, errors: [] } | { ok: false, errors: PhaseDagError[] }}
+ */
+export function validatePhaseDag(plan) {
+  /** @type {PhaseDagError[]} */
+  const errors = [];
+  const phases = phasesOf(plan);
+  if (phases.length === 0) return { ok: true, errors: [] };
+
+  const known = new Set(phases.map((p) => p.id));
+
+  for (const p of phases) {
+    const deps = Array.isArray(p.dependsOn) ? p.dependsOn : [];
+    const missing = deps.filter((d) => !known.has(d));
+    if (missing.length > 0) {
+      errors.push({
+        code: PHASE_DAG_CODES.UNKNOWN_DEP,
+        message: `phase '${p.id}' dependsOn unknown id(s): ${missing.join(', ')}`,
+        phaseId: p.id,
+        missing,
+      });
+    }
+    if (deps.includes(p.id)) {
+      errors.push({
+        code: PHASE_DAG_CODES.SELF_LOOP,
+        message: `phase '${p.id}' depends on itself`,
+        phaseId: p.id,
+        cycle: [p.id, p.id],
+      });
+    }
+  }
+
+  for (const cycle of findPhaseCycles(plan)) {
+    // Self-loops already reported above; skip duplicate self-loop codes.
+    const isSelf = cycle.length === 2 && cycle[0] === cycle[1];
+    if (isSelf) continue;
+    errors.push({
+      code: PHASE_DAG_CODES.CYCLE,
+      message: `phase dependsOn cycle: ${cycle.join(' → ')}`,
+      cycle,
+      phaseId: cycle[0],
+    });
+  }
+
+  if (errors.length === 0) return { ok: true, errors: [] };
+  return { ok: false, errors };
+}
 
 /**
  * Given a plan and the id of the phase whose exit gates just passed, return
@@ -42,9 +247,11 @@ const STARTABLE_STATUS = 'pending';
  *     just-completed phase is considered done for this computation).
  *
  * The order of returned ids preserves the order they appear in `plan.phases`.
+ * Eligibility is driven by `dependsOn` satisfaction, not numeric id sort —
+ * a chain F0→F4→F3 elects F4 after F0 even when phases are listed F0..F6.
  * Unknown ids in `dependsOn` arrays are treated as unsatisfiable — the phase
  * stays ineligible — so a typo never silently promotes a phase. Callers may
- * inspect `unknownDeps()` to surface those problems.
+ * inspect `unknownDeps()` / `validatePhaseDag()` to surface those problems.
  *
  * @param {PlanLike} plan
  * @param {string} completedPhaseId
@@ -52,17 +259,8 @@ const STARTABLE_STATUS = 'pending';
  */
 export function nextEligiblePhases(plan, completedPhaseId) {
   if (!plan || !Array.isArray(plan.phases)) return [];
-  const phaseById = new Map();
-  for (const p of plan.phases) {
-    if (p && typeof p.id === 'string') phaseById.set(p.id, p);
-  }
-  const doneIds = new Set();
-  for (const [id, p] of phaseById) {
-    if (TERMINAL_STATUSES.has(p.status)) doneIds.add(id);
-  }
-  if (completedPhaseId && phaseById.has(completedPhaseId)) {
-    doneIds.add(completedPhaseId);
-  }
+  const byId = phaseMap(plan);
+  const doneIds = doneIdsFor(plan, completedPhaseId);
 
   const eligible = [];
   for (const p of plan.phases) {
@@ -71,7 +269,7 @@ export function nextEligiblePhases(plan, completedPhaseId) {
     if (p.status !== STARTABLE_STATUS) continue;
     const deps = Array.isArray(p.dependsOn) ? p.dependsOn : [];
     const allSatisfied = deps.every((d) => {
-      if (!phaseById.has(d)) return false; // unknown dep — never satisfiable
+      if (!byId.has(d)) return false; // unknown dep — never satisfiable
       return doneIds.has(d);
     });
     if (allSatisfied) eligible.push(p.id);
@@ -108,28 +306,50 @@ export function unknownDeps(plan) {
  * gates met. Returns a structured proposal the skill body can present to the
  * user verbatim.
  *
- * - When zero phases are eligible: `{ kind: 'plan-done', eligible: [] }`.
- *   (The user should mark the plan itself `done` or `archived`.)
- * - When `plan.parallelismAllowed === true`: returns all eligible phase ids.
- *   The user is prompted to pick one or more to spin up next.
- * - Otherwise: returns the single phase id that appears earliest in
- *   `plan.phases`. If multiple are tied, the user is told about the others
- *   via `alternatives` so they can override.
+ * - Graph invalid (unknown dep / self-loop / cycle):
+ *   `{ kind: 'error', errors, eligible: [] }` — fail closed; do not advance.
+ * - Eligible phases exist and `parallelismAllowed`:
+ *   `{ kind: 'parallel-choice', eligible }`.
+ * - Eligible phases exist (serial):
+ *   `{ kind: 'single', next, alternatives }` — `next` is the first eligible
+ *   in declaration order among dependsOn-satisfied phases (not numeric id).
+ * - Zero eligible AND every phase terminal (incl. completedPhaseId):
+ *   `{ kind: 'plan-done', eligible: [] }`.
+ * - Zero eligible but open (pending/active/paused) work remains:
+ *   `{ kind: 'blocked', eligible: [], open }` — NOT plan-done.
  *
  * @param {PlanLike} plan
  * @param {string} completedPhaseId
  * @returns {
  *   | { kind: 'plan-done', eligible: [] }
+ *   | { kind: 'blocked', eligible: [], open: string[] }
+ *   | { kind: 'error', errors: PhaseDagError[], eligible: [] }
  *   | { kind: 'parallel-choice', eligible: string[] }
  *   | { kind: 'single', next: string, alternatives: string[] }
  * }
  */
 export function proposeAdvance(plan, completedPhaseId) {
-  const eligible = nextEligiblePhases(plan, completedPhaseId);
-  if (eligible.length === 0) return { kind: 'plan-done', eligible: [] };
-  if (plan && plan.parallelismAllowed === true) {
-    return { kind: 'parallel-choice', eligible };
+  const dag = validatePhaseDag(plan);
+  if (!dag.ok) {
+    return { kind: 'error', errors: dag.errors, eligible: [] };
   }
-  const [next, ...rest] = eligible;
-  return { kind: 'single', next, alternatives: rest };
+
+  const eligible = nextEligiblePhases(plan, completedPhaseId);
+  if (eligible.length > 0) {
+    if (plan && plan.parallelismAllowed === true) {
+      return { kind: 'parallel-choice', eligible };
+    }
+    const [next, ...rest] = eligible;
+    return { kind: 'single', next, alternatives: rest };
+  }
+
+  if (allPhasesTerminal(plan, completedPhaseId)) {
+    return { kind: 'plan-done', eligible: [] };
+  }
+
+  return {
+    kind: 'blocked',
+    eligible: [],
+    open: openPhaseIds(plan, completedPhaseId),
+  };
 }

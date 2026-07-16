@@ -30,10 +30,14 @@
  *        --plan <slug> --phase <id> [--task <id>] [--weight <n>] [--basis <b>]
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync,
+  unlinkSync, writeSync, constants,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { dispatchLogPath, readDispatchLog } from './dispatch-log.js';
 
 /** The closed enum of completion event kinds (mirrors completion-event.schema.json). */
 export const COMPLETION_EVENTS = Object.freeze(['task-done', 'phase-done', 'reconcile']);
@@ -103,36 +107,34 @@ export function computePhaseActuals(since, { cwd = process.cwd(), sinceCommit } 
 /**
  * Read the Mode-2 dispatch telemetry sidecar and derive this task's execution
  * actuals { attempts, durationMs, escalations }. Reads
- * <root>/.atomic-skills/status/dispatch-log.json (a flat JSON array).
+ * <root>/.atomic-skills/status/dispatch-log.json as NDJSON (one object per line)
+ * via `scripts/dispatch-log.js` — never as a whole-file JSON array.
+ *
  * Returns the actuals object built from ONLY the finite fields it can derive, or
- * `undefined` when the file is absent/unparseable or no record matches
- * (plan+phase+taskId). NEVER throws (graceful — Mode-1 runs have no
- * dispatch-log and that is not an error).
+ * `undefined` when the file is absent or no record matches (plan+phase+taskId).
+ * Absent file is graceful (Mode-1 has no dispatch-log). Malformed NDJSON fails
+ * closed with a line-numbered error from `readDispatchLog` (F4/T-007) — corruption
+ * is never silently swallowed into "no actuals".
  */
 export function readDispatchActuals(root, { planSlug, phaseId, taskId } = {}) {
   if (!hasText(taskId)) return undefined;
-  try {
-    const path = join(resolve(root), '.atomic-skills', 'status', 'dispatch-log.json');
-    if (!existsSync(path)) return undefined;
-    const log = JSON.parse(readFileSync(path, 'utf8'));
-    if (!Array.isArray(log)) return undefined;
-    const matching = log.filter((r) => (
-      r && r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
-    ));
-    if (matching.length === 0) return undefined;
-    const rec = matching[matching.length - 1];
-    const out = {};
-    if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
-    if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
-    const a = Date.parse(rec.startedAt);
-    const b = Date.parse(rec.finishedAt);
-    if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
-      out.durationMs = b - a;
-    }
-    return Object.keys(out).length === 0 ? undefined : out;
-  } catch {
-    return undefined;
+  const path = dispatchLogPath(root);
+  if (!existsSync(path)) return undefined;
+  const log = readDispatchLog(root); // throws on corrupt line (fail-closed)
+  const matching = log.filter((r) => (
+    r && r.plan === planSlug && r.phase === phaseId && r.taskId === taskId
+  ));
+  if (matching.length === 0) return undefined;
+  const rec = matching[matching.length - 1];
+  const out = {};
+  if (Number.isFinite(rec.attempt)) out.attempts = rec.attempt;
+  if (Number.isFinite(rec.escalationCount)) out.escalations = rec.escalationCount;
+  const a = Date.parse(rec.startedAt);
+  const b = Date.parse(rec.finishedAt);
+  if (Number.isFinite(a) && Number.isFinite(b) && (b - a) >= 0) {
+    out.durationMs = b - a;
   }
+  return Object.keys(out).length === 0 ? undefined : out;
 }
 
 /**
@@ -204,9 +206,105 @@ function normalize(entry) {
 }
 
 /**
+ * Logical identity for one completion event (F4/T-005 idempotency / dedupe key).
+ *
+ * Key = event + projectId + planSlug + phaseId + taskId (empty string when null).
+ * Weight/ts/actuals are intentionally excluded so a retry of the same close does
+ * not mint a second line with a different timestamp. Returns null when the entry
+ * lacks the fields required to form a stable identity (incomplete/legacy lines).
+ *
+ * @param {object|null|undefined} entry
+ * @returns {string|null}
+ */
+export function completionEventKey(entry) {
+  if (entry == null || typeof entry !== 'object') return null;
+  const event = entry.event;
+  const projectId = entry.projectId;
+  const planSlug = entry.planSlug;
+  const phaseId = entry.phaseId;
+  if (!hasText(event) || !hasText(projectId) || !hasText(planSlug) || !hasText(phaseId)) {
+    return null;
+  }
+  if (event === 'task-done' && !hasText(entry.taskId)) return null;
+  const taskPart = hasText(entry.taskId) ? entry.taskId : '';
+  return `${event}\0${projectId}\0${planSlug}\0${phaseId}\0${taskPart}`;
+}
+
+/**
+ * Read completions.jsonl as parsed objects (skips blank/corrupt lines).
+ * Pure-ish boundary helper used by dedupe and by pure done-transaction decisions.
+ *
+ * @param {string} root
+ * @returns {object[]}
+ */
+export function readCompletionLog(root) {
+  const path = join(resolve(root), ...ANALYTICS_DIR, LOG_FILE);
+  if (!existsSync(path)) return [];
+  try {
+    const raw = readFileSync(path, 'utf8');
+    if (!raw.trim()) return [];
+    const out = [];
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) out.push(obj);
+      } catch {
+        // Skip corrupt lines — never throw from a read path used by idempotent retry.
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * First log line whose logical identity matches `entry` (or key), else undefined.
+ *
+ * @param {string} root
+ * @param {object|string} entryOrKey entry fields or a precomputed completionEventKey
+ * @returns {object|undefined}
+ */
+export function findCompletionByKey(root, entryOrKey) {
+  const key = typeof entryOrKey === 'string' ? entryOrKey : completionEventKey(entryOrKey);
+  if (!hasText(key)) return undefined;
+  for (const rec of readCompletionLog(root)) {
+    if (completionEventKey(rec) === key) return rec;
+  }
+  return undefined;
+}
+
+/**
+ * Collapse an array of completion records to the first occurrence of each
+ * logical identity. Records with no stable key are kept (not collapsed).
+ * Used by analytics consumers so historical duplicate lines cannot double-count.
+ *
+ * @param {object[]} records
+ * @returns {object[]}
+ */
+export function dedupeCompletionEvents(records) {
+  if (!Array.isArray(records)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const rec of records) {
+    const key = completionEventKey(rec);
+    if (key != null) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(rec);
+  }
+  return out;
+}
+
+/**
  * Append exactly one completion event to `<root>/.atomic-skills/analytics/completions.jsonl`,
- * creating the `analytics/` dir idempotently. Returns the written record.
- * Append-only: existing lines are never read, rewritten, or reordered.
+ * creating the `analytics/` dir idempotently. Returns the written (or prior) record.
+ *
+ * Idempotent (F4/T-005): a second call with the same event identity
+ * (`completionEventKey`) returns the existing line and writes nothing. Prior
+ * lines are never rewritten or reordered — only scanned for the dedupe key.
  *
  * Task-actuals auto-capture (F4/T-002): a `task-done` entry with no explicit
  * `actuals` derives them from the dispatch-log sidecar here, so BOTH callers —
@@ -214,7 +312,47 @@ function normalize(entry) {
  * transition prose also offers — capture attempts/durationMs/escalations. An
  * explicit `actuals` (e.g. phase actuals on a phase-done event) is never
  * overwritten; absence of a dispatch-log degrades to no actuals (graceful).
+ *
+ * Non-enumerable metadata on the return value:
+ *   - `appended`   {boolean} true iff a new line was written
+ *   - `idempotent` {boolean} true iff an existing identity was reused
  */
+/**
+ * Serialize scan-and-append for the completion log (Codex F-007).
+ * Uses an exclusive lock file under analytics/.
+ */
+function withCompletionLogLock(root, fn) {
+  const dir = join(resolve(root), ...ANALYTICS_DIR);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const lockPath = join(dir, '.completions.lock');
+  const started = Date.now();
+  const timeoutMs = 10_000;
+  for (;;) {
+    try {
+      const fd = openSync(lockPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+      try {
+        writeSync(fd, `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`);
+      } finally {
+        closeSync(fd);
+      }
+      try {
+        return fn();
+      } finally {
+        try { unlinkSync(lockPath); } catch { /* ignore */ }
+      }
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      if (Date.now() - started > timeoutMs) {
+        const e = new Error(`Timeout acquiring completion log lock at ${lockPath}`);
+        e.code = 'LOCK_TIMEOUT';
+        throw e;
+      }
+      const waitBuf = new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(waitBuf, 0, 0, 20);
+    }
+  }
+}
+
 export function appendCompletion(root, entry) {
   let effectiveEntry = entry;
   if (entry && entry.event === 'task-done' && entry.actuals == null) {
@@ -224,14 +362,28 @@ export function appendCompletion(root, entry) {
     if (derived !== undefined) effectiveEntry = { ...entry, actuals: derived };
   }
   const record = normalize(effectiveEntry); // validate BEFORE touching the filesystem
-  const dir = join(resolve(root), ...ANALYTICS_DIR);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
-  return record;
+
+  return withCompletionLogLock(root, () => {
+    const key = completionEventKey(record);
+    const existing = key != null ? findCompletionByKey(root, key) : undefined;
+    if (existing !== undefined) {
+      return Object.defineProperties({ ...existing }, {
+        appended: { value: false, enumerable: false },
+        idempotent: { value: true, enumerable: false },
+      });
+    }
+    const dir = join(resolve(root), ...ANALYTICS_DIR);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    appendFileSync(join(dir, LOG_FILE), `${JSON.stringify(record)}\n`);
+    return Object.defineProperties({ ...record }, {
+      appended: { value: true, enumerable: false },
+      idempotent: { value: false, enumerable: false },
+    });
+  });
 }
 
 // CLI
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const flag = (name) => {
     const i = args.indexOf(`--${name}`);
@@ -255,7 +407,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       weightBasis: flag('basis'),
       ...(actuals !== undefined ? { actuals } : {}),
     });
-    console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ✓`);
+    const tag = rec.idempotent ? 'idempotent' : 'appended';
+    console.log(`append-completion: ${rec.event} ${rec.projectId}/${rec.planSlug}/${rec.phaseId}${rec.taskId ? `/${rec.taskId}` : ''} weight=${rec.weight}(${rec.weightBasis}) ${tag} ✓`);
   } catch (err) {
     console.error(`append-completion: ${err.message}`);
     process.exit(1);

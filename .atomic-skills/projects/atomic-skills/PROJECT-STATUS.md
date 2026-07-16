@@ -1,9 +1,10 @@
 ---
-lastUpdated: 2026-07-16T16:20:00.000Z
+lastUpdated: 2026-07-16T18:00:45.386Z
 schemaVersion: "0.1"
 activePlans: 0
 activeInitiatives: 0
 archivedCount: 23
+
 ---
 
 # Project Status Index
@@ -25,6 +26,7 @@ _(none)_
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
+| integrity-remediation | done | F6 | plan/integrity-remediation | 2026-07-10 | 7/7 |
 | grok-build-integration | done | F5 | plan/grok-build-integration | 2026-07-16 | 6/6 |
 | installer-hooks-cross-ide | done | F3 | develop | 2026-07-08 | 4/4 |
 | help-command | done | F3 | develop | 2026-07-05 | 4/4 |

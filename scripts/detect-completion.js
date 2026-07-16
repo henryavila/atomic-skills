@@ -9,10 +9,15 @@
  * (session-start.sh §6 `[T-NNN]` commit scan; stop.sh ad-hoc `outputs[].path`
  * scan) with one shared, deterministic detector the hooks AND commands all call.
  *
+ * Authority boundary (F4/T-008): this module is DETECTION ONLY. It never closes
+ * tasks/gates, never writes state, never runs a verifier, and never auto-closes.
+ * Closing is `done` (task closure authority) or a verifier/manual ack invoked by
+ * the human via `reconcile` (the only *detection-drift-triggered* mutation path).
+ *
  * A completion signal is NOT a verifier's existence. A `verifier:` is written
  * BEFORE any work starts; its mere presence says nothing about whether the work
- * is done — it is the CLOSING mechanism (used at `reconcile` time), never a
- * DETECTION signal. Detection keys only on evidence that the deliverable
+ * is done — it is the CLOSING mechanism (used at `reconcile` / `done` time), never
+ * a DETECTION signal. Detection keys only on evidence that the deliverable
  * CHANGED. Per non-done task and per pending exit-criterion (strongest first):
  *
  *   output-exists  (strong)    — a path in the entry's structured `outputs[].path`
@@ -32,8 +37,9 @@
  *
  * Scope note: a TASK can match either class (it has `outputs[]`). An EXIT-CRITERION
  * has NO `outputs` field (common.schema.json exitCriterion is additionalProperties:
- * false), so a gate is detectable ONLY by the id-in-commit half of commit-ref —
- * output-exists never applies to gates.
+ * false — no lastUpdated either), so a gate is detectable ONLY by the id-in-commit
+ * half of commit-ref — output-exists never applies to gates. Criterion signal
+ * anchors use the initiative's lastUpdated/started (not a field on the criterion).
  *
  * Timestamp comparison is by EPOCH (Date.parse), not lexical string order: git
  * `%cI` emits a numeric zone offset (`+00:00`) while state anchors use `Z`, and
@@ -388,9 +394,11 @@ function scanInitiative(target, repoRoot, idMatchSafe = true) {
   for (const crit of Array.isArray(fm.exitGates) ? fm.exitGates : []) {
     if (!crit || typeof crit !== 'object') continue;
     if (crit.status !== 'pending') continue; // met / deferred are resolved
-    // Exit-criteria carry NO `outputs` field (common.schema.json exitCriterion is
-    // additionalProperties:false), so a gate is detectable ONLY by its exact id
-    // appearing in a commit subject (commit-ref). No outputs ⇒ no output-exists.
+    // Exit-criteria carry NO `outputs` / `lastUpdated` (common.schema.json
+    // exitCriterion is additionalProperties:false), so a gate is detectable ONLY
+    // by its exact id in a commit subject (commit-ref), anchored on the initiative
+    // lastUpdated/started. No outputs ⇒ no output-exists. `reconcile` Still open
+    // must bump the initiative stamp — never write lastUpdated onto the criterion.
     const sig = classifyEntry({ id: crit.id, anchorTs: initAnchor, outputs: undefined, repoRoot, idMatchSafe });
     if (sig.evidence === 'none') continue;
     const c = { kind: 'criterion', id: String(crit.id ?? '?'), description: String(crit.description ?? ''),
@@ -490,6 +498,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const close = c.hasVerifier ? 'run verifier' : 'manual ack';
     console.log(`  ${c.kind} ${c.id} "${label}" — ${c.evidence} (${via}) → ${close}`);
   }
-  console.log('\nRun `atomic-skills:project reconcile` to dispose each (verifier-aware; never auto-closed).');
+  console.log('\nRun `atomic-skills:project reconcile` to dispose each (signal→ask→verifier/ack; detection never auto-closes; done stays task closure authority).');
   process.exit(1);
 }

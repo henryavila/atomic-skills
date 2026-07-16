@@ -463,6 +463,8 @@ describe('links-sidecar schema validation (T-002)', () => {
 
 const FIXTURE_PARENT = 'tests/fixtures/plan-fork/plans/fixture-parent.md';
 const FIXTURE_CHILD = 'tests/fixtures/plan-fork/plans/fixture-child.md';
+const FIXTURE_PARENT_F0 = 'tests/fixtures/plan-fork/initiatives/fixture-parent-f0.md';
+const FIXTURE_CHILD_F0 = 'tests/fixtures/plan-fork/initiatives/fixture-child-f0.md';
 
 function fixtureFrontmatter(raw) {
   return parseYaml(raw.split('---\n')[1]);
@@ -478,8 +480,15 @@ describe('links-sidecar parent/child fixtures + validate-state approval (T-004 â
 
   it('validate-state APPROVES the inline-elo pair (exit 0) â€” the schema accepts the fields', () => {
     // throws if validate-state exits non-zero; the inline spawnedFrom/spawnedPlans
-    // must pass plan.schema.json (the T-003 schema additions).
-    execFileSync('node', ['scripts/validate-state.js', FIXTURE_PARENT, FIXTURE_CHILD], {
+    // must pass plan.schema.json (the T-003 schema additions). Active F0 also
+    // requires matching initiatives under integrity join (projectId+plan+phase).
+    execFileSync('node', [
+      'scripts/validate-state.js',
+      FIXTURE_PARENT,
+      FIXTURE_CHILD,
+      FIXTURE_PARENT_F0,
+      FIXTURE_CHILD_F0,
+    ], {
       stdio: 'pipe',
     });
   });

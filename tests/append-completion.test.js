@@ -177,3 +177,60 @@ test('appendCompletion rejects an unparseable ts and writes nothing', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('appendCompletion is idempotent for the same event identity (dedupe key)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-idemp-'));
+  try {
+    const first = appendCompletion(root, base({ taskId: 'T-001', ts: '2026-06-01T00:00:00Z' }));
+    assert.equal(first.appended, true);
+    assert.equal(first.idempotent, false);
+
+    const second = appendCompletion(root, base({
+      taskId: 'T-001',
+      ts: '2026-06-02T00:00:00Z', // different ts must not mint a second line
+      weight: 9,
+    }));
+    assert.equal(second.appended, false);
+    assert.equal(second.idempotent, true);
+    assert.equal(second.ts, first.ts, 'returns the original frozen line');
+    assert.equal(second.weight, first.weight);
+
+    const lines = readFileSync(LOG(root), 'utf8').trim().split('\n');
+    assert.equal(lines.length, 1, 'retry → still one line');
+    assert.equal(JSON.parse(lines[0]).taskId, 'T-001');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('appendCompletion still appends when taskId/phaseId/event identity differs', () => {
+  const root = mkdtempSync(join(tmpdir(), 'as-ac-idemp2-'));
+  try {
+    appendCompletion(root, base({ taskId: 'T-001', phaseId: 'F0' }));
+    appendCompletion(root, base({ taskId: 'T-002', phaseId: 'F0' }));
+    appendCompletion(root, base({ taskId: 'T-001', phaseId: 'F1' }));
+    appendCompletion(root, base({ event: 'phase-done', taskId: null, phaseId: 'F0' }));
+
+    const lines = readFileSync(LOG(root), 'utf8').trim().split('\n');
+    assert.equal(lines.length, 4, 'distinct identities each get a line');
+
+    // phase-done identity also dedupes
+    appendCompletion(root, base({ event: 'phase-done', taskId: null, phaseId: 'F0' }));
+    assert.equal(readFileSync(LOG(root), 'utf8').trim().split('\n').length, 4);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('completionEventKey / dedupeCompletionEvents collapse logical duplicates', async () => {
+  const { completionEventKey, dedupeCompletionEvents } = await import('../scripts/append-completion.js');
+  const a = base({ taskId: 'T-001', ts: '2026-01-01T00:00:00Z' });
+  const b = base({ taskId: 'T-001', ts: '2026-01-02T00:00:00Z', weight: 5 });
+  const c = base({ taskId: 'T-002', ts: '2026-01-03T00:00:00Z' });
+  assert.equal(completionEventKey(a), completionEventKey(b));
+  assert.notEqual(completionEventKey(a), completionEventKey(c));
+  const deduped = dedupeCompletionEvents([a, b, c, a]);
+  assert.equal(deduped.length, 2);
+  assert.equal(deduped[0].taskId, 'T-001');
+  assert.equal(deduped[1].taskId, 'T-002');
+});

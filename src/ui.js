@@ -270,6 +270,18 @@ export function showNonInteractiveResult(result, ides, lang) {
     p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(skills)}`);
   }
 
+  // Surface effective reconciler decisions when present (F2/T-003)
+  if (result.decisions) {
+    const bits = [];
+    for (const key of ['preserved', 'conflict', 'modified', 'stale', 'missing']) {
+      const n = result.decisions[key]?.length || 0;
+      if (n > 0) bits.push(`${n} ${key}`);
+    }
+    if (bits.length > 0) {
+      p.log.warn(pc.yellow('Decisions:') + ' ' + bits.join(', '));
+    }
+  }
+
   p.outro(`${m.done} ${m.filesInstalled(result.files.length)}`);
 }
 

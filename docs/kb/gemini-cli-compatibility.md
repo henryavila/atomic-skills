@@ -16,7 +16,7 @@ Gemini CLI uses different tool names than Claude Code. To maintain compatibility
 | `{{GLOB_TOOL}}` | `Glob` | `glob` | Listing files by pattern |
 | `{{INVESTIGATOR_TOOL}}` | `Agent` | `codebase_investigator` | Subagent delegation |
 | `{{ASK_USER_QUESTION_TOOL}}` | `AskUserQuestion tool` | `ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)` | Multi-choice user prompt. Only Claude Code has a native tool; Gemini and all other IDEs in the ELSE branch (Cursor, Codex CLI, Opencode, GitHub Copilot, generic) fall back to the descriptive string and render the prompt in plain text. |
-| `{{ARG_VAR}}` | `$ARGUMENTS` | `$ARGUMENTS` | Accessing command arguments |
+| `{{ARG_VAR}}` | `$ARGUMENTS` | `{{args}}` | Accessing command arguments (Gemini native/commands use `{{args}}`; Claude uses `$ARGUMENTS`) |
 
 ## 2. Conditional Rendering
 
@@ -35,10 +35,10 @@ This instruction is ONLY for Claude Code.
 
 ## 3. Skills vs. Commands
 
-- **Skills (`.gemini/skills/`)**: Recommended for complex, multi-step prompts. They use `SKILL.md` with YAML frontmatter.
-- **Commands (`.gemini/commands/`)**: Best for simple prompt shortcuts. They use `.toml` files.
+- **Skills (`.gemini/skills/atomic-skills-<skill>/SKILL.md`)**: Canonical Gemini contract. Gemini discovers only `SKILL.md` and `*/SKILL.md` under `.gemini/skills/` (one-level depth) — nested `atomic-skills/<skill>/SKILL.md` is invisible to the scanner.
+- **Commands (`.gemini/commands/atomic-skills-<skill>.toml`)**: Optional TOML adapters. Use real TOML serialization and `{{args}}` for argument substitution (never `$ARGUMENTS`). Enabled only when the user selects `gemini-commands` explicitly; dual Gemini+Codex selection keeps native skills.
 
-The installer supports both via the `gemini` and `gemini-commands` IDE targets.
+The installer supports both via the `gemini` (default/native) and `gemini-commands` (optional) IDE targets.
 
 ## 4. Development Workflow for New Skills
 

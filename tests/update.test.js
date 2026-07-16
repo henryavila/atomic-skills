@@ -41,7 +41,7 @@ describe('Update and Orphan Removal', () => {
       scope: 'project'
     });
 
-    assert.ok(existsSync(join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.gemini/skills/atomic-skills-fix/SKILL.md')));
 
     // 3. Simulate the interactive orphan removal logic
     const existingManifestFiles = initialResult.files.reduce((acc, f) => {

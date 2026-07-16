@@ -29,20 +29,23 @@ Atomic Skills for Grok only under `.grok/plugins/` keeps a Grok-rendered body
    `grok plugin install --trust <absPluginRoot>` so `grok plugin list` shows
    `atomic-skills`. Re-install tries `grok plugin update atomic-skills` when
    already registered.
-3. **Agents isolation** (outside the journal, user `~/.grok/config.toml`) —
-   add `~/.agents/skills/atomic-skills` to `[skills].ignore` so Grok does
-   **not** list Codex-rendered Atomic Skills (wrong tool names). Surgical:
-   other `ignore` entries and unrelated config keys are preserved.
+3. **Foreign-skills isolation** (outside the journal, user
+   `~/.grok/config.toml`) — add every non-Grok Atomic Skills root that Grok
+   harness-scans to `[skills].ignore`, so Grok does **not** list
+   Cursor/Codex/Claude-rendered Atomic Skills (wrong tool names) next to the
+   plugin package. Without this, `/project` shows both `atomic-skills:project`
+   and `user:project`. Surgical: other `ignore` entries and unrelated config
+   keys are preserved.
 
 **Uninstall steps:**
 
 1. `grok plugin uninstall atomic-skills --confirm` (host registry).
-2. Remove the `[skills].ignore` entry **only if** no remaining install
-   (user or project) still lists `grok` in its manifest.
+2. Remove the managed `[skills].ignore` entries **only if** no remaining
+   install (user or project) still lists `grok` in its manifest.
 3. Journal reverse — removes the package tree + auto-update surface.
 
 If the `grok` binary is missing, host registry steps are skipped; the
-filesystem package and agents isolation still install/uninstall cleanly.
+filesystem package and foreign-skills isolation still install/uninstall cleanly.
 Set `ATOMIC_SKILLS_SKIP_GROK_HOST=1` to force-skip only the host CLI bridge
 (hermetic tests); isolation still runs.
 
@@ -53,14 +56,24 @@ Set `ATOMIC_SKILLS_SKIP_GROK_HOST=1` to force-skip only the host CLI bridge
 | Codex | `.agents/skills/atomic-skills/` | `shell`, `spawn_agent`, … |
 | Grok | `.grok/plugins/atomic-skills/` (+ host plugin) | `run_terminal_command`, `spawn_subagent`, … |
 
-Grok also scans `.agents/` for harness compat — without isolation it would
-surface the Codex tree. The installer therefore writes:
+Grok also scans `.agents/`, `.cursor/`, and `.claude/` for harness compat —
+without isolation it would surface those trees as `user:*` skills alongside
+the plugin. The installer therefore writes:
 
 ```toml
 # ~/.grok/config.toml  (managed surgically by atomic-skills)
 [skills]
-ignore = ["~/.agents/skills/atomic-skills"]
+ignore = [
+  "~/.agents/skills/atomic-skills",
+  "~/.cursor/skills/atomic-skills",
+  "~/.claude/skills/atomic-skills",
+  "~/.claude/commands/atomic-skills",
+]
 ```
+
+Do **not** flip `[compat.cursor] skills = false` / `[compat.claude] skills =
+false` globally — that would hide the user's non-Atomic Skills under those
+vendors. Namespace-scoped `ignore` is enough.
 
 Codex does **not** scan `.grok/plugins/`; no reverse isolation is required.
 

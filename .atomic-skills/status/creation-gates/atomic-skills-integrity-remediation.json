@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "integrity-remediation",
+  "projectId": "atomic-skills",
+  "sourcePath": "/Volumes/External/code/atomic-skills/projects/atomic-skills/integrity-remediation/source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/plan.md",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f0-runtime-autocontido-e-setup-confiavel.md",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f1-installer-v2-e-protecao-de-dados.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f2-contratos-de-host-runtime-e-observabil.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f3-caminho-spec-para-implement-e-isolamen.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f6-qualificacao-de-release-e-fechamento-d.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/plan.md",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f0-runtime-autocontido-e-setup-confiavel.md",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f1-installer-v2-e-protecao-de-dados.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f2-contratos-de-host-runtime-e-observabil.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f3-caminho-spec-para-implement-e-isolamen.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json",
+    ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f6-qualificacao-de-release-e-fechamento-d.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-11T18:10:30Z"
+}

@@ -1,6 +1,8 @@
 # project — first-time setup (lazy detail)
 
-Loaded by the router when `.atomic-skills/` does not exist (any subcommand), or on explicit `setup`.
+Loaded by the router when the resident **Project setup sentinel** returns **Setup
+required** (including an absent, empty, or installer-ledger-only
+`.atomic-skills/`), or on explicit `setup`.
 
 Announce: "I will configure the `project` skill in this repo."
 
@@ -11,12 +13,13 @@ Detect two independent axes: skill installation compatibility and project-hook s
 ### Skill installation host
 - `test -d .claude/` → Claude Code; skills path: `.claude/commands/atomic-skills/<skill>.md`
 - `test -d .cursor/` → Cursor; skills path: `.cursor/skills/atomic-skills/<skill>/SKILL.md`
-- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills-<skill>/SKILL.md` (first-level discovery depth — not nested under `atomic-skills/`)
 - `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .grok/` → Grok Build; skills path: `.grok/plugins/atomic-skills/skills/<skill>/SKILL.md` (plugin package only)
-- When Gemini CLI and Codex are both selected, Gemini command shims use `.gemini/commands/atomic-skills-<skill>.toml`
+- Native Gemini stays at `.gemini/skills/atomic-skills-<skill>/SKILL.md` even when Codex is also selected (no rewrite to commands)
+- Optional Gemini command adapters: `.gemini/commands/atomic-skills-<skill>.toml` (explicit `gemini-commands` profile only)
 - Otherwise → generic IDE; no host-specific skills path and no project-hook setup
 
 ### Project-hook setup eligibility
@@ -100,13 +103,32 @@ When the optional `pre-write.sh` PreToolUse hook is installed (enforcement level
 
 ## 6. Create structure
 
+Installer coexistence is non-destructive: `.atomic-skills/manifest.json` and
+`.atomic-skills/hooks/version-check.sh` may already exist. They belong to the
+installer, not the project lifecycle. Never delete, move, or overwrite either
+artifact during setup.
+
 Use {{BASH_TOOL}}:
 ```bash
 mkdir -p .atomic-skills/projects        # nested top level — per-project folders land here
 mkdir -p .atomic-skills/status/hooks
 ```
 
-The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the `<slug>/phases/archive/` dirs) are created with the first plan (`new plan` / `discover --commit`). For coexistence with un-migrated tooling, also seed a top-level fallback index now: copy `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` to `.atomic-skills/PROJECT-STATUS.md`, replacing `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+The per-project index `projects/<project-id>/PROJECT-STATUS.md` (and the
+`<slug>/phases/archive/` dirs) are created with the first plan (`new plan` /
+`discover --commit`). The top-level `.atomic-skills/PROJECT-STATUS.md` is the
+structural sentinel for a configured repo that has no plan yet:
+
+- If `.atomic-skills/PROJECT-STATUS.md` is absent, copy
+  `{{ASSETS_PATH}}/PROJECT-STATUS.md.template.md` there and replace
+  `REPLACE_ISO_TIMESTAMP` with the current timestamp.
+- If `.atomic-skills/PROJECT-STATUS.md` already exists, preserve it byte for
+  byte. Read it and diagnose missing frontmatter/`schemaVersion` or the missing
+  `# Project Status Index` heading; repair only after showing the diff and
+  receiving explicit approval. Never silently overwrite it.
+
+Re-run the Project setup sentinel after this step. It must now classify the
+tree as **Configured** before setup reports success.
 
 ## 7. Update .gitignore
 Append (if not present):

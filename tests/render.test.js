@@ -209,16 +209,22 @@ describe('renderForIDE', () => {
     assert.ok(result.includes('prompt body'));
   });
 
-  it('renders toml format', () => {
+  it('renders toml format (parser-roundtrip)', async () => {
+    const TOML = (await import('@iarna/toml')).default;
     const result = renderForIDE('toml', 'fix', 'My description', 'prompt body');
-    assert.ok(result.includes('description = "My description"'));
-    assert.ok(result.includes('prompt = """'));
-    assert.ok(result.includes('prompt body'));
+    assert.ok(/description\s*=/.test(result));
+    assert.ok(/prompt\s*=/.test(result));
+    const parsed = TOML.parse(result);
+    assert.equal(parsed.description, 'My description');
+    assert.ok(parsed.prompt.includes('prompt body'));
   });
 
-  it('escapes double quotes in toml description', () => {
+  it('escapes double quotes in toml description via real serializer', async () => {
+    const TOML = (await import('@iarna/toml')).default;
     const result = renderForIDE('toml', 'fix', 'Say "hello" world', 'body');
-    assert.ok(result.includes('description = "Say \\"hello\\" world"'));
+    const parsed = TOML.parse(result);
+    assert.equal(parsed.description, 'Say "hello" world');
+    assert.ok(parsed.prompt.includes('body'));
   });
 
   it('escapes single quotes in markdown description', () => {

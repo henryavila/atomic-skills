@@ -65,7 +65,7 @@ describe('CLI flag parsing', () => {
       const parsed = JSON.parse(output);
       assert.ok(parsed.supported.includes('gemini'));
       assert.deepStrictEqual(parsed.detected, ['gemini', 'codex']);
-      assert.deepStrictEqual(parsed.effective, ['gemini-commands', 'codex']);
+      assert.deepStrictEqual(parsed.effective, ['gemini', 'codex']);
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

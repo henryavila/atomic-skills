@@ -1,0 +1,878 @@
+{
+  "schemaVersion": "1",
+  "planSlug": "integrity-remediation",
+  "generatedAt": "2026-07-16T17:53:38.687Z",
+  "sources": {
+    "installer": "docs/audits/installer-audit-2026-07-10.md",
+    "project-implement": "docs/audits/project-implement-audit-2026-07-10.md",
+    "codex-review": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md"
+  },
+  "sourceIdCounts": {
+    "installer": 13,
+    "project-implement": 22,
+    "codex-review": 6
+  },
+  "findings": [
+    {
+      "id": "codex-review/F-001",
+      "source": "codex-review",
+      "localId": "F-001",
+      "title": "codex-review F-001",
+      "ownerTask": "F0/T-005",
+      "status": "resolved",
+      "reproducer": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md + F6 gates",
+      "verifier": {
+        "command": "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "30d0ab8593d32c69456c1ad1399d8a025118d31b49154d72f9db551354fac077",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "codex-review/F-002",
+      "source": "codex-review",
+      "localId": "F-002",
+      "title": "codex-review F-002",
+      "ownerTask": "F1/T-001",
+      "status": "resolved",
+      "reproducer": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md + F6 gates",
+      "verifier": {
+        "command": "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "a315aaafb5880f8da72119e9620f9e0398a4f710481d23a99cd1e593390b76db",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "codex-review/F-003",
+      "source": "codex-review",
+      "localId": "F-003",
+      "title": "codex-review F-003",
+      "ownerTask": "F1/T-001",
+      "status": "resolved",
+      "reproducer": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md + F6 gates",
+      "verifier": {
+        "command": "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "68951749d34722d99f8b9c4a6886152680b722b76b6002935c8330effd9da9a7",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "codex-review/F-004",
+      "source": "codex-review",
+      "localId": "F-004",
+      "title": "codex-review F-004",
+      "ownerTask": "F2/T-001",
+      "status": "resolved",
+      "reproducer": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md + F6 gates",
+      "verifier": {
+        "command": "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "6615439356f77deac97d80a1cbfaa494bcde94e8418cdb77b1d8bf4487ef664c",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "codex-review/F-005",
+      "source": "codex-review",
+      "localId": "F-005",
+      "title": "codex-review F-005",
+      "ownerTask": "F6/T-004",
+      "status": "resolved",
+      "reproducer": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md + F6 gates",
+      "verifier": {
+        "command": "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "338b4cabdf70fe3794957def6a061231307f295c5ca1f72211fda47464967c09",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "codex-review/F-006",
+      "source": "codex-review",
+      "localId": "F-006",
+      "title": "codex-review F-006",
+      "ownerTask": "F6/T-003",
+      "status": "resolved",
+      "reproducer": ".atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md + F6 gates",
+      "verifier": {
+        "command": "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "69f05fc0dbdb06ce35d6f8c24aae7ec38ee7a0c683b6f2773cf772b4a0e8eebd",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/C1",
+      "source": "installer",
+      "localId": "C1",
+      "title": "installer C1",
+      "ownerTask": "F1/T-001",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "4fafcf6bd5d2dbb7620cac4b856ea5bd7d8493e7fb9527a7b4b875a8c5bbbd58",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/C2",
+      "source": "installer",
+      "localId": "C2",
+      "title": "installer C2",
+      "ownerTask": "F0/T-003",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "01f218e4734f4e11f5b5d101b2104697319545daeea5ad7d9b6b97231836b0e3",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/C3",
+      "source": "installer",
+      "localId": "C3",
+      "title": "installer C3",
+      "ownerTask": "F0/T-001",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "d7f09f43f30cc55fb15b252ff93bd65673a2c7c47b7bfa2d0926170c9d120cad",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/H1",
+      "source": "installer",
+      "localId": "H1",
+      "title": "installer H1",
+      "ownerTask": "F2/T-001",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "44b80762bd80d4e0dcb1d9b71cef8dd237e5864eefbaff081c4d441954d5b5e8",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/H2",
+      "source": "installer",
+      "localId": "H2",
+      "title": "installer H2",
+      "ownerTask": "F1/T-005",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "316b45bcbf2f232f4bd03e33e7328fc754c7aeafe6fecdd21de83be05b538edf",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/H3",
+      "source": "installer",
+      "localId": "H3",
+      "title": "installer H3",
+      "ownerTask": "F1/T-005",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "870e290e8a7df12732be2fa4bbb68e0d65fd9cfde2a372f7c146ed6291b53bcd",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/H4",
+      "source": "installer",
+      "localId": "H4",
+      "title": "installer H4",
+      "ownerTask": "F2/T-002",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "c52b01c56121591645a1e193433559f49614352c84c62f84d4ef74400ee566a3",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/H5",
+      "source": "installer",
+      "localId": "H5",
+      "title": "installer H5",
+      "ownerTask": "F2/T-003",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "5e6ef6b93b581c441f4aea9d1531b975659bdd0906c2d4022e2bf50bbdc43367",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/H6",
+      "source": "installer",
+      "localId": "H6",
+      "title": "installer H6",
+      "ownerTask": "F1/T-005",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "028aa6260d66c701120675bb15c1c3fc6f96788acc28816236e4c4d6986b98dc",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/M1",
+      "source": "installer",
+      "localId": "M1",
+      "title": "installer M1",
+      "ownerTask": "F0/T-002",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "a46b8fef74e3477be9fd448622fa56f50d1b5184ce1537b6c1e0ebf8e5981ca0",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/M2",
+      "source": "installer",
+      "localId": "M2",
+      "title": "installer M2",
+      "ownerTask": "F0/T-002",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "3a5e35f356cc2cce4f61e6b79addf7d6c2498904a268e49079032d1ba2cebb24",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/M3",
+      "source": "installer",
+      "localId": "M3",
+      "title": "installer M3",
+      "ownerTask": "F0/T-002",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "7617dbbd5499780d2f63325970d0b7030efaefdaa62b63a4de43b7f870131240",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "installer/M4",
+      "source": "installer",
+      "localId": "M4",
+      "title": "installer M4",
+      "ownerTask": "F1/T-006",
+      "status": "resolved",
+      "reproducer": "docs/audits/installer-audit-2026-07-10.md + tests/installer-fault-injection.test.js / tests/release-fault-matrix.test.js / tests/install-uninstall-roundtrip.test.js",
+      "verifier": {
+        "command": "node --test tests/release-fault-matrix.test.js tests/installer-fault-injection.test.js tests/install-uninstall-roundtrip.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "ac5b952e5bcb85217b2785e3e2ab23453829b5f790d528e0968803bd662aba26",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/C1",
+      "source": "project-implement",
+      "localId": "C1",
+      "title": "project-implement C1",
+      "ownerTask": "F0/T-001",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "cdd0cddea0c1b8c88ce48446ea765cedb4dcd9898b9ae4de895410d840daf76a",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/C2",
+      "source": "project-implement",
+      "localId": "C2",
+      "title": "project-implement C2",
+      "ownerTask": "F3/T-001",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "14d000ee1e1e2c83ce9b92a29736347898d887c1d0735f806d760802ae640095",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/C3",
+      "source": "project-implement",
+      "localId": "C3",
+      "title": "project-implement C3",
+      "ownerTask": "F4/T-003",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "58191f26e1e2373170426d2a41292ed86f06860c9700178b855e347901431a83",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H1",
+      "source": "project-implement",
+      "localId": "H1",
+      "title": "project-implement H1",
+      "ownerTask": "F3/T-002",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "557cbe80faeda7ec09788e66e287cfb5ef4f1e89a7205d8dcb65b722ac77bf58",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H10",
+      "source": "project-implement",
+      "localId": "H10",
+      "title": "project-implement H10",
+      "ownerTask": "F0/T-001",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "f4f76c59e13d085931b66a63452db651813db674025760c3588cf797a06287c6",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H2",
+      "source": "project-implement",
+      "localId": "H2",
+      "title": "project-implement H2",
+      "ownerTask": "F4/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "8964b4227fd9087d5437c322527adb3c085f275f4bc5cafb5b96e0e0b21c269e",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H3",
+      "source": "project-implement",
+      "localId": "H3",
+      "title": "project-implement H3",
+      "ownerTask": "F4/T-005",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "09c91bc1ac4880092ba0c640ab09d506e7daf859ad2b8f9d968a1a07ab04ae93",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H4",
+      "source": "project-implement",
+      "localId": "H4",
+      "title": "project-implement H4",
+      "ownerTask": "F3/T-003",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "ac825fe3f27715d2b30a2336657ddcf89073d836bd86766162c65c0294abc00c",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H5",
+      "source": "project-implement",
+      "localId": "H5",
+      "title": "project-implement H5",
+      "ownerTask": "F0/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "997aa2cf7aa69f05ded0013c3d7988eab3595b3fc0a934160e66c05440b39bcb",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H6",
+      "source": "project-implement",
+      "localId": "H6",
+      "title": "project-implement H6",
+      "ownerTask": "F4/T-007",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "f80672c7f4232e65b4901a550a293f732b2d354d456a2f53f640a6071197af0a",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H7",
+      "source": "project-implement",
+      "localId": "H7",
+      "title": "project-implement H7",
+      "ownerTask": "F4/T-006",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "8487d9194c51b41dcb18c99a7b41e66b0b7bc7d733876d344a47e687f0a83730",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H8",
+      "source": "project-implement",
+      "localId": "H8",
+      "title": "project-implement H8",
+      "ownerTask": "F3/T-003",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "aedc67f57fb5fe3b870d66ced527920834f05a3ffdcd24c4daa3ff6d552859e5",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/H9",
+      "source": "project-implement",
+      "localId": "H9",
+      "title": "project-implement H9",
+      "ownerTask": "F3/T-002",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "906b3a439d7949ebc1494f948a5a808e8e8f724d5aa4fbd122f96e35af9f8e08",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M1",
+      "source": "project-implement",
+      "localId": "M1",
+      "title": "project-implement M1",
+      "ownerTask": "F3/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "e30a4b8a8ea71caca54b2a3b1d28ef5b0eb38889a32d5f52e889306fa5297676",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M2",
+      "source": "project-implement",
+      "localId": "M2",
+      "title": "project-implement M2",
+      "ownerTask": "F4/T-008",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "92e612086841a890cd836b061607dda48ee724dd8e68c260454e05f55d8b6718",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M3",
+      "source": "project-implement",
+      "localId": "M3",
+      "title": "project-implement M3",
+      "ownerTask": "F3/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "ab609a52d21b9b2cca1cd2664b1f8724fee373e36906ec6046cd0ef0f1cf466b",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M4",
+      "source": "project-implement",
+      "localId": "M4",
+      "title": "project-implement M4",
+      "ownerTask": "F3/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "86378e4948a32af3787fa2e2d025c7342fc4c1c95637cc3d33009a3ec3992634",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M5",
+      "source": "project-implement",
+      "localId": "M5",
+      "title": "project-implement M5",
+      "ownerTask": "F3/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "d84f73eb627b966563666eb41699f3a56e0279235596bee711603cdfeef9907c",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M6",
+      "source": "project-implement",
+      "localId": "M6",
+      "title": "project-implement M6",
+      "ownerTask": "F3/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "7205d40ef5eab6b51bba56cddaf4e68e98d435e1e3e4de88680004898a6fb3dd",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M7",
+      "source": "project-implement",
+      "localId": "M7",
+      "title": "project-implement M7",
+      "ownerTask": "F4/T-008",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "1ea5dcb6c15fd20561e9ed2518d64050a27253d1d38511f040950624dbcf1a1e",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M8",
+      "source": "project-implement",
+      "localId": "M8",
+      "title": "project-implement M8",
+      "ownerTask": "F3/T-004",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "f5bef6ea2dd63ef7454bf752d4686cdd8a6084464743e7ce09049cc8b2d1e6fa",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    },
+    {
+      "id": "project-implement/M9",
+      "source": "project-implement",
+      "localId": "M9",
+      "title": "project-implement M9",
+      "ownerTask": "F5/T-006",
+      "status": "resolved",
+      "reproducer": "docs/audits/project-implement-audit-2026-07-10.md + tests/project-implement-e2e.test.js / tests/done-transaction.test.js / tests/phase-done-transaction.test.js",
+      "verifier": {
+        "command": "node --test tests/done-transaction.test.js tests/phase-done-transaction.test.js tests/project-implement-e2e.test.js",
+        "passed": true,
+        "exitCode": 0,
+        "verifiedAt": "2026-07-16T17:53:38.687Z"
+      },
+      "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+      "evidence": {
+        "digest": "dc9a2417073ab5079544d5b60ad7356721f2eb283e98f4e9c7ba6588632b56e9",
+        "job": "local-linux",
+        "notes": "Qualified on Linux local suite; multi-OS CI receipt is partial pending remote matrix."
+      }
+    }
+  ]
+}

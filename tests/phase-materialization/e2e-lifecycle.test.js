@@ -21,11 +21,14 @@ import {
 } from '../../src/decompose.js';
 import {
   collectTargets,
+  collectSidecars,
   crossValidate,
   parseFrontmatter,
+  projectIdFromPath,
   validateFile,
 } from '../../scripts/validate-state.js';
 import { findMissingBusinessIntent } from '../../scripts/find-missing-business-intent.js';
+import { materializePair } from '../../scripts/materialize-state.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(__dirname, '..', '..');
@@ -110,13 +113,6 @@ function shellEvidence(verifiedAt, outputSummary) {
   };
 }
 
-function addBusinessIntentToInitiative(absPath) {
-  const { frontmatter, body } = readFrontmatterFile(absPath);
-  frontmatter.businessIntent = { ...BUSINESS_INTENT };
-  writeFrontmatterFile(absPath, frontmatter, body);
-  return frontmatter;
-}
-
 function closeF0Initiative(absPath) {
   const { frontmatter, body } = readFrontmatterFile(absPath);
   frontmatter.businessIntent = { ...BUSINESS_INTENT };
@@ -139,10 +135,10 @@ function closeF0Initiative(absPath) {
   return frontmatter;
 }
 
-function advancePlanToF1(absPath) {
+/** Build the post-F0-close plan content with F1 still pending (descriptor prep). */
+function planAfterF0Done(absPath) {
   const { frontmatter, body } = readFrontmatterFile(absPath);
   frontmatter.lastUpdated = ACTIVATED_AT;
-  frontmatter.currentPhase = 'F1';
   for (const phase of frontmatter.phases) {
     delete phase.lastUpdated;
     if (phase.id === 'F0') {
@@ -154,21 +150,29 @@ function advancePlanToF1(absPath) {
         criterion.evidence = shellEvidence(ACTIVATED_AT, `${criterion.id} fixture verifier passed`);
       }
     }
-    if (phase.id === 'F1') {
-      phase.status = 'active';
-      phase.subPhaseCount = 2;
-      phase.businessIntent = { ...BUSINESS_INTENT };
-    }
   }
   writeFrontmatterFile(absPath, frontmatter, body);
   return frontmatter;
 }
 
-function parseInitiativeFrontmatters(paths) {
-  return new Map(paths.map((absPath) => {
-    const { frontmatter } = readFrontmatterFile(absPath);
-    return [frontmatter.slug, frontmatter];
-  }));
+/**
+ * In-memory plan descriptor update for F1 activation — must be published only
+ * together with the initiative via materializePair (never written live first).
+ */
+function buildPlanContentActivatingF1(absPath, subPhaseCount) {
+  const { frontmatter, body } = readFrontmatterFile(absPath);
+  frontmatter.lastUpdated = ACTIVATED_AT;
+  frontmatter.currentPhase = 'F1';
+  for (const phase of frontmatter.phases) {
+    delete phase.lastUpdated;
+    if (phase.id === 'F1') {
+      phase.status = 'active';
+      phase.subPhaseCount = subPhaseCount;
+      phase.businessIntent = { ...BUSINESS_INTENT };
+    }
+  }
+  const renderedBody = body.startsWith('\n') ? body : `\n${body}`;
+  return `---\n${stringifyYaml(frontmatter)}---${renderedBody}`;
 }
 
 describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', () => {
@@ -211,7 +215,9 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
       assert.equal('lastUpdated' in initialF1, false, 'phase descriptor starts without timestamp fields');
 
       closeF0Initiative(f0Path);
-      let planFm = advancePlanToF1(planPath);
+      // Close F0 on the plan without activating F1 yet — activating F1 live
+      // before the initiative exists is the forbidden window this test forbids.
+      planAfterF0Done(planPath);
       const f1FromSource = decomposeOnePhase(phaseSource(SOURCE, 'F1'), {
         planSlug: PLAN_SLUG,
         warnings: [],
@@ -251,17 +257,56 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         seenPaths: new Set(files.filter((file) => file.relativePath.endsWith('.md')).map((file) => file.relativePath)),
       });
       const f1Path = join(tmpRoot, f1File.relativePath);
+
+      // Prove detector blocks a materialized initiative missing businessIntent
+      // without ever writing an active plan descriptor alone.
       mkdirSync(dirname(f1Path), { recursive: true });
       writeFileSync(f1Path, f1File.content, 'utf8');
-
       const beforeGate = findMissingBusinessIntent(tmpRoot);
       assert.ok(
         beforeGate.some((entry) => entry.missing.some((missing) => missing.phaseId === 'F1')),
         'materialized F1 without businessIntent is hard-blocked by the detector',
       );
+      // Remove the incomplete initiative so the recoverable materialize path
+      // owns the real F1 publish (initiative first, plan active last).
+      rmSync(f1Path, { force: true });
 
-      const f1Fm = addBusinessIntentToInitiative(f1Path);
-      planFm = readFrontmatterFile(planPath).frontmatter;
+      const initiativeWithIntent = (() => {
+        const parsed = parseFrontmatter(f1File.content);
+        assert.equal(parsed.error, undefined);
+        parsed.frontmatter.businessIntent = { ...BUSINESS_INTENT };
+        const renderedBody = parsed.body.startsWith('\n') ? parsed.body : `\n${parsed.body}`;
+        return `---\n${stringifyYaml(parsed.frontmatter)}---${renderedBody}`;
+      })();
+      const planWithF1Active = buildPlanContentActivatingF1(planPath, f1FromSource.tasks.length);
+
+      // Observational: plan must not already declare F1 active before publish.
+      assert.equal(
+        readFrontmatterFile(planPath).frontmatter.phases.find((p) => p.id === 'F1').status,
+        'pending',
+      );
+      assert.equal(existsSync(f1Path), false);
+
+      const published = materializePair({
+        planPath,
+        initiativePath: f1Path,
+        planContent: planWithF1Active,
+        initiativeContent: initiativeWithIntent,
+        faultHooks: {
+          afterInitiativeRename: () => {
+            assert.equal(existsSync(f1Path), true);
+            assert.equal(
+              readFrontmatterFile(planPath).frontmatter.phases.find((p) => p.id === 'F1').status,
+              'pending',
+              'plan must not declare F1 active before plan rename',
+            );
+          },
+        },
+      });
+      assert.equal(published.ok, true);
+
+      const f1Fm = readFrontmatterFile(f1Path).frontmatter;
+      let planFm = readFrontmatterFile(planPath).frontmatter;
       const f1Descriptor = planFm.phases.find((phase) => phase.id === 'F1');
       const f2Descriptor = planFm.phases.find((phase) => phase.id === 'F2');
       assert.equal(planFm.currentPhase, 'F1');
@@ -292,9 +337,24 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         const result = validateFile(target, validators);
         assert.equal(result.ok, true, `validateFile failed for ${target}: ${JSON.stringify(result.errors)}`);
       }
-      const planMap = new Map([[PLAN_SLUG, readFrontmatterFile(planPath).frontmatter]]);
-      const initMap = parseInitiativeFrontmatters([f0Path, f1Path]);
-      assert.deepEqual(crossValidate(planMap, initMap), [], 'phase-done advance state cross-validates');
+      // Integrity F4: join is projectId+plan+phase; descriptor-only F2 needs its
+      // lazy sidecar in the sidecars set (same discovery path as validate-state CLI).
+      planFm = readFrontmatterFile(planPath).frontmatter;
+      const projectId = projectIdFromPath(planPath);
+      planFm.__projectId = projectId;
+      const planMap = new Map([[`${projectId}/${PLAN_SLUG}`, planFm]]);
+      const scopedInits = new Map();
+      for (const p of [f0Path, f1Path]) {
+        const fm = readFrontmatterFile(p).frontmatter;
+        fm.__projectId = projectIdFromPath(p);
+        scopedInits.set(`${fm.__projectId}/${fm.slug}`, fm);
+      }
+      const sidecars = collectSidecars([planPath]);
+      assert.deepEqual(
+        crossValidate(planMap, scopedInits, { sidecars }),
+        [],
+        'phase-done advance state cross-validates',
+      );
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }

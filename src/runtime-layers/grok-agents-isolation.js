@@ -6,25 +6,41 @@ import { wantsGrokPluginHost } from './grok-plugin-host.js';
 import { readManifest, MANIFEST_DIR } from '../manifest.js';
 
 /**
- * Hide Codex-rendered Atomic Skills from Grok's skill scanner.
+ * Hide non-Grok Atomic Skills trees from Grok's skill scanner.
  *
- * Grok walks `.agents/skills/` for harness compat. Codex installs there with
- * Codex tool names (`shell`, …). When both hosts are installed, Grok would
- * list duplicate skills — one wrong for Grok. The durable Grok package lives
- * under `.grok/plugins/atomic-skills/` (plugin delivery); this layer tells
- * Grok to **ignore** the Codex tree for our namespace only.
+ * Grok discovers skills from multiple vendor roots (harness compat):
+ *   - `.agents/skills/`  (Codex)
+ *   - `.cursor/skills/`  (Cursor)
+ *   - `.claude/skills/` + `.claude/commands/` (Claude Code)
+ *
+ * Atomic Skills installs a Grok-native package under
+ * `.grok/plugins/atomic-skills/` (plugin delivery). Without isolation,
+ * Grok also lists the same skill names from Cursor/Codex/Claude trees
+ * (wrong tool names) — slash menu shows both `atomic-skills:project`
+ * and `user:project`.
  *
  * Writes (user Grok config, always under $HOME — not project config):
  *   ~/.grok/config.toml
  *   [skills]
- *   ignore = ["~/.agents/skills/atomic-skills"]
+ *   ignore = ["~/.agents/skills/atomic-skills", "~/.cursor/skills/atomic-skills", …]
  *
  * Orchestrated outside the journal (same class as host plugin registry):
  * surgical TOML edit + refcount via remaining installs that still list `grok`.
  */
 
-/** Portable ignore entry (Grok expands `~`). */
-export const GROK_AGENTS_ATOMIC_SKILLS_IGNORE = `~/.agents/skills/${SKILL_NAMESPACE}`;
+/**
+ * All user-scope foreign Atomic Skills roots Grok may scan.
+ * Order is stable for deterministic TOML output.
+ */
+export const GROK_FOREIGN_ATOMIC_SKILLS_IGNORES = Object.freeze([
+  `~/.agents/skills/${SKILL_NAMESPACE}`,
+  `~/.cursor/skills/${SKILL_NAMESPACE}`,
+  `~/.claude/skills/${SKILL_NAMESPACE}`,
+  `~/.claude/commands/${SKILL_NAMESPACE}`,
+]);
+
+/** Codex path only — kept for callers/tests that pin the original entry. */
+export const GROK_AGENTS_ATOMIC_SKILLS_IGNORE = GROK_FOREIGN_ATOMIC_SKILLS_IGNORES[0];
 
 /** Relative to user home. */
 export const GROK_USER_CONFIG_REL = '.grok/config.toml';
@@ -41,16 +57,22 @@ export function resolveGrokUserConfigPath(opts = {}) {
 /**
  * Normalize an ignore path for comparison (trim, expand trailing slash, ~ form).
  * @param {string} p
+ * @param {{ home?: string }} [opts]
  * @returns {string}
  */
-export function normalizeIgnorePath(p) {
+export function normalizeIgnorePath(p, opts = {}) {
   let s = String(p).trim().replace(/\\/g, '/');
   // Drop trailing slash except root
   if (s.length > 1 && s.endsWith('/')) s = s.slice(0, -1);
-  // Treat $HOME/.agents/... as equivalent to ~/.agents/...
-  const home = (process.env.HOME || homedir()).replace(/\\/g, '/');
-  if (home && (s === `${home}/.agents/skills/${SKILL_NAMESPACE}` || s.startsWith(`${home}/.agents/skills/${SKILL_NAMESPACE}/`))) {
-    s = GROK_AGENTS_ATOMIC_SKILLS_IGNORE;
+  // Treat $HOME/.…/atomic-skills as equivalent to ~/.…/atomic-skills
+  const home = (opts.home ?? process.env.HOME ?? homedir()).replace(/\\/g, '/');
+  if (home) {
+    for (const entry of GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+      const abs = entry.replace(/^~/, home);
+      if (s === abs || s.startsWith(`${abs}/`)) {
+        return entry;
+      }
+    }
   }
   return s;
 }
@@ -96,6 +118,23 @@ export function ensureSkillsIgnoreEntry(toml, entry) {
 }
 
 /**
+ * Pure: ensure every foreign Atomic Skills ignore entry is present.
+ * @param {string} toml
+ * @param {readonly string[]} [entries]
+ * @returns {{ text: string, changed: boolean }}
+ */
+export function ensureAllForeignSkillsIgnores(toml, entries = GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+  let text = toml || '';
+  let changed = false;
+  for (const entry of entries) {
+    const r = ensureSkillsIgnoreEntry(text, entry);
+    text = r.text;
+    if (r.changed) changed = true;
+  }
+  return { text, changed };
+}
+
+/**
  * Pure: remove `entry` from skills.ignore. Does not delete unrelated config.
  * @param {string} toml
  * @param {string} entry
@@ -134,6 +173,25 @@ export function removeSkillsIgnoreEntry(toml, entry) {
 }
 
 /**
+ * Pure: remove every foreign Atomic Skills ignore entry we manage.
+ * @param {string} toml
+ * @param {readonly string[]} [entries]
+ * @returns {{ text: string, changed: boolean, removedFileWorthEmpty: boolean }}
+ */
+export function removeAllForeignSkillsIgnores(toml, entries = GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+  let text = toml || '';
+  let changed = false;
+  let removedFileWorthEmpty = false;
+  for (const entry of entries) {
+    const r = removeSkillsIgnoreEntry(text, entry);
+    text = r.text;
+    if (r.changed) changed = true;
+    removedFileWorthEmpty = r.removedFileWorthEmpty;
+  }
+  return { text, changed, removedFileWorthEmpty };
+}
+
+/**
  * @param {string} toml
  * @param {string} entry
  * @returns {boolean}
@@ -146,8 +204,17 @@ export function skillsIgnoreContains(toml, entry) {
 }
 
 /**
+ * @param {string} toml
+ * @param {readonly string[]} [entries]
+ * @returns {boolean}
+ */
+export function skillsIgnoreContainsAll(toml, entries = GROK_FOREIGN_ATOMIC_SKILLS_IGNORES) {
+  return entries.every((e) => skillsIgnoreContains(toml, e));
+}
+
+/**
  * Apply isolation on install (when grok is selected). Always targets user
- * ~/.grok/config.toml so user-scoped Codex skills are hidden from Grok.
+ * ~/.grok/config.toml so user-scoped foreign Atomic Skills are hidden from Grok.
  *
  * @param {object} opts
  * @param {string[]} [opts.ides]
@@ -162,7 +229,7 @@ export function applyGrokAgentsIsolation(opts = {}) {
 
   const configPath = resolveGrokUserConfigPath({ home });
   const before = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
-  const { text, changed } = ensureSkillsIgnoreEntry(before, GROK_AGENTS_ATOMIC_SKILLS_IGNORE);
+  const { text, changed } = ensureAllForeignSkillsIgnores(before);
   if (!changed) {
     return { status: 'already', detail: configPath };
   }
@@ -172,7 +239,7 @@ export function applyGrokAgentsIsolation(opts = {}) {
 }
 
 /**
- * Reverse isolation on uninstall. Only removes the ignore entry when no other
+ * Reverse isolation on uninstall. Only removes the ignore entries when no other
  * install (user or project) still lists `grok` in its manifest ides.
  *
  * @param {object} opts
@@ -209,10 +276,7 @@ export function revertGrokAgentsIsolation(opts) {
   }
 
   const before = readFileSync(configPath, 'utf8');
-  const { text, changed, removedFileWorthEmpty } = removeSkillsIgnoreEntry(
-    before,
-    GROK_AGENTS_ATOMIC_SKILLS_IGNORE,
-  );
+  const { text, changed, removedFileWorthEmpty } = removeAllForeignSkillsIgnores(before);
   if (!changed) {
     return { status: 'absent', detail: 'ignore entry not present' };
   }

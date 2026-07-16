@@ -84,3 +84,12 @@
 | 2026-07-16 15:10 | [grok-build-integration-f4-local](2026-07-16-1510-grok-build-integration-f4-local.md) | code (local) | approved | 0B/0C/0M/0m/0n | F4 |
 | 2026-07-16 15:20 | [grok-build-integration-f4-f5](2026-07-16-1520-grok-build-integration-f4-f5-codex.md) | code/codex | needs_changes→fixed | 0B/0C/4M/1m/0n | F4+F5 |
 | 2026-07-16 15:25 | [grok-build-integration-f5-local](2026-07-16-1525-grok-build-integration-f5-local.md) | code (local) | approved | 0B/0C/0M/0m/0n | F5 |
+| 2026-07-11 14:15 | [integrity-remediation](2026-07-11-1415-integrity-remediation.md) | plan | reject→resolved | 0B/2C/4M/0m/0n | 0d/5=/1+; 6/6 fixed + rechecked |
+| 2026-07-16 | integrity-remediation F0 (runtime closure + materialize bootstrap) | code (external adversarial) | PASS_WITH_FINDINGS | 0B/0C/3M/3m/2n | [2026-07-16-f0-integrity-remediation.md](./2026-07-16-f0-integrity-remediation.md) |
+| 2026-07-16 | integrity-remediation F4 (state authority + recoverable transitions) | code (external adversarial) | PASS_WITH_FINDINGS | 0B/0C/5M/2m/2n | [2026-07-16-f4-integrity-remediation.md](./2026-07-16-f4-integrity-remediation.md) |
+- 2026-07-16-f1-integrity-remediation.md — PASS_WITH_FINDINGS
+- 2026-07-16-f2-integrity-remediation.md — PASS
+- 2026-07-16-f3-integrity-remediation.md — PASS
+- 2026-07-16-f5-integrity-remediation.md — PASS
+- 2026-07-16-f6-integrity-remediation.md — PASS_WITH_FINDINGS
+- 2026-07-16-1844-integrity-remediation-codex.md — Codex CROSS-MODEL reject (3 critical, 10 major) on integrity-remediation product diff

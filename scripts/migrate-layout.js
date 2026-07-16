@@ -287,11 +287,25 @@ function main() {
     writtenAbs.push(destAbs);
   }
 
-  // ── VERIFY ── validate the EXACT set of nested files we just wrote, together,
-  // so crossValidate() checks each plan against its own phases. Authoritative:
+  // ── VERIFY ── validate nested files we just wrote PLUS any pre-existing
+  // phases/ siblings under those plans (recovery: a prior partial run may have
+  // already nested some phases whose flat originals are gone). Without those
+  // siblings, crossValidate flags done/active phases as missing-initiative even
+  // though the initiative is already correctly nested on disk. Authoritative:
   // the same scripts/validate-state.js the whole system (husky, `project verify`) uses.
+  const verifyAbs = new Set(writtenAbs);
+  for (const out of plan.outputs) {
+    if (out.kind !== 'plan') continue;
+    const phasesDir = join(rootAbs, dirname(out.relPath), 'phases');
+    if (!existsSync(phasesDir) || !statSync(phasesDir).isDirectory()) continue;
+    for (const entry of readdirSync(phasesDir)) {
+      if (!entry.endsWith('.md')) continue;
+      const phaseAbs = join(phasesDir, entry);
+      if (statSync(phaseAbs).isFile()) verifyAbs.add(phaseAbs);
+    }
+  }
   try {
-    execFileSync('node', [VALIDATE_STATE, ...writtenAbs], { stdio: opts.json ? 'pipe' : 'inherit' });
+    execFileSync('node', [VALIDATE_STATE, ...verifyAbs], { stdio: opts.json ? 'pipe' : 'inherit' });
   } catch {
     console.error(`\n✖ VERIFY FAILED — the migrated nested tree did not validate. Flat originals were NOT deleted; the nested copies remain for inspection. Roll back from your tar snapshot if needed, then re-run after fixing.`);
     process.exit(1);

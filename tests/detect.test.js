@@ -118,7 +118,7 @@ describe('detectIDEs', () => {
     assert.ok(result.supported.includes('gemini'));
     assert.ok(result.supported.includes('codex'));
     assert.deepStrictEqual(result.detected, ['gemini', 'codex']);
-    assert.deepStrictEqual(result.effective, ['gemini-commands', 'codex']);
+    assert.deepStrictEqual(result.effective, ['gemini', 'codex']);
   });
 });
 

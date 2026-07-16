@@ -23,10 +23,18 @@
 
 import { spawn } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { refreshState } from '../scripts/refresh-state.js'
+import {
+  deriveProjectId,
+  listProjects,
+  resolveRegisteredProjectId,
+  buildRegisterPayload,
+} from '../scripts/resolve-project-id.js'
+
+export { deriveProjectId, listProjects, resolveRegisteredProjectId, buildRegisterPayload }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = resolve(__dirname, '..')
@@ -229,69 +237,6 @@ function refreshDashboardState(dir) {
   }
 }
 
-/**
- * Derive a projectId slug from a directory path, matching the algorithm in
- * aideck's ProjectRegistry: lowercase basename, replace invalid chars with
- * hyphens, strip leading digits/hyphens, truncate to 64 chars.
- */
-export function deriveProjectId(rootDir) {
-  let id = basename(rootDir)
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/^[^a-z]+/, '')
-    .slice(0, 64)
-  return id || 'project'
-}
-
-/**
- * Resolve the project id atomic-skills should register with aiDeck. In the
- * nested layout the folder under `.atomic-skills/projects/<id>/` is the
- * canonical project id; the cwd basename is only a fallback for flat/legacy
- * trees. This matters in plan worktrees: the worktree directory can be named
- * after the plan (`plan-dependencies`) while the actual project is
- * `atomic-skills`.
- */
-export function resolveRegisteredProjectId(rootDir) {
-  const projects = listProjects(join(rootDir, '.atomic-skills'))
-  if (projects.length === 1) return projects[0].projectId
-  return deriveProjectId(rootDir)
-}
-
-/**
- * Enumerate the projects present on disk under the nested layout
- * `<stateRoot>/projects/<projectId>/<planSlug>/plan.md`. The folder name IS the
- * projectId (Decision #9 / R-ORCH-26) — this on-disk enumeration is the source
- * of truth for "which projects exist", replacing the aiDeck in-memory
- * ProjectRegistry + cwd-basename derivation (R-MIG-13; the aiDeck consumer side
- * lands WITH the rewrite, Inc7). A project is listed only if it contains at
- * least one plan (a `<slug>/plan.md`), mirroring aiDeck's hasContent. Returns []
- * when `projects/` is absent (e.g. a pure flat tree mid-migration).
- *
- * Pure read; honors a redirectable state root (F-D1) so a dogfood copy can be
- * enumerated without touching the live tree.
- *
- * @param {string} [stateRoot] - path to the `.atomic-skills` dir (default './.atomic-skills')
- * @returns {Array<{ projectId: string, plans: string[] }>} sorted by projectId
- */
-export function listProjects(stateRoot = '.atomic-skills') {
-  const projectsDir = join(stateRoot, 'projects')
-  if (!existsSync(projectsDir) || !statSync(projectsDir).isDirectory()) return []
-  const out = []
-  for (const projectId of readdirSync(projectsDir).sort()) {
-    const projPath = join(projectsDir, projectId)
-    if (!statSync(projPath).isDirectory()) continue
-    const plans = []
-    for (const slug of readdirSync(projPath).sort()) {
-      const planPath = join(projPath, slug)
-      if (statSync(planPath).isDirectory() && existsSync(join(planPath, 'plan.md'))) {
-        plans.push(slug)
-      }
-    }
-    out.push({ projectId, plans })
-  }
-  return out
-}
-
 function sameResolvedPath(a, b) {
   try {
     return resolve(a) === resolve(b)
@@ -304,7 +249,7 @@ async function postProjectRegistration(baseUrl, rootDir, projectId) {
   const res = await fetch(`${baseUrl}/api/projects/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rootDir, projectId })
+    body: buildRegisterPayload(rootDir, projectId),
   })
   if (res.status === 404) return { status: 'unsupported' }
   if (!res.ok) return { status: 'failed' }

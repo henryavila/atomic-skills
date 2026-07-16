@@ -77,9 +77,24 @@ test('detect-completion classifies output-exists / commit-ref and never flags ve
       ],
     });
 
-    const before = readFileSync(phase, 'utf8');
+    // Pure-read contract (F4/T-008): detector never mutates state, never closes.
+    const planPath = join(root, '.atomic-skills', 'projects', 'proj', 'alpha', 'plan.md');
+    const beforePhase = readFileSync(phase, 'utf8');
+    const beforePlan = readFileSync(planPath, 'utf8');
     const result = detectCompletion(root, {});
-    assert.equal(readFileSync(phase, 'utf8'), before, 'detector is pure-read (no mutation)');
+    assert.equal(readFileSync(phase, 'utf8'), beforePhase, 'detector is pure-read (no mutation of initiative)');
+    assert.equal(readFileSync(planPath, 'utf8'), beforePlan, 'detector is pure-read (no mutation of plan)');
+    // Second call is idempotent and still non-mutating — detection never auto-closes.
+    const again = detectCompletion(root, {});
+    assert.equal(readFileSync(phase, 'utf8'), beforePhase, 're-run still pure-read');
+    assert.equal(again.drift, result.drift);
+    assert.equal(again.candidates.length, result.candidates.length);
+    for (const c of result.candidates) {
+      assert.ok(c.evidence === 'output-exists' || c.evidence === 'commit-ref');
+      assert.notEqual(c.evidence, 'none');
+      // Candidates carry close *hints* only; status is not flipped by detection.
+      assert.equal(Object.hasOwn(c, 'status'), false, 'detector does not attach a closed status');
+    }
 
     assert.equal(result.drift, true);
     const byId = Object.fromEntries(result.candidates.map((c) => [c.id, c]));
@@ -201,7 +216,8 @@ test('detect-completion detects a pending exit-criterion via id-in-commit (gates
       schemaVersion: '0.1', slug: 'a', status: 'active', currentPhase: 'F1', lastUpdated: OLD,
       phases: [{ id: 'F1', status: 'active' }],
     });
-    writeFm(join(root, '.atomic-skills', 'projects', 'p', 'a', 'phases', 'f1.md'), {
+    const phase = join(root, '.atomic-skills', 'projects', 'p', 'a', 'phases', 'f1.md');
+    writeFm(phase, {
       schemaVersion: '0.1', slug: 'a-f1', status: 'active', parentPlan: 'a', phaseId: 'F1', started: OLD, lastUpdated: OLD,
       tasks: [],
       exitGates: [
@@ -209,12 +225,30 @@ test('detect-completion detects a pending exit-criterion via id-in-commit (gates
         { id: 'C-2', description: 'already met', status: 'met', metAt: NEW }, // resolved — never surfaced
       ],
     });
+    const before = readFileSync(phase, 'utf8');
     const result = detectCompletion(root, {});
+    assert.equal(readFileSync(phase, 'utf8'), before, 'criterion detection is pure-read');
     assert.equal(result.candidates.length, 1);
     const c = result.candidates[0];
     assert.equal(c.kind, 'criterion');
     assert.equal(c.id, 'C-1');
     assert.equal(c.evidence, 'commit-ref');
+
+    // F4/T-008: Still open for a criterion resets the initiative lastUpdated
+    // (exitCriterion has no lastUpdated). Advancing the initiative anchor past
+    // the signal commit suppresses re-surface without mutating the criterion.
+    writeFm(phase, {
+      schemaVersion: '0.1', slug: 'a-f1', status: 'active', parentPlan: 'a', phaseId: 'F1',
+      started: OLD, lastUpdated: '2026-06-05T00:00:00Z',
+      tasks: [],
+      exitGates: [
+        { id: 'C-1', description: 'the gate', status: 'pending' },
+        { id: 'C-2', description: 'already met', status: 'met', metAt: NEW },
+      ],
+    });
+    const afterAck = detectCompletion(root, {});
+    assert.equal(afterAck.drift, false, 'initiative lastUpdated after signal commit clears criterion candidate');
+    assert.deepEqual(afterAck.candidates, []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

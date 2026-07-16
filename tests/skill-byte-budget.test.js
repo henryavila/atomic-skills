@@ -45,8 +45,15 @@ const REPO_ROOT = resolve(__dirname, '..')
 
 // [relative path under skills/, hard ceiling in bytes, provenance]
 const BUDGETS = [
-  ['core/project.md', 23000, 'F1 — thin router (raised 22000→23000 2026-06-26: depend verb added resident grammar+dispatch+gate-list surface + operator-model block mandated resident by validate-skills.test.js)'],
-  ['core/implement.md', 22000, 'F1 — lean driver'],
+  // Raised 2026-07-16 integrity-remediation F0–F5: setup sentinel + structural
+  // setup rules (F0) plus integrity operator surface (state join, sidecar lazy
+  // descriptors, verify/cross-validation pointers) that must stay resident in
+  // the thin router — not movable prose.
+  ['core/project.md', 24000, 'F1 — thin router (raised 22000→23000 2026-06-26; 23000→23500→24000 2026-07-16: integrity F0–F5 setup sentinel + structural setup + integrity operator surface)'],
+  // Raised 2026-07-16 integrity-remediation F3–F5: load/closure authority,
+  // plan/worktree resume gate, verifier/concurrency/resolution policy, and
+  // handoff checkpoint prose required on the implement driver surface.
+  ['core/implement.md', 24500, 'F1 — lean driver (raised 22000→24500 2026-07-16: integrity F3–F5 closure/resume/verifier authority on driver surface)'],
   // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
   // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW
   // provider field. ~20B / ~700B over prior ceilings; content is resident

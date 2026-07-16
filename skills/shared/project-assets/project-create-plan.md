@@ -17,7 +17,11 @@ If the user pushes back ("just create empty plan"), produce a `## TODO` skeleton
 
 Run with {{BASH_TOOL}}:
 
-- `test -d .atomic-skills/` — if absent, run first-time setup (`{{ASSETS_PATH}}/project-setup.md`). Plan creation assumes the canonical tree exists.
+- Apply the resident **Project setup sentinel** from the router that loaded this
+  detail. **Configured** → continue; **Legacy coexistence** → stop creation and
+  read `{{ASSETS_PATH}}/project-migrate.md` for diagnosis/migration; **Setup
+  required** → run `{{ASSETS_PATH}}/project-setup.md` first. Directory,
+  manifest, or hook existence alone never skips this gate.
 - **Resolve `<project-id>`** (the nested top level): if exactly one `.atomic-skills/projects/*/` folder exists, use it; if several, ask which project the plan belongs to; if none, default to the repo's basename (`basename "$PWD"`) and create `.atomic-skills/projects/<project-id>/`. The plan materializes under that folder.
 - Pre-flight collision: `test -f .atomic-skills/projects/<project-id>/<slug>/plan.md` (legacy fallback `test -f .atomic-skills/plans/<slug>.md`) — abort early on collision before any work.
 
@@ -97,7 +101,7 @@ A non-zero exit means at least one `### Tn` task lacks one of its four HOW field
 
 Na criação, todo plano — solo ou concorrente — forka incondicionalmente sua própria branch `plan/<slug>` e sua própria worktree. Passe `branch: 'plan/<slug>'` para `materializeDecomposition`, revertendo o padrão preguiçoso anterior de permanecer com `branch: null` no caso solo.
 
-- **Own worktree (parallel — recommended for genuinely parallel work):** create an isolated home per `skills/shared/worktree-isolation.md` (`git worktree add -b plan/<slug> <path>`), pass `branch: 'plan/<slug>'`, and stamp a **distinct** `branch:` on any pre-existing active plan that still has `branch: null` (its own `plan/<other-slug>`). Antes de materializar/escrever o plano entrante, capture o source-ref do pré-existente (o ref onde o trabalho dele ainda está, por exemplo `git rev-parse HEAD` na árvore atual) e materialize a worktree retroativa com `retroactiveWorktreeAdd({ slug, baseRef })`, semeada nesse ref capturado — nunca no HEAD pós-mutação, para não vazar artefatos do entrante; o comando nunca usa `--force`. Each active plan then owns a tree → focus resolves per-worktree, no `⧉`.
+- **Own worktree (parallel — recommended for genuinely parallel work):** create an isolated home per `skills/shared/worktree-isolation.md` (`git worktree add -b plan/<slug> .worktrees/<slug>` when the branch is new; **reuse without `-b`** when `plan/<slug>` already exists). Pass `branch: 'plan/<slug>'`, and stamp a **distinct** `branch:` on any pre-existing active plan that still has `branch: null` (its own `plan/<other-slug>`). Antes de materializar/escrever o plano entrante, capture o source-ref do pré-existente (o ref onde o trabalho dele ainda está, por exemplo `git rev-parse HEAD` na árvore atual) e materialize a worktree retroativa com `retroactiveWorktreeAdd({ slug, baseRef })`, semeada nesse ref capturado — nunca no HEAD pós-mutação, para não vazar artefatos do entrante; o comando nunca usa `--force`. **HALT/re-enter:** after `git worktree add`, `cd` into the new worktree **before** any plan-state write — `git worktree add` does not change CWD (Claude Code hosts may use the native enter-worktree accelerator documented in `worktree-isolation.md` instead of a raw `cd`). Materialization writes **only** inside the worktree declared by frontmatter `branch:` (never leave plan.md in the caller tree while `branch:` names another home). Each active plan then owns a tree → focus resolves per-worktree, no `⧉`.
 - **Pause the others (sequential — one front at a time):** set every other active plan to `status: paused` and cascade-pause its `active` phase, exactly as `switch` does (project-transitions.md → `switch`). The entering plan still forks its own `plan/<slug>` (always-fork); pausing the others leaves a single active front.
 - **Proceed anyway (accept the drift):** keep the others active on their current branches; the entering plan forks `plan/<slug>` regardless. The `⧉` multi-active marker shows for any other plan still on `branch: null` until it is stamped, and `verify` reports it (§3 branch match).
 
@@ -128,14 +132,18 @@ Update the record after `materializeDecomposition` returns (`filesPlanned`), bef
 Materialize the decomposed structure into the **nested** layout. Pass `projectId` to `materializeDecomposition` (it honors `opts.projectId` → nested paths; `opts.stateRoot` defaults to `.atomic-skills`):
 
 ```bash
-node -e "
-import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
-  const md = require('node:fs').readFileSync('<source.md>', 'utf8');
-  const result = decomposePlan(md, { planSlug: '<slug>' });
-  const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: 'plan/<slug>', businessIntent: <businessIntent> });
-  console.log(JSON.stringify(files));
-});"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
+  --source '<source.md>' \
+  --slug '<slug>' \
+  --project-id '<project-id>' \
+  --branch 'plan/<slug>' \
+  --business-intent '<businessIntent-json>'
 ```
+
+`--business-intent` transports the same object previously passed as
+`businessIntent: <businessIntent>`; serialize the ratified five-field spine as
+JSON without changing its values.
 
 The returned `{relativePath, content}[]` resolves to:
 - `.atomic-skills/projects/<project-id>/<slug>/plan.md` (from `{{ASSETS_PATH}}/plan.template.md`)
@@ -161,15 +169,12 @@ node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/f
 # 1. Auto-repair known drift (gate status synonyms, references kind/title,
 #    missing required initiative fields). Idempotent; safe to always run.
 #    Resolve the script the same way the `status` default view does.
-NORM=""
-PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null)"
-for c in "$PWD/src/normalize.js" \
-         "$(npm root -g 2>/dev/null)/@henryavila/atomic-skills/src/normalize.js" \
-         "$HOME/.atomic-skills/src/normalize.js" \
-         ${PKG_ROOT:+"$PKG_ROOT/src/normalize.js"}; do
-  [ -f "$c" ] && NORM="$c" && break
-done
-[ -n "$NORM" ] && node "$NORM" "$PWD/.atomic-skills"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+if [ ! -f "$PKG_ROOT/src/normalize.js" ]; then
+  echo "FAIL runtime: $PKG_ROOT/src/normalize.js is missing; reinstall atomic-skills" >&2
+  exit 1
+fi
+node "$PKG_ROOT/src/normalize.js" "$PWD/.atomic-skills"
 
 # 2. Validate (nested paths; legacy fallback shown in parens).
 node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/validate-state.js" .atomic-skills/projects/<project-id>/<slug>/plan.md         # (legacy: .atomic-skills/plans/<slug>.md)
@@ -277,17 +282,13 @@ Each phase's initiative slug is derived as `<planSlug>-<phaseId-lowercase>-<phas
 
 ### How to invoke (Stage 5)
 
-Run from the package root via `node -e`:
+Run the package-owned CLI while keeping the consuming repository as the CWD:
 
 ```bash
-node -e "
-import('./src/decompose.js').then(async ({ decomposePlan, previewDecomposition }) => {
-  const md = require('node:fs').readFileSync('<path-to-source.md>', 'utf8');
-  const result = decomposePlan(md, { planSlug: '<slug>' });
-  console.log(previewDecomposition(result));
-  console.log('---');
-  console.log(JSON.stringify(result, null, 2));
-});"
+PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+node "$PKG_ROOT/scripts/decompose-plan.js" preview \
+  --source '<path-to-source.md>' \
+  --slug '<slug>'
 ```
 
 The skill body (you, the LLM) reads the preview to the user, waits for explicit confirmation, then maps the JSON result into the plan + initiative templates during Stage 6.
@@ -382,29 +383,31 @@ The skill never errors out because superpowers is absent — DESIGN is owned int
 4. **Decompose.** Run the Stage 5 helper exactly as the default flow does:
 
    ```bash
-   node -e "
-   import('./src/decompose.js').then(({ decomposePlan, previewDecomposition }) => {
-     const md = require('node:fs').readFileSync('<source-path>', 'utf8');
-     const result = decomposePlan(md, { planSlug: '<slug>' });
-     console.log(previewDecomposition(result));
-     console.log('---JSON---');
-     console.log(JSON.stringify(result));
-   });"
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+   node "$PKG_ROOT/scripts/decompose-plan.js" preview \
+     --source '<source-path>' \
+     --slug '<slug>'
    ```
 
-5. **Preview + explicit confirmation.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **Advisory No-Placeholders surface (R-ORCH-12):** `adopt` is the pre-lifecycle capture path, so the No-Placeholders lint runs **advisorily, not as a hard gate** — run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source-path>` and surface any `REPLACE_*`/`TODO`/fuzzy-path hits as warnings so the user can decide to clean them before or after capture; never block the capture on them. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
+5. **Preview + explicit confirmation + hard No-Placeholders.** Show the user the rendered preview (plan title, counts, first 3 phase titles, warnings). Include **cognitive load warnings** for any tasks whose description exceeds `maxTaskDescriptionLines` or whose acceptance criteria exceed `maxTaskAcceptance` (from config.json). **No-Placeholders is a hard gate for `adopt` (no advisory bypass):** run `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/lint-source.js" <source-path>` and **HARD-BLOCK** on any `REPLACE_*`/`TODO`/fuzzy-path hit — fix the source and re-run; do not capture placeholders into durable state. Wait for an explicit `yes` — no implicit confirmation, no "(default y)". `adopt` is the highest-stakes path; always pause here.
+
+5b. **`supersedes` link (when replacing a prior plan).** If the user is adopting a plan that replaces an earlier plan/source, collect the prior plan slug (or path) and persist it on the new plan frontmatter as `supersedes: <prior-slug-or-path>` before writing. The emergence ladder promises this link — do not leave it as prose only. When there is nothing to supersede, omit the field.
 
 6. **Materialize.** On confirmation, collect the same user-written F0 `businessIntent` spine as the default flow. If the user cannot fill the five required fields, stop before writing state. Then write `.atomic-skills/status/creation-gates/<project-id>-<slug>.json` with `kind: "adopt"`, `sourcePath: "<source-path>"`, `stage: "ready-to-materialize"`, `businessIntentAccepted: true`, `filesPlanned: []`, `filesWritten: []`, and `status: "pending"`. This is the durable resume boundary for `adopt`: before the first canonical write, `cancel` only marks the gate `cancelled`; after any write, rollback deletes exactly `filesWritten`. Resume reads this record first and never infers progress by scanning the destination tree. Then run the pure transform:
 
    ```bash
-   node -e "
-   import('./src/decompose.js').then(({ decomposePlan, materializeDecomposition }) => {
-     const md = require('node:fs').readFileSync('<source-path>', 'utf8');
-     const result = decomposePlan(md, { planSlug: '<slug>' });
-     const files = materializeDecomposition(result, { planSlug: '<slug>', projectId: '<project-id>', branch: '<branch-or-null>', businessIntent: <businessIntent> });
-     console.log(JSON.stringify(files));
-   });"
+   PKG_ROOT="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"
+   node "$PKG_ROOT/scripts/decompose-plan.js" materialize \
+     --source '<source-path>' \
+     --slug '<slug>' \
+     --project-id '<project-id>' \
+     --branch '<branch-or-null>' \
+     --business-intent '<businessIntent-json>'
    ```
+
+   The CLI option preserves the transform contract
+   `businessIntent: <businessIntent>`; serialize the same ratified object as
+   JSON rather than rebuilding it in the consumer.
 
    Then update the creation gate's `filesPlanned` from the returned `{relativePath, content}[]`. For each returned path (nested `projects/<project-id>/<slug>/{plan.md,phases/…}`), create the parent directory (`mkdir -p`), append the path to `filesWritten` and persist the gate, then write the canonical file before proceeding to the next path. Recording the path before the write makes rollback/resume safe if the session is interrupted between write attempts; deleting a recorded-but-never-created path is a no-op, while an unrecorded created file is forbidden. The output is the plan, the materialized F0 `.md`, and F1+ `.source.json` sidecars. Order does not matter — files are independent — but write the Plan first so failures don't leave orphan initiatives.
 
@@ -480,7 +483,7 @@ Provenance + context (co-located on every emergent item; schema makes them insep
 - `provenance: { surfacedAt, surfacedDuring, surfacedBy, originalPhaseId? }` — `common.schema.json#/$defs/provenance`.
 - `context: { solves, trigger, assumesStillValid?, ratifiedAt, ratifiedBy, lastReviewedAt }` — `common.schema.json#/$defs/context`.
 
-You (LLM) can parse frontmatter YAML directly. For edge cases (nested quotes, multi-line, complex lists), invoke the `yaml` npm package via `node -e "import('yaml').then(...)"`. Bump `lastUpdated:` to now (`date -u +%Y-%m-%dT%H:%M:%SZ`) on every mutation.
+You (LLM) can parse frontmatter YAML directly. For edge cases (nested quotes, multi-line, complex lists), use the package-owned command that owns the requested mutation; never import a private package dependency from the consumer repository. Bump `lastUpdated:` to now (`date -u +%Y-%m-%dT%H:%M:%SZ`) on every mutation.
 
 ## Summaries & level hygiene (replicable mechanisms)
 

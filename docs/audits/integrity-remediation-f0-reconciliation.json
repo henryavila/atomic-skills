@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1",
+  "planSlug": "integrity-remediation",
+  "phaseId": "F0",
+  "closeSha": "c44c405bf4051efbffbc6936b2526088a3e39303",
+  "generatedAt": "2026-07-16T16:57:55.650Z",
+  "reconciledCommit": "c44c405bf4051efbffbc6936b2526088a3e39303",
+  "artifacts": {
+    "descriptor": {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/plan.md",
+      "projection": "phase:F0",
+      "sha256": "cf7404e963008bcab62b6168d826f4647bd4de7c40a2099637b734c55c19e22d"
+    },
+    "initiative": {
+      "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f0-runtime-autocontido-e-setup-confiavel.md",
+      "sha256": "f00d997427e32889351117b79f75f05a29a1be821b512df8c2a09f86e8f2662c"
+    },
+    "sidecars": [
+      {
+        "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f1-installer-v2-e-protecao-de-dados.source.json",
+        "sha256": "c3db0f236c23d8f2808d45db20852cb1a5f384bc326a0ed95d0e2a8d76a7580d"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f2-contratos-de-host-runtime-e-observabil.source.json",
+        "sha256": "b3ce999f9b85f5cfa64787a6090ea52f36e87b94dd56306e5b3cd8ac4b3cd631"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f3-caminho-spec-para-implement-e-isolamen.source.json",
+        "sha256": "867a666b94ff0eb81181e5fce12dad24af316b425ac704baf62d1a06c3a8a48e"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f4-autoridade-de-estado-e-transicoes-recu.source.json",
+        "sha256": "a23f3a57f760bc36f3bda04e05555c5c10d26e06711453fb5f928bd5c0e44fc5"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f5-gemini-portabilidade-e-identidade-de-d.source.json",
+        "sha256": "8d2b1c418760da060e34477d46989223c33c6877ce39040e90f4e9b7eeebb430"
+      },
+      {
+        "path": ".atomic-skills/projects/atomic-skills/integrity-remediation/phases/f6-qualificacao-de-release-e-fechamento-d.source.json",
+        "sha256": "50e810e65bdd740410dfa06f2780418e08bab52238215f8f5129be4a76d46c53"
+      }
+    ],
+    "creationGate": {
+      "path": ".atomic-skills/status/creation-gates/atomic-skills-integrity-remediation.json",
+      "sha256": "05570b102f2ac4c1a2ab2522cf4ea88d2ef22ed3ee6857a26d597c8a010606c3"
+    },
+    "gateEvidence": {
+      "F0-G1": true,
+      "F0-G2": true
+    },
+    "completionEvents": {
+      "taskIds": [
+        "T-001",
+        "T-002",
+        "T-003",
+        "T-004",
+        "T-005"
+      ],
+      "phaseDone": true,
+      "keys": [
+        "phase-done\u0000atomic-skills\u0000integrity-remediation\u0000F0\u0000",
+        "task-done\u0000atomic-skills\u0000integrity-remediation\u0000F0\u0000T-001",
+        "task-done\u0000atomic-skills\u0000integrity-remediation\u0000F0\u0000T-002",
+        "task-done\u0000atomic-skills\u0000integrity-remediation\u0000F0\u0000T-003",
+        "task-done\u0000atomic-skills\u0000integrity-remediation\u0000F0\u0000T-004",
+        "task-done\u0000atomic-skills\u0000integrity-remediation\u0000F0\u0000T-005"
+      ]
+    }
+  },
+  "status": "reconciled"
+}

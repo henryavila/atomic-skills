@@ -280,7 +280,7 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["status"],
-          "description": "0.2 (G2 phase-review gate): the outcome of phase-done's review-code gate for THIS phase, written before the phase is set 'done' (project-transitions.md phase-done step 6/8). Shape only here; the cross-field honesty conditional (done + status:passed ⟹ `at` sha present; done + status:skipped ⟹ `reason` present) is enforced by scripts/validate-state.js GATE-R3, NOT the schema — same reason GATE-R2 lives in JS (keeps the aiDeck TS mirror additive-optional). An absent block on a legacy 'done' phase is tolerated (GATE-R2-consistent); `verify` WARNs on it.",
+          "description": "0.2 (G2 phase-review gate): the outcome of phase-done's review-code gate for THIS phase, written before the phase is set 'done' (project-transitions.md phase-done step 6/8). Shape only here; the cross-field honesty conditional (done + status:passed ⟹ `at` real git SHA + coherent `mode` (+ `reviewFile` when written); done + status:skipped ⟹ `reason` present) is enforced by scripts/validate-state.js GATE-R3, NOT the schema — same reason GATE-R2 lives in JS (keeps the aiDeck TS mirror additive-optional). An absent block on a legacy 'done' phase is tolerated (GATE-R2-consistent); `verify` WARNs on it. F4/T-004: `at` is constrained to gitSha so arbitrary non-SHA strings cannot anchor a passed review.",
           "properties": {
             "status": {
               "type": "string",
@@ -290,15 +290,16 @@
             "mode": {
               "type": "string",
               "enum": ["local", "codex", "both"],
-              "description": "which review mode ran (a destructive phase runs 'both' per G5)."
+              "description": "which review mode ran (a destructive phase runs 'both' per G5). Required-when-passed by GATE-R3."
             },
             "at": {
-              "type": "string",
-              "description": "the commit sha the review concluded against (post-fix HEAD). Required-when-passed by GATE-R3."
+              "$ref": "common.schema.json#/$defs/gitSha",
+              "description": "the commit sha the review concluded against (post-fix HEAD). Required-when-passed by GATE-R3; must be a real git SHA (not an arbitrary string)."
             },
             "reviewFile": {
               "type": "string",
-              "description": "path to the persisted review file, when one was written (e.g. .atomic-skills/reviews/<…>.md)."
+              "minLength": 1,
+              "description": "path to the persisted review file, when one was written (e.g. .atomic-skills/reviews/<…>.md). Optional when no file was written; when present must be a non-empty path (GATE-R3 rejects blank/whitespace)."
             },
             "reason": {
               "type": "string",
