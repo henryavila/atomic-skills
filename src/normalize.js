@@ -20,7 +20,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { parseFrontmatter } from '../scripts/validate-state.js';
 import { normalizeKindFromPath } from './state-paths.js';

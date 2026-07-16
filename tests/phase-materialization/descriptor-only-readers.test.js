@@ -8,9 +8,11 @@ import Ajv from 'ajv/dist/2020.js';
 import { decomposePlan, materializeDecomposition } from '../../src/decompose.js';
 import {
   collectTargets,
+  collectSidecars,
   validateFile,
   crossValidate,
   parseFrontmatter,
+  projectIdFromPath,
 } from '../../scripts/validate-state.js';
 import { findMissingBusinessIntent } from '../../scripts/find-missing-business-intent.js';
 
@@ -97,12 +99,19 @@ describe('T-007 — readers distinguish descriptor-only from materialized', () =
       const f0Path = join(tmpRoot, files.find((f) => f.kind === 'initiative').relativePath);
       const planFm = parseFrontmatter(readFileSync(planPath, 'utf8')).frontmatter;
       const f0Fm = parseFrontmatter(readFileSync(f0Path, 'utf8')).frontmatter;
+      // Integrity F4: descriptor-only pending+subPhaseCount:0 is valid only when
+      // a lazy sidecar is present — pass the discovered sidecars and stamp
+      // project-scoped join keys the same way validate-state CLI does.
+      const projectId = projectIdFromPath(planPath);
+      planFm.__projectId = projectId;
+      f0Fm.__projectId = projectIdFromPath(f0Path);
+      const sidecars = collectSidecars([planPath]);
       const errors = crossValidate(
-        new Map([[planFm.slug, planFm]]),
-        new Map([[f0Fm.slug, f0Fm]]),
+        new Map([[`${projectId}/${planFm.slug}`, planFm]]),
+        new Map([[`${f0Fm.__projectId}/${f0Fm.slug}`, f0Fm]]),
+        { sidecars },
       );
-      // Descriptor-only F1/F2 are pending → never reach the done-phase check; no
-      // "initiative missing" error is raised for them (their absence is valid).
+      // Descriptor-only F1/F2 with sidecars → no missing-initiative / missing-sidecar.
       const descErrors = errors.filter((e) => e.phaseId === 'F1' || e.phaseId === 'F2');
       assert.deepEqual(descErrors, [], 'descriptor-only phases produce no crossValidate error');
     } finally {

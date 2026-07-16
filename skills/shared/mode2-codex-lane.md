@@ -193,17 +193,20 @@ a multi-line JSON array would union-merge into invalid JSON (a `}` directly
 followed by `{` with no separating comma). One-object-per-line keeps every
 concurrent append a self-contained, individually-valid JSON line.
 
-**Single writer/parser (F4/T-007):** always use `scripts/dispatch-log.js` —
-never hand-rewrite the file as a JSON array, never `JSON.parse` the whole file.
+**Single writer/parser (F4/T-007):** always use `scripts/dispatch-log.js` via the
+install root — never hand-rewrite the file as a JSON array, never `JSON.parse`
+the whole file. Resolve the package root the same way other skills do:
 
-- Append: `node scripts/dispatch-log.js [<root>] append --json '<compact-object>'`
+`PKG="$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)"`
+
+- Append: `node "$PKG/scripts/dispatch-log.js" [<root>] append --json '<compact-object>'`
   (or programmatic `appendDispatchLog(root, record)`). Writes ONE compact line +
   `\n` via `appendFileSync` only.
-- Read / validate: `node scripts/dispatch-log.js [<root>] read|validate` (or
+- Read / validate: `node "$PKG/scripts/dispatch-log.js" [<root>] read|validate` (or
   `readDispatchLog` / `validateDispatchLog`). Parses line-by-line; a malformed
   line **fails closed** with its 1-based line number — corruption is never
   silently skipped.
-- Actuals consumer: `scripts/append-completion.js` `readDispatchActuals` reads
+- Actuals consumer: `node "$PKG/scripts/append-completion.js"` / `readDispatchActuals`
   through the same module (F4/T-002).
 
 Record shape (written as a single line):

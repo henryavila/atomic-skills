@@ -21,8 +21,10 @@ import {
 } from '../../src/decompose.js';
 import {
   collectTargets,
+  collectSidecars,
   crossValidate,
   parseFrontmatter,
+  projectIdFromPath,
   validateFile,
 } from '../../scripts/validate-state.js';
 import { findMissingBusinessIntent } from '../../scripts/find-missing-business-intent.js';
@@ -171,13 +173,6 @@ function buildPlanContentActivatingF1(absPath, subPhaseCount) {
   }
   const renderedBody = body.startsWith('\n') ? body : `\n${body}`;
   return `---\n${stringifyYaml(frontmatter)}---${renderedBody}`;
-}
-
-function parseInitiativeFrontmatters(paths) {
-  return new Map(paths.map((absPath) => {
-    const { frontmatter } = readFrontmatterFile(absPath);
-    return [frontmatter.slug, frontmatter];
-  }));
 }
 
 describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', () => {
@@ -342,9 +337,24 @@ describe('T-012 — e2e lifecycle: new plan -> lazy -> materialize -> advance', 
         const result = validateFile(target, validators);
         assert.equal(result.ok, true, `validateFile failed for ${target}: ${JSON.stringify(result.errors)}`);
       }
-      const planMap = new Map([[PLAN_SLUG, readFrontmatterFile(planPath).frontmatter]]);
-      const initMap = parseInitiativeFrontmatters([f0Path, f1Path]);
-      assert.deepEqual(crossValidate(planMap, initMap), [], 'phase-done advance state cross-validates');
+      // Integrity F4: join is projectId+plan+phase; descriptor-only F2 needs its
+      // lazy sidecar in the sidecars set (same discovery path as validate-state CLI).
+      planFm = readFrontmatterFile(planPath).frontmatter;
+      const projectId = projectIdFromPath(planPath);
+      planFm.__projectId = projectId;
+      const planMap = new Map([[`${projectId}/${PLAN_SLUG}`, planFm]]);
+      const scopedInits = new Map();
+      for (const p of [f0Path, f1Path]) {
+        const fm = readFrontmatterFile(p).frontmatter;
+        fm.__projectId = projectIdFromPath(p);
+        scopedInits.set(`${fm.__projectId}/${fm.slug}`, fm);
+      }
+      const sidecars = collectSidecars([planPath]);
+      assert.deepEqual(
+        crossValidate(planMap, scopedInits, { sidecars }),
+        [],
+        'phase-done advance state cross-validates',
+      );
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
