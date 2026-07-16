@@ -1,0 +1,147 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F2",
+  "slug": "grok-build-integration-f2-cross-model-bridge-core-l7",
+  "title": "cross-model-bridge core (L7)",
+  "goal": "Rename or alias codex-bridge to cross-model-bridge with pluggable codex and grok providers, host default matrix, same-family confirm-to-local (interactive) and HARD ABORT or --accept-same-family-as-local (non-interactive).",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Module layout and codex-bridge alias",
+      "description": "Introduce skills/modules/cross-model-bridge and shared cross-model-review-assets (or restructure codex-bridge-assets) with providers/codex and providers/grok; keep codex-bridge as compatibility alias in catalog and install.",
+      "scopeBoundary": [
+        "do not change review-code or review-plan mode UX in this task beyond asset path references if required"
+      ],
+      "acceptance": [
+        "validate-skills and catalog resolve cross-model-bridge; codex provider assets still load; no broken ASSETS_PATH references in envelope orchestration"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/validate-skills.test.js && npm run validate-skills",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/modules/cross-model-bridge/module.yaml"
+        },
+        {
+          "kind": "file",
+          "path": "skills/modules/codex-bridge/module.yaml"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/envelope-orchestration.md"
+        },
+        {
+          "kind": "file",
+          "path": "meta/catalog.yaml"
+        },
+        {
+          "kind": "file",
+          "path": "tests/validate-skills.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Grok provider preflight and invocation",
+      "description": "Add providers/grok preflight-checks and invocation-canonical proven against installed grok CLI; portable timeout; read-only sandbox; capture output file; document locked flags.",
+      "scopeBoundary": [
+        "do not implement external-both merge or rename CROSS-MODEL REVIEW product line in this task"
+      ],
+      "acceptance": [
+        "preflight documents which grok and auth failure messages; invocation uses timeout wrapper and non-interactive flags; fixture or test asserts required flags appear in the canonical file"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "test -s skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt && grep -E 'grok|sandbox|timeout' skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/providers/grok/preflight-checks.txt"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt"
+        },
+        {
+          "kind": "file",
+          "path": "tests/fixtures"
+        },
+        {
+          "kind": "file",
+          "path": "scripts or tests that smoke the invocation shape if present"
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "Envelope orchestration parameterized by provider and host matrix",
+      "description": "Update envelope-orchestration to bind provider preflight and invocation; document host default external matrix and same-family interactive confirm plus non-interactive abort/accept-as-local; extract pure host-default helper with unit tests.",
+      "scopeBoundary": [
+        "do not rewrite full review-plan body modes list until F3"
+      ],
+      "acceptance": [
+        "orchestration steps name PROVIDER slots; host-default-external.md encodes matrix plus HARD ABORT and --accept-same-family-as-local; unit tests cover every host row and non-interactive branches"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-host-default.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/envelope-orchestration.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/codex-bridge-assets/host-default-external.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/cross-model-host-default.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/cross-model-host-default.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "cross-model-bridge module validates and codex alias remains installable.",
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run validate-skills",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "Grok invocation and host-default assets encode matrix and same-family interactive plus non-interactive rules.",
+      "verifier": {
+        "kind": "shell",
+        "command": "test -s skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt && grep -E 'same-family|accept-same-family-as-local|HARD ABORT' skills/shared/codex-bridge-assets/host-default-external.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-3",
+      "description": "Pure host-default and same-family routing helper unit tests pass for every matrix row.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/cross-model-host-default.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

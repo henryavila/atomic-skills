@@ -117,6 +117,10 @@ Coding is single-threaded; only **reads** fan out. When a read would flood the m
 Optional accelerator (Claude Code): fan the read-only investigation subagents out in parallel natively. Coding stays single-threaded regardless — parallelism is for reads only.
 {{/if}}
 
+{{#if ide.grok}}
+On Grok Build, heavy reads use `spawn_subagent` (explore). Prefer one focused read-only subagent unless the host clearly supports parallel spawn; coding stays single-threaded either way. Do not invent plugin agent types for v1 — tool vars + built-in explore/plan are enough.
+{{/if}}
+
 ## Mode 2 — Codex cross-provider execution (the DEFAULT executor for spec-ready tasks when the lane is on)
 
 When the Codex lane is on, Mode 2 hands spec-ready execution to Codex in an isolated `git worktree`; Opus plans, reviews, and owns state. Read the full contract in `{{READ_TOOL}} skills/shared/mode2-codex-lane.md` before dispatching. Four invariants:

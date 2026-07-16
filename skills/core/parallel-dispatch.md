@@ -16,6 +16,9 @@ Parallel work is discipline, not a shortcut. Give each agent a self-contained br
 ## Don't use when
 
 - **Work fits the current session** — for in-session parallel investigations while the user is active, dispatch read-only sub-agents directly via `{{INVESTIGATOR_TOOL}}` (synchronous, coordination stays in the parent context). This skill is for cross-session hand-off, not in-session fan-out.
+{{#if ide.grok}}
+  On Grok Build, that in-session path is `spawn_subagent` (explore). Do not invent custom plugin agent types for v1 — built-in explore/plan + this skill's cross-session isolation are enough.
+{{/if}}
 - **User will stay at the keyboard the whole run** — cross-session handoff costs copy-paste friction; only pays off when the user is away (sleeping, in a meeting, switched tasks) or the parent context is tight.
 - **Investigations are short** (under ~15 min each) — setup overhead of this skill (~10 min for plan + audit) outweighs the parallelism gain.
 - **User's request is vague** — HARD-GATE #1 will abort; redirect to `atomic-skills:brainstorm` or `atomic-skills:prompt` first.

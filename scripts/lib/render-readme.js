@@ -25,8 +25,11 @@ const FORMAT_LABELS = {
 function ideTargetDir(ide) {
   // `toml` installers encode the namespace in the filename prefix
   // (`atomic-skills-X.toml`), so the directory itself is the literal `ide.dir`.
-  // Every other format nests skill bodies under `<ide.dir>/<namespace>/`.
-  return ide.format === 'toml' ? `${ide.dir}/` : `${ide.dir}/${SKILL_NAMESPACE}/`;
+  // Plugin delivery (Grok): package root IS the namespace; skills land directly
+  // under `ide.dir` (e.g. `.grok/plugins/atomic-skills/skills/<name>/SKILL.md`).
+  // Every other markdown/command format nests under `<ide.dir>/<namespace>/`.
+  if (ide.format === 'toml' || ide.delivery === 'plugin') return `${ide.dir}/`;
+  return `${ide.dir}/${SKILL_NAMESPACE}/`;
 }
 
 export function renderIdesTable() {

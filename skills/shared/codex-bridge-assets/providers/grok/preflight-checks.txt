@@ -1,0 +1,76 @@
+# Provider: grok
+# Path: skills/shared/codex-bridge-assets/providers/grok/preflight-checks.txt
+# Logical module: cross-model-bridge (codex-bridge is a compatibility alias)
+#
+# Pre-flight Checks for Grok Build Invocation
+#
+# Proven against: grok 0.2.x (observed 0.2.101). Re-smoke after major CLI bumps.
+
+Run these checks BEFORE any grok external-review invocation. ALL must pass or
+the skill aborts with a clear message.
+
+## 1. Grok binary present
+
+Run: `which grok`
+
+If exit != 0: ABORT with message:
+> "Grok Build CLI not found in PATH. Install Grok Build (see https://grok.com / xAI docs), ensure `grok` is on PATH (often `~/.grok/bin`), then run `grok login`."
+
+## 2. Grok CLI is callable
+
+Run: `grok --version`
+
+If exit != 0: ABORT with message:
+> "`grok --version` failed. Reinstall the CLI or check `grok login`."
+
+Record the version string in the briefing metadata (for the audit trail). The
+locked invocation shape below targets **grok 0.2.x**. If the major.minor is
+outside 0.2, warn and re-read `providers/grok/invocation-canonical.txt` before
+proceeding (flag churn is real).
+
+## 3. Auth is usable (session or API key)
+
+Grok accepts interactive OAuth (`~/.grok/auth.json`) or headless
+`XAI_API_KEY`. Detect failure early with a cheap call:
+
+```bash
+# Prefer a version-only check first (no network). Then optional auth probe:
+# GROK_HOME or missing credentials produce a distinctive message.
+```
+
+If a prior run or a probe prints (or exits with) auth failure text matching:
+
+- `Not signed in`
+- `grok login --device-code`
+- `XAI_API_KEY`
+
+ABORT with message:
+> "Grok is not authenticated. Run `grok login` (or `grok login --device-code` on headless hosts), or set `XAI_API_KEY` from console.x.ai, then retry."
+
+Do NOT proceed into Pass 1/2 with a known-unauthenticated CLI — the envelope
+would waste timeout budget and produce empty findings.
+
+## 4. Working tree clean (or --allow-dirty)
+
+Run: `git status --porcelain`
+
+If output is non-empty AND user did NOT pass `--allow-dirty`: ABORT with message:
+> "Working tree has uncommitted changes. External review should target a clean
+> ref (or an explicit scope capture). Either commit/stash changes, or re-invoke
+> with `--allow-dirty` to proceed anyway."
+
+Exception — worktree-scoped review: if the invoking skill resolved a review
+scope where the working tree IS the review subject (e.g. review-code scopes
+`wip` / `all`), treat `--allow-dirty` as implicitly set: emit the warning, do
+not abort.
+
+## 5. Inside git repo (or --skip-git-check)
+
+Run: `git rev-parse --is-inside-work-tree`
+
+If exit != 0 AND user did NOT pass `--skip-git-check`: ABORT with message:
+> "Not inside a git repository. Re-invoke with `--skip-git-check` if intentional."
+
+## All checks passed
+
+Proceed to briefing curation.

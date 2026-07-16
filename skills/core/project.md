@@ -60,7 +60,7 @@ The procedures are NOT in this router. For each subcommand: **PARSE the arg, the
 | `finalize <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-finalize.md` |
 | `consolidate` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-consolidate.md` |
 | `migrate` (bare = cut-over), `migrate <slug>`, `re-bootstrap <slug>` | `{{READ_TOOL}} {{ASSETS_PATH}}/project-migrate.md` |
-| `scope-creep`, `why`, `re-ratify`, `review-due`, CODEX REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
+| `scope-creep`, `why`, `re-ratify`, `review-due`, CROSS-MODEL REVIEW line | `{{READ_TOOL}} {{ASSETS_PATH}}/project-drift.md` |
 
 Lazy-load is NOT optional. For any subcommand above: **STOP. `{{READ_TOOL}}` the listed file before you act.** Acting from memory of a similar command is the failure mode this architecture exists to prevent.
 
@@ -81,7 +81,7 @@ Plain `/atomic-skills:project` with no subcommand prints a 5-line summary and st
 PLAN     <plan-slug> · phase <id> — <title>            (or "none — standalone only")
 INIT     <init-slug> · <N/M tasks done>, <B blocked>   (active initiative)
 NEXT     <nextAction>
-CODEX    <CODEX REVIEW line — see project-drift.md>
+XMODEL   <CROSS-MODEL REVIEW line — see project-drift.md>
 IDEAS    <N> pending — `idea list`   (ONLY when N>0; omit the line otherwise)
 DRIFT    <N task(s)/gate(s) look done — run `reconcile`>   (ONLY when drift; omit the line otherwise)
           → /atomic-skills:project status        (dashboard / full view)
@@ -107,6 +107,9 @@ Run these in order on the active initiative BEFORE executing a mutating command 
 
 1. **Migration check.** Parse frontmatter. If `schemaVersion` is absent → STOP. Abort with: "Mutation cancelled — file is legacy. Run `atomic-skills:project migrate <slug>` first, then retry." (Full detail: `project-transitions.md`.)
 2. **Reconciliation gate.** Collect `tasks[]` where `status: active` AND `lastUpdated` older than 24h (configurable `reconciliationThresholdHours`, `0` disables). If non-empty, present each (max 4 oldest) via {{ASK_USER_QUESTION_TOOL}} with options `Still active` / `Done` / `Blocked` / `Skip`, apply answers, THEN proceed. Skipped when the user is already running `done` on the stale task. (Full detail: `project-transitions.md`.)
+{{#if ide.grok}}
+   On Grok Build, use native `ask_user_question` for those structured options. Soft project hooks require folder/hooks trust; when untrusted they fail-open (no SessionStart digest / PreToolUse gate) — not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
+{{/if}}
 
 ## Gate-status invariant
 

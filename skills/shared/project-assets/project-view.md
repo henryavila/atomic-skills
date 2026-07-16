@@ -237,7 +237,7 @@ Steps:
    - Active plan/phase (if any)
    - Active initiative slug + task progress (e.g. `3/7 done, 1 blocked`)
    - Next action
-   - CODEX REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § Codex review tracking)
+   - CROSS-MODEL REVIEW line (see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking)
    - Completion-drift offer (see "Completion-drift offer" below — read-only; `reconcile` is the only mutation path)
 
 ## `--terminal`
@@ -270,7 +270,7 @@ If there is an active initiative whose `branch:` matches `git rev-parse --abbrev
      ```
      The `solves` line is mandatory in the render — when `context.solves` is absent (shouldn't happen post-migration, but legacy data may), render `solves: (legacy — re-ratify to articulate)` to nudge the user toward `re-ratify <id>`.
   5. NEXT: `<nextAction>` from frontmatter
-  6. **CODEX REVIEW** line: see `{{ASSETS_PATH}}/project-drift.md` § Codex review tracking — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
+  6. **CROSS-MODEL REVIEW** line: see `{{ASSETS_PATH}}/project-drift.md` § CROSS-MODEL REVIEW tracking — this single line tells the user whether the work-in-progress has been adversarially reviewed since the last meaningful change, and surfaces the `review-due` command if not.
 
 Unicode icons:
 - `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged

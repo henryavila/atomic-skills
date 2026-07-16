@@ -10,6 +10,7 @@ export const IDE_DETECT_DIRS = {
   'codex': '.agents',
   'opencode': '.opencode',
   'github-copilot': '.github',
+  'grok': '.grok',
 };
 
 export function detectLanguage() {

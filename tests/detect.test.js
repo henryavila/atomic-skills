@@ -105,6 +105,12 @@ describe('detectIDEs', () => {
     assert.ok(result.includes('github-copilot'));
   });
 
+  it('detects grok from .grok directory', () => {
+    mkdirSync(join(tempDir, '.grok'));
+    const result = detectIDEs(tempDir);
+    assert.ok(result.includes('grok'));
+  });
+
   it('returns supported, detected, and effective IDE state', () => {
     mkdirSync(join(tempDir, '.gemini'));
     mkdirSync(join(tempDir, '.agents'));

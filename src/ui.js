@@ -116,8 +116,11 @@ export function ideDisplayName(ideId) {
   return name.replace(/ \(Skills\)$/, '').replace(/ \(Commands\)$/, '');
 }
 
-// Primary IDE IDs exposed to users (gemini-commands is internal)
-const PRIMARY_IDE_IDS = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
+// Primary IDE IDs exposed to users (gemini-commands is internal).
+// Keep in sync with PUBLIC_IDE_IDS order in config.js (minus non-interactive hosts).
+const PRIMARY_IDE_IDS = [
+  'claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok',
+];
 
 // ---------------------------------------------------------------------------
 // Display functions
@@ -211,7 +214,11 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
     const cfg = IDE_CONFIG[id];
     if (!cfg) continue;
     const { skills, assets } = byIDE[id] ?? { skills: 0, assets: 0 };
-    const dirLabel = `${cfg.dir}/${SKILL_NAMESPACE}/`;
+    // Plugin delivery already nests under the package root; do not append
+    // SKILL_NAMESPACE again (would print .../skills/atomic-skills/).
+    const dirLabel = cfg.delivery === 'plugin'
+      ? `${cfg.dir}/`
+      : `${cfg.dir}/${SKILL_NAMESPACE}/`;
     const detail = assets > 0 ? ` ${pc.dim(`(+${assets} assets)`)}` : '';
     p.log.success(`${pc.bold(ideDisplayName(id))}  ${m.skillsCount(skills)}${detail} → ${pc.dim(dirLabel)}`);
   }

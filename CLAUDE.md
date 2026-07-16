@@ -86,6 +86,8 @@ express a conditional, refcounted, or cross-version-format reclaim):
 | Runtime `~/.atomic-skills/{bin,dashboard,aideck-consumer,src,package-root}` | `removeRuntimeArtifacts` — reclaimed only when the LAST install leaves |
 | Cross-install refcount `~/.atomic-skills/installs.json` | `registerInstall` ↔ `unregisterInstall` (returns remaining count; 0 → reclaim runtime) |
 | Legacy-namespace orphans at obsolete paths | `findLegacyOrphans`/`removeLegacyOrphans` (frontmatter safelist = the only ownership proof, P3) |
+| Grok host plugin registry (`grok plugin install --trust` → `~/.grok/installed-plugins/`) | `unregisterGrokPluginHost` (`grok plugin uninstall atomic-skills`) before journal reverse — fail-open if `grok` missing; package tree itself is journal-owned under `.grok/plugins/atomic-skills/` (outside Codex `.agents/`) |
+| Grok agents isolation (`~/.grok/config.toml` → `[skills].ignore = ["~/.agents/skills/atomic-skills"]`) | `applyGrokAgentsIsolation` on install / `revertGrokAgentsIsolation` on uninstall (refcount: keep while any other install still lists `grok`) — stops Grok listing Codex-rendered skills |
 
 The aiDeck **bin** (`bin/aideck.mjs`, an argv[1]-rewrite launcher shim) and
 **dashboard** (the aiDeck client) are restaged by `installRuntimeArtifacts` from

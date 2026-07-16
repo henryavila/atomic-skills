@@ -25,7 +25,7 @@
 # The threat model is honest mistakes; users disable via SKIP-EMERGENT.
 set -euo pipefail
 
-PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJ_DIR="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
 CONFIG="$ASKILLS_DIR/status/config.json"
 LOG="$ASKILLS_DIR/status/emergent-drift.log"
@@ -294,9 +294,10 @@ except FileNotFoundError:
 except Exception:
     sys.exit(2)
 
-if tool == "Write":
+# Dual-vocab: Claude Write/Edit/MultiEdit + Grok write/search_replace.
+if tool in ("Write", "write"):
     sys.stdout.write(ti.get("content", ""))
-elif tool == "Edit":
+elif tool in ("Edit", "search_replace"):
     os_, ns = ti.get("old_string", ""), ti.get("new_string", "")
     if ti.get("replace_all"):
         sys.stdout.write(orig.replace(os_, ns))
@@ -343,16 +344,22 @@ payload=$(cat)
 [[ -z "$payload" ]] && exit 0
 
 tool_name=$(printf '%s' "$payload" | jq -r '.tool_name // .toolName // empty' 2>/dev/null || echo "")
+# Dual-vocab write tools: Claude Edit|Write|MultiEdit|NotebookEdit and
+# Grok search_replace|write (hosts may emit either family).
 case "$tool_name" in
-  Edit|Write|MultiEdit|NotebookEdit) ;;
+  Edit|Write|MultiEdit|NotebookEdit|search_replace|write) ;;
   *) exit 0 ;;
 esac
 
 file_path=$(printf '%s' "$payload" | jq -r '
   .tool_input.file_path
   // .tool_input.notebook_path
+  // .tool_input.path
+  // .tool_input.target_file
   // .toolInput.file_path
   // .toolInput.notebook_path
+  // .toolInput.path
+  // .toolInput.target_file
   // empty
 ' 2>/dev/null || echo "")
 [[ -z "$file_path" ]] && exit 0

@@ -1,12 +1,18 @@
 import { rmdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
+import pc from 'picocolors';
 import { readManifest, MANIFEST_DIR } from './manifest.js';
 import { removeRuntimeArtifacts, unregisterInstall } from './install.js';
 import { buildInstaller } from './installer.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
+import {
+  unregisterGrokPluginHost,
+  wantsGrokPluginHost,
+} from './runtime-layers/grok-plugin-host.js';
+import { revertGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
 
 /**
  * Walk up from a just-removed file, deleting empty parent dirs until a
@@ -113,6 +119,27 @@ export async function uninstall(projectDir, options = {}) {
   // Driver reverts the proved files and preserves any the user edited since install (P3).
   // Mirrors install.js, which migrates before its own Driver call.
   migrateLegacyInstall(basePath, MANIFEST_DIR);
+
+  // Host plugin registry + agents isolation first (outside journal): drop Grok's
+  // native registration and optionally clear [skills].ignore before the
+  // filesystem package is removed. Fail-open if `grok` is absent.
+  if (wantsGrokPluginHost(manifest.ides)) {
+    const host = unregisterGrokPluginHost({ ides: manifest.ides });
+    if (host.status === 'unregistered' || host.status === 'absent') {
+      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok plugin host: desregistrado.' : 'Grok plugin host: unregistered.')}`);
+    } else if (host.status === 'skipped') {
+      console.log(`  ${pc.dim(lang === 'pt' ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
+    } else {
+      console.log(`  ${pc.yellow(lang === 'pt' ? `Grok plugin host: falha ao desregistrar (${host.detail || 'erro'}).` : `Grok plugin host: unregister failed (${host.detail || 'error'}).`)}`);
+    }
+
+    const iso = revertGrokAgentsIsolation({ basePath, ides: manifest.ides });
+    if (iso.status === 'removed') {
+      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento .agents removido.' : 'Grok: .agents isolation removed.')}`);
+    } else if (iso.status === 'kept') {
+      console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento .agents mantido (outra install com grok).' : 'Grok: .agents isolation kept (another grok install remains).')}`);
+    }
+  }
 
   // Revert the install-base journal — the skill file set (reconcileFileSet), the
   // auto-update hook (stageRuntimeArtifacts) and the settings.json SessionStart

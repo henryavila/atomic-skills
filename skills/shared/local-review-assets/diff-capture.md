@@ -21,8 +21,13 @@ starting with `--` are flags:
 | Flag | Effect |
 |---|---|
 | `--mode=local` | Skip Step 0 mode picker; force local sealed envelope. |
-| `--mode=codex` | Skip Step 0 mode picker; force codex envelope. |
-| `--mode=both` | Skip Step 0 mode picker; force local→codex. |
+| `--mode=codex` | Skip Step 0 mode picker; force Codex envelope (cross-model only when host ≠ codex). |
+| `--mode=grok` | Skip Step 0 mode picker; force Grok envelope (cross-model only when host ≠ grok). |
+| `--mode=both` | Skip Step 0 mode picker; force local → host external default. |
+| `--mode=both-codex` | Skip Step 0 mode picker; force local → Codex. |
+| `--mode=both-grok` | Skip Step 0 mode picker; force local → Grok. |
+| `--mode=external-both` | Skip Step 0 mode picker; force family-different external providers only (no local leg). |
+| `--accept-same-family-as-local` | Non-interactive: same-family external remaps to sealed `local` (`provider: local`, `sameFamilyRemap: true`; never counts as CROSS-MODEL REVIEW). Env: `ATOMIC_SKILLS_ACCEPT_SAME_FAMILY_AS_LOCAL=1`. |
 | `--allow-dirty` | Include working-tree changes in the captured diff; suppress the dirty-tree abort. |
 | `--max-iterations=N` | Max verification-loop iterations (default 3). Convergence rule (plateau detection) may stop earlier. |
 
@@ -34,9 +39,11 @@ forms are handled by **Scope resolution** below, never by guessing a ref.
 this skill is unavailable — do NOT invoke {{ASK_USER_QUESTION_TOOL}} in
 background. Abort instead when, non-interactively:
 - no explicit `--mode=` flag: "review-code invoked without TTY and
-  without `--mode=`; pass `--mode=local|codex|both` explicitly."
+  without `--mode=`; pass `--mode=local|codex|grok|both|both-codex|both-grok|external-both` explicitly."
 - `git_ref` is empty: "review-code invoked without TTY and without a
   ref/scope; pass a git ref or `wip`|`branch`|`all` explicitly."
+- same-family external without `--accept-same-family-as-local`: HARD ABORT
+  per `review-mode-ux.md` (do not silently remap).
 
 ### Scope resolution (run before ref validation)
 

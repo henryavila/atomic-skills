@@ -17,7 +17,7 @@ AI agents skip steps, cut corners, and ignore what they promised two messages ag
 - **The agent follows through.** Iron Laws and HARD-GATEs make skipping steps *impossible*, not merely discouraged — no fix without a root cause, no "done" without a fresh verification, no push with a secret in the diff.
 - **One job per skill.** 14 small, composable skills — diagnose a bug, review a diff, drive a plan to done — with no coupling between them. Reach for the one that matches today's problem.
 - **Evidence over vibes.** Every claim cites `file:line` or real tool output; every gate closes against proof, not the agent's say-so.
-- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body runs correctly in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, and GitHub Copilot.
+- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body runs correctly in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot, and Grok Build.
 - **60-second install, zero config.** No API keys for the core skills; the installer detects your IDE(s) and writes the command files in place.
 
 > **Where to next:** skim the [14 skills →](#the-skills) · understand the [approach →](#the-atomic-approach) · or just [install →](#quick-start).
@@ -444,6 +444,7 @@ Atomic Skills uses a polyglot rendering layer that detects your agent and rewrit
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown |
+| Grok Build | `grok` | `.grok/plugins/atomic-skills/skills/` | Markdown |
 [IDES_TABLE_END]: #
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
@@ -462,15 +463,26 @@ Persistent context across sessions. The agent saves learnings, decisions, and fe
 - Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)
 - Available in both project and user scope installations
 
-### Codex Bridge (new in 1.8.0)
+### Cross-Model Bridge (new in 2.0.0)
 
-Shared infrastructure for the codex sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists consumed by the codex envelope:
+Shared infrastructure for the external (family-different) sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — provider-agnostic sealed-envelope templates plus pluggable provider leaves for Codex and Grok:
 
 - Anti-framing directive (literal text injected into every briefing)
-- Pre-flight checks, canonical Codex invocation, output validation checklist
+- Provider leaves under `providers/codex/` and `providers/grok/` (preflight + canonical invocation)
+- Host-default external matrix and same-family confirm→local / HARD ABORT rules
 - Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)
 - Briefing templates (plan + code) and consolidated review file template
 - Reviews INDEX.md row template
+
+On-disk assets remain under `skills/shared/codex-bridge-assets/` (install owner key `codex-bridge`) for path stability; the logical module name is `cross-model-bridge`. Assets install per-IDE at `<ide-root>/atomic-skills/_assets/` (or the Grok plugin `_assets/`) — a SIBLING of the skill tree so they are NOT scanned as slash-commands — and are referenced via `{{ASSETS_PATH}}`.
+
+### Codex Bridge (alias) (new in 1.8.0)
+
+Compatibility alias of `cross-model-bridge`. Historical name for the sealed-envelope asset pack used by the codex sub-flow. Prefer `cross-model-bridge` in new docs; this entry remains so existing install references and the `codex-bridge-assets/` directory continue to resolve.
+
+- Alias of cross-model-bridge — same assets, same install owner for `codex-bridge-assets/`
+- Pre-flight checks and canonical Codex invocation (see `providers/codex/`)
+- Shared envelope templates (anti-framing, Pass 1/2, review file, INDEX row)
 
 Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
 
