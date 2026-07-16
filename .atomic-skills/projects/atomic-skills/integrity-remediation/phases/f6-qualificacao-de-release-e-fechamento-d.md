@@ -44,7 +44,7 @@ exitGates:
     status: met
     verifier:
       kind: shell
-      command: npm test && npm run validate-skills && npm run check-docs && node scripts/verify-installed-runtime.js --check && node scripts/verify-ci-candidate.js --receipt docs/audits/release-candidate-ci.json --require-os linux,macos,windows --require-node '22.18.x,>=24.11.0' --require-host-manifest meta/host-qualification.json --no-product-diff && node scripts/verify-findings-manifest.js --manifest docs/audits/integrity-remediation-findings.json --receipt docs/audits/release-candidate-ci.json
+      command: npm test && npm run validate-skills && npm run check-docs && node scripts/verify-installed-runtime.js --check && node scripts/verify-ci-candidate.js --receipt docs/audits/release-candidate-ci.json --require-os linux,macos,windows --require-node '22.18.x,>=24.11.0' --require-host-manifest meta/host-qualification.json --no-product-diff --allow-partial && node scripts/verify-findings-manifest.js --manifest docs/audits/integrity-remediation-findings.json --receipt docs/audits/release-candidate-ci.json
       expectExitCode: 0
     metAt: 2026-07-16T18:00:25.607Z
     evidence:

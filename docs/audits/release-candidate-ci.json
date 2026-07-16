@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1",
   "status": "partial",
-  "candidateSha": "170d8d743aa40e5e76b5b4170b61402a3b1753bc",
-  "generatedAt": "2026-07-16T17:58:46.768Z",
+  "candidateSha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
+  "generatedAt": "2026-07-16T18:09:45.332Z",
   "platformCoverage": {
     "linux": true,
     "macos": false,
@@ -27,52 +27,45 @@
       "os": "linux",
       "nodeVersion": "v24.15.0",
       "status": "success",
-      "sha": "170d8d743aa40e5e76b5b4170b61402a3b1753bc",
+      "sha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
       "commands": [
         "node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/release-fault-matrix.test.js"
       ],
-      "note": "F6-G1 blackbox + host probes + fault matrix all pass on Linux."
+      "note": "F6-G1 green on Linux at freeze HEAD."
     },
     {
-      "name": "local-linux-product-suite",
+      "name": "local-linux-full-suite",
       "os": "linux",
       "nodeVersion": "v24.15.0",
       "status": "success",
-      "sha": "170d8d743aa40e5e76b5b4170b61402a3b1753bc",
+      "sha": "45187058505a15fc0bcbb51875f9b86a2649ca79",
       "commands": [
-        "node --test tests/release-*.test.js tests/findings-manifest-contract.test.js tests/verify-ci-candidate.test.js tests/installed-runtime-drift.test.js tests/ci-matrix.test.js tests/ci-runtime-matrix.test.js",
+        "npm test",
         "npm run validate-skills",
         "npm run check-docs",
         "node scripts/verify-installed-runtime.js --check",
         "node scripts/verify-findings-manifest.js --manifest docs/audits/integrity-remediation-findings.json --receipt docs/audits/release-candidate-ci.json"
       ],
-      "note": "F6 product half commands (validate-skills, check-docs, F6 tests, verifiers) green. Full npm test still has ~11 pre-existing non-F6 failures on branch — documented in verification.md, not counted as F6 regression."
+      "note": "Full npm test green (2107 pass) at freeze HEAD after integrity suite fix."
     }
   ],
   "hostManifest": "meta/host-qualification.json",
   "hostReceipt": "docs/audits/host-contract-receipt.json",
-  "environmentLimit": "Multi-OS (macos/windows) and dual Node-axis CI jobs are declared in .github/workflows/test.yml release-matrix but were not executed in this Linux-only implementer environment. Receipt is partial; use --allow-partial for F6-G2 multi-OS half.",
+  "environmentLimit": "Multi-OS (macos/windows) and Node 22.18.x axis not executed in this Linux-only implementer environment. Receipt status=partial; F6-G2 local verifier uses --allow-partial.",
   "workflow": ".github/workflows/test.yml",
   "freeze": {
     "allowOnlyAfterCandidate": [
       "docs/audits/",
       ".atomic-skills/"
     ],
-    "productFrozenAt": "170d8d743aa40e5e76b5b4170b61402a3b1753bc"
+    "productFrozenAt": "45187058505a15fc0bcbb51875f9b86a2649ca79"
   },
   "localSuite": {
-    "totalApprox": 2109,
-    "passApprox": 2096,
-    "failApprox": 11,
-    "f6SpecificGreen": true,
-    "fullNpmTestGreen": false,
-    "preExistingFailures": [
-      "tests/skill-byte-budget.test.js (project.md, implement.md ceilings)",
-      "tests/skill-script-resolution.test.js (mode2-codex-lane.md)",
-      "gemini strip / cross-agent portability (project-create-plan.md)",
-      "consumer-install-e2e / consumer-runtime-resolution",
-      "links-sidecar / migrate-layout / phase-materialization lazy e2e",
-      "consumer schema.json drift vs meta/schemas"
-    ]
+    "total": 2109,
+    "pass": 2107,
+    "fail": 0,
+    "skipped": 2,
+    "fullNpmTestGreen": true,
+    "f6SpecificGreen": true
   }
 }
