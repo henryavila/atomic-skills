@@ -92,3 +92,4 @@
 - 2026-07-16-f3-integrity-remediation.md — PASS
 - 2026-07-16-f5-integrity-remediation.md — PASS
 - 2026-07-16-f6-integrity-remediation.md — PASS_WITH_FINDINGS
+- 2026-07-16-1844-integrity-remediation-codex.md — Codex CROSS-MODEL reject (3 critical, 10 major) on integrity-remediation product diff
