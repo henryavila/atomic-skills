@@ -135,7 +135,7 @@ describe('hostDefaultExternalMode (review-due / create-plan flags)', () => {
 });
 
 describe('countsAsCrossModel', () => {
-  it('true only for family-different external provider', () => {
+  it('true only for family-different external provider when hostFamily is known', () => {
     assert.equal(countsAsCrossModel({ provider: 'codex', hostFamily: 'claude' }), true);
     assert.equal(countsAsCrossModel({ provider: 'grok', hostFamily: 'codex' }), true);
     assert.equal(countsAsCrossModel({ provider: 'codex', hostFamily: 'codex' }), false);
@@ -145,5 +145,12 @@ describe('countsAsCrossModel', () => {
       countsAsCrossModel({ provider: 'local', sameFamilyRemap: true, hostFamily: 'grok' }),
       false,
     );
+  });
+
+  it('fail closed without hostFamily (does not advance cadence)', () => {
+    assert.equal(countsAsCrossModel({ provider: 'codex' }), false);
+    assert.equal(countsAsCrossModel({ provider: 'grok' }), false);
+    assert.equal(countsAsCrossModel({ provider: 'codex', hostFamily: '' }), false);
+    assert.equal(countsAsCrossModel({ provider: 'codex', hostFamily: null }), false);
   });
 });

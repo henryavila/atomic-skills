@@ -179,16 +179,19 @@ Run **Self-loop checklist** (below). END.
 
 ### Flow B — external only (`mode ∈ {codex, grok}` after route stays external)
 
-Run **External sealed-envelope sub-flow** with `«PROVIDER»` = routed provider.
-END.
+Run **External sealed-envelope sub-flow** with `«PROVIDER»` =
+`route.externalProvider` (result of `resolveReviewRoute` — never re-derive from
+the forced mode after the same-family decision). END.
 
 ### Flow C — local then external (`mode ∈ {both, both-codex, both-grok}`)
 
 1. **LOCAL PHASE** — Self-loop checklist; apply fixes inline. Audit trail goes
    into the persisted review file, NOT the external briefing.
 2. **EXTERNAL PHASE** — External sealed-envelope on the CLEANED plan with
-   `«PROVIDER»` = host default (`both`) or forced provider. Pass-1 MUST NOT
-   mention local findings, fixes, iteration counts, or a prior review.
+   `«PROVIDER»` = `route.externalProvider` (result of `resolveReviewRoute` —
+   never re-derive from mode / forced provider after the same-family decision;
+   remaps yield `null` and stay on Flow A). Pass-1 MUST NOT mention local
+   findings, fixes, iteration counts, or a prior review.
    Persist local fix log AND external findings under `.atomic-skills/reviews/`.
 
 END.

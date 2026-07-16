@@ -33,7 +33,8 @@ Path: `.atomic-skills/reviews/INDEX.md`
 ### Migration note (old INDEX rows)
 
 Pre-F3 INDEX headers lack the **Provider** column (6 columns). When appending
-new rows, rewrite the header to the 7-column form above if missing Provider.
-When *reading* a 6-column legacy row, assume `provider: codex` for display
-only; do not rewrite historical rows in place unless the operator requests a
-one-shot INDEX rewrite.
+new rows, rewrite the header to the 7-column form above if missing Provider —
+and in the **same atomic rewrite**, insert `codex` as the Provider cell into
+every legacy 6-column data row (Date | Topic | Skill | **codex** | Verdict |
+Counts | Framing Δ). Do not leave a mixed 6/7-column table. When *reading*
+without rewriting, assume `provider: codex` for a 6-column legacy row.

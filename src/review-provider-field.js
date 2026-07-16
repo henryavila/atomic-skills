@@ -170,20 +170,20 @@ export function hostDefaultExternalMode(hostFamily) {
 
 /**
  * Whether a completed receipt counts toward CROSS-MODEL REVIEW cadence.
+ * Fail closed: hostFamily is required; without it, return false (unknown host
+ * must not advance cadence).
  *
  * @param {object} input
  * @param {string | null | undefined} input.provider
  * @param {boolean} [input.sameFamilyRemap]
- * @param {string} [input.hostFamily]
+ * @param {string} [input.hostFamily] - required for true; absent → false
  */
 export function countsAsCrossModel(input) {
   if (input.sameFamilyRemap === true) return false;
   const provider = normalizeProvider(input.provider);
   if (provider == null || provider === 'local') return false;
-  if (input.hostFamily != null && String(input.hostFamily) !== '') {
-    return !isSameFamilyExternal(normalizeHostFamily(input.hostFamily), provider);
+  if (input.hostFamily == null || String(input.hostFamily) === '') {
+    return false;
   }
-  // Without host context: any external provider is potentially cross-model
-  // (callers with host should always pass hostFamily).
-  return true;
+  return !isSameFamilyExternal(normalizeHostFamily(input.hostFamily), provider);
 }

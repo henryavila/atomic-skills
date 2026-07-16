@@ -115,7 +115,8 @@ Argument & diff capture → Step 0 → Prepare briefing → spawn **Local review
 ### Flow B — external only (`mode ∈ {codex, grok}` after route stays external)
 
 Argument & diff capture → Step 0 → Run **External sealed-envelope sub-flow**
-with `«PROVIDER»` = routed provider. END.
+with `«PROVIDER»` = `route.externalProvider` (result of `resolveReviewRoute` —
+never re-derive from the forced mode after the same-family decision). END.
 
 ### Flow C — local then external (`mode ∈ {both, both-codex, both-grok}`)
 
@@ -126,9 +127,10 @@ Argument & diff capture → Step 0.
    for the audit trail (persisted review file only — NOT the external briefing).
 
 2. **EXTERNAL PHASE** — Run External sealed-envelope sub-flow on the SAME
-   `CAPTURED_DIFF` with `«PROVIDER»` = host external default (`both`) or the
-   forced provider (`both-codex`/`both-grok`). Pass-1 MUST NOT mention local
-   findings, fixes, iteration counts, or a prior review.
+   `CAPTURED_DIFF` with `«PROVIDER»` = `route.externalProvider` (result of
+   `resolveReviewRoute` — never re-derive from mode / forced provider after the
+   same-family decision; remaps yield `null` and stay on Flow A). Pass-1 MUST NOT
+   mention local findings, fixes, iteration counts, or a prior review.
 
    **Smoke test invariant:** `CAPTURED_DIFF` byte-identical across phases. If
    fixes mutated the tree, abort external and warn.

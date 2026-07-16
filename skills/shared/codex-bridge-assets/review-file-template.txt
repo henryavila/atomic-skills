@@ -11,6 +11,7 @@ skill: {{SKILL_NAME}}
 reviewer: {{MODEL_ID}}
 provider: {{PROVIDER}}
 provider_version: {{PROVIDER_VERSION}}
+same_family_remap: {{SAME_FAMILY_REMAP}}
 final_verdict: {{VERDICT}}
 counts_final: {{COUNTS_FINAL}}
 counts_blind: {{COUNTS_BLIND}}
@@ -64,6 +65,7 @@ schema_version: "1.1"
 | `{{MODEL_ID}}` | From frontmatter of pass outputs |
 | `{{PROVIDER}}` | Enum: `codex` \| `grok` \| `local` (from route; never codex/grok after same-family remap) |
 | `{{PROVIDER_VERSION}}` | Provider CLI version string (e.g. `codex --version` / `grok --version` parse); empty when `local` |
+| `{{SAME_FAMILY_REMAP}}` | Optional boolean: `true` when same-family remapped to sealed local; omit or `false` otherwise |
 | `{{VERDICT}}` | From Pass 2 frontmatter |
 | `{{COUNTS_FINAL}}` | YAML inline object, e.g. `{blocker: 1, critical: 1, major: 3, minor: 1, nit: 0}` |
 | `{{COUNTS_BLIND}}` | Same format, from Pass 1 |
