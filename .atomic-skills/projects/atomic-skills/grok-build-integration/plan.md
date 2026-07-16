@@ -187,6 +187,12 @@ phases:
               && bash tests/hooks/stop.test.sh
             expectExitCode: 0
     status: done
+    reviewGate:
+      status: passed
+      at: 4e3fa77
+      mode: codex
+      reviewFile: .atomic-skills/reviews/2026-07-16-1428-grok-build-integration-f1-codex.md
+      verifiedAt: 2026-07-16T14:29:05.000Z
   - id: F2
     businessIntent:
       value: Atomic Skills installs and runs as a first-class Grok Build plugin (skills + hooks),
@@ -242,7 +248,8 @@ phases:
             kind: shell
             command: node --test tests/cross-model-host-default.test.js
             expectExitCode: 0
-    status: activeF3
+    status: active
+  - id: F3
     slug: grok-build-integration-f3-review-skill-ux-and-cross-model-revie
     title: Review skill UX and CROSS-MODEL REVIEW surfaces
     goal: review-code and review-plan expose provider modes; product cadence uses
