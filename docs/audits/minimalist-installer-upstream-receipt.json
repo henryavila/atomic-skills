@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1",
+  "package": "@henryavila/minimalist-installer",
+  "version": "0.1.0",
+  "dist": {
+    "resolved": "https://registry.npmjs.org/@henryavila/minimalist-installer/-/minimalist-installer-0.1.0.tgz",
+    "integrity": "sha512-XeZYy924Ps5jblp+YJuhBrXQlKXrPSKqwwozxVWheCLZadotqehv2nMoLB0Ferk45+ZfHtzYXjxuFbTRUUBYIw=="
+  },
+  "baseSha": "66c8e940812deaa0012debd713051cecd662acc5",
+  "origin": "git@github.com:henryavila/minimalist-installer.git",
+  "branch": "codex/integrity-remediation-v2",
+  "worktree": "../minimalist-installer-integrity-remediation",
+  "contentMatch": {
+    "method": "byte-compare-src-tree",
+    "note": "Installed node_modules/@henryavila/minimalist-installer/src matches worktree src/ at baseSha (12 files, 0 mismatches)."
+  },
+  "tasks": {
+    "F1/T-001": {
+      "status": "local",
+      "resultSha": "66c8e940812deaa0012debd713051cecd662acc5",
+      "note": "Baseline fixed; RED repros captured against 0.1.0 tarball behavior."
+    }
+  },
+  "resultSha": null,
+  "remotePublished": false
+}
