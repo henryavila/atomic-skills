@@ -10,7 +10,7 @@ if [[ -n "${ATOMIC_SKILLS_NO_UPDATE_CHECK:-}" ]]; then
 fi
 
 # Locate manifest: prefer project-scope, fall back to user-scope
-PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJ_DIR="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 MANIFEST=""
 SCOPE=""
 if [[ -f "$PROJ_DIR/.atomic-skills/manifest.json" ]]; then

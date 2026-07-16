@@ -1,0 +1,89 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "grok-build-integration-f4-plugin-harden-l4",
+  "title": "Plugin harden (L4)",
+  "goal": "Grok plugin surface is complete for daily use: inspect smoke, trust docs, optional thin agents only if needed, journal edge cases closed.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Plugin inspect and list smoke",
+      "description": "Add documented smoke commands and automated checks that a temp install shows atomic-skills under grok plugin list or filesystem plugin.json contract; fix journal gaps found.",
+      "scopeBoundary": [
+        "do not publish marketplace catalog entries"
+      ],
+      "acceptance": [
+        "plugin.json has name atomic-skills and version from package; install test asserts required plugin.json keys"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/grok-build-compatibility.md"
+        },
+        {
+          "kind": "file",
+          "path": "tests/install.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "src/ as needed for plugin.json fields"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Trust and setup documentation",
+      "description": "Document folder trust, hooks-trust, and Soft fail-open when project plugin untrusted; update CLAUDE.md or AGENTS only if required for multi-agent note; README generator catalog keyword grok.",
+      "scopeBoundary": [
+        "do not add MCP server"
+      ],
+      "acceptance": [
+        "package.json keywords include grok; KB documents trust; catalog or README mentions Grok Build"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install.test.js && node -e \"const p=require('./package.json'); if(!p.keywords.includes('grok')) process.exit(1)\"",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/grok-build-compatibility.md"
+        },
+        {
+          "kind": "file",
+          "path": "package.json"
+        },
+        {
+          "kind": "file",
+          "path": "meta/catalog.yaml"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/generate-readme.js related fixtures if any"
+        },
+        {
+          "kind": "file",
+          "path": "README.md if generated"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "Plugin.json contract is tested and package keywords include grok.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install.test.js && node -e \"const p=require('./package.json'); if(!p.keywords.includes('grok')) process.exit(1)\"",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

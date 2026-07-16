@@ -47,8 +47,12 @@ const REPO_ROOT = resolve(__dirname, '..')
 const BUDGETS = [
   ['core/project.md', 23000, 'F1 — thin router (raised 22000→23000 2026-06-26: depend verb added resident grammar+dispatch+gate-list surface + operator-model block mandated resident by validate-skills.test.js)'],
   ['core/implement.md', 22000, 'F1 — lean driver'],
-  ['core/review-code.md', 20000, 'F3/T3.1'],
-  ['core/review-plan.md', 24000, 'F3/T3.2'],
+  // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
+  // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW
+  // provider field. ~20B / ~700B over prior ceilings; content is resident
+  // dispatch surface, not movable prose.
+  ['core/review-code.md', 21000, 'F3/T3.1 (raised 20000→21000 2026-07-16: multi-provider review modes + host-default)'],
+  ['core/review-plan.md', 25000, 'F3/T3.2 (raised 24000→25000 2026-07-16: multi-provider plan review + host-default)'],
   ['core/hunt.md', 14000, 'F3/T3.3'],
   ['core/debate.md', 15000, 'F3/T3.4'],
   ['core/parallel-dispatch.md', 13000, 'F2/T2.4'],

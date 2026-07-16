@@ -3,8 +3,8 @@
 ## Files
 
 - `session-start.sh` — L2b. v2 hook: walks the 3-level state (PROJECT-STATUS index → active Plan → phase Initiative), surfaces branch mismatches, signals phase-transition when the active initiative has 0 pending/active tasks, and injects the aiDeck dashboard URL when `~/.aideck/env` is present. Falls back to a standalone branch-matched initiative when no plan is active. Emits via `additionalContext` at SessionStart.
-- `stop.sh` — L3. v2 hook: compares files written during the turn (via the JSONL transcript's `Write` / `Edit` / `MultiEdit` / `NotebookEdit` tool calls) against the active initiative's `scope.paths`. When out-of-scope writes exceed `drift_threshold` (default 0.5), logs a dry-run decision or blocks via exit 2 in strict mode. Scope-less initiatives skip the check.
-- `pre-write.sh` — L4. PreToolUse hook: intercepts `Edit` / `Write` / `MultiEdit` on the nested `.atomic-skills/projects/<id>/<slug>/{plan.md,phases/*.md}` (and legacy flat `.atomic-skills/initiatives/*.md` + `.atomic-skills/plans/*.md`). Compares the OLD and NEW frontmatter for tasks/phases additions; any new entry lacking a `provenance:` field counts as a silent on-the-fly mutation and is logged (dry-run) or blocked via exit 2 (when `emergent_strict_mode: true`). File creation, deletions, updates to existing entries, archive subdirs, and `*.rendered.md` derived artifacts are all exempt.
+- `stop.sh` — L3. v2 hook: compares files written during the turn (via the JSONL transcript's write tool calls — Claude `Write` / `Edit` / `MultiEdit` / `NotebookEdit` and Grok `write` / `search_replace`) against the active initiative's `scope.paths`. When out-of-scope writes exceed `drift_threshold` (default 0.5), logs a dry-run decision or blocks via exit 2 in strict mode. Scope-less initiatives skip the check.
+- `pre-write.sh` — L4. PreToolUse hook: intercepts write tools (Claude `Edit` / `Write` / `MultiEdit` and Grok `search_replace` / `write`) on the nested `.atomic-skills/projects/<id>/<slug>/{plan.md,phases/*.md}` (and legacy flat `.atomic-skills/initiatives/*.md` + `.atomic-skills/plans/*.md`). Compares the OLD and NEW frontmatter for tasks/phases additions; any new entry lacking a `provenance:` field counts as a silent on-the-fly mutation and is logged (dry-run) or blocked via exit 2 (when `emergent_strict_mode: true`). File creation, deletions, updates to existing entries, archive subdirs, and `*.rendered.md` derived artifacts are all exempt.
 - `config.json` — `strict_mode`, `emergent_strict_mode`, `drift_threshold` (default 0.5), `staleContextDays` (default 14 — `lastReviewedAt` aging threshold consumed by `why`/`scope-creep`), `parkedZombieDays` (default 30 — parked-zombie threshold), `dry_run_started` date, legacy `source_globs`, and stack/archive heuristics.
 - `drift.log` — dry-run decision log emitted by `stop.sh` v2 (gitignored). One JSON object per Stop event.
 - `emergent-drift.log` — dry-run decision log emitted by `pre-write.sh` (gitignored). One JSON object per blocked-in-dry-run mutation.
@@ -16,7 +16,19 @@ Skill installation and project-hook setup are separate contracts. This README de
 
 - Claude Code: project-hook setup is supported through merge-only entries in `.claude/settings.local.json`.
 - Codex: project-hook setup is supported through merge-only entries in `.codex/hooks.json`.
+- Grok Build: project-hook setup is supported through merge-only entries in `.grok/plugins/atomic-skills/hooks/hooks.json`.
 - Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks. Installing skills for these hosts does not create hook config files and does not register hook events.
+
+### Soft vs Strict
+
+| Level | Events | Notes |
+|-------|--------|-------|
+| Soft (recommended) | `SessionStart` + `PreToolUse` | Provenance gate is dry-run by default |
+| Strict | Soft + `Stop` | Scope-drift gate; both knobs dry-run 7d before real strict |
+
+Grok Soft ships with the plugin package on install (`hooks/hooks.json`). Strict adds a `Stop` entry (merge-only) and copies `stop.sh`. Auto-update SessionStart lives in a separate user file under `.grok/hooks/atomic-skills-auto-update.json` and must not be confused with project Soft/Strict.
+
+**Trust / fail-open (Grok Build):** folder trust and hooks-trust are host concerns. When the project plugin is present but untrusted, Soft hooks simply do not run (fail-open — no SessionStart digest, no PreToolUse gate). That is not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
 
 ## SessionStart v2 — context layout
 
@@ -36,15 +48,16 @@ Run these checks only for hosts with a project-hook contract:
 ```bash
 cat .claude/settings.local.json | jq '.hooks'
 cat .codex/hooks.json | jq '.hooks'
+cat .grok/plugins/atomic-skills/hooks/hooks.json | jq '.hooks'
 ```
 
-Expected for Claude Code and Codex: entries under the top-level `hooks` object. Soft setup has `SessionStart` and `PreToolUse` (with `matcher: "Edit|Write|MultiEdit"`); Strict additionally has `Stop`. Use these wrappers:
+Expected for Claude Code, Codex, and Grok Build: entries under the top-level `hooks` object. Soft setup has `SessionStart` and `PreToolUse` (with dual-vocab matcher `Edit|Write|MultiEdit|search_replace|write`); Strict additionally has `Stop`. Use these wrappers:
 
 ```json
 {
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/session-start.sh\"" }] }],
-    "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }],
+    "PreToolUse": [{ "matcher": "Edit|Write|MultiEdit|search_replace|write", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/pre-write.sh\"" }] }],
     "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.atomic-skills/status/hooks/stop.sh\"" }] }]
   }
 }
@@ -84,7 +97,7 @@ Auto-expires after 24h. Delete the file to re-enable sooner.
 
 ### Permanent
 
-Remove the hook entry from `.claude/settings.local.json` or `.codex/hooks.json`, or run:
+Remove the hook entry from `.claude/settings.local.json`, `.codex/hooks.json`, or `.grok/plugins/atomic-skills/hooks/hooks.json`, or run:
 
 ```bash
 npx atomic-skills uninstall --project  # removes this skill's artifacts

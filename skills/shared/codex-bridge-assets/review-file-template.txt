@@ -9,12 +9,14 @@ topic: {{SLUG}}
 artifact: {{ARTIFACT_PATH}}
 skill: {{SKILL_NAME}}
 reviewer: {{MODEL_ID}}
-codex_version: {{CODEX_VERSION}}
+provider: {{PROVIDER}}
+provider_version: {{PROVIDER_VERSION}}
+same_family_remap: {{SAME_FAMILY_REMAP}}
 final_verdict: {{VERDICT}}
 counts_final: {{COUNTS_FINAL}}
 counts_blind: {{COUNTS_BLIND}}
 framing_delta: {{FRAMING_DELTA}}
-schema_version: "1.0"
+schema_version: "1.1"
 ---
 
 # Cross-Model Review — {{SLUG}}
@@ -59,12 +61,21 @@ schema_version: "1.0"
 | `{{ISO_TIMESTAMP}}` | ISO-8601 with TZ, e.g. `2026-05-17T14:30:00-03:00` |
 | `{{SLUG}}` | kebab-case, derived from artifact basename or branch name |
 | `{{ARTIFACT_PATH}}` | Path of reviewed plan/spec or git ref for code |
-| `{{SKILL_NAME}}` | `review-plan` or `review-code` (codex sub-flow) |
+| `{{SKILL_NAME}}` | `review-plan` or `review-code` (external sub-flow) |
 | `{{MODEL_ID}}` | From frontmatter of pass outputs |
-| `{{CODEX_VERSION}}` | `codex --version` output, parsed |
+| `{{PROVIDER}}` | Enum: `codex` \| `grok` \| `local` (from route; never codex/grok after same-family remap) |
+| `{{PROVIDER_VERSION}}` | Provider CLI version string (e.g. `codex --version` / `grok --version` parse); empty when `local` |
+| `{{SAME_FAMILY_REMAP}}` | Optional boolean: `true` when same-family remapped to sealed local; omit or `false` otherwise |
 | `{{VERDICT}}` | From Pass 2 frontmatter |
 | `{{COUNTS_FINAL}}` | YAML inline object, e.g. `{blocker: 1, critical: 1, major: 3, minor: 1, nit: 0}` |
 | `{{COUNTS_BLIND}}` | Same format, from Pass 1 |
 | `{{FRAMING_DELTA}}` | YAML inline object: `{dropped: N, maintained: N, emerged: N}` |
 | `{{PASS_N_OUTPUT}}` | Full content of pass output (with frontmatter and body) |
 | `{{PASS_N_BRIEFING}}` | Full briefing text used |
+
+### Migration note
+
+Older review files may carry `codex_version` instead of `provider` /
+`provider_version`. Readers treat missing `provider` as `codex` when the
+filename/body is a legacy Codex envelope, else leave unset. Writers always
+emit `provider` + `provider_version` going forward.

@@ -1,0 +1,99 @@
+# Canonical Codex Invocation
+# Provider: codex
+# Path: skills/shared/codex-bridge-assets/providers/codex/invocation-canonical.txt
+# Logical module: cross-model-bridge (codex-bridge is a compatibility alias)
+#
+
+Use this exact command shape for every Codex invocation in cross-model review.
+Departure from this shape causes known failures (stdin hang, dirty banner
+contamination, orphan processes).
+
+## Variables to substitute
+
+- `<BRIEFING_PATH>`: path to briefing markdown file (input)
+- `<OUTPUT_PATH>`: path to output markdown file (Codex writes final message here)
+- `<TIMEOUT_SECONDS>`: integer seconds (default 600 = 10 min)
+- `<MODEL_FLAG>`: empty by default. If user passed `--model X`, set to `--model X`.
+
+## Pre-step: portable timeout wrapper
+
+`timeout(1)` is GNU coreutils. On macOS it is NOT installed by default; on
+Linux + WSL it is. The skill MUST detect the available wrapper before
+constructing the command — never hardcode `timeout`.
+
+Detection (run once per session — defines a shell function `run_with_timeout`).
+Do NOT store the wrapper in a plain string variable: shell variable expansion
+does not re-parse embedded quotes, so a string like
+`TIMEOUT_CMD="perl -e 'alarm shift @ARGV; exec @ARGV' --"` is broken when
+invoked as `$TIMEOUT_CMD <SECONDS> ...` (perl receives word-split tokens with
+literal quote characters and dies parsing `-e`).
+
+```bash
+if command -v timeout >/dev/null 2>&1; then
+  run_with_timeout() { timeout "$@"; }
+elif command -v gtimeout >/dev/null 2>&1; then
+  run_with_timeout() { gtimeout "$@"; }                                # macOS via `brew install coreutils`
+elif command -v perl >/dev/null 2>&1; then
+  run_with_timeout() { perl -e 'alarm shift @ARGV; exec @ARGV' -- "$@"; }   # POSIX-portable fallback
+else
+  echo "ERROR: no timeout wrapper available. Install coreutils (Linux: apt/yum; macOS: brew install coreutils) or perl." >&2
+  exit 1
+fi
+```
+
+All three branches expose the same shell function with COMPATIBLE call shape:
+`run_with_timeout <SECONDS> <command...>`. The perl form's `--` terminates
+perl option parsing so `<command>` starts cleanly, and `"$@"` preserves
+argument word boundaries (quoting that a plain `$TIMEOUT_CMD` expansion
+would destroy).
+
+## Command
+
+```bash
+run_with_timeout <TIMEOUT_SECONDS> codex -a never exec \
+  <MODEL_FLAG> \
+  -c model_reasoning_effort=high \
+  --sandbox read-only \
+  --skip-git-repo-check \
+  --ephemeral \
+  -o <OUTPUT_PATH> \
+  - <<BRIEFING_PATH> \
+  2>/dev/null
+```
+
+Note: `- <<BRIEFING_PATH>` means stdin is read from `<BRIEFING_PATH>` and the
+literal `-` tells `codex exec` to take its prompt from stdin. In shell syntax
+this is `- < /path/to/briefing.md`.
+
+## Flag-by-flag rationale
+
+| Flag | Why |
+|------|-----|
+| `run_with_timeout <N>` | External kill. Codex has known hangs (issues #7852, #4337). Portable across Linux/macOS/WSL via the function defined above (do NOT use a string-stored `TIMEOUT_CMD` variant — embedded quotes break under `$VAR` expansion). |
+| `-a never` | Approval mode `never` — required for non-interactive. |
+| `exec` | Subcommand for headless execution. |
+| `-c model_reasoning_effort=high` | Forces deep reasoning. Worth the tokens for adversarial review. |
+| `--sandbox read-only` | Defense-in-depth. Reviewer must never write. |
+| `--skip-git-repo-check` | Avoids abort if cwd isn't a git repo. |
+| `--ephemeral` | Don't persist session in history. Each review is fresh. |
+| `-o <OUTPUT_PATH>` | Write final message (markdown) to file. Survives pipe failures. |
+| `- < <BRIEFING_PATH>` | Prompt comes from stdin (file redirected). |
+| `2>/dev/null` | Suppress banner (stderr). |
+
+## Exit codes
+
+- `0`: ok, parse output file
+- `124`: timeout (set by `timeout(1)` / `gtimeout`)
+- `142` or `SIGALRM-killed`: timeout (set by perl `alarm` fallback)
+- other: Codex error. Abort with message + capture stderr if user wants debug.
+
+Both timeout exit codes (124 and 142) MUST be handled as "timeout" by the
+skill — the wrapper choice is invisible to the user.
+
+## DO NOT
+
+- Pass prompt as argument (`codex exec "prompt"`) — stdin may still hang.
+- Omit stdin redirection (`- < /path`) — `codex exec` may hang.
+- Use `--full-auto` — deprecated.
+- Use `--yolo` / `--dangerously-bypass-approvals-and-sandbox` — bypasses sandbox.
+- Hardcode `timeout` (will fail on macOS without coreutils). Use the detector above.

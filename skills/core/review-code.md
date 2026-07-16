@@ -2,27 +2,30 @@ Perform an adversarial analysis of the code changes at {{ARG_VAR}}
 (a git ref — branch, single commit, or commit range — or a scope
 keyword: `wip`, `branch`, `all`; empty → interactive scope picker)
 looking for logic bugs, race conditions, error handling gaps,
-schema/migration inconsistencies, and missing tests. Step 0 picks one of three modes:
-`local` (same-model sealed envelope via agent with clean context),
-`codex` (cross-model two-pass sealed envelope via OpenAI Codex CLI), or
-`both` (local agent first → codex on the same captured diff).
+schema/migration inconsistencies, and missing tests. Step 0 picks a mode:
+`local`, `codex`, `grok`, `both` (local→**host external default**),
+`both-codex`, `both-grok`, or `external-both`. Full mode table, host-aware
+picker, and same-family rules: {{READ_TOOL}}
+`skills/shared/codex-bridge-assets/review-mode-ux.md` (routing helper:
+`src/cross-model-host-default.js`).
 
 ## Iron Law
 
 NO APPROVAL WITHOUT EVIDENCE.
 - Local mode: each finding MUST cite `file:line`. Bug claims without `file:line` are rejected.
-- Codex mode: every codex finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
+- External mode (`codex`/`grok`): every external finding MUST have `file:line` + 4 fields (Claim, Impact, Recommendation, Confidence). Findings without these are rejected.
 
-NO INTENT IN THE BRIEFING (local + codex).
+NO INTENT IN THE BRIEFING (local + external).
 Intent narrative poisons reviewers by up to -93pp detection rate
 ([arXiv 2603.18740](https://arxiv.org/abs/2603.18740)).
 - **Local review** runs in a separate agent with clean context via
   {{INVESTIGATOR_TOOL}}. The agent receives only the diff and file list —
   no conversation history, no commit messages, no user intent.
-- **Codex review** uses a sealed briefing with anti-framing directive.
-- **Both mode:** neither reviewer sees the other's findings. The codex
-  briefing must NOT include local findings, fix descriptions, iteration
-  counts, or any narrative implying a prior review took place.
+- **External review** uses a sealed briefing with anti-framing directive
+  (provider = Codex or Grok per mode/host default).
+- **Both / both-\* modes:** neither reviewer sees the other's findings. The
+  external briefing must NOT include local findings, fix descriptions,
+  iteration counts, or any narrative implying a prior review took place.
 
 ## Mindset
 
@@ -31,9 +34,9 @@ not to confirm the change is clean. If you finish without findings, it's
 more likely you missed something than the diff being perfect — re-read
 the checklist and force a second pass.
 
-In codex sub-flow: codex is an adversarial reviewer from a different
-family (GPT). Find bugs, vulnerabilities, race conditions — don't defend
-the code.
+In the external sub-flow: the reviewer is family-different from the host
+when the route is true CROSS-MODEL REVIEW. Find bugs, vulnerabilities,
+race conditions — don't defend the code.
 
 ## Argument & diff capture
 
@@ -44,39 +47,15 @@ materializes `CAPTURED_DIFF` + `CAPTURED_FILES` ONCE — plus `SCOPE`, the
 {{GIT_REF}} label, and the deterministic `DESTRUCTIVE` signal. Step 0 and both
 review phases consume those outputs; never re-run `git diff`.
 
-## Step 0 — Pick review mode
+## Step 0 — Pick review mode + same-family route
 
-Skip this step if `--mode=` was supplied. Otherwise, use
-{{ASK_USER_QUESTION_TOOL}}:
+Skip the picker if `--mode=` was supplied (accepted values: `local|codex|grok|both|both-codex|both-grok|external-both`). Also accept `--accept-same-family-as-local` (see review-mode-ux.md).
 
-**Question:** "How should this code change be reviewed?" (When `DESTRUCTIVE`
-is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops).
-A same-model local-only pass frequently misses the orphaned-data / dangling-
-reference regression a delete leaves behind — cross-model is strongly
-advised."*)
+Otherwise {{READ_TOOL}} `skills/shared/codex-bridge-assets/review-mode-ux.md` and run its **host-aware Step 0 picker** via {{ASK_USER_QUESTION_TOOL}}. When `DESTRUCTIVE` is true, prepend: *"⚠ This diff is predominantly destructive (deletes/drops). A same-model local-only pass frequently misses orphaned-data / dangling-reference regressions — cross-model is strongly advised."* Default remains **Both** (host external default); when `DESTRUCTIVE`, that default is the recommended option, not merely the fallback.
 
-**Options:**
-- **Both (local then codex)** — Recommended for significant changes
-  (auth, payments, data integrity) and **strongly recommended for any
-  destructive diff**. Local agent catches obvious bugs; codex catches what
-  the agent missed. ~$1-2 codex cost.
-- **Local only** — Cheap, fast. Use for routine PRs or pre-commit checks.
-  **Not advised when `DESTRUCTIVE` is true** — if chosen anyway, record the
-  user's explicit override (the false-green risk was surfaced and accepted).
-- **Codex only** — Skip local. Use when another agent self-reviewed.
+After `mode` is known, run the **same-family gate** in review-mode-ux.md (`resolveReviewRoute`). Interactive same-family → confirm→local; non-interactive without `--accept-same-family-as-local` → **HARD ABORT**. Record `provider` / `sameFamilyRemap` from the route result.
 
-Default: **Both** — and when `DESTRUCTIVE` is true, `both` is not merely the
-default but the recommended option; the picker leads with the warning above
-so a user choosing `local` does so against an explicit caution, never by
-omission.
-
-Set `mode ∈ {local, codex, both}` based on the answer.
-
-Why route all user prompts through {{ASK_USER_QUESTION_TOOL}}: the
-template var resolves per IDE — Claude Code uses its native multi-choice
-prompt tool; Gemini / Cursor / Codex CLI / Opencode / GitHub Copilot /
-generic receive a descriptive string so the agent renders the prompt as
-plain text. Hardcoding any specific tool name would break the other IDEs.
+Why {{ASK_USER_QUESTION_TOOL}}: the template var resolves per IDE (Claude native multi-choice; other hosts get a descriptive string). Hardcoding a host-specific tool name breaks other IDEs.
 
 ---
 
@@ -94,15 +73,15 @@ match logic, it defers to that module.
      which forces RE-review, never a skip).
    - `patchId` = `git diff <range> | git patch-id --stable | awk '{print $1}'`
      (stable under squash/rebase — the SHA may be rewritten, the patch-id holds).
-2. **Per-mode skip with POSITIVE proof only.** For EACH mode about to run
-   (`local` and/or `codex`), read the ledger content from
-   `.atomic-skills/status/last-review.json` and call
+2. **Per-mode skip with POSITIVE proof only.** For EACH pass about to run
+   (`local` and/or external `codex`/`grok` provider id(s)), read the ledger content
+   from `.atomic-skills/status/last-review.json` and call
    `alreadyReviewed(content, { commitSha, patchId }, mode)`. If it returns **true**,
-   SKIP that mode's pass and announce: `review-dedup: <mode> pass skipped — surface
-   already reviewed (<commitSha|patchId>).` The dedup is **per mode**: a `local`
-   hit does NOT skip the `codex` pass and vice-versa (one model's pass never
-   discharges the other's). In `mode == both`, evaluate the two modes independently;
-   if both are already-reviewed, report up-to-date and END.
+   SKIP that pass and announce: `review-dedup: <mode> pass skipped — surface
+   already reviewed (<commitSha|patchId>).` The dedup is **per mode/provider**: a
+   `local` hit does NOT skip an external pass and vice-versa. In `both*`, evaluate
+   local and external independently; if every scheduled pass is already-reviewed,
+   report up-to-date and END.
 3. **Fail-para-RE-revisar.** Skip ONLY on a positive `alreadyReviewed`. A pointer /
    absent / malformed `last-review.json` is read by the module as "nothing reviewed"
    (it returns false), so the pass RUNS — indeterminacy never skips a review.
@@ -118,54 +97,83 @@ match logic, it defers to that module.
    since a pointer reads as "nothing reviewed"). `recordReview` on a legacy pointer starts
    a fresh ledger, so the flip happens the first time the write-back is enabled.
 
-This dedup is the code legs only (`review-code` local + codex, and `review-due` →
-`project-drift.md`); the `project review` composer (Layer B) carries its own
-append-only run-record via a separate work-order, never written from here.
+This dedup is the code legs only (`review-code` local + external providers, and
+`review-due` → `project-drift.md`); the `project review` composer (Layer B) carries
+its own append-only run-record via a separate work-order, never written from here.
 
 ---
 
 ## Flow per mode
 
-### Flow A — `mode == local`
+Resolve route first (Step 0). Then:
 
-Argument & diff capture → Step 0 → `local`. Prepare briefing → spawn
-**Local review agent** (below) → receive findings → **Triage + fix**
-(below). END.
+### Flow A — local only (`mode == local`, or same-family remap → `provider: local`)
 
-### Flow B — `mode == codex`
+Argument & diff capture → Step 0 → Prepare briefing → spawn **Local review agent**
+(below) → receive findings → **Triage + fix** (below). END.
 
-Argument & diff capture → Step 0 → `codex`. Run **Codex sub-flow**
-(below). END.
+### Flow B — external only (`mode ∈ {codex, grok}` after route stays external)
 
-### Flow C — `mode == both`
+Argument & diff capture → Step 0 → Run **External sealed-envelope sub-flow**
+with `«PROVIDER»` = `route.externalProvider` (result of `resolveReviewRoute` —
+never re-derive from the forced mode after the same-family decision). END.
 
-Argument & diff capture → Step 0 → `both`.
+### Flow C — local then external (`mode ∈ {both, both-codex, both-grok}`)
+
+Argument & diff capture → Step 0.
 
 1. **LOCAL PHASE** — Prepare briefing → spawn **Local review agent** on
-   `CAPTURED_DIFF` → receive findings → **Triage + fix** (below). Track
-   fix descriptions for the audit trail. The audit trail goes into the
-   persisted review file, NOT the codex briefing.
+   `CAPTURED_DIFF` → receive findings → **Triage + fix**. Track fix descriptions
+   for the audit trail (persisted review file only — NOT the external briefing).
 
-2. **CODEX PHASE** — Run Codex sub-flow on the SAME `CAPTURED_DIFF`. The
-   Pass-1 briefing MUST NOT mention local findings, fix descriptions,
-   iteration counts, or that a prior review took place. The codex sees
-   the diff as if it were the first review.
+2. **EXTERNAL PHASE** — Run External sealed-envelope sub-flow on the SAME
+   `CAPTURED_DIFF` with `«PROVIDER»` = `route.externalProvider` (result of
+   `resolveReviewRoute` — never re-derive from mode / forced provider after the
+   same-family decision; remaps yield `null` and stay on Flow A). Pass-1 MUST NOT
+   mention local findings, fixes, iteration counts, or a prior review.
 
-   **Smoke test invariant:** the `CAPTURED_DIFF` consumed by both phases
-   must be byte-identical. If you suspect drift (e.g. fixes mutated the
-   tree between local triage and codex phase), abort the codex phase and
-   warn — the local fixes contaminate the cross-model invariant.
+   **Smoke test invariant:** `CAPTURED_DIFF` byte-identical across phases. If
+   fixes mutated the tree, abort external and warn.
 
-   **Stash protocol (mode == both):** if the local triage applied fixes,
-   `git stash` the dirty tree before the codex phase, then `git stash pop`
-   after. This keeps the working tree clean for codex preflight checks
-   while preserving the local fixes.
+   **Stash protocol:** if local triage applied fixes, `git stash` before external
+   preflight, `git stash pop` after.
+
+END.
+
+### Flow D — `mode == external-both`
+
+Argument & diff capture → Step 0 → route yields `externalProviders` (family-different
+legs only). **Collect both legs → merge → triage** (no triage/edit between legs).
+
+1. **Collect.** For each remaining provider in order (**Codex then Grok** when
+   both remain), run the **External sealed-envelope sub-flow** on the **same**
+   `CAPTURED_DIFF` (no re-capture). Persist each leg's findings JSON (or error).
+   - Family-filtered providers: record `status: skipped` — do not invoke.
+   - If one leg fails preflight/invoke/validation: record
+     `{ status: failed, error: … }` and **continue the other leg**. Do **not**
+     abort the whole mode (unlike single-provider `codex`/`grok`/`both*`).
+   - Do **not** open triage, propose edits, or mutate sources between legs.
+2. **Merge.** Combine both payloads with the pure helper or CLI:
+   - Import / programmatic:
+     `mergeExternalBothFindings` from `src/external-both-merge.js` (package:
+     `node -e` / host import against
+     `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`).
+   - CLI (preferred at skill runtime):
+     ```bash
+     node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
+       <codex-findings.json|-|skip> <grok-findings.json|-|skip>
+     ```
+   Contract: merge key = `file:line` + normalized claim; higher severity wins
+   with dual provenance; status per provider is `succeeded|failed|skipped`
+   (absent = skipped); partial failure keeps the good half + surfaces `errors`.
+3. **Triage.** Present the **merged** list (plus `errors` / `providerStatus`)
+   for **human triage only**. Auto-apply of external findings is a non-goal.
 
 END.
 
 ---
 
-## Local review agent (modes: local, both)
+## Local review agent (modes: local, both*)
 
 The local review runs in a **separate agent with clean context** to
 prevent intent leakage from the conversation. The operator prepares a
@@ -227,13 +235,13 @@ Parse the agent's output. For each finding:
 
 ---
 
-## Codex sub-flow (modes: codex, both)
+## External sealed-envelope sub-flow (modes: codex, grok, both*, external-both)
 
 Run the canonical two-pass sealed envelope per
-`{{ASSETS_PATH}}/envelope-orchestration.md` (the byte-identical 12-step skeleton
-shared with `review-plan`). It uses the canonical leaf assets in
-`skills/shared/codex-bridge-assets/` as the single source of truth. Bind these
-code-review artifact slots:
+`{{ASSETS_PATH}}/envelope-orchestration.md` (byte-identical skeleton shared with
+`review-plan`). Bind `«PROVIDER»` ∈ {`codex`,`grok`} from the route result (never
+from a same-family remap — those stay on the local path). Leaf assets under
+`skills/shared/codex-bridge-assets/providers/«PROVIDER»/`. Code-review slots:
 
 - **`«INPUT»`** — `CAPTURED_DIFF` and `CAPTURED_FILES` from the argument-capture
   step. Do NOT re-run `git diff`.
@@ -247,6 +255,7 @@ code-review artifact slots:
 - **`«SIZE_BUDGET»`** — < 800 tokens (briefing without the diff).
 - **`«TRIAGE_TARGET»`** — the changed source file(s).
 - **`«TRIAGE_NOTES»`** — after applying fixes, suggest the user run tests.
+  Persist receipt with `provider: «PROVIDER»` (+ provider version when available).
 
 ---
 
@@ -273,9 +282,9 @@ code-quality gates` block:
 - G7 anti-premature-abstraction: no new helper introduced unless 3+ sites required it.
 ```
 
-In `mode ∈ {codex, both}`, the block goes into the consolidated review
-file under `.atomic-skills/reviews/<…>.md` under "Fixes applied in this
-session". Silent skipping is forbidden.
+In any mode with an external leg (`codex`/`grok`/`both*`/`external-both`), the
+block goes into the consolidated review file under `.atomic-skills/reviews/<…>.md`
+under "Fixes applied in this session". Silent skipping is forbidden.
 
 ## Red Flags
 
@@ -287,12 +296,13 @@ session". Silent skipping is forbidden.
 - "I'll skip the reread, my corrections are right"
 - "I'll skip callers, just the diff is enough"
 - "The migration is reversible, I don't need to check"
-- "I'll re-run `git diff` for the codex briefing — close enough" (mode == both — breaks the byte-identical invariant)
-- "I'll mention the local pass in the codex briefing — codex deserves context" (mode == both)
+- "I'll re-run `git diff` for the external briefing — close enough" (both* — breaks the byte-identical invariant)
+- "I'll mention the local pass in the external briefing — the external reviewer deserves context" (both*)
 - "I'll run the local review in my current context — spawning an agent is overkill" (breaks sealed envelope)
 - "I'll include a summary of the user's request in the agent briefing — it needs context" (intent leakage into local review)
-- "I'll add architectural context to help codex" (codex sub-flow)
-- "Codex said approve but I think it needs more review"
+- "I'll add architectural context to help the external reviewer" (external sub-flow)
+- "External said approve but I think it needs more review"
+- "Same-family headless is still CROSS-MODEL REVIEW" (it is not — confirm→local or abort)
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -307,33 +317,34 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "It's already 3 iterations, I'll approve" | If there are still problems, escalate — don't approve with defects |
 | "The import probably resolves" | Sensible names are how bugs hide. Run {{GREP_TOOL}} to confirm |
 | "I already know what the code does, reviewing in a fresh context is wasteful" | That knowledge IS the contamination — the agent must derive intent from code, not from you |
-| "Codex will figure it out from context" (codex) | Sealed envelope: facts only |
-| "The local pass already found everything, codex is a formality" (both) | Empirically codex catches disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
+| "External will figure it out from context" | Sealed envelope: facts only |
+| "The local pass already found everything, external is a formality" (both*) | Empirically family-different reviewers catch disjoint findings — see [arXiv 2603.12123](https://arxiv.org/abs/2603.12123) |
 
 ## Closing
 
-Present the summary in this format. Sections marked `(local/both)` only
-appear in the corresponding mode; `(codex/both)` likewise.
+Present the summary in this format. Sections marked `(local/both*)` only
+appear when a local leg ran; `(external)` when an external provider ran.
 
 ```markdown
 ### Analysis Summary
 
 **Ref/scope:** {{ARG_VAR}} (or the resolved scope when the picker ran)
-**Mode:** local | codex | both
+**Mode:** local | codex | grok | both | both-codex | both-grok | external-both
+**Provider:** codex | grok | local  (from route; never codex/grok after same-family remap)
 **Files reviewed:** [N]
-**Passes (local):** [N] (local/both only)
-**Codex iterations:** 2 (blind + informed) (codex/both only)
-**Counts (local):** blocker: X, critical: Y, major: Z, minor: W (local/both only)
-**Counts (codex blind):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
-**Counts (codex final):** <B>B/<C>C/<M>M/<m>m/<n>n (codex/both only)
-**Framing Δ (codex):** <d>d / <=>= / <+>+ (codex/both only)
+**Passes (local):** [N] (local/both* only)
+**External iterations:** 2 (blind + informed) per provider (external only)
+**Counts (local):** blocker: X, critical: Y, major: Z, minor: W (local/both* only)
+**Counts (external blind):** <B>B/<C>C/<M>M/<m>m/<n>n (external only)
+**Counts (external final):** <B>B/<C>C/<M>M/<m>m/<n>n (external only)
+**Framing Δ:** <d>d / <=>= / <+>+ (external only)
 
-| # | Finding | Severity | Mode | File:line | Action |
-|---|---------|----------|------|-----------|--------|
+| # | Finding | Severity | Provider | File:line | Action |
+|---|---------|----------|----------|-----------|--------|
 | 1 | <summary> | critical | local | src/foo.ts:42 | applied |
 | 2 | <summary> | blocker | codex | src/bar.ts:88 | applied |
 
-**Reviews saved at:** `.atomic-skills/reviews/<file>.md` (codex/both only)
+**Reviews saved at:** `.atomic-skills/reviews/<file>.md` (external only)
 **Final status:** Code approved / with caveats / Escalated to user
 **Suggestion:** run `npm test` if fixes were applied.
 ```

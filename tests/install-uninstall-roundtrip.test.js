@@ -12,10 +12,16 @@ import { uninstall } from '../src/uninstall.js';
 
 function withHome(fakeHome, fn) {
   const original = process.env.HOME;
+  const originalSkip = process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
   process.env.HOME = fakeHome;
+  // Hermetic: real `grok` under a fake HOME seeds host docs/registry residue
+  // that breaks content-aware roundtrip snapshots.
+  process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = '1';
   return Promise.resolve(fn()).finally(() => {
     if (original === undefined) delete process.env.HOME;
     else process.env.HOME = original;
+    if (originalSkip === undefined) delete process.env.ATOMIC_SKILLS_SKIP_GROK_HOST;
+    else process.env.ATOMIC_SKILLS_SKIP_GROK_HOST = originalSkip;
   });
 }
 
@@ -57,8 +63,18 @@ function sessionStartCommands(settingsPath) {
     .filter((command) => typeof command === 'string');
 }
 
+/** Match version-check commands whether shell-quoted or raw paths. */
+function isVersionCheckCommand(command, absPath = null) {
+  if (typeof command !== 'string') return false;
+  const unquoted = command.replace(/^'|'$/g, '').replace(/'\\''/g, "'");
+  if (absPath && (command === absPath || unquoted === absPath || command === `'${absPath}'`)) {
+    return true;
+  }
+  return /version-check\.sh'?$/.test(command) || unquoted.endsWith('version-check.sh');
+}
+
 function countVersionCheckHooks(commands) {
-  return commands.filter((command) => command.endsWith('version-check.sh')).length;
+  return commands.filter((command) => isVersionCheckCommand(command)).length;
 }
 
 describe('install→uninstall round-trip', () => {
@@ -85,7 +101,7 @@ describe('install→uninstall round-trip', () => {
     // Each IDE writes to a different path tree (.claude, .cursor, .gemini,
     // .codex/.agents, .opencode, .github). Installing all of them at once is
     // the strongest parity proof: ~300+ files, and every one must be reverted.
-    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
+    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok'];
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
     try {
@@ -120,6 +136,105 @@ describe('install→uninstall round-trip', () => {
         assert.deepEqual(added, [], `residue after uninstall: ${added.join(', ')}`);
         assert.deepEqual(modified, [], `must restore settings.json byte-for-byte: ${modified.join(', ')}`);
         assert.ok(existsSync(settingsPath), 'pre-existing settings.json survives');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('user-scope grok install writes plugin package only (no .grok/skills tree)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['grok'], lang: 'en' });
+
+        const pluginJson = join(fakeHome, '.grok/plugins/atomic-skills/plugin.json');
+        const skillMd = join(fakeHome, '.grok/plugins/atomic-skills/skills/fix/SKILL.md');
+        const hooksJson = join(fakeHome, '.grok/plugins/atomic-skills/hooks/hooks.json');
+        assert.ok(existsSync(pluginJson), 'plugin.json must exist under plugin root');
+        assert.ok(existsSync(skillMd), 'at least one SKILL.md under plugin skills/');
+        assert.ok(existsSync(hooksJson), 'hooks/hooks.json stub must exist');
+
+        const plugin = JSON.parse(readFileSync(pluginJson, 'utf8'));
+        assert.equal(plugin.name, 'atomic-skills');
+        assert.ok(plugin.version, 'plugin.json must carry package version');
+        assert.equal(plugin.skills, './skills/');
+
+        // Forbidden dual tree: package must not own skill files under .grok/skills/
+        const dualSkillsRoot = join(fakeHome, '.grok/skills/atomic-skills');
+        assert.ok(
+          !existsSync(dualSkillsRoot),
+          'must not create .grok/skills/atomic-skills dual tree',
+        );
+
+        // Auto-update SessionStart on Grok surface (D3) — not Claude settings.
+        const versionCheck = join(fakeHome, '.atomic-skills/hooks/version-check.sh');
+        const grokAutoUpdate = join(fakeHome, '.grok/hooks/atomic-skills-auto-update.json');
+        assert.ok(existsSync(versionCheck), 'version-check.sh staged for auto-update');
+        assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update hook file must exist');
+        assert.ok(
+          !existsSync(join(fakeHome, '.claude/settings.json')),
+          'grok-only install must not create .claude/settings.json',
+        );
+        const autoUpdate = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
+        assert.ok(autoUpdate.hooks?.SessionStart?.length >= 1, 'SessionStart registered');
+        assert.equal(
+          autoUpdate.hooks.SessionStart[0].matcher,
+          undefined,
+          'Grok SessionStart must not set matcher',
+        );
+        assert.equal(autoUpdate.hooks.PreToolUse, undefined, 'auto-update must not ship Soft PreToolUse');
+        assert.equal(autoUpdate.hooks.Stop, undefined, 'auto-update must not ship Strict Stop');
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after grok uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `grok uninstall deleted pre-existing paths: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `grok uninstall modified pre-existing files: ${modified.join(', ')}`);
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('user-scope claude+grok install registers both auto-update surfaces and uninstalls cleanly', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['claude-code', 'grok'], lang: 'en' });
+
+        const versionCheck = join(fakeHome, '.atomic-skills/hooks/version-check.sh');
+        const claudeSettings = join(fakeHome, '.claude/settings.json');
+        const grokAutoUpdate = join(fakeHome, '.grok/hooks/atomic-skills-auto-update.json');
+        assert.ok(existsSync(versionCheck));
+        assert.ok(existsSync(claudeSettings), 'Claude auto-update registration present');
+        assert.ok(existsSync(grokAutoUpdate), 'Grok auto-update registration present');
+
+        const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+        const claudeCmds = (claude.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
+        assert.ok(
+          claudeCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
+          'Claude SessionStart must register shell-safe version-check command',
+        );
+
+        const grok = JSON.parse(readFileSync(grokAutoUpdate, 'utf8'));
+        const grokCmds = (grok.hooks?.SessionStart || []).flatMap((e) => e.hooks || []);
+        assert.ok(
+          grokCmds.some((h) => isVersionCheckCommand(h.command, versionCheck)),
+          'Grok SessionStart must register shell-safe version-check command',
+        );
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after dual-ides uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `dual-ides uninstall deleted pre-existing: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `dual-ides uninstall modified pre-existing: ${modified.join(', ')}`);
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });

@@ -1,19 +1,63 @@
-# Codex sealed-envelope orchestration (shared skeleton)
+# Cross-model sealed-envelope orchestration (shared skeleton)
 
-The two-pass codex sealed-envelope sub-flow is **byte-identical** between
-`review-code` and `review-plan` except for a handful of artifact-specific slots.
-This file is the single source for the orchestration skeleton; each caller
-references it and binds only the `«SLOTS»` listed under **Artifact bindings**.
+The two-pass sealed-envelope sub-flow is **byte-identical** between
+`review-code` and `review-plan` except for a handful of artifact-specific slots
+and the external **provider** (`codex` | `grok`). This file is the single source
+for the orchestration skeleton; each caller references it and binds only the
+`«SLOTS»` listed under **Artifact bindings**.
 
-It uses the canonical leaf assets in `skills/shared/codex-bridge-assets/`
-(`{{ASSETS_PATH}}/…`) as the single source of truth. Do NOT inline-rewrite the
-leaf assets; reference them and substitute placeholders. Do NOT re-inline this
-skeleton back into a caller — one definition, two callers.
+Logical module: **`cross-model-bridge`** (`codex-bridge` is a compatibility
+alias). On-disk assets live under `skills/shared/codex-bridge-assets/`
+(`{{ASSETS_PATH}}/…`). Provider-specific preflight and invocation live under
+`{{ASSETS_PATH}}/providers/«PROVIDER»/`. Shared templates (anti-framing, Pass 1/2
+outputs, review file) stay provider-agnostic at the assets root.
+
+**Before binding `«PROVIDER»`:** resolve host vs requested mode with
+`{{ASSETS_PATH}}/host-default-external.md` and the pure helper
+`src/cross-model-host-default.js` (`resolveReviewRoute`). Same-family interactive
+→ confirm→`local`; non-interactive → **HARD ABORT** unless
+`--accept-same-family-as-local`. Never invoke a provider leaf when the route
+resolved to `local`.
+
+Do NOT inline-rewrite the leaf assets; reference them and substitute
+placeholders. Do NOT re-inline this skeleton back into a caller — one definition,
+two callers.
+
+### external-both (multi-provider callers)
+
+When the caller mode is `external-both`, invoke this skeleton **once per
+remaining provider** in order (Codex then Grok) on the **same** cleaned
+artifact. Family-filtered legs are recorded as `status: skipped` and are not
+invoked.
+
+**Collect-then-merge-then-triage (HARD):**
+
+1. **Run every remaining leg first.** Complete (or fail) the full two-pass
+   envelope for provider A, then provider B. Do **not** open triage, propose
+   edits, or mutate the artifact between legs.
+2. **Per-provider failure does NOT abort the other leg.** On preflight / invoke
+   / validation failure for one provider: record
+   `{ status: failed, error: <message>, findings: <any partial> }` and
+   **continue** to the next provider. Only single-provider modes
+   (`codex` / `grok` / the external leg of `both*`) still **ABORT** on that
+   provider's failure (existing steps 1/5–9 behaviour below).
+3. **Merge after both legs settle.** Feed both provider payloads into
+   `mergeExternalBothFindings` (`src/external-both-merge.js`), or via CLI:
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" <codex.json|-|skip> <grok.json|-|skip>`.
+4. **Triage only the merged list.** Human triage on the merged findings (+ any
+   `errors` / `providerStatus`). Auto-apply of external findings is a non-goal.
+
+**Merge contract (summary):** merge key = `file:line` + normalized claim;
+severity conflict keeps higher severity with dual provenance; per-provider
+status is explicit `succeeded | failed | skipped` (absent key = skipped, never
+"succeeded by omission"); partial failure keeps the successful half and
+surfaces the error.
 
 ## Artifact bindings (each caller supplies these)
 
 | Slot | Bound by the caller to |
 |------|------------------------|
+| `«PROVIDER»` | external provider id: `codex` or `grok` (never the host family without same-family routing — see `host-default-external.md`) |
 | `«INPUT»` | what the captured/validated input is, and how it is obtained (no re-capture) |
 | `«PASS1_TEMPLATE»` | the `{{ASSETS_PATH}}/pass1-briefing-template-*.txt` for this artifact |
 | `«CONSTRAINTS»` | how externally-verifiable factual constraints are gathered |
@@ -24,10 +68,12 @@ skeleton back into a caller — one definition, two callers.
 
 ## Steps
 
-1. **Pre-flight checks** — follow `{{ASSETS_PATH}}/preflight-checks.txt`. ABORT
-   if any check fails. (`--allow-dirty` passes through from the argument
-   contract; the dirty-tree check in the ref-validation step has already
-   filtered this where applicable.)
+1. **Pre-flight checks** — follow
+   `{{ASSETS_PATH}}/providers/«PROVIDER»/preflight-checks.txt` (legacy root
+   `{{ASSETS_PATH}}/preflight-checks.txt` remains the Codex leaf for older
+   callers). ABORT if any check fails. (`--allow-dirty` passes through from the
+   argument contract; the dirty-tree check in the ref-validation step has
+   already filtered this where applicable.)
 
 2. **Input** — `«INPUT»`. Both phases use the same captured/validated material;
    do NOT re-capture (no fresh `git diff`, no re-read past validation). In
@@ -45,7 +91,7 @@ skeleton back into a caller — one definition, two callers.
      - `{{ARTIFACT}}` ← `«ARTIFACT»`
      - `{{ARTIFACT_PATH}}` ← the artifact's path — **only when the caller's Pass-1 template carries this placeholder** (review-plan binds it to `plan_path`; review-code's template has none, so skip it there)
      - `{{OUTPUT_TEMPLATE_PASS1}}` ← contents of `{{ASSETS_PATH}}/output-template-pass1.txt`
-   - Save to `/tmp/codex-briefing-pass1-<timestamp>.md`.
+   - Save to `/tmp/cross-model-briefing-pass1-<PROVIDER>-<timestamp>.md`.
    - Size check (compute excluding the artifact portion): must stay within
      `«SIZE_BUDGET»`. Over budget → likely residual framing; request extra approval.
 
@@ -53,13 +99,15 @@ skeleton back into a caller — one definition, two callers.
    modified files or artifact path, factual constraints/callers, estimated
    tokens). Ask `approve / edit / cancel`. On cancel: abort.
 
-5. **Pass 1 invocation (blind)** — follow `{{ASSETS_PATH}}/invocation-canonical.txt`,
-   substituting `<BRIEFING_PATH>` (file from step 3), `<OUTPUT_PATH>`
-   (`/tmp/codex-output-pass1-<ts>.md`), `<TIMEOUT_SECONDS>` = 600, `<MODEL_FLAG>`
-   empty by default (codex resolves via `~/.codex/config.toml` or bundled
-   default; user can override with `model:<id>`). Capture the exit code: 124
-   (GNU timeout) / 142 (perl alarm fallback) → timeout, abort with retry
-   suggestion; other non-zero → codex error, abort.
+5. **Pass 1 invocation (blind)** — follow
+   `{{ASSETS_PATH}}/providers/«PROVIDER»/invocation-canonical.txt` (legacy root
+   `{{ASSETS_PATH}}/invocation-canonical.txt` remains the Codex leaf for older
+   callers), substituting `<BRIEFING_PATH>` (file from step 3), `<OUTPUT_PATH>`
+   (`/tmp/cross-model-output-pass1-<PROVIDER>-<ts>.md`), `<TIMEOUT_SECONDS>` =
+   600, `<MODEL_FLAG>` empty by default (provider resolves its own default;
+   user can override with `model:<id>`). Capture the exit code: 124 (GNU
+   timeout) / 142 (perl alarm fallback) → timeout, abort with retry suggestion;
+   other non-zero → provider error, abort.
 
 6. **Pass 1 validation** — `{{ASSETS_PATH}}/validation-checklist.txt` (universal
    checks 1-9). Failure → 1 corrective retry. Failure again → escalate raw.
@@ -68,7 +116,8 @@ skeleton back into a caller — one definition, two callers.
    `Begin review now.`) + contents of `{{ASSETS_PATH}}/pass2-prompt-suffix.txt`,
    substituting `{{CONSTRAINTS_LIST}}` (factual constraints from step 3),
    `{{PASS_1_OUTPUT}}` (Pass 1 output), `{{OUTPUT_TEMPLATE_PASS2}}` (contents of
-   `{{ASSETS_PATH}}/output-template-pass2.txt`). Save to `/tmp/codex-briefing-pass2-<ts>.md`.
+   `{{ASSETS_PATH}}/output-template-pass2.txt`). Save to
+   `/tmp/cross-model-briefing-pass2-<PROVIDER>-<ts>.md`.
 
 8. **Pass 2 invocation (informed)** — same command as step 5 with the pass-2
    briefing path and output path.
@@ -81,7 +130,8 @@ skeleton back into a caller — one definition, two callers.
     - {{BASH_TOOL}}: `mkdir -p .atomic-skills/reviews/`
     - {{READ_TOOL}} `{{ASSETS_PATH}}/review-file-template.txt`. Substitute
       placeholders. When `mode == both`, the review file MUST include both the
-      local fix log (audit trail) AND codex findings.
+      local fix log (audit trail) AND external provider findings (record
+      `provider: «PROVIDER»`).
     - Save to `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>.md`.
     - Update `.atomic-skills/reviews/INDEX.md` (create if missing) with a row
       from `{{ASSETS_PATH}}/index-row-template.txt`.

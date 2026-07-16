@@ -1,17 +1,24 @@
 scope: both
 name: codex-bridge
+# Compatibility alias of cross-model-bridge (F2 / L7). Keep installable so
+# catalog entries, docs, and codex-bridge-assets/ continue to resolve.
+alias_of: cross-model-bridge
 display_name:
-  pt: Ponte Codex
-  en: Codex Bridge
+  pt: Ponte Codex (alias)
+  en: Codex Bridge (alias)
 description:
   pt: |
-    Infraestrutura compartilhada para invocar OpenAI Codex CLI como reviewer
-    adversarial em padrão two-pass sealed envelope. Usado pelo codex sub-flow
-    dentro de review-plan e review-code (modos codex/both).
+    Alias de compatibilidade de `cross-model-bridge`. Infraestrutura compartilhada
+    para invocar OpenAI Codex CLI como reviewer adversarial em padrão two-pass
+    sealed envelope. Preferir o nome `cross-model-bridge` em documentação nova;
+    este módulo permanece instalável e mantém a pasta de assets
+    `skills/shared/codex-bridge-assets/`.
   en: |
-    Shared infrastructure to invoke OpenAI Codex CLI as adversarial reviewer
-    in two-pass sealed envelope pattern. Used by the codex sub-flow inside
-    review-plan and review-code (codex/both modes).
+    Compatibility alias of `cross-model-bridge`. Shared infrastructure to invoke
+    OpenAI Codex CLI as adversarial reviewer in the two-pass sealed envelope
+    pattern. Prefer `cross-model-bridge` in new docs; this module remains
+    installable and owns the on-disk asset tree
+    `skills/shared/codex-bridge-assets/`.
 variables:
   timeout_seconds:
     description:

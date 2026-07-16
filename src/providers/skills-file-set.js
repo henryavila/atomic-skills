@@ -1,8 +1,10 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { renderTemplate, renderForIDE } from '../render.js';
 import {
+  IDE_CONFIG,
   SKILL_NAMESPACE,
   getSkillPath,
   getSkillFormat,
@@ -10,12 +12,14 @@ import {
   getAssetsDir,
 } from '../config.js';
 
+const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
- * (including one level of subdir recursion, e.g. project-assets/hooks/) and the
- * per-IDE namespace root — returned as `[{ path, content }]` with project-root-
- * relative paths. This is the declarative file-set domain (P2) the
- * reconcileFileSet effect manages.
+ * (recursive under each `*-assets/` tree, e.g. project-assets/hooks/ and
+ * codex-bridge-assets/providers/{codex,grok}/) and the per-IDE namespace root —
+ * returned as `[{ path, content }]` with project-root-relative paths. This is
+ * the declarative file-set domain (P2) the reconcileFileSet effect manages.
  *
  * It reproduces the footprint that installSkills (src/install.js) writes for the
  * same config, WITHOUT writing and WITHOUT the runtime-layer artifacts
@@ -25,9 +29,7 @@ import {
  * NOTE (strangler-fig): the catalog walk + generateNamespaceRoot are
  * intentionally duplicated from installSkills/preRenderFiles for now. The flip
  * (T-F3-4) removes the legacy in-repo walk and leaves this module as the single
- * source. preRenderFiles omits the asset subdir recursion that installSkills
- * performs; this module matches installSkills (the ground truth), not the
- * incomplete preRenderFiles view.
+ * source.
  *
  * @param {object} config
  * @param {string} config.language - communication language code (e.g. 'en')
@@ -99,8 +101,23 @@ export function computeSkillsFileSet(config) {
   }
 
   // Shared assets — an `<name>-assets/` dir installs when `<name>` is a
-  // registered module OR a registered core skill. Recurse ONE level into
-  // subdirs (e.g. hooks/) to match installSkills.
+  // registered module OR a registered core skill. Walk the asset tree
+  // recursively so nested leaves (hooks/, providers/codex/, providers/grok/)
+  // are staged with the same relative path under the IDE assets dir.
+  const walkAssetFiles = (dir, relParts = []) => {
+    const out = [];
+    for (const f of readdirSync(dir, { withFileTypes: true })) {
+      const nextRel = [...relParts, f.name];
+      if (f.isDirectory()) {
+        out.push(...walkAssetFiles(join(dir, f.name), nextRel));
+        continue;
+      }
+      if (!f.isFile()) continue;
+      out.push({ abs: join(dir, f.name), rel: nextRel.join('/') });
+    }
+    return out;
+  };
+
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
     for (const entry of readdirSync(sharedDir, { withFileTypes: true })) {
@@ -111,31 +128,17 @@ export function computeSkillsFileSet(config) {
       if (!isModule && !isCoreSkill) continue;
 
       const assetsSourceDir = join(sharedDir, entry.name);
-      const assetFiles = readdirSync(assetsSourceDir, { withFileTypes: true });
+      const assetFiles = walkAssetFiles(assetsSourceDir);
 
       for (const ideId of ides) {
         const destBase = getAssetsDir(ideId);
 
-        for (const f of assetFiles) {
-          if (f.isDirectory()) {
-            const subSrc = join(assetsSourceDir, f.name);
-            for (const sf of readdirSync(subSrc, { withFileTypes: true })) {
-              if (!sf.isFile()) continue;
-              const raw = readFileSync(join(subSrc, sf.name), 'utf8');
-              add(
-                `${destBase}/${f.name}/${sf.name}`,
-                renderTemplate(raw, vars, moduleFlags, ideId, scope),
-                `_assets/${entry.name}/${f.name}/${sf.name}`,
-              );
-            }
-            continue;
-          }
-          if (!f.isFile()) continue;
-          const raw = readFileSync(join(assetsSourceDir, f.name), 'utf8');
+        for (const { abs, rel } of assetFiles) {
+          const raw = readFileSync(abs, 'utf8');
           add(
-            `${destBase}/${f.name}`,
+            `${destBase}/${rel}`,
             renderTemplate(raw, vars, moduleFlags, ideId, scope),
-            `_assets/${entry.name}/${f.name}`,
+            `_assets/${entry.name}/${rel}`,
           );
         }
       }
@@ -149,6 +152,26 @@ export function computeSkillsFileSet(config) {
     add(rootPath, generateNamespaceRoot(), '_namespace');
   }
 
+  // Plugin-delivery hosts (Grok Build): package root owns plugin.json + Soft
+  // project hooks. Skills/assets already land under the plugin tree via
+  // getSkillPath / getAssetsDir. Strict (Stop) is opt-in at project setup.
+  for (const ideId of ides) {
+    const ide = IDE_CONFIG[ideId];
+    if (!ide || ide.delivery !== 'plugin') continue;
+    // ide.dir is `<pluginRoot>/skills` → plugin root is the parent (posix paths).
+    const pluginRoot = posix.dirname(ide.dir);
+    add(
+      `${pluginRoot}/plugin.json`,
+      generatePluginJson(),
+      `_plugin/${ideId}/plugin.json`,
+    );
+    add(
+      `${pluginRoot}/hooks/hooks.json`,
+      generatePluginHooksSoft(),
+      `_plugin/${ideId}/hooks.json`,
+    );
+  }
+
   return files;
 }
 
@@ -158,4 +181,64 @@ function generateNamespaceRoot() {
   const desc = 'Stop rewriting prompts. Install optimized developer skills in any AI IDE.';
   const escaped = desc.replace(/'/g, "''");
   return `---\nname: ${SKILL_NAMESPACE}\ndescription: '${escaped}'\nuser-invocable: false\n---\n\nNamespace package for Atomic Skills.\n`;
+}
+
+function readPackageMeta() {
+  try {
+    return JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
+  } catch {
+    return { name: SKILL_NAMESPACE, version: '0.0.0', description: '' };
+  }
+}
+
+/**
+ * Minimal Grok plugin manifest (convention paths + version from package.json).
+ * Skills/hooks load from the standard plugin subdirs even without a manifest;
+ * we still write one so inspect/validate surfaces name+version.
+ */
+function generatePluginJson() {
+  const pkg = readPackageMeta();
+  const manifest = {
+    name: SKILL_NAMESPACE,
+    version: pkg.version || '0.0.0',
+    description:
+      pkg.description
+      || 'Stop rewriting prompts. Install optimized developer skills in any AI IDE.',
+    skills: './skills/',
+    hooks: './hooks/hooks.json',
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
+/**
+ * Soft project hooks for plugin-delivery hosts (Grok Build).
+ * Soft = SessionStart + PreToolUse; Strict adds Stop at project setup (not
+ * installed by default). Matchers dual-vocab: Claude Edit|Write|MultiEdit and
+ * Grok search_replace|write (Grok also aliases Claude names). Commands use the
+ * same CLAUDE_PROJECT_DIR:-$PWD wrapper as Claude/Codex so scripts under
+ * .atomic-skills/status/hooks/ resolve when the host injects CLAUDE_PROJECT_DIR
+ * (Grok does) or when only $PWD is available.
+ */
+function generatePluginHooksSoft() {
+  // Prefer scripts bundled under the plugin package (always present after install).
+  // Fall back to project-status copy + CLAUDE_PROJECT_DIR for dual-host wrappers.
+  // GROK_PLUGIN_ROOT is set by Grok for plugin-owned hooks.
+  const cmd = (script) =>
+    `bash "\${GROK_PLUGIN_ROOT:-\${CLAUDE_PROJECT_DIR:-\$PWD}/.grok/plugins/atomic-skills}/_assets/hooks/${script}"`;
+  const envelope = {
+    hooks: {
+      SessionStart: [
+        {
+          hooks: [{ type: 'command', command: cmd('session-start.sh') }],
+        },
+      ],
+      PreToolUse: [
+        {
+          matcher: 'Edit|Write|MultiEdit|search_replace|write',
+          hooks: [{ type: 'command', command: cmd('pre-write.sh') }],
+        },
+      ],
+    },
+  };
+  return `${JSON.stringify(envelope, null, 2)}\n`;
 }

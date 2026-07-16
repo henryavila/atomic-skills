@@ -52,6 +52,15 @@ export const IDE_CONFIG = {
     filePattern: (skillName) => posix.join(SKILL_NAMESPACE, skillName, 'SKILL.md'),
     supportsUserScope: true,
   },
+  'grok': {
+    name: 'Grok Build',
+    // Plugin package root owns skills/; no nested SKILL_NAMESPACE segment.
+    dir: '.grok/plugins/atomic-skills/skills',
+    format: 'markdown',
+    filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
+    delivery: 'plugin',
+  },
 };
 
 export const PUBLIC_IDE_IDS = Object.keys(IDE_CONFIG).filter((id) => id !== 'gemini-commands');
@@ -114,6 +123,13 @@ export function getSkillPath(ideId, skillName) {
  */
 export function getAssetsDir(ideId) {
   const ide = IDE_CONFIG[ideId];
+  // Plugin delivery: assets are a sibling of skills/ inside the plugin package
+  // (e.g. .grok/plugins/atomic-skills/_assets). Do not apply the generic
+  // "parent of ide.dir + atomic-skills/_assets" formula — that would nest
+  // assets outside the plugin package.
+  if (ide.delivery === 'plugin') {
+    return `${posix.dirname(ide.dir)}/_assets`;
+  }
   const parent = posix.dirname(ide.dir);
   return ide.format === 'toml'
     ? `${parent}/${SKILL_NAMESPACE}-_assets`   // toml IDEs use the flat name pattern
@@ -127,5 +143,7 @@ export function getSkillFormat(ideId) {
 export function getNamespaceRootPath(ideId) {
   const ide = IDE_CONFIG[ideId];
   if (ide.format !== 'markdown') return null;
+  // Plugin package IS the namespace (plugin.json); no nested atomic-skills/SKILL.md.
+  if (ide.delivery === 'plugin') return null;
   return posix.join(ide.dir, SKILL_NAMESPACE, 'SKILL.md');
 }

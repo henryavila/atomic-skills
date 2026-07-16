@@ -48,6 +48,12 @@ const HOST_HOOK_MATRIX = [
     skillPath: '.github/skills/atomic-skills/<skill>/SKILL.md',
     hookConfig: null,
   },
+  {
+    host: 'Grok Build',
+    ideId: 'grok',
+    skillPath: '.grok/plugins/atomic-skills/skills/<skill>/SKILL.md',
+    hookConfig: '.grok/plugins/atomic-skills/hooks/hooks.json',
+  },
 ];
 
 const GENERIC_NO_HOOK_HOST = 'generic IDE';
@@ -388,6 +394,7 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.ok(softBlock.includes('session-start.sh'), 'Soft must register SessionStart');
     assert.ok(softBlock.includes('pre-write.sh'), 'Soft must register PreToolUse');
     assert.ok(!softBlock.includes('stop.sh'), 'Soft must not register Stop');
+    assert.ok(softBlock.includes('search_replace|write'), 'Soft matcher dual-vocab includes Grok tools');
     assert.ok(strictBlock.includes('stop.sh'), 'Strict must add Stop');
     assert.match(
       setup,
@@ -496,12 +503,41 @@ describe('project skill (unified router + lazy assets)', () => {
         /Cursor, Gemini CLI, OpenCode, GitHub Copilot, and generic IDE: no-op for hooks/,
       );
       assert.match(readme, /"hooks": \{/, 'README hook JSON must include the top-level hooks object');
+      assert.match(
+        readme,
+        /Edit\|Write\|MultiEdit\|search_replace\|write/,
+        'README Soft matcher must dual-vocab Claude + Grok write tools',
+      );
       assert.doesNotMatch(
         readme,
         /(?:Cursor|Gemini CLI|OpenCode|GitHub Copilot|generic IDE): `\.[^`]*(?:hooks|settings)[^`]*`/,
         'hosts without a hook contract must not be listed as approved hook config targets',
       );
     }
+  });
+
+  it('Grok Soft plugin hooks ship SessionStart+PreToolUse without Stop', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['grok'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+    const hooks = JSON.parse(
+      readFileSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json'), 'utf8'),
+    );
+    assert.ok(hooks.hooks?.SessionStart?.length >= 1, 'Soft SessionStart present');
+    assert.ok(hooks.hooks?.PreToolUse?.length >= 1, 'Soft PreToolUse present');
+    assert.equal(hooks.hooks?.Stop, undefined, 'Soft must not register Stop');
+    const matcher = hooks.hooks.PreToolUse[0].matcher || '';
+    assert.match(matcher, /search_replace/, 'matcher includes Grok search_replace');
+    assert.match(matcher, /write/, 'matcher includes Grok write');
+    assert.match(matcher, /Edit/, 'matcher keeps Claude Edit for dual-vocab');
+    const preCmd = hooks.hooks.PreToolUse[0].hooks[0].command;
+    assert.match(preCmd, /pre-write\.sh/, 'PreToolUse points at pre-write.sh');
+    assert.match(preCmd, /CLAUDE_PROJECT_DIR:-\$PWD/, 'wrapper falls back to $PWD');
   });
 
   // ─── Lazy asset: create-plan (former project-plan bootstrap) ─────────────
@@ -936,13 +972,13 @@ describe('project skill (unified router + lazy assets)', () => {
 
   // ─── Lazy asset: drift / codex review ───────────────────────────────────
 
-  it('project-drift documents scope-creep / why / re-ratify / codex review tracking', () => {
+  it('project-drift documents scope-creep / why / re-ratify / CROSS-MODEL REVIEW tracking', () => {
     install();
     const content = readAsset('project-drift.md');
     assert.match(content, /## `scope-creep`/);
     assert.match(content, /## `why <id>`/);
     assert.match(content, /## `re-ratify <id>`/);
-    assert.match(content, /Codex review tracking/);
+    assert.match(content, /CROSS-MODEL REVIEW tracking/);
     assert.match(content, /last-review\.json/);
     assert.match(content, /review-due/);
   });

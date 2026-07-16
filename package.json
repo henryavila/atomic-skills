@@ -50,7 +50,8 @@
     "cursor",
     "gemini",
     "codex",
-    "copilot"
+    "copilot",
+    "grok"
   ],
   "license": "MIT",
   "repository": {

@@ -943,6 +943,8 @@ core:
     schema_version: '0.2'
 
 modules:
+  cross-model-bridge: {}
+  # Compatibility alias — keeps codex-bridge-assets installable and docs greps stable.
   codex-bridge: {}
   auto-update: {}
   memory:
@@ -996,16 +998,26 @@ module_meta:
       - 'Adds the `atomic-skills:init-memory` skill'
       - "Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)"
       - 'Available in both project and user scope installations'
-  codex-bridge:
-    title: 'Codex Bridge'
-    version_added: '1.8.0'
-    intro: 'Shared infrastructure for the codex sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — bundles the 11 templates and checklists consumed by the codex envelope:'
+  cross-model-bridge:
+    title: 'Cross-Model Bridge'
+    version_added: '2.0.0'
+    intro: 'Shared infrastructure for the external (family-different) sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — provider-agnostic sealed-envelope templates plus pluggable provider leaves for Codex and Grok:'
     features:
       - 'Anti-framing directive (literal text injected into every briefing)'
-      - 'Pre-flight checks, canonical Codex invocation, output validation checklist'
+      - 'Provider leaves under `providers/codex/` and `providers/grok/` (preflight + canonical invocation)'
+      - 'Host-default external matrix and same-family confirm→local / HARD ABORT rules'
       - 'Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)'
       - 'Briefing templates (plan + code) and consolidated review file template'
       - 'Reviews INDEX.md row template'
+    notes: 'On-disk assets remain under `skills/shared/codex-bridge-assets/` (install owner key `codex-bridge`) for path stability; the logical module name is `cross-model-bridge`. Assets install per-IDE at `<ide-root>/atomic-skills/_assets/` (or the Grok plugin `_assets/`) — a SIBLING of the skill tree so they are NOT scanned as slash-commands — and are referenced via `{{ASSETS_PATH}}`.'
+  codex-bridge:
+    title: 'Codex Bridge (alias)'
+    version_added: '1.8.0'
+    intro: 'Compatibility alias of `cross-model-bridge`. Historical name for the sealed-envelope asset pack used by the codex sub-flow. Prefer `cross-model-bridge` in new docs; this entry remains so existing install references and the `codex-bridge-assets/` directory continue to resolve.'
+    features:
+      - 'Alias of cross-model-bridge — same assets, same install owner for `codex-bridge-assets/`'
+      - 'Pre-flight checks and canonical Codex invocation (see `providers/codex/`)'
+      - 'Shared envelope templates (anti-framing, Pass 1/2, review file, INDEX row)'
     notes: 'Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
   auto-update:
     title: 'Auto-Update'

@@ -9,7 +9,7 @@
 # from the v1 hook.
 set -euo pipefail
 
-PROJ_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJ_DIR="${GROK_WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 ASKILLS_DIR="$PROJ_DIR/.atomic-skills"
 PROJECTS_DIR="$ASKILLS_DIR/projects"          # nested layout root: projects/<id>/<slug>/
 PLANS_DIR="$ASKILLS_DIR/plans"                # legacy flat layout
@@ -186,15 +186,19 @@ detect_active_initiative() {
 }
 
 # Lists file paths written during the current turn. Reads the JSONL transcript
-# from `last_user_ts` forward and pulls `file_path` for any Write / Edit /
-# MultiEdit / NotebookEdit tool use.
+# from `last_user_ts` forward and pulls `file_path` for any write tool use.
+#
+# Dual-vocab tool names:
+#   Claude: Write / Edit / MultiEdit / NotebookEdit
+#   Grok:   write / search_replace
 #
 # Claude Code's real transcript schema (verified by sampling
 # ~/.claude/projects/<repo>/*.jsonl): assistant turns are `{"type":"assistant",
 # "message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":
 # "..."}}, ...], ...}, "timestamp": "..."}`. There is no top-level `.tool_use`
 # field; the legacy filter that read `.tool_use.input.file_path` never matched
-# a real session. v2 also handles NotebookEdit's `notebook_path` input field.
+# a real session. v2 also handles NotebookEdit's `notebook_path` input field
+# and Grok path aliases (`path` / `target_file`).
 list_files_written() {
   local transcript=$1 last_user_ts=$2
   [[ -f "$transcript" ]] || return 0
@@ -207,8 +211,14 @@ list_files_written() {
         and (.name == "Write"
           or .name == "Edit"
           or .name == "MultiEdit"
-          or .name == "NotebookEdit"))
-    | (.input.file_path // .input.notebook_path // empty)
+          or .name == "NotebookEdit"
+          or .name == "write"
+          or .name == "search_replace"))
+    | (.input.file_path
+        // .input.notebook_path
+        // .input.path
+        // .input.target_file
+        // empty)
   ' "$transcript" 2>/dev/null | sort -u
 }
 

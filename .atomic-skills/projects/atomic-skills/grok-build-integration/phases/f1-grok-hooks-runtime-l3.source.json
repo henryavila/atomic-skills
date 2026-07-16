@@ -1,0 +1,125 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F1",
+  "slug": "grok-build-integration-f1-grok-hooks-runtime-l3",
+  "title": "Grok hooks runtime (L3)",
+  "goal": "Soft and Strict project hooks plus auto-update register on Grok via plugin hooks and user auto-update hook file, with dual-vocabulary matchers.",
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "Auto-update runtime layer for Grok",
+      "description": "Extend createAutoUpdateRuntimeProvider (or sibling) to stage SessionStart version-check into Grok hook surface when grok is installed, without removing Claude behavior when both ides are selected.",
+      "scopeBoundary": [
+        "do not rewrite project Soft/Strict scripts logic beyond env/tool name dual support if required for this task"
+      ],
+      "acceptance": [
+        "install with grok adds a Grok auto-update hook registration; uninstall removes only Atomic Skills entries; Claude path still works when claude-code is selected"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install-uninstall-roundtrip.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "src/runtime-layers/auto-update.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/install-uninstall-roundtrip.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/install.test.js"
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "Plugin hooks Soft and Strict for project",
+      "description": "Fill plugin hooks/hooks.json (and setup docs) for SessionStart, PreToolUse (Grok write tools), and optional Stop; update project-setup and hooks README to list Grok as a hook host; dual-vocab in pre-write/stop if they parse tool names.",
+      "scopeBoundary": [
+        "do not implement cross-model bridge or review-code mode flags"
+      ],
+      "acceptance": [
+        "README matrices include Grok; Soft setup does not require Stop; matchers include search_replace or write; session-start pre-write and stop fixtures pass for dual-vocab"
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "bash tests/hooks/session-start.test.sh && bash tests/hooks/pre-write.test.sh && bash tests/hooks/stop.test.sh",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/hooks/README.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-setup.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/hooks/pre-write.sh"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/hooks/stop.sh"
+        },
+        {
+          "kind": "file",
+          "path": "src/providers/skills-file-set.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/project.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/hooks/session-start.test.sh"
+        },
+        {
+          "kind": "file",
+          "path": "tests/hooks/pre-write.test.sh"
+        },
+        {
+          "kind": "file",
+          "path": "tests/hooks/stop.test.sh"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "G-1",
+      "description": "Auto-update and project hook registration for Grok reverse cleanly in round-trip tests.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/install-uninstall-roundtrip.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-2",
+      "description": "Docs and tests list Grok as a hook-capable host with Soft versus Strict semantics.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/project.test.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "G-3",
+      "description": "Fixture-driven Soft and Strict hook dispatch tests pass with dual-vocab matchers.",
+      "verifier": {
+        "kind": "shell",
+        "command": "bash tests/hooks/session-start.test.sh && bash tests/hooks/pre-write.test.sh && bash tests/hooks/stop.test.sh",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "grok-build-integration",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/grok-build-integration/source.md",
+  "stage": "materialized",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/plan.md",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f0-install-render-foundation-l1-l2.md",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f1-grok-hooks-runtime-l3.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f2-cross-model-bridge-core-l7.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f3-review-skill-ux-and-cross-model-revie.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f4-plugin-harden-l4.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f5-polish-external-both-merge-final-veri.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/plan.md",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f0-install-render-foundation-l1-l2.md",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f1-grok-hooks-runtime-l3.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f2-cross-model-bridge-core-l7.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f3-review-skill-ux-and-cross-model-revie.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f4-plugin-harden-l4.source.json",
+    ".atomic-skills/projects/atomic-skills/grok-build-integration/phases/f5-polish-external-both-merge-final-veri.source.json"
+  ],
+  "status": "completed",
+  "branch": "plan/grok-build-integration"
+}
