@@ -727,3 +727,29 @@ const changed = diff.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
 - Permanent upstream architecture for `minimalist-installer`.
 - aiDeck UI redesign.
 - Pure `.atomic-skills/projects` operational tracking state.
+
+---
+
+## Remediation (applied)
+
+**Commit:** 4833ae4  
+**Suite:** npm test → 2115 pass, 0 fail (`/tmp/grok-goal-4a02531e9a98/implementer/codex-fixes-full-suite.log`)
+
+| ID | Fix |
+|----|-----|
+| F-001 | `composePlanWorktreeAdd` returns `{executable, argv}`; rejects shell metacharacters/flags |
+| F-002 | `confinedPath` rejects absolute/escaping marker paths; cleanup skips unsafe paths |
+| F-003 | `pruneEmptyLockRoot` only removes empty/dead-pid locks; never sweeps live locks |
+| F-004 | `publishRuntimeAndRegister` / `unregisterAndMaybeReclaimRuntime` single lock span |
+| F-005 | `readInstallsRegistry` fail-closed on corrupt/unknown; atomic write |
+| F-006 | `verifierOk` rejects `verifierPassed:false` and stale evidence without HEAD match |
+| F-007 | completion log exclusive lock around scan+append |
+| F-008 | full receipts require OS×Node Cartesian product |
+| F-009 | tx-id-specific staging/backup filenames |
+| F-010 | duplicate plan/initiative authority detected before Map overwrite |
+| F-011 | `confinedInstallPath` + symlink reject on repair |
+| F-012 | staged-pair identity join (parentPlan/slug/schemaVersion) |
+| F-014 | freeze check includes dirty working tree (CLI default) |
+| F-015 | `successorBarrier.skip` test-only (`NODE_TEST_CONTEXT` / `ATOMIC_SKILLS_TEST`) |
+| F-013 | residual: reviewGate absence still legacy-tolerated at structural validate; phase-done commit guard remains authority |
+
