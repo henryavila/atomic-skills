@@ -5,9 +5,9 @@ title: Grok Build native integration + cross-model review
 version: "1.0"
 status: active
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T14:29:05.000Z
+lastUpdated: 2026-07-16T14:46:44.000Z
 branch: plan/grok-build-integration
-currentPhase: F2
+currentPhase: F3
 parallelismAllowed: false
 principles:
   - id: P1
@@ -242,7 +242,14 @@ phases:
         - id: G-1
           description: cross-model-bridge module validates and codex alias remains
             installable.
-          status: pending
+          status: met
+          metAt: 2026-07-16T14:46:44.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T14:46:44.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F2 phase-done gates re-verified"
           verifier:
             kind: shell
             command: npm run validate-skills
@@ -250,7 +257,14 @@ phases:
         - id: G-2
           description: Grok invocation-canonical and host-default-external encode matrix
             rows plus same-family interactive and non-interactive rules.
-          status: pending
+          status: met
+          metAt: 2026-07-16T14:46:44.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T14:46:44.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F2 phase-done gates re-verified"
           verifier:
             kind: shell
             command: test -s
@@ -264,13 +278,31 @@ phases:
         - id: G-3
           description: Pure host-default and same-family routing helper has unit tests for
             every matrix row and non-interactive abort vs accept-as-local.
-          status: pending
+          status: met
+          metAt: 2026-07-16T14:46:44.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T14:46:44.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F2 phase-done gates re-verified"
           verifier:
             kind: shell
             command: node --test tests/cross-model-host-default.test.js
             expectExitCode: 0
-    status: active
+    status: done
   - id: F3
+    businessIntent:
+      value: Atomic Skills installs and runs as a first-class Grok Build plugin (skills + hooks),
+        and adversarial review always uses a different model family than the host session so self-preference
+        bias is reduced.
+      workflow: review-code/plan pick host-aware external provider with CROSS-MODEL REVIEW cadence
+        and provider field.
+      rules: "Host is never the external reviewer without same-family confirm\u2192local; CROSS-MODEL\
+        \ REVIEW replaces CODEX REVIEW product label; provider enum codex|grok|local."
+      outOfScope: external-both merge (F5), marketplace, Mode-2 Grok execution.
+      doneWhen: 'F3 gates green: validate-skills, no CODEX REVIEW product strings, provider field
+        round-trip.'
     slug: grok-build-integration-f3-review-skill-ux-and-cross-model-revie
     title: Review skill UX and CROSS-MODEL REVIEW surfaces
     goal: review-code and review-plan expose provider modes; product cadence uses
@@ -308,7 +340,7 @@ phases:
               skills/shared/codex-bridge-assets/review-file-template.txt && node
               --test tests/review-provider-field.test.js
             expectExitCode: 0
-    status: pending
+    status: active
   - id: F4
     slug: grok-build-integration-f4-plugin-harden-l4
     title: Plugin harden (L4)

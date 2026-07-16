@@ -6,11 +6,11 @@ goal: Rename or alias codex-bridge to cross-model-bridge with pluggable codex
   and grok providers, host default matrix, same-family confirm-to-local
   (interactive) and HARD ABORT or --accept-same-family-as-local
   (non-interactive).
-status: active
+status: done
 branch: plan/grok-build-integration
 started: 2026-07-16T14:29:05.000Z
-lastUpdated: 2026-07-16T14:48:00.000Z
-nextAction: "Run phase-done for F2 (orchestrator owns Codex review + advance)"
+lastUpdated: 2026-07-16T14:46:44.000Z
+nextAction: null
 parentPlan: grok-build-integration
 phaseId: F2
 businessIntent:
@@ -28,23 +28,38 @@ businessIntent:
   doneWhen: Phase F2 exit gates green with deterministic verifiers.
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
     description: cross-model-bridge module validates and codex alias remains installable.
-    status: pending
+    status: met
+    metAt: 2026-07-16T14:46:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:46:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 phase-done gates re-verified
     verifier:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-07-16
   - id: G-2
     description: Grok invocation and host-default assets encode matrix and
       same-family interactive plus non-interactive rules.
-    status: pending
+    status: met
+    metAt: 2026-07-16T14:46:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:46:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 phase-done gates re-verified
     verifier:
       kind: shell
       command: test -s
@@ -53,15 +68,24 @@ exitGates:
         skills/shared/codex-bridge-assets/host-default-external.md
       expectExitCode: 0
     verifierLabel: "shell: test -s skills/shared/codex-bridge-assets/providers/grok/in…"
+    evidenceSummary: passed · 2026-07-16
   - id: G-3
     description: Pure host-default and same-family routing helper unit tests pass
       for every matrix row.
-    status: pending
+    status: met
+    metAt: 2026-07-16T14:46:44.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:46:44.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F2 phase-done gates re-verified
     verifier:
       kind: shell
       command: node --test tests/cross-model-host-default.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/cross-model-host-default.test.js"
+    evidenceSummary: passed · 2026-07-16
 stack:
   - id: 1
     title: cross-model-bridge core (L7)
@@ -93,8 +117,8 @@ tasks:
       verifiedAt: 2026-07-16T14:32:48.000Z
       passed: true
       exitCode: 0
-      outputSummary: validate-skills.test.js 53 pass; npm run validate-skills ✓
-        All 15 skills valid; install.test.js footprints updated (providers/codex
+      outputSummary: validate-skills.test.js 53 pass; npm run validate-skills ✓ All 15
+        skills valid; install.test.js footprints updated (providers/codex
         recursive install)
     outputs:
       - kind: file
@@ -217,3 +241,7 @@ Initiative for phase **F2 — cross-model-bridge core (L7)**.
 - **Single nextAction:** Orchestrator runs phase-done (G-1..G-3 + Codex review +
   advance F3).
 - **Uncommitted changes:** none after T-003 checkpoint.
+
+## Phase-done
+
+- Gates met; Codex review `.atomic-skills/reviews/2026-07-16-1445-grok-build-integration-f2-codex.md` at `010db660b63f3ae9034dab2fcadfccc442fecef0`.

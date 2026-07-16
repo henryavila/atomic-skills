@@ -85,3 +85,4 @@
 {"ts":"2026-07-16T14:33:05.382Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-build-integration","phaseId":"F2","taskId":"T-001","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-16T14:34:12.209Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-build-integration","phaseId":"F2","taskId":"T-002","weight":1,"weightBasis":"count"}
 {"ts":"2026-07-16T14:35:21.425Z","event":"task-done","projectId":"atomic-skills","planSlug":"grok-build-integration","phaseId":"F2","taskId":"T-003","weight":1,"weightBasis":"count"}
+{"ts":"2026-07-16T14:46:44.516Z","event":"phase-done","projectId":"atomic-skills","planSlug":"grok-build-integration","phaseId":"F2","taskId":null,"weight":1,"weightBasis":"count","actuals":{"filesChanged":33,"locAdded":2053,"locRemoved":106,"commits":10}}
