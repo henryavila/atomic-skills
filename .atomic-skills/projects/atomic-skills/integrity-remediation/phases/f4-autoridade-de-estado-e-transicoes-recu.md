@@ -7,8 +7,8 @@ summary: Reconcili a F0 e torna fechamento, eventos e materialização idempoten
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T16:46:09.921Z
-nextAction: "Start F4/T-003: phase-done preflight + commit guard without bypass"
+lastUpdated: 2026-07-16T16:49:55.611Z
+nextAction: "Start F4/T-004: anchor gates and review to closed HEAD SHA"
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -17,11 +17,11 @@ businessIntent:
   rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
   outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
-tasksDone: 2
+tasksDone: 3
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 2
+weightDone: 3
 weightTotal: 8
 exitGates:
   - id: F4-G1
@@ -142,8 +142,8 @@ tasks:
     summary: Dividir phase-done em preflight e commit guard sem bypass
     weight: 1
     description: "Executar preflight puro antes de gates/review e commit guard após evidence/lessons, removendo o bulk-close de tasks abertas e qualquer avanço por defer/skip de exit gate. Gate pending, failed, declined ou sem evidence atual mantém a fase aberta/pausável e produz zero transição terminal. verified_by: `docs/audits/project-implement-audit-2026-07-10.md:107-137`, `skills/shared/project-assets/project-transitions.md:164-210`, `scripts/lifecycle-order-guard.js:236-289` e `.atomic-skills/reviews/2026-07-11-1415-integrity-remediation.md:232-257`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:49:55.611Z
     scopeBoundary:
       - não rodar gate verifier, review, evento, archive ou write quando task está aberta e não exigir review completo no preflight inicial
       - não oferecer defer/skip como transição terminal; a única saída sem gate verde é deixar a fase active ou paused
@@ -167,6 +167,13 @@ tasks:
         path: tests/phase-done-transaction.test.js
       - kind: file
         path: tests/lifecycle-gate-bypass.test.js
+    closedAt: 2026-07-16T16:49:55.611Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:49:55.611Z
+      passed: true
+      exitCode: 0
+      outputSummary: "lifecycle-order-guard + gate-bypass + transition-emits + phase-done-transaction: 40 pass"
   - id: T-004
     title: Ancorar gates e review ao HEAD fechado
     summary: Ancorar gates e review ao HEAD fechado
