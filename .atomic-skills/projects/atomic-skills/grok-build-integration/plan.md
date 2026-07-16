@@ -5,9 +5,9 @@ title: Grok Build native integration + cross-model review
 version: "1.0"
 status: active
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T14:46:44.000Z
+lastUpdated: 2026-07-16T15:07:33.000Z
 branch: plan/grok-build-integration
-currentPhase: F3
+currentPhase: F4
 parallelismAllowed: false
 principles:
   - id: P1
@@ -323,7 +323,14 @@ phases:
         - id: G-1
           description: validate-skills passes with updated review-code and review-plan
             modes.
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:07:33.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:07:33.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F3 phase-done gates re-verified"
           verifier:
             kind: shell
             command: npm run validate-skills
@@ -331,7 +338,14 @@ phases:
         - id: G-2
           description: Active skill assets contain zero user-facing CODEX REVIEW product
             label strings.
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:07:33.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:07:33.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F3 phase-done gates re-verified"
           verifier:
             kind: shell
             command: "! rg -n 'CODEX REVIEW' skills/shared/project-assets skills/core"
@@ -339,15 +353,28 @@ phases:
         - id: G-3
           description: Review file template and last-review writers include provider enum
             codex|grok|local with version field; round-trip test covers read path.
-          status: pending
+          status: met
+          metAt: 2026-07-16T15:07:33.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T15:07:33.000Z
+            passed: true
+            exitCode: 0
+            outputSummary: "F3 phase-done gates re-verified"
           verifier:
             kind: shell
             command: grep -q 'provider' 
               skills/shared/codex-bridge-assets/review-file-template.txt && node
               --test tests/review-provider-field.test.js
             expectExitCode: 0
-    status: active
+    status: done
   - id: F4
+    businessIntent:
+      value: Grok plugin surface complete for daily use.
+      workflow: inspect smoke + trust docs + journal edge cases.
+      rules: plugin-only root; install parity.
+      outOfScope: marketplace publish.
+      doneWhen: 'F4 gate green: plugin.json tested and package keywords include grok.'
     slug: grok-build-integration-f4-plugin-harden-l4
     title: Plugin harden (L4)
     goal: "Grok plugin surface is complete for daily use: inspect smoke, trust docs,
@@ -367,7 +394,8 @@ phases:
               p=require('./package.json'); if(!p.keywords.includes('grok'))
               process.exit(1)"
             expectExitCode: 0
-    status: pending
+    status: active
+
   - id: F5
     slug: grok-build-integration-f5-polish-external-both-merge-final-veri
     title: Polish, external-both merge, final verify

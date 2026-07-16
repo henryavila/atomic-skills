@@ -5,11 +5,11 @@ title: Review skill UX and CROSS-MODEL REVIEW surfaces
 goal: review-code and review-plan expose provider modes; product cadence uses
   CROSS-MODEL REVIEW with provider field; review-due and gates stop hardcoding
   Codex-only.
-status: active
+status: done
 branch: plan/grok-build-integration
 started: 2026-07-16T14:46:44.000Z
-lastUpdated: 2026-07-16T15:50:00.000Z
-nextAction: "Orchestrator: phase-done (G-1..G-3 + CROSS-MODEL REVIEW + advance F4)"
+lastUpdated: 2026-07-16T15:07:33.000Z
+nextAction: null
 parentPlan: grok-build-integration
 phaseId: F3
 businessIntent:
@@ -26,37 +26,61 @@ businessIntent:
     provider field round-trip."
 tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 3
 weightTotal: 3
 exitGates:
   - id: G-1
     description: validate-skills passes with updated review-code and review-plan modes.
-    status: pending
+    status: met
+    metAt: 2026-07-16T15:07:33.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T15:07:33.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F3 phase-done gates re-verified
     verifier:
       kind: shell
       command: npm run validate-skills
       expectExitCode: 0
     verifierLabel: "shell: npm run validate-skills"
+    evidenceSummary: passed · 2026-07-16
   - id: G-2
     description: Active skill assets contain zero user-facing CODEX REVIEW product
       label strings.
-    status: pending
+    status: met
+    metAt: 2026-07-16T15:07:33.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T15:07:33.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F3 phase-done gates re-verified
     verifier:
       kind: shell
       command: "! rg -n 'CODEX REVIEW' skills/shared/project-assets skills/core"
       expectExitCode: 0
     verifierLabel: "shell: ! rg -n 'CODEX REVIEW' skills/shared/project-assets skills/…"
+    evidenceSummary: passed · 2026-07-16
   - id: G-3
     description: Provider field enum and round-trip tests cover review receipts and
       review-due readers.
-    status: pending
+    status: met
+    metAt: 2026-07-16T15:07:33.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T15:07:33.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: F3 phase-done gates re-verified
     verifier:
       kind: shell
       command: node --test tests/review-provider-field.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/review-provider-field.test.js"
+    evidenceSummary: passed · 2026-07-16
 stack:
   - id: 1
     title: Review skill UX and CROSS-MODEL REVIEW surfaces
@@ -161,8 +185,8 @@ tasks:
       verifiedAt: 2026-07-16T15:50:00.000Z
       passed: true
       exitCode: 0
-      outputSummary: review-provider-field.test.js 11 pass; review-due/create-plan
-        use hostDefaultExternalMode; buildProviderFields forces local on
+      outputSummary: review-provider-field.test.js 11 pass; review-due/create-plan use
+        hostDefaultExternalMode; buildProviderFields forces local on
         sameFamilyRemap; no CODEX REVIEW product strings remain
     outputs:
       - kind: file
@@ -201,3 +225,7 @@ current: true
 - **Single nextAction:** Orchestrator runs phase-done (G-1..G-3 + CROSS-MODEL
   REVIEW + advance F4).
 - **Uncommitted changes:** none after T-003 checkpoint.
+
+## Phase-done
+
+- Codex review `.atomic-skills/reviews/2026-07-16-1505-grok-build-integration-f3-codex.md` at `f9b16474aeb8f0e877dc762dc0fc05463095a58c`.
