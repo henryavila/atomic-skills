@@ -85,7 +85,7 @@ describe('install→uninstall round-trip', () => {
     // Each IDE writes to a different path tree (.claude, .cursor, .gemini,
     // .codex/.agents, .opencode, .github). Installing all of them at once is
     // the strongest parity proof: ~300+ files, and every one must be reverted.
-    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot'];
+    const ALL_IDES = ['claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok'];
     const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
     const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
     try {
@@ -120,6 +120,45 @@ describe('install→uninstall round-trip', () => {
         assert.deepEqual(added, [], `residue after uninstall: ${added.join(', ')}`);
         assert.deepEqual(modified, [], `must restore settings.json byte-for-byte: ${modified.join(', ')}`);
         assert.ok(existsSync(settingsPath), 'pre-existing settings.json survives');
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('user-scope grok install writes plugin package only (no .grok/skills tree)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-rt-home-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-rt-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        const before = snapshotTree(fakeHome);
+        await install(projectDir, { yes: true, ide: ['grok'], lang: 'en' });
+
+        const pluginJson = join(fakeHome, '.grok/plugins/atomic-skills/plugin.json');
+        const skillMd = join(fakeHome, '.grok/plugins/atomic-skills/skills/fix/SKILL.md');
+        const hooksJson = join(fakeHome, '.grok/plugins/atomic-skills/hooks/hooks.json');
+        assert.ok(existsSync(pluginJson), 'plugin.json must exist under plugin root');
+        assert.ok(existsSync(skillMd), 'at least one SKILL.md under plugin skills/');
+        assert.ok(existsSync(hooksJson), 'hooks/hooks.json stub must exist');
+
+        const plugin = JSON.parse(readFileSync(pluginJson, 'utf8'));
+        assert.equal(plugin.name, 'atomic-skills');
+        assert.ok(plugin.version, 'plugin.json must carry package version');
+        assert.equal(plugin.skills, './skills/');
+
+        // Forbidden dual tree: package must not own skill files under .grok/skills/
+        const dualSkillsRoot = join(fakeHome, '.grok/skills/atomic-skills');
+        assert.ok(
+          !existsSync(dualSkillsRoot),
+          'must not create .grok/skills/atomic-skills dual tree',
+        );
+
+        await uninstall(projectDir, { scope: 'user', yes: true });
+        const { added, removed, modified } = diffTree(before, snapshotTree(fakeHome));
+        assert.deepEqual(added, [], `residue after grok uninstall: ${added.join(', ')}`);
+        assert.deepEqual(removed, [], `grok uninstall deleted pre-existing paths: ${removed.join(', ')}`);
+        assert.deepEqual(modified, [], `grok uninstall modified pre-existing files: ${modified.join(', ')}`);
       });
     } finally {
       rmSync(fakeHome, { recursive: true, force: true });

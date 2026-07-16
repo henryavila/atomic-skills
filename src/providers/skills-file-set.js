@@ -1,14 +1,18 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { renderTemplate, renderForIDE } from '../render.js';
 import {
+  IDE_CONFIG,
   SKILL_NAMESPACE,
   getSkillPath,
   getSkillFormat,
   getNamespaceRootPath,
   getAssetsDir,
 } from '../config.js';
+
+const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
@@ -149,6 +153,26 @@ export function computeSkillsFileSet(config) {
     add(rootPath, generateNamespaceRoot(), '_namespace');
   }
 
+  // Plugin-delivery hosts (Grok Build): package root owns plugin.json + hooks
+  // stub. Skills/assets already land under the plugin tree via getSkillPath /
+  // getAssetsDir. F0 ships an empty hooks envelope; Soft/Strict fill in later.
+  for (const ideId of ides) {
+    const ide = IDE_CONFIG[ideId];
+    if (!ide || ide.delivery !== 'plugin') continue;
+    // ide.dir is `<pluginRoot>/skills` → plugin root is the parent (posix paths).
+    const pluginRoot = posix.dirname(ide.dir);
+    add(
+      `${pluginRoot}/plugin.json`,
+      generatePluginJson(),
+      `_plugin/${ideId}/plugin.json`,
+    );
+    add(
+      `${pluginRoot}/hooks/hooks.json`,
+      generatePluginHooksStub(),
+      `_plugin/${ideId}/hooks.json`,
+    );
+  }
+
   return files;
 }
 
@@ -158,4 +182,36 @@ function generateNamespaceRoot() {
   const desc = 'Stop rewriting prompts. Install optimized developer skills in any AI IDE.';
   const escaped = desc.replace(/'/g, "''");
   return `---\nname: ${SKILL_NAMESPACE}\ndescription: '${escaped}'\nuser-invocable: false\n---\n\nNamespace package for Atomic Skills.\n`;
+}
+
+function readPackageMeta() {
+  try {
+    return JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
+  } catch {
+    return { name: SKILL_NAMESPACE, version: '0.0.0', description: '' };
+  }
+}
+
+/**
+ * Minimal Grok plugin manifest (convention paths + version from package.json).
+ * Skills/hooks load from the standard plugin subdirs even without a manifest;
+ * we still write one so inspect/validate surfaces name+version.
+ */
+function generatePluginJson() {
+  const pkg = readPackageMeta();
+  const manifest = {
+    name: SKILL_NAMESPACE,
+    version: pkg.version || '0.0.0',
+    description:
+      pkg.description
+      || 'Stop rewriting prompts. Install optimized developer skills in any AI IDE.',
+    skills: './skills/',
+    hooks: './hooks/hooks.json',
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
+/** Empty hooks envelope — F1 registers Soft/Strict events. */
+function generatePluginHooksStub() {
+  return `${JSON.stringify({ hooks: {} }, null, 2)}\n`;
 }

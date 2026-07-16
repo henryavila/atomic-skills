@@ -93,6 +93,39 @@ describe('installSkills', () => {
     assert.ok(content.includes('name: fix'));
   });
 
+  it('materializes Grok plugin package under .grok/plugins/atomic-skills only', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['grok'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+
+    assert.ok(existsSync(join(tempDir, '.grok/plugins/atomic-skills/plugin.json')));
+    assert.ok(existsSync(join(tempDir, '.grok/plugins/atomic-skills/skills/fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json')));
+    assert.ok(existsSync(join(tempDir, '.grok/plugins/atomic-skills/_assets')));
+    assert.ok(
+      !existsSync(join(tempDir, '.grok/skills/atomic-skills')),
+      'must not create dual .grok/skills/atomic-skills tree',
+    );
+
+    const plugin = JSON.parse(
+      readFileSync(join(tempDir, '.grok/plugins/atomic-skills/plugin.json'), 'utf8'),
+    );
+    assert.strictEqual(plugin.name, 'atomic-skills');
+    assert.ok(typeof plugin.version === 'string' && plugin.version.length > 0);
+    assert.strictEqual(plugin.skills, './skills/');
+    assert.strictEqual(plugin.hooks, './hooks/hooks.json');
+
+    const hooks = JSON.parse(
+      readFileSync(join(tempDir, '.grok/plugins/atomic-skills/hooks/hooks.json'), 'utf8'),
+    );
+    assert.deepStrictEqual(hooks, { hooks: {} });
+  });
+
   it('installs a representative skill at the declared public host matrix path', () => {
     assert.deepStrictEqual(
       PUBLIC_IDE_IDS,
