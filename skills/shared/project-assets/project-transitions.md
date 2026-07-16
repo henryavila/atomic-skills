@@ -11,16 +11,16 @@ Every step below that "loads", "moves", or "archives" a plan/initiative file res
 - **Archive** → the layout's archive dir: nested `projects/<project-id>/<plan-slug>/phases/archive/<YYYY-MM>-<slug>.md` for a phase initiative (a whole plan is archived in place with `status: archived`); legacy flat `initiatives/archive/` + `plans/archive/`.
 - **Index** → that project's `projects/<project-id>/PROJECT-STATUS.md`; legacy top-level `.atomic-skills/PROJECT-STATUS.md`.
 
-### Fuzzy identifier resolution (applies to every id/slug/phase arg — C-8 / E3#3)
+### Fuzzy identifier resolution (shared — every verb, including lazy-loaded ones)
 
-A user resuming after a break knows *what* they want ("reopen the validation phase") but not the exact token (`f0.5-validation`). So every verb that takes a `<slug>` / `<phase-id>` / `<task-id>` (`switch`, `phase-reopen`, `materialize`, `unblock`, `done`, `why`, `depend`, `split-phase`) resolves its argument leniently instead of demanding an exact match:
+A user resuming after a break knows *what* they want ("reopen the validation phase") but not the exact token (`f0.5-validation`). **Every** verb that takes a `<slug>` / `<phase-id>` / `<task-id>` — including those that lazy-load other assets (`materialize`, `depend`, `split-phase`, `why`, `switch`, `phase-reopen`, `unblock`, `done`, `finalize`, `archive`) — resolves its argument with the **same** rules (pure helper: `src/project-target-resolver.js` → `resolveFuzzyIdentifier`):
 
 1. **Exact id/slug** → use it.
 2. **Else case-insensitive prefix / substring of the id OR the human `title`/`summary`** across the candidate set (active plan's phases/tasks, or plans for `switch`). A single match → use it (echo the resolved id: "Resolved 'validation' → `f0.5-validation`").
 3. **Multiple matches** → list them and disambiguate via {{ASK_USER_QUESTION_TOOL}} (never guess).
 4. **Zero matches** → print the valid ids for that verb's scope (the same list the abort messages already show) so the next attempt is one copy away — never just "not found".
 
-This is resolution only; it does not relax any gate. `materialize` already accepts id-or-slug — this generalizes that leniency to the rest so a wrong first guess costs a disambiguation, not a browser round-trip.
+This is resolution only; it does not relax any gate. Lazy detail files must not invent a stricter "exact only" fork — they inherit this section.
 
 Where a step writes `initiatives/…`, `plans/…`, or `PROJECT-STATUS.md` below, read it as "the resolved path for the active layout".
 
@@ -34,7 +34,7 @@ The pre-mutation check is the **only** way legacy files are touched, and migrati
 
 ## Pre-mutation reconciliation gate (detail)
 
-Every time you load an active initiative for a **mutating** command (`push`, `pop`, `park`, `emerge`, `promote`, `done`, `phase-done`, `phase-reopen`, `archive`, `switch`, `detect-scope`, `re-ratify`, `new-task`, `new-phase`), run this check AFTER the migration check and BEFORE executing the command. `materialize` can be the command that creates the phase initiative; when no active initiative exists, it skips this active-initiative reconciliation gate and runs its own plan-level pre-flight. When called from `phase-done`/`switch`/`phase-reopen`, the caller has already run this gate.
+Every time you load an active initiative for a **mutating** command, use the **same** pre-mutation verb list as the router (`skills/core/project.md` → Pre-mutation gates): `push`, `pop`, `park`, `emerge`, `promote`, `unblock`, `done`, `phase-done`, `phase-reopen`, `finalize`, `consolidate`, `archive`, `switch`, `depend add`, `depend remove`, `depend resolve`, `detect-scope`, `reconcile`, `re-ratify`, `new-task`, `new-phase`, `verify --fix`. Do not maintain a shorter fork of this list here. Run this check AFTER the migration check and BEFORE executing the command. `materialize` can be the command that creates the phase initiative; when no active initiative exists, it skips this active-initiative reconciliation gate and runs its own plan-level pre-flight. When called from `phase-done`/`switch`/`phase-reopen`, the caller has already run this gate.
 
 1. Parse `tasks[]` from the active initiative's frontmatter.
 2. Collect tasks where `status` is `active` AND `lastUpdated` is older than 24 hours from now.

@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { lintSource, lintSpec, parseTaskSections, levelConfusedTaskTitle } from '../scripts/lint-source.js';
+import {
+  isIncompleteQueryVerifier,
+  lintSource,
+  lintSpec,
+  parseTaskSections,
+  levelConfusedTaskTitle,
+} from '../scripts/lint-source.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = resolve(__dirname, '../skills/shared/project-assets/minimal-source.template.md');
@@ -253,5 +259,36 @@ describe('level hygiene — a task title must not masquerade as a phase', () => 
 
   test('lintSpec GREEN: a normal task title is not flagged for level confusion', () => {
     assert.equal(lintSpec(CLEAN).some((m) => /masquerades as a phase/.test(m)), false);
+  });
+});
+
+describe('F3/T-004 — incomplete kind:query is rejected', () => {
+  test('isIncompleteQueryVerifier detects missing expectRowCount', () => {
+    assert.equal(
+      isIncompleteQueryVerifier('{ kind: query, sql: "SELECT 1" }'),
+      true,
+    );
+    assert.equal(
+      isIncompleteQueryVerifier('{ kind: query, sql: "SELECT 1", expectRowCount: 0 }'),
+      false,
+    );
+    assert.equal(isIncompleteQueryVerifier('{ kind: shell, command: "true" }'), false);
+  });
+
+  test('lintSpec RED: kind:query without expectRowCount fails admission', () => {
+    const md = CLEAN.replace(
+      '- verifier: kind test, runner "node --test", pattern "nested projects".',
+      '- verifier: { kind: query, sql: "SELECT 1 FROM t" }',
+    );
+    const v = lintSpec(md);
+    assert.match(v.join('\n'), /T0\.1.*query.*incomplete|expectRowCount/is);
+  });
+
+  test('lintSpec GREEN: kind:query with sql + expectRowCount is admitted', () => {
+    const md = CLEAN.replace(
+      '- verifier: kind test, runner "node --test", pattern "nested projects".',
+      '- verifier: { kind: query, sql: "SELECT 1 FROM t", expectRowCount: 0 }',
+    );
+    assert.deepEqual(lintSpec(md), []);
   });
 });

@@ -70,6 +70,9 @@ worktrees may run concurrently:
 - Pairwise scope-independent tasks (reuse `parallel-dispatch` §1.3 pairwise
   {{GREP_TOOL}} disjointness) may have their Codex worktrees dispatched
   concurrently; coupled tasks are still coded one at a time.
+- **One writer per worktree** (Iron Law): each worktree has exactly one coding
+  agent; never two concurrent writers in the same tree. Concurrency is across
+  isolated worktrees only.
 - Merge-back is serial regardless (§8) — the single-threaded law holds at the
   merge even when execution fanned out.
 

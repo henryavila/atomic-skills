@@ -56,13 +56,16 @@ evidence:
 5. On `n`: ask "Mark `deferred` (with reason) or leave `pending`?". Apply.
 6. On `defer`: capture `deferredReason`, set `status: deferred`.
 
-### `kind: query` (DEFERRED-BY-DESIGN — no DB connection)
+### `kind: query` (requires sql + expectRowCount; connection optional)
 
-This repository assumes **no live DB connection**, so `kind: query` is deferred by design — NOT a silent stub. A user-pasted row count must **never** flip a criterion to `met`: that is exactly the fabricated-pass hole the gate system exists to kill (GATE-R2 hard-fails a `met` query criterion that lacks a numeric `evidence.rowCount` from a real run).
+A `kind: query` verifier is **incomplete** without both `sql` and a numeric `expectRowCount` — schema and `lintSpec` reject it (F3/T-004). Without an expected count there is no `passed` equality to evaluate. Optional `connectionCommand` is the only path to a real run.
 
-1. Present the criterion `id` + `description` + `sql` + `expectRowCount` (if any).
-2. **Escape hatch (only path to `met`):** if — and only if — the caller supplies a real connection command, execute it with {{BASH_TOOL}}, capture the actual `rowCount`, and write `evidence` (`verifierKind: query`, `verifiedAt: <now>`, `verifiedCommit: $(git rev-parse HEAD)`, `rowCount: <observed integer>`, `passed: <rowCount === expectRowCount>`, `outputSummary`). Set `status: met` only when `passed === true`.
-3. **Default (no connection command):** set `status: deferred`, write `deferredReason` (e.g. `"query verifiers run out-of-band; no DB connection in this repo"`), and write `evidence` with `passed: false` and NO fabricated `rowCount`. Do not ask the user to type a row count — a self-reported number is not evidence.
+This repository often has **no live DB connection**, so when `connectionCommand` is absent the criterion is **deferred by design** — NOT a silent stub and NOT a fabricated pass. A user-pasted row count must **never** flip a criterion to `met` (GATE-R2 hard-fails a `met` query criterion that lacks a numeric `evidence.rowCount` from a real run).
+
+1. **Admit check.** If `sql` or `expectRowCount` is missing, refuse the verifier as incomplete — do not run, do not mark met.
+2. Present the criterion `id` + `description` + `sql` + `expectRowCount` + `connectionCommand` (if any).
+3. **Escape hatch (only path to `met`):** if — and only if — `connectionCommand` (or an equivalent caller-supplied real connection command) is present, execute it with {{BASH_TOOL}}, capture the actual `rowCount`, and write `evidence` (`verifierKind: query`, `verifiedAt: <now>`, `verifiedCommit: $(git rev-parse HEAD)`, `rowCount: <observed integer>`, `passed: <rowCount === expectRowCount>`, `outputSummary`). Set `status: met` only when `passed === true`.
+4. **Default (no connection command):** set `status: deferred`, write `deferredReason` (e.g. `"query verifiers run out-of-band; no DB connection in this repo"`), and write `evidence` with `passed: false` and NO fabricated `rowCount`. Do not ask the user to type a row count — a self-reported number is not evidence.
 
 ### `kind: test`
 

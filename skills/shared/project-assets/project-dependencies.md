@@ -15,7 +15,10 @@ This command edits only the canonical operational dependency source: `dependsOnP
 /atomic-skills:project depend resolve <dependent-plan-slug> <prerequisite-plan-slug> --archived [--project <id>]
 ```
 
-Parse the subcommand and slugs from `{{ARG_VAR}}`.
+Parse the subcommand and slugs from `{{ARG_VAR}}`. Resolve each slug with the
+shared fuzzy identifier rules (`project-transitions.md` § Fuzzy /
+`resolveFuzzyIdentifier`) so ambiguous resumes cost a disambiguation, not a
+hard "not found".
 
 - `dependent-plan-slug` is the blocked plan whose frontmatter owns `dependsOnPlans[]`.
 - `prerequisite-plan-slug` is the plan that must release the dependent.

@@ -113,11 +113,20 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind", "sql"],
+          "required": ["kind", "sql", "expectRowCount"],
           "properties": {
             "kind": { "const": "query" },
             "sql": { "type": "string", "minLength": 1 },
-            "expectRowCount": { "type": "integer", "minimum": 0 }
+            "expectRowCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Required expected row count. A query verifier without a numeric expectation cannot compute passed."
+            },
+            "connectionCommand": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional real connection/runner command. Without it, verifier-exec defers the criterion (never fabricates rowCount)."
+            }
           }
         },
         {

@@ -136,9 +136,20 @@ When the Codex lane is on, Mode 2 hands spec-ready execution to Codex in an isol
 3. **State-tree fence.** Codex writes only scoped source inside its worktree and NEVER the durable `.atomic-skills/` project state — Opus owns every state transition (Decision #11).
 4. **Merge-back is serial.** Merge one worktree at a time and re-run the verifier on the MERGED primary; conflicts or post-merge FAIL leave the task `active`.
 
-## Degraded mode (folds `executing-plans`)
+## Degraded mode (explicit ad-hoc only)
 
-When there is no plan structure to drive — a loose checklist, a one-off change, or a plan whose tasks lack admitted verifiers — implement degrades to a single disciplined inline loop: do one item, verify it with the cheapest real check available, microcommit it, snapshot, next. No tiering, no worktrees, no Mode 2. This is the absorbed `executing-plans` behavior: the same single-threaded code→verify→commit→snapshot rhythm without the lifecycle scaffolding. It never invents the missing spec; if a task needs a verifier it does not have, surface that gap rather than closing the task on a claim.
+Degraded mode is the absorbed `executing-plans` loop for work the user has **explicitly declared ad-hoc** (Iron Law: "or the user must explicitly declare ad-hoc"). It is **not** a bypass for plan tasks that lack SPEC/verifiers.
+
+**Enter degraded mode only when:**
+1. The user said "ad-hoc" / "one-off" / "no plan" (verbatim declaration), **and**
+2. There is no active plan initiative driving the session.
+
+**Never enter degraded mode when:**
+- A plan task is missing admitted outputs/scopeBoundary/acceptance/verifier — **STOP and surface the SPEC gap** (Step 1 hard-stop). Do not improvise.
+- A descriptor-only phase is active — refuse and `materialize` first.
+- Mode 2 / Codex is expected — degraded has no tiering, no worktrees, no Mode 2.
+
+In degraded mode: do one item, verify it with the cheapest real check available, microcommit it, snapshot, next. The same single-threaded code→verify→commit→snapshot rhythm without lifecycle scaffolding.
 
 ## Cross-agent note
 

@@ -353,9 +353,32 @@ export function lintSpec(markdown) {
       violations.push(`${where}: missing a deterministic verifier (shell/test/query).`);
     } else if (!isDeterministicVerifier(verifier)) {
       violations.push(`${where}: verifier is not deterministic ("${verifier}"); needs a shell/test/query verifier.`);
+    } else if (isIncompleteQueryVerifier(verifier)) {
+      violations.push(
+        `${where}: kind:query verifier is incomplete — requires sql and expectRowCount (connectionCommand optional; without it the criterion defers).`,
+      );
     }
   }
   return violations;
+}
+
+/**
+ * A query verifier is incomplete when it declares kind:query but lacks either
+ * sql or a numeric expectRowCount (F3/T-004 — no silent open-ended query).
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isIncompleteQueryVerifier(value) {
+  if (!value || typeof value !== 'string') return false;
+  const isQuery =
+    /\bkind\s*[:=]?\s*query\b/i.test(value) ||
+    (/\bquery\b/i.test(value) && !/\bkind\s*[:=]?\s*(shell|test|manual)\b/i.test(value));
+  if (!isQuery) return false;
+  const hasSql = /\bsql\s*[:=]/i.test(value) || /SELECT\b/i.test(value);
+  const hasExpect =
+    /\bexpectRowCount\s*[:=]\s*\d+/i.test(value) ||
+    /\bexpectRowCount\s*:\s*\d+/i.test(value);
+  return !(hasSql && hasExpect);
 }
 
 // --- CLI ---------------------------------------------------------------------

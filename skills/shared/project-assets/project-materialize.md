@@ -13,8 +13,12 @@ active.
 
 ### Inputs
 
-- `{{ARG_VAR}}`: required phase id or phase slug. Accept either `F1`-style id or
-  the matching `phases[].slug` from the active plan.
+- `{{ARG_VAR}}`: required phase id or phase slug. Resolve with the shared fuzzy
+  identifier rules (`project-transitions.md` § Fuzzy identifier resolution /
+  `src/project-target-resolver.js` → `resolveFuzzyIdentifier`): exact id/slug
+  first, then unique case-insensitive prefix/substring of id/slug/title; on
+  multiple matches disambiguate; on zero matches list valid ids. Do not invent a
+  stricter exact-only fork.
 - Active plan: `.atomic-skills/projects/<project-id>/<plan-slug>/plan.md`
   (nested-first, legacy fallback only when the tree is still flat).
 - Retained source sidecar: nested

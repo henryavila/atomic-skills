@@ -1040,6 +1040,43 @@ test('GATE-R2 RED (query): kind:query met without a numeric rowCount', () => {
   assert.match(checkMetInvariant(fm).join('\n'), /numeric evidence.rowCount/);
 });
 
+test('F3/T-004: schema rejects kind:query without expectRowCount', () => {
+  const incomplete = metGate(
+    { kind: 'query', sql: 'SELECT 1' },
+    undefined,
+  );
+  // Force pending so GATE-R2 is not the failure mode — schema must reject shape
+  incomplete.exitGates[0].status = 'pending';
+  delete incomplete.exitGates[0].metAt;
+  delete incomplete.exitGates[0].evidence;
+  const validators = buildValidators();
+  const ok = validators.validateInitiative(incomplete);
+  assert.equal(ok, false, 'query without expectRowCount must fail schema');
+  const msgs = (validators.validateInitiative.errors || []).map((e) => `${e.instancePath} ${e.message}`).join('\n');
+  assert.match(msgs, /expectRowCount|required/i);
+});
+
+test('F3/T-004: schema admits kind:query with expectRowCount and optional connectionCommand', () => {
+  const complete = metGate(
+    {
+      kind: 'query',
+      sql: 'SELECT 1',
+      expectRowCount: 0,
+      connectionCommand: 'psql -c "SELECT 1"',
+    },
+    undefined,
+  );
+  complete.exitGates[0].status = 'pending';
+  delete complete.exitGates[0].metAt;
+  delete complete.exitGates[0].evidence;
+  const validators = buildValidators();
+  assert.equal(
+    validators.validateInitiative(complete),
+    true,
+    JSON.stringify(validators.validateInitiative.errors, null, 2),
+  );
+});
+
 test('GATE-R2 GREEN: met with passed:true + (test) testsCollected>0 → no violation', () => {
   const shellOk = metGate(
     { kind: 'shell', command: 'true', expectExitCode: 0 },
