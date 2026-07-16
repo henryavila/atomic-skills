@@ -19,8 +19,33 @@
       "status": "local",
       "resultSha": "66c8e940812deaa0012debd713051cecd662acc5",
       "note": "Baseline fixed; RED repros captured against 0.1.0 tarball behavior."
+    },
+    "F1/T-002": {
+      "status": "local",
+      "resultSha": "13e58582bb4cec45ffca41c63ff10d0f2751985d",
+      "note": "No-follow path-safety + greenfield conflict refusal."
+    },
+    "F1/T-003": {
+      "status": "local",
+      "resultSha": "6dcadc523ddee404a7073a22df3ae76b77889a2d",
+      "note": "Canonical locks, atomic manifest, incomplete-transaction fail-closed."
+    },
+    "F1/T-004": {
+      "status": "local",
+      "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
+      "note": "Journal v2 stable effect ids + already-desired retry."
+    },
+    "F1/T-005": {
+      "status": "local",
+      "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
+      "note": "Consumer tests against worktree pack; runtime locks in registerInstall; package pin deferred to T-006."
+    },
+    "F1/T-006": {
+      "status": "partial",
+      "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
+      "note": "Upstream branch pushed to origin. npm package not published; package-lock still on 0.1.0 tarball. See f1-upstream-limit.log."
     }
   },
-  "resultSha": null,
-  "remotePublished": false
+  "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
+  "remotePublished": true
 }
