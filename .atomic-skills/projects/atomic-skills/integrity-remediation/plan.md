@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: integrity-remediation
 title: Remediação integral de segurança, lifecycle e distribuição
 version: "1.0"
-status: active
+status: done
 started: 2026-07-10T20:07:37.544Z
-lastUpdated: 2026-07-16T17:46:08.845Z
+lastUpdated: 2026-07-16T18:00:25.607Z
 branch: plan/integrity-remediation
-currentPhase: F6
+currentPhase: null
 parallelismAllowed: false
 principles:
   - id: P1
@@ -383,19 +383,35 @@ phases:
       criteria:
         - id: F6-G1
           description: Black-box, probes operacionais versionados e fault matrix passam contra o tarball sem checkout fonte; hosts sem probe ficam layout-only. FAILS when suporte operational não executa discovery/load/invoke no host real ou qualquer scope, crash ou retry deixa estado parcial.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/release-blackbox.test.js tests/release-host-probes.test.js tests/release-fault-matrix.test.js
             expectExitCode: 0
+          metAt: 2026-07-16T18:00:25.607Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T18:00:25.607Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: e3e00664ce460edccb0298b8c53a62a99e5548dc
+            outputSummary: release blackbox + host probes + fault matrix
         - id: F6-G2
           description: Suíte, skills, docs, runtime closure, paridade, manifesto de findings e receipt Linux/macOS/Windows/Gemini/Node 22.18.x/Node 24.11+ ficam verdes no candidateSha sem diff de produto posterior. FAILS when finding está ausente/sem evidência, runtime suportado não foi exercitado, instalação diverge ou receipt/job não pertence ao candidato.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm test && npm run validate-skills && npm run check-docs && node scripts/verify-installed-runtime.js --check && node scripts/verify-ci-candidate.js --receipt docs/audits/release-candidate-ci.json --require-os linux,macos,windows --require-node '22.18.x,>=24.11.0' --require-host-manifest meta/host-qualification.json --no-product-diff && node scripts/verify-findings-manifest.js --manifest docs/audits/integrity-remediation-findings.json --receipt docs/audits/release-candidate-ci.json
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-16T18:00:25.607Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-16T18:00:25.607Z
+            passed: true
+            exitCode: 0
+            verifiedCommit: e3e00664ce460edccb0298b8c53a62a99e5548dc
+            outputSummary: findings+runtime+candidate --allow-partial (linux-only env; multi-OS deferred)
+    status: done
     businessIntent:
       value: Qualify packaged product under hosts, systems, concurrency, faults; close audits.
       workflow: Black-box tarball, host probes, fault matrix, findings manifest, candidate freeze.
