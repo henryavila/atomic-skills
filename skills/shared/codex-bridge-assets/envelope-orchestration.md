@@ -23,6 +23,15 @@ Do NOT inline-rewrite the leaf assets; reference them and substitute
 placeholders. Do NOT re-inline this skeleton back into a caller — one definition,
 two callers.
 
+### external-both (multi-provider callers)
+
+When the caller mode is `external-both`, invoke this skeleton **once per
+provider** in order (Codex then Grok) on the same cleaned artifact, then merge
+finding lists with `src/external-both-merge.js` (`mergeExternalBothFindings`):
+merge key = `file:line` + normalized claim; severity conflict keeps higher
+severity with dual provenance; partial provider failure keeps the successful
+half and surfaces the error. Human triage only — never auto-apply.
+
 ## Artifact bindings (each caller supplies these)
 
 | Slot | Bound by the caller to |

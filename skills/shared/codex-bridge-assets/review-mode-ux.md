@@ -15,7 +15,7 @@ Host matrix + same-family policy: `{{ASSETS_PATH}}/host-default-external.md`.
 | `both` | local → **host external default** (Claude/Cursor/unknown→codex; Grok host→codex; Codex host→grok) |
 | `both-codex` | local → forced Codex |
 | `both-grok` | local → forced Grok |
-| `external-both` | external Codex **then** Grok on the same cleaned artifact (merge contract lands in F5; until then run both sequentially and present both finding sets for human triage) |
+| `external-both` | external Codex **then** Grok on the same cleaned artifact; merge via `src/external-both-merge.js` (key `file:line`+claim; higher severity wins; partial failure keeps good half) for human triage |
 
 Aliases: `--mode=internal` → `local` (review-plan compat).
 
@@ -72,7 +72,7 @@ Run `resolveReviewRoute({ hostFamily, mode, interactive, acceptSameFamilyAsLocal
 - `provider == local` (or mode `local`, or same-family remap) → local sealed path only.
 - External single provider (`codex` / `grok` modes, or the external leg of `both*`) → bind `«PROVIDER»` and run `envelope-orchestration.md`.
 - `both` / `both-codex` / `both-grok` with `includesLocal` → local phase first, then external on the **same** cleaned artifact / byte-identical `CAPTURED_DIFF` (no intent leakage into the external briefing).
-- `external-both` with `externalProviders: […]` → run envelope once per remaining provider in order (Codex then Grok when both remain). Present both finding sets for human triage. Full merge identity/severity contract is F5; until then do not auto-merge into one ranked list without provenance.
+- `external-both` with `externalProviders: […]` → run envelope once per remaining provider in order (Codex then Grok when both remain). Merge with `mergeExternalBothFindings` (`src/external-both-merge.js`): identity = `file:line` + normalized claim; severity conflict keeps higher severity with dual provenance; partial provider failure keeps the successful half and surfaces the error. Human triage only — never auto-apply.
 
 ## Non-interactive abort (no TTY, no `--mode=`)
 

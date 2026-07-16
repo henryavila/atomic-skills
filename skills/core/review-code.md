@@ -143,10 +143,22 @@ END.
 ### Flow D — `mode == external-both`
 
 Argument & diff capture → Step 0 → route yields `externalProviders` (family-different
-legs only). For each provider in order (Codex then Grok when both remain), run
-**External sealed-envelope sub-flow** on the same `CAPTURED_DIFF`. Present both
-finding sets for human triage. Full merge key / severity-conflict algorithm is F5;
-do not silently drop a successful provider's findings if the other leg fails.
+legs only).
+
+1. Run **External sealed-envelope sub-flow** for each remaining provider in order
+   (**Codex then Grok** when both remain) on the **same** `CAPTURED_DIFF` (no
+   re-capture between legs).
+2. **Merge findings for triage** with `src/external-both-merge.js`
+   (`mergeExternalBothFindings`) — contract:
+   - **Merge key:** `file:line` + normalized claim text (whitespace/case/trailing
+     punctuation collapsed).
+   - **Severity conflict:** keep the **higher** severity; `providers` lists both;
+     losing side recorded as `otherSeverity`.
+   - **Partial failure:** if one provider fails preflight/invoke, keep the other
+     side's findings, surface that provider's error, and set `partial: true`.
+     **Never** drop a successful provider's findings silently.
+3. Present the merged list (plus any `errors`) for **human triage**. Auto-apply
+   of external findings is a non-goal.
 
 END.
 

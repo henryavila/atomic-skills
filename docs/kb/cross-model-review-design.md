@@ -9,7 +9,7 @@ Use `review-plan` / `review-code` with an **external** mode when:
 
 External modes: `--mode=codex`, `--mode=grok`, `--mode=both` (local → host
 external default), `--mode=both-codex`, `--mode=both-grok`,
-`--mode=external-both` (Codex then Grok).
+`--mode=external-both` (Codex then Grok, then merge — see below).
 
 Use `--mode=local` (same-model sealed self-loop) when:
 - Quick sanity check
@@ -55,6 +55,25 @@ Canonical UX + routing: `skills/shared/codex-bridge-assets/review-mode-ux.md`,
 - Skill does NOT pass `--model` by default; each CLI uses its recommended default
 - Override via explicit flag or provider debug listing when needed
 
+## external-both merge contract
+
+When `--mode=external-both`, run **Codex envelope then Grok envelope** on the
+**same cleaned artifact** (no re-capture between legs). Merge with the pure
+helper `src/external-both-merge.js` (`mergeExternalBothFindings`):
+
+| Rule | Behavior |
+|------|----------|
+| **Merge key** | `file:line` + normalized claim (collapse whitespace, lowercase, strip trailing `.!?`) |
+| **Severity conflict** | Keep the **higher** severity; `providers` lists both; losing severity stored as `otherSeverity` |
+| **Equal severity** | Keep Codex body as primary; still dual provenance |
+| **Partial failure** | Keep the successful provider's findings; surface the failed provider error; `partial: true`. Never drop the good half silently |
+| **Both fail** | Empty findings + both errors; not partial (no successful half) |
+| **Triage** | Human only — auto-apply of external findings is a non-goal |
+
+Skill wiring: `skills/core/review-code.md` / `review-plan.md` Flow D;
+`skills/shared/codex-bridge-assets/review-mode-ux.md`. Unit tests:
+`tests/external-both-merge.test.js`.
+
 ## Anti-patterns
 
 - Adding "## Why we chose this approach" to the briefing
@@ -64,6 +83,7 @@ Canonical UX + routing: `skills/shared/codex-bridge-assets/review-mode-ux.md`,
 - Accepting external verdict without triaging findings
 - Treating same-family headless CLI as CROSS-MODEL REVIEW
 - Silently remapping same-family to local in CI without `--accept-same-family-as-local`
+- Dropping one external-both provider's findings when the other leg fails
 
 ## References
 

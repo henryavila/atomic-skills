@@ -198,9 +198,11 @@ END.
 
 ### Flow D — `mode == external-both`
 
-For each family-different provider in route order (Codex then Grok when both
-remain), run External sealed-envelope on the same CLEANED plan. Present both
-finding sets for triage (full merge contract is F5). END.
+Run External sealed-envelope per remaining provider (**Codex then Grok**) on the
+same CLEANED plan. Merge with `src/external-both-merge.js` (merge key
+`file:line`+claim; higher severity wins; partial failure keeps good half —
+details: `docs/kb/cross-model-review-design.md` § external-both). Human triage
+only. END.
 
 ---
 
