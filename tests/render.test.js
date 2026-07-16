@@ -44,6 +44,42 @@ describe('renderTemplate', () => {
     assert.strictEqual(result, 'Use run_shell_command and read_file\n');
   });
 
+  it('substitutes grok tool profile (provisional D2 map)', () => {
+    const input = [
+      '{{BASH_TOOL}}',
+      '{{READ_TOOL}}',
+      '{{WRITE_TOOL}}',
+      '{{REPLACE_TOOL}}',
+      '{{GREP_TOOL}}',
+      '{{GLOB_TOOL}}',
+      '{{INVESTIGATOR_TOOL}}',
+      '{{ASK_USER_QUESTION_TOOL}}',
+    ].join('|');
+    const result = renderTemplate(input, {}, {}, 'grok').trim();
+    assert.strictEqual(
+      result,
+      'run_terminal_command|read_file|write|search_replace|grep|list_dir|spawn_subagent|ask_user_question',
+    );
+    assert.ok(!result.includes('Bash'), 'grok must not emit Claude Bash');
+    assert.ok(!result.includes('Read tool'), 'grok must not emit Claude Read tool');
+  });
+
+  it('substitutes codex tool profile without Claude default names', () => {
+    const input = 'Use {{BASH_TOOL}} and {{READ_TOOL}} then {{WRITE_TOOL}}/{{REPLACE_TOOL}}';
+    const result = renderTemplate(input, {}, {}, 'codex');
+    assert.strictEqual(result, 'Use shell and read_file then apply_patch/apply_patch\n');
+    assert.ok(!result.includes('Bash'), 'codex must not emit Bash');
+    assert.ok(!result.includes('Read tool'), 'codex must not emit Read tool');
+  });
+
+  it('substitutes ASSETS_PATH for grok plugin package', () => {
+    const result = renderTemplate('asset at {{ASSETS_PATH}}/foo.md', {}, {}, 'grok');
+    assert.ok(
+      result.includes('asset at .grok/plugins/atomic-skills/_assets/foo.md'),
+      `expected plugin assets path, got: ${result}`,
+    );
+  });
+
   it('handles conditional IDE blocks', () => {
     const input = 'Common\n{{#if ide.gemini}}\nGemini only\n{{/if}}\n{{#if ide.claude-code}}\nClaude only\n{{/if}}';
 
@@ -110,7 +146,19 @@ describe('renderTemplate', () => {
       assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
     });
 
-    for (const ide of ['codex', 'opencode', 'github-copilot', 'generic']) {
+    it('grok → ask_user_question (native)', () => {
+      const out = renderTemplate(sample, {}, {}, 'grok');
+      assert.strictEqual(out, 'Use ask_user_question to ask the user.\n');
+    });
+
+    it('codex → no-native-tool string (Codex has no AskUserQuestion)', () => {
+      const out = renderTemplate(sample, {}, {}, 'codex');
+      assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
+      assert.ok(out.includes('ask the user via a multiple-choice prompt'));
+      assert.ok(!out.includes('Bash'));
+    });
+
+    for (const ide of ['opencode', 'github-copilot', 'generic']) {
       it(`${ide} → no-native-tool string (covers ELSE branch)`, () => {
         const out = renderTemplate(sample, {}, {}, ide);
         assert.ok(!out.includes('{{ASK_USER_QUESTION_TOOL}}'));
