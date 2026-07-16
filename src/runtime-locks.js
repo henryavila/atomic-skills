@@ -12,13 +12,13 @@
  */
 import {
   openSync, closeSync, writeSync, readFileSync, unlinkSync, mkdirSync, constants,
+  existsSync, readdirSync, rmdirSync, statSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { existsSync } from 'node:fs';
 
 function resourceIdentity(kind, canonicalTarget) {
   return `v1\0${kind}\0${canonicalTarget}`;
@@ -153,6 +153,41 @@ export function withSharedRuntimeLocks({ basePath, fingerprint }, fn) {
     return fn();
   } finally {
     locks.release();
+    // Uninstall round-trips require $HOME baseline: drop empty lock files and
+    // the locks/ directory when no locks remain (journal ownership is gone).
+    pruneEmptyLockRoot(lockRoot);
+  }
+}
+
+/** Best-effort: remove free lock files and the locks directory if empty. */
+export function pruneEmptyLockRoot(lockRoot = join(homedir(), '.atomic-skills', 'locks')) {
+  try {
+    if (!existsSync(lockRoot)) return;
+    for (const name of readdirSync(lockRoot)) {
+      const abs = join(lockRoot, name);
+      try {
+        const st = statSync(abs);
+        if (st.isFile() && st.size === 0) unlinkSync(abs);
+      } catch {
+        // ignore races
+      }
+    }
+    // Remove any leftover lock files that are not held (best-effort: delete all
+    // after release — acquire holds only for the critical section above).
+    for (const name of readdirSync(lockRoot)) {
+      try {
+        unlinkSync(join(lockRoot, name));
+      } catch {
+        // still held or not a file — leave it
+      }
+    }
+    try {
+      rmdirSync(lockRoot);
+    } catch {
+      // non-empty or concurrent acquire
+    }
+  } catch {
+    // ignore
   }
 }
 
