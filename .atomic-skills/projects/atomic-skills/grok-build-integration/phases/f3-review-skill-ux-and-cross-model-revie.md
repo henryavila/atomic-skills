@@ -8,8 +8,8 @@ goal: review-code and review-plan expose provider modes; product cadence uses
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:46:44.000Z
-lastUpdated: 2026-07-16T14:46:44.000Z
-nextAction: "Start T-001: review-code and review-plan modes"
+lastUpdated: 2026-07-16T15:20:00.000Z
+nextAction: "Start T-002: Rename CODEX REVIEW to CROSS-MODEL REVIEW"
 parentPlan: grok-build-integration
 phaseId: F3
 businessIntent:
@@ -24,11 +24,11 @@ businessIntent:
   outOfScope: external-both merge (F5), marketplace, Mode-2 Grok execution.
   doneWhen: "F3 gates green: validate-skills, no CODEX REVIEW product strings,
     provider field round-trip."
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 1
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -80,6 +80,14 @@ tasks:
       kind: shell
       command: npm run validate-skills && node --test tests/skill-byte-budget.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T15:20:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: validate-skills ✓ All 15 skills valid; skill-byte-budget 8 pass
+        (review-code 18502/20000, review-plan 23589/24000); install.test.js
+        footprints +1 for review-mode-ux.md
     outputs:
       - kind: file
         path: skills/core/review-code.md
@@ -88,9 +96,14 @@ tasks:
       - kind: file
         path: docs/kb/cross-model-review-design.md
       - kind: file
+        path: skills/shared/codex-bridge-assets/review-mode-ux.md
+      - kind: file
+        path: tests/install.test.js
+      - kind: file
         path: tests/skill-byte-budget.test.js
-    status: pending
-    lastUpdated: 2026-07-16T14:46:44.000Z
+    status: done
+    lastUpdated: 2026-07-16T15:20:00.000Z
+    closedAt: 2026-07-16T15:20:00.000Z
   - id: T-002
     title: Rename CODEX REVIEW to CROSS-MODEL REVIEW
     description: Update project-drift, project-view, project-verify, last-review
@@ -157,4 +170,6 @@ current: true
 # F3 initiative
 
 ## Session handoff
-- **Single nextAction:** Start T-001
+- **Narrative:** T-001 done — multi-provider modes + host-aware picker in
+  review-code/plan via shared review-mode-ux.md.
+- **Single nextAction:** Start T-002 — rename CODEX REVIEW → CROSS-MODEL REVIEW
