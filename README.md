@@ -17,7 +17,7 @@ AI agents skip steps, cut corners, and ignore what they promised two messages ag
 - **The agent follows through.** Iron Laws and HARD-GATEs make skipping steps *impossible*, not merely discouraged — no fix without a root cause, no "done" without a fresh verification, no push with a secret in the diff.
 - **One job per skill.** 14 small, composable skills — diagnose a bug, review a diff, drive a plan to done — with no coupling between them. Reach for the one that matches today's problem.
 - **Evidence over vibes.** Every claim cites `file:line` or real tool output; every gate closes against proof, not the agent's say-so.
-- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body runs correctly in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, and GitHub Copilot.
+- **Native in the agent you already use.** A polyglot layer rewrites tool names per IDE, so the *same* skill body runs correctly in Claude Code, Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot, and Grok Build.
 - **60-second install, zero config.** No API keys for the core skills; the installer detects your IDE(s) and writes the command files in place.
 
 > **Where to next:** skim the [14 skills →](#the-skills) · understand the [approach →](#the-atomic-approach) · or just [install →](#quick-start).
@@ -444,7 +444,7 @@ Atomic Skills uses a polyglot rendering layer that detects your agent and rewrit
 | Codex | `codex` | `.agents/skills/atomic-skills/` | Markdown |
 | OpenCode | `opencode` | `.opencode/skills/atomic-skills/` | Markdown |
 | GitHub Copilot | `github-copilot` | `.github/skills/atomic-skills/` | Markdown |
-| Grok Build | `grok` | `.grok/plugins/atomic-skills/skills/atomic-skills/` | Markdown |
+| Grok Build | `grok` | `.grok/plugins/atomic-skills/skills/` | Markdown |
 [IDES_TABLE_END]: #
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).

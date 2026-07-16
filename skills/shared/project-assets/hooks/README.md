@@ -28,6 +28,8 @@ Skill installation and project-hook setup are separate contracts. This README de
 
 Grok Soft ships with the plugin package on install (`hooks/hooks.json`). Strict adds a `Stop` entry (merge-only) and copies `stop.sh`. Auto-update SessionStart lives in a separate user file under `.grok/hooks/atomic-skills-auto-update.json` and must not be confused with project Soft/Strict.
 
+**Trust / fail-open (Grok Build):** folder trust and hooks-trust are host concerns. When the project plugin is present but untrusted, Soft hooks simply do not run (fail-open — no SessionStart digest, no PreToolUse gate). That is not an install failure. See `docs/kb/grok-build-compatibility.md` §7.
+
 ## SessionStart v2 — context layout
 
 The hook composes its `additionalContext` payload in this order, skipping any section whose source isn't present:

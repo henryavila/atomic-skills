@@ -112,11 +112,17 @@ describe('installSkills', () => {
       'must not create dual .grok/skills/atomic-skills tree',
     );
 
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
     const plugin = JSON.parse(
       readFileSync(join(tempDir, '.grok/plugins/atomic-skills/plugin.json'), 'utf8'),
     );
+    // Required plugin.json contract (Grok inspect / plugin list surface).
+    for (const key of ['name', 'version', 'description', 'skills', 'hooks']) {
+      assert.ok(Object.hasOwn(plugin, key), `plugin.json must declare ${key}`);
+    }
     assert.strictEqual(plugin.name, 'atomic-skills');
-    assert.ok(typeof plugin.version === 'string' && plugin.version.length > 0);
+    assert.strictEqual(plugin.version, pkg.version, 'plugin.json version must match package.json');
+    assert.ok(typeof plugin.description === 'string' && plugin.description.length > 0);
     assert.strictEqual(plugin.skills, './skills/');
     assert.strictEqual(plugin.hooks, './hooks/hooks.json');
 
