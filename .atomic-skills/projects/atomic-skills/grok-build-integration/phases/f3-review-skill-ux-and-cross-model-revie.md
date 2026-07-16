@@ -8,8 +8,8 @@ goal: review-code and review-plan expose provider modes; product cadence uses
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:46:44.000Z
-lastUpdated: 2026-07-16T15:20:00.000Z
-nextAction: "Start T-002: Rename CODEX REVIEW to CROSS-MODEL REVIEW"
+lastUpdated: 2026-07-16T15:35:00.000Z
+nextAction: "Start T-003: review-due and provider field persistence"
 parentPlan: grok-build-integration
 phaseId: F3
 businessIntent:
@@ -24,11 +24,11 @@ businessIntent:
   outOfScope: external-both merge (F5), marketplace, Mode-2 Grok execution.
   doneWhen: "F3 gates green: validate-skills, no CODEX REVIEW product strings,
     provider field round-trip."
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -118,6 +118,14 @@ tasks:
       kind: shell
       command: "! rg -n 'CODEX REVIEW' skills/shared/project-assets skills/core"
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T15:35:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: zero CODEX REVIEW in skills/shared/project-assets skills/core;
+        review-file-template provider + provider_version; INDEX Provider column
+        + migration note; last-review example includes provider enum
     outputs:
       - kind: file
         path: skills/shared/project-assets/project-drift.md
@@ -130,9 +138,10 @@ tasks:
       - kind: file
         path: skills/shared/codex-bridge-assets/index-row-template.txt
       - kind: file
-        path: meta/schemas if last-review is schema-backed
-    status: pending
-    lastUpdated: 2026-07-16T14:46:44.000Z
+        path: skills/core/project.md
+    status: done
+    lastUpdated: 2026-07-16T15:35:00.000Z
+    closedAt: 2026-07-16T15:35:00.000Z
   - id: T-003
     title: review-due and provider field persistence
     description: Replace hardcoded --mode=codex in project-create-plan and
@@ -170,6 +179,7 @@ current: true
 # F3 initiative
 
 ## Session handoff
-- **Narrative:** T-001 done — multi-provider modes + host-aware picker in
-  review-code/plan via shared review-mode-ux.md.
-- **Single nextAction:** Start T-002 — rename CODEX REVIEW → CROSS-MODEL REVIEW
+- **Narrative:** T-001+T-002 done — multi-provider modes; product label is
+  CROSS-MODEL REVIEW with provider field on review template/INDEX.
+- **Single nextAction:** Start T-003 — review-due host default + provider field
+  round-trip test
