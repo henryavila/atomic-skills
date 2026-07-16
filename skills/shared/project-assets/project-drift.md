@@ -153,44 +153,56 @@ If yellow or red, append to the same line: `→ run \`atomic-skills:project revi
 
 ### `review-due`
 
-On-demand command. Invokes `atomic-skills:review-code` with args = `<lastReviewedCommit>..HEAD --mode=codex` (or whole branch if last-review.json is absent), then updates `last-review.json` on completion.
+On-demand command. Invokes `atomic-skills:review-code` with args =
+`<lastReviewedCommit>..HEAD --mode=<host-external-default>` (or whole branch if
+last-review.json is absent), then updates `last-review.json` on completion.
+
+**Host external default** (never hardcode Codex-only): resolve host family via
+`src/cross-model-host-default.js` / `src/review-provider-field.js`
+`hostDefaultExternalMode(host)` — matrix: Grok host → `codex`; Codex host →
+`grok`; Claude/Cursor/unknown → `codex`. See
+`{{ASSETS_PATH}}/host-default-external.md`.
 
 Steps:
 
 1. Read `.atomic-skills/status/last-review.json`. If absent, set `<base>` to `main` (or whatever this repo's main branch is — auto-detect via `git symbolic-ref refs/remotes/origin/HEAD` falling back to `main`/`master`). Else set `<base>` to `lastReviewedCommit`.
 2. Compute `<range> = <base>..HEAD`. If `git diff --stat <range>` is empty, announce "No changes to review" and exit.
-3. Announce to user:
+3. Resolve `<externalMode> = hostDefaultExternalMode(hostFamily)` (`codex` or `grok`). Announce to user:
 
-   > Run cross-model adversarial review on `<range>` (`<N>` commits, `<L>` lines)? Cost: ~$0.50–$1.50, ~5–10 minutes. (y/N)
+   > Run CROSS-MODEL REVIEW on `<range>` (`<N>` commits, `<L>` lines) via host default external provider `<externalMode>`? Cost: ~$0.50–$1.50, ~5–10 minutes. (y/N)
 
-4. On `y`: invoke `atomic-skills:review-code` with args = `<range> --mode=codex` (skips the Step 0 picker and runs only the codex sub-flow). The skill produces a review file in `.atomic-skills/reviews/`.
+4. On `y`: invoke `atomic-skills:review-code` with args = `<range> --mode=<externalMode>` (skips the Step 0 picker; runs the external sealed-envelope for that provider). The skill produces a review file in `.atomic-skills/reviews/` with frontmatter `provider` + `provider_version` (via `buildProviderFields` — never `codex`/`grok` after same-family remap).
    - **Dedup (`review-dedup`, fail-para-RE-revisar):** the surface fingerprint is
      `commitSha` = HEAD of `<range>` + `patchId` = `git diff <range> | git patch-id
-     --stable`. `review-code`'s Step 0.5 already skips the **codex** pass when
-     `alreadyReviewed(content, { commitSha, patchId }, 'codex')` is true; `review-due`
-     may short-circuit the cost prompt of step 3 on the same positive proof and report
-     "already reviewed (codex)". Skip ONLY on positive proof — a pointer/absent/malformed
-     ledger reads as "nothing reviewed", so review RUNS (re-review on doubt). The dedup is
-     per mode: a `local` review never discharges the `codex` leg.
+     --stable`. `review-code`'s Step 0.5 skips the **external** pass when
+     `alreadyReviewed(content, { commitSha, patchId }, '<externalMode>')` is true;
+     `review-due` may short-circuit the cost prompt of step 3 on the same positive
+     proof and report "already reviewed (<externalMode>)". Skip ONLY on positive
+     proof — a pointer/absent/malformed ledger reads as "nothing reviewed", so review
+     RUNS. The dedup is per mode: a `local` review never discharges the external leg.
 5. On completion (review skill returned a verdict): update `last-review.json`. **Until the
    coordinated format flip lands** (see the ⚠️ note under "State file"), keep writing the
    LEGACY single-pointer shape (so the four pointer readers — CROSS-MODEL REVIEW line, this
    step's `<base>`, `phase-done`, `transitions` archive-gate — keep working):
    `{ schemaVersion, branch, lastReviewedCommit: <HEAD sha at review start>, lastReviewedAt,
-   reviewFile, verdict, counts }`. **Advance `lastReviewedCommit` (the green pointer) ONLY on a
-   CLEAN verdict (C-7 — the pointer means "reviewed AND clean up to here").** A `needs_changes`
-   verdict (or any non-zero blocker/critical count) MUST NOT stamp the reviewed commit green:
-   leave `lastReviewedCommit` at its PRIOR value (so the CROSS-MODEL REVIEW line keeps showing
+   reviewFile, provider, providerVersion, verdict, counts }` where `provider` /
+   `providerVersion` come from `buildProviderFields` / `parseProviderFields`
+   (`src/review-provider-field.js`; enum `codex|grok|local`). **Advance
+   `lastReviewedCommit` (the green pointer) ONLY on a CLEAN verdict that
+   `countsAsCrossModel` accepts (C-7 — pointer means "cross-model reviewed AND clean
+   up to here").** A `needs_changes` verdict, a `provider: local` / same-family remap, or
+   any non-zero blocker/critical count MUST NOT stamp the reviewed commit green: leave
+   `lastReviewedCommit` at its PRIOR value (so the CROSS-MODEL REVIEW line keeps showing
    "N commits behind / attention", not "up to date"), while still recording `lastReviewedAt`,
-   `reviewFile`, `verdict`, and `counts` for the audit trail. Otherwise the just-reviewed
+   `reviewFile`, `provider`, `verdict`, and `counts` for the audit trail. Otherwise the just-reviewed
    FAILING commit would read green until the next commit lands — the review-cadence signal
    lying about the exact commit it exists to judge. The clean-verdict path advances the pointer
    as before; after step 6's fixes create a new HEAD, the next `review-due` re-reviews it. **At the flip**, this single write switches to the
-   append-only ledger — `recordReview(content, { commitSha, patchId, mode: 'codex',
+   append-only ledger — `recordReview(content, { commitSha, patchId, mode: '<externalMode>',
    reviewedAt, reviewFile })` (`scripts/review-ledger.js`), prior records preserved
    byte-for-byte — IN LOCKSTEP with repointing the four readers to the ledger. The ledger
    record is the durable per-mode dedup proof; the pointer is the interim back-compat shape.
-6. Apply fixes for blocker/critical (`review-code` codex sub-flow already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
+6. Apply fixes for blocker/critical (`review-code` external sub-flow already does this triage). After fixes are committed, the next `review-due` invocation will see a new HEAD and the cycle repeats.
 
 ### `phase-done` integration
 
@@ -198,12 +210,16 @@ The `phase-done` flow (`{{ASSETS_PATH}}/project-transitions.md`) gains a new ste
 
 > Before archiving the phase initiative, check `.atomic-skills/status/last-review.json`. If `lastReviewedCommit` ≠ HEAD, announce to user:
 >
-> > Phase `<id>` is closing with `<N>` commits / `<L>` lines un-reviewed since last codex review. Run cross-model review against `<lastReviewedCommit>..HEAD` before archiving? (y/N)
+> > Phase `<id>` is closing with `<N>` commits / `<L>` lines un-reviewed since last CROSS-MODEL REVIEW. Run cross-model review against `<lastReviewedCommit>..HEAD` before archiving? (y/N)
 >
-> On `y`: invoke `atomic-skills:project review-due` (which delegates to `atomic-skills:review-code --mode=codex`). Apply blocker/critical fixes. After completion, proceed to archive.
-> On `n`: archive proceeds, but record `Codex review: SKIPPED at phase-done` in the archived initiative's `## Self-review against code-quality gates` block (alongside the existing G1-G6 entries).
+> On `y`: invoke `atomic-skills:project review-due` (delegates to
+> `atomic-skills:review-code --mode=<host-external-default>`). Apply blocker/critical
+> fixes. After completion, proceed to archive.
+> On `n`: archive proceeds, but record `CROSS-MODEL REVIEW: SKIPPED at phase-done` in the
+> archived initiative's `## Self-review against code-quality gates` block (alongside the
+> existing G1-G6 entries).
 
-This makes the codex review part of the natural phase-close ceremony rather than a separate ritual the user has to remember.
+This makes CROSS-MODEL REVIEW part of the natural phase-close ceremony rather than a separate ritual the user has to remember.
 
 ## `why` vs `scope-creep` vs `re-ratify` (when to use which)
 
