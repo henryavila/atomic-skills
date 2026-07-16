@@ -2,21 +2,28 @@
 /**
  * materialize-state.js — recoverable plan+initiative materialization primitive.
  *
- * Single authority for descriptor-only → initiative publish (F0/T-005 bootstrap).
+ * Single authority for descriptor-only → initiative publish (F0/T-005 bootstrap,
+ * F4/T-006 history reconcile + successor barrier).
  * Prepares both files in staging, validates the staged pair, persists a durable
  * marker with SHA-256 before/after digests, then renames initiative first and
  * plan last. Incomplete transactions recover via the marker before any
  * "initiative already exists" guard.
  *
  * API:
- *   materializePair({ planPath, initiativePath, planContent, initiativeContent, markerPath?, faultHooks? })
+ *   materializePair({ planPath, initiativePath, planContent, initiativeContent, markerPath?, faultHooks?, successorBarrier? })
  *   recoverMaterialize(markerPath)
  *   defaultMarkerPath(planPath)
+ *   buildHistoryReceipt(opts) / checkHistoryReceipt(path, opts) / classifyHistoryReconcile(...)
+ *   assertSuccessorBarrier({ plan, f4ReceiptPath, targetPhaseId, rootDir? })
  *
  * CLI:
  *   node scripts/materialize-state.js --plan <path> --initiative <path> \
  *     --plan-file <new-plan> --initiative-file <new-initiative>
  *   node scripts/materialize-state.js --recover [<marker-path>]
+ *   node scripts/materialize-state.js --check-history-receipt <receipt.json>
+ *   node scripts/materialize-state.js --write-history-receipt <receipt.json> [opts]
+ *   node scripts/materialize-state.js --require-f4-barrier --plan <plan.md> \
+ *     --target-phase <id> --receipt <receipt.json>
  */
 import {
   closeSync,
@@ -24,6 +31,7 @@ import {
   fsyncSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   renameSync,
   unlinkSync,
@@ -31,7 +39,7 @@ import {
   writeSync,
 } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from './validate-state.js';
 
@@ -39,6 +47,62 @@ const MARKER_SUFFIX = '.materialize-tx.json';
 const STAGE_SUFFIX = '.materialize-stage';
 const BEFORE_SUFFIX = '.materialize-before';
 const MARKER_VERSION = 1;
+const HISTORY_RECEIPT_SCHEMA = '1';
+const DEFAULT_F0_RECEIPT_REL =
+  'docs/audits/integrity-remediation-f0-reconciliation.json';
+const DEFAULT_BARRIER_PHASE = 'F4';
+const DEFAULT_BARRIER_GATE = 'F4-G3';
+
+/** Minimal completions.jsonl reader (avoids importing append-completion side paths). */
+function readCompletionLogLocal(root) {
+  const path = join(resolve(root), '.atomic-skills', 'analytics', 'completions.jsonl');
+  if (!existsSync(path)) return [];
+  try {
+    const raw = readFileSync(path, 'utf8');
+    if (!raw.trim()) return [];
+    const out = [];
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) out.push(obj);
+      } catch {
+        /* skip corrupt */
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function completionEventKeyLocal(entry) {
+  if (entry == null || typeof entry !== 'object') return null;
+  const { event, projectId, planSlug, phaseId } = entry;
+  if (![event, projectId, planSlug, phaseId].every((v) => typeof v === 'string' && v.trim())) {
+    return null;
+  }
+  if (event === 'task-done' && !(typeof entry.taskId === 'string' && entry.taskId.trim())) {
+    return null;
+  }
+  const taskPart = typeof entry.taskId === 'string' ? entry.taskId : '';
+  return `${event}\0${projectId}\0${planSlug}\0${phaseId}\0${taskPart}`;
+}
+
+function dedupeCompletionEventsLocal(records) {
+  if (!Array.isArray(records)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const rec of records) {
+    const key = completionEventKeyLocal(rec);
+    if (key != null) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(rec);
+  }
+  return out;
+}
 
 // ── pure helpers ────────────────────────────────────────────────────────────
 
@@ -290,6 +354,7 @@ function restoreOneSide(liveAbs, beforeBackup, beforeHash, afterHash) {
  * @param {string} opts.initiativeContent
  * @param {string} [opts.markerPath]
  * @param {object} [opts.faultHooks]
+ * @param {object} [opts.successorBarrier] when set, assertSuccessorBarrier runs first
  * @returns {{ ok: true, recovered?: boolean, idempotent?: boolean, txId?: string }}
  */
 export function materializePair(opts) {
@@ -299,6 +364,7 @@ export function materializePair(opts) {
     planContent,
     initiativeContent,
     faultHooks = {},
+    successorBarrier = null,
   } = opts ?? {};
 
   if (!planPath || !initiativePath) {
@@ -306,6 +372,10 @@ export function materializePair(opts) {
   }
   if (typeof planContent !== 'string' || typeof initiativeContent !== 'string') {
     throw new Error('materializePair requires planContent and initiativeContent strings');
+  }
+
+  if (successorBarrier) {
+    assertSuccessorBarrier(successorBarrier);
   }
 
   const planAbs = resolve(planPath);
@@ -426,6 +496,587 @@ export function materializePair(opts) {
   return { ok: true, recovered, txId };
 }
 
+// ── History reconcile (F4/T-006) ─────────────────────────────────────────────
+
+/**
+ * Stable JSON for content-addressed digests (sorted object keys, arrays keep order).
+ * Does NOT hash whole plan.md — callers pass a phase projection only.
+ */
+export function stableStringify(value) {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+}
+
+export function phaseDescriptorProjection(planFrontmatter, phaseId) {
+  const phases = Array.isArray(planFrontmatter?.phases) ? planFrontmatter.phases : [];
+  const phase = phases.find((p) => p && p.id === phaseId);
+  if (!phase) {
+    throw new Error(`history reconcile: plan has no phase ${phaseId}`);
+  }
+  return phase;
+}
+
+/** Digest of one phase descriptor only (never the whole plan.md). */
+export function hashPhaseDescriptor(planContent, phaseId) {
+  const parsed = parseFrontmatter(planContent);
+  if (parsed.error) {
+    throw new Error(`history reconcile: invalid plan frontmatter: ${parsed.error}`);
+  }
+  return sha256(stableStringify(phaseDescriptorProjection(parsed.frontmatter, phaseId)));
+}
+
+function relFromRoot(rootDir, absPath) {
+  const rel = relative(resolve(rootDir), resolve(absPath));
+  return rel.split(sep).join('/');
+}
+
+function fileEntry(rootDir, absPath) {
+  if (!existsSync(absPath)) {
+    throw new Error(`history reconcile: missing artifact ${absPath}`);
+  }
+  return {
+    path: relFromRoot(rootDir, absPath),
+    sha256: sha256(readFileSync(absPath)),
+  };
+}
+
+function resolvePlanTree({
+  rootDir,
+  projectId = 'atomic-skills',
+  planSlug = 'integrity-remediation',
+  planPath,
+}) {
+  const root = resolve(rootDir ?? process.cwd());
+  const planAbs = planPath
+    ? resolve(planPath)
+    : join(root, '.atomic-skills', 'projects', projectId, planSlug, 'plan.md');
+  const planDir = dirname(planAbs);
+  const phasesDir = join(planDir, 'phases');
+  return { root, planAbs, planDir, phasesDir, projectId, planSlug };
+}
+
+function gateEvidenceFromInitiative(initFm) {
+  const gates = Array.isArray(initFm?.exitGates) ? initFm.exitGates : [];
+  const out = {};
+  for (const gate of gates) {
+    if (!gate || typeof gate.id !== 'string') continue;
+    const evidence = gate.evidence && typeof gate.evidence === 'object' ? gate.evidence : {};
+    out[gate.id] = gate.status === 'met' && evidence.passed === true;
+  }
+  return out;
+}
+
+function collectCompletionSlice(root, { projectId, planSlug, phaseId }) {
+  const all = readCompletionLogLocal(root).filter(
+    (e) => e
+      && e.projectId === projectId
+      && e.planSlug === planSlug
+      && e.phaseId === phaseId,
+  );
+  const deduped = dedupeCompletionEventsLocal(all);
+  const taskIds = deduped
+    .filter((e) => e.event === 'task-done' && typeof e.taskId === 'string')
+    .map((e) => e.taskId)
+    .sort();
+  const phaseDone = deduped.some((e) => e.event === 'phase-done');
+  const keys = deduped.map((e) => completionEventKeyLocal(e)).filter(Boolean).sort();
+  return {
+    taskIds,
+    phaseDone,
+    keys,
+    rawCount: all.length,
+    uniqueCount: deduped.length,
+  };
+}
+
+function listExpectedSidecars({ phasesDir, creationGate, root }) {
+  const fromGate = Array.isArray(creationGate?.filesWritten)
+    ? creationGate.filesWritten.filter((p) => typeof p === 'string' && p.endsWith('.source.json'))
+    : [];
+  if (fromGate.length > 0) {
+    return fromGate.map((rel) => resolve(root, rel));
+  }
+  if (!existsSync(phasesDir)) return [];
+  return readdirSync(phasesDir)
+    .filter((name) => name.endsWith('.source.json'))
+    .sort()
+    .map((name) => join(phasesDir, name));
+}
+
+/**
+ * Collect live F0 projection artifacts (descriptor digest, initiative, sidecars,
+ * creation-gate, gate evidence, completion events). Never hashes whole plan.md.
+ *
+ * @returns {object} live projection used by build/check/classify
+ */
+export function collectHistoryLive(opts = {}) {
+  const {
+    phaseId = 'F0',
+    creationGatePath,
+    initiativePath,
+  } = opts;
+  const tree = resolvePlanTree(opts);
+  const { root, planAbs, phasesDir, projectId, planSlug } = tree;
+
+  if (!existsSync(planAbs)) {
+    throw new Error(`history reconcile: plan not found at ${planAbs}`);
+  }
+  const planContent = readFileSync(planAbs, 'utf8');
+  const planParsed = parseFrontmatter(planContent);
+  if (planParsed.error) {
+    throw new Error(`history reconcile: invalid plan: ${planParsed.error}`);
+  }
+  const phase = phaseDescriptorProjection(planParsed.frontmatter, phaseId);
+  const descriptorSha = sha256(stableStringify(phase));
+
+  const initAbs = initiativePath
+    ? resolve(initiativePath)
+    : join(phasesDir, `${phase.slug || phaseId.toLowerCase()}.md`);
+  // Prefer explicit path; fall back to slug-based F0 initiative name.
+  let initiativeAbs = initAbs;
+  if (!existsSync(initiativeAbs) && phase.slug) {
+    const alt = join(phasesDir, `${phase.slug}.md`);
+    if (existsSync(alt)) initiativeAbs = alt;
+  }
+  if (!existsSync(initiativeAbs)) {
+    // Scan phases for matching phaseId frontmatter.
+    if (existsSync(phasesDir)) {
+      for (const name of readdirSync(phasesDir)) {
+        if (!name.endsWith('.md') || name.endsWith('.source.json')) continue;
+        const candidate = join(phasesDir, name);
+        const p = parseFrontmatter(readFileSync(candidate, 'utf8'));
+        if (!p.error && p.frontmatter?.phaseId === phaseId) {
+          initiativeAbs = candidate;
+          break;
+        }
+      }
+    }
+  }
+  if (!existsSync(initiativeAbs)) {
+    throw new Error(`history reconcile: initiative for ${phaseId} not found under ${phasesDir}`);
+  }
+
+  const initParsed = parseFrontmatter(readFileSync(initiativeAbs, 'utf8'));
+  if (initParsed.error) {
+    throw new Error(`history reconcile: invalid initiative: ${initParsed.error}`);
+  }
+  if (initParsed.frontmatter.phaseId !== phaseId) {
+    throw new Error(
+      `history reconcile: initiative phaseId ${initParsed.frontmatter.phaseId} != ${phaseId}`,
+    );
+  }
+
+  const gatePath = creationGatePath
+    ? resolve(creationGatePath)
+    : join(root, '.atomic-skills', 'status', 'creation-gates', `${projectId}-${planSlug}.json`);
+  if (!existsSync(gatePath)) {
+    throw new Error(`history reconcile: creation-gate missing at ${gatePath}`);
+  }
+  let creationGate;
+  try {
+    creationGate = JSON.parse(readFileSync(gatePath, 'utf8'));
+  } catch (err) {
+    throw new Error(`history reconcile: corrupt creation-gate: ${err.message}`);
+  }
+
+  const sidecarPaths = listExpectedSidecars({ phasesDir, creationGate, root });
+  const sidecars = sidecarPaths.map((abs) => fileEntry(root, abs));
+  const completions = collectCompletionSlice(root, { projectId, planSlug, phaseId });
+  const gateEvidence = gateEvidenceFromInitiative(initParsed.frontmatter);
+
+  return {
+    root,
+    projectId,
+    planSlug,
+    phaseId,
+    planAbs,
+    descriptor: {
+      path: relFromRoot(root, planAbs),
+      projection: `phase:${phaseId}`,
+      sha256: descriptorSha,
+      status: phase.status ?? null,
+    },
+    initiative: fileEntry(root, initiativeAbs),
+    sidecars,
+    creationGate: fileEntry(root, gatePath),
+    gateEvidence,
+    completionEvents: {
+      taskIds: completions.taskIds,
+      phaseDone: completions.phaseDone,
+      keys: completions.keys,
+      rawCount: completions.rawCount,
+      uniqueCount: completions.uniqueCount,
+    },
+    initiativeStatus: initParsed.frontmatter.status ?? null,
+  };
+}
+
+/**
+ * Build a versioned F0 history reconciliation receipt from live artifacts.
+ */
+export function buildHistoryReceipt(opts = {}) {
+  const live = collectHistoryLive(opts);
+  const closeSha = opts.closeSha
+    ?? opts.closeCommit
+    ?? null;
+  if (!closeSha || typeof closeSha !== 'string' || !/^[0-9a-f]{7,40}$/i.test(closeSha)) {
+    throw new Error('buildHistoryReceipt requires closeSha (git SHA of F0 close)');
+  }
+  const classification = classifyHistoryReconcile({ live, receipt: null, mode: 'live-only' });
+  if (classification.classification === 'ambiguous') {
+    throw new Error(
+      `buildHistoryReceipt refuse: F0 projection ambiguous (${classification.reasons.join('; ')})`,
+    );
+  }
+
+  return {
+    schemaVersion: HISTORY_RECEIPT_SCHEMA,
+    planSlug: live.planSlug,
+    phaseId: live.phaseId,
+    closeSha,
+    generatedAt: opts.generatedAt ?? new Date().toISOString(),
+    reconciledCommit: opts.reconciledCommit ?? closeSha,
+    artifacts: {
+      descriptor: {
+        path: live.descriptor.path,
+        projection: live.descriptor.projection,
+        sha256: live.descriptor.sha256,
+      },
+      initiative: {
+        path: live.initiative.path,
+        sha256: live.initiative.sha256,
+      },
+      sidecars: live.sidecars.map((s) => ({ path: s.path, sha256: s.sha256 })),
+      creationGate: {
+        path: live.creationGate.path,
+        sha256: live.creationGate.sha256,
+      },
+      gateEvidence: { ...live.gateEvidence },
+      completionEvents: {
+        taskIds: [...live.completionEvents.taskIds],
+        phaseDone: live.completionEvents.phaseDone,
+        keys: [...live.completionEvents.keys],
+      },
+    },
+    status: 'reconciled',
+  };
+}
+
+/**
+ * Classify live F0 projection vs an optional receipt.
+ * - consistent: live matches receipt (or live-only is complete and coherent)
+ * - repairable: duplicate completion events / mild drift with unique logical identity
+ * - ambiguous: diverging hashes without unique repair key — fail closed, no writes
+ */
+export function classifyHistoryReconcile({ live, receipt = null, mode = 'vs-receipt' } = {}) {
+  const reasons = [];
+  if (!live) {
+    return { classification: 'ambiguous', reasons: ['missing live projection'], repairable: false };
+  }
+
+  // Live coherence checks (always).
+  if (live.initiativeStatus !== 'done' && live.descriptor?.status !== 'done') {
+    reasons.push(`F0 not terminal (initiative=${live.initiativeStatus}, descriptor=${live.descriptor?.status})`);
+  }
+  const ge = live.gateEvidence || {};
+  for (const [id, ok] of Object.entries(ge)) {
+    if (ok !== true) reasons.push(`gate evidence not met: ${id}`);
+  }
+  if (!live.completionEvents?.phaseDone) {
+    reasons.push('missing phase-done completion event');
+  }
+  if (!Array.isArray(live.completionEvents?.taskIds) || live.completionEvents.taskIds.length === 0) {
+    reasons.push('missing task-done completion events');
+  }
+
+  let duplicateCompletions = false;
+  if (
+    live.completionEvents
+    && live.completionEvents.rawCount > live.completionEvents.uniqueCount
+  ) {
+    duplicateCompletions = true;
+  }
+
+  if (mode === 'live-only' || !receipt) {
+    if (reasons.length > 0) {
+      return { classification: 'ambiguous', reasons, repairable: false };
+    }
+    if (duplicateCompletions) {
+      // Unique logical keys still present after dedupe → repairable (dedupe only).
+      return {
+        classification: 'repairable',
+        reasons: ['duplicate completion events with unique logical identity'],
+        repairable: true,
+      };
+    }
+    return { classification: 'consistent', reasons: [], repairable: false };
+  }
+
+  // Compare against receipt.
+  const art = receipt.artifacts || {};
+  const mismatches = [];
+
+  if (art.descriptor?.sha256 && art.descriptor.sha256 !== live.descriptor.sha256) {
+    mismatches.push('descriptor digest');
+  }
+  if (art.initiative?.sha256 && art.initiative.sha256 !== live.initiative.sha256) {
+    mismatches.push('initiative hash');
+  }
+  if (art.creationGate?.sha256 && art.creationGate.sha256 !== live.creationGate.sha256) {
+    mismatches.push('creation-gate hash');
+  }
+
+  const receiptSidecars = Array.isArray(art.sidecars) ? art.sidecars : [];
+  const liveByPath = new Map(live.sidecars.map((s) => [s.path, s.sha256]));
+  for (const s of receiptSidecars) {
+    if (!liveByPath.has(s.path)) mismatches.push(`missing sidecar ${s.path}`);
+    else if (liveByPath.get(s.path) !== s.sha256) mismatches.push(`sidecar hash ${s.path}`);
+  }
+
+  const receiptGates = art.gateEvidence || {};
+  for (const [id, expected] of Object.entries(receiptGates)) {
+    if (live.gateEvidence?.[id] !== expected) mismatches.push(`gateEvidence ${id}`);
+  }
+
+  const receiptTasks = Array.isArray(art.completionEvents?.taskIds)
+    ? [...art.completionEvents.taskIds].sort()
+    : [];
+  const liveTasks = [...(live.completionEvents?.taskIds || [])].sort();
+  if (JSON.stringify(receiptTasks) !== JSON.stringify(liveTasks)) {
+    mismatches.push('completion taskIds');
+  }
+  if (Boolean(art.completionEvents?.phaseDone) !== Boolean(live.completionEvents?.phaseDone)) {
+    mismatches.push('completion phaseDone');
+  }
+
+  if (mismatches.length === 0 && reasons.length === 0) {
+    if (duplicateCompletions) {
+      return {
+        classification: 'repairable',
+        reasons: ['duplicate completion events with unique logical identity'],
+        repairable: true,
+      };
+    }
+    return { classification: 'consistent', reasons: [], repairable: false };
+  }
+
+  // Repairable only when the sole drift is duplicate completions with unique keys
+  // matching the receipt's logical identity (closeSha provides the identity anchor).
+  const onlyDupes = mismatches.length === 0
+    && reasons.length === 0
+    && duplicateCompletions;
+  if (onlyDupes && receipt.closeSha) {
+    return {
+      classification: 'repairable',
+      reasons: ['duplicate completion events; unique keys match receipt close identity'],
+      repairable: true,
+    };
+  }
+
+  return {
+    classification: 'ambiguous',
+    reasons: [...reasons, ...mismatches.map((m) => `mismatch: ${m}`)],
+    repairable: false,
+  };
+}
+
+/**
+ * Validate a history receipt against the live tree.
+ * @returns {{ ok: true, classification: string, receipt: object, live: object }}
+ * @throws on missing/stale/ambiguous
+ */
+export function checkHistoryReceipt(receiptPath, opts = {}) {
+  const abs = resolve(receiptPath);
+  if (!existsSync(abs)) {
+    throw new Error(`history receipt missing: ${abs}`);
+  }
+  let receipt;
+  try {
+    receipt = JSON.parse(readFileSync(abs, 'utf8'));
+  } catch (err) {
+    throw new Error(`history receipt corrupt at ${abs}: ${err.message}`);
+  }
+  if (!receipt || receipt.schemaVersion !== HISTORY_RECEIPT_SCHEMA) {
+    throw new Error(`history receipt unsupported schemaVersion at ${abs}`);
+  }
+  if (receipt.status !== 'reconciled') {
+    throw new Error(`history receipt status is ${receipt.status}, expected reconciled`);
+  }
+  if (!receipt.closeSha || !/^[0-9a-f]{7,40}$/i.test(receipt.closeSha)) {
+    throw new Error('history receipt missing valid closeSha');
+  }
+
+  const live = collectHistoryLive({
+    rootDir: opts.rootDir ?? process.cwd(),
+    projectId: opts.projectId,
+    planSlug: receipt.planSlug ?? opts.planSlug,
+    phaseId: receipt.phaseId ?? opts.phaseId ?? 'F0',
+    planPath: opts.planPath,
+    initiativePath: opts.initiativePath,
+    creationGatePath: opts.creationGatePath,
+  });
+
+  const classification = classifyHistoryReconcile({ live, receipt, mode: 'vs-receipt' });
+  if (classification.classification === 'ambiguous') {
+    throw new Error(
+      `history receipt stale or ambiguous: ${classification.reasons.join('; ')}`,
+    );
+  }
+  // consistent and repairable both pass the check (repairable still authenticates).
+  return {
+    ok: true,
+    classification: classification.classification,
+    receipt,
+    live,
+  };
+}
+
+export function writeHistoryReceipt(receiptPath, opts = {}) {
+  const receipt = buildHistoryReceipt(opts);
+  const abs = resolve(receiptPath);
+  ensureDir(abs);
+  writeFileDurable(abs, `${JSON.stringify(receipt, null, 2)}\n`);
+  return { ok: true, path: abs, receipt };
+}
+
+// ── Successor barrier (F4-G3 non-deferrable) ─────────────────────────────────
+
+function parsePlanInput(plan) {
+  if (plan == null) return null;
+  if (typeof plan === 'string') {
+    const parsed = parseFrontmatter(plan);
+    if (parsed.error) throw new Error(`successor barrier: invalid plan: ${parsed.error}`);
+    return parsed.frontmatter;
+  }
+  if (typeof plan === 'object' && !Array.isArray(plan)) {
+    if (Array.isArray(plan.phases)) return plan;
+    if (plan.frontmatter && Array.isArray(plan.frontmatter.phases)) return plan.frontmatter;
+  }
+  throw new Error('successor barrier: plan must be frontmatter object or markdown content');
+}
+
+/** True when phaseId transitively depends on ancestorId via dependsOn[]. */
+export function phaseDependsOn(planFm, phaseId, ancestorId, seen = new Set()) {
+  if (!phaseId || phaseId === ancestorId) return false;
+  if (seen.has(phaseId)) return false;
+  seen.add(phaseId);
+  const phases = Array.isArray(planFm?.phases) ? planFm.phases : [];
+  const phase = phases.find((p) => p && p.id === phaseId);
+  if (!phase) return false;
+  const deps = Array.isArray(phase.dependsOn) ? phase.dependsOn : [];
+  if (deps.includes(ancestorId)) return true;
+  return deps.some((d) => phaseDependsOn(planFm, d, ancestorId, seen));
+}
+
+function exitGateStatus(planFm, phaseId, gateId) {
+  const phases = Array.isArray(planFm?.phases) ? planFm.phases : [];
+  const phase = phases.find((p) => p && p.id === phaseId);
+  if (!phase) return null;
+  const criteria = phase.exitGate?.criteria;
+  if (Array.isArray(criteria)) {
+    const gate = criteria.find((g) => g && g.id === gateId);
+    if (gate) return gate.status ?? 'pending';
+  }
+  if (Array.isArray(phase.exitGates)) {
+    const gate = phase.exitGates.find((g) => g && g.id === gateId);
+    if (gate) return gate.status ?? 'pending';
+  }
+  return null;
+}
+
+/**
+ * Refuse activation/materialization of any F4 successor when F4-G3 is not met
+ * or the F0 history receipt is missing/stale.
+ *
+ * @param {object} opts
+ * @param {object|string} opts.plan plan frontmatter or markdown
+ * @param {string} opts.f4ReceiptPath path to F0 reconciliation receipt (F4-G3 evidence)
+ * @param {string} opts.targetPhaseId phase being activated/materialized
+ * @param {string} [opts.rootDir]
+ * @param {string} [opts.barrierPhaseId='F4']
+ * @param {string} [opts.barrierGateId='F4-G3']
+ * @param {boolean} [opts.requireTerminal=true] F4 must be status done
+ * @returns {{ ok: true, skipped?: boolean, reason?: string, check?: object }}
+ */
+export function assertSuccessorBarrier(opts = {}) {
+  const {
+    plan,
+    planPath,
+    f4ReceiptPath,
+    targetPhaseId,
+    rootDir = process.cwd(),
+    barrierPhaseId = DEFAULT_BARRIER_PHASE,
+    barrierGateId = DEFAULT_BARRIER_GATE,
+    requireTerminal = true,
+  } = opts;
+
+  if (!targetPhaseId) {
+    throw new Error('assertSuccessorBarrier requires targetPhaseId');
+  }
+
+  let planFm = plan != null ? parsePlanInput(plan) : null;
+  if (!planFm && planPath) {
+    planFm = parsePlanInput(readFileSync(resolve(planPath), 'utf8'));
+  }
+  if (!planFm) {
+    throw new Error('assertSuccessorBarrier requires plan or planPath');
+  }
+
+  // Barrier only applies to successors of F4 (direct or transitive).
+  if (!phaseDependsOn(planFm, targetPhaseId, barrierPhaseId)) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: `${targetPhaseId} does not depend on ${barrierPhaseId}`,
+    };
+  }
+
+  const barrierPhase = (planFm.phases || []).find((p) => p && p.id === barrierPhaseId);
+  if (!barrierPhase) {
+    throw new Error(
+      `successor barrier: plan missing barrier phase ${barrierPhaseId} while materializing ${targetPhaseId}`,
+    );
+  }
+
+  if (requireTerminal && barrierPhase.status !== 'done') {
+    throw new Error(
+      `successor barrier: refuse ${targetPhaseId} — ${barrierPhaseId} status is ${barrierPhase.status ?? 'unknown'}, must be done (F4-G3 non-deferrable)`,
+    );
+  }
+
+  const gateStatus = exitGateStatus(planFm, barrierPhaseId, barrierGateId);
+  if (gateStatus !== 'met') {
+    throw new Error(
+      `successor barrier: refuse ${targetPhaseId} — ${barrierGateId} is ${gateStatus ?? 'missing'} (pending/failed/deferred cannot unlock successors)`,
+    );
+  }
+
+  const receiptPath = f4ReceiptPath
+    ?? join(rootDir, DEFAULT_F0_RECEIPT_REL);
+  if (!existsSync(resolve(receiptPath))) {
+    throw new Error(
+      `successor barrier: refuse ${targetPhaseId} — F4 close/history receipt missing at ${receiptPath}`,
+    );
+  }
+
+  let check;
+  try {
+    check = checkHistoryReceipt(receiptPath, { rootDir, planPath: planPath ?? undefined });
+  } catch (err) {
+    throw new Error(
+      `successor barrier: refuse ${targetPhaseId} — history receipt invalid/stale: ${err.message}`,
+    );
+  }
+
+  return { ok: true, skipped: false, check };
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
 function printUsage() {
@@ -433,6 +1084,11 @@ function printUsage() {
   node scripts/materialize-state.js --plan <path> --initiative <path> \\
     --plan-file <new-plan-content> --initiative-file <new-initiative-content>
   node scripts/materialize-state.js --recover [<marker-path>]
+  node scripts/materialize-state.js --check-history-receipt <receipt.json>
+  node scripts/materialize-state.js --write-history-receipt <receipt.json> \\
+    --close-sha <sha> [--plan <plan.md>] [--root <dir>]
+  node scripts/materialize-state.js --require-f4-barrier --plan <plan.md> \\
+    --target-phase <id> [--receipt <receipt.json>]
 `);
 }
 
@@ -448,7 +1104,21 @@ function parseArgs(argv) {
     else if (a === '--recover') {
       out.recover = true;
       if (argv[i + 1] && !argv[i + 1].startsWith('--')) out.marker = argv[++i];
-    } else if (a === '--help' || a === '-h') out.help = true;
+    } else if (a === '--check-history-receipt') {
+      out.checkHistoryReceipt = true;
+      out.receipt = argv[++i];
+    } else if (a === '--write-history-receipt') {
+      out.writeHistoryReceipt = true;
+      out.receipt = argv[++i];
+    } else if (a === '--require-f4-barrier') {
+      out.requireF4Barrier = true;
+    } else if (a === '--receipt') out.receipt = argv[++i];
+    else if (a === '--target-phase') out.targetPhase = argv[++i];
+    else if (a === '--close-sha') out.closeSha = argv[++i];
+    else if (a === '--root') out.root = argv[++i];
+    else if (a === '--project') out.projectId = argv[++i];
+    else if (a === '--plan-slug') out.planSlug = argv[++i];
+    else if (a === '--help' || a === '-h') out.help = true;
     else throw new Error(`unknown argument: ${a}`);
   }
   return out;
@@ -458,6 +1128,57 @@ function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   if (args.help) {
     printUsage();
+    return 0;
+  }
+  if (args.checkHistoryReceipt) {
+    if (!args.receipt) {
+      printUsage();
+      throw new Error('--check-history-receipt requires <receipt.json>');
+    }
+    const res = checkHistoryReceipt(args.receipt, {
+      rootDir: args.root ?? process.cwd(),
+      projectId: args.projectId,
+      planSlug: args.planSlug,
+      planPath: args.plan,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      classification: res.classification,
+      closeSha: res.receipt.closeSha,
+      status: res.receipt.status,
+    }));
+    return 0;
+  }
+  if (args.writeHistoryReceipt) {
+    if (!args.receipt) {
+      printUsage();
+      throw new Error('--write-history-receipt requires <receipt.json>');
+    }
+    if (!args.closeSha) {
+      throw new Error('--write-history-receipt requires --close-sha <sha>');
+    }
+    const res = writeHistoryReceipt(args.receipt, {
+      rootDir: args.root ?? process.cwd(),
+      projectId: args.projectId,
+      planSlug: args.planSlug,
+      planPath: args.plan,
+      closeSha: args.closeSha,
+    });
+    console.log(JSON.stringify({ ok: true, path: res.path, closeSha: res.receipt.closeSha }));
+    return 0;
+  }
+  if (args.requireF4Barrier) {
+    if (!args.plan || !args.targetPhase) {
+      printUsage();
+      throw new Error('--require-f4-barrier requires --plan and --target-phase');
+    }
+    const res = assertSuccessorBarrier({
+      planPath: args.plan,
+      targetPhaseId: args.targetPhase,
+      f4ReceiptPath: args.receipt,
+      rootDir: args.root ?? process.cwd(),
+    });
+    console.log(JSON.stringify(res));
     return 0;
   }
   if (args.recover) {

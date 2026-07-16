@@ -33,6 +33,35 @@ active.
 - A detector-backed gate result: `scripts/find-missing-business-intent.js` exits
   `0` before the command reports the phase as active.
 
+### F4-G3 non-deferrable successor barrier
+
+For plans that declare an F4 exit gate `F4-G3` (integrity-remediation and any
+plan that reuses the same barrier), **materializing or activating any phase that
+depends on F4** (direct or transitive — e.g. F3, then F1) **must** re-check:
+
+1. F4 is terminal (`status: done`) — defer/skip/status-edit of `F4-G3` is never
+   a close path (see `lifecycle-order-guard` + `lifecycle-gate-bypass` tests).
+2. `F4-G3` status is `met` on the plan descriptor.
+3. The versioned F0 history receipt is present and still matches live artifacts:
+
+   `docs/audits/integrity-remediation-f0-reconciliation.json`
+
+   Validated by:
+
+   `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/materialize-state.js" --check-history-receipt docs/audits/integrity-remediation-f0-reconciliation.json`
+
+   and enforced at publish time via:
+
+   `{{BASH_TOOL}} node ".../scripts/materialize-state.js" --require-f4-barrier --plan <plan.md> --target-phase <id> --receipt docs/audits/integrity-remediation-f0-reconciliation.json`
+
+   or by passing `successorBarrier` into `materializePair`.
+
+If the receipt is missing, stale (artifact hash drift), or F4-G3 is
+pending/failed/deferred, **refuse** — do not write the successor initiative.
+Ambiguous F0 history fails closed with zero repair writes; only uniquely
+repairable completion-event duplicates may classify as `repairable` while still
+authenticating the receipt.
+
 ## Required Flow
 
 The command's load-bearing order is fixed:
@@ -66,13 +95,18 @@ The command's load-bearing order is fixed:
    active phase, stop and route through `phase-done`, `switch`, or `phase-reopen`
    so the transition demotes/archives the old phase before materializing the
    target.
-5. If the phase initiative file already exists, stop: the phase is already
+5. **Successor barrier (F4-G3).** When the target phase depends on F4 (or any
+   plan-local barrier phase that reuses this receipt), run
+   `scripts/materialize-state.js --require-f4-barrier` (or pass `successorBarrier`
+   into the publish call in step 6). A non-zero exit is a hard stop — do not
+   collect businessIntent or write state.
+6. If the phase initiative file already exists, stop: the phase is already
    materialized. Do not overwrite it from the sidecar.
-6. Load the retained sidecar for the descriptor. Require
+7. Load the retained sidecar for the descriptor. Require
    `captureVersion: "0.1"` and require its `phaseId` to match the descriptor id.
    Treat malformed or missing sidecar data as a hard stop; do not re-parse the
    whole source markdown as a fallback.
-7. Run the phase-start lessons gate before activation:
+8. Run the phase-start lessons gate before activation:
    `{{BASH_TOOL}} node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/list-lessons.js" --project <project-id> --plan <plan-slug> --phase <phase-id>`.
    Apply, keep, stale, or reject every applicable lesson before proceeding, using
    the same disposition semantics as `project-create-initiative.md`.
