@@ -87,3 +87,8 @@
 | 2026-07-11 14:15 | [integrity-remediation](2026-07-11-1415-integrity-remediation.md) | plan | reject→resolved | 0B/2C/4M/0m/0n | 0d/5=/1+; 6/6 fixed + rechecked |
 | 2026-07-16 | integrity-remediation F0 (runtime closure + materialize bootstrap) | code (external adversarial) | PASS_WITH_FINDINGS | 0B/0C/3M/3m/2n | [2026-07-16-f0-integrity-remediation.md](./2026-07-16-f0-integrity-remediation.md) |
 | 2026-07-16 | integrity-remediation F4 (state authority + recoverable transitions) | code (external adversarial) | PASS_WITH_FINDINGS | 0B/0C/5M/2m/2n | [2026-07-16-f4-integrity-remediation.md](./2026-07-16-f4-integrity-remediation.md) |
+- 2026-07-16-f1-integrity-remediation.md — PASS_WITH_FINDINGS
+- 2026-07-16-f2-integrity-remediation.md — PASS
+- 2026-07-16-f3-integrity-remediation.md — PASS
+- 2026-07-16-f5-integrity-remediation.md — PASS
+- 2026-07-16-f6-integrity-remediation.md — PASS_WITH_FINDINGS
