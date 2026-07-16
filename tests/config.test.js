@@ -19,10 +19,10 @@ describe('IDE config', () => {
     ]);
   });
 
-  it('normalizes gemini+codex to gemini-commands+codex', () => {
+  it('keeps native gemini when codex is also selected (F5 — no rewrite)', () => {
     assert.deepStrictEqual(
       normalizeIDESelection(['claude-code', 'gemini', 'codex']),
-      ['claude-code', 'gemini-commands', 'codex']
+      ['claude-code', 'gemini', 'codex']
     );
   });
 
@@ -38,9 +38,9 @@ describe('IDE config', () => {
     assert.strictEqual(path, '.claude/commands/atomic-skills/fix.md');
   });
 
-  it('returns correct skill path for gemini skills IDE', () => {
+  it('returns correct skill path for gemini skills IDE (discovery depth)', () => {
     const path = getSkillPath('gemini', 'fix');
-    assert.strictEqual(path, '.gemini/skills/atomic-skills/fix/SKILL.md');
+    assert.strictEqual(path, '.gemini/skills/atomic-skills-fix/SKILL.md');
   });
 
   it('returns correct skill path for gemini toml commands', () => {
@@ -78,9 +78,12 @@ describe('IDE config', () => {
     assert.strictEqual(userIDEs.length, Object.keys(IDE_CONFIG).length);
   });
 
-  it('returns namespace root path for markdown IDEs', () => {
+  it('returns namespace root path for nested-namespace markdown IDEs', () => {
     assert.strictEqual(getNamespaceRootPath('cursor'), '.cursor/skills/atomic-skills/SKILL.md');
-    assert.strictEqual(getNamespaceRootPath('gemini'), '.gemini/skills/atomic-skills/SKILL.md');
+  });
+
+  it('returns null namespace root for gemini (flat discovery-depth layout)', () => {
+    assert.strictEqual(getNamespaceRootPath('gemini'), null);
   });
 
   it('returns null for non-markdown IDEs', () => {

@@ -13,12 +13,13 @@ Detect two independent axes: skill installation compatibility and project-hook s
 ### Skill installation host
 - `test -d .claude/` → Claude Code; skills path: `.claude/commands/atomic-skills/<skill>.md`
 - `test -d .cursor/` → Cursor; skills path: `.cursor/skills/atomic-skills/<skill>/SKILL.md`
-- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills/<skill>/SKILL.md`
+- `test -d .gemini/` → Gemini CLI; skills path: `.gemini/skills/atomic-skills-<skill>/SKILL.md` (first-level discovery depth — not nested under `atomic-skills/`)
 - `test -d .codex/ || test -d .agents/` → Codex; skills path: `.agents/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .opencode/` → OpenCode; skills path: `.opencode/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .github/` → GitHub Copilot; skills path: `.github/skills/atomic-skills/<skill>/SKILL.md`
 - `test -d .grok/` → Grok Build; skills path: `.grok/plugins/atomic-skills/skills/<skill>/SKILL.md` (plugin package only)
-- When Gemini CLI and Codex are both selected, Gemini command shims use `.gemini/commands/atomic-skills-<skill>.toml`
+- Native Gemini stays at `.gemini/skills/atomic-skills-<skill>/SKILL.md` even when Codex is also selected (no rewrite to commands)
+- Optional Gemini command adapters: `.gemini/commands/atomic-skills-<skill>.toml` (explicit `gemini-commands` profile only)
 - Otherwise → generic IDE; no host-specific skills path and no project-hook setup
 
 ### Project-hook setup eligibility

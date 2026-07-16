@@ -27,8 +27,11 @@ function ideTargetDir(ide) {
   // (`atomic-skills-X.toml`), so the directory itself is the literal `ide.dir`.
   // Plugin delivery (Grok): package root IS the namespace; skills land directly
   // under `ide.dir` (e.g. `.grok/plugins/atomic-skills/skills/<name>/SKILL.md`).
+  // Flat first-level dirs (Gemini discovery depth): `atomic-skills-<skill>/`
+  // under `ide.dir` — no nested namespace folder.
   // Every other markdown/command format nests under `<ide.dir>/<namespace>/`.
   if (ide.format === 'toml' || ide.delivery === 'plugin') return `${ide.dir}/`;
+  if (ide.namespaceRoot === false) return `${ide.dir}/${SKILL_NAMESPACE}-<skill>/`;
   return `${ide.dir}/${SKILL_NAMESPACE}/`;
 }
 

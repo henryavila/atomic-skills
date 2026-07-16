@@ -41,7 +41,10 @@ export const HOST_TOOL_PROFILES = {
     GREP_TOOL: 'grep_search',
     GLOB_TOOL: 'glob',
     INVESTIGATOR_TOOL: 'codebase_investigator',
-    ARG_VAR: '$ARGUMENTS',
+    // Gemini commands substitute {{args}}; $ARGUMENTS is Claude-only.
+    // Keeping the placeholder in the body also prevents Gemini's implicit
+    // append-args processor from duplicating user input.
+    ARG_VAR: '{{args}}',
     ASK_USER_QUESTION_TOOL:
       'ask the user via a multiple-choice prompt (no native tool — render the question + options in plain text)',
   },
@@ -179,8 +182,13 @@ export const IDE_CONFIG = {
     name: 'Gemini CLI (Skills)',
     dir: '.gemini/skills',
     format: 'markdown',
-    filePattern: (skillName) => posix.join(SKILL_NAMESPACE, skillName, 'SKILL.md'),
+    // Gemini discovers only `SKILL.md` and `*/SKILL.md` under ~/.gemini/skills
+    // (one-level depth). Nested `atomic-skills/<skill>/SKILL.md` is invisible
+    // to the scanner — install each skill as `atomic-skills-<skill>/SKILL.md`.
+    filePattern: (skillName) => posix.join(`${SKILL_NAMESPACE}-${skillName}`, 'SKILL.md'),
     supportsUserScope: true,
+    // Flat first-level dirs — no shared namespace root SKILL.md.
+    namespaceRoot: false,
   },
   'gemini-commands': {
     name: 'Gemini CLI (Commands)',
@@ -242,20 +250,25 @@ export const LEGACY_NAMESPACE_PATHS = [
     dir: '.claude/skills',
     reason: 'pre-1.x Claude Code skills directory (migrated to .claude/commands/)',
   },
+  {
+    dir: '.gemini/skills',
+    reason:
+      'pre-F5 Gemini nested layout `.gemini/skills/atomic-skills/<skill>/SKILL.md` (migrated to first-level `.gemini/skills/atomic-skills-<skill>/SKILL.md`)',
+  },
 ];
 
+/**
+ * Deduplicate IDE ids while preserving order.
+ * Native Gemini skills are the canonical Gemini contract (F5); selecting
+ * gemini+codex keeps both — it no longer rewrites gemini → gemini-commands.
+ * Users can still install `gemini-commands` explicitly for the optional
+ * TOML command adapters.
+ */
 export function normalizeIDESelection(ides) {
   const unique = [];
   for (const id of ides) {
     if (!unique.includes(id)) unique.push(id);
   }
-
-  if (unique.includes('gemini') && unique.includes('codex')) {
-    const result = [...unique];
-    result[result.indexOf('gemini')] = 'gemini-commands';
-    return result;
-  }
-
   return unique;
 }
 
@@ -303,5 +316,7 @@ export function getNamespaceRootPath(ideId) {
   if (ide.format !== 'markdown') return null;
   // Plugin package IS the namespace (plugin.json); no nested atomic-skills/SKILL.md.
   if (ide.delivery === 'plugin') return null;
+  // Flat first-level skill dirs (Gemini discovery depth) have no shared root.
+  if (ide.namespaceRoot === false) return null;
   return posix.join(ide.dir, SKILL_NAMESPACE, 'SKILL.md');
 }

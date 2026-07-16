@@ -26,7 +26,7 @@ const META_DIR = join(__dirname, '..', 'meta');
 const PUBLIC_HOST_SKILL_MATRIX = [
   { ideId: 'claude-code', skillPath: '.claude/commands/atomic-skills/fix.md' },
   { ideId: 'cursor', skillPath: '.cursor/skills/atomic-skills/fix/SKILL.md' },
-  { ideId: 'gemini', skillPath: '.gemini/skills/atomic-skills/fix/SKILL.md' },
+  { ideId: 'gemini', skillPath: '.gemini/skills/atomic-skills-fix/SKILL.md' },
   { ideId: 'codex', skillPath: '.agents/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'opencode', skillPath: '.opencode/skills/atomic-skills/fix/SKILL.md' },
   { ideId: 'github-copilot', skillPath: '.github/skills/atomic-skills/fix/SKILL.md' },
@@ -73,11 +73,13 @@ describe('installSkills', () => {
     const geminiFile = join(tempDir, '.gemini/commands/atomic-skills-fix.toml');
     assert.ok(existsSync(geminiFile));
     const content = readFileSync(geminiFile, 'utf8');
-    assert.ok(content.includes('description = "'));
-    assert.ok(content.includes('prompt = """'));
+    // Real TOML serializer may use single or double quotes — parse, don't string-match.
+    assert.ok(/description\s*=/.test(content));
+    assert.ok(/prompt\s*=/.test(content));
+    assert.ok(!content.includes('$ARGUMENTS'));
   });
 
-  it('creates markdown files for gemini skills', () => {
+  it('creates markdown files for gemini skills at discovery depth', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
@@ -86,11 +88,12 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const geminiFile = join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md');
+    const geminiFile = join(tempDir, '.gemini/skills/atomic-skills-fix/SKILL.md');
     assert.ok(existsSync(geminiFile));
     const content = readFileSync(geminiFile, 'utf8');
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes('name: fix'));
+    assert.ok(!existsSync(join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md')));
   });
 
   it('materializes Grok plugin package under .grok/plugins/atomic-skills only', () => {

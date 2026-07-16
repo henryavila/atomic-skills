@@ -9,8 +9,8 @@ This repository is optimized for Gemini CLI. Use this file for Gemini-specific b
 
 ## Skill Installation
 When installing skills for Gemini CLI, the installer (`npx @henryavila/atomic-skills install`) provides two profiles:
-1. `gemini`: Installs to `.gemini/skills/` (Markdown format). Recommended for complex skills.
-2. `gemini-commands`: Installs to `.gemini/commands/` (TOML format). Used for slash commands like `/as-fix`.
+1. `gemini` (canonical): Installs to `.gemini/skills/atomic-skills-<skill>/SKILL.md` (Markdown, first-level discovery depth). Dual selection with Codex keeps native skills — it does not rewrite to commands.
+2. `gemini-commands` (optional): Installs to `.gemini/commands/atomic-skills-<skill>.toml` (TOML with `{{args}}`).
 
 ## Standards & Constraints
 - **Evidence**: ALWAYS provide evidence (line numbers, tool output) for every claim.

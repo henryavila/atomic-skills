@@ -27,7 +27,7 @@ const HOST_HOOK_MATRIX = [
   {
     host: 'Gemini CLI',
     ideId: 'gemini',
-    skillPath: '.gemini/skills/atomic-skills/<skill>/SKILL.md',
+    skillPath: '.gemini/skills/atomic-skills-<skill>/SKILL.md',
     hookConfig: null,
   },
   {
@@ -285,7 +285,7 @@ describe('project skill (unified router + lazy assets)', () => {
   it('router renders for gemini with proper tool-name substitution', () => {
     install('en', ['gemini']);
     const content = readFileSync(
-      join(tempDir, '.gemini/skills/atomic-skills/project/SKILL.md'),
+      join(tempDir, '.gemini/skills/atomic-skills-project/SKILL.md'),
       'utf8'
     );
     assert.ok(content.includes('run_shell_command'), 'Gemini should get run_shell_command');
