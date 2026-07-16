@@ -7,8 +7,8 @@ summary: Reconcili a F0 e torna fechamento, eventos e materialização idempoten
 status: active
 branch: plan/integrity-remediation
 started: 2026-07-16T16:38:51.339Z
-lastUpdated: 2026-07-16T16:38:51.339Z
-nextAction: "Start F4/T-001: centralize identity, terminality, and uniqueness in state-invariants."
+lastUpdated: 2026-07-16T16:43:33.878Z
+nextAction: "Start F4/T-002: separate complete/ready/blocked in transition DAG"
 parentPlan: integrity-remediation
 phaseId: F4
 businessIntent:
@@ -17,11 +17,11 @@ businessIntent:
   rules: Fail closed em ambiguidade; sem defer/skip de exit gates; initiative ausente só válida para descriptor pending lazy; DAG por dependsOn não por ID numérico.
   outOfScope: Installer filesystem safety (F1), host contracts (F2), Gemini/Windows (F5), release matrix (F6).
   doneWhen: F4-G1..G3 verdes incluindo reconciliação F0 não-deferível e barreira de ativação de F3.
-tasksDone: 0
+tasksDone: 1
 tasksTotal: 8
 gatesMet: 0
 gatesTotal: 3
-weightDone: 0
+weightDone: 1
 weightTotal: 8
 exitGates:
   - id: F4-G1
@@ -59,8 +59,8 @@ tasks:
     summary: Centralizar identidade, terminalidade e unicidade
     weight: 1
     description: "Criar uma autoridade pura para join por project-plan-phase, status terminal e IDs únicos; preservar descriptor lazy válido e fornecer diagnóstico/migração conservadora com error codes estáveis para shapes legados. verified_by: `scripts/validate-state.js:398-605`, `scripts/lint-source.js:178-324`, `src/decompose.js:444-709`, `meta/schemas/plan.schema.json:202-262` e `projects/atomic-skills/integrity-remediation/design.md:210-224`."
-    status: pending
-    lastUpdated: 2026-07-16T16:38:51.339Z
+    status: done
+    lastUpdated: 2026-07-16T16:43:33.878Z
     scopeBoundary:
       - não ligar initiative apenas por slug, não exigir initiative de descriptor lazy válido, não tolerar gate pending em fase terminal, não aceitar IDs duplicados e não coagir estado legado contraditório
     acceptance:
@@ -94,6 +94,13 @@ tasks:
         path: scripts/migrate-state-integrity.js
       - kind: file
         path: tests/state-integrity-migration.test.js
+    closedAt: 2026-07-16T16:43:33.878Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T16:43:33.878Z
+      passed: true
+      exitCode: 0
+      outputSummary: "validate-state-integrity + migration + related: green (T-001 deliverable)"
   - id: T-002
     title: Separar complete, ready e blocked no grafo
     summary: Separar complete, ready e blocked no grafo
