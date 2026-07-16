@@ -9,8 +9,8 @@ goal: Rename or alias codex-bridge to cross-model-bridge with pluggable codex
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T14:29:05.000Z
-lastUpdated: 2026-07-16T14:32:48.000Z
-nextAction: "Start T-002: Grok provider preflight and invocation"
+lastUpdated: 2026-07-16T14:40:00.000Z
+nextAction: "Start T-003: Envelope orchestration + host matrix helper"
 parentPlan: grok-build-integration
 phaseId: F2
 businessIntent:
@@ -26,11 +26,11 @@ businessIntent:
   outOfScope: Marketplace publish, MCP project-state server, Mode-2 execution via
     Grok, auto-apply external findings without human triage.
   doneWhen: Phase F2 exit gates green with deterministic verifiers.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -120,8 +120,9 @@ tasks:
     description: Add providers/grok preflight-checks and invocation-canonical proven
       against installed grok CLI; portable timeout; read-only sandbox; capture
       output file; document locked flags.
-    status: pending
-    lastUpdated: 2026-07-16T14:29:05.000Z
+    status: done
+    lastUpdated: 2026-07-16T14:40:00.000Z
+    closedAt: 2026-07-16T14:40:00.000Z
     scopeBoundary:
       - do not implement external-both merge or rename CROSS-MODEL REVIEW
         product line in this task
@@ -136,15 +137,25 @@ tasks:
         && grep -E 'grok|sandbox|timeout'
         skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:40:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: invocation-canonical non-empty with grok|sandbox|timeout;
+        cross-model-grok-invocation.test.js 3 pass; live smoke grok 0.2.101
+        read-only + disallowed-tools → PONG; unauth GROK_HOME → Not signed in
     outputs:
       - kind: file
         path: skills/shared/codex-bridge-assets/providers/grok/preflight-checks.txt
       - kind: file
         path: skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
       - kind: file
-        path: tests/fixtures
+        path: tests/fixtures/cross-model-bridge/grok-invocation-required-flags.txt
       - kind: file
-        path: scripts or tests that smoke the invocation shape if present
+        path: tests/cross-model-grok-invocation.test.js
+      - kind: file
+        path: tests/install.test.js
   - id: T-003
     title: Envelope orchestration parameterized by provider and host matrix
     description: Update envelope-orchestration to bind provider preflight and
@@ -185,11 +196,11 @@ Initiative for phase **F2 — cross-model-bridge core (L7)**.
 
 ## Session handoff
 
-- **Narrative:** T-001 done. `cross-model-bridge` module + catalog; `codex-bridge`
-  alias; assets stay under `codex-bridge-assets/` with `providers/codex/`; asset
-  install is recursive; envelope skeleton has `«PROVIDER»` slot.
-- **Decision log:** Keep on-disk `codex-bridge-assets/` (install owner key) rather
-  than rename tree; logical name is cross-model-bridge. Root preflight/invocation
-  retained as Codex legacy paths; provider leaves are canonical for new orchestration.
-- **Single nextAction:** Start T-002 — Grok provider preflight + invocation.
-- **Uncommitted changes:** none after T-001 checkpoint.
+- **Narrative:** T-001+T-002 done. Grok provider leaves locked against
+  grok 0.2.101 (`--sandbox read-only`, portable timeout, `--prompt-file`,
+  stdout capture). Next: host matrix helper + host-default-external.md.
+- **Decision log:** Headless denylist uses `run_terminal_cmd` (docs); skill-body
+  BASH remains `run_terminal_command` (F0) — documented as possible divergence.
+  No `--yolo` for review. Auth probe message: `Not signed in` / device-code / XAI_API_KEY.
+- **Single nextAction:** Start T-003 — host-default + same-family helper.
+- **Uncommitted changes:** none after T-002 checkpoint.

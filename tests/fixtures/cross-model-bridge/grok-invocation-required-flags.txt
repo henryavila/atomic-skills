@@ -1,0 +1,12 @@
+# Required substrings that must appear in
+# skills/shared/codex-bridge-assets/providers/grok/invocation-canonical.txt
+# (one assertion line per token; used by tests/cross-model-grok-invocation.test.js)
+grok
+sandbox
+read-only
+timeout
+run_with_timeout
+prompt-file
+disallowed-tools
+no-memory
+OUTPUT_PATH

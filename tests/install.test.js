@@ -58,7 +58,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 74); // single IDE, no module: core skills + shared assets (incl. providers/codex leaves) + project-assets + hooks + design-brief-assets + namespace root + auto-update hook
+    assert.strictEqual(result.files.length, 76); // single IDE, no module: core skills + shared assets (providers/codex+grok) + project-assets + hooks + design-brief-assets + namespace root + auto-update hook
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -196,7 +196,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 75); // single IDE + 1 module skill: no-module count (74) + 1 enabled module skill
+    assert.strictEqual(result.files.length, 77); // single IDE + 1 module skill: no-module count (76) + 1 enabled module skill
   });
 
   it('substitutes memory_path variable', () => {
@@ -265,7 +265,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 147); // 2 IDEs (claude-code + gemini-commands) + recursive providers/codex leaves per IDE + one auto-update hook
+    assert.strictEqual(result.files.length, 151); // 2 IDEs (claude-code + gemini-commands) + recursive providers/{codex,grok} leaves per IDE + one auto-update hook
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -347,7 +347,7 @@ describe('installSkills', () => {
     });
 
     // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
-    assert.strictEqual(result.files.length, 74); // includes recursive providers/codex leaves under codex-bridge-assets
+    assert.strictEqual(result.files.length, 76); // includes recursive providers/{codex,grok} leaves under codex-bridge-assets
     assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -466,6 +466,10 @@ describe('installSkills', () => {
     assert.ok(
       existsSync(pjoin(assetsDir, 'providers', 'codex', 'preflight-checks.txt')),
       'providers/codex/preflight-checks.txt must be installed',
+    );
+    assert.ok(
+      existsSync(pjoin(assetsDir, 'providers', 'grok', 'invocation-canonical.txt')),
+      'providers/grok/invocation-canonical.txt must be installed',
     );
     // Spot-check one from each origin
     assert.ok(files.includes('preflight-checks.txt'), 'must include codex-bridge asset');
