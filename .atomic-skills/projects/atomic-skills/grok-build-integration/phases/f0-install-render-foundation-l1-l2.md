@@ -7,8 +7,8 @@ goal: Grok is a first-class install IDE that materializes only the plugin
 status: active
 branch: plan/grok-build-integration
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T13:49:36.000Z
-nextAction: "Start T-002: Render tool profiles for grok and codex (src/render.js + tests/render.test.js + docs/kb/grok-build-compatibility.md)"
+lastUpdated: 2026-07-16T13:52:00.000Z
+nextAction: "Start T-003: Install materializes Grok plugin package (plugin.json + skills/_assets journal; round-trip; no .grok/skills/atomic-skills residue)"
 parentPlan: grok-build-integration
 phaseId: F0
 businessIntent:
@@ -31,11 +31,11 @@ businessIntent:
   doneWhen: F0 install+render plugin tree green with tool maps; F1 hooks
     Soft/Strict on Grok; F2 providers smoke; F3 CROSS-MODEL REVIEW UX; F4 plugin
     harden; F5 external-both + final suites green.
-tasksDone: 1
+tasksDone: 2
 tasksTotal: 3
 gatesMet: 0
 gatesTotal: 3
-weightDone: 1
+weightDone: 2
 weightTotal: 3
 exitGates:
   - id: G-1
@@ -111,8 +111,9 @@ tasks:
     description: Extend renderTemplate so ide.grok and ide.codex get non-Claude tool
       maps (Grok provisional map from design D2; Codex map appropriate to Codex
       CLI tools). Add snapshot or unit tests locking the map.
-    status: pending
-    lastUpdated: 2026-07-16T13:00:21.670Z
+    status: done
+    lastUpdated: 2026-07-16T13:52:00.000Z
+    closedAt: 2026-07-16T13:52:00.000Z
     scopeBoundary:
       - do not change skill source bodies except if a test fixture skill is
         required
@@ -124,6 +125,12 @@ tasks:
       kind: shell
       command: node --test tests/render.test.js
       expectExitCode: 0
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T13:52:00.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "node --test tests/render.test.js — 34 pass, 0 fail, duration_ms 85"
     outputs:
       - kind: file
         path: src/render.js
@@ -178,25 +185,27 @@ Initiative for phase **F0 — Install + render foundation (L1+L2)**.
 ## Decisions
 
 - T-001: plugin delivery places skills at `.grok/plugins/atomic-skills/skills/<name>/SKILL.md` with no nested `atomic-skills/` namespace segment; `getAssetsDir('grok')` → `.grok/plugins/atomic-skills/_assets`; `getNamespaceRootPath('grok')` is null (plugin.json is the package root).
+- T-002: Grok tool map = D2 provisional (`run_terminal_command`, `read_file`, `write`, `search_replace`, `grep`, `list_dir`, `spawn_subagent`, `ask_user_question`). Codex map uses `shell`/`read_file`/`apply_patch`/… (never Claude `Bash`/`Read tool`).
 
 ## Links
 
 - Design: `../design.md` (D2 L1+L2)
 - Plan: `../plan.md`
+- KB: `docs/kb/grok-build-compatibility.md`
 
 ## Session handoff
 
-- **Narrative:** F0 active on `plan/grok-build-integration`. T-001 closed: `grok` is a first-class IDE with plugin delivery in `src/config.js` + detect via `.grok`. Next is render tool maps (T-002).
-- **Decision log:** Plugin package is the only Grok skill root; no dual tree under `.grok/skills/atomic-skills`. Namespace root SKILL.md omitted for plugin delivery.
-- **Single nextAction:** Start T-002 — extend `src/render.js` with `ide.grok` and `ide.codex` tool maps; add `tests/render.test.js` locks; write `docs/kb/grok-build-compatibility.md`.
+- **Narrative:** F0 active. T-001 and T-002 closed (config+detect+render tool profiles). Remaining F0 work is T-003: materialize `plugin.json` + journal effects for the Grok plugin package and round-trip uninstall without dual `.grok/skills` tree.
+- **Decision log:** Plugin-only skill root; render profiles extracted via `toolProfileFor()`; Grok ASK is native `ask_user_question`; Codex ASK stays no-native descriptive string.
+- **Single nextAction:** Start T-003 — wire `src/providers/skills-file-set.js` / installer so `ides` including `grok` writes `plugin.json`, skills, `_assets`, hooks stub; assert zero residue under `.grok/skills/atomic-skills`; green `tests/install-uninstall-roundtrip.test.js`.
 - **Verbatim state:**
   - Initiative: `.atomic-skills/projects/atomic-skills/grok-build-integration/phases/f0-install-render-foundation-l1-l2.md`
-  - T-001 evidence: `node --test tests/config.test.js tests/install.test.js` → exit 0, 54 pass
-  - Impl commit: `2a06efd feat(T-001): add grok IDE_CONFIG and detect plugin delivery`
-- **Uncommitted changes:** plan state files + PROJECT-STATUS + review receipt (checkpoint next)
+  - T-001 evidence: `node --test tests/config.test.js tests/install.test.js` → exit 0, 54 pass · commit `2a06efd`
+  - T-002 evidence: `node --test tests/render.test.js` → exit 0, 34 pass · commit `e4858c9`
+- **Uncommitted changes:** initiative state close for T-002 (checkpoint next)
 
 ## Self-review against code-quality gates
 
-- G1 read-before-claim: applied — T-001 closed with verifier run evidence (54 pass)
+- G1 read-before-claim: applied — T-001/T-002 closed with verifier run evidence
 - G2 soft-language: applied — completion claims are passed:true evidence
 - G6 reference-or-strike: applied — handoff uses verbatim paths/commands
