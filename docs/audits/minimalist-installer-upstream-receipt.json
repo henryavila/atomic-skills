@@ -6,19 +6,24 @@
     "resolved": "https://registry.npmjs.org/@henryavila/minimalist-installer/-/minimalist-installer-0.1.0.tgz",
     "integrity": "sha512-XeZYy924Ps5jblp+YJuhBrXQlKXrPSKqwwozxVWheCLZadotqehv2nMoLB0Ferk45+ZfHtzYXjxuFbTRUUBYIw=="
   },
+  "integrated": {
+    "resolved": "git+ssh://git@github.com/henryavila/minimalist-installer.git#0d2e98a8525a53918a896fdd6f00275f4adad5d6",
+    "integrity": "sha512-YLgVEwx1KYuvDeaGfvWJmGYI4tMIURlmyuWfj+HUPsK9vpOM3n1rGDhByqtQ/f934H6/uie5mtjZz+Hb8eOgjQ==",
+    "note": "Consumer package-lock pins this git SHA (no npm publish). dist.integrity remains the 0.1.0 baseline tarball."
+  },
   "baseSha": "66c8e940812deaa0012debd713051cecd662acc5",
   "origin": "git@github.com:henryavila/minimalist-installer.git",
   "branch": "codex/integrity-remediation-v2",
   "worktree": "../minimalist-installer-integrity-remediation",
   "contentMatch": {
     "method": "byte-compare-src-tree",
-    "note": "Installed node_modules/@henryavila/minimalist-installer/src matches worktree src/ at baseSha (12 files, 0 mismatches)."
+    "note": "Vendored tests/fixtures/minimalist-installer-v0.1.0/package matches worktree src/ at baseSha."
   },
   "tasks": {
     "F1/T-001": {
       "status": "local",
       "resultSha": "66c8e940812deaa0012debd713051cecd662acc5",
-      "note": "Baseline fixed; RED repros captured against 0.1.0 tarball behavior."
+      "note": "Baseline fixed; RED repros against vendored 0.1.0 tarball."
     },
     "F1/T-002": {
       "status": "local",
@@ -37,15 +42,15 @@
     },
     "F1/T-005": {
       "status": "local",
-      "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
-      "note": "Consumer tests against worktree pack; runtime locks in registerInstall; package pin deferred to T-006."
+      "resultSha": "0d2e98a8525a53918a896fdd6f00275f4adad5d6",
+      "note": "Consumer data-safety + runtime lock tests; registerInstall uses shared locks."
     },
     "F1/T-006": {
       "status": "partial",
-      "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
-      "note": "Upstream branch pushed to origin. npm package not published; package-lock still on 0.1.0 tarball. See f1-upstream-limit.log."
+      "resultSha": "0d2e98a8525a53918a896fdd6f00275f4adad5d6",
+      "note": "Upstream branch on origin; consumer lock pins git SHA (no npm publish of new version)."
     }
   },
-  "resultSha": "6550f1170b5f7568f02ba1ca00984a3c06e4349f",
+  "resultSha": "0d2e98a8525a53918a896fdd6f00275f4adad5d6",
   "remotePublished": true
 }

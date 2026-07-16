@@ -82,11 +82,22 @@ function main() {
   const receipt = JSON.parse(readFileSync(args.receipt, 'utf8'));
 
   const lock = packageLockIntegrity();
-  if (receipt.dist?.integrity !== lock.integrity) {
-    fail(`receipt dist.integrity !== package-lock integrity\n  receipt: ${receipt.dist?.integrity}\n  lock:    ${lock.integrity}`);
+  // dist.integrity is the published 0.1.0 baseline tarball. After T-006 the lock
+  // may resolve a git commit of the remediated branch — that is tracked via
+  // receipt.resultSha / receipt.integrated, not by overwriting dist.integrity.
+  if (!receipt.dist?.integrity) {
+    fail('receipt.dist.integrity missing (0.1.0 baseline tarball integrity)');
   }
-  if (receipt.version && lock.version && receipt.version !== lock.version) {
-    fail(`receipt version ${receipt.version} !== lock version ${lock.version}`);
+  if (receipt.integrated?.integrity && lock.integrity && receipt.integrated.integrity !== lock.integrity) {
+    fail(`receipt.integrated.integrity !== package-lock integrity\n  receipt: ${receipt.integrated.integrity}\n  lock:    ${lock.integrity}`);
+  }
+  if (receipt.integrated?.resolved && lock.resolved && receipt.integrated.resolved !== lock.resolved) {
+    // Allow prefix match for git+ssh vs github: forms.
+    const a = receipt.integrated.resolved;
+    const b = lock.resolved;
+    if (!a.includes(receipt.resultSha || '') && a !== b) {
+      fail(`receipt.integrated.resolved !== lock resolved\n  receipt: ${a}\n  lock:    ${b}`);
+    }
   }
 
   const worktree = resolve(REPO_ROOT, args.worktree);

@@ -78,14 +78,16 @@ function localAcquireLocks(identities, { lockRoot, timeoutMs = 60_000, pollMs = 
         } catch (err) {
           if (err.code !== 'EEXIST') throw err;
           try {
-            const meta = JSON.parse(readFileSync(file, 'utf8'));
-            if (!isPidAlive(meta.pid)) {
-              unlinkSync(file);
-              continue;
+            const raw = readFileSync(file, 'utf8');
+            if (raw.trim().length > 0) {
+              const meta = JSON.parse(raw);
+              if (Number.isInteger(meta.pid) && !isPidAlive(meta.pid)) {
+                unlinkSync(file);
+                continue;
+              }
             }
           } catch {
-            try { unlinkSync(file); } catch { /* ignore */ }
-            continue;
+            // Unreadable/partial lock: wait; do not steal.
           }
           if (Date.now() - started > timeoutMs) {
             release();
@@ -93,8 +95,8 @@ function localAcquireLocks(identities, { lockRoot, timeoutMs = 60_000, pollMs = 
             e.code = 'LOCK_TIMEOUT';
             throw e;
           }
-          const end = Date.now() + pollMs;
-          while (Date.now() < end) { /* spin */ }
+          const waitBuf = new Int32Array(new SharedArrayBuffer(4));
+          Atomics.wait(waitBuf, 0, 0, pollMs);
         }
       }
     }

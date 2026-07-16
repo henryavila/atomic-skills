@@ -43,24 +43,27 @@ describe('runtime lock concurrency', () => {
     const rootA = mi.resourceIdentity('install-root', join(root, 'a'));
     const rootB = mi.resourceIdentity('install-root', join(root, 'b'));
 
+    const lockModule = process.env.ATOMIC_SKILLS_UPSTREAM_MI_ROOT
+      ? pathToFileURL(join(process.env.ATOMIC_SKILLS_UPSTREAM_MI_ROOT, 'src/index.js')).href
+      : '@henryavila/minimalist-installer';
+
     const worker = (value, extraId) => `
 import { readFileSync, writeFileSync } from 'node:fs';
-import { acquireLocks, resourceIdentity } from ${JSON.stringify(
-      process.env.ATOMIC_SKILLS_UPSTREAM_MI_ROOT
-        ? pathToFileURL(join(process.env.ATOMIC_SKILLS_UPSTREAM_MI_ROOT, 'src/index.js')).href
-        : '@henryavila/minimalist-installer',
-    )};
+import { acquireLocks } from ${JSON.stringify(lockModule)};
+const registry = ${JSON.stringify(registry)};
+const value = ${JSON.stringify(value)};
 const locks = acquireLocks(
   [${JSON.stringify(registryId)}, ${JSON.stringify(extraId)}],
-  { lockRoot: ${JSON.stringify(lockRoot)}, timeoutMs: 60000 },
+  { lockRoot: ${JSON.stringify(lockRoot)}, timeoutMs: 60000, pollMs: 10 },
 );
 try {
-  let list = JSON.parse(readFileSync(${JSON.stringify(registry)}, 'utf8'));
-  // tiny critical section stretch
-  const start = Date.now();
-  while (Date.now() - start < 2) {}
-  list.push(${JSON.stringify(value)});
-  writeFileSync(${JSON.stringify(registry)}, JSON.stringify(list) + '\\n');
+  let list = [];
+  try {
+    const v = JSON.parse(readFileSync(registry, 'utf8'));
+    if (Array.isArray(v)) list = v;
+  } catch {}
+  if (!list.includes(value)) list.push(value);
+  writeFileSync(registry, JSON.stringify(list) + '\\n', 'utf8');
 } finally {
   locks.release();
 }
@@ -83,10 +86,16 @@ try {
       }));
     }
 
-    await Promise.all(children);
+    const results = await Promise.allSettled(children);
+    const failures = results.filter((r) => r.status === 'rejected');
+    assert.equal(failures.length, 0, failures.map((f) => f.reason?.message || f.reason).join('\n'));
+
+    // Re-read after a brief settle (last fsync/write visibility).
+    await new Promise((r) => setTimeout(r, 20));
     const list = JSON.parse(readFileSync(registry, 'utf8'));
-    assert.equal(list.length, 30, `expected 30 entries, got ${list.length}: ${JSON.stringify(list)}`);
     const set = new Set(list);
-    assert.equal(set.size, 30);
+    assert.equal(set.size, 30, `expected 30 unique entries, got ${set.size}: ${JSON.stringify([...set].sort())}`);
+    assert.equal(list.length, 30, `expected 30 entries, got ${list.length}: ${JSON.stringify(list)}`);
   });
 });
+

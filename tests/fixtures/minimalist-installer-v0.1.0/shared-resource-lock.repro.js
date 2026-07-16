@@ -14,19 +14,14 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-function resolvePackageRoot(specifier = '@henryavila/minimalist-installer') {
-  const require = createRequire(import.meta.url);
-  let dir = dirname(require.resolve(specifier));
-  for (let i = 0; i < 6; i++) {
-    if (existsSync(join(dir, 'package.json'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  throw new Error(`Unable to resolve package root for ${specifier}`);
+// Always use the vendored 0.1.0 package for RED signatures (not the remediated pin).
+const FIXTURE_PKG = join(dirname(fileURLToPath(import.meta.url)), 'package');
+
+function resolvePackageRoot() {
+  return FIXTURE_PKG;
 }
 
 const SIGNATURE = 'SHARED_RESOURCE_LOST_UPDATE';
