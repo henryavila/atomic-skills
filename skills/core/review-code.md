@@ -143,22 +143,31 @@ END.
 ### Flow D — `mode == external-both`
 
 Argument & diff capture → Step 0 → route yields `externalProviders` (family-different
-legs only).
+legs only). **Collect both legs → merge → triage** (no triage/edit between legs).
 
-1. Run **External sealed-envelope sub-flow** for each remaining provider in order
-   (**Codex then Grok** when both remain) on the **same** `CAPTURED_DIFF` (no
-   re-capture between legs).
-2. **Merge findings for triage** with `src/external-both-merge.js`
-   (`mergeExternalBothFindings`) — contract:
-   - **Merge key:** `file:line` + normalized claim text (whitespace/case/trailing
-     punctuation collapsed).
-   - **Severity conflict:** keep the **higher** severity; `providers` lists both;
-     losing side recorded as `otherSeverity`.
-   - **Partial failure:** if one provider fails preflight/invoke, keep the other
-     side's findings, surface that provider's error, and set `partial: true`.
-     **Never** drop a successful provider's findings silently.
-3. Present the merged list (plus any `errors`) for **human triage**. Auto-apply
-   of external findings is a non-goal.
+1. **Collect.** For each remaining provider in order (**Codex then Grok** when
+   both remain), run the **External sealed-envelope sub-flow** on the **same**
+   `CAPTURED_DIFF` (no re-capture). Persist each leg's findings JSON (or error).
+   - Family-filtered providers: record `status: skipped` — do not invoke.
+   - If one leg fails preflight/invoke/validation: record
+     `{ status: failed, error: … }` and **continue the other leg**. Do **not**
+     abort the whole mode (unlike single-provider `codex`/`grok`/`both*`).
+   - Do **not** open triage, propose edits, or mutate sources between legs.
+2. **Merge.** Combine both payloads with the pure helper or CLI:
+   - Import / programmatic:
+     `mergeExternalBothFindings` from `src/external-both-merge.js` (package:
+     `node -e` / host import against
+     `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`).
+   - CLI (preferred at skill runtime):
+     ```bash
+     node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
+       <codex-findings.json|-|skip> <grok-findings.json|-|skip>
+     ```
+   Contract: merge key = `file:line` + normalized claim; higher severity wins
+   with dual provenance; status per provider is `succeeded|failed|skipped`
+   (absent = skipped); partial failure keeps the good half + surfaces `errors`.
+3. **Triage.** Present the **merged** list (plus `errors` / `providerStatus`)
+   for **human triage only**. Auto-apply of external findings is a non-goal.
 
 END.
 

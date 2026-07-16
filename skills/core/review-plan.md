@@ -198,11 +198,25 @@ END.
 
 ### Flow D — `mode == external-both`
 
-Run External sealed-envelope per remaining provider (**Codex then Grok**) on the
-same CLEANED plan. Merge with `src/external-both-merge.js` (merge key
-`file:line`+claim; higher severity wins; partial failure keeps good half —
-details: `docs/kb/cross-model-review-design.md` § external-both). Human triage
-only. END.
+**Collect-then-merge-then-triage** (same contract as `review-code` Flow D;
+details: `docs/kb/cross-model-review-design.md` § external-both +
+`{{ASSETS_PATH}}/envelope-orchestration.md` § external-both):
+
+1. **Collect.** Run External sealed-envelope per remaining provider
+   (**Codex then Grok**) on the same CLEANED plan. No triage/edit between legs.
+   Per-provider failure records `{ status: failed, error }` and **continues**
+   the other leg (single-provider modes still abort on failure).
+   Family-filtered legs: `status: skipped`.
+2. **Merge.**
+   ```bash
+   node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" \
+     <codex-findings.json|-|skip> <grok-findings.json|-|skip>
+   ```
+   Or `mergeExternalBothFindings` from
+   `"$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/src/external-both-merge.js"`.
+   Merge key `file:line`+claim; higher severity wins; status
+   `succeeded|failed|skipped` (absent = skipped); partial keeps good half.
+3. **Triage.** Human triage of the merged list only. END.
 
 ---
 

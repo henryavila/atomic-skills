@@ -57,20 +57,27 @@ Canonical UX + routing: `skills/shared/codex-bridge-assets/review-mode-ux.md`,
 
 ## external-both merge contract
 
-When `--mode=external-both`, run **Codex envelope then Grok envelope** on the
-**same cleaned artifact** (no re-capture between legs). Merge with the pure
-helper `src/external-both-merge.js` (`mergeExternalBothFindings`):
+When `--mode=external-both`, **collect** Codex envelope then Grok envelope on the
+**same cleaned artifact** (no re-capture, no triage/edit between legs). One
+provider failure records `status: failed` and **continues** the other leg
+(single-provider modes still abort). Then **merge**, then **human triage**.
+
+Helper: `src/external-both-merge.js` (`mergeExternalBothFindings`). CLI:
+`scripts/merge-external-both.js` (via package-root).
 
 | Rule | Behavior |
 |------|----------|
 | **Merge key** | `file:line` + normalized claim (collapse whitespace, lowercase, strip trailing `.!?`) |
 | **Severity conflict** | Keep the **higher** severity; `providers` lists both; losing severity stored as `otherSeverity` |
 | **Equal severity** | Keep Codex body as primary; still dual provenance |
+| **Provider status** | Explicit `succeeded \| failed \| skipped` per provider. Absent key = `skipped` (never treat absence as success). Derive `providersSucceeded` / `providersFailed` / `providersSkipped` from that map |
 | **Partial failure** | Keep the successful provider's findings; surface the failed provider error; `partial: true`. Never drop the good half silently |
 | **Both fail** | Empty findings + both errors; not partial (no successful half) |
-| **Triage** | Human only — auto-apply of external findings is a non-goal |
+| **Both / one skipped** | Skipped legs contribute no findings; not partial unless a sibling failed while another succeeded |
+| **Triage** | Only after merge — human only; auto-apply of external findings is a non-goal |
 
 Skill wiring: `skills/core/review-code.md` / `review-plan.md` Flow D;
+`skills/shared/codex-bridge-assets/envelope-orchestration.md` § external-both;
 `skills/shared/codex-bridge-assets/review-mode-ux.md`. Unit tests:
 `tests/external-both-merge.test.js`.
 

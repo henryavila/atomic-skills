@@ -9,11 +9,16 @@
  * - Order: Codex first, then Grok (caller responsibility for invocation).
  * - Merge key: `file:line` + normalized claim text.
  * - Severity conflict: keep the higher severity; provenance lists both.
+ * - Per-provider status is explicit: `succeeded` | `failed` | `skipped`.
+ *   Absent provider keys default to `skipped` (never "succeeded by omission").
  * - Partial failure: keep the successful provider's findings; surface the
  *   failed provider error; never drop the good half silently.
+ * - Collect-then-merge: callers must finish both legs (or skip) before triage.
  */
 
 /** @typedef {'blocker' | 'critical' | 'major' | 'minor' | 'nit'} Severity */
+
+/** @typedef {'succeeded' | 'failed' | 'skipped'} ProviderStatus */
 
 /** @type {readonly Severity[]} */
 export const SEVERITY_ORDER = Object.freeze([
@@ -42,6 +47,14 @@ const SEVERITY_RANK = Object.freeze(
  * @property {string} [impact]
  * @property {string} [recommendation]
  * @property {string} [confidence]
+ */
+
+/**
+ * @typedef {object} ProviderSide
+ * @property {ProviderStatus} [status] - explicit; inferred when omitted
+ * @property {FindingInput[]} [findings]
+ * @property {string|null} [error]
+ * @property {string} [reason] - optional skip/fail reason (surfaced in errors when failed)
  */
 
 /**
@@ -126,6 +139,60 @@ export function compareSeverity(a, b) {
 }
 
 /**
+ * Resolve explicit or inferred per-provider status.
+ *
+ * Rules:
+ * - Missing key / null side → `skipped` (never treat absence as success).
+ * - Explicit `status` ∈ {succeeded, failed, skipped} wins.
+ * - Else `error` text → `failed`.
+ * - Else key present → `succeeded` (findings may be empty).
+ *
+ * @param {object} input
+ * @param {ExternalProvider} provider
+ * @returns {{ status: ProviderStatus, findings: FindingInput[], error: string|null }}
+ */
+export function resolveProviderSide(input, provider) {
+  if (input == null || typeof input !== 'object' || !Object.hasOwn(input, provider)) {
+    return { status: 'skipped', findings: [], error: null };
+  }
+  const side = input[provider];
+  if (side == null || typeof side !== 'object') {
+    return { status: 'skipped', findings: [], error: null };
+  }
+
+  const rawStatus = side.status == null ? '' : String(side.status).trim().toLowerCase();
+  const findings = Array.isArray(side.findings) ? side.findings : [];
+  const errorFromField = hasText(side.error)
+    ? String(side.error)
+    : hasText(side.reason) && rawStatus === 'failed'
+      ? String(side.reason)
+      : null;
+
+  if (rawStatus === 'skipped' || rawStatus === 'failed' || rawStatus === 'succeeded') {
+    /** @type {ProviderStatus} */
+    const status = /** @type {ProviderStatus} */ (rawStatus);
+    if (status === 'skipped') {
+      return { status, findings: [], error: null };
+    }
+    if (status === 'failed') {
+      return {
+        status,
+        findings,
+        error: errorFromField ?? (hasText(side.reason) ? String(side.reason) : 'provider failed'),
+      };
+    }
+    // succeeded — keep optional error surface empty; findings as given
+    return { status, findings, error: null };
+  }
+
+  // Infer when status omitted.
+  if (errorFromField) {
+    return { status: 'failed', findings, error: errorFromField };
+  }
+  return { status: 'succeeded', findings, error: null };
+}
+
+/**
  * @param {FindingInput} finding
  * @param {ExternalProvider} provider
  * @returns {MergedFinding}
@@ -161,68 +228,76 @@ function toMerged(finding, provider) {
  * higher severity wins and `providers` lists both. Unknown severities rank
  * below known ones; equal rank keeps the Codex body as primary.
  *
+ * Provider participation uses explicit status (`succeeded` | `failed` |
+ * `skipped`). An omitted provider key is `skipped`, not succeeded. Findings
+ * from skipped providers are ignored. Failed providers still contribute any
+ * findings they produced (best-effort) while remaining in `providersFailed`.
+ *
  * @param {object} input
- * @param {{ findings?: FindingInput[], error?: string|null }} [input.codex]
- * @param {{ findings?: FindingInput[], error?: string|null }} [input.grok]
+ * @param {ProviderSide} [input.codex]
+ * @param {ProviderSide} [input.grok]
  * @returns {{
  *   findings: MergedFinding[],
  *   errors: { codex?: string, grok?: string },
  *   partial: boolean,
+ *   providerStatus: { codex: ProviderStatus, grok: ProviderStatus },
  *   providersSucceeded: ExternalProvider[],
  *   providersFailed: ExternalProvider[],
+ *   providersSkipped: ExternalProvider[],
  * }}
  */
 export function mergeExternalBothFindings(input = {}) {
-  const codex = input.codex ?? {};
-  const grok = input.grok ?? {};
-  const codexFindings = Array.isArray(codex.findings) ? codex.findings : [];
-  const grokFindings = Array.isArray(grok.findings) ? grok.findings : [];
-  const codexError = hasText(codex.error) ? String(codex.error) : null;
-  const grokError = hasText(grok.error) ? String(grok.error) : null;
+  const codexSide = resolveProviderSide(input, 'codex');
+  const grokSide = resolveProviderSide(input, 'grok');
 
   /** @type {Map<string, MergedFinding>} */
   const byKey = new Map();
 
-  for (const f of codexFindings) {
-    if (!f || typeof f !== 'object') continue;
-    const merged = toMerged(/** @type {FindingInput} */ (f), 'codex');
-    if (!merged.mergeKey || merged.mergeKey === ':::') continue;
-    byKey.set(merged.mergeKey, merged);
+  // Only merge findings from non-skipped legs (failed may still have partial output).
+  if (codexSide.status !== 'skipped') {
+    for (const f of codexSide.findings) {
+      if (!f || typeof f !== 'object') continue;
+      const merged = toMerged(/** @type {FindingInput} */ (f), 'codex');
+      if (!merged.mergeKey || merged.mergeKey === ':::') continue;
+      byKey.set(merged.mergeKey, merged);
+    }
   }
 
-  for (const f of grokFindings) {
-    if (!f || typeof f !== 'object') continue;
-    const incoming = toMerged(/** @type {FindingInput} */ (f), 'grok');
-    if (!incoming.mergeKey || incoming.mergeKey === ':::') continue;
-    const existing = byKey.get(incoming.mergeKey);
-    if (!existing) {
-      byKey.set(incoming.mergeKey, incoming);
-      continue;
-    }
-    // Same identity — dual provenance; higher severity wins body.
-    const cmp = compareSeverity(incoming.severity, existing.severity);
-    if (cmp > 0) {
-      // Grok higher — take Grok body, remember Codex severity if different.
-      const otherSeverity = existing.severity;
-      const next = {
-        ...incoming,
-        providers: uniqueProviders([...existing.providers, 'grok']),
-        primaryProvider: /** @type {ExternalProvider} */ ('grok'),
-      };
-      if (normalizeSeverity(otherSeverity) !== normalizeSeverity(incoming.severity)) {
-        next.otherSeverity = otherSeverity;
+  if (grokSide.status !== 'skipped') {
+    for (const f of grokSide.findings) {
+      if (!f || typeof f !== 'object') continue;
+      const incoming = toMerged(/** @type {FindingInput} */ (f), 'grok');
+      if (!incoming.mergeKey || incoming.mergeKey === ':::') continue;
+      const existing = byKey.get(incoming.mergeKey);
+      if (!existing) {
+        byKey.set(incoming.mergeKey, incoming);
+        continue;
       }
-      byKey.set(incoming.mergeKey, next);
-    } else {
-      // Codex wins body (higher or equal). Still dual provenance.
-      const next = {
-        ...existing,
-        providers: uniqueProviders([...existing.providers, 'grok']),
-      };
-      if (cmp < 0 && normalizeSeverity(incoming.severity) !== normalizeSeverity(existing.severity)) {
-        next.otherSeverity = incoming.severity;
+      // Same identity — dual provenance; higher severity wins body.
+      const cmp = compareSeverity(incoming.severity, existing.severity);
+      if (cmp > 0) {
+        // Grok higher — take Grok body, remember Codex severity if different.
+        const otherSeverity = existing.severity;
+        const next = {
+          ...incoming,
+          providers: uniqueProviders([...existing.providers, 'grok']),
+          primaryProvider: /** @type {ExternalProvider} */ ('grok'),
+        };
+        if (normalizeSeverity(otherSeverity) !== normalizeSeverity(incoming.severity)) {
+          next.otherSeverity = otherSeverity;
+        }
+        byKey.set(incoming.mergeKey, next);
+      } else {
+        // Codex wins body (higher or equal). Still dual provenance.
+        const next = {
+          ...existing,
+          providers: uniqueProviders([...existing.providers, 'grok']),
+        };
+        if (cmp < 0 && normalizeSeverity(incoming.severity) !== normalizeSeverity(existing.severity)) {
+          next.otherSeverity = incoming.severity;
+        }
+        byKey.set(incoming.mergeKey, next);
       }
-      byKey.set(incoming.mergeKey, next);
     }
   }
 
@@ -235,17 +310,28 @@ export function mergeExternalBothFindings(input = {}) {
 
   /** @type {{ codex?: string, grok?: string }} */
   const errors = {};
-  if (codexError) errors.codex = codexError;
-  if (grokError) errors.grok = grokError;
+  if (codexSide.error) errors.codex = codexSide.error;
+  if (grokSide.error) errors.grok = grokSide.error;
 
+  /** @type {{ codex: ProviderStatus, grok: ProviderStatus }} */
+  const providerStatus = {
+    codex: codexSide.status,
+    grok: grokSide.status,
+  };
+
+  /** @type {ExternalProvider[]} */
+  const providersSucceeded = [];
   /** @type {ExternalProvider[]} */
   const providersFailed = [];
   /** @type {ExternalProvider[]} */
-  const providersSucceeded = [];
-  if (codexError) providersFailed.push('codex');
-  else providersSucceeded.push('codex');
-  if (grokError) providersFailed.push('grok');
-  else providersSucceeded.push('grok');
+  const providersSkipped = [];
+
+  for (const p of /** @type {const} */ (['codex', 'grok'])) {
+    const st = providerStatus[p];
+    if (st === 'succeeded') providersSucceeded.push(p);
+    else if (st === 'failed') providersFailed.push(p);
+    else providersSkipped.push(p);
+  }
 
   const partial = providersFailed.length > 0 && providersSucceeded.length > 0;
 
@@ -253,8 +339,10 @@ export function mergeExternalBothFindings(input = {}) {
     findings,
     errors,
     partial,
+    providerStatus,
     providersSucceeded,
     providersFailed,
+    providersSkipped,
   };
 }
 

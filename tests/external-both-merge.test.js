@@ -1,13 +1,18 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   mergeExternalBothFindings,
   mergeKey,
   normalizeClaim,
   normalizeSeverity,
   compareSeverity,
+  resolveProviderSide,
   SEVERITY_ORDER,
 } from '../src/external-both-merge.js';
+import { mergeFromArgs, loadProviderArg } from '../scripts/merge-external-both.js';
 
 describe('normalizeClaim / mergeKey', () => {
   it('normalizes claim whitespace, case, and trailing punctuation', () => {
@@ -47,6 +52,50 @@ describe('severity ranking', () => {
   });
 });
 
+describe('resolveProviderSide', () => {
+  it('treats absent provider key as skipped', () => {
+    const side = resolveProviderSide({}, 'codex');
+    assert.equal(side.status, 'skipped');
+    assert.deepEqual(side.findings, []);
+    assert.equal(side.error, null);
+  });
+
+  it('treats null provider value as skipped', () => {
+    const side = resolveProviderSide({ codex: null }, 'codex');
+    assert.equal(side.status, 'skipped');
+  });
+
+  it('infers failed from error text when status omitted', () => {
+    const side = resolveProviderSide(
+      { codex: { findings: [], error: 'timeout' } },
+      'codex',
+    );
+    assert.equal(side.status, 'failed');
+    assert.equal(side.error, 'timeout');
+  });
+
+  it('infers succeeded when key present without error', () => {
+    const side = resolveProviderSide(
+      { codex: { findings: [{ file: 'a.js', line: 1, claim: 'x' }] } },
+      'codex',
+    );
+    assert.equal(side.status, 'succeeded');
+    assert.equal(side.findings.length, 1);
+  });
+
+  it('honours explicit status over inference', () => {
+    assert.equal(
+      resolveProviderSide({ codex: { status: 'skipped', findings: [{ claim: 'x' }] } }, 'codex')
+        .status,
+      'skipped',
+    );
+    assert.equal(
+      resolveProviderSide({ grok: { status: 'failed', reason: 'preflight' } }, 'grok').error,
+      'preflight',
+    );
+  });
+});
+
 describe('mergeExternalBothFindings', () => {
   it('unions distinct findings with single-provider provenance', () => {
     const result = mergeExternalBothFindings({
@@ -64,6 +113,10 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.findings.length, 2);
     assert.equal(result.partial, false);
     assert.deepEqual(result.errors, {});
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'succeeded' });
+    assert.deepEqual(result.providersSucceeded, ['codex', 'grok']);
+    assert.deepEqual(result.providersFailed, []);
+    assert.deepEqual(result.providersSkipped, []);
     const byClaim = Object.fromEntries(result.findings.map((f) => [f.claim, f]));
     assert.deepEqual(byClaim['Codex only'].providers, ['codex']);
     assert.deepEqual(byClaim['Grok only'].providers, ['grok']);
@@ -184,8 +237,10 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.partial, true);
     assert.equal(result.errors.codex, 'preflight: codex binary missing');
     assert.equal(result.errors.grok, undefined);
+    assert.deepEqual(result.providerStatus, { codex: 'failed', grok: 'succeeded' });
     assert.deepEqual(result.providersFailed, ['codex']);
     assert.deepEqual(result.providersSucceeded, ['grok']);
+    assert.deepEqual(result.providersSkipped, []);
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].claim, 'Grok saw this');
   });
@@ -206,6 +261,7 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.errors.grok, 'timeout after 600s');
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].primaryProvider, 'codex');
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'failed' });
   });
 
   it('both providers failing yields empty findings and both errors', () => {
@@ -217,8 +273,90 @@ describe('mergeExternalBothFindings', () => {
     assert.equal(result.partial, false); // no successful half
     assert.deepEqual(result.providersFailed, ['codex', 'grok']);
     assert.deepEqual(result.providersSucceeded, []);
+    assert.deepEqual(result.providersSkipped, []);
     assert.equal(result.errors.codex, 'codex down');
     assert.equal(result.errors.grok, 'grok down');
+    assert.deepEqual(result.providerStatus, { codex: 'failed', grok: 'failed' });
+  });
+
+  it('only codex run (grok skipped) keeps codex findings and does not mark partial', () => {
+    const result = mergeExternalBothFindings({
+      codex: {
+        status: 'succeeded',
+        findings: [
+          { file: 'a.js', line: 1, claim: 'Codex only leg', severity: 'major' },
+        ],
+      },
+      grok: { status: 'skipped', reason: 'same-family filtered on grok host' },
+    });
+    assert.equal(result.partial, false);
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped' });
+    assert.deepEqual(result.providersSucceeded, ['codex']);
+    assert.deepEqual(result.providersFailed, []);
+    assert.deepEqual(result.providersSkipped, ['grok']);
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.findings[0].claim, 'Codex only leg');
+    assert.deepEqual(result.errors, {});
+  });
+
+  it('absent provider key is skipped, not succeeded', () => {
+    // Regression: previously {}-default treated missing grok as succeeded.
+    const result = mergeExternalBothFindings({
+      codex: {
+        findings: [
+          { file: 'only.js', line: 1, claim: 'codex ran alone', severity: 'minor' },
+        ],
+      },
+      // grok intentionally omitted
+    });
+    assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped' });
+    assert.deepEqual(result.providersSucceeded, ['codex']);
+    assert.deepEqual(result.providersSkipped, ['grok']);
+    assert.deepEqual(result.providersFailed, []);
+    assert.equal(result.partial, false);
+    assert.equal(result.findings.length, 1);
+  });
+
+  it('both skipped yields empty findings and no partial', () => {
+    const result = mergeExternalBothFindings({
+      codex: { status: 'skipped' },
+      grok: { status: 'skipped' },
+    });
+    assert.equal(result.findings.length, 0);
+    assert.equal(result.partial, false);
+    assert.deepEqual(result.providersSucceeded, []);
+    assert.deepEqual(result.providersFailed, []);
+    assert.deepEqual(result.providersSkipped, ['codex', 'grok']);
+    assert.deepEqual(result.providerStatus, { codex: 'skipped', grok: 'skipped' });
+  });
+
+  it('empty input (both absent) is both skipped, not both succeeded', () => {
+    const result = mergeExternalBothFindings({});
+    assert.deepEqual(result.providerStatus, { codex: 'skipped', grok: 'skipped' });
+    assert.deepEqual(result.providersSucceeded, []);
+    assert.deepEqual(result.providersSkipped, ['codex', 'grok']);
+    assert.equal(result.partial, false);
+    assert.equal(result.findings.length, 0);
+  });
+
+  it('skipped provider findings are ignored even if present', () => {
+    const result = mergeExternalBothFindings({
+      codex: {
+        status: 'skipped',
+        findings: [
+          { file: 'x.js', line: 1, claim: 'should not appear', severity: 'blocker' },
+        ],
+      },
+      grok: {
+        status: 'succeeded',
+        findings: [
+          { file: 'y.js', line: 2, claim: 'grok only', severity: 'major' },
+        ],
+      },
+    });
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.findings[0].claim, 'grok only');
+    assert.deepEqual(result.providersSkipped, ['codex']);
   });
 
   it('sorts merged findings by severity then mergeKey', () => {
@@ -248,5 +386,59 @@ describe('mergeExternalBothFindings', () => {
     });
     assert.equal(result.findings.length, 1);
     assert.equal(result.findings[0].claim, 'ok');
+    // grok key present with empty findings → succeeded, not skipped
+    assert.equal(result.providerStatus.grok, 'succeeded');
+  });
+});
+
+describe('merge-external-both CLI helpers', () => {
+  it('loadProviderArg treats skip tokens as null (omitted)', () => {
+    assert.equal(loadProviderArg('-', 'codex'), null);
+    assert.equal(loadProviderArg('skip', 'grok'), null);
+    assert.equal(loadProviderArg('none', 'codex'), null);
+  });
+
+  it('mergeFromArgs merges two finding JSON files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ext-both-'));
+    try {
+      const codexPath = join(dir, 'codex.json');
+      const grokPath = join(dir, 'grok.json');
+      writeFileSync(
+        codexPath,
+        JSON.stringify({
+          findings: [{ file: 'a.js', line: 1, claim: 'from codex', severity: 'major' }],
+        }),
+      );
+      writeFileSync(
+        grokPath,
+        JSON.stringify([
+          { file: 'b.js', line: 2, claim: 'from grok', severity: 'minor' },
+        ]),
+      );
+      const result = mergeFromArgs([codexPath, grokPath]);
+      assert.equal(result.findings.length, 2);
+      assert.deepEqual(result.providersSucceeded, ['codex', 'grok']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('mergeFromArgs with skip marks provider skipped', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ext-both-skip-'));
+    try {
+      const codexPath = join(dir, 'codex.json');
+      writeFileSync(
+        codexPath,
+        JSON.stringify({
+          findings: [{ file: 'a.js', line: 1, claim: 'only codex', severity: 'major' }],
+        }),
+      );
+      const result = mergeFromArgs([codexPath, 'skip']);
+      assert.deepEqual(result.providerStatus, { codex: 'succeeded', grok: 'skipped' });
+      assert.equal(result.findings.length, 1);
+      assert.equal(result.partial, false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -26,11 +26,32 @@ two callers.
 ### external-both (multi-provider callers)
 
 When the caller mode is `external-both`, invoke this skeleton **once per
-provider** in order (Codex then Grok) on the same cleaned artifact, then merge
-finding lists with `src/external-both-merge.js` (`mergeExternalBothFindings`):
-merge key = `file:line` + normalized claim; severity conflict keeps higher
-severity with dual provenance; partial provider failure keeps the successful
-half and surfaces the error. Human triage only — never auto-apply.
+remaining provider** in order (Codex then Grok) on the **same** cleaned
+artifact. Family-filtered legs are recorded as `status: skipped` and are not
+invoked.
+
+**Collect-then-merge-then-triage (HARD):**
+
+1. **Run every remaining leg first.** Complete (or fail) the full two-pass
+   envelope for provider A, then provider B. Do **not** open triage, propose
+   edits, or mutate the artifact between legs.
+2. **Per-provider failure does NOT abort the other leg.** On preflight / invoke
+   / validation failure for one provider: record
+   `{ status: failed, error: <message>, findings: <any partial> }` and
+   **continue** to the next provider. Only single-provider modes
+   (`codex` / `grok` / the external leg of `both*`) still **ABORT** on that
+   provider's failure (existing steps 1/5–9 behaviour below).
+3. **Merge after both legs settle.** Feed both provider payloads into
+   `mergeExternalBothFindings` (`src/external-both-merge.js`), or via CLI:
+   `node "$(cat "$HOME/.atomic-skills/package-root" 2>/dev/null || echo .)/scripts/merge-external-both.js" <codex.json|-|skip> <grok.json|-|skip>`.
+4. **Triage only the merged list.** Human triage on the merged findings (+ any
+   `errors` / `providerStatus`). Auto-apply of external findings is a non-goal.
+
+**Merge contract (summary):** merge key = `file:line` + normalized claim;
+severity conflict keeps higher severity with dual provenance; per-provider
+status is explicit `succeeded | failed | skipped` (absent key = skipped, never
+"succeeded by omission"); partial failure keeps the successful half and
+surfaces the error.
 
 ## Artifact bindings (each caller supplies these)
 

@@ -72,7 +72,7 @@ Run `resolveReviewRoute({ hostFamily, mode, interactive, acceptSameFamilyAsLocal
 - `provider == local` (or mode `local`, or same-family remap) → local sealed path only.
 - External single provider (`codex` / `grok` modes, or the external leg of `both*`) → bind `«PROVIDER»` and run `envelope-orchestration.md`.
 - `both` / `both-codex` / `both-grok` with `includesLocal` → local phase first, then external on the **same** cleaned artifact / byte-identical `CAPTURED_DIFF` (no intent leakage into the external briefing).
-- `external-both` with `externalProviders: […]` → run envelope once per remaining provider in order (Codex then Grok when both remain). Merge with `mergeExternalBothFindings` (`src/external-both-merge.js`): identity = `file:line` + normalized claim; severity conflict keeps higher severity with dual provenance; partial provider failure keeps the successful half and surfaces the error. Human triage only — never auto-apply.
+- `external-both` with `externalProviders: […]` → **collect** envelope once per remaining provider in order (Codex then Grok when both remain; no triage between legs; one leg's failure does not abort the other). **Merge** with `mergeExternalBothFindings` / `scripts/merge-external-both.js`: identity = `file:line` + normalized claim; severity conflict keeps higher severity with dual provenance; per-provider status `succeeded|failed|skipped` (absent = skipped); partial failure keeps the successful half and surfaces the error. **Triage** the merged list only — never auto-apply.
 
 ## Non-interactive abort (no TTY, no `--mode=`)
 

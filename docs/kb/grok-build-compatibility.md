@@ -102,16 +102,45 @@ test -d .grok/plugins/atomic-skills/_assets
 # Dual tree must NOT exist
 test ! -e .grok/skills/atomic-skills
 
-# Required keys + version pin
+# Required keys + version pin against the *installed package*, not the
+# consumer repo's package.json (cwd may be any project that only hosts the plugin).
 node -e "
 const fs=require('fs');
+const path=require('path');
+const {createRequire}=require('module');
 const p=JSON.parse(fs.readFileSync('.grok/plugins/atomic-skills/plugin.json','utf8'));
-const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+function installedPkgVersion() {
+  // 1) Runtime marker written by install (points at package root)
+  try {
+    const root=fs.readFileSync(path.join(process.env.HOME||'','/.atomic-skills/package-root'),'utf8').trim();
+    if (root) {
+      const v=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')).version;
+      if (v) return v;
+    }
+  } catch {}
+  // 2) Resolvable published package
+  try {
+    const req=createRequire(path.join(process.cwd(),'package.json'));
+    const pkgPath=req.resolve('@henryavila/atomic-skills/package.json');
+    return JSON.parse(fs.readFileSync(pkgPath,'utf8')).version;
+  } catch {}
+  // 3) Dev checkout only: cwd IS the atomic-skills package
+  try {
+    const local=JSON.parse(fs.readFileSync('package.json','utf8'));
+    if (local.name==='@henryavila/atomic-skills') return local.version;
+  } catch {}
+  console.error('cannot resolve installed @henryavila/atomic-skills version');
+  process.exit(1);
+}
+const expected=installedPkgVersion();
 for (const k of ['name','version','description','skills','hooks']) {
   if (!(k in p)) { console.error('missing', k); process.exit(1); }
 }
 if (p.name !== 'atomic-skills') process.exit(1);
-if (p.version !== pkg.version) process.exit(1);
+if (p.version !== expected) {
+  console.error('version mismatch', p.version, '!=', expected);
+  process.exit(1);
+}
 if (p.skills !== './skills/' || p.hooks !== './hooks/hooks.json') process.exit(1);
 console.log('plugin.json OK', p.name, p.version);
 "
@@ -121,7 +150,9 @@ console.log('plugin.json OK', p.name, p.version);
 
 **Host UI (when available):** if Grok Build exposes a plugin list/inspect
 command in your installed CLI version, `atomic-skills` should appear with
-version matching `package.json`. The filesystem contract above is the
+version matching the **installed** package (`~/.atomic-skills/package-root` →
+`package.json`, or `@henryavila/atomic-skills/package.json` resolve) — not the
+consumer project's `package.json`. The filesystem contract above is the
 automated gate (`tests/install.test.js`); host UI listing is a manual smoke.
 
 ## 7. Trust, hooks-trust, and Soft fail-open
