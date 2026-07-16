@@ -4,11 +4,11 @@ slug: grok-build-integration-f1-grok-hooks-runtime-l3
 title: Grok hooks runtime (L3)
 goal: Soft and Strict project hooks plus auto-update register on Grok via plugin
   hooks and user auto-update hook file, with dual-vocabulary matchers.
-status: active
+status: done
 branch: plan/grok-build-integration
 started: 2026-07-16T14:07:05.000Z
-lastUpdated: 2026-07-16T14:19:25.000Z
-nextAction: "Run phase-done for F1 — execute exit-gate verifiers G-1..G-3, then review-code and archive"
+lastUpdated: 2026-07-16T14:29:05.000Z
+nextAction: null
 parentPlan: grok-build-integration
 phaseId: F1
 businessIntent:
@@ -29,7 +29,7 @@ businessIntent:
     Soft/Strict; session-start/pre-write/stop fixtures pass dual-vocab."
 tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 weightDone: 2
 weightTotal: 2
@@ -37,31 +37,57 @@ exitGates:
   - id: G-1
     description: Auto-update and project hook registration for Grok reverse cleanly
       in round-trip tests.
-    status: pending
+    status: met
+    metAt: 2026-07-16T14:29:05.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:29:05.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "phase-done gate re-verified: node --test
+        tests/install-uninstall-roundtrip.test.js"
     verifier:
       kind: shell
       command: node --test tests/install-uninstall-roundtrip.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/install-uninstall-roundtrip.test.js"
+    evidenceSummary: passed · 2026-07-16
   - id: G-2
     description: Docs and tests list Grok as a hook-capable host with Soft versus
       Strict semantics.
-    status: pending
+    status: met
+    metAt: 2026-07-16T14:29:05.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:29:05.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "phase-done gate re-verified: node --test tests/project.test.js"
     verifier:
       kind: shell
       command: node --test tests/project.test.js
       expectExitCode: 0
     verifierLabel: "shell: node --test tests/project.test.js"
+    evidenceSummary: passed · 2026-07-16
   - id: G-3
     description: Fixture-driven Soft and Strict hook dispatch tests pass with
       dual-vocab matchers.
-    status: pending
+    status: met
+    metAt: 2026-07-16T14:29:05.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-16T14:29:05.000Z
+      passed: true
+      exitCode: 0
+      outputSummary: "phase-done gate re-verified: bash
+        tests/hooks/session-start.test.sh && bash"
     verifier:
       kind: shell
       command: bash tests/hooks/session-start.test.sh && bash
         tests/hooks/pre-write.test.sh && bash tests/hooks/stop.test.sh
       expectExitCode: 0
     verifierLabel: "shell: bash tests/hooks/session-start.test.sh && bash tests/hooks/…"
+    evidenceSummary: passed · 2026-07-16
 stack:
   - id: 1
     title: Grok hooks runtime (L3)
@@ -92,8 +118,8 @@ tasks:
       verifiedAt: 2026-07-16T14:16:33.000Z
       passed: true
       exitCode: 0
-      outputSummary: node --test tests/install-uninstall-roundtrip.test.js — 12
-        pass, 0 fail, duration_ms 1237
+      outputSummary: node --test tests/install-uninstall-roundtrip.test.js — 12 pass,
+        0 fail, duration_ms 1237
     outputs:
       - kind: file
         path: src/runtime-layers/auto-update.js
@@ -126,8 +152,8 @@ tasks:
       verifiedAt: 2026-07-16T14:19:25.000Z
       passed: true
       exitCode: 0
-      outputSummary: "session-start 38 pass; pre-write 76 pass; stop 47 pass;
-        project.test.js 59 pass — all exit 0"
+      outputSummary: session-start 38 pass; pre-write 76 pass; stop 47 pass;
+        project.test.js 59 pass — all exit 0
     outputs:
       - kind: file
         path: skills/shared/project-assets/hooks/README.md
@@ -170,3 +196,7 @@ Initiative for phase **F1 — Grok hooks runtime (L3)**.
 - **Verbatim state:** plan currentPhase=F1; initiative f1-grok-hooks-runtime-l3.md;
   tasksDone=2/2; gatesMet=0/3 (gates owned by phase-done).
 - **Uncommitted changes:** none after T-002 checkpoint.
+
+## Phase-done
+
+- Gates met; Codex review `.atomic-skills/reviews/2026-07-16-1428-grok-build-integration-f1-codex.md` at `3f73ee5a155cda8d089cc1531c307376ea35385b`.

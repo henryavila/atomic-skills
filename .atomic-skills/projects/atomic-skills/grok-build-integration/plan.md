@@ -5,9 +5,9 @@ title: Grok Build native integration + cross-model review
 version: "1.0"
 status: active
 started: 2026-07-16T13:00:21.670Z
-lastUpdated: 2026-07-16T14:12:41.000Z
+lastUpdated: 2026-07-16T14:29:05.000Z
 branch: plan/grok-build-integration
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -163,7 +163,7 @@ phases:
         - id: G-1
           description: Auto-update and project hook registration for Grok reverse cleanly
             in round-trip tests.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/install-uninstall-roundtrip.test.js
@@ -171,7 +171,7 @@ phases:
         - id: G-2
           description: Docs and tests list Grok as a hook-capable host with Soft versus
             Strict semantics.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/project.test.js
@@ -179,15 +179,28 @@ phases:
         - id: G-3
           description: Fixture-driven tests fire Soft (SessionStart+PreToolUse) and Strict
             (+Stop) with dual-vocab write matchers for Grok tool names.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/project.test.js && bash
               tests/hooks/session-start.test.sh && bash tests/hooks/pre-write.test.sh
               && bash tests/hooks/stop.test.sh
             expectExitCode: 0
-    status: active
+    status: done
   - id: F2
+    businessIntent:
+      value: Atomic Skills installs and runs as a first-class Grok Build plugin (skills + hooks),
+        and adversarial review always uses a different model family than the host session so self-preference
+        bias is reduced.
+      workflow: "Install selects grok \u2192 plugin package \u2192 skills with correct tools \u2192\
+        \ host-aware external review (Codex/Grok) with sealed envelope \u2192 CROSS-MODEL REVIEW\
+        \ tracks cadence with provider field."
+      rules: "Plugin is the only Grok skill root; host is never the external reviewer without\
+        \ same-family confirm\u2192local; install/uninstall parity; tool vars not hardcoded Claude\
+        \ names."
+      outOfScope: Marketplace publish, MCP project-state server, Mode-2 execution via Grok, auto-apply
+        external findings without human triage.
+      doneWhen: Phase F2 exit gates green with deterministic verifiers.
     slug: grok-build-integration-f2-cross-model-bridge-core-l7
     title: cross-model-bridge core (L7)
     goal: Rename or alias codex-bridge to cross-model-bridge with pluggable codex
@@ -229,8 +242,7 @@ phases:
             kind: shell
             command: node --test tests/cross-model-host-default.test.js
             expectExitCode: 0
-    status: active
-  - id: F3
+    status: activeF3
     slug: grok-build-integration-f3-review-skill-ux-and-cross-model-revie
     title: Review skill UX and CROSS-MODEL REVIEW surfaces
     goal: review-code and review-plan expose provider modes; product cadence uses
@@ -268,7 +280,7 @@ phases:
               skills/shared/codex-bridge-assets/review-file-template.txt && node
               --test tests/review-provider-field.test.js
             expectExitCode: 0
-    status: pending
+    status: active
   - id: F4
     slug: grok-build-integration-f4-plugin-harden-l4
     title: Plugin harden (L4)
