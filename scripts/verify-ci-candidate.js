@@ -267,21 +267,20 @@ export function validateCiCandidate(receipt, opts = {}) {
   // when allowPartial is set — still surface them as warnings-as-errors only if not allowed.
   if (!matrix.ok) {
     if (receipt.status === 'partial' && opts.allowPartial) {
-      const onlyOsGaps = matrix.errors.every(
-        (e) => e.startsWith('missing OS coverage:') || e.startsWith('missing Node coverage:'),
-      );
-      // Allow OS gaps under partial; still fail on malformed jobs / failed status.
-      const hard = matrix.errors.filter(
-        (e) => !e.startsWith('missing OS coverage:') && !e.startsWith('missing Node coverage:'),
-      );
-      // Node must still be covered for the local platform when partial.
-      const nodeGaps = matrix.errors.filter((e) => e.startsWith('missing Node coverage:'));
-      // Under partial, require at least the current platform's node evidence.
+      const isCoverageGap = (e) =>
+        e.startsWith('missing OS coverage:')
+        || e.startsWith('missing Node coverage');
+      // Allow OS/Node axis gaps under partial when environment cannot run the
+      // full Cartesian matrix; still fail on malformed jobs / failed status.
+      const hard = matrix.errors.filter((e) => !isCoverageGap(e));
+      const nodeGaps = matrix.errors.filter((e) => e.startsWith('missing Node coverage'));
+      // Under partial, require at least one real recorded process.version.
       if (hard.length) errors.push(...hard);
       else if (nodeGaps.length && matrix.recordedVersions.length === 0) {
         errors.push(...nodeGaps);
       }
-      // OS gaps under partial are OK (documented in platformCoverage).
+      // OS/Node axis gaps under partial are OK when documented in platformCoverage
+      // and at least one real nodeVersion was recorded locally.
     } else {
       errors.push(...matrix.errors);
     }
