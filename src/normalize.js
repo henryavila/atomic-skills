@@ -20,9 +20,10 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { parseFrontmatter } from '../scripts/validate-state.js';
+import { normalizeKindFromPath } from './state-paths.js';
 
 const GATE_STATUSES = new Set(['pending', 'met', 'deferred']);
 const REF_KINDS = new Set(['file', 'url', 'repo-path', 'section']);
@@ -202,16 +203,8 @@ export function normalizeFile(filePath, { nowIso } = {}) {
   const parsed = parseFrontmatter(raw);
   if (parsed.error) return { filePath, changes: [], error: parsed.error };
 
-  // Kind from tree position — mirrors scripts/validate-state.js kindFromPath:
-  // flat checks first (plans/initiatives), then the nested projects/<id>/<slug>/
-  // layout (phases/*.md → initiative; plan.md under projects/ → plan).
-  const norm = resolve(filePath).split('/');
-  const baseName = norm[norm.length - 1];
-  const kind = norm.includes('plans') ? 'plan'
-    : norm.includes('initiatives') ? 'initiative'
-    : norm.includes('phases') ? 'initiative'
-    : (baseName === 'plan.md' && norm.includes('projects')) ? 'plan'
-    : undefined;
+  // Kind from tree position — portable (Windows + POSIX); see state-paths.js.
+  const kind = normalizeKindFromPath(filePath);
   const { entity, changes } = normalizeEntity(parsed.frontmatter, {
     nowIso: nowIso || new Date().toISOString(),
     kind,

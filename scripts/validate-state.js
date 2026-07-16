@@ -18,6 +18,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import Ajv from 'ajv/dist/2020.js';
+import {
+  kindFromPath as kindFromPathPortable,
+  projectIdFromPath as projectIdFromPathPortable,
+  nestedIdsFromPath,
+  pathSegments,
+} from '../src/state-paths.js';
 import { validateAppMap } from '../src/app-map/validate.js';
 import { validatePlanDependencyGraph } from '../src/plan-dependencies.js';
 import {
@@ -111,54 +117,21 @@ export function parseFrontmatter(raw) {
 }
 
 /**
- * Infer schema kind ('plan' | 'initiative') from a file path.
- * Returns null if the path is not under a recognised directory.
- *
- * Two layouts are recognised (R-XAGENT-08 / F-B3):
- *  - FLAT (legacy, live during the dogfood window):
- *      <root>/plans/<slug>.md            → 'plan'
- *      <root>/initiatives/<slug>.md      → 'initiative'
- *  - NESTED (projects/<id>/<slug>/, the migration target):
- *      <root>/projects/<id>/<slug>/plan.md           → 'plan'
- *      <root>/projects/<id>/<slug>/phases/f<N>-*.md  → 'initiative'
- *      (a phase initiative *is* an initiative — Decision #9; no 4th schema)
- *
- * The flat checks run FIRST and the loop returns at the segment closest to the
- * file, so adding the nested checks cannot change any flat-tree result.
+ * Infer schema kind ('plan' | 'initiative' | 'lesson') from a file path.
+ * Portable implementation lives in src/state-paths.js (Windows + POSIX).
+ * @param {string} filePath
+ * @returns {'plan'|'initiative'|'lesson'|null}
  */
 export function kindFromPath(filePath) {
-  const parts = resolve(filePath).split('/');
-  // NESTED layout plan FIRST: `plan.md` directly under a projects/<id>/<slug>/
-  // tree. Checked before the segment scan so a slug literally named `phases`,
-  // `plans`, or `initiatives` (the slug regex permits them) cannot shadow a real
-  // plan.md — e.g. projects/<id>/phases/plan.md is a plan, not an initiative.
-  if (basename(parts[parts.length - 1]) === 'plan.md' && parts.includes('projects')) {
-    return 'plan';
-  }
-  // Walk from the end: the immediate parent dir tells us the kind.
-  // tests/fixtures/state/plans/<slug>.md → 'plan'
-  // .atomic-skills/initiatives/<slug>.md → 'initiative'
-  for (let i = parts.length - 2; i >= 0; i--) {
-    if (parts[i] === 'plans') return 'plan';
-    if (parts[i] === 'initiatives') return 'initiative';
-    // NESTED layout: a `phases/` ancestor marks a phase initiative. Checked
-    // LAST in the loop body so a flat path with a `plans`/`initiatives`
-    // segment is unaffected (it short-circuits above).
-    if (parts[i] === 'phases') return 'initiative';
-    // Spec 2 / G1: a `lessons/` ancestor marks a per-initiative lessons file
-    // (projects/<id>/<slug>/lessons/<initiative-slug>.md).
-    if (parts[i] === 'lessons') return 'lesson';
-  }
-  return null;
+  return kindFromPathPortable(filePath);
 }
 
+/**
+ * @param {string} filePath
+ * @returns {string}
+ */
 export function projectIdFromPath(filePath) {
-  const parts = resolve(filePath).split('/');
-  const idx = parts.lastIndexOf('projects');
-  if (idx >= 0 && typeof parts[idx + 1] === 'string' && parts[idx + 1].length > 0) {
-    return parts[idx + 1];
-  }
-  return '__legacy';
+  return projectIdFromPathPortable(filePath);
 }
 
 /**
@@ -192,13 +165,6 @@ export function collectSidecars(args) {
     addFromDir(phasesDir, projectId, planSlug);
   };
 
-  const nestedIdsFromPath = (absPath) => {
-    const parts = absPath.split('/');
-    const projectsIdx = parts.lastIndexOf('projects');
-    if (projectsIdx < 0 || !parts[projectsIdx + 1] || !parts[projectsIdx + 2]) return null;
-    return { projectId: parts[projectsIdx + 1], planSlug: parts[projectsIdx + 2] };
-  };
-
   for (const arg of args) {
     const absPath = resolve(arg);
     if (!existsSync(absPath)) continue;
@@ -214,10 +180,11 @@ export function collectSidecars(args) {
       }
       // plan.md or phase initiative under nested layout → scan sibling/own phases/
       if (nested) {
-        const phasesIdx = absPath.split('/').lastIndexOf('phases');
+        const segments = pathSegments(absPath);
+        const hasPhases = segments.includes('phases');
         if (basename(absPath) === 'plan.md') {
           registerNestedPhases(join(dirname(absPath), 'phases'), nested.projectId, nested.planSlug);
-        } else if (phasesIdx > 0) {
+        } else if (hasPhases) {
           registerNestedPhases(dirname(absPath), nested.projectId, nested.planSlug);
         }
       }

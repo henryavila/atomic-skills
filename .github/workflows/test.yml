@@ -17,3 +17,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run validate-catalog
+
+  # F5/T-004: portable path contracts must pass on Windows (path.win32).
+  windows-path-contracts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: node --test tests/windows-path-contract.test.js tests/validate-state.test.js tests/normalize.test.js
