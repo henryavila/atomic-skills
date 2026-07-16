@@ -972,6 +972,23 @@ test('0.2: unknown evidence field still rejected (additionalProperties:false int
   assert.equal(validators.validateInitiative(init), false, 'additionalProperties:false must reject unknown evidence fields');
 });
 
+test('F4/T-008: ExitCriterion rejects lastUpdated (Still open must not write it on criteria)', () => {
+  // reconcile Still open for a criterion bumps initiative.lastUpdated; writing
+  // lastUpdated onto the criterion itself must HARD-FAIL schema (strict exitCriterion).
+  const validators = buildValidators();
+  const init = baseInitiative({
+    exitGates: [{
+      id: 'G1', description: 'd', status: 'pending',
+      lastUpdated: '2026-06-01T00:00:00Z',
+    }],
+  });
+  assert.equal(validators.validateInitiative(init), false, 'exitCriterion must reject lastUpdated (additionalProperties:false)');
+  const ok = baseInitiative({
+    exitGates: [{ id: 'G1', description: 'd', status: 'pending' }],
+  });
+  assert.equal(validators.validateInitiative(ok), true, 'pending criterion without lastUpdated remains valid');
+});
+
 // ── GATE-R2: the met-invariant + R-XAGENT-07 paranoid false-green REDs ──
 // checkMetInvariant is the one place a markdown "passed" claim becomes
 // non-self-graded. These prove the three false-green guards plus the

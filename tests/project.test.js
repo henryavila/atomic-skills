@@ -1002,6 +1002,36 @@ describe('project skill (unified router + lazy assets)', () => {
     assert.match(reconcile, /Never write back a parsed snapshot captured before the prompt/);
   });
 
+  it('project-transitions reconcile distinguishes detection-drift mutation from done closure authority (F4/T-008)', () => {
+    install();
+    const content = readAsset('project-transitions.md');
+    const reconcileStart = content.indexOf('## `reconcile`');
+    const phaseStart = content.indexOf('## `phase-done`');
+    const reconcile = content.slice(reconcileStart, phaseStart);
+    const doneStart = content.indexOf('## `done <task-id>`');
+    const done = content.slice(doneStart, reconcileStart);
+
+    // Naming: detection trigger vs closure authority (audit M7)
+    assert.match(reconcile, /detection-drift-triggered completion-mutation path/);
+    assert.match(reconcile, /closure authority/);
+    assert.match(done, /closure authority for task state/);
+    // Old absolute wording must not reappear without the detection-drift qualifier
+    assert.doesNotMatch(reconcile, /The \*\*only\*\* completion-mutation path\b/);
+    // Path is signal → ask → verifier/ack; never silent auto-close
+    assert.match(reconcile, /signal → ask → verifier run or manual ack/);
+    assert.match(reconcile, /never silent/);
+    // Still open: schema-supported anchors only (audit M2)
+    assert.match(reconcile, /\*\*task\*\*.*`lastUpdated`/s);
+    assert.match(reconcile, /\*\*initiative's\*\* `lastUpdated`/);
+    assert.match(reconcile, /never write one onto a criterion/);
+    assert.match(reconcile, /additionalProperties: false/);
+
+    // Router resident copy stays aligned
+    const router = readRouter();
+    assert.match(router, /detection-drift-triggered completion-mutation path/);
+    assert.match(router, /closure authority/);
+  });
+
   it('project-finalize requires an explicit slug and project-consolidate records resume state', () => {
     install();
     const router = readRouter();

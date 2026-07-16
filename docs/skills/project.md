@@ -66,7 +66,7 @@ Track work via a Plan/Initiative/Task hierarchy through one thin-router skill: v
 | Command | Description |
 |---------|-------------|
 | `done <task-id>` | Mark a task done and stamp closedAt; if it was the last open task, surfaces phase-done or archive |
-| `reconcile` | Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent) |
+| `reconcile` | Dispose tasks/gates that look done in the repo — the only detection-drift-triggered completion-mutation path (done stays task closure authority); verifier-aware (Run verifier when one exists, Mark done only when verifier-absent); never silent auto-close |
 | `materialize <phase-id>` | Turn a descriptor-only phase into a full initiative file, capturing the businessIntent spine (value/workflow/rules/outOfScope/doneWhen) at a HARD gate — the bridge from a decomposed plan to `implement` |
 | `unblock <task-id>` | Return a blocked task to workable state (does NOT close it) — the documented forward exit from `blocked`; surfaces blockedBy[] blockers and their status first |
 | `phase-done` | Verify every exit-gate criterion via its verifier, run a mandatory code review, then advance currentPhase |

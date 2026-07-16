@@ -358,7 +358,7 @@ core:
       - name: reconcile
         group: 'Tasks & phases'
         signature: ''
-        description: 'Close tasks/gates that look done in the repo — the ONLY completion-mutation path; verifier-aware (Run verifier when one exists, Mark done only when verifier-absent)'
+        description: 'Dispose tasks/gates that look done in the repo — the only detection-drift-triggered completion-mutation path (done stays task closure authority); verifier-aware (Run verifier when one exists, Mark done only when verifier-absent); never silent auto-close'
         example: '/atomic-skills:project reconcile'
       - name: materialize
         group: 'Tasks & phases'
