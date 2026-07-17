@@ -35,6 +35,8 @@ import {
   scanKnownInstallBases,
   sameInstallBase,
 } from './runtime-layers/grok-refcount.js';
+// P0-B / F-002 consumer fallback — DELETE import when engine drop-revert is pinned.
+import { revertDroppedAutoUpdateEffects } from './runtime-layers/auto-update-drop-revert.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
 import {
@@ -595,7 +597,8 @@ export function removeLegacyOrphans(basePath, orphans) {
  * readers working.
  *
  * @param {string} projectDir
- * @param {object} options - { language, ides, skillsDir, metaDir, scope }
+ * @param {object} options - { language, ides, skillsDir, metaDir, scope,
+ *   autoUpdateDropInjectFailAfterN? } (inject is a P0-B test seam only)
  * @param {object} [callbacks] - { onFileWritten }
  * @returns {{ files: Array<{ path: string, hash: string }> }}
  */
@@ -608,6 +611,20 @@ export function installSkills(projectDir, options, callbacks = {}) {
   // when leftover package files differ from the new render (see adopt-preexisting-desired.js).
   const desired = computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope });
   adoptPreexistingDesiredFiles(projectDir, desired);
+
+  // P0-B / F-002 consumer fallback: when the next plan drops auto-update
+  // surfaces (IDE shrink away from Claude/Grok), explicitly revert those
+  // prior effects before Driver.install rewrites the journal. Engine
+  // drop-effect revert is NOT in the pin yet — DELETE this call (and the
+  // auto-update-drop-revert module) when the engine fix is pinned.
+  // Crash-resumable via `.atomic-skills/auto-update-drop-pending.json`.
+  revertDroppedAutoUpdateEffects(
+    projectDir,
+    { language, ides, skillsDir, metaDir, scope },
+    {
+      injectFailAfterN: options.autoUpdateDropInjectFailAfterN,
+    },
+  );
 
   const installer = buildInstaller({ language, ides, skillsDir, metaDir, scope });
   installer.install({ projectDir });
