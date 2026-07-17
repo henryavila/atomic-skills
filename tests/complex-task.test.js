@@ -66,4 +66,12 @@ describe('isComplexTask', () => {
     assert.equal(isComplexTask({ weight: NaN }), false);
     assert.equal(isComplexTask({ tags: 'complex' }), false);
   });
+
+  it('coerces finite numeric string weight the same way as threshold', () => {
+    assert.equal(isComplexTask({ weight: '3' }), true);
+    assert.equal(isComplexTask({ weight: '4' }), true);
+    assert.equal(isComplexTask({ weight: '2' }), false);
+    assert.equal(isComplexTask({ weight: '3.0' }), true);
+    assert.equal(isComplexTask({ weight: ' 3 ' }), true);
+  });
 });
