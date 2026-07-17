@@ -784,7 +784,10 @@ describe('uninstall wiring — residual gate + multi-owner', () => {
         assert.ok(!calls.some((c) => c.args[1] === 'uninstall'), 'must not host-uninstall while B remains');
         assert.equal(released.remaining, 1);
         const reg = JSON.parse(readFileSync(join(home, '.atomic-skills', 'installs.json'), 'utf8'));
-        const list = Array.isArray(reg) ? reg : [];
+        // P1-B: registry is versioned { owners:[{basePath,...}] } (legacy array also accepted)
+        const list = Array.isArray(reg)
+          ? reg
+          : (reg.owners || []).map((o) => (typeof o === 'string' ? o : o.basePath));
         assert.ok(!list.some((p) => sameInstallBase(p, a)), 'A finalized out of registry');
         assert.ok(list.some((p) => sameInstallBase(p, b)), 'B remains registered');
         assert.ok(skillsIgnoreContainsAll(readFileSync(resolveGrokUserConfigPath({ home }), 'utf8')));
@@ -841,7 +844,9 @@ describe('uninstall wiring — residual gate + multi-owner', () => {
         assert.ok(!calls.some((c) => c.args[1] === 'uninstall'));
         assert.equal(released.remaining, 1);
         const reg = JSON.parse(readFileSync(join(home, '.atomic-skills', 'installs.json'), 'utf8'));
-        const list = Array.isArray(reg) ? reg : [];
+        const list = Array.isArray(reg)
+          ? reg
+          : (reg.owners || []).map((o) => (typeof o === 'string' ? o : o.basePath));
         assert.ok(!list.some((p) => sameInstallBase(p, a)));
         assert.ok(list.some((p) => sameInstallBase(p, b)));
         assert.ok(skillsIgnoreContainsAll(readFileSync(resolveGrokUserConfigPath({ home }), 'utf8')));
