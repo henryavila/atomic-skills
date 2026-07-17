@@ -8,8 +8,8 @@ goal: Add a static site generator that emits multi-page HTML from catalog and
 status: active
 branch: plan/product-docs-site
 started: 2026-07-17T15:57:30.122Z
-lastUpdated: 2026-07-17T15:57:30.122Z
-nextAction: "Start T-004: Extract shared DS assets from onboarding HTML"
+lastUpdated: 2026-07-17T16:02:15.000Z
+nextAction: review-code F1 then phase-done
 parentPlan: product-docs-site
 phaseId: F1
 businessIntent:
@@ -25,9 +25,9 @@ businessIntent:
     docs/skills.
   doneWhen: npm run generate-site produces dist with required pages; npm run
     check-site exits 0 and detects stale dist.
-tasksDone: 0
+tasksDone: 3
 tasksTotal: 3
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F1-G1
@@ -36,19 +36,31 @@ exitGates:
       kind: shell
       command: npm run generate-site && test -d site/dist -o -d docs/site/dist
       expectExitCode: 0
-    status: pending
+    status: met
+    metAt: 2026-07-17T16:02:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:02:15.000Z
+      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      passed: true
+      exitCode: 0
+      outputSummary: F1-G1 pass at 1c442ff95ca9153592ee1be60e184ed807cb31b8
   - id: F1-G2
     description: check-site catches stale dist.
     verifier:
       kind: shell
       command: npm run check-site
       expectExitCode: 0
-    status: pending
-stack:
-  - id: 1
-    title: Site build from catalog
-    type: task
-    openedAt: 2026-07-17T15:57:30.122Z
+    status: met
+    metAt: 2026-07-17T16:02:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:02:15.000Z
+      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      passed: true
+      exitCode: 0
+      outputSummary: F1-G2 pass at 1c442ff95ca9153592ee1be60e184ed807cb31b8
+stack: []
 tasks:
   - id: T-004
     title: Extract shared DS assets from onboarding HTML
@@ -71,8 +83,16 @@ tasks:
         path: docs/design/project-onboarding/index.html
     summary: Extrair tokens DS do onboarding para site/assets/ds.css.
     weight: 2
-    status: pending
-    lastUpdated: 2026-07-17T15:57:30.122Z
+    status: done
+    lastUpdated: 2026-07-17T16:02:15.000Z
+    closedAt: 2026-07-17T16:02:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:02:15.000Z
+      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      passed: true
+      exitCode: 0
+      outputSummary: test -s site/assets/ds.css OK
   - id: T-005
     title: generate-site script and page set
     scopeBoundary:
@@ -101,8 +121,16 @@ tasks:
         path: site/templates/
     summary: Implementar generate-site/check-site com landing, skills, modules, hosts.
     weight: 5
-    status: pending
-    lastUpdated: 2026-07-17T15:57:30.122Z
+    status: done
+    lastUpdated: 2026-07-17T16:02:15.000Z
+    closedAt: 2026-07-17T16:02:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:02:15.000Z
+      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      passed: true
+      exitCode: 0
+      outputSummary: generate-site + check-site exit 0; 19 HTML pages
   - id: T-006
     title: Wire generate-docs and CI contract
     scopeBoundary:
@@ -120,8 +148,16 @@ tasks:
         path: package.json
     summary: Ligar generate-site ao pipeline generate-docs/check-docs.
     weight: 1
-    status: pending
-    lastUpdated: 2026-07-17T15:57:30.122Z
+    status: done
+    lastUpdated: 2026-07-17T16:02:15.000Z
+    closedAt: 2026-07-17T16:02:15.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:02:15.000Z
+      verifiedCommit: 1c442ff95ca9153592ee1be60e184ed807cb31b8
+      passed: true
+      exitCode: 0
+      outputSummary: check-site via check-docs chain exit 0
 parked: []
 emerged: []
 summary: Build estático multi-página a partir do catalog + hosts do config; DS
