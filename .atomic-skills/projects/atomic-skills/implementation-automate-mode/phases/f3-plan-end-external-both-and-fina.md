@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f3-plan-end-external-both-and-fina
 title: Plan-end external-both and finalize hard gate
 goal: Finalize and archive under automate require external-both receipt satisfying planEndReviewOk; missing success without skip hard-blocks.
-status: done
+status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:29:38.832Z
-lastUpdated: 2026-07-17T19:33:38.000Z
+lastUpdated: 2026-07-17T22:03:10.000Z
 nextAction: Start T-010
 parentPlan: implementation-automate-mode
 phaseId: F3

@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode
 title: Implementation Automate Mode
 version: "1.0"
-status: done
+status: archived
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:56:49.000Z
+lastUpdated: 2026-07-17T22:03:10.000Z
 branch: plan/implementation-automate-mode
 currentPhase: F4
 parallelismAllowed: false
@@ -309,6 +309,12 @@ planEndReview:
       status: skipped
       familyDifferent: false
       reason: same-family host
+userValidatedAt: 2026-07-17T22:03:10.000Z
+userValidatedBy: henry
+prUrl: https://github.com/henryavila/atomic-skills/pull/33
+prNumber: 33
+mergedAt: 2026-07-17T22:03:10.000Z
+mergedCommit: c2f2fab862f210d52bf7fa11de7de8d41c8bda83
 ---
 
 # Implementation Automate Mode
@@ -337,6 +343,10 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 - G6 reference-or-strike: applied — SPEC tasks carry Files/scopeBoundary/acceptance/verifier
 
 ## Reviews
+
+- PR merged: https://github.com/henryavila/atomic-skills/pull/33 (c2f2fab)
+- userValidatedAt: 2026-07-17T22:03:10.000Z
+
 
 - internal: 2026-07-17 — receipt retained after rematerialize
 - cross-model (codex gpt-5-codex): 2026-07-17 — needs_changes; 2 critical + 3 major applied (stamp order, P4 nested vs sibling, post-eval reopen, archive hard-block, claim ranges)

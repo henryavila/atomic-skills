@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f2-review-policy-phase-done-and-co
 title: "Review policy: phase-done and complex tasks under automate"
 goal: Wire automate-aware review policy so phase-done defaults to both, and complex tasks run review-code --mode=both before orchestrator done.
-status: done
+status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:25:02.478Z
-lastUpdated: 2026-07-17T19:29:38.000Z
+lastUpdated: 2026-07-17T22:03:10.000Z
 nextAction: F2 done; materialize F3
 parentPlan: implementation-automate-mode
 phaseId: F2
