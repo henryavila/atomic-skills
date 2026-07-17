@@ -17,6 +17,20 @@
  * Crash-resumable: writes `.atomic-skills/auto-update-drop-pending.json` before
  * the first reverse; marks each item after successful reverse; deletes the
  * ledger when empty. Mid-drop kill → next install resumes remaining items.
+ *
+ * Safety (P0-B Codex majors):
+ *   1. **Incomplete TX fail-closed** — before any drop-revert disk mutation,
+ *      `assertNoIncompleteTransaction` (same contract as Driver.install). If
+ *      incomplete → throw INCOMPLETE_TRANSACTION; do not mutate settings/hooks.
+ *      Caller surfaces repair flags (`install --repair` /
+ *      `uninstall --force-incomplete`).
+ *   2. **Install-root lock** — mutations run under `acquireInstallLocks` so
+ *      concurrent installers serialize on the same projectDir.
+ *
+ * Residual race (documented): lock is held only for this helper; Driver.install
+ * re-acquires after we release. There is a TOCTOU window between release and
+ * the next acquire. Continuous hold across drop-revert + install needs engine
+ * integration (drop-revert inside the Driver transaction path).
  */
 
 import {
@@ -27,6 +41,8 @@ import {
   createJsonMergeEffect,
   stableEffectId,
   readEffects,
+  assertNoIncompleteTransaction,
+  acquireInstallLocks,
 } from '@henryavila/minimalist-installer';
 import { createStageRuntimeArtifactsEffect } from './effects/stage-runtime-artifacts.js';
 import {
@@ -207,6 +223,10 @@ function revertOne(projectDir, item) {
  * Crash-resumable revert of auto-update effects dropped by the next plan.
  * Call immediately before Driver.install when a prior journal may exist.
  *
+ * Fail-closed on incomplete transaction (must not mutate settings/hooks while
+ * recovery is required). Mutations run under engine install-root lock; see
+ * module residual-race note for lock scope vs Driver.install.
+ *
  * @param {string} projectDir
  * @param {object} config - installer config (`ides`, `skillsDir`, …)
  * @param {object} [opts]
@@ -216,6 +236,8 @@ function revertOne(projectDir, item) {
 export function revertDroppedAutoUpdateEffects(projectDir, config, opts = {}) {
   let ledger = readPendingLedger(projectDir);
   let resumed = false;
+  /** @type {object|null} */
+  let newLedger = null;
 
   if (ledger?.items?.length) {
     resumed = true;
@@ -238,8 +260,8 @@ export function revertDroppedAutoUpdateEffects(projectDir, config, opts = {}) {
       return { dropped: 0, resumed: false };
     }
 
-    // Record drop intent on disk BEFORE the first reverse.
-    ledger = {
+    // Record drop intent AFTER incomplete-guard + lock (no disk write yet).
+    newLedger = {
       version: 1,
       kind: 'auto-update-drop',
       startedAt: new Date().toISOString(),
@@ -250,39 +272,53 @@ export function revertDroppedAutoUpdateEffects(projectDir, config, opts = {}) {
         status: 'pending',
       })),
     };
-    writePendingLedger(projectDir, ledger);
   }
 
-  let successCount = 0;
-  const items = ledger.items.map((item) => ({ ...item }));
+  // Serialize with other installers; re-check incomplete under the lock so a
+  // concurrent repair cannot race the guard. Residual: we release before
+  // Driver.install re-acquires (documented above).
+  const locks = acquireInstallLocks({ projectDir });
+  try {
+    assertNoIncompleteTransaction(projectDir, MANIFEST_DIR);
 
-  for (let i = 0; i < items.length; i += 1) {
-    const item = items[i];
-    if (item.status === 'reverted') continue;
-
-    revertOne(projectDir, item);
-    successCount += 1;
-    items[i] = { ...item, status: 'reverted' };
-
-    writePendingLedger(projectDir, {
-      ...ledger,
-      items,
-      lastRevertedAt: new Date().toISOString(),
-      lastRevertedId: item.id,
-    });
-
-    if (opts.injectFailAfterN != null && successCount >= opts.injectFailAfterN) {
-      const err = new Error(
-        `auto-update drop-revert injectFailAfterN=${opts.injectFailAfterN}`,
-      );
-      err.code = 'AUTO_UPDATE_DROP_INJECTED_FAIL';
-      throw err;
+    if (newLedger) {
+      ledger = newLedger;
+      writePendingLedger(projectDir, ledger);
     }
-  }
 
-  clearPendingLedger(projectDir);
-  return {
-    dropped: items.length,
-    resumed,
-  };
+    let successCount = 0;
+    const items = ledger.items.map((item) => ({ ...item }));
+
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (item.status === 'reverted') continue;
+
+      revertOne(projectDir, item);
+      successCount += 1;
+      items[i] = { ...item, status: 'reverted' };
+
+      writePendingLedger(projectDir, {
+        ...ledger,
+        items,
+        lastRevertedAt: new Date().toISOString(),
+        lastRevertedId: item.id,
+      });
+
+      if (opts.injectFailAfterN != null && successCount >= opts.injectFailAfterN) {
+        const err = new Error(
+          `auto-update drop-revert injectFailAfterN=${opts.injectFailAfterN}`,
+        );
+        err.code = 'AUTO_UPDATE_DROP_INJECTED_FAIL';
+        throw err;
+      }
+    }
+
+    clearPendingLedger(projectDir);
+    return {
+      dropped: items.length,
+      resumed,
+    };
+  } finally {
+    locks.release();
+  }
 }

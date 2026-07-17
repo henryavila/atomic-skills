@@ -283,6 +283,62 @@ describe('auto-update IDE shrink (P0-B / F-002)', () => {
     });
   });
 
+  it('incomplete manifest: drop-revert does not mutate settings/hooks', () => {
+    withTmp((root) => {
+      const skillsDir = makeSkillsDir(root);
+      const projectDir = join(root, 'install');
+      mkdirSync(projectDir, { recursive: true });
+
+      // Complete install first so auto-update surfaces exist on disk + journal.
+      autoUpdateInstaller(skillsDir, ['claude-code']).install({ projectDir });
+
+      const hookAbs = join(projectDir, VERSION_CHECK_REL);
+      const settingsPath = join(projectDir, CLAUDE_SETTINGS_REL);
+      assert.ok(existsSync(hookAbs), 'precondition: version-check staged');
+      assert.ok(existsSync(settingsPath), 'precondition: settings present');
+
+      const settingsBefore = readFileSync(settingsPath, 'utf8');
+      const hookBefore = readFileSync(hookAbs, 'utf8');
+      const manifestPath = join(projectDir, '.atomic-skills', 'manifest.json');
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+
+      // Force incomplete TX (same fail-closed contract as Driver.install).
+      manifest.transaction = {
+        ...(manifest.transaction || {}),
+        id: 'tx-incomplete-drop-guard',
+        state: 'incomplete',
+        journalMode: 'per-effect',
+        appliedCount: (manifest.effects || []).length,
+        startedAt: '2026-07-17T00:00:00.000Z',
+      };
+      writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+      assert.throws(
+        () => revertDroppedAutoUpdateEffects(projectDir, { skillsDir, ides: ['codex'] }),
+        (err) => err?.code === 'INCOMPLETE_TRANSACTION',
+      );
+
+      // No drop-revert disk mutation while incomplete.
+      assert.equal(
+        existsSync(autoUpdateDropPendingPath(projectDir)),
+        false,
+        'must not write drop-pending ledger under incomplete TX',
+      );
+      assert.equal(existsSync(hookAbs), true, 'version-check must remain');
+      assert.equal(readFileSync(hookAbs, 'utf8'), hookBefore, 'hook bytes unchanged');
+      assert.equal(
+        readFileSync(settingsPath, 'utf8'),
+        settingsBefore,
+        'settings.json must not be mutated by drop-revert under incomplete TX',
+      );
+      assert.equal(
+        JSON.parse(readFileSync(manifestPath, 'utf8')).transaction?.state,
+        'incomplete',
+        'incomplete marker retained for recovery CLI',
+      );
+    });
+  });
+
   it('installSkills claude → codex shrink removes auto-update residue (integration)', () => {
     withTmp((root) => {
       const projectDir = join(root, 'install');

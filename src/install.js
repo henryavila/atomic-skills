@@ -618,6 +618,8 @@ export function installSkills(projectDir, options, callbacks = {}) {
   // drop-effect revert is NOT in the pin yet — DELETE this call (and the
   // auto-update-drop-revert module) when the engine fix is pinned.
   // Crash-resumable via `.atomic-skills/auto-update-drop-pending.json`.
+  // Fail-closed on incomplete TX (assertNoIncompleteTransaction inside the
+  // helper, under install lock) — same recovery contract as Driver.install.
   revertDroppedAutoUpdateEffects(
     projectDir,
     { language, ides, skillsDir, metaDir, scope },
