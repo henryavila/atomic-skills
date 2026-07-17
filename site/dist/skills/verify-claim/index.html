@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>✅ Verify Claim — Completion-Evidence Gate · Atomic Skills</title>
+<meta name="description" content="No success claim without fresh verification — run it, cite it">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">verify-claim</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>✅ Verify Claim — Completion-Evidence Gate</h1>
+      <p class="lede">No success claim without fresh verification — run it, cite it</p>
+      <div class="iron-law">NO SUCCESS CLAIM WITHOUT FRESH VERIFICATION.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>A self-graded &quot;it works&quot; is worthless precisely when it matters most — the producer is the party least able to see its own blind spot. `verify-claim` is the completion-evidence gate `implement` calls before any task closes: it reads the VCS diff (not the report), re-executes the task&#39;s deterministic verifier, and derives a BINARY verdict from the real result — exit 0 AND, for tests, a non-zero collected count, so a green run of zero tests is the false-green it catches. A cheap or cross-provider executor self-checks but never self-certifies.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>About to mark a task done and need its verifier run for real first</li>
+<li>An agent, subagent, or Codex reported success and you must adjudicate it</li>
+<li>Gating any &quot;the tests pass / the bug is fixed&quot; claim on captured evidence</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>The claim is a human-judgement / UI observation (use the manual-acceptance gate)</li>
+<li>There is no deterministic verifier (the task failed SPEC admission — surface it)</li>
+<li>You are diagnosing a bug, not verifying a fix (use fix)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:verify-claim T-004</div><div class="desc">Run the task&#39;s verifier, derive a binary verdict, cite the evidence</div></li>
+<li><div class="cmd">/atomic-skills:verify-claim &quot;the parser handles empty input&quot;</div><div class="desc">Gate an &quot;it works&quot; claim on a fresh, captured run</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>⚙️ Implement — Mode 2-aware Execution Driver · Atomic Skills</title>
+<meta name="description" content="Drive decomposed tasks to done, one at a time, verifier-gated">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">implement</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>⚙️ Implement — Mode 2-aware Execution Driver</h1>
+      <p class="lede">Drive decomposed tasks to done, one at a time, verifier-gated</p>
+      <div class="iron-law">CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>The lifecycle ends in execution, and execution is where state gets lost — work marked done on a claim, context evicted mid-task, a resume that cold-re-investigates. `implement` is a serial loop with durable checkpoints: code one task, gate it through verify-on-done (never a self-asserted pass), snapshot a self-sufficient `## Session handoff` block on observable events (after each task / before each dispatch / phase boundary) — never on a fabricated context-% gauge. Coding stays single-threaded; only heavy reads fan out. The next session resumes from the handoff, and `resume` refuses on a dirty tree or a placeholder.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>A plan has been decomposed and its tasks admitted by the SPEC gate</li>
+<li>You are implementing a phase task-by-task and want verifier-gated completion</li>
+<li>Resuming a prior implementation session from its handoff block</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>There is no plan/design yet (use brainstorm, then project new plan)</li>
+<li>A one-off bug fix with a known root cause (use fix)</li>
+<li>You only need to verify a single claim, not drive a plan (use verify-claim)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:implement migration-self-host</div><div class="desc">Drive the active phase of a plan to done, task-by-task</div></li>
+<li><div class="cmd">/atomic-skills:implement</div><div class="desc">Implement the active plan/initiative; resume from its handoff if present</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>

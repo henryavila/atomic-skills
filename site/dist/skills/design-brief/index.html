@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎨 Design Brief — DS + screens prompts, contamination-free · Atomic Skills</title>
+<meta name="description" content="Generate DS + screens prompts for a design agent, contamination-free">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">design-brief</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>🎨 Design Brief — DS + screens prompts, contamination-free</h1>
+      <p class="lede">Generate DS + screens prompts for a design agent, contamination-free</p>
+      <div class="iron-law">NEVER SILENCE BEHAVIOUR OR PHILOSOPHY — SILENCE IS FOR VISUAL FORM ONLY.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>The failure this prevents is the inverse of over-design: it is under-specification. &quot;Don&#39;t dictate the visuals&quot; is a layer-1-only rule; extending that silence to the interaction model and the product philosophy lets the design agent fill the gaps with its conventional default — which is usually the product&#39;s anti-pattern. `design-brief` keeps silence on visual form but pins behaviour and who-decides-what with concrete values mined from the real code, names the forbidden anti-pattern on risky screens, and ships the DS-first so every screen consumes the inherited Design System instead of redefining it.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You are handing an existing app to a design agent (e.g. claude.ai/design) for a redesign</li>
+<li>You need a Design System prompt plus per-screen prompts that consume it</li>
+<li>A prior hand-written brief produced anti-patterns by leaving behaviour/philosophy unspecified</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>You only need the product decision, not the design prompts (use brainstorm)</li>
+<li>There is no real app to mine behavioural parameters from</li>
+<li>The design system and screens already exist and are faithful</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:design-brief &quot;redesign the review dashboard at src/dashboard&quot;</div><div class="desc">Mine the app + intent, emit the DS prompt then the screens prompts</div></li>
+<li><div class="cmd">/atomic-skills:design-brief</div><div class="desc">Skill asks for the app/scope and the product intent interactively</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>

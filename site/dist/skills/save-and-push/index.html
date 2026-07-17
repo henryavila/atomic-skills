@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>💾 Save &amp; Push — Commit + Memory + Push · Atomic Skills</title>
+<meta name="description" content="Scan for secrets, group commits, save learnings, push safely">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">save-and-push</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>💾 Save &amp; Push — Commit + Memory + Push</h1>
+      <p class="lede">Scan for secrets, group commits, save learnings, push safely</p>
+      <div class="iron-law">NO PUSH WITHOUT FRESH VERIFICATION.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>Ending a session sloppily means a leaked `.env`, one giant unrelated blob commit, and learnings lost to context death. `save-and-push` scans the diff for secrets and sensitive files before staging, groups changes into logical commits (never `git add .`), persists durable learnings to memory, and refuses to push to main/master without confirmation. The next session resumes with clean history and context intact.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You finished a coherent piece of work</li>
+<li>About to switch context or end the session</li>
+<li>You want learnings persisted before forgetting</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>Work in progress, not yet a coherent commit</li>
+<li>Tests still failing</li>
+<li>You only want to commit (use git directly)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:save-and-push</div><div class="desc">Full flow: memory + commits + push</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>

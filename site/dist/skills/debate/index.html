@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎭 Debate — Multi-Agent Roundtable · Atomic Skills</title>
+<meta name="description" content="Roundtable of independent subagent personas for divergent thinking">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">debate</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>🎭 Debate — Multi-Agent Roundtable</h1>
+      <p class="lede">Roundtable of independent subagent personas for divergent thinking</p>
+      <div class="iron-law">NO SYNTHESIS WITHOUT INDEPENDENT VOICES.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>Ask one model for &quot;the architect&#39;&#39;s view and the QA view&quot; and both collapse toward the same voice — convergent, performative, useless for finding blind spots. `debate` spawns each persona as its own subagent so they genuinely disagree, and presents every response unabridged instead of digesting them into your summary. The roster is pluggable (inline list, `.claude/agents/*.md`, `personas/*.md`, or a shipped default), so it runs in any repo. It&#39;&#39;s the divergent, human-in-the-loop step that produces the consolidated direction `parallel-dispatch` consumes.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>You want genuinely divergent perspectives on an open question</li>
+<li>Debating a design, architecture, or product trade-off</li>
+<li>Brainstorming or widening the option space before deciding</li>
+<li>Running an adversarial review panel (dev + architect + QA cross-talk)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>You have a finalized, disjoint task list (use parallel-dispatch)</li>
+<li>You need a single converged answer or committed artifacts</li>
+<li>A one-shot factual question with no perspectives to weigh</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:debate &quot;should we split the monolith now or after launch?&quot;</div><div class="desc">Debate an open decision using the auto-detected roster</div></li>
+<li><div class="cmd">/atomic-skills:debate --solo &quot;review this API design&quot;</div><div class="desc">Single-LLM role-play fallback when subagents are unavailable</div></li>
+<li><div class="cmd">/atomic-skills:debate --roster personas/security-panel.yaml</div><div class="desc">Convene a specific named panel from a roster file</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>

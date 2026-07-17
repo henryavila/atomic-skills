@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modules · Atomic Skills</title>
+<meta name="description" content="Optional Atomic Skills install modules.">
+<link rel="stylesheet" href="../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../index.html">Home</a>
+      <a href="../skills/index.html">Skills</a>
+      <a href="../modules/index.html" class="active">Modules</a>
+      <a href="../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← Home</a></p>
+      <h1>Modules</h1>
+      <p class="lede">Optional install packs. Metadata from catalog <code>module_meta</code>.</p>
+    </section>
+    <section class="section">
+        <article class="card">
+          <div class="meta-row">
+            <h3>Memory</h3>
+            
+          </div>
+          <p class="one-liner mono">memory</p>
+          <div class="prose" style="margin-top:12px"><p>Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.</p></div>
+          <div style="margin-top:12px"><ul class="plain">
+<li>Configurable path (default: `.ai/memory/`)</li>
+<li>Adds the `atomic-skills:init-memory` skill</li>
+<li>Supports Claude Code&#39;s `autoMemoryDirectory` for direct integration (no redirect needed)</li>
+<li>Available in both project and user scope installations</li>
+</ul></div>
+          
+        </article>
+        <article class="card">
+          <div class="meta-row">
+            <h3>Cross-Model Bridge</h3>
+            <span class="badge badge-module">since 2.0.0</span>
+          </div>
+          <p class="one-liner mono">cross-model-bridge</p>
+          <div class="prose" style="margin-top:12px"><p>Shared infrastructure for the external (family-different) sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — provider-agnostic sealed-envelope templates plus pluggable provider leaves for Codex and Grok:</p></div>
+          <div style="margin-top:12px"><ul class="plain">
+<li>Anti-framing directive (literal text injected into every briefing)</li>
+<li>Provider leaves under `providers/codex/` and `providers/grok/` (preflight + canonical invocation)</li>
+<li>Host-default external matrix and same-family confirm→local / HARD ABORT rules</li>
+<li>Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)</li>
+<li>Briefing templates (plan + code) and consolidated review file template</li>
+<li>Reviews INDEX.md row template</li>
+</ul></div>
+          <p class="footnote" style="margin-top:12px">On-disk assets remain under `skills/shared/codex-bridge-assets/` (install owner key `codex-bridge`) for path stability; the logical module name is `cross-model-bridge`. Assets install per-IDE at `&lt;ide-root&gt;/atomic-skills/_assets/` (or the Grok plugin `_assets/`) — a SIBLING of the skill tree so they are NOT scanned as slash-commands — and are referenced via `{{ASSETS_PATH}}`.</p>
+        </article>
+        <article class="card">
+          <div class="meta-row">
+            <h3>Codex Bridge (alias)</h3>
+            <span class="badge badge-module">since 1.8.0</span>
+          </div>
+          <p class="one-liner mono">codex-bridge</p>
+          <div class="prose" style="margin-top:12px"><p>Compatibility alias of `cross-model-bridge`. Historical name for the sealed-envelope asset pack used by the codex sub-flow. Prefer `cross-model-bridge` in new docs; this entry remains so existing install references and the `codex-bridge-assets/` directory continue to resolve.</p></div>
+          <div style="margin-top:12px"><ul class="plain">
+<li>Alias of cross-model-bridge — same assets, same install owner for `codex-bridge-assets/`</li>
+<li>Pre-flight checks and canonical Codex invocation (see `providers/codex/`)</li>
+<li>Shared envelope templates (anti-framing, Pass 1/2, review file, INDEX row)</li>
+</ul></div>
+          <p class="footnote" style="margin-top:12px">Assets are installed per-IDE at `&lt;ide-root&gt;/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.</p>
+        </article>
+        <article class="card">
+          <div class="meta-row">
+            <h3>Auto-Update</h3>
+            <span class="badge badge-module">since 1.8.0</span>
+          </div>
+          <p class="one-liner mono">auto-update</p>
+          <div class="prose" style="margin-top:12px"><p>SessionStart hook that notifies you when a new version is available on npm — without polling or interrupting your flow.</p></div>
+          <div style="margin-top:12px"><ul class="plain">
+<li>Hook script installed at `~/.atomic-skills/hooks/version-check.sh`</li>
+<li>Merged into `~/.claude/settings.json` non-destructively (coexists with existing hooks)</li>
+<li>24h TTL on npm checks; async background fetch (0ms perceived latency)</li>
+<li>Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var</li>
+<li>Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=&lt;seconds&gt;`</li>
+<li>Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)</li>
+</ul></div>
+          
+        </article>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>

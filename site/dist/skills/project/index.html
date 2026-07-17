@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📊 Project — Plan / Initiative / Task Tracking · Atomic Skills</title>
+<meta name="description" content="Plan / Initiative / Task state your agent reloads every session">
+<link rel="stylesheet" href="../../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../../index.html">Home</a>
+      <a href="../../skills/index.html" class="active">Skills</a>
+      <a href="../../modules/index.html">Modules</a>
+      <a href="../../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← All skills</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">project</span>
+        <span class="badge badge-module">core</span>
+      </div>
+      <h1>📊 Project — Plan / Initiative / Task Tracking</h1>
+      <p class="lede">Plan / Initiative / Task state your agent reloads every session</p>
+      <div class="iron-law">NO IMPLEMENTATION WITHOUT ANCHORED INITIATIVE.</div>
+    </section>
+
+    <section class="section card prose">
+      <h2>Why it exists</h2>
+      <p>Resume a multi-day project and the agent has forgotten which phase you&#39;re in, what&#39;s parked, and why a task exists. `project` keeps Plan/Initiative/Task state in `.atomic-skills/` so every session reloads the exact frame — stack frames for side-investigations, an emergence ladder that classifies new work before it lands, exit gates that block advancing until criteria are met, and scope-creep detection. One git-style command for the whole lifecycle: view, create, mutate, discover, migrate, verify.</p>
+    </section>
+
+    <section class="section">
+      <h2>When to use</h2>
+      <ul class="plain">
+<li>Resuming after a break — view current state (`status`)</li>
+<li>Starting a new multi-phase plan (`new plan`) or initiative (`new initiative`)</li>
+<li>Daily mutations: push/pop, park/emerge, promote, done, phase-done</li>
+<li>Organizing in-flight work scattered across repo (`discover`)</li>
+<li>Capturing an existing markdown plan (`adopt`)</li>
+<li>Migrating legacy state files (`migrate`)</li>
+<li>Checking drift / un-reviewed code / state-vs-code coherence (`scope-creep`, `verify`)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>When not to use</h2>
+      <ul class="plain">
+<li>One-shot questions or work that fits in the current session</li>
+<li>Editing .atomic-skills/ files by hand (use the subcommands — they set provenance + validate)</li>
+</ul>
+    </section>
+
+    <section class="section">
+      <h2>Examples</h2>
+      <ul class="list-stack">
+<li><div class="cmd">/atomic-skills:project</div><div class="desc">Compact 5-line summary of the active plan/initiative</div></li>
+<li><div class="cmd">/atomic-skills:project status --browser</div><div class="desc">Open the aiDeck dashboard</div></li>
+<li><div class="cmd">/atomic-skills:project new plan v3-redesign</div><div class="desc">Bootstrap a new multi-phase Plan (7-stage flow)</div></li>
+<li><div class="cmd">/atomic-skills:project done T-005</div><div class="desc">Close a task (triggers phase-completion check if last)</div></li>
+<li><div class="cmd">/atomic-skills:project verify</div><div class="desc">Reconcile .atomic-skills/ state against the code</div></li>
+</ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
+    Catalog is the product SSOT — this HTML is a build view only.
+  </footer>
+</div>
+</body>
+</html>
