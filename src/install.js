@@ -42,6 +42,7 @@ import {
   incompleteOperatorMessage,
   repairIncompleteInstall,
   formatRecoverySummary,
+  resolveIncompleteRecoveryScope,
 } from './recovery-cli.js';
 
 export { resolveProjectScopeTarget } from './scope.js';
@@ -809,13 +810,60 @@ export async function install(projectDir, options = {}) {
   const projectManifest = projectTarget.ok ? readManifest(projectTarget.path) : null;
   const initialLanguage = cliLang || userManifest?.language || projectManifest?.language || detectLanguage();
 
-  let scope = project ? 'project' : 'user';
-  // --repair: skip interactive scope picker; prefer project if present, else user.
+  // P0-A: --repair routes by incomplete presence across user+project scopes
+  // (never silently pick user when only project is incomplete).
   if (repair) {
-    if (project) scope = 'project';
-    else if (projectManifest && !userManifest) scope = 'project';
-    else scope = 'user';
-  } else if (!yes && !project) {
+    console.log('\n  ⚛ Installer recovery (--repair)\n');
+    let repairBasePath;
+    let repairScope;
+    if (project) {
+      repairScope = 'project';
+      repairBasePath = projectTarget.path;
+    } else {
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir,
+        forceProject: false,
+        purpose: 'repair',
+      });
+      if (resolved.ambiguous) {
+        console.error(`  ${pc.red('Error:')}\n${resolved.message}\n`);
+        process.exit(resolved.exitCode || 1);
+      }
+      if (resolved.none) {
+        console.log(resolved.message || 'No incomplete transaction found.');
+        console.log('');
+        return;
+      }
+      if (!resolved.ok) {
+        console.error(`  ${pc.red('Error:')} ${resolved.message}\n`);
+        process.exit(resolved.exitCode || 1);
+      }
+      repairScope = resolved.scope;
+      repairBasePath = resolved.basePath;
+    }
+    console.log(`  ${pc.dim(`scope: ${repairScope} (${repairBasePath})`)}\n`);
+    let result;
+    try {
+      result = repairIncompleteInstall(repairBasePath);
+    } catch (err) {
+      // Mid-repair interrupt / injected fail: never claim complete; surface residual.
+      console.error(`  ${pc.red('Error:')} ${err.message}`);
+      console.error(`\n${incompleteOperatorMessage()}\n`);
+      process.exit(1);
+    }
+    if (result.exitCode && result.exitCode !== 0) {
+      console.error(result.message || result.summary || '');
+      process.exit(result.exitCode);
+    }
+    console.log(result.message || result.summary || '');
+    if (result.action === 'reversed' && result.exitCode === 0) {
+      console.log(`\n  ${pc.dim('Incomplete cleared (reverse-only). Re-run install without --repair to complete.')}\n`);
+    }
+    return;
+  }
+
+  let scope = project ? 'project' : 'user';
+  if (!yes && !project) {
     scope = await promptInstallScope(initialLanguage, {
       projectTarget,
       initialScope: projectManifest && !userManifest ? 'project' : 'user',
@@ -828,26 +876,6 @@ export async function install(projectDir, options = {}) {
   }
 
   const basePath = scope === 'project' ? projectTarget.path : userBasePath;
-
-  // P0-A: incomplete TX recovery (install --repair) or fail-closed messaging.
-  if (repair) {
-    console.log('\n  ⚛ Installer recovery (--repair)\n');
-    let result;
-    try {
-      result = repairIncompleteInstall(basePath);
-    } catch (err) {
-      // Mid-repair interrupt / injected fail: never claim complete; surface residual.
-      console.error(`  ${pc.red('Error:')} ${err.message}`);
-      console.error(`\n${incompleteOperatorMessage()}\n`);
-      process.exit(1);
-    }
-    console.log(result.message || result.summary || '');
-    if (result.action === 'reversed' && result.exitCode === 0) {
-      console.log(`\n  ${pc.dim('Incomplete cleared. Re-run install without --repair to complete.')}\n`);
-    }
-    if (result.exitCode && result.exitCode !== 0) process.exit(result.exitCode);
-    return;
-  }
 
   const incomplete = getIncompleteInfo(basePath);
   if (incomplete.incomplete) {

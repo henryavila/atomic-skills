@@ -18,6 +18,9 @@ import {
   incompleteOperatorMessage,
   formatRecoverySummary,
   recoveryLedgerPath,
+  resolveIncompleteRecoveryScope,
+  describeRecovery,
+  TX_STATE_INCOMPLETE,
 } from './recovery-cli.js';
 
 /**
@@ -72,28 +75,99 @@ export async function uninstall(projectDir, options = {}) {
   let { scope = null, yes = false, forceIncomplete = false } = options;
   const projectTarget = resolveProjectScopeTarget(projectDir);
   const projectBase = projectTarget.ok ? projectTarget.path : projectDir;
-  // Incomplete manifests still count as "has install" for scope resolution.
-  const hasProject = readManifest(projectBase) !== null;
-  const hasUser = readManifest(homedir()) !== null;
+
+  // P0-A: force-incomplete routes by incomplete presence across scopes
+  // (not by normal manifest precedence — never skip project incomplete).
+  if (forceIncomplete) {
+    console.log(`\n  ⚛ Force-incomplete recovery\n`);
+    let forceBasePath;
+    let forceScope;
+    if (scope === 'project') {
+      if (!projectTarget.ok) {
+        console.error(`  ${pc.red('Error:')} ${projectTarget.reason}`);
+        process.exit(1);
+      }
+      forceScope = 'project';
+      forceBasePath = projectTarget.path;
+    } else if (scope === 'user') {
+      forceScope = 'user';
+      forceBasePath = homedir();
+    } else {
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir,
+        forceProject: false,
+        purpose: 'force-incomplete',
+      });
+      if (resolved.ambiguous) {
+        console.error(`  ${pc.red('Error:')}\n${resolved.message}\n`);
+        process.exit(resolved.exitCode || 1);
+      }
+      if (resolved.none) {
+        console.log(resolved.message || 'No incomplete transaction found.');
+        console.log('');
+        return;
+      }
+      if (!resolved.ok) {
+        console.error(`  ${pc.red('Error:')} ${resolved.message}\n`);
+        process.exit(resolved.exitCode || 1);
+      }
+      forceScope = resolved.scope;
+      forceBasePath = resolved.basePath;
+    }
+    console.log(`  ${pc.dim(`scope: ${forceScope} (${forceBasePath})`)}\n`);
+    let result;
+    try {
+      result = forceIncompleteUninstall(forceBasePath);
+    } catch (err) {
+      console.error(`  ${pc.red('Error:')} ${err.message}`);
+      console.error(`\n${incompleteOperatorMessage()}\n`);
+      process.exit(1);
+    }
+    if (result.ledger) {
+      console.log(`  ${pc.dim(`Residual ledger: ${recoveryLedgerPath(forceBasePath)}`)}`);
+    }
+    if (result.exitCode && result.exitCode !== 0) {
+      console.error(result.message || '');
+      console.error(`\n  ⚛ Force-incomplete did not fully recover (exit ${result.exitCode}).\n`);
+      process.exit(result.exitCode);
+    }
+    console.log(result.message || '');
+    console.log(`\n  ⚛ Force-incomplete complete (check residual ledger if pre-U).\n`);
+    return;
+  }
+
+  // Tolerant presence checks (corrupt incomplete JSON must not throw during scope pick).
+  const projectDesc = projectTarget.ok
+    ? describeRecovery(projectBase)
+    : { state: 'absent' };
+  const userDesc = describeRecovery(homedir());
+  const hasProject = projectDesc.state === 'complete'
+    || projectDesc.state === TX_STATE_INCOMPLETE
+    || (() => {
+      try { return readManifest(projectBase) !== null; } catch { return false; }
+    })();
+  const hasUser = userDesc.state === 'complete'
+    || userDesc.state === TX_STATE_INCOMPLETE
+    || (() => {
+      try { return readManifest(homedir()) !== null; } catch { return false; }
+    })();
 
   if (!scope) {
     if (hasProject && hasUser) {
-      if (yes || forceIncomplete) {
-        // Non-interactive can't disambiguate; mirror install's default scope.
-        // Prefer user when both exist; --project forces project.
+      if (yes) {
+        // Non-interactive can't disambiguate; default to user (explicit --project overrides).
         scope = 'user';
       } else {
-        // Use project manifest's language for the prompt
-        const projectManifest = readManifest(projectBase);
-        const lang0 = projectManifest?.language || 'en';
+        // Use project manifest's language for the prompt when readable.
+        let lang0 = 'en';
+        try {
+          lang0 = readManifest(projectBase)?.language || 'en';
+        } catch { /* corrupt */ }
         scope = await promptUninstallScope(lang0);
       }
     } else if (hasProject) {
       scope = 'project';
     } else if (hasUser) {
-      scope = 'user';
-    } else if (forceIncomplete) {
-      // force-incomplete with no readable manifest still tries user then project
       scope = 'user';
     } else {
       console.log('\n  ⚛ No installation found.\n');
@@ -102,31 +176,15 @@ export async function uninstall(projectDir, options = {}) {
   }
 
   const basePath = scope === 'user' ? homedir() : projectBase;
-  const manifest = readManifest(basePath);
+  let manifest = null;
+  try {
+    manifest = readManifest(basePath);
+  } catch {
+    // Corrupt complete? Still surface incomplete gate via describeRecovery below.
+    manifest = null;
+  }
   const lang = manifest?.language || 'en';
   const msg = UNINSTALL_MESSAGES[lang] || UNINSTALL_MESSAGES.en;
-
-  // P0-A: force reverse of journaled effects under incomplete TX.
-  if (forceIncomplete) {
-    console.log(`\n  ⚛ Force-incomplete recovery\n`);
-    let result;
-    try {
-      result = forceIncompleteUninstall(basePath);
-    } catch (err) {
-      console.error(`  ${pc.red('Error:')} ${err.message}`);
-      console.error(`\n${incompleteOperatorMessage()}\n`);
-      process.exit(1);
-    }
-    console.log(result.message || '');
-    if (result.ledger) {
-      console.log(`  ${pc.dim(`Residual ledger: ${recoveryLedgerPath(basePath)}`)}`);
-    }
-    // Best-effort: if residual had Grok outside-journal, try release when
-    // we still know ides — optional; incomplete force path is install-base first.
-    if (result.exitCode && result.exitCode !== 0) process.exit(result.exitCode);
-    console.log(`\n  ⚛ Force-incomplete complete (check residual ledger if pre-U).\n`);
-    return;
-  }
 
   console.log(`\n  ⚛ ${msg.removing}\n`);
 

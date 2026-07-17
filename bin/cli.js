@@ -48,11 +48,14 @@ if (values.help || !command) {
                       Use --ide detected or --all-detected to refresh from installed IDEs
     --lang <code>     Communication language for all skills (e.g. en, pt, es, fr, ja)
     --repair          (install) Recover from an incomplete installer transaction:
-                      print recovery summary; refuse silent resume on pre-U journals
-                      (use uninstall --force-incomplete); post-U reverse+reinstall
+                      scans user+project for incomplete; refuse silent resume on
+                      pre-U journals (use uninstall --force-incomplete); post-U is
+                      reverse-only (clears incomplete — re-run install separately;
+                      does not auto-reinstall)
     --force-incomplete (uninstall) Best-effort reverse of journaled effects when the
-                      install is stuck incomplete; writes a residual recovery ledger
-                      (never hand-edit manifest JSON)
+                      install is stuck incomplete; routes to the incomplete scope;
+                      writes a residual recovery ledger (never hand-edit manifest JSON);
+                      exits non-zero if reverse fails or incomplete is retained
     --demo            (serve) Stage demo fixtures (a sample plan + initiative)
                       in a tmp dir and serve from there. Useful for first
                       look without bootstrapping your own .atomic-skills/.
