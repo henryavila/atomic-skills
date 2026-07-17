@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { SKILL_NAMESPACE } from '../config.js';
 import { wantsGrokPluginHost } from './grok-plugin-host.js';
 import { readManifest } from '../manifest.js';
-import { listKnownInstallBases } from './grok-refcount.js';
+import { listKnownInstallBases, normalizeInstallBase } from './grok-refcount.js';
 
 /**
  * Hide non-Grok Atomic Skills trees from Grok's skill scanner.
@@ -263,7 +263,8 @@ export function revertGrokAgentsIsolation(opts) {
   }
 
   // Keep isolation while any *other* install still wants Grok.
-  const others = listInstallBases().filter((p) => p !== basePath);
+  const self = normalizeInstallBase(basePath);
+  const others = listInstallBases().filter((p) => normalizeInstallBase(p) !== self);
   for (const other of others) {
     const m = readManifest(other);
     if (wantsGrokPluginHost(m?.ides)) {
