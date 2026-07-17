@@ -162,8 +162,29 @@ export function writeDist(expected, opts = {}) {
   }
   mkdirSync(distDir, { recursive: true });
 
+  const distRoot = resolve(distDir);
   for (const [relPath, content] of expected) {
-    const full = join(distDir, relPath);
+    if (typeof relPath !== 'string' || relPath.length === 0) {
+      throw new Error('writeDist: empty relative path');
+    }
+    if (relPath.startsWith('/') || relPath.includes('\0')) {
+      throw new Error(`writeDist: invalid relative path "${relPath}"`);
+    }
+    const segments = relPath.split(/[/\\]/).filter((s) => s.length > 0);
+    if (segments.some((s) => s === '.' || s === '..')) {
+      throw new Error(`writeDist: path escapes dist via segment: "${relPath}"`);
+    }
+    const full = resolve(distRoot, ...segments);
+    const relToRoot = relative(distRoot, full);
+    if (
+      relToRoot.startsWith('..') ||
+      relToRoot.includes(`..${sep}`) ||
+      // Windows absolute outside root also fails relative() containment
+      resolve(full) !== full ||
+      !full.startsWith(distRoot + sep) && full !== distRoot
+    ) {
+      throw new Error(`writeDist: path escapes distDir: "${relPath}" → ${full}`);
+    }
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, content, 'utf8');
   }

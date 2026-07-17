@@ -6,8 +6,45 @@
  * Skill body prompts are never rendered on public pages.
  */
 
-import { IDE_CONFIG, getIdeSupportLabel } from '../../src/config.js';
+import {
+  IDE_CONFIG,
+  PUBLIC_IDE_IDS,
+  getIdeSupportLabel,
+} from '../../src/config.js';
 import { collectSkills } from './validate-skills-core.js';
+
+/** Path/URL-safe catalog key: kebab-case slug only (no traversal). */
+const SAFE_KEY_RE = /^[a-z][a-z0-9-]*$/;
+
+/**
+ * Assert a catalog skill/module key is safe for use as a dist path segment.
+ * @param {string} key
+ * @returns {string}
+ */
+export function assertSafeKey(key) {
+  if (typeof key !== 'string' || !SAFE_KEY_RE.test(key)) {
+    throw new Error(
+      `unsafe catalog key for site path: ${JSON.stringify(key)} (expected kebab-case slug)`
+    );
+  }
+  return key;
+}
+
+/**
+ * Allow only http(s) URLs for public hrefs; otherwise return null (caller renders text).
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function safeHttpUrl(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  try {
+    const u = new URL(raw.trim());
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
 
 const NAV = [
   { id: 'home', label: 'Home', path: 'index.html' },
@@ -204,12 +241,20 @@ export function renderLandingPage({ product, skills, pkgVersion }) {
     </section>
 
     ${
-      docsUrl
-        ? `<section class="section">
+      (() => {
+        const safe = safeHttpUrl(docsUrl);
+        if (!docsUrl) return '';
+        if (safe) {
+          return `<section class="section">
       <h2>Canonical URL</h2>
-      <p class="prose"><a href="${escapeHtml(docsUrl)}">${escapeHtml(docsUrl)}</a></p>
-    </section>`
-        : ''
+      <p class="prose"><a href="${escapeHtml(safe)}" rel="noopener noreferrer">${escapeHtml(safe)}</a></p>
+    </section>`;
+        }
+        return `<section class="section">
+      <h2>Canonical URL</h2>
+      <p class="prose"><code>${escapeHtml(String(docsUrl))}</code> <span class="footnote">(not a valid http(s) URL — rendered as text)</span></p>
+    </section>`;
+      })()
     }`;
 
   return renderShell({
@@ -402,9 +447,13 @@ export function renderModulesPage({ moduleMeta }) {
 export function renderHostsPage(opts = {}) {
   const ideConfig = opts.ideConfig ?? IDE_CONFIG;
   const supportLabel = opts.supportLabel ?? getIdeSupportLabel;
+  // Public product surface only — exclude internal aliases (e.g. gemini-commands).
+  const publicIds = opts.publicIdeIds ?? PUBLIC_IDE_IDS;
 
-  const rows = Object.entries(ideConfig)
-    .map(([id, ide]) => {
+  const rows = publicIds
+    .filter((id) => ideConfig[id])
+    .map((id) => {
+      const ide = ideConfig[id];
       const support = supportLabel(id);
       const badgeClass = support === 'Tested' ? 'badge-tested' : 'badge-theoretical';
       const format = FORMAT_LABELS[ide.format] || ide.format;
@@ -491,8 +540,9 @@ export function buildSiteFiles({
   );
 
   for (const skill of skills) {
+    const key = assertSafeKey(skill.key);
     files.set(
-      `skills/${skill.key}/index.html`,
+      `skills/${key}/index.html`,
       renderSkillDetail({ skill })
     );
   }

@@ -19,6 +19,8 @@ import {
   renderSkillDetail,
   renderHostsPage,
   buildSiteFiles,
+  safeHttpUrl,
+  assertSafeKey,
 } from '../scripts/lib/render-site.js';
 import {
   buildExpectedDist,
@@ -121,14 +123,51 @@ describe('render helpers', () => {
         dir: '.gemini/skills',
         format: 'markdown',
       },
+      'gemini-commands': {
+        name: 'Gemini Commands (internal)',
+        dir: '.gemini/commands',
+        format: 'command',
+      },
     };
     const supportLabel = (id) => (id === 'claude-code' ? 'Tested' : 'Theoretical');
-    const html = renderHostsPage({ ideConfig, supportLabel });
+    const html = renderHostsPage({
+      ideConfig,
+      supportLabel,
+      publicIdeIds: ['claude-code', 'gemini'],
+    });
     assert.ok(html.includes('badge-tested'));
     assert.ok(html.includes('badge-theoretical'));
     assert.ok(html.includes('Claude Code'));
     assert.ok(html.includes('Gemini CLI'));
+    assert.ok(!html.includes('Gemini Commands (internal)'));
     assert.ok(html.includes('TESTED_IDE_IDS'));
+  });
+
+  it('landing docs_url rejects non-http(s) schemes in href', () => {
+    const bad = renderLandingPage({
+      product: { ...product, docs_url: 'javascript:alert(1)' },
+      skills: [],
+    });
+    assert.ok(!bad.includes('href="javascript:'));
+    assert.ok(bad.includes('not a valid http(s) URL'));
+
+    const good = renderLandingPage({
+      product: { ...product, docs_url: 'https://atomic-skills.henryavila.com' },
+      skills: [],
+    });
+    assert.ok(good.includes('href="https://atomic-skills.henryavila.com/"') || good.includes('href="https://atomic-skills.henryavila.com"'));
+  });
+
+  it('assertSafeKey rejects path traversal keys', () => {
+    assert.equal(assertSafeKey('demo'), 'demo');
+    assert.throws(() => assertSafeKey('../etc'));
+    assert.throws(() => assertSafeKey('a/b'));
+  });
+
+  it('safeHttpUrl allows only http(s)', () => {
+    assert.ok(safeHttpUrl('https://example.com')?.startsWith('https://'));
+    assert.equal(safeHttpUrl('javascript:alert(1)'), null);
+    assert.equal(safeHttpUrl('data:text/html,hi'), null);
   });
 
   it('buildSiteFiles emits landing, skills index/detail, modules, hosts', () => {
@@ -208,6 +247,30 @@ describe('generate-site dist drift check', () => {
 
   afterEach(() => {
     rmSync(tmpRoot, { recursive: true, force: true });
+  });
+
+  it('writeDist rejects paths that escape distDir', () => {
+    const expected = new Map([
+      ['skills/../../../outside.txt', 'nope'],
+    ]);
+    assert.throws(() => writeDist(expected, { distDir, dsCssSrc }), /escapes|invalid|segment/i);
+    assert.ok(!existsSync(join(tmpRoot, 'outside.txt')));
+  });
+
+  it('buildSiteFiles rejects unsafe skill keys', () => {
+    assert.throws(
+      () =>
+        buildSiteFiles({
+          catalogData: {
+            version: '0.3',
+            product: catalogBase.product,
+            core: {
+              '../evil': minimalV02Entry('evil'),
+            },
+          },
+        }),
+      /unsafe catalog key/
+    );
   });
 
   it('writeDist then findDistDrift is clean; catalog change is stale', () => {
