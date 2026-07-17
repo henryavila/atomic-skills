@@ -6,8 +6,8 @@ goal: Shrink README to the product envelope and keep it generated from the same 
 status: active
 branch: plan/product-docs-site
 started: 2026-07-17T16:06:59.752Z
-lastUpdated: 2026-07-17T16:06:59.752Z
-nextAction: "Start T-007: Slim README template regions"
+lastUpdated: 2026-07-17T16:10:01.000Z
+nextAction: review-code F2
 parentPlan: product-docs-site
 phaseId: F2
 businessIntent:
@@ -20,9 +20,9 @@ businessIntent:
   outOfScope: Deploy, project guide, retiring docs/skills.
   doneWhen: README ≤200 lines, check-docs green, homepage includes
     atomic-skills.henryavila.com.
-tasksDone: 0
+tasksDone: 2
 tasksTotal: 2
-gatesMet: 0
+gatesMet: 2
 gatesTotal: 2
 exitGates:
   - id: F2-G1
@@ -31,7 +31,15 @@ exitGates:
       kind: shell
       command: npm run check-docs && test $(wc -l < README.md) -le 200
       expectExitCode: 0
-    status: pending
+    status: met
+    metAt: 2026-07-17T16:10:01.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:10:01.000Z
+      verifiedCommit: 8aa1ee6c855985f412e4777e88c240ff5b1289c6
+      passed: true
+      exitCode: 0
+      outputSummary: F2-G1
   - id: F2-G2
     description: package homepage points at the docs site.
     verifier:
@@ -40,7 +48,15 @@ exitGates:
         if(!String(p.homepage||'').includes('atomic-skills.henryavila.com'))
         process.exit(1)"
       expectExitCode: 0
-    status: pending
+    status: met
+    metAt: 2026-07-17T16:10:01.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:10:01.000Z
+      verifiedCommit: 8aa1ee6c855985f412e4777e88c240ff5b1289c6
+      passed: true
+      exitCode: 0
+      outputSummary: F2-G2
 stack:
   - id: 1
     title: Slim README and envelope
@@ -70,8 +86,16 @@ tasks:
         path: scripts/lib/render-readme.js
     summary: Enxugar README gerado para envelope ≤~120–200 linhas.
     weight: 2
-    status: pending
-    lastUpdated: 2026-07-17T16:06:59.752Z
+    status: done
+    lastUpdated: 2026-07-17T16:10:01.000Z
+    closedAt: 2026-07-17T16:10:01.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:10:01.000Z
+      verifiedCommit: 8aa1ee6c855985f412e4777e88c240ff5b1289c6
+      passed: true
+      exitCode: 0
+      outputSummary: T-007 check-docs/homepage
   - id: T-008
     title: package homepage and docs URL
     scopeBoundary:
@@ -95,8 +119,16 @@ tasks:
         path: meta/product/site.yaml
     summary: package homepage + URL canônica no README/product.
     weight: 1
-    status: pending
-    lastUpdated: 2026-07-17T16:06:59.752Z
+    status: done
+    lastUpdated: 2026-07-17T16:10:01.000Z
+    closedAt: 2026-07-17T16:10:01.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T16:10:01.000Z
+      verifiedCommit: 8aa1ee6c855985f412e4777e88c240ff5b1289c6
+      passed: true
+      exitCode: 0
+      outputSummary: T-008 check-docs/homepage
 parked: []
 emerged: []
 summary: README envelope magro + homepage apontando para atomic-skills.henryavila.com.
