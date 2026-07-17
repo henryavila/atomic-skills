@@ -502,15 +502,23 @@ export function runCrossChecks(skills, skillsDir, options = {}) {
       }
       if (crossCheckIronLaw) {
         const catalogLaw =
-          typeof skill.entry?.iron_law === 'string' ? skill.entry.iron_law : null;
+          typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim()
+            ? skill.entry.iron_law
+            : null;
         const bodyLaw = extractIronLawFromBody(body);
-        if (catalogLaw != null && bodyLaw != null) {
-          const a = normalizeIronLaw(catalogLaw);
-          const b = normalizeIronLaw(bodyLaw);
-          if (a !== b) {
+        if (catalogLaw != null) {
+          if (bodyLaw == null) {
             issues.push(
-              `iron_law mismatch: catalog "${a}" !== body "${b}" (${bodyPath})`
+              `iron_law body line missing under ## Iron Law while catalog has iron_law (${bodyPath})`
             );
+          } else {
+            const a = normalizeIronLaw(catalogLaw);
+            const b = normalizeIronLaw(bodyLaw);
+            if (a !== b) {
+              issues.push(
+                `iron_law mismatch: catalog "${a}" !== body "${b}" (${bodyPath})`
+              );
+            }
           }
         }
       }
@@ -739,9 +747,12 @@ export function validateCatalog(data, options = {}) {
     // validateSkill type-checks iron_law when present (required:false).
     // Catalog v0.3 / requireIronLawField only needs an extra check for missing.
     const issues = validateSkill(skill.key, skill.entry, knownNames);
+    // Guard before `in`: primitive/array entries must not TypeError the report path.
+    const entryIsObject =
+      skill.entry != null && typeof skill.entry === 'object' && !Array.isArray(skill.entry);
     if (
       requireIronLawField &&
-      (skill.entry == null ||
+      (!entryIsObject ||
         !('iron_law' in skill.entry) ||
         skill.entry.iron_law === undefined)
     ) {

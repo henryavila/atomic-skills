@@ -541,6 +541,48 @@ describe('validateCatalog — cross-checks', () => {
       JSON.stringify(report.failures)
     );
   });
+
+  it('catalog v0.3 does not throw on primitive skill entries (reports issues)', () => {
+    const data = {
+      version: '0.3',
+      product: {
+        what_is: 'Product copy.',
+        what_is_not: ['Not a pack'],
+        docs_url: 'https://atomic-skills.henryavila.com',
+        install: { primary: 'npx @henryavila/atomic-skills install' },
+      },
+      core: { demo: 'bad' },
+    };
+    const report = validateCatalog(data, { skillsDir });
+    assert.ok(report.totalIssues > 0, 'expected structured failures, not throw');
+    assert.ok(
+      report.failures.some((f) =>
+        f.issues.some((m) => m.includes('missing required field: iron_law'))
+      ),
+      JSON.stringify(report.failures)
+    );
+  });
+
+  it('catalog v0.3 fails when ## Iron Law heading has no extractable law line', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\n\n## Next\nbody\n');
+    const data = {
+      version: '0.3',
+      product: {
+        what_is: 'Product copy.',
+        what_is_not: ['Not a pack'],
+        docs_url: 'https://atomic-skills.henryavila.com',
+        install: { primary: 'npx @henryavila/atomic-skills install' },
+      },
+      core: { demo: baseV02({ iron_law: 'NO DEMO WITHOUT LAW.' }) },
+    };
+    const report = validateCatalog(data, { skillsDir });
+    assert.ok(
+      report.failures.some((f) =>
+        f.issues.some((m) => m.includes('iron_law body line missing'))
+      ),
+      JSON.stringify(report.failures)
+    );
+  });
 });
 
 import {

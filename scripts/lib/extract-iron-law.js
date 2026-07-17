@@ -21,12 +21,18 @@ export function normalizeIronLaw(text) {
  */
 export function extractIronLawFromBody(body) {
   if (typeof body !== 'string' || body.length === 0) return null;
-  const match = body.match(/^## Iron Law\s*\n+([\s\S]+?)(?=\n## |\n---|$)/m);
-  if (!match) return null;
-  const block = match[1].trim();
-  // First non-empty line of the block is the rule.
-  const firstLine = block.split('\n').find((l) => l.trim().length > 0);
-  return firstLine ? firstLine.trim() : null;
+  // Prefer an index/slice parse over `/…$/m`: under the `m` flag `$` matches
+  // end-of-line, so a non-greedy capture would always stop at the first blank.
+  const heading = /^## Iron Law\b[ \t]*\r?\n/m.exec(body);
+  if (!heading) return null;
+  const after = body.slice(heading.index + heading[0].length);
+  const endMatch = /^(## |---\s*$)/m.exec(after);
+  const block = endMatch ? after.slice(0, endMatch.index) : after;
+  const firstLine = block.split(/\r?\n/).find((l) => l.trim().length > 0);
+  if (!firstLine) return null;
+  // Defensive: never treat a markdown heading as the Iron Law one-liner.
+  if (/^#{1,6}\s/.test(firstLine.trim())) return null;
+  return firstLine.trim();
 }
 
 /**
