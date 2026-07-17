@@ -1,8 +1,8 @@
 ---
 lastUpdated: 2026-07-17T14:28:52.716Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
+activePlans: 0
+activeInitiatives: 0
 archivedCount: 23
 ---
 
@@ -20,7 +20,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
-| product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
+| product-docs-site | done | F5 | plan/product-docs-site | 2026-07-17 | 6/6 |
 
 
 
@@ -48,7 +48,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
-| product-docs-site / product-docs-site-f0-catalog-v0-3-and-product-block | active | F0 | plan/product-docs-site | 0/3 tasks |
 
 ## Active Initiatives (standalone)
 
