@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-  IDE_CONFIG, PUBLIC_IDE_IDS, getSkillPath, getSkillFormat, getAssetsDir,
+  IDE_CONFIG, PUBLIC_IDE_IDS, TESTED_IDE_IDS, getIdeSupportLabel,
+  getSkillPath, getSkillFormat, getAssetsDir,
   SKILL_NAMESPACE, getNamespaceRootPath, normalizeIDESelection,
 } from '../src/config.js';
 
@@ -17,6 +18,20 @@ describe('IDE config', () => {
     assert.deepStrictEqual(PUBLIC_IDE_IDS, [
       'claude-code', 'cursor', 'gemini', 'codex', 'opencode', 'github-copilot', 'grok',
     ]);
+  });
+
+  it('marks only Claude/Cursor/Codex/Grok as product-tested hosts', () => {
+    assert.deepStrictEqual([...TESTED_IDE_IDS].sort(), [
+      'claude-code', 'codex', 'cursor', 'grok',
+    ]);
+    for (const id of TESTED_IDE_IDS) {
+      assert.equal(getIdeSupportLabel(id), 'Tested', id);
+      assert.ok(Object.hasOwn(IDE_CONFIG, id), id);
+    }
+    for (const id of Object.keys(IDE_CONFIG)) {
+      if (TESTED_IDE_IDS.includes(id)) continue;
+      assert.equal(getIdeSupportLabel(id), 'Theoretical', id);
+    }
   });
 
   it('keeps native gemini when codex is also selected (F5 — no rewrite)', () => {

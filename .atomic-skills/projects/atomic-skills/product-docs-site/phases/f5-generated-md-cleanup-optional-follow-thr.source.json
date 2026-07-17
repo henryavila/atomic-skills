@@ -1,0 +1,56 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F5",
+  "slug": "product-docs-site-f5-generated-md-cleanup-optional-follow-thr",
+  "title": "Generated MD cleanup (optional follow-through)",
+  "goal": "Decide and execute the fate of generated docs/skills/*.md now that the site is the human reference.",
+  "tasks": [
+    {
+      "id": "T-014",
+      "title": "Retire or keep docs/skills with explicit decision",
+      "scopeBoundary": [
+        "Do not delete docs/kb or docs/design. Do not delete skill bodies under skills/."
+      ],
+      "acceptance": [
+        "it - Either generate-skill-docs remains in check-docs with a documented dual-view reason, or it is removed from the default docs pipeline and README no longer links to docs/skills for product reference.; it npm run check-docs exits 0 after the decision is implemented."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run check-docs",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/skills/"
+        },
+        {
+          "kind": "file",
+          "path": "scripts/generate-skill-docs.js"
+        },
+        {
+          "kind": "file",
+          "path": "package.json"
+        },
+        {
+          "kind": "file",
+          "path": "README.md"
+        }
+      ],
+      "summary": "Manter ou remover generate-skill-docs do pipeline padrão.",
+      "weight": 2
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F5-G1",
+      "description": "check-docs reflects the post-site decision on docs/skills generation.",
+      "verifier": {
+        "kind": "shell",
+        "command": "npm run check-docs",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

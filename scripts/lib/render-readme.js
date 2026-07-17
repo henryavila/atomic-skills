@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { collectSkills, bodyPathForSkill } from './validate-skills-core.js';
 import { extractIronLaw } from './extract-iron-law.js';
-import { IDE_CONFIG, SKILL_NAMESPACE } from '../../src/config.js';
+import { IDE_CONFIG, SKILL_NAMESPACE, getIdeSupportLabel } from '../../src/config.js';
 
 const TABLE_START = '[SKILLS_TABLE_START]: #';
 const TABLE_END = '[SKILLS_TABLE_END]: #';
@@ -36,10 +36,12 @@ function ideTargetDir(ide) {
 }
 
 export function renderIdesTable() {
-  const header = '| IDE | Profile | Directory | Format |\n|-----|---------|-----------|--------|';
+  const header =
+    '| IDE | Profile | Directory | Format | Support |\n|-----|---------|-----------|--------|---------|';
   const rows = Object.entries(IDE_CONFIG).map(([id, ide]) => {
     const label = FORMAT_LABELS[ide.format] || ide.format;
-    return `| ${ide.name} | \`${id}\` | \`${ideTargetDir(ide)}\` | ${label} |`;
+    const support = getIdeSupportLabel(id);
+    return `| ${ide.name} | \`${id}\` | \`${ideTargetDir(ide)}\` | ${label} | ${support} |`;
   });
   return [header, ...rows].join('\n');
 }

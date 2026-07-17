@@ -533,9 +533,18 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') 
   const isPt = language === 'pt';
 
   const result = registerGrokPluginHost({ basePath, ides });
-  if (result.status === 'registered' || result.status === 'updated' || result.status === 'already') {
+  if (result.status === 'registered') {
     console.log(
       `  ${pc.dim(isPt ? 'Grok plugin host: registrado (nativo).' : 'Grok plugin host: registered (native).')}`,
+    );
+  } else if (result.status === 'updated') {
+    // uninstall+install refreshed ~/.grok/installed-plugins/ snapshot (argument-hint, etc.)
+    console.log(
+      `  ${pc.dim(isPt ? 'Grok plugin host: snapshot recarregado (uninstall+install).' : 'Grok plugin host: snapshot reloaded (uninstall+install).')}`,
+    );
+  } else if (result.status === 'already') {
+    console.log(
+      `  ${pc.yellow(isPt ? `Grok plugin host: já instalado, recarga incompleta (${result.detail || 'sem detalhe'}).` : `Grok plugin host: already installed, reload incomplete (${result.detail || 'no detail'}).`)}`,
     );
   } else if (result.status === 'skipped') {
     console.log(

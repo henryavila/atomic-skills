@@ -95,10 +95,11 @@ test('registerGrokPluginHost installs with --trust on package path', () => {
   });
 });
 
-test('registerGrokPluginHost treats already-installed as success and tries update', () => {
+test('registerGrokPluginHost reinstalls when already-installed (stale host snapshot)', () => {
   withTmp((base) => {
-    stagePluginPackage(base);
+    const pluginRoot = stagePluginPackage(base);
     const calls = [];
+    let installCount = 0;
     const result = registerGrokPluginHost({
       basePath: base,
       ides: ['grok'],
@@ -106,14 +107,56 @@ test('registerGrokPluginHost treats already-installed as success and tries updat
       run: (bin, args) => {
         calls.push(args.join(' '));
         if (args[1] === 'install') {
-          return { status: 1, stdout: '', stderr: "Error: repo 'atomic-skills-5bb91fde' already installed\n" };
+          installCount += 1;
+          // First install hits the host's "already installed"; after uninstall, reinstall succeeds.
+          if (installCount === 1) {
+            return {
+              status: 1,
+              stdout: '',
+              stderr: "Error: repo 'atomic-skills-5bb91fde' already installed\n",
+            };
+          }
+          return { status: 0, stdout: 'Installed 1 plugin(s)\n', stderr: '' };
         }
-        return { status: 0, stdout: 'local symlink, already live\n', stderr: '' };
+        if (args[1] === 'uninstall') {
+          return { status: 0, stdout: 'Uninstalled 1 plugin(s): atomic-skills\n', stderr: '' };
+        }
+        return { status: 1, stdout: '', stderr: `unexpected: ${args.join(' ')}` };
       },
     });
     assert.equal(result.status, 'updated');
-    assert.ok(calls.some((c) => c.includes('plugin install --trust')));
-    assert.ok(calls.some((c) => c.includes(`plugin update ${GROK_PLUGIN_NAME}`)));
+    // Must NOT rely on `plugin update` — it no-ops for local snapshots.
+    assert.ok(!calls.some((c) => c.includes('plugin update')), 'must not call plugin update');
+    assert.equal(calls[0], `plugin install --trust ${pluginRoot}`);
+    assert.equal(calls[1], `plugin uninstall ${GROK_PLUGIN_NAME} --confirm`);
+    assert.equal(calls[2], `plugin install --trust ${pluginRoot}`);
+  });
+});
+
+test('registerGrokPluginHost fail-opens when reinstall after already-installed fails', () => {
+  withTmp((base) => {
+    stagePluginPackage(base);
+    const result = registerGrokPluginHost({
+      basePath: base,
+      ides: ['grok'],
+      resolveBin: () => '/mock/grok',
+      run: (_bin, args) => {
+        if (args[1] === 'install') {
+          return {
+            status: 1,
+            stdout: '',
+            stderr: "Error: repo 'atomic-skills-5bb91fde' already installed\n",
+          };
+        }
+        if (args[1] === 'uninstall') {
+          return { status: 0, stdout: 'ok\n', stderr: '' };
+        }
+        return { status: 1, stdout: '', stderr: 'unexpected' };
+      },
+    });
+    // Second install also returns "already installed" → reinstall failed path.
+    assert.equal(result.status, 'already');
+    assert.match(result.detail || '', /already installed/i);
   });
 });
 

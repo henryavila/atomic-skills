@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "product-docs-site",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/product-docs-site/source.md",
+  "stage": "ready",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/product-docs-site/plan.md",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f0-catalog-v0-3-and-product-block.md",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f1-site-build-from-catalog.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f2-slim-readme-and-envelope.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f3-project-deep-guide-on-the-site.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f4-deploy-offline-access-and-release-cutove.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f5-generated-md-cleanup-optional-follow-thr.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/product-docs-site/plan.md",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f0-catalog-v0-3-and-product-block.md",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f1-site-build-from-catalog.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f2-slim-readme-and-envelope.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f3-project-deep-guide-on-the-site.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f4-deploy-offline-access-and-release-cutove.source.json",
+    ".atomic-skills/projects/atomic-skills/product-docs-site/phases/f5-generated-md-cleanup-optional-follow-thr.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-17T14:29:36.382Z",
+  "isolation": "own-worktree plan/product-docs-site at .worktrees/product-docs-site; canonical state written under primary .atomic-skills (tracked) with branch stamp"
+}

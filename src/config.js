@@ -232,6 +232,34 @@ export const IDE_CONFIG = {
 export const PUBLIC_IDE_IDS = Object.keys(IDE_CONFIG).filter((id) => id !== 'gemini-commands');
 
 /**
+ * Hosts that have been exercised end-to-end in real agent sessions
+ * (install → discovery → invoke → skill body with host tool names).
+ * Everyone else in IDE_CONFIG is **theoretical** support: layout paths +
+ * tool-name adapters exist and install, but they are not battle-tested.
+ *
+ * Distinct from host-qualification `operational` vs `layout-only` (CLI probe
+ * receipts). This list is the product-facing “we actually use these” set.
+ *
+ * Keep gemini-commands out — it aliases gemini’s profile and is theoretical.
+ */
+export const TESTED_IDE_IDS = Object.freeze([
+  'claude-code',
+  'cursor',
+  'codex',
+  'grok',
+]);
+
+/**
+ * Product-facing support label for README / docs.
+ * @param {string} ideId
+ * @returns {'Tested' | 'Theoretical'}
+ */
+export function getIdeSupportLabel(ideId) {
+  if (TESTED_IDE_IDS.includes(ideId)) return 'Tested';
+  return 'Theoretical';
+}
+
+/**
  * Paths where the atomic-skills namespace USED to live in older versions
  * before IDE_CONFIG was refactored. Each entry is relative to basePath
  * (`~/` for user scope, `./` for project scope); the SKILL_NAMESPACE suffix

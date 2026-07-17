@@ -1,8 +1,8 @@
 ---
-lastUpdated: 2026-07-16T16:20:00.000Z
-schemaVersion: '0.1'
-activePlans: 0
-activeInitiatives: 0
+lastUpdated: 2026-07-17T14:28:52.765Z
+schemaVersion: "0.1"
+activePlans: 1
+activeInitiatives: 1
 archivedCount: 14
 ---
 
@@ -18,7 +18,10 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 
 ## Active Plans
 
-_(none)_
+| Slug | Status | Current Phase | Branch | Started | Phases |
+|------|--------|---------------|--------|---------|
+| product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
+
 
 
 ## Done Plans (not archived)
@@ -37,6 +40,12 @@ _(none)_
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|--------|
 | refactor-doc-architect | paused | F0 | main | 2026-05-31 | 0/6 |
+
+## Active Initiatives (plan-anchored)
+
+| Path | Status | Phase | Branch | Tasks |
+|------|--------|-------|--------|-------|
+| product-docs-site / product-docs-site-f0-catalog-v0-3-and-product-block | active | F0 | plan/product-docs-site | 0/3 tasks |
 
 ## Active Initiatives (standalone)
 

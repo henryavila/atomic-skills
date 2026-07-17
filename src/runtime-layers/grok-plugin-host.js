@@ -158,15 +158,32 @@ export function registerGrokPluginHost(opts) {
 
   const combined = `${install.stdout}\n${install.stderr}`;
   if (/already installed/i.test(combined)) {
-    // Local source is journal-owned; host may hold a snapshot copy — refresh.
-    const update = run(bin, ['plugin', 'update', GROK_PLUGIN_NAME], { env });
-    if (update.status === 0) {
-      return { status: 'updated', detail: trimOut(update) || 'already installed; updated' };
+    // Grok materializes a DIRECTORY SNAPSHOT under ~/.grok/installed-plugins/
+    // (not a live symlink to the journal package). `plugin update` for local
+    // sources prints "local symlink, already live" and leaves that snapshot
+    // stale — so slash-menu fields like argument-hint never refresh. Force
+    // uninstall+install so the host re-copies the journal-rendered package.
+    const uninstall = run(
+      bin,
+      ['plugin', 'uninstall', GROK_PLUGIN_NAME, '--confirm'],
+      { env },
+    );
+    const reinstall = run(bin, ['plugin', 'install', '--trust', pluginRoot], { env });
+    if (reinstall.status === 0) {
+      return {
+        status: 'updated',
+        detail:
+          trimOut(reinstall)
+          || `reinstalled (prior: ${trimOut(uninstall) || 'uninstalled'})`,
+      };
     }
-    // Update is best-effort; "already live" / local symlink still counts as registered.
+    // Fail-open: journal package remains; host may need a manual reinstall.
     return {
       status: 'already',
-      detail: trimOut(update) || trimOut(install) || 'already installed',
+      detail:
+        trimOut(reinstall)
+        || trimOut(install)
+        || 'already installed; host reinstall failed',
     };
   }
 

@@ -251,15 +251,36 @@ describe('renderForIDE', () => {
     assert.ok(!result.includes('argument-hint'));
   });
 
-  it('omits argument-hint in non-command formats even when provided', () => {
-    const markdown = renderForIDE('markdown', 'fix', 'desc', 'body', { argumentHint: '[x]' });
-    const toml = renderForIDE('toml', 'fix', 'desc', 'body', { argumentHint: '[x]' });
-    assert.ok(!markdown.includes('argument-hint'));
-    assert.ok(!toml.includes('argument-hint'));
+  it('includes argument-hint in markdown format when provided (Grok Build slash menu)', () => {
+    const markdown = renderForIDE('markdown', 'project', 'desc', 'body', {
+      argumentHint: '[status|new|materialize|…]',
+    });
+    assert.ok(markdown.includes("argument-hint: '[status|new|materialize|…]'"));
+    assert.ok(markdown.includes('name: project'));
+    assert.ok(markdown.includes('user-invocable: true'));
+    // Field order: name → description → argument-hint → user-invocable
+    const nameIdx = markdown.indexOf('name: project');
+    const descIdx = markdown.indexOf("description: 'desc'");
+    const hintIdx = markdown.indexOf('argument-hint:');
+    const invIdx = markdown.indexOf('user-invocable: true');
+    assert.ok(nameIdx < descIdx && descIdx < hintIdx && hintIdx < invIdx);
   });
 
-  it('escapes single quotes in argument-hint', () => {
-    const result = renderForIDE('command', 'fix', 'desc', 'body', { argumentHint: "it's a test" });
-    assert.ok(result.includes("argument-hint: 'it''s a test'"));
+  it('omits argument-hint in markdown when not provided', () => {
+    const markdown = renderForIDE('markdown', 'fix', 'desc', 'body');
+    assert.ok(!markdown.includes('argument-hint'));
+  });
+
+  it('omits argument-hint in toml even when provided (no TOML surface)', () => {
+    const toml = renderForIDE('toml', 'fix', 'desc', 'body', { argumentHint: '[x]' });
+    assert.ok(!toml.includes('argument-hint'));
+    assert.ok(!toml.includes('argument_hint'));
+  });
+
+  it('escapes single quotes in argument-hint (command + markdown)', () => {
+    const command = renderForIDE('command', 'fix', 'desc', 'body', { argumentHint: "it's a test" });
+    const markdown = renderForIDE('markdown', 'fix', 'desc', 'body', { argumentHint: "it's a test" });
+    assert.ok(command.includes("argument-hint: 'it''s a test'"));
+    assert.ok(markdown.includes("argument-hint: 'it''s a test'"));
   });
 });

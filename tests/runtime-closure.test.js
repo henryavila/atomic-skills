@@ -74,6 +74,28 @@ describe('installed runtime closure', () => {
     assert.deepEqual(sourceReferences, []);
   });
 
+  it('emits argument-hint on Grok markdown SKILL.md for subcommand skills', () => {
+    const files = computeSkillsFileSet({
+      language: 'en',
+      ides: ['grok'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+      scope: 'project',
+    });
+    const project = files.find(
+      (f) => f.path === '.grok/plugins/atomic-skills/skills/project/SKILL.md',
+    );
+    assert.ok(project, 'expected grok project SKILL.md in file set');
+    assert.match(
+      project.content,
+      /^---\nname: project\ndescription: '[\s\S]*?'\nargument-hint: '\[status\|/m,
+      'Grok project skill must advertise subcommands via argument-hint',
+    );
+    // Catalog-curated prefix (grammar order); full list lives in subcommands[].
+    assert.match(project.content, /argument-hint: '\[status\|help\|verify\|/);
+  });
+
   it('recurses through arbitrary asset depth without flattening nested paths', (t) => {
     const fixture = createFixture(t, [
       'core:',

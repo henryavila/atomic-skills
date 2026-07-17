@@ -285,7 +285,9 @@ core:
     requires_args: false
     mutates_repo: true
     network_required: true
-    argument_hint: '[status|new|materialize|done|phase-done|finalize|verify|…]'
+    # Grammar-order prefix (≤120 chars). Full subcommand index is `subcommands[]`
+    # below; this string is what Claude Code + Grok Build show in slash autocomplete.
+    argument_hint: '[status|help|verify|review|new|idea|materialize|done|phase-done|finalize|reconcile|…]'
     one_liner: 'Plan / Initiative / Task state your agent reloads every session'
     emoji: '📊'
     version_added: '1.5.0'

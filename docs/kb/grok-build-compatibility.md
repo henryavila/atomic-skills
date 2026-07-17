@@ -27,8 +27,11 @@ Atomic Skills for Grok only under `.grok/plugins/` keeps a Grok-rendered body
    `hooks/hooks.json`, `plugin.json`) under `.grok/plugins/atomic-skills/`.
 2. **Host registry** (outside the journal, fail-open) —
    `grok plugin install --trust <absPluginRoot>` so `grok plugin list` shows
-   `atomic-skills`. Re-install tries `grok plugin update atomic-skills` when
-   already registered.
+   `atomic-skills`. When already registered, Atomic Skills **uninstalls then
+   reinstalls** the plugin (does **not** rely on `grok plugin update`): Grok
+   keeps a directory snapshot under `~/.grok/installed-plugins/<id>/`, and
+   `update` on local sources reports “already live” without re-copying — so
+   re-rendered fields like `argument-hint` would stay stale.
 3. **Foreign-skills isolation** (outside the journal, user
    `~/.grok/config.toml`) — add every non-Grok Atomic Skills root that Grok
    harness-scans to `[skills].ignore`, so Grok does **not** list
@@ -140,13 +143,43 @@ For Grok, `{{ASSETS_PATH}}` resolves to the plugin sibling of `skills/`:
 
 Never place assets under a recursively scanned skills tree.
 
-## 5. Rules for skill authors
+## 5. Slash autocomplete (`argument-hint`)
+
+Grok Build shows `argument-hint` from each skill’s SKILL.md frontmatter in the
+`/` slash menu (same field as Claude Code). Catalog source is
+`meta/catalog.yaml` → `argument_hint` (≤120 chars, grammar-order prefix +
+ellipsis). The installer emits it for:
+
+| Host format | Path | Emits `argument-hint`? |
+|-------------|------|------------------------|
+| `command` (Claude Code) | `.claude/commands/…` | yes |
+| `markdown` (Grok Build, Cursor, Codex, …) | `SKILL.md` | **yes** (required for Grok) |
+| `toml` (Gemini) | `.toml` | no surface |
+
+Without the markdown emit, Grok lists `/project` but not its subcommand options.
+
+**Two trees matter on reinstall:**
+
+| Path | Role |
+|------|------|
+| `~/.grok/plugins/atomic-skills/` (or project equivalent) | Journal package Atomic Skills writes |
+| `~/.grok/installed-plugins/<hash>/` | Host **snapshot** the TUI slash menu actually loads |
+
+`node bin/cli.js install --yes --ide grok` updates the journal package **and**
+force-refreshes the host snapshot (uninstall+install). Editing only the journal
+tree, or running `grok plugin update atomic-skills` alone, leaves the snapshot
+stale — slash hints will not change until the host re-copies.
+
+## 6. Rules for skill authors
 
 1. No hardcoded host tool names — always `{{BASH_TOOL}}` / `{{READ_TOOL}}` / …
 2. Do not invent a second tree under `.grok/skills/` for Atomic Skills content.
 3. Update `tests/render.test.js` when changing a tool map.
 4. Grok plugin install/uninstall parity is enforced by
    `tests/install-uninstall-roundtrip.test.js` (plugin tree only).
+5. Skills with git-style subcommands **must** set `argument_hint` in the catalog
+   so Grok’s slash menu lists options (e.g. `project` →
+   `[status|help|verify|…]`). Full index stays in `subcommands[]`.
 
 ## 6. Plugin inspect / list smoke
 

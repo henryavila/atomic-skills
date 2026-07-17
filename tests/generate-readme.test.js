@@ -83,6 +83,39 @@ describe('renderReadme', () => {
     assert.ok(tableSection.includes('`NO TEST WITHOUT EVIDENCE.`'));
   });
 
+  it('renders IDES_TABLE with Tested vs Theoretical support', () => {
+    writeFileSync(
+      join(skillsDir, 'core', 'demo.md'),
+      '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n'
+    );
+    const data = { core: { demo: minimalV02Entry('demo') } };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+
+    const idesSection = out.slice(
+      out.indexOf(MARKERS.IDES_START),
+      out.indexOf(MARKERS.IDES_END) + MARKERS.IDES_END.length
+    );
+    assert.ok(idesSection.includes('| Support |'), 'support column header');
+    assert.ok(idesSection.includes('| Tested |') || idesSection.includes('Tested |'), 'tested rows');
+    assert.ok(idesSection.includes('Theoretical'), 'theoretical rows');
+    // Battle-tested set (Claude / Cursor / Codex / Grok)
+    for (const id of ['claude-code', 'cursor', 'codex', 'grok']) {
+      assert.match(
+        idesSection,
+        new RegExp(`\\| \`${id}\` \\|[^|]+\\|[^|]+\\| Tested \\|`),
+        `${id} must be Tested`
+      );
+    }
+    // Theoretical set
+    for (const id of ['gemini', 'gemini-commands', 'opencode', 'github-copilot']) {
+      assert.match(
+        idesSection,
+        new RegExp(`\\| \`${id}\` \\|[^|]+\\|[^|]+\\| Theoretical \\|`),
+        `${id} must be Theoretical`
+      );
+    }
+  });
+
   it('renders compact skill detail blurbs with link to per-skill docs', () => {
     writeFileSync(
       join(skillsDir, 'core', 'demo.md'),

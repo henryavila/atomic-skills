@@ -85,31 +85,37 @@ export function renderTemplate(content, vars = {}, modules = {}, ideId = '', sco
 
 /**
  * Wrap rendered content in IDE-specific format.
- * @param {'markdown'|'toml'} format
+ * @param {'markdown'|'toml'|'command'} format
  * @param {string} name - Skill name (e.g. 'as-fix')
  * @param {string} description - English description
  * @param {string} body - Rendered prompt body
  * @param {object} [opts] - Optional fields
- * @param {string} [opts.argumentHint] - Displayed in autocomplete (Claude Code)
+ * @param {string} [opts.argumentHint] - Shown in slash-command autocomplete
+ *   (Claude Code `commands/` + Grok Build / markdown SKILL.md hosts that honor
+ *   `argument-hint`). Catalog `argument_hint` is curated ≤120 chars (grammar
+ *   prefix + ellipsis) so the composer placeholder stays readable.
  * @returns {string}
  */
 export function renderForIDE(format, name, description, body, opts = {}) {
   if (format === 'toml') {
     // Real TOML serializer (not raw string interpolation) so descriptions with
     // quotes/backslashes and prompt bodies with triple-quotes round-trip.
+    // TOML skill format has no argument-hint surface (Gemini / OpenCode).
     const prompt = body.endsWith('\n') ? body : `${body}\n`;
     return TOML.stringify({ description, prompt });
   }
 
+  // YAML single-quote escaping: ' → ''
+  const escaped = description.replace(/'/g, "''");
+  const hintLine = opts.argumentHint
+    ? `\nargument-hint: '${opts.argumentHint.replace(/'/g, "''")}'`
+    : '';
+
   if (format === 'command') {
-    const escaped = description.replace(/'/g, "''");
-    const hintLine = opts.argumentHint
-      ? `\nargument-hint: '${opts.argumentHint.replace(/'/g, "''")}'`
-      : '';
     return `---\ndescription: '${escaped}'${hintLine}\n---\n\n${body}\n`;
   }
 
-  // markdown (default for Cursor, Gemini, Codex, etc.) — YAML single-quote escaping: ' → ''
-  const escaped = description.replace(/'/g, "''");
-  return `---\nname: ${name}\ndescription: '${escaped}'\nuser-invocable: true\n---\n\n${body}\n`;
+  // markdown (Grok Build, Cursor, Codex, …) — Grok reads `argument-hint` from
+  // SKILL.md frontmatter into the slash menu (same field as Claude Code).
+  return `---\nname: ${name}\ndescription: '${escaped}'${hintLine}\nuser-invocable: true\n---\n\n${body}\n`;
 }
