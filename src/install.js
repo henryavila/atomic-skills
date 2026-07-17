@@ -1435,45 +1435,31 @@ export async function install(projectDir, options = {}) {
 
   // No bespoke conflict/orphan handling: the Driver's reconcileFileSet keeps the
   // user's modified files (no-clobber, P3) and removes only unmodified orphans.
-
-  // SIGINT handler
-  const writtenFiles = [];
-  const cleanup = () => {
-    for (const f of writtenFiles) {
-      try { unlinkSync(join(basePath, f)); } catch {}
-    }
-    console.log(config.lang === 'pt'
-      ? '\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n'
-      : '\n  ⚛ Installation cancelled. No files kept.\n');
-    process.exitCode = 1;
-    process.kill(process.pid, 'SIGINT');
-  };
-  process.on('SIGINT', cleanup);
+  //
+  // P1-E / F-008: do NOT install a fake SIGINT "cleanup" that unlinks
+  // writtenFiles. onFileWritten only fires after installSkills fully completes
+  // (post-Driver + post-manifest patch), so mid-install writtenFiles is always
+  // empty — the old handler lied ("No files kept") and re-signaled SIGINT to
+  // self (reentrancy). Default Node SIGINT exit is honest; if the journal is
+  // left incomplete, operators use `install --repair` / `uninstall --force-incomplete`
+  // (P0-A). Never process.kill(SIGINT) self.
 
   const priorIdes = existingManifest?.ides;
-  let result;
-  try {
-    result = installSkills(basePath, {
-      language: config.lang,
-      ides: config.ides,
-      skillsDir,
-      metaDir,
-      scope,
-      forceAdopt,
-    }, {
-      onFileWritten: (path) => writtenFiles.push(path),
-    });
-  } finally {
-    process.removeListener('SIGINT', cleanup);
-  }
+  const result = installSkills(basePath, {
+    language: config.lang,
+    ides: config.ides,
+    skillsDir,
+    metaDir,
+    scope,
+    forceAdopt,
+  });
 
   // Host plugin registry (outside journal): native Grok plugin, outside Codex.
   // Pass priorIdes so IDE shrink away from grok can last-owner-clean host + isolation (F-003).
   syncGrokPluginHostAfterInstall(basePath, config.ides, config.lang, { priorIdes });
 
-  // Install aideck bundle + dashboard to ~/.atomic-skills/
-  installRuntimeArtifacts();
-  registerInstall(basePath);
+  // P1-F / F-009: same locked publish+register path as --yes (no dual stage/register).
+  publishRuntimeAndRegister(basePath);
 
   showPostInstall(result, config.ides, config.lang, isFirstInstall);
 }
