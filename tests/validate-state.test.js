@@ -1715,3 +1715,75 @@ test('plan schema: executionMode rejects unknown tokens', () => {
   const text = planErrorText(validators.validatePlan.errors);
   assert.match(text, /executionMode|allowed values|enum/i);
 });
+
+// F3/T-010 — optional userValidatedAt + planEndReview (automate plan-end gates)
+test('plan schema: userValidatedAt and planEndReview optional; absent still validates', () => {
+  const validators = buildValidators();
+  const without = basePlan();
+  assert.equal(
+    validators.validatePlan(without),
+    true,
+    `plan without plan-end fields must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+  assert.equal('userValidatedAt' in without, false);
+  assert.equal('planEndReview' in without, false);
+});
+
+test('plan schema: userValidatedAt accepts ISO timestamps; rejects bare words', () => {
+  const validators = buildValidators();
+  const good = basePlan({ userValidatedAt: '2026-07-17T19:00:00.000Z' });
+  assert.equal(
+    validators.validatePlan(good),
+    true,
+    `ISO userValidatedAt must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+  const bad = basePlan({ userValidatedAt: 'ok' });
+  assert.equal(validators.validatePlan(bad), false, 'bare word userValidatedAt must fail');
+});
+
+test('plan schema: planEndReview accepts finalize-shaped external-both receipt', () => {
+  const validators = buildValidators();
+  const plan = basePlan({
+    executionMode: 'automate',
+    userValidatedAt: '2026-07-17T19:00:00.000Z',
+    planEndReview: {
+      mode: 'external-both',
+      range: 'origin/develop...HEAD',
+      reviewFile: '.atomic-skills/reviews/2026-07-17-1200-demo-plan-end.md',
+      legs: [
+        { provider: 'codex', status: 'succeeded', familyDifferent: true },
+        { provider: 'grok', status: 'skipped', familyDifferent: true },
+      ],
+      verifiedAt: '2026-07-17T19:00:00.000Z',
+    },
+  });
+  assert.equal(
+    validators.validatePlan(plan),
+    true,
+    `planEndReview receipt must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+});
+
+test('plan schema: planEndReview accepts skip with reason; rejects unknown mode', () => {
+  const validators = buildValidators();
+  const skipped = basePlan({
+    planEndReview: {
+      skipPlanEndReview: true,
+      skipReason: 'no-family-different-provider',
+      legs: [],
+    },
+  });
+  assert.equal(
+    validators.validatePlan(skipped),
+    true,
+    `skip receipt must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+  const badMode = basePlan({
+    planEndReview: { mode: 'both', legs: [] },
+  });
+  assert.equal(
+    validators.validatePlan(badMode),
+    false,
+    'planEndReview.mode must be external-both only',
+  );
+});
