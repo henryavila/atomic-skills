@@ -7,6 +7,7 @@ import {
   claimRangeFromTask,
   findOverlappingClaimShas,
   validatedRangeForDone,
+  validateClaimReachability,
 } from '../src/claim-report.js';
 
 function passClaim(overrides = {}) {
@@ -112,6 +113,37 @@ describe('validateTaskClaim / claimRangeFromTask', () => {
     });
     assert.equal(blocked.ok, true, blocked.errors.join('; '));
   });
+
+  it('unknown statuses like done/pass/ok are validation errors (not silent non-open)', () => {
+    for (const bad of ['done', 'pass', 'ok', 'success', 'failed', 'pending']) {
+      const result = validateTaskClaim(passClaim({ status: bad }));
+      assert.equal(result.ok, false, `expected error for status ${bad}`);
+      assert.ok(
+        result.errors.some((e) => /unknown claim status/i.test(e)),
+        `expected unknown-status error for ${bad}, got: ${result.errors.join('; ')}`,
+      );
+    }
+    const report = validateClaimReport({
+      tasks: [passClaim({ status: 'done' })],
+    });
+    assert.equal(report.ok, false);
+    assert.ok(report.errors.some((e) => /unknown claim status/i.test(e)));
+  });
+
+  it('open allowlist: claimed-pass, claimed-fail, missing/undefined; closed: blocked, skipped', () => {
+    assert.equal(validateTaskClaim(passClaim({ status: 'claimed-pass' })).ok, true);
+    assert.equal(validateTaskClaim(passClaim({ status: 'claimed-fail' })).ok, true);
+    assert.equal(validateTaskClaim(passClaim({ status: undefined })).ok, true);
+    assert.equal(
+      validateTaskClaim({
+        taskId: 'T-s',
+        status: 'skipped',
+        paths: [],
+        notes: 'n/a',
+      }).ok,
+      true,
+    );
+  });
 });
 
 describe('multi-task SHA exclusivity', () => {
@@ -173,6 +205,109 @@ describe('multi-task SHA exclusivity', () => {
     ];
     // claimRangeFromTask prefers base+head → kind range → not in bare pool
     assert.deepEqual(findOverlappingClaimShas(tasks), []);
+  });
+
+  it('rejects two open claims with the same base+head pair', () => {
+    const tasks = [
+      passClaim({
+        taskId: 'T-001',
+        commitShas: undefined,
+        base: 'abc000',
+        head: 'def999',
+      }),
+      passClaim({
+        taskId: 'T-002',
+        commitShas: undefined,
+        base: 'abc000',
+        head: 'def999',
+      }),
+    ];
+    const overlap = findOverlappingClaimShas(tasks);
+    assert.ok(overlap.length >= 1);
+    assert.ok(
+      overlap.some((e) => /identical base\+head|identical.*range/i.test(e)),
+      overlap.join('; '),
+    );
+    const report = validateClaimReport({ tasks });
+    assert.equal(report.ok, false);
+    assert.ok(report.errors.some((e) => /identical base\+head|identical.*range/i.test(e)));
+  });
+
+  it('rejects identical base+head case-insensitively', () => {
+    const tasks = [
+      passClaim({
+        taskId: 'T-001',
+        commitShas: undefined,
+        base: 'ABC000',
+        head: 'DEF999',
+      }),
+      passClaim({
+        taskId: 'T-002',
+        commitShas: undefined,
+        base: 'abc000',
+        head: 'def999',
+      }),
+    ];
+    assert.ok(findOverlappingClaimShas(tasks).length >= 1);
+  });
+
+  it('allows distinct base+head ranges', () => {
+    const tasks = [
+      passClaim({
+        taskId: 'T-001',
+        commitShas: undefined,
+        base: 'b1',
+        head: 'h1',
+      }),
+      passClaim({
+        taskId: 'T-002',
+        commitShas: undefined,
+        base: 'b2',
+        head: 'h2',
+      }),
+    ];
+    assert.deepEqual(findOverlappingClaimShas(tasks), []);
+    assert.equal(validateClaimReport({ tasks }).ok, true);
+  });
+});
+
+describe('validateClaimReachability — exact match only', () => {
+  it('accepts exact (case-insensitive) SHA membership', () => {
+    const report = {
+      tasks: [passClaim({ taskId: 'T-001', commitShas: ['AaA111'] })],
+    };
+    const result = validateClaimReachability(report, new Set(['aaa111', 'other']));
+    assert.equal(result.ok, true, result.errors.join('; '));
+  });
+
+  it('rejects free prefix / startsWith matches (no free prefix)', () => {
+    const report = {
+      tasks: [
+        passClaim({
+          taskId: 'T-001',
+          commitShas: ['deadbeef'], // short
+        }),
+      ],
+    };
+    // Full SHA in reachable set must NOT free-match a short claim prefix
+    const fullOnly = validateClaimReachability(
+      report,
+      new Set(['deadbeefcafebabe0123456789abcdef01234567']),
+    );
+    assert.equal(fullOnly.ok, false, 'prefix of full SHA must not count');
+    assert.ok(fullOnly.errors.some((e) => /not reachable/i.test(e)));
+
+    // Short reachable must NOT free-match a longer claim
+    const longClaim = {
+      tasks: [
+        passClaim({
+          taskId: 'T-002',
+          commitShas: ['deadbeefcafebabe0123456789abcdef01234567'],
+        }),
+      ],
+    };
+    const shortOnly = validateClaimReachability(longClaim, new Set(['deadbeef']));
+    assert.equal(shortOnly.ok, false, 'claim must not startWith known short sha');
   });
 });
 

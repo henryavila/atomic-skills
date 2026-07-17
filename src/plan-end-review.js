@@ -4,7 +4,12 @@
  * planEndReviewOk =
  *   receipt exists
  *   AND (
- *     count(succeeded family-different external legs) ≥ 1
+ *     (
+ *       count(succeeded family-different external legs) ≥ 1
+ *       AND non-empty reviewFile
+ *       AND mode is 'external-both' | 'both'
+ *       AND non-empty verifiedAt (ISO preferred / Date.parse finite)
+ *     )
  *     OR explicit skipPlanEndReview with non-empty reason
  *   )
  *
@@ -14,10 +19,14 @@
  *   - provider is a known external ('codex' | 'grok')
  *
  * userValidationOk: under automateActive === true, require a non-empty
- * ISO-8601-ish timestamp in userValidatedAt. When automateActive !== true
- * the gate does not apply (returns true). Callers MUST pass an explicit
- * boolean for automateActive when evaluating automate gates — omission
- * means the gate is inactive (non-automate path), not fail-closed.
+ * ISO-8601-ish timestamp in userValidatedAt. When automate is not active
+ * the gate does not apply (returns true).
+ *
+ * automatePlanEndGatesOk is fail-closed on the automate stamp: when
+ * planExecutionMode (or isAutomateActive signals) imply automate, gates
+ * enforce even if automateActive is omitted. Explicit non-automate CLI
+ * still overrides stamp via isAutomateActive (design M4). When clearly
+ * non-automate, ok is true.
  *
  * Finalize/archive under automate HARD-BLOCK unless BOTH planEndReviewOk
  * and userValidationOk are true (see automatePlanEndGatesOk). Receipt files
@@ -28,7 +37,12 @@
  * No I/O.
  */
 
+import { isAutomateActive } from './implement-mode.js';
+
 const KNOWN_EXTERNAL_PROVIDERS = new Set(['codex', 'grok']);
+
+/** Modes accepted on a non-skip plan-end receipt (host routes may stamp either). */
+const PLAN_END_OK_MODES = new Set(['external-both', 'both']);
 
 /**
  * Guided `--skip-plan-end-review` reason taxonomy (non-empty required).
@@ -88,11 +102,37 @@ function legCountsAsSucceededFamilyDifferent(leg) {
 }
 
 /**
+ * Non-skip success path requires durable receipt shape fields.
+ * @param {PlanEndReviewReceipt} receipt
+ * @returns {boolean}
+ */
+function receiptShapeOk(receipt) {
+  const reviewFile =
+    receipt.reviewFile != null ? String(receipt.reviewFile).trim() : '';
+  if (reviewFile === '') return false;
+
+  const mode =
+    receipt.mode != null ? String(receipt.mode).trim().toLowerCase() : '';
+  if (!PLAN_END_OK_MODES.has(mode)) return false;
+
+  const verifiedAt =
+    receipt.verifiedAt != null ? String(receipt.verifiedAt).trim() : '';
+  if (verifiedAt === '') return false;
+  // ISO preferred; accept non-empty with finite Date.parse (v1).
+  if (isIsoTimestamp(verifiedAt)) return true;
+  return Number.isFinite(Date.parse(verifiedAt));
+}
+
+/**
  * Machine-checkable plan-end external review predicate (HARD-BLOCK finalize/archive).
  *
- * Accepts a bare receipt or a finalize-shaped object (extra metadata ignored).
+ * Accepts a bare receipt or a finalize-shaped object.
  * CLI flag name in skill prose: `--skip-plan-end-review` maps to
  * `skipPlanEndReview: true` + non-empty `skipReason` on the durable receipt.
+ *
+ * Non-skip path requires ≥1 succeeded family-different known-provider leg
+ * AND non-empty reviewFile + mode in {external-both, both} + non-empty verifiedAt.
+ * Skip path needs only skipPlanEndReview + non-empty reason (legs/shape optional).
  *
  * @param {PlanEndReviewReceipt | null | undefined} receipt
  * @returns {boolean}
@@ -102,17 +142,17 @@ export function planEndReviewOk(receipt) {
     return false;
   }
 
-  const legs = Array.isArray(receipt.legs) ? receipt.legs : [];
-  const succeededCount = legs.filter(legCountsAsSucceededFamilyDifferent).length;
-  if (succeededCount >= 1) {
-    return true;
-  }
-
   if (receipt.skipPlanEndReview === true) {
     const reason = receipt.skipReason;
     if (reason != null && String(reason).trim() !== '') {
       return true;
     }
+  }
+
+  const legs = Array.isArray(receipt.legs) ? receipt.legs : [];
+  const succeededCount = legs.filter(legCountsAsSucceededFamilyDifferent).length;
+  if (succeededCount >= 1 && receiptShapeOk(receipt)) {
+    return true;
   }
 
   return false;
@@ -132,25 +172,59 @@ function isIsoTimestamp(s) {
 }
 
 /**
- * Operator validation gate before finalize/archive under automate.
- *
- * When automateActive !== true, returns true (gate does not apply).
- * Callers evaluating automate gates MUST pass automateActive: true explicitly;
- * omitting automateActive (or passing false/undefined) leaves the gate inactive
- * so non-automate paths are not broken by a fail-closed default.
- *
- * Under automateActive === true, userValidatedAt must be a non-empty
- * ISO-8601-ish timestamp (Date.parse finite + basic ISO pattern).
+ * Resolve whether automate plan-end gates apply.
+ * Fail-closed on stamp: planExecutionMode automate (via isAutomateActive)
+ * enforces even when automateActive is omitted. Explicit --mode=1 / clear
+ * still overrides stamp. Legacy automateActive: true alone still activates.
  *
  * @param {{
  *   automateActive?: boolean,
+ *   planExecutionMode?: string | null,
+ *   cliMode?: string | null,
+ *   clearExecutionMode?: boolean,
+ * }} input
+ * @returns {boolean}
+ */
+function resolveAutomateActiveForGates(input = {}) {
+  if (input.clearExecutionMode === true) {
+    return false;
+  }
+  if (input.automateActive === true) {
+    return true;
+  }
+  const hasModeSignals =
+    (input.planExecutionMode != null && String(input.planExecutionMode).trim() !== '') ||
+    (input.cliMode != null && String(input.cliMode).trim() !== '');
+  if (hasModeSignals) {
+    return isAutomateActive({
+      cliMode: input.cliMode,
+      planExecutionMode: input.planExecutionMode,
+      clearExecutionMode: input.clearExecutionMode,
+    });
+  }
+  return false;
+}
+
+/**
+ * Operator validation gate before finalize/archive under automate.
+ *
+ * When automate is not active, returns true (gate does not apply).
+ * Activation: automateActive === true, OR planExecutionMode/cliMode via
+ * isAutomateActive (stamp alone fail-closes). Under automate, userValidatedAt
+ * must be a non-empty ISO-8601-ish timestamp.
+ *
+ * @param {{
+ *   automateActive?: boolean,
+ *   planExecutionMode?: string | null,
+ *   cliMode?: string | null,
+ *   clearExecutionMode?: boolean,
  *   userValidatedAt?: string | null,
  *   validatorId?: string | null,
  * }} [input]
  * @returns {boolean}
  */
 export function userValidationOk(input = {}) {
-  if (input.automateActive !== true) {
+  if (!resolveAutomateActiveForGates(input)) {
     return true;
   }
 
@@ -163,12 +237,15 @@ export function userValidationOk(input = {}) {
 /**
  * Combined finalize/archive gate under automate (design D7 + D9 + D12).
  *
- * When automateActive !== true, both sub-gates are inactive → ok: true.
- * Under automate, HARD-BLOCK unless planEndReviewOk(receipt) AND
- * userValidationOk({ automateActive: true, userValidatedAt }).
+ * When automate is not active, both sub-gates are inactive → ok: true.
+ * Under automate (explicit automateActive or stamp/CLI via isAutomateActive),
+ * HARD-BLOCK unless planEndReviewOk(receipt) AND userValidationOk.
  *
  * @param {{
  *   automateActive?: boolean,
+ *   planExecutionMode?: string | null,
+ *   cliMode?: string | null,
+ *   clearExecutionMode?: boolean,
  *   receipt?: PlanEndReviewReceipt | null,
  *   userValidatedAt?: string | null,
  *   validatorId?: string | null,
@@ -180,7 +257,7 @@ export function userValidationOk(input = {}) {
  * }}
  */
 export function automatePlanEndGatesOk(input = {}) {
-  if (input.automateActive !== true) {
+  if (!resolveAutomateActiveForGates(input)) {
     return {
       ok: true,
       planEndReviewOk: true,

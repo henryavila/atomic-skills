@@ -186,9 +186,16 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
     assert.equal(typeof userValidationOk, 'function');
     assert.equal(typeof automatePlanEndGatesOk, 'function');
 
+    const shape = {
+      mode: 'external-both',
+      reviewFile: '.atomic-skills/reviews/contract.md',
+      verifiedAt: '2026-07-17T12:00:00.000Z',
+    };
+
     // Succeeded leg without familyDifferent === true must NOT pass.
     assert.equal(
       planEndReviewOk({
+        ...shape,
         legs: [{ provider: 'codex', status: 'succeeded' }],
       }),
       false,
@@ -196,15 +203,25 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
     );
     assert.equal(
       planEndReviewOk({
+        ...shape,
         legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: false }],
       }),
       false,
     );
     assert.equal(
       planEndReviewOk({
+        ...shape,
         legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
       }),
       true,
+    );
+    // Bare succeeded leg without receipt shape is not ok (Fix A).
+    assert.equal(
+      planEndReviewOk({
+        legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+      }),
+      false,
+      'non-skip path requires reviewFile/mode/verifiedAt',
     );
     assert.equal(planEndReviewOk(null), false);
     assert.equal(planEndReviewOk({}), false);
@@ -222,9 +239,22 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
       true,
     );
 
+    // Stamp alone fail-closes gates without automateActive flag (Fix B).
+    const stampGates = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      receipt: {
+        ...shape,
+        legs: [{ provider: 'codex', status: 'succeeded' }], // no familyDifferent
+      },
+      userValidatedAt: '2026-07-17T12:00:00.000Z',
+    });
+    assert.equal(stampGates.ok, false);
+    assert.equal(stampGates.planEndReviewOk, false);
+
     const gates = automatePlanEndGatesOk({
       automateActive: true,
       receipt: {
+        ...shape,
         legs: [{ provider: 'codex', status: 'succeeded' }], // no familyDifferent
       },
       userValidatedAt: '2026-07-17T12:00:00.000Z',
