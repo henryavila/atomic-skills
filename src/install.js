@@ -598,19 +598,56 @@ export function removeLegacyOrphans(basePath, orphans) {
  *
  * @param {string} projectDir
  * @param {object} options - { language, ides, skillsDir, metaDir, scope,
- *   autoUpdateDropInjectFailAfterN? } (inject is a P0-B test seam only)
+ *   forceAdopt?, autoUpdateDropInjectFailAfterN? } (inject is a P0-B test seam only)
  * @param {object} [callbacks] - { onFileWritten }
- * @returns {{ files: Array<{ path: string, hash: string }> }}
+ * @returns {{ files: Array<{ path: string, hash: string }>, adopt?: object }}
  */
 export function installSkills(projectDir, options, callbacks = {}) {
-  const { language, ides, skillsDir, metaDir, scope } = options;
+  const { language, ides, skillsDir, metaDir, scope, forceAdopt = false } = options;
   const { onFileWritten } = callbacks;
 
-  // Claim ownership of desired paths that already exist on disk but are missing
-  // from the journal (IDE expand / partial journal). Prevents GREENFIELD_CONFLICT
-  // when leftover package files differ from the new render (see adopt-preexisting-desired.js).
+  // P1-A / F-004: adopt only safelist / known-package-hash / force-adopt paths.
+  // Foreign content at desired paths becomes unmanaged-desired (excluded from
+  // reconcile + never owned). See adopt-preexisting-desired.js.
   const desired = computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope });
-  adoptPreexistingDesiredFiles(projectDir, desired);
+  const priorManifest = readManifest(projectDir);
+  const knownPackageHashes = new Set();
+  if (priorManifest?.files && typeof priorManifest.files === 'object') {
+    for (const entry of Object.values(priorManifest.files)) {
+      if (entry && typeof entry.installed_hash === 'string') {
+        knownPackageHashes.add(entry.installed_hash);
+      }
+    }
+  }
+  for (const eff of priorManifest?.effects || []) {
+    if (eff?.type === 'reconcileFileSet') {
+      for (const row of eff.beforeState || []) {
+        if (row && typeof row.installedHash === 'string') knownPackageHashes.add(row.installedHash);
+      }
+    }
+  }
+  const catalogForAdopt = (() => {
+    try {
+      return parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
+    } catch {
+      return null;
+    }
+  })();
+  const knownCurrentNames = new Set(Object.keys(catalogForAdopt?.core || {}));
+  const adoptResult = adoptPreexistingDesiredFiles(projectDir, desired, {
+    forceAdopt,
+    isArtifact: (abs) => isAtomicSkillsArtifact(abs, knownCurrentNames),
+    knownPackageHashes,
+  });
+  const excludeDesiredPaths = adoptResult.excludeFromDesired || [];
+  if (adoptResult.adopted > 0 || adoptResult.unresolved > 0) {
+    console.log(
+      `  ${pc.dim(`adopt: ${adoptResult.adopted} reclaimed, ${adoptResult.unresolved} unmanaged-desired (kept local)`)}`,
+    );
+    for (const pth of adoptResult.unresolvedPaths || []) {
+      console.log(`    ${pc.dim('kept-local')} ${pth}`);
+    }
+  }
 
   // P0-B / F-002 consumer fallback: when the next plan drops auto-update
   // surfaces (IDE shrink away from Claude/Grok), explicitly revert those
@@ -628,7 +665,9 @@ export function installSkills(projectDir, options, callbacks = {}) {
     },
   );
 
-  const installer = buildInstaller({ language, ides, skillsDir, metaDir, scope });
+  const installer = buildInstaller({
+    language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,
+  });
   installer.install({ projectDir });
 
   // Derive the return value + legacy compat files-map from the journal + the
@@ -639,6 +678,8 @@ export function installSkills(projectDir, options, callbacks = {}) {
   // stageRuntimeArtifacts carries the executable hook (settings.json is a
   // jsonMerge, not a tracked "file" — mirroring the legacy createdFiles, which
   // excluded settings.json but included the hook).
+  // Unmanaged-desired paths are excluded from files map (never owned).
+  const excludeSet = new Set(excludeDesiredPaths);
   const journal = readManifest(projectDir);
   const hashByPath = new Map();
   const hookFiles = [];
@@ -657,6 +698,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
   const createdFiles = [
     ...computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope })
+      .filter(({ path }) => !excludeSet.has(path))
       .map(({ path, source }) => ({ path, hash: hashByPath.get(path), source })),
     ...hookFiles,
   ];
@@ -683,7 +725,17 @@ export function installSkills(projectDir, options, callbacks = {}) {
   const verification = verifyInstall(projectDir, finalManifest);
   const decisions = decisionsByState(verification);
 
-  return { files: createdFiles, decisions, verification };
+  return {
+    files: createdFiles,
+    decisions,
+    verification,
+    adopt: {
+      adopted: adoptResult.adopted,
+      unresolved: adoptResult.unresolved,
+      paths: adoptResult.paths,
+      unresolvedPaths: adoptResult.unresolvedPaths,
+    },
+  };
 }
 
 /**
@@ -815,6 +867,7 @@ export async function install(projectDir, options = {}) {
     lang: cliLang = null,
     allDetected = false,
     repair = false,
+    forceAdopt = false,
   } = options;
 
   const userBasePath = homedir();
@@ -990,7 +1043,9 @@ export async function install(projectDir, options = {}) {
     // user modified survive) and removes unmodified orphans — what the bespoke
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
     const priorIdes = existingManifest?.ides;
-    const result = installSkills(basePath, { language, ides, skillsDir, metaDir, scope });
+    const result = installSkills(basePath, {
+      language, ides, skillsDir, metaDir, scope, forceAdopt,
+    });
 
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
     // Pass priorIdes so IDE shrink away from grok can last-owner-clean host + isolation (F-003).
@@ -1119,6 +1174,7 @@ export async function install(projectDir, options = {}) {
       skillsDir,
       metaDir,
       scope,
+      forceAdopt,
     }, {
       onFileWritten: (path) => writtenFiles.push(path),
     });

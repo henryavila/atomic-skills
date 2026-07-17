@@ -8,46 +8,59 @@ import { readManifest, writeManifest } from './manifest.js';
  * journal's reconcileFileSet beforeState so the kernel does not throw
  * GREENFIELD_CONFLICT on IDE expansion / partial journals.
  *
- * Scenario (user report 2026-07-17):
- *   - Journal only owns `.grok/...` paths (last install was Grok-only, or
- *     multi-IDE tracking was lost).
- *   - Disk still has `.claude/commands/atomic-skills/*.md` from an older install.
- *   - Re-install with Claude selected → reconciler sees unowned pre-existing
- *     content that differs from desired → PathSafetyError GREENFIELD_CONFLICT.
+ * P1-A / F-004 policy (not unconditional clobber):
+ *   Adopt (claim ownership + allow reconcile rewrite) ONLY when:
+ *     1. `--force-adopt` / forceAdopt option is set, OR
+ *     2. frontmatter matches the atomic-skills safelist (`isArtifact`), OR
+ *     3. content hash is in knownPackageHashes (last-known package content).
+ *   Paths whose disk bytes already match desired are left alone (reconciler
+ *   treats them as already-desired without ownership claim for rewrite).
  *
- * Fix: before Driver.install, for every desired path that already exists on
- * disk and is not yet in the reconcile beforeState, record
- * `{ path, installedHash: hash(current) }`. The 3-hash policy then treats the
- * path as owned (`current === installed` → unchanged) and rewrites to desired
- * content. Package destination paths are exclusive to Atomic Skills.
+ *   Else → **unmanaged-desired** disposition:
+ *     - Exclude from the reconcile desired set (no GREENFIELD, no rewrite)
+ *     - Do NOT enter manifest.files / ownership
+ *     - Uninstall must never delete them (never owned)
+ *     - Surface as unresolved/kept-local counts
  *
- * Pure greenfield (no disk file at desired path) is unchanged — previous stays
- * empty for those paths and the reconciler writes normally.
+ * Pure greenfield (no disk file at desired path) is unchanged.
  *
  * @param {string} projectDir install base (HOME for user scope, repo for project)
  * @param {Array<{ path: string, content: string }>} desired file set
- * @returns {{ adopted: number, paths: string[] }}
+ * @param {object} [options]
+ * @param {boolean} [options.forceAdopt=false] reclaim foreign content at desired paths
+ * @param {(absPath: string) => boolean} [options.isArtifact] safelist frontmatter check
+ * @param {Set<string>|string[]|null} [options.knownPackageHashes] prior package content hashes
+ * @returns {{
+ *   adopted: number,
+ *   paths: string[],
+ *   unresolved: number,
+ *   unresolvedPaths: string[],
+ *   excludeFromDesired: string[],
+ * }}
  */
-export function adoptPreexistingDesiredFiles(projectDir, desired) {
+export function adoptPreexistingDesiredFiles(projectDir, desired, options = {}) {
+  const {
+    forceAdopt = false,
+    isArtifact = () => false,
+    knownPackageHashes = null,
+  } = options;
+  const knownHashes = knownPackageHashes instanceof Set
+    ? knownPackageHashes
+    : new Set(Array.isArray(knownPackageHashes) ? knownPackageHashes : []);
+
   if (!Array.isArray(desired) || desired.length === 0) {
-    return { adopted: 0, paths: [] };
+    return {
+      adopted: 0, paths: [], unresolved: 0, unresolvedPaths: [], excludeFromDesired: [],
+    };
   }
 
-  const candidates = [];
-  for (const { path } of desired) {
-    if (typeof path !== 'string' || path.length === 0) continue;
-    const abs = join(projectDir, path);
-    if (!existsSync(abs)) continue;
-    try {
-      if (!statSync(abs).isFile()) continue;
-      const installedHash = hashContent(readFileSync(abs, 'utf8'));
-      candidates.push({ path, installedHash });
-    } catch {
-      // Unreadable / raced — leave for reconciler (may still fail closed).
-    }
-  }
-  if (candidates.length === 0) return { adopted: 0, paths: [] };
+  const desiredByPath = new Map(
+    desired
+      .filter((d) => d && typeof d.path === 'string')
+      .map((d) => [d.path, d.content ?? '']),
+  );
 
+  // Build owned set from journal (if any) without mutating yet.
   let manifest = readManifest(projectDir);
   if (manifest == null) {
     manifest = { journalVersion: 2, effects: [] };
@@ -64,20 +77,55 @@ export function adoptPreexistingDesiredFiles(projectDir, desired) {
   );
 
   const adoptedPaths = [];
-  for (const entry of candidates) {
-    if (owned.has(entry.path)) continue;
-    beforeState.push(entry);
-    owned.add(entry.path);
-    adoptedPaths.push(entry.path);
+  const unresolvedPaths = [];
+
+  for (const [relPath, desiredContent] of desiredByPath) {
+    if (owned.has(relPath)) continue;
+    const abs = join(projectDir, relPath);
+    if (!existsSync(abs)) continue;
+    let installedHash;
+    try {
+      if (!statSync(abs).isFile()) continue;
+      installedHash = hashContent(readFileSync(abs, 'utf8'));
+    } catch {
+      // Unreadable / raced — leave for reconciler (may still fail closed).
+      continue;
+    }
+
+    const desiredHash = hashContent(desiredContent);
+    // Already matches package desired bytes: reconciler will track as
+    // already-desired without needing a force rewrite claim.
+    if (installedHash === desiredHash) continue;
+
+    const eligible = forceAdopt
+      || (typeof isArtifact === 'function' && isArtifact(abs))
+      || knownHashes.has(installedHash);
+
+    if (eligible) {
+      // Claim ownership at current hash so 3-hash policy rewrites to desired.
+      beforeState.push({ path: relPath, installedHash });
+      owned.add(relPath);
+      adoptedPaths.push(relPath);
+    } else {
+      // Unmanaged-desired: exclude from reconcile desired set; never own.
+      unresolvedPaths.push(relPath);
+    }
   }
-  if (adoptedPaths.length === 0) return { adopted: 0, paths: [] };
 
-  const effect = idx >= 0
-    ? { ...effects[idx], type: 'reconcileFileSet', beforeState }
-    : { type: 'reconcileFileSet', beforeState };
-  if (idx >= 0) effects[idx] = effect;
-  else effects.push(effect);
+  if (adoptedPaths.length > 0) {
+    const effect = idx >= 0
+      ? { ...effects[idx], type: 'reconcileFileSet', beforeState }
+      : { type: 'reconcileFileSet', beforeState };
+    if (idx >= 0) effects[idx] = effect;
+    else effects.push(effect);
+    writeManifest(projectDir, { ...manifest, effects });
+  }
 
-  writeManifest(projectDir, { ...manifest, effects });
-  return { adopted: adoptedPaths.length, paths: adoptedPaths };
+  return {
+    adopted: adoptedPaths.length,
+    paths: adoptedPaths,
+    unresolved: unresolvedPaths.length,
+    unresolvedPaths,
+    excludeFromDesired: [...unresolvedPaths],
+  };
 }

@@ -20,6 +20,7 @@ try {
       demo: { type: 'boolean', default: false },
       repair: { type: 'boolean', default: false },
       'force-incomplete': { type: 'boolean', default: false },
+      'force-adopt': { type: 'boolean', default: false },
     },
   }));
 } catch (err) {
@@ -34,7 +35,7 @@ if (values.help || !command) {
   ⚛ Atomic Skills — Stop rewriting prompts.
 
   Usage:
-    npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>] [--repair]
+    npx @henryavila/atomic-skills install    [--yes] [--project] [--ide <ids>|detected] [--all-detected] [--lang <code>] [--repair] [--force-adopt]
     npx @henryavila/atomic-skills detect     [--project] [--json]
     npx @henryavila/atomic-skills status     [--project]
     npx @henryavila/atomic-skills uninstall  [--yes] [--project] [--force-incomplete]
@@ -52,6 +53,8 @@ if (values.help || !command) {
                       pre-U journals (use uninstall --force-incomplete); post-U is
                       reverse-only (clears incomplete — re-run install separately;
                       does not auto-reinstall)
+    --force-adopt     (install) Reclaim foreign/user content at desired skill paths
+                      (default: leave unmanaged-desired paths untouched and report them)
     --force-incomplete (uninstall) Best-effort reverse of journaled effects when the
                       install is stuck incomplete; routes to the incomplete scope;
                       writes a residual recovery ledger (never hand-edit manifest JSON);
@@ -84,6 +87,7 @@ if (values.help || !command) {
     lang: values.lang,
     allDetected: useDetected,
     repair: values.repair,
+    forceAdopt: values['force-adopt'],
   });
 } else if (command === 'detect') {
   const { homedir } = await import('node:os');
