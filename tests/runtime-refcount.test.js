@@ -27,12 +27,21 @@ describe('cross-install runtime refcount (F-003)', () => {
         registerInstall('/repo/a');
         registerInstall('/repo/a'); // idempotent — no duplicate
         registerInstall(home);      // a user install alongside the project
-        assert.deepEqual(JSON.parse(readFileSync(registry, 'utf8')), ['/repo/a', home]);
+        {
+          const raw = JSON.parse(readFileSync(registry, 'utf8'));
+          // P1-B: always versioned schema
+          assert.equal(raw.schemaVersion, '1');
+          assert.deepEqual(raw.owners.map((o) => o.basePath), ['/repo/a', home]);
+          assert.ok(raw.owners.every((o) => o.electable === true && o.packageRoot));
+        }
 
         // Removing the user install while a project install remains: count > 0,
         // so the caller MUST keep the shared runtime (this is the F-003 fix).
         assert.equal(unregisterInstall(home), 1);
-        assert.deepEqual(JSON.parse(readFileSync(registry, 'utf8')), ['/repo/a']);
+        {
+          const raw = JSON.parse(readFileSync(registry, 'utf8'));
+          assert.deepEqual(raw.owners.map((o) => o.basePath), ['/repo/a']);
+        }
 
         // Removing the last install: count 0 AND the registry file is deleted
         // (so $HOME returns to baseline).

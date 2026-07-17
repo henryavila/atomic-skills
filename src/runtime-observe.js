@@ -22,6 +22,7 @@ export const PACKAGE_ROOT_REL = join('.atomic-skills', 'package-root');
  *   packageRoot?: string|null,
  *   version?: string|null,
  *   fingerprint?: string|null,
+ *   electable?: boolean,
  * }} RuntimeOwner
  */
 
@@ -68,6 +69,7 @@ export function parseInstallsRegistry(raw) {
         packageRoot: null,
         version: null,
         fingerprint: null,
+        electable: false,
       })),
       corruption: null,
       schemaVersion: null,
@@ -96,11 +98,16 @@ export function parseInstallsRegistry(raw) {
           schemaVersion,
         };
       }
+      const packageRoot = o.packageRoot ?? null;
+      const electable = o.electable === false
+        ? false
+        : Boolean(packageRoot);
       owners.push({
         basePath: o.basePath,
-        packageRoot: o.packageRoot ?? null,
+        packageRoot,
         version: o.version ?? null,
         fingerprint: o.fingerprint ?? null,
+        electable,
       });
     }
     return {
@@ -129,20 +136,28 @@ export function parseInstallsRegistry(raw) {
  */
 export function selectRuntimeOwner(owners, ctx = {}) {
   const ghosts = new Set(ctx.ghosts || []);
-  const live = owners.filter((o) => !ghosts.has(o.basePath));
-  if (live.length === 0) return null;
+  // P1-B: skip non-electable / null-packageRoot owners for restage election.
+  // Ghosts and electable:false never become restage sources.
+  const live = owners.filter(
+    (o) => !ghosts.has(o.basePath) && o.electable !== false,
+  );
+  // Fall back to any non-ghost if no electable owner exists (observe-only).
+  const pool = live.length > 0
+    ? live
+    : owners.filter((o) => !ghosts.has(o.basePath));
+  if (pool.length === 0) return null;
 
   const onDisk = ctx.packageRootOnDisk;
   if (onDisk) {
-    const byRoot = live.find((o) => o.packageRoot && o.packageRoot === onDisk);
+    const byRoot = pool.find((o) => o.packageRoot && o.packageRoot === onDisk);
     if (byRoot) return byRoot;
-    const byFp = live.find(
+    const byFp = pool.find(
       (o) => o.fingerprint && (o.fingerprint === onDisk || onDisk.includes(o.fingerprint)),
     );
     if (byFp) return byFp;
   }
-  // Surviving owner: last live entry (last-writer-wins election surface)
-  return live[live.length - 1];
+  // Surviving owner: last live electable entry (last-writer-wins election surface)
+  return pool[pool.length - 1];
 }
 
 /**

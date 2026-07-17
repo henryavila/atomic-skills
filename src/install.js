@@ -185,17 +185,179 @@ export function warnLegacyCustomMemoryPath(existingManifest, language = 'en') {
   console.warn(`  ${pc.yellow('Warning:')} ${msgText}`);
 }
 
+/** Registry schema version for versioned installs.json (P1-B / F-005). */
+export const REGISTRY_SCHEMA_VERSION = '1';
+
+/**
+ * Stable fingerprint of package identity (packageRoot path + version).
+ * Shared helper with observe — never invents packageRoot.
+ * @param {string|null|undefined} packageRoot
+ * @param {string|null|undefined} version
+ * @returns {string|null}
+ */
+export function ownerFingerprint(packageRoot, version) {
+  if (typeof packageRoot !== 'string' || !packageRoot || typeof version !== 'string' || !version) {
+    return null;
+  }
+  return hashContent(`${packageRoot}\n${version}\n`);
+}
+
+/**
+ * Discover package identity for a legacy basePath without inventing paths.
+ * Only returns packageRoot when a real package.json for this package is readable
+ * at basePath (dev/checkout install), or when a staged pointer under that base
+ * resolves to an existing package root.
+ *
+ * @param {string} basePath
+ * @returns {{ packageRoot: string|null, version: string|null, fingerprint: string|null, electable: boolean }}
+ */
+export function discoverPackageIdentity(basePath) {
+  const nonElectable = {
+    packageRoot: null, version: null, fingerprint: null, electable: false,
+  };
+  if (typeof basePath !== 'string' || !basePath) return nonElectable;
+
+  // Pointer staged under the install base (if ever present) — only when target exists.
+  const pointer = join(basePath, '.atomic-skills', 'package-root');
+  if (existsSync(pointer)) {
+    try {
+      const root = readFileSync(pointer, 'utf8').trim();
+      if (root && existsSync(join(root, 'package.json'))) {
+        let version = null;
+        try {
+          const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+          if (pkg?.name === '@henryavila/atomic-skills' && typeof pkg.version === 'string') {
+            version = pkg.version;
+          }
+        } catch { /* ignore */ }
+        if (version) {
+          return {
+            packageRoot: root,
+            version,
+            fingerprint: ownerFingerprint(root, version),
+            electable: true,
+          };
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // basePath itself is the package checkout (project-scope on this repo).
+  const pkgJson = join(basePath, 'package.json');
+  if (existsSync(pkgJson)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgJson, 'utf8'));
+      if (pkg?.name === '@henryavila/atomic-skills' && typeof pkg.version === 'string') {
+        return {
+          packageRoot: basePath,
+          version: pkg.version,
+          fingerprint: ownerFingerprint(basePath, pkg.version),
+          electable: true,
+        };
+      }
+    } catch { /* ignore */ }
+  }
+
+  return nonElectable;
+}
+
+/**
+ * Owner record for the live process (current PACKAGE_ROOT + package.json version).
+ * @param {string} basePath
+ */
+export function buildLiveOwnerRecord(basePath) {
+  let version = null;
+  try {
+    version = getPackageVersion();
+  } catch {
+    version = null;
+  }
+  const packageRoot = PACKAGE_ROOT;
+  const fingerprint = ownerFingerprint(packageRoot, version);
+  return {
+    basePath,
+    packageRoot,
+    version,
+    fingerprint,
+    electable: Boolean(packageRoot && version && fingerprint),
+  };
+}
+
+/**
+ * Materialize versioned owner objects for the given basePath list.
+ * - Live writer (opts.liveBasePath): always populated from process identity.
+ * - Prior versioned owners: keep known fields (do not invent packageRoot).
+ * - Legacy bare strings / missing metadata: discover or mark non-electable.
+ *
+ * @param {string[]} basePaths
+ * @param {{ format: string, list: string[], raw: unknown }} prior
+ * @param {{ liveBasePath?: string|null }} [opts]
+ * @returns {Array<object>}
+ */
+export function materializeRegistryOwners(basePaths, prior, opts = {}) {
+  const liveBasePath = opts.liveBasePath ?? null;
+  const priorByBase = new Map();
+  if (prior?.format === 'versioned' && prior.raw && Array.isArray(prior.raw.owners)) {
+    for (const o of prior.raw.owners) {
+      if (o && typeof o === 'object' && typeof o.basePath === 'string') {
+        priorByBase.set(o.basePath, o);
+      } else if (typeof o === 'string') {
+        priorByBase.set(o, { basePath: o });
+      }
+    }
+  } else if (prior?.format === 'legacy-array' && Array.isArray(prior.raw)) {
+    for (const b of prior.raw) {
+      if (typeof b === 'string') priorByBase.set(b, { basePath: b });
+    }
+  }
+
+  return basePaths.map((basePath) => {
+    if (liveBasePath != null && sameInstallBase(basePath, liveBasePath)) {
+      return buildLiveOwnerRecord(basePath);
+    }
+    const prev = priorByBase.get(basePath)
+      || [...priorByBase.entries()].find(([k]) => sameInstallBase(k, basePath))?.[1];
+    if (prev && typeof prev === 'object' && prev.packageRoot && prev.version && prev.electable !== false) {
+      return {
+        basePath,
+        packageRoot: prev.packageRoot,
+        version: prev.version,
+        fingerprint: prev.fingerprint || ownerFingerprint(prev.packageRoot, prev.version),
+        electable: prev.electable !== false,
+      };
+    }
+    // Legacy / incomplete: discover or non-electable — never invent packageRoot.
+    if (prev && typeof prev === 'object' && prev.electable === false) {
+      return {
+        basePath,
+        packageRoot: prev.packageRoot ?? null,
+        version: prev.version ?? null,
+        fingerprint: prev.fingerprint ?? null,
+        electable: false,
+      };
+    }
+    const discovered = discoverPackageIdentity(basePath);
+    return {
+      basePath,
+      packageRoot: discovered.packageRoot,
+      version: discovered.version,
+      fingerprint: discovered.fingerprint,
+      electable: discovered.electable,
+    };
+  });
+}
+
 /**
  * Strict parse of the installs registry (Codex F-005).
  * Supports legacy string[] and versioned `{ owners: [{ basePath, ... }] }`.
  * Fail-closed on corrupt JSON or unknown shapes — never treat as empty owners.
  *
  * @param {string} [filePath]
- * @returns {{ format: 'empty'|'legacy-array'|'versioned', list: string[], raw: unknown }}
+ * @returns {{ format: 'empty'|'legacy-array'|'versioned', list: string[], raw: unknown, owners: object[] }}
  */
 export function readInstallsRegistry(filePath = installsRegistryPath()) {
   if (!existsSync(filePath)) {
-    return { format: 'empty', list: [], raw: null };
+    return { format: 'empty', list: [], raw: null, owners: [] };
   }
   let rawText;
   try {
@@ -215,37 +377,73 @@ export function readInstallsRegistry(filePath = installsRegistryPath()) {
   }
   if (Array.isArray(v)) {
     const list = v.filter((x) => typeof x === 'string' && x.length > 0);
-    return { format: 'legacy-array', list, raw: v };
+    const owners = list.map((basePath) => ({
+      basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
+    }));
+    return { format: 'legacy-array', list, raw: v, owners };
   }
   if (v && typeof v === 'object' && Array.isArray(v.owners)) {
-    const list = v.owners
-      .map((o) => (typeof o === 'string' ? o : o?.basePath))
-      .filter((x) => typeof x === 'string' && x.length > 0);
-    return { format: 'versioned', list, raw: v };
+    const owners = [];
+    const list = [];
+    for (const o of v.owners) {
+      const basePath = typeof o === 'string' ? o : o?.basePath;
+      if (typeof basePath !== 'string' || !basePath) continue;
+      list.push(basePath);
+      if (typeof o === 'string') {
+        owners.push({
+          basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
+        });
+      } else {
+        owners.push({
+          basePath,
+          packageRoot: o.packageRoot ?? null,
+          version: o.version ?? null,
+          fingerprint: o.fingerprint ?? null,
+          electable: o.electable !== false && Boolean(o.packageRoot),
+        });
+      }
+    }
+    return { format: 'versioned', list, raw: v, owners };
   }
   const e = new Error('installs registry unknown format');
   e.code = 'REGISTRY_UNKNOWN';
   throw e;
 }
 
-function writeInstallsRegistryAtomic(filePath, list, prior) {
+/**
+ * Always write versioned schema (P1-B / F-005).
+ * @param {string} filePath
+ * @param {string[]} list basePaths in order
+ * @param {{ format: string, list: string[], raw: unknown }} prior
+ * @param {{ liveBasePath?: string|null }} [opts]
+ */
+function writeInstallsRegistryAtomic(filePath, list, prior, opts = {}) {
   mkdirSync(dirname(filePath), { recursive: true });
-  let payload;
-  if (prior?.format === 'versioned' && prior.raw && typeof prior.raw === 'object') {
-    const owners = list.map((basePath) => {
-      const prev = Array.isArray(prior.raw.owners)
-        ? prior.raw.owners.find((o) => (typeof o === 'string' ? o : o?.basePath) === basePath)
-        : null;
-      if (prev && typeof prev === 'object') return { ...prev, basePath };
-      return { basePath };
-    });
-    payload = { ...prior.raw, owners };
-  } else {
-    payload = list;
-  }
+  const owners = materializeRegistryOwners(list, prior, opts);
+  const payload = {
+    schemaVersion: REGISTRY_SCHEMA_VERSION,
+    owners,
+  };
   const tmp = `${filePath}.${process.pid}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`);
   renameSync(tmp, filePath);
+}
+
+/**
+ * Point ~/.atomic-skills/package-root at a surviving owner's packageRoot.
+ * Does not invent paths — only writes when packageRoot exists on disk.
+ * @param {string} packageRoot
+ */
+export function restagePackageRootFrom(packageRoot) {
+  if (typeof packageRoot !== 'string' || !packageRoot) return false;
+  if (!existsSync(join(packageRoot, 'scripts', 'detect-completion.js'))
+    && !existsSync(join(packageRoot, 'package.json'))) {
+    return false;
+  }
+  const root = join(homedir(), '.atomic-skills');
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'package-root'), `${packageRoot}\n`);
+  return true;
 }
 
 /**
@@ -255,14 +453,16 @@ function writeInstallsRegistryAtomic(filePath, list, prior) {
  * install is gone — this registry is the refcount that makes that decision
  * honest (F-003). `basePath` is homedir() for a user install, the repo root for
  * a project install.
+ *
+ * P1-B: always writes versioned owners with live packageRoot/version/fingerprint.
  */
 export function registerInstall(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const p = installsRegistryPath();
     const prior = readInstallsRegistry(p);
     const list = [...prior.list];
-    if (!list.includes(basePath)) list.push(basePath);
-    writeInstallsRegistryAtomic(p, list, prior);
+    if (!list.some((b) => sameInstallBase(b, basePath))) list.push(basePath);
+    writeInstallsRegistryAtomic(p, list, prior, { liveBasePath: basePath });
   });
 }
 
@@ -278,12 +478,12 @@ export function unregisterInstall(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const p = installsRegistryPath();
     const prior = readInstallsRegistry(p);
-    const next = prior.list.filter((b) => b !== basePath);
+    const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
     if (next.length === 0) {
       try { unlinkSync(p); } catch {}
       return 0;
     }
-    writeInstallsRegistryAtomic(p, next, prior);
+    writeInstallsRegistryAtomic(p, next, prior, { liveBasePath: null });
     return next.length;
   });
 }
@@ -299,8 +499,8 @@ export function publishRuntimeAndRegister(basePath) {
     const p = installsRegistryPath();
     const prior = readInstallsRegistry(p);
     const list = [...prior.list];
-    if (!list.includes(basePath)) list.push(basePath);
-    writeInstallsRegistryAtomic(p, list, prior);
+    if (!list.some((b) => sameInstallBase(b, basePath))) list.push(basePath);
+    writeInstallsRegistryAtomic(p, list, prior, { liveBasePath: basePath });
   });
 }
 
@@ -320,19 +520,63 @@ export function unregisterAndMaybeReclaimRuntime(basePath) {
  * Caller MUST hold `withSharedRuntimeLocks` (or accept races).
  * Identity compare uses normalize/realpath (sameInstallBase) so equivalent
  * paths drop correctly after scan-side normalize.
+ *
+ * P1-B: when the departing owner was the last electable writer of the active
+ * packageRoot, elect a surviving electable owner and restage package-root.
+ *
  * @param {string} basePath
  * @returns {number} remaining installs
  */
 function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
   const p = installsRegistryPath();
   const prior = readInstallsRegistry(p);
+  const departing = (prior.owners || []).find((o) => sameInstallBase(o.basePath, basePath));
   const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
   if (next.length === 0) {
     try { unlinkSync(p); } catch {}
     removeRuntimeArtifacts();
     return 0;
   }
-  writeInstallsRegistryAtomic(p, next, prior);
+  writeInstallsRegistryAtomic(p, next, prior, { liveBasePath: null });
+
+  // Re-read materialised remaining owners after migration write.
+  const after = readInstallsRegistry(p);
+  const remainingOwners = after.owners || [];
+  const electable = remainingOwners.filter(
+    (o) => o.electable !== false && o.packageRoot,
+  );
+
+  let packageRootOnDisk = null;
+  const packageRootFile = join(homedir(), '.atomic-skills', 'package-root');
+  if (existsSync(packageRootFile)) {
+    try {
+      packageRootOnDisk = readFileSync(packageRootFile, 'utf8').trim() || null;
+    } catch {
+      packageRootOnDisk = null;
+    }
+  }
+
+  const departingRoot = departing?.packageRoot || null;
+  const lastWriterOfActiveRoot = Boolean(
+    departingRoot
+    && packageRootOnDisk
+    && departingRoot === packageRootOnDisk
+    && !electable.some((o) => o.packageRoot === departingRoot),
+  );
+  // Also restage when package-root points at a non-surviving root or is empty
+  // while electable survivors remain.
+  const activeRootStillElectable = packageRootOnDisk
+    && electable.some((o) => o.packageRoot === packageRootOnDisk);
+
+  if (lastWriterOfActiveRoot || (electable.length > 0 && !activeRootStillElectable)) {
+    // Dynamic import avoided: selectRuntimeOwner is pure and already used by observe.
+    // Inline last-electable election (skip non-electable / null packageRoot).
+    const survivor = electable[electable.length - 1];
+    if (survivor?.packageRoot) {
+      restagePackageRootFrom(survivor.packageRoot);
+    }
+  }
+
   return next.length;
 }
 
