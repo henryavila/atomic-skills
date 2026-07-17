@@ -7,12 +7,28 @@
  * Path: <statusRoot>/writer-leases/<planSlug>.json
  * Active when status === 'active' and required fields are present.
  *
- * Pure builders/parsers preferred; optional thin FS wrappers for create/clear/read.
+ * Owner token (CAS clear): planSlug + phaseId + hostId + startedAt — only the
+ * acquirer (or an exact match of those fields) may clear.
+ *
+ * Acquire is exclusive create (`wx` / O_EXCL) — never overwrite an existing lease file.
+ * Read is fail-closed on malformed JSON (missing ≠ malformed).
+ *
+ * Pure builders/parsers preferred; thin FS wrappers for acquire/clear/read.
  * No network.
  */
 
 import { join } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+  openSync,
+  closeSync,
+  writeSync,
+  constants,
+} from 'node:fs';
 
 /** @typedef {'active' | 'cleared' | string} WriterLeaseStatus */
 
@@ -26,6 +42,19 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
  *   writerBranch?: string | null,
  *   status: WriterLeaseStatus,
  * }} WriterLease
+ *
+ * @typedef {{
+ *   planSlug: string,
+ *   phaseId: string,
+ *   hostId: string,
+ *   startedAt: string,
+ * }} LeaseOwnerToken
+ *
+ * @typedef {{
+ *   status: 'missing' | 'active' | 'cleared' | 'malformed',
+ *   lease?: WriterLease,
+ *   error?: string,
+ * }} LeaseReadResult
  */
 
 /** Relative directory under statusRoot for lease files. */
@@ -147,6 +176,51 @@ export function buildClearedLease(lease) {
 }
 
 /**
+ * Extract the owner CAS token from a lease (or token-shaped object).
+ * @param {WriterLease | LeaseOwnerToken | Record<string, unknown>} leaseOrToken
+ * @returns {LeaseOwnerToken}
+ */
+export function leaseOwnerToken(leaseOrToken) {
+  if (leaseOrToken == null || typeof leaseOrToken !== 'object') {
+    throw new Error('leaseOwnerToken: lease or token is required');
+  }
+  const planSlug = String(leaseOrToken.planSlug ?? '').trim();
+  const phaseId = String(leaseOrToken.phaseId ?? '').trim();
+  const hostId = String(leaseOrToken.hostId ?? '').trim();
+  const startedAt = String(leaseOrToken.startedAt ?? '').trim();
+  if (!planSlug || !phaseId || !hostId || !startedAt) {
+    throw new Error(
+      'leaseOwnerToken: planSlug, phaseId, hostId, and startedAt are required',
+    );
+  }
+  return { planSlug, phaseId, hostId, startedAt };
+}
+
+/**
+ * Whether two owner tokens match (exact string equality on all four fields).
+ * @param {WriterLease | LeaseOwnerToken | null | undefined} a
+ * @param {WriterLease | LeaseOwnerToken | null | undefined} b
+ * @returns {boolean}
+ */
+export function leaseTokenMatches(a, b) {
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') {
+    return false;
+  }
+  try {
+    const ta = leaseOwnerToken(a);
+    const tb = leaseOwnerToken(b);
+    return (
+      ta.planSlug === tb.planSlug &&
+      ta.phaseId === tb.phaseId &&
+      ta.hostId === tb.hostId &&
+      ta.startedAt === tb.startedAt
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Parse lease JSON text. Returns null on empty/invalid.
  * @param {string | null | undefined} text
  * @returns {WriterLease | null}
@@ -174,67 +248,254 @@ export function serializeLease(lease) {
 // --- Optional thin FS wrappers (for orchestrator runtime; pure core above) ---
 
 /**
- * Write an active lease file (creates writer-leases dir). Overwrites existing.
+ * Atomically acquire an active writer lease via exclusive create (`wx` / O_EXCL).
+ * Fails if any lease file already exists for the plan (active, cleared residue, or garbage).
+ * Never overwrites.
+ *
+ * @param {string} statusRoot
+ * @param {WriterLease} lease must be active with required fields
+ * @returns {string} path written
+ */
+export function acquireLeaseFile(statusRoot, lease) {
+  if (lease == null || typeof lease !== 'object') {
+    throw new Error('acquireLeaseFile: lease is required');
+  }
+  if (!isLeaseActive(lease)) {
+    throw new Error('acquireLeaseFile: lease must be active with required fields');
+  }
+  const path = leasePath(statusRoot, lease.planSlug);
+  mkdirSync(join(String(statusRoot), WRITER_LEASES_DIR), { recursive: true });
+
+  const payload = serializeLease(/** @type {WriterLease} */ (lease));
+  let fd;
+  try {
+    fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+  } catch (err) {
+    if (err && /** @type {NodeJS.ErrnoException} */ (err).code === 'EEXIST') {
+      const e = new Error(
+        `acquireLeaseFile: lease already exists for ${lease.planSlug} (exclusive acquire refused)`,
+      );
+      /** @type {any} */ (e).code = 'LEASE_EXISTS';
+      /** @type {any} */ (e).cause = err;
+      throw e;
+    }
+    throw err;
+  }
+  try {
+    writeSync(fd, payload);
+  } finally {
+    closeSync(fd);
+  }
+  return path;
+}
+
+/**
+ * Write an active lease file with exclusive create (same fence as acquireLeaseFile).
+ * Does **not** overwrite an existing lease file — use clearLeaseFile (with owner token)
+ * then acquire again. Prefer acquireLeaseFile for new code.
+ *
  * @param {string} statusRoot
  * @param {WriterLease} lease
  * @returns {string} path written
  */
 export function writeLeaseFile(statusRoot, lease) {
-  if (!isLeaseActive(lease) && lease?.status !== 'cleared') {
-    // Allow writing cleared records for audit; require shape fields for active.
-  }
   if (lease == null || typeof lease !== 'object') {
     throw new Error('writeLeaseFile: lease is required');
   }
+  // Active acquire path: exclusive create only
+  if (isLeaseActive(lease) || lease.status === 'active') {
+    return acquireLeaseFile(statusRoot, lease);
+  }
+  // Cleared / audit records must still not clobber an existing file (fence integrity)
   const path = leasePath(statusRoot, lease.planSlug);
   mkdirSync(join(String(statusRoot), WRITER_LEASES_DIR), { recursive: true });
-  writeFileSync(path, serializeLease(/** @type {WriterLease} */ (lease)), 'utf8');
+  let fd;
+  try {
+    fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+  } catch (err) {
+    if (err && /** @type {NodeJS.ErrnoException} */ (err).code === 'EEXIST') {
+      const e = new Error(
+        `writeLeaseFile: lease already exists for ${lease.planSlug} (exclusive create refused)`,
+      );
+      /** @type {any} */ (e).code = 'LEASE_EXISTS';
+      throw e;
+    }
+    throw err;
+  }
+  try {
+    writeSync(fd, serializeLease(/** @type {WriterLease} */ (lease)));
+  } finally {
+    closeSync(fd);
+  }
   return path;
 }
 
 /**
- * Read lease file if present; null if missing or unparseable.
+ * Read lease file with explicit status (missing | active | cleared | malformed).
+ * Fail-closed: unparseable / incomplete active shape → `malformed`, never `missing`.
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @returns {LeaseReadResult}
+ */
+export function readLeaseResult(statusRoot, planSlug) {
+  const path = leasePath(statusRoot, planSlug);
+  if (!existsSync(path)) {
+    return { status: 'missing' };
+  }
+
+  let text;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (err) {
+    return {
+      status: 'malformed',
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  if (text == null || String(text).trim() === '') {
+    return { status: 'malformed', error: 'empty lease file' };
+  }
+
+  const lease = parseLeaseJson(text);
+  if (lease == null) {
+    return { status: 'malformed', error: 'unparseable lease JSON' };
+  }
+
+  if (lease.status === 'active') {
+    if (isLeaseActive(lease)) {
+      return { status: 'active', lease };
+    }
+    return {
+      status: 'malformed',
+      lease,
+      error: 'active lease missing required identity fields',
+    };
+  }
+
+  if (lease.status === 'cleared') {
+    return { status: 'cleared', lease };
+  }
+
+  // Unknown status: if it still looks fully active, treat as active; else malformed
+  if (isLeaseActive({ ...lease, status: 'active' }) && lease.status == null) {
+    return { status: 'active', lease: { ...lease, status: 'active' } };
+  }
+
+  return {
+    status: 'malformed',
+    lease,
+    error: `unexpected lease status: ${String(lease.status)}`,
+  };
+}
+
+/**
+ * Read lease file if present and well-formed.
+ * - missing → null
+ * - malformed → throws (code LEASE_MALFORMED) — fail-closed, never silent absent
+ * - active / cleared → lease record
+ *
  * @param {string} statusRoot
  * @param {string} planSlug
  * @returns {WriterLease | null}
  */
 export function readLeaseFile(statusRoot, planSlug) {
-  const path = leasePath(statusRoot, planSlug);
-  if (!existsSync(path)) return null;
-  try {
-    return parseLeaseJson(readFileSync(path, 'utf8'));
-  } catch {
-    return null;
+  const result = readLeaseResult(statusRoot, planSlug);
+  if (result.status === 'missing') return null;
+  if (result.status === 'malformed') {
+    const e = new Error(
+      `readLeaseFile: malformed lease for ${planSlug}: ${result.error || 'invalid'}`,
+    );
+    /** @type {any} */ (e).code = 'LEASE_MALFORMED';
+    throw e;
   }
+  return result.lease ?? null;
 }
 
 /**
- * True when an active lease exists on disk for planSlug.
+ * True when resume/spawn must refuse for this plan: active lease **or** malformed file.
+ * Fail-closed: malformed is never treated as absent.
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @returns {boolean}
+ */
+export function isLeaseBlocking(statusRoot, planSlug) {
+  const result = readLeaseResult(statusRoot, planSlug);
+  return result.status === 'active' || result.status === 'malformed';
+}
+
+/**
+ * True when an active lease exists, **or** a malformed lease blocks the gate (fail-closed).
+ * Prefer isLeaseBlocking for explicit gate semantics; this keeps resume prose working.
+ *
  * @param {string} statusRoot
  * @param {string} planSlug
  * @returns {boolean}
  */
 export function hasActiveLease(statusRoot, planSlug) {
-  return isLeaseActive(readLeaseFile(statusRoot, planSlug));
+  return isLeaseBlocking(statusRoot, planSlug);
 }
 
 /**
- * Clear lease: write status cleared then unlink the file (exclusive window released).
- * No-op if file absent. Prefer call only after sync-wait + claim collect + merge settle.
+ * Clear lease only when owner token matches (CAS):
+ * planSlug + phaseId + hostId + startedAt must equal the on-disk lease.
+ * Only then write status cleared and unlink. Wrong token refuses (throws).
+ * Prefer call only after sync-wait + claim collect + merge settle.
+ *
  * @param {string} statusRoot
  * @param {string} planSlug
+ * @param {LeaseOwnerToken | WriterLease} ownerToken
  * @returns {boolean} true if a file was removed
  */
-export function clearLeaseFile(statusRoot, planSlug) {
+export function clearLeaseFile(statusRoot, planSlug, ownerToken) {
+  if (ownerToken == null || typeof ownerToken !== 'object') {
+    throw new Error(
+      'clearLeaseFile: owner token required (planSlug, phaseId, hostId, startedAt)',
+    );
+  }
+  let token;
+  try {
+    token = leaseOwnerToken(ownerToken);
+  } catch {
+    throw new Error(
+      'clearLeaseFile: owner token required (planSlug, phaseId, hostId, startedAt)',
+    );
+  }
+  if (String(token.planSlug) !== String(planSlug).trim()) {
+    throw new Error(
+      `clearLeaseFile: owner token planSlug mismatch (token=${token.planSlug}, path=${planSlug})`,
+    );
+  }
+
   const path = leasePath(statusRoot, planSlug);
   if (!existsSync(path)) return false;
+
+  const result = readLeaseResult(statusRoot, planSlug);
+  if (result.status === 'missing') return false;
+
+  if (result.status === 'malformed') {
+    const e = new Error(
+      `clearLeaseFile: malformed lease for ${planSlug} — refuse clear without recoverable owner token (${result.error || 'invalid'})`,
+    );
+    /** @type {any} */ (e).code = 'LEASE_MALFORMED';
+    throw e;
+  }
+
+  const existing = result.lease;
+  if (!leaseTokenMatches(existing, token)) {
+    const e = new Error(
+      `clearLeaseFile: owner token mismatch for ${planSlug} (refuse clear of non-owned lease)`,
+    );
+    /** @type {any} */ (e).code = 'LEASE_TOKEN_MISMATCH';
+    throw e;
+  }
+
   try {
-    const existing = parseLeaseJson(readFileSync(path, 'utf8'));
-    if (existing) {
-      writeFileSync(path, serializeLease(buildClearedLease(existing)), 'utf8');
-    }
+    writeFileSync(path, serializeLease(buildClearedLease(existing)), 'utf8');
   } catch {
-    // still attempt unlink
+    // still attempt unlink when token matched
   }
   try {
     unlinkSync(path);
