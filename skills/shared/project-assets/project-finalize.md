@@ -27,6 +27,10 @@ Loaded by the router for `/atomic-skills:project finalize <slug>`.
    (`git status --porcelain` empty). A dirty tree aborts — commit or stash first.
 2. `gh` is authenticated and an `origin` remote exists. If either is missing,
    surface a safe block (do not half-publish) — see *Failure handling*.
+3. **Automate plan-end gates (when `isAutomateActive`)** — see **Step 1.7**. Under
+   `executionMode: automate` (or CLI automate with an active stamp), finalize
+   **HARD-BLOCKS** unless both `planEndReviewOk` and `userValidationOk` are true
+   (`src/plan-end-review.js`). Non-automate plans skip this precondition entirely.
 
 ## Step 1 — Resolve the integration ref (consumes `scripts/integration-ref.js`)
 
@@ -256,6 +260,128 @@ This worktree's copy of finalize is the single source of truth for the skill; ol
 copies on other worktrees converge on merge (skill-version drift across worktrees is
 out of scope — the operator's call).
 
+## Step 1.7 — Plan-end external-both + user validation (automate only — HARD-BLOCK)
+
+**When this step runs:** only when `isAutomateActive` is true
+(`src/implement-mode.js` — CLI mode + plan `executionMode` stamp + clear flag).
+Non-automate plans **skip this step entirely** (no extra review forced at finalize;
+non-automate behavior is unchanged beyond detecting `executionMode`).
+
+**Design load-bearing (D7 + D9 + D12):** under automate, plan finalize requires a
+plan-end `review-code` with **`external-both`** on the plan integration range, a
+machine-checkable receipt, **and** explicit operator validation of the
+implementation + durable decisions log. Soft “point the operator at review” is
+**not** a success path. Never auto-merge PRs; never auto-archive after the last
+phase turns green.
+
+### 1.7.1 — Resolve automate + load durable receipt / validation
+
+1. Compute `automateActive = isAutomateActive({ cliMode, planExecutionMode, clearFlag })`
+   from the plan frontmatter `executionMode` (and any CLI clear flag). If not active →
+   continue to Step 2.
+2. Load the durable plan-end receipt from plan frontmatter `planEndReview` when
+   present (schema: `meta/schemas/plan.schema.json`). If absent, treat receipt as
+   missing (`planEndReviewOk` → false) unless the operator is about to run the
+   review in this step.
+3. Load `userValidatedAt` from plan frontmatter (ISO-8601). Optional
+   `validatorId` is audit-only and does **not** alone satisfy the gate.
+
+### 1.7.2 — Run plan-end `external-both` (or record `--skip-plan-end-review`)
+
+**Before any push or PR create**, ensure a plan-end review exists:
+
+1. **Range:** plan integration range — `baseRef...plan/<slug>` (or
+   `integrationRef`/`develop`…HEAD as resolved in Step 1). Same range used for the
+   Step 2 diff preview.
+2. **Mode:** `atomic-skills:review-code <range> --mode=external-both`.
+   - Same-family legs are filtered by `resolveReviewRoute` (Grok host → Codex only;
+     Codex host → Grok only). A **single** remaining family-different external leg
+     is OK when that leg `succeeded`.
+   - Collect per-leg status `succeeded | failed | skipped` (absent ⇒ skipped).
+   - Partial success (one of two externals succeeded) satisfies the ≥1 rule; merge
+     keeps the successful half per `external-both` merge semantics.
+3. **Persist receipt file** under `.atomic-skills/reviews/` (e.g.
+   `.atomic-skills/reviews/YYYY-MM-DD-HHMM-<slug>-plan-end.md`) with per-leg
+   outcomes and the cleaned artifact identity.
+4. **Link from plan body `## Reviews`:** append/update a plan-end line, e.g.
+   `- plan-end external-both: <PASSED | FAILED | SKIPPED — <reason>> — <reviews/…-plan-end.md>`
+   with per-leg notes when useful (`codex=succeeded`, `grok=skipped`, …). Re-running
+   updates the existing plan-end line; never silent drop.
+5. **Stamp frontmatter `planEndReview`** (machine fields for `planEndReviewOk`):
+   ```yaml
+   planEndReview:
+     mode: external-both
+     range: "<baseRef>...plan/<slug>"
+     reviewFile: ".atomic-skills/reviews/<…>-plan-end.md"
+     legs:
+       - { provider: codex, status: succeeded, familyDifferent: true }
+       - { provider: grok, status: skipped, familyDifferent: true }   # example host filter
+     verifiedAt: "<ISO-8601>"
+   ```
+
+### 1.7.3 — `--skip-plan-end-review` (guided; non-empty reason REQUIRED)
+
+When zero family-different providers remain, both CLIs are unavailable, or the
+operator accepts residual risk, do **not** strand the plan. Offer a guided skip:
+
+- CLI / operator flag: **`--skip-plan-end-review`**
+- Durable mapping: `planEndReview.skipPlanEndReview: true` + **non-empty**
+  `planEndReview.skipReason`
+- Prefer taxonomy tokens from `SKIP_PLAN_END_REASON_TAXONOMY`
+  (`src/plan-end-review.js`):
+  - `no-family-different-provider`
+  - `external-providers-unavailable`
+  - `operator-accepted-residual-risk`
+  - `single-external-leg-already-reviewed-at-phase`
+- Free-form reasons are accepted **only if non-empty after trim**. Empty /
+  whitespace-only / missing `skipReason` ⇒ `planEndReviewOk` stays **false**
+  (HARD-BLOCK). Record the skip line in `## Reviews` as
+  `- plan-end external-both: SKIPPED — <reason>`.
+
+### 1.7.4 — User validation (`userValidationOk`)
+
+After plan-end review (or recorded skip), the operator must validate the
+implementation and the durable decisions log (phase writer / evaluation /
+routing dispositions):
+
+1. Present a short audit surface: last-phase decisions log, plan-end receipt
+   summary (per-leg statuses or skip reason), open residual risks.
+2. On explicit operator accept, stamp plan frontmatter
+   `userValidatedAt: <ISO-8601 now>` (schema field). Optional free-form
+   validator id may be noted in handoff / review prose — it is **not** a schema
+   substitute for the timestamp.
+3. `userValidationOk({ automateActive: true, userValidatedAt })` requires a
+   non-empty ISO-8601-ish timestamp. Missing/empty/`ok`/`yes` ⇒ gate false.
+
+### 1.7.5 — Machine HARD-BLOCK (single definition)
+
+Call the pure helpers — do **not** re-derive the predicate in prose:
+
+```js
+import {
+  planEndReviewOk,
+  userValidationOk,
+  automatePlanEndGatesOk,
+} from 'src/plan-end-review.js';
+
+const gates = automatePlanEndGatesOk({
+  automateActive: true,
+  receipt: plan.planEndReview,       // or null if missing
+  userValidatedAt: plan.userValidatedAt,
+});
+// gates.ok === false ⇒ HARD-BLOCK finalize (and archive — see project-transitions.md)
+```
+
+| Condition | Result |
+|---|---|
+| `planEndReviewOk` false (missing receipt, all legs failed/skipped, or skip without non-empty reason) | **HARD-BLOCK** finalize — print which leg(s) failed / that skip needs a reason; offer re-run external-both or `--skip-plan-end-review <reason>` |
+| `userValidationOk` false under automate | **HARD-BLOCK** finalize — prompt operator validation; stamp `userValidatedAt` only after explicit accept |
+| both true | proceed to Step 2 (diff + proposed PR halt) |
+
+**Invariant:** finalize under automate never creates a PR while `automatePlanEndGatesOk`
+reports `ok: false`. Archive re-checks the same gates
+(`{{ASSETS_PATH}}/project-transitions.md` → `archive`).
+
 ## Step 2 — Show the diff + the proposed PR, then HALT (operator-prompted)
 
 Before any push or PR, present the change and wait for explicit confirmation
@@ -339,3 +465,8 @@ merges and never archives.
   (`scripts/finalize-plan-scope.js`) BLOCKS a non-terminal or
   `branch ≠ plan`-unconfirmed target; the status-regression detector is
   advisory/read-only (reuses the F4 lane, never gates, never auto-resolves).
+- **Automate plan-end gate (Step 1.7)** — when `isAutomateActive`, finalize
+  **HARD-BLOCKS** unless `planEndReviewOk` (external-both receipt under
+  `.atomic-skills/reviews/` linked from `## Reviews`, or `--skip-plan-end-review`
+  with non-empty reason) **and** `userValidationOk` (`userValidatedAt` ISO stamp).
+  Non-automate plans are unchanged. Never auto-merge.

@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { planEndReviewOk, userValidationOk } from '../src/plan-end-review.js';
+import {
+  planEndReviewOk,
+  userValidationOk,
+  automatePlanEndGatesOk,
+  SKIP_PLAN_END_REASON_TAXONOMY,
+} from '../src/plan-end-review.js';
 
 describe('planEndReviewOk', () => {
   it('is false when receipt is missing', () => {
@@ -177,6 +182,48 @@ describe('planEndReviewOk', () => {
       true,
     );
   });
+
+  it('finalize-shaped receipt with reviewFile/mode/range still passes when a leg succeeded', () => {
+    assert.equal(
+      planEndReviewOk({
+        mode: 'external-both',
+        range: 'origin/develop...HEAD',
+        reviewFile: '.atomic-skills/reviews/2026-07-17-1200-demo-plan-end.md',
+        verifiedAt: '2026-07-17T12:00:00.000Z',
+        legs: [
+          { provider: 'codex', status: 'succeeded', familyDifferent: true },
+          { provider: 'grok', status: 'skipped', familyDifferent: true },
+        ],
+      }),
+      true,
+    );
+  });
+
+  it('finalize-shaped receipt with skip-plan-end-review reason taxonomy passes without success legs', () => {
+    for (const reason of SKIP_PLAN_END_REASON_TAXONOMY) {
+      assert.equal(
+        planEndReviewOk({
+          mode: 'external-both',
+          reviewFile: '.atomic-skills/reviews/2026-07-17-skip.md',
+          legs: [
+            { provider: 'codex', status: 'skipped', familyDifferent: true },
+            { provider: 'grok', status: 'skipped', familyDifferent: true },
+          ],
+          skipPlanEndReview: true,
+          skipReason: reason,
+        }),
+        true,
+        `expected true for taxonomy reason ${reason}`,
+      );
+    }
+  });
+
+  it('exports non-empty skip reason taxonomy for guided --skip-plan-end-review', () => {
+    assert.ok(Array.isArray(SKIP_PLAN_END_REASON_TAXONOMY));
+    assert.ok(SKIP_PLAN_END_REASON_TAXONOMY.length >= 1);
+    assert.ok(SKIP_PLAN_END_REASON_TAXONOMY.includes('no-family-different-provider'));
+    assert.ok(SKIP_PLAN_END_REASON_TAXONOMY.includes('operator-accepted-residual-risk'));
+  });
 });
 
 describe('userValidationOk', () => {
@@ -278,5 +325,104 @@ describe('userValidationOk', () => {
       }),
       false,
     );
+  });
+});
+
+describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
+  const goodReceipt = {
+    mode: 'external-both',
+    reviewFile: '.atomic-skills/reviews/2026-07-17-demo-plan-end.md',
+    legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+  };
+  const goodAt = '2026-07-17T19:00:00.000Z';
+
+  it('inactive when automateActive is not true', () => {
+    assert.deepEqual(automatePlanEndGatesOk({}), {
+      ok: true,
+      planEndReviewOk: true,
+      userValidationOk: true,
+    });
+    assert.deepEqual(
+      automatePlanEndGatesOk({ automateActive: false, receipt: null }),
+      { ok: true, planEndReviewOk: true, userValidationOk: true },
+    );
+  });
+
+  it('HARD-BLOCKs finalize/archive under automate when receipt missing', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: null,
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, false);
+    assert.equal(r.userValidationOk, true);
+  });
+
+  it('HARD-BLOCKs when all legs failed/skipped without skip reason', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: {
+        legs: [
+          { provider: 'codex', status: 'failed', familyDifferent: true },
+          { provider: 'grok', status: 'skipped', familyDifferent: true },
+        ],
+      },
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, false);
+  });
+
+  it('HARD-BLOCKs when skipPlanEndReview without non-empty reason', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: {
+        legs: [],
+        skipPlanEndReview: true,
+        skipReason: '   ',
+      },
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, false);
+  });
+
+  it('HARD-BLOCKs when userValidatedAt missing under automate even if receipt ok', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: goodReceipt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, true);
+    assert.equal(r.userValidationOk, false);
+  });
+
+  it('ok when succeeded family-different leg + ISO userValidatedAt', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: goodReceipt,
+      userValidatedAt: goodAt,
+    });
+    assert.deepEqual(r, {
+      ok: true,
+      planEndReviewOk: true,
+      userValidationOk: true,
+    });
+  });
+
+  it('ok when valid skip-plan-end-review reason + ISO userValidatedAt', () => {
+    const r = automatePlanEndGatesOk({
+      automateActive: true,
+      receipt: {
+        skipPlanEndReview: true,
+        skipReason: 'no-family-different-provider',
+        legs: [{ provider: 'codex', status: 'skipped', familyDifferent: false }],
+      },
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.planEndReviewOk, true);
+    assert.equal(r.userValidationOk, true);
   });
 });

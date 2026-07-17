@@ -19,10 +19,29 @@
  * boolean for automateActive when evaluating automate gates — omission
  * means the gate is inactive (non-automate path), not fail-closed.
  *
+ * Finalize/archive under automate HARD-BLOCK unless BOTH planEndReviewOk
+ * and userValidationOk are true (see automatePlanEndGatesOk). Receipt files
+ * land under `.atomic-skills/reviews/` and are linked from the plan
+ * `## Reviews` section; frontmatter may carry a machine-readable
+ * `planEndReview` object (finalize-shaped receipt) plus `userValidatedAt`.
+ *
  * No I/O.
  */
 
 const KNOWN_EXTERNAL_PROVIDERS = new Set(['codex', 'grok']);
+
+/**
+ * Guided `--skip-plan-end-review` reason taxonomy (non-empty required).
+ * Operators may use free-form reasons; these tokens are the recommended
+ * vocabulary when zero family-different providers remain or residual risk
+ * is accepted — never strand a plan without a durable reason.
+ */
+export const SKIP_PLAN_END_REASON_TAXONOMY = Object.freeze([
+  'no-family-different-provider',
+  'external-providers-unavailable',
+  'operator-accepted-residual-risk',
+  'single-external-leg-already-reviewed-at-phase',
+]);
 
 /**
  * Basic ISO-8601-ish: full date (YYYY-MM-DD) optionally with time (T...).
@@ -38,10 +57,18 @@ const ISO_TIMESTAMP_RE =
  *   familyDifferent?: boolean,
  * }} PlanEndReviewLeg
  *
+ * Finalize-shaped receipt: durable machine fields plus optional metadata
+ * written by finalize/plan-end (`reviewFile`, `mode`, `range`, `verifiedAt`).
+ * Extra keys are ignored by planEndReviewOk.
+ *
  * @typedef {{
  *   legs?: PlanEndReviewLeg[],
  *   skipPlanEndReview?: boolean,
  *   skipReason?: string,
+ *   reviewFile?: string,
+ *   mode?: string,
+ *   range?: string,
+ *   verifiedAt?: string,
  * }} PlanEndReviewReceipt
  */
 
@@ -62,6 +89,10 @@ function legCountsAsSucceededFamilyDifferent(leg) {
 
 /**
  * Machine-checkable plan-end external review predicate (HARD-BLOCK finalize/archive).
+ *
+ * Accepts a bare receipt or a finalize-shaped object (extra metadata ignored).
+ * CLI flag name in skill prose: `--skip-plan-end-review` maps to
+ * `skipPlanEndReview: true` + non-empty `skipReason` on the durable receipt.
  *
  * @param {PlanEndReviewReceipt | null | undefined} receipt
  * @returns {boolean}
@@ -127,4 +158,45 @@ export function userValidationOk(input = {}) {
   if (at == null) return false;
   if (typeof at !== 'string') return false;
   return isIsoTimestamp(at);
+}
+
+/**
+ * Combined finalize/archive gate under automate (design D7 + D9 + D12).
+ *
+ * When automateActive !== true, both sub-gates are inactive → ok: true.
+ * Under automate, HARD-BLOCK unless planEndReviewOk(receipt) AND
+ * userValidationOk({ automateActive: true, userValidatedAt }).
+ *
+ * @param {{
+ *   automateActive?: boolean,
+ *   receipt?: PlanEndReviewReceipt | null,
+ *   userValidatedAt?: string | null,
+ *   validatorId?: string | null,
+ * }} [input]
+ * @returns {{
+ *   ok: boolean,
+ *   planEndReviewOk: boolean,
+ *   userValidationOk: boolean,
+ * }}
+ */
+export function automatePlanEndGatesOk(input = {}) {
+  if (input.automateActive !== true) {
+    return {
+      ok: true,
+      planEndReviewOk: true,
+      userValidationOk: true,
+    };
+  }
+
+  const pe = planEndReviewOk(input.receipt);
+  const uv = userValidationOk({
+    automateActive: true,
+    userValidatedAt: input.userValidatedAt,
+    validatorId: input.validatorId,
+  });
+  return {
+    ok: pe && uv,
+    planEndReviewOk: pe,
+    userValidationOk: uv,
+  };
 }

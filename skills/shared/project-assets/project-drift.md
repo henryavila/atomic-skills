@@ -79,6 +79,37 @@ against the current branch so the user knows whether the in-flight work is
 reviewed or accumulating un-reviewed surface. Same-family remaps to `local`
 (`provider: local`) **do not** count as CROSS-MODEL REVIEW.
 
+### Plan-end receipt visibility (automate — read-only)
+
+When the **active plan** has `executionMode: automate` (or
+`isAutomateActive` would be true from the stamp), status / drift / help surfaces
+**may** report whether the plan-end receipt is ready for finalize/archive. This
+is **read-only and zero-mutation** — it never stamps receipts, never runs
+review-code, and never flips status.
+
+Machine check (same pure helpers as finalize/archive):
+
+```js
+import { automatePlanEndGatesOk, planEndReviewOk } from 'src/plan-end-review.js';
+// receipt = plan.planEndReview; userValidatedAt = plan.userValidatedAt
+```
+
+Suggested terminal lines (prepend to default/status view or append under the
+CROSS-MODEL REVIEW line when automate is stamped):
+
+| Condition | Surface (read-only) |
+|---|---|
+| no `planEndReview` / `planEndReviewOk` false | `PLAN-END REVIEW: missing receipt · finalize/archive HARD-BLOCK under automate → run plan-end external-both or --skip-plan-end-review <reason>` |
+| receipt ok, `userValidatedAt` missing | `PLAN-END REVIEW: receipt ok · user validation pending (userValidatedAt)` |
+| both ok | `PLAN-END REVIEW: ok (planEndReviewOk + userValidationOk)` |
+
+`--skip-plan-end-review` requires a **non-empty** durable `skipReason` (see
+`{{ASSETS_PATH}}/project-finalize.md` Step 1.7.3 and
+`SKIP_PLAN_END_REASON_TAXONOMY` in `src/plan-end-review.js`). Empty skip is
+still a missing receipt for this line. Soft pointer here does **not** satisfy
+archive — archive re-runs the HARD-BLOCK
+(`{{ASSETS_PATH}}/project-transitions.md` → `archive` step 1b).
+
 ### State file
 
 `.atomic-skills/status/last-review.json` — single source of truth, updated by the user (or by this skill's `review-due` command on completion):
