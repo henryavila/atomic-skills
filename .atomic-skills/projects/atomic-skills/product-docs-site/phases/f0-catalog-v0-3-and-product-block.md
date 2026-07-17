@@ -4,10 +4,10 @@ slug: product-docs-site-f0-catalog-v0-3-and-product-block
 title: Catalog v0.3 and product block
 goal: Extend the catalog schema and validators so iron_law and product
   positioning are first-class, validated data before any HTML build exists.
-status: active
+status: done
 branch: plan/product-docs-site
 started: 2026-07-17T14:28:20.714Z
-nextAction: Run phase-done (review-code gate) then materialize F1
+nextAction: null
 parentPlan: product-docs-site
 phaseId: F0
 businessIntent:
@@ -42,14 +42,14 @@ exitGates:
       expectExitCode: 0
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:51:19.000Z
-      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
+      verifiedAt: 2026-07-17T15:57:11.000Z
+      verifiedCommit: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
       passed: true
       exitCode: 0
-      outputSummary: ✓ All 15 skills valid (schema_version 0.2)
+      outputSummary: validate-skills exit 0 after review fixes
     verifierLabel: "shell: node scripts/validate-skills.js"
     evidenceSummary: passed · 2026-07-17
-    metAt: 2026-07-17T15:51:19.000Z
+    metAt: 2026-07-17T15:57:11.000Z
   - id: F0-G2
     description: check-docs still passes with the expanded catalog.
     status: met
@@ -59,14 +59,14 @@ exitGates:
       expectExitCode: 0
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:51:19.000Z
-      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
+      verifiedAt: 2026-07-17T15:57:11.000Z
+      verifiedCommit: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
       passed: true
       exitCode: 0
-      outputSummary: check-docs exit 0 (generate-readme/skill-docs/catalog-json --check)
+      outputSummary: check-docs exit 0 after review fixes
     verifierLabel: "shell: npm run check-docs"
     evidenceSummary: passed · 2026-07-17
-    metAt: 2026-07-17T15:51:19.000Z
+    metAt: 2026-07-17T15:57:11.000Z
 stack: []
 tasks:
   - id: T-001
@@ -105,8 +105,8 @@ tasks:
       passed: true
       exitCode: 0
       outputSummary: ✓ All 15 skills valid (schema_version 0.2)
-      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
-      verifiedAt: 2026-07-17T15:51:19.000Z
+      verifiedCommit: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
+      verifiedAt: 2026-07-17T15:57:11.000Z
   - id: T-002
     title: iron_law body cross-check or single-write path
     status: done
@@ -161,8 +161,8 @@ tasks:
         ℹ todo 0
 
         ℹ duration_ms 58.432583
-      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
-      verifiedAt: 2026-07-17T15:51:19.000Z
+      verifiedCommit: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
+      verifiedAt: 2026-07-17T15:57:11.000Z
   - id: T-003
     title: Catalog docs and generate-docs still green
     status: done
@@ -194,8 +194,8 @@ tasks:
       passed: true
       exitCode: 0
       outputSummary: check-docs exit 0 (generate-readme/skill-docs/catalog-json --check)
-      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
-      verifiedAt: 2026-07-17T15:51:19.000Z
+      verifiedCommit: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
+      verifiedAt: 2026-07-17T15:57:11.000Z
 parked: []
 emerged: []
 summary: "Schema v0.3: iron_law em toda skill + bloco product validado;
@@ -203,7 +203,22 @@ summary: "Schema v0.3: iron_law em toda skill + bloco product validado;
 planTitle: Product docs site from catalog SSOT
 planActive: true
 current: true
-lastUpdated: 2026-07-17T15:51:19.000Z
+lastUpdated: 2026-07-17T15:57:11.533Z
+reviewGate:
+  at: 1b26276c3bde2b5efa19987a0fc9a05b19dc1361
+  mode: codex
+  provider: gpt-5.5
+  verdict: needs_changes_then_fixed
+  counts:
+    blocker: 0
+    critical: 0
+    major: 3
+    minor: 0
+    nit: 0
+  reviewFile: .atomic-skills/reviews/product-docs-site-f0-codex-pass1.md
+  note: F-001/F-002/F-003 fixed in follow-up commit; user requested gpt-5.6-sol
+    unavailable (ChatGPT account) — used gpt-5.5
+closedAt: 2026-07-17T15:57:11.533Z
 ---
 
 # Narrative / notes
@@ -226,3 +241,11 @@ _(plan doc, external refs)_
 - **Single nextAction:** Run phase-done for F0 (review-code on phase range) then materialize F1.
 - **Verbatim state:** HEAD=753a8f2c6d5b31264dc365ad2eee9fa8ab3ce388; `node scripts/validate-skills.js` → exit 0; `npm run check-docs` → exit 0; path=.atomic-skills/projects/atomic-skills/product-docs-site/phases/f0-catalog-v0-3-and-product-block.md
 - **Uncommitted changes:** state file dirty until checkpoint commit.
+
+
+## Self-review against code-quality gates
+
+- G1 read-before-claim: applied — verifiers re-run at close HEAD
+- G2 soft-language: applied — completion claims cite exit 0 evidence
+- G6 reference-or-strike: applied — HEAD and review file paths verbatim
+- CROSS-MODEL REVIEW: ran via codex provider gpt-5.5 at HEAD (user requested gpt-5.6-sol unavailable with ChatGPT account), verdict needs_changes then fixed (3 major), file .atomic-skills/reviews/product-docs-site-f0-codex-pass1.md

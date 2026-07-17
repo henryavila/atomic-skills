@@ -5,9 +5,9 @@ title: Product docs site from catalog SSOT
 version: "1.0"
 status: active
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T14:28:52.710Z
+lastUpdated: 2026-07-17T15:57:11.533Z
 branch: plan/product-docs-site
-currentPhase: F0
+currentPhase: F1
 parallelismAllowed: false
 principles:
   - id: P1
@@ -64,19 +64,21 @@ phases:
         - id: F0-G1
           description: validate-skills accepts v0.3 catalog with iron_law on every skill
             and product positioning data present.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/validate-skills.js
             expectExitCode: 0
+          metAt: 2026-07-17T15:57:11.533Z
         - id: F0-G2
           description: check-docs still passes with the expanded catalog.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: npm run check-docs
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T15:57:11.533Z
+    status: done
     businessIntent:
       value: Public product facts (skill cards, positioning, host tiers) must not
         drift between README, site, and catalog — F0 makes iron_law and product
@@ -120,7 +122,7 @@ phases:
             kind: shell
             command: npm run check-site
             expectExitCode: 0
-    status: pending
+    status: active
     summary: Build estático multi-página a partir do catalog + hosts do config; DS
       compartilhado e check-site.
   - id: F2
