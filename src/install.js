@@ -37,6 +37,12 @@ import {
 } from './runtime-layers/grok-refcount.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
+import {
+  getIncompleteInfo,
+  incompleteOperatorMessage,
+  repairIncompleteInstall,
+  formatRecoverySummary,
+} from './recovery-cli.js';
 
 export { resolveProjectScopeTarget } from './scope.js';
 
@@ -788,6 +794,7 @@ export async function install(projectDir, options = {}) {
     ide: cliIDEs = null,
     lang: cliLang = null,
     allDetected = false,
+    repair = false,
   } = options;
 
   const userBasePath = homedir();
@@ -803,7 +810,12 @@ export async function install(projectDir, options = {}) {
   const initialLanguage = cliLang || userManifest?.language || projectManifest?.language || detectLanguage();
 
   let scope = project ? 'project' : 'user';
-  if (!yes && !project) {
+  // --repair: skip interactive scope picker; prefer project if present, else user.
+  if (repair) {
+    if (project) scope = 'project';
+    else if (projectManifest && !userManifest) scope = 'project';
+    else scope = 'user';
+  } else if (!yes && !project) {
     scope = await promptInstallScope(initialLanguage, {
       projectTarget,
       initialScope: projectManifest && !userManifest ? 'project' : 'user',
@@ -816,6 +828,35 @@ export async function install(projectDir, options = {}) {
   }
 
   const basePath = scope === 'project' ? projectTarget.path : userBasePath;
+
+  // P0-A: incomplete TX recovery (install --repair) or fail-closed messaging.
+  if (repair) {
+    console.log('\n  ⚛ Installer recovery (--repair)\n');
+    let result;
+    try {
+      result = repairIncompleteInstall(basePath);
+    } catch (err) {
+      // Mid-repair interrupt / injected fail: never claim complete; surface residual.
+      console.error(`  ${pc.red('Error:')} ${err.message}`);
+      console.error(`\n${incompleteOperatorMessage()}\n`);
+      process.exit(1);
+    }
+    console.log(result.message || result.summary || '');
+    if (result.action === 'reversed' && result.exitCode === 0) {
+      console.log(`\n  ${pc.dim('Incomplete cleared. Re-run install without --repair to complete.')}\n`);
+    }
+    if (result.exitCode && result.exitCode !== 0) process.exit(result.exitCode);
+    return;
+  }
+
+  const incomplete = getIncompleteInfo(basePath);
+  if (incomplete.incomplete) {
+    console.error(`\n  ${pc.red('Error:')} Incomplete installer transaction.\n`);
+    console.error(formatRecoverySummary(incomplete.desc, incomplete.trust));
+    console.error(`\n${incompleteOperatorMessage(incomplete.trust)}\n`);
+    process.exit(1);
+  }
+
   const existingManifest = readManifest(basePath);
   const isFirstInstall = !existingManifest;
   const isUpdate = !!existingManifest;

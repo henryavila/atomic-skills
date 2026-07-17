@@ -12,6 +12,13 @@ import { migrateLegacyInstall } from './migrate-legacy-install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
 import { baseHasGrokResidual } from './runtime-layers/grok-refcount.js';
+import {
+  forceIncompleteUninstall,
+  getIncompleteInfo,
+  incompleteOperatorMessage,
+  formatRecoverySummary,
+  recoveryLedgerPath,
+} from './recovery-cli.js';
 
 /**
  * Walk up from a just-removed file, deleting empty parent dirs until a
@@ -58,18 +65,22 @@ const UNINSTALL_MESSAGES = {
  * @param {object} [options]
  * @param {'project'|'user'|null} [options.scope] - force scope (skips picker)
  * @param {boolean} [options.yes] - non-interactive: skip the confirmation prompt
+ * @param {boolean} [options.forceIncomplete] - P0-A: reverse journaled effects
+ *   despite incomplete TX; write residual recovery ledger
  */
 export async function uninstall(projectDir, options = {}) {
-  let { scope = null, yes = false } = options;
+  let { scope = null, yes = false, forceIncomplete = false } = options;
   const projectTarget = resolveProjectScopeTarget(projectDir);
   const projectBase = projectTarget.ok ? projectTarget.path : projectDir;
+  // Incomplete manifests still count as "has install" for scope resolution.
   const hasProject = readManifest(projectBase) !== null;
   const hasUser = readManifest(homedir()) !== null;
 
   if (!scope) {
     if (hasProject && hasUser) {
-      if (yes) {
+      if (yes || forceIncomplete) {
         // Non-interactive can't disambiguate; mirror install's default scope.
+        // Prefer user when both exist; --project forces project.
         scope = 'user';
       } else {
         // Use project manifest's language for the prompt
@@ -80,6 +91,9 @@ export async function uninstall(projectDir, options = {}) {
     } else if (hasProject) {
       scope = 'project';
     } else if (hasUser) {
+      scope = 'user';
+    } else if (forceIncomplete) {
+      // force-incomplete with no readable manifest still tries user then project
       scope = 'user';
     } else {
       console.log('\n  ⚛ No installation found.\n');
@@ -92,11 +106,42 @@ export async function uninstall(projectDir, options = {}) {
   const lang = manifest?.language || 'en';
   const msg = UNINSTALL_MESSAGES[lang] || UNINSTALL_MESSAGES.en;
 
+  // P0-A: force reverse of journaled effects under incomplete TX.
+  if (forceIncomplete) {
+    console.log(`\n  ⚛ Force-incomplete recovery\n`);
+    let result;
+    try {
+      result = forceIncompleteUninstall(basePath);
+    } catch (err) {
+      console.error(`  ${pc.red('Error:')} ${err.message}`);
+      console.error(`\n${incompleteOperatorMessage()}\n`);
+      process.exit(1);
+    }
+    console.log(result.message || '');
+    if (result.ledger) {
+      console.log(`  ${pc.dim(`Residual ledger: ${recoveryLedgerPath(basePath)}`)}`);
+    }
+    // Best-effort: if residual had Grok outside-journal, try release when
+    // we still know ides — optional; incomplete force path is install-base first.
+    if (result.exitCode && result.exitCode !== 0) process.exit(result.exitCode);
+    console.log(`\n  ⚛ Force-incomplete complete (check residual ledger if pre-U).\n`);
+    return;
+  }
+
   console.log(`\n  ⚛ ${msg.removing}\n`);
 
   if (!manifest) {
     console.log(`  ${msg.noInstall}\n`);
     return;
+  }
+
+  // Fail closed on incomplete with operator recovery commands (never hand-edit JSON).
+  const incomplete = getIncompleteInfo(basePath);
+  if (incomplete.incomplete) {
+    console.error(`  ${pc.red('Error:')} Incomplete installer transaction blocks uninstall.\n`);
+    console.error(formatRecoverySummary(incomplete.desc, incomplete.trust));
+    console.error(`\n${incompleteOperatorMessage(incomplete.trust)}\n`);
+    process.exit(1);
   }
 
   // IMPORTANT: Keep the confirmation prompt for interactive runs. `--yes`
