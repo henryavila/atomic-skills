@@ -244,9 +244,13 @@ describe('F6 release fault matrix (remediated engine)', () => {
   });
 
   it('30 concurrent registry writers do not drop owners under lock', async () => {
+    // os.homedir() on Windows reads USERPROFILE, not HOME — set both so the
+    // shared registry lands under the fake home on every platform.
     const prevHome = process.env.HOME;
+    const prevProfile = process.env.USERPROFILE;
     root = mkdtempSync(join(tmpdir(), 'as-fault-reg-'));
     process.env.HOME = root;
+    process.env.USERPROFILE = root;
     try {
       mkdirSync(join(root, '.atomic-skills'), { recursive: true });
       const bases = Array.from({ length: 30 }, (_, i) => {
@@ -282,6 +286,8 @@ describe('F6 release fault matrix (remediated engine)', () => {
     } finally {
       if (prevHome === undefined) delete process.env.HOME;
       else process.env.HOME = prevHome;
+      if (prevProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = prevProfile;
     }
   });
 
