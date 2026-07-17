@@ -47,3 +47,8 @@ CI also keeps dist in sync via `npm run check-docs` / `npm run check-site`.
 - npm package publish (see `publish.yml`)
 - Engineering archive MD (`docs/kb/`, `docs/design/`, plans, audits) — not on the product site
 - Hand-editing remote HTML
+
+## Security notes
+
+- Workflow permissions are **scoped per job**: `build` is `contents: read` only; `deploy` has `pages: write` + `id-token: write`.
+- Deploy runs only after `npm run check-docs` and `npm run check-site` succeed.
