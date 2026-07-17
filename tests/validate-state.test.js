@@ -1389,7 +1389,8 @@ test('collectTargets: a dir arg also walks projects/<id>/<slug>/lessons/', () =>
     mkdirSync(join(planDir, 'lessons'), { recursive: true });
     writeFileSync(join(planDir, 'plan.md'), '---\nslug: alpha\n---\n');
     writeFileSync(join(planDir, 'lessons', 'alpha-f1.md'), `---\n${stringifyYaml(baseLessonFile()).trimEnd()}\n---\n`);
-    const found = collectTargets([dir]).map((p) => p.split('/').slice(-2).join('/'));
+    // Normalize separators so tail checks work on win32 (CI windows-path-contracts).
+    const found = collectTargets([dir]).map((p) => p.replace(/\\/g, '/').split('/').slice(-2).join('/'));
     assert.ok(found.includes('lessons/alpha-f1.md'), `lessons file not collected: ${found.join(', ')}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -1412,7 +1413,8 @@ test('collectTargets (Inc2 R-XAGENT-05): a dir arg walks BOTH flat and nested pr
     writeFileSync(join(planDir, 'phases', 'f0-foundation.md'), '---\nslug: sample-f0\n---\n');
     writeFileSync(join(planDir, 'phases', 'archive', 'f0-old.md'), '---\nslug: sample-f0-old\n---\n');
 
-    const found = collectTargets([dir]).map((p) => p.split('/').slice(-2).join('/'));
+    // Normalize separators so tail checks work on win32 (CI windows-path-contracts).
+    const found = collectTargets([dir]).map((p) => p.replace(/\\/g, '/').split('/').slice(-2).join('/'));
     // flat still found
     assert.ok(found.includes('plans/flatplan.md'));
     assert.ok(found.includes('initiatives/flatinit.md'));

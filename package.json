@@ -18,7 +18,7 @@
     "assets/"
   ],
   "scripts": {
-    "test": "node --test 'tests/**/*.test.js' 'test/**/*.test.js'",
+    "test": "node scripts/run-tests.mjs",
     "test:hooks": "bash tests/hooks/session-start.test.sh && bash tests/hooks/stop.test.sh && bash tests/hooks/pre-write.test.sh && bash tests/hooks/pre-commit.test.sh",
     "new-skill": "node scripts/new-skill.js",
     "validate-skills": "node scripts/validate-skills.js",
@@ -66,7 +66,7 @@
   "dependencies": {
     "@clack/prompts": "^1.2.0",
     "@henryavila/aideck": "^0.2.0",
-    "@henryavila/minimalist-installer": "github:henryavila/minimalist-installer#f1984e9e176cb35dd62f848fcd423e97640dc4fc",
+    "@henryavila/minimalist-installer": "github:henryavila/minimalist-installer#67dddc35151a4ef02cd7eed6500bf59cd8cb918f",
     "@iarna/toml": "^2.2.5",
     "ajv": "^8.20.0",
     "picocolors": "^1.1.1",

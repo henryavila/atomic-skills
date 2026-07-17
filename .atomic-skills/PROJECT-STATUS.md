@@ -21,7 +21,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
 | product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
-| implementation-automate-mode | active | F0 | plan/implementation-automate-mode | 2026-07-17 | 0/5 |
+| implementation-automate-mode | done | F4 | plan/implementation-automate-mode | 2026-07-17 | 5/5 |
 
 
 

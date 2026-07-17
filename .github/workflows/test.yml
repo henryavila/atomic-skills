@@ -52,15 +52,20 @@ jobs:
         run: node --test tests/multiplatform-contract.test.js tests/install-uninstall-roundtrip.test.js tests/installer-data-safety.test.js
 
   # F6/T-003 — release-blocking Cartesian matrix:
-  #   OS ∈ {ubuntu-latest, macos-latest, windows-latest}
+  #   OS ∈ {ubuntu-latest, macos-latest}
   #   Node ∈ {22.18.x, 24.11.x}
+  # Windows is intentionally out of this matrix: GitHub-hosted Node builds do not
+  # expose fs.constants.O_NOFOLLOW, so @henryavila/minimalist-installer path-safety
+  # refuses installs (PathSafetyError / UNSUPPORTED_PLATFORM). Path portability is
+  # still covered by windows-path-contracts. Re-add windows-latest when the engine
+  # pin supports win32 no-follow (or Node exports O_NOFOLLOW on the runner).
   # Critical steps never use continue-on-error.
   release-matrix:
     name: release ${{ matrix.os }} node-${{ matrix.node }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         node: ['22.18', '24.11']
     runs-on: ${{ matrix.os }}
     steps:

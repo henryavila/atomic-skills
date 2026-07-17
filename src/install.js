@@ -29,8 +29,22 @@ import {
   wantsGrokPluginHost,
 } from './runtime-layers/grok-plugin-host.js';
 import { applyGrokAgentsIsolation } from './runtime-layers/grok-agents-isolation.js';
+import {
+  releaseGrokOutsideJournal,
+  scanKnownInstallBases,
+  sameInstallBase,
+} from './runtime-layers/grok-refcount.js';
+// P0-B / F-002 consumer fallback — DELETE import when engine drop-revert is pinned.
+import { revertDroppedAutoUpdateEffects } from './runtime-layers/auto-update-drop-revert.js';
 import { withSharedRuntimeLocks } from './runtime-locks.js';
 import { verifyInstall, decisionsByState } from './status-verify.js';
+import {
+  getIncompleteInfo,
+  incompleteOperatorMessage,
+  repairIncompleteInstall,
+  formatRecoverySummary,
+  resolveIncompleteRecoveryScope,
+} from './recovery-cli.js';
 
 export { resolveProjectScopeTarget } from './scope.js';
 
@@ -170,17 +184,179 @@ export function warnLegacyCustomMemoryPath(existingManifest, language = 'en') {
   console.warn(`  ${pc.yellow('Warning:')} ${msgText}`);
 }
 
+/** Registry schema version for versioned installs.json (P1-B / F-005). */
+export const REGISTRY_SCHEMA_VERSION = '1';
+
+/**
+ * Stable fingerprint of package identity (packageRoot path + version).
+ * Shared helper with observe — never invents packageRoot.
+ * @param {string|null|undefined} packageRoot
+ * @param {string|null|undefined} version
+ * @returns {string|null}
+ */
+export function ownerFingerprint(packageRoot, version) {
+  if (typeof packageRoot !== 'string' || !packageRoot || typeof version !== 'string' || !version) {
+    return null;
+  }
+  return hashContent(`${packageRoot}\n${version}\n`);
+}
+
+/**
+ * Discover package identity for a legacy basePath without inventing paths.
+ * Only returns packageRoot when a real package.json for this package is readable
+ * at basePath (dev/checkout install), or when a staged pointer under that base
+ * resolves to an existing package root.
+ *
+ * @param {string} basePath
+ * @returns {{ packageRoot: string|null, version: string|null, fingerprint: string|null, electable: boolean }}
+ */
+export function discoverPackageIdentity(basePath) {
+  const nonElectable = {
+    packageRoot: null, version: null, fingerprint: null, electable: false,
+  };
+  if (typeof basePath !== 'string' || !basePath) return nonElectable;
+
+  // Pointer staged under the install base (if ever present) — only when target exists.
+  const pointer = join(basePath, '.atomic-skills', 'package-root');
+  if (existsSync(pointer)) {
+    try {
+      const root = readFileSync(pointer, 'utf8').trim();
+      if (root && existsSync(join(root, 'package.json'))) {
+        let version = null;
+        try {
+          const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+          if (pkg?.name === '@henryavila/atomic-skills' && typeof pkg.version === 'string') {
+            version = pkg.version;
+          }
+        } catch { /* ignore */ }
+        if (version) {
+          return {
+            packageRoot: root,
+            version,
+            fingerprint: ownerFingerprint(root, version),
+            electable: true,
+          };
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // basePath itself is the package checkout (project-scope on this repo).
+  const pkgJson = join(basePath, 'package.json');
+  if (existsSync(pkgJson)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgJson, 'utf8'));
+      if (pkg?.name === '@henryavila/atomic-skills' && typeof pkg.version === 'string') {
+        return {
+          packageRoot: basePath,
+          version: pkg.version,
+          fingerprint: ownerFingerprint(basePath, pkg.version),
+          electable: true,
+        };
+      }
+    } catch { /* ignore */ }
+  }
+
+  return nonElectable;
+}
+
+/**
+ * Owner record for the live process (current PACKAGE_ROOT + package.json version).
+ * @param {string} basePath
+ */
+export function buildLiveOwnerRecord(basePath) {
+  let version = null;
+  try {
+    version = getPackageVersion();
+  } catch {
+    version = null;
+  }
+  const packageRoot = PACKAGE_ROOT;
+  const fingerprint = ownerFingerprint(packageRoot, version);
+  return {
+    basePath,
+    packageRoot,
+    version,
+    fingerprint,
+    electable: Boolean(packageRoot && version && fingerprint),
+  };
+}
+
+/**
+ * Materialize versioned owner objects for the given basePath list.
+ * - Live writer (opts.liveBasePath): always populated from process identity.
+ * - Prior versioned owners: keep known fields (do not invent packageRoot).
+ * - Legacy bare strings / missing metadata: discover or mark non-electable.
+ *
+ * @param {string[]} basePaths
+ * @param {{ format: string, list: string[], raw: unknown }} prior
+ * @param {{ liveBasePath?: string|null }} [opts]
+ * @returns {Array<object>}
+ */
+export function materializeRegistryOwners(basePaths, prior, opts = {}) {
+  const liveBasePath = opts.liveBasePath ?? null;
+  const priorByBase = new Map();
+  if (prior?.format === 'versioned' && prior.raw && Array.isArray(prior.raw.owners)) {
+    for (const o of prior.raw.owners) {
+      if (o && typeof o === 'object' && typeof o.basePath === 'string') {
+        priorByBase.set(o.basePath, o);
+      } else if (typeof o === 'string') {
+        priorByBase.set(o, { basePath: o });
+      }
+    }
+  } else if (prior?.format === 'legacy-array' && Array.isArray(prior.raw)) {
+    for (const b of prior.raw) {
+      if (typeof b === 'string') priorByBase.set(b, { basePath: b });
+    }
+  }
+
+  return basePaths.map((basePath) => {
+    if (liveBasePath != null && sameInstallBase(basePath, liveBasePath)) {
+      return buildLiveOwnerRecord(basePath);
+    }
+    const prev = priorByBase.get(basePath)
+      || [...priorByBase.entries()].find(([k]) => sameInstallBase(k, basePath))?.[1];
+    if (prev && typeof prev === 'object' && prev.packageRoot && prev.version && prev.electable !== false) {
+      return {
+        basePath,
+        packageRoot: prev.packageRoot,
+        version: prev.version,
+        fingerprint: prev.fingerprint || ownerFingerprint(prev.packageRoot, prev.version),
+        electable: prev.electable !== false,
+      };
+    }
+    // Legacy / incomplete: discover or non-electable — never invent packageRoot.
+    if (prev && typeof prev === 'object' && prev.electable === false) {
+      return {
+        basePath,
+        packageRoot: prev.packageRoot ?? null,
+        version: prev.version ?? null,
+        fingerprint: prev.fingerprint ?? null,
+        electable: false,
+      };
+    }
+    const discovered = discoverPackageIdentity(basePath);
+    return {
+      basePath,
+      packageRoot: discovered.packageRoot,
+      version: discovered.version,
+      fingerprint: discovered.fingerprint,
+      electable: discovered.electable,
+    };
+  });
+}
+
 /**
  * Strict parse of the installs registry (Codex F-005).
  * Supports legacy string[] and versioned `{ owners: [{ basePath, ... }] }`.
  * Fail-closed on corrupt JSON or unknown shapes — never treat as empty owners.
  *
  * @param {string} [filePath]
- * @returns {{ format: 'empty'|'legacy-array'|'versioned', list: string[], raw: unknown }}
+ * @returns {{ format: 'empty'|'legacy-array'|'versioned', list: string[], raw: unknown, owners: object[] }}
  */
 export function readInstallsRegistry(filePath = installsRegistryPath()) {
   if (!existsSync(filePath)) {
-    return { format: 'empty', list: [], raw: null };
+    return { format: 'empty', list: [], raw: null, owners: [] };
   }
   let rawText;
   try {
@@ -200,37 +376,73 @@ export function readInstallsRegistry(filePath = installsRegistryPath()) {
   }
   if (Array.isArray(v)) {
     const list = v.filter((x) => typeof x === 'string' && x.length > 0);
-    return { format: 'legacy-array', list, raw: v };
+    const owners = list.map((basePath) => ({
+      basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
+    }));
+    return { format: 'legacy-array', list, raw: v, owners };
   }
   if (v && typeof v === 'object' && Array.isArray(v.owners)) {
-    const list = v.owners
-      .map((o) => (typeof o === 'string' ? o : o?.basePath))
-      .filter((x) => typeof x === 'string' && x.length > 0);
-    return { format: 'versioned', list, raw: v };
+    const owners = [];
+    const list = [];
+    for (const o of v.owners) {
+      const basePath = typeof o === 'string' ? o : o?.basePath;
+      if (typeof basePath !== 'string' || !basePath) continue;
+      list.push(basePath);
+      if (typeof o === 'string') {
+        owners.push({
+          basePath, packageRoot: null, version: null, fingerprint: null, electable: false,
+        });
+      } else {
+        owners.push({
+          basePath,
+          packageRoot: o.packageRoot ?? null,
+          version: o.version ?? null,
+          fingerprint: o.fingerprint ?? null,
+          electable: o.electable !== false && Boolean(o.packageRoot),
+        });
+      }
+    }
+    return { format: 'versioned', list, raw: v, owners };
   }
   const e = new Error('installs registry unknown format');
   e.code = 'REGISTRY_UNKNOWN';
   throw e;
 }
 
-function writeInstallsRegistryAtomic(filePath, list, prior) {
+/**
+ * Always write versioned schema (P1-B / F-005).
+ * @param {string} filePath
+ * @param {string[]} list basePaths in order
+ * @param {{ format: string, list: string[], raw: unknown }} prior
+ * @param {{ liveBasePath?: string|null }} [opts]
+ */
+function writeInstallsRegistryAtomic(filePath, list, prior, opts = {}) {
   mkdirSync(dirname(filePath), { recursive: true });
-  let payload;
-  if (prior?.format === 'versioned' && prior.raw && typeof prior.raw === 'object') {
-    const owners = list.map((basePath) => {
-      const prev = Array.isArray(prior.raw.owners)
-        ? prior.raw.owners.find((o) => (typeof o === 'string' ? o : o?.basePath) === basePath)
-        : null;
-      if (prev && typeof prev === 'object') return { ...prev, basePath };
-      return { basePath };
-    });
-    payload = { ...prior.raw, owners };
-  } else {
-    payload = list;
-  }
+  const owners = materializeRegistryOwners(list, prior, opts);
+  const payload = {
+    schemaVersion: REGISTRY_SCHEMA_VERSION,
+    owners,
+  };
   const tmp = `${filePath}.${process.pid}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`);
   renameSync(tmp, filePath);
+}
+
+/**
+ * Point ~/.atomic-skills/package-root at a surviving owner's packageRoot.
+ * Does not invent paths — only writes when packageRoot exists on disk.
+ * @param {string} packageRoot
+ */
+export function restagePackageRootFrom(packageRoot) {
+  if (typeof packageRoot !== 'string' || !packageRoot) return false;
+  if (!existsSync(join(packageRoot, 'scripts', 'detect-completion.js'))
+    && !existsSync(join(packageRoot, 'package.json'))) {
+    return false;
+  }
+  const root = join(homedir(), '.atomic-skills');
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'package-root'), `${packageRoot}\n`);
+  return true;
 }
 
 /**
@@ -240,14 +452,16 @@ function writeInstallsRegistryAtomic(filePath, list, prior) {
  * install is gone — this registry is the refcount that makes that decision
  * honest (F-003). `basePath` is homedir() for a user install, the repo root for
  * a project install.
+ *
+ * P1-B: always writes versioned owners with live packageRoot/version/fingerprint.
  */
 export function registerInstall(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const p = installsRegistryPath();
     const prior = readInstallsRegistry(p);
     const list = [...prior.list];
-    if (!list.includes(basePath)) list.push(basePath);
-    writeInstallsRegistryAtomic(p, list, prior);
+    if (!list.some((b) => sameInstallBase(b, basePath))) list.push(basePath);
+    writeInstallsRegistryAtomic(p, list, prior, { liveBasePath: basePath });
   });
 }
 
@@ -263,12 +477,12 @@ export function unregisterInstall(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
     const p = installsRegistryPath();
     const prior = readInstallsRegistry(p);
-    const next = prior.list.filter((b) => b !== basePath);
+    const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
     if (next.length === 0) {
       try { unlinkSync(p); } catch {}
       return 0;
     }
-    writeInstallsRegistryAtomic(p, next, prior);
+    writeInstallsRegistryAtomic(p, next, prior, { liveBasePath: null });
     return next.length;
   });
 }
@@ -284,8 +498,8 @@ export function publishRuntimeAndRegister(basePath) {
     const p = installsRegistryPath();
     const prior = readInstallsRegistry(p);
     const list = [...prior.list];
-    if (!list.includes(basePath)) list.push(basePath);
-    writeInstallsRegistryAtomic(p, list, prior);
+    if (!list.some((b) => sameInstallBase(b, basePath))) list.push(basePath);
+    writeInstallsRegistryAtomic(p, list, prior, { liveBasePath: basePath });
   });
 }
 
@@ -296,16 +510,200 @@ export function publishRuntimeAndRegister(basePath) {
  */
 export function unregisterAndMaybeReclaimRuntime(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
-    const p = installsRegistryPath();
-    const prior = readInstallsRegistry(p);
-    const next = prior.list.filter((b) => b !== basePath);
-    if (next.length === 0) {
-      try { unlinkSync(p); } catch {}
-      removeRuntimeArtifacts();
-      return 0;
+    return unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
+  });
+}
+
+/**
+ * Registry remove + optional runtime reclaim without acquiring locks.
+ * Caller MUST hold `withSharedRuntimeLocks` (or accept races).
+ * Identity compare uses normalize/realpath (sameInstallBase) so equivalent
+ * paths drop correctly after scan-side normalize.
+ *
+ * P1-B: when the departing owner was the last electable writer of the active
+ * packageRoot, elect a surviving electable owner and restage package-root.
+ *
+ * @param {string} basePath
+ * @returns {number} remaining installs
+ */
+function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
+  const p = installsRegistryPath();
+  const prior = readInstallsRegistry(p);
+  const departing = (prior.owners || []).find((o) => sameInstallBase(o.basePath, basePath));
+  const next = prior.list.filter((b) => !sameInstallBase(b, basePath));
+  if (next.length === 0) {
+    try { unlinkSync(p); } catch {}
+    removeRuntimeArtifacts();
+    return 0;
+  }
+  writeInstallsRegistryAtomic(p, next, prior, { liveBasePath: null });
+
+  // Re-read materialised remaining owners after migration write.
+  const after = readInstallsRegistry(p);
+  const remainingOwners = after.owners || [];
+  const electable = remainingOwners.filter(
+    (o) => o.electable !== false && o.packageRoot,
+  );
+
+  let packageRootOnDisk = null;
+  const packageRootFile = join(homedir(), '.atomic-skills', 'package-root');
+  if (existsSync(packageRootFile)) {
+    try {
+      packageRootOnDisk = readFileSync(packageRootFile, 'utf8').trim() || null;
+    } catch {
+      packageRootOnDisk = null;
     }
-    writeInstallsRegistryAtomic(p, next, prior);
-    return next.length;
+  }
+
+  const departingRoot = departing?.packageRoot || null;
+  const lastWriterOfActiveRoot = Boolean(
+    departingRoot
+    && packageRootOnDisk
+    && departingRoot === packageRootOnDisk
+    && !electable.some((o) => o.packageRoot === departingRoot),
+  );
+  // Also restage when package-root points at a non-surviving root or is empty
+  // while electable survivors remain.
+  const activeRootStillElectable = packageRootOnDisk
+    && electable.some((o) => o.packageRoot === packageRootOnDisk);
+
+  if (lastWriterOfActiveRoot || (electable.length > 0 && !activeRootStillElectable)) {
+    // Dynamic import avoided: selectRuntimeOwner is pure and already used by observe.
+    // Inline last-electable election (skip non-electable / null packageRoot).
+    const survivor = electable[electable.length - 1];
+    if (survivor?.packageRoot) {
+      restagePackageRootFrom(survivor.packageRoot);
+    }
+  }
+
+  return next.length;
+}
+
+/**
+ * Current registry owner count when readable; -1 if corrupt/unreadable.
+ * Does not throw — used for return values on fail-closed skip paths.
+ * @returns {number}
+ */
+function registryOwnerCountSafe() {
+  try {
+    return readInstallsRegistry(installsRegistryPath()).list.length;
+  } catch {
+    return -1;
+  }
+}
+
+/**
+ * Grok outside-journal release + optional registry unregister under one shared
+ * lock (Codex F-001 / P0-C concurrency).
+ *
+ * Order under the lock (P0-C C1–C3):
+ * 1. Trusted scan of registry (+ known bases). If untrusted → skip host and
+ *    isolation mutations and do **not** mutate the registry.
+ * 2. `remainingBases` = scan bases without this `basePath` (in-memory only).
+ * 3. `releaseGrokOutsideJournal` with `listInstallBases: () => remainingBases`
+ *    forced (caller cannot override — survivor set must be the post-removal
+ *    snapshot, not a re-scan that still includes self).
+ * 4. If last-owner host unregister **failed** (may be half-applied) → keep
+ *    registry so a retry still sees this owner. Fail-open skips (binary
+ *    missing / bridge disabled) still commit unregister when finalizeRegistry.
+ * 5. Else, when `finalizeRegistry` (default true): write registry without
+ *    basePath; if empty → reclaim runtime.
+ *
+ * Uninstall orchestration (C-codex-3/4) calls with `finalizeRegistry: false`
+ * so host/isolation release runs against the post-removal simulation first,
+ * then journal Driver.uninstall, then registry unregister only after journal
+ * success — and only when this helper did not retain ownership for host-fail
+ * retry (`registryUnregistered` / `retainRegistryForHostRetry`).
+ *
+ * Residual race (documented): host CLI (`grok plugin …`) is external and not
+ * covered by the O_EXCL file lock — two processes can still interleave host
+ * commands after both pass the registry decision. Full atomicity with the host
+ * would need a host-level lock or single daemon; this serializes our registry
+ * decision + release sequencing which is the primary dual-keep failure mode.
+ *
+ * @param {string} basePath
+ * @param {object} [releaseOpts] - forwarded to releaseGrokOutsideJournal
+ *   (`basePath` and `listInstallBases` are controlled here; caller listInstallBases is ignored)
+ * @param {boolean} [releaseOpts.finalizeRegistry=true] - when false, only host
+ *   /isolation release runs; registry is left for the caller after journal success
+ * @returns {{
+ *   remaining: number,
+ *   lastOwner: boolean,
+ *   host: { status: string, detail?: string, restage?: string },
+ *   isolation: { status: string, detail?: string },
+ *   registryUnregistered: boolean,
+ *   retainRegistryForHostRetry: boolean,
+ * }}
+ */
+export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
+  return withSharedRuntimeLocks({ basePath }, () => {
+    const home = releaseOpts.home || process.env.HOME || homedir();
+    const finalizeRegistry = releaseOpts.finalizeRegistry !== false;
+
+    // 1. Trusted scan — fail-closed: never shrink owners / mutate on corrupt registry.
+    const scan = scanKnownInstallBases(home);
+    if (scan.status === 'untrusted') {
+      return {
+        remaining: registryOwnerCountSafe(),
+        lastOwner: false,
+        host: { status: 'skipped', detail: 'registry-untrusted' },
+        isolation: { status: 'skipped', detail: 'registry-untrusted' },
+        registryUnregistered: false,
+        retainRegistryForHostRetry: false,
+      };
+    }
+
+    // 2. Post-removal owner set (in-memory). Do not re-scan ambient state later.
+    const remainingBases = scan.bases.filter((b) => !sameInstallBase(b, basePath));
+
+    // 3. Release against that exact list. Drop caller listInstallBases + finalize
+    // flag so they cannot reintroduce self or diverge from the post-removal snapshot (C3).
+    const {
+      listInstallBases: _ignoredListInstallBases,
+      finalizeRegistry: _ignoredFinalize,
+      ...restReleaseOpts
+    } = releaseOpts;
+    const released = releaseGrokOutsideJournal({
+      ...restReleaseOpts,
+      basePath,
+      listInstallBases: () => remainingBases,
+    });
+
+    // 4. Last-owner host failure may leave host half-applied — keep registry
+    // so retry still sees this owner. Fail-open `skipped` (binary gone) commits.
+    if (released.lastOwner && released.host.status === 'failed') {
+      return {
+        remaining: registryOwnerCountSafe(),
+        lastOwner: true,
+        host: released.host,
+        isolation: released.isolation,
+        registryUnregistered: false,
+        retainRegistryForHostRetry: true,
+      };
+    }
+
+    // 5. Finalize registry remove + optional runtime reclaim (optional for
+    // uninstall that must journal-uninstall first — C-codex-3).
+    if (!finalizeRegistry) {
+      return {
+        remaining: registryOwnerCountSafe(),
+        lastOwner: released.lastOwner,
+        host: released.host,
+        isolation: released.isolation,
+        registryUnregistered: false,
+        retainRegistryForHostRetry: false,
+      };
+    }
+
+    const remaining = unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
+    return {
+      remaining,
+      lastOwner: released.lastOwner,
+      host: released.host,
+      isolation: released.isolation,
+      registryUnregistered: true,
+      retainRegistryForHostRetry: false,
+    };
   });
 }
 
@@ -385,6 +783,43 @@ export function isAtomicSkillsArtifact(filePath, knownCurrentNames) {
   if (!m) return false;
   const name = m[1];
   return knownCurrentNames.has(name) || HISTORICAL_ATOMIC_SKILLS_NAMES.has(name);
+}
+
+/**
+ * P1-A: package leftover at a desired path under our namespace.
+ * Command files often lack `name:` (only `description:`) so isAtomicSkillsArtifact
+ * alone misses them. Eligible when:
+ *   - path is under the atomic-skills namespace segment, AND
+ *   - content starts with YAML frontmatter, AND
+ *   - basename (or parent dir for SKILL.md) matches a known/historical skill name.
+ *
+ * Foreign user files without frontmatter or with unrelated basenames stay unmanaged.
+ *
+ * @param {string} filePath absolute path
+ * @param {string} relPath relative desired path
+ * @param {Set<string>} knownCurrentNames
+ * @returns {boolean}
+ */
+export function isAtomicSkillsNamespaceLeftover(filePath, relPath, knownCurrentNames) {
+  if (typeof relPath !== 'string' || !relPath.includes(SKILL_NAMESPACE)) return false;
+  let head;
+  try {
+    head = readFileSync(filePath, 'utf8').slice(0, 256);
+  } catch {
+    return false;
+  }
+  if (!head.startsWith('---\n') && !head.startsWith('---\r\n')) return false;
+  const base = basename(relPath);
+  const stem = base.includes('.') ? base.slice(0, base.lastIndexOf('.')) : base;
+  if (stem === 'SKILL') {
+    const parent = basename(dirname(relPath));
+    return knownCurrentNames.has(parent) || HISTORICAL_ATOMIC_SKILLS_NAMES.has(parent);
+  }
+  // Namespace root or asset paths are package-owned when frontmatter-shaped.
+  if (stem === SKILL_NAMESPACE || stem.startsWith('_') || relPath.includes('/_assets/')) {
+    return true;
+  }
+  return knownCurrentNames.has(stem) || HISTORICAL_ATOMIC_SKILLS_NAMES.has(stem);
 }
 
 /**
@@ -476,21 +911,81 @@ export function removeLegacyOrphans(basePath, orphans) {
  * readers working.
  *
  * @param {string} projectDir
- * @param {object} options - { language, ides, skillsDir, metaDir, scope }
+ * @param {object} options - { language, ides, skillsDir, metaDir, scope,
+ *   forceAdopt?, autoUpdateDropInjectFailAfterN? } (inject is a P0-B test seam only)
  * @param {object} [callbacks] - { onFileWritten }
- * @returns {{ files: Array<{ path: string, hash: string }> }}
+ * @returns {{ files: Array<{ path: string, hash: string }>, adopt?: object }}
  */
 export function installSkills(projectDir, options, callbacks = {}) {
-  const { language, ides, skillsDir, metaDir, scope } = options;
+  const { language, ides, skillsDir, metaDir, scope, forceAdopt = false } = options;
   const { onFileWritten } = callbacks;
 
-  // Claim ownership of desired paths that already exist on disk but are missing
-  // from the journal (IDE expand / partial journal). Prevents GREENFIELD_CONFLICT
-  // when leftover package files differ from the new render (see adopt-preexisting-desired.js).
+  // P1-A / F-004: adopt only safelist / known-package-hash / force-adopt paths.
+  // Foreign content at desired paths becomes unmanaged-desired (excluded from
+  // reconcile + never owned). See adopt-preexisting-desired.js.
   const desired = computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope });
-  adoptPreexistingDesiredFiles(projectDir, desired);
+  const priorManifest = readManifest(projectDir);
+  const knownPackageHashes = new Set();
+  if (priorManifest?.files && typeof priorManifest.files === 'object') {
+    for (const entry of Object.values(priorManifest.files)) {
+      if (entry && typeof entry.installed_hash === 'string') {
+        knownPackageHashes.add(entry.installed_hash);
+      }
+    }
+  }
+  for (const eff of priorManifest?.effects || []) {
+    if (eff?.type === 'reconcileFileSet') {
+      for (const row of eff.beforeState || []) {
+        if (row && typeof row.installedHash === 'string') knownPackageHashes.add(row.installedHash);
+      }
+    }
+  }
+  const catalogForAdopt = (() => {
+    try {
+      return parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
+    } catch {
+      return null;
+    }
+  })();
+  const knownCurrentNames = new Set(Object.keys(catalogForAdopt?.core || {}));
+  const adoptResult = adoptPreexistingDesiredFiles(projectDir, desired, {
+    forceAdopt,
+    isArtifact: (abs) => {
+      if (isAtomicSkillsArtifact(abs, knownCurrentNames)) return true;
+      const rel = relative(projectDir, abs);
+      return isAtomicSkillsNamespaceLeftover(abs, rel, knownCurrentNames);
+    },
+    knownPackageHashes,
+  });
+  const excludeDesiredPaths = adoptResult.excludeFromDesired || [];
+  if (adoptResult.adopted > 0 || adoptResult.unresolved > 0) {
+    console.log(
+      `  ${pc.dim(`adopt: ${adoptResult.adopted} reclaimed, ${adoptResult.unresolved} unmanaged-desired (kept local)`)}`,
+    );
+    for (const pth of adoptResult.unresolvedPaths || []) {
+      console.log(`    ${pc.dim('kept-local')} ${pth}`);
+    }
+  }
 
-  const installer = buildInstaller({ language, ides, skillsDir, metaDir, scope });
+  // P0-B / F-002 consumer fallback: when the next plan drops auto-update
+  // surfaces (IDE shrink away from Claude/Grok), explicitly revert those
+  // prior effects before Driver.install rewrites the journal. Engine
+  // drop-effect revert is NOT in the pin yet — DELETE this call (and the
+  // auto-update-drop-revert module) when the engine fix is pinned.
+  // Crash-resumable via `.atomic-skills/auto-update-drop-pending.json`.
+  // Fail-closed on incomplete TX (assertNoIncompleteTransaction inside the
+  // helper, under install lock) — same recovery contract as Driver.install.
+  revertDroppedAutoUpdateEffects(
+    projectDir,
+    { language, ides, skillsDir, metaDir, scope },
+    {
+      injectFailAfterN: options.autoUpdateDropInjectFailAfterN,
+    },
+  );
+
+  const installer = buildInstaller({
+    language, ides, skillsDir, metaDir, scope, excludeDesiredPaths,
+  });
   installer.install({ projectDir });
 
   // Derive the return value + legacy compat files-map from the journal + the
@@ -501,6 +996,8 @@ export function installSkills(projectDir, options, callbacks = {}) {
   // stageRuntimeArtifacts carries the executable hook (settings.json is a
   // jsonMerge, not a tracked "file" — mirroring the legacy createdFiles, which
   // excluded settings.json but included the hook).
+  // Unmanaged-desired paths are excluded from files map (never owned).
+  const excludeSet = new Set(excludeDesiredPaths);
   const journal = readManifest(projectDir);
   const hashByPath = new Map();
   const hookFiles = [];
@@ -519,6 +1016,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
 
   const createdFiles = [
     ...computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope })
+      .filter(({ path }) => !excludeSet.has(path))
       .map(({ path, source }) => ({ path, hash: hashByPath.get(path), source })),
     ...hookFiles,
   ];
@@ -545,26 +1043,97 @@ export function installSkills(projectDir, options, callbacks = {}) {
   const verification = verifyInstall(projectDir, finalManifest);
   const decisions = decisionsByState(verification);
 
-  return { files: createdFiles, decisions, verification };
+  return {
+    files: createdFiles,
+    decisions,
+    verification,
+    adopt: {
+      adopted: adoptResult.adopted,
+      unresolved: adoptResult.unresolved,
+      paths: adoptResult.paths,
+      unresolvedPaths: adoptResult.unresolvedPaths,
+    },
+  };
 }
 
 /**
- * After the journal materialises `.grok/plugins/atomic-skills/`:
- *  1. Register the package with the Grok host plugin system
- *     (`grok plugin install --trust`) — fail-open.
- *  2. Hide foreign Atomic Skills trees (agents/cursor/claude) from Grok's
- *     skill scanner (`~/.grok/config.toml` → `[skills].ignore`) so multi-IDE
- *     installs do not surface `user:project` next to `atomic-skills:project`.
+ * After the journal materialises `.grok/plugins/atomic-skills/` (or shrinks it away):
+ *  1. When `ides` still include grok — register the package with the Grok host
+ *     (`grok plugin install --trust`) and apply foreign-skills isolation — fail-open.
+ *  2. When prior ides included grok and next do not (IDE shrink, F-003 / P0-C) —
+ *     release host registration + isolation only if this install is the last
+ *     remaining grok owner (same multi-owner scan as isolation refcount). If
+ *     another install still wants grok, keep host + isolation (restage from
+ *     survivor package when possible).
  *
  * @param {string} basePath
- * @param {string[]} ides
+ * @param {string[]} ides - next ides after this install
  * @param {string} [language]
+ * @param {object} [opts]
+ * @param {string[]} [opts.priorIdes] - ides from existing manifest before rewrite
+ * @param {string} [opts.home]
+ * @param {() => string[]} [opts.listInstallBases]
+ * @param {import('./runtime-layers/grok-plugin-host.js').HostRunner} [opts.run]
+ * @param {() => string | null} [opts.resolveBin]
+ * @param {NodeJS.ProcessEnv} [opts.env]
  */
-export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') {
-  if (!wantsGrokPluginHost(ides)) return;
+export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en', opts = {}) {
   const isPt = language === 'pt';
+  const {
+    priorIdes,
+    home = process.env.HOME || homedir(),
+    // C-local-F1: do NOT default to listKnownInstallBases (throws REGISTRY_UNTRUSTED).
+    // When omitted, releaseGrokOutsideJournal uses scanKnownInstallBases fail-closed
+    // skip (same as releaseGrokAndUnregisterRuntime) so journal commit is not
+    // stranded mid-error after a successful Driver install.
+    listInstallBases,
+    run,
+    resolveBin,
+    env,
+  } = opts;
 
-  const result = registerGrokPluginHost({ basePath, ides });
+  // F-003: shrink away from grok — multi-owner-safe outside-journal cleanup.
+  if (!wantsGrokPluginHost(ides)) {
+    if (priorIdes !== undefined && wantsGrokPluginHost(priorIdes)) {
+      const releaseOpts = {
+        basePath,
+        home,
+      };
+      // Only pass an explicit scan callback when the caller supplied one.
+      // Default path relies on releaseGrokOutsideJournal's untrusted skip.
+      if (typeof listInstallBases === 'function') {
+        releaseOpts.listInstallBases = listInstallBases;
+      }
+      if (run) releaseOpts.run = run;
+      if (resolveBin) releaseOpts.resolveBin = resolveBin;
+      if (env) releaseOpts.env = env;
+      let released;
+      try {
+        released = releaseGrokOutsideJournal(releaseOpts);
+      } catch (err) {
+        // Fail-closed: corrupt/untrusted registry must never throw after journal
+        // commit (C-local-F1). Map to the same skipped shape as scan path.
+        if (err?.code === 'REGISTRY_UNTRUSTED' || err?.code === 'REGISTRY_CORRUPT'
+          || err?.code === 'REGISTRY_UNKNOWN' || err?.code === 'REGISTRY_IO') {
+          released = {
+            lastOwner: false,
+            host: { status: 'skipped', detail: 'registry-untrusted' },
+            isolation: { status: 'skipped', detail: 'registry-untrusted' },
+          };
+        } else {
+          throw err;
+        }
+      }
+      logGrokRelease(released, isPt);
+    }
+    return;
+  }
+
+  const regOpts = { basePath, ides };
+  if (run) regOpts.run = run;
+  if (resolveBin) regOpts.resolveBin = resolveBin;
+  if (env) regOpts.env = env;
+  const result = registerGrokPluginHost(regOpts);
   if (result.status === 'registered') {
     console.log(
       `  ${pc.dim(isPt ? 'Grok plugin host: registrado (nativo).' : 'Grok plugin host: registered (native).')}`,
@@ -590,7 +1159,7 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') 
   }
 
   // Isolation always targets user ~/.grok/config.toml (foreign vendor skill roots).
-  const iso = applyGrokAgentsIsolation({ ides });
+  const iso = applyGrokAgentsIsolation({ ides, home });
   if (iso.status === 'applied') {
     console.log(
       `  ${pc.dim(isPt ? 'Grok: isolado de skills estrangeiras (agents/cursor/claude atomic-skills).' : 'Grok: isolated from foreign atomic-skills trees (agents/cursor/claude).')}`,
@@ -599,6 +1168,31 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en') 
     console.log(
       `  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills já presente.' : 'Grok: foreign-skills isolation already present.')}`,
     );
+  }
+}
+
+/**
+ * @param {{ lastOwner: boolean, host: { status: string, detail?: string }, isolation: { status: string, detail?: string } }} released
+ * @param {boolean} isPt
+ */
+function logGrokRelease(released, isPt) {
+  const { host, isolation } = released;
+  if (host.status === 'unregistered') {
+    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: desregistrado (último owner).' : 'Grok plugin host: unregistered (last owner).')}`);
+  } else if (host.status === 'absent') {
+    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: já ausente.' : 'Grok plugin host: already absent.')}`);
+  } else if (host.status === 'kept') {
+    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: mantido (outra install com grok).' : 'Grok plugin host: kept (another grok install remains).')}`);
+  } else if (host.status === 'skipped') {
+    console.log(`  ${pc.dim(isPt ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
+  } else if (host.status === 'failed') {
+    console.log(`  ${pc.yellow(isPt ? `Grok plugin host: falha (${host.detail || 'erro'}).` : `Grok plugin host: failed (${host.detail || 'error'}).`)}`);
+  }
+
+  if (isolation.status === 'removed') {
+    console.log(`  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills removido.' : 'Grok: foreign-skills isolation removed.')}`);
+  } else if (isolation.status === 'kept') {
+    console.log(`  ${pc.dim(isPt ? 'Grok: isolamento foreign-skills mantido (outra install com grok).' : 'Grok: foreign-skills isolation kept (another grok install remains).')}`);
   }
 }
 
@@ -614,6 +1208,8 @@ export async function install(projectDir, options = {}) {
     ide: cliIDEs = null,
     lang: cliLang = null,
     allDetected = false,
+    repair = false,
+    forceAdopt = false,
   } = options;
 
   const userBasePath = homedir();
@@ -624,9 +1220,72 @@ export async function install(projectDir, options = {}) {
     process.exit(1);
   }
 
-  const userManifest = readManifest(userBasePath);
-  const projectManifest = projectTarget.ok ? readManifest(projectTarget.path) : null;
+  // C-codex-1: never let corrupt/invalid incomplete JSON throw before --repair
+  // routing. describeRecovery / repairIncompleteInstall tolerate invalid JSON;
+  // raw readManifest does not.
+  const tryReadManifest = (base) => {
+    try {
+      return readManifest(base);
+    } catch {
+      return null;
+    }
+  };
+
+  const userManifest = tryReadManifest(userBasePath);
+  const projectManifest = projectTarget.ok ? tryReadManifest(projectTarget.path) : null;
   const initialLanguage = cliLang || userManifest?.language || projectManifest?.language || detectLanguage();
+
+  // P0-A: --repair routes by incomplete presence across user+project scopes
+  // (never silently pick user when only project is incomplete).
+  if (repair) {
+    console.log('\n  ⚛ Installer recovery (--repair)\n');
+    let repairBasePath;
+    let repairScope;
+    if (project) {
+      repairScope = 'project';
+      repairBasePath = projectTarget.path;
+    } else {
+      const resolved = resolveIncompleteRecoveryScope({
+        projectDir,
+        forceProject: false,
+        purpose: 'repair',
+      });
+      if (resolved.ambiguous) {
+        console.error(`  ${pc.red('Error:')}\n${resolved.message}\n`);
+        process.exit(resolved.exitCode || 1);
+      }
+      if (resolved.none) {
+        console.log(resolved.message || 'No incomplete transaction found.');
+        console.log('');
+        return;
+      }
+      if (!resolved.ok) {
+        console.error(`  ${pc.red('Error:')} ${resolved.message}\n`);
+        process.exit(resolved.exitCode || 1);
+      }
+      repairScope = resolved.scope;
+      repairBasePath = resolved.basePath;
+    }
+    console.log(`  ${pc.dim(`scope: ${repairScope} (${repairBasePath})`)}\n`);
+    let result;
+    try {
+      result = repairIncompleteInstall(repairBasePath);
+    } catch (err) {
+      // Mid-repair interrupt / injected fail: never claim complete; surface residual.
+      console.error(`  ${pc.red('Error:')} ${err.message}`);
+      console.error(`\n${incompleteOperatorMessage()}\n`);
+      process.exit(1);
+    }
+    if (result.exitCode && result.exitCode !== 0) {
+      console.error(result.message || result.summary || '');
+      process.exit(result.exitCode);
+    }
+    console.log(result.message || result.summary || '');
+    if (result.action === 'reversed' && result.exitCode === 0) {
+      console.log(`\n  ${pc.dim('Incomplete cleared (reverse-only). Re-run install without --repair to complete.')}\n`);
+    }
+    return;
+  }
 
   let scope = project ? 'project' : 'user';
   if (!yes && !project) {
@@ -642,7 +1301,16 @@ export async function install(projectDir, options = {}) {
   }
 
   const basePath = scope === 'project' ? projectTarget.path : userBasePath;
-  const existingManifest = readManifest(basePath);
+
+  const incomplete = getIncompleteInfo(basePath);
+  if (incomplete.incomplete) {
+    console.error(`\n  ${pc.red('Error:')} Incomplete installer transaction.\n`);
+    console.error(formatRecoverySummary(incomplete.desc, incomplete.trust));
+    console.error(`\n${incompleteOperatorMessage(incomplete.trust)}\n`);
+    process.exit(1);
+  }
+
+  const existingManifest = tryReadManifest(basePath);
   const isFirstInstall = !existingManifest;
   const isUpdate = !!existingManifest;
   const pkgVersion = getPackageVersion();
@@ -727,10 +1395,14 @@ export async function install(projectDir, options = {}) {
     // The Driver's reconcileFileSet runs the 3-hash no-clobber update (files the
     // user modified survive) and removes unmodified orphans — what the bespoke
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
-    const result = installSkills(basePath, { language, ides, skillsDir, metaDir, scope });
+    const priorIdes = existingManifest?.ides;
+    const result = installSkills(basePath, {
+      language, ides, skillsDir, metaDir, scope, forceAdopt,
+    });
 
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
-    syncGrokPluginHostAfterInstall(basePath, ides, language);
+    // Pass priorIdes so IDE shrink away from grok can last-owner-clean host + isolation (F-003).
+    syncGrokPluginHostAfterInstall(basePath, ides, language, { priorIdes });
 
     publishRuntimeAndRegister(basePath);
     showNonInteractiveResult(result, ides, language);
@@ -831,42 +1503,31 @@ export async function install(projectDir, options = {}) {
 
   // No bespoke conflict/orphan handling: the Driver's reconcileFileSet keeps the
   // user's modified files (no-clobber, P3) and removes only unmodified orphans.
+  //
+  // P1-E / F-008: do NOT install a fake SIGINT "cleanup" that unlinks
+  // writtenFiles. onFileWritten only fires after installSkills fully completes
+  // (post-Driver + post-manifest patch), so mid-install writtenFiles is always
+  // empty — the old handler lied ("No files kept") and re-signaled SIGINT to
+  // self (reentrancy). Default Node SIGINT exit is honest; if the journal is
+  // left incomplete, operators use `install --repair` / `uninstall --force-incomplete`
+  // (P0-A). Never process.kill(SIGINT) self.
 
-  // SIGINT handler
-  const writtenFiles = [];
-  const cleanup = () => {
-    for (const f of writtenFiles) {
-      try { unlinkSync(join(basePath, f)); } catch {}
-    }
-    console.log(config.lang === 'pt'
-      ? '\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n'
-      : '\n  ⚛ Installation cancelled. No files kept.\n');
-    process.exitCode = 1;
-    process.kill(process.pid, 'SIGINT');
-  };
-  process.on('SIGINT', cleanup);
-
-  let result;
-  try {
-    result = installSkills(basePath, {
-      language: config.lang,
-      ides: config.ides,
-      skillsDir,
-      metaDir,
-      scope,
-    }, {
-      onFileWritten: (path) => writtenFiles.push(path),
-    });
-  } finally {
-    process.removeListener('SIGINT', cleanup);
-  }
+  const priorIdes = existingManifest?.ides;
+  const result = installSkills(basePath, {
+    language: config.lang,
+    ides: config.ides,
+    skillsDir,
+    metaDir,
+    scope,
+    forceAdopt,
+  });
 
   // Host plugin registry (outside journal): native Grok plugin, outside Codex.
-  syncGrokPluginHostAfterInstall(basePath, config.ides, config.lang);
+  // Pass priorIdes so IDE shrink away from grok can last-owner-clean host + isolation (F-003).
+  syncGrokPluginHostAfterInstall(basePath, config.ides, config.lang, { priorIdes });
 
-  // Install aideck bundle + dashboard to ~/.atomic-skills/
-  installRuntimeArtifacts();
-  registerInstall(basePath);
+  // P1-F / F-009: same locked publish+register path as --yes (no dual stage/register).
+  publishRuntimeAndRegister(basePath);
 
   showPostInstall(result, config.ides, config.lang, isFirstInstall);
 }

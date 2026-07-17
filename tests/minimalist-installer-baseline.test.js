@@ -46,6 +46,9 @@ function sha256File(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
+const upstreamWorktree = resolve(REPO_ROOT, '../minimalist-installer-integrity-remediation');
+const upstreamWorktreeAvailable = existsSync(upstreamWorktree);
+
 describe('minimalist-installer baseline (F1/T-001)', () => {
   it('receipt records dist.integrity, baseSha, origin, branch', () => {
     assert.ok(existsSync(RECEIPT_PATH), 'receipt file must exist');
@@ -65,9 +68,6 @@ describe('minimalist-installer baseline (F1/T-001)', () => {
       assert.match(receipt.integrated.resolved, /6550f1170b5f7568f02ba1ca00984a3c06e4349f|minimalist-installer/);
     }
   });
-
-  const upstreamWorktree = resolve(REPO_ROOT, '../minimalist-installer-integrity-remediation');
-  const upstreamWorktreeAvailable = existsSync(upstreamWorktree);
 
   it(
     'baseSha uniquely corresponds to vendored 0.1.0 src tree',

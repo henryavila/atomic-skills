@@ -45,12 +45,15 @@ describe('installSkills', () => {
   });
 
   it('reclaims unowned pre-existing skill files when expanding IDEs (no GREENFIELD_CONFLICT)', async () => {
-    // Repro: journal only owns a Grok path; disk has a stale Claude skill from an
-    // older install. Re-install with claude-code must not throw GREENFIELD_CONFLICT.
+    // Repro: journal only owns a Grok path; disk has a stale Claude command from an
+    // older install. Namespace leftover with frontmatter + known basename → adopt (P1-A).
     const { writeManifest } = await import('../src/manifest.js');
     const rel = '.claude/commands/atomic-skills/project.md';
     mkdirSync(join(tempDir, '.claude/commands/atomic-skills'), { recursive: true });
-    writeFileSync(join(tempDir, rel), '---\ndescription: stale leftover\n---\n\nold body from prior install\n');
+    writeFileSync(
+      join(tempDir, rel),
+      '---\ndescription: stale leftover\n---\n\nold body from prior install\n',
+    );
 
     writeManifest(tempDir, {
       journalVersion: 2,

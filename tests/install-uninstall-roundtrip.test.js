@@ -424,20 +424,31 @@ describe('install→uninstall round-trip', () => {
         await install(userProj, { yes: true, ide: ['claude-code'], lang: 'en' });
         await install(repo, { yes: true, project: true, ide: ['claude-code'], lang: 'en' });
         assert.ok(existsSync(installsJson), 'shared install registry created');
-        assert.equal(
-          JSON.parse(readFileSync(installsJson, 'utf8')).length, 2,
-          'both owners registered',
-        );
+        {
+          // P1-B: versioned schema { schemaVersion, owners:[{basePath,...}] }
+          const reg = JSON.parse(readFileSync(installsJson, 'utf8'));
+          const owners = Array.isArray(reg) ? reg : (reg.owners || []);
+          assert.equal(owners.length, 2, 'both owners registered');
+        }
 
         // Uninstall owner B: the shared registry must persist (owner A remains).
         await uninstall(repo, { scope: 'project', yes: true });
         assert.ok(existsSync(installsJson), 'registry persists while one owner remains');
-        const remaining = JSON.parse(readFileSync(installsJson, 'utf8'));
-        assert.equal(remaining.length, 1, 'one owner remains after first uninstall');
+        const remainingReg = JSON.parse(readFileSync(installsJson, 'utf8'));
+        const remainingOwners = Array.isArray(remainingReg)
+          ? remainingReg.map((b) => (typeof b === 'string' ? { basePath: b } : b))
+          : (remainingReg.owners || []);
+        assert.equal(remainingOwners.length, 1, 'one owner remains after first uninstall');
 
         // CRASH SIMULATION: a crashed uninstall-retry left a DUPLICATE owner-A
         // entry in the registry. The filter-based unregister must still reach 0.
-        writeFileSync(installsJson, JSON.stringify([...remaining, ...remaining], null, 2) + '\n');
+        writeFileSync(
+          installsJson,
+          JSON.stringify({
+            schemaVersion: remainingReg.schemaVersion || '1',
+            owners: [...remainingOwners, ...remainingOwners],
+          }, null, 2) + '\n',
+        );
 
         // Uninstall owner A: count -> 0 -> registry + shared runtime reclaimed.
         await uninstall(userProj, { scope: 'user', yes: true });

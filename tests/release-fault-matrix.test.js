@@ -244,9 +244,13 @@ describe('F6 release fault matrix (remediated engine)', () => {
   });
 
   it('30 concurrent registry writers do not drop owners under lock', async () => {
+    // os.homedir() on Windows reads USERPROFILE, not HOME — set both so the
+    // shared registry lands under the fake home on every platform.
     const prevHome = process.env.HOME;
+    const prevProfile = process.env.USERPROFILE;
     root = mkdtempSync(join(tmpdir(), 'as-fault-reg-'));
     process.env.HOME = root;
+    process.env.USERPROFILE = root;
     try {
       mkdirSync(join(root, '.atomic-skills'), { recursive: true });
       const bases = Array.from({ length: 30 }, (_, i) => {
@@ -261,9 +265,19 @@ describe('F6 release fault matrix (remediated engine)', () => {
       }
       const regPath = join(root, '.atomic-skills', 'installs.json');
       assert.equal(existsSync(regPath), true);
+      // P1-B: versioned schema { schemaVersion, owners:[{basePath,...}] }
+      // (legacy string[] is migrated on write; concurrent writers must not drop owners).
       const reg = JSON.parse(readFileSync(regPath, 'utf8'));
-      assert.ok(Array.isArray(reg), 'registry is a path array');
-      assert.equal(reg.length, 30, `expected 30 owners, got ${reg.length}`);
+      const owners = Array.isArray(reg) ? reg : (reg.owners || []);
+      assert.ok(Array.isArray(owners), 'registry owners is an array');
+      if (!Array.isArray(reg)) {
+        assert.equal(reg.schemaVersion, '1');
+      }
+      assert.equal(owners.length, 30, `expected 30 owners, got ${owners.length}`);
+      const paths = new Set(
+        owners.map((o) => (typeof o === 'string' ? o : o.basePath)).filter(Boolean),
+      );
+      assert.equal(paths.size, 30, 'all 30 basePaths preserved under lock');
 
       for (const base of bases) {
         unregisterInstall(base);
@@ -272,6 +286,8 @@ describe('F6 release fault matrix (remediated engine)', () => {
     } finally {
       if (prevHome === undefined) delete process.env.HOME;
       else process.env.HOME = prevHome;
+      if (prevProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = prevProfile;
     }
   });
 
@@ -301,5 +317,35 @@ describe('F6 release fault matrix (remediated engine)', () => {
       before,
       'inspect must not mutate disk',
     );
+  });
+
+  it('P0-A consumer recovery: force-incomplete clears incomplete without hand JSON edit', async () => {
+    // Full unit coverage lives in tests/recovery-cli.test.js; this matrix
+    // entry proves the product path (not wipe-only) for incomplete TX.
+    const { forceIncompleteUninstall, RECOVERY_LEDGER_FILE } = await import('../src/recovery-cli.js');
+    root = mkdtempSync(join(tmpdir(), 'as-fault-p0a-'));
+    const projectDir = join(root, 'project');
+    mkdirSync(join(projectDir, '.atomic-skills'), { recursive: true });
+    writeFileSync(
+      join(projectDir, '.atomic-skills', 'manifest.json'),
+      JSON.stringify({
+        journalVersion: 2,
+        effects: [{ type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] }],
+        transaction: { id: 't-p0a', state: 'incomplete', startedAt: '2026-01-01T00:00:00Z' },
+      }),
+      'utf8',
+    );
+
+    const result = forceIncompleteUninstall(projectDir);
+    assert.equal(result.ok, true);
+    assert.equal(result.trust, 'pre-U');
+    assert.equal(
+      existsSync(join(projectDir, '.atomic-skills', RECOVERY_LEDGER_FILE)),
+      true,
+      'residual recovery ledger must remain discoverable',
+    );
+    const mi = await loadInstaller();
+    const after = mi.describeRecovery(projectDir, '.atomic-skills');
+    assert.notEqual(after.state, 'incomplete');
   });
 });
