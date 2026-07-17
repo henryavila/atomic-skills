@@ -70,9 +70,19 @@ const UNINSTALL_MESSAGES = {
  * @param {boolean} [options.yes] - non-interactive: skip the confirmation prompt
  * @param {boolean} [options.forceIncomplete] - P0-A: reverse journaled effects
  *   despite incomplete TX; write residual recovery ledger
+ * @param {boolean} [options.injectJournalUninstallFail] - test seam: throw after
+ *   Grok host release and before Driver.uninstall (C-codex-3)
+ * @param {object} [options.grokReleaseOpts] - test seam: extra opts for
+ *   releaseGrokAndUnregisterRuntime (run/resolveBin/env/home)
  */
 export async function uninstall(projectDir, options = {}) {
-  let { scope = null, yes = false, forceIncomplete = false } = options;
+  let {
+    scope = null,
+    yes = false,
+    forceIncomplete = false,
+    injectJournalUninstallFail = false,
+    grokReleaseOpts = null,
+  } = options;
   const projectTarget = resolveProjectScopeTarget(projectDir);
   const projectBase = projectTarget.ok ? projectTarget.path : projectDir;
 
@@ -137,10 +147,13 @@ export async function uninstall(projectDir, options = {}) {
   }
 
   // Tolerant presence checks (corrupt incomplete JSON must not throw during scope pick).
+  // Always pass MANIFEST_DIR — engine default is `.minimalist-installer`, not
+  // `.atomic-skills`. Missing dir makes corrupt incomplete look "absent" and
+  // collapses to "No installation found" (C-codex-2).
   const projectDesc = projectTarget.ok
-    ? describeRecovery(projectBase)
+    ? describeRecovery(projectBase, MANIFEST_DIR)
     : { state: 'absent' };
-  const userDesc = describeRecovery(homedir());
+  const userDesc = describeRecovery(homedir(), MANIFEST_DIR);
   const hasProject = projectDesc.state === 'complete'
     || projectDesc.state === TX_STATE_INCOMPLETE
     || (() => {
@@ -180,7 +193,8 @@ export async function uninstall(projectDir, options = {}) {
   try {
     manifest = readManifest(basePath);
   } catch {
-    // Corrupt complete? Still surface incomplete gate via describeRecovery below.
+    // Corrupt complete/incomplete JSON — surface incomplete gate below, never
+    // collapse to silent "No installation found" (C-codex-2).
     manifest = null;
   }
   const lang = manifest?.language || 'en';
@@ -188,18 +202,20 @@ export async function uninstall(projectDir, options = {}) {
 
   console.log(`\n  ⚛ ${msg.removing}\n`);
 
-  if (!manifest) {
-    console.log(`  ${msg.noInstall}\n`);
-    return;
-  }
-
-  // Fail closed on incomplete with operator recovery commands (never hand-edit JSON).
+  // Fail closed on incomplete (including unreadable/invalid JSON, which
+  // describeRecovery classifies as incomplete). Must run BEFORE the no-install
+  // early return so corrupt incomplete is never hidden as "No installation found".
   const incomplete = getIncompleteInfo(basePath);
   if (incomplete.incomplete) {
     console.error(`  ${pc.red('Error:')} Incomplete installer transaction blocks uninstall.\n`);
     console.error(formatRecoverySummary(incomplete.desc, incomplete.trust));
     console.error(`\n${incompleteOperatorMessage(incomplete.trust)}\n`);
     process.exit(1);
+  }
+
+  if (!manifest) {
+    console.log(`  ${msg.noInstall}\n`);
+    return;
   }
 
   // IMPORTANT: Keep the confirmation prompt for interactive runs. `--yes`
@@ -226,18 +242,30 @@ export async function uninstall(projectDir, options = {}) {
   // Gate: only when this base has Grok residual ownership signals (ides includes
   // grok OR durable package tree still present after shrink). Non-grok,
   // never-had-grok uninstalls make ZERO host CLI calls (Codex F-003 / local F-1).
-  // When residual: release + registry unregister under one shared runtime lock
-  // (Codex F-001) so last-owner is decided against the post-removal owner set.
+  //
+  // C-codex-3/4 order:
+  //  1. Decide Grok release against trusted post-removal simulation (host +
+  //     isolation only; finalizeRegistry: false — do NOT drop registry yet).
+  //  2. Journal Driver.uninstall (may throw — registry still lists this base).
+  //  3. Registry unregister only after journal success, unless last-owner host
+  //     failure retained ownership for retry (retainRegistryForHostRetry).
+  //  registryUnregisteredWithGrok is true only when registry was actually
+  //  unregistered — skipped/untrusted never suppresses the post-journal path.
   const departingHadGrok = baseHasGrokResidual(basePath, manifest);
   let registryUnregisteredWithGrok = false;
+  let retainRegistryForHostRetry = false;
 
   if (departingHadGrok) {
     const released = releaseGrokAndUnregisterRuntime(basePath, {
+      ...(grokReleaseOpts && typeof grokReleaseOpts === 'object' ? grokReleaseOpts : {}),
       // Restage only when this install may have owned the host snapshot.
       // Residual-after-shrink (ides without grok but package present) still cleans.
       restageSurvivor: Array.isArray(manifest.ides) && manifest.ides.includes('grok'),
+      // Host/isolation first; registry after successful journal uninstall (forced).
+      finalizeRegistry: false,
     });
-    registryUnregisteredWithGrok = true;
+    registryUnregisteredWithGrok = released.registryUnregistered === true;
+    retainRegistryForHostRetry = released.retainRegistryForHostRetry === true;
     const { host, isolation: iso } = released;
     if (host.status === 'unregistered') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok plugin host: desregistrado.' : 'Grok plugin host: unregistered.')}`);
@@ -256,6 +284,13 @@ export async function uninstall(projectDir, options = {}) {
     }
   }
 
+  // Test seam: prove registry still owns basePath if journal uninstall fails (C-codex-3).
+  if (injectJournalUninstallFail) {
+    const err = new Error('injected journal uninstall failure');
+    err.code = 'INJECTED_JOURNAL_UNINSTALL_FAIL';
+    throw err;
+  }
+
   // Revert the install-base journal — the skill file set (reconcileFileSet), the
   // auto-update hook (stageRuntimeArtifacts) and the settings.json SessionStart
   // entry (jsonMerge) — via the Driver: replayReverse runs each effect's revert in
@@ -264,14 +299,16 @@ export async function uninstall(projectDir, options = {}) {
   // (the surgical settings revert is jsonMerge's, the no-proof-no-delete of skill
   // files is reconcileFileSet's — a third-party SessionStart hook + a user-modified
   // skill survive exactly as before).
+  // If this throws, registry still lists basePath (C-codex-3).
   buildInstaller({}).uninstall({ projectDir: basePath });
 
   // Global runtime artifacts (~/.atomic-skills/{bin,dashboard,...}) and the
   // cross-install registry are shared across ALL installs (user + each project),
   // so reclaim them only when the LAST install is gone — orchestrated OUTSIDE the
   // journal (replayReverse cannot express a conditional, refcounted reclaim, F-003).
-  // When Grok residual path already unregistered under the shared lock, skip.
-  if (!registryUnregisteredWithGrok) {
+  // Skip only when registry was already finalized under the Grok lock, or when
+  // last-owner host failure retained ownership for retry (C-codex-4).
+  if (!registryUnregisteredWithGrok && !retainRegistryForHostRetry) {
     unregisterAndMaybeReclaimRuntime(basePath);
   }
 
