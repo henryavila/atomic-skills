@@ -39,7 +39,12 @@ import {
   readLeaseResult,
   acquireLeaseFile,
   clearLeaseFile,
+  assertLeaseAbsent,
+  hashLeaseSecret,
 } from '../src/writer-lease.js';
+import { mkdtempSync, rmSync, readFileSync as fsRead } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pathJoin } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -175,9 +180,10 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
       phaseReviewMode({ automateActive: false, destructive: false }),
       'local',
     );
+    // F3: local override without reason under automate → both
     assert.equal(
       phaseReviewMode({ automateActive: true, explicitOverride: 'local' }),
-      'local',
+      'both',
     );
   });
 
@@ -297,6 +303,7 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
     assert.equal(typeof readLeaseResult, 'function');
     assert.equal(typeof acquireLeaseFile, 'function');
     assert.equal(typeof clearLeaseFile, 'function');
+    assert.equal(typeof assertLeaseAbsent, 'function');
 
     const lease = buildActiveLease({
       planSlug: 'implementation-automate-mode',
@@ -309,5 +316,95 @@ describe('implement automate helper wiring (imports + fail-closed)', () => {
     const token = leaseOwnerToken(lease);
     assert.equal(token.planSlug, 'implementation-automate-mode');
     assert.ok(leasePath('/tmp/status', 'implementation-automate-mode').includes('writer-leases'));
+  });
+});
+
+describe('F11 — adversarial contract cases', () => {
+  it('stamp re-entry without mode flag: parse mode undefined + stamp → automate active', () => {
+    const parsed = parseImplementMode(['my-plan']);
+    assert.equal(parsed.mode, undefined);
+    assert.equal(parsed.modeExplicit, false);
+    assert.equal(
+      isAutomateActive({
+        cliMode: parsed.mode,
+        planExecutionMode: 'automate',
+      }),
+      true,
+    );
+  });
+
+  it('lease clear wrong secret fails; correct secret clears', () => {
+    const statusRoot = mkdtempSync(pathJoin(tmpdir(), 'contract-lease-'));
+    try {
+      const lease = buildActiveLease({
+        planSlug: 'contract-plan',
+        phaseId: 'F1',
+        hostId: 'h',
+        worktreePath: '/wt',
+        startedAt: '2026-07-17T00:00:00.000Z',
+      });
+      const { path, secret } = acquireLeaseFile(statusRoot, lease);
+      const disk = JSON.parse(fsRead(path, 'utf8'));
+      assert.equal(disk.tokenHash, hashLeaseSecret(secret));
+      assert.equal(disk.secret, undefined);
+      assert.throws(() => clearLeaseFile(statusRoot, 'contract-plan', 'wrong'), /secret|mismatch/i);
+      assert.equal(isLeaseBlocking(statusRoot, 'contract-plan'), true);
+      assert.equal(clearLeaseFile(statusRoot, 'contract-plan', secret), true);
+      assert.equal(isLeaseBlocking(statusRoot, 'contract-plan'), false);
+      assert.doesNotThrow(() => assertLeaseAbsent(statusRoot, 'contract-plan'));
+    } finally {
+      rmSync(statusRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('phaseReviewMode stamp alone → both (not local)', () => {
+    assert.equal(phaseReviewMode({ planExecutionMode: 'automate' }), 'both');
+    assert.notEqual(phaseReviewMode({ planExecutionMode: 'automate' }), 'local');
+  });
+
+  it('planEndReviewOk rejects mode both; accepts external-both', () => {
+    const shape = {
+      reviewFile: '.atomic-skills/reviews/x.md',
+      verifiedAt: '2026-07-17T12:00:00.000Z',
+      legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+    };
+    assert.equal(planEndReviewOk({ ...shape, mode: 'both' }), false);
+    assert.equal(planEndReviewOk({ ...shape, mode: 'external-both' }), true);
+  });
+
+  it('claimed-pass empty paths fails', () => {
+    const r = validateClaimReport({
+      tasks: [
+        {
+          taskId: 'T-001',
+          status: 'claimed-pass',
+          commitShas: ['abc'],
+          paths: [],
+          verifierCommand: 'node --test',
+          exitCode: 0,
+          transcript: '',
+        },
+      ],
+    });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some((e) => /paths/i.test(e)));
+  });
+
+  it('claimed-pass exitCode null fails', () => {
+    const r = validateClaimReport({
+      tasks: [
+        {
+          taskId: 'T-001',
+          status: 'claimed-pass',
+          commitShas: ['abc'],
+          paths: ['src/x.js'],
+          verifierCommand: 'node --test',
+          exitCode: null,
+          transcript: '',
+        },
+      ],
+    });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors.some((e) => /exitCode/i.test(e)));
   });
 });
