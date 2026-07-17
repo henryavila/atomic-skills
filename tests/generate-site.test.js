@@ -18,6 +18,7 @@ import {
   renderLandingPage,
   renderSkillDetail,
   renderHostsPage,
+  renderProjectGuidePage,
   buildSiteFiles,
   safeHttpUrl,
   assertSafeKey,
@@ -202,6 +203,7 @@ describe('render helpers', () => {
     assert.ok(files.has('skills/init-memory/index.html'));
     assert.ok(files.has('modules/index.html'));
     assert.ok(files.has('hosts/index.html'));
+    assert.ok(!files.has('project/index.html'));
 
     const modules = files.get('modules/index.html');
     assert.ok(modules.includes('Persistent context.'));
@@ -210,6 +212,88 @@ describe('render helpers', () => {
     const skillsIndex = files.get('skills/index.html');
     assert.ok(skillsIndex.includes('demo/index.html'));
     assert.ok(skillsIndex.includes('NO TEST WITHOUT EVIDENCE.'));
+
+    const landing = files.get('index.html');
+    assert.ok(landing.includes('href="project/index.html"'));
+  });
+
+  it('buildSiteFiles emits project guide when projectGuide dataset is provided', () => {
+    const catalogData = {
+      version: '0.3',
+      product,
+      core: { demo: minimalV02Entry('demo') },
+    };
+    const projectGuide = {
+      title: 'Project skill — mental model',
+      one_liner: 'Plan ⊃ Phase ⊃ Task',
+      iron_law: 'NO IMPLEMENTATION WITHOUT AN ANCHORED INITIATIVE.',
+      lede: 'Tracks multi-day work in .atomic-skills/.',
+      prefix: '/atomic-skills:project',
+      state_root: '.atomic-skills/',
+      entities: [
+        {
+          id: 'plan',
+          name: 'Plan',
+          summary: 'Multi-phase delivery',
+          nests: 'Phases',
+        },
+      ],
+      lifecycle_spine: [
+        { id: 'idea', label: 'IDEA', note: 'Capture' },
+        { id: 'archive', label: 'ARCHIVE', note: 'Done' },
+      ],
+      can: ['Reload the frame each session'],
+      cannot: ['Never hand-edit .atomic-skills/'],
+      command_groups: [
+        {
+          id: 'view',
+          title: 'View',
+          commands: [
+            {
+              name: 'status',
+              args: '[--browser]',
+              description: 'See state',
+            },
+          ],
+        },
+      ],
+    };
+
+    const files = buildSiteFiles({ catalogData, projectGuide });
+    assert.ok(files.has('project/index.html'));
+    const html = files.get('project/index.html');
+    assert.ok(html.includes('Project skill — mental model'));
+    assert.ok(html.includes('NO IMPLEMENTATION WITHOUT AN ANCHORED INITIATIVE.'));
+    assert.ok(html.includes('IDEA'));
+    assert.ok(html.includes('Never hand-edit .atomic-skills/'));
+    assert.ok(html.includes('/atomic-skills:project status'));
+    assert.ok(html.includes('href="../assets/ds.css"'));
+    assert.ok(html.includes('class="active"') && html.includes('Project'));
+  });
+
+  it('renderProjectGuidePage escapes untrusted dataset text', () => {
+    const html = renderProjectGuidePage({
+      guide: {
+        title: 'Guide <script>',
+        entities: [
+          {
+            name: 'Plan & Co',
+            summary: 'Uses <brackets>',
+            nests: 'Tasks',
+          },
+        ],
+        can: ['Do <this>'],
+        cannot: ['Never & ever'],
+        command_groups: [],
+        lifecycle_spine: [],
+      },
+    });
+    assert.ok(html.includes('Guide &lt;script&gt;'));
+    assert.ok(html.includes('Plan &amp; Co'));
+    assert.ok(html.includes('Uses &lt;brackets&gt;'));
+    assert.ok(html.includes('Do &lt;this&gt;'));
+    assert.ok(html.includes('Never &amp; ever'));
+    assert.ok(!html.includes('Guide <script>'));
   });
 });
 
@@ -276,6 +360,7 @@ describe('generate-site dist drift check', () => {
   it('writeDist then findDistDrift is clean; catalog change is stale', () => {
     const expected = buildExpectedDist({
       catalogData: catalogBase,
+      projectGuide: null,
       dsCss: readFileSync(dsCssSrc, 'utf8'),
       pkgVersion: '0.0.1',
     });
@@ -284,6 +369,7 @@ describe('generate-site dist drift check', () => {
     assert.ok(existsSync(join(distDir, 'index.html')));
     assert.ok(existsSync(join(distDir, 'skills', 'demo', 'index.html')));
     assert.ok(existsSync(join(distDir, 'assets', 'ds.css')));
+    assert.ok(!existsSync(join(distDir, 'project', 'index.html')));
     assert.deepEqual(findDistDrift(expected, distDir), []);
 
     const changed = buildExpectedDist({
@@ -294,6 +380,7 @@ describe('generate-site dist drift check', () => {
           what_is: 'CHANGED product copy that should invalidate dist.',
         },
       },
+      projectGuide: null,
       dsCss: readFileSync(dsCssSrc, 'utf8'),
       pkgVersion: '0.0.1',
     });
@@ -303,6 +390,33 @@ describe('generate-site dist drift check', () => {
       drift.some((line) => /stale: index\.html/.test(line)),
       `expected stale index.html, got: ${drift.join('; ')}`
     );
+  });
+
+  it('writeDist emits project/index.html when projectGuide is provided', () => {
+    const expected = buildExpectedDist({
+      catalogData: catalogBase,
+      projectGuide: {
+        title: 'Fixture project guide',
+        entities: [{ name: 'Plan', summary: 'A plan', nests: 'Phases' }],
+        lifecycle_spine: [{ label: 'IDEA', note: 'start' }],
+        can: ['can-a'],
+        cannot: ['cannot-b'],
+        command_groups: [
+          {
+            title: 'View',
+            commands: [{ name: 'status', description: 'view state' }],
+          },
+        ],
+      },
+      dsCss: readFileSync(dsCssSrc, 'utf8'),
+      pkgVersion: '0.0.1',
+    });
+    writeDist(expected, { distDir, dsCssSrc });
+    const page = join(distDir, 'project', 'index.html');
+    assert.ok(existsSync(page));
+    const html = readFileSync(page, 'utf8');
+    assert.ok(html.includes('Fixture project guide'));
+    assert.ok(html.includes('cannot-b'));
   });
 });
 

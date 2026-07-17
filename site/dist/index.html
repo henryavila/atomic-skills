@@ -17,6 +17,7 @@
     <nav class="site-nav" aria-label="Primary">
       <a href="index.html" class="active">Home</a>
       <a href="skills/index.html">Skills</a>
+      <a href="project/index.html">Project</a>
       <a href="modules/index.html">Modules</a>
       <a href="hosts/index.html">Hosts</a>
     </nav>
@@ -59,6 +60,10 @@
           <p class="one-liner">Optional install packs: memory, cross-model bridge, auto-update.</p>
         </article>
         <article class="card">
+          <a class="card-title" href="project/index.html">Project guide</a>
+          <p class="one-liner">Mental model for Plan / Phase / Task — entities, lifecycle, can/cannot, commands.</p>
+        </article>
+        <article class="card">
           <a class="card-title" href="hosts/index.html">Hosts</a>
           <p class="one-liner">Tested vs Theoretical IDE support from product config.</p>
         </article>
@@ -71,8 +76,9 @@
     </section>
   </main>
   <footer class="site-footer">
-    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
-    Catalog is the product SSOT — this HTML is a build view only.
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
   </footer>
 </div>
 </body>

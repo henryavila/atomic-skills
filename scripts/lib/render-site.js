@@ -3,6 +3,7 @@
  *
  * Catalog is the SSOT for skill/product copy (design D2/D4).
  * Hosts come from src/config.js TESTED_IDE_IDS / IDE_CONFIG (design D3).
+ * Project deep guide uses meta/product/project-guide.yaml (design D4 domain dataset).
  * Skill body prompts are never rendered on public pages.
  */
 
@@ -49,6 +50,7 @@ export function safeHttpUrl(raw) {
 const NAV = [
   { id: 'home', label: 'Home', path: 'index.html' },
   { id: 'skills', label: 'Skills', path: 'skills/index.html' },
+  { id: 'project', label: 'Project', path: 'project/index.html' },
   { id: 'modules', label: 'Modules', path: 'modules/index.html' },
   { id: 'hosts', label: 'Hosts', path: 'hosts/index.html' },
 ];
@@ -133,8 +135,9 @@ export function renderShell({ title, depth, activeNav, body, description }) {
 ${body}
   </main>
   <footer class="site-footer">
-    Generated from <code>meta/catalog.yaml</code> + <code>src/config.js</code>.
-    Catalog is the product SSOT — this HTML is a build view only.
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
   </footer>
 </div>
 </body>
@@ -232,6 +235,10 @@ export function renderLandingPage({ product, skills, pkgVersion }) {
         <article class="card">
           <a class="card-title" href="modules/index.html">Modules</a>
           <p class="one-liner">Optional install packs: memory, cross-model bridge, auto-update.</p>
+        </article>
+        <article class="card">
+          <a class="card-title" href="project/index.html">Project guide</a>
+          <p class="one-liner">Mental model for Plan / Phase / Task — entities, lifecycle, can/cannot, commands.</p>
         </article>
         <article class="card">
           <a class="card-title" href="hosts/index.html">Hosts</a>
@@ -500,6 +507,261 @@ export function renderHostsPage(opts = {}) {
 }
 
 /**
+ * Project deep guide from meta/product/project-guide.yaml (not catalog core.project).
+ * @param {{ guide: object }} opts
+ */
+export function renderProjectGuidePage({ guide }) {
+  const g = guide && typeof guide === 'object' ? guide : {};
+  const title =
+    typeof g.title === 'string' && g.title.trim() ? g.title.trim() : 'Project guide';
+  const lede = typeof g.lede === 'string' ? g.lede.trim() : '';
+  const oneLiner = typeof g.one_liner === 'string' ? g.one_liner.trim() : '';
+  const iron = typeof g.iron_law === 'string' ? g.iron_law.trim() : '';
+  const prefix = typeof g.prefix === 'string' ? g.prefix.trim() : '/atomic-skills:project';
+  const stateRoot =
+    typeof g.state_root === 'string' ? g.state_root.trim() : '.atomic-skills/';
+  const entities = Array.isArray(g.entities) ? g.entities : [];
+  const keyConcepts = Array.isArray(g.key_concepts) ? g.key_concepts : [];
+  const spine = Array.isArray(g.lifecycle_spine) ? g.lifecycle_spine : [];
+  const execLoop = Array.isArray(g.execution_loop) ? g.execution_loop : [];
+  const can = Array.isArray(g.can) ? g.can : [];
+  const cannot = Array.isArray(g.cannot) ? g.cannot : [];
+  const commandGroups = Array.isArray(g.command_groups) ? g.command_groups : [];
+  const sisterSkills = Array.isArray(g.sister_skills) ? g.sister_skills : [];
+  const lostFooter = Array.isArray(g.lost_footer) ? g.lost_footer : [];
+
+  const entityRows = entities
+    .map((e) => {
+      const name = escapeHtml(e?.name ?? e?.id ?? '');
+      const summary = escapeHtml(e?.summary ?? '');
+      const nests = escapeHtml(e?.nests ?? '');
+      return `<tr>
+          <td><strong>${name}</strong></td>
+          <td>${summary}</td>
+          <td>${nests}</td>
+        </tr>`;
+    })
+    .join('\n        ');
+
+  const conceptCards = keyConcepts
+    .map((c) => {
+      const t = escapeHtml(c?.title ?? c?.id ?? '');
+      const body = escapeHtml(c?.body ?? '');
+      return `<article class="card">
+          <h3>${t}</h3>
+          <p class="one-liner">${body}</p>
+        </article>`;
+    })
+    .join('\n        ');
+
+  const spineHtml = spine
+    .map((s, i) => {
+      const label = escapeHtml(s?.label ?? s?.id ?? '');
+      const note = escapeHtml(s?.note ?? '');
+      const arrow =
+        i < spine.length - 1
+          ? `<span class="spine-arrow" aria-hidden="true">→</span>`
+          : '';
+      return `<li class="spine-step">
+          <span class="spine-label">${label}</span>
+          ${note ? `<span class="spine-note">${note}</span>` : ''}
+          ${arrow}
+        </li>`;
+    })
+    .join('\n        ');
+
+  const loopItems = execLoop
+    .map((step) => {
+      const s = escapeHtml(step?.step ?? '');
+      const gate = escapeHtml(step?.gate ?? '');
+      return `<li><div class="cmd">${s}</div><div class="desc">${gate}</div></li>`;
+    })
+    .join('\n');
+
+  const canList = can
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join('\n');
+  const cannotList = cannot
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join('\n');
+
+  const commandSections = commandGroups
+    .map((group) => {
+      const gTitle = escapeHtml(group?.title ?? group?.id ?? '');
+      const cmds = Array.isArray(group?.commands) ? group.commands : [];
+      const rows = cmds
+        .map((cmd) => {
+          const name = escapeHtml(cmd?.name ?? '');
+          const args =
+            typeof cmd?.args === 'string' && cmd.args.trim()
+              ? ` ${escapeHtml(cmd.args.trim())}`
+              : '';
+          const desc = escapeHtml(cmd?.description ?? '');
+          return `<li>
+          <div class="cmd"><code>${escapeHtml(prefix)} ${name}</code>${args ? `<span class="cmd-args">${args}</span>` : ''}</div>
+          <div class="desc">${desc}</div>
+        </li>`;
+        })
+        .join('\n        ');
+      return `<section class="section">
+      <h3>${gTitle}</h3>
+      <ul class="list-stack">
+        ${rows}
+      </ul>
+    </section>`;
+    })
+    .join('\n    ');
+
+  const sisterRows = sisterSkills
+    .map((s) => {
+      return `<tr>
+          <td>${escapeHtml(s?.moment ?? '')}</td>
+          <td><code>${escapeHtml(s?.skill ?? '')}</code></td>
+          <td>${escapeHtml(s?.role ?? '')}</td>
+        </tr>`;
+    })
+    .join('\n        ');
+
+  const lostCards = lostFooter
+    .map((item) => {
+      return `<article class="card">
+          <div class="eyebrow">${escapeHtml(item?.label ?? '')}</div>
+          <div class="cmd" style="margin-top:8px"><code>${escapeHtml(item?.command ?? '')}</code></div>
+          <p class="one-liner">${escapeHtml(item?.note ?? '')}</p>
+        </article>`;
+    })
+    .join('\n        ');
+
+  const body = `    <section class="section">
+      <p class="back-link"><a href="../index.html">← Home</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">Project skill</span>
+        <span class="badge badge-module">domain dataset</span>
+      </div>
+      <h1>${escapeHtml(title)}</h1>
+      ${oneLiner ? `<p class="lede">${escapeHtml(oneLiner)}</p>` : ''}
+      ${iron ? `<div class="iron-law">${escapeHtml(iron)}</div>` : ''}
+      ${lede ? `<p class="prose" style="margin-top:12px"><span class="lede">${escapeHtml(lede)}</span></p>` : ''}
+      <p class="footnote">Canonical state lives in <code>${escapeHtml(stateRoot)}</code> (git-tracked; never hand-edited). Command prefix: <code>${escapeHtml(prefix)}</code>. This page is generated from <code>meta/product/project-guide.yaml</code> — not from catalog <code>core.project</code> bloat.</p>
+    </section>
+
+    <section class="section">
+      <h2>Entities</h2>
+      <p class="lede">Three-level hierarchy plus inbox and side frames.</p>
+      <div class="table-wrap">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>Entity</th>
+              <th>What it is</th>
+              <th>Nests</th>
+            </tr>
+          </thead>
+          <tbody>
+        ${entityRows}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    ${
+      keyConcepts.length
+        ? `<section class="section">
+      <h2>Key concepts</h2>
+      <div class="card-grid">
+        ${conceptCards}
+      </div>
+    </section>`
+        : ''
+    }
+
+    <section class="section">
+      <h2>Lifecycle spine</h2>
+      <p class="lede">Work follows one gated spine from idea to archive. You do not advance a stage with an open question.</p>
+      <ol class="spine">
+        ${spineHtml}
+      </ol>
+    </section>
+
+    ${
+      execLoop.length
+        ? `<section class="section">
+      <h2>Execution loop (per phase)</h2>
+      <ul class="list-stack">
+${loopItems}
+      </ul>
+    </section>`
+        : ''
+    }
+
+    <section class="section">
+      <h2>Can / cannot</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>What the skill does</h3>
+          <ul class="plain">
+${canList}
+          </ul>
+        </article>
+        <article class="card">
+          <h3>What it does not allow</h3>
+          <ul class="plain">
+${cannotList}
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Command reference</h2>
+      <p class="lede">All commands share the prefix <code>${escapeHtml(prefix)}</code>. Bare <code>${escapeHtml(prefix)}</code> prints a compact 5-line summary and stops (no browser).</p>
+    </section>
+    ${commandSections}
+
+    ${
+      sisterSkills.length
+        ? `<section class="section">
+      <h2>Sister skills</h2>
+      <p class="lede">Project is a thin orchestrator — it delegates parts of the cycle.</p>
+      <div class="table-wrap">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>Moment</th>
+              <th>Skill</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+        ${sisterRows}
+          </tbody>
+        </table>
+      </div>
+    </section>`
+        : ''
+    }
+
+    ${
+      lostFooter.length
+        ? `<section class="section">
+      <h2>Lost?</h2>
+      <div class="card-grid">
+        ${lostCards}
+      </div>
+    </section>`
+        : ''
+    }`;
+
+  return renderShell({
+    title,
+    depth: 1,
+    activeNav: 'project',
+    description: oneLiner || lede.slice(0, 160),
+    body,
+  });
+}
+
+/**
  * Build the full site file map (relative paths under dist/).
  * Values are UTF-8 text; binary assets are handled by the CLI.
  *
@@ -508,6 +770,7 @@ export function renderHostsPage(opts = {}) {
  *   pkgVersion?: string,
  *   ideConfig?: typeof IDE_CONFIG,
  *   supportLabel?: typeof getIdeSupportLabel,
+ *   projectGuide?: object | null,
  * }} opts
  * @returns {Map<string, string>}
  */
@@ -516,6 +779,7 @@ export function buildSiteFiles({
   pkgVersion,
   ideConfig = IDE_CONFIG,
   supportLabel = getIdeSupportLabel,
+  projectGuide = null,
 }) {
   if (catalogData == null || typeof catalogData !== 'object') {
     throw new Error('catalogData must be an object');
@@ -538,6 +802,13 @@ export function buildSiteFiles({
     'hosts/index.html',
     renderHostsPage({ ideConfig, supportLabel })
   );
+
+  if (projectGuide != null && typeof projectGuide === 'object') {
+    files.set(
+      'project/index.html',
+      renderProjectGuidePage({ guide: projectGuide })
+    );
+  }
 
   for (const skill of skills) {
     const key = assertSafeKey(skill.key);

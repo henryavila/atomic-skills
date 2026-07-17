@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project skill — mental model · Atomic Skills</title>
+<meta name="description" content="Plan ⊃ Phase ⊃ Task tracking for multi-day work, reloaded every session.">
+<link rel="stylesheet" href="../assets/ds.css">
+</head>
+<body>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="site-brand" href="../index.html">
+      <span class="site-brand-title">Atomic Skills</span>
+      <span class="site-brand-sub">product docs</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../index.html">Home</a>
+      <a href="../skills/index.html">Skills</a>
+      <a href="../project/index.html" class="active">Project</a>
+      <a href="../modules/index.html">Modules</a>
+      <a href="../hosts/index.html">Hosts</a>
+    </nav>
+  </header>
+  <main class="site-main">
+    <section class="section">
+      <p class="back-link"><a href="../index.html">← Home</a></p>
+      <div class="meta-row">
+        <span class="eyebrow">Project skill</span>
+        <span class="badge badge-module">domain dataset</span>
+      </div>
+      <h1>Project skill — mental model</h1>
+      <p class="lede">Plan ⊃ Phase ⊃ Task tracking for multi-day work, reloaded every session.</p>
+      <div class="iron-law">NO IMPLEMENTATION WITHOUT AN ANCHORED INITIATIVE.</div>
+      <p class="prose" style="margin-top:12px"><span class="lede">The project skill keeps Plan / Initiative / Task state in .atomic-skills/ so every session reloads the exact frame — stack frames for side work, an emergence ladder for new work, exit gates before advancing, and one git-style command surface for the whole lifecycle.</span></p>
+      <p class="footnote">Canonical state lives in <code>.atomic-skills/</code> (git-tracked; never hand-edited). Command prefix: <code>/atomic-skills:project</code>. This page is generated from <code>meta/product/project-guide.yaml</code> — not from catalog <code>core.project</code> bloat.</p>
+    </section>
+
+    <section class="section">
+      <h2>Entities</h2>
+      <p class="lede">Three-level hierarchy plus inbox and side frames.</p>
+      <div class="table-wrap">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>Entity</th>
+              <th>What it is</th>
+              <th>Nests</th>
+            </tr>
+          </thead>
+          <tbody>
+        <tr>
+          <td><strong>Plan</strong></td>
+          <td>Multi-phase delivery with one objective and its own branch (plan/&lt;slug&gt;).</td>
+          <td>Phases (initiatives)</td>
+        </tr>
+        <tr>
+          <td><strong>Phase / Initiative</strong></td>
+          <td>A plan stage (F0, F1, …) with an exit-gate. A standalone initiative is a one-phase plan.
+</td>
+          <td>Tasks</td>
+        </tr>
+        <tr>
+          <td><strong>Task</strong></td>
+          <td>Implementable unit (T-001, …) with acceptance criteria and a verifier.</td>
+          <td>Leaf of the tree</td>
+        </tr>
+        <tr>
+          <td><strong>Ideas</strong></td>
+          <td>Raw inbox in ideas.md before work is structured.</td>
+          <td>Outside the tree; enters via idea promote</td>
+        </tr>
+        <tr>
+          <td><strong>Stack frames</strong></td>
+          <td>Side investigations stacked on current work (push / pop).</td>
+          <td>Temporary stack</td>
+        </tr>
+        <tr>
+          <td><strong>Backlog</strong></td>
+          <td>Future work in parked[] / emerged[] classified by the emergence ladder.</td>
+          <td>Becomes a Task via promote</td>
+        </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Key concepts</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>Lazy materialization</h3>
+          <p class="one-liner">new plan creates plan.md and materializes only F0. F1..N stay descriptor-only until materialize &lt;phase&gt;. descriptor-only = line in the plan, no initiative file yet. materializada = full initiative file with tasks, ready for implement.
+</p>
+        </article>
+        <article class="card">
+          <h3>businessIntent</h3>
+          <p class="one-liner">HARD gate at materialize. Captures value / workflow / rules / outOfScope / doneWhen. A phase does not materialize without this spine.
+</p>
+        </article>
+        <article class="card">
+          <h3>Exit-gate</h3>
+          <p class="one-liner">Each phase has verifiable exit criteria. You do not advance while a criterion is pending. Criteria close via verifier (shell / test / query), not guesswork.
+</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Lifecycle spine</h2>
+      <p class="lede">Work follows one gated spine from idea to archive. You do not advance a stage with an open question.</p>
+      <ol class="spine">
+        <li class="spine-step">
+          <span class="spine-label">IDEA</span>
+          <span class="spine-note">Capture in ideas.md or park/emerge</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">DESIGN</span>
+          <span class="spine-note">brainstorm → approved design.md</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">PLAN</span>
+          <span class="spine-note">Source plan markdown + no-placeholder lint</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">DECOMPOSE</span>
+          <span class="spine-note">Phases + tasks; SPEC gate (4 HOW fields)</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">MATERIALIZE</span>
+          <span class="spine-note">businessIntent HARD gate</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">IMPLEMENT</span>
+          <span class="spine-note">Task-by-task via atomic-skills:implement</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">VERIFY</span>
+          <span class="spine-note">done runs verifier; evidence required</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">REVIEW</span>
+          <span class="spine-note">phase-done requires code review</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">DONE</span>
+          <span class="spine-note">Phase or plan complete</span>
+          <span class="spine-arrow" aria-hidden="true">→</span>
+        </li>
+        <li class="spine-step">
+          <span class="spine-label">ARCHIVE</span>
+          <span class="spine-note">finalize → PR; then archive</span>
+          
+        </li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2>Execution loop (per phase)</h2>
+      <ul class="list-stack">
+<li><div class="cmd">materialize &lt;phase&gt;</div><div class="desc">businessIntent</div></li>
+<li><div class="cmd">implement (task by task)</div><div class="desc">SPEC admission (Files, scopeBoundary, acceptance, deterministic verifier)</div></li>
+<li><div class="cmd">done &lt;task-id&gt;</div><div class="desc">Verifier must pass; rewrites nextAction</div></li>
+<li><div class="cmd">phase-done</div><div class="desc">Exit-gate verifiers + mandatory code review → advances currentPhase</div></li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Can / cannot</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>What the skill does</h3>
+          <ul class="plain">
+<li>Reload the exact multi-day frame each session (phase, parked work, why a task exists).</li>
+<li>Anchor every code-changing session to an active initiative (or explicit ad-hoc).</li>
+<li>Classify new work on the emergence ladder before it lands (park / emerge / promote).</li>
+<li>Stack side investigations without losing the main thread (push / pop).</li>
+<li>Block phase advance until exit-gate criteria pass.</li>
+<li>Detect scope-creep and state-vs-code drift.</li>
+<li>One git-style command for view, create, mutate, discover, migrate, verify.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>What it does not allow</h3>
+          <ul class="plain">
+<li>Iron Law — no implementation without an anchored initiative (or explicit ad-hoc).</li>
+<li>Never hand-edit .atomic-skills/; subcommands set provenance and validate.</li>
+<li>Do not decompose a plan whose design.md fails lint.</li>
+<li>No task admitted to implement without the four HOW fields and a deterministic verifier (manual does not count).</li>
+<li>No placeholders (REPLACE_* / TODO / TBD / FIXME / &lt;path&gt;) past the HARD gate — nothing is written until clean.</li>
+<li>reconcile is the only completion-mutation path for “looks done” tasks/gates.</li>
+<li>review never closes a task or advances a phase — report only.</li>
+<li>Do not advance a phase with a pending gate criterion (unless deferred with an explicit reason).</li>
+<li>Do not advance a plan blocked by dependsOnPlans[].</li>
+<li>Legacy files without schemaVersion must migrate before any mutation.</li>
+<li>Not for one-shot questions or work that fits the current session alone.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Command reference</h2>
+      <p class="lede">All commands share the prefix <code>/atomic-skills:project</code>. Bare <code>/atomic-skills:project</code> prints a compact 5-line summary and stops (no browser).</p>
+    </section>
+    <section class="section">
+      <h3>View</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project status</code><span class="cmd-args"> [--browser|--terminal|--list|--plan|--phase|--stack|--archived|--report]</span></div>
+          <div class="desc">Compact summary, aiDeck dashboard, full terminal view, or filtered tables.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project verify</code><span class="cmd-args"> [--fix] [--slug &lt;slug&gt;]</span></div>
+          <div class="desc">Reconcile .atomic-skills/ vs repo (schema, branch, scope, orphans). Read-only unless --fix.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Create</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project new</code><span class="cmd-args"> [plan|initiative] &lt;slug&gt;</span></div>
+          <div class="desc">Bootstrap a multi-phase plan (gated flow) or a standalone/anchored initiative.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project discover</code><span class="cmd-args"> [--dry-run|--commit] [--scope=&lt;list&gt;] [--scan=&lt;path&gt;]</span></div>
+          <div class="desc">Scan the repo and propose Plans + Initiatives for approve/reject.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project adopt</code><span class="cmd-args"> &lt;file.md&gt;</span></div>
+          <div class="desc">Capture freeform markdown into structured Plan + Initiatives + Tasks.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Stack frames</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project push</code><span class="cmd-args"> &lt;description&gt;</span></div>
+          <div class="desc">Open a side frame on current work (type inferred from the verb).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project pop</code><span class="cmd-args"> [--resolve|--park|--emerge]</span></div>
+          <div class="desc">Close the top frame — discard, note, or follow-up.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Backlog (emergence ladder)</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project park</code><span class="cmd-args"> &lt;description&gt;</span></div>
+          <div class="desc">Low-commitment note in parked[] (ratification gate for solves/trigger).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project emerge</code><span class="cmd-args"> &lt;description&gt;</span></div>
+          <div class="desc">Real follow-up in emerged[]; optional --target &lt;phaseId&gt;.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project promote</code><span class="cmd-args"> &lt;title-or-idx&gt;</span></div>
+          <div class="desc">Turn a parked item into a real task (next T-NNN).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project idea</code><span class="cmd-args"> [list | promote &lt;n&gt;]</span></div>
+          <div class="desc">Raw ideas.md inbox; promote routes through the emergence ladder.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Tasks &amp; phases</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project done</code><span class="cmd-args"> &lt;task-id&gt;</span></div>
+          <div class="desc">Close a task with closedAt; may offer phase-done or archive if last open.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project reconcile</code></div>
+          <div class="desc">Close tasks/gates that look done in the repo — only completion-mutation path.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project materialize</code><span class="cmd-args"> &lt;phase-id&gt;</span></div>
+          <div class="desc">descriptor-only → full initiative; captures businessIntent HARD gate.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project unblock</code><span class="cmd-args"> &lt;task-id&gt;</span></div>
+          <div class="desc">Return a blocked task to workable state (does not close it).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project phase-done</code></div>
+          <div class="desc">Verify exit-gate criteria, mandatory code review, advance currentPhase.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project phase-reopen</code><span class="cmd-args"> [&lt;phase-id&gt;]</span></div>
+          <div class="desc">Revert phase-done; initiative active again; criteria/tasks reset.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project split-phase</code><span class="cmd-args"> &lt;id&gt;</span></div>
+          <div class="desc">Split an oversized phase; original archived (not done) with provenance.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Lifecycle</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project finalize</code></div>
+          <div class="desc">Publish plan branch as PR (push plan/&lt;slug&gt; + gh pr create).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project consolidate</code></div>
+          <div class="desc">1:N merge-train of ready worktrees into an integration branch + PR.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project archive</code><span class="cmd-args"> [&lt;slug&gt;]</span></div>
+          <div class="desc">Move finished plan/initiative to archive/ (plan cascades to phases).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project switch</code><span class="cmd-args"> &lt;slug&gt;</span></div>
+          <div class="desc">Pause current plan/initiative and activate the target.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project migrate</code><span class="cmd-args"> [&lt;slug&gt;]</span></div>
+          <div class="desc">Legacy schema conversion or flat→projects/&lt;id&gt;/&lt;slug&gt;/ layout cut-over.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project re-bootstrap</code><span class="cmd-args"> &lt;slug&gt;</span></div>
+          <div class="desc">After migrate, re-articulate parked/emerged items still holding placeholders.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Context &amp; drift</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project why</code><span class="cmd-args"> &lt;id&gt;</span></div>
+          <div class="desc">Deep read-only view — status, solves/trigger/assumptions, provenance, staleness.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project re-ratify</code><span class="cmd-args"> &lt;id&gt;</span></div>
+          <div class="desc">Refresh a stale item — reconfirm premises or rewrite solves/trigger/assumptions.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project scope-creep</code></div>
+          <div class="desc">Read-only drift report (phase growth, scope expansion, parked zombies, stale context).</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project detect-scope</code></div>
+          <div class="desc">Suggest scope.paths from recent git activity as an accept checklist.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Review</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project review</code><span class="cmd-args"> [&lt;slug&gt;] [--with-code] [--mode=local|both]</span></div>
+          <div class="desc">Mutation-gated adversarial audit; reports findings only — never closes work.</div>
+        </li>
+        <li>
+          <div class="cmd"><code>/atomic-skills:project review-due</code></div>
+          <div class="desc">Cross-model review of diff since last review; records the result.</div>
+        </li>
+      </ul>
+    </section>
+    <section class="section">
+      <h3>Dependencies</h3>
+      <ul class="list-stack">
+        <li>
+          <div class="cmd"><code>/atomic-skills:project depend</code><span class="cmd-args"> list | add &lt;dependent&gt; &lt;prerequisite&gt; | remove … | resolve … --archived</span></div>
+          <div class="desc">Manage dependsOnPlans[] (dashboard lanes Liberado / Em andamento / Bloqueado / Concluido).</div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>Sister skills</h2>
+      <p class="lede">Project is a thin orchestrator — it delegates parts of the cycle.</p>
+      <div class="table-wrap">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>Moment</th>
+              <th>Skill</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+        <tr>
+          <td>DESIGN (new plan stage 2)</td>
+          <td><code>atomic-skills:brainstorm</code></td>
+          <td>Critic-approved design.md before decompose</td>
+        </tr>
+        <tr>
+          <td>Adversarial divergence</td>
+          <td><code>atomic-skills:debate</code></td>
+          <td>Independent design voices</td>
+        </tr>
+        <tr>
+          <td>Post-materialize execution</td>
+          <td><code>atomic-skills:implement</code></td>
+          <td>Single-threaded driver of admitted tasks to DONE</td>
+        </tr>
+        <tr>
+          <td>Task / gate close</td>
+          <td><code>atomic-skills:verify-claim</code></td>
+          <td>Fresh-run evidence for done/pass/fixed claims</td>
+        </tr>
+        <tr>
+          <td>review / phase-done</td>
+          <td><code>atomic-skills:review-plan + review-code</code></td>
+          <td>Adversarial plan and code audit</td>
+        </tr>
+        <tr>
+          <td>Bug mid-flight</td>
+          <td><code>atomic-skills:fix</code></td>
+          <td>Root-cause + TDD fix</td>
+        </tr>
+        <tr>
+          <td>Live project state</td>
+          <td><code>aiDeck (status --browser)</code></td>
+          <td>Dashboard graphs, exit-gates, live SSE</td>
+        </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Lost?</h2>
+      <div class="card-grid">
+        <article class="card">
+          <div class="eyebrow">Terminal GPS</div>
+          <div class="cmd" style="margin-top:8px"><code>/atomic-skills:project help</code></div>
+          <p class="one-liner">Where you are and what next, from live .atomic-skills/ state</p>
+        </article>
+        <article class="card">
+          <div class="eyebrow">Live dashboard</div>
+          <div class="cmd" style="margin-top:8px"><code>/atomic-skills:project status --browser</code></div>
+          <p class="one-liner">Living state — not this static guide</p>
+        </article>
+        <article class="card">
+          <div class="eyebrow">Bare status</div>
+          <div class="cmd" style="margin-top:8px"><code>/atomic-skills:project</code></div>
+          <p class="one-liner">Compact 5-line summary; does not open a browser</p>
+        </article>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    Generated from <code>meta/catalog.yaml</code>, <code>src/config.js</code>,
+    and optional <code>meta/product/*.yaml</code> datasets.
+    Product HTML is a build view only — not the SSOT.
+  </footer>
+</div>
+</body>
+</html>

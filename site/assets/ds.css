@@ -528,3 +528,54 @@ table.docs td {
   line-height: var(--lh-snug);
   max-width: 70ch;
 }
+
+/* ── Project guide spine ────────────────────────────────────────────── */
+
+ol.spine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spine-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 7.5rem;
+  max-width: 11rem;
+  flex: 1 1 7.5rem;
+  padding: var(--space-6) var(--space-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  position: relative;
+}
+
+.spine-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--status-info);
+}
+
+.spine-note {
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.spine-arrow {
+  display: none;
+}
+
+.list-stack .cmd-args {
+  margin-left: var(--space-2);
+  color: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Generate the multi-page product docs site into `site/dist/` from
- * `meta/catalog.yaml` + `src/config.js` host labels.
+ * `meta/catalog.yaml` + `src/config.js` host labels + optional
+ * `meta/product/project-guide.yaml` (project deep guide).
  *
  * Usage:
  *   node scripts/generate-site.js          # writes site/dist/**
@@ -66,10 +67,28 @@ export function listFilesRecursive(root) {
 }
 
 /**
+ * Load project-guide dataset if present. Missing file → null (no project page).
+ * Explicit `opts.projectGuide` (including null) wins over disk.
+ * @param {string} projectRoot
+ * @param {object | null | undefined} override
+ */
+export function loadProjectGuide(projectRoot, override) {
+  if (override !== undefined) return override;
+  const path = join(projectRoot, 'meta', 'product', 'project-guide.yaml');
+  if (!existsSync(path)) return null;
+  const data = parse(readFileSync(path, 'utf8'));
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(`project-guide.yaml must parse to an object: ${path}`);
+  }
+  return data;
+}
+
+/**
  * Expected dist contents: HTML pages + assets/ds.css.
  * @param {{
  *   projectRoot?: string,
  *   catalogData?: object,
+ *   projectGuide?: object | null,
  *   dsCss?: string,
  *   pkgVersion?: string,
  * }} [opts]
@@ -91,6 +110,8 @@ export function buildExpectedDist(opts = {}) {
     catalogData = parse(readFileSync(catalogYaml, 'utf8'));
   }
 
+  const projectGuide = loadProjectGuide(projectRoot, opts.projectGuide);
+
   let dsCss = opts.dsCss;
   if (dsCss == null) {
     if (!existsSync(dsCssSrc)) {
@@ -110,7 +131,7 @@ export function buildExpectedDist(opts = {}) {
     }
   }
 
-  const files = buildSiteFiles({ catalogData, pkgVersion });
+  const files = buildSiteFiles({ catalogData, pkgVersion, projectGuide });
   files.set('assets/ds.css', dsCss);
   return files;
 }
@@ -213,7 +234,9 @@ function main() {
     if (drift.length === 0) {
       process.exit(0);
     }
-    console.error('✖ site/dist is out of sync with meta/catalog.yaml + site/assets/ds.css');
+    console.error(
+      '✖ site/dist is out of sync with meta/catalog.yaml + meta/product/* + site/assets/ds.css'
+    );
     for (const line of drift) {
       console.error(`  ${line}`);
     }
