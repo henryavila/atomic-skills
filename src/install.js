@@ -300,16 +300,70 @@ export function publishRuntimeAndRegister(basePath) {
  */
 export function unregisterAndMaybeReclaimRuntime(basePath) {
   return withSharedRuntimeLocks({ basePath }, () => {
-    const p = installsRegistryPath();
-    const prior = readInstallsRegistry(p);
-    const next = prior.list.filter((b) => b !== basePath);
-    if (next.length === 0) {
-      try { unlinkSync(p); } catch {}
-      removeRuntimeArtifacts();
-      return 0;
-    }
-    writeInstallsRegistryAtomic(p, next, prior);
-    return next.length;
+    return unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
+  });
+}
+
+/**
+ * Registry remove + optional runtime reclaim without acquiring locks.
+ * Caller MUST hold `withSharedRuntimeLocks` (or accept races).
+ * @param {string} basePath
+ * @returns {number} remaining installs
+ */
+function unregisterAndMaybeReclaimRuntimeUnlocked(basePath) {
+  const p = installsRegistryPath();
+  const prior = readInstallsRegistry(p);
+  const next = prior.list.filter((b) => b !== basePath);
+  if (next.length === 0) {
+    try { unlinkSync(p); } catch {}
+    removeRuntimeArtifacts();
+    return 0;
+  }
+  writeInstallsRegistryAtomic(p, next, prior);
+  return next.length;
+}
+
+/**
+ * Grok outside-journal release + registry unregister under one shared lock
+ * (Codex F-001 / P0-C concurrency).
+ *
+ * Order under the lock:
+ * 1. Drop this base from the installs registry (so concurrent peers do not see
+ *    us as a survivor).
+ * 2. `releaseGrokOutsideJournal` against the post-removal owner set.
+ * 3. Reclaim shared runtime artifacts only when the registry is empty.
+ *
+ * Residual race (documented): host CLI (`grok plugin …`) is external and not
+ * covered by the O_EXCL file lock — two processes can still interleave host
+ * commands after both pass the registry decision. Full atomicity with the host
+ * would need a host-level lock or single daemon; this serializes our registry
+ * decision + release sequencing which is the primary dual-keep failure mode.
+ *
+ * @param {string} basePath
+ * @param {object} [releaseOpts] - forwarded to releaseGrokOutsideJournal (minus basePath)
+ * @returns {{
+ *   remaining: number,
+ *   lastOwner: boolean,
+ *   host: { status: string, detail?: string, restage?: string },
+ *   isolation: { status: string, detail?: string },
+ * }}
+ */
+export function releaseGrokAndUnregisterRuntime(basePath, releaseOpts = {}) {
+  return withSharedRuntimeLocks({ basePath }, () => {
+    // Remove self from registry first so last-owner decision is post-removal.
+    const remaining = unregisterAndMaybeReclaimRuntimeUnlocked(basePath);
+    // Note: reclaim already ran inside unlock path when remaining===0.
+    // releaseGrok may still need host/isolation cleanup after last registry owner.
+    const released = releaseGrokOutsideJournal({
+      ...releaseOpts,
+      basePath,
+    });
+    return {
+      remaining,
+      lastOwner: released.lastOwner,
+      host: released.host,
+      isolation: released.isolation,
+    };
   });
 }
 
@@ -649,14 +703,16 @@ export function syncGrokPluginHostAfterInstall(basePath, ides, language = 'en', 
  */
 function logGrokRelease(released, isPt) {
   const { host, isolation } = released;
-  if (host.status === 'unregistered' || host.status === 'absent') {
+  if (host.status === 'unregistered') {
     console.log(`  ${pc.dim(isPt ? 'Grok plugin host: desregistrado (último owner).' : 'Grok plugin host: unregistered (last owner).')}`);
+  } else if (host.status === 'absent') {
+    console.log(`  ${pc.dim(isPt ? 'Grok plugin host: já ausente.' : 'Grok plugin host: already absent.')}`);
   } else if (host.status === 'kept') {
     console.log(`  ${pc.dim(isPt ? 'Grok plugin host: mantido (outra install com grok).' : 'Grok plugin host: kept (another grok install remains).')}`);
   } else if (host.status === 'skipped') {
     console.log(`  ${pc.dim(isPt ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
   } else if (host.status === 'failed') {
-    console.log(`  ${pc.yellow(isPt ? `Grok plugin host: falha ao desregistrar (${host.detail || 'erro'}).` : `Grok plugin host: unregister failed (${host.detail || 'error'}).`)}`);
+    console.log(`  ${pc.yellow(isPt ? `Grok plugin host: falha (${host.detail || 'erro'}).` : `Grok plugin host: failed (${host.detail || 'error'}).`)}`);
   }
 
   if (isolation.status === 'removed') {

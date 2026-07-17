@@ -3,12 +3,15 @@ import { join, dirname, sep as PATH_SEP } from 'node:path';
 import { homedir } from 'node:os';
 import pc from 'picocolors';
 import { readManifest, MANIFEST_DIR } from './manifest.js';
-import { unregisterAndMaybeReclaimRuntime } from './install.js';
+import {
+  unregisterAndMaybeReclaimRuntime,
+  releaseGrokAndUnregisterRuntime,
+} from './install.js';
 import { buildInstaller } from './installer.js';
 import { migrateLegacyInstall } from './migrate-legacy-install.js';
 import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 import { resolveProjectScopeTarget } from './scope.js';
-import { releaseGrokOutsideJournal } from './runtime-layers/grok-refcount.js';
+import { baseHasGrokResidual } from './runtime-layers/grok-refcount.js';
 
 /**
  * Walk up from a just-removed file, deleting empty parent dirs until a
@@ -116,35 +119,36 @@ export async function uninstall(projectDir, options = {}) {
   // Mirrors install.js, which migrates before its own Driver call.
   migrateLegacyInstall(basePath, MANIFEST_DIR);
 
-  // Host plugin registry + foreign-skills isolation first (outside journal):
-  // last-owner gate for BOTH host unregister and isolation (F-003 / P0-C).
-  // Do not key only on current manifest.ides — residual after shrink away from
-  // grok must still be cleanable when no remaining install wants grok; multi-
-  // owner uninstall must not kill survivors' host registration.
-  // Fail-open if `grok` is absent. Quiet when nothing was present (non-grok installs).
-  {
-    const departingHadGrok = Array.isArray(manifest.ides) && manifest.ides.includes('grok');
-    const { host, isolation: iso } = releaseGrokOutsideJournal({
-      basePath,
+  // Host plugin registry + foreign-skills isolation (outside journal).
+  // Gate: only when this base has Grok residual ownership signals (ides includes
+  // grok OR durable package tree still present after shrink). Non-grok,
+  // never-had-grok uninstalls make ZERO host CLI calls (Codex F-003 / local F-1).
+  // When residual: release + registry unregister under one shared runtime lock
+  // (Codex F-001) so last-owner is decided against the post-removal owner set.
+  const departingHadGrok = baseHasGrokResidual(basePath, manifest);
+  let registryUnregisteredWithGrok = false;
+
+  if (departingHadGrok) {
+    const released = releaseGrokAndUnregisterRuntime(basePath, {
       // Restage only when this install may have owned the host snapshot.
-      // Residual-after-shrink (ides already without grok) still last-owner cleans.
-      restageSurvivor: departingHadGrok,
+      // Residual-after-shrink (ides without grok but package present) still cleans.
+      restageSurvivor: Array.isArray(manifest.ides) && manifest.ides.includes('grok'),
     });
-    // Log host/isolation when we mutated, or when a grok install multi-owner-kept.
-    // Silent when a non-grok install finds survivors or no residual (avoid noise).
+    registryUnregisteredWithGrok = true;
+    const { host, isolation: iso } = released;
     if (host.status === 'unregistered') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok plugin host: desregistrado.' : 'Grok plugin host: unregistered.')}`);
-    } else if (host.status === 'kept' && departingHadGrok) {
+    } else if (host.status === 'kept') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok plugin host: mantido (outra install com grok).' : 'Grok plugin host: kept (another grok install remains).')}`);
     } else if (host.status === 'failed') {
-      console.log(`  ${pc.yellow(lang === 'pt' ? `Grok plugin host: falha ao desregistrar (${host.detail || 'erro'}).` : `Grok plugin host: unregister failed (${host.detail || 'error'}).`)}`);
-    } else if (host.status === 'skipped' && departingHadGrok) {
+      console.log(`  ${pc.yellow(lang === 'pt' ? `Grok plugin host: falha (${host.detail || 'erro'}).` : `Grok plugin host: failed (${host.detail || 'error'}).`)}`);
+    } else if (host.status === 'skipped') {
       console.log(`  ${pc.dim(lang === 'pt' ? `Grok plugin host: omitido (${host.detail || 'skip'}).` : `Grok plugin host: skipped (${host.detail || 'skip'}).`)}`);
     }
 
     if (iso.status === 'removed') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento foreign-skills removido.' : 'Grok: foreign-skills isolation removed.')}`);
-    } else if (iso.status === 'kept' && departingHadGrok) {
+    } else if (iso.status === 'kept') {
       console.log(`  ${pc.dim(lang === 'pt' ? 'Grok: isolamento foreign-skills mantido (outra install com grok).' : 'Grok: foreign-skills isolation kept (another grok install remains).')}`);
     }
   }
@@ -163,10 +167,10 @@ export async function uninstall(projectDir, options = {}) {
   // cross-install registry are shared across ALL installs (user + each project),
   // so reclaim them only when the LAST install is gone — orchestrated OUTSIDE the
   // journal (replayReverse cannot express a conditional, refcounted reclaim, F-003).
-  // Removing them on any single uninstall would strand every other install that
-  // still depends on the shared dashboard/provisioner runtime.
-  // Single lock spans unregister + conditional reclaim (Codex F-004).
-  unregisterAndMaybeReclaimRuntime(basePath);
+  // When Grok residual path already unregistered under the shared lock, skip.
+  if (!registryUnregisteredWithGrok) {
+    unregisterAndMaybeReclaimRuntime(basePath);
+  }
 
   // The Driver removed the manifest; for a user-scope uninstall the .atomic-skills/
   // dir also held the shared runtime (reclaimed just above), so prune it if the
