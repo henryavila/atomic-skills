@@ -29,6 +29,8 @@ describe('CLI flag parsing', () => {
     assert.ok(output.includes('--ide'));
     assert.ok(output.includes('--all-detected'));
     assert.ok(output.includes('--lang'));
+    assert.ok(output.includes('--repair'));
+    assert.ok(output.includes('--force-incomplete'));
     assert.ok(output.includes('detect'));
     assert.ok(output.includes('status'));
   });

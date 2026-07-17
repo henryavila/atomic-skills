@@ -302,4 +302,34 @@ describe('F6 release fault matrix (remediated engine)', () => {
       'inspect must not mutate disk',
     );
   });
+
+  it('P0-A consumer recovery: force-incomplete clears incomplete without hand JSON edit', async () => {
+    // Full unit coverage lives in tests/recovery-cli.test.js; this matrix
+    // entry proves the product path (not wipe-only) for incomplete TX.
+    const { forceIncompleteUninstall, RECOVERY_LEDGER_FILE } = await import('../src/recovery-cli.js');
+    root = mkdtempSync(join(tmpdir(), 'as-fault-p0a-'));
+    const projectDir = join(root, 'project');
+    mkdirSync(join(projectDir, '.atomic-skills'), { recursive: true });
+    writeFileSync(
+      join(projectDir, '.atomic-skills', 'manifest.json'),
+      JSON.stringify({
+        journalVersion: 2,
+        effects: [{ type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] }],
+        transaction: { id: 't-p0a', state: 'incomplete', startedAt: '2026-01-01T00:00:00Z' },
+      }),
+      'utf8',
+    );
+
+    const result = forceIncompleteUninstall(projectDir);
+    assert.equal(result.ok, true);
+    assert.equal(result.trust, 'pre-U');
+    assert.equal(
+      existsSync(join(projectDir, '.atomic-skills', RECOVERY_LEDGER_FILE)),
+      true,
+      'residual recovery ledger must remain discoverable',
+    );
+    const mi = await loadInstaller();
+    const after = mi.describeRecovery(projectDir, '.atomic-skills');
+    assert.notEqual(after.state, 'incomplete');
+  });
 });
