@@ -195,6 +195,30 @@ describe('renderReadme', () => {
       /missing canonical `## Iron Law`/
     );
   });
+
+  it('prefers catalog iron_law over body extract when present', () => {
+    // Body has a different law; generators must use catalog SSOT (design D2).
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nBODY LAW ONLY.\n');
+    const data = {
+      core: {
+        demo: minimalV02Entry('demo', { iron_law: 'CATALOG LAW WINS.' }),
+      },
+    };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+    assert.ok(out.includes('`CATALOG LAW WINS.`'), 'catalog iron_law used');
+    assert.ok(!out.includes('BODY LAW ONLY'), 'body law not used when catalog present');
+  });
+
+  it('does not throw on missing body Iron Law when catalog iron_law is set', () => {
+    writeFileSync(join(skillsDir, 'core', 'demo.md'), 'No iron law section here.\n');
+    const data = {
+      core: {
+        demo: minimalV02Entry('demo', { iron_law: 'CATALOG ONLY LAW.' }),
+      },
+    };
+    const out = renderReadme({ catalogData: data, readme: buildReadmeShell(), skillsDir });
+    assert.ok(out.includes('`CATALOG ONLY LAW.`'));
+  });
 });
 
 describe('renderReadmeFromPaths (project-root integration)', () => {

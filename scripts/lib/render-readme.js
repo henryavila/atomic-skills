@@ -319,6 +319,15 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
   const skills = collectSkills(catalogData);
   const ironLaws = new Map();
   for (const skill of skills) {
+    // Prefer catalog iron_law (product SSOT / design D2); fall back to body extract.
+    const catalogLaw =
+      typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
+        ? skill.entry.iron_law.trim()
+        : null;
+    if (catalogLaw) {
+      ironLaws.set(skill.key, catalogLaw);
+      continue;
+    }
     const bodyPath = bodyPathForSkill(skill, skillsDir);
     const law = extractIronLaw(bodyPath);
     if (!law) {
@@ -372,6 +381,14 @@ export function buildSkillDocs({ catalogData, skillsDir }) {
   const skills = collectSkills(catalogData);
   const ironLaws = new Map();
   for (const skill of skills) {
+    const catalogLaw =
+      typeof skill.entry?.iron_law === 'string' && skill.entry.iron_law.trim().length > 0
+        ? skill.entry.iron_law.trim()
+        : null;
+    if (catalogLaw) {
+      ironLaws.set(skill.key, catalogLaw);
+      continue;
+    }
     const bodyPath = bodyPathForSkill(skill, skillsDir);
     const law = extractIronLaw(bodyPath);
     if (law) ironLaws.set(skill.key, law);
