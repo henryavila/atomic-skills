@@ -5,7 +5,7 @@ title: Product docs site from catalog SSOT
 version: "1.0"
 status: active
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T16:06:41.000Z
+lastUpdated: 2026-07-17T16:06:59.752Z
 branch: plan/product-docs-site
 currentPhase: F2
 parallelismAllowed: false
@@ -147,7 +147,7 @@ phases:
       SSOT.
     dependsOn:
       - F1
-    subPhaseCount: 0
+    subPhaseCount: 2
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -170,6 +170,16 @@ phases:
     status: active
     summary: README envelope magro + homepage apontando para
       atomic-skills.henryavila.com.
+    businessIntent:
+      value: npm/GitHub README becomes a thin product envelope pointing at the site so
+        install surface stays scannable and SSOT stays catalog+site.
+      workflow: Slim generate-readme regions to envelope shape; set package homepage
+        to docs_url; keep check-docs green.
+      rules: No multi-section skill blurbs; hosts still Tested/Theoretical from
+        config; catalog SSOT unchanged except homepage wiring.
+      outOfScope: Deploy, project guide, retiring docs/skills.
+      doneWhen: README ≤200 lines, check-docs green, homepage includes
+        atomic-skills.henryavila.com.
   - id: F3
     slug: product-docs-site-f3-project-deep-guide-on-the-site
     title: Project deep guide on the site
