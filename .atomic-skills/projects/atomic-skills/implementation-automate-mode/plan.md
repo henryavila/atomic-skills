@@ -5,7 +5,7 @@ title: Implementation Automate Mode
 version: "1.0"
 status: done
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:48:49.000Z
+lastUpdated: 2026-07-17T19:56:49.000Z
 branch: plan/implementation-automate-mode
 currentPhase: F4
 parallelismAllowed: false
@@ -296,6 +296,19 @@ phases:
       doneWhen: contract tests + npm test + validate-skills green.
 references: []
 executionMode: automate
+planEndReview:
+  mode: external-both
+  range: e5fba8a..e9346dc7b001a4cc35466bc3ca683ef0c4e91c1e
+  verifiedAt: 2026-07-17T19:56:49.000Z
+  reviewFile: .atomic-skills/reviews/2026-07-17-1957-implementation-automate-mode-plan-end-external-both.md
+  legs:
+    - provider: codex
+      status: succeeded
+      familyDifferent: true
+    - provider: grok
+      status: skipped
+      familyDifferent: false
+      reason: same-family host
 ---
 
 # Implementation Automate Mode
@@ -329,3 +342,6 @@ _(Canonical list in frontmatter `phases:`. aiDeck renders the tree visually when
 - cross-model (codex gpt-5-codex): 2026-07-17 — needs_changes; 2 critical + 3 major applied (stamp order, P4 nested vs sibling, post-eval reopen, archive hard-block, claim ranges)
 - cross-model (grok-4.5): 2026-07-17 — needs_changes; 5 critical + 3 major applied (isolation, archive, stamp must, userValidationOk helper, rematerialize sync, merge-before-done)
 - artifacts: .atomic-skills/reviews/2026-07-17-1902-iam-codex-pass1.md , .atomic-skills/reviews/2026-07-17-1902-iam-grok-pass1.md
+- plan-end external (codex succeeded): 2026-07-17-1957-implementation-automate-mode-plan-end-external-both.md
+
+
