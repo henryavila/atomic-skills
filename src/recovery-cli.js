@@ -8,19 +8,22 @@
  * Journal trust heuristic (documented for operators and tests):
  *
  * **post-U** (trusted for reverse-of-applied / reverse-only clear):
- *   - Engine capability: `journalMode === 'per-effect'` OR
- *     `durablePerEffect === true`, AND
- *   - Applied evidence: non-empty effects where every entry has a durable
- *     flush marker (`flushedAt` or `durable: true`).
+ *   - Engine pin (67dddc3+): `transaction.journalMode === 'per-effect'`
+ *     (or `durablePerEffect` / `describeRecovery.durablePerEffect`) **and**
+ *     non-empty journaled effects. The engine durable-flushes each applied
+ *     effect without stamping `flushedAt` on entries — journalMode is the
+ *     trust signal. When `appliedCount` is present it must be `> 0`
+ *     (appliedCount: 0 is the incomplete marker before the first apply).
+ *   - Supplementary: every effect has `flushedAt` / `durable: true` even
+ *     without journalMode (legacy consumer fixtures).
  *   - Free-form booleans (`journalTrust: 'post-U'`) and weak markers
- *     (`journaledAt` alone) are **not** sufficient — refuse as pre-U.
+ *     (`journaledAt` alone, no journalMode) are **not** sufficient — pre-U.
  *
- * **pre-U** (current pin / prior-effects-only incomplete marker):
+ * **pre-U** (prior-effects-only incomplete / no engine capability stamp):
  *   - Default when post-U evidence is missing.
- *   - Driver writes `transaction: incomplete` with **prior** effects, applies
- *     new effects in memory only, and completes at end. Crash → disk journal
- *     may diverge from applied files. Silent resume is **refused**; use
- *     `uninstall --force-incomplete` + residual recovery ledger.
+ *   - Pre-pin engines wrote `transaction: incomplete` with **prior** effects
+ *     only while applying new effects in memory. Crash → disk may diverge.
+ *     Silent resume is **refused**; use `uninstall --force-incomplete`.
  *
  * post-U repair strategy (chosen + documented): **(b) reverse-only** — reverse
  * journaled effects and clear incomplete. Does **not** auto-reinstall
@@ -50,6 +53,7 @@ import { homedir } from 'node:os';
 import {
   describeRecovery,
   inspectTransaction,
+  readJournaledEffects,
   TX_STATE_ABSENT,
   TX_STATE_COMPLETE,
   TX_STATE_INCOMPLETE,
@@ -70,41 +74,89 @@ export const RECOVERY_QUARANTINE_PREFIX = 'recovery-quarantine-manifest';
 /**
  * Classify incomplete journal trust for recovery decisions.
  *
- * Requires capability flag **and** durable applied evidence. Bare optimistic
- * flags (`journalTrust`) and weak markers (`journaledAt` alone) stay pre-U.
+ * Accepts a raw manifest **or** a `describeRecovery` /
+ * `readJournaledEffects` result (uses nested `.manifest` + top-level
+ * `journalMode` / `durablePerEffect` / `appliedCount` when present).
  *
- * @param {object|null|undefined} manifest
+ * Bare `journalTrust: 'post-U'` and weak markers (`journaledAt` alone)
+ * stay pre-U. Real engine incomplete journals (journalMode per-effect +
+ * effects with beforeState, no flushedAt) classify as post-U.
+ *
+ * @param {object|null|undefined} manifestOrDesc
  * @returns {'pre-U'|'post-U'}
  */
-export function classifyJournalTrust(manifest) {
-  if (!manifest || typeof manifest !== 'object') return JOURNAL_TRUST_PRE_U;
+export function classifyJournalTrust(manifestOrDesc) {
+  if (!manifestOrDesc || typeof manifestOrDesc !== 'object') {
+    return JOURNAL_TRUST_PRE_U;
+  }
+
+  // describeRecovery / readJournaledEffects shape: nested manifest + stamps.
+  const isDesc = manifestOrDesc.state != null
+    && Object.prototype.hasOwnProperty.call(manifestOrDesc, 'manifest');
+  const manifest = isDesc
+    ? (manifestOrDesc.manifest && typeof manifestOrDesc.manifest === 'object'
+      ? manifestOrDesc.manifest
+      : null)
+    : manifestOrDesc;
+  if (!manifest) return JOURNAL_TRUST_PRE_U;
+
   const tx = manifest.transaction || {};
   const effects = Array.isArray(manifest.effects) ? manifest.effects : [];
 
-  // Durable per-effect markers only (not journaledAt — weak / not flush proof).
+  // Capability: engine transaction stamp OR describeRecovery fields.
+  // Not free-form journalTrust boolean.
+  const capability =
+    tx.journalMode === 'per-effect'
+    || tx.durablePerEffect === true
+    || (isDesc && (
+      manifestOrDesc.journalMode === 'per-effect'
+      || manifestOrDesc.durablePerEffect === true
+    ));
+
+  // appliedCount when present must show at least one applied effect.
+  // Engine writes appliedCount: 0 on the incomplete marker before first apply.
+  const appliedCount = typeof tx.appliedCount === 'number'
+    ? tx.appliedCount
+    : (isDesc && typeof manifestOrDesc.appliedCount === 'number'
+      ? manifestOrDesc.appliedCount
+      : null);
+  if (appliedCount !== null && appliedCount <= 0) {
+    return JOURNAL_TRUST_PRE_U;
+  }
+
+  // Pin 67dddc3+: journalMode per-effect + non-empty effects = applied set.
+  if (capability && effects.length > 0) {
+    return JOURNAL_TRUST_POST_U;
+  }
+
+  // Supplementary: flushedAt/durable on every effect (legacy fixtures).
+  // journaledAt alone is weak / not flush proof.
   const allEffectsDurable =
     effects.length > 0
     && effects.every((e) => e && (e.flushedAt || e.durable === true));
-
-  if (!allEffectsDurable) return JOURNAL_TRUST_PRE_U;
-
-  // Capability from engine (not free-form journalTrust boolean).
-  const capability =
-    tx.journalMode === 'per-effect'
-    || tx.durablePerEffect === true;
-
-  // appliedCount from engine, when present, must agree that work was applied.
-  if (typeof tx.appliedCount === 'number') {
-    if (tx.appliedCount <= 0) return JOURNAL_TRUST_PRE_U;
-    if (capability || allEffectsDurable) return JOURNAL_TRUST_POST_U;
+  if (allEffectsDurable) {
+    return JOURNAL_TRUST_POST_U;
   }
 
-  // Non-empty durable effects + capability flag.
-  if (capability) return JOURNAL_TRUST_POST_U;
+  return JOURNAL_TRUST_PRE_U;
+}
 
-  // Durable markers on every effect without capability flag still imply
-  // per-effect flush evidence from a post-U engine.
-  return JOURNAL_TRUST_POST_U;
+/**
+ * Read journaled effects via engine `readJournaledEffects` and classify trust.
+ * Convenience for recovery paths that already want the durablePerEffect stamp.
+ *
+ * @param {string} basePath
+ * @param {string} [manifestDir]
+ * @returns {{ trust: 'pre-U'|'post-U', journaled: object, desc: object }}
+ */
+export function classifyJournalTrustAt(basePath, manifestDir = MANIFEST_DIR) {
+  const desc = describeRecovery(basePath, manifestDir);
+  const journaled = readJournaledEffects(basePath, manifestDir);
+  return {
+    trust: classifyJournalTrust(desc),
+    journaled,
+    desc,
+  };
 }
 
 /**

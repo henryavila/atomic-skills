@@ -354,10 +354,8 @@ describe('P0-D E2E: mid-repair interrupt (recovery mutator)', () => {
   it('injected fail during post-U repair leaves incomplete, never complete', () => {
     withIsolatedHome((h) => {
       const project = projectDir(h, 'proj-mid-repair');
-      // Gap note: consumer classifyJournalTrust still requires flushedAt/durable
-      // on every effect (not only journalMode). Real engine incomplete is pre-U
-      // and install --repair refuses; post-U reverse path is exercised here with
-      // durable markers matching recovery-cli trust contract.
+      // post-U path: journalMode per-effect (+ appliedCount) is sufficient under
+      // pin 67dddc3 trust rule; flushedAt is optional supplementary evidence.
       const dir = join(project, MANIFEST_DIR);
       mkdirSync(dir, { recursive: true });
       writeFileSync(

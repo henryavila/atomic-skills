@@ -1,8 +1,10 @@
 /**
  * P0-A consumer half — incomplete TX recovery CLI + mutator.
  *
- * pre-U engine (pinned): incomplete marker journals prior effects only;
- * newly applied effects after crash are not on disk journal.
+ * post-U engine pin (67dddc3+): incomplete journals stamp
+ * transaction.journalMode === 'per-effect' + appliedCount; effects list is
+ * the durable applied set (no per-effect flushedAt required).
+ * pre-U: incomplete without journalMode — prior-effects-only, refuse silent resume.
  */
 import { describe, it, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
@@ -99,7 +101,7 @@ describe('classifyJournalTrust', () => {
     );
   });
 
-  it('does not trust bare capability flags without durable applied evidence', () => {
+  it('does not trust bare flags without journalMode/applied evidence', () => {
     // Empty effects + journalMode alone → pre-U (forged flags must not clear clean).
     assert.equal(
       classifyJournalTrust({
@@ -115,7 +117,7 @@ describe('classifyJournalTrust', () => {
       }),
       JOURNAL_TRUST_PRE_U,
     );
-    // Free-form journalTrust boolean alone → pre-U.
+    // Free-form journalTrust alone (no journalMode) → pre-U.
     assert.equal(
       classifyJournalTrust({
         effects: [{ type: 'reconcileFileSet', beforeState: [] }],
@@ -123,19 +125,67 @@ describe('classifyJournalTrust', () => {
       }),
       JOURNAL_TRUST_PRE_U,
     );
-    // journaledAt alone is a weak marker → pre-U.
+    // journaledAt alone (no journalMode) is a weak marker → pre-U.
     assert.equal(
       classifyJournalTrust({
         effects: [
           { type: 'reconcileFileSet', beforeState: [], journaledAt: '2026-07-17T00:00:01.000Z' },
         ],
-        transaction: { state: 'incomplete', journalMode: 'per-effect' },
+        transaction: { state: 'incomplete' },
+      }),
+      JOURNAL_TRUST_PRE_U,
+    );
+    // appliedCount: 0 with journalMode (marker before first apply) → pre-U.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+        transaction: {
+          state: 'incomplete',
+          journalMode: 'per-effect',
+          appliedCount: 0,
+        },
       }),
       JOURNAL_TRUST_PRE_U,
     );
   });
 
-  it('classifies per-effect flush markers as post-U', () => {
+  it('classifies engine pin journalMode per-effect + effects as post-U', () => {
+    // Real incomplete journal from pinned engine (67dddc3): journalMode +
+    // effects with beforeState, no flushedAt/durable on entries.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [
+          { type: 'reconcileFileSet', id: 'reconcileFileSet', beforeState: [] },
+        ],
+        transaction: {
+          state: 'incomplete',
+          journalMode: 'per-effect',
+          appliedCount: 1,
+        },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+    // journalMode alone + non-empty effects (no appliedCount) → post-U.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [
+          { type: 'jsonMerge', beforeState: { path: '.claude/settings.json' } },
+        ],
+        transaction: { state: 'incomplete', journalMode: 'per-effect' },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+    // durablePerEffect stamp + effects → post-U.
+    assert.equal(
+      classifyJournalTrust({
+        effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+        transaction: { state: 'incomplete', durablePerEffect: true },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+  });
+
+  it('classifies per-effect flush markers as post-U (supplementary)', () => {
     assert.equal(
       classifyJournalTrust({
         effects: [
@@ -146,13 +196,35 @@ describe('classifyJournalTrust', () => {
       }),
       JOURNAL_TRUST_POST_U,
     );
-    // Capability + durable applied evidence.
+    // Capability + flush markers still post-U.
     assert.equal(
       classifyJournalTrust({
         effects: [
           { type: 'reconcileFileSet', beforeState: [], flushedAt: '2026-07-17T00:00:01.000Z' },
         ],
         transaction: { state: 'incomplete', journalMode: 'per-effect' },
+      }),
+      JOURNAL_TRUST_POST_U,
+    );
+  });
+
+  it('accepts describeRecovery-shaped input (journalMode/durablePerEffect)', () => {
+    assert.equal(
+      classifyJournalTrust({
+        state: 'incomplete',
+        reason: 'transaction.state=incomplete',
+        journalMode: 'per-effect',
+        durablePerEffect: true,
+        appliedCount: 1,
+        effectCount: 1,
+        manifest: {
+          effects: [{ type: 'reconcileFileSet', beforeState: [] }],
+          transaction: {
+            state: 'incomplete',
+            journalMode: 'per-effect',
+            appliedCount: 1,
+          },
+        },
       }),
       JOURNAL_TRUST_POST_U,
     );
