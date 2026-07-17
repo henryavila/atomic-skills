@@ -5,7 +5,7 @@ title: Product docs site from catalog SSOT
 version: "1.0"
 status: active
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T15:57:11.533Z
+lastUpdated: 2026-07-17T15:57:30.122Z
 branch: plan/product-docs-site
 currentPhase: F1
 parallelismAllowed: false
@@ -104,7 +104,7 @@ phases:
       monólito pages by hand.
     dependsOn:
       - F0
-    subPhaseCount: 0
+    subPhaseCount: 3
     exitGate:
       summary: 2 criteria to meet
       criteria:
@@ -125,6 +125,19 @@ phases:
     status: active
     summary: Build estático multi-página a partir do catalog + hosts do config; DS
       compartilhado e check-site.
+    businessIntent:
+      value: Ship a multi-page static product docs site generated from catalog +
+        config so humans get polished product education without dual editorial
+        sources.
+      workflow: Extract DS tokens from onboarding HTML; implement
+        generate-site/check-site for landing, skills index/detail, modules,
+        hosts; wire npm scripts into docs pipeline.
+      rules: Catalog is SSOT for skill copy; hosts from src/config.js TESTED_IDE_IDS;
+        HTML is generated view only; no skill body prompts on public pages.
+      outOfScope: Deploy/DNS, slim README layout, project deep guide page, retiring
+        docs/skills.
+      doneWhen: npm run generate-site produces dist with required pages; npm run
+        check-site exits 0 and detects stale dist.
   - id: F2
     slug: product-docs-site-f2-slim-readme-and-envelope
     title: Slim README and envelope
