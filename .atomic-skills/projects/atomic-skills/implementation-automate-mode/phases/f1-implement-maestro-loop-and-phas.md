@@ -3,11 +3,11 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f1-implement-maestro-loop-and-phas
 title: Implement maestro loop and phase-writer contract
 goal: "Extend implement so --mode=automate runs the pure-maestro loop: one code-only phase writer per phase, sync wait, claim handling, orchestrator-owned done, no silent Mode-1 fallback."
-status: active
+status: done
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:20:54.697Z
-lastUpdated: 2026-07-17T19:20:54.697Z
-nextAction: "Start T-004: Document automate iron laws and step spine in implement.md"
+lastUpdated: 2026-07-17T19:24:50.000Z
+nextAction: phase-done F1; materialize F2
 parentPlan: implementation-automate-mode
 phaseId: F1
 businessIntent:
@@ -16,32 +16,56 @@ businessIntent:
   rules: P2 pure maestro; P3 code-only writer; P4 one writer; sem Mode-1 silent fallback; sem nest worktree.
   outOfScope: phase-done review policy (F2); plan-end finalize (F3); full contract tests (F4).
   doneWhen: F1-G1/G2/G3 met; implement + phase-writer + evaluator assets exist.
-tasksDone: 0
+tasksDone: 4
 tasksTotal: 4
-gatesMet: 0
+gatesMet: 3
 gatesTotal: 3
 exitGates:
   - id: F1-G1
     description: implement.md and phase-writer asset describe maestro + code-only writer + isolation without Mode-1 silent fallback.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: rg -n 'mode=automate' skills/core/implement.md && rg -n 'code-only|never.*done' skills/shared/implement-phase-writer.md skills/core/implement.md && rg -n 'Mode-1|silent' skills/shared/implement-antipatterns.md
       expectExitCode: 0
+    metAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: rg -n 'mode=automate' skills/core/implement.md && rg -n 'code-only|never.*done' skills/shared/implement-phase-writer.md skills/core/implement.md && rg -n 'Mode-1|silent' skills/shared/implement-antipatterns.md"
   - id: F1-G2
     description: No new top-level skill named automate was added under skills/core.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test ! -e skills/core/automate.md
       expectExitCode: 0
+    metAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: test ! -e skills/core/automate.md"
   - id: F1-G3
     description: Phase evaluation agent contract exists and forbids auto-finalize without user validation.
-    status: pending
+    status: met
     verifier:
       kind: shell
       command: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md
       expectExitCode: 0
+    metAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md"
 stack:
   - id: 1
     title: Implement maestro loop and phase-writer contract
@@ -50,8 +74,8 @@ stack:
 tasks:
   - id: T-004
     title: Document automate iron laws and step spine in implement.md
-    status: pending
-    lastUpdated: 2026-07-17T19:20:54.697Z
+    status: done
+    lastUpdated: 2026-07-17T19:24:50.000Z
     scopeBoundary:
       - Do not implement Mode 2 changes. Do not rewrite project-transitions phase-done yet. Do not add a new top-level skill file.
     acceptance:
@@ -67,10 +91,18 @@ tasks:
         path: skills/shared/implement-antipatterns.md
     summary: Document automate iron laws and step spine in implement.md
     weight: 2
+    closedAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: rg -n 'mode=automate|phase writer|planEndReviewOk|pure maestro|never self-certif' skills/core/implement.md skills/shared/implement-antipatterns.md"
   - id: T-005
     title: Phase work-order and claim-report contract
-    status: pending
-    lastUpdated: 2026-07-17T19:20:54.697Z
+    status: done
+    lastUpdated: 2026-07-17T19:24:50.000Z
     scopeBoundary:
       - Do not add host-only Workflow tools outside ide conditionals. Do not change SPEC admission in lint-source.js.
     acceptance:
@@ -86,10 +118,18 @@ tasks:
         path: skills/core/implement.md
     summary: Phase work-order and claim-report contract
     weight: 2
+    closedAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: test -s skills/shared/implement-phase-writer.md && rg -n 'claim report|work-order|HARD-GATE' skills/shared/implement-phase-writer.md skills/core/implement.md"
   - id: T-006
     title: Sibling phase worktree isolation, writer lease, and merge-before-done
-    status: pending
-    lastUpdated: 2026-07-17T19:20:54.697Z
+    status: done
+    lastUpdated: 2026-07-17T19:24:50.000Z
     scopeBoundary:
       - Do not nest a phase worktree under the plan worktree path. Do not change Mode 2 merge-back defaults for non-automate. Do not force sibling worktrees for Mode 1.
     acceptance:
@@ -109,10 +149,18 @@ tasks:
         path: tests/writer-lease.test.js
     summary: Sibling phase worktree isolation, writer lease, and merge-before-done
     weight: 3
+    closedAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: node --test tests/writer-lease.test.js && rg -n 'sibling|writer lease|common-dir|never nest|merge.*before|post-merge' skills/core/implement.md skills/shared/worktree-isolation.md"
   - id: T-015
     title: Phase evaluation agent, reopen protocol, and decision-log visibility
-    status: pending
-    lastUpdated: 2026-07-17T19:20:54.697Z
+    status: done
+    lastUpdated: 2026-07-17T19:24:50.000Z
     scopeBoundary:
       - Do not merge evaluation into the phase writer agent. Do not auto-finalize after evaluation pass. Evaluator never writes project state.
     acceptance:
@@ -130,6 +178,14 @@ tasks:
         path: skills/shared/implement-phase-evaluator.md
     summary: Phase evaluation agent, reopen protocol, and decision-log visibility
     weight: 3
+    closedAt: 2026-07-17T19:24:50.000Z
+    evidence:
+      verifierKind: shell
+      verifiedAt: 2026-07-17T19:24:50.000Z
+      verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+      passed: true
+      exitCode: 0
+      outputSummary: "orchestrator re-run exit 0 after merge F1: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md"
 parked: []
 emerged: []
 summary: "Implement maestro: writer code-only, evaluator, sibling isolation, lease, merge-before-done."
@@ -144,8 +200,8 @@ Initiative for phase **F1 — Implement maestro loop and phase-writer contract**
 _(record decisions here as they are made)_
 
 ## Session handoff
-- **Narrative:** F1 materialized after F0 complete. Ready for phase-writer on T-004..T-015.
-- **Decision log:** F0 review fixes landed; F1 BI authored at materialize.
-- **Single nextAction:** Spawn F1 code-only phase writer for T-004, T-005, T-006, T-015.
-- **Verbatim state:** initiative .atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f1-implement-maestro-loop-and-phas.md; plan currentPhase F1.
-- **Uncommitted changes:** F1 materialize.
+- **Narrative:** F1 pure-maestro spine + phase-writer + writer-lease + evaluator landed and re-verified on merge.
+- **Decision log:** Sibling isolation + lease pure helper; evaluation before phase-done both; no top-level automate skill.
+- **Single nextAction:** F1 phase cross-model review then materialize F2.
+- **Verbatim state:** HEAD=b5a9db307eb9cd2150bfe46cbc20327eea054575; writer-lease 16 tests; F1 gates met.
+- **Uncommitted changes:** F1 close state.

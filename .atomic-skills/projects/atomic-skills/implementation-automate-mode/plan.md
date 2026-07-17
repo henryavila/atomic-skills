@@ -5,9 +5,9 @@ title: Implementation Automate Mode
 version: "1.0"
 status: active
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:20:54.697Z
+lastUpdated: 2026-07-17T19:24:50.000Z
 branch: plan/implementation-automate-mode
-currentPhase: F1
+currentPhase: F2
 parallelismAllowed: false
 principles:
   - id: P1
@@ -99,26 +99,50 @@ phases:
       criteria:
         - id: F1-G1
           description: implement.md and phase-writer asset describe maestro + code-only writer + isolation without Mode-1 silent fallback.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: rg -n 'mode=automate' skills/core/implement.md && rg -n 'code-only|never.*done' skills/shared/implement-phase-writer.md skills/core/implement.md && rg -n 'Mode-1|silent' skills/shared/implement-antipatterns.md
             expectExitCode: 0
+          metAt: 2026-07-17T19:24:50.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:24:50.000Z
+            verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+            passed: true
+            exitCode: 0
+            outputSummary: "orchestrator re-run exit 0 after merge F1: F1-G1"
         - id: F1-G2
           description: No new top-level skill named automate was added under skills/core.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test ! -e skills/core/automate.md
             expectExitCode: 0
+          metAt: 2026-07-17T19:24:50.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:24:50.000Z
+            verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+            passed: true
+            exitCode: 0
+            outputSummary: "orchestrator re-run exit 0 after merge F1: F1-G2"
         - id: F1-G3
           description: Phase evaluation agent contract exists and forbids auto-finalize without user validation.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: test -s skills/shared/implement-phase-evaluator.md && rg -n 'evaluation agent|user validates' skills/shared/implement-phase-evaluator.md skills/core/implement.md
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T19:24:50.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:24:50.000Z
+            verifiedCommit: b5a9db307eb9cd2150bfe46cbc20327eea054575
+            passed: true
+            exitCode: 0
+            outputSummary: "orchestrator re-run exit 0 after merge F1: F1-G3"
+    status: done
     summary: "Implement maestro: writer code-only, evaluator, sibling isolation, lease, merge-before-done."
     businessIntent:
       value: "Maestro puro sob --mode=automate: session nao edita product source; um phase-writer code-only por fase; orchestrator fecha done."
