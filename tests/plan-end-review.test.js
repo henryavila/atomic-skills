@@ -238,8 +238,8 @@ describe('planEndReviewOk', () => {
     );
   });
 
-  it('accepts mode both as well as external-both for host routes', () => {
-    assert.equal(planEndReviewOk(shapedOk({ mode: 'both' })), true);
+  it('F5: accepts only mode external-both on non-skip path (rejects bare both)', () => {
+    assert.equal(planEndReviewOk(shapedOk({ mode: 'both' })), false);
     assert.equal(planEndReviewOk(shapedOk({ mode: 'external-both' })), true);
     assert.equal(planEndReviewOk(shapedOk({ mode: 'local' })), false);
     assert.equal(planEndReviewOk(shapedOk({ mode: '' })), false);
@@ -505,23 +505,34 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
     });
   });
 
-  it('explicit --mode=1 CLI overrides stamp (gates inactive)', () => {
+  it('F4: durable gates use stamp only — cliMode=1 does NOT skip finalize gates', () => {
     const r = automatePlanEndGatesOk({
       planExecutionMode: 'automate',
       cliMode: '1',
       receipt: null,
       userValidatedAt: undefined,
     });
-    assert.deepEqual(r, {
-      ok: true,
-      planEndReviewOk: true,
-      userValidationOk: true,
-    });
+    assert.equal(r.ok, false, 'session Mode-1 override must not disable durable stamp gates');
+    assert.equal(r.planEndReviewOk, false);
+    assert.equal(r.userValidationOk, false);
   });
 
-  it('clearExecutionMode keeps gates inactive even with automate stamp', () => {
+  it('F4: clearExecutionMode alone does NOT disable durable stamp gates', () => {
     const r = automatePlanEndGatesOk({
       planExecutionMode: 'automate',
+      clearExecutionMode: true,
+      receipt: null,
+    });
+    assert.equal(
+      r.ok,
+      false,
+      'must clearExecutionModeStamp (remove stamp) to leave durable gates',
+    );
+  });
+
+  it('F4: after clearExecutionModeStamp, durable gates inactive', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: undefined,
       clearExecutionMode: true,
       receipt: null,
     });
