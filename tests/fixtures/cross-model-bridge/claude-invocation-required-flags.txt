@@ -9,5 +9,7 @@ permission-mode
 no-session-persistence
 output-format
 Read,Grep,Glob
+--effort xhigh
+xhigh
 BRIEFING_PATH
 OUTPUT_PATH

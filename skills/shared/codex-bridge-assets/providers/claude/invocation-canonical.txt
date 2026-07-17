@@ -69,7 +69,7 @@ run_with_timeout <TIMEOUT_SECONDS> claude \
   --safe-mode \
   -p \
   ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
-  --effort high \
+  --effort xhigh \
   --tools "Read,Grep,Glob" \
   --permission-mode dontAsk \
   --no-session-persistence \
@@ -90,7 +90,7 @@ run_with_timeout <TIMEOUT_SECONDS> claude \
   --bare \
   -p \
   ${REVIEW_MODEL_ID:+--model "$REVIEW_MODEL_ID"} \
-  --effort high \
+  --effort xhigh \
   --tools "Read,Grep,Glob" \
   --permission-mode dontAsk \
   --no-session-persistence \
@@ -112,7 +112,7 @@ run_with_timeout <TIMEOUT_SECONDS> claude \
 | `--no-session-persistence` | Ephemeral; do not resume between Pass 1 and Pass 2. |
 | `--disable-slash-commands` | Skills must not inject framing. |
 | `--output-format text` | Markdown-friendly final text on stdout. |
-| `--effort high` | Deeper reasoning for adversarial review. |
+| `--effort xhigh` | Always xhigh for sealed external review (deeper reasoning than high; default product choice — not max, which has diminishing returns / overthinking). |
 | `< <BRIEFING_PATH>` | Prompt from stdin (proven 2.1.212 dogfood). |
 | `> <OUTPUT_PATH>` | Persist response for Pass validation. |
 | `2> <STDERR_PATH>` | Keep auth/banner out of the review file. |
