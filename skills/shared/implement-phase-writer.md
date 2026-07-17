@@ -77,7 +77,7 @@ Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn
 
 ## Claim report
 
-Returned after the writer exits (implement Step D). One entry per task the work-order listed (including failed/blocked). Machine validation: `src/claim-report.js` (`parseClaimReport`, `validateClaimReport`, `validatedRangeForDone`).
+Returned after the writer exits (implement Step D). One entry per task the work-order listed (including failed/blocked). Machine validation: `src/claim-report.js` (`parseClaimReport`, `validateClaimReport`, `validatedRangeForDone`, `validateClaimReachability`).
 
 ### Shape (per task)
 
@@ -112,10 +112,14 @@ claimReport:
 1. **SYNC WAIT** until the writer process exits; refuse to act on partial in-flight claims.
 2. **`validateClaimReport`** — reject incomplete fields or overlapping multi-task SHAs; re-dispatch if invalid.
 3. **Merge** sibling worktree → plan branch (git-ops only) **before** any re-verify or `done` (Step D.5).
-4. For each `claimed-pass` task on the **MERGED** tree: re-run `tasks[].verifier` (verify-claim / `done` path).
-5. Verifier fail ⇒ do **not** `done`; re-dispatch code-only fix agent (max 2) or stop for operator.
-6. **Complex tasks** (`isComplexTask` with `destructiveDiff` from the **validated claim range**): `review-code --mode=both` on that range before `done`; blocker/critical block close; major needs disposition `accept|defer|fix`; durable receipt before `done`. Non-complex → verifier-only GATE-R2.
-7. Only orchestrator `done <taskId>` writes durable state.
+4. **Post-merge claim reachability (HARD):** before any verifier or `done`, prove every open claim's commit identity is **reachable on the plan branch** (ancestors of plan-branch `HEAD`). For each claimed SHA and each `base`/`head`:
+   - `git merge-base --is-ancestor <sha> HEAD` must exit 0, **or**
+   - pass a reachable set/predicate into `validateClaimReachability` from `src/claim-report.js`.
+   Reject missing objects and non-ancestors (partial merge, cherry-pick-only, wrong branch). Do not close tasks whose claimed commits are not on the merged tree; re-dispatch the writer/fix agent for a clean reachable report.
+5. For each `claimed-pass` task on the **MERGED** tree: re-run `tasks[].verifier` (verify-claim / `done` path).
+6. Verifier fail ⇒ do **not** `done`; re-dispatch code-only fix agent (max 2) or stop for operator.
+7. **Complex tasks** (`isComplexTask` with `destructiveDiff` from the **validated claim range**): `review-code --mode=both` on that range before `done`; blocker/critical block close; major needs disposition `accept|defer|fix`; durable receipt before `done`. Non-complex → verifier-only GATE-R2.
+8. Only orchestrator `done <taskId>` writes durable state — and only after reachability + post-merge verifier pass.
 
 A missing claim entry for a work-order task is treated as incomplete — do not invent pass.
 
@@ -123,14 +127,14 @@ A missing claim entry for a work-order task is treated as incomplete — do not 
 
 ## HARD-GATE — resume refuse
 
-When automate is active, **refuse** implement resume (Step 0.5) when **any** of:
+**Refuse** implement resume (Step 0.5) **and** refuse `--clear-execution-mode` / Mode-1 entry for the selected plan when **any** of:
 
 1. Plan worktree is dirty / unexpectedly advanced (`git status --porcelain` non-empty for task-owned work).
 2. `## Session handoff` has unfilled `TODO` / `REPLACE_*` / placeholder fields.
-3. A **phase-writer lease** is still active (`src/writer-lease.js` — `isLeaseActive`) — phase writer still running or lease not cleared after prior spawn.
+3. A **phase-writer lease** is `active` **or** `malformed` (`src/writer-lease.js` — `readLeaseResult` / `isLeaseBlocking` / `hasActiveLease`; malformed ≠ missing) — phase writer still running, lease not cleared, or torn file requiring operator recovery.
 4. Sibling phase merge is mid-flight (incomplete merge state).
 
-**HARD-GATE:** do not spawn a second phase writer while a lease is active. Clear the lease only after sync-wait + claim collect + merge settle (see worktree-isolation + implement Step D/D.5).
+**HARD-GATE:** do not spawn a second phase writer while a lease is blocking. Acquire via exclusive create (`acquireLeaseFile`). Clear only with matching owner token (`clearLeaseFile(..., ownerToken)`) after sync-wait + claim collect + merge settle (see worktree-isolation + implement Step D/D.5).
 
 ---
 
@@ -144,7 +148,7 @@ On post-merge verifier fail, content merge conflict, complex-review blocker/crit
 
 The phase writer stops at the claim report. What follows is **never** the writer's job:
 
-1. Merge sibling → plan branch; post-merge re-verify; orchestrator `done` per task.
+1. Merge sibling → plan branch; **prove claim reachability** on plan-branch HEAD; post-merge re-verify; orchestrator `done` per task.
 2. When **all** phase tasks are `done`: spawn the **evaluation agent** (fresh, read-only — `implement-phase-evaluator.md`).
 3. On evaluation blocker/critical: reopen tasks or blocking follow-ups; re-dispatch code-only fix agent (max 2); re-run verifiers/complex reviews; only then continue.
 4. Then `phase-done` with `review-code --mode=both`.

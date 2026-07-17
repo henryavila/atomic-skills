@@ -410,3 +410,98 @@ export function validatedRangeForDone(claim, options = {}) {
     errors,
   };
 }
+
+/**
+ * Post-merge reachability gate (pure): every open claim's commit identity must be
+ * reachable on the plan branch (ancestors of HEAD / present in the reachable set).
+ *
+ * Orchestrator should collect reachable SHAs after merge settle, e.g.:
+ *   git rev-parse HEAD
+ *   git merge-base --is-ancestor <sha> HEAD   (exit 0 ⇒ reachable)
+ * then pass a Set of known-good SHAs or a predicate `(sha) => boolean`.
+ *
+ * Missing or non-ancestor claims are rejected — do not run verifier/`done` until
+ * the claim set is reachable on the merged plan tree.
+ *
+ * @param {ClaimReport | TaskClaim[] | unknown} reportOrRaw
+ * @param {Iterable<string> | ((sha: string) => boolean)} reachable
+ *   Set/list of reachable object ids, or predicate returning true when a sha is
+ *   an ancestor of plan-branch HEAD (or otherwise present on the merged tree).
+ * @returns {{ ok: boolean, errors: string[] }}
+ */
+export function validateClaimReachability(reportOrRaw, reachable) {
+  const report =
+    reportOrRaw != null &&
+    typeof reportOrRaw === 'object' &&
+    !Array.isArray(reportOrRaw) &&
+    Array.isArray(/** @type {ClaimReport} */ (reportOrRaw).tasks)
+      ? /** @type {ClaimReport} */ (reportOrRaw)
+      : parseClaimReport(reportOrRaw);
+
+  /** @type {string[]} */
+  const errors = [];
+
+  if (report == null || !Array.isArray(report.tasks)) {
+    return {
+      ok: false,
+      errors: ['claim report missing or has no tasks[]'],
+    };
+  }
+
+  /** @type {(sha: string) => boolean} */
+  let isReachable;
+  if (typeof reachable === 'function') {
+    isReachable = reachable;
+  } else if (reachable != null && typeof reachable[Symbol.iterator] === 'function') {
+    const set = new Set(
+      [...reachable].map((s) => String(s).trim()).filter((s) => s !== ''),
+    );
+    isReachable = (sha) => {
+      const key = String(sha).trim();
+      if (set.has(key)) return true;
+      // Allow prefix match when set holds full SHAs and claims hold short SHAs (or reverse)
+      for (const known of set) {
+        if (known.startsWith(key) || key.startsWith(known)) return true;
+      }
+      return false;
+    };
+  } else {
+    return {
+      ok: false,
+      errors: ['reachable set or predicate is required'],
+    };
+  }
+
+  for (const claim of report.tasks) {
+    if (claim == null || !isOpenClaim(claim)) continue;
+    const tid = claim.taskId != null ? String(claim.taskId) : '(missing)';
+    const range = claimRangeFromTask(claim);
+    if (range == null) {
+      // Field validation is separate; reachability only checks known identities
+      continue;
+    }
+    if (range.kind === 'range') {
+      for (const [label, sha] of [
+        ['base', range.base],
+        ['head', range.head],
+      ]) {
+        if (sha == null || String(sha).trim() === '') continue;
+        if (!isReachable(String(sha))) {
+          errors.push(
+            `${tid}: ${label} ${sha} is not reachable on the plan branch (missing or non-ancestor of HEAD)`,
+          );
+        }
+      }
+    } else if (range.kind === 'shas') {
+      for (const sha of range.commitShas || []) {
+        if (!isReachable(String(sha))) {
+          errors.push(
+            `${tid}: commit ${sha} is not reachable on the plan branch (missing or non-ancestor of HEAD)`,
+          );
+        }
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}

@@ -1,6 +1,13 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -13,10 +20,19 @@ import {
   parseLeaseJson,
   serializeLease,
   writeLeaseFile,
+  acquireLeaseFile,
   readLeaseFile,
+  readLeaseResult,
   hasActiveLease,
+  isLeaseBlocking,
   clearLeaseFile,
+  leaseOwnerToken,
+  leaseTokenMatches,
 } from '../src/writer-lease.js';
+import {
+  validateClaimReachability,
+  parseClaimReport,
+} from '../src/claim-report.js';
 
 describe('sanitizePlanSlug / leasePath', () => {
   it('leasePath joins statusRoot/writer-leases/<planSlug>.json', () => {
@@ -159,15 +175,39 @@ describe('parseLeaseJson / serializeLease', () => {
   });
 });
 
-describe('FS wrappers write/read/clear/hasActiveLease', () => {
+describe('leaseOwnerToken / leaseTokenMatches', () => {
+  it('extracts owner token fields', () => {
+    const lease = buildActiveLease({
+      planSlug: 'p',
+      phaseId: 'F1',
+      hostId: 'host-a',
+      worktreePath: '/wt',
+      startedAt: '2026-07-17T00:00:00.000Z',
+    });
+    const token = leaseOwnerToken(lease);
+    assert.deepEqual(token, {
+      planSlug: 'p',
+      phaseId: 'F1',
+      hostId: 'host-a',
+      startedAt: '2026-07-17T00:00:00.000Z',
+    });
+    assert.equal(leaseTokenMatches(lease, token), true);
+    assert.equal(
+      leaseTokenMatches(lease, { ...token, hostId: 'other' }),
+      false,
+    );
+  });
+});
+
+describe('FS wrappers acquire/read/clear/hasActiveLease (C1/C2/C3)', () => {
   /** @type {string} */
   let statusRoot;
 
-  before(() => {
+  beforeEach(() => {
     statusRoot = mkdtempSync(join(tmpdir(), 'writer-lease-'));
   });
 
-  after(() => {
+  afterEach(() => {
     try {
       rmSync(statusRoot, { recursive: true, force: true });
     } catch {
@@ -175,36 +215,243 @@ describe('FS wrappers write/read/clear/hasActiveLease', () => {
     }
   });
 
-  it('writeLeaseFile then hasActiveLease and readLeaseFile', () => {
-    const lease = buildActiveLease({
+  function activeLease(overrides = {}) {
+    return buildActiveLease({
       planSlug: 'iso-plan',
       phaseId: 'F1',
       hostId: 'test-host',
       worktreePath: '/tmp/sibling-wt',
       writerBranch: 'impl/f1',
       startedAt: '2026-07-17T18:00:00.000Z',
+      ...overrides,
     });
-    const path = writeLeaseFile(statusRoot, lease);
+  }
+
+  // --- C1: atomic exclusive acquire ---
+
+  it('acquireLeaseFile / writeLeaseFile exclusive create then hasActiveLease and readLeaseFile', () => {
+    const lease = activeLease();
+    const path = acquireLeaseFile(statusRoot, lease);
     assert.equal(path, leasePath(statusRoot, 'iso-plan'));
     assert.equal(existsSync(path), true);
     assert.equal(hasActiveLease(statusRoot, 'iso-plan'), true);
+    assert.equal(isLeaseBlocking(statusRoot, 'iso-plan'), true);
     const read = readLeaseFile(statusRoot, 'iso-plan');
     assert.equal(isLeaseActive(read), true);
     assert.equal(read.phaseId, 'F1');
     assert.equal(read.worktreePath, '/tmp/sibling-wt');
   });
 
-  it('clearLeaseFile removes lease and hasActiveLease becomes false', () => {
-    assert.equal(hasActiveLease(statusRoot, 'iso-plan'), true);
-    const removed = clearLeaseFile(statusRoot, 'iso-plan');
-    assert.equal(removed, true);
-    assert.equal(hasActiveLease(statusRoot, 'iso-plan'), false);
-    assert.equal(readLeaseFile(statusRoot, 'iso-plan'), null);
-    assert.equal(clearLeaseFile(statusRoot, 'iso-plan'), false);
+  it('writeLeaseFile uses exclusive create (alias path for active acquire)', () => {
+    const lease = activeLease({ planSlug: 'wx-plan' });
+    const path = writeLeaseFile(statusRoot, lease);
+    assert.equal(existsSync(path), true);
+    assert.throws(
+      () => writeLeaseFile(statusRoot, activeLease({ planSlug: 'wx-plan', hostId: 'other' })),
+      /already exists|EEXIST|lease already/i,
+    );
   });
 
-  it('readLeaseFile returns null for unknown plan', () => {
+  it('C1: concurrent double-acquire fails — second exclusive create refuses', () => {
+    const leaseA = activeLease({
+      planSlug: 'race-plan',
+      hostId: 'host-a',
+      startedAt: '2026-07-17T10:00:00.000Z',
+    });
+    const leaseB = activeLease({
+      planSlug: 'race-plan',
+      hostId: 'host-b',
+      startedAt: '2026-07-17T10:00:01.000Z',
+    });
+
+    const pathA = acquireLeaseFile(statusRoot, leaseA);
+    assert.equal(existsSync(pathA), true);
+    assert.equal(readLeaseFile(statusRoot, 'race-plan').hostId, 'host-a');
+
+    assert.throws(
+      () => acquireLeaseFile(statusRoot, leaseB),
+      /already exists|EEXIST|lease already/i,
+    );
+    // Winner unchanged — no overwrite of active lease
+    assert.equal(readLeaseFile(statusRoot, 'race-plan').hostId, 'host-a');
+    assert.equal(readLeaseFile(statusRoot, 'race-plan').startedAt, leaseA.startedAt);
+  });
+
+  // --- C2: malformed fail-closed ---
+
+  it('readLeaseResult: missing vs active vs malformed', () => {
+    assert.deepEqual(readLeaseResult(statusRoot, 'nope'), { status: 'missing' });
+
+    const lease = activeLease({ planSlug: 'shape-plan' });
+    acquireLeaseFile(statusRoot, lease);
+    const active = readLeaseResult(statusRoot, 'shape-plan');
+    assert.equal(active.status, 'active');
+    assert.equal(active.lease.planSlug, 'shape-plan');
+
+    const badPath = leasePath(statusRoot, 'bad-plan');
+    mkdirSync(join(statusRoot, WRITER_LEASES_DIR), { recursive: true });
+    writeFileSync(badPath, '{not valid json', 'utf8');
+    const bad = readLeaseResult(statusRoot, 'bad-plan');
+    assert.equal(bad.status, 'malformed');
+    assert.ok(bad.error);
+  });
+
+  it('C2: malformed lease is not treated as absent — hasActiveLease / isLeaseBlocking refuse', () => {
+    const badPath = leasePath(statusRoot, 'torn-plan');
+    mkdirSync(join(statusRoot, WRITER_LEASES_DIR), { recursive: true });
+    writeFileSync(badPath, 'truncated garbage', 'utf8');
+
+    assert.equal(readLeaseResult(statusRoot, 'torn-plan').status, 'malformed');
+    assert.equal(isLeaseBlocking(statusRoot, 'torn-plan'), true);
+    // Fail-closed: gate treats malformed as blocking (resume must refuse)
+    assert.equal(hasActiveLease(statusRoot, 'torn-plan'), true);
+    assert.throws(() => readLeaseFile(statusRoot, 'torn-plan'), /malformed|LEASE_MALFORMED/i);
+  });
+
+  it('readLeaseFile returns null only for missing plan', () => {
     assert.equal(readLeaseFile(statusRoot, 'no-such-plan'), null);
     assert.equal(hasActiveLease(statusRoot, 'no-such-plan'), false);
+    assert.equal(isLeaseBlocking(statusRoot, 'no-such-plan'), false);
+  });
+
+  // --- C3: clear with owner token CAS ---
+
+  it('clearLeaseFile with matching owner token removes lease', () => {
+    const lease = activeLease({ planSlug: 'clear-plan' });
+    acquireLeaseFile(statusRoot, lease);
+    assert.equal(hasActiveLease(statusRoot, 'clear-plan'), true);
+
+    const token = leaseOwnerToken(lease);
+    const removed = clearLeaseFile(statusRoot, 'clear-plan', token);
+    assert.equal(removed, true);
+    assert.equal(hasActiveLease(statusRoot, 'clear-plan'), false);
+    assert.equal(readLeaseFile(statusRoot, 'clear-plan'), null);
+    assert.equal(clearLeaseFile(statusRoot, 'clear-plan', token), false);
+  });
+
+  it('C3: clearLeaseFile wrong-token refuses and leaves file', () => {
+    const lease = activeLease({
+      planSlug: 'cas-plan',
+      hostId: 'owner-1',
+      startedAt: '2026-07-17T12:00:00.000Z',
+    });
+    acquireLeaseFile(statusRoot, lease);
+    const path = leasePath(statusRoot, 'cas-plan');
+    const before = readFileSync(path, 'utf8');
+
+    assert.throws(
+      () =>
+        clearLeaseFile(statusRoot, 'cas-plan', {
+          planSlug: 'cas-plan',
+          phaseId: 'F1',
+          hostId: 'stale-host',
+          startedAt: '2026-07-17T12:00:00.000Z',
+        }),
+      /token|mismatch|owner/i,
+    );
+    assert.equal(existsSync(path), true);
+    assert.equal(readFileSync(path, 'utf8'), before);
+    assert.equal(hasActiveLease(statusRoot, 'cas-plan'), true);
+
+    // Wrong startedAt (newer lease scenario)
+    assert.throws(
+      () =>
+        clearLeaseFile(statusRoot, 'cas-plan', {
+          planSlug: 'cas-plan',
+          phaseId: 'F1',
+          hostId: 'owner-1',
+          startedAt: '2026-07-17T99:00:00.000Z',
+        }),
+      /token|mismatch|owner/i,
+    );
+  });
+
+  it('clearLeaseFile requires owner token', () => {
+    const lease = activeLease({ planSlug: 'tok-req' });
+    acquireLeaseFile(statusRoot, lease);
+    assert.throws(() => clearLeaseFile(statusRoot, 'tok-req'), /token|owner/i);
+    assert.throws(() => clearLeaseFile(statusRoot, 'tok-req', null), /token|owner/i);
+    assert.throws(
+      () => clearLeaseFile(statusRoot, 'tok-req', { planSlug: 'tok-req' }),
+      /token|owner|required/i,
+    );
+    assert.equal(hasActiveLease(statusRoot, 'tok-req'), true);
+  });
+});
+
+describe('C5: validateClaimReachability (pure helper)', () => {
+  it('accepts when all claimed SHAs are in the reachable set', () => {
+    const report = parseClaimReport({
+      tasks: [
+        {
+          taskId: 'T-001',
+          status: 'claimed-pass',
+          commitShas: ['aaa111', 'bbb222'],
+          paths: ['src/a.js'],
+          verifierCommand: 'node --test',
+          exitCode: 0,
+          transcript: 'ok',
+        },
+      ],
+    });
+    const reachable = new Set(['aaa111', 'bbb222', 'ccc333']);
+    const result = validateClaimReachability(report, reachable);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('rejects missing / non-ancestor SHAs and range endpoints', () => {
+    const report = {
+      tasks: [
+        {
+          taskId: 'T-001',
+          status: 'claimed-pass',
+          commitShas: ['deadbeef'],
+          paths: ['src/a.js'],
+          verifierCommand: 'node --test',
+          exitCode: 0,
+          transcript: 'ok',
+        },
+        {
+          taskId: 'T-002',
+          status: 'claimed-pass',
+          base: 'base000',
+          head: 'head999',
+          paths: ['src/b.js'],
+          verifierCommand: 'node --test',
+          exitCode: 0,
+          transcript: 'ok',
+        },
+      ],
+    };
+    // Only head is reachable — base and deadbeef are not
+    const result = validateClaimReachability(report, new Set(['head999']));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => /T-001|deadbeef|not reachable/i.test(e)));
+    assert.ok(result.errors.some((e) => /T-002|base000|not reachable/i.test(e)));
+  });
+
+  it('accepts blocked/skipped without SHAs; predicate form works', () => {
+    const report = {
+      tasks: [
+        {
+          taskId: 'T-b',
+          status: 'blocked',
+          paths: [],
+          notes: 'waiting',
+        },
+        {
+          taskId: 'T-ok',
+          status: 'claimed-pass',
+          commitShas: ['abc'],
+          paths: ['x'],
+          verifierCommand: 't',
+          exitCode: 0,
+          transcript: '',
+        },
+      ],
+    };
+    const result = validateClaimReachability(report, (sha) => sha === 'abc');
+    assert.equal(result.ok, true);
   });
 });
