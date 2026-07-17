@@ -261,9 +261,19 @@ describe('F6 release fault matrix (remediated engine)', () => {
       }
       const regPath = join(root, '.atomic-skills', 'installs.json');
       assert.equal(existsSync(regPath), true);
+      // P1-B: versioned schema { schemaVersion, owners:[{basePath,...}] }
+      // (legacy string[] is migrated on write; concurrent writers must not drop owners).
       const reg = JSON.parse(readFileSync(regPath, 'utf8'));
-      assert.ok(Array.isArray(reg), 'registry is a path array');
-      assert.equal(reg.length, 30, `expected 30 owners, got ${reg.length}`);
+      const owners = Array.isArray(reg) ? reg : (reg.owners || []);
+      assert.ok(Array.isArray(owners), 'registry owners is an array');
+      if (!Array.isArray(reg)) {
+        assert.equal(reg.schemaVersion, '1');
+      }
+      assert.equal(owners.length, 30, `expected 30 owners, got ${owners.length}`);
+      const paths = new Set(
+        owners.map((o) => (typeof o === 'string' ? o : o.basePath)).filter(Boolean),
+      );
+      assert.equal(paths.size, 30, 'all 30 basePaths preserved under lock');
 
       for (const base of bases) {
         unregisterInstall(base);

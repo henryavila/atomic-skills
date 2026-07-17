@@ -265,7 +265,8 @@ tasks: []
 phase body
 `);
       const report = normalizeStateDir(dir, { nowIso: NOW });
-      const visited = report.files.map((f) => f.filePath);
+      // Normalize separators so endsWith checks work on win32 (CI windows-path-contracts).
+      const visited = report.files.map((f) => f.filePath.replace(/\\/g, '/'));
       assert.ok(visited.some((p) => p.endsWith('/plan.md')), 'plan.md under projects/ must be walked');
       assert.ok(visited.some((p) => p.endsWith('/phases/f0-foundation.md')), 'phases/*.md must be walked');
       // Plan criterion + initiative gate both normalized done → met (tree-position kind).
