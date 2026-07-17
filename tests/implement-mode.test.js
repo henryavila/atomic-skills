@@ -4,6 +4,11 @@ import {
   parseImplementMode,
   isAutomateActive,
   IMPLEMENT_MODES,
+  PLAN_EXECUTION_MODES,
+  stampExecutionMode,
+  clearExecutionModeStamp,
+  hasAutomateStamp,
+  isPlanExecutionMode,
 } from '../src/implement-mode.js';
 
 describe('parseImplementMode', () => {
@@ -274,5 +279,88 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
         `isAutomateActive(${JSON.stringify(row.input)})`,
       );
     }
+  });
+});
+
+describe('executionMode stamp + clear path (T-009)', () => {
+  it('PLAN_EXECUTION_MODES includes automate and is frozen', () => {
+    assert.ok(PLAN_EXECUTION_MODES.includes('automate'));
+    assert.ok(isPlanExecutionMode('automate'));
+    assert.equal(isPlanExecutionMode('banana'), false);
+    assert.throws(() => {
+      // @ts-expect-error frozen
+      PLAN_EXECUTION_MODES.push('hack');
+    });
+  });
+
+  it('stampExecutionMode sets executionMode automate immutably after confirm path', () => {
+    const plan = { slug: 'demo', status: 'active', title: 'Demo' };
+    const stamped = stampExecutionMode(plan, 'automate');
+    assert.equal(stamped.executionMode, 'automate');
+    assert.equal('executionMode' in plan, false, 'original plan not mutated');
+    assert.equal(hasAutomateStamp(stamped), true);
+    assert.equal(
+      isAutomateActive({ planExecutionMode: stamped.executionMode }),
+      true,
+      'stamp alone → isAutomateActive true',
+    );
+  });
+
+  it('stamp alone keeps isAutomateActive true until clear', () => {
+    const stamped = stampExecutionMode({ slug: 'p' }, 'automate');
+    assert.equal(
+      isAutomateActive({
+        cliMode: undefined,
+        planExecutionMode: stamped.executionMode,
+        clearExecutionMode: false,
+      }),
+      true,
+    );
+    const cleared = clearExecutionModeStamp(stamped);
+    assert.equal('executionMode' in cleared, false);
+    assert.equal(hasAutomateStamp(cleared), false);
+    assert.equal(
+      isAutomateActive({
+        planExecutionMode: cleared.executionMode,
+        clearExecutionMode: false,
+      }),
+      false,
+    );
+    // Original stamped object unchanged
+    assert.equal(stamped.executionMode, 'automate');
+  });
+
+  it('clear path: --clear-execution-mode parse + clearExecutionModeStamp', () => {
+    const parsed = parseImplementMode(['--clear-execution-mode', 'my-plan']);
+    assert.equal(parsed.clearExecutionMode, true);
+    const stamped = stampExecutionMode({ slug: 'my-plan' }, 'automate');
+    assert.equal(
+      isAutomateActive({
+        planExecutionMode: stamped.executionMode,
+        clearExecutionMode: parsed.clearExecutionMode,
+      }),
+      false,
+    );
+    const next = clearExecutionModeStamp(stamped);
+    assert.equal(
+      isAutomateActive({ planExecutionMode: next.executionMode }),
+      false,
+    );
+  });
+
+  it('default stampExecutionMode mode is automate', () => {
+    assert.equal(stampExecutionMode({}).executionMode, 'automate');
+  });
+
+  it('rejects unknown stamp modes', () => {
+    assert.throws(
+      () => stampExecutionMode({}, 'banana'),
+      /unknown|executionMode/i,
+    );
+  });
+
+  it('clearExecutionModeStamp on null/empty yields empty object', () => {
+    assert.deepEqual(clearExecutionModeStamp(null), {});
+    assert.deepEqual(clearExecutionModeStamp(undefined), {});
   });
 });

@@ -40,6 +40,11 @@
       "description": "F4/T-003: opts this plan into the closedAt forward-only hard-gate. Written ONCE by scripts/harden-closedat.js. grandfatheredTaskIds = the done-without-closedAt tasks alive at the flip instant (exempt); every later done task must record closedAt. Never implies a retroactive closedAt (P3)."
     },
     "branch": { "type": "string" },
+    "executionMode": {
+      "type": "string",
+      "enum": ["automate", "mode1", "1", "default", "2"],
+      "description": "Optional durable implement execution mode stamp (F2/T-009, design D14). Absent on pre-automate plans (still valid). First confirmed `implement --mode=automate` entry MUST stamp `automate` after interactive operator confirm; stamp alone re-enters pure-maestro + review cadence until `implement --clear-execution-mode` or a recorded clear mutation removes the field. Read with `isAutomateActive({ planExecutionMode })` from src/implement-mode.js."
+    },
     "currentPhase": { "type": ["string", "null"] },
     "planActive": {
       "type": "boolean",

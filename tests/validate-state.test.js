@@ -1679,3 +1679,39 @@ test('crossValidate: closedAtHardening does not scan same-slug initiatives from 
 
   assert.deepEqual(crossValidate(plans, inits), []);
 });
+
+// F2/T-009 — optional plan.executionMode stamp (automate)
+test('plan schema: executionMode optional; plans without the field still validate', () => {
+  const validators = buildValidators();
+  const without = basePlan();
+  assert.equal(
+    validators.validatePlan(without),
+    true,
+    `plan without executionMode must validate: ${planErrorText(validators.validatePlan.errors)}`,
+  );
+  assert.equal('executionMode' in without, false);
+});
+
+test('plan schema: executionMode accepts automate and other enum values', () => {
+  const validators = buildValidators();
+  for (const mode of ['automate', 'mode1', '1', 'default', '2']) {
+    const plan = basePlan({ executionMode: mode });
+    assert.equal(
+      validators.validatePlan(plan),
+      true,
+      `executionMode ${mode} must validate: ${planErrorText(validators.validatePlan.errors)}`,
+    );
+  }
+});
+
+test('plan schema: executionMode rejects unknown tokens', () => {
+  const validators = buildValidators();
+  const plan = basePlan({ executionMode: 'banana' });
+  assert.equal(
+    validators.validatePlan(plan),
+    false,
+    'unknown executionMode must fail schema',
+  );
+  const text = planErrorText(validators.validatePlan.errors);
+  assert.match(text, /executionMode|allowed values|enum/i);
+});
