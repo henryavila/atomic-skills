@@ -2,14 +2,23 @@ Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that si
 
 If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected. **The explicit arg selects plan, branch, and worktree before any resume gate or write** — see Step 0.
 
-**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`). Opt-in `--mode=automate` (or `mode:automate`) enters **pure-maestro** automate mode (session orchestrates; one phase writer codes — full maestro loop lands in later phases). Absent mode / `--mode=1` stays Mode 1 (this skill's default session-writer path). Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. Automate is **off by default**. Mode 1 iron law below is unchanged.
+**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`). Opt-in `--mode=automate` (or `mode:automate`) enters **pure maestro** automate mode. Absent mode / `--mode=1` stays Mode 1 (this skill's default session-writer path). Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. Automate is **off by default**. When `isAutomateActive` is true, the host session follows the pure-maestro spine (never product-source edits); Mode 1 iron law still binds the single **phase writer**.
 
 ## Iron Law
 
 CODING STAYS SINGLE-THREADED (ONE WRITER PER WORKTREE).
 MICROCOMMITS ARE THE SNAPSHOT.
 
-One writer touches a given working tree at a time — never two concurrent agents editing files in the same tree. Concurrent Mode 2 worktrees are allowed only when each has exactly one writer and merge-back is serial through the primary. Subagents are for read-only investigation, never parallel coding in the same tree. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor never self-certifies. After every verified task close, create explicit-path microcommits for the implementation diff and the project-state close diff; a handoff over dirty task-owned work is an emergency note, not a checkpoint.
+One writer touches a given working tree at a time — never two concurrent agents editing files in the same tree. Concurrent Mode 2 worktrees are allowed only when each has exactly one writer and merge-back is serial through the primary. Subagents are for read-only investigation, never parallel coding in the same tree. A task reaches `done` ONLY through verify-on-done (its deterministic verifier executed, passing, evidence written) — you never mark your own work done by assertion, and a cheap/foreign executor **never self-certifies**. After every verified task close, create explicit-path microcommits for the implementation diff and the project-state close diff; a handoff over dirty task-owned work is an emergency note, not a checkpoint.
+
+### Automate iron laws (when `isAutomateActive`)
+
+1. **Session = pure maestro.** The host session **never** edits product source under `--mode=automate`. It dispatches, sync-waits, merges (git-ops only), re-verifies, reviews, and owns every `done` / `phase-done` / finalize state write.
+2. **One phase writer per phase, code-only.** Granularity is the phase initiative. The phase writer runs orient → code → pre-close self-check → implementation microcommits → **claim report**. It **must not** invoke `done`, `phase-done`, handoff mutation, rollups, lessons, or any durable `.atomic-skills/` write.
+3. **Never self-certify.** A phase-writer claim is confidence, not closure. Only the orchestrator re-running the task verifier on the **MERGED** plan tree (via verify-claim / `done`) may close.
+4. **Never silent Mode-1 fallback.** Under automate, spawn failure or review/verifier fail means re-dispatch a code-only fix agent (max **2**) or stop for the operator — **not** the host session coding product source. Leaving automate requires explicit `--clear-execution-mode` / Mode-1 re-entry recorded in the decision log.
+5. **No concurrent phase writers** in v1, even when `parallelismAllowed` is true. Sequential phases only.
+6. **planEndReviewOk** (and user validation) gate finalize/archive under automate — see plan-end path and `src/plan-end-review.js`.
 
 <HARD-GATE>
 If you are about to mark a task `done` because it *looks* finished, without running its verifier through the `done` / verify-on-done patterns: STOP. Run the verifier. The pass is the evidence; "it works" is the claim.
@@ -31,7 +40,7 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 
 **Before any resume gate, dirty check, or write**, select the plan the user asked for and bind its worktree. The pure helper is `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`). Skill prose must follow the same order.
 
-0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Unknown mode → refuse with a clear error (do not ignore). Combine with plan frontmatter `executionMode` via `isAutomateActive({ cliMode, planExecutionMode, clearExecutionMode })`. When automate is active, the session is pure maestro (no product-source edits by the host session); Mode 1 iron law still applies to the single phase writer. Full maestro loop prose is owned by later phases — F0 only lands mode detection.
+0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Unknown mode → refuse with a clear error (do not ignore). Combine with plan frontmatter `executionMode` via `isAutomateActive({ cliMode, planExecutionMode, clearExecutionMode })`. When automate is active, enter the **Automate mode — pure maestro loop** (Steps A–I below) after Step 1 hard gates pass; do not run Mode 1 Step 2 session-writer coding.
 1. **Parse the arg.** `{{ARG_VAR}}` is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`), after stripping mode flags. If missing, ask which plan; do not silently pick a different active plan when more than one is open.
 2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
 3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
@@ -49,7 +58,8 @@ Run **only after** Step 0 reports home (`resumeGateAllowed`). The gate is author
 
 1. Run `git status --porcelain` and `git log --oneline -3` via {{BASH_TOOL}} **in the plan worktree**. A dirty or unexpectedly-advanced tree on resume means the prior session left uncommitted or unrecorded work — **refuse** (HARD-GATE): surface the diff, have the user commit/stash, then retry.
 2. Read the selected plan's active initiative `## Session handoff` block (if present). If it contains an unfilled `TODO`/`REPLACE_*`/`<…>` placeholder, the prior session did not finish writing it — **refuse** and surface which field is unfilled. A handoff with placeholders is not a handoff.
-3. On a clean resume: the handoff IS your re-orientation — read its narrative + decision log + `nextAction`; do NOT cold-re-investigate. Any residual heavy read goes to a read-only subagent (below), never the main coding context.
+3. **Automate writer-lease HARD-GATE:** when `isAutomateActive`, also refuse resume if a phase-writer lease is still active (see `src/writer-lease.js` / `skills/shared/worktree-isolation.md`) or a sibling phase merge is mid-flight. Clear the lease only after sync-wait + claim collect + merge settle.
+4. On a clean resume: the handoff IS your re-orientation — read its narrative + decision log + `nextAction`; do NOT cold-re-investigate. Any residual heavy read goes to a read-only subagent (below), never the main coding context.
 
 ### Step 1 — Load the admitted tasks
 
@@ -63,7 +73,34 @@ Resolve the active phase before accepting any pending task:
 
 After that hard pre-check passes, confirm each pending task carries the SPEC interior: one or more exact `outputs[].path` targets, `scopeBoundary[]` explicit exclusions (DO-NOT constraints), `acceptance[]`, and a deterministic `verifier:` (`kind shell|test|query`). A task missing any of these was not admitted (R-ORCH-23) — surface it and stop; do not improvise the missing spec.
 
-### Step 2 — Execute one task (single-threaded)
+### Automate mode — pure maestro loop (when `isAutomateActive`)
+
+When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). After Step 1 hard gates pass, run this spine. Detail for the phase writer contract: `{{READ_TOOL}} skills/shared/implement-phase-writer.md`. Isolation/lease: `{{READ_TOOL}} skills/shared/worktree-isolation.md` + `src/writer-lease.js`. Evaluation order: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`.
+
+| Step | Name | Orchestrator action |
+|------|------|---------------------|
+| **A** | Load phase | Active phase + `businessIntent` + SPEC-admitted pending tasks (Step 1 already hard-gated). |
+| **B** | Snapshot handoff → build phase work-order | Write/refresh `## Session handoff` (pre-dispatch checkpoint). Build a **phase work-order** for all pending tasks of **this phase only** (task ids, paths, `scopeBoundary`, `acceptance`, `verifier`). |
+| **C** | Spawn phase writer | Write **writer lease** before spawn. Spawn **ONE** code-only **phase writer** with a **constructed brief** (work-order + scoped context — **MUST NOT** include orchestrator chat history). Sibling worktree isolation; never nest under the plan worktree. |
+| **D** | Sync wait → collect claim report | **SYNC WAIT** until the writer exits. Collect the **claim report** (per task: commit SHAs, paths, verifier command + exit + transcript). Refuse self-certify — claims do not close tasks. |
+| **D.5** | Merge sibling → plan branch | Orchestrator merges sibling phase worktree → plan branch (**git-ops only**). Content conflicts ⇒ re-dispatch a code-only fix agent (not hand-edit). Refuse resume mid-merge. |
+| **E** | Re-verify on MERGED tree → done | For each claimed task **on the MERGED plan tree only**: re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. If `isComplexTask` → `review-code --mode=both` on the validated task commit range; blocker/critical block `done`. Only on verifier pass (+ complex review clear when required) → orchestrator `done <task-id>`. |
+| **F** | Evaluation agent | When all phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. See evaluator asset. |
+| **G** | phase-done | Only after evaluation pass (or operator disposition of findings): `phase-done` with review mode **`both`** under automate (F2 wires transition default; this skill still states the order). Durable decisions log visible for audit. |
+| **H** | Next phase | Re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. |
+| **I** | Plan end | After last phase: plan-end `external-both` + **`planEndReviewOk`** (`src/plan-end-review.js`) → user validates implementation + decisions → only then finalize/archive. |
+
+**Hard rules for the pure maestro path:**
+
+- Session never edits product source (pure maestro).
+- One phase writer per phase, **code-only** (forbids `done`, `phase-done`, handoff mutation, any `.atomic-skills/` durable write).
+- Never self-certify; never silent Mode-1 fallback under automate.
+- Max **2** re-dispatch rounds for verifier/review/evaluator fail, then mandatory operator stop.
+- Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable decisions log / handoff decision log.
+
+### Step 2 — Execute one task (single-threaded) — Mode 1 only
+
+**Skip this entire step when `isAutomateActive`.** Mode 1 session-writer path only.
 
 For the chosen task, in this order:
 
@@ -89,7 +126,12 @@ For the chosen task, in this order:
 
 ### Step 3 — Phase boundary
 
-When the last task of the phase closes, `done` announces the phase transition. Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint. Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule).
+When the last task of the phase closes, `done` announces the phase transition.
+
+- **Mode 1:** Run `phase-done` (`{{ASSETS_PATH}}/project-transitions.md`): it executes every pending exit-gate verifier (verify-on-done), runs the mandatory `review-code` phase-diff gate, advances the plan, and writes phase-boundary microcommits for each logical state checkpoint.
+- **Automate (`isAutomateActive`):** Fixed order — all phase tasks `done` → **evaluation agent** → then `phase-done` with `review-code --mode=both` (default under automate; F2 owns transition wiring). Do not skip the evaluation agent. See pure-maestro Steps F–G.
+
+Snapshot at the boundary. Do not auto-advance — the user opts in (intrusive-actions rule). Finalize/archive after the last phase still require `planEndReviewOk` and that the user validates implementation (automate).
 
 **Session cut-over (advisory, v1).** At a phase boundary, if the next pending task is structurally unrelated to the recent working set, you MAY recommend writing the handoff and starting a fresh session (a tightly-scoped fresh context beats a large stale one). This is advisory only — see `docs/design/project-orchestrator/06-session-boundary-and-telemetry.md` (F-E1). It never forces a cut, and it never reads a self-reported context-%.
 
@@ -200,6 +242,10 @@ Resident **triggers** only — if a thought matches one, STOP and read its full 
 - "Eight verifiers passed this session, the ninth is identical — running it is busywork."
 - "The handoff has a TODO but the user said keep going — I'll stub the unfilled piece and work around it."
 - "The user prefers terse handoffs — 'ran validate-state' is clear enough."
+- "Automate is active but the phase writer died — I'll just code the remaining tasks myself (silent Mode-1 fallback)."
+- "The phase writer said all verifiers passed — mark them done without re-running on the merged tree."
+- "I'll spawn two phase writers for independent phases in parallel under automate."
+- "I'll nest the phase worktree under the plan worktree to keep paths tidy."
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -210,3 +256,5 @@ The full Temptation→Reality table (every rationalization above, refuted with i
 ## Closing
 
 Output of a clean run: the phase's tasks each closed through a verified PASS (evidence in durable state), the `## Session handoff` block current and self-sufficient, the tree committed or its uncommitted changes recorded verbatim, and — at a phase boundary — `phase-done` run with its exit-gate verifiers and review gate. implement never closes a task on a claim and never codes two tasks at once.
+
+Under `--mode=automate` / pure maestro: the session never edits product source; one code-only phase writer per phase; orchestrator owns merge, post-merge re-verify, `done`, evaluation agent, and `phase-done`; never self-certify; never silent Mode-1 fallback; finalize/archive require `planEndReviewOk` and that the user validates implementation.
