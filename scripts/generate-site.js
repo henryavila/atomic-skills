@@ -80,6 +80,25 @@ export function loadProjectGuide(projectRoot, override) {
   if (data == null || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error(`project-guide.yaml must parse to an object: ${path}`);
   }
+  const required = [
+    'title',
+    'one_liner',
+    'entities',
+    'lifecycle_spine',
+    'can',
+    'cannot',
+    'command_groups',
+  ];
+  for (const key of required) {
+    if (!(key in data)) {
+      throw new Error(`project-guide.yaml missing required field: ${key}`);
+    }
+  }
+  for (const arrKey of ['entities', 'lifecycle_spine', 'can', 'cannot', 'command_groups']) {
+    if (!Array.isArray(data[arrKey]) || data[arrKey].length === 0) {
+      throw new Error(`project-guide.yaml ${arrKey} must be a non-empty array`);
+    }
+  }
   return data;
 }
 

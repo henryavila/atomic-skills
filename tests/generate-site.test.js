@@ -214,7 +214,9 @@ describe('render helpers', () => {
     assert.ok(skillsIndex.includes('NO TEST WITHOUT EVIDENCE.'));
 
     const landing = files.get('index.html');
-    assert.ok(landing.includes('href="project/index.html"'));
+    // No broken Project link when guide dataset is omitted.
+    assert.ok(!landing.includes('href="project/index.html"'));
+    assert.ok(!landing.includes('>Project<'));
   });
 
   it('buildSiteFiles emits project guide when projectGuide dataset is provided', () => {

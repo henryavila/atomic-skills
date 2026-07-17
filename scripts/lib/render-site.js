@@ -47,13 +47,24 @@ export function safeHttpUrl(raw) {
   }
 }
 
-const NAV = [
+const NAV_BASE = [
   { id: 'home', label: 'Home', path: 'index.html' },
   { id: 'skills', label: 'Skills', path: 'skills/index.html' },
-  { id: 'project', label: 'Project', path: 'project/index.html' },
   { id: 'modules', label: 'Modules', path: 'modules/index.html' },
   { id: 'hosts', label: 'Hosts', path: 'hosts/index.html' },
 ];
+
+const NAV_PROJECT = { id: 'project', label: 'Project', path: 'project/index.html' };
+
+/** @param {boolean} includeProject */
+export function navItems(includeProject = false) {
+  if (!includeProject) return [...NAV_BASE];
+  // Insert Project after Skills for product IA.
+  return [NAV_BASE[0], NAV_BASE[1], NAV_PROJECT, NAV_BASE[2], NAV_BASE[3]];
+}
+
+/** Default export alias used by tests — includes Project when site has the guide. */
+export const NAV = navItems(true);
 
 const FORMAT_LABELS = {
   command: 'Command (slash)',
@@ -92,8 +103,8 @@ function hrefFor(depth, relativePath) {
   return `${depthPrefix(depth)}${relativePath}`;
 }
 
-function renderNav(activeNav, depth) {
-  return NAV.map((item) => {
+function renderNav(activeNav, depth, includeProject = false) {
+  return navItems(includeProject).map((item) => {
     const cls = item.id === activeNav ? ' class="active"' : '';
     return `<a href="${hrefFor(depth, item.path)}"${cls}>${escapeHtml(item.label)}</a>`;
   }).join('\n      ');
@@ -101,9 +112,9 @@ function renderNav(activeNav, depth) {
 
 /**
  * Full HTML document shell.
- * @param {{ title: string, depth: number, activeNav: string, body: string, description?: string }} opts
+ * @param {{ title: string, depth: number, activeNav: string, body: string, description?: string, includeProject?: boolean }} opts
  */
-export function renderShell({ title, depth, activeNav, body, description }) {
+export function renderShell({ title, depth, activeNav, body, description, includeProject = false }) {
   const cssHref = `${depthPrefix(depth)}assets/ds.css`;
   const pageTitle = title.includes('Atomic Skills')
     ? title
@@ -128,7 +139,7 @@ export function renderShell({ title, depth, activeNav, body, description }) {
       <span class="site-brand-sub">product docs</span>
     </a>
     <nav class="site-nav" aria-label="Primary">
-      ${renderNav(activeNav, depth)}
+      ${renderNav(activeNav, depth, includeProject)}
     </nav>
   </header>
   <main class="site-main">
@@ -190,7 +201,7 @@ function renderExamples(examples) {
  * Landing page: product positioning, install, links.
  * @param {{ product: object, skills: ReturnType<typeof collectSkills>, pkgVersion?: string }} opts
  */
-export function renderLandingPage({ product, skills, pkgVersion }) {
+export function renderLandingPage({ product, skills, pkgVersion, includeProject = false }) {
   const p = product && typeof product === 'object' ? product : {};
   const whatIs = typeof p.what_is === 'string' ? p.what_is.trim() : '';
   const whatIsNot = Array.isArray(p.what_is_not) ? p.what_is_not : [];
@@ -236,10 +247,14 @@ export function renderLandingPage({ product, skills, pkgVersion }) {
           <a class="card-title" href="modules/index.html">Modules</a>
           <p class="one-liner">Optional install packs: memory, cross-model bridge, auto-update.</p>
         </article>
-        <article class="card">
+        ${
+          includeProject
+            ? `<article class="card">
           <a class="card-title" href="project/index.html">Project guide</a>
           <p class="one-liner">Mental model for Plan / Phase / Task — entities, lifecycle, can/cannot, commands.</p>
-        </article>
+        </article>`
+            : ''
+        }
         <article class="card">
           <a class="card-title" href="hosts/index.html">Hosts</a>
           <p class="one-liner">Tested vs Theoretical IDE support from product config.</p>
@@ -270,6 +285,7 @@ export function renderLandingPage({ product, skills, pkgVersion }) {
     activeNav: 'home',
     description: whatIs.slice(0, 160),
     body,
+    includeProject,
   });
 }
 
@@ -277,7 +293,8 @@ export function renderLandingPage({ product, skills, pkgVersion }) {
  * Skills index listing all catalog skills.
  * @param {{ skills: ReturnType<typeof collectSkills> }} opts
  */
-export function renderSkillsIndex({ skills }) {
+export function renderSkillsIndex({ skills, includeProject = false }) {
+  // includeProject controls Project nav entry (only when guide page is emitted).
   const cards = skills
     .map((skill) => {
       const e = skill.entry || {};
@@ -312,6 +329,7 @@ export function renderSkillsIndex({ skills }) {
     activeNav: 'skills',
     description: 'Atomic Skills catalog — Iron Laws and when-to-use from product SSOT.',
     body,
+    includeProject,
   });
 }
 
@@ -319,7 +337,7 @@ export function renderSkillsIndex({ skills }) {
  * Per-skill detail page (catalog fields only).
  * @param {{ skill: { key: string, entry: object, modulePath: string|null } }} opts
  */
-export function renderSkillDetail({ skill }) {
+export function renderSkillDetail({ skill, includeProject = false }) {
   const e = skill.entry || {};
   const oneLiner = typeof e.one_liner === 'string' ? e.one_liner : '';
   const iron = typeof e.iron_law === 'string' ? e.iron_law : '';
@@ -384,6 +402,7 @@ export function renderSkillDetail({ skill }) {
     activeNav: 'skills',
     description: oneLiner || pitch.slice(0, 160),
     body,
+    includeProject,
   });
 }
 
@@ -391,7 +410,7 @@ export function renderSkillDetail({ skill }) {
  * Modules page from catalog module_meta.
  * @param {{ moduleMeta: Record<string, object>|null|undefined }} opts
  */
-export function renderModulesPage({ moduleMeta }) {
+export function renderModulesPage({ moduleMeta, includeProject = false }) {
   const meta = moduleMeta && typeof moduleMeta === 'object' ? moduleMeta : {};
   const entries = Object.entries(meta);
 
@@ -444,6 +463,7 @@ export function renderModulesPage({ moduleMeta }) {
     activeNav: 'modules',
     description: 'Optional Atomic Skills install modules.',
     body,
+    includeProject,
   });
 }
 
@@ -456,6 +476,7 @@ export function renderHostsPage(opts = {}) {
   const supportLabel = opts.supportLabel ?? getIdeSupportLabel;
   // Public product surface only — exclude internal aliases (e.g. gemini-commands).
   const publicIds = opts.publicIdeIds ?? PUBLIC_IDE_IDS;
+  const includeProject = opts.includeProject === true;
 
   const rows = publicIds
     .filter((id) => ideConfig[id])
@@ -503,6 +524,7 @@ export function renderHostsPage(opts = {}) {
     activeNav: 'hosts',
     description: 'Atomic Skills IDE host support — Tested vs Theoretical.',
     body,
+    includeProject,
   });
 }
 
@@ -758,6 +780,7 @@ ${cannotList}
     activeNav: 'project',
     description: oneLiner || lede.slice(0, 160),
     body,
+    includeProject: true,
   });
 }
 
@@ -788,22 +811,23 @@ export function buildSiteFiles({
   const skills = collectSkills(catalogData);
   const product = catalogData.product ?? {};
   const files = new Map();
+  const includeProject = projectGuide != null && typeof projectGuide === 'object';
 
   files.set(
     'index.html',
-    renderLandingPage({ product, skills, pkgVersion })
+    renderLandingPage({ product, skills, pkgVersion, includeProject })
   );
-  files.set('skills/index.html', renderSkillsIndex({ skills }));
+  files.set('skills/index.html', renderSkillsIndex({ skills, includeProject }));
   files.set(
     'modules/index.html',
-    renderModulesPage({ moduleMeta: catalogData.module_meta })
+    renderModulesPage({ moduleMeta: catalogData.module_meta, includeProject })
   );
   files.set(
     'hosts/index.html',
-    renderHostsPage({ ideConfig, supportLabel })
+    renderHostsPage({ ideConfig, supportLabel, includeProject })
   );
 
-  if (projectGuide != null && typeof projectGuide === 'object') {
+  if (includeProject) {
     files.set(
       'project/index.html',
       renderProjectGuidePage({ guide: projectGuide })
@@ -814,11 +838,11 @@ export function buildSiteFiles({
     const key = assertSafeKey(skill.key);
     files.set(
       `skills/${key}/index.html`,
-      renderSkillDetail({ skill })
+      renderSkillDetail({ skill, includeProject })
     );
   }
 
   return files;
 }
 
-export { NAV, FORMAT_LABELS };
+export { FORMAT_LABELS };
