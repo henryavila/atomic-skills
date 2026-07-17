@@ -1,16 +1,23 @@
 /**
- * Pure phase-done review mode picker (design D5 / F2 T-007).
+ * Pure phase-done review mode picker (design D5 / F2 T-007 / F3).
  *
  * Single definition shared by project-transitions phase-done review gate
  * and implement automate spine. No I/O.
  *
  * Precedence:
- * 1. explicitOverride ∈ {local, both, skip} → that value
+ * 1. Resolve automate via `automateActive === true` OR `isAutomateActive`
+ *    (`planExecutionMode` / `cliMode` / `clearExecutionMode`). Stamp alone
+ *    (`planExecutionMode: 'automate'`) → automate → `both` (fail-closed F3).
+ * 2. explicitOverride ∈ {local, both, skip}:
+ *    - Under automate, `local` | `skip` only honored when `overrideReason`
+ *      is non-empty; otherwise return `both` (do not silently downgrade).
  *    - `skip` is the only full skip (record as --skip-review)
  *    - `local` is a downgrade from `both`, not a skip — still runs local review
- * 2. else if automateActive → `both` regardless of destructive
- * 3. else if destructive → `both` else `local` (non-automate DESTRUCTIVE ladder)
+ * 3. else if automate → `both` regardless of destructive
+ * 4. else if destructive → `both` else `local` (non-automate DESTRUCTIVE ladder)
  */
+
+import { isAutomateActive } from './implement-mode.js';
 
 /** @typedef {'local' | 'both' | 'skip'} PhaseReviewMode */
 
@@ -38,22 +45,57 @@ function normalizeOverride(raw) {
 }
 
 /**
+ * Resolve whether automate review cadence applies (fail-closed on stamp).
+ * @param {{
+ *   automateActive?: boolean | null,
+ *   planExecutionMode?: string | null,
+ *   cliMode?: string | null,
+ *   clearExecutionMode?: boolean,
+ *   modeExplicit?: boolean,
+ * }} input
+ * @returns {boolean}
+ */
+function resolveAutomate(input) {
+  if (input.automateActive === true) return true;
+  return isAutomateActive({
+    cliMode: input.cliMode,
+    planExecutionMode: input.planExecutionMode,
+    clearExecutionMode: input.clearExecutionMode,
+  });
+}
+
+/**
  * Pick phase-done `review-code` mode under automate vs non-automate.
  *
  * @param {{
  *   automateActive?: boolean | null,
  *   destructive?: boolean | null,
  *   explicitOverride?: string | null,
+ *   overrideReason?: string | null,
+ *   planExecutionMode?: string | null,
+ *   cliMode?: string | null,
+ *   clearExecutionMode?: boolean,
+ *   modeExplicit?: boolean,
  * }} [input]
  * @returns {PhaseReviewMode}
  */
 export function phaseReviewMode(input = {}) {
+  const automate = resolveAutomate(input);
   const override = normalizeOverride(input.explicitOverride);
+
   if (override != null) {
+    if (automate && (override === 'local' || override === 'skip')) {
+      const reason =
+        input.overrideReason != null ? String(input.overrideReason).trim() : '';
+      if (reason === '') {
+        // F3: under automate, local/skip without reason → stay both
+        return 'both';
+      }
+    }
     return override;
   }
 
-  if (input.automateActive === true) {
+  if (automate) {
     return 'both';
   }
 
