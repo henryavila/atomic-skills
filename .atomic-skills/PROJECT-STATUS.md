@@ -1,8 +1,8 @@
 ---
 lastUpdated: 2026-07-17T14:28:52.765Z
 schemaVersion: "0.1"
-activePlans: 1
-activeInitiatives: 1
+activePlans: 2
+activeInitiatives: 2
 archivedCount: 14
 ---
 
@@ -21,6 +21,7 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
 | product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
+| implementation-automate-mode | active | F0 | plan/implementation-automate-mode | 2026-07-17 | 0/5 |
 
 
 

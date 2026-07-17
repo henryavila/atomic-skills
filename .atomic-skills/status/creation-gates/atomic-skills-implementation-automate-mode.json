@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "new-plan",
+  "slug": "implementation-automate-mode",
+  "projectId": "atomic-skills",
+  "sourcePath": ".atomic-skills/projects/atomic-skills/implementation-automate-mode/source.md",
+  "stage": "ready-to-materialize",
+  "businessIntentAccepted": true,
+  "filesPlanned": [
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/plan.md",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f0-foundation-mode-parse-and-pure.md",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f1-implement-maestro-loop-and-phas.source.json",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f2-review-policy-phase-done-and-co.source.json",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f3-plan-end-external-both-and-fina.source.json",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f4-integration-tests-install-surfa.source.json"
+  ],
+  "filesWritten": [
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/plan.md",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f0-foundation-mode-parse-and-pure.md",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f1-implement-maestro-loop-and-phas.source.json",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f2-review-policy-phase-done-and-co.source.json",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f3-plan-end-external-both-and-fina.source.json",
+    ".atomic-skills/projects/atomic-skills/implementation-automate-mode/phases/f4-integration-tests-install-surfa.source.json"
+  ],
+  "status": "ready",
+  "updatedAt": "2026-07-17T18:46:18.165Z"
+}

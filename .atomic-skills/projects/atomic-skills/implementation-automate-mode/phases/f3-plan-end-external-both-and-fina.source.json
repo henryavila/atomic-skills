@@ -1,0 +1,97 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F3",
+  "slug": "implementation-automate-mode-f3-plan-end-external-both-and-fina",
+  "title": "Plan-end external-both and finalize hard gate",
+  "goal": "Finalize and archive under automate require external-both receipt satisfying planEndReviewOk; missing success without skip hard-blocks.",
+  "tasks": [
+    {
+      "id": "T-010",
+      "title": "Finalize plan-end review gate under automate",
+      "scopeBoundary": [
+        "Do not change finalize for non-automate plans beyond detection of executionMode. Do not auto-merge PRs. Do not skip the user-validation step after plan-end review."
+      ],
+      "acceptance": [
+        "it - Under automate, finalize runs review-code external-both on the plan integration range before PR create or records skip with reason.; it - planEndReviewOk false hard-blocks finalize and archive.; it - receipt is linked from plan Reviews section with per-leg succeeded failed skipped.; it - plan schema admits durable userValidatedAt (or plan-end receipt fields) used by userValidationOk.; it - finalize hard-blocks unless userValidationOk is true after last phase and plan-end review.; it - zero family-different provider path offers guided skip with non-empty reason taxonomy rather than stranding the plan."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk|userValidationOk|userValidatedAt' skills/shared/project-assets/project-finalize.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-finalize.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/plan-end-review.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/plan-end-review.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "meta/schemas/plan.schema.json"
+        }
+      ]
+    },
+    {
+      "id": "T-011",
+      "title": "Archive hard-block and status visibility of plan-end receipt",
+      "scopeBoundary": [
+        "Do not invent a third external provider. Do not change CROSS-MODEL REVIEW cadence for non-automate. Soft pointer to finalize is not an archive success path."
+      ],
+      "acceptance": [
+        "it - Archive under automate HARD-FAILS unless planEndReviewOk is true and userValidationOk is true.; it - status and drift may surface missing plan-end receipt on read-only paths without mutating state.; it - unit tests cover missing receipt, all failed or skipped legs, skip without reason, valid skip, valid successful leg, and missing userValidatedAt."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-transitions.md"
+        },
+        {
+          "kind": "file",
+          "path": "skills/shared/project-assets/project-drift.md"
+        },
+        {
+          "kind": "file",
+          "path": "src/plan-end-review.js"
+        },
+        {
+          "kind": "file",
+          "path": "tests/plan-end-review.test.js"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F3-G1",
+      "description": "planEndReviewOk unit tests pass and finalize documents the hard-block.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/plan-end-review.test.js && rg -n 'planEndReviewOk' skills/shared/project-assets/project-finalize.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F3-G2",
+      "description": "skip-plan-end-review requires non-empty reason in documented contract.",
+      "verifier": {
+        "kind": "shell",
+        "command": "rg -n 'skip-plan-end-review' skills/shared/project-assets/project-finalize.md",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "captureVersion": "0.1",
+  "phaseId": "F4",
+  "slug": "implementation-automate-mode-f4-integration-tests-install-surfa",
+  "title": "Integration tests, install surface, and dogfood",
+  "goal": "Lock the mode with tests that exercise prose contracts and helper wiring; document the mode for operators; keep install/catalog consistent.",
+  "tasks": [
+    {
+      "id": "T-012",
+      "title": "Contract tests for automate skill surface",
+      "scopeBoundary": [
+        "Do not require live Codex or Grok network in unit CI. Do not enable Mode 2 by default."
+      ],
+      "acceptance": [
+        "it - Contract tests assert implement.md contains automate maestro markers phase-writer code-only and complex both and plan-end external-both pointers.; it - contract tests assert project-transitions automate phase review and finalize planEndReviewOk strings.; it - npm test includes the new contract file."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/implement-automate-contract.test.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "tests/implement-automate-contract.test.js"
+        },
+        {
+          "kind": "file",
+          "path": "package.json"
+        }
+      ]
+    },
+    {
+      "id": "T-013",
+      "title": "Operator docs and catalog one-liner touch if needed",
+      "scopeBoundary": [
+        "Do not rewrite the full orchestrator CANON. Do not change skill namespace layout."
+      ],
+      "acceptance": [
+        "it - Operator-facing doc mentions implement automate mode and points at implement.md contract.; it - core.implement catalog entry description or argument_hint mentions mode automate if argument_hint is updated without breaking compact format.; it - validate-skills still exits 0."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/validate-skills.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "docs/kb/project-lazy-materialization.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/concepts/project-tracking.md"
+        },
+        {
+          "kind": "file",
+          "path": "meta/catalog.yaml"
+        }
+      ]
+    },
+    {
+      "id": "T-014",
+      "title": "Full suite green after automate landing",
+      "scopeBoundary": [
+        "Do not skip failing unrelated suites by disabling them. Do not expand dogfood into a live multi-phase plan execution in this task."
+      ],
+      "acceptance": [
+        "it - npm test exits 0 on the package after all automate files land.; it - no skills/core/automate.md exists."
+      ],
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/validate-skills.js",
+        "expectExitCode": 0
+      },
+      "outputs": [
+        {
+          "kind": "file",
+          "path": "package.json"
+        }
+      ]
+    }
+  ],
+  "exitGates": [
+    {
+      "id": "F4-G1",
+      "description": "implement-automate contract tests and full npm test pass.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node --test tests/implement-automate-contract.test.js && npm test",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F4-G2",
+      "description": "validate-skills exits 0 after catalog or docs touch.",
+      "verifier": {
+        "kind": "shell",
+        "command": "node scripts/validate-skills.js",
+        "expectExitCode": 0
+      },
+      "status": "pending"
+    }
+  ]
+}
