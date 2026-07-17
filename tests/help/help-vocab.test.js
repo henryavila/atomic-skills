@@ -36,6 +36,40 @@ function optionSet(signature) {
   return new Set(match[1].split('|').map((option) => option.startsWith('--') ? option : `--${option}`));
 }
 
+function isPlanSlugArg(token) {
+  return /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$/i.test(token);
+}
+
+/** Optional plan slug then optional implement mode flags (automate surface). */
+function validImplementArgs(args) {
+  let i = 0;
+  if (args.length > 0 && !String(args[0]).startsWith('-')) {
+    if (!isPlanSlugArg(args[0])) return false;
+    i = 1;
+  }
+  while (i < args.length) {
+    const t = args[i];
+    if (t === '--clear-execution-mode') {
+      i += 1;
+      continue;
+    }
+    if (t === '--mode=automate' || t === '--mode=1' || t === '--mode=default' || t === '--mode=mode1') {
+      i += 1;
+      continue;
+    }
+    // space form: --mode automate | --mode 1
+    if (t === '--mode' || t === '-m') {
+      const next = args[i + 1];
+      if (next == null || String(next).startsWith('-')) return false;
+      if (!['automate', '1', 'default', 'mode1'].includes(String(next))) return false;
+      i += 2;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
 function validForSignature(signature, args) {
   if (signature === '') return args.length === 0;
   if (/<[^>]+>/.test(args.join(' '))) return false;
@@ -64,7 +98,9 @@ function validForSignature(signature, args) {
         || (args.length === 1 && ['plan', 'initiative'].includes(args[0]))
         || (args.length === 2 && ['plan', 'initiative'].includes(args[0]) && /^[a-z0-9][a-z0-9._-]*$/i.test(args[1]));
     case '[[project-id/]plan-slug]':
-      return args.length <= 1 && (args.length === 0 || /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)?$/i.test(args[0]));
+      return args.length <= 1 && (args.length === 0 || isPlanSlugArg(args[0]));
+    case '[[project-id/]plan-slug] [--mode=automate|1] [--clear-execution-mode]':
+      return validImplementArgs(args);
     default:
       return false;
   }

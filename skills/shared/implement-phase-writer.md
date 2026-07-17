@@ -71,7 +71,7 @@ The orchestrator builds a **constructed brief** for the phase writer. It is a se
 
 **MUST NOT include orchestrator chat history.** Do not paste the maestro session transcript, prior operator chit-chat, or unrelated tool dumps. Chat history is lossy, non-portable, and leaks decisions the writer must not reverse. If context is missing, the writer stops and reports a blocked claim for that task — it does not invent scope.
 
-Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available). Host-only Workflow/Task APIs stay behind `{{#if ide.*}}` and are never the only path.
+Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn_subagent` where available). Host-only Workflow/Task APIs stay behind host-conditional ide blocks (`ide.*`) and are never the only path.
 
 ---
 

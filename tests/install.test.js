@@ -98,7 +98,7 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 86); // single IDE: core (incl. init-memory) + shared assets (incl. connect) + auto-update
+    assert.strictEqual(result.files.length, 88); // single IDE: core (incl. init-memory) + shared assets (incl. connect + implement-phase-writer/evaluator) + auto-update
   });
 
   it('creates TOML files for gemini-commands', () => {
@@ -241,7 +241,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
     assert.ok(existsSync(join(tempDir, '.claude/atomic-skills/_assets/connect.md')));
-    assert.strictEqual(result.files.length, 86); // core incl. init-memory + shared assets (incl. connect) + auto-update hook
+    assert.strictEqual(result.files.length, 88); // core incl. init-memory + shared assets (incl. connect + implement-phase-writer/evaluator) + auto-update hook
     assert.ok(result.files.some((f) => f.source === 'core/init-memory'));
     assert.ok(result.files.some((f) => f.source === '_assets/memory-assets/connect.md'));
   });
@@ -308,7 +308,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 171); // 2 IDEs + init-memory + connect per IDE + shared assets + one auto-update hook
+    assert.strictEqual(result.files.length, 175); // 2 IDEs + init-memory + connect per IDE + shared assets (incl. implement-phase-writer/evaluator ×2) + one auto-update hook
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
@@ -384,7 +384,7 @@ describe('installSkills', () => {
       scope: 'user',
     });
 
-    assert.strictEqual(result.files.length, 86);
+    assert.strictEqual(result.files.length, 88);
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
@@ -492,10 +492,12 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // namespace assets: previous set + memory-assets/connect.md
-    assert.strictEqual(files.length, 63,
-      `expected 63 namespace asset entries (shared assets incl. connect.md), got ${files.length}: ${files.join(', ')}`);
+    // namespace assets: previous set + memory-assets/connect.md + F1 automate phase-writer/evaluator
+    assert.strictEqual(files.length, 65,
+      `expected 65 namespace asset entries (shared assets incl. connect.md + implement-phase-*), got ${files.length}: ${files.join(', ')}`);
     assert.ok(files.includes('connect.md'), '_assets/connect.md (from memory-assets) must be installed');
+    assert.ok(files.includes('implement-phase-writer.md'), '_assets/implement-phase-writer.md must be installed');
+    assert.ok(files.includes('implement-phase-evaluator.md'), '_assets/implement-phase-evaluator.md must be installed');
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');
