@@ -7,34 +7,49 @@ import {
   SKIP_PLAN_END_REASON_TAXONOMY,
 } from '../src/plan-end-review.js';
 
+/** Non-skip success path requires full receipt shape (Fix A). */
+function shapedOk(overrides = {}) {
+  return {
+    mode: 'external-both',
+    reviewFile: '.atomic-skills/reviews/2026-07-17-demo-plan-end.md',
+    verifiedAt: '2026-07-17T12:00:00.000Z',
+    legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+    ...overrides,
+  };
+}
+
 describe('planEndReviewOk', () => {
   it('is false when receipt is missing', () => {
     assert.equal(planEndReviewOk(null), false);
     assert.equal(planEndReviewOk(undefined), false);
   });
 
-  it('is true when ≥1 family-different external leg has status succeeded', () => {
+  it('is true when ≥1 family-different external leg has status succeeded + receipt shape', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [
-          { provider: 'codex', status: 'succeeded', familyDifferent: true },
-          { provider: 'grok', status: 'failed', familyDifferent: true },
-        ],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [
+            { provider: 'codex', status: 'succeeded', familyDifferent: true },
+            { provider: 'grok', status: 'failed', familyDifferent: true },
+          ],
+        }),
+      ),
       true,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [
-          { provider: 'codex', status: 'succeeded', familyDifferent: true },
-          { provider: 'grok', status: 'skipped', familyDifferent: true },
-        ],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [
+            { provider: 'codex', status: 'succeeded', familyDifferent: true },
+            { provider: 'grok', status: 'skipped', familyDifferent: true },
+          ],
+        }),
+      ),
       true,
     );
   });
 
-  it('is true when skipPlanEndReview true with non-empty reason even if all legs failed', () => {
+  it('is true when skipPlanEndReview true with non-empty reason even if all legs failed (no shape required)', () => {
     assert.equal(
       planEndReviewOk({
         legs: [
@@ -50,12 +65,14 @@ describe('planEndReviewOk', () => {
 
   it('is false when all legs skipped/failed and no skip reason', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [
-          { provider: 'codex', status: 'skipped' },
-          { provider: 'grok', status: 'failed' },
-        ],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [
+            { provider: 'codex', status: 'skipped' },
+            { provider: 'grok', status: 'failed' },
+          ],
+        }),
+      ),
       false,
     );
     assert.equal(
@@ -81,109 +98,131 @@ describe('planEndReviewOk', () => {
     assert.equal(planEndReviewOk({ legs: [] }), false);
   });
 
-  it('single remaining leg after host filter counts when succeeded', () => {
+  it('single remaining leg after host filter counts when succeeded + shape', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
+        }),
+      ),
       true,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: true }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: true }],
+        }),
+      ),
       true,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'codex', status: 'failed', familyDifferent: true }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'codex', status: 'failed', familyDifferent: true }],
+        }),
+      ),
       false,
     );
   });
 
   it('does not count leg with familyDifferent === false even if succeeded', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [
-          { provider: 'codex', status: 'succeeded', familyDifferent: false },
-          { provider: 'grok', status: 'failed', familyDifferent: true },
-        ],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [
+            { provider: 'codex', status: 'succeeded', familyDifferent: false },
+            { provider: 'grok', status: 'failed', familyDifferent: true },
+          ],
+        }),
+      ),
       false,
     );
   });
 
   it('fail-closed: missing familyDifferent does NOT count (strict true required)', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'codex', status: 'succeeded' }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'codex', status: 'succeeded' }],
+        }),
+      ),
       false,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: undefined }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: undefined }],
+        }),
+      ),
       false,
     );
   });
 
   it('fail-closed: missing or unknown provider does not count even if succeeded + familyDifferent', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [{ status: 'succeeded', familyDifferent: true }],
-      }),
+      planEndReviewOk(shapedOk({ legs: [{ status: 'succeeded', familyDifferent: true }] })),
       false,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'local', status: 'succeeded', familyDifferent: true }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'local', status: 'succeeded', familyDifferent: true }],
+        }),
+      ),
       false,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'claude', status: 'succeeded', familyDifferent: true }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'claude', status: 'succeeded', familyDifferent: true }],
+        }),
+      ),
       false,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: '', status: 'succeeded', familyDifferent: true }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: '', status: 'succeeded', familyDifferent: true }],
+        }),
+      ),
       false,
     );
   });
 
   it('fail-closed: same-family succeeded (familyDifferent false) with known provider does not count', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: false }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: false }],
+        }),
+      ),
       false,
     );
     assert.equal(
-      planEndReviewOk({
-        legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: false }],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [{ provider: 'grok', status: 'succeeded', familyDifferent: false }],
+        }),
+      ),
       false,
     );
   });
 
   it('only known external providers codex|grok count when succeeded + familyDifferent true', () => {
     assert.equal(
-      planEndReviewOk({
-        legs: [
-          { provider: 'local', status: 'succeeded', familyDifferent: true },
-          { provider: 'codex', status: 'succeeded', familyDifferent: true },
-        ],
-      }),
+      planEndReviewOk(
+        shapedOk({
+          legs: [
+            { provider: 'local', status: 'succeeded', familyDifferent: true },
+            { provider: 'codex', status: 'succeeded', familyDifferent: true },
+          ],
+        }),
+      ),
       true,
     );
   });
 
-  it('finalize-shaped receipt with reviewFile/mode/range still passes when a leg succeeded', () => {
+  it('finalize-shaped receipt with reviewFile/mode/verifiedAt passes when a leg succeeded', () => {
     assert.equal(
       planEndReviewOk({
         mode: 'external-both',
@@ -194,6 +233,89 @@ describe('planEndReviewOk', () => {
           { provider: 'codex', status: 'succeeded', familyDifferent: true },
           { provider: 'grok', status: 'skipped', familyDifferent: true },
         ],
+      }),
+      true,
+    );
+  });
+
+  it('accepts mode both as well as external-both for host routes', () => {
+    assert.equal(planEndReviewOk(shapedOk({ mode: 'both' })), true);
+    assert.equal(planEndReviewOk(shapedOk({ mode: 'external-both' })), true);
+    assert.equal(planEndReviewOk(shapedOk({ mode: 'local' })), false);
+    assert.equal(planEndReviewOk(shapedOk({ mode: '' })), false);
+  });
+
+  it('non-skip path requires non-empty reviewFile + mode + verifiedAt even with succeeded leg', () => {
+    const leg = [{ provider: 'codex', status: 'succeeded', familyDifferent: true }];
+    assert.equal(
+      planEndReviewOk({ legs: leg }),
+      false,
+      'bare legs without shape must fail',
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: leg,
+        mode: 'external-both',
+        verifiedAt: '2026-07-17T12:00:00.000Z',
+      }),
+      false,
+      'missing reviewFile',
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: leg,
+        reviewFile: '  ',
+        mode: 'external-both',
+        verifiedAt: '2026-07-17T12:00:00.000Z',
+      }),
+      false,
+      'whitespace reviewFile',
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: leg,
+        reviewFile: '.atomic-skills/reviews/x.md',
+        verifiedAt: '2026-07-17T12:00:00.000Z',
+      }),
+      false,
+      'missing mode',
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: leg,
+        reviewFile: '.atomic-skills/reviews/x.md',
+        mode: 'external-both',
+      }),
+      false,
+      'missing verifiedAt',
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: leg,
+        reviewFile: '.atomic-skills/reviews/x.md',
+        mode: 'external-both',
+        verifiedAt: '   ',
+      }),
+      false,
+      'whitespace verifiedAt',
+    );
+    assert.equal(
+      planEndReviewOk({
+        legs: leg,
+        reviewFile: '.atomic-skills/reviews/x.md',
+        mode: 'external-both',
+        verifiedAt: 'not-a-date',
+      }),
+      false,
+      'unparseable verifiedAt',
+    );
+  });
+
+  it('skip path still works without legs/shape when skipPlanEndReview + non-empty reason', () => {
+    assert.equal(
+      planEndReviewOk({
+        skipPlanEndReview: true,
+        skipReason: 'no-family-different-provider',
       }),
       true,
     );
@@ -332,11 +454,12 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
   const goodReceipt = {
     mode: 'external-both',
     reviewFile: '.atomic-skills/reviews/2026-07-17-demo-plan-end.md',
+    verifiedAt: '2026-07-17T12:00:00.000Z',
     legs: [{ provider: 'codex', status: 'succeeded', familyDifferent: true }],
   };
   const goodAt = '2026-07-17T19:00:00.000Z';
 
-  it('inactive when automateActive is not true', () => {
+  it('inactive when automateActive is not true and no automate stamp', () => {
     assert.deepEqual(automatePlanEndGatesOk({}), {
       ok: true,
       planEndReviewOk: true,
@@ -346,6 +469,71 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
       automatePlanEndGatesOk({ automateActive: false, receipt: null }),
       { ok: true, planEndReviewOk: true, userValidationOk: true },
     );
+  });
+
+  it('fail-closed: planExecutionMode automate enforces gates even when automateActive omitted', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      receipt: null,
+      userValidatedAt: goodAt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, false);
+    assert.equal(r.userValidationOk, true);
+  });
+
+  it('fail-closed: stamp automate + missing userValidatedAt blocks even without automateActive', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      receipt: goodReceipt,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.planEndReviewOk, true);
+    assert.equal(r.userValidationOk, false);
+  });
+
+  it('stamp automate + good receipt + ISO userValidatedAt ok without automateActive flag', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      receipt: goodReceipt,
+      userValidatedAt: goodAt,
+    });
+    assert.deepEqual(r, {
+      ok: true,
+      planEndReviewOk: true,
+      userValidationOk: true,
+    });
+  });
+
+  it('explicit --mode=1 CLI overrides stamp (gates inactive)', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      cliMode: '1',
+      receipt: null,
+      userValidatedAt: undefined,
+    });
+    assert.deepEqual(r, {
+      ok: true,
+      planEndReviewOk: true,
+      userValidationOk: true,
+    });
+  });
+
+  it('clearExecutionMode keeps gates inactive even with automate stamp', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'automate',
+      clearExecutionMode: true,
+      receipt: null,
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it('clearly non-automate planExecutionMode stays ok true', () => {
+    const r = automatePlanEndGatesOk({
+      planExecutionMode: 'mode1',
+      receipt: null,
+    });
+    assert.equal(r.ok, true);
   });
 
   it('HARD-BLOCKs finalize/archive under automate when receipt missing', () => {
@@ -363,6 +551,9 @@ describe('automatePlanEndGatesOk (finalize/archive combined)', () => {
     const r = automatePlanEndGatesOk({
       automateActive: true,
       receipt: {
+        mode: 'external-both',
+        reviewFile: '.atomic-skills/reviews/x.md',
+        verifiedAt: '2026-07-17T12:00:00.000Z',
         legs: [
           { provider: 'codex', status: 'failed', familyDifferent: true },
           { provider: 'grok', status: 'skipped', familyDifferent: true },

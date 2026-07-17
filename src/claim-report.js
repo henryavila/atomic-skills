@@ -6,6 +6,8 @@
  *
  * Required per-task fields:
  *   - taskId
+ *   - status: claimed-pass | claimed-fail | blocked | skipped | omit
+ *     (unknown statuses like done/pass/ok are validation errors, not silent non-open)
  *   - commit identity: non-empty commitShas[] OR (base + head) range
  *   - paths (array; may be empty only when status is blocked/skipped with notes)
  *   - verifierCommand
@@ -16,12 +18,24 @@
  *   Each open claim needs an exclusive commit range or a SHA list that is NOT
  *   shared across other open claims without a base/head pair. Ambiguous
  *   overlapping multi-task SHAs are rejected so review-code / destructiveDiff
- *   cannot pin the wrong range.
+ *   cannot pin the wrong range. Two open claims with the same base+head pair
+ *   are also rejected (identical ranges).
+ *
+ * Reachability (validateClaimReachability):
+ *   Exact case-insensitive SHA equality only — no free prefix/startsWith match.
  *
  * No I/O.
  */
 
-/** @typedef {'claimed-pass' | 'claimed-fail' | 'blocked' | 'skipped' | string} ClaimStatus */
+/** @typedef {'claimed-pass' | 'claimed-fail' | 'blocked' | 'skipped'} ClaimStatus */
+
+/** Allowed claim statuses (unknown values are validation errors, not silent non-open). */
+const ALLOWED_CLAIM_STATUSES = new Set([
+  'claimed-pass',
+  'claimed-fail',
+  'blocked',
+  'skipped',
+]);
 
 /**
  * @typedef {{
@@ -59,8 +73,6 @@
  *   head?: string,
  * }} ClaimRange
  */
-
-const OPEN_CLAIM_STATUSES = new Set(['claimed-pass', 'claimed-fail', undefined, null, '']);
 
 /**
  * Normalize a free-form claim report (array of tasks or envelope with tasks[]).
@@ -190,16 +202,38 @@ export function claimRangeFromTask(claim) {
 }
 
 /**
+ * Normalize claim status for allowlist / open checks.
+ * Missing/undefined/empty → open (claimed-pass default).
+ *
+ * @param {TaskClaim | null | undefined} claim
+ * @returns {{ raw: string, known: boolean, open: boolean }}
+ */
+function normalizeClaimStatus(claim) {
+  const raw =
+    claim?.status != null ? String(claim.status).trim().toLowerCase() : '';
+  if (raw === '') {
+    return { raw: '', known: true, open: true };
+  }
+  if (!ALLOWED_CLAIM_STATUSES.has(raw)) {
+    return { raw, known: false, open: false };
+  }
+  if (raw === 'blocked' || raw === 'skipped') {
+    return { raw, known: true, open: false };
+  }
+  // claimed-pass | claimed-fail
+  return { raw, known: true, open: true };
+}
+
+/**
  * Whether a task status counts as an "open claim" that must have exclusive range.
  * blocked/skipped may omit exclusive SHAs when no commits were made.
+ * Unknown statuses are NOT open (they fail validation separately).
  *
  * @param {TaskClaim} claim
  * @returns {boolean}
  */
 function isOpenClaim(claim) {
-  const status = claim.status != null ? String(claim.status).trim().toLowerCase() : '';
-  if (status === 'blocked' || status === 'skipped') return false;
-  return OPEN_CLAIM_STATUSES.has(claim.status) || status === 'claimed-pass' || status === 'claimed-fail' || status === '';
+  return normalizeClaimStatus(claim).open;
 }
 
 /**
@@ -219,7 +253,14 @@ export function validateTaskClaim(claim) {
     errors.push('taskId is required');
   }
 
-  const open = isOpenClaim(claim);
+  const statusInfo = normalizeClaimStatus(claim);
+  if (!statusInfo.known) {
+    errors.push(
+      `unknown claim status ${JSON.stringify(claim.status)} — allowed: claimed-pass, claimed-fail, blocked, skipped (or omit)`,
+    );
+  }
+
+  const open = statusInfo.open;
   const range = claimRangeFromTask(claim);
 
   if (open && range == null) {
@@ -265,11 +306,22 @@ export function validateTaskClaim(claim) {
 }
 
 /**
- * Detect ambiguous SHA overlap across open claims.
+ * Canonical key for a base+head pair (case-insensitive).
+ * @param {string} base
+ * @param {string} head
+ * @returns {string}
+ */
+function rangePairKey(base, head) {
+  return `${String(base).trim().toLowerCase()}...${String(head).trim().toLowerCase()}`;
+}
+
+/**
+ * Detect ambiguous SHA overlap and identical base+head pairs across open claims.
  *
  * Rules:
  * - Tasks with exclusive base+head ranges do not contribute bare SHAs to the
  *   shared pool (they are treated as range-identified).
+ * - Two open claims with the same base+head pair are rejected (identical ranges).
  * - Tasks with only commitShas must not share any SHA with another open claim's
  *   commitShas list (ambiguous multi-task ownership).
  * - A SHA that appears in two open sha-lists without base/head on either side
@@ -285,20 +337,36 @@ export function findOverlappingClaimShas(tasks) {
 
   /** @type {Map<string, string[]>} sha -> taskIds that claim it via bare commitShas */
   const shaOwners = new Map();
+  /** @type {Map<string, string[]>} rangePairKey -> taskIds */
+  const rangeOwners = new Map();
 
   for (const claim of tasks) {
     if (claim == null || !isOpenClaim(claim)) continue;
     const range = claimRangeFromTask(claim);
     if (range == null) continue;
-    // Exclusive base+head: no bare-SHA exclusivity check against other lists.
-    if (range.kind === 'range') continue;
-
     const tid = String(claim.taskId);
+
+    if (range.kind === 'range') {
+      const key = rangePairKey(/** @type {string} */ (range.base), /** @type {string} */ (range.head));
+      const owners = rangeOwners.get(key) || [];
+      if (!owners.includes(tid)) owners.push(tid);
+      rangeOwners.set(key, owners);
+      continue;
+    }
+
     for (const sha of range.commitShas || []) {
-      const key = String(sha);
+      const key = String(sha).trim().toLowerCase();
       const owners = shaOwners.get(key) || [];
       if (!owners.includes(tid)) owners.push(tid);
       shaOwners.set(key, owners);
+    }
+  }
+
+  for (const [pair, owners] of rangeOwners) {
+    if (owners.length > 1) {
+      errors.push(
+        `identical base+head range ${pair} claimed by ${owners.join(', ')} — each open claim needs a distinct base+head pair`,
+      );
     }
   }
 
@@ -453,18 +521,13 @@ export function validateClaimReachability(reportOrRaw, reachable) {
   if (typeof reachable === 'function') {
     isReachable = reachable;
   } else if (reachable != null && typeof reachable[Symbol.iterator] === 'function') {
+    // Exact match only (case-insensitive hex equality). No free prefix/startsWith.
     const set = new Set(
-      [...reachable].map((s) => String(s).trim()).filter((s) => s !== ''),
+      [...reachable]
+        .map((s) => String(s).trim().toLowerCase())
+        .filter((s) => s !== ''),
     );
-    isReachable = (sha) => {
-      const key = String(sha).trim();
-      if (set.has(key)) return true;
-      // Allow prefix match when set holds full SHAs and claims hold short SHAs (or reverse)
-      for (const known of set) {
-        if (known.startsWith(key) || key.startsWith(known)) return true;
-      }
-      return false;
-    };
+    isReachable = (sha) => set.has(String(sha).trim().toLowerCase());
   } else {
     return {
       ok: false,
