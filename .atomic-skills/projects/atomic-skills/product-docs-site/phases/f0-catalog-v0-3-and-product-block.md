@@ -7,7 +7,6 @@ goal: Extend the catalog schema and validators so iron_law and product
 status: active
 branch: plan/product-docs-site
 started: 2026-07-17T14:28:20.714Z
-lastUpdated: 2026-07-17T15:50:45.556Z
 nextAction: Run phase-done (review-code gate) then materialize F1
 parentPlan: product-docs-site
 phaseId: F0
@@ -41,16 +40,16 @@ exitGates:
       kind: shell
       command: node scripts/validate-skills.js
       expectExitCode: 0
-    metAt: 2026-07-17T15:50:45.556Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:50:45.556Z
-      verifiedCommit: 753a8f2c6d5b31264dc365ad2eee9fa8ab3ce388
+      verifiedAt: 2026-07-17T15:51:19.000Z
+      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
       passed: true
       exitCode: 0
       outputSummary: ✓ All 15 skills valid (schema_version 0.2)
     verifierLabel: "shell: node scripts/validate-skills.js"
     evidenceSummary: passed · 2026-07-17
+    metAt: 2026-07-17T15:51:19.000Z
   - id: F0-G2
     description: check-docs still passes with the expanded catalog.
     status: met
@@ -58,16 +57,16 @@ exitGates:
       kind: shell
       command: npm run check-docs
       expectExitCode: 0
-    metAt: 2026-07-17T15:50:45.556Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:50:45.556Z
-      verifiedCommit: 753a8f2c6d5b31264dc365ad2eee9fa8ab3ce388
+      verifiedAt: 2026-07-17T15:51:19.000Z
+      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
       passed: true
       exitCode: 0
       outputSummary: check-docs exit 0 (generate-readme/skill-docs/catalog-json --check)
     verifierLabel: "shell: npm run check-docs"
     evidenceSummary: passed · 2026-07-17
+    metAt: 2026-07-17T15:51:19.000Z
 stack: []
 tasks:
   - id: T-001
@@ -103,11 +102,11 @@ tasks:
     closedAt: 2026-07-17T15:50:45.556Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:50:45.556Z
-      verifiedCommit: 753a8f2c6d5b31264dc365ad2eee9fa8ab3ce388
       passed: true
       exitCode: 0
       outputSummary: ✓ All 15 skills valid (schema_version 0.2)
+      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
+      verifiedAt: 2026-07-17T15:51:19.000Z
   - id: T-002
     title: iron_law body cross-check or single-write path
     status: done
@@ -138,8 +137,6 @@ tasks:
     closedAt: 2026-07-17T15:50:45.556Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:50:45.556Z
-      verifiedCommit: 753a8f2c6d5b31264dc365ad2eee9fa8ab3ce388
       passed: true
       exitCode: 0
       outputSummary: >
@@ -164,6 +161,8 @@ tasks:
         ℹ todo 0
 
         ℹ duration_ms 58.432583
+      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
+      verifiedAt: 2026-07-17T15:51:19.000Z
   - id: T-003
     title: Catalog docs and generate-docs still green
     status: done
@@ -192,11 +191,11 @@ tasks:
     closedAt: 2026-07-17T15:50:45.556Z
     evidence:
       verifierKind: shell
-      verifiedAt: 2026-07-17T15:50:45.556Z
-      verifiedCommit: 753a8f2c6d5b31264dc365ad2eee9fa8ab3ce388
       passed: true
       exitCode: 0
       outputSummary: check-docs exit 0 (generate-readme/skill-docs/catalog-json --check)
+      verifiedCommit: d094742ab1d210476d029215e1fe12468e590777
+      verifiedAt: 2026-07-17T15:51:19.000Z
 parked: []
 emerged: []
 summary: "Schema v0.3: iron_law em toda skill + bloco product validado;
@@ -204,6 +203,7 @@ summary: "Schema v0.3: iron_law em toda skill + bloco product validado;
 planTitle: Product docs site from catalog SSOT
 planActive: true
 current: true
+lastUpdated: 2026-07-17T15:51:19.000Z
 ---
 
 # Narrative / notes
