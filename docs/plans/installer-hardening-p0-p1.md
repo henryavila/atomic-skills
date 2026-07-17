@@ -1,6 +1,6 @@
 # Plan: Installer hardening — P0 + P1
 
-**Status:** ready for next session (local review-plan fixes applied 2026-07-17)  
+**Status:** ready for next session (review-plan local + Codex findings all applied 2026-07-17)  
 **Created:** 2026-07-17  
 **Audit source (canonical findings):** [docs/audits/installer-audit-2026-07-17.md](../audits/installer-audit-2026-07-17.md)  
 **Prior audit:** [docs/audits/installer-audit-2026-07-10.md](../audits/installer-audit-2026-07-10.md)  
@@ -31,8 +31,8 @@ Make install/update/uninstall **reliable under partial failure, IDE shrink/expan
 |---|-----------|--------------|
 | 1 | Incomplete install is **recoverable** via CLI without hand-editing JSON | E2E: fail mid-effect → repair/uninstall → clean tree |
 | 2 | IDE shrink removes auto-update hooks/settings for deselected hosts | claude→codex and claude+grok→cursor tests green |
-| 3 | Removing Grok from ides cleans host plugin + isolation (refcount-safe) | install grok → reinstall without grok asserts |
-| 4 | Adopt does not silent-clobber user/foreign content without policy | safelist or prompt/force tests |
+| 3 | Removing Grok from ides cleans host plugin + isolation (**multi-owner refcount-safe** for both plugin host and isolation) | install grok A+B → shrink A without grok keeps host; last owner removes host+isolation |
+| 4 | Adopt does not silent-clobber user/foreign content; unmanaged paths stay out of reconcile | safelist / force / unmanaged-desired tests |
 | 5 | Registry writes versioned owners; last-writer leave restages survivor | multi-owner unit + e2e |
 | 6 | Manifest + stageRuntimeArtifacts honor path-safety contract | unit + symlink tests |
 | 7 | Interactive SIGINT is honest (no fake cleanup / no reentrancy) | unit or hook test |
@@ -101,8 +101,17 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
      - `install --repair` — when incomplete: print `describeRecovery` summary (effectCount, state, reason); if journal is trusted post-U pin, resume/complete or re-run install; if pre-U (stale prior journal), refuse silent resume and instruct `uninstall --force-incomplete`.
      - `uninstall --force-incomplete` — attempt best-effort reverse of **journaled** effects; **do not** delete the incomplete marker until an asserted clean or fully owned baseline (or write a residual recovery ledger of unrecovered paths). Pre-U residual risk for unjournaled applies must remain discoverable after the command.
    - Operator message on incomplete: what failed, which command fixes it (never “edit JSON by hand”).
-3. **Pin bump (U / U+C only):** update `package.json` / lock for `@henryavila/minimalist-installer` to the commit/tag that contains the engine fix. `unverified:` exact tag until PR merges.
-4. **Tests:** inject fail on 2nd effect during full `installSkills` / `install()`; also fault-inject **abrupt child-process kill after a disk-mutating effect** (not only thrown errors). Assert repair/force path leaves installable or clean+ledgered baseline without hand-editing JSON.
+3. **Consumer recovery mutator (mandatory task — `describeRecovery` is read-only):**
+   - Under the same install/runtime lock family used for install, implement an atomic recovery transition that can legally pass `assertNoIncompleteTransaction` **only after** validation:
+     1. Read incomplete journal via inspect/`describeRecovery`.
+     2. Classify journal trust: **post-U** (per-effect durable) vs **pre-U** (prior-effects-only / disk may diverge).
+     3. **post-U path:** either (a) resume Driver from last journaled effect, or (b) reverse all journaled effects then clear incomplete then re-run full install — pick one and document; both must leave journal↔disk consistent.
+     4. **pre-U path:** do **not** mark complete or silent-resume; hand off to `uninstall --force-incomplete` (or run its body) + residual ledger.
+     5. Persist intermediate recovery state if interrupted mid-repair (incomplete marker or recovery ledger survives kill).
+   - Failure during repair: keep incomplete/recovery ledger; never write `transaction: complete` on a partial tree.
+   - Tests: interrupt mid-repair; assert no complete marker on dirty tree; assert successful repair reaches installable baseline under post-U pin.
+4. **Pin bump (U / U+C only):** update `package.json` / lock for `@henryavila/minimalist-installer` to the commit/tag that contains the engine fix. `unverified:` exact tag until PR merges.
+5. **Tests:** inject fail on 2nd effect during full `installSkills` / `install()`; also fault-inject **abrupt child-process kill after a disk-mutating effect** (not only thrown errors). Assert repair/force path leaves installable or clean+ledgered baseline without hand-editing JSON.
 
 **Exit gate (U / U+C after pin):** incomplete TX → documented CLI path → tree fully installed or fully reversible (journal matches disk).  
 **Exit gate (C only):** operator CLI exists + messages; **does not** mark success criterion 1 or P0 green.
@@ -142,20 +151,27 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 
 ### P0-C — Grok host cleanup on IDE shrink (F-003)
 
-**Problem:** Outside-journal Grok register + isolation only run when `wantsGrokPluginHost(ides)`. Shrink away from grok is a no-op for cleanup; uninstall also keys off **current** `manifest.ides` after update already dropped grok.
+**Problem:** Outside-journal Grok register + isolation only run when `wantsGrokPluginHost(ides)`. Shrink away from grok is a no-op for cleanup; uninstall also keys off **current** `manifest.ides` after update already dropped grok. Isolation already has multi-owner awareness in places; **host plugin unregister must use the same surviving-owner scan** (registration is global — unconditional unregister breaks other installs).
 
 **Evidence (verified_by):**
 - audit F-003
 - `src/install.js:563-603` — `syncGrokPluginHostAfterInstall` returns early when `!wantsGrokPluginHost(ides)`
 - `src/uninstall.js:126-136` — unregister + isolation gated on current `manifest.ides`
+- `src/runtime-layers/grok-agents-isolation.js` — isolation refcount scans other installs; host unregister must match that contract
 
 **Work:**
 
 1. Before rewriting manifest metadata, compare `priorIdes` vs `nextIdes` (read prior from existing manifest).
-2. If prior had `grok` and next does not: `unregisterGrokPluginHost` + `revertGrokAgentsIsolation` (refcount-safe — keep isolation if other installs still list grok).
-3. Test: install with grok → reinstall without grok → host unregistered + isolation removed when last grok owner.
+2. If prior had `grok` and next does not:
+   - Scan remaining install bases (registry / known manifests) for any other owner that still lists `grok` in `ides`.
+   - **Isolation:** `revertGrokAgentsIsolation` only when this install is the last grok owner (existing refcount path).
+   - **Host plugin:** call `unregisterGrokPluginHost` **only** when this install is the last grok owner; if another grok owner remains, **keep** the host registration (or restage/reload from the survivor’s package if the departing install owned the snapshot).
+3. Uninstall path must use the same last-owner gate (not “current manifest still has grok”).
+4. **Tests (mandatory):**
+   - Single owner: install with grok → reinstall without grok → host unregistered + isolation removed.
+   - **Two owners:** bases A and B both with grok → shrink/reinstall A without grok → host **still registered** and isolation retained; uninstall/shrink B (last) → host + isolation removed.
 
-**Exit gate:** no phantom Grok plugin / isolation after shrink when no remaining grok installs.
+**Exit gate:** no phantom Grok plugin / isolation after shrink when **no** remaining grok installs; multi-owner shrink never kills survivors’ host.
 
 ---
 
@@ -166,9 +182,11 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 1. Suite under `tests/` (extend `tests/release-fault-matrix.test.js` and/or new `tests/install-fault-matrix-e2e.test.js`) that drives **atomic-skills** `installSkills` / `install`, not bare engine only.
 2. **Mandatory scenarios (explicit):**
    - Incomplete: fail on 2nd effect mid-install → CLI repair or force-incomplete → tree installable or clean.
+   - Mid-repair kill: interrupt `install --repair` → incomplete/recovery ledger remains; no false `complete`.
    - Shrink auto-update: claude-code → codex (no Claude hook/settings residue).
    - Shrink multi: claude-code+grok → cursor (auto-update surfaces gone).
-   - Grok host: install with grok → reinstall without grok (plugin + isolation cleaned when last owner).
+   - Grok host last owner: install with grok → reinstall without grok (plugin + isolation cleaned).
+   - Grok host multi-owner: A+B with grok → shrink A → host kept; shrink B → host+isolation gone.
 3. Wire into CI via existing `npm test` (no new CI product unless `npm test` does not pick up the file — then add to package test script only).
 
 **Exit gate:** P0 findings have automated regressions; fault recovery is not “rm -rf only”.
@@ -179,9 +197,9 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 
 ### P1-A — Harden adopt (F-004)
 
-**Problem:** `adoptPreexistingDesiredFiles` records `installedHash = current` then reconciler rewrites → silent clobber of any content at desired paths.
+**Problem:** `adoptPreexistingDesiredFiles` records `installedHash = current` then reconciler rewrites → silent clobber of any content at desired paths. “Keep-local” alone is insufficient: the reconciler still treats differing **unowned** desired content as `GREENFIELD_CONFLICT` unless those paths are excluded from the desired set / reconcile plan.
 
-**Evidence (verified_by):** audit F-004; `src/adopt-preexisting-desired.js`; reconciler rewrite when `current === installed`.
+**Evidence (verified_by):** audit F-004; `src/adopt-preexisting-desired.js`; reconciler rewrite when `current === installed`; GREENFIELD when unowned desired differs.
 
 **Work:**
 
@@ -189,17 +207,27 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
    - frontmatter matches atomic-skills safelist (`isAtomicSkillsArtifact` in `src/install.js` / known names), **or**
    - content hash matches last known package hash if available, **or**
    - `--force-adopt` / interactive confirm.
-2. Else: **default policy = keep-local without rewrite + log** (do not throw GREENFIELD_CONFLICT for foreign/user content at desired paths during expand). `--force-adopt` opts into reclaim. Document in code comment + test name.
-3. Surface `adopted` count in install UI/logs.
-4. Tests: user-edited skill body at desired path preserved unless force; stale package leftover still reclaimed.
+2. Else: **unmanaged-desired disposition** (default for foreign/user content at desired paths during expand):
+   - **Exclude** the path from the reconcile desired set for this install (do not claim ownership, do not rewrite, do not throw GREENFIELD_CONFLICT).
+   - Do **not** put the path in derived `manifest.files` / success file counts as installed.
+   - Log + surface in install UI as `unresolved` / `kept-local` (counts: `adopted`, `unresolved`).
+   - Uninstall must **not** delete unmanaged paths (never owned).
+   - Retry install without `--force-adopt` remains non-destructive and re-reports unresolved.
+3. `--force-adopt` opts into reclaim (adopt + allow reconcile rewrite for that path).
+4. Document policy in code comment + test names.
+5. **Tests (mandatory):**
+   - User-edited skill body at desired path preserved; install reports unresolved; retry same.
+   - Uninstall does not remove that user file.
+   - Stale package leftover (safelist / known hash) still reclaimed.
+   - `--force-adopt` reclaims foreign content.
 
-**Exit gate:** expand-IDE reclaim no longer unconditional clobber.
+**Exit gate:** expand-IDE reclaim no longer unconditional clobber; unmanaged paths never enter ownership or GREENFIELD.
 
 ---
 
 ### P1-B — Versioned registry + package-root restage (F-005)
 
-**Problem:** `package-root` last-writer-wins; `registerInstall` writes bare paths / new owners as `{ basePath }` only; observe reads versioned fields that writers never set; uninstall reclaim does not restage surviving owner.
+**Problem:** `package-root` last-writer-wins; `registerInstall` writes bare paths / new owners as `{ basePath }` only; observe reads versioned fields that writers never set; uninstall reclaim does not restage surviving owner. Legacy registries are string arrays — migration cannot invent accurate `packageRoot`/`version`/`fingerprint` without a discovery contract.
 
 **Evidence (verified_by):**
 - audit F-005
@@ -208,12 +236,22 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 
 **Work:**
 
-1. On register: **always** write versioned schema `{ schemaVersion, owners: [{ basePath, packageRoot, version, fingerprint }] }`, including when prior was legacy array (migrate on write).
-2. On unregister of last writer of a packageRoot: elect surviving owner (same rules as `runtime-observe`) and restage runtime artifacts from that owner’s packageRoot.
-3. Optional: prune ghost owners under lock with explicit status message.
-4. Tests: two install bases, uninstall the one that wrote package-root, assert survivor’s package-root active.
+1. On register (current process): **always** write versioned schema  
+   `{ schemaVersion, owners: [{ basePath, packageRoot, version, fingerprint, electable?: boolean }] }`,  
+   populating fields from the **live process** (`PACKAGE_ROOT`, package.json version, fingerprint helper — define fingerprint as stable hash of packageRoot path + version, same helper as observe).
+2. **Legacy migration contract (on first write after upgrade):**
+   - For each legacy `basePath` string:
+     - **Discover:** if `basePath` is readable and contains a resolvable package identity (e.g. its own `package.json` / staged package-root pointer under that install), fill `packageRoot`/`version`/`fingerprint`.
+     - **Else:** write `{ basePath, packageRoot: null, version: null, fingerprint: null, electable: false }` — **non-electable**; never use as restage source; log status message.
+   - Do **not** copy the departing install’s packageRoot onto other owners.
+3. On unregister of last **electable** writer of a packageRoot: elect surviving **electable** owner (same rules as `runtime-observe`, skip `electable: false` / ghosts) and restage runtime artifacts from that owner’s packageRoot.
+4. Optional: prune ghost / non-electable owners under lock with explicit status message (operator-visible).
+5. **Tests (mandatory):**
+   - Two versioned bases: uninstall package-root writer → survivor’s package-root active.
+   - Mixed legacy+versioned: legacy non-discoverable owner is non-electable; versioned survivor wins restage.
+   - Fabricated metadata forbidden: migration never invents a packageRoot path that does not exist.
 
-**Exit gate:** multi-owner home does not leave dead package-root after uninstall.
+**Exit gate:** multi-owner home does not leave dead package-root after uninstall; election never restages from null/ghost owners.
 
 ---
 
@@ -228,9 +266,13 @@ P1-F  publishRuntimeAndRegister always[F-009]  atomic-skills
 1. Re-export or wrap engine manifest write with `MANIFEST_DIR = '.atomic-skills'`.
 2. Route **all** install-ledger writes (adopt, installSkills patch, migrate) through one API.
 3. Delete or thin `src/manifest.js` to avoid dual semantics.
-4. Test: atomic rename contract (tmp + rename) and/or no-follow refusal on symlink manifest path if harness allows.
+4. **Tests (mandatory — both classes; no “if harness allows” escape):**
+   - **Atomic replacement:** write lands via tmp + rename (or engine equivalent); torn write not left as final manifest path.
+   - **No-follow leaf:** symlink at the manifest **file** path → write refuses (no follow).
+   - **No-follow intermediate:** symlink in an ancestor directory under the project base → write refuses (no follow).
+   - Static/source guard: no plain `writeFileSync` to the install ledger path outside the single API.
 
-**Exit gate:** no plain `writeFileSync` for install ledger (`.atomic-skills` manifest).
+**Exit gate:** no plain `writeFileSync` for install ledger; atomic **and** no-follow (leaf + intermediate) proven by tests.
 
 ---
 
@@ -329,8 +371,10 @@ See audit F-010–F-014 and items 11–16 in the audit improvements backlog. Unr
 
 ## Alignment notes (review-plan local + codex)
 
-- `describeRecovery` is already exported and is inspect-only; repair mutation is consumer-owned until engine gains resume APIs.
+- `describeRecovery` is already exported and is inspect-only; repair mutation is consumer-owned (P0-A §3 recovery mutator) until engine gains resume APIs.
 - Consumer auto-update shrink workaround and engine drop-effect revert must not double-apply after pin-bump.
 - Pin bump for F-001/F-002 is in-scope for choices U/U+C (not P2).
-- **Codex criticals applied (2026-07-17):** F-001 ban rollback-only; F-002 crash-resumable drop transition; F-003 choice C does not satisfy success criterion 1.
-- **Codex majors recorded (not auto-applied):** repair mutator task detail; Grok host multi-owner unregister gate; unmanaged-desired reconciler disposition; legacy registry metadata discovery; P1-C mandatory no-follow tests — see `.atomic-skills/reviews/2026-07-17-1816-installer-hardening-p0-p1-codex.md`.
+- **All review findings applied (2026-07-17):**
+  - **Criticals:** F-001 ban rollback-only; F-002 crash-resumable drop transition; F-003 choice C does not satisfy success criterion 1.
+  - **Majors:** P0-A recovery mutator (locked transition); P0-C multi-owner host unregister; P1-A unmanaged-desired disposition; P1-B legacy migration / non-electable; P1-C mandatory atomic + no-follow leaf/intermediate tests.
+- Review trail: `.atomic-skills/reviews/2026-07-17-1816-installer-hardening-p0-p1-codex.md`.

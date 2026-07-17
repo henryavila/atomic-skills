@@ -463,3 +463,17 @@ Five major gaps remain: `install --repair` has no defined mutating recovery oper
 
 **Post-triage status:** criticals resolved in plan; majors remain for next implement session.
 **Final external verdict after apply:** needs_changes (majors open) → plan usable with caveats.
+
+## Follow-up (same day)
+
+User requested apply **all** remaining findings. Majors F-004–F-008 (Pass 2 numbering) applied to plan body:
+
+| ID | Area | Action |
+|----|------|--------|
+| F-004 | install --repair mutator | applied → P0-A §3 recovery mutator |
+| F-005 | Grok multi-owner host | applied → P0-C + P0-D two-owner tests |
+| F-006 | unmanaged-desired | applied → P1-A disposition |
+| F-007 | legacy registry migration | applied → P1-B discovery / non-electable |
+| F-008 | P1-C no-follow mandatory | applied → P1-C tests (atomic + leaf + intermediate) |
+
+**Plan status after full apply:** all local + Codex review findings incorporated; ready for implement (decision gate U/C/U+C still human).
