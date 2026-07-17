@@ -206,3 +206,10 @@ return [...bases];
 **Impact:** A corrupted `~/.atomic-skills/installs.json` can make release logic falsely conclude this is the last Grok owner, unregistering host state and removing isolation while other installs still exist.
 **Recommendation:** Fail closed for Grok release owner scans, matching `readInstallsRegistry`: return a skipped/failed cleanup status on corrupt registry instead of shrinking the owner set. Add corrupt-registry tests for both shrink and uninstall.
 **Confidence:** high
+
+## Remediation status (orchestrator)
+
+- First remediation pass: fail-closed scan, residual gate, non-destructive restage, combined lock (commits cfeddb5..5eb88f3)
+- Codex re-review: still fail — C1 order, C2 untrusted bypass, C3 post-removal list (2026-07-17-p0c-remediation-codex.md)
+- Second fix: release-before-unregister + trusted scan first + forced remainingBases (7856627, 7784d07)
+- Residual risk: host CLI outside O_EXCL lock; owners missing from installs.json if crash between host apply and registerInstall
