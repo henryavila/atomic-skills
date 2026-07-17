@@ -46,7 +46,6 @@ describe('installed runtime drift (F6/T-004)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['codex'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',

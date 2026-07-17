@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking
+
+- **Installer modules concept removed.** There is no optional module selection (`memory`, `auto-update`, `cross-model-bridge` / `codex-bridge` as modules). Features remain always-on:
+  - `init-memory` is a **core skill** (always installed); memory path is fixed at `.ai/memory/` (custom `memory_path` is no longer configurable; reinstall warns if an older manifest had a different path).
+  - Cross-model sealed-envelope assets remain under `skills/shared/codex-bridge-assets/` (always installed).
+  - Auto-update remains a **runtime layer** (SessionStart hook on capable hosts).
+- Catalog is **core-only**: top-level `modules` / `module_meta` keys fail `validate-skills`.
+- README no longer has a Modules section (markers dropped; generation uses four regions).
+
+### Changed
+
+- Manifest no longer writes a `modules` field.
+- Installer UI no longer offers “Change modules”.
+
 ## [2.0.0] — 2026-05-23
 
 First major bump since 1.8.x. Consolidates **five** threads of work — the

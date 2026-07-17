@@ -48,7 +48,6 @@ describe('installSkills', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -58,14 +57,13 @@ describe('installSkills', () => {
     assert.ok(content.startsWith('---\n'));
     assert.ok(content.includes("description: '"));
     assert.ok(!content.includes('name: fix')); // commands don't have name field
-    assert.strictEqual(result.files.length, 84); // single IDE, no module: core skills + shared assets (providers + host-default + review-mode-ux) + project-assets + hooks + design-brief + namespace root + auto-update
+    assert.strictEqual(result.files.length, 86); // single IDE: core (incl. init-memory) + shared assets (incl. connect) + auto-update
   });
 
   it('creates TOML files for gemini-commands', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini-commands'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -83,7 +81,6 @@ describe('installSkills', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -100,7 +97,6 @@ describe('installSkills', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['grok'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',
@@ -172,7 +168,6 @@ describe('installSkills', () => {
       installSkills(projectDir, {
         language: 'en',
         ides: [ideId],
-        modules: {},
         skillsDir: SKILLS_DIR,
         metaDir: META_DIR,
         scope: 'project',
@@ -195,30 +190,31 @@ describe('installSkills', () => {
     );
   });
 
-  it('installs memory module skills when module is enabled', () => {
+  it('always installs init-memory core skill and memory-assets connect.md', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: { memory: { installed: true, config: { memory_path: '.ai/memory/' } } },
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
-    assert.strictEqual(result.files.length, 85); // single IDE + 1 module skill: no-module count (84) + 1 enabled module skill
+    assert.ok(existsSync(join(tempDir, '.claude/atomic-skills/_assets/connect.md')));
+    assert.strictEqual(result.files.length, 86); // core incl. init-memory + shared assets (incl. connect) + auto-update hook
+    assert.ok(result.files.some((f) => f.source === 'core/init-memory'));
+    assert.ok(result.files.some((f) => f.source === '_assets/memory-assets/connect.md'));
   });
 
-  it('substitutes memory_path variable', () => {
+  it('substitutes canonical memory_path in init-memory', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: { memory: { installed: true, config: { memory_path: '.custom/mem/' } } },
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     const content = readFileSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md'), 'utf8');
-    assert.ok(content.includes('.custom/mem/'));
+    assert.ok(content.includes('.ai/memory/'));
     assert.ok(!content.includes('{{memory_path}}'));
   });
 
@@ -231,7 +227,6 @@ describe('installSkills', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -247,7 +242,6 @@ describe('installSkills', () => {
     installSkills(tempDir, {
       language: 'pt',
       ides: ['claude-code', 'cursor'],
-      modules: { memory: { installed: true, config: { memory_path: '.ai/memory/' } } },
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -267,21 +261,19 @@ describe('installSkills', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code', 'gemini-commands'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/fix.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
-    assert.strictEqual(result.files.length, 167); // 2 IDEs + providers/{codex,grok} + host-default + review-mode-ux per IDE + one auto-update hook
+    assert.strictEqual(result.files.length, 171); // 2 IDEs + init-memory + connect per IDE + shared assets + one auto-update hook
   });
 
   it('injects PT communication directive when language=pt; skill body remains EN', () => {
     installSkills(tempDir, {
       language: 'pt',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -300,7 +292,6 @@ describe('installSkills', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'user',
@@ -314,7 +305,6 @@ describe('installSkills', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'user',
@@ -335,7 +325,6 @@ describe('installSkills', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',
@@ -345,22 +334,31 @@ describe('installSkills', () => {
       'project scope must not create .gitignore anymore');
   });
 
-  it('keeps core-only install count when scope is user and no module is selected', () => {
+  it('installs full core file set for user scope (includes init-memory)', () => {
     const result = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'user',
     });
 
-    // Only core skills + shared assets + project assets (incl. 5 hooks) + namespace root + auto-update hook, no module skills
-    assert.strictEqual(result.files.length, 84); // includes recursive providers/{codex,grok} + host-default + review-mode-ux under codex-bridge-assets
-    assert.ok(!existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
+    assert.strictEqual(result.files.length, 86);
+    assert.ok(existsSync(join(tempDir, '.claude/commands/atomic-skills/init-memory.md')));
   });
 
-  it('copies shared module assets to each IDE namespace dir', async () => {
+  it('does not write modules key on manifest', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const manifest = JSON.parse(readFileSync(join(tempDir, '.atomic-skills/manifest.json'), 'utf8'));
+    assert.ok(!('modules' in manifest), 'manifest must not carry modules metadata');
+  });
+
+  it('copies shared assets to each IDE namespace dir', async () => {
     const { tmpdir } = await import('node:os');
     const { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -372,8 +370,7 @@ describe('installSkills', () => {
     mkdirSync(metaDir, { recursive: true });
     writeFileSync(join(skillsDir, 'shared', 'codex-bridge-assets', 'sample.md'),
       'asset content path={{ASSETS_PATH}}');
-    writeFileSync(join(metaDir, 'catalog.yaml'),
-      'core: {}\nmodules:\n  codex-bridge:\n    name: codex-bridge\n    description: test\n');
+    writeFileSync(join(metaDir, 'catalog.yaml'), 'core: {}\n');
 
     const projectDir = join(tmp, 'project');
     mkdirSync(projectDir, { recursive: true });
@@ -382,7 +379,6 @@ describe('installSkills', () => {
     installSkills(projectDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir,
       metaDir,
       scope: 'project',
@@ -412,7 +408,6 @@ describe('installSkills', () => {
       installSkills(projectDir, {
         language: 'en',
         ides: [ideId],
-        modules: {},
         skillsDir,
         metaDir,
         scope: 'project',
@@ -448,7 +443,6 @@ describe('installSkills', () => {
     installSkills(projectDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: realSkillsDir,
       metaDir: realMetaDir,
       scope: 'project',
@@ -457,9 +451,10 @@ describe('installSkills', () => {
     const assetsDir = pjoin(projectDir, '.claude/atomic-skills/_assets');
     assert.ok(existsSync(assetsDir), 'assets dir should exist');
     const files = readdirSync(assetsDir);
-    // namespace assets: codex-bridge + host-default + review-mode-ux + providers/ + project-assets + hooks/ + design-brief
-    assert.strictEqual(files.length, 62,
-      `expected 62 namespace asset entries (codex-bridge + host-default + review-mode-ux + providers/ + project-assets + hooks/ + design-brief), got ${files.length}: ${files.join(', ')}`);
+    // namespace assets: previous set + memory-assets/connect.md
+    assert.strictEqual(files.length, 63,
+      `expected 63 namespace asset entries (shared assets incl. connect.md), got ${files.length}: ${files.join(', ')}`);
+    assert.ok(files.includes('connect.md'), '_assets/connect.md (from memory-assets) must be installed');
     // F-001 guard: hooks subdir is now recursively installed (was previously dropped silently)
     const hooksDir = pjoin(assetsDir, 'hooks');
     assert.ok(existsSync(hooksDir), '_assets/hooks/ must exist');

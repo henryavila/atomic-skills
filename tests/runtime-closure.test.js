@@ -44,7 +44,6 @@ describe('installed runtime closure', () => {
     const files = computeSkillsFileSet({
       language: 'en',
       ides: ['codex'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',
@@ -78,7 +77,6 @@ describe('installed runtime closure', () => {
     const files = computeSkillsFileSet({
       language: 'en',
       ides: ['grok'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',
@@ -100,8 +98,7 @@ describe('installed runtime closure', () => {
     const fixture = createFixture(t, [
       'core:',
       '  alpha: { name: alpha, description: alpha }',
-      'modules: {}',
-      '',
+            '',
     ].join('\n'));
     for (const relativePath of [
       'alpha-assets/root.md',
@@ -115,7 +112,6 @@ describe('installed runtime closure', () => {
     const files = computeSkillsFileSet({
       language: 'en',
       ides: ['codex'],
-      modules: {},
       skillsDir: fixture.skillsDir,
       metaDir: fixture.metaDir,
       scope: 'project',
@@ -140,8 +136,7 @@ describe('installed runtime closure', () => {
       'core:',
       '  alpha: { name: alpha, description: alpha }',
       '  beta: { name: beta, description: beta }',
-      'modules: {}',
-      '',
+            '',
     ].join('\n'));
     fixture.writeShared('alpha-assets/same.md', 'same bytes');
     fixture.writeShared('beta-assets/same.md', 'same bytes');
@@ -150,7 +145,6 @@ describe('installed runtime closure', () => {
       () => computeSkillsFileSet({
         language: 'en',
         ides: ['codex'],
-        modules: {},
         skillsDir: fixture.skillsDir,
         metaDir: fixture.metaDir,
         scope: 'project',
@@ -169,15 +163,13 @@ describe('installed runtime closure', () => {
     const fixture = createFixture(t, [
       'core:',
       '  alpha: { name: alpha, description: alpha }',
-      'modules: {}',
-      '',
+            '',
     ].join('\n'));
     fixture.writeSkill('core/alpha.md', 'alpha body');
 
     const files = computeSkillsFileSet({
       language: 'en',
       ides: ['codex'],
-      modules: {},
       skillsDir: fixture.skillsDir,
       metaDir: fixture.metaDir,
       scope: 'project',
@@ -196,8 +188,7 @@ describe('installed runtime closure', () => {
     const fixture = createFixture(t, [
       'core:',
       '  alpha: { name: alpha, description: alpha }',
-      'modules: {}',
-      '',
+            '',
     ].join('\n'));
     fixture.writeSkill(
       'core/alpha.md',
@@ -210,7 +201,6 @@ describe('installed runtime closure', () => {
       language: 'en',
       ides: ['codex'],
       scopes: ['project'],
-      modules: {},
       skillsDir: fixture.skillsDir,
       metaDir: fixture.metaDir,
     });

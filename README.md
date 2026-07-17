@@ -460,55 +460,6 @@ Support column:
 
 For details on the cross-agent rendering layer, see [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md).
 
-## Modules
-
-Modules bundle optional skills, shared assets, or hooks on top of the core skills. The `memory`, `codex-bridge`, and `auto-update` modules are enabled on every install. To change the active set, use the interactive installer (the `Change modules` / customize-modules action in the `npx @henryavila/atomic-skills install` menu) — there is no `--modules` CLI flag.
-
-[MODULES_START]: #
-### Memory
-
-Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.
-
-- Configurable path (default: `.ai/memory/`)
-- Adds the `atomic-skills:init-memory` skill
-- Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)
-- Available in both project and user scope installations
-
-### Cross-Model Bridge (new in 2.0.0)
-
-Shared infrastructure for the external (family-different) sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — provider-agnostic sealed-envelope templates plus pluggable provider leaves for Codex and Grok:
-
-- Anti-framing directive (literal text injected into every briefing)
-- Provider leaves under `providers/codex/` and `providers/grok/` (preflight + canonical invocation)
-- Host-default external matrix and same-family confirm→local / HARD ABORT rules
-- Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)
-- Briefing templates (plan + code) and consolidated review file template
-- Reviews INDEX.md row template
-
-On-disk assets remain under `skills/shared/codex-bridge-assets/` (install owner key `codex-bridge`) for path stability; the logical module name is `cross-model-bridge`. Assets install per-IDE at `<ide-root>/atomic-skills/_assets/` (or the Grok plugin `_assets/`) — a SIBLING of the skill tree so they are NOT scanned as slash-commands — and are referenced via `{{ASSETS_PATH}}`.
-
-### Codex Bridge (alias) (new in 1.8.0)
-
-Compatibility alias of `cross-model-bridge`. Historical name for the sealed-envelope asset pack used by the codex sub-flow. Prefer `cross-model-bridge` in new docs; this entry remains so existing install references and the `codex-bridge-assets/` directory continue to resolve.
-
-- Alias of cross-model-bridge — same assets, same install owner for `codex-bridge-assets/`
-- Pre-flight checks and canonical Codex invocation (see `providers/codex/`)
-- Shared envelope templates (anti-framing, Pass 1/2, review file, INDEX row)
-
-Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.
-
-### Auto-Update (new in 1.8.0)
-
-SessionStart hook that notifies you when a new version is available on npm — without polling or interrupting your flow.
-
-- Hook script installed at `~/.atomic-skills/hooks/version-check.sh`
-- Merged into `~/.claude/settings.json` non-destructively (coexists with existing hooks)
-- 24h TTL on npm checks; async background fetch (0ms perceived latency)
-- Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var
-- Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`
-- Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)
-[MODULES_END]: #
-
 ## Install, Update, Uninstall
 
 ```bash
@@ -533,6 +484,12 @@ npx @henryavila/atomic-skills uninstall [--project]
 # Non-interactive uninstall for scripts (skips the confirmation prompt)
 npx @henryavila/atomic-skills uninstall --yes [--project]
 ```
+
+**Auto-update.** On hosts with a SessionStart surface (Claude Code, Grok Build), install registers a non-blocking version check (`~/.atomic-skills/hooks/version-check.sh`) that notifies when a newer npm release is available. Opt out with `ATOMIC_SKILLS_NO_UPDATE_CHECK=1`; TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>` (default 24h).
+
+**Shared assets.** Sealed-envelope templates for cross-model review and other helpers install under each IDE’s `_assets/` directory (sibling of the skill tree so they are not scanned as slash-commands) and are referenced as `{{ASSETS_PATH}}`.
+
+**Memory.** Persistent context lives at `.ai/memory/`. Bootstrap with `/atomic-skills:init-memory` (always installed).
 
 **Uninstall removes everything the installer wrote:** the skill/command files,
 shared assets, the namespace root, the manifest, and the auto-update
@@ -570,7 +527,7 @@ It verifies:
 
 The same discipline the skills enforce on your agent, the repo enforces on itself.
 
-**Generation contract.** The README skills table and per-skill blurbs, the per-skill docs, the IDEs table, the modules section, and the version note are **generated** from `meta/catalog.yaml` + `src/config.js` via `scripts/lib/render-readme.js`; a husky pre-commit regenerates these regions (and the dashboard data) when their inputs are staged. **Never hand-edit inside the marker regions.** To add or change a skill, edit the catalog (`value_pitch`, `one_liner`, args) and the skill body, and use the tool variables from `AGENTS.md` — never hardcoded tool names.
+**Generation contract.** The README skills table and per-skill blurbs, the per-skill docs, the IDEs table, and the version note are **generated** from `meta/catalog.yaml` + `src/config.js` via `scripts/lib/render-readme.js`; a husky pre-commit regenerates these regions (and the dashboard data) when their inputs are staged. **Never hand-edit inside the marker regions.** To add or change a skill, edit the catalog (`value_pitch`, `one_liner`, args) and the skill body, and use the tool variables from `AGENTS.md` — never hardcoded tool names.
 
 See also [docs/kb/gemini-cli-compatibility.md](docs/kb/gemini-cli-compatibility.md) and [docs/kb/skill-frontmatter-spec.md](docs/kb/skill-frontmatter-spec.md).
 

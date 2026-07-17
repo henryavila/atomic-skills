@@ -48,7 +48,7 @@ function main() {
   const report = validateCatalog(data, {
     skillsDir: DEFAULT_SKILLS_DIR,
     requireIronLaw: true,
-    requireModuleMeta: true,
+
     requireCatalogVersion: true,
   });
 

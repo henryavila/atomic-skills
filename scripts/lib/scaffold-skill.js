@@ -117,19 +117,12 @@ export function buildSkillEntry(name, fields) {
 }
 
 /**
- * Insert `entryText` as the last child of `core:` — immediately before the
- * `modules:` line (or `module_meta:`, or end of file as fallbacks). Trailing
- * whitespace before the anchor is normalized to a single blank line so the
- * diff is purely the added entry.
+ * Insert `entryText` as the last child of `core:` — append at end of file
+ * (catalog is core-only after modules removal). Trailing whitespace is
+ * normalized to a single blank line so the diff is purely the added entry.
  */
 export function insertEntry(catalogText, entryText) {
-  const anchor = catalogText.match(/^modules:/m) || catalogText.match(/^module_meta:/m);
-  if (!anchor) {
-    return `${catalogText.replace(/\s*$/, '')}\n${entryText}\n`;
-  }
-  const head = catalogText.slice(0, anchor.index).replace(/\s*$/, '');
-  const tail = catalogText.slice(anchor.index);
-  return `${head}\n${entryText}\n\n${tail}`;
+  return `${catalogText.replace(/\s*$/, '')}\n${entryText}\n`;
 }
 
 /** Skill body skeleton. MUST contain a `## Iron Law` section (gate requires it). */

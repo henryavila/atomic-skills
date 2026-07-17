@@ -14,6 +14,9 @@ import {
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Canonical project memory directory — always rendered into skill bodies. */
+export const DEFAULT_MEMORY_PATH = '.ai/memory/';
+
 /**
  * Pure computation of the atomic-skills file set — skill bodies, shared assets
  * (including arbitrary subdir recursion, e.g. project-assets/hooks/ and
@@ -26,48 +29,28 @@ const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * (auto-update hook, settings.json, manifest), which belong to the runtime
  * layers (T-F3-3) and the Driver's journal — not to this provider.
  *
- * NOTE (strangler-fig): the catalog walk + generateNamespaceRoot are
- * intentionally duplicated from installSkills/preRenderFiles for now. The flip
- * (T-F3-4) removes the legacy in-repo walk and leaves this module as the single
- * source. preRenderFiles omits the asset subdir recursion that installSkills
- * performs; this module matches installSkills (the ground truth), not the
- * incomplete preRenderFiles view.
- *
  * @param {object} config
  * @param {string} config.language - communication language code (e.g. 'en')
  * @param {string[]} config.ides - IDE ids to render for
- * @param {Record<string, {installed?: boolean, config?: Record<string,string>}>} [config.modules]
  * @param {string} config.skillsDir - path to the skills/ source tree
  * @param {string} config.metaDir - path to the meta/ dir holding catalog.yaml
  * @param {''|'user'|'project'} config.scope - install scope (drives ASSETS_PATH)
  * @returns {Array<{ path: string, content: string }>}
  */
 export function computeSkillsFileSet(config) {
-  const { language, ides, modules = {}, skillsDir, metaDir, scope } = config;
+  const { language, ides, skillsDir, metaDir, scope } = config;
 
   const meta = parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
 
-  // Module flags + variable bag from installed modules (mirrors installSkills).
-  const vars = {};
-  const moduleFlags = {};
-  for (const [modName, modConfig] of Object.entries(modules)) {
-    if (!modConfig.installed) continue;
-    moduleFlags[modName] = true;
-    for (const [varName, varValue] of Object.entries(modConfig.config || {})) {
-      vars[varName] = varValue;
-    }
-  }
-
-  // Skill bodies carry the communication-language directive; shared assets do
-  // not (they are inputs to skills, not skill bodies).
+  // Canonical memory path is always on; injection lives here (not in renderTemplate).
+  const vars = { memory_path: DEFAULT_MEMORY_PATH };
   const skillVars = { ...vars, COMMUNICATION_LANGUAGE: language };
 
   const files = [];
   const seen = new Map();
-  // `source` tags each file's origin (e.g. `core/fix`, `modules/x/y`, `_assets/...`,
-  // `_namespace`) — the same taxonomy the legacy installSkills recorded. It is
-  // carried so the install return can classify skills vs assets for the post-install
-  // summary; reconcileFileSet ignores it (it consumes only { path, content }).
+  // `source` tags each file's origin (e.g. `core/fix`, `_assets/...`,
+  // `_namespace`) — carried so the install return can classify skills vs assets
+  // for the post-install summary; reconcileFileSet ignores it.
   const add = (path, content, source) => {
     const previous = seen.get(path);
     if (previous) {
@@ -86,7 +69,7 @@ export function computeSkillsFileSet(config) {
     if (!existsSync(sourceFile)) return;
     const rawContent = readFileSync(sourceFile, 'utf8');
     for (const ideId of ides) {
-      const body = renderTemplate(rawContent, skillVars, moduleFlags, ideId, scope);
+      const body = renderTemplate(rawContent, skillVars, ideId, scope);
       const format = getSkillFormat(ideId);
       const renderOpts = skillMeta.argument_hint ? { argumentHint: skillMeta.argument_hint } : {};
       const content = renderForIDE(format, skillMeta.name, skillMeta.description, body, renderOpts);
@@ -94,25 +77,14 @@ export function computeSkillsFileSet(config) {
     }
   };
 
-  // Core skills.
+  // Core skills (the only skill namespace).
   for (const [skillId, skillMeta] of Object.entries(meta.core || {})) {
     renderSkill(skillId, skillMeta, 'core', `core/${skillId}`);
   }
 
-  // Module skills (only installed modules).
-  for (const [modName, modConfig] of Object.entries(modules)) {
-    if (!modConfig.installed) continue;
-    const modMeta = meta.modules?.[modName];
-    if (!modMeta) continue;
-    for (const [skillId, skillMeta] of Object.entries(modMeta)) {
-      renderSkill(skillId, skillMeta, `modules/${modName}`, `modules/${modName}/${skillId}`);
-    }
-  }
-
   // Shared assets — install every standalone helper and every file below a
   // `<name>-assets/` group. Group names organize the source tree only, so their
-  // contents share the destination root; nested paths remain nested. Building
-  // the complete projection first lets `add` reject ambiguous destinations.
+  // contents share the destination root; nested paths remain nested.
   const sharedDir = join(skillsDir, 'shared');
   if (existsSync(sharedDir)) {
     const assetSources = collectSharedAssetSources(sharedDir);
@@ -125,7 +97,7 @@ export function computeSkillsFileSet(config) {
         const raw = readFileSync(join(sharedDir, sourceRelativePath), 'utf8');
         add(
           `${destBase}/${destinationRelativePath}`,
-          renderTemplate(raw, vars, moduleFlags, ideId, scope),
+          renderTemplate(raw, vars, ideId, scope),
           `_assets/${sourceRelativePath}`,
         );
       }
@@ -145,7 +117,6 @@ export function computeSkillsFileSet(config) {
   for (const ideId of ides) {
     const ide = IDE_CONFIG[ideId];
     if (!ide || ide.delivery !== 'plugin') continue;
-    // ide.dir is `<pluginRoot>/skills` → plugin root is the parent (posix paths).
     const pluginRoot = posix.dirname(ide.dir);
     add(
       `${pluginRoot}/plugin.json`,
@@ -190,8 +161,6 @@ function collectSharedAssetSources(sharedDir) {
   return sources;
 }
 
-// Mirror of install.js generateNamespaceRoot() — duplicated for the strangler-fig
-// phase; collapsed at the flip (T-F3-4).
 function generateNamespaceRoot() {
   const desc = 'Stop rewriting prompts. Install optimized developer skills in any AI IDE.';
   const escaped = desc.replace(/'/g, "''");
@@ -208,8 +177,6 @@ function readPackageMeta() {
 
 /**
  * Minimal Grok plugin manifest (convention paths + version from package.json).
- * Skills/hooks load from the standard plugin subdirs even without a manifest;
- * we still write one so inspect/validate surfaces name+version.
  */
 function generatePluginJson() {
   const pkg = readPackageMeta();
@@ -227,17 +194,9 @@ function generatePluginJson() {
 
 /**
  * Soft project hooks for plugin-delivery hosts (Grok Build).
- * Soft = SessionStart + PreToolUse; Strict adds Stop at project setup (not
- * installed by default). Matchers dual-vocab: Claude Edit|Write|MultiEdit and
- * Grok search_replace|write (Grok also aliases Claude names). Commands use the
- * same CLAUDE_PROJECT_DIR:-$PWD wrapper as Claude/Codex so scripts under
- * .atomic-skills/status/hooks/ resolve when the host injects CLAUDE_PROJECT_DIR
- * (Grok does) or when only $PWD is available.
+ * Soft = SessionStart + PreToolUse; Strict adds Stop at project setup.
  */
 function generatePluginHooksSoft() {
-  // Prefer scripts bundled under the plugin package (always present after install).
-  // Fall back to project-status copy + CLAUDE_PROJECT_DIR for dual-host wrappers.
-  // GROK_PLUGIN_ROOT is set by Grok for plugin-owned hooks.
   const cmd = (script) =>
     `bash "\${GROK_PLUGIN_ROOT:-\${CLAUDE_PROJECT_DIR:-\$PWD}/.grok/plugins/atomic-skills}/_assets/hooks/${script}"`;
   const envelope = {

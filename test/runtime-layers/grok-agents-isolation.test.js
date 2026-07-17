@@ -178,7 +178,6 @@ test('revertGrokAgentsIsolation keeps ignore when another install still has grok
       version: '2.0.0',
       language: 'en',
       ides: ['grok'],
-      modules: {},
       files: {},
     });
 

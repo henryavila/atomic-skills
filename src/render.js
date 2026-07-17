@@ -5,29 +5,22 @@ import { IDE_CONFIG, getAssetsDir, getHostToolProfile } from './config.js';
  * Process template variables and conditional blocks.
  * @param {string} content - Template content
  * @param {Record<string, string>} vars - Variable substitutions
- * @param {Record<string, boolean>} modules - Installed modules (for conditionals)
  * @param {string} ideId - The current IDE ID
  * @param {''|'user'|'project'} scope - Install scope; 'user' prefixes ASSETS_PATH
  *   with `~/` so the rendered path resolves from ANY repo (the files live under
  *   $HOME, and a relative path only resolves when CWD is $HOME itself).
  * @returns {string}
  */
-export function renderTemplate(content, vars = {}, modules = {}, ideId = '', scope = '') {
-  // Build full context for conditionals
-  const context = {
-    modules,
-    ide: ideId ? { [ideId]: true } : {},
-  };
-
+export function renderTemplate(content, vars = {}, ideId = '', scope = '') {
   // Process conditional blocks (single-level, no nesting)
-  // Support {{#if modules.name}} and {{#if ide.name}}
+  // Support {{#if ide.name}} only (installer modules concept removed).
+  const ideContext = ideId ? { [ideId]: true } : {};
   let result = content.replace(
-    /{{#if (modules|ide)\.([\w-]+)}}\n([\s\S]*?){{\/if}}\n?/g,
-    (_, type, name, block) => {
+    /{{#if ide\.([\w-]+)}}\n([\s\S]*?){{\/if}}\n?/g,
+    (_, name, block) => {
       // Normalize ideId for conditional checks (e.g. gemini-commands -> gemini)
-      const normalizedName = type === 'ide' && name === 'gemini' && ideId === 'gemini-commands' ? 'gemini' : name;
-      const isTrue = context[type] && context[type][normalizedName];
-      return isTrue ? block : '';
+      const normalizedName = name === 'gemini' && ideId === 'gemini-commands' ? 'gemini' : name;
+      return ideContext[normalizedName] ? block : '';
     }
   );
 

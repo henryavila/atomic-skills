@@ -75,11 +75,9 @@ export function buildDesiredSet(manifest, scope) {
   const ides = Array.isArray(manifest.ides) && manifest.ides.length > 0
     ? manifest.ides
     : PUBLIC_IDE_IDS;
-  const modules = manifest.modules || {};
   const files = computeSkillsFileSet({
     language,
     ides,
-    modules,
     skillsDir: SKILLS_DIR,
     metaDir: META_DIR,
     scope: scope === 'user' ? 'user' : 'project',

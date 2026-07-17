@@ -19,9 +19,10 @@ import { detectLanguage, detectIDEs, countSkills } from './detect.js';
 import { resolveProjectScopeTarget } from './scope.js';
 import {
   showIntro, printConfig, promptAction, promptIDESelection,
-  promptLanguageSelection, promptModuleConfig, promptInstallScope,
+  promptLanguageSelection, promptInstallScope,
   showPostInstall, showNonInteractiveResult, msg,
 } from './ui.js';
+import { DEFAULT_MEMORY_PATH } from './providers/skills-file-set.js';
 import {
   registerGrokPluginHost,
   wantsGrokPluginHost,
@@ -143,6 +144,29 @@ export function installRuntimeArtifacts({ aideckDir = resolveAideckPackageDir() 
 /** Absolute path of the cross-install runtime registry (refcount file). */
 function installsRegistryPath() {
   return join(homedir(), '.atomic-skills', 'installs.json');
+}
+
+/**
+ * Codex F-002: if a previous install customized memory_path away from the
+ * canonical `.ai/memory/`, warn once (do not block). Custom path is no longer
+ * configurable — rendered skills always use DEFAULT_MEMORY_PATH.
+ *
+ * @param {object|null} existingManifest
+ * @param {string} language
+ */
+export function warnLegacyCustomMemoryPath(existingManifest, language = 'en') {
+  const oldPath = existingManifest?.modules?.memory?.config?.memory_path;
+  if (typeof oldPath !== 'string' || oldPath.trim().length === 0) return;
+  const normalized = oldPath.endsWith('/') ? oldPath : `${oldPath}/`;
+  const canonical = DEFAULT_MEMORY_PATH.endsWith('/')
+    ? DEFAULT_MEMORY_PATH
+    : `${DEFAULT_MEMORY_PATH}/`;
+  if (normalized === canonical) return;
+  const isPt = language === 'pt';
+  const msgText = isPt
+    ? `Caminho de memória customizado "${oldPath}" não é mais suportado. Skills usam ${DEFAULT_MEMORY_PATH}. Migre o conteúdo se necessário.`
+    : `Custom memory path "${oldPath}" is no longer supported. Skills use ${DEFAULT_MEMORY_PATH}. Migrate content if needed.`;
+  console.warn(`  ${pc.yellow('Warning:')} ${msgText}`);
 }
 
 /**
@@ -445,21 +469,21 @@ export function removeLegacyOrphans(basePath, orphans) {
  * no-clobber update (user-modified files survive, P3) and removes unmodified
  * orphans, with no bespoke conflict/orphan logic here.
  *
- * This function then patches the consumer METADATA (version/language/ides/modules)
+ * This function then patches the consumer METADATA (version/language/ides)
  * and a DERIVED legacy `files` map onto the manifest: the journal (`effects`) stays
  * authoritative for uninstall, while the `files` map keeps the status/compat
  * readers working.
  *
  * @param {string} projectDir
- * @param {object} options - { language, ides, modules, skillsDir, metaDir, scope }
+ * @param {object} options - { language, ides, skillsDir, metaDir, scope }
  * @param {object} [callbacks] - { onFileWritten }
  * @returns {{ files: Array<{ path: string, hash: string }> }}
  */
 export function installSkills(projectDir, options, callbacks = {}) {
-  const { language, ides, modules, skillsDir, metaDir, scope } = options;
+  const { language, ides, skillsDir, metaDir, scope } = options;
   const { onFileWritten } = callbacks;
 
-  const installer = buildInstaller({ language, ides, modules, skillsDir, metaDir, scope });
+  const installer = buildInstaller({ language, ides, skillsDir, metaDir, scope });
   installer.install({ projectDir });
 
   // Derive the return value + legacy compat files-map from the journal + the
@@ -487,7 +511,7 @@ export function installSkills(projectDir, options, callbacks = {}) {
   }
 
   const createdFiles = [
-    ...computeSkillsFileSet({ language, ides, modules, skillsDir, metaDir, scope })
+    ...computeSkillsFileSet({ language, ides, skillsDir, metaDir, scope })
       .map(({ path, source }) => ({ path, hash: hashByPath.get(path), source })),
     ...hookFiles,
   ];
@@ -496,12 +520,13 @@ export function installSkills(projectDir, options, callbacks = {}) {
   for (const { path, hash, source } of createdFiles) filesMap[path] = { installed_hash: hash, source };
 
   // Patch consumer metadata + the derived files map onto the journal manifest.
+  // Drop legacy `modules` key if present (installer modules concept removed).
+  const { modules: _legacyModules, ...journalRest } = journal;
   writeManifest(projectDir, {
-    ...journal,
+    ...journalRest,
     version: getPackageVersion(),
     language,
     ides,
-    modules,
     files: filesMap,
   });
 
@@ -651,11 +676,9 @@ export async function install(projectDir, options = {}) {
 
   ides = normalizeIDESelection(ides);
 
-  let modules = existingManifest?.modules ? JSON.parse(JSON.stringify(existingManifest.modules)) : {};
-  if (isFirstInstall && !Object.values(modules).some(m => m.installed)) {
-    const moduleYaml = parseYaml(readFileSync(join(skillsDir, 'modules', 'memory', 'module.yaml'), 'utf8'));
-    modules = { memory: { installed: true, config: { memory_path: moduleYaml.variables.memory_path.default } } };
-  }
+  // Codex F-002: warn when an older install had a custom memory_path that is
+  // no longer supported (canonical path is always DEFAULT_MEMORY_PATH).
+  warnLegacyCustomMemoryPath(existingManifest, language);
 
   // ─── Legacy-namespace cleanup (runs in both modes, before main install) ───
   // Removes files at obsolete install paths (see LEGACY_NAMESPACE_PATHS)
@@ -665,12 +688,7 @@ export async function install(projectDir, options = {}) {
   // content placed under our namespace). Only files matching the
   // frontmatter safelist are auto-removed.
   const catalogForCleanup = parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
-  const knownCurrentNames = new Set(
-    [...Object.keys(catalogForCleanup?.core || {}),
-     ...Object.values(catalogForCleanup?.modules || {})
-       .filter((m) => m && typeof m === 'object')
-       .flatMap((m) => Object.keys(m))]
-  );
+  const knownCurrentNames = new Set(Object.keys(catalogForCleanup?.core || {}));
   const legacyOrphans = findLegacyOrphans(basePath, knownCurrentNames);
   const safeOrphans = legacyOrphans.filter((o) => o.safe);
   const unsafeOrphans = legacyOrphans.filter((o) => !o.safe);
@@ -702,7 +720,7 @@ export async function install(projectDir, options = {}) {
     // The Driver's reconcileFileSet runs the 3-hash no-clobber update (files the
     // user modified survive) and removes unmodified orphans — what the bespoke
     // keepFiles/savedContent/orphan logic used to do, now a property of the effect.
-    const result = installSkills(basePath, { language, ides, modules, skillsDir, metaDir, scope });
+    const result = installSkills(basePath, { language, ides, skillsDir, metaDir, scope });
 
     // Host plugin registry (outside journal): native Grok plugin, outside Codex.
     syncGrokPluginHostAfterInstall(basePath, ides, language);
@@ -717,16 +735,13 @@ export async function install(projectDir, options = {}) {
     lang: language,
     languageDetected,
     ides: [...ides],
-    modules,
     project,
     scope,
     scopePath: scope === 'project' ? basePath : '~/',
     projectTarget,
     existingVersion: existingManifest?.version,
-    skillCount: countSkills(metaDir, modules),
+    skillCount: countSkills(metaDir),
   };
-
-  const moduleYaml = parseYaml(readFileSync(join(skillsDir, 'modules', 'memory', 'module.yaml'), 'utf8'));
 
   showIntro(config, { isUpdate, pkgVersion });
 
@@ -799,9 +814,6 @@ export async function install(projectDir, options = {}) {
     } else if (action === 'customize-ides') {
       config.ides = await promptIDESelection(config.lang, config.ides);
       config.ides = normalizeIDESelection(config.ides);
-    } else if (action === 'customize-modules') {
-      config.modules = await promptModuleConfig(config.lang, config.modules, moduleYaml);
-      config.skillCount = countSkills(metaDir, config.modules);
     }
   } while (action !== 'install' && action !== 'quit');
 
@@ -832,7 +844,6 @@ export async function install(projectDir, options = {}) {
     result = installSkills(basePath, {
       language: config.lang,
       ides: config.ides,
-      modules: config.modules,
       skillsDir,
       metaDir,
       scope,

@@ -161,15 +161,6 @@ export function status(projectDir, options = {}) {
     }
   }
 
-  // Module status
-  const modules = manifest.modules || {};
-  const installedMods = Object.entries(modules).filter(([, v]) => v.installed).map(([k]) => k);
-  if (installedMods.length > 0) {
-    p.log.message(pc.bold('Modules:') + ' ' + installedMods.map((m) => pc.cyan(m)).join(', '));
-  } else {
-    p.log.message(pc.bold('Modules:') + ' none');
-  }
-
   // Runtime registry observation (read-only; F2/T-004)
   let runtime = null;
   try {

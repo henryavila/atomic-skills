@@ -25,7 +25,6 @@ const PACKAGE_ROOT = join(__dirname, '..', '..');
 const baseConfig = {
   language: 'en',
   ides: ['claude-code', 'codex', 'gemini-commands'],
-  modules: {},
   skillsDir: join(PACKAGE_ROOT, 'skills'),
   metaDir: join(PACKAGE_ROOT, 'meta'),
   scope: 'project',

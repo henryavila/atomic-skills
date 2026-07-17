@@ -961,91 +961,40 @@ core:
     dependencies: [git]
     schema_version: '0.2'
 
-modules:
-  cross-model-bridge: {}
-  # Compatibility alias — keeps codex-bridge-assets installable and docs greps stable.
-  codex-bridge: {}
-  auto-update: {}
-  memory:
-    init-memory:
-      name: init-memory
-      title: 'Init Memory — Persistent Context'
-      description: 'Initialize persistent memory structure for cross-session context.'
-      value_pitch: >
-        Memory often already exists but is scattered across `.memory/`,
-        `docs/memory/`, and Claude's auto-memory dir — duplicated,
-        contradictory, or never actually read because it was never wired up.
-        `init-memory` consolidates it into one indexed `.ai/memory/`, connects
-        it via `autoMemoryDirectory` (the durable path, not the fragile
-        redirect), and keeps `MEMORY.md` under the 200-line load limit.
-        Originals are deleted only after an ls-compare confirms every file
-        copied.
-      purpose: >
-        Bootstrap the persistent memory directory and index so that future
-        sessions can pick up where this one left off.
-      when_to_use:
-        - 'First time using atomic-skills in a project'
-        - 'Memory directory missing or corrupted'
-        - 'You want to standardize the memory layout'
-      when_not_to_use:
-        - 'Memory already initialized and healthy'
-      examples:
-        - command: '/atomic-skills:init-memory'
-          description: 'Bootstrap memory in the current project'
-      related: [save-and-push]
-      tags: [memory, setup]
-      ide_compatibility: [claude-code, gemini, cursor, codex]
-      requires_args: false
-      mutates_repo: true
-      network_required: false
-      one_liner: 'Consolidate scattered memory into .ai/memory/ and wire it to the IDE'
-      emoji: '🧠'
-      version_added: '1.0.0'
-      output_artifacts:
-        - '.ai/memory/MEMORY.md'
-      schema_version: '0.2'
-
-# Documentation for the Modules section of README.md. Keys MUST match
-# entries under `modules:` above. Order here drives section order in the
-# rendered README.
-module_meta:
-  memory:
-    title: 'Memory'
-    intro: 'Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.'
-    features:
-      - 'Configurable path (default: `.ai/memory/`)'
-      - 'Adds the `atomic-skills:init-memory` skill'
-      - "Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)"
-      - 'Available in both project and user scope installations'
-  cross-model-bridge:
-    title: 'Cross-Model Bridge'
-    version_added: '2.0.0'
-    intro: 'Shared infrastructure for the external (family-different) sub-flow inside `review-plan` and `review-code`. Asset-only module (no invocable skills of its own) — provider-agnostic sealed-envelope templates plus pluggable provider leaves for Codex and Grok:'
-    features:
-      - 'Anti-framing directive (literal text injected into every briefing)'
-      - 'Provider leaves under `providers/codex/` and `providers/grok/` (preflight + canonical invocation)'
-      - 'Host-default external matrix and same-family confirm→local / HARD ABORT rules'
-      - 'Pass 1 / Pass 2 output templates + Pass 2 prompt suffix (reconciliation block)'
-      - 'Briefing templates (plan + code) and consolidated review file template'
-      - 'Reviews INDEX.md row template'
-    notes: 'On-disk assets remain under `skills/shared/codex-bridge-assets/` (install owner key `codex-bridge`) for path stability; the logical module name is `cross-model-bridge`. Assets install per-IDE at `<ide-root>/atomic-skills/_assets/` (or the Grok plugin `_assets/`) — a SIBLING of the skill tree so they are NOT scanned as slash-commands — and are referenced via `{{ASSETS_PATH}}`.'
-  codex-bridge:
-    title: 'Codex Bridge (alias)'
-    version_added: '1.8.0'
-    intro: 'Compatibility alias of `cross-model-bridge`. Historical name for the sealed-envelope asset pack used by the codex sub-flow. Prefer `cross-model-bridge` in new docs; this entry remains so existing install references and the `codex-bridge-assets/` directory continue to resolve.'
-    features:
-      - 'Alias of cross-model-bridge — same assets, same install owner for `codex-bridge-assets/`'
-      - 'Pre-flight checks and canonical Codex invocation (see `providers/codex/`)'
-      - 'Shared envelope templates (anti-framing, Pass 1/2, review file, INDEX row)'
-    notes: 'Assets are installed per-IDE at `<ide-root>/atomic-skills/_assets/` (e.g. `.claude/atomic-skills/_assets/`) — a SIBLING of the command/skill tree (one level above `commands/`|`skills/`) so they are NOT scanned as slash-commands — and referenced from the skills via the `{{ASSETS_PATH}}` template variable.'
-  auto-update:
-    title: 'Auto-Update'
-    version_added: '1.8.0'
-    intro: 'SessionStart hook that notifies you when a new version is available on npm — without polling or interrupting your flow.'
-    features:
-      - 'Hook script installed at `~/.atomic-skills/hooks/version-check.sh`'
-      - 'Merged into `~/.claude/settings.json` non-destructively (coexists with existing hooks)'
-      - '24h TTL on npm checks; async background fetch (0ms perceived latency)'
-      - 'Opt-out via `ATOMIC_SKILLS_NO_UPDATE_CHECK=1` env var'
-      - 'Configurable TTL via `ATOMIC_SKILLS_UPDATE_CHECK_TTL=<seconds>`'
-      - 'Currently covers **Claude Code** only (Cursor, Gemini CLI, Codex, OpenCode, GitHub Copilot have different lifecycles)'
+  init-memory:
+    name: init-memory
+    title: 'Init Memory — Persistent Context'
+    description: 'Initialize persistent memory structure for cross-session context.'
+    value_pitch: >
+      Memory often already exists but is scattered across `.memory/`,
+      `docs/memory/`, and Claude's auto-memory dir — duplicated,
+      contradictory, or never actually read because it was never wired up.
+      `init-memory` consolidates it into one indexed `.ai/memory/`, connects
+      it via `autoMemoryDirectory` (the durable path, not the fragile
+      redirect), and keeps `MEMORY.md` under the 200-line load limit.
+      Originals are deleted only after an ls-compare confirms every file
+      copied.
+    purpose: >
+      Bootstrap the persistent memory directory and index so that future
+      sessions can pick up where this one left off.
+    when_to_use:
+      - 'First time using atomic-skills in a project'
+      - 'Memory directory missing or corrupted'
+      - 'You want to standardize the memory layout'
+    when_not_to_use:
+      - 'Memory already initialized and healthy'
+    examples:
+      - command: '/atomic-skills:init-memory'
+        description: 'Bootstrap memory in the current project'
+    related: [save-and-push]
+    tags: [memory, setup]
+    ide_compatibility: [claude-code, gemini, cursor, codex]
+    requires_args: false
+    mutates_repo: true
+    network_required: false
+    one_liner: 'Consolidate scattered memory into .ai/memory/ and wire it to the IDE'
+    emoji: '🧠'
+    version_added: '1.0.0'
+    output_artifacts:
+      - '.ai/memory/MEMORY.md'
+    schema_version: '0.2'

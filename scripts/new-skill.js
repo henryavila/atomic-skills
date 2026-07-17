@@ -113,7 +113,7 @@ function main() {
   const report = validateCatalog(data, {
     skillsDir: SKILLS_DIR,
     requireIronLaw: true,
-    requireModuleMeta: true,
+
     requireCatalogVersion: true,
   });
 

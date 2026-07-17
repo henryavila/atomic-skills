@@ -48,7 +48,7 @@ describe('host profile contract (F2/T-001)', () => {
   it('does not free-ride Claude tool names on non-Claude public hosts', () => {
     for (const id of PUBLIC_IDE_IDS) {
       if (id === 'claude-code') continue;
-      const rendered = renderTemplate(TEMPLATE, {}, {}, id).trim();
+      const rendered = renderTemplate(TEMPLATE, {}, id).trim();
       for (const leak of CLAUDE_LEAKS) {
         assert.ok(
           !rendered.includes(leak),
@@ -59,14 +59,14 @@ describe('host profile contract (F2/T-001)', () => {
   });
 
   it('claude-code keeps Claude-native tool names', () => {
-    const rendered = renderTemplate(TEMPLATE, {}, {}, 'claude-code').trim();
+    const rendered = renderTemplate(TEMPLATE, {}, 'claude-code').trim();
     assert.ok(rendered.includes('Bash'));
     assert.ok(rendered.includes('Read tool'));
   });
 
   it('leaves no unsubstituted tool template variables for any public host', () => {
     for (const id of PUBLIC_IDE_IDS) {
-      const rendered = renderTemplate(TEMPLATE, {}, {}, id);
+      const rendered = renderTemplate(TEMPLATE, {}, id);
       // Gemini's ARG_VAR intentionally emits the host placeholder `{{args}}`
       // (Gemini CLI command/skill argument contract — F5/T-002). Strip that
       // known host token before asserting no leftover Atomic Skills template vars.
@@ -79,7 +79,7 @@ describe('host profile contract (F2/T-001)', () => {
   });
 
   it('gemini ARG_VAR renders the host {{args}} placeholder (not $ARGUMENTS)', () => {
-    const rendered = renderTemplate('x={{ARG_VAR}}', {}, {}, 'gemini').trim();
+    const rendered = renderTemplate('x={{ARG_VAR}}', {}, 'gemini').trim();
     assert.equal(rendered, 'x={{args}}');
     assert.ok(!rendered.includes('$ARGUMENTS'));
   });
@@ -96,7 +96,7 @@ describe('host profile contract (F2/T-001)', () => {
   });
 
   it('unknown ideId uses a non-Claude layout fallback that still substitutes', () => {
-    const rendered = renderTemplate(TEMPLATE, {}, {}, 'unknown-host-xyz').trim();
+    const rendered = renderTemplate(TEMPLATE, {}, 'unknown-host-xyz').trim();
     assert.ok(!rendered.includes('{{'));
     for (const leak of ['Bash', 'Read tool']) {
       assert.ok(!rendered.includes(leak), `unknown host must not freeride Claude: ${leak}`);

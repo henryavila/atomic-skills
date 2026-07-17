@@ -22,7 +22,6 @@ describe('Update and Orphan Removal', () => {
     const initialResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini-commands'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -35,7 +34,6 @@ describe('Update and Orphan Removal', () => {
     const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -84,7 +82,6 @@ describe('Update and Orphan Removal', () => {
     const initialResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini-commands'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -100,7 +97,6 @@ describe('Update and Orphan Removal', () => {
     const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['gemini'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'project'
@@ -146,7 +142,6 @@ describe('Update and Orphan Removal', () => {
     const newResult = installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: join(process.cwd(), 'skills'),
       metaDir: join(process.cwd(), 'meta'),
       scope: 'user'

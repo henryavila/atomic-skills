@@ -125,18 +125,8 @@ describe('detectIDEs', () => {
 describe('countSkills', () => {
   const metaDir = join(process.cwd(), 'meta');
 
-  it('counts core skills with no modules', () => {
-    const result = countSkills(metaDir, {});
-    assert.strictEqual(result, '14 core');
-  });
-
-  it('counts core + module skills when memory is enabled', () => {
-    const result = countSkills(metaDir, { memory: { installed: true } });
-    assert.strictEqual(result, '14 core + 1 module');
-  });
-
-  it('ignores disabled modules', () => {
-    const result = countSkills(metaDir, { memory: { installed: false } });
-    assert.strictEqual(result, '14 core');
+  it('counts core skills only', () => {
+    const result = countSkills(metaDir);
+    assert.strictEqual(result, '15 core');
   });
 });

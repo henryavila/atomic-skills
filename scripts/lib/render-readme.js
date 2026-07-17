@@ -11,8 +11,6 @@ const DETAILS_START = '[SKILL_DETAILS_START]: #';
 const DETAILS_END = '[SKILL_DETAILS_END]: #';
 const IDES_START = '[IDES_TABLE_START]: #';
 const IDES_END = '[IDES_TABLE_END]: #';
-const MODULES_START = '[MODULES_START]: #';
-const MODULES_END = '[MODULES_END]: #';
 const VERSION_NOTE_START = '[VERSION_NOTE_START]: #';
 const VERSION_NOTE_END = '[VERSION_NOTE_END]: #';
 
@@ -46,22 +44,6 @@ export function renderIdesTable() {
   return [header, ...rows].join('\n');
 }
 
-function renderOneModule(key, meta) {
-  const heading = meta.version_added
-    ? `### ${meta.title} (new in ${meta.version_added})`
-    : `### ${meta.title}`;
-  const parts = [heading, '', meta.intro];
-  if (Array.isArray(meta.features) && meta.features.length > 0) {
-    parts.push('');
-    for (const f of meta.features) parts.push(`- ${f}`);
-  }
-  if (meta.notes) {
-    parts.push('');
-    parts.push(meta.notes);
-  }
-  return parts.join('\n');
-}
-
 /**
  * Render the `> Note (vX.Y.Z): ...` callout under `## Skills`. Returns an
  * empty string when `release_highlight` is absent (note is suppressed).
@@ -81,22 +63,6 @@ export function renderVersionNote(releaseHighlight, pkgVersion) {
   const first = `> **Note (v${pkgVersion}):** ${lines[0]}`;
   const rest = lines.slice(1).map((l) => `> ${l}`);
   return [first, ...rest].join('\n');
-}
-
-/**
- * Render the `## Modules` body from `data.module_meta`. Order follows the
- * insertion order of the YAML map. Returns an empty string when the block
- * is absent (suppresses the section — useful in unit-test fixtures). The
- * orphan/missing cross-check is enforced separately by validateModuleMeta.
- */
-export function renderModulesSection(moduleMeta) {
-  if (moduleMeta == null) return '';
-  if (typeof moduleMeta !== 'object') {
-    throw new Error('module_meta must be a mapping');
-  }
-  return Object.entries(moduleMeta)
-    .map(([key, meta]) => renderOneModule(key, meta))
-    .join('\n\n');
 }
 
 function renderTableRow(skill, ironLaw) {
@@ -277,7 +243,6 @@ function ensureMarkers(readme) {
     TABLE_START, TABLE_END,
     DETAILS_START, DETAILS_END,
     IDES_START, IDES_END,
-    MODULES_START, MODULES_END,
     VERSION_NOTE_START, VERSION_NOTE_END,
   ]) {
     if (!readme.includes(marker)) {
@@ -332,13 +297,11 @@ export function renderReadme({ catalogData, readme, skillsDir, pkgVersion }) {
   const table = renderTable(skills, ironLaws);
   const details = renderDetails(skills, ironLaws);
   const idesTable = renderIdesTable();
-  const modulesBody = renderModulesSection(catalogData.module_meta);
   const versionNote = renderVersionNote(catalogData.release_highlight, pkgVersion);
 
   let next = replaceBetween(readme, TABLE_START, TABLE_END, table);
   next = replaceBetween(next, DETAILS_START, DETAILS_END, details);
   next = replaceBetween(next, IDES_START, IDES_END, idesTable);
-  next = replaceBetween(next, MODULES_START, MODULES_END, modulesBody);
   next = replaceBetween(next, VERSION_NOTE_START, VERSION_NOTE_END, versionNote);
   return next;
 }
@@ -383,6 +346,5 @@ export const MARKERS = {
   TABLE_START, TABLE_END,
   DETAILS_START, DETAILS_END,
   IDES_START, IDES_END,
-  MODULES_START, MODULES_END,
   VERSION_NOTE_START, VERSION_NOTE_END,
 };

@@ -113,7 +113,7 @@ Claude specific instructions.
   `.trim();
 
   it('renders correctly for Gemini', () => {
-    const rendered = renderTemplate(sampleContent, {}, {}, 'gemini');
+    const rendered = renderTemplate(sampleContent, {}, 'gemini');
     assert.ok(rendered.includes('run_shell_command'));
     assert.ok(rendered.includes('read_file'));
     assert.ok(rendered.includes('Gemini hacks here.'));
@@ -121,7 +121,7 @@ Claude specific instructions.
   });
 
   it('renders correctly for Claude Code', () => {
-    const rendered = renderTemplate(sampleContent, {}, {}, 'claude-code');
+    const rendered = renderTemplate(sampleContent, {}, 'claude-code');
     assert.ok(rendered.includes('Bash'));
     assert.ok(rendered.includes('Read tool'));
     assert.ok(rendered.includes('Claude specific instructions.'));
@@ -130,7 +130,7 @@ Claude specific instructions.
 
   it('substitutes ASSETS_PATH for every public IDE', () => {
     for (const ideId of PUBLIC_IDE_IDS) {
-      const result = renderTemplate('see {{ASSETS_PATH}}/x.md', {}, {}, ideId);
+      const result = renderTemplate('see {{ASSETS_PATH}}/x.md', {}, ideId);
       assert.ok(!result.includes('{{ASSETS_PATH}}'),
         `ASSETS_PATH not substituted for ${ideId}`);
       assert.ok(result.includes('_assets'),
@@ -179,7 +179,7 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
 
     it(`skill "${relativePath}" is byte-runnable when stripped for Gemini`, () => {
       const source = readFileSync(file, 'utf8');
-      const rendered = renderTemplate(source, {}, {}, 'gemini');
+      const rendered = renderTemplate(source, {}, 'gemini');
 
       // 1) every conditional was processed — no dangling handlebars structure.
       assert.ok(!rendered.includes('{{#if'),
@@ -206,7 +206,7 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
       'Dispatch the work:',
       'TaskCreate({ subject: "x" })',
     ].join('\n');
-    const rendered = renderTemplate(bad, {}, {}, 'gemini');
+    const rendered = renderTemplate(bad, {}, 'gemini');
     assert.deepEqual(hostToolViolations(rendered), ['TaskCreate'],
       'a TaskCreate( call outside a CC block must be detected after the Gemini render');
   });
@@ -219,18 +219,18 @@ describe('Cross-Agent Portability — host-orchestration ban + strip-test (R-XAG
       'Accelerator: TaskCreate({ subject: "x" })',
       '{{/if}}',
     ].join('\n');
-    const gemini = renderTemplate(good, {}, {}, 'gemini');
+    const gemini = renderTemplate(good, {}, 'gemini');
     assert.equal(hostToolViolations(gemini).length, 0,
       'a CC-only TaskCreate inside an ide.claude-code block must be stripped for Gemini → no violation');
     assert.ok(!gemini.includes('TaskCreate'), 'the CC block must actually be removed for Gemini');
-    const claude = renderTemplate(good, {}, {}, 'claude-code');
+    const claude = renderTemplate(good, {}, 'claude-code');
     assert.ok(claude.includes('TaskCreate('),
       'the claude-code render must keep the in-block accelerator');
   });
 
   it('does NOT flag ordinary prose containing the bare words "monitor"/"workflow"', () => {
     const prose = 'Monitor the build output and follow the workflow of the audit.';
-    const rendered = renderTemplate(prose, {}, {}, 'gemini');
+    const rendered = renderTemplate(prose, {}, 'gemini');
     assert.equal(hostToolViolations(rendered).length, 0,
       'bare English words must not be flagged — only code-shaped tool references');
   });

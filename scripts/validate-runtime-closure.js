@@ -20,7 +20,6 @@ export function validateRuntimeClosure(options = {}) {
     language = 'en',
     ides = PUBLIC_IDE_IDS,
     scopes = ['project', 'user'],
-    modules = {},
     skillsDir = resolve(PACKAGE_ROOT, 'skills'),
     metaDir = resolve(PACKAGE_ROOT, 'meta'),
   } = options;
@@ -36,7 +35,6 @@ export function validateRuntimeClosure(options = {}) {
         files = computeSkillsFileSet({
           language,
           ides: [ideId],
-          modules,
           skillsDir,
           metaDir,
           scope,

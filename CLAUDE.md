@@ -68,7 +68,7 @@ calls `buildInstaller({}).uninstall()` which **replays the journal in reverse**
 (`Driver.uninstall` → `replayReverse` + `removeManifest`). No consumer writes
 revert logic; reversibility is a property of each effect. The manifest is
 **hybrid**: the journal (`effects[]`) is authoritative for uninstall, and a
-derived legacy `files{}` map + metadata (`version/language/ides/modules`) are
+derived legacy `files{}` map + metadata (`version/language/ides`) are
 patched on for the status/compat readers.
 
 | Install action | Effect (journal) → reversal |

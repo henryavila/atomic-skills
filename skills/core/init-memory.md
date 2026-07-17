@@ -15,7 +15,7 @@ Moving files to `{{memory_path}}` does NOT make Claude Code read them — by def
 it loads `~/.claude/projects/{project_dir}/memory/MEMORY.md`. Connecting the
 canonical path needs explicit wiring (`autoMemoryDirectory`, or a fragile
 redirect). The full derivation + both connection paths live in
-`skills/modules/memory/_assets/connect.md` § *Critical Context*; Process step 5
+`skills/shared/memory-assets/connect.md` § *Critical Context*; Process step 5
 executes them.
 
 ## MEMORY.md Limits
@@ -103,7 +103,7 @@ content to topic files and keep only links in the index.
 ### 5. Connect to Claude Code
 
 Wire the canonical path so Claude Code actually reads it: {{READ_TOOL}}
-`skills/modules/memory/_assets/connect.md` § *Step 5 — Connect to Claude Code* and
+`skills/shared/memory-assets/connect.md` § *Step 5 — Connect to Claude Code* and
 follow it — detect the IDE, then check/set `autoMemoryDirectory` in
 `.claude/settings.local.json` (Path A, recommended) or create the redirect
 (Path B); skip for non-Claude IDEs.

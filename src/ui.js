@@ -12,7 +12,6 @@ export const MESSAGES = {
     updateDefaults: 'Atualizar com configuração atual',
     customizeLang: 'Mudar idioma de comunicação',
     customizeIDEs: 'Mudar IDEs',
-    customizeModules: 'Mudar módulos',
     viewConflicts: 'Ver conflitos',
     quit: 'Sair',
     detected: 'detectado',
@@ -37,10 +36,6 @@ export const MESSAGES = {
     updateCmd: (ns) => `Atualizar: npx @henryavila/${ns} install`,
     removeCmd: (ns) => `Remover:   npx @henryavila/${ns} uninstall`,
     cancelled: 'Operação cancelada.',
-    moduleInstall: (path) => `Instalar com padrão (${path})`,
-    moduleSkip: 'Não instalar',
-    moduleCustomPath: 'Escolher diretório customizado',
-    memoryDir: 'Diretório para o módulo de memória',
     noIDEsDetected: 'Nenhuma IDE detectada — selecione manualmente.',
     done: 'Concluído.',
     installingMsg: (version) => `Instalando atomic-skills v${version}...`,
@@ -52,7 +47,6 @@ export const MESSAGES = {
     updateDefaults: 'Update with current configuration',
     customizeLang: 'Change communication language',
     customizeIDEs: 'Change IDEs',
-    customizeModules: 'Change modules',
     viewConflicts: 'View conflicts',
     quit: 'Quit',
     detected: 'detected',
@@ -77,10 +71,6 @@ export const MESSAGES = {
     updateCmd: (ns) => `Update later: npx @henryavila/${ns} install`,
     removeCmd: (ns) => `Remove:       npx @henryavila/${ns} uninstall`,
     cancelled: 'Operation cancelled.',
-    moduleInstall: (path) => `Install with default (${path})`,
-    moduleSkip: 'Do not install',
-    moduleCustomPath: 'Choose custom directory',
-    memoryDir: 'Directory for the memory module',
     noIDEsDetected: 'No IDEs detected — please select manually.',
     done: 'Done.',
     installingMsg: (version) => `Installing atomic-skills v${version}...`,
@@ -145,11 +135,11 @@ export function showIntro(config, { isUpdate, pkgVersion } = {}) {
 
 /**
  * Prints dashboard config lines using p.log.message().
- * @param {object} config       - { lang, scope, ides, modules, skillCount, conflictCount }
+ * @param {object} config       - { lang, scope, ides, skillCount, conflictCount }
  * @param {number} conflictCount
  */
 export function printConfig(config, conflictCount = 0) {
-  const { lang, scope, scopePath, ides = [], modules = {}, skillCount } = config;
+  const { lang, scope, scopePath, ides = [], skillCount } = config;
 
   const scopeLabel = scope === 'user'
     ? `user (${pc.dim(scopePath || '~/')})`
@@ -160,21 +150,10 @@ export function printConfig(config, conflictCount = 0) {
     .map((id) => pc.cyan(ideDisplayName(id)))
     .join('  ');
 
-  const moduleEntries = Object.entries(modules).filter(([, v]) => v.installed);
-  const modulesLabel = moduleEntries.length
-    ? moduleEntries
-        .map(([name, v]) => {
-          const dir = v.config?.memory_path ?? '';
-          return pc.cyan(name) + (dir ? pc.dim(` → ${dir}`) : '');
-        })
-        .join('  ')
-    : pc.dim('none');
-
   const langLabel = lang === 'pt' ? 'Comunicação' : 'Communication';
   p.log.message(`  ${langLabel}  ${pc.cyan(lang)}`);
   p.log.message(`  Scope       ${scopeLabel}`);
   p.log.message(`  IDEs        ${ideLabels || pc.dim('none')}`);
-  p.log.message(`  Modules     ${modulesLabel}`);
   if (skillCount) {
     p.log.message(`  Skills      ${pc.dim(skillCount)}`);
   }
@@ -199,7 +178,7 @@ export function showPostInstall(result, ides, lang, isFirstInstall) {
     byIDE[id] = { skills: 0, assets: 0 };
   }
   for (const f of result.files) {
-    const isSkill = f.source.startsWith('core/') || f.source.startsWith('modules/');
+    const isSkill = f.source.startsWith('core/');
     for (const id of ides) {
       const cfg = IDE_CONFIG[id];
       if (cfg && f.path.startsWith(cfg.dir + '/')) {
@@ -252,7 +231,7 @@ export function showNonInteractiveResult(result, ides, lang) {
     byIDE[id] = { skills: 0, assets: 0 };
   }
   for (const f of result.files) {
-    const isSkill = f.source.startsWith('core/') || f.source.startsWith('modules/');
+    const isSkill = f.source.startsWith('core/');
     for (const id of ides) {
       const cfg = IDE_CONFIG[id];
       if (cfg && f.path.startsWith(cfg.dir + '/')) {
@@ -290,12 +269,12 @@ export function showNonInteractiveResult(result, ides, lang) {
 // ---------------------------------------------------------------------------
 
 /**
- * Main action select: Install/Update, customize lang/ides/modules, view conflicts, quit.
+ * Main action select: Install/Update, customize lang/ides, view conflicts, quit.
  * @param {string} lang
  * @param {object} opts
  * @param {boolean} opts.isUpdate
  * @param {boolean} opts.hasConflicts
- * @returns {Promise<string>} 'install'|'customize-lang'|'customize-ides'|'customize-modules'|'view-conflicts'|'quit'
+ * @returns {Promise<string>} 'install'|'customize-lang'|'customize-ides'|'view-conflicts'|'quit'
  */
 export async function promptAction(lang, { isUpdate = false, hasConflicts = false } = {}) {
   const m = msg(lang);
@@ -307,7 +286,6 @@ export async function promptAction(lang, { isUpdate = false, hasConflicts = fals
     },
     { value: 'customize-lang', label: m.customizeLang },
     { value: 'customize-ides', label: m.customizeIDEs },
-    { value: 'customize-modules', label: m.customizeModules },
   ];
 
   if (hasConflicts) {
@@ -448,71 +426,6 @@ export async function promptInstallScope(lang, opts = {}) {
   }
 
   return result;
-}
-
-/**
- * Select install/custom path/skip for memory module.
- * @param {string} lang
- * @param {object} currentModules  - e.g. { memory: { installed: true, config: { memory_path: '...' } } }
- * @param {object} moduleYamlConfig - parsed module.yaml content
- * @returns {Promise<object>} updated modules object
- */
-export async function promptModuleConfig(lang, currentModules = {}, moduleYamlConfig) {
-  const m = msg(lang);
-  const display = moduleYamlConfig.display_name?.[lang] || moduleYamlConfig.display_name?.en || 'Memory';
-  const desc =
-    moduleYamlConfig.description?.[lang] || moduleYamlConfig.description?.en || '';
-  const defaultPath = moduleYamlConfig.variables?.memory_path?.default ?? '.ai/memory/';
-
-  p.log.message(`\n  ${pc.bold(display)}`);
-  if (desc) {
-    p.log.message(`  ${desc.trim().split('\n').join('\n  ')}`);
-  }
-
-  const choice = await p.select({
-    message: '',
-    options: [
-      { value: 'default', label: m.moduleInstall(defaultPath) },
-      { value: 'custom', label: m.moduleCustomPath },
-      { value: 'skip', label: m.moduleSkip },
-    ],
-    initialValue: currentModules.memory?.installed ? 'default' : 'skip',
-  });
-
-  if (p.isCancel(choice)) {
-    p.cancel(m.cancelled);
-    process.exit(0);
-  }
-
-  if (choice === 'skip') {
-    return { memory: { installed: false } };
-  }
-
-  if (choice === 'custom') {
-    const varDesc =
-      moduleYamlConfig.variables?.memory_path?.description?.[lang] ||
-      moduleYamlConfig.variables?.memory_path?.description?.en ||
-      m.memoryDir;
-
-    const customPath = await p.text({
-      message: `${varDesc}:`,
-      placeholder: defaultPath,
-      initialValue: currentModules.memory?.config?.memory_path ?? defaultPath,
-      validate(value) {
-        if (!value || value.trim().length === 0) return 'Path is required.';
-      },
-    });
-
-    if (p.isCancel(customPath)) {
-      p.cancel(m.cancelled);
-      process.exit(0);
-    }
-
-    return { memory: { installed: true, config: { memory_path: customPath } } };
-  }
-
-  // default
-  return { memory: { installed: true, config: { memory_path: defaultPath } } };
 }
 
 // ---------------------------------------------------------------------------

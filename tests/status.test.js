@@ -24,7 +24,6 @@ describe('status data verification', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -40,7 +39,6 @@ describe('status data verification', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -64,7 +62,6 @@ describe('status data verification', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code', 'cursor'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -91,7 +88,6 @@ describe('status({forceProject}) — T7', () => {
     installSkills(tmp, {
       language: 'pt',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: join(PKG_ROOT, 'skills'),
       metaDir: join(PKG_ROOT, 'meta'),
     });
@@ -131,7 +127,6 @@ describe('status({forceProject}) — T7', () => {
     installSkills(tmp, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: join(PKG_ROOT, 'skills'),
       metaDir: join(PKG_ROOT, 'meta'),
     });

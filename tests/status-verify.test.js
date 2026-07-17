@@ -94,7 +94,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -114,7 +113,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -129,7 +127,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -147,7 +144,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -173,7 +169,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -202,7 +197,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -222,7 +216,6 @@ describe('verifyInstall (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -251,7 +244,6 @@ describe('status() integration with verify (F2/T-003)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['claude-code'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });

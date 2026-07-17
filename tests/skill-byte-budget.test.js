@@ -65,7 +65,7 @@ const BUDGETS = [
   ['core/hunt.md', 14000, 'F3/T3.3'],
   ['core/debate.md', 15000, 'F3/T3.4'],
   ['core/parallel-dispatch.md', 13000, 'F2/T2.4'],
-  ['modules/memory/init-memory.md', 7800, 'F3/T3.5'],
+  ['core/init-memory.md', 7800, 'F3/T3.5'],
 ]
 
 describe('skill byte budgets (token-economy invariant)', () => {

@@ -84,7 +84,6 @@ describe('project skill (unified router + lazy assets)', () => {
     installSkills(tempDir, {
       language,
       ides,
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
@@ -597,7 +596,6 @@ describe('project skill (unified router + lazy assets)', () => {
     installSkills(tempDir, {
       language: 'en',
       ides: ['grok'],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',

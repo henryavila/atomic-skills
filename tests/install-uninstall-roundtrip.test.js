@@ -541,7 +541,6 @@ describe('install→uninstall round-trip', () => {
           version: '2.0.0',
           language: 'en',
           ides: ['claude-code'],
-          modules: {},
           effects: [
             { type: 'reconcileFileSet', beforeState: [] },
             { type: 'stageRuntimeArtifacts', beforeState: { created: [] } },

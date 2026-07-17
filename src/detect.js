@@ -42,14 +42,8 @@ export function detectIDEState(basePath) {
   };
 }
 
-export function countSkills(metaDir, modules) {
+export function countSkills(metaDir) {
   const meta = parseYaml(readFileSync(join(metaDir, 'catalog.yaml'), 'utf8'));
   const coreCount = Object.keys(meta.core || {}).length;
-  let moduleCount = 0;
-  for (const [modName, modConfig] of Object.entries(modules)) {
-    if (modConfig.installed && meta.modules?.[modName]) {
-      moduleCount += Object.keys(meta.modules[modName]).length;
-    }
-  }
-  return moduleCount > 0 ? `${coreCount} core + ${moduleCount} module` : `${coreCount} core`;
+  return `${coreCount} core`;
 }

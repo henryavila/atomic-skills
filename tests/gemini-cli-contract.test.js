@@ -63,7 +63,6 @@ describe('F5 Gemini layout contract (discovery depth)', () => {
       installSkills(tempDir, {
         language: 'en',
         ides: ['gemini'],
-        modules: {},
         skillsDir: SKILLS_DIR,
         metaDir: META_DIR,
         scope: 'project',
@@ -120,7 +119,6 @@ describe('F5 Gemini TOML contract', () => {
       installSkills(tempDir, {
         language: 'en',
         ides: ['gemini-commands'],
-        modules: {},
         skillsDir: SKILLS_DIR,
         metaDir: META_DIR,
         scope: 'project',
@@ -153,16 +151,16 @@ describe('F5 Gemini TOML contract', () => {
   });
 
   it('argument substitution uses {{args}} for gemini profile (not $ARGUMENTS)', () => {
-    const rendered = renderTemplate('Args: {{ARG_VAR}}', {}, {}, 'gemini');
+    const rendered = renderTemplate('Args: {{ARG_VAR}}', {}, 'gemini');
     assert.ok(rendered.includes('{{args}}'));
     assert.ok(!rendered.includes('$ARGUMENTS'));
-    const cmd = renderTemplate('Args: {{ARG_VAR}}', {}, {}, 'gemini-commands');
+    const cmd = renderTemplate('Args: {{ARG_VAR}}', {}, 'gemini-commands');
     assert.ok(cmd.includes('{{args}}'));
     assert.ok(!cmd.includes('$ARGUMENTS'));
   });
 
   it('sentinel appears once when skill body uses ARG_VAR once', () => {
-    const body = renderTemplate('If {{ARG_VAR}} was provided, use it.', {}, {}, 'gemini-commands');
+    const body = renderTemplate('If {{ARG_VAR}} was provided, use it.', {}, 'gemini-commands');
     const toml = renderForIDE('toml', 'fix', 'desc', body);
     const parsed = TOML.parse(toml);
     const matches = parsed.prompt.match(/\{\{args\}\}/g) || [];
@@ -185,7 +183,6 @@ describe('F5 Gemini + Codex dual selection', () => {
       installSkills(tempDir, {
         language: 'en',
         ides,
-        modules: {},
         skillsDir: SKILLS_DIR,
         metaDir: META_DIR,
         scope: 'project',
@@ -205,7 +202,6 @@ describe('F5 Gemini + Codex dual selection', () => {
       installSkills(tempDir, {
         language: 'en',
         ides: ['gemini-commands'],
-        modules: {},
         skillsDir: SKILLS_DIR,
         metaDir: META_DIR,
         scope: 'project',

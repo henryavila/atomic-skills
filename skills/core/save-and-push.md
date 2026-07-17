@@ -15,7 +15,6 @@ DO NOT push to main/master without explicit confirmation.
 
 ### 1. Save learnings to memory
 
-{{#if modules.memory}}
 Identify learnings useful for FUTURE sessions:
 - Decisions made and their reasons
 - Bugs found and their root causes
@@ -29,7 +28,6 @@ discarded attempts, corrected typos).
 If `{{memory_path}}` does not exist, run `as-init-memory` first.
 Update existing files instead of creating duplicates.
 Keep `MEMORY.md` as an up-to-date index.
-{{/if}}
 
 ### 2. Save work in progress
 
@@ -64,9 +62,7 @@ DO NOT make one giant commit with everything. DO NOT make one commit per file.
 Grouping criteria (from most specific to most general):
 1. **Same feature/fix:** files implementing the same functionality together
 2. **Same layer:** if there's no clear feature, group by nature:
-{{#if modules.memory}}
    - Memory (`{{memory_path}}`) = separate commit
-{{/if}}
    - Documentation (`docs/`) = separate commit
    - Code/commands = separate commit
    - Config/infra = separate commit

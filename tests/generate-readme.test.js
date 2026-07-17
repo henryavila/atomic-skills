@@ -43,9 +43,6 @@ placeholder
 placeholder
 [SKILL_DETAILS_END]: #
 
-[MODULES_START]: #
-[MODULES_END]: #
-
 ## Hand-written section that must NOT be touched
 
 This text contains a real value: 42.${extras}

@@ -274,7 +274,6 @@ describe('validateCatalog — cross-checks', () => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'validate-skills-'));
     skillsDir = join(tmpRoot, 'skills');
     mkdirSync(join(skillsDir, 'core'), { recursive: true });
-    mkdirSync(join(skillsDir, 'modules', 'memory'), { recursive: true });
   });
 
   afterEach(() => {
@@ -283,13 +282,8 @@ describe('validateCatalog — cross-checks', () => {
 
   it('passes when every catalog entry has a matching body and vice versa', () => {
     writeFileSync(join(skillsDir, 'core', 'demo.md'), '## Iron Law\nNO TEST WITHOUT EVIDENCE.\n');
-    writeFileSync(
-      join(skillsDir, 'modules', 'memory', 'init-memory.md'),
-      '## Iron Law\nNO DELETION WITHOUT CONFIRMED BACKUP.\n'
-    );
     const data = {
       core: { demo: baseV02() },
-      modules: { memory: { 'init-memory': baseV02({ name: 'init-memory' }) } },
     };
     const report = validateCatalog(data, { skillsDir });
     assert.strictEqual(report.totalIssues, 0, JSON.stringify(report.failures));
@@ -341,92 +335,33 @@ describe('validateCatalog — cross-checks', () => {
 });
 
 import {
-  validateModuleMeta,
+  validateNoModulesKeys,
   validateReadmeMentions,
   validateCatalogVersion,
   validateReleaseHighlight,
 } from '../scripts/lib/validate-skills-core.js';
 
-describe('validateModuleMeta', () => {
-  it('returns no issues when module_meta absent and modules empty', () => {
-    assert.deepEqual(validateModuleMeta({ modules: {} }), []);
-    assert.deepEqual(validateModuleMeta({}), []);
+describe('validateNoModulesKeys', () => {
+  it('returns no issues when modules and module_meta are absent', () => {
+    assert.deepEqual(validateNoModulesKeys({ core: {} }), []);
+    assert.deepEqual(validateNoModulesKeys({}), []);
   });
 
-  it('flags missing module_meta when modules has entries', () => {
-    const issues = validateModuleMeta({ modules: { foo: {}, bar: {} } });
+  it('flags top-level modules key', () => {
+    const issues = validateNoModulesKeys({ modules: { foo: {} } });
     assert.equal(issues.length, 1);
-    assert.match(issues[0], /module_meta block missing/);
-    assert.match(issues[0], /2 module/);
+    assert.match(issues[0], /must not contain top-level `modules`/);
   });
 
-  it('flags orphan module_meta keys (no matching module)', () => {
-    const data = {
-      modules: { foo: {} },
-      module_meta: {
-        foo: { title: 'Foo', intro: 'F' },
-        ghost: { title: 'Ghost', intro: 'G' },
-      },
-    };
-    const issues = validateModuleMeta(data);
-    assert.ok(issues.some((i) => i.includes('module_meta.ghost has no matching')));
+  it('flags top-level module_meta key', () => {
+    const issues = validateNoModulesKeys({ module_meta: { foo: {} } });
+    assert.equal(issues.length, 1);
+    assert.match(issues[0], /must not contain top-level `module_meta`/);
   });
 
-  it('flags modules missing from module_meta (undocumented)', () => {
-    const data = {
-      modules: { foo: {}, undocumented: {} },
-      module_meta: { foo: { title: 'Foo', intro: 'F' } },
-    };
-    const issues = validateModuleMeta(data);
-    assert.ok(issues.some((i) => i.includes('modules.undocumented has no module_meta')));
-  });
-
-  it('flags missing required fields (title, intro)', () => {
-    const data = {
-      modules: { foo: {} },
-      module_meta: { foo: { /* no title, no intro */ } },
-    };
-    const issues = validateModuleMeta(data);
-    assert.ok(issues.some((i) => i.includes('module_meta.foo.title is required')));
-    assert.ok(issues.some((i) => i.includes('module_meta.foo.intro is required')));
-  });
-
-  it('flags malformed version_added', () => {
-    const data = {
-      modules: { foo: {} },
-      module_meta: { foo: { title: 'Foo', intro: 'Bar', version_added: 'not-a-version' } },
-    };
-    const issues = validateModuleMeta(data);
-    assert.ok(issues.some((i) => i.includes('version_added must match')));
-  });
-
-  it('flags features not being array of strings', () => {
-    const data = {
-      modules: { foo: {} },
-      module_meta: { foo: { title: 'Foo', intro: 'Bar', features: 'not-array' } },
-    };
-    assert.ok(validateModuleMeta(data).some((i) => i.includes('features must be an array of strings')));
-  });
-
-  it('passes a fully valid module_meta entry', () => {
-    const data = {
-      modules: { foo: {} },
-      module_meta: {
-        foo: {
-          title: 'Foo',
-          intro: 'A real intro.',
-          version_added: '1.2.3',
-          features: ['Feature A', 'Feature B'],
-          notes: 'Some notes.',
-        },
-      },
-    };
-    assert.deepEqual(validateModuleMeta(data), []);
-  });
-
-  it('flags module_meta entry that is not an object', () => {
-    const data = { modules: { foo: {} }, module_meta: { foo: 'not-object' } };
-    assert.ok(validateModuleMeta(data).some((i) => i.includes('must be an object')));
+  it('flags both keys when present', () => {
+    const issues = validateNoModulesKeys({ modules: {}, module_meta: {} });
+    assert.equal(issues.length, 2);
   });
 });
 

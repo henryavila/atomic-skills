@@ -35,9 +35,7 @@ diretiva no topo e traduz na hora de falar com o usuário PT-BR.
   features de parsing (ex: `project-plan.md` reconhece `## Objetivo` e
   `## Princípios` em planos PT-BR) — isso é capacidade do parser, não
   diretiva de UI.
-- `meta/catalog.yaml` (catálogo) é EN-only.
-- `skills/modules/*/module.yaml` PODE ter chaves `pt:` e `en:` paralelas —
-  esses são labels do menu do **instalador**, não do skill body. Continuar
-  mantendo ambos os idiomas aqui.
+- `meta/catalog.yaml` (catálogo) é EN-only. Skills vivem só em `skills/core/`
+  (conceito de installer modules removido).
 
 Relacionado: [[decisoes-arquitetura]].

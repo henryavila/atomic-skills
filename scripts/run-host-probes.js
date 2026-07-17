@@ -110,7 +110,6 @@ function probeLayout(hostId) {
     installSkills(projectDir, {
       language: 'en',
       ides: [hostId],
-      modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
       scope: 'project',

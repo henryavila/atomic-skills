@@ -44,7 +44,7 @@ set will be narrowed to `{'0.2'}` (hard cut).
 
 ## Schema (v0.1)
 
-The structure of `meta/skills.yaml` is a 2-level tree: `core` and `modules`. Each skill is an entry under one of these. Inside each entry:
+The structure of `meta/catalog.yaml` is a single tree: `core` (all invocable skills). Inside each entry:
 
 ```yaml
 core:
@@ -242,7 +242,7 @@ A skill metadata block is valid if:
 
 Additionally, the catalog-level cross-checks (run by
 `scripts/validate-skills.js`):
-- Each catalog entry has a matching body at `skills/en/<core|modules/M>/<name>.md`
+- Each catalog entry has a matching body at `skills/core/<name>.md`
 - Each body file has a matching catalog entry (inverse check)
 - Optional gate (enabled after Phase C of the catalog migration): every
   body file contains a canonical `^## Iron Law` H2 section

@@ -14,8 +14,7 @@ import {
 } from '../scripts/lib/scaffold-skill.js';
 import { validateCatalog } from '../scripts/lib/validate-skills-core.js';
 
-// A small but realistic catalog: one core skill + the module_meta the
-// requireModuleMeta gate expects, plus a `modules:` anchor to insert before.
+// Core-only catalog fixture (installer modules concept removed).
 const CATALOG = `version: '0.2'
 
 core:
@@ -35,10 +34,6 @@ core:
     emoji: '🔧'
     version_added: '1.0.0'
     schema_version: '0.2'
-
-modules: {}
-
-module_meta: {}
 `;
 
 // Build a temp skills dir whose core/<name>.md has an Iron Law, so the
@@ -73,11 +68,11 @@ describe('scaffold-skill: name + field validation', () => {
 });
 
 describe('scaffold-skill: catalog insertion', () => {
-  it('inserts the entry before the modules anchor', () => {
+  it('appends the entry after existing core skills', () => {
     const entry = buildSkillEntry('demo', defaultFields('demo', '2.0.0'));
     const next = insertEntry(CATALOG, entry);
-    assert.ok(next.indexOf('  demo:') < next.indexOf('modules:'), 'entry precedes modules:');
     assert.ok(next.indexOf('  fix:') < next.indexOf('  demo:'), 'entry follows existing core skill');
+    assert.ok(next.includes('  demo:'), 'entry present');
   });
 
   it('produces parseable YAML with the new core key', () => {
@@ -117,7 +112,6 @@ describe('scaffold-skill: planScaffold end-to-end', () => {
     const report = validateCatalog(data, {
       skillsDir,
       requireIronLaw: true,
-      requireModuleMeta: true,
       requireCatalogVersion: true,
     });
     assert.equal(report.totalIssues, 0, JSON.stringify(report.failures, null, 2));
