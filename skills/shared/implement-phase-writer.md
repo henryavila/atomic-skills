@@ -77,20 +77,26 @@ Portable spawn uses host primitives (`{{BASH_TOOL}}`, isolated subagent / `spawn
 
 ## Claim report
 
-Returned after the writer exits (implement Step D). One entry per task the work-order listed (including failed/blocked).
+Returned after the writer exits (implement Step D). One entry per task the work-order listed (including failed/blocked). Machine validation: `src/claim-report.js` (`parseClaimReport`, `validateClaimReport`, `validatedRangeForDone`).
 
 ### Shape (per task)
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `taskId` | string | Task id from the work-order. |
+| `taskId` | string | Task id from the work-order. **Required.** |
 | `status` | `claimed-pass` \| `claimed-fail` \| `blocked` \| `skipped` | Writer confidence only — **not** durable state. |
-| `commitShas` | string[] | Implementation commit SHAs on the writer branch (empty if none). |
-| `paths` | string[] | Paths touched / committed (explicit list). |
-| `verifierCommand` | string | Exact command the writer self-checked (verbatim). |
-| `exitCode` | number \| null | Exit code of that self-check (`null` if not run). |
-| `transcript` | string | Tail of verifier stdout/stderr (verbatim; keep bounded). |
+| `commitShas` | string[] | Implementation commit SHAs on the writer branch. **Required non-empty for open claims unless `base`+`head` set.** |
+| `base` | string (optional) | Exclusive range start (with `head`) — preferred pin for multi-task exclusivity. |
+| `head` | string (optional) | Exclusive range end (with `base`). |
+| `paths` | string[] | Paths touched / committed (explicit list). **Required array.** |
+| `verifierCommand` | string | Exact command the writer self-checked (verbatim). **Required for open claims.** |
+| `exitCode` | number \| null | Exit code of that self-check (`null` if not run). **Required for open claims.** |
+| `transcript` | string | Tail of verifier stdout/stderr (verbatim; keep bounded; may be empty string). **Required for open claims.** |
 | `notes` | string (optional) | Scope-exit, blocked reason, or conflict note — no soft "looks done". |
+
+**Commit identity rule:** each open claim (`claimed-pass` / `claimed-fail`) MUST supply **either** a non-empty `commitShas[]` **or** both `base` and `head`. `blocked` / `skipped` may omit commits when none were made.
+
+**Exclusivity (HARD):** do **not** share the same bare SHA across open claims without each task having its own exclusive `base`+`head` range. Ambiguous overlapping multi-task SHAs fail `validateClaimReport` — the orchestrator refuses `review-code` / `done` until the writer returns a clean exclusive report.
 
 ### Aggregate envelope (recommended)
 
@@ -98,17 +104,18 @@ Returned after the writer exits (implement Step D). One entry per task the work-
 claimReport:
   planSlug, phaseId, worktreePath, writerBranch
   finishedAt
-  tasks: [ { taskId, status, commitShas, paths, verifierCommand, exitCode, transcript, notes? }, ... ]
+  tasks: [ { taskId, status, commitShas | (base, head), paths, verifierCommand, exitCode, transcript, notes? }, ... ]
 ```
 
 ### Adjudication (orchestrator only)
 
 1. **SYNC WAIT** until the writer process exits; refuse to act on partial in-flight claims.
-2. **Merge** sibling worktree → plan branch (git-ops only) **before** any re-verify or `done` (Step D.5).
-3. For each `claimed-pass` task on the **MERGED** tree: re-run `tasks[].verifier` (verify-claim / `done` path).
-4. Verifier fail ⇒ do **not** `done`; re-dispatch code-only fix agent (max 2) or stop for operator.
-5. Complex tasks (`isComplexTask`): `review-code --mode=both` before `done`; blocker/critical block close.
-6. Only orchestrator `done <taskId>` writes durable state.
+2. **`validateClaimReport`** — reject incomplete fields or overlapping multi-task SHAs; re-dispatch if invalid.
+3. **Merge** sibling worktree → plan branch (git-ops only) **before** any re-verify or `done` (Step D.5).
+4. For each `claimed-pass` task on the **MERGED** tree: re-run `tasks[].verifier` (verify-claim / `done` path).
+5. Verifier fail ⇒ do **not** `done`; re-dispatch code-only fix agent (max 2) or stop for operator.
+6. **Complex tasks** (`isComplexTask` with `destructiveDiff` from the **validated claim range**): `review-code --mode=both` on that range before `done`; blocker/critical block close; major needs disposition `accept|defer|fix`; durable receipt before `done`. Non-complex → verifier-only GATE-R2.
+7. Only orchestrator `done <taskId>` writes durable state.
 
 A missing claim entry for a work-order task is treated as incomplete — do not invent pass.
 

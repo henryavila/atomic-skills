@@ -2,7 +2,15 @@ Drive the SPEC-admitted Tasks of a plan to DONE — the execution driver that si
 
 If {{ARG_VAR}} was provided, use it as the plan-slug (or `<project-id>/<plan-slug>`) to implement. If not, ask the user: "Which plan are we implementing? I'll read its active phase's tasks." Default to the active plan/initiative if one is already selected. **The explicit arg selects plan, branch, and worktree before any resume gate or write** — see Step 0.
 
-**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`). Opt-in `--mode=automate` (or `mode:automate`) enters **pure maestro** automate mode. Absent mode / `--mode=1` stays Mode 1 (this skill's default session-writer path). Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. Automate is **off by default**. When `isAutomateActive` is true, the host session follows the pure-maestro spine (never product-source edits); Mode 1 iron law still binds the single **phase writer**.
+**Mode detection (pure):** parse CLI tokens with `src/implement-mode.js` (`parseImplementMode`, `isAutomateActive`, `stampExecutionMode`, `clearExecutionModeStamp`). Opt-in `--mode=automate` (or `mode:automate`) enters **pure maestro** automate mode. Absent mode / `--mode=1` stays Mode 1 (this skill's default session-writer path). Plan stamp `executionMode: automate` re-enters automate on later runs until `--clear-execution-mode`. Automate is **off by default**. When `isAutomateActive` is true, the host session follows the pure-maestro spine (never product-source edits); Mode 1 iron law still binds the single **phase writer**.
+
+**`executionMode` stamp (mandatory on first confirmed automate entry):**
+
+1. On the **first** session where CLI is `--mode=automate` and the plan frontmatter has **no** `executionMode: automate` yet: after Step 0 binds the plan worktree and **before** pure-maestro Steps A–I, ask the operator to confirm entering durable automate (`y/N`).
+2. On interactive **`y` only**: stamp plan frontmatter with `stampExecutionMode(plan, 'automate')` → `executionMode: automate`, persist + project-state microcommit, log the decision. **Never** stamp on a silent default or on `N`.
+3. **Stamp alone** makes `isAutomateActive({ planExecutionMode: 'automate' })` true on later `implement <plan>` (no CLI mode required) until clear — review cadence + pure-maestro re-entry.
+4. **Clear path:** `implement --clear-execution-mode` (parse sets `clearExecutionMode: true` → `isAutomateActive` false) **and** remove the stamp with `clearExecutionModeStamp(plan)` (delete `executionMode` from frontmatter), persist, record in the decisions log. Explicit `--mode=1` / non-automate CLI also overrides stamp for that session without deleting it; full leave-automate requires the clear/unstamp path.
+5. Plans that never entered automate **omit** the field; schema treats it as optional — still validates.
 
 ## Iron Law
 
@@ -40,7 +48,10 @@ The snapshot trigger is **event-driven, never a self-measured context gauge.** Y
 
 **Before any resume gate, dirty check, or write**, select the plan the user asked for and bind its worktree. The pure helper is `src/project-target-resolver.js` (`parsePlanArg`, `resolveImplementTarget`, `composePlanWorktreeAdd`). Skill prose must follow the same order.
 
-0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Unknown mode → refuse with a clear error (do not ignore). Combine with plan frontmatter `executionMode` via `isAutomateActive({ cliMode, planExecutionMode, clearExecutionMode })`. When automate is active, enter the **Automate mode — pure maestro loop** (Steps A–I below) after Step 1 hard gates pass; do not run Mode 1 Step 2 session-writer coding.
+0. **Parse mode flags (before plan selection).** From `{{ARG_VAR}}` / argv, call `parseImplementMode` in `src/implement-mode.js`. Tokens: `--mode=automate` / `mode:automate` / `--mode=1` / `--clear-execution-mode`. Unknown mode → refuse with a clear error (do not ignore). Combine with plan frontmatter `executionMode` via `isAutomateActive({ cliMode, planExecutionMode, clearExecutionMode })`.
+   - **First automate entry stamp:** if CLI mode is `automate` and plan lacks `executionMode: automate`, require interactive operator confirm (`y`) then `stampExecutionMode` + persist **before** pure-maestro Steps A–I (see stamp rules above).
+   - **Clear stamp:** if `clearExecutionMode` is true, `clearExecutionModeStamp` on the plan frontmatter, persist, log, and treat automate as off for this session (do not enter pure-maestro).
+   - When automate is active, enter the **Automate mode — pure maestro loop** (Steps A–I below) after Step 1 hard gates pass; do not run Mode 1 Step 2 session-writer coding.
 1. **Parse the arg.** `{{ARG_VAR}}` is a bare slug (`plan-b`) or `<project-id>/<plan-slug>` (`atomic-skills/plan-b`), after stripping mode flags. If missing, ask which plan; do not silently pick a different active plan when more than one is open.
 2. **Select the plan** from nested inventory (`.atomic-skills/projects/*/*/plan.md`). Prefer exact slug (+ project when given). On ambiguity, disambiguate — never invent.
 3. **Bind branch + worktree.** Read the plan's `branch:` (usually `plan/<slug>`). Compare to `git symbolic-ref --short HEAD` and `git worktree list --porcelain`.
@@ -82,9 +93,9 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 | **A** | Load phase | Active phase + `businessIntent` + SPEC-admitted pending tasks (Step 1 already hard-gated). |
 | **B** | Snapshot handoff → build phase work-order | Write/refresh `## Session handoff` (pre-dispatch checkpoint). Build a **phase work-order** for all pending tasks of **this phase only** (task ids, paths, `scopeBoundary`, `acceptance`, `verifier`). |
 | **C** | Spawn phase writer | Write **writer lease** (`src/writer-lease.js`) before spawn. Cut a **sibling** phase worktree from the git **common-dir** / primary root — **never nest** under `.worktrees/<plan-slug>/…`. Spawn **ONE** code-only **phase writer** with a **constructed brief** (work-order + scoped context — **MUST NOT** include orchestrator chat history). Concurrent phase writers forbidden even if `parallelismAllowed`. |
-| **D** | Sync wait → collect claim report | **SYNC WAIT** until the writer exits. Collect the **claim report** (per task: commit SHAs, paths, verifier command + exit + transcript). Refuse self-certify — claims do not close tasks. |
+| **D** | Sync wait → collect claim report | **SYNC WAIT** until the writer exits. Collect the **claim report** (per task: commit SHAs **or** base+head, paths, verifier command + exit + transcript). Parse/validate with `src/claim-report.js` (`parseClaimReport` / `validateClaimReport`) — refuse self-certify; incomplete or overlapping claims do not close tasks. |
 | **D.5** | Merge sibling → plan branch | Orchestrator **merges sibling into plan branch before** any task re-verify or `done` (**git-ops only**). Content conflicts ⇒ re-dispatch a code-only fix agent (not hand-edit). Refuse resume mid-merge. Clear writer lease only after sync-wait + claim collect + **merge settle**. |
-| **E** | Post-merge re-verify → done | For each claimed task **on the MERGED plan tree only** (**post-merge** re-verify mandatory): re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. If `isComplexTask` → `review-code --mode=both` on the validated task commit range; blocker/critical block `done`. Only on verifier pass (+ complex review clear when required) → orchestrator `done <task-id>`. |
+| **E** | Post-merge re-verify → done | For each claimed task **on the MERGED plan tree only** (**post-merge** re-verify mandatory): re-run verifier (verify-claim / `done` path). Verifier fail ⇒ **do not** `done`; re-dispatch code-only fix agent (max **2**) or stop for operator — **never** silent Mode-1 self-code. **Complex path (below):** if `isComplexTask` after computing `destructiveDiff` from the **validated claim range** → `review-code --mode=both` on that range before `done`. Non-complex → verifier-only GATE-R2. Only on verifier pass (+ complex review clear + durable receipt when required) → orchestrator `done <task-id>`. |
 | **F** | Evaluation agent | When **all** phase tasks are `done`, spawn a separate **evaluation agent** (fresh context, not the writer) — read-only structured pass/fail vs goal + gates + `businessIntent`. Never edits product source or project state. Detail: `{{READ_TOOL}} skills/shared/implement-phase-evaluator.md`. On blocker/critical: reopen affected tasks or blocking follow-ups; re-dispatch code-only fix agent (max **2**); re-run verifiers/complex reviews; re-evaluate. |
 | **G** | phase-done | Fixed order: tasks done → evaluation agent → **then** `phase-done` with `review-code --mode=both` (F2 wires transition default; implement states the order). Durable decisions log visible for audit. |
 | **H** | Next phase | Re-enter Step A with a new writer (+ later a new evaluator); prior contexts discarded. Concurrent phase writers forbidden. |
@@ -99,6 +110,29 @@ When `isAutomateActive` is true, **do not** run Mode 1 Step 2 (session codes). A
 - Every routing / skip / re-dispatch / scope-exit / review-severity disposition is written to the durable decisions log / handoff decision log.
 - Fixed evaluation order: all phase tasks `done` → **evaluation agent** → phase-done `review-code --mode=both`.
 - After last phase the **user validates** implementation before finalize/archive.
+
+#### Claim report validation (orchestrator, before any `done`)
+
+Use `src/claim-report.js` as the single machine definition:
+
+1. **`parseClaimReport`** → envelope or task list.
+2. **`validateClaimReport`** requires per open claim: `taskId`, commit identity (`commitShas[]` non-empty **or** `base`+`head`), `paths[]`, `verifierCommand`, `exitCode` (number or `null`), `transcript` (string; may be empty).
+3. **Reject ambiguous overlapping multi-task SHAs:** each task needs an **exclusive** `commitShas` list **or** a `base`+`head` range — a SHA shared across open claims without exclusive base/head is invalid (`findOverlappingClaimShas`). Do not run `review-code` or `done` on an invalid claim set; re-dispatch the writer/fix agent for a clean report.
+4. Resolve the review pin with `validatedRangeForDone` / `claimRangeFromTask` on the **validated** range only.
+
+#### Complex-task CROSS-MODEL before `done` (automate only)
+
+Predicate: `isComplexTask` from `src/complex-task.js` — `weight >= threshold` (default **3**) OR tags ∩ `{destructive, decommission, drop, complex}` OR **`destructiveDiff === true`**.
+
+Under automate, **before orchestrator `done` on a complex task**:
+
+1. Compute **`destructiveDiff`** from the **validated claim commit range** (same pin `review-code` will use — DESTRUCTIVE heuristic in `skills/core/review-code.md` over that range). Pass the flag into `isComplexTask({ weight, tags, destructiveDiff })`.
+2. If complex → run **`review-code --mode=both`** on that validated range (`resolveReviewRoute` still applies same-family remap).
+3. **Severity gate:**
+   - **blocker / critical** → **block `done`** until re-dispatch (code-only fix agent, max **2**) or operator disposition recorded in the decisions log.
+   - **major** → surface for operator triage; require disposition **`accept` | `defer` | `fix`** recorded before close (do not auto-close majors without a disposition).
+4. **Durable receipt:** leave a review receipt / evidence path (under `.atomic-skills/reviews/` when written) linked from the decisions log / handoff **before** `done`. No receipt + complex required ⇒ do not close.
+5. **Non-complex tasks** close with **verifier-only** under existing GATE-R2 — no forced per-task cross-model `review-code --mode=both`.
 
 ### Step 2 — Execute one task (single-threaded) — Mode 1 only
 

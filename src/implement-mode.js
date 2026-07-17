@@ -1,8 +1,17 @@
 /**
- * Pure implement mode parse + automate-active detection (design D1, D14).
+ * Pure implement mode parse + automate-active detection (design D1, D14 / F2 T-009).
  *
  * No I/O. Skill bodies and transitions share these helpers so CLI flag,
  * plan executionMode stamp, and clear path resolve consistently.
+ *
+ * Stamp lifecycle:
+ * - First confirmed `implement --mode=automate` → after interactive operator `y`,
+ *   stamp plan frontmatter `executionMode: 'automate'` via `stampExecutionMode`.
+ * - Stamp alone → `isAutomateActive({ planExecutionMode: 'automate' })` true
+ *   until clear.
+ * - Clear: CLI `--clear-execution-mode` (parse sets clearExecutionMode) and/or
+ *   `clearExecutionModeStamp(plan)` removing the field; record in decision log.
+ * - Plans without `executionMode` remain valid (optional schema field).
  */
 
 /** @typedef {'default' | 'mode1' | '1' | 'automate' | '2'} ImplementMode */
@@ -13,6 +22,13 @@
  * @type {readonly string[]}
  */
 export const IMPLEMENT_MODES = Object.freeze(['default', 'mode1', '1', 'automate', '2']);
+
+/**
+ * Plan frontmatter `executionMode` enum values (mirrors plan.schema.json).
+ * Subset of implement modes that may be stamped durably.
+ * @type {readonly string[]}
+ */
+export const PLAN_EXECUTION_MODES = Object.freeze(['automate', 'mode1', '1', 'default', '2']);
 
 const MODE1_ALIASES = new Set(['default', 'mode1', '1', 'session']);
 const AUTOMATE_ALIASES = new Set(['automate']);
@@ -192,4 +208,68 @@ export function isAutomateActive(input = {}) {
   }
 
   return false;
+}
+
+/**
+ * Whether a value is a stampable plan executionMode token.
+ * @param {unknown} raw
+ * @returns {boolean}
+ */
+export function isPlanExecutionMode(raw) {
+  if (raw == null || String(raw).trim() === '') return false;
+  const n = normalizeModeToken(String(raw));
+  return PLAN_EXECUTION_MODES.includes(n) || n === 'automate';
+}
+
+/**
+ * Immutable stamp of plan.executionMode after operator confirm (automate entry).
+ * Does not mutate `plan`; returns a new object. Caller persists frontmatter.
+ *
+ * @param {Record<string, unknown> | null | undefined} plan
+ * @param {string} [mode='automate']
+ * @returns {Record<string, unknown>}
+ * @throws {Error} when mode is not a known plan executionMode
+ */
+export function stampExecutionMode(plan, mode = 'automate') {
+  if (mode == null || String(mode).trim() === '') {
+    throw new Error('stampExecutionMode: mode is required');
+  }
+  const normalized = normalizeModeToken(String(mode));
+  if (!PLAN_EXECUTION_MODES.includes(normalized) && normalized !== 'automate') {
+    throw new Error(`stampExecutionMode: unknown executionMode: ${mode}`);
+  }
+  const base =
+    plan != null && typeof plan === 'object' && !Array.isArray(plan)
+      ? { ...plan }
+      : {};
+  return { ...base, executionMode: normalized };
+}
+
+/**
+ * Immutable clear of plan.executionMode (unstamp path).
+ * Equivalent durable effect of `implement --clear-execution-mode` after the
+ * operator confirms leaving automate. Does not mutate `plan`.
+ *
+ * @param {Record<string, unknown> | null | undefined} plan
+ * @returns {Record<string, unknown>}
+ */
+export function clearExecutionModeStamp(plan) {
+  if (plan == null || typeof plan !== 'object' || Array.isArray(plan)) {
+    return {};
+  }
+  const next = { ...plan };
+  delete next.executionMode;
+  return next;
+}
+
+/**
+ * Whether a plan frontmatter object currently carries an automate stamp.
+ * @param {{ executionMode?: string | null } | null | undefined} plan
+ * @returns {boolean}
+ */
+export function hasAutomateStamp(plan) {
+  if (plan == null || typeof plan !== 'object') return false;
+  const raw = plan.executionMode;
+  if (raw == null || String(raw).trim() === '') return false;
+  return normalizeModeToken(String(raw)) === 'automate';
 }
