@@ -41,6 +41,14 @@ function isKnownMode(raw) {
 }
 
 /**
+ * @param {string} raw
+ * @returns {boolean}
+ */
+function isBlankMode(raw) {
+  return raw == null || String(raw).trim() === '';
+}
+
+/**
  * Parse CLI-like tokens for implement mode and clear-execution-mode.
  * Accepts a string (space-split) or string array. Pure — no process.argv read.
  *
@@ -50,9 +58,11 @@ function isKnownMode(raw) {
  * - `mode:automate` bare token
  * - `--clear-execution-mode`
  *
+ * Rejects empty `--mode=`, blank mode values, and unknown tokens with a clear error.
+ *
  * @param {string | string[] | null | undefined} argvLike
- * @returns {{ mode: string, clearExecutionMode: boolean }}
- * @throws {Error} when an explicit mode token is unknown
+ * @returns {{ mode: string, clearExecutionMode: boolean, modeExplicit: boolean }}
+ * @throws {Error} when an explicit mode token is unknown or blank
  */
 export function parseImplementMode(argvLike) {
   /** @type {string[]} */
@@ -79,9 +89,13 @@ export function parseImplementMode(argvLike) {
       continue;
     }
 
-    const eq = t.match(/^--mode=(.+)$/i);
+    // Match --mode=VALUE including empty --mode=
+    const eq = t.match(/^--mode=(.*)$/i);
     if (eq) {
       const raw = eq[1];
+      if (isBlankMode(raw)) {
+        throw new Error('Unknown implement mode: (empty)');
+      }
       if (!isKnownMode(raw)) {
         throw new Error(`Unknown implement mode: ${raw}`);
       }
@@ -92,7 +106,7 @@ export function parseImplementMode(argvLike) {
 
     if (t === '--mode' || t === '-m') {
       const next = tokens[i + 1];
-      if (next == null || next.startsWith('-')) {
+      if (next == null || next.startsWith('-') || isBlankMode(next)) {
         throw new Error('Unknown implement mode: (missing value after --mode)');
       }
       if (!isKnownMode(next)) {
@@ -104,9 +118,13 @@ export function parseImplementMode(argvLike) {
       continue;
     }
 
-    const colon = t.match(/^mode:(.+)$/i);
+    // Match mode:VALUE including empty mode:
+    const colon = t.match(/^mode:(.*)$/i);
     if (colon) {
       const raw = colon[1];
+      if (isBlankMode(raw)) {
+        throw new Error('Unknown implement mode: (empty)');
+      }
       if (!isKnownMode(raw)) {
         throw new Error(`Unknown implement mode: ${raw}`);
       }
@@ -120,17 +138,20 @@ export function parseImplementMode(argvLike) {
     mode = 'default';
   }
 
-  return { mode, clearExecutionMode };
+  return { mode, clearExecutionMode, modeExplicit };
 }
 
 /**
  * Whether pure-maestro automate mode is active for this session.
  *
- * Precedence (design open-Q1 closed):
- * 1. clearExecutionMode true → false (and not automate)
+ * Precedence (design open-Q1 closed + M4 explicit non-automate CLI override):
+ * 1. clearExecutionMode true → false (always wins)
  * 2. cliMode === 'automate' → true
- * 3. planExecutionMode / stamp === 'automate' with no clear → true (stamp-alone re-entry)
- * 4. else false
+ * 3. cliMode is an explicit known non-automate mode (1/mode1/default/2/mode2/codex)
+ *    → false even if stamp is automate
+ * 4. planExecutionMode / stamp === 'automate' with no explicit non-automate CLI
+ *    → true (stamp-alone re-entry when cliMode absent/undefined)
+ * 5. else false
  *
  * Automate is OFF by default when nothing is set.
  *
@@ -146,9 +167,20 @@ export function isAutomateActive(input = {}) {
     return false;
   }
 
-  const cli = input.cliMode != null ? normalizeModeToken(String(input.cliMode)) : '';
-  if (cli === 'automate') {
-    return true;
+  const cliRaw =
+    input.cliMode != null && String(input.cliMode).trim() !== ''
+      ? String(input.cliMode)
+      : '';
+  if (cliRaw !== '') {
+    const cli = normalizeModeToken(cliRaw);
+    if (cli === 'automate') {
+      return true;
+    }
+    // Explicit known non-automate CLI overrides stamp (M4).
+    if (isKnownMode(cliRaw)) {
+      return false;
+    }
+    // Unknown cliMode: fall through to stamp (do not invent activate).
   }
 
   const stamp =

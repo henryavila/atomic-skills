@@ -11,22 +11,26 @@ describe('parseImplementMode', () => {
     const result = parseImplementMode(['implement', '--mode=automate', 'my-plan']);
     assert.equal(result.mode, 'automate');
     assert.equal(result.clearExecutionMode, false);
+    assert.equal(result.modeExplicit, true);
   });
 
   it('accepts mode:automate token and returns mode automate', () => {
     const result = parseImplementMode('mode:automate my-plan');
     assert.equal(result.mode, 'automate');
+    assert.equal(result.modeExplicit, true);
   });
 
   it('accepts --mode automate (space-separated) form', () => {
     const result = parseImplementMode(['--mode', 'automate']);
     assert.equal(result.mode, 'automate');
+    assert.equal(result.modeExplicit, true);
   });
 
   it('absent mode returns default without treating automate as on', () => {
     const result = parseImplementMode(['my-plan']);
     assert.ok(result.mode === 'default' || result.mode === 'mode1');
     assert.notEqual(result.mode, 'automate');
+    assert.equal(result.modeExplicit, false);
     assert.equal(isAutomateActive({ cliMode: result.mode }), false);
   });
 
@@ -34,11 +38,13 @@ describe('parseImplementMode', () => {
     const result = parseImplementMode(['--mode=1']);
     assert.ok(result.mode === 'default' || result.mode === 'mode1' || result.mode === '1');
     assert.notEqual(result.mode, 'automate');
+    assert.equal(result.modeExplicit, true);
     assert.equal(isAutomateActive({ cliMode: result.mode }), false);
   });
 
   it('empty / missing argv yields default', () => {
     assert.notEqual(parseImplementMode([]).mode, 'automate');
+    assert.equal(parseImplementMode([]).modeExplicit, false);
     assert.notEqual(parseImplementMode('').mode, 'automate');
     assert.notEqual(parseImplementMode(undefined).mode, 'automate');
   });
@@ -53,6 +59,50 @@ describe('parseImplementMode', () => {
         return true;
       },
     );
+  });
+
+  it('rejects empty --mode= and blank mode with clear error', () => {
+    assert.throws(
+      () => parseImplementMode(['--mode=']),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.match(String(err.message), /unknown|invalid|mode|empty|missing/i);
+        return true;
+      },
+    );
+    assert.throws(
+      () => parseImplementMode(['--mode', '']),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.match(String(err.message), /unknown|invalid|mode|empty|missing/i);
+        return true;
+      },
+    );
+    assert.throws(
+      () => parseImplementMode(['mode:']),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.match(String(err.message), /unknown|invalid|mode|empty|missing/i);
+        return true;
+      },
+    );
+    assert.throws(
+      () => parseImplementMode(['--mode=   ']),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.match(String(err.message), /unknown|invalid|mode|empty|missing/i);
+        return true;
+      },
+    );
+  });
+
+  it('accepts mode2/2/codex as known non-automate reserved modes', () => {
+    for (const token of ['2', 'mode2', 'codex']) {
+      const result = parseImplementMode([`--mode=${token}`]);
+      assert.equal(result.mode, '2', `token ${token}`);
+      assert.equal(result.modeExplicit, true);
+      assert.equal(isAutomateActive({ cliMode: result.mode }), false);
+    }
   });
 
   it('detects --clear-execution-mode flag', () => {
@@ -85,7 +135,7 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
     );
   });
 
-  it('stamp-alone re-entry: planExecutionMode automate with no clear → true', () => {
+  it('stamp-alone re-entry: planExecutionMode automate with no clear and no cli → true', () => {
     assert.equal(
       isAutomateActive({
         cliMode: undefined,
@@ -96,11 +146,58 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
     );
     assert.equal(
       isAutomateActive({
-        cliMode: 'default',
         planExecutionMode: 'automate',
+        clearExecutionMode: false,
       }),
       true,
     );
+  });
+
+  it('explicit non-automate CLI overrides stamp automate → false', () => {
+    assert.equal(
+      isAutomateActive({
+        cliMode: 'default',
+        planExecutionMode: 'automate',
+      }),
+      false,
+    );
+    assert.equal(
+      isAutomateActive({
+        cliMode: 'mode1',
+        planExecutionMode: 'automate',
+      }),
+      false,
+    );
+    assert.equal(
+      isAutomateActive({
+        cliMode: '1',
+        planExecutionMode: 'automate',
+      }),
+      false,
+    );
+    // --mode=1 + stamp automate → false (M4)
+    const parsed = parseImplementMode(['--mode=1']);
+    assert.equal(
+      isAutomateActive({
+        cliMode: parsed.mode,
+        planExecutionMode: 'automate',
+        clearExecutionMode: parsed.clearExecutionMode,
+      }),
+      false,
+    );
+  });
+
+  it('explicit mode2/2/codex CLI overrides stamp automate → false', () => {
+    for (const mode of ['2', 'mode2', 'codex']) {
+      assert.equal(
+        isAutomateActive({
+          cliMode: mode,
+          planExecutionMode: 'automate',
+        }),
+        false,
+        `cliMode ${mode}`,
+      );
+    }
   });
 
   it('clear flag true → false even when CLI or stamp would enable automate', () => {
@@ -161,8 +258,14 @@ describe('isAutomateActive — CLI vs stamp vs clear precedence', () => {
         },
         want: false,
       },
-      { input: { cliMode: 'mode1', planExecutionMode: 'automate' }, want: true },
+      // M4: explicit non-automate CLI overrides stamp
+      { input: { cliMode: 'mode1', planExecutionMode: 'automate' }, want: false },
+      { input: { cliMode: '1', planExecutionMode: 'automate' }, want: false },
+      { input: { cliMode: 'default', planExecutionMode: 'automate' }, want: false },
+      { input: { cliMode: '2', planExecutionMode: 'automate' }, want: false },
       { input: { cliMode: '1', planExecutionMode: undefined }, want: false },
+      // stamp-alone (no cliMode) still activates
+      { input: { cliMode: undefined, planExecutionMode: 'automate' }, want: true },
     ];
     for (const row of matrix) {
       assert.equal(

@@ -29,11 +29,11 @@ const COMPLEX_TAG_SET = new Set(COMPLEX_TAGS);
  * under automate mode.
  *
  * @param {{
- *   weight?: number | null,
+ *   weight?: number | string | null,
  *   tags?: string[] | null,
  *   destructiveDiff?: boolean | null,
  * } | null | undefined} task
- * @param {{ threshold?: number }} [options]
+ * @param {{ threshold?: number | string }} [options]
  * @returns {boolean}
  */
 export function isComplexTask(task, options = {}) {
@@ -60,9 +60,10 @@ export function isComplexTask(task, options = {}) {
     }
   }
 
-  const weight = task.weight;
-  if (weight != null && typeof weight === 'number' && Number.isFinite(weight)) {
-    if (weight >= threshold) {
+  // Coerce finite numeric strings the same way as threshold (e.g. weight: '3').
+  if (task.weight != null && task.weight !== '') {
+    const weight = Number(task.weight);
+    if (Number.isFinite(weight) && weight >= threshold) {
       return true;
     }
   }

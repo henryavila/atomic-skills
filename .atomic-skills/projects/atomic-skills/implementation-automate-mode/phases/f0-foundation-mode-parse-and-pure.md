@@ -123,7 +123,7 @@ tasks:
       - it - planEndReviewOk is false when receipt is missing.; it - true when at least one family-different external leg has status succeeded.; it - true when skipPlanEndReview is true with non-empty reason even if all legs failed.; it - false when all legs skipped or failed and no skip reason.; it - single remaining leg after host filter counts when succeeded.; it - userValidationOk is false when userValidatedAt is missing or empty under automate and true only when a non-empty ISO timestamp (or equivalent receipt) is present with optional validator id.
     verifier:
       kind: shell
-      command: node -e "import('./src/implement-mode.js'); import('./src/complex-task.js'); import('./src/plan-end-review.js');"
+      command: node --test tests/plan-end-review.test.js
       expectExitCode: 0
     outputs:
       - kind: file
