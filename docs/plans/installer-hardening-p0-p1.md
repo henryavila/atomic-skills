@@ -1,12 +1,18 @@
 # Plan: Installer hardening — P0 + P1
 
-**Status:** ready for next session (review-plan local + Codex findings all applied 2026-07-17)  
+**Status:** implementing (orchestrated 2026-07-17)  
 **Created:** 2026-07-17  
 **Audit source (canonical findings):** [docs/audits/installer-audit-2026-07-17.md](../audits/installer-audit-2026-07-17.md)  
 **Prior audit:** [docs/audits/installer-audit-2026-07-10.md](../audits/installer-audit-2026-07-10.md)  
 **Related commits (context):**
 - `758b42c` — remove installer modules concept
 - `131a345` — adopt unowned desired files (GREENFIELD_CONFLICT)
+
+### Session notes (orchestrator)
+
+| Date | Decision | Detail |
+|------|----------|--------|
+| 2026-07-17 | **U+C** | Consumer work + engine PR in parallel. Criterion 1 / P0 green only after pin with durable per-effect journaling + crash-resumable drop-revert. Branch: `plan/installer-hardening-p0-p1`. Order: P0-C → P0-A consumer CLI → P0-B consumer fallback → P0-D → P1; upstream U tracked when engine PR lands. |
 
 ## Goal
 
