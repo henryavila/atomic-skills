@@ -227,6 +227,8 @@ phases:
     status: pending
     summary: "Decisão explícita: manter ou aposentar docs/skills gerados."
 references: []
+planActive: true
+planTitle: Product docs site from catalog SSOT
 ---
 
 # Product docs site from catalog SSOT
