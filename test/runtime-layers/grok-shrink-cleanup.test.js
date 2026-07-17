@@ -497,6 +497,63 @@ describe('syncGrokPluginHostAfterInstall — IDE shrink (P0-C)', () => {
       });
     });
   });
+
+  // C-local-F1: corrupt installs.json on shrink must not throw after journal commit.
+  test('C-local-F1: corrupt installs.json on shrink → no throw; host skipped fail-closed', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        stagePluginPackage(home);
+        applyGrokAgentsIsolation({ ides: ['grok'], home });
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        const regPath = join(home, '.atomic-skills', 'installs.json');
+        const corruptBody = 'NOT_JSON{{{';
+        writeFileSync(regPath, corruptBody);
+
+        const { calls, run } = mockHostRunner();
+        // Default listInstallBases path (no callback) — must not throw.
+        assert.doesNotThrow(() => {
+          syncGrokPluginHostAfterInstall(home, ['cursor'], 'en', {
+            priorIdes: ['grok', 'cursor'],
+            home,
+            run,
+            resolveBin: () => '/mock/grok',
+            env: { HOME: home },
+          });
+        });
+        assert.equal(calls.length, 0, 'no host CLI on untrusted registry shrink');
+        assert.equal(readFileSync(regPath, 'utf8'), corruptBody, 'registry not rewritten');
+        assert.ok(
+          skillsIgnoreContainsAll(readFileSync(resolveGrokUserConfigPath({ home }), 'utf8')),
+          'isolation retained when registry untrusted',
+        );
+      });
+    });
+  });
+
+  // C-local-F1: explicit throwing listInstallBases also mapped to skip, not rethrow.
+  test('C-local-F1: listInstallBases throwing REGISTRY_UNTRUSTED is fail-closed skip', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        stagePluginPackage(home);
+        const { calls, run } = mockHostRunner();
+        assert.doesNotThrow(() => {
+          syncGrokPluginHostAfterInstall(home, ['cursor'], 'en', {
+            priorIdes: ['grok'],
+            home,
+            listInstallBases: () => {
+              const e = new Error('installs registry untrusted');
+              e.code = 'REGISTRY_UNTRUSTED';
+              throw e;
+            },
+            run,
+            resolveBin: () => '/mock/grok',
+            env: { HOME: home },
+          });
+        });
+        assert.equal(calls.length, 0);
+      });
+    });
+  });
 });
 
 describe('uninstall wiring — residual gate + multi-owner', () => {
@@ -634,6 +691,8 @@ describe('uninstall wiring — residual gate + multi-owner', () => {
         assert.match(released.host.detail || '', /registry-untrusted/i);
         assert.equal(released.isolation.status, 'skipped');
         assert.equal(released.lastOwner, false);
+        assert.equal(released.registryUnregistered, false);
+        assert.equal(released.retainRegistryForHostRetry, false);
         assert.equal(calls.length, 0, 'no host CLI on untrusted registry');
         assert.equal(
           readFileSync(regPath, 'utf8'),
@@ -641,6 +700,100 @@ describe('uninstall wiring — residual gate + multi-owner', () => {
           'corrupt registry must not be rewritten',
         );
         assert.ok(skillsIgnoreContainsAll(readFileSync(resolveGrokUserConfigPath({ home }), 'utf8')));
+      });
+    });
+  });
+
+  // C-codex-3: host release without finalizeRegistry leaves ownership for post-journal step.
+  test('C-codex-3: finalizeRegistry:false keeps base in registry after host release', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        const project = join(home, 'proj-finalize-false');
+        mkdirSync(join(project, '.atomic-skills'), { recursive: true });
+        writeManifest(project, {
+          effects: [],
+          version: '2.0.0',
+          language: 'en',
+          ides: ['grok'],
+          files: {},
+        });
+        stagePluginPackage(project);
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        writeFileSync(
+          join(home, '.atomic-skills', 'installs.json'),
+          JSON.stringify([project]),
+        );
+        applyGrokAgentsIsolation({ ides: ['grok'], home });
+
+        const { calls, run } = mockHostRunner();
+        const released = releaseGrokAndUnregisterRuntime(project, {
+          home,
+          run,
+          resolveBin: () => '/mock/grok',
+          env: { HOME: home },
+          finalizeRegistry: false,
+        });
+
+        assert.equal(released.lastOwner, true);
+        assert.equal(released.host.status, 'unregistered');
+        assert.equal(released.registryUnregistered, false);
+        assert.equal(released.retainRegistryForHostRetry, false);
+        assert.ok(calls.some((c) => c.args[1] === 'uninstall'));
+        // Registry still lists project — journal uninstall would run next; if it
+        // fails, ownership is not stranded as already-unregistered.
+        const reg = JSON.parse(readFileSync(join(home, '.atomic-skills', 'installs.json'), 'utf8'));
+        const list = Array.isArray(reg) ? reg : (reg.owners || []).map((o) => o.basePath || o);
+        assert.ok(
+          list.some((p) => sameInstallBase(p, project)),
+          'finalizeRegistry:false must leave registry ownership until journal succeeds',
+        );
+      });
+    });
+  });
+
+  // C-codex-3/4: host fail retains registry; finalizeRegistry:false + host fail same.
+  test('C-codex-3/4: host fail retain + finalizeRegistry:false both leave registry', () => {
+    withTmp((home) => {
+      withHome(home, () => {
+        const project = join(home, 'proj-host-fail-no-finalize');
+        mkdirSync(join(project, '.atomic-skills'), { recursive: true });
+        writeManifest(project, {
+          effects: [],
+          version: '2.0.0',
+          language: 'en',
+          ides: ['grok'],
+          files: {},
+        });
+        stagePluginPackage(project);
+        mkdirSync(join(home, '.atomic-skills'), { recursive: true });
+        writeFileSync(
+          join(home, '.atomic-skills', 'installs.json'),
+          JSON.stringify([project]),
+        );
+
+        const { run } = mockHostRunner({
+          run: (_bin, args) => {
+            if (args[1] === 'uninstall') {
+              return { status: 1, stdout: '', stderr: 'host half-applied' };
+            }
+            return { status: 1, stdout: '', stderr: 'unexpected' };
+          },
+        });
+
+        const released = releaseGrokAndUnregisterRuntime(project, {
+          home,
+          run,
+          resolveBin: () => '/mock/grok',
+          env: { HOME: home },
+          finalizeRegistry: false,
+        });
+
+        assert.equal(released.host.status, 'failed');
+        assert.equal(released.registryUnregistered, false);
+        assert.equal(released.retainRegistryForHostRetry, true);
+        const reg = JSON.parse(readFileSync(join(home, '.atomic-skills', 'installs.json'), 'utf8'));
+        const list = Array.isArray(reg) ? reg : (reg.owners || []).map((o) => o.basePath || o);
+        assert.ok(list.some((p) => sameInstallBase(p, project)));
       });
     });
   });

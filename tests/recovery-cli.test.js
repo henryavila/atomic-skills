@@ -588,6 +588,64 @@ describe('normal install blocked by assertNoIncomplete + repair messaging', () =
     });
   });
 
+  // C-codex-1: corrupt incomplete JSON must reach repair path (not throw at readManifest).
+  it('CLI install --repair on corrupt incomplete JSON reaches recovery (not silent crash)', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-cli-repair-corrupt-'));
+    return withHome(root, () => {
+      const dir = join(root, MANIFEST_DIR);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'manifest.json'), '{not-valid-json!!!', 'utf8');
+
+      let err;
+      let out = '';
+      try {
+        out = execFileSync('node', [CLI, 'install', '--repair', '--yes'], {
+          encoding: 'utf8',
+          timeout: 15_000,
+          env: { ...process.env, HOME: root, ATOMIC_SKILLS_SKIP_GROK_HOST: '1' },
+          cwd: ROOT,
+        });
+      } catch (e) {
+        err = e;
+        out = `${e.stdout || ''}${e.stderr || ''}`;
+      }
+      // repairIncompleteInstall refuses unreadable with exit 1 + force guidance.
+      assert.ok(err, 'corrupt incomplete repair must exit non-zero (refuse silent resume)');
+      assert.match(out, /unreadable|invalid|force-incomplete|incomplete/i);
+      assert.doesNotMatch(out, /SyntaxError|Unexpected token/i);
+      // Marker still present until force-incomplete.
+      assert.equal(describeRecovery(root, MANIFEST_DIR).state, TX_STATE_INCOMPLETE);
+    });
+  });
+
+  // C-codex-2: normal uninstall must not hide corrupt incomplete as "No installation found".
+  it('CLI uninstall on corrupt incomplete surfaces force-incomplete (not no-install)', () => {
+    root = mkdtempSync(join(tmpdir(), 'as-cli-uninstall-corrupt-'));
+    return withHome(root, () => {
+      const dir = join(root, MANIFEST_DIR);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'manifest.json'), '{broken incomplete!!!', 'utf8');
+
+      let err;
+      let out = '';
+      try {
+        out = execFileSync('node', [CLI, 'uninstall', '--yes'], {
+          encoding: 'utf8',
+          timeout: 15_000,
+          env: { ...process.env, HOME: root, ATOMIC_SKILLS_SKIP_GROK_HOST: '1' },
+          cwd: ROOT,
+        });
+      } catch (e) {
+        err = e;
+        out = `${e.stdout || ''}${e.stderr || ''}`;
+      }
+      assert.ok(err, 'uninstall must exit non-zero for corrupt incomplete');
+      assert.match(out, /incomplete/i);
+      assert.match(out, /force-incomplete|--repair/i);
+      assert.doesNotMatch(out, /No installation found/i);
+    });
+  });
+
   it('CLI normal install when incomplete points to repair flags', () => {
     root = mkdtempSync(join(tmpdir(), 'as-cli-block-'));
     return withHome(root, () => {

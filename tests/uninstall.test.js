@@ -234,4 +234,57 @@ describe('uninstall (integration)', () => {
       rmSync(aideckDir, { recursive: true, force: true });
     }
   });
+
+  // C-codex-3: journal uninstall fail after Grok host release must not drop registry.
+  it('C-codex-3: journal uninstall fail keeps registry ownership (Grok residual path)', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'as-uninst-journal-fail-'));
+    const projectDir = mkdtempSync(join(tmpdir(), 'as-uninst-jf-proj-'));
+    try {
+      await withHome(fakeHome, async () => {
+        await install(projectDir, { yes: true, ide: ['grok', 'cursor'], lang: 'en' });
+        const regPath = join(fakeHome, '.atomic-skills', 'installs.json');
+        assert.ok(existsSync(regPath), 'precondition: installs registry');
+        const before = JSON.parse(readFileSync(regPath, 'utf8'));
+        const beforeList = Array.isArray(before)
+          ? before
+          : (before.owners || []).map((o) => (typeof o === 'string' ? o : o.basePath));
+        assert.ok(beforeList.length >= 1, 'precondition: at least one registry owner');
+
+        let thrown;
+        try {
+          await uninstall(projectDir, {
+            scope: 'user',
+            yes: true,
+            injectJournalUninstallFail: true,
+            grokReleaseOpts: {
+              run: () => ({ status: 0, stdout: 'ok\n', stderr: '' }),
+              resolveBin: () => '/mock/grok',
+              env: { HOME: fakeHome },
+              home: fakeHome,
+            },
+          });
+        } catch (e) {
+          thrown = e;
+        }
+        assert.ok(thrown, 'journal inject must throw');
+        assert.equal(thrown.code, 'INJECTED_JOURNAL_UNINSTALL_FAIL');
+
+        // Registry still lists the install base (host may have unregistered; ownership retained).
+        assert.ok(existsSync(regPath), 'registry file retained after journal fail');
+        const after = JSON.parse(readFileSync(regPath, 'utf8'));
+        const afterList = Array.isArray(after)
+          ? after
+          : (after.owners || []).map((o) => (typeof o === 'string' ? o : o.basePath));
+        assert.ok(
+          afterList.some((p) => String(p) === fakeHome || String(p).startsWith(fakeHome)),
+          'registry still contains install base when journal uninstall fails',
+        );
+        // Manifest still present (journal never ran).
+        assert.ok(existsSync(join(fakeHome, '.atomic-skills', 'manifest.json')));
+      });
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
 });
