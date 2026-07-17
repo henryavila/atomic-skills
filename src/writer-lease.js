@@ -1,17 +1,26 @@
 /**
  * Pure writer-lease helpers for automate phase-writer exclusive windows (design D isolation).
  *
- * Lease record shape:
- *   { planSlug, phaseId, startedAt, hostId, worktreePath, writerBranch?, status }
+ * Lease record shape (on disk — public fields only):
+ *   { planSlug, phaseId, startedAt, hostId, worktreePath, writerBranch?,
+ *     status, tokenHash }
  *
  * Path: <statusRoot>/writer-leases/<planSlug>.json
- * Active when status === 'active' and required fields are present.
+ * File mode: 0o600 when the platform supports it.
  *
- * Owner token (CAS clear): planSlug + phaseId + hostId + startedAt — only the
- * acquirer (or an exact match of those fields) may clear.
+ * **Owner secret (F2):** acquire generates a high-entropy secret
+ * (`crypto.randomBytes(32).toString('hex')`) returned only to the acquirer.
+ * On disk we store `tokenHash = sha256(secret)` — never the plaintext secret.
+ * `clearLeaseFile(statusRoot, planSlug, secret)` verifies the hash; forged
+ * public-field clears fail. Identity fields (phaseId/hostId) remain optional
+ * CAS extras; the secret is required.
  *
  * Acquire is exclusive create (`wx` / O_EXCL) — never overwrite an existing lease file.
+ * Clear unlinks when secret matches (no intermediate non-blocking cleared state).
  * Read is fail-closed on malformed JSON (missing ≠ malformed).
+ *
+ * **isLeaseBlocking (F5/F12):** true for ANY non-missing lease file status
+ * (`active`, `cleared`, `malformed`) — residue blocks resume/spawn/leave-automate.
  *
  * Pure builders/parsers preferred; thin FS wrappers for acquire/clear/read.
  * No network.
@@ -27,8 +36,10 @@ import {
   openSync,
   closeSync,
   writeSync,
+  fchmodSync,
   constants,
 } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
 
 /** @typedef {'active' | 'cleared' | string} WriterLeaseStatus */
 
@@ -41,6 +52,7 @@ import {
  *   worktreePath: string,
  *   writerBranch?: string | null,
  *   status: WriterLeaseStatus,
+ *   tokenHash?: string,
  * }} WriterLease
  *
  * @typedef {{
@@ -55,10 +67,33 @@ import {
  *   lease?: WriterLease,
  *   error?: string,
  * }} LeaseReadResult
+ *
+ * @typedef {{
+ *   path: string,
+ *   secret: string,
+ *   lease: WriterLease,
+ * }} AcquireLeaseResult
  */
 
 /** Relative directory under statusRoot for lease files. */
 export const WRITER_LEASES_DIR = 'writer-leases';
+
+/**
+ * SHA-256 hex digest of a lease secret (never store the secret itself).
+ * @param {string} secret
+ * @returns {string}
+ */
+export function hashLeaseSecret(secret) {
+  return createHash('sha256').update(String(secret), 'utf8').digest('hex');
+}
+
+/**
+ * Generate a high-entropy lease secret (64 hex chars).
+ * @returns {string}
+ */
+export function generateLeaseSecret() {
+  return randomBytes(32).toString('hex');
+}
 
 /**
  * Absolute path for a plan's writer lease file.
@@ -110,7 +145,8 @@ export function isLeaseActive(lease) {
 }
 
 /**
- * Build a new active lease record (pure — no I/O).
+ * Build a new active lease record (pure — no I/O). Does not include tokenHash;
+ * acquireLeaseFile stamps tokenHash from a generated secret.
  *
  * @param {{
  *   planSlug: string,
@@ -157,6 +193,7 @@ export function buildActiveLease(input) {
 
 /**
  * Return a cleared copy of a lease (pure — does not mutate input).
+ * Prefer clearLeaseFile which unlinks; this is for audit/tests only.
  * @param {WriterLease | Record<string, unknown>} lease
  * @returns {WriterLease}
  */
@@ -176,7 +213,8 @@ export function buildClearedLease(lease) {
 }
 
 /**
- * Extract the owner CAS token from a lease (or token-shaped object).
+ * Extract the public identity token from a lease (or token-shaped object).
+ * Note: identity alone is NOT sufficient to clear — use the acquire secret.
  * @param {WriterLease | LeaseOwnerToken | Record<string, unknown>} leaseOrToken
  * @returns {LeaseOwnerToken}
  */
@@ -197,7 +235,7 @@ export function leaseOwnerToken(leaseOrToken) {
 }
 
 /**
- * Whether two owner tokens match (exact string equality on all four fields).
+ * Whether two owner identity tokens match (exact string equality on all four fields).
  * @param {WriterLease | LeaseOwnerToken | null | undefined} a
  * @param {WriterLease | LeaseOwnerToken | null | undefined} b
  * @returns {boolean}
@@ -238,11 +276,13 @@ export function parseLeaseJson(text) {
 
 /**
  * Serialize a lease record to JSON text (stable 2-space).
- * @param {WriterLease} lease
+ * Never include a plaintext `secret` field even if present on the object.
+ * @param {WriterLease | Record<string, unknown>} lease
  * @returns {string}
  */
 export function serializeLease(lease) {
-  return `${JSON.stringify(lease, null, 2)}\n`;
+  const { secret: _secret, ...safe } = /** @type {any} */ (lease);
+  return `${JSON.stringify(safe, null, 2)}\n`;
 }
 
 // --- Optional thin FS wrappers (for orchestrator runtime; pure core above) ---
@@ -252,9 +292,12 @@ export function serializeLease(lease) {
  * Fails if any lease file already exists for the plan (active, cleared residue, or garbage).
  * Never overwrites.
  *
+ * Generates a high-entropy secret, stores only `tokenHash` on disk (mode 0o600),
+ * and returns `{ path, secret, lease }` — the secret is NOT written to disk.
+ *
  * @param {string} statusRoot
  * @param {WriterLease} lease must be active with required fields
- * @returns {string} path written
+ * @returns {AcquireLeaseResult}
  */
 export function acquireLeaseFile(statusRoot, lease) {
   if (lease == null || typeof lease !== 'object') {
@@ -266,10 +309,21 @@ export function acquireLeaseFile(statusRoot, lease) {
   const path = leasePath(statusRoot, lease.planSlug);
   mkdirSync(join(String(statusRoot), WRITER_LEASES_DIR), { recursive: true });
 
-  const payload = serializeLease(/** @type {WriterLease} */ (lease));
+  const secret = generateLeaseSecret();
+  const tokenHash = hashLeaseSecret(secret);
+  /** @type {WriterLease} */
+  const onDisk = {
+    ...lease,
+    status: 'active',
+    tokenHash,
+  };
+  // Ensure no secret leaks into the serialized form
+  delete /** @type {any} */ (onDisk).secret;
+
+  const payload = serializeLease(onDisk);
   let fd;
   try {
-    fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+    fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
   } catch (err) {
     if (err && /** @type {NodeJS.ErrnoException} */ (err).code === 'EEXIST') {
       const e = new Error(
@@ -283,20 +337,25 @@ export function acquireLeaseFile(statusRoot, lease) {
   }
   try {
     writeSync(fd, payload);
+    try {
+      fchmodSync(fd, 0o600);
+    } catch {
+      // best-effort on platforms that ignore mode
+    }
   } finally {
     closeSync(fd);
   }
-  return path;
+  return { path, secret, lease: onDisk };
 }
 
 /**
  * Write an active lease file with exclusive create (same fence as acquireLeaseFile).
- * Does **not** overwrite an existing lease file — use clearLeaseFile (with owner token)
+ * Does **not** overwrite an existing lease file — use clearLeaseFile (with secret)
  * then acquire again. Prefer acquireLeaseFile for new code.
  *
  * @param {string} statusRoot
  * @param {WriterLease} lease
- * @returns {string} path written
+ * @returns {AcquireLeaseResult | string} acquire result for active; path for cleared-shaped writes
  */
 export function writeLeaseFile(statusRoot, lease) {
   if (lease == null || typeof lease !== 'object') {
@@ -311,7 +370,7 @@ export function writeLeaseFile(statusRoot, lease) {
   mkdirSync(join(String(statusRoot), WRITER_LEASES_DIR), { recursive: true });
   let fd;
   try {
-    fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+    fd = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
   } catch (err) {
     if (err && /** @type {NodeJS.ErrnoException} */ (err).code === 'EEXIST') {
       const e = new Error(
@@ -324,6 +383,11 @@ export function writeLeaseFile(statusRoot, lease) {
   }
   try {
     writeSync(fd, serializeLease(/** @type {WriterLease} */ (lease)));
+    try {
+      fchmodSync(fd, 0o600);
+    } catch {
+      // best-effort
+    }
   } finally {
     closeSync(fd);
   }
@@ -414,8 +478,9 @@ export function readLeaseFile(statusRoot, planSlug) {
 }
 
 /**
- * True when resume/spawn must refuse for this plan: active lease **or** malformed file.
- * Fail-closed: malformed is never treated as absent.
+ * True when resume/spawn/leave-automate must refuse for this plan:
+ * **any** non-missing lease file (active, cleared residue, or malformed).
+ * Fail-closed: residue is never treated as absent (F5/F12).
  *
  * @param {string} statusRoot
  * @param {string} planSlug
@@ -423,12 +488,12 @@ export function readLeaseFile(statusRoot, planSlug) {
  */
 export function isLeaseBlocking(statusRoot, planSlug) {
   const result = readLeaseResult(statusRoot, planSlug);
-  return result.status === 'active' || result.status === 'malformed';
+  return result.status !== 'missing';
 }
 
 /**
- * True when an active lease exists, **or** a malformed lease blocks the gate (fail-closed).
- * Prefer isLeaseBlocking for explicit gate semantics; this keeps resume prose working.
+ * True when an active lease exists, **or** any residual/malformed lease blocks
+ * the gate (fail-closed). Prefer isLeaseBlocking for explicit gate semantics.
  *
  * @param {string} statusRoot
  * @param {string} planSlug
@@ -439,33 +504,75 @@ export function hasActiveLease(statusRoot, planSlug) {
 }
 
 /**
- * Clear lease only when owner token matches (CAS):
- * planSlug + phaseId + hostId + startedAt must equal the on-disk lease.
- * Only then write status cleared and unlink. Wrong token refuses (throws).
- * Prefer call only after sync-wait + claim collect + merge settle.
+ * HARD-GATE before clear-execution-mode / Mode-1 when stamp is automate (F10).
+ * Throws if any lease file residue blocks the plan.
  *
  * @param {string} statusRoot
  * @param {string} planSlug
- * @param {LeaseOwnerToken | WriterLease} ownerToken
+ * @returns {void}
+ * @throws {Error} code LEASE_BLOCKS when status is not missing
+ */
+export function assertLeaseAbsent(statusRoot, planSlug) {
+  const result = readLeaseResult(statusRoot, planSlug);
+  if (result.status === 'missing') return;
+  const e = new Error(
+    `assertLeaseAbsent: writer lease blocks leave-automate / Mode-1 for ${planSlug} (status=${result.status}) — clear with acquire secret after merge settle, or remove residue only when ownership is proven`,
+  );
+  /** @type {any} */ (e).code = 'LEASE_BLOCKS';
+  /** @type {any} */ (e).status = result.status;
+  throw e;
+}
+
+/**
+ * Clear lease only when the acquire secret matches on-disk `tokenHash`.
+ * Public identity fields alone never clear (forged clear fails).
+ * Unlinks the file when secret matches — no intermediate non-blocking cleared state.
+ * Prefer call only after sync-wait + claim collect + merge settle.
+ *
+ * Optional identity CAS: pass `identity: { phaseId?, hostId?, startedAt? }` to
+ * also require those public fields match (secret is still required).
+ *
+ * @param {string} statusRoot
+ * @param {string} planSlug
+ * @param {string | { secret: string, phaseId?: string, hostId?: string, startedAt?: string }} secretOrOpts
  * @returns {boolean} true if a file was removed
  */
-export function clearLeaseFile(statusRoot, planSlug, ownerToken) {
-  if (ownerToken == null || typeof ownerToken !== 'object') {
+export function clearLeaseFile(statusRoot, planSlug, secretOrOpts) {
+  if (secretOrOpts == null) {
     throw new Error(
-      'clearLeaseFile: owner token required (planSlug, phaseId, hostId, startedAt)',
+      'clearLeaseFile: secret required (acquire secret; public identity alone is not enough)',
     );
   }
-  let token;
-  try {
-    token = leaseOwnerToken(ownerToken);
-  } catch {
+
+  /** @type {string} */
+  let secret;
+  /** @type {{ phaseId?: string, hostId?: string, startedAt?: string } | null} */
+  let identity = null;
+
+  if (typeof secretOrOpts === 'string') {
+    secret = secretOrOpts;
+  } else if (typeof secretOrOpts === 'object') {
+    // Accept { secret } or legacy-shaped objects that still require a secret field
+    if (
+      secretOrOpts.secret == null ||
+      String(/** @type {any} */ (secretOrOpts).secret).trim() === ''
+    ) {
+      // Legacy owner-token-only clear (no secret) — refuse (F2)
+      throw new Error(
+        'clearLeaseFile: secret required (acquire secret; public identity alone is not enough)',
+      );
+    }
+    secret = String(/** @type {any} */ (secretOrOpts).secret);
+    identity = secretOrOpts;
+  } else {
     throw new Error(
-      'clearLeaseFile: owner token required (planSlug, phaseId, hostId, startedAt)',
+      'clearLeaseFile: secret required (acquire secret; public identity alone is not enough)',
     );
   }
-  if (String(token.planSlug) !== String(planSlug).trim()) {
+
+  if (String(secret).trim() === '') {
     throw new Error(
-      `clearLeaseFile: owner token planSlug mismatch (token=${token.planSlug}, path=${planSlug})`,
+      'clearLeaseFile: secret required (acquire secret; public identity alone is not enough)',
     );
   }
 
@@ -477,26 +584,77 @@ export function clearLeaseFile(statusRoot, planSlug, ownerToken) {
 
   if (result.status === 'malformed') {
     const e = new Error(
-      `clearLeaseFile: malformed lease for ${planSlug} — refuse clear without recoverable owner token (${result.error || 'invalid'})`,
+      `clearLeaseFile: malformed lease for ${planSlug} — refuse clear without recoverable tokenHash (${result.error || 'invalid'})`,
     );
     /** @type {any} */ (e).code = 'LEASE_MALFORMED';
     throw e;
   }
 
   const existing = result.lease;
-  if (!leaseTokenMatches(existing, token)) {
+  if (existing == null) {
     const e = new Error(
-      `clearLeaseFile: owner token mismatch for ${planSlug} (refuse clear of non-owned lease)`,
+      `clearLeaseFile: malformed lease for ${planSlug} — missing lease body`,
     );
-    /** @type {any} */ (e).code = 'LEASE_TOKEN_MISMATCH';
+    /** @type {any} */ (e).code = 'LEASE_MALFORMED';
     throw e;
   }
 
-  try {
-    writeFileSync(path, serializeLease(buildClearedLease(existing)), 'utf8');
-  } catch {
-    // still attempt unlink when token matched
+  const expectedHash =
+    existing.tokenHash != null ? String(existing.tokenHash).trim() : '';
+  if (expectedHash === '') {
+    const e = new Error(
+      `clearLeaseFile: lease for ${planSlug} has no tokenHash — refuse clear (re-acquire after manual residue removal if orphaned)`,
+    );
+    /** @type {any} */ (e).code = 'LEASE_SECRET_MISMATCH';
+    throw e;
   }
+
+  if (hashLeaseSecret(secret) !== expectedHash) {
+    const e = new Error(
+      `clearLeaseFile: secret mismatch for ${planSlug} (refuse clear of non-owned lease)`,
+    );
+    /** @type {any} */ (e).code = 'LEASE_SECRET_MISMATCH';
+    throw e;
+  }
+
+  // Optional identity CAS (secret already verified)
+  if (identity != null) {
+    if (
+      identity.phaseId != null &&
+      String(identity.phaseId).trim() !== '' &&
+      String(identity.phaseId).trim() !== String(existing.phaseId ?? '')
+    ) {
+      const e = new Error(
+        `clearLeaseFile: identity phaseId mismatch for ${planSlug}`,
+      );
+      /** @type {any} */ (e).code = 'LEASE_TOKEN_MISMATCH';
+      throw e;
+    }
+    if (
+      identity.hostId != null &&
+      String(identity.hostId).trim() !== '' &&
+      String(identity.hostId).trim() !== String(existing.hostId ?? '')
+    ) {
+      const e = new Error(
+        `clearLeaseFile: identity hostId mismatch for ${planSlug}`,
+      );
+      /** @type {any} */ (e).code = 'LEASE_TOKEN_MISMATCH';
+      throw e;
+    }
+    if (
+      identity.startedAt != null &&
+      String(identity.startedAt).trim() !== '' &&
+      String(identity.startedAt).trim() !== String(existing.startedAt ?? '')
+    ) {
+      const e = new Error(
+        `clearLeaseFile: identity startedAt mismatch for ${planSlug}`,
+      );
+      /** @type {any} */ (e).code = 'LEASE_TOKEN_MISMATCH';
+      throw e;
+    }
+  }
+
+  // Unlink only — no intermediate non-blocking cleared state (F2/F5)
   try {
     unlinkSync(path);
     return true;
