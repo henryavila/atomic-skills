@@ -1,5 +1,7 @@
 # Auditoria — installer (2026-07-10)
 
+> **Follow-up (2026-07-17):** [installer-audit-2026-07-17.md](./installer-audit-2026-07-17.md) + plan [installer-hardening-p0-p1.md](../plans/installer-hardening-p0-p1.md).
+
 > Auditoria adversarial somente leitura do fluxo de install/update/uninstall,
 > renderer, file-set, runtime global, registry, auto-update, status, pacote npm e
 > testes. As hipóteses principais foram reproduzidas em instalações temporárias
