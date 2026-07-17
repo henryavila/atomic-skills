@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f1-implement-maestro-loop-and-phas
 title: Implement maestro loop and phase-writer contract
 goal: "Extend implement so --mode=automate runs the pure-maestro loop: one code-only phase writer per phase, sync wait, claim handling, orchestrator-owned done, no silent Mode-1 fallback."
-status: done
+status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:20:54.697Z
-lastUpdated: 2026-07-17T19:24:50.000Z
+lastUpdated: 2026-07-17T22:03:10.000Z
 nextAction: phase-done F1; materialize F2
 parentPlan: implementation-automate-mode
 phaseId: F1

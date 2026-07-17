@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f4-integration-tests-install-surfa
 title: Integration tests, install surface, and dogfood
 goal: Lock the mode with tests that exercise prose contracts and helper wiring; document the mode for operators; keep install/catalog consistent.
-status: done
+status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:33:38.837Z
-lastUpdated: 2026-07-17T19:48:49.000Z
+lastUpdated: 2026-07-17T22:03:10.000Z
 nextAction: Plan-end external-both review then user validation before finalize
 parentPlan: implementation-automate-mode
 phaseId: F4

@@ -21,7 +21,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
 | product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
-| implementation-automate-mode | done | F4 | plan/implementation-automate-mode | 2026-07-17 | 0/5 |
 
 
 
@@ -50,7 +49,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Path | Status | Phase | Branch | Tasks |
 |------|--------|-------|--------|-------|
 | product-docs-site / product-docs-site-f0-catalog-v0-3-and-product-block | active | F0 | plan/product-docs-site | 0/3 tasks |
-| implementation-automate-mode / implementation-automate-mode-f0-foundation-mode-parse-and-pure | active | F0 | plan/implementation-automate-mode | 0/3 tasks |
 
 ## Active Initiatives (standalone)
 
@@ -60,6 +58,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f3-reparo-local-e-validacao-final | 2026-07-10 | F3 | 4/4 | Reparo local e validacao final |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f2-testes-de-regressao | 2026-07-10 | F2 | 3/4 | Testes de regressao |
 | installer-hooks-cross-ide/installer-hooks-cross-ide-f1-setup-e-documentacao | 2026-07-09 | F1 | 2/4 | Setup e documentacao |

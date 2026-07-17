@@ -21,7 +21,6 @@ This repo follows a 3-level model under `projects/<project-id>/`:
 | Slug | Status | Current Phase | Branch | Started | Phases |
 |------|--------|---------------|--------|---------|
 | product-docs-site | active | F0 | plan/product-docs-site | 2026-07-17 | 0/6 |
-| implementation-automate-mode | done | F4 | plan/implementation-automate-mode | 2026-07-17 | 5/5 |
 
 
 
@@ -56,6 +55,7 @@ _(none)_
 
 | Slug | Updated | Final Phase | Phases | Title |
 |------|---------|-------------|--------|-------|
+| implementation-automate-mode | 2026-07-17 | F4 | 5/5 | Implementation Automate Mode |
 | design-brief-briefing-rework | 2026-06-19 | F1 | 2/2 | design-brief - repensar o modelo de autoridade do briefing (anti-congelamento de legado) |
 | worktree-lifecycle-finalization | 2026-06-19 | F8 | 9/9 | Finalizacao do ciclo de vida da worktree-do-plano |
 | app-map-conflict-arbitration | 2026-06-16 | F1 | 2/2 | app-map: descritor de conflito rico + canal de arbitragem |

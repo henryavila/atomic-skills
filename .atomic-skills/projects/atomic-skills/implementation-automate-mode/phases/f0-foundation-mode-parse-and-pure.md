@@ -3,10 +3,10 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode-f0-foundation-mode-parse-and-pure
 title: "Foundation: mode parse and pure predicates"
 goal: Land pure, unit-tested helpers for automate mode detection, complex-task classification, and planEndReviewOk so skill prose and transitions share one definition.
-status: done
+status: archived
 branch: plan/implementation-automate-mode
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:20:13.000Z
+lastUpdated: 2026-07-17T22:03:10.000Z
 nextAction: phase-done F0 complete; materialize and implement F1
 parentPlan: implementation-automate-mode
 phaseId: F0
