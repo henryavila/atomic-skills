@@ -3,9 +3,9 @@ schemaVersion: "0.1"
 slug: implementation-automate-mode
 title: Implementation Automate Mode
 version: "1.0"
-status: active
+status: done
 started: 2026-07-17T19:06:43.463Z
-lastUpdated: 2026-07-17T19:33:38.837Z
+lastUpdated: 2026-07-17T19:48:49.000Z
 branch: plan/implementation-automate-mode
 currentPhase: F4
 parallelismAllowed: false
@@ -258,19 +258,35 @@ phases:
       criteria:
         - id: F4-G1
           description: implement-automate contract tests and full npm test pass.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node --test tests/implement-automate-contract.test.js && npm test
             expectExitCode: 0
+          metAt: 2026-07-17T19:48:49.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:48:49.000Z
+            verifiedCommit: cf032335826d83ed99b9c85d70a05386a501d9ab
+            passed: true
+            exitCode: 0
+            outputSummary: ℹ tests 2307 ℹ suites 296 ℹ pass 2296 ℹ fail 0 ℹ cancelled 0 ℹ skipped 11 ℹ todo 0 ℹ duration_ms 76982.354959
         - id: F4-G2
           description: validate-skills exits 0 after catalog or docs touch.
-          status: pending
+          status: met
           verifier:
             kind: shell
             command: node scripts/validate-skills.js
             expectExitCode: 0
-    status: active
+          metAt: 2026-07-17T19:48:49.000Z
+          evidence:
+            verifierKind: shell
+            verifiedAt: 2026-07-17T19:48:49.000Z
+            verifiedCommit: cf032335826d83ed99b9c85d70a05386a501d9ab
+            passed: true
+            exitCode: 0
+            outputSummary: ✓ All 15 skills valid (schema_version 0.2)
+    status: done
     summary: Contract tests, docs/catálogo e suite completa verde.
     businessIntent:
       value: Contract tests, docs/catalog e suite completa verde para automate mode.
@@ -279,6 +295,7 @@ phases:
       outOfScope: New product features beyond automate surface.
       doneWhen: contract tests + npm test + validate-skills green.
 references: []
+executionMode: automate
 ---
 
 # Implementation Automate Mode
