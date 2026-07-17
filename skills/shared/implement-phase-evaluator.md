@@ -107,7 +107,7 @@ Orchestrator builds a read-only brief:
 
 **MUST NOT** include orchestrator chat history or instruct the evaluator to edit files / call project transitions.
 
-Portable primitives: {{BASH_TOOL}}, read-only {{INVESTIGATOR_TOOL}} / isolated subagent. Host-only APIs stay behind `{{#if ide.*}}`.
+Portable primitives: {{BASH_TOOL}}, read-only {{INVESTIGATOR_TOOL}} / isolated subagent. Host-only APIs stay behind host-conditional ide blocks (`ide.*`).
 
 ---
 

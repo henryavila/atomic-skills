@@ -53,7 +53,10 @@ const BUDGETS = [
   // Raised 2026-07-16 integrity-remediation F3–F5: load/closure authority,
   // plan/worktree resume gate, verifier/concurrency/resolution policy, and
   // handoff checkpoint prose required on the implement driver surface.
-  ['core/implement.md', 24500, 'F1 — lean driver (raised 22000→24500 2026-07-16: integrity F3–F5 closure/resume/verifier authority on driver surface)'],
+  // Raised 2026-07-17 implementation-automate-mode F1–F4: pure-maestro Steps A–I,
+  // executionMode stamp, writer-lease gates, complex both, plan-end pointers —
+  // resident driver surface (lazy assets hold phase-writer/evaluator detail).
+  ['core/implement.md', 40000, 'F1 — lean driver (raised 22000→24500 2026-07-16 integrity F3–F5; 24500→40000 2026-07-17 automate F1–F4 pure-maestro spine + lease/stamp on driver)'],
   // Raised 2026-07-16 for grok-build-integration F3–F5: multi-provider modes
   // (codex|grok|external-both), host-default picker, and CROSS-MODEL REVIEW
   // provider field. ~20B / ~700B over prior ceilings; content is resident

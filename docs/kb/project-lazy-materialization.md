@@ -19,6 +19,15 @@ Referencia operacional para o ciclo `atomic-skills:project new plan` -> `materia
 3. Preencha `businessIntent` em linguagem configurada de instalação. `[NEEDS CLARIFICATION]` conta como campo ausente (`scripts/find-missing-business-intent.js:24-29`, `:39-45`, `:220-221`).
 4. Depois da escrita, rode `scripts/find-missing-business-intent.js .atomic-skills`, `scripts/validate-state.js` nos arquivos tocados e `scripts/refresh-state.js` (`skills/shared/project-assets/project-materialize.md:135-146`).
 
+## After materialize — implement (including automate)
+
+Materialize only admits the phase for execution; it does not close tasks. Drive SPEC-admitted
+tasks with `atomic-skills:implement` (default Mode 1). Operators who want the host session as
+**pure maestro** (one code-only phase writer per phase, forced cross-model phase/complex
+review, plan-end `external-both` + user validation) pass **`--mode=automate`**. Full contract:
+`skills/core/implement.md`. Operator overview:
+`docs/concepts/project-tracking.md` § *Step 3.5 — Drive tasks (`implement`) and opt-in automate mode*.
+
 ## D9 e D10
 
 **D9 - gate-como-hipótese.** O gate prova presença e preenchimento da espinha `businessIntent`; ele não prova eficácia anti-rubber-stamp. O design registra a redução de rework como hipótese a medir, não como benefício garantido (`.atomic-skills/projects/atomic-skills/phase-materialization/design.md:222-230`, `:342-349`).
